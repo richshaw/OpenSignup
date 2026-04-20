@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: signup_db
+    environment:
+      POSTGRES_USER: signup
+      POSTGRES_PASSWORD: signup
+      POSTGRES_DB: signup
+    ports:
+      - '5433:5432'
+    volumes:
+      - signup_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U signup -d signup']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  signup_pg: {}

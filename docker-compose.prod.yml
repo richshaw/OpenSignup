@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-signup}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_DB: ${POSTGRES_DB:-signup}
+    volumes:
+      - signup_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-signup} -d ${POSTGRES_DB:-signup}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    command: ['pnpm', 'exec', 'tsx', 'src/db/migrate.ts']
+    restart: 'no'
+
+  web:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    env_file: .env
+    ports:
+      - '${PORT:-3000}:3000'
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/api/public/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    env_file: .env
+    command: ['pnpm', 'exec', 'tsx', 'src/jobs/worker.ts']
+    restart: unless-stopped
+
+volumes:
+  signup_pg: {}
