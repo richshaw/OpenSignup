@@ -20,7 +20,6 @@ ENV PORT=3000
 
 RUN addgroup --system --gid 1001 signup && adduser --system --uid 1001 signup
 
-COPY --from=builder /app/public ./public
 COPY --from=builder --chown=signup:signup /app/.next/standalone ./
 COPY --from=builder --chown=signup:signup /app/.next/static ./.next/static
 COPY --from=builder --chown=signup:signup /app/src ./src

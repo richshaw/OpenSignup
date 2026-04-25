@@ -1,0 +1,42 @@
+# Fly.io configuration for Signups.
+# First time: `fly launch --no-deploy --copy-config` (or `fly apps create signup`),
+# then `fly postgres create` + `fly postgres attach`, then set secrets (see below),
+# then `fly deploy`.
+
+app = "signups"
+primary_region = "iad"
+
+[deploy]
+  release_command = "pnpm db:migrate"
+
+[processes]
+  web = "node server.js"
+  worker = "pnpm worker"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["web"]
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+  processes = ["web"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  processes = ["worker"]
