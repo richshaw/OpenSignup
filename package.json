@@ -2,8 +2,16 @@
   "name": "signup",
   "version": "0.1.0",
   "private": true,
-  "description": "Signup — ad-free, open-source, AI-native coordination for school parents, coaches, and community organizers.",
+  "description": "Signups — ad-free, open-source, AI-native coordination for school parents, coaches, and community organizers.",
   "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/richardshaw/signup.git"
+  },
+  "homepage": "https://github.com/richardshaw/signup#readme",
+  "bugs": {
+    "url": "https://github.com/richardshaw/signup/issues"
+  },
   "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=20"

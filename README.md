@@ -1,4 +1,4 @@
-# Signup
+# Signups
 
 Ad-free, open-source, AI-native coordination for school parents, coaches, and community organizers.
 
@@ -9,7 +9,7 @@ A modern, self-hostable sign-up and volunteer coordination tool.
 - **Self-hostable from day one.** `git clone`, one Docker Compose, zero vendor accounts required.
 - **AI-native.** Clean primitives designed for Claude, MCP, and future agent surfaces.
 
-Licensed under [AGPL-3.0](LICENSE).
+Licensed under [AGPL-3.0](LICENSE). If you run a modified version of Signups as a network service, the AGPL requires you to offer your users the corresponding source. See the [AGPL FAQ](https://www.gnu.org/licenses/agpl-3.0.html) for details.
 
 ## Quickstart (five minutes)
 

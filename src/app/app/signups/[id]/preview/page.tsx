@@ -7,7 +7,7 @@ import type { SlotStatus } from '@/schemas/slots';
 import { getSignupForOrganizer } from '@/services/signups';
 import SignupView, { type SignupViewSlot } from '@/app/s/[slug]/signup-view';
 
-export const metadata = { title: 'Preview · Signup' };
+export const metadata = { title: 'Preview · Signups' };
 
 type PageParams = { params: Promise<{ id: string }> };
 

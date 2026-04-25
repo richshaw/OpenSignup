@@ -14,7 +14,7 @@ export default async function DashboardPage() {
   if (!workspaceId) {
     return (
       <div className="rounded-xl border border-surface-sunk bg-white p-8">
-        <h1 className="mb-2 text-2xl font-semibold">Welcome to Signup</h1>
+        <h1 className="mb-2 text-2xl font-semibold">Welcome to Signups</h1>
         <p className="text-ink-muted">
           Your workspace isn&apos;t set up yet. Sign out and back in to finish provisioning.
         </p>

@@ -9,9 +9,9 @@ export interface MagicLinkEmailProps {
 
 export function MagicLinkEmail({ url, email, expiresInMinutes = 15 }: MagicLinkEmailProps) {
   return (
-    <EmailLayout preview={`Sign in to Signup as ${email}`}>
+    <EmailLayout preview={`Sign in to Signups as ${email}`}>
       <Heading as="h1" className="m-0 text-xl font-semibold">
-        Sign in to Signup
+        Sign in to Signups
       </Heading>
       <Text className="mt-2 text-[#5b6474]">
         Click the button below to sign in as <strong>{email}</strong>. This link will expire in

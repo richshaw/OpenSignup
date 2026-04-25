@@ -115,7 +115,7 @@ export default function SignupView({ signup, slots, slug, mode }: SignupViewProp
       </ul>
 
       <footer className="text-ink-soft pt-6 text-center text-xs">
-        Ad-free · Run by Signup · <Link className="underline" href="/">About</Link>
+        Ad-free · Run by Signups · <Link className="underline" href="/">About</Link>
       </footer>
     </div>
   );

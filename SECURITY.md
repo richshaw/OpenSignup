@@ -1,6 +1,6 @@
 # Security
 
-If you discover a vulnerability in Signup, please open a private GitHub security advisory rather than filing a public issue.
+If you discover a vulnerability in Signups, please open a private GitHub security advisory rather than filing a public issue.
 
 We aim to:
 
@@ -10,7 +10,7 @@ We aim to:
 
 ## Scope
 
-In scope: the Signup application source and default deployment configuration. Out of scope: third-party dependencies (report those upstream), and deployments you self-host.
+In scope: the Signups application source and default deployment configuration. Out of scope: third-party dependencies (report those upstream), and deployments you self-host.
 
 ## Not a vulnerability
 

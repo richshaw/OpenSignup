@@ -33,7 +33,7 @@ export default async function LoginPage({
   return (
     <main className="container-tight flex min-h-[100svh] flex-col justify-center gap-8 py-16">
       <div className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">Sign in to Signup</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Sign in to Signups</h1>
         <p className="text-ink-muted">
           Enter your email and we&apos;ll send you a magic link. No passwords.
         </p>

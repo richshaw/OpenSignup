@@ -27,7 +27,7 @@ const config: NextAuthConfig = {
         const { html, text } = await renderEmail(node);
         await getEmailTransport().send({
           to: identifier,
-          subject: 'Sign in to Signup',
+          subject: 'Sign in to Signups',
           html,
           text,
         });

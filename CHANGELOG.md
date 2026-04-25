@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Signup are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follow semantic versioning.
+All notable changes to Signups are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follow semantic versioning.
 
 ## [Unreleased]
 

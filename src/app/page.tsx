@@ -4,7 +4,7 @@ export default function LandingPage() {
   return (
     <main className="container-tight flex min-h-[100svh] flex-col justify-center gap-8 py-16">
       <div className="space-y-4">
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Signup</h1>
+        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Signups</h1>
         <p className="text-ink-muted text-lg">
           Ad-free, open-source coordination for school parents, coaches, and community organizers.
           A calm, modern way to coordinate sign-ups.

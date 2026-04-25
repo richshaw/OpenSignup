@@ -3,11 +3,11 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Signup',
-    template: '%s · Signup',
+    default: 'Signups',
+    template: '%s · Signups',
   },
   description:
-    'Signup — ad-free, open-source coordination for school parents, coaches, and community organizers.',
+    'Signups — ad-free, open-source coordination for school parents, coaches, and community organizers.',
 };
 
 export const viewport: Viewport = {
