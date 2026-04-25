@@ -45,7 +45,7 @@ export default async function SignupDetailPage({ params }: PageParams) {
     await addSlot(getDb(), actor, id, {
       title,
       description: '',
-      slotType: dateRaw ? 'date' : 'generic',
+      slotType: dateRaw ? 'date' : 'item',
       capacity,
       data: dateRaw ? { date: dateRaw } : {},
     });
@@ -160,7 +160,7 @@ export default async function SignupDetailPage({ params }: PageParams) {
             type="number"
             name="capacity"
             min={1}
-            placeholder="Cap"
+            placeholder="Spots"
             className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-3 py-2 focus:outline-none focus:ring-1"
           />
           <button

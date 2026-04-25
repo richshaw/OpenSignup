@@ -46,7 +46,7 @@ export default function CommitDialog({ slotId, slotTitle, slug }: CommitDialogPr
         setSubmitting(false);
         return;
       }
-      setSuccess({ editUrl: payload.data.value.editUrl });
+      setSuccess({ editUrl: payload.data.editUrl });
       router.refresh();
     } catch {
       setError({ code: 'internal', message: 'network error' });
