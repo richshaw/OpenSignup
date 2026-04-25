@@ -116,6 +116,12 @@ export default async function SignupDetailPage({ params }: PageParams) {
           >
             Preview
           </Link>
+          <Link
+            href={`/app/signups/${sig.id}/edit`}
+            className="rounded-lg border border-surface-sunk px-4 py-2 text-sm font-medium transition hover:bg-surface-raised"
+          >
+            Edit
+          </Link>
           {sig.status === 'draft' ? (
             <form action={publishAction}>
               <button
