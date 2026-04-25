@@ -87,25 +87,35 @@ export default async function SignupDetailPage({ params }: PageParams) {
           <Link href="/app" className="text-ink-muted text-sm hover:underline">
             ← All signups
           </Link>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{sig.title}</h1>
-          <p className="text-ink-muted truncate text-sm">
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">{sig.title}</h1>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                sig.status === 'open'
+                  ? 'bg-success/10 text-success'
+                  : sig.status === 'draft'
+                    ? 'bg-warn/10 text-warn'
+                    : 'bg-ink-soft/10 text-ink-muted'
+              }`}
+            >
+              {sig.status}
+            </span>
+          </div>
+          <p className="text-ink-muted mt-2 truncate text-sm">
             <a href={publicUrl} className="underline" target="_blank" rel="noreferrer">
               {publicUrl}
             </a>
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              sig.status === 'open'
-                ? 'bg-success/10 text-success'
-                : sig.status === 'draft'
-                  ? 'bg-warn/10 text-warn'
-                  : 'bg-ink-soft/10 text-ink-muted'
-            }`}
+          <Link
+            href={`/app/signups/${sig.id}/preview`}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-lg border border-surface-sunk px-4 py-2 text-sm font-medium transition hover:bg-surface-raised"
           >
-            {sig.status}
-          </span>
+            Preview
+          </Link>
           {sig.status === 'draft' ? (
             <form action={publishAction}>
               <button

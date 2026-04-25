@@ -9,6 +9,9 @@ import {
   TimeSlotDataSchema,
 } from './slot-types';
 
+export const SLOT_STATUSES = ['open', 'closed'] as const;
+export type SlotStatus = (typeof SLOT_STATUSES)[number];
+
 const baseSlotInput = z.object({
   title: z.string().min(1).max(120),
   description: z.string().max(1000).default(''),
@@ -41,7 +44,7 @@ export const SlotUpdateInputSchema = z.object({
   capacity: z.number().int().positive().nullable().optional(),
   sortOrder: z.number().int().nonnegative().optional(),
   location: z.string().max(200).nullable().optional(),
-  status: z.enum(['open', 'closed']).optional(),
+  status: z.enum(SLOT_STATUSES).optional(),
 });
 export type SlotUpdateInput = z.infer<typeof SlotUpdateInputSchema>;
 
@@ -54,7 +57,7 @@ export const SlotPublicSchema = z.object({
   data: z.record(z.string(), z.unknown()),
   capacity: z.number().int().nullable(),
   committedCount: z.number().int(),
-  status: z.enum(['open', 'closed']),
+  status: z.enum(SLOT_STATUSES),
   location: z.string().nullable(),
   sortOrder: z.number().int(),
   /** For date/time slots, canonical UTC timestamp. */
