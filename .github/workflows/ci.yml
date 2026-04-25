@@ -23,6 +23,8 @@ jobs:
           --health-retries=10
     env:
       DATABASE_URL: postgres://signup:signup@localhost:5433/signup
+      # Deterministic placeholder for CI only — Auth.js requires AUTH_SECRET
+      # to be set, but no real session is ever issued by this job.
       AUTH_SECRET: ci-secret-ci-secret-ci-secret-ci
       AUTH_URL: http://localhost:3000
       EMAIL_TRANSPORT: console
