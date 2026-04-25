@@ -247,7 +247,9 @@ export async function getPublicSignup(
   const found = await db.select().from(signups).where(eq(signups.slug, slug)).limit(1);
   const row = found[0];
   if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
-  if (row.status === 'draft') return err(serviceError('not_found', 'signup not found'));
+  if (row.status === 'draft' || row.status === 'archived') {
+    return err(serviceError('not_found', 'signup not found'));
+  }
 
   const signupSlots = await db
     .select()
