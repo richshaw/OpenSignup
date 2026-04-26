@@ -28,36 +28,27 @@ export default function CopyLinkField({ url }: CopyLinkFieldProps) {
       timerRef.current = setTimeout(() => setCopied(false), 1500);
     } catch {
       // Clipboard API can fail (e.g. insecure context). Stay quiet — the
-      // URL is still selectable in the input as a fallback.
+      // URL is still a clickable link as a fallback.
     }
   }
 
   return (
-    <div className="mt-2 flex w-full max-w-xl items-center gap-2">
-      <input
-        type="text"
-        value={url}
-        readOnly
-        aria-label="Public share URL"
-        onFocus={(e) => e.currentTarget.select()}
-        className="text-ink min-w-0 flex-1 truncate rounded-lg border border-surface-sunk bg-surface-raised px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-      />
-      <button
-        type="button"
-        onClick={handleCopy}
-        aria-live="polite"
-        className="bg-brand shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
-      >
-        {copied ? 'Copied!' : 'Copy'}
-      </button>
+    <div className="text-ink-muted mt-2 flex items-center gap-3 text-sm">
       <a
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="text-brand shrink-0 text-sm underline"
+        className="min-w-0 truncate underline hover:no-underline"
       >
-        Open
+        {url}
       </a>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="text-brand shrink-0 underline transition hover:no-underline"
+      >
+        {copied ? 'Copied!' : 'Copy'}
+      </button>
     </div>
   );
 }
