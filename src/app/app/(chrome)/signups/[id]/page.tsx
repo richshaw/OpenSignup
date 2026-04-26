@@ -168,6 +168,7 @@ export default async function SignupDetailPage({ params }: PageParams) {
               type="text"
               name="title"
               required
+              placeholder="e.g., Week 1 snack"
               className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-3 py-2 focus:outline-none focus:ring-1"
             />
           </label>
