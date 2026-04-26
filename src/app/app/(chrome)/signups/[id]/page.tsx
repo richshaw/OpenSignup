@@ -8,6 +8,7 @@ import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { addSlot, deleteSlot } from '@/services/slots';
 import { listCommitmentsForSignup } from '@/services/commitments';
 import { publicSignupUrl } from '@/lib/links';
+import CopyLinkField from '@/components/CopyLinkField';
 
 type PageParams = { params: Promise<{ id: string }> };
 
@@ -106,11 +107,7 @@ export default async function SignupDetailPage({ params }: PageParams) {
               {sig.status}
             </span>
           </div>
-          <p className="text-ink-muted mt-2 truncate text-sm">
-            <a href={publicUrl} className="underline" target="_blank" rel="noreferrer">
-              {publicUrl}
-            </a>
-          </p>
+          <CopyLinkField url={publicUrl} />
         </div>
         <div className="flex items-center gap-2">
           <Link
