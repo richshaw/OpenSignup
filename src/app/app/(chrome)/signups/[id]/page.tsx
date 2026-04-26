@@ -8,7 +8,6 @@ import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { addSlot, deleteSlot } from '@/services/slots';
 import { listCommitmentsForSignup } from '@/services/commitments';
 import { publicSignupUrl } from '@/lib/links';
-import { DateField } from './date-field';
 
 type PageParams = { params: Promise<{ id: string }> };
 
@@ -164,23 +163,34 @@ export default async function SignupDetailPage({ params }: PageParams) {
         <h2 className="text-lg font-semibold">Slots</h2>
         <form
           action={addSlotAction}
-          className="grid grid-cols-1 gap-3 rounded-xl border border-surface-sunk bg-white p-5 sm:grid-cols-[1fr_160px_120px_auto]"
+          className="grid grid-cols-1 gap-3 rounded-xl border border-surface-sunk bg-white p-5 sm:grid-cols-[1fr_160px_120px_auto] sm:items-end"
         >
-          <input
-            type="text"
-            name="title"
-            required
-            placeholder="Slot title (e.g., Week 1 snack)"
-            className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-3 py-2 focus:outline-none focus:ring-1"
-          />
-          <DateField />
-          <input
-            type="number"
-            name="capacity"
-            min={1}
-            placeholder="Spots"
-            className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-3 py-2 focus:outline-none focus:ring-1"
-          />
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium">Slot title</span>
+            <input
+              type="text"
+              name="title"
+              required
+              className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-3 py-2 focus:outline-none focus:ring-1"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium">Date</span>
+            <input
+              type="date"
+              name="date"
+              className="focus:border-brand focus:ring-brand block min-h-[42px] w-full appearance-none rounded-lg border border-surface-sunk bg-white px-3 py-2 focus:outline-none focus:ring-1"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium">Spots</span>
+            <input
+              type="number"
+              name="capacity"
+              min={1}
+              className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-3 py-2 focus:outline-none focus:ring-1"
+            />
+          </label>
           <button
             type="submit"
             className="bg-brand rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
