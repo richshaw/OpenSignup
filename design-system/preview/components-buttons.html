@@ -1,0 +1,23 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 24px; background: var(--surface); font-family: var(--font-sans); display:flex; flex-direction:column; gap: 14px; }
+  .row { display:flex; gap: 10px; align-items: center; }
+  .primary { background: var(--brand); color: white; border-radius: 14px; padding: 10px 18px; font-size: 14px; font-weight: 500; border: none; cursor: pointer; transition: filter 150ms; }
+  .primary:hover { filter: brightness(1.1); }
+  .primary.lg { padding: 12px 20px; font-size: 15px; }
+  .secondary { background: white; color: var(--ink); border: 1px solid var(--surface-sunk); border-radius: 14px; padding: 10px 18px; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .secondary:hover { background: var(--surface-raised); }
+  .ghost { background: transparent; color: var(--ink-muted); border: none; padding: 10px 14px; font-size: 14px; cursor: pointer; }
+  .ghost:hover { color: var(--ink); }
+  .danger { background: transparent; color: var(--danger); border: none; padding: 10px 0; font-size: 14px; cursor: pointer; }
+  .danger:hover { text-decoration: underline; }
+  .disabled { opacity: 0.5; cursor: not-allowed; }
+  .label { font-size: 11px; color: var(--ink-soft); font-family: var(--font-mono); width: 80px; }
+</style></head>
+<body>
+  <div class="row"><span class="label">primary</span><button class="primary lg">Send magic link</button><button class="primary">Sign up</button><button class="primary disabled" disabled>Signing up…</button></div>
+  <div class="row"><span class="label">secondary</span><button class="secondary">Preview</button><button class="secondary">Edit</button><button class="secondary">Export CSV</button></div>
+  <div class="row"><span class="label">tertiary</span><button class="ghost">Cancel</button><button class="ghost">Sign out</button><button class="danger">Remove</button></div>
+</body></html>

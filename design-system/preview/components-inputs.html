@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Form inputs</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 24px; background: var(--surface); font-family: var(--font-sans); display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  label.field { display:block; }
+  .lbl { font-size: 14px; font-weight: 500; margin-bottom: 6px; display:block; }
+  .input { width: 100%; box-sizing: border-box; border: 1px solid var(--surface-sunk); border-radius: 14px; padding: 12px 16px; font-size: 16px; font-family: inherit; background: white; box-shadow: 0 1px 2px rgb(11 18 32 / 0.04); }
+  .input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+  .input.focused { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+  textarea.input { min-height: 76px; resize: vertical; font-family: inherit; }
+  .hint { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+  .err-input { border-color: var(--danger); }
+  .err { font-size: 12px; color: var(--danger); margin-top: 4px; }
+</style></head>
+<body>
+  <label class="field"><span class="lbl">Email</span><input class="input" type="email" placeholder="you@example.com"></label>
+  <label class="field"><span class="lbl">Title</span><input class="input focused" type="text" value="Snack duty — Spring season"></label>
+  <label class="field" style="grid-column: 1 / -1"><span class="lbl">Description (optional)</span><textarea class="input" placeholder="One paragraph that shows up at the top of your signup page."></textarea></label>
+  <label class="field"><span class="lbl">Spots</span><input class="input err-input" type="number" value="0"><div class="err">Must be at least 1.</div></label>
+  <label class="field"><span class="lbl">Date</span><input class="input" type="date" value="2026-04-21"></label>
+</body></html>

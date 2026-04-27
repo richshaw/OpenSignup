@@ -1,0 +1,20 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Shadows & elevation</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 32px; background: #f0f1f4; font-family: var(--font-sans); }
+  .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .card { background: white; border-radius: 14px; padding: 18px; height: 70px; display:flex; flex-direction:column; justify-content:space-between; }
+  .name { font-weight: 600; font-size: 13px; }
+  .spec { font-family: var(--font-mono); font-size: 10px; color: var(--ink-soft); line-height:1.4; }
+  .none { border: 1px solid var(--surface-sunk); }
+  .sm { box-shadow: 0 1px 2px rgb(11 18 32 / 0.04); }
+  .card-sh { box-shadow: 0 1px 2px rgb(11 18 32 / 0.04), 0 4px 16px rgb(11 18 32 / 0.06); }
+</style></head>
+<body>
+  <div class="row">
+    <div class="card none"><span class="name">Hairline</span><span class="spec">1px solid #eef1f5<br>cards, list rows</span></div>
+    <div class="card sm"><span class="name">Shadow sm</span><span class="spec">0 1px 2px / 0.04<br>inputs</span></div>
+    <div class="card card-sh"><span class="name">Shadow card</span><span class="spec">2-layer · 0.04 + 0.06<br>dialogs, panels</span></div>
+  </div>
+</body></html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Spring Snacks · OpenSignup</title>
+  <link rel="stylesheet" href="../../colors_and_type.css">
+  <style>
+    body { margin: 0; min-height: 100svh; background: #ffffff; color: #0b1220;
+           font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+    .wrap { max-width: 720px; width: 100%; margin: 0 auto; padding: 32px 24px;
+            display: flex; flex-direction: column; gap: 24px; }
+    h1.title { margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+    .desc { margin: 0; color: #5b6474; line-height: 1.5; }
+    .card { background: white; border: 1px solid #eef1f5; border-radius: 18px; overflow: hidden; list-style: none; padding: 0; margin: 0; }
+    .card > li:last-child { border-bottom: none !important; }
+    footer { padding-top: 24px; text-align: center; font-size: 12px; color: #8a93a4; }
+    footer a { color: inherit; text-decoration: underline; }
+  </style>
+</head>
+<body data-screen-label="Participant — Spring Snacks">
+  <main class="wrap">
+    <header>
+      <h1 class="title">Spring Snacks — Under-9s</h1>
+      <p class="desc">Bring a snack &amp; drinks for the team after each Saturday game. Costco runs welcome. No nuts please — we have two players with allergies.</p>
+    </header>
+    <ul id="slots" class="card"></ul>
+    <footer>Ad-free · Run by OpenSignup · <a href="#">About</a></footer>
+  </main>
+  <div id="dialog-root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="SlotRow.jsx"></script>
+  <script type="text/babel" src="CommitDialog.jsx"></script>
+
+  <script type="text/babel">
+    const SLOTS = [
+      { id: 's1', title: 'Snack — Game 1 (vs Hawks)', date: 'Sat, Apr 25', location: 'Field B', capacity: 4, committed: 2, status: 'open' },
+      { id: 's2', title: 'Snack — Game 2 (vs Foxes)', date: 'Sat, May 2',  location: 'Field B', capacity: 4, committed: 4, status: 'open' },
+      { id: 's3', title: 'Snack — Game 3 (vs Bears)', date: 'Sat, May 9',  location: 'Field B', capacity: 4, committed: 1, status: 'open',
+        description: 'End-of-season game — feel free to go a little extra (juice boxes, fruit kebabs).' },
+      { id: 's4', title: 'Snack — Game 4 (vs Otters)', date: 'Sat, May 16', location: 'Field B', capacity: 4, committed: 0, status: 'open' },
+      { id: 's5', title: 'Snack — Playoffs (TBD)',     date: 'Sat, May 23', location: 'TBD',     capacity: 4, committed: 0, status: 'open' },
+    ];
+    function App() {
+      const [slots, setSlots] = React.useState(SLOTS);
+      const [dialog, setDialog] = React.useState(null);
+      function handleSignup(slot) { setDialog(slot); }
+      function handleClose() {
+        if (dialog) {
+          // Optimistically bump the count so it feels real
+          setSlots(prev => prev.map(s => s.id === dialog.id ? { ...s, committed: Math.min((s.capacity ?? 99), s.committed + 1) } : s));
+        }
+        setDialog(null);
+      }
+      return (
+        <>
+          {slots.map(s => (
+            <window.SlotRow key={s.id} slot={s} onSignup={handleSignup} />
+          ))}
+          {dialog ? <window.CommitDialog slot={dialog} onClose={handleClose} /> : null}
+        </>
+      );
+    }
+    const list = document.getElementById('slots');
+    ReactDOM.createRoot(list).render(<App />);
+  </script>
+</body>
+</html>

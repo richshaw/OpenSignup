@@ -1,0 +1,30 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Status pills & banners</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 24px; background: var(--surface); font-family: var(--font-sans); display:flex; flex-direction:column; gap: 14px; }
+  .pills { display:flex; gap: 8px; flex-wrap: wrap; }
+  .pill { padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; line-height: 1; display: inline-flex; align-items: center; }
+  .open { background: rgba(26,127,74,.10); color: #1a7f4a; }
+  .draft { background: rgba(180,83,9,.10); color: #b45309; }
+  .closed { background: rgba(138,147,164,.10); color: #5b6474; }
+  .archived { background: rgba(138,147,164,.10); color: #5b6474; }
+  .full { background: transparent; color: #5b6474; padding: 6px 12px; font-size: 11px; font-weight: 500; }
+  .banner { padding: 14px 18px; border-radius: 14px; }
+  .banner h3 { margin: 0 0 2px; font-size: 15px; font-weight: 600; }
+  .banner p { margin: 0; font-size: 13px; }
+  .b-preview { background: rgba(31,111,235,.10); color: #1f6feb; }
+  .b-closed { background: var(--surface-sunk); color: var(--ink-muted); }
+  .b-error { background: rgba(190,18,60,.10); color: var(--danger); }
+</style></head>
+<body>
+  <div class="pills">
+    <span class="pill open">open</span>
+    <span class="pill draft">draft</span>
+    <span class="pill closed">closed</span>
+    <span class="pill archived">archived</span>
+    <span class="full">Full</span>
+  </div>
+  <div class="banner b-preview"><h3>Preview</h3><p>This is what people will see once you publish. No signups will be saved.</p></div>
+  <div class="banner b-closed"><h3>Closed</h3><p>This signup is no longer collecting responses.</p></div>
+</body></html>

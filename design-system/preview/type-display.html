@@ -1,0 +1,18 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Type — Display</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 24px; background: white; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .row { display:flex; align-items:baseline; gap: 16px; border-bottom: 1px solid var(--surface-sunk); padding-bottom: 12px; }
+  .row:last-child { border: 0; padding: 0; }
+  .label { font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft); width: 80px; flex-shrink: 0; }
+  .sample { line-height: 1.1; letter-spacing: -0.02em; font-weight: 600; color: var(--ink); }
+</style></head>
+<body>
+  <div class="stack">
+    <div class="row"><span class="label">5xl · 48</span><span class="sample" style="font-size:48px">OpenSignup</span></div>
+    <div class="row"><span class="label">3xl · 30</span><span class="sample" style="font-size:30px">Snack duty — Spring</span></div>
+    <div class="row"><span class="label">2xl · 24</span><span class="sample" style="font-size:24px">Your signups</span></div>
+  </div>
+</body></html>

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard · OpenSignup</title>
+  <link rel="stylesheet" href="../../colors_and_type.css">
+  <style>
+    body { margin: 0; min-height: 100svh; background: #ffffff; font-family: var(--font-sans); }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid #1f6feb; outline-offset: 2px; border-radius: 6px; }
+    a { color: inherit; }
+  </style>
+</head>
+<body data-screen-label="Organizer — Dashboard / Detail">
+  <div id="app"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="StatusPill.jsx"></script>
+  <script type="text/babel" src="Chrome.jsx"></script>
+  <script type="text/babel" src="SignupCard.jsx"></script>
+  <script type="text/babel" src="AddSlotForm.jsx"></script>
+  <script type="text/babel" src="CommitmentTable.jsx"></script>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    const SEED_SIGNUPS = [
+      { id: 'sig_1', title: 'Spring Snacks — Under-9s',  slug: 'spring-snacks',  status: 'open',
+        description: 'Bring a snack & drinks for the team after each Saturday game. No nuts please.' },
+      { id: 'sig_2', title: 'Potluck — Mrs. Liu\u2019s class', slug: 'potluck-grade-3', status: 'draft',
+        description: 'For the end-of-term potluck on May 30. Sign up for one dish — main, side, or dessert.' },
+      { id: 'sig_3', title: 'Fall carpool roster',       slug: 'fall-carpool',   status: 'closed' },
+      { id: 'sig_4', title: 'Choir robe pickup',         slug: 'choir-robes',    status: 'archived' },
+    ];
+    const SEED_SLOTS = {
+      sig_1: [
+        { id: 'slot_a', title: 'Snack — Game 1 (vs Hawks)',  date: 'Sat, Apr 25', capacity: 4, committed: 2 },
+        { id: 'slot_b', title: 'Snack — Game 2 (vs Foxes)',  date: 'Sat, May 2',  capacity: 4, committed: 4 },
+        { id: 'slot_c', title: 'Snack — Game 3 (vs Bears)',  date: 'Sat, May 9',  capacity: 4, committed: 1 },
+        { id: 'slot_d', title: 'Snack — Game 4 (vs Otters)', date: 'Sat, May 16', capacity: 4, committed: 0 },
+      ],
+    };
+    const SEED_COMMITS = {
+      sig_1: [
+        { id: 'c1', slotId: 'slot_a', name: 'Maya Chen',     email: 'maya.c@example.com',   status: 'confirmed' },
+        { id: 'c2', slotId: 'slot_a', name: 'David Park',    email: 'd.park@example.com',   status: 'confirmed' },
+        { id: 'c3', slotId: 'slot_b', name: 'Anika Patel',   email: 'anika@example.com',    status: 'confirmed' },
+        { id: 'c4', slotId: 'slot_b', name: 'Tom Whitfield', email: 'tw@example.com',       status: 'confirmed' },
+        { id: 'c5', slotId: 'slot_b', name: 'Erin Walsh',    email: 'erin.w@example.com',   status: 'confirmed' },
+        { id: 'c6', slotId: 'slot_b', name: 'Jorge Reyes',   email: 'j.reyes@example.com',  status: 'confirmed' },
+        { id: 'c7', slotId: 'slot_c', name: 'Sara Klein',    email: 's.klein@example.com',  status: 'tentative' },
+      ],
+    };
+
+    function Dashboard({ signups, onOpen, onNew }) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em' }}>Your signups</h1>
+              <p style={{ margin: '4px 0 0', color: '#5b6474', fontSize: 14 }}>{signups.length} total</p>
+            </div>
+            <button onClick={onNew} style={{
+              background: '#1f6feb', color: 'white', border: 'none',
+              padding: '10px 18px', borderRadius: 14, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+            }}>New signup</button>
+          </div>
+          <ul style={{
+            listStyle: 'none', margin: 0, padding: 0,
+            border: '1px solid #eef1f5', borderRadius: 18, background: 'white', overflow: 'hidden',
+          }}>
+            {signups.map(s => <window.SignupCard key={s.id} row={s} onOpen={onOpen} />)}
+          </ul>
+        </div>
+      );
+    }
+
+    function Detail({ signup, slots, commitments, onAdd, onRemove, onPublish, onClose, onBack }) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+          <header style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em' }}>{signup.title}</h1>
+                <window.StatusPill status={signup.status} />
+              </div>
+              <p style={{ margin: '8px 0 0', color: '#5b6474', fontSize: 13, fontFamily: 'JetBrains Mono, ui-monospace, monospace' }}>
+                <a href="#" onClick={e=>e.preventDefault()} style={{ textDecoration: 'underline' }}>https://opensignup.org/s/{signup.slug}</a>
+              </p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button style={btnSec}>Preview</button>
+              <button style={btnSec}>Edit</button>
+              {signup.status === 'draft' ? <button onClick={onPublish} style={btnPri}>Publish</button>
+               : signup.status === 'open' ? <button onClick={onClose} style={btnSec}>Close</button> : null}
+              <button style={btnSec}>Export CSV</button>
+            </div>
+          </header>
+
+          {signup.description ? <p style={{ margin: 0, maxWidth: 640, color: '#5b6474', lineHeight: 1.5 }}>{signup.description}</p> : null}
+
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Slots</h2>
+            <window.AddSlotForm onAdd={onAdd} />
+            {slots.length === 0 ? (
+              <p style={{ color: '#5b6474', borderRadius: 14, padding: 24, textAlign: 'center', fontSize: 14, border: '1px dashed #eef1f5' }}>
+                Add at least one slot before publishing.
+              </p>
+            ) : (
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, border: '1px solid #eef1f5', borderRadius: 18, background: 'white', overflow: 'hidden' }}>
+                {slots.map(slot => (
+                  <li key={slot.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 20px', borderBottom: '1px solid #eef1f5' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 500, fontSize: 15 }}>{slot.title}</div>
+                      <div style={{ color: '#5b6474', fontSize: 13 }}>{slot.date} · {slot.committed}{slot.capacity ? `/${slot.capacity}` : ''} signed up</div>
+                    </div>
+                    <button onClick={() => onRemove(slot.id)} style={{ background: 'none', border: 'none', color: '#be123c', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Commitments ({commitments.length})</h2>
+            <window.CommitmentTable rows={commitments} slots={slots} />
+          </section>
+        </div>
+      );
+    }
+
+    const btnPri = { background: '#1f6feb', color: 'white', border: 'none', padding: '8px 16px', borderRadius: 14, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' };
+    const btnSec = { background: 'white', color: '#0b1220', border: '1px solid #eef1f5', padding: '8px 16px', borderRadius: 14, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' };
+
+    function App() {
+      const [signups, setSignups] = useState(SEED_SIGNUPS);
+      const [slotsBySig, setSlotsBySig] = useState(SEED_SLOTS);
+      const [commitsBySig, setCommitsBySig] = useState(SEED_COMMITS);
+      const [openId, setOpenId] = useState(null);
+
+      const open = signups.find(s => s.id === openId);
+      const slots = (openId && slotsBySig[openId]) || [];
+      const commits = (openId && commitsBySig[openId]) || [];
+
+      const crumbs = open ? [
+        { label: open.title },
+      ] : [];
+
+      return (
+        <window.Chrome email="rich@example.com" crumbs={crumbs} onNav={() => setOpenId(null)}>
+          {open ? (
+            <Detail
+              signup={open}
+              slots={slots}
+              commitments={commits}
+              onAdd={(s) => setSlotsBySig(prev => ({ ...prev, [openId]: [ ...(prev[openId]||[]), { id: 'slot_' + Math.random().toString(36).slice(2,7), committed: 0, ...s } ] }))}
+              onRemove={(id) => setSlotsBySig(prev => ({ ...prev, [openId]: (prev[openId]||[]).filter(s => s.id !== id) }))}
+              onPublish={() => setSignups(prev => prev.map(s => s.id === openId ? { ...s, status: 'open' } : s))}
+              onClose={() => setSignups(prev => prev.map(s => s.id === openId ? { ...s, status: 'closed' } : s))}
+            />
+          ) : (
+            <Dashboard signups={signups} onOpen={(r) => setOpenId(r.id)} onNew={() => alert('Stub: would route to /app/signups/new')} />
+          )}
+        </window.Chrome>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+  </script>
+</body>
+</html>

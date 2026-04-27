@@ -1,0 +1,186 @@
+/* OpenSignup Design System -- colors & type
+ * Single source of truth for tokens. Mirrors tailwind.config.ts and globals.css
+ * from the OpenSignup codebase, plus a couple of additions (focus ring, shadows).
+ *
+ * Use:  <link rel="stylesheet" href="colors_and_type.css">
+ * Then read tokens off the :root via var(--...) -- the semantic vars (h1, p, etc.)
+ * are also exposed as utility classes you can apply directly.
+ *
+ * Fonts: Inter is now self-hosted (variable, weights 100..900) from /fonts/.
+ *        JetBrains Mono stays on Google Fonts until you upload a mono file.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('fonts/InterVariable.ttf') format('truetype-variations'),
+       url('fonts/InterVariable.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('fonts/InterVariable-Italic.ttf') format('truetype-variations'),
+       url('fonts/InterVariable-Italic.ttf') format('truetype');
+}
+
+:root {
+  /* --------------- colors --------------- */
+
+  /* ink -- body text & headings */
+  --ink:           #0b1220;
+  --ink-muted:     #5b6474;
+  --ink-soft:      #8a93a4;
+
+  /* brand -- primary action, link, focus */
+  --brand:         #1f6feb;
+  --brand-soft:    #dbe7ff;
+
+  /* surface -- backgrounds in z-order */
+  --surface:       #ffffff;  /* page */
+  --surface-raised:#f7f8fa;  /* hovers, table headers */
+  --surface-sunk:  #eef1f5;  /* borders, dividers */
+
+  /* semantic -- feedback */
+  --success:       #1a7f4a;
+  --warn:          #b45309;
+  --danger:        #be123c;
+
+  /* tinted backgrounds (status chips & banners use color/10 in the app) */
+  --brand-tint:    rgb(31  111 235 / 0.10);
+  --success-tint:  rgb(26  127  74 / 0.10);
+  --warn-tint:     rgb(180  83   9 / 0.10);
+  --danger-tint:   rgb(190  18  60 / 0.10);
+  --ink-soft-tint: rgb(138 147 164 / 0.10);
+
+  /* --------------- type --------------- */
+
+  /* Codebase uses ui-sans-serif/system-ui first; Inter ships matching ss01/cv02/cv11
+     stylistic sets that the body opts into via font-feature-settings.
+     >> SUBSTITUTION FLAG: the OpenSignup repo does NOT bundle font files;
+     it relies on the system stack. We pull Inter from Google Fonts as the
+     intended-but-not-shipped face. Swap in self-hosted Inter if you want
+     to ship offline. */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+               'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* type scale -- tracks Tailwind defaults the app uses */
+  --text-xs:   0.75rem;   /* 12 - pill labels, footers */
+  --text-sm:   0.875rem;  /* 14 - secondary, table cells */
+  --text-base: 1rem;      /* 16 - body */
+  --text-lg:   1.125rem;  /* 18 - section heads (h2 in app) */
+  --text-xl:   1.25rem;   /* 20 - h2 alt */
+  --text-2xl:  1.5rem;    /* 24 - h1 dashboard */
+  --text-3xl:  1.875rem;  /* 30 - h1 participant page */
+  --text-4xl:  2.25rem;   /* 36 - landing h1 small */
+  --text-5xl:  3rem;      /* 48 - landing h1 large */
+
+  --leading-tight:  1.15;
+  --leading-snug:   1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed:1.625;
+
+  --tracking-tight:  -0.02em;  /* applied to all headings */
+  --tracking-normal: 0;
+
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold:600;
+  --weight-bold:    700;
+
+  /* --------------- radii / shadow / motion --------------- */
+
+  --radius-sm:  6px;   /* focus ring outline */
+  --radius-md:  8px;   /* small chips */
+  --radius-lg:  14px;  /* buttons, inputs, cards */
+  --radius-xl:  18px;  /* dialogs, large cards */
+  --radius-full:9999px;/* status pills */
+
+  --shadow-card: 0 1px 2px rgb(11 18 32 / 0.04), 0 4px 16px rgb(11 18 32 / 0.06);
+  --shadow-sm:   0 1px 2px rgb(11 18 32 / 0.04);
+  --shadow-focus:0 0 0 1px var(--brand);
+
+  --ease-out:    cubic-bezier(0.2, 0.7, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+
+  /* --------------- layout containers --------------- */
+
+  --container-tight: 720px;   /* participant pages */
+  --container-app:   1100px;  /* organizer chrome */
+}
+
+/* --------------- base / semantic typography --------------- */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: 'ss01', 'cv02', 'cv11'; /* keep parity with globals.css */
+  color: var(--ink);
+  background: var(--surface);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Heading scale -- lifted from real usage in the app */
+.h-display, h1.display {
+  font-size: var(--text-5xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--weight-semibold);
+}
+.h1, h1 {
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--weight-semibold);
+}
+.h2, h2 {
+  font-size: var(--text-2xl);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--weight-semibold);
+}
+.h3, h3 {
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+  font-weight: var(--weight-semibold);
+}
+
+.p, p {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--ink);
+}
+.p-muted    { color: var(--ink-muted); }
+.p-soft     { color: var(--ink-soft); }
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+}
+.caption {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+.code, code, kbd, samp {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+/* --------------- focus ring (mirrors globals.css) --------------- */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
