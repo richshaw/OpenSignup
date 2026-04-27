@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 
 interface CopyLinkFieldProps {
   url: string;
@@ -45,10 +46,21 @@ export default function CopyLinkField({ url }: CopyLinkFieldProps) {
       <button
         type="button"
         onClick={handleCopy}
-        className="text-brand shrink-0 underline transition hover:no-underline"
+        aria-label={copied ? 'Link copied' : 'Copy link'}
+        title="Copy link"
+        className={`inline-flex size-8 shrink-0 items-center justify-center rounded-lg transition hover:text-ink ${
+          copied ? 'text-success' : 'text-ink-muted'
+        }`}
       >
-        {copied ? 'Copied!' : 'Copy'}
+        {copied ? (
+          <Check size={16} aria-hidden="true" />
+        ) : (
+          <Copy size={16} aria-hidden="true" />
+        )}
       </button>
+      <span className="sr-only" aria-live="polite">
+        {copied ? 'Link copied' : ''}
+      </span>
     </div>
   );
 }
