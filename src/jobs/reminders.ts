@@ -104,7 +104,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     participantName: row.participant.name,
     signupTitle: row.signup.title,
     signupUrl: publicSignupUrl(row.signup.slug),
-    slotLabel: row.slot.title,
+    slotLabel: row.slot.ref,
     slotDateLabel: row.slot.slotAt
       ? row.slot.slotAt.toLocaleString('en-US', {
           weekday: 'long',

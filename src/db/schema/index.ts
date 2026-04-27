@@ -2,7 +2,7 @@ export * from './workspaces';
 export * from './organizers';
 export * from './members';
 export * from './signups';
-export * from './slot-groups';
+export * from './slot-fields';
 export * from './slots';
 export * from './participants';
 export * from './commitments';

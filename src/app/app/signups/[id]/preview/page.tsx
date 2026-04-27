@@ -5,7 +5,10 @@ import { getOrganizerSession, toActor } from '@/auth/session';
 import type { SignupStatus } from '@/schemas/signups';
 import type { SlotStatus } from '@/schemas/slots';
 import { getSignupForOrganizer } from '@/services/signups';
-import SignupView, { type SignupViewSlot } from '@/app/s/[slug]/signup-view';
+import SignupView, {
+  type SignupViewField,
+  type SignupViewSlot,
+} from '@/app/s/[slug]/signup-view';
 
 export const metadata = { title: 'Preview · OpenSignup' };
 
@@ -31,14 +34,20 @@ export default async function SignupPreviewPage({ params }: PageParams) {
 
   const slots: SignupViewSlot[] = sig.slots.map((slot) => ({
     id: slot.id,
-    title: slot.title,
-    description: slot.description,
+    ref: slot.ref,
+    values: (slot.values as Record<string, unknown>) ?? {},
     slotAt: slot.slotAt ? slot.slotAt.toISOString() : null,
-    location: slot.location,
     capacity: slot.capacity,
     status: slot.status as SlotStatus,
     committed: 0,
   }));
+  const fields: SignupViewField[] = sig.fields.map((f) => ({
+    ref: f.ref,
+    label: f.label,
+    fieldType: f.fieldType,
+  }));
+  const settings = (sig.settings ?? {}) as { groupByFieldRefs?: string[] };
+  const groupByRef = settings.groupByFieldRefs?.[0] ?? null;
 
   return (
     <main className="flex min-h-[100svh] flex-col py-8">
@@ -48,6 +57,8 @@ export default async function SignupPreviewPage({ params }: PageParams) {
           description: sig.description,
           status: sig.status as SignupStatus,
         }}
+        fields={fields}
+        groupByRef={groupByRef}
         slots={slots}
         slug={sig.slug}
         mode="preview"

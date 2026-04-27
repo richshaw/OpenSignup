@@ -16,6 +16,10 @@ export const SignupSettingsSchema = z
     lockoutHoursBeforeSlot: z.number().int().nonnegative().default(0),
     sendReminders: z.boolean().default(true),
     confirmationMessage: z.string().max(500).optional(),
+    /** Slot-field refs to group by in the participant view. v1 caps at length 1; nested grouping deferred. */
+    groupByFieldRefs: z.array(z.string()).max(1).default([]),
+    /** Slot-field ref that drives slot_at and reminder timing. Auto-defaults when there's exactly one date field. */
+    reminderFromFieldRef: z.string().optional(),
   })
   .default({});
 

@@ -10,16 +10,19 @@ import { parseInputSafe } from '@/lib/parse';
 import { requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { toSlug } from '@/lib/slug';
+import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import {
   type SignupStatus,
   SignupCreateInputSchema,
   SignupUpdateInputSchema,
 } from '@/schemas/signups';
+import { listFieldsForSignup } from './slot-fields';
 
 type SignupRow = typeof signups.$inferSelect;
 
 export interface SignupWithSlots extends SignupRow {
   slots: (typeof slots.$inferSelect)[];
+  fields: SlotFieldDefinition[];
 }
 
 export async function createSignup(
@@ -81,12 +84,15 @@ export async function getSignupForOrganizer(
   const row = found[0];
   if (!row) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceAccess(actor, row.workspaceId);
-  const signupSlots = await db
-    .select()
-    .from(slots)
-    .where(eq(slots.signupId, signupId))
-    .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt));
-  return ok({ ...row, slots: signupSlots });
+  const [signupSlots, fields] = await Promise.all([
+    db
+      .select()
+      .from(slots)
+      .where(eq(slots.signupId, signupId))
+      .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt)),
+    listFieldsForSignup(db, signupId),
+  ]);
+  return ok({ ...row, slots: signupSlots, fields });
 }
 
 export async function updateSignup(
@@ -254,11 +260,14 @@ export async function getPublicSignup(
     return err(serviceError('not_found', 'signup is no longer available', { received: 'archived' }));
   }
 
-  const signupSlots = await db
-    .select()
-    .from(slots)
-    .where(eq(slots.signupId, row.id))
-    .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt));
+  const [signupSlots, fields] = await Promise.all([
+    db
+      .select()
+      .from(slots)
+      .where(eq(slots.signupId, row.id))
+      .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt)),
+    listFieldsForSignup(db, row.id),
+  ]);
 
   const committerRows = await db
     .select({
@@ -281,7 +290,7 @@ export async function getPublicSignup(
     committerByslot[c.slotId] = list;
   }
 
-  return ok({ ...row, slots: signupSlots, committerByslot });
+  return ok({ ...row, slots: signupSlots, fields, committerByslot });
 }
 
 async function pickAvailableSlug(db: Db, title: string): Promise<string> {

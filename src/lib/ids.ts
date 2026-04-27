@@ -5,7 +5,7 @@ export const ID_PREFIXES = [
   'org', // Organizer
   'mem', // WorkspaceMember
   'sig', // Signup
-  'sgr', // SlotGroup
+  'fld', // SlotField
   'slot', // Slot
   'par', // Participant
   'com', // Commitment

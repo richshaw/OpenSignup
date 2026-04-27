@@ -1,9 +1,9 @@
 import type { NextRequest } from 'next/server';
-import { getDb } from '@/db/client';
 import { requireActor } from '@/auth/session';
+import { getDb } from '@/db/client';
 import { fail, handle, respond } from '@/lib/api-response';
 import { serviceError } from '@/lib/errors';
-import { addSlotsFromDates } from '@/services/slots';
+import { addSlotsBulk } from '@/services/slots';
 
 export async function POST(
   req: NextRequest,
@@ -14,7 +14,7 @@ export async function POST(
     const actor = await requireActor();
     if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in required'));
     const body = await req.json().catch(() => ({}));
-    const result = await addSlotsFromDates(getDb(), actor, id, body);
+    const result = await addSlotsBulk(getDb(), actor, id, body);
     return respond(result);
   });
 }

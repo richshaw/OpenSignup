@@ -244,11 +244,8 @@ describe('signups service (db)', () => {
   describe('status transitions', () => {
     async function withSlot(signupId: string): Promise<void> {
       const r = await addSlot(fx.db, fx.actor, signupId, {
-        title: 'Slot 1',
-        description: '',
-        slotType: 'item',
+        values: {},
         capacity: 1,
-        data: {},
       });
       if (!r.ok) throw new Error(`slot setup failed: ${r.error.message}`);
     }
@@ -331,11 +328,8 @@ describe('signups service (db)', () => {
       const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Public open'));
       if (!created.ok) throw new Error('setup failed');
       const slotR = await addSlot(fx.db, fx.actor, created.value.id, {
-        title: 'Slot',
-        description: '',
-        slotType: 'item',
+        values: {},
         capacity: 1,
-        data: {},
       });
       if (!slotR.ok) throw new Error('setup failed');
       const pub = await publishSignup(fx.db, fx.actor, created.value.id);
@@ -352,11 +346,8 @@ describe('signups service (db)', () => {
       const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Public closed'));
       if (!created.ok) throw new Error('setup failed');
       await addSlot(fx.db, fx.actor, created.value.id, {
-        title: 'Slot',
-        description: '',
-        slotType: 'item',
+        values: {},
         capacity: 1,
-        data: {},
       });
       const pub = await publishSignup(fx.db, fx.actor, created.value.id);
       if (!pub.ok) throw new Error('setup failed');

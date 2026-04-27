@@ -8,6 +8,13 @@
       "when": 1776644823071,
       "tag": "0000_light_caretaker",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777331038746,
+      "tag": "0001_lively_star_brand",
+      "breakpoints": true
     }
   ]
 }

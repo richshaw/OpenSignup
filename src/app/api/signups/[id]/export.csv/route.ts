@@ -38,7 +38,8 @@ export async function GET(
     const commitments = await listCommitmentsForSignup(db, id);
 
     const header = [
-      'slot_title',
+      'slot_ref',
+      'slot_values',
       'slot_at',
       'participant_name',
       'participant_email',
@@ -52,7 +53,8 @@ export async function GET(
       const slot = slotsById.get(c.slotId);
       lines.push(
         [
-          slot?.title ?? '',
+          slot?.ref ?? '',
+          slot ? JSON.stringify(slot.values) : '',
           slot?.slotAt?.toISOString() ?? '',
           c.participantName,
           c.participantEmail,

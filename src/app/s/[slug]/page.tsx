@@ -3,7 +3,7 @@ import { getDb } from '@/db/client';
 import type { SignupStatus } from '@/schemas/signups';
 import type { SlotStatus } from '@/schemas/slots';
 import { getPublicSignup } from '@/services/signups';
-import SignupView, { type SignupViewSlot } from './signup-view';
+import SignupView, { type SignupViewField, type SignupViewSlot } from './signup-view';
 
 export const metadata = { title: 'Sign up' };
 
@@ -40,15 +40,21 @@ export default async function PublicSignupPage({ params }: PageParams) {
     const committerIds = sig.committerByslot[slot.id] ?? [];
     return {
       id: slot.id,
-      title: slot.title,
-      description: slot.description,
+      ref: slot.ref,
+      values: (slot.values as Record<string, unknown>) ?? {},
       slotAt: slot.slotAt ? slot.slotAt.toISOString() : null,
-      location: slot.location,
       capacity: slot.capacity,
       status: slot.status as SlotStatus,
       committed: committerIds.length,
     };
   });
+  const fields: SignupViewField[] = sig.fields.map((f) => ({
+    ref: f.ref,
+    label: f.label,
+    fieldType: f.fieldType,
+  }));
+  const settings = (sig.settings ?? {}) as { groupByFieldRefs?: string[] };
+  const groupByRef = settings.groupByFieldRefs?.[0] ?? null;
 
   return (
     <main className="flex min-h-[100svh] flex-col py-8">
@@ -58,6 +64,8 @@ export default async function PublicSignupPage({ params }: PageParams) {
           description: sig.description,
           status: sig.status as SignupStatus,
         }}
+        fields={fields}
+        groupByRef={groupByRef}
         slots={slots}
         slug={slug}
         mode="live"
