@@ -10,14 +10,13 @@ import { parseInputSafe } from '@/lib/parse';
 import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { toSlug } from '@/lib/slug';
-import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import {
   type SlotUpdateInput,
   SlotBulkInputSchema,
   SlotCreateInputSchema,
   SlotUpdateInputSchema,
 } from '@/schemas/slots';
-import { findReminderFields, listFieldsForSignup, validateSlotValues } from './slot-fields';
+import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
 
 type SlotRow = typeof slots.$inferSelect;
 
@@ -257,22 +256,6 @@ export async function listSlotsForSignup(db: Db, signupId: string) {
     .from(slots)
     .where(eq(slots.signupId, signupId))
     .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt));
-}
-
-export function extractSlotAt(
-  settings: SignupSettingsLike,
-  fields: SlotFieldDefinition[],
-  values: Record<string, unknown>,
-): Date | null {
-  const { dateField, timeField } = findReminderFields(settings, fields);
-  if (!dateField) return null;
-  const dateVal = values[dateField.ref];
-  if (typeof dateVal !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) return null;
-  const timeVal = timeField ? values[timeField.ref] : undefined;
-  const timePart = typeof timeVal === 'string' && /^\d{2}:\d{2}$/.test(timeVal)
-    ? `${timeVal}:00`
-    : '00:00:00';
-  return new Date(`${dateVal}T${timePart}.000Z`);
 }
 
 function summarizeValues(values: Record<string, unknown>): string {

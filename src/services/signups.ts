@@ -16,7 +16,7 @@ import {
   SignupCreateInputSchema,
   SignupUpdateInputSchema,
 } from '@/schemas/signups';
-import { listFieldsForSignup } from './slot-fields';
+import { listFieldsForSignup, recomputeSlotAtForSignup } from './slot-fields';
 
 type SignupRow = typeof signups.$inferSelect;
 
@@ -110,6 +110,13 @@ export async function updateSignup(
   if (!input.ok) return input;
   const data = input.value;
 
+  const prevSettings = (row.settings as { reminderFromFieldRef?: string; [k: string]: unknown }) ?? {};
+  const mergedSettings =
+    data.settings !== undefined ? { ...prevSettings, ...data.settings } : prevSettings;
+  const reminderRefChanged =
+    data.settings !== undefined &&
+    mergedSettings.reminderFromFieldRef !== prevSettings.reminderFromFieldRef;
+
   const patched = await db.transaction(async (tx) => {
     const [updated] = await tx
       .update(signups)
@@ -121,14 +128,16 @@ export async function updateSignup(
         ...(data.closesAt !== undefined
           ? { closesAt: data.closesAt ? new Date(data.closesAt) : null }
           : {}),
-        ...(data.settings !== undefined
-          ? { settings: { ...(row.settings as object), ...data.settings } }
-          : {}),
+        ...(data.settings !== undefined ? { settings: mergedSettings } : {}),
         updatedAt: new Date(),
       })
       .where(eq(signups.id, signupId))
       .returning();
     if (!updated) throw new Error('update returned nothing');
+
+    if (reminderRefChanged) {
+      await recomputeSlotAtForSignup(tx, signupId);
+    }
 
     await recordActivity(tx, {
       signupId,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
-import { extractSlotAt } from './slots';
+import { extractSlotAt } from './slot-fields';
 
 const dateField: SlotFieldDefinition = {
   id: 'fld_aaaaaaaaaaaaaaaaaaaaaa',

@@ -4,6 +4,8 @@ import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
+import { signups } from '@/db/schema/signups';
+import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -14,7 +16,7 @@ import {
   updateField,
 } from '@/services/slot-fields';
 import { addSlot } from '@/services/slots';
-import { createSignup } from '@/services/signups';
+import { createSignup, updateSignup } from '@/services/signups';
 
 interface Fixture {
   db: Db;
@@ -321,6 +323,129 @@ describe('slot-fields service (db)', () => {
 
       const acts = await fx.db.select().from(activity).where(eq(activity.signupId, sigId));
       expect(acts.some((a) => a.eventType === 'field.deleted')).toBe(true);
+    });
+
+    it('clears reminderFromFieldRef in signup settings when the referenced field is deleted', async () => {
+      const sigId = await createTestSignup(fx, 'Delete clears reminder');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'deadline',
+        label: 'Deadline',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+        required: false,
+      });
+      if (!created.ok) throw new Error('field setup failed');
+      const upd = await updateSignup(fx.db, fx.actor, sigId, {
+        settings: { reminderFromFieldRef: 'deadline' },
+      });
+      if (!upd.ok) throw new Error('settings setup failed');
+
+      const r = await deleteField(fx.db, fx.actor, created.value.id);
+      expect(r.ok).toBe(true);
+
+      const [after] = await fx.db.select().from(signups).where(eq(signups.id, sigId)).limit(1);
+      const settings = (after?.settings ?? {}) as { reminderFromFieldRef?: string };
+      expect(settings.reminderFromFieldRef).toBeUndefined();
+    });
+
+    it('removes the deleted field ref from groupByFieldRefs', async () => {
+      const sigId = await createTestSignup(fx, 'Delete removes groupBy');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'category',
+        label: 'Category',
+        fieldType: 'enum',
+        config: { fieldType: 'enum', choices: ['A', 'B'] },
+        required: false,
+      });
+      if (!created.ok) throw new Error('field setup failed');
+      const upd = await updateSignup(fx.db, fx.actor, sigId, {
+        settings: { groupByFieldRefs: ['category'] },
+      });
+      if (!upd.ok) throw new Error('settings setup failed');
+
+      const r = await deleteField(fx.db, fx.actor, created.value.id);
+      expect(r.ok).toBe(true);
+
+      const [after] = await fx.db.select().from(signups).where(eq(signups.id, sigId)).limit(1);
+      const settings = (after?.settings ?? {}) as { groupByFieldRefs?: string[] };
+      expect(settings.groupByFieldRefs ?? []).toEqual([]);
+    });
+
+    it('recomputes slot_at on remaining slots after the configured date field is deleted', async () => {
+      const sigId = await createTestSignup(fx, 'Delete recomputes slot_at');
+      const fldA = await addField(fx.db, fx.actor, sigId, {
+        ref: 'field-a',
+        label: 'Field A',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+        required: false,
+      });
+      if (!fldA.ok) throw new Error('field-a setup failed');
+      const fldB = await addField(fx.db, fx.actor, sigId, {
+        ref: 'field-b',
+        label: 'Field B',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+        required: false,
+      });
+      if (!fldB.ok) throw new Error('field-b setup failed');
+      const upd = await updateSignup(fx.db, fx.actor, sigId, {
+        settings: { reminderFromFieldRef: 'field-a' },
+      });
+      if (!upd.ok) throw new Error('settings setup failed');
+
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { 'field-b': '2026-06-15' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      expect(slot.value.slotAt).toBeNull();
+
+      const r = await deleteField(fx.db, fx.actor, fldA.value.id);
+      expect(r.ok).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T00:00:00.000Z');
+    });
+  });
+
+  describe('updateSignup recomputes slot_at', () => {
+    it('updates slot_at on existing slots when reminderFromFieldRef changes', async () => {
+      const sigId = await createTestSignup(fx, 'Reminder ref change');
+      const fldA = await addField(fx.db, fx.actor, sigId, {
+        ref: 'field-a',
+        label: 'Field A',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+        required: false,
+      });
+      if (!fldA.ok) throw new Error('field-a setup failed');
+      const fldB = await addField(fx.db, fx.actor, sigId, {
+        ref: 'field-b',
+        label: 'Field B',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+        required: false,
+      });
+      if (!fldB.ok) throw new Error('field-b setup failed');
+
+      const settingsA = await updateSignup(fx.db, fx.actor, sigId, {
+        settings: { reminderFromFieldRef: 'field-a' },
+      });
+      if (!settingsA.ok) throw new Error('settings setup failed');
+
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { 'field-a': '2026-05-10', 'field-b': '2026-06-15' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T00:00:00.000Z');
+
+      const settingsB = await updateSignup(fx.db, fx.actor, sigId, {
+        settings: { reminderFromFieldRef: 'field-b' },
+      });
+      expect(settingsB.ok).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T00:00:00.000Z');
     });
   });
 

@@ -1,5 +1,5 @@
 import { and, asc, eq } from 'drizzle-orm';
-import type { Db } from '@/db/client';
+import type { Db, Queryable } from '@/db/client';
 import { signups } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import { slots } from '@/db/schema/slots';
@@ -31,7 +31,7 @@ function rowToDefinition(row: FieldRow): SlotFieldDefinition {
 }
 
 export async function listFieldsForSignup(
-  db: Db,
+  db: Queryable,
   signupId: string,
 ): Promise<SlotFieldDefinition[]> {
   const rows = await db
@@ -40,6 +40,60 @@ export async function listFieldsForSignup(
     .where(eq(slotFields.signupId, signupId))
     .orderBy(asc(slotFields.sortOrder), asc(slotFields.createdAt));
   return rows.map(rowToDefinition);
+}
+
+interface ReminderSettingsLike {
+  reminderFromFieldRef?: string | undefined;
+  [k: string]: unknown;
+}
+
+export function extractSlotAt(
+  settings: ReminderSettingsLike,
+  fields: SlotFieldDefinition[],
+  values: Record<string, unknown>,
+): Date | null {
+  const { dateField, timeField } = findReminderFields(settings, fields);
+  if (!dateField) return null;
+  const dateVal = values[dateField.ref];
+  if (typeof dateVal !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) return null;
+  const timeVal = timeField ? values[timeField.ref] : undefined;
+  const timePart = typeof timeVal === 'string' && /^\d{2}:\d{2}$/.test(timeVal)
+    ? `${timeVal}:00`
+    : '00:00:00';
+  return new Date(`${dateVal}T${timePart}.000Z`);
+}
+
+/** Re-derive slots.slot_at for every slot in a signup. Safe to call inside a tx. */
+export async function recomputeSlotAtForSignup(
+  tx: Queryable,
+  signupId: string,
+): Promise<{ updated: number }> {
+  const signupRow = await tx
+    .select({ settings: signups.settings })
+    .from(signups)
+    .where(eq(signups.id, signupId))
+    .limit(1)
+    .then((r) => r[0]);
+  if (!signupRow) return { updated: 0 };
+  const settings = (signupRow.settings as ReminderSettingsLike) ?? {};
+  const fields = await listFieldsForSignup(tx, signupId);
+  const slotRows = await tx
+    .select({ id: slots.id, values: slots.values, slotAt: slots.slotAt })
+    .from(slots)
+    .where(eq(slots.signupId, signupId));
+
+  let updated = 0;
+  for (const row of slotRows) {
+    const next = extractSlotAt(settings, fields, (row.values as Record<string, unknown>) ?? {});
+    const cur = row.slotAt;
+    const same =
+      (next === null && cur === null) ||
+      (next instanceof Date && cur instanceof Date && next.getTime() === cur.getTime());
+    if (same) continue;
+    await tx.update(slots).set({ slotAt: next }).where(eq(slots.id, row.id));
+    updated++;
+  }
+  return { updated };
 }
 
 export async function addField(
@@ -258,14 +312,46 @@ export async function deleteField(
     );
   }
 
+  const signupRow = await db
+    .select({ settings: signups.settings })
+    .from(signups)
+    .where(eq(signups.id, existing.signupId))
+    .limit(1)
+    .then((r) => r[0]);
+  const currentSettings =
+    (signupRow?.settings as { reminderFromFieldRef?: string; groupByFieldRefs?: string[]; [k: string]: unknown }) ?? {};
+  const clearedReminder = currentSettings.reminderFromFieldRef === existing.ref;
+  const groupBy = currentSettings.groupByFieldRefs ?? [];
+  const removedFromGroupBy = groupBy.includes(existing.ref);
+  const settingsChanged = clearedReminder || removedFromGroupBy;
+  const nextSettings: Record<string, unknown> = { ...currentSettings };
+  if (clearedReminder) delete nextSettings.reminderFromFieldRef;
+  if (removedFromGroupBy) {
+    nextSettings.groupByFieldRefs = groupBy.filter((ref) => ref !== existing.ref);
+  }
+
   await db.transaction(async (tx) => {
+    if (settingsChanged) {
+      await tx
+        .update(signups)
+        .set({ settings: nextSettings, updatedAt: new Date() })
+        .where(eq(signups.id, existing.signupId));
+    }
     await tx.delete(slotFields).where(eq(slotFields.id, fieldId));
+    if (clearedReminder) {
+      await recomputeSlotAtForSignup(tx, existing.signupId);
+    }
     await recordActivity(tx, {
       signupId: existing.signupId,
       workspaceId: existing.workspaceId,
       actor: { actorId: (actor as { id: string }).id, actorType: 'organizer' },
       eventType: 'field.deleted',
-      payload: { fieldId, ref: existing.ref },
+      payload: {
+        fieldId,
+        ref: existing.ref,
+        ...(clearedReminder ? { clearedReminderFromFieldRef: true } : {}),
+        ...(removedFromGroupBy ? { removedFromGroupByFieldRefs: true } : {}),
+      },
     });
   });
 
