@@ -40,7 +40,7 @@ export default function PublicLinkChip({ url, compact = false }: PublicLinkChipP
           Public link
         </span>
       ) : null}
-      <span className="text-ink mr-2 max-w-[320px] truncate font-mono text-xs">{url}</span>
+      <span className="text-ink mr-2 min-w-0 flex-1 truncate font-mono text-xs">{url}</span>
       <button
         type="button"
         onClick={handleCopy}
