@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
-import { closeAction, updateBasicsAction } from '../actions';
+import { updateBasicsAction } from '../actions';
 
 type PageParams = {
   params: Promise<{ id: string }>;
@@ -57,25 +57,6 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
           </button>
         </div>
       </form>
-
-      {sig.status === 'open' ? (
-        <div className="border-danger/30 bg-danger/5 rounded-xl border p-6">
-          <h2 className="text-danger text-sm font-semibold">Danger zone</h2>
-          <p className="text-ink-muted mt-1 text-sm">
-            Closing stops new signups but keeps the page visible.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <form action={closeAction.bind(null, id)}>
-              <button
-                type="submit"
-                className="hover:bg-surface-raised rounded-lg border border-surface-sunk bg-white px-4 py-2 text-sm font-medium transition"
-              >
-                Close signup
-              </button>
-            </form>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }

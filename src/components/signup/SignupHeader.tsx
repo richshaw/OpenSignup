@@ -10,6 +10,7 @@ interface SignupHeaderProps {
   status: string;
   publicUrl: string;
   publishAction: () => void | Promise<void>;
+  closeAction: () => void | Promise<void>;
 }
 
 export function SignupHeader({
@@ -19,6 +20,7 @@ export function SignupHeader({
   status,
   publicUrl,
   publishAction,
+  closeAction,
 }: SignupHeaderProps) {
   const previewHref = `/app/signups/${signupId}/preview`;
   const exportHref = `/api/signups/${signupId}/export.csv`;
@@ -59,6 +61,16 @@ export function SignupHeader({
                 className="bg-brand inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
               >
                 Publish
+              </button>
+            </form>
+          ) : null}
+          {status === 'open' ? (
+            <form action={closeAction}>
+              <button
+                type="submit"
+                className="bg-brand inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
+              >
+                Close signup
               </button>
             </form>
           ) : null}

@@ -7,7 +7,7 @@ import { countCommitmentsForSignup } from '@/services/commitments';
 import { publicSignupUrl } from '@/lib/links';
 import { SignupHeader } from '@/components/signup/SignupHeader';
 import { TabsNav } from '@/components/signup/TabsNav';
-import { publishAction } from './actions';
+import { closeAction, publishAction } from './actions';
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -51,6 +51,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
         status={sig.status}
         publicUrl={publicSignupUrl(sig.slug)}
         publishAction={publishAction.bind(null, id)}
+        closeAction={closeAction.bind(null, id)}
       />
       <TabsNav
         signupId={id}
