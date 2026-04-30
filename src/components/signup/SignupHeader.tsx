@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Download, Eye } from 'lucide-react';
-import CopyLinkField from '@/components/CopyLinkField';
+import PublicLinkChip from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
 
 interface SignupHeaderProps {
@@ -31,7 +31,9 @@ export function SignupHeader({
             <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
             <StatusPill status={status} />
           </div>
-          <CopyLinkField url={publicUrl} />
+          <div className="mt-3">
+            <PublicLinkChip url={publicUrl} />
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Link
