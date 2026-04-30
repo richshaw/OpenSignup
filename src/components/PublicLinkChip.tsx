@@ -8,7 +8,7 @@ interface PublicLinkChipProps {
   compact?: boolean;
 }
 
-export default function PublicLinkChip({ url, compact = false }: PublicLinkChipProps) {
+export function PublicLinkChip({ url, compact = false }: PublicLinkChipProps) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -44,7 +44,7 @@ export default function PublicLinkChip({ url, compact = false }: PublicLinkChipP
       <button
         type="button"
         onClick={handleCopy}
-        aria-label={copied ? 'Link copied' : 'Copy public link'}
+        aria-label="Copy public link"
         title="Copy"
         className={`inline-flex items-center justify-center rounded-full p-1.5 transition ${
           copied ? 'bg-success/10 text-success' : 'text-ink-muted hover:text-ink'
@@ -59,7 +59,7 @@ export default function PublicLinkChip({ url, compact = false }: PublicLinkChipP
       <a
         href={url}
         target="_blank"
-        rel="noreferrer"
+        rel="noopener noreferrer"
         aria-label="Open public page"
         title="Open"
         className="text-ink-muted hover:text-ink inline-flex items-center justify-center rounded-full p-1.5 transition"

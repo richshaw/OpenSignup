@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Download, Eye } from 'lucide-react';
-import PublicLinkChip from '@/components/PublicLinkChip';
+import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
 
 interface SignupHeaderProps {
