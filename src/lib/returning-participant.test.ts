@@ -12,20 +12,27 @@ describe('returning-participant cookie', () => {
     expect(COMMIT_COOKIE_NAME).toBe('os_commit');
   });
 
-  it('roundtrips a list of commits with special-char tokens', () => {
+  it('roundtrips a list of commits with signupId', () => {
     const value = serializeReturningCommits([
-      { commitmentId: 'com_abc', token: 'tok-1.with_special' },
-      { commitmentId: 'com_def', token: 'tok2' },
+      { commitmentId: 'com_abc', token: 'tokOne_-A1', signupId: 'sig_one' },
+      { commitmentId: 'com_def', token: 'tok2', signupId: 'sig_two' },
     ]);
     expect(parseReturningCommits(value)).toEqual([
-      { commitmentId: 'com_abc', token: 'tok-1.with_special' },
-      { commitmentId: 'com_def', token: 'tok2' },
+      { commitmentId: 'com_abc', token: 'tokOne_-A1', signupId: 'sig_one' },
+      { commitmentId: 'com_def', token: 'tok2', signupId: 'sig_two' },
     ]);
   });
 
-  it('parses legacy single-entry cookies (no comma)', () => {
+  it('parses legacy single-entry cookies (no comma, no signupId)', () => {
     expect(parseReturningCommits('com_abc.tok')).toEqual([
       { commitmentId: 'com_abc', token: 'tok' },
+    ]);
+  });
+
+  it('parses legacy multi-entry cookies without signupId', () => {
+    expect(parseReturningCommits('com_a.ta,com_b.tb')).toEqual([
+      { commitmentId: 'com_a', token: 'ta' },
+      { commitmentId: 'com_b', token: 'tb' },
     ]);
   });
 
@@ -36,31 +43,44 @@ describe('returning-participant cookie', () => {
   });
 
   it('skips entries with invalid commitment id prefix', () => {
-    expect(parseReturningCommits('par_abc.tok,com_ok.tok2')).toEqual([
-      { commitmentId: 'com_ok', token: 'tok2' },
+    expect(parseReturningCommits('par_abc.tok,com_ok.tok2.sig_x')).toEqual([
+      { commitmentId: 'com_ok', token: 'tok2', signupId: 'sig_x' },
     ]);
   });
 
   it('appends a new commit to the front and de-dupes the same id', () => {
-    const a = appendReturningCommit(null, 'com_a', 'ta');
-    const ab = appendReturningCommit(a, 'com_b', 'tb');
+    const a = appendReturningCommit(null, 'com_a', 'ta', 'sig_x');
+    const ab = appendReturningCommit(a, 'com_b', 'tb', 'sig_x');
     expect(parseReturningCommits(ab).map((c) => c.commitmentId)).toEqual(['com_b', 'com_a']);
 
     // re-appending the same id replaces the prior token (e.g. token rotation)
-    const aab = appendReturningCommit(ab, 'com_a', 'ta2');
+    const aab = appendReturningCommit(ab, 'com_a', 'ta2', 'sig_x');
     expect(parseReturningCommits(aab)).toEqual([
-      { commitmentId: 'com_a', token: 'ta2' },
-      { commitmentId: 'com_b', token: 'tb' },
+      { commitmentId: 'com_a', token: 'ta2', signupId: 'sig_x' },
+      { commitmentId: 'com_b', token: 'tb', signupId: 'sig_x' },
     ]);
+  });
+
+  it('appends without signupId for callers that omit it', () => {
+    const next = appendReturningCommit(null, 'com_a', 'ta');
+    expect(parseReturningCommits(next)).toEqual([{ commitmentId: 'com_a', token: 'ta' }]);
   });
 
   it('removes a single commit, leaving the rest', () => {
     const start = serializeReturningCommits([
-      { commitmentId: 'com_a', token: 'ta' },
-      { commitmentId: 'com_b', token: 'tb' },
-      { commitmentId: 'com_c', token: 'tc' },
+      { commitmentId: 'com_a', token: 'ta', signupId: 'sig_x' },
+      { commitmentId: 'com_b', token: 'tb', signupId: 'sig_x' },
+      { commitmentId: 'com_c', token: 'tc', signupId: 'sig_y' },
     ]);
     const after = removeReturningCommit(start, 'com_b');
     expect(parseReturningCommits(after).map((c) => c.commitmentId)).toEqual(['com_a', 'com_c']);
+  });
+
+  it('mixes legacy and new entries in one cookie', () => {
+    const value = 'com_old.tokOld,com_new.tokNew.sig_z';
+    expect(parseReturningCommits(value)).toEqual([
+      { commitmentId: 'com_old', token: 'tokOld' },
+      { commitmentId: 'com_new', token: 'tokNew', signupId: 'sig_z' },
+    ]);
   });
 });

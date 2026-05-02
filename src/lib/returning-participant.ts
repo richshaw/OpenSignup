@@ -7,25 +7,43 @@ const MAX_ENTRIES = 40;
 export interface ReturningCommit {
   commitmentId: string;
   token: string;
+  signupId?: string;
 }
 
 function serializeOne(c: ReturningCommit): string {
-  return `${c.commitmentId}.${encodeURIComponent(c.token)}`;
+  const base = `${c.commitmentId}.${encodeURIComponent(c.token)}`;
+  return c.signupId ? `${base}.${c.signupId}` : base;
 }
 
 function parseOne(raw: string): ReturningCommit | null {
-  const dot = raw.indexOf('.');
-  if (dot <= 0 || dot >= raw.length - 1) return null;
-  const commitmentId = raw.slice(0, dot);
+  const firstDot = raw.indexOf('.');
+  if (firstDot <= 0 || firstDot >= raw.length - 1) return null;
+  const commitmentId = raw.slice(0, firstDot);
   if (!commitmentId.startsWith('com_')) return null;
+
+  // Tail format: encodedToken[.sig_XYZ]. Use lastIndexOf so a token containing
+  // a literal `.` (unusual — real edit tokens are base64url) still parses as
+  // long as it isn't followed by something starting with `sig_`.
+  const rest = raw.slice(firstDot + 1);
+  const lastDot = rest.lastIndexOf('.');
+  let encodedToken: string;
+  let signupId: string | undefined;
+  if (lastDot > 0 && rest.slice(lastDot + 1).startsWith('sig_')) {
+    encodedToken = rest.slice(0, lastDot);
+    signupId = rest.slice(lastDot + 1);
+  } else {
+    encodedToken = rest;
+    signupId = undefined;
+  }
+
   let token: string;
   try {
-    token = decodeURIComponent(raw.slice(dot + 1));
+    token = decodeURIComponent(encodedToken);
   } catch {
     return null;
   }
   if (!token) return null;
-  return { commitmentId, token };
+  return signupId ? { commitmentId, token, signupId } : { commitmentId, token };
 }
 
 export function serializeReturningCommits(commits: ReturningCommit[]): string {
@@ -51,9 +69,13 @@ export function appendReturningCommit(
   raw: string | null | undefined,
   commitmentId: string,
   token: string,
+  signupId?: string,
 ): string {
   const existing = parseReturningCommits(raw).filter((c) => c.commitmentId !== commitmentId);
-  const next = [{ commitmentId, token }, ...existing].slice(0, MAX_ENTRIES);
+  const entry: ReturningCommit = signupId
+    ? { commitmentId, token, signupId }
+    : { commitmentId, token };
+  const next = [entry, ...existing].slice(0, MAX_ENTRIES);
   return serializeReturningCommits(next);
 }
 

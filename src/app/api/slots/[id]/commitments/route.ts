@@ -47,6 +47,7 @@ export async function POST(
       req.cookies.get(COMMIT_COOKIE_NAME)?.value ?? null,
       result.value.commitment.id,
       result.value.editToken,
+      sig.id,
     );
     setReturningCommitCookie(response, nextCookie);
     return response;

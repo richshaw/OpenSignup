@@ -1,4 +1,4 @@
-import { and, asc, eq, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
@@ -238,6 +238,43 @@ export async function getOwnCommitment(
     return err(serviceError('forbidden', 'invalid edit token'));
   }
   return ok({ ...found.c, participantName: found.pname, participantEmail: found.pemail });
+}
+
+/**
+ * Batch lookup for the returning-participant cookie. Resolves a list of
+ * (commitmentId, token) pairs against a single signup in one DB query, dropping
+ * any rows that don't belong to the signup, are inactive, or fail token verify.
+ */
+export async function getOwnCommitmentsForSignup(
+  db: Db,
+  signupId: string,
+  items: { commitmentId: string; token: string }[],
+): Promise<Array<CommitmentRow & { participantName: string; participantEmail: string }>> {
+  if (items.length === 0) return [];
+  const tokenById = new Map(items.map((i) => [i.commitmentId, i.token]));
+  const rows = await db
+    .select({
+      c: commitments,
+      pname: participants.name,
+      pemail: participants.email,
+    })
+    .from(commitments)
+    .innerJoin(participants, eq(participants.id, commitments.participantId))
+    .where(
+      and(
+        eq(commitments.signupId, signupId),
+        inArray(commitments.id, [...tokenById.keys()]),
+        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
+      ),
+    );
+  const out: Array<CommitmentRow & { participantName: string; participantEmail: string }> = [];
+  for (const row of rows) {
+    const token = tokenById.get(row.c.id);
+    if (!token) continue;
+    if (!verifyHash(token, row.c.editTokenHash)) continue;
+    out.push({ ...row.c, participantName: row.pname, participantEmail: row.pemail });
+  }
+  return out;
 }
 
 export async function updateOwnCommitment(

@@ -8,7 +8,7 @@ import {
 } from '@/lib/returning-participant';
 import type { SignupStatus } from '@/schemas/signups';
 import type { SlotStatus } from '@/schemas/slots';
-import { getOwnCommitment } from '@/services/commitments';
+import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { getPublicSignup } from '@/services/signups';
 import SignupView, { type SignupViewField, type SignupViewSlot } from './signup-view';
 
@@ -45,25 +45,18 @@ export default async function PublicSignupPage({ params }: PageParams) {
 
   const cookieStore = await cookies();
   const returningRaw = cookieStore.get(COMMIT_COOKIE_NAME)?.value ?? null;
-  const returning = parseReturningCommits(returningRaw);
-  const db = getDb();
-  const lookups = await Promise.all(
-    returning.map(async (r) => {
-      const found = await getOwnCommitment(db, r.commitmentId, r.token);
-      if (!found.ok) return null;
-      const c = found.value;
-      if (c.signupId !== sig.id) return null;
-      if (c.status !== 'confirmed' && c.status !== 'tentative') return null;
-      return {
-        slotId: c.slotId,
-        editUrl: commitmentEditUrl(slug, c.id, r.token),
-        participantName: c.participantName,
-      };
-    }),
+  // Drop entries the cookie says belong to a different signup; legacy entries
+  // (no signupId) fall through and are filtered by the signupId-scoped query.
+  const candidates = parseReturningCommits(returningRaw).filter(
+    (e) => !e.signupId || e.signupId === sig.id,
   );
-  const ownCommitments = lookups.filter(
-    (x): x is { slotId: string; editUrl: string; participantName: string } => x !== null,
-  );
+  const found = await getOwnCommitmentsForSignup(getDb(), sig.id, candidates);
+  const tokenById = new Map(candidates.map((c) => [c.commitmentId, c.token]));
+  const ownCommitments = found.map((c) => ({
+    slotId: c.slotId,
+    editUrl: commitmentEditUrl(slug, c.id, tokenById.get(c.id) ?? ''),
+    participantName: c.participantName,
+  }));
 
   const slots: SignupViewSlot[] = sig.slots.map((slot) => ({
     id: slot.id,
