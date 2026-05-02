@@ -5,6 +5,12 @@ import type { SlotStatus } from '@/schemas/slots';
 import { Banner } from '@/components/banner';
 import CommitDialog from './commit-dialog';
 
+export interface OwnCommitment {
+  slotId: string;
+  editUrl: string;
+  participantName: string;
+}
+
 export interface SignupViewSlot {
   id: string;
   ref: string;
@@ -47,6 +53,7 @@ interface SignupViewProps {
   slots: SignupViewSlot[];
   slug: string;
   mode: 'live' | 'preview';
+  ownCommitments?: OwnCommitment[];
 }
 
 interface SlotGroup {
@@ -78,13 +85,24 @@ function groupSlots(
   return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
 }
 
-export default function SignupView({ signup, fields, groupByRef, slots, slug, mode }: SignupViewProps) {
+export default function SignupView({
+  signup,
+  fields,
+  groupByRef,
+  slots,
+  slug,
+  mode,
+  ownCommitments,
+}: SignupViewProps) {
   const isPreview = mode === 'preview';
   const effectiveStatus =
     isPreview && signup.status === 'draft' ? 'open' : signup.status;
   const groupField =
     groupByRef ? fields.find((f) => f.ref === groupByRef) ?? null : null;
   const groups = groupSlots(slots, groupField);
+  const ownBySlot = new Map((ownCommitments ?? []).map((c) => [c.slotId, c]));
+  const firstOwn = ownCommitments?.[0] ?? null;
+  const ownCount = ownCommitments?.length ?? 0;
 
   const previewCopy =
     signup.status === 'draft'
@@ -105,6 +123,24 @@ export default function SignupView({ signup, fields, groupByRef, slots, slug, mo
           title="Closed"
           body="This signup is no longer collecting responses."
         />
+      ) : firstOwn ? (
+        <div className="rounded-xl border border-surface-sunk bg-success/5 px-4 py-3 text-sm">
+          <span className="font-medium">You&apos;re signed up</span>
+          {ownCount === 1 ? (
+            <>
+              {' '}as <span className="text-ink">{firstOwn.participantName}</span>.{' '}
+              <Link href={firstOwn.editUrl} className="text-brand underline">
+                Edit or cancel
+              </Link>
+            </>
+          ) : (
+            <>
+              {' '}as <span className="text-ink">{firstOwn.participantName}</span> for{' '}
+              <span className="text-ink">{ownCount} slots</span>. Use the Edit button on
+              any of your slots below to change or cancel it.
+            </>
+          )}
+        </div>
       ) : null}
 
       <header className="space-y-2">
@@ -128,10 +164,14 @@ export default function SignupView({ signup, fields, groupByRef, slots, slug, mo
                 const closed = slot.status !== 'open' || effectiveStatus !== 'open' || full;
                 const summary =
                   summarizeSlotValues(fields, slot.values, groupField?.ref) || slot.ref;
+                const own = ownBySlot.get(slot.id) ?? null;
+                const isOwn = own !== null;
                 return (
                   <li
                     key={slot.id}
-                    className="flex items-center justify-between gap-4 px-5 py-4"
+                    className={`flex items-center justify-between gap-4 px-5 py-4 ${
+                      isOwn ? 'bg-success/5' : ''
+                    }`}
                   >
                     <div className="min-w-0">
                       <p className="truncate font-medium">{summary}</p>
@@ -151,8 +191,15 @@ export default function SignupView({ signup, fields, groupByRef, slots, slug, mo
                         {slot.capacity ? `/${slot.capacity}` : ''}
                       </span>
                       <div className="flex w-24 justify-center">
-                        {closed ? (
-                          <span className="text-ink-muted px-3 py-1.5 text-xs font-medium">
+                        {own ? (
+                          <Link
+                            href={own.editUrl}
+                            className="rounded-lg border border-surface-sunk bg-white px-4 py-2 text-sm font-medium transition hover:bg-surface-raised"
+                          >
+                            Edit
+                          </Link>
+                        ) : closed ? (
+                          <span className="text-ink-muted px-3 py-1.5 text-sm font-medium">
                             {full ? 'Full' : 'Closed'}
                           </span>
                         ) : isPreview ? (
@@ -165,7 +212,11 @@ export default function SignupView({ signup, fields, groupByRef, slots, slug, mo
                             Sign up
                           </button>
                         ) : (
-                          <CommitDialog slotId={slot.id} slotTitle={summary} slug={slug} />
+                          <CommitDialog
+                            slotId={slot.id}
+                            slotTitle={summary}
+                            slug={slug}
+                          />
                         )}
                       </div>
                     </div>

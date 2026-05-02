@@ -1,7 +1,14 @@
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getDb } from '@/db/client';
+import { commitmentEditUrl } from '@/lib/links';
+import {
+  COMMIT_COOKIE_NAME,
+  parseReturningCommits,
+} from '@/lib/returning-participant';
 import type { SignupStatus } from '@/schemas/signups';
 import type { SlotStatus } from '@/schemas/slots';
+import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { getPublicSignup } from '@/services/signups';
 import SignupView, { type SignupViewField, type SignupViewSlot } from './signup-view';
 
@@ -36,6 +43,21 @@ export default async function PublicSignupPage({ params }: PageParams) {
   }
   const sig = result.value;
 
+  const cookieStore = await cookies();
+  const returningRaw = cookieStore.get(COMMIT_COOKIE_NAME)?.value ?? null;
+  // Drop entries the cookie says belong to a different signup; legacy entries
+  // (no signupId) fall through and are filtered by the signupId-scoped query.
+  const candidates = parseReturningCommits(returningRaw).filter(
+    (e) => !e.signupId || e.signupId === sig.id,
+  );
+  const found = await getOwnCommitmentsForSignup(getDb(), sig.id, candidates);
+  const tokenById = new Map(candidates.map((c) => [c.commitmentId, c.token]));
+  const ownCommitments = found.map((c) => ({
+    slotId: c.slotId,
+    editUrl: commitmentEditUrl(slug, c.id, tokenById.get(c.id) ?? ''),
+    participantName: c.participantName,
+  }));
+
   const slots: SignupViewSlot[] = sig.slots.map((slot) => ({
     id: slot.id,
     ref: slot.ref,
@@ -66,6 +88,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
         slots={slots}
         slug={slug}
         mode="live"
+        ownCommitments={ownCommitments}
       />
     </main>
   );

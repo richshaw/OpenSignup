@@ -4,6 +4,11 @@ import { getDb } from '@/db/client';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { fail, handle, respond } from '@/lib/api-response';
+import {
+  COMMIT_COOKIE_NAME,
+  appendReturningCommit,
+  setReturningCommitCookie,
+} from '@/lib/returning-participant';
 import { serviceError } from '@/lib/errors';
 import { commitmentEditUrl, link } from '@/lib/links';
 import { commitToSlot } from '@/services/commitments';
@@ -27,7 +32,7 @@ export async function POST(
     if (!sig) return fail(serviceError('not_found', 'signup missing'));
 
     const editUrl = commitmentEditUrl(sig.slug, result.value.commitment.id, result.value.editToken);
-    return respond(
+    const response = respond(
       { ok: true, value: { ...result.value, editUrl } },
       {
         edit: link(editUrl),
@@ -38,5 +43,13 @@ export async function POST(
         ),
       },
     );
+    const nextCookie = appendReturningCommit(
+      req.cookies.get(COMMIT_COOKIE_NAME)?.value ?? null,
+      result.value.commitment.id,
+      result.value.editToken,
+      sig.id,
+    );
+    setReturningCommitCookie(response, nextCookie);
+    return response;
   });
 }
