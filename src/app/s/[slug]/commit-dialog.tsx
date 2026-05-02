@@ -155,7 +155,7 @@ export default function CommitDialog({ slotId, slotTitle, slug }: CommitDialogPr
                 </label>
               </div>
               {error ? (
-                <div className="rounded-lg bg-danger/10 p-3 text-sm text-danger">
+                <div role="alert" className="rounded-lg bg-danger/10 p-3 text-sm text-danger">
                   <p className="font-medium">{error.message}</p>
                   {error.suggestion ? <p className="text-xs">{error.suggestion}</p> : null}
                   {error.details?.alternatives?.length ? (
