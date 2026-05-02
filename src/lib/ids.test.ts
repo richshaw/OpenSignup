@@ -51,4 +51,16 @@ describe('parseId', () => {
   it('returns null for unknown prefixes', () => {
     expect(parseId('xxx_' + 'A'.repeat(22))).toBeNull();
   });
+
+  it('rejects bodies containing non-base62 characters', () => {
+    expect(parseId('sig_' + '!'.repeat(22))).toBeNull();
+    expect(parseId('sig_' + '-'.repeat(22))).toBeNull();
+    expect(parseId('sig_' + 'A'.repeat(21) + '!')).toBeNull();
+  });
+
+  it('rejects bodies of the wrong length', () => {
+    expect(parseId('sig_' + 'A'.repeat(21))).toBeNull();
+    expect(parseId('sig_' + 'A'.repeat(23))).toBeNull();
+    expect(parseId('sig_')).toBeNull();
+  });
 });

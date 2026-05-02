@@ -45,11 +45,7 @@ export function makeId<P extends IdPrefix>(prefix: P): `${P}_${string}` {
   return `${prefix}_${body}` as `${P}_${string}`;
 }
 
-export function isId<P extends IdPrefix>(prefix: P, value: unknown): value is `${P}_${string}` {
-  if (typeof value !== 'string') return false;
-  const marker = `${prefix}_`;
-  if (!value.startsWith(marker)) return false;
-  const body = value.slice(marker.length);
+function isBase62Body(body: string): boolean {
   if (body.length !== 22) return false;
   for (const c of body) {
     if (!BASE62_ALPHABET.includes(c)) return false;
@@ -63,6 +59,12 @@ export function parseId(value: string): { prefix: IdPrefix; body: string } | nul
   const prefix = value.slice(0, idx) as IdPrefix;
   if (!ID_PREFIXES.includes(prefix)) return null;
   const body = value.slice(idx + 1);
-  if (body.length !== 22) return null;
+  if (!isBase62Body(body)) return null;
   return { prefix, body };
+}
+
+export function isId<P extends IdPrefix>(prefix: P, value: unknown): value is `${P}_${string}` {
+  if (typeof value !== 'string') return false;
+  const parsed = parseId(value);
+  return parsed?.prefix === prefix;
 }
