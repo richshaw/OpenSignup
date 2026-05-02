@@ -20,7 +20,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
   return (
     <section className="max-w-2xl space-y-6">
       {error ? (
-        <p className="bg-danger/10 text-danger rounded-lg px-3 py-2 text-sm">{error}</p>
+        <p role="alert" className="bg-danger/10 text-danger rounded-lg px-3 py-2 text-sm">{error}</p>
       ) : null}
       <form
         action={updateBasicsAction.bind(null, id)}
