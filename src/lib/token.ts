@@ -1,13 +1,8 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { getEnv } from './env';
 
 function secret(): string {
   return getEnv().AUTH_SECRET;
-}
-
-/** Generates a URL-safe opaque token (32 random bytes, base64url). */
-export function generateToken(bytes = 32): string {
-  return randomBytes(bytes).toString('base64url');
 }
 
 export function hashToken(token: string): string {

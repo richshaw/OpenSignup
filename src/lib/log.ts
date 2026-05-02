@@ -25,6 +25,3 @@ export const log = pino({
   }),
 });
 
-export function childLog(bindings: Record<string, unknown>) {
-  return log.child(bindings);
-}
