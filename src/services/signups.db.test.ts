@@ -9,6 +9,7 @@ import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor, WorkspaceRole } from '@/lib/policy';
 import { addSlot } from '@/services/slots';
+import { commitToSlot } from '@/services/commitments';
 import {
   archiveSignup,
   closeSignup,
@@ -339,7 +340,7 @@ describe('signups service (db)', () => {
       expect(r.ok).toBe(true);
       if (!r.ok) return;
       expect(r.value.id).toBe(created.value.id);
-      expect(r.value.committerByslot).toEqual({});
+      expect(r.value.committedBySlot).toEqual({});
     });
 
     it('returns ok for a closed signup', async () => {
@@ -392,6 +393,63 @@ describe('signups service (db)', () => {
       if (r.ok) return;
       expect(r.error.code).toBe('not_found');
       expect(r.error.received).toBeUndefined();
+    });
+
+    it('rejects a single commit whose quantity exceeds capacity', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Cap qty'));
+      if (!created.ok) throw new Error('setup failed');
+      const slotR = await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 1 });
+      if (!slotR.ok) throw new Error('slot setup failed');
+      const pub = await publishSignup(fx.db, fx.actor, created.value.id);
+      if (!pub.ok) throw new Error('setup failed');
+
+      const r = await commitToSlot(fx.db, slotR.value.id, {
+        name: 'Sarah',
+        email: 'sarah@example.com',
+        quantity: 5,
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('capacity_full');
+
+      const pubR = await getPublicSignup(fx.db, created.value.slug);
+      if (!pubR.ok) throw new Error('public read failed');
+      expect(pubR.value.committedBySlot).toEqual({});
+    });
+
+    it('reports committedBySlot as sum of quantities', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Qty sum'));
+      if (!created.ok) throw new Error('setup failed');
+      const slotR = await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 10 });
+      if (!slotR.ok) throw new Error('slot setup failed');
+      const pub = await publishSignup(fx.db, fx.actor, created.value.id);
+      if (!pub.ok) throw new Error('setup failed');
+
+      const a = await commitToSlot(fx.db, slotR.value.id, {
+        name: 'A',
+        email: 'a@example.com',
+        quantity: 3,
+      });
+      if (!a.ok) throw new Error('first commit failed');
+      const b = await commitToSlot(fx.db, slotR.value.id, {
+        name: 'B',
+        email: 'b@example.com',
+        quantity: 4,
+      });
+      if (!b.ok) throw new Error('second commit failed');
+
+      const pubR = await getPublicSignup(fx.db, created.value.slug);
+      if (!pubR.ok) throw new Error('public read failed');
+      expect(pubR.value.committedBySlot[slotR.value.id]).toBe(7);
+
+      const c = await commitToSlot(fx.db, slotR.value.id, {
+        name: 'C',
+        email: 'c@example.com',
+        quantity: 4,
+      });
+      expect(c.ok).toBe(false);
+      if (c.ok) return;
+      expect(c.error.code).toBe('capacity_full');
     });
 
     it('returns not_found without `received` when soft-deleted', async () => {

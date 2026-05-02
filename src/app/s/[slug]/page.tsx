@@ -1,17 +1,54 @@
+import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getDb } from '@/db/client';
+import { commitmentEditUrl } from '@/lib/links';
+import {
+  COMMIT_COOKIE_NAME,
+  parseReturningCommits,
+} from '@/lib/returning-participant';
 import type { SignupStatus } from '@/schemas/signups';
 import type { SlotStatus } from '@/schemas/slots';
-import { getPublicSignup } from '@/services/signups';
+import { getOwnCommitmentsForSignup } from '@/services/commitments';
+import { loadPublicSignup } from '@/services/signups.cached';
 import SignupView, { type SignupViewField, type SignupViewSlot } from './signup-view';
-
-export const metadata = { title: 'Sign up' };
 
 type PageParams = { params: Promise<{ slug: string }> };
 
+function trimToBoundary(value: string | null | undefined, max: number): string | null {
+  if (!value) return null;
+  if (value.length <= max) return value;
+  const sliced = value.slice(0, max);
+  const lastSpace = sliced.search(/\s\S*$/);
+  const trimmed = (lastSpace > 0 ? sliced.slice(0, lastSpace) : sliced).trimEnd();
+  return trimmed.length > 0 ? `${trimmed}…` : sliced;
+}
+
+export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
+  const { slug } = await params;
+  const result = await loadPublicSignup(slug);
+  if (!result.ok) return { title: 'Sign up' };
+  const sig = result.value;
+  const description = trimToBoundary(sig.description, 200) ?? 'Sign up via OpenSignup';
+  return {
+    title: sig.title,
+    description,
+    openGraph: {
+      title: sig.title,
+      description,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary',
+      title: sig.title,
+      description,
+    },
+  };
+}
+
 export default async function PublicSignupPage({ params }: PageParams) {
   const { slug } = await params;
-  const result = await getPublicSignup(getDb(), slug);
+  const result = await loadPublicSignup(slug);
   if (!result.ok) {
     const received = result.error.received;
     if (received === 'draft' || received === 'archived') {
@@ -36,18 +73,30 @@ export default async function PublicSignupPage({ params }: PageParams) {
   }
   const sig = result.value;
 
-  const slots: SignupViewSlot[] = sig.slots.map((slot) => {
-    const committerIds = sig.committerByslot[slot.id] ?? [];
-    return {
-      id: slot.id,
-      ref: slot.ref,
-      values: (slot.values as Record<string, unknown>) ?? {},
-      slotAt: slot.slotAt ? slot.slotAt.toISOString() : null,
-      capacity: slot.capacity,
-      status: slot.status as SlotStatus,
-      committed: committerIds.length,
-    };
-  });
+  const cookieStore = await cookies();
+  const returningRaw = cookieStore.get(COMMIT_COOKIE_NAME)?.value ?? null;
+  // Drop entries the cookie says belong to a different signup; legacy entries
+  // (no signupId) fall through and are filtered by the signupId-scoped query.
+  const candidates = parseReturningCommits(returningRaw).filter(
+    (e) => !e.signupId || e.signupId === sig.id,
+  );
+  const found = await getOwnCommitmentsForSignup(getDb(), sig.id, candidates);
+  const tokenById = new Map(candidates.map((c) => [c.commitmentId, c.token]));
+  const ownCommitments = found.map((c) => ({
+    slotId: c.slotId,
+    editUrl: commitmentEditUrl(slug, c.id, tokenById.get(c.id) ?? ''),
+    participantName: c.participantName,
+  }));
+
+  const slots: SignupViewSlot[] = sig.slots.map((slot) => ({
+    id: slot.id,
+    ref: slot.ref,
+    values: (slot.values as Record<string, unknown>) ?? {},
+    slotAt: slot.slotAt ? slot.slotAt.toISOString() : null,
+    capacity: slot.capacity,
+    status: slot.status as SlotStatus,
+    committed: sig.committedBySlot[slot.id] ?? 0,
+  }));
   const fields: SignupViewField[] = sig.fields.map((f) => ({
     ref: f.ref,
     label: f.label,
@@ -69,6 +118,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
         slots={slots}
         slug={slug}
         mode="live"
+        ownCommitments={ownCommitments}
       />
     </main>
   );

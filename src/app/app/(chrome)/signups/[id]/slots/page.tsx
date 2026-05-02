@@ -135,9 +135,11 @@ export default async function SlotsTab({ params }: PageParams) {
       ) : (
         <ul className="divide-y divide-surface-sunk overflow-hidden rounded-xl border border-surface-sunk bg-white">
           {sig.slots.map((slot) => {
-            const active = commitments.filter(
-              (c) => c.slotId === slot.id && (c.status === 'confirmed' || c.status === 'tentative'),
-            );
+            const activeQty = commitments
+              .filter(
+                (c) => c.slotId === slot.id && (c.status === 'confirmed' || c.status === 'tentative'),
+              )
+              .reduce((acc, c) => acc + c.quantity, 0);
             const summary = summarizeValues(fields, (slot.values as Record<string, unknown>) ?? {});
             return (
               <li key={slot.id} className="flex items-center justify-between gap-4 px-5 py-4">
@@ -145,7 +147,7 @@ export default async function SlotsTab({ params }: PageParams) {
                   <p className="truncate font-medium">{summary || slot.ref}</p>
                   <p className="text-ink-muted text-sm">
                     {slot.slotAt ? new Date(slot.slotAt).toLocaleDateString() : '—'} ·{' '}
-                    {active.length}
+                    {activeQty}
                     {slot.capacity ? `/${slot.capacity}` : ''} signed up
                   </p>
                 </div>
