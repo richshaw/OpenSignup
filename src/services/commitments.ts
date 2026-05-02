@@ -243,6 +243,16 @@ export async function updateOwnCommitment(
   if (data.swapToSlotId && data.swapToSlotId !== current.slotId) {
     const swapToSlotId = data.swapToSlotId;
     return db.transaction(async (tx) => {
+      const target = await tx
+        .select({ signupId: slots.signupId })
+        .from(slots)
+        .where(eq(slots.id, swapToSlotId))
+        .limit(1);
+      if (!target[0]) return err(serviceError('not_found', 'target slot not found'));
+      if (target[0].signupId !== current.signupId) {
+        return err(serviceError('forbidden', 'cannot swap to a slot in a different signup'));
+      }
+
       const cancelled = await tx
         .update(commitments)
         .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() })
