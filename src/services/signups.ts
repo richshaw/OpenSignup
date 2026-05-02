@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, or } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import type { Db } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
 import { signups } from '@/db/schema/signups';
@@ -258,7 +258,7 @@ export async function listSignupsForWorkspace(
 export async function getPublicSignup(
   db: Db,
   slug: string,
-): Promise<Result<SignupWithSlots & { committerByslot: Record<string, string[]> }, ServiceError>> {
+): Promise<Result<SignupWithSlots & { committedBySlot: Record<string, number> }, ServiceError>> {
   const found = await db.select().from(signups).where(eq(signups.slug, slug)).limit(1);
   const row = found[0];
   if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
@@ -281,8 +281,7 @@ export async function getPublicSignup(
   const committerRows = await db
     .select({
       slotId: commitments.slotId,
-      participantId: commitments.participantId,
-      status: commitments.status,
+      sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int`,
     })
     .from(commitments)
     .where(
@@ -290,16 +289,15 @@ export async function getPublicSignup(
         eq(commitments.signupId, row.id),
         or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
       ),
-    );
+    )
+    .groupBy(commitments.slotId);
 
-  const committerByslot: Record<string, string[]> = {};
+  const committedBySlot: Record<string, number> = {};
   for (const c of committerRows) {
-    const list = committerByslot[c.slotId] ?? [];
-    list.push(c.participantId);
-    committerByslot[c.slotId] = list;
+    committedBySlot[c.slotId] = c.sum;
   }
 
-  return ok({ ...row, slots: signupSlots, fields, committerByslot });
+  return ok({ ...row, slots: signupSlots, fields, committedBySlot });
 }
 
 async function pickAvailableSlug(db: Db, title: string): Promise<string> {

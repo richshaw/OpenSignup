@@ -36,18 +36,15 @@ export default async function PublicSignupPage({ params }: PageParams) {
   }
   const sig = result.value;
 
-  const slots: SignupViewSlot[] = sig.slots.map((slot) => {
-    const committerIds = sig.committerByslot[slot.id] ?? [];
-    return {
-      id: slot.id,
-      ref: slot.ref,
-      values: (slot.values as Record<string, unknown>) ?? {},
-      slotAt: slot.slotAt ? slot.slotAt.toISOString() : null,
-      capacity: slot.capacity,
-      status: slot.status as SlotStatus,
-      committed: committerIds.length,
-    };
-  });
+  const slots: SignupViewSlot[] = sig.slots.map((slot) => ({
+    id: slot.id,
+    ref: slot.ref,
+    values: (slot.values as Record<string, unknown>) ?? {},
+    slotAt: slot.slotAt ? slot.slotAt.toISOString() : null,
+    capacity: slot.capacity,
+    status: slot.status as SlotStatus,
+    committed: sig.committedBySlot[slot.id] ?? 0,
+  }));
   const fields: SignupViewField[] = sig.fields.map((f) => ({
     ref: f.ref,
     label: f.label,
