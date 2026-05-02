@@ -36,10 +36,6 @@ Docker image is published to GHCR on release. See `docker-compose.yml` for the c
 
 Email transport is pluggable (`console` for dev, `smtp` for generic self-host, `resend` for hosted). No other external accounts required.
 
-## Status
-
-v1 — deliberately narrow. See [`docs/plans/2026-04-19-signup-v1.md`](docs/plans/2026-04-19-signup-v1.md) for the full build plan.
-
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md). Contributors retain copyright on their contributions and license them under AGPL-3.0.
