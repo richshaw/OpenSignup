@@ -43,6 +43,7 @@ Everything below was extracted from this single repo — no Figma, no screenshot
 - **Design tokens:** `tailwind.config.ts`, `src/app/globals.css`.
 - **Brand voice:** `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`, the actual UI copy in pages.
 - **Components & layouts:** `src/app/page.tsx` (landing), `src/app/login/page.tsx`, `src/app/s/[slug]/*` (public participant), `src/app/app/(chrome)/*` (organizer dashboard, signup detail, new signup), `src/components/chrome/Crumb.tsx`.
+- **Build plan / scope:** `docs/plans/2026-04-19-signup-v1.md`.
 
 If you want primary sources, clone the repo — the design language is pleasingly small and easy to read end‑to‑end.
 
