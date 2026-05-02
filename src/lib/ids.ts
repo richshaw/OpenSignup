@@ -21,6 +21,7 @@ export type IdPrefix = (typeof ID_PREFIXES)[number];
 
 // ASCII-sorted so lexicographic comparison matches numeric order (required for UUIDv7 sortability).
 const BASE62_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+const BASE62_BODY_RE = /^[0-9A-Za-z]{22}$/;
 const BASE62 = 62n;
 
 function toBase62(bigint: bigint, padTo: number): string {
@@ -47,14 +48,8 @@ export function makeId<P extends IdPrefix>(prefix: P): `${P}_${string}` {
 
 export function isId<P extends IdPrefix>(prefix: P, value: unknown): value is `${P}_${string}` {
   if (typeof value !== 'string') return false;
-  const marker = `${prefix}_`;
-  if (!value.startsWith(marker)) return false;
-  const body = value.slice(marker.length);
-  if (body.length !== 22) return false;
-  for (const c of body) {
-    if (!BASE62_ALPHABET.includes(c)) return false;
-  }
-  return true;
+  const parsed = parseId(value);
+  return parsed !== null && parsed.prefix === prefix;
 }
 
 export function parseId(value: string): { prefix: IdPrefix; body: string } | null {
@@ -63,6 +58,6 @@ export function parseId(value: string): { prefix: IdPrefix; body: string } | nul
   const prefix = value.slice(0, idx) as IdPrefix;
   if (!ID_PREFIXES.includes(prefix)) return null;
   const body = value.slice(idx + 1);
-  if (body.length !== 22) return null;
+  if (!BASE62_BODY_RE.test(body)) return null;
   return { prefix, body };
 }

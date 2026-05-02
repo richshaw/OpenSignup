@@ -51,4 +51,14 @@ describe('parseId', () => {
   it('returns null for unknown prefixes', () => {
     expect(parseId('xxx_' + 'A'.repeat(22))).toBeNull();
   });
+
+  it('returns null when the body contains non-base62 characters', () => {
+    expect(parseId('sig_' + '!'.repeat(22))).toBeNull();
+    expect(parseId('sig_' + '-'.repeat(22))).toBeNull();
+  });
+
+  it('returns null when the body is the wrong length', () => {
+    expect(parseId('sig_' + 'A'.repeat(21))).toBeNull();
+    expect(parseId('sig_' + 'A'.repeat(23))).toBeNull();
+  });
 });
