@@ -3,6 +3,11 @@ import { getDb } from '@/db/client';
 import { fail, handle, respond } from '@/lib/api-response';
 import { serviceError } from '@/lib/errors';
 import {
+  COMMIT_COOKIE_NAME,
+  removeReturningCommit,
+  setReturningCommitCookie,
+} from '@/lib/returning-participant';
+import {
   cancelOwnCommitment,
   getOwnCommitment,
   updateOwnCommitment,
@@ -52,6 +57,11 @@ export async function DELETE(
     const token = readToken(req);
     if (!token) return fail(serviceError('forbidden', 'edit token required', { field: 'token' }));
     const result = await cancelOwnCommitment(getDb(), id, token);
-    return respond(result);
+    const response = respond(result);
+    if (result.ok) {
+      const next = removeReturningCommit(req.cookies.get(COMMIT_COOKIE_NAME)?.value, id);
+      setReturningCommitCookie(response, next);
+    }
+    return response;
   });
 }

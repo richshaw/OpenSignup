@@ -1,7 +1,14 @@
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getDb } from '@/db/client';
+import { commitmentEditUrl } from '@/lib/links';
+import {
+  COMMIT_COOKIE_NAME,
+  parseReturningCommits,
+} from '@/lib/returning-participant';
 import type { SignupStatus } from '@/schemas/signups';
 import type { SlotStatus } from '@/schemas/slots';
+import { getOwnCommitment } from '@/services/commitments';
 import { getPublicSignup } from '@/services/signups';
 import SignupView, { type SignupViewField, type SignupViewSlot } from './signup-view';
 
@@ -36,6 +43,28 @@ export default async function PublicSignupPage({ params }: PageParams) {
   }
   const sig = result.value;
 
+  const cookieStore = await cookies();
+  const returningRaw = cookieStore.get(COMMIT_COOKIE_NAME)?.value ?? null;
+  const returning = parseReturningCommits(returningRaw);
+  const db = getDb();
+  const lookups = await Promise.all(
+    returning.map(async (r) => {
+      const found = await getOwnCommitment(db, r.commitmentId, r.token);
+      if (!found.ok) return null;
+      const c = found.value;
+      if (c.signupId !== sig.id) return null;
+      if (c.status !== 'confirmed' && c.status !== 'tentative') return null;
+      return {
+        slotId: c.slotId,
+        editUrl: commitmentEditUrl(slug, c.id, r.token),
+        participantName: c.participantName,
+      };
+    }),
+  );
+  const ownCommitments = lookups.filter(
+    (x): x is { slotId: string; editUrl: string; participantName: string } => x !== null,
+  );
+
   const slots: SignupViewSlot[] = sig.slots.map((slot) => ({
     id: slot.id,
     ref: slot.ref,
@@ -66,6 +95,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
         slots={slots}
         slug={slug}
         mode="live"
+        ownCommitments={ownCommitments}
       />
     </main>
   );
