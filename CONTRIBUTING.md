@@ -15,9 +15,16 @@ OpenSignup is AGPL-3.0. Contributions retain your copyright and are licensed und
 
 ```bash
 pnpm install
-docker compose up -d
+cp .env.example .env.local
+docker compose up -d            # local Postgres on :5433
 pnpm db:migrate
-pnpm dev
+pnpm dev                         # http://localhost:3000
+```
+
+In a separate terminal, run the reminder worker if you're touching jobs or email:
+
+```bash
+pnpm worker
 ```
 
 Run `pnpm test` for unit tests, `pnpm test:db` for integration tests against the compose Postgres, and `pnpm test:e2e` for Playwright.
