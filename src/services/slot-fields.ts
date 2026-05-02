@@ -7,7 +7,7 @@ import { recordActivity } from '@/lib/activity';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
-import { requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
+import { requireOrganizerId, requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import {
   type SlotFieldConfig,
@@ -176,7 +176,7 @@ export async function addField(
     await recordActivity(tx, {
       signupId,
       workspaceId: signupRow.workspaceId,
-      actor: { actorId: (actor as { id: string }).id, actorType: 'organizer' },
+      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'field.created',
       payload: { fieldId: row.id, ref: row.ref, fieldType: row.fieldType },
     });
@@ -269,7 +269,7 @@ export async function updateField(
     await recordActivity(tx, {
       signupId: existing.signupId,
       workspaceId: existing.workspaceId,
-      actor: { actorId: (actor as { id: string }).id, actorType: 'organizer' },
+      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'field.updated',
       payload: { fieldId: row.id, ref: row.ref, changes },
     });
@@ -344,7 +344,7 @@ export async function deleteField(
     await recordActivity(tx, {
       signupId: existing.signupId,
       workspaceId: existing.workspaceId,
-      actor: { actorId: (actor as { id: string }).id, actorType: 'organizer' },
+      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'field.deleted',
       payload: {
         fieldId,

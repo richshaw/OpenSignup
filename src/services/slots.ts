@@ -7,7 +7,7 @@ import { recordActivity } from '@/lib/activity';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
-import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
+import { requireOrganizerId, requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { toSlug } from '@/lib/slug';
 import {
@@ -73,7 +73,7 @@ export async function addSlot(
     await recordActivity(tx, {
       signupId,
       workspaceId: signupRow.workspaceId,
-      actor: { actorId: (actor as { id: string }).id, actorType: 'organizer' },
+      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'slot.created',
       payload: { slotId: inserted.id },
     });
@@ -134,7 +134,7 @@ export async function addSlotsBulk(
     await recordActivity(tx, {
       signupId,
       workspaceId: signupRow.workspaceId,
-      actor: { actorId: (actor as { id: string }).id, actorType: 'organizer' },
+      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'slot.created',
       payload: { count: out.length, bulk: true },
     });
@@ -213,7 +213,7 @@ export async function updateSlot(
     await recordActivity(tx, {
       signupId: row.signupId,
       workspaceId: slotRow.workspaceId,
-      actor: { actorId: (actor as { id: string }).id, actorType: 'organizer' },
+      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'slot.updated',
       payload: { slotId, changed: Object.keys(data) },
     });
@@ -242,7 +242,7 @@ export async function deleteSlot(
     await recordActivity(tx, {
       signupId: slotRow.signupId,
       workspaceId: slotRow.workspaceId,
-      actor: { actorId: (actor as { id: string }).id, actorType: 'organizer' },
+      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'slot.deleted',
       payload: { slotId },
     });

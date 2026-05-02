@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type Actor,
   isInWorkspace,
+  requireOrganizerId,
   requireWorkspaceAccess,
   requireWorkspaceWrite,
   workspaceRole,
@@ -52,5 +53,25 @@ describe('policy', () => {
   it('workspaceRole returns null for anon and unknown ws', () => {
     const a = organizer({ ws_one: 'owner' });
     expect(workspaceRole(a, 'ws_unknown')).toBeNull();
+  });
+
+  it('requireOrganizerId returns the organizer id', () => {
+    const a = organizer({ ws_one: 'owner' });
+    expect(requireOrganizerId(a)).toBe('org_123');
+  });
+
+  it('requireOrganizerId throws for anonymous actor', () => {
+    const anon: Actor = { kind: 'anonymous' };
+    expect(() => requireOrganizerId(anon)).toThrow(/organizer session/);
+  });
+
+  it('requireOrganizerId throws for participant actor', () => {
+    const participant: Actor = {
+      kind: 'participant',
+      signupId: 'sig_1',
+      participantId: 'par_1',
+      commitmentId: 'com_1',
+    };
+    expect(() => requireOrganizerId(participant)).toThrow(/organizer session/);
   });
 });
