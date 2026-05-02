@@ -41,16 +41,19 @@ export async function saveResponse(
   response: { status: number; body: string },
 ): Promise<void> {
   const ttl = ctx.ttlSeconds ?? 60 * 60 * 24;
-  await db.insert(idempotencyKeys).values({
-    id: makeId('idm'),
-    key: ctx.key,
-    organizerId: ctx.organizerId ?? null,
-    participantScope: ctx.participantScope ?? null,
-    requestHash: hashBody(ctx.requestBody),
-    responseBody: response.body,
-    responseStatus: response.status,
-    expiresAt: new Date(Date.now() + ttl * 1000),
-  });
+  await db
+    .insert(idempotencyKeys)
+    .values({
+      id: makeId('idm'),
+      key: ctx.key,
+      organizerId: ctx.organizerId ?? null,
+      participantScope: ctx.participantScope ?? null,
+      requestHash: hashBody(ctx.requestBody),
+      responseBody: response.body,
+      responseStatus: response.status,
+      expiresAt: new Date(Date.now() + ttl * 1000),
+    })
+    .onConflictDoNothing();
 }
 
 function hashBody(body: unknown): string {
