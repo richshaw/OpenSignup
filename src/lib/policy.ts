@@ -41,6 +41,11 @@ export function requireOrganizer(actor: Actor): asserts actor is Extract<Actor, 
   }
 }
 
+export function requireOrganizerId(actor: Actor): string {
+  requireOrganizer(actor);
+  return actor.id;
+}
+
 export function requireWorkspaceAccess(actor: Actor, workspaceId: string | null): void {
   if (workspaceId === null) return; // guest-scope, only covered by ownership checks elsewhere
   requireOrganizer(actor);

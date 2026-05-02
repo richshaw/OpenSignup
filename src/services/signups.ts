@@ -7,7 +7,7 @@ import { recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
-import { requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
+import { requireOrganizerId, requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { toSlug } from '@/lib/slug';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
@@ -65,7 +65,7 @@ export async function createSignup(
     await recordActivity(tx, {
       signupId: inserted.id,
       workspaceId,
-      actor: { actorId: actor.id, actorType: 'organizer' },
+      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'signup.created',
       payload: { title: inserted.title },
     });
@@ -142,7 +142,7 @@ export async function updateSignup(
     await recordActivity(tx, {
       signupId,
       workspaceId: row.workspaceId,
-      actor: { actorId: (actor as { id: string }).id, actorType: 'organizer' },
+      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'signup.updated',
       payload: { changed: Object.keys(data) },
     });
@@ -226,7 +226,7 @@ async function transitionStatus(
     await recordActivity(tx, {
       signupId,
       workspaceId: row.workspaceId,
-      actor: { actorId: (actor as { id: string }).id, actorType: 'organizer' },
+      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType,
       payload: { from: row.status, to },
     });
