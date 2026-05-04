@@ -69,6 +69,15 @@ export function buildColsTemplate(fields: SizableField[]): string {
 }
 
 /**
+ * Returns the effective pixel width for a field, resolving flex min or fixed px.
+ * Used by ResizeHandle to determine the starting width before a drag.
+ */
+export function widthFor(field: SizableField, isFirst: boolean): number {
+  const s = sizingFor(field, isFirst);
+  return s.mode === 'fixed' ? s.px : s.min;
+}
+
+/**
  * Returns the sum of minimum column widths for the full grid.
  *
  * = 38 (index) + 90 (capacity) + 60 (actions) + Σ each field's min/fixed width
