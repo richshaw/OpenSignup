@@ -7,15 +7,13 @@ import { useEffect, useRef } from 'react';
 interface TabsNavProps {
   signupId: string;
   counts: {
-    fields: number;
-    slots: number;
+    build: number;
     responses: number;
   };
 }
 
 const TABS = [
-  { id: 'fields', label: 'Fields' },
-  { id: 'slots', label: 'Slots' },
+  { id: 'build', label: 'Build' },
   { id: 'responses', label: 'Responses' },
   { id: 'settings', label: 'Settings' },
 ] as const;
@@ -29,7 +27,7 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
   const activeTab: TabId = (() => {
     const segment = pathname.split('/').pop() ?? '';
     const match = TABS.find((t) => t.id === segment);
-    return match ? match.id : 'fields';
+    return match ? match.id : 'build';
   })();
 
   useEffect(() => {
@@ -45,13 +43,11 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
       {TABS.map((t) => {
         const active = t.id === activeTab;
         const count =
-          t.id === 'fields'
-            ? counts.fields
-            : t.id === 'slots'
-              ? counts.slots
-              : t.id === 'responses'
-                ? counts.responses
-                : null;
+          t.id === 'build'
+            ? counts.build
+            : t.id === 'responses'
+              ? counts.responses
+              : null;
         return (
           <Link
             key={t.id}

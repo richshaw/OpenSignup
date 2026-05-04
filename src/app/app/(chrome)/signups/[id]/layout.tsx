@@ -55,7 +55,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
       />
       <TabsNav
         signupId={id}
-        counts={{ fields: sig.fields.length, slots: sig.slots.length, responses: responsesCount }}
+        counts={{ build: sig.fields.length + sig.slots.length, responses: responsesCount }}
       />
       <div>{children}</div>
     </div>
