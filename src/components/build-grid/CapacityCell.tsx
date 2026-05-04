@@ -1,20 +1,19 @@
 interface CapacityCellProps {
-  rowId: string;
   capacity: number | null;
-  onChange: (rowId: string, capacity: number | null) => void;
+  onChange: (v: number | null) => void;
 }
 
 const inputClass =
-  'border-none bg-transparent w-full font-inherit text-[13px] text-ink ' +
+  'border-none bg-transparent w-full font-[inherit] text-[13px] text-ink ' +
   'focus:outline-none focus:ring-2 focus:ring-brand focus:ring-inset focus:ring-offset-[-2px] ' +
   'px-2 py-2 placeholder:text-ink-soft';
 
-export function CapacityCell({ rowId, capacity, onChange }: CapacityCellProps) {
+export function CapacityCell({ capacity, onChange }: CapacityCellProps) {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.value === '') {
-      onChange(rowId, null);
+      onChange(null);
     } else {
-      onChange(rowId, Number(e.target.value));
+      onChange(Number(e.target.value));
     }
   }
 

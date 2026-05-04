@@ -1,3 +1,4 @@
+import type { SlotFieldConfig } from '@/schemas/slot-fields';
 import type { GridField } from './useGridState';
 
 interface CellInputProps {
@@ -9,13 +10,9 @@ interface CellInputProps {
 
 /** Shared input style classes applied to every input/select variant. */
 const inputClass =
-  'border-none bg-transparent w-full font-inherit text-[13px] text-ink ' +
+  'border-none bg-transparent w-full font-[inherit] text-[13px] text-ink ' +
   'focus:outline-none focus:ring-2 focus:ring-brand focus:ring-inset focus:ring-offset-[-2px] ' +
   'px-2 py-2 placeholder:text-ink-soft';
-
-interface EnumConfig {
-  choices: string[];
-}
 
 export function CellInput({ field, value, onChange, onClick }: CellInputProps) {
   function handleClick(e: React.MouseEvent) {
@@ -24,7 +21,7 @@ export function CellInput({ field, value, onChange, onClick }: CellInputProps) {
   }
 
   if (field.type === 'enum') {
-    const config = field.config as unknown as EnumConfig;
+    const config = field.config as Extract<SlotFieldConfig, { fieldType: 'enum' }>;
     const choices = config.choices ?? [];
     return (
       <select
@@ -47,7 +44,6 @@ export function CellInput({ field, value, onChange, onClick }: CellInputProps) {
     text: 'text',
     date: 'date',
     time: 'time',
-    number: 'number',
   };
 
   const inputType = typeMap[field.type] ?? 'text';

@@ -72,8 +72,8 @@ export function buildColsTemplate(fields: SizableField[]): string {
  * Returns the effective pixel width for a field, resolving flex min or fixed px.
  * Used by ResizeHandle to determine the starting width before a drag.
  */
-export function widthFor(field: SizableField, isFirst: boolean): number {
-  const s = sizingFor(field, isFirst);
+export function widthFor(field: SizableField, fieldIndex: number): number {
+  const s = sizingFor(field, fieldIndex === 0);
   return s.mode === 'fixed' ? s.px : s.min;
 }
 

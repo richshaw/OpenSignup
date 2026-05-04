@@ -6,53 +6,46 @@ import type { GridField } from './useGridState';
 
 interface ResizeHandleProps {
   field: GridField;
-  isFirst: boolean;
-  onResize: (fieldId: string, width: number) => void;
-  onReset: (fieldId: string) => void;
+  fieldIndex: number;
+  onResize: (width: number) => void;
+  onReset: () => void;
 }
 
-export function ResizeHandle({ field, isFirst, onResize, onReset }: ResizeHandleProps) {
+export function ResizeHandle({ field, fieldIndex, onResize, onReset }: ResizeHandleProps) {
   const [dragging, setDragging] = useState(false);
   const [hover, setHover] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(0);
 
-  function startDrag(e: React.PointerEvent) {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.stopPropagation();
-
-    const startX = e.clientX;
-    const startW = widthFor(field, isFirst);
-
+    e.currentTarget.setPointerCapture(e.pointerId);
     setDragging(true);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
+    setStartX(e.clientX);
+    setStartWidth(widthFor(field, fieldIndex));
+  };
 
-    function onPointerMove(moveEvent: PointerEvent) {
-      const delta = moveEvent.clientX - startX;
-      const next = Math.min(MAX_W, Math.max(MIN_W, startW + delta));
-      onResize(field.id, next);
-    }
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging) return;
+    const next = Math.min(MAX_W, Math.max(MIN_W, startWidth + e.clientX - startX));
+    onResize(next);
+  };
 
-    function onPointerUp() {
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      setDragging(false);
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-    }
-
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-  }
+  const handlePointerUp = () => {
+    setDragging(false);
+  };
 
   function resetWidth(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    onReset(field.id);
+    onReset();
   }
 
   return (
     <div
-      onPointerDown={startDrag}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
       onDoubleClick={resetWidth}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}

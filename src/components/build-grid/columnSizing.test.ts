@@ -98,28 +98,28 @@ describe('totalGridWidth', () => {
 
 describe('widthFor', () => {
   it('returns fixed px for a date field', () => {
-    expect(widthFor({ type: 'date' }, false)).toBe(150);
+    expect(widthFor({ type: 'date' }, 1)).toBe(150);
   });
 
   it('returns flex min for a text field (not first)', () => {
-    expect(widthFor({ type: 'text' }, false)).toBe(140);
+    expect(widthFor({ type: 'text' }, 1)).toBe(140);
   });
 
   it('returns flex min for a text field (first, bonus does not affect min)', () => {
-    // isFirst adds weight bonus but does not change the min; widthFor returns min for flex
-    expect(widthFor({ type: 'text' }, true)).toBe(140);
+    // fieldIndex === 0 adds weight bonus but does not change the min; widthFor returns min for flex
+    expect(widthFor({ type: 'text' }, 0)).toBe(140);
   });
 
   it('returns the explicit width when set', () => {
-    expect(widthFor({ type: 'text', width: 220 }, false)).toBe(220);
+    expect(widthFor({ type: 'text', width: 220 }, 1)).toBe(220);
   });
 
   it('returns clamped MIN_W when explicit width is below minimum', () => {
-    expect(widthFor({ type: 'text', width: 20 }, false)).toBe(MIN_W);
+    expect(widthFor({ type: 'text', width: 20 }, 1)).toBe(MIN_W);
   });
 
   it('returns clamped MAX_W when explicit width is above maximum', () => {
-    expect(widthFor({ type: 'date', width: 900 }, false)).toBe(MAX_W);
+    expect(widthFor({ type: 'date', width: 900 }, 1)).toBe(MAX_W);
   });
 });
 

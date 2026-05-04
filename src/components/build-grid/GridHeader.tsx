@@ -8,7 +8,7 @@ import type { GridField } from './useGridState';
 
 interface GridHeaderProps {
   fields: GridField[];
-  onEditField: (fieldId: string) => void;
+  onEditField: (field: GridField) => void;
   onAddField: () => void;
   onResize: (fieldId: string, width: number) => void;
   onResetWidth: (fieldId: string) => void;
@@ -46,7 +46,7 @@ export function GridHeader({
             className="flex items-center border-r border-surface-sunk"
           >
             <button
-              onClick={() => onEditField(f.id)}
+              onClick={() => onEditField(f)}
               className="flex flex-1 items-center gap-1.5 px-2 py-2 text-left min-w-0 overflow-hidden text-ellipsis"
             >
               <Icon size={12} className="text-brand flex-shrink-0" />
@@ -56,9 +56,9 @@ export function GridHeader({
             </button>
             <ResizeHandle
               field={f}
-              isFirst={i === 0}
-              onResize={onResize}
-              onReset={onResetWidth}
+              fieldIndex={i}
+              onResize={(width) => onResize(f.id, width)}
+              onReset={() => onResetWidth(f.id)}
             />
           </div>
         );
@@ -74,6 +74,7 @@ export function GridHeader({
         <button
           onClick={onAddField}
           title="Add column"
+          aria-label="Add column"
           className="text-brand hover:text-brand/80 p-1 rounded"
         >
           <Plus size={13} />

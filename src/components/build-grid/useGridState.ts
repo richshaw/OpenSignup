@@ -49,7 +49,10 @@ export type GridAction =
   | { type: 'OPTIMISTIC_ADD_ROW'; row: GridRow }
   | { type: 'OPTIMISTIC_REMOVE_ROW'; rowId: string }
   | { type: 'OPTIMISTIC_EDIT_CELL'; rowId: string; fieldRef: string; value: string }
-  | { type: 'OPTIMISTIC_SET_CAPACITY'; rowId: string; capacity: number | null };
+  | { type: 'OPTIMISTIC_SET_CAPACITY'; rowId: string; capacity: number | null }
+  | { type: 'APPEND_FIELD'; field: GridField }
+  | { type: 'REPLACE_FIELD'; field: GridField }
+  | { type: 'DELETE_FIELD'; fieldId: string; fieldRef: string };
 
 // ---------------------------------------------------------------------------
 // Reducer (exported for testing)
@@ -105,6 +108,25 @@ export function gridReducer(state: GridState, action: GridAction): GridState {
         rows: state.rows.map((r) =>
           r.id === action.rowId ? { ...r, capacity: action.capacity } : r,
         ),
+      };
+
+    case 'APPEND_FIELD':
+      return { ...state, fields: [...state.fields, action.field] };
+
+    case 'REPLACE_FIELD':
+      return {
+        ...state,
+        fields: state.fields.map((f) => (f.id === action.field.id ? action.field : f)),
+      };
+
+    case 'DELETE_FIELD':
+      return {
+        ...state,
+        fields: state.fields.filter((f) => f.id !== action.fieldId),
+        rows: state.rows.map((r) => {
+          const { [action.fieldRef]: _, ...rest } = r.values;
+          return { ...r, values: rest };
+        }),
       };
 
     default:
@@ -209,13 +231,13 @@ export function useGridState(
         if (!res.ok) throw new Error(await res.text());
         const envelope = (await res.json()) as { data: SlotFieldDefinition };
         const field = toGridFields([envelope.data])[0]!;
-        dispatch({ type: 'SET_FIELDS', fields: [...state.fields, field] });
+        dispatch({ type: 'APPEND_FIELD', field });
         markSaved();
       } catch {
         markError();
       }
     },
-    [signupId, state.fields],
+    [signupId],
   );
 
   const updateField = useCallback(
@@ -239,47 +261,33 @@ export function useGridState(
         if (!res.ok) throw new Error(await res.text());
         const envelope = (await res.json()) as { data: SlotFieldDefinition };
         const updated = toGridFields([envelope.data])[0]!;
-        dispatch({
-          type: 'SET_FIELDS',
-          fields: state.fields.map((f) => (f.id === fieldId ? updated : f)),
-        });
+        dispatch({ type: 'REPLACE_FIELD', field: updated });
         markSaved();
       } catch {
         markError();
       }
     },
-    [signupId, state.fields],
+    [signupId],
   );
 
   const deleteField = useCallback(
     async (fieldId: string): Promise<void> => {
       const field = state.fields.find((f) => f.id === fieldId);
       if (!field) return;
+      const fieldRef = field.ref;
       markSaving();
       try {
         const res = await fetch(`/api/signups/${signupId}/fields/${fieldId}`, {
           method: 'DELETE',
         });
         if (!res.ok) throw new Error(await res.text());
-        dispatch({
-          type: 'SET_FIELDS',
-          fields: state.fields.filter((f) => f.id !== fieldId),
-        });
-        // Remove the field's values from all rows
-        const fieldRef = field.ref;
-        dispatch({
-          type: 'SET_ROWS',
-          rows: state.rows.map((r) => {
-            const { [fieldRef]: _removed, ...rest } = r.values;
-            return { ...r, values: rest };
-          }),
-        });
+        dispatch({ type: 'DELETE_FIELD', fieldId, fieldRef });
         markSaved();
       } catch {
         markError();
       }
     },
-    [signupId, state.fields, state.rows],
+    [signupId, state.fields],
   );
 
   const moveFieldUp = useCallback(

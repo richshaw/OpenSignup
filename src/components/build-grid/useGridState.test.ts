@@ -278,3 +278,132 @@ describe('gridReducer SET_GROUP_BY', () => {
     expect(next.groupByFieldRef).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// APPEND_FIELD
+// ---------------------------------------------------------------------------
+
+describe('gridReducer APPEND_FIELD', () => {
+  it('appends the new field to the end of fields', () => {
+    const field1 = makeField({ id: 'f1', ref: 'alpha' });
+    const field2 = makeField({ id: 'f2', ref: 'beta' });
+    const state = makeState({ fields: [field1] });
+
+    const next = gridReducer(state, { type: 'APPEND_FIELD', field: field2 });
+
+    expect(next.fields).toHaveLength(2);
+    expect(next.fields[1]).toEqual(field2);
+  });
+
+  it('does not mutate existing fields', () => {
+    const field1 = makeField({ id: 'f1', ref: 'alpha' });
+    const field2 = makeField({ id: 'f2', ref: 'beta' });
+    const state = makeState({ fields: [field1] });
+
+    const next = gridReducer(state, { type: 'APPEND_FIELD', field: field2 });
+
+    expect(next.fields[0]).toEqual(field1);
+  });
+
+  it('works when fields is empty', () => {
+    const field = makeField({ id: 'f1', ref: 'alpha' });
+    const state = makeState({ fields: [] });
+
+    const next = gridReducer(state, { type: 'APPEND_FIELD', field });
+
+    expect(next.fields).toHaveLength(1);
+    expect(next.fields[0]).toEqual(field);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// REPLACE_FIELD
+// ---------------------------------------------------------------------------
+
+describe('gridReducer REPLACE_FIELD', () => {
+  it('replaces the matching field by id', () => {
+    const field1 = makeField({ id: 'f1', ref: 'alpha', name: 'Alpha' });
+    const field2 = makeField({ id: 'f2', ref: 'beta', name: 'Beta' });
+    const updatedField1 = makeField({ id: 'f1', ref: 'alpha', name: 'Alpha Updated' });
+    const state = makeState({ fields: [field1, field2] });
+
+    const next = gridReducer(state, { type: 'REPLACE_FIELD', field: updatedField1 });
+
+    expect(next.fields[0]?.name).toBe('Alpha Updated');
+    expect(next.fields[1]).toEqual(field2);
+  });
+
+  it('does not change fields if id is not found', () => {
+    const field1 = makeField({ id: 'f1', ref: 'alpha' });
+    const ghost = makeField({ id: 'f99', ref: 'ghost', name: 'Ghost' });
+    const state = makeState({ fields: [field1] });
+
+    const next = gridReducer(state, { type: 'REPLACE_FIELD', field: ghost });
+
+    expect(next.fields).toHaveLength(1);
+    expect(next.fields[0]).toEqual(field1);
+  });
+
+  it('does not mutate other fields', () => {
+    const field1 = makeField({ id: 'f1', ref: 'alpha' });
+    const field2 = makeField({ id: 'f2', ref: 'beta', name: 'Beta' });
+    const updatedField1 = makeField({ id: 'f1', ref: 'alpha', name: 'Alpha Updated' });
+    const state = makeState({ fields: [field1, field2] });
+
+    const next = gridReducer(state, { type: 'REPLACE_FIELD', field: updatedField1 });
+
+    expect(next.fields[1]).toEqual(field2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DELETE_FIELD
+// ---------------------------------------------------------------------------
+
+describe('gridReducer DELETE_FIELD', () => {
+  it('removes the field with the given id from fields', () => {
+    const field1 = makeField({ id: 'f1', ref: 'alpha' });
+    const field2 = makeField({ id: 'f2', ref: 'beta' });
+    const state = makeState({ fields: [field1, field2] });
+
+    const next = gridReducer(state, { type: 'DELETE_FIELD', fieldId: 'f1', fieldRef: 'alpha' });
+
+    expect(next.fields).toHaveLength(1);
+    expect(next.fields[0]?.id).toBe('f2');
+  });
+
+  it('strips the fieldRef from all rows values', () => {
+    const field1 = makeField({ id: 'f1', ref: 'alpha' });
+    const row1 = makeRow({ id: 'r1', values: { alpha: 'hello', beta: 'world' } });
+    const row2 = makeRow({ id: 'r2', values: { alpha: 'foo', beta: 'bar' } });
+    const state = makeState({ fields: [field1], rows: [row1, row2] });
+
+    const next = gridReducer(state, { type: 'DELETE_FIELD', fieldId: 'f1', fieldRef: 'alpha' });
+
+    expect(next.rows[0]?.values).toEqual({ beta: 'world' });
+    expect(next.rows[1]?.values).toEqual({ beta: 'bar' });
+  });
+
+  it('does not affect rows that do not have the fieldRef', () => {
+    const field1 = makeField({ id: 'f1', ref: 'alpha' });
+    const row1 = makeRow({ id: 'r1', values: { beta: 'world' } });
+    const state = makeState({ fields: [field1], rows: [row1] });
+
+    const next = gridReducer(state, { type: 'DELETE_FIELD', fieldId: 'f1', fieldRef: 'alpha' });
+
+    expect(next.rows[0]?.values).toEqual({ beta: 'world' });
+  });
+
+  it('atomically removes field and strips rows in one action', () => {
+    const field1 = makeField({ id: 'f1', ref: 'alpha' });
+    const field2 = makeField({ id: 'f2', ref: 'beta' });
+    const row1 = makeRow({ id: 'r1', values: { alpha: 'a', beta: 'b' } });
+    const state = makeState({ fields: [field1, field2], rows: [row1] });
+
+    const next = gridReducer(state, { type: 'DELETE_FIELD', fieldId: 'f1', fieldRef: 'alpha' });
+
+    expect(next.fields).toHaveLength(1);
+    expect(next.fields[0]?.id).toBe('f2');
+    expect(next.rows[0]?.values).toEqual({ beta: 'b' });
+  });
+});

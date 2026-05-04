@@ -9,7 +9,7 @@ import type { GridField, GridRow } from './useGridState';
 interface GridBodyProps {
   fields: GridField[];
   rows: GridRow[];
-  previewRowIdx: number;
+  highlightedRowIdx: number;
   onSelectRow: (idx: number) => void;
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;
   onSetCapacity: (rowId: string, capacity: number | null) => void;
@@ -21,7 +21,7 @@ interface GridBodyProps {
 export function GridBody({
   fields,
   rows,
-  previewRowIdx,
+  highlightedRowIdx,
   onSelectRow,
   onEditCell,
   onSetCapacity,
@@ -39,7 +39,7 @@ export function GridBody({
             display: 'grid',
             gridTemplateColumns: buildColsTemplate(fields),
             borderBottom: '1px solid #eef1f5',
-            background: i === previewRowIdx ? 'rgb(31 111 235 / 0.04)' : 'transparent',
+            background: i === highlightedRowIdx ? 'rgb(31 111 235 / 0.04)' : 'transparent',
             cursor: 'pointer',
           }}
           className="group transition-colors hover:bg-brand/5"
@@ -66,7 +66,10 @@ export function GridBody({
 
           {/* Capacity cell — 90px */}
           <div className="flex items-center px-0 border-r border-surface-sunk min-h-[38px]">
-            <CapacityCell rowId={row.id} capacity={row.capacity} onChange={onSetCapacity} />
+            <CapacityCell
+              capacity={row.capacity}
+              onChange={(v) => onSetCapacity(row.id, v)}
+            />
           </div>
 
           {/* Trailing actions — 60px (visible on group-hover) */}
@@ -77,6 +80,7 @@ export function GridBody({
                 onMoveRowUp(row.id);
               }}
               title="Move up"
+              aria-label="Move row up"
               className="p-1 rounded text-ink-soft hover:text-ink hover:bg-surface-raised"
             >
               <ChevronUp size={12} />
@@ -87,6 +91,7 @@ export function GridBody({
                 onMoveRowDown(row.id);
               }}
               title="Move down"
+              aria-label="Move row down"
               className="p-1 rounded text-ink-soft hover:text-ink hover:bg-surface-raised"
             >
               <ChevronDown size={12} />
@@ -97,6 +102,7 @@ export function GridBody({
                 onDeleteRow(row.id);
               }}
               title="Remove row"
+              aria-label="Remove row"
               className="p-1 rounded text-ink-soft hover:text-danger hover:bg-surface-raised"
             >
               <X size={12} />
