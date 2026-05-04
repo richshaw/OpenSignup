@@ -4,23 +4,10 @@ import { getDb } from '@/db/client';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { listCommitmentsForSignup } from '@/services/commitments';
-import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { recordOrganizerView } from '@/lib/view-tracker';
+import { summarizeSlot } from '@/lib/slot-summary';
 
 type PageParams = { params: Promise<{ id: string }> };
-
-function summarizeValues(
-  fields: SlotFieldDefinition[],
-  values: Record<string, unknown>,
-): string {
-  const parts: string[] = [];
-  for (const f of fields) {
-    const v = values[f.ref];
-    if (v === undefined || v === null || v === '') continue;
-    parts.push(`${f.label}: ${String(v)}`);
-  }
-  return parts.join(' · ');
-}
 
 export default async function ResponsesTab({ params }: PageParams) {
   const { id } = await params;
@@ -64,7 +51,7 @@ export default async function ResponsesTab({ params }: PageParams) {
               {commitments.map((c) => {
                 const slot = sig.slots.find((s) => s.id === c.slotId);
                 const summary = slot
-                  ? summarizeValues(sig.fields, (slot.values as Record<string, unknown>) ?? {})
+                  ? summarizeSlot(sig.fields, (slot.values as Record<string, unknown>) ?? {})
                   : '';
                 return (
                   <tr key={c.id}>
