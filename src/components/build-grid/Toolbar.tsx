@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Plus, ChevronDown, Smartphone, X } from 'lucide-react';
+import { Plus, Smartphone } from 'lucide-react';
 import { SaveStatus } from './SaveStatus';
 import type { GridField, GridRow, SaveStatus as SaveStatusType } from './useGridState';
 
@@ -26,24 +25,7 @@ export function Toolbar({
   saveStatus,
   onAddField,
 }: ToolbarProps) {
-  const [groupByOpen, setGroupByOpen] = useState(false);
-  const groupByRef = useRef<HTMLDivElement>(null);
-
   const groupableFields = fields.filter((f) => f.type === 'date' || f.type === 'text');
-  const activeField = groupByFieldRef
-    ? fields.find((f) => f.ref === groupByFieldRef)
-    : null;
-
-  useEffect(() => {
-    if (!groupByOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (groupByRef.current && !groupByRef.current.contains(e.target as Node)) {
-        setGroupByOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [groupByOpen]);
 
   return (
     <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-surface-sunk bg-surface-raised">
@@ -63,65 +45,19 @@ export function Toolbar({
       {/* Group by label */}
       <span className="text-xs text-ink-soft">Group by</span>
 
-      {/* Group by pill */}
-      <div ref={groupByRef} className="relative">
-        {activeField ? (
-          <div className="inline-flex items-center border rounded-full bg-[rgb(31_111_235/0.10)] border-brand-soft">
-            <button
-              onClick={() => setGroupByOpen((o) => !o)}
-              className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 text-xs font-medium text-brand bg-transparent border-none cursor-pointer font-[inherit]"
-              aria-label={`Group by ${activeField.name} — click to change`}
-            >
-              {activeField.name}
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onGroupByChange(null);
-                setGroupByOpen(false);
-              }}
-              className="inline-flex items-center pr-2 py-1 text-brand bg-transparent border-none cursor-pointer"
-              aria-label="Clear group by"
-            >
-              <X size={10} />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setGroupByOpen((o) => !o)}
-            className="flex items-center gap-1 text-xs font-medium border rounded-full px-2.5 py-1 bg-white text-ink-muted border-surface-sunk"
-          >
-            None
-            <ChevronDown size={11} />
-          </button>
-        )}
-
-        {groupByOpen && (
-          <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-surface-sunk rounded-lg shadow-md py-1 min-w-[140px]">
-            <button
-              onClick={() => {
-                onGroupByChange(null);
-                setGroupByOpen(false);
-              }}
-              className="w-full text-left px-3 py-1.5 text-xs text-ink-muted hover:bg-surface-raised"
-            >
-              None
-            </button>
-            {groupableFields.map((f) => (
-              <button
-                key={f.ref}
-                onClick={() => {
-                  onGroupByChange(f.ref);
-                  setGroupByOpen(false);
-                }}
-                className="w-full text-left px-3 py-1.5 text-xs text-ink hover:bg-surface-raised"
-              >
-                {f.name}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Group by select */}
+      <select
+        value={groupByFieldRef ?? ''}
+        onChange={(e) => onGroupByChange(e.target.value || null)}
+        className="text-xs font-medium border rounded-full px-2.5 py-1 bg-white text-ink-muted border-surface-sunk cursor-pointer"
+      >
+        <option value="">None</option>
+        {groupableFields.map((f) => (
+          <option key={f.ref} value={f.ref}>
+            {f.name}
+          </option>
+        ))}
+      </select>
 
       {/* Spacer */}
       <div className="flex-1" />
