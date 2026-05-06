@@ -43,9 +43,8 @@ function AddRowAffordance({ onAdd }: { onAdd: () => void }) {
       type="button"
       onClick={onAdd}
       aria-label="Add another slot"
-      className="w-full grid grid-cols-[38px_1fr] bg-surface-raised border-t border-surface-sunk cursor-pointer text-left font-[inherit] hover:bg-surface-sunk/50"
+      className="w-full bg-surface-raised border-t border-surface-sunk cursor-pointer text-left font-[inherit] hover:bg-surface-sunk/50"
     >
-      <span className="flex items-center justify-center text-ink-soft text-sm">+</span>
       <span className="flex items-center gap-1.5 px-3 py-3 text-sm text-ink-soft">
         <Plus size={13} />
         Add another slot
