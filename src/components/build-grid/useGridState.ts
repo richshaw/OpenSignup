@@ -194,6 +194,13 @@ export function useGridState(
   const timersRef = useRef<Map<string, DebounceEntry>>(new Map());
   const stateRef = useRef(state);
   stateRef.current = state;
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current !== null) clearTimeout(savedTimerRef.current);
+    };
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Save status helpers
@@ -205,7 +212,8 @@ export function useGridState(
 
   function markSaved() {
     dispatch({ type: 'SET_SAVE_STATUS', status: 'saved' });
-    setTimeout(() => dispatch({ type: 'SET_SAVE_STATUS', status: 'idle' }), SAVED_CLEAR_MS);
+    if (savedTimerRef.current !== null) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => dispatch({ type: 'SET_SAVE_STATUS', status: 'idle' }), SAVED_CLEAR_MS);
   }
 
   function markError() {
@@ -303,7 +311,7 @@ export function useGridState(
 
       markSaving();
       try {
-        await Promise.all([
+        const [r1, r2] = await Promise.all([
           fetch(`/api/signups/${signupId}/fields/${above.id}`, {
             method: 'PATCH',
             headers: JSON_HEADERS,
@@ -315,6 +323,7 @@ export function useGridState(
             body: JSON.stringify({ sortOrder: newCurrentSortOrder }),
           }),
         ]);
+        if (!r1.ok || !r2.ok) throw new Error('reorder failed');
         const updatedFields = state.fields.map((f) => {
           if (f.id === above.id) return { ...f, sortOrder: newAboveSortOrder };
           if (f.id === current.id) return { ...f, sortOrder: newCurrentSortOrder };
@@ -343,7 +352,7 @@ export function useGridState(
 
       markSaving();
       try {
-        await Promise.all([
+        const [r1, r2] = await Promise.all([
           fetch(`/api/signups/${signupId}/fields/${current.id}`, {
             method: 'PATCH',
             headers: JSON_HEADERS,
@@ -355,6 +364,7 @@ export function useGridState(
             body: JSON.stringify({ sortOrder: newBelowSortOrder }),
           }),
         ]);
+        if (!r1.ok || !r2.ok) throw new Error('reorder failed');
         const updatedFields = state.fields.map((f) => {
           if (f.id === current.id) return { ...f, sortOrder: newCurrentSortOrder };
           if (f.id === below.id) return { ...f, sortOrder: newBelowSortOrder };
@@ -435,7 +445,7 @@ export function useGridState(
 
       markSaving();
       try {
-        await Promise.all([
+        const [r1, r2] = await Promise.all([
           fetch(`/api/slots/${above.id}`, {
             method: 'PATCH',
             headers: JSON_HEADERS,
@@ -447,6 +457,7 @@ export function useGridState(
             body: JSON.stringify({ sortOrder: newCurrentSortOrder }),
           }),
         ]);
+        if (!r1.ok || !r2.ok) throw new Error('reorder failed');
         const updatedRows = state.rows.map((r) => {
           if (r.id === above.id) return { ...r, sortOrder: newAboveSortOrder };
           if (r.id === current.id) return { ...r, sortOrder: newCurrentSortOrder };
@@ -475,7 +486,7 @@ export function useGridState(
 
       markSaving();
       try {
-        await Promise.all([
+        const [r1, r2] = await Promise.all([
           fetch(`/api/slots/${current.id}`, {
             method: 'PATCH',
             headers: JSON_HEADERS,
@@ -487,6 +498,7 @@ export function useGridState(
             body: JSON.stringify({ sortOrder: newBelowSortOrder }),
           }),
         ]);
+        if (!r1.ok || !r2.ok) throw new Error('reorder failed');
         const updatedRows = state.rows.map((r) => {
           if (r.id === current.id) return { ...r, sortOrder: newCurrentSortOrder };
           if (r.id === below.id) return { ...r, sortOrder: newBelowSortOrder };

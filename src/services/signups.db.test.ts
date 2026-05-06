@@ -240,6 +240,24 @@ describe('signups service (db)', () => {
       if (r.ok) return;
       expect(r.error.code).toBe('not_found');
     });
+
+    it('clears reminderFromFieldRef when omitted from settings update', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Reminder'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const set = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { reminderFromFieldRef: 'date' },
+      });
+      expect(set.ok).toBe(true);
+
+      const cleared = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: {},
+      });
+      expect(cleared.ok).toBe(true);
+      if (!cleared.ok) return;
+      const s = cleared.value.settings as { reminderFromFieldRef?: string };
+      expect(s.reminderFromFieldRef).toBeUndefined();
+    });
   });
 
   describe('status transitions', () => {

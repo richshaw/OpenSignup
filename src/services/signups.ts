@@ -111,8 +111,7 @@ export async function updateSignup(
   const data = input.value;
 
   const prevSettings = (row.settings as { reminderFromFieldRef?: string; [k: string]: unknown }) ?? {};
-  const mergedSettings =
-    data.settings !== undefined ? { ...prevSettings, ...data.settings } : prevSettings;
+  const mergedSettings = data.settings ?? prevSettings;
   const reminderRefChanged =
     data.settings !== undefined &&
     mergedSettings.reminderFromFieldRef !== prevSettings.reminderFromFieldRef;
