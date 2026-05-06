@@ -75,10 +75,18 @@ export async function updateSettingsAction(signupId: string, formData: FormData)
   const actor = await requireActor();
   const groupBy = String(formData.get('groupByFieldRef') ?? '').trim();
   const reminder = String(formData.get('reminderFromFieldRef') ?? '').trim();
-  const nextSettings: Record<string, unknown> = {
-    groupByFieldRefs: groupBy ? [groupBy] : [],
-  };
-  if (reminder) nextSettings.reminderFromFieldRef = reminder;
+
+  const current = await loadSignupForOrganizer(actor, signupId);
+  if (!current.ok) return;
+  const parsedSettings = SignupSettingsSchema.safeParse(current.value.settings ?? {});
+  const prevSettings = parsedSettings.success
+    ? parsedSettings.data
+    : ({} as { reminderFromFieldRef?: string });
+  const { reminderFromFieldRef: _removed, ...restSettings } = prevSettings;
+  const nextSettings = reminder
+    ? { ...restSettings, groupByFieldRefs: groupBy ? [groupBy] : [], reminderFromFieldRef: reminder }
+    : { ...restSettings, groupByFieldRefs: groupBy ? [groupBy] : [] };
+
   await updateSignup(getDb(), actor, signupId, { settings: nextSettings });
   revalidateSignup(signupId);
 }
