@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in to create signups'));
 
     const db = getDb();
-    await consumeRateLimit(db, RateLimits.signupCreatePerOrganizer, actor.organizerId);
+    await consumeRateLimit(db, RateLimits.signupCreatePerOrganizer, actor.id);
 
     const body = await req.json().catch(() => ({}));
     const session = await getOrganizerSession();
