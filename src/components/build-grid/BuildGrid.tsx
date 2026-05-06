@@ -14,6 +14,7 @@ import { SideRail } from './SideRail';
 import { FieldPicker } from './FieldPicker';
 import { FieldEditor } from './FieldEditor';
 import type { SlotFieldDefinition, SlotFieldConfig, FieldType } from '@/schemas/slot-fields';
+import type { SignupSettings } from '@/schemas/signups';
 
 type BuildGridProps = {
   signupId: string;
@@ -24,6 +25,7 @@ type BuildGridProps = {
     sortOrder?: number | null;
     values: Record<string, unknown>;
   }>;
+  initialSettings: SignupSettings;
 };
 
 function buildDefaultConfig(type: Exclude<FieldType, 'enum'>): SlotFieldConfig {
@@ -52,7 +54,7 @@ function AddRowAffordance({ onAdd }: { onAdd: () => void }) {
   );
 }
 
-export function BuildGrid({ signupId, initialFields, initialSlots }: BuildGridProps) {
+export function BuildGrid({ signupId, initialFields, initialSlots, initialSettings }: BuildGridProps) {
   const {
     state,
     addField,
@@ -77,6 +79,7 @@ export function BuildGrid({ signupId, initialFields, initialSlots }: BuildGridPr
       sortOrder: s.sortOrder ?? undefined,
       values: s.values,
     })),
+    initialSettings,
   );
 
   const [showFieldPicker, setShowFieldPicker] = useState(false);

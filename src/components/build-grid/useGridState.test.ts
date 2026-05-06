@@ -134,6 +134,39 @@ describe('gridReducer OPTIMISTIC_REMOVE_ROW', () => {
 
     expect(next.rows).toHaveLength(0);
   });
+
+  it('clamps previewRowIdx when the highlighted row is deleted', () => {
+    const row1 = makeRow({ id: 'r1' });
+    const row2 = makeRow({ id: 'r2' });
+    const state = makeState({ rows: [row1, row2], previewRowIdx: 1 });
+
+    const next = gridReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r2' });
+
+    expect(next.rows).toHaveLength(1);
+    expect(next.previewRowIdx).toBe(0);
+  });
+
+  it('clamps previewRowIdx to 0 when all rows are deleted', () => {
+    const row1 = makeRow({ id: 'r1' });
+    const state = makeState({ rows: [row1], previewRowIdx: 0 });
+
+    const next = gridReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
+
+    expect(next.rows).toHaveLength(0);
+    expect(next.previewRowIdx).toBe(0);
+  });
+
+  it('clamps previewRowIdx when deletion shrinks the list below the current index', () => {
+    const row1 = makeRow({ id: 'r1' });
+    const row2 = makeRow({ id: 'r2' });
+    const row3 = makeRow({ id: 'r3' });
+    const state = makeState({ rows: [row1, row2, row3], previewRowIdx: 2 });
+
+    const next = gridReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
+
+    expect(next.rows).toHaveLength(2);
+    expect(next.previewRowIdx).toBe(1);
+  });
 });
 
 // ---------------------------------------------------------------------------

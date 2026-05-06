@@ -1,5 +1,6 @@
 import { useReducer, useRef, useEffect, useCallback } from 'react';
 import type { SlotFieldDefinition, SlotFieldConfig, FieldType } from '@/schemas/slot-fields';
+import type { SignupSettings } from '@/schemas/signups';
 
 // ---------------------------------------------------------------------------
 // State types
@@ -192,6 +193,7 @@ export function useGridState(
   signupId: string,
   initialFields: SlotFieldDefinition[],
   initialRows: Array<{ id: string; capacity: number | null; sortOrder?: number; values: Record<string, unknown> }>,
+  initialSettings: SignupSettings,
 ) {
   const [state, dispatch] = useReducer(gridReducer, undefined, () => ({
     fields: toGridFields(initialFields),
@@ -212,6 +214,7 @@ export function useGridState(
   const timersRef = useRef<Map<string, DebounceEntry>>(new Map());
   const stateRef = useRef(state);
   stateRef.current = state;
+  const settingsRef = useRef<SignupSettings>(initialSettings);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -556,6 +559,18 @@ export function useGridState(
       flushTimer(key, async () => {
         const row = stateRef.current.rows.find((r) => r.id === rowId);
         if (!row) return;
+        const fields = stateRef.current.fields;
+        const typedValues: Record<string, unknown> = {};
+        for (const [ref, raw] of Object.entries(row.values)) {
+          if (!raw) continue;
+          const field = fields.find((f) => f.ref === ref);
+          if (field?.type === 'number') {
+            const n = Number(raw);
+            if (Number.isFinite(n)) typedValues[ref] = n;
+          } else {
+            typedValues[ref] = raw;
+          }
+        }
         markSaving();
         try {
           const fields = stateRef.current.fields;
@@ -635,13 +650,15 @@ export function useGridState(
   const setGroupBy = useCallback(
     async (ref: string | null): Promise<void> => {
       markSaving();
+      const nextSettings: SignupSettings = { ...settingsRef.current, groupByFieldRefs: ref ? [ref] : [] };
       try {
         const res = await fetch(`/api/signups/${signupId}`, {
           method: 'PATCH',
           headers: JSON_HEADERS,
-          body: JSON.stringify({ settings: { groupByFieldRefs: ref ? [ref] : [] } }),
+          body: JSON.stringify({ settings: nextSettings }),
         });
         if (!res.ok) throw new Error(await res.text());
+        settingsRef.current = nextSettings;
         dispatch({ type: 'SET_GROUP_BY', ref });
         markSaved();
       } catch {
