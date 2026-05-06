@@ -1,5 +1,6 @@
 import { useReducer, useRef, useEffect, useCallback } from 'react';
 import type { SlotFieldDefinition, SlotFieldConfig, FieldType } from '@/schemas/slot-fields';
+import type { SignupSettings } from '@/schemas/signups';
 
 // ---------------------------------------------------------------------------
 // State types
@@ -164,16 +165,19 @@ function toGridFields(fields: SlotFieldDefinition[]): GridField[] {
   }));
 }
 
-function toLabelRef(label: string): string {
-  return (
+function toLabelRef(label: string, existingRefs: string[]): string {
+  const base =
     label
       .normalize('NFKD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
-      .slice(0, 40) || 'field'
-  );
+      .slice(0, 48) || 'field';
+  if (!existingRefs.includes(base)) return base;
+  let i = 2;
+  while (existingRefs.includes(`${base}-${i}`)) i++;
+  return `${base}-${i}`;
 }
 
 function toStringValues(values: Record<string, unknown>): Record<string, string> {
@@ -192,6 +196,7 @@ export function useGridState(
   signupId: string,
   initialFields: SlotFieldDefinition[],
   initialRows: Array<{ id: string; capacity: number | null; sortOrder?: number; values: Record<string, unknown> }>,
+  initialSettings: SignupSettings,
 ) {
   const [state, dispatch] = useReducer(gridReducer, undefined, () => ({
     fields: toGridFields(initialFields),
@@ -201,7 +206,7 @@ export function useGridState(
       sortOrder: r.sortOrder ?? i,
       values: toStringValues(r.values),
     })),
-    groupByFieldRef: null,
+    groupByFieldRef: initialSettings.groupByFieldRefs[0] ?? null,
     previewRowIdx: 0,
     showPreview: false,
     saveStatus: 'idle' as SaveStatus,
@@ -212,6 +217,7 @@ export function useGridState(
   const timersRef = useRef<Map<string, DebounceEntry>>(new Map());
   const stateRef = useRef(state);
   stateRef.current = state;
+  const settingsRef = useRef<SignupSettings>(initialSettings);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -251,10 +257,13 @@ export function useGridState(
     ): Promise<void> => {
       markSaving();
       try {
+        // Existing slots have no value for the new field, so required:true would
+        // 409. Start optional; organiser can flip required once slots are filled.
+        const effectiveRequired = stateRef.current.rows.length > 0 ? false : required;
         const res = await fetch(`/api/signups/${signupId}/fields`, {
           method: 'POST',
           headers: JSON_HEADERS,
-          body: JSON.stringify({ ref: toLabelRef(name), label: name, fieldType: type, config, required }),
+          body: JSON.stringify({ ref: toLabelRef(name, stateRef.current.fields.map((f) => f.ref)), label: name, fieldType: type, config, required: effectiveRequired }),
         });
         if (!res.ok) throw new Error(await res.text());
         const envelope = (await res.json()) as { data: SlotFieldDefinition };
@@ -556,6 +565,18 @@ export function useGridState(
       flushTimer(key, async () => {
         const row = stateRef.current.rows.find((r) => r.id === rowId);
         if (!row) return;
+        const fields = stateRef.current.fields;
+        const typedValues: Record<string, unknown> = {};
+        for (const [ref, raw] of Object.entries(row.values)) {
+          if (!raw) continue;
+          const field = fields.find((f) => f.ref === ref);
+          if (field?.type === 'number') {
+            const n = Number(raw);
+            if (Number.isFinite(n)) typedValues[ref] = n;
+          } else {
+            typedValues[ref] = raw;
+          }
+        }
         markSaving();
         try {
           const fields = stateRef.current.fields;
@@ -635,13 +656,15 @@ export function useGridState(
   const setGroupBy = useCallback(
     async (ref: string | null): Promise<void> => {
       markSaving();
+      const nextSettings: SignupSettings = { ...settingsRef.current, groupByFieldRefs: ref ? [ref] : [] };
       try {
         const res = await fetch(`/api/signups/${signupId}`, {
           method: 'PATCH',
           headers: JSON_HEADERS,
-          body: JSON.stringify({ settings: { groupByFieldRefs: ref ? [ref] : [] } }),
+          body: JSON.stringify({ settings: nextSettings }),
         });
         if (!res.ok) throw new Error(await res.text());
+        settingsRef.current = nextSettings;
         dispatch({ type: 'SET_GROUP_BY', ref });
         markSaved();
       } catch {

@@ -4,6 +4,7 @@ import { getOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { BuildGrid } from '@/components/build-grid';
+import { SignupSettingsSchema } from '@/schemas/signups';
 
 type PageParams = { params: Promise<{ id: string }> };
 
@@ -32,6 +33,7 @@ export default async function BuildTab({ params }: PageParams) {
         sortOrder: s.sortOrder,
         values: (s.values ?? {}) as Record<string, unknown>,
       }))}
+      initialSettings={SignupSettingsSchema.parse(sig.settings ?? {})}
     />
   );
 }

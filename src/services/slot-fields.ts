@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { signups } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
@@ -310,25 +310,6 @@ export async function deleteField(
   if (!existing) return err(serviceError('not_found', 'field not found'));
   requireWorkspaceWrite(actor, existing.workspaceId);
 
-  const slotRows = await db
-    .select({ id: slots.id, values: slots.values })
-    .from(slots)
-    .where(eq(slots.signupId, existing.signupId));
-  const offending = slotRows.filter((r) => {
-    const v = (r.values as Record<string, unknown>)?.[existing.ref];
-    return v !== undefined && v !== null && v !== '';
-  });
-  if (offending.length > 0) {
-    return err(
-      serviceError('conflict', 'cannot delete a field with stored slot values', {
-        details: {
-          slotIds: offending.slice(0, 20).map((r) => r.id),
-          count: offending.length,
-        },
-      }),
-    );
-  }
-
   const signupRow = await db
     .select({ settings: signups.settings })
     .from(signups)
@@ -354,6 +335,10 @@ export async function deleteField(
         .set({ settings: nextSettings, updatedAt: new Date() })
         .where(eq(signups.id, existing.signupId));
     }
+    await tx
+      .update(slots)
+      .set({ values: sql`${slots.values} - ${existing.ref}::text` })
+      .where(eq(slots.signupId, existing.signupId));
     await tx.delete(slotFields).where(eq(slotFields.id, fieldId));
     if (clearedReminder) {
       await recomputeSlotAtForSignup(tx, existing.signupId);

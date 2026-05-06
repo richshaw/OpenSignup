@@ -23,6 +23,8 @@ export const SignupSettingsSchema = z
   })
   .default({});
 
+export type SignupSettings = z.infer<typeof SignupSettingsSchema>;
+
 export const SignupCreateInputSchema = z.object({
   title: z.string().min(2).max(120).transform((s) => s.trim()),
   description: z.string().max(2000).default(''),

@@ -131,10 +131,9 @@ export async function updateReminderAction(signupId: string, formData: FormData)
   const actor = await requireActor();
   const reminder = String(formData.get('reminderFromFieldRef') ?? '').trim();
 
-  // Read current settings so we can replace (not just merge) them.
-  // The service does a shallow spread, so omitting the key from the patch
-  // would leave any existing reminderFromFieldRef in place. We build the
-  // full settings object here with the field explicitly removed when clearing.
+  // Read current settings so we can send the full object.
+  // The service replaces settings entirely (not a merge), so we must include
+  // all keys — omitting reminderFromFieldRef here is how we clear it.
   const current = await loadSignupForOrganizer(actor, signupId);
   if (!current.ok) {
     redirect(`/app/signups/${signupId}/settings?error=${encodeURIComponent(current.error.message)}`);
