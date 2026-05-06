@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, ChevronDown, Smartphone, X } from 'lucide-react';
+import { Plus, ChevronDown, Smartphone } from 'lucide-react';
 import { SaveStatus } from './SaveStatus';
 import type { GridField, GridRow, SaveStatus as SaveStatusType } from './useGridState';
 
@@ -66,26 +66,14 @@ export function Toolbar({
       {/* Group by pill */}
       <div ref={groupByRef} className="relative">
         {activeField ? (
-          <div className="inline-flex items-center border rounded-full bg-[rgb(31_111_235/0.10)] border-brand-soft">
-            <button
-              onClick={() => setGroupByOpen((o) => !o)}
-              className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 text-xs font-medium text-brand bg-transparent border-none cursor-pointer font-[inherit]"
-              aria-label={`Group by ${activeField.name} — click to change`}
-            >
-              {activeField.name}
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onGroupByChange(null);
-                setGroupByOpen(false);
-              }}
-              className="inline-flex items-center pr-2 py-1 text-brand bg-transparent border-none cursor-pointer"
-              aria-label="Clear group by"
-            >
-              <X size={10} />
-            </button>
-          </div>
+          <button
+            onClick={() => setGroupByOpen((o) => !o)}
+            className="flex items-center gap-1 text-xs font-medium border rounded-full px-2.5 py-1 bg-[rgb(31_111_235/0.10)] text-brand border-brand-soft"
+            aria-label={`Group by ${activeField.name} — click to change`}
+          >
+            {activeField.name}
+            <ChevronDown size={11} />
+          </button>
         ) : (
           <button
             onClick={() => setGroupByOpen((o) => !o)}
