@@ -89,8 +89,14 @@ export function gridReducer(state: GridState, action: GridAction): GridState {
     case 'OPTIMISTIC_ADD_ROW':
       return { ...state, rows: [...state.rows, action.row] };
 
-    case 'OPTIMISTIC_REMOVE_ROW':
-      return { ...state, rows: state.rows.filter((r) => r.id !== action.rowId) };
+    case 'OPTIMISTIC_REMOVE_ROW': {
+      const nextRows = state.rows.filter((r) => r.id !== action.rowId);
+      return {
+        ...state,
+        rows: nextRows,
+        previewRowIdx: Math.min(state.previewRowIdx, Math.max(0, nextRows.length - 1)),
+      };
+    }
 
     case 'OPTIMISTIC_EDIT_CELL':
       return {
@@ -156,6 +162,18 @@ function toGridFields(fields: SlotFieldDefinition[]): GridField[] {
     config: f.config,
     sortOrder: f.sortOrder,
   }));
+}
+
+function toLabelRef(label: string): string {
+  return (
+    label
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'field'
+  );
 }
 
 function toStringValues(values: Record<string, unknown>): Record<string, string> {
@@ -236,7 +254,7 @@ export function useGridState(
         const res = await fetch(`/api/signups/${signupId}/fields`, {
           method: 'POST',
           headers: JSON_HEADERS,
-          body: JSON.stringify({ label: name, fieldType: type, config, required }),
+          body: JSON.stringify({ ref: toLabelRef(name), label: name, fieldType: type, config, required }),
         });
         if (!res.ok) throw new Error(await res.text());
         const envelope = (await res.json()) as { data: SlotFieldDefinition };
@@ -540,10 +558,21 @@ export function useGridState(
         if (!row) return;
         markSaving();
         try {
+          const fields = stateRef.current.fields;
+          const typedValues: Record<string, unknown> = {};
+          for (const [ref, strVal] of Object.entries(row.values)) {
+            const fld = fields.find((f) => f.ref === ref);
+            if (fld?.type === 'number') {
+              const n = Number(strVal);
+              if (strVal !== '' && Number.isFinite(n)) typedValues[ref] = n;
+            } else {
+              typedValues[ref] = strVal;
+            }
+          }
           const res = await fetch(`/api/slots/${rowId}`, {
             method: 'PATCH',
             headers: JSON_HEADERS,
-            body: JSON.stringify({ values: row.values }),
+            body: JSON.stringify({ values: typedValues }),
           });
           if (!res.ok) throw new Error(await res.text());
           markSaved();

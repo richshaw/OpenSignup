@@ -13,7 +13,8 @@ export function CapacityCell({ capacity, onChange }: CapacityCellProps) {
     if (e.target.value === '') {
       onChange(null);
     } else {
-      onChange(Number(e.target.value));
+      const n = Number(e.target.value);
+      if (Number.isFinite(n)) onChange(n);
     }
   }
 
