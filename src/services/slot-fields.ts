@@ -249,6 +249,22 @@ export async function updateField(
     );
   }
 
+  if (data.required === true && !existing.required) {
+    const missing = slotRows.filter((row) => {
+      const v = (row.values as Record<string, unknown>)?.[existing.ref];
+      return v === undefined || v === null || v === '';
+    });
+    if (missing.length > 0) {
+      return err(
+        serviceError(
+          'conflict',
+          `cannot make field required while ${missing.length} slot(s) have no value for "${existing.ref}"`,
+          { field: 'required', details: { slotIds: missing.slice(0, 20).map((r) => r.id), count: missing.length } },
+        ),
+      );
+    }
+  }
+
   const updated = await db.transaction(async (tx) => {
     const [row] = await tx
       .update(slotFields)

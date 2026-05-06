@@ -192,6 +192,8 @@ export function useGridState(
   // Per-slot debounce entries: key = `${rowId}:${fieldRef}` or `${rowId}:capacity`
   type DebounceEntry = { timeoutId: ReturnType<typeof setTimeout>; saveFn: () => Promise<void> };
   const timersRef = useRef<Map<string, DebounceEntry>>(new Map());
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // ---------------------------------------------------------------------------
   // Save status helpers
@@ -522,12 +524,14 @@ export function useGridState(
       dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId, fieldRef, value });
       const key = `${rowId}:${fieldRef}`;
       flushTimer(key, async () => {
+        const row = stateRef.current.rows.find((r) => r.id === rowId);
+        if (!row) return;
         markSaving();
         try {
           const res = await fetch(`/api/slots/${rowId}`, {
             method: 'PATCH',
             headers: JSON_HEADERS,
-            body: JSON.stringify({ values: { [fieldRef]: value } }),
+            body: JSON.stringify({ values: row.values }),
           });
           if (!res.ok) throw new Error(await res.text());
           markSaved();
