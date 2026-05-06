@@ -11,6 +11,7 @@ export const log = pino({
       'req.headers.cookie',
       '*.password',
       '*.token',
+      '*.editToken',
       '*.apiKey',
       '*.RESEND_API_KEY',
       '*.SMTP_PASSWORD',
