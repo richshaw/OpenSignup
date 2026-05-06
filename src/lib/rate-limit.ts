@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { rateLimits } from '@/db/schema/idempotency';
+import { rateLimits } from '@/db/schema/rate-limits';
 import type { Db } from '@/db/client';
 import { serviceError, ServiceException } from './errors';
 

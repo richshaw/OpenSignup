@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { rateLimits } from '@/db/schema/idempotency';
+import { rateLimits } from '@/db/schema/rate-limits';
 import { ServiceException } from './errors';
 import { RateLimits, consumeRateLimit } from './rate-limit';
 

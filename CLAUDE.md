@@ -57,7 +57,7 @@ Helpers used by every service:
 - `src/lib/parse.ts` — wraps Zod parsing into a `Result`.
 - `src/lib/activity.ts` — `recordActivity(tx, …)` writes to the append-only activity log **inside the same transaction** as the mutation it describes. Telemetry-only events (no describing mutation) write outside a tx; see `src/lib/view-tracker.ts` and `safeRecordAttemptFailed` in `src/services/commitments.ts`.
 - `src/lib/ids.ts` — UUIDv7 + base62 + 3–4 char type prefix (`sig_`, `slot_`, `org_`, `ws_`, `mem_`, `com_`, `par_`).
-- `src/lib/idempotency.ts`, `src/lib/rate-limit.ts` — Postgres-backed (no Redis); applied at API boundaries.
+- `src/lib/rate-limit.ts` — Postgres-backed (no Redis); applied at API boundaries.
 
 ### Schemas: Zod is the source of truth
 
