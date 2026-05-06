@@ -101,8 +101,8 @@ export function GridBody({
                 e.stopPropagation();
                 onDeleteRow(row.id);
               }}
-              title="Remove row"
-              aria-label="Remove row"
+              title="Remove slot"
+              aria-label="Remove slot"
               className="p-1 rounded text-ink-soft hover:text-danger hover:bg-surface-raised"
             >
               <X size={12} />
