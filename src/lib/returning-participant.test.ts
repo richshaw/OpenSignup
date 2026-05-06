@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { NextResponse } from 'next/server';
 import {
   COMMIT_COOKIE_NAME,
   appendReturningCommit,
   parseReturningCommits,
   removeReturningCommit,
   serializeReturningCommits,
+  setReturningCommitCookie,
 } from './returning-participant';
 
 describe('returning-participant cookie', () => {
@@ -82,5 +84,38 @@ describe('returning-participant cookie', () => {
       { commitmentId: 'com_old', token: 'tokOld' },
       { commitmentId: 'com_new', token: 'tokNew', signupId: 'sig_z' },
     ]);
+  });
+});
+
+describe('setReturningCommitCookie', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  function mockResponse() {
+    const set = vi.fn();
+    return { response: { cookies: { set } } as unknown as NextResponse, set };
+  }
+
+  it('sets secure:true in production', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const { response, set } = mockResponse();
+    setReturningCommitCookie(response, 'com_a.tok');
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({ secure: true }));
+  });
+
+  it('sets secure:false outside production', () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    const { response, set } = mockResponse();
+    setReturningCommitCookie(response, 'com_a.tok');
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({ secure: false }));
+  });
+
+  it('always sets httpOnly and sameSite:lax', () => {
+    const { response, set } = mockResponse();
+    setReturningCommitCookie(response, 'com_a.tok');
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({ httpOnly: true, sameSite: 'lax', name: COMMIT_COOKIE_NAME }),
+    );
   });
 });
