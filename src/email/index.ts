@@ -32,8 +32,4 @@ export function getEmailTransport(): EmailTransport {
   return cached;
 }
 
-export function resetEmailTransport() {
-  cached = null;
-}
-
 export * from './transport';
