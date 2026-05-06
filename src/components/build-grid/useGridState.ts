@@ -203,7 +203,7 @@ export function useGridState(
       sortOrder: r.sortOrder ?? i,
       values: toStringValues(r.values),
     })),
-    groupByFieldRef: null,
+    groupByFieldRef: initialSettings.groupByFieldRefs[0] ?? null,
     previewRowIdx: 0,
     showPreview: false,
     saveStatus: 'idle' as SaveStatus,
