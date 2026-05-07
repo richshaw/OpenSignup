@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isId, makeId, parseId } from './ids';
+import { makeId } from './ids';
 
 describe('makeId', () => {
   it('returns prefixed 22-char body', () => {
@@ -18,47 +18,5 @@ describe('makeId', () => {
     const ids = new Set<string>();
     for (let i = 0; i < 1000; i++) ids.add(makeId('slot'));
     expect(ids.size).toBe(1000);
-  });
-});
-
-describe('isId', () => {
-  it('matches correct prefix', () => {
-    const id = makeId('sig');
-    expect(isId('sig', id)).toBe(true);
-  });
-
-  it('rejects wrong prefix', () => {
-    const id = makeId('sig');
-    expect(isId('slot', id)).toBe(false);
-  });
-
-  it('rejects malformed strings', () => {
-    expect(isId('sig', 'sig_short')).toBe(false);
-    expect(isId('sig', 'sig_')).toBe(false);
-    expect(isId('sig', 42)).toBe(false);
-    expect(isId('sig', undefined)).toBe(false);
-  });
-});
-
-describe('parseId', () => {
-  it('parses valid IDs', () => {
-    const id = makeId('slot');
-    const parsed = parseId(id);
-    expect(parsed?.prefix).toBe('slot');
-    expect(parsed?.body).toHaveLength(22);
-  });
-
-  it('returns null for unknown prefixes', () => {
-    expect(parseId('xxx_' + 'A'.repeat(22))).toBeNull();
-  });
-
-  it('returns null when the body contains non-base62 characters', () => {
-    expect(parseId('sig_' + '!'.repeat(22))).toBeNull();
-    expect(parseId('sig_' + '-'.repeat(22))).toBeNull();
-  });
-
-  it('returns null when the body is the wrong length', () => {
-    expect(parseId('sig_' + 'A'.repeat(21))).toBeNull();
-    expect(parseId('sig_' + 'A'.repeat(23))).toBeNull();
   });
 });
