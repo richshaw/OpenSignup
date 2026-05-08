@@ -33,7 +33,7 @@ shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 
 | event | actor | payload | fired from |
 |---|---|---|---|
-| `signup.created` | organizer | `{ title }` | `services/signups.ts` |
+| `signup.created` | organizer | `{ title, templateId, fieldsAdded, slotsAdded }` | `services/signups.ts` |
 | `signup.updated` | organizer | `{ changes }` | `services/signups.ts` |
 | `signup.published` | organizer | `{}` | `services/signups.ts` |
 | `signup.closed` | organizer | `{}` | `services/signups.ts` |

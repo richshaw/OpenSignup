@@ -12,14 +12,25 @@ import { requireOrganizerId, requireWorkspaceAccess, requireWorkspaceWrite, type
 import { err, ok, type Result } from '@/lib/result';
 import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
 import { toSlug } from '@/lib/slug';
-import { type SlotFieldDefinition, SlotFieldInputSchema } from '@/schemas/slot-fields';
+import { type SlotFieldDefinition, type SlotFieldInput, SlotFieldInputSchema } from '@/schemas/slot-fields';
 import {
   type SignupStatus,
   SignupCreateInputSchema,
   SignupUpdateInputSchema,
 } from '@/schemas/signups';
-import { listFieldsForSignup, recomputeSlotAtForSignup } from './slot-fields';
+import { type SlotCreateInput, SlotCreateInputSchema } from '@/schemas/slots';
+import {
+  extractSlotAt,
+  listFieldsForSignup,
+  recomputeSlotAtForSignup,
+  validateSlotValues,
+} from './slot-fields';
 import { pickAvailableRef, summarizeValues } from './slots';
+
+interface ReminderSettingsLike {
+  reminderFromFieldRef?: string | undefined;
+  [k: string]: unknown;
+}
 
 type SignupRow = typeof signups.$inferSelect;
 
@@ -46,6 +57,8 @@ export async function createSignup(
 
   const template = opts.template ?? DEFAULT_TEMPLATE;
 
+  const parsedFields: SlotFieldInput[] = [];
+  const seenRefs = new Set<string>();
   for (const field of template.fields) {
     const parsed = SlotFieldInputSchema.safeParse(field);
     if (!parsed.success) {
@@ -56,6 +69,44 @@ export async function createSignup(
         }),
       );
     }
+    if (seenRefs.has(parsed.data.ref)) {
+      return err(
+        serviceError('invalid_input', `template "${template.id}" has duplicate field ref "${parsed.data.ref}"`, {
+          field: 'template',
+          details: { templateId: template.id, ref: parsed.data.ref },
+        }),
+      );
+    }
+    seenRefs.add(parsed.data.ref);
+    parsedFields.push(parsed.data);
+  }
+
+  const parsedSlots: SlotCreateInput[] = [];
+  for (const slot of template.slots) {
+    const parsed = SlotCreateInputSchema.safeParse(slot);
+    if (!parsed.success) {
+      return err(
+        serviceError('invalid_input', `template "${template.id}" has an invalid slot`, {
+          field: 'template',
+          details: { templateId: template.id, error: parsed.error.flatten() },
+        }),
+      );
+    }
+    parsedSlots.push(parsed.data);
+  }
+
+  const fieldDefs: SlotFieldDefinition[] = parsedFields.map((f) => ({
+    id: '',
+    ref: f.ref,
+    label: f.label,
+    fieldType: f.fieldType,
+    required: f.required,
+    sortOrder: f.sortOrder,
+    config: f.config,
+  }));
+  for (const slot of parsedSlots) {
+    const v = validateSlotValues(fieldDefs, slot.values, { enforceRequired: false });
+    if (!v.ok) return v;
   }
 
   const id = makeId('sig');
@@ -80,7 +131,9 @@ export async function createSignup(
       .returning();
     if (!inserted) throw new Error('insert failed');
 
-    for (const field of template.fields) {
+    const settings = (inserted.settings as ReminderSettingsLike) ?? {};
+
+    for (const field of parsedFields) {
       await tx.insert(slotFields).values({
         id: makeId('fld'),
         signupId: inserted.id,
@@ -94,8 +147,9 @@ export async function createSignup(
       });
     }
 
-    for (const [index, slot] of template.slots.entries()) {
+    for (const [index, slot] of parsedSlots.entries()) {
       const ref = await pickAvailableRef(tx, inserted.id, summarizeValues(slot.values));
+      const slotAt = extractSlotAt(settings, fieldDefs, slot.values);
       await tx.insert(slots).values({
         id: makeId('slot'),
         signupId: inserted.id,
@@ -104,6 +158,7 @@ export async function createSignup(
         values: slot.values,
         capacity: slot.capacity,
         sortOrder: slot.sortOrder ?? index,
+        slotAt,
         status: 'open',
       });
     }
