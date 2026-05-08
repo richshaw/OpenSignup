@@ -33,7 +33,7 @@ export const commitments = pgTable(
      * (slot_id, position) is the database-level capacity enforcement.
      * Cancelled commitments keep their position (position is a write-time claim,
      * not a live slot), so cancellations don't reopen positions — the service
-     * layer counts active commitments against capacity instead.
+     * layer sums active commitment quantities against capacity instead.
      */
     position: integer('position').notNull(),
     status: text('status').notNull().default('confirmed'),

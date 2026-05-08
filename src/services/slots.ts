@@ -159,8 +159,8 @@ export async function updateSlot(
   requireWorkspaceWrite(actor, slotRow.workspaceId);
 
   if (data.capacity !== undefined && data.capacity !== null) {
-    const countRows = await db
-      .select({ count: sql<number>`count(*)::int` })
+    const sumRows = await db
+      .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
       .from(commitments)
       .where(
         and(
@@ -168,10 +168,10 @@ export async function updateSlot(
           or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
         ),
       );
-    const count = countRows[0]?.count ?? 0;
-    if (count > data.capacity) {
+    const usedQty = sumRows[0]?.sum ?? 0;
+    if (usedQty > data.capacity) {
       return err(
-        serviceError('conflict', `capacity (${data.capacity}) is less than active count (${count})`, {
+        serviceError('conflict', `capacity (${data.capacity}) is less than active quantity (${usedQty})`, {
           field: 'capacity',
           received: data.capacity,
           suggestion: 'cancel some commitments before lowering capacity',
