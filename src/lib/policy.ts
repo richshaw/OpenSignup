@@ -71,7 +71,3 @@ export function requireWorkspaceWrite(actor: Actor, workspaceId: string | null):
     );
   }
 }
-
-export function anon(): Extract<Actor, { kind: 'anonymous' }> {
-  return { kind: 'anonymous' };
-}
