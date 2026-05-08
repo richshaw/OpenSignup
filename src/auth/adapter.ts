@@ -9,6 +9,7 @@ import { accounts, sessions, verificationTokens } from '@/db/schema/auth';
 import { recordActivity } from '@/lib/activity';
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
+import { normalizeEmail } from '@/schemas/common';
 import { toSlug } from '@/lib/slug';
 
 /**
@@ -27,6 +28,15 @@ export function SignupAdapter() {
 
   return {
     ...base,
+    async getUserByEmail(email: string): Promise<AdapterUser | null> {
+      const [row] = await db
+        .select()
+        .from(organizers)
+        .where(eq(organizers.email, normalizeEmail(email)))
+        .limit(1);
+      if (!row) return null;
+      return { id: row.id, email: row.email, emailVerified: row.emailVerified, name: row.name, image: row.image };
+    },
     async createUser(user: AdapterUser): Promise<AdapterUser> {
       if (!base.createUser) throw new Error('adapter missing createUser');
       const { row, workspaceId } = await db.transaction(async (tx) => {
@@ -35,7 +45,7 @@ export function SignupAdapter() {
           .insert(organizers)
           .values({
             id: organizerId,
-            email: user.email,
+            email: normalizeEmail(user.email),
             name: user.name ?? null,
             emailVerified: user.emailVerified ?? null,
             image: user.image ?? null,

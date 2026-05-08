@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
+import { participants } from '@/db/schema/participants';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
@@ -364,5 +365,52 @@ describe('cancelOwnCommitment (db)', () => {
         ),
       );
     expect(events.length).toBe(1);
+  });
+});
+
+describe('commitToSlot participant dedup (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  it('reuses the same participant row for emails that differ only by case', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Case dedup signup');
+    const slot2 = await addSlot(fx.db, fx.actor, signupId, { values: {}, capacity: 5 });
+    if (!slot2.ok) throw new Error(`addSlot failed: ${slot2.error.message}`);
+
+    const r1 = await commitToSlot(fx.db, slotId, {
+      name: 'Alice',
+      email: 'Alice@Example.test',
+      quantity: 1,
+    });
+    if (!r1.ok) throw new Error(`first commit failed: ${r1.error.message}`);
+
+    const r2 = await commitToSlot(fx.db, slot2.value.id, {
+      name: 'Alice',
+      email: 'alice@example.test',
+      quantity: 1,
+    });
+    if (!r2.ok) throw new Error(`second commit failed: ${r2.error.message}`);
+
+    expect(r2.value.commitment.participantId).toBe(r1.value.commitment.participantId);
+
+    const [row] = await fx.db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(participants)
+      .where(eq(participants.signupId, signupId));
+    expect(row?.n).toBe(1);
+
+    const stored = await fx.db
+      .select({ email: participants.email, emailLower: participants.emailLower })
+      .from(participants)
+      .where(eq(participants.id, r1.value.commitment.participantId));
+    expect(stored[0]?.email).toBe('Alice@Example.test');
+    expect(stored[0]?.emailLower).toBe('alice@example.test');
   });
 });

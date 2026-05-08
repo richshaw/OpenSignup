@@ -136,8 +136,8 @@ export async function commitToSlot(
       }
     }
 
-    // Upsert participant by normalized email
-    const emailLower = data.email.toLowerCase().trim();
+    // Preserve user-entered casing in participants.email; dedup on emailLower.
+    const emailLower = data.email.toLowerCase();
     const existingPart = await tx
       .select()
       .from(participants)

@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { EmailSchema, idOf, NameSchema } from './common';
+import { idOf, NameSchema } from './common';
+
+// Participants keep their user-entered casing in `participants.email` for
+// display; the service derives `emailLower` for dedup. So this schema
+// validates and trims but does NOT lowercase.
+const ParticipantEmailSchema = z
+  .string()
+  .max(254)
+  .transform((v) => v.trim())
+  .pipe(z.string().email());
 
 export const COMMITMENT_STATUSES = [
   'confirmed',
@@ -12,7 +21,7 @@ export const COMMITMENT_STATUSES = [
 
 export const CommitmentCreateInputSchema = z.object({
   name: NameSchema,
-  email: EmailSchema,
+  email: ParticipantEmailSchema,
   phone: z.string().min(4).max(40).optional(),
   notes: z.string().max(500).optional(),
   quantity: z.number().int().positive().max(999).default(1),

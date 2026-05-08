@@ -13,11 +13,18 @@ export const SlugSchema = z
   .max(80)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'slug must be lowercase kebab');
 
+export function normalizeEmail(v: string): string {
+  return v.trim().toLowerCase();
+}
+
+// Normalize before validating so callers can pass raw input with surrounding
+// whitespace; max(254) is enforced on the raw string to reject pathologically
+// long inputs even when most of it is whitespace.
 export const EmailSchema = z
   .string()
-  .email()
   .max(254)
-  .transform((v) => v.trim());
+  .transform(normalizeEmail)
+  .pipe(z.string().email());
 
 export const NameSchema = z.string().min(1).max(100).transform((v) => v.trim());
 
