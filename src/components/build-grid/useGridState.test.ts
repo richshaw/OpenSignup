@@ -313,6 +313,42 @@ describe('gridReducer SET_GROUP_BY', () => {
 });
 
 // ---------------------------------------------------------------------------
+// SET_FIELDS (used by moveField to apply a re-sequenced order)
+// ---------------------------------------------------------------------------
+
+describe('gridReducer SET_FIELDS', () => {
+  it('replaces the fields array in order', () => {
+    const a = makeField({ id: 'a', ref: 'a', sortOrder: 0 });
+    const b = makeField({ id: 'b', ref: 'b', sortOrder: 1 });
+    const c = makeField({ id: 'c', ref: 'c', sortOrder: 2 });
+    const state = makeState({ fields: [a, b, c] });
+
+    const next = gridReducer(state, {
+      type: 'SET_FIELDS',
+      fields: [
+        { ...c, sortOrder: 0 },
+        { ...a, sortOrder: 1 },
+        { ...b, sortOrder: 2 },
+      ],
+    });
+
+    expect(next.fields.map((f) => f.id)).toEqual(['c', 'a', 'b']);
+    expect(next.fields.map((f) => f.sortOrder)).toEqual([0, 1, 2]);
+  });
+
+  it('does not touch rows when fields are reordered', () => {
+    const a = makeField({ id: 'a', ref: 'a' });
+    const b = makeField({ id: 'b', ref: 'b' });
+    const row = makeRow({ id: 'r1', values: { a: '1', b: '2' } });
+    const state = makeState({ fields: [a, b], rows: [row] });
+
+    const next = gridReducer(state, { type: 'SET_FIELDS', fields: [b, a] });
+
+    expect(next.rows).toEqual([row]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // APPEND_FIELD
 // ---------------------------------------------------------------------------
 

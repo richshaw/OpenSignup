@@ -327,82 +327,39 @@ export function useGridState(
     [signupId, state.fields],
   );
 
-  const moveFieldUp = useCallback(
-    async (fieldId: string): Promise<void> => {
-      const idx = state.fields.findIndex((f) => f.id === fieldId);
-      if (idx <= 0) return;
-      const above = state.fields[idx - 1]!;
-      const current = state.fields[idx]!;
-      const newAboveSortOrder = current.sortOrder;
-      const newCurrentSortOrder = above.sortOrder;
+  const moveField = useCallback(
+    async (fieldId: string, toIdx: number): Promise<void> => {
+      const fields = state.fields;
+      const fromIdx = fields.findIndex((f) => f.id === fieldId);
+      if (fromIdx === -1) return;
+      const clamped = Math.max(0, Math.min(fields.length - 1, toIdx));
+      if (clamped === fromIdx) return;
 
+      const reordered = fields.slice();
+      const [moved] = reordered.splice(fromIdx, 1);
+      if (!moved) return;
+      reordered.splice(clamped, 0, moved);
+      const resequenced = reordered.map((f, i) => ({ ...f, sortOrder: i }));
+
+      // Optimistic update so the UI reorders immediately.
+      dispatch({ type: 'SET_FIELDS', fields: resequenced });
       markSaving();
       try {
-        const [r1, r2] = await Promise.all([
-          fetch(`/api/signups/${signupId}/fields/${above.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: newAboveSortOrder }),
-          }),
-          fetch(`/api/signups/${signupId}/fields/${current.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: newCurrentSortOrder }),
-          }),
-        ]);
-        if (!r1.ok || !r2.ok) throw new Error('reorder failed');
-        const updatedFields = state.fields.map((f) => {
-          if (f.id === above.id) return { ...f, sortOrder: newAboveSortOrder };
-          if (f.id === current.id) return { ...f, sortOrder: newCurrentSortOrder };
-          return f;
-        });
-        dispatch({
-          type: 'SET_FIELDS',
-          fields: [...updatedFields].sort((a, b) => a.sortOrder - b.sortOrder),
-        });
+        const patches = resequenced
+          .filter((f, i) => fields[i]?.id !== f.id || fields[i]?.sortOrder !== f.sortOrder)
+          .map((f) =>
+            fetch(`/api/signups/${signupId}/fields/${f.id}`, {
+              method: 'PATCH',
+              headers: JSON_HEADERS,
+              body: JSON.stringify({ sortOrder: f.sortOrder }),
+            }),
+          );
+        const responses = await Promise.all(patches);
+        if (responses.some((r) => !r.ok)) throw new Error('reorder failed');
         markSaved();
       } catch {
-        markError();
-      }
-    },
-    [signupId, state.fields],
-  );
-
-  const moveFieldDown = useCallback(
-    async (fieldId: string): Promise<void> => {
-      const idx = state.fields.findIndex((f) => f.id === fieldId);
-      if (idx < 0 || idx >= state.fields.length - 1) return;
-      const current = state.fields[idx]!;
-      const below = state.fields[idx + 1]!;
-      const newCurrentSortOrder = below.sortOrder;
-      const newBelowSortOrder = current.sortOrder;
-
-      markSaving();
-      try {
-        const [r1, r2] = await Promise.all([
-          fetch(`/api/signups/${signupId}/fields/${current.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: newCurrentSortOrder }),
-          }),
-          fetch(`/api/signups/${signupId}/fields/${below.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: newBelowSortOrder }),
-          }),
-        ]);
-        if (!r1.ok || !r2.ok) throw new Error('reorder failed');
-        const updatedFields = state.fields.map((f) => {
-          if (f.id === current.id) return { ...f, sortOrder: newCurrentSortOrder };
-          if (f.id === below.id) return { ...f, sortOrder: newBelowSortOrder };
-          return f;
-        });
-        dispatch({
-          type: 'SET_FIELDS',
-          fields: [...updatedFields].sort((a, b) => a.sortOrder - b.sortOrder),
-        });
-        markSaved();
-      } catch {
+        // Roll back to the previous order on failure.
+        dispatch({ type: 'SET_FIELDS', fields });
         markError();
       }
     },
@@ -679,8 +636,7 @@ export function useGridState(
     addField,
     updateField,
     deleteField,
-    moveFieldUp,
-    moveFieldDown,
+    moveField,
     setFieldWidth,
     addRow,
     deleteRow,
