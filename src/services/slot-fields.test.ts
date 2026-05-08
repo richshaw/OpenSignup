@@ -121,6 +121,17 @@ describe('validateSlotValues', () => {
     expect(r1.ok).toBe(false);
     expect(r2.ok).toBe(false);
   });
+
+  it('allows missing required field when enforceRequired is false', () => {
+    const r = validateSlotValues([def({})], {}, { enforceRequired: false });
+    expect(r.ok).toBe(true);
+  });
+
+  it('still rejects wrong type when enforceRequired is false', () => {
+    const r = validateSlotValues([def({})], { date: 'not-a-date' }, { enforceRequired: false });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('invalid_input');
+  });
 });
 
 describe('findReminderFields', () => {

@@ -46,7 +46,7 @@ export async function addSlot(
   requireWorkspaceWrite(actor, signupRow.workspaceId);
 
   const fields = await listFieldsForSignup(db, signupId);
-  const valid = validateSlotValues(fields, data.values);
+  const valid = validateSlotValues(fields, data.values, { enforceRequired: false });
   if (!valid.ok) return valid;
 
   const settings = (signupRow.settings as SignupSettingsLike) ?? {};
@@ -103,7 +103,7 @@ export async function addSlotsBulk(
 
   const fields = await listFieldsForSignup(db, signupId);
   for (const r of data.rows) {
-    const valid = validateSlotValues(fields, r.values);
+    const valid = validateSlotValues(fields, r.values, { enforceRequired: false });
     if (!valid.ok) return valid;
   }
 
@@ -190,7 +190,7 @@ export async function updateSlot(
       .then((r) => r[0]);
     if (!signupRow) return err(serviceError('not_found', 'signup not found'));
     const fields = await listFieldsForSignup(db, slotRow.signupId);
-    const valid = validateSlotValues(fields, data.values);
+    const valid = validateSlotValues(fields, data.values, { enforceRequired: false });
     if (!valid.ok) return valid;
     const settings = (signupRow.settings as SignupSettingsLike) ?? {};
     nextSlotAt = extractSlotAt(settings, fields, data.values);

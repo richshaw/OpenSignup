@@ -99,5 +99,6 @@ export function setReturningCommitCookie(response: NextResponse, value: string):
     maxAge: MAX_AGE_DAYS * 24 * 60 * 60,
     sameSite: 'lax',
     httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
   });
 }

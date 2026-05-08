@@ -1,4 +1,4 @@
-import { serviceError, ServiceException, type ServiceError } from './errors';
+import { serviceError, ServiceException } from './errors';
 
 export type Actor =
   | {
@@ -71,5 +71,3 @@ export function requireWorkspaceWrite(actor: Actor, workspaceId: string | null):
     );
   }
 }
-
-export type PolicyError = ServiceError;

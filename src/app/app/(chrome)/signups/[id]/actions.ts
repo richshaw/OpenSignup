@@ -10,6 +10,7 @@ import { addSlot, deleteSlot } from '@/services/slots';
 import { addField, deleteField } from '@/services/slot-fields';
 import { toSlug } from '@/lib/slug';
 import type { SlotFieldConfig, SlotFieldDefinition } from '@/schemas/slot-fields';
+import { SignupSettingsSchema } from '@/schemas/signups';
 
 function revalidateSignup(id: string) {
   revalidatePath(`/app/signups/${id}`, 'layout');
@@ -74,10 +75,18 @@ export async function updateSettingsAction(signupId: string, formData: FormData)
   const actor = await requireActor();
   const groupBy = String(formData.get('groupByFieldRef') ?? '').trim();
   const reminder = String(formData.get('reminderFromFieldRef') ?? '').trim();
-  const nextSettings: Record<string, unknown> = {
-    groupByFieldRefs: groupBy ? [groupBy] : [],
-  };
-  if (reminder) nextSettings.reminderFromFieldRef = reminder;
+
+  const current = await loadSignupForOrganizer(actor, signupId);
+  if (!current.ok) return;
+  const parsedSettings = SignupSettingsSchema.safeParse(current.value.settings ?? {});
+  const prevSettings = parsedSettings.success
+    ? parsedSettings.data
+    : ({} as { reminderFromFieldRef?: string });
+  const { reminderFromFieldRef: _removed, ...restSettings } = prevSettings;
+  const nextSettings = reminder
+    ? { ...restSettings, groupByFieldRefs: groupBy ? [groupBy] : [], reminderFromFieldRef: reminder }
+    : { ...restSettings, groupByFieldRefs: groupBy ? [groupBy] : [] };
+
   await updateSignup(getDb(), actor, signupId, { settings: nextSettings });
   revalidateSignup(signupId);
 }
@@ -123,6 +132,31 @@ export async function publishAction(signupId: string) {
 export async function closeAction(signupId: string) {
   const actor = await requireActor();
   await closeSignup(getDb(), actor, signupId);
+  revalidateSignup(signupId);
+}
+
+export async function updateReminderAction(signupId: string, formData: FormData) {
+  const actor = await requireActor();
+  const reminder = String(formData.get('reminderFromFieldRef') ?? '').trim();
+
+  // Read current settings so we can send the full object.
+  // The service replaces settings entirely (not a merge), so we must include
+  // all keys — omitting reminderFromFieldRef here is how we clear it.
+  const current = await loadSignupForOrganizer(actor, signupId);
+  if (!current.ok) {
+    redirect(`/app/signups/${signupId}/settings?error=${encodeURIComponent(current.error.message)}`);
+  }
+  const parsedSettings = SignupSettingsSchema.safeParse(current.value.settings ?? {});
+  const prevSettings = parsedSettings.success
+    ? parsedSettings.data
+    : ({} as { reminderFromFieldRef?: string });
+  const { reminderFromFieldRef: _removed, ...restSettings } = prevSettings;
+  const nextSettings = reminder ? { ...restSettings, reminderFromFieldRef: reminder } : restSettings;
+
+  const result = await updateSignup(getDb(), actor, signupId, { settings: nextSettings });
+  if (!result.ok) {
+    redirect(`/app/signups/${signupId}/settings?error=${encodeURIComponent(result.error.message)}`);
+  }
   revalidateSignup(signupId);
 }
 

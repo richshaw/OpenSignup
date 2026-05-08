@@ -288,8 +288,8 @@ describe('slot-fields service (db)', () => {
   });
 
   describe('deleteField', () => {
-    it('rejects deleting a field with stored values', async () => {
-      const sigId = await createTestSignup(fx, 'Delete blocked');
+    it('deletes a field with stored slot values and clears those values from all slots', async () => {
+      const sigId = await createTestSignup(fx, 'Delete clears values');
       const created = await addField(fx.db, fx.actor, sigId, {
         ref: 'teacher',
         label: 'Teacher',
@@ -303,9 +303,11 @@ describe('slot-fields service (db)', () => {
       if (!slotR.ok) throw new Error('slot setup failed');
 
       const r = await deleteField(fx.db, fx.actor, created.value.id);
-      expect(r.ok).toBe(false);
-      if (r.ok) return;
-      expect(r.error.code).toBe('conflict');
+      expect(r.ok).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slotR.value.id)).limit(1);
+      const values = (after?.values ?? {}) as Record<string, unknown>;
+      expect(values['teacher']).toBeUndefined();
     });
 
     it('deletes a field with no stored values', async () => {

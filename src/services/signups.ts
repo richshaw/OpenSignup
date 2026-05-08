@@ -111,8 +111,9 @@ export async function updateSignup(
   const data = input.value;
 
   const prevSettings = (row.settings as { reminderFromFieldRef?: string; [k: string]: unknown }) ?? {};
-  const mergedSettings =
-    data.settings !== undefined ? { ...prevSettings, ...data.settings } : prevSettings;
+  // Replacement (not merge): callers must pass the complete settings object.
+  // Omitting a key is how optional fields (e.g. reminderFromFieldRef) are cleared.
+  const mergedSettings = data.settings ?? prevSettings;
   const reminderRefChanged =
     data.settings !== undefined &&
     mergedSettings.reminderFromFieldRef !== prevSettings.reminderFromFieldRef;

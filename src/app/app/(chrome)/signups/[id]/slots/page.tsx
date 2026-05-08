@@ -5,26 +5,13 @@ import { getDb } from '@/db/client';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { listCommitmentsForSignup } from '@/services/commitments';
-import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { after } from 'next/server';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { recordOrganizerView } from '@/lib/view-tracker';
+import { summarizeSlot } from '@/lib/slot-summary';
 import { addSlotAction, deleteSlotAction } from '../actions';
 
 type PageParams = { params: Promise<{ id: string }> };
-
-function summarizeValues(
-  fields: SlotFieldDefinition[],
-  values: Record<string, unknown>,
-): string {
-  const parts: string[] = [];
-  for (const f of fields) {
-    const v = values[f.ref];
-    if (v === undefined || v === null || v === '') continue;
-    parts.push(`${f.label}: ${String(v)}`);
-  }
-  return parts.join(' · ');
-}
 
 export default async function SlotsTab({ params }: PageParams) {
   const { id } = await params;
@@ -152,7 +139,7 @@ export default async function SlotsTab({ params }: PageParams) {
                 (c) => c.slotId === slot.id && (c.status === 'confirmed' || c.status === 'tentative'),
               )
               .reduce((acc, c) => acc + c.quantity, 0);
-            const summary = summarizeValues(fields, (slot.values as Record<string, unknown>) ?? {});
+            const summary = summarizeSlot(fields, (slot.values as Record<string, unknown>) ?? {});
             return (
               <li key={slot.id} className="flex items-center justify-between gap-4 px-5 py-4">
                 <div className="min-w-0">

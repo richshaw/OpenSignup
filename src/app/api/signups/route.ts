@@ -8,11 +8,15 @@ import { fail } from '@/lib/api-response';
 import { link, publicSignupUrl } from '@/lib/links';
 import { createSignup, listSignupsForWorkspace } from '@/services/signups';
 import { SIGNUP_STATUSES } from '@/schemas/signups';
+import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   return handle(async () => {
     const actor = await requireActor();
     if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in to create signups'));
+
+    const db = getDb();
+    await consumeRateLimit(db, RateLimits.signupCreatePerOrganizer, actor.id);
 
     const body = await req.json().catch(() => ({}));
     const session = await getOrganizerSession();
@@ -22,7 +26,7 @@ export async function POST(req: NextRequest) {
       null;
     if (!workspaceId) return fail(serviceError('invalid_input', 'workspaceId required', { field: 'workspaceId' }));
 
-    const result = await createSignup(getDb(), actor, workspaceId, body);
+    const result = await createSignup(db, actor, workspaceId, body);
     if (!result.ok) return fail(result.error);
     return respond(result, {
       self: link(`/api/signups/${result.value.id}`),
