@@ -241,6 +241,10 @@ export function useGridState(
   }
 
   function markError() {
+    if (savedTimerRef.current !== null) {
+      clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = null;
+    }
     dispatch({ type: 'SET_SAVE_STATUS', status: 'error' });
   }
 
@@ -327,82 +331,58 @@ export function useGridState(
     [signupId, state.fields],
   );
 
-  const moveFieldUp = useCallback(
-    async (fieldId: string): Promise<void> => {
-      const idx = state.fields.findIndex((f) => f.id === fieldId);
-      if (idx <= 0) return;
-      const above = state.fields[idx - 1]!;
-      const current = state.fields[idx]!;
-      const newAboveSortOrder = current.sortOrder;
-      const newCurrentSortOrder = above.sortOrder;
+  // Concurrent reorders by other organizers can race; this client converges via
+  // refetch on error but the server has no transactional bulk-reorder endpoint.
+  const moveField = useCallback(
+    async (fieldId: string, toIdx: number): Promise<void> => {
+      const previous = state.fields;
+      const fromIdx = previous.findIndex((f) => f.id === fieldId);
+      if (fromIdx === -1) return;
+      const clamped = Math.max(0, Math.min(previous.length - 1, toIdx));
+      if (clamped === fromIdx) return;
 
+      const reordered = previous.slice();
+      const [moved] = reordered.splice(fromIdx, 1);
+      if (!moved) return;
+      reordered.splice(clamped, 0, moved);
+      const resequenced = reordered.map((f, i) => ({ ...f, sortOrder: i }));
+
+      // Optimistic update so the UI reorders immediately.
+      dispatch({ type: 'SET_FIELDS', fields: resequenced });
       markSaving();
       try {
-        const [r1, r2] = await Promise.all([
-          fetch(`/api/signups/${signupId}/fields/${above.id}`, {
+        const changed = resequenced.filter(
+          (f, i) => previous[i]?.id !== f.id || previous[i]?.sortOrder !== f.sortOrder,
+        );
+        for (const f of changed) {
+          const res = await fetch(`/api/signups/${signupId}/fields/${f.id}`, {
             method: 'PATCH',
             headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: newAboveSortOrder }),
-          }),
-          fetch(`/api/signups/${signupId}/fields/${current.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: newCurrentSortOrder }),
-          }),
-        ]);
-        if (!r1.ok || !r2.ok) throw new Error('reorder failed');
-        const updatedFields = state.fields.map((f) => {
-          if (f.id === above.id) return { ...f, sortOrder: newAboveSortOrder };
-          if (f.id === current.id) return { ...f, sortOrder: newCurrentSortOrder };
-          return f;
-        });
-        dispatch({
-          type: 'SET_FIELDS',
-          fields: [...updatedFields].sort((a, b) => a.sortOrder - b.sortOrder),
-        });
+            body: JSON.stringify({ sortOrder: f.sortOrder }),
+          });
+          if (!res.ok) throw new Error('reorder failed');
+        }
         markSaved();
       } catch {
-        markError();
-      }
-    },
-    [signupId, state.fields],
-  );
-
-  const moveFieldDown = useCallback(
-    async (fieldId: string): Promise<void> => {
-      const idx = state.fields.findIndex((f) => f.id === fieldId);
-      if (idx < 0 || idx >= state.fields.length - 1) return;
-      const current = state.fields[idx]!;
-      const below = state.fields[idx + 1]!;
-      const newCurrentSortOrder = below.sortOrder;
-      const newBelowSortOrder = current.sortOrder;
-
-      markSaving();
-      try {
-        const [r1, r2] = await Promise.all([
-          fetch(`/api/signups/${signupId}/fields/${current.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: newCurrentSortOrder }),
-          }),
-          fetch(`/api/signups/${signupId}/fields/${below.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: newBelowSortOrder }),
-          }),
-        ]);
-        if (!r1.ok || !r2.ok) throw new Error('reorder failed');
-        const updatedFields = state.fields.map((f) => {
-          if (f.id === current.id) return { ...f, sortOrder: newCurrentSortOrder };
-          if (f.id === below.id) return { ...f, sortOrder: newBelowSortOrder };
-          return f;
-        });
-        dispatch({
-          type: 'SET_FIELDS',
-          fields: [...updatedFields].sort((a, b) => a.sortOrder - b.sortOrder),
-        });
-        markSaved();
-      } catch {
+        // Server may hold a partial reorder; converge on server truth via refetch.
+        // `previous` already carries session-only column widths — preserve them on
+        // refresh by id, since `toGridFields` cannot populate `width`.
+        const widthById = new Map(previous.map((f) => [f.id, f.width]));
+        try {
+          const res = await fetch(`/api/signups/${signupId}/fields`);
+          if (res.ok) {
+            const envelope = (await res.json()) as { data: SlotFieldDefinition[] };
+            const refreshed = toGridFields(envelope.data).map((f) => ({
+              ...f,
+              width: widthById.get(f.id),
+            }));
+            dispatch({ type: 'SET_FIELDS', fields: refreshed });
+          } else {
+            dispatch({ type: 'SET_FIELDS', fields: previous });
+          }
+        } catch {
+          dispatch({ type: 'SET_FIELDS', fields: previous });
+        }
         markError();
       }
     },
@@ -679,8 +659,7 @@ export function useGridState(
     addField,
     updateField,
     deleteField,
-    moveFieldUp,
-    moveFieldDown,
+    moveField,
     setFieldWidth,
     addRow,
     deleteRow,

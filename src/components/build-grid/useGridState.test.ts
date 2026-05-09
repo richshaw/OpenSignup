@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { gridReducer } from './useGridState';
+// @vitest-environment jsdom
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { gridReducer, useGridState } from './useGridState';
 import type { GridState, GridField, GridRow } from './useGridState';
+import type { SlotFieldDefinition } from '@/schemas/slot-fields';
+import type { SignupSettings } from '@/schemas/signups';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -313,6 +317,42 @@ describe('gridReducer SET_GROUP_BY', () => {
 });
 
 // ---------------------------------------------------------------------------
+// SET_FIELDS (used by moveField to apply a re-sequenced order)
+// ---------------------------------------------------------------------------
+
+describe('gridReducer SET_FIELDS', () => {
+  it('replaces the fields array in order', () => {
+    const a = makeField({ id: 'a', ref: 'a', sortOrder: 0 });
+    const b = makeField({ id: 'b', ref: 'b', sortOrder: 1 });
+    const c = makeField({ id: 'c', ref: 'c', sortOrder: 2 });
+    const state = makeState({ fields: [a, b, c] });
+
+    const next = gridReducer(state, {
+      type: 'SET_FIELDS',
+      fields: [
+        { ...c, sortOrder: 0 },
+        { ...a, sortOrder: 1 },
+        { ...b, sortOrder: 2 },
+      ],
+    });
+
+    expect(next.fields.map((f) => f.id)).toEqual(['c', 'a', 'b']);
+    expect(next.fields.map((f) => f.sortOrder)).toEqual([0, 1, 2]);
+  });
+
+  it('does not touch rows when fields are reordered', () => {
+    const a = makeField({ id: 'a', ref: 'a' });
+    const b = makeField({ id: 'b', ref: 'b' });
+    const row = makeRow({ id: 'r1', values: { a: '1', b: '2' } });
+    const state = makeState({ fields: [a, b], rows: [row] });
+
+    const next = gridReducer(state, { type: 'SET_FIELDS', fields: [b, a] });
+
+    expect(next.rows).toEqual([row]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // APPEND_FIELD
 // ---------------------------------------------------------------------------
 
@@ -438,5 +478,173 @@ describe('gridReducer DELETE_FIELD', () => {
     expect(next.fields).toHaveLength(1);
     expect(next.fields[0]?.id).toBe('f2');
     expect(next.rows[0]?.values).toEqual({ beta: 'b' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useGridState moveField (renderHook + mocked fetch)
+// ---------------------------------------------------------------------------
+
+const makeApiField = (overrides: Partial<SlotFieldDefinition> = {}): SlotFieldDefinition => ({
+  id: 'f1',
+  ref: 'alpha',
+  label: 'Alpha',
+  fieldType: 'text',
+  required: false,
+  sortOrder: 0,
+  config: { fieldType: 'text', maxLength: 200 },
+  ...overrides,
+});
+
+const defaultSettings: SignupSettings = {
+  requireEmail: true,
+  allowNotes: true,
+  showWhoSignedUp: true,
+  lockoutHoursBeforeSlot: 0,
+  sendReminders: true,
+  groupByFieldRefs: [],
+};
+
+function jsonResponse(body: unknown, init: { ok?: boolean; status?: number } = {}): Response {
+  const status = init.status ?? (init.ok === false ? 500 : 200);
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function fieldIdFromUrl(url: string): string | undefined {
+  return url.match(/\/fields\/([^/]+)$/)?.[1];
+}
+
+function renderGrid(initialFields: SlotFieldDefinition[]) {
+  return renderHook(() => useGridState('sig_test', initialFields, [], defaultSettings));
+}
+
+describe('useGridState moveField', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('reorders fields and PATCHes each changed field with its new sortOrder', async () => {
+    const a = makeApiField({ id: 'a', ref: 'a', label: 'A', sortOrder: 0 });
+    const b = makeApiField({ id: 'b', ref: 'b', label: 'B', sortOrder: 1 });
+    const c = makeApiField({ id: 'c', ref: 'c', label: 'C', sortOrder: 2 });
+
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGrid([a, b, c]);
+    await act(async () => {
+      await result.current.moveField('c', 0);
+    });
+
+    expect(result.current.state.fields.map((f) => f.id)).toEqual(['c', 'a', 'b']);
+    expect(result.current.state.fields.map((f) => f.sortOrder)).toEqual([0, 1, 2]);
+
+    // Inspect PATCH bodies by id, not call count.
+    const sentPatches = new Map<string, number>();
+    for (const call of fetchMock.mock.calls) {
+      const url = String(call[0]);
+      const init = call[1] as RequestInit | undefined;
+      if (init?.method !== 'PATCH') continue;
+      const id = fieldIdFromUrl(url);
+      const body = JSON.parse(String(init.body)) as { sortOrder: number };
+      if (id !== undefined) sentPatches.set(id, body.sortOrder);
+    }
+    expect(sentPatches.get('c')).toBe(0);
+    expect(sentPatches.get('a')).toBe(1);
+    expect(sentPatches.get('b')).toBe(2);
+    expect(result.current.state.saveStatus).toBe('saved');
+  });
+
+  it('refetches server truth on PATCH failure and preserves session widths', async () => {
+    const a = makeApiField({ id: 'a', ref: 'a', label: 'A', sortOrder: 0 });
+    const b = makeApiField({ id: 'b', ref: 'b', label: 'B', sortOrder: 1 });
+    const c = makeApiField({ id: 'c', ref: 'c', label: 'C', sortOrder: 2 });
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === 'PATCH') {
+        const priorPatches = fetchMock.mock.calls.filter(
+          (c) => (c[1] as RequestInit | undefined)?.method === 'PATCH',
+        ).length;
+        // First PATCH succeeds, second fails. Third should not fire.
+        if (priorPatches <= 1) return jsonResponse({ data: {} });
+        return jsonResponse({}, { ok: false });
+      }
+      if (url.endsWith('/fields')) {
+        return jsonResponse({ data: [a, b, c] });
+      }
+      throw new Error(`unexpected fetch ${url} ${init?.method ?? 'GET'}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGrid([a, b, c]);
+
+    // Set a session-only width on field "a" before the failing reorder so we can
+    // verify it survives the refetch.
+    act(() => {
+      result.current.setFieldWidth('a', 321);
+    });
+    expect(result.current.state.fields.find((f) => f.id === 'a')?.width).toBe(321);
+
+    await act(async () => {
+      await result.current.moveField('c', 0);
+    });
+
+    const patchCalls = fetchMock.mock.calls.filter(
+      (c) => (c[1] as RequestInit | undefined)?.method === 'PATCH',
+    );
+    const getCalls = fetchMock.mock.calls.filter(
+      (c) => (c[1] as RequestInit | undefined)?.method !== 'PATCH',
+    );
+    expect(patchCalls.length).toBe(2); // aborted after the failing second PATCH
+    expect(getCalls.length).toBe(1); // single refetch
+    expect(result.current.state.fields.map((f) => f.id)).toEqual(['a', 'b', 'c']);
+    expect(result.current.state.fields.find((f) => f.id === 'a')?.width).toBe(321);
+    expect(result.current.state.saveStatus).toBe('error');
+  });
+
+  it('falls back to snapshot with sticky error when refetch also fails', async () => {
+    const a = makeApiField({ id: 'a', ref: 'a', label: 'A', sortOrder: 0 });
+    const b = makeApiField({ id: 'b', ref: 'b', label: 'B', sortOrder: 1 });
+
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      return jsonResponse({}, { ok: false });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGrid([a, b]);
+    await act(async () => {
+      await result.current.moveField('b', 0);
+    });
+
+    // The contract is "sticky error, refresh converges them" — the snapshot
+    // is not necessarily server-correct, only that the user sees `error`.
+    expect(result.current.state.fields.map((f) => f.id)).toEqual(['a', 'b']);
+    expect(result.current.state.saveStatus).toBe('error');
+  });
+
+  it('is a no-op when toIdx clamps to fromIdx or fieldId is unknown', async () => {
+    const a = makeApiField({ id: 'a', ref: 'a', label: 'A', sortOrder: 0 });
+    const b = makeApiField({ id: 'b', ref: 'b', label: 'B', sortOrder: 1 });
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGrid([a, b]);
+
+    // toIdx -1 clamps to 0; fromIdx of 'a' is 0 — no-op.
+    await act(async () => {
+      await result.current.moveField('a', -1);
+    });
+    // unknown fieldId — no-op.
+    await act(async () => {
+      await result.current.moveField('missing', 0);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.state.fields.map((f) => f.id)).toEqual(['a', 'b']);
   });
 });
