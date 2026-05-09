@@ -231,6 +231,12 @@ export function useGridState(
   // ---------------------------------------------------------------------------
 
   function markSaving() {
+    // Cancel any pending "saved → idle" timer so a stale fire-and-forget
+    // doesn't demote an in-flight save back to idle.
+    if (savedTimerRef.current !== null) {
+      clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = null;
+    }
     dispatch({ type: 'SET_SAVE_STATUS', status: 'saving' });
   }
 

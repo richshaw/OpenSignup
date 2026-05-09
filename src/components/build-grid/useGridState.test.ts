@@ -626,6 +626,65 @@ describe('useGridState moveField', () => {
     expect(result.current.state.saveStatus).toBe('error');
   });
 
+  it("clears the pending 'saved → idle' timer when a new save begins", async () => {
+    vi.useFakeTimers();
+    try {
+      const a = makeApiField({ id: 'a', ref: 'a', label: 'A', sortOrder: 0 });
+      const b = makeApiField({ id: 'b', ref: 'b', label: 'B', sortOrder: 1 });
+
+      let resolveDeferredPatch: ((res: Response) => void) | null = null;
+      let patchCalls = 0;
+      const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method !== 'PATCH') throw new Error('unexpected non-PATCH');
+        patchCalls++;
+        // Defer only the first PATCH of the second moveField (call #3) so the
+        // second save stays in-flight while we advance fake time past
+        // SAVED_CLEAR_MS. Other PATCHes resolve immediately.
+        if (patchCalls === 3) {
+          return new Promise<Response>((resolve) => {
+            resolveDeferredPatch = resolve;
+          });
+        }
+        return Promise.resolve(jsonResponse({ data: {} }));
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { result } = renderGrid([a, b]);
+
+      // First move completes synchronously (relative to fake time) and arms
+      // the 3000ms "saved → idle" timer.
+      await act(async () => {
+        await result.current.moveField('b', 0);
+      });
+      expect(result.current.state.saveStatus).toBe('saved');
+
+      // Kick off the second move; its first PATCH is deferred, so the hook
+      // sits in `saving` until we resolve the promise below.
+      let secondMove!: Promise<void>;
+      await act(async () => {
+        secondMove = result.current.moveField('a', 0);
+      });
+      expect(result.current.state.saveStatus).toBe('saving');
+
+      // Advance past SAVED_CLEAR_MS (3000ms). Without the markSaving fix,
+      // the stale timer from the first move fires here and demotes the
+      // in-flight save back to `idle`.
+      await act(async () => {
+        vi.advanceTimersByTime(3500);
+      });
+      expect(result.current.state.saveStatus).toBe('saving');
+
+      // Resolve the deferred PATCH so the second move completes cleanly.
+      await act(async () => {
+        resolveDeferredPatch!(jsonResponse({ data: {} }));
+        await secondMove;
+      });
+      expect(result.current.state.saveStatus).toBe('saved');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('is a no-op when toIdx clamps to fromIdx or fieldId is unknown', async () => {
     const a = makeApiField({ id: 'a', ref: 'a', label: 'A', sortOrder: 0 });
     const b = makeApiField({ id: 'b', ref: 'b', label: 'B', sortOrder: 1 });
