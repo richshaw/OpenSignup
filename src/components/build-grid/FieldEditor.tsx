@@ -214,18 +214,25 @@ export function FieldEditor({ editorMode, onSave, onDelete, onClose }: FieldEdit
                     aria-describedby={choicesErrors ? CHOICES_ERROR_ID : undefined}
                     className={choicesInputClasses}
                   />
-                  {choicesErrors && (
+                  {choicesErrors && choicesErrors.length === 1 ? (
+                    <p
+                      id={CHOICES_ERROR_ID}
+                      role="alert"
+                      className="text-xs text-danger"
+                    >
+                      {choicesErrors[0]}
+                    </p>
+                  ) : choicesErrors ? (
                     <ul
                       id={CHOICES_ERROR_ID}
                       role="alert"
-                      aria-live="polite"
                       className="text-xs text-danger flex flex-col gap-0.5"
                     >
                       {choicesErrors.map((msg) => (
                         <li key={msg}>{msg}</li>
                       ))}
                     </ul>
-                  )}
+                  ) : null}
                 </div>
               )}
 
