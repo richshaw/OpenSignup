@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { FIELD_TYPE_META } from './fieldTypes';
@@ -35,13 +35,14 @@ function buildConfig(type: FieldType, choices: string[]): SlotFieldConfig {
   }
 }
 
-const NAME_INPUT_ID = 'field-name';
-const NAME_ERROR_ID = 'field-name-error';
-const CHOICES_INPUT_ID = 'field-choices';
-const CHOICES_ERROR_ID = 'field-choices-error';
-
 export function FieldEditor({ editorMode, onSave, onDelete, onClose }: FieldEditorProps) {
   const isEdit = editorMode.mode === 'edit';
+
+  const reactId = useId();
+  const nameInputId = `${reactId}-name`;
+  const nameErrorId = `${reactId}-name-error`;
+  const choicesInputId = `${reactId}-choices`;
+  const choicesErrorId = `${reactId}-choices-error`;
 
   const [name, setName] = useState<string>(() => {
     if (editorMode.mode === 'edit') return editorMode.field.name;
@@ -148,22 +149,22 @@ export function FieldEditor({ editorMode, onSave, onDelete, onClose }: FieldEdit
             <div className="flex flex-col gap-4">
               {/* Name input */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-ink-soft" htmlFor={NAME_INPUT_ID}>
+                <label className="text-xs font-medium text-ink-soft" htmlFor={nameInputId}>
                   Name <span aria-hidden="true" className="text-danger">*</span>
                 </label>
                 <input
                   ref={nameInputRef}
-                  id={NAME_INPUT_ID}
+                  id={nameInputId}
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   aria-required="true"
                   aria-invalid={nameError ? true : undefined}
-                  aria-describedby={nameError ? NAME_ERROR_ID : undefined}
+                  aria-describedby={nameError ? nameErrorId : undefined}
                   className={nameInputClasses}
                 />
                 {nameError && (
-                  <p id={NAME_ERROR_ID} role="alert" className="text-xs text-danger">
+                  <p id={nameErrorId} role="alert" className="text-xs text-danger">
                     {nameError}
                   </p>
                 )}
@@ -199,24 +200,24 @@ export function FieldEditor({ editorMode, onSave, onDelete, onClose }: FieldEdit
               {/* Choices textarea (enum only) */}
               {fieldType === 'enum' && (
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-ink-soft" htmlFor={CHOICES_INPUT_ID}>
+                  <label className="text-xs font-medium text-ink-soft" htmlFor={choicesInputId}>
                     Choices (one per line){' '}
                     <span aria-hidden="true" className="text-danger">*</span>
                   </label>
                   <textarea
                     ref={choicesInputRef}
-                    id={CHOICES_INPUT_ID}
+                    id={choicesInputId}
                     value={choicesText}
                     onChange={(e) => setChoicesText(e.target.value)}
                     placeholder={'Apples\nBananas\nOranges'}
                     aria-required="true"
                     aria-invalid={choicesErrors ? true : undefined}
-                    aria-describedby={choicesErrors ? CHOICES_ERROR_ID : undefined}
+                    aria-describedby={choicesErrors ? choicesErrorId : undefined}
                     className={choicesInputClasses}
                   />
                   {choicesErrors && choicesErrors.length === 1 ? (
                     <p
-                      id={CHOICES_ERROR_ID}
+                      id={choicesErrorId}
                       role="alert"
                       className="text-xs text-danger"
                     >
@@ -224,7 +225,7 @@ export function FieldEditor({ editorMode, onSave, onDelete, onClose }: FieldEdit
                     </p>
                   ) : choicesErrors ? (
                     <ul
-                      id={CHOICES_ERROR_ID}
+                      id={choicesErrorId}
                       role="alert"
                       className="text-xs text-danger flex flex-col gap-0.5"
                     >

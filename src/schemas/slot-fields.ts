@@ -3,13 +3,17 @@ import { z } from 'zod';
 export const FIELD_TYPES = ['text', 'date', 'time', 'number', 'enum'] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
+export const LABEL_MAX_LENGTH = 80;
+export const CHOICE_MAX_LENGTH = 60;
+export const MAX_CHOICES = 20;
+
 const RefSchema = z
   .string()
   .min(1)
   .max(40)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'ref must be lowercase kebab');
 
-const LabelSchema = z.string().min(1).max(80);
+const LabelSchema = z.string().min(1).max(LABEL_MAX_LENGTH);
 
 const TextConfigSchema = z.object({
   fieldType: z.literal('text'),
@@ -32,7 +36,7 @@ const NumberConfigSchema = z.object({
 
 const EnumConfigSchema = z.object({
   fieldType: z.literal('enum'),
-  choices: z.array(z.string().min(1).max(60)).min(1).max(20),
+  choices: z.array(z.string().min(1).max(CHOICE_MAX_LENGTH)).min(1).max(MAX_CHOICES),
 });
 
 export const SlotFieldConfigSchema = z.discriminatedUnion('fieldType', [

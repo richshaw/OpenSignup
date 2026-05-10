@@ -1,13 +1,14 @@
-import type { FieldType } from '@/schemas/slot-fields';
+import {
+  CHOICE_MAX_LENGTH,
+  LABEL_MAX_LENGTH,
+  MAX_CHOICES,
+  type FieldType,
+} from '@/schemas/slot-fields';
 
 export type FieldEditorErrors = {
   name?: string;
   choices?: string[];
 };
-
-const NAME_MAX = 80;
-const CHOICE_MAX = 60;
-const CHOICES_MAX = 20;
 
 export function validate(
   name: string,
@@ -19,8 +20,8 @@ export function validate(
   const trimmedName = name.trim();
   if (trimmedName.length === 0) {
     errors.name = 'Name is required.';
-  } else if (trimmedName.length > NAME_MAX) {
-    errors.name = `Name must be ${NAME_MAX} characters or fewer.`;
+  } else if (trimmedName.length > LABEL_MAX_LENGTH) {
+    errors.name = `Name must be ${LABEL_MAX_LENGTH} characters or fewer.`;
   }
 
   if (fieldType === 'enum') {
@@ -34,14 +35,14 @@ export function validate(
     } else {
       const choiceErrors: string[] = [];
       nonEmpty.forEach((choice, idx) => {
-        if (choice.length > CHOICE_MAX) {
+        if (choice.length > CHOICE_MAX_LENGTH) {
           choiceErrors.push(
-            `Choice ${idx + 1} must be ${CHOICE_MAX} characters or fewer.`,
+            `Choice ${idx + 1} must be ${CHOICE_MAX_LENGTH} characters or fewer.`,
           );
         }
       });
-      if (nonEmpty.length > CHOICES_MAX) {
-        choiceErrors.push(`At most ${CHOICES_MAX} choices allowed.`);
+      if (nonEmpty.length > MAX_CHOICES) {
+        choiceErrors.push(`At most ${MAX_CHOICES} choices allowed.`);
       }
       if (choiceErrors.length > 0) {
         errors.choices = choiceErrors;
