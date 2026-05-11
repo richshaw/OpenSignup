@@ -51,7 +51,10 @@ export function SideRail({ signupMeta, fields, rows, groupByFieldRef }: SideRail
             <span>••• Wi-Fi 100%</span>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
-            <div className="flex flex-col gap-7 origin-top-left" style={{ zoom: 0.7 }}>
+            <div
+              className="flex flex-col gap-7 origin-top-left"
+              style={{ transform: 'scale(0.7)', width: 'calc(100% / 0.7)' }}
+            >
               <SignupViewBody
                 signup={{
                   title: signupMeta.title,
