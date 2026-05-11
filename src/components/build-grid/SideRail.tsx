@@ -45,7 +45,7 @@ export function SideRail({ signupMeta, fields, rows, groupByFieldRef }: SideRail
         LIVE PREVIEW
       </span>
       <div className="rounded-[28px] bg-[#0b1220] p-2 shadow-[0_8px_32px_rgb(11_18_32/0.12)]">
-        <div className="flex h-[640px] flex-col overflow-hidden rounded-[22px] bg-surface">
+        <div className="flex h-[560px] flex-col overflow-hidden rounded-[22px] bg-surface">
           <div className="flex h-7 flex-shrink-0 items-center justify-between bg-white px-4 text-[10px] font-semibold text-ink">
             <span>9:41</span>
             <span>••• Wi-Fi 100%</span>
