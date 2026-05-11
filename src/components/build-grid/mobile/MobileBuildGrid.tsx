@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Pencil } from 'lucide-react';
 import { SaveStatus } from '../SaveStatus';
 import { FieldChipStrip } from './FieldChipStrip';
 import { MobileGroupByControl } from './MobileGroupByControl';
@@ -48,7 +47,6 @@ export function MobileBuildGrid({
         <SectionHeader
           label="COLUMNS"
           count={fields.length}
-          action={{ label: 'Edit', icon: <Pencil size={13} aria-hidden="true" />, onClick: onAddField }}
           right={<SaveStatus status={saveStatus} />}
         />
         <FieldChipStrip fields={fields} onEditField={onEditField} onAddField={onAddField} />
@@ -87,12 +85,10 @@ export function MobileBuildGrid({
 function SectionHeader({
   label,
   count,
-  action,
   right,
 }: {
   label: string;
   count?: number;
-  action?: { label: string; icon?: React.ReactNode; onClick: () => void };
   right?: React.ReactNode;
 }) {
   return (
@@ -101,19 +97,7 @@ function SectionHeader({
         {label}
         {count != null ? <span>· {count}</span> : null}
       </div>
-      <div className="flex items-center gap-3">
-        {right}
-        {action ? (
-          <button
-            type="button"
-            onClick={action.onClick}
-            className="inline-flex items-center gap-1 text-sm font-medium text-ink-muted hover:text-ink"
-          >
-            {action.icon}
-            {action.label}
-          </button>
-        ) : null}
-      </div>
+      {right ? <div className="flex items-center gap-3">{right}</div> : null}
     </div>
   );
 }

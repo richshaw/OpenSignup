@@ -144,11 +144,17 @@ function CapacityRow({
       <input
         type="number"
         inputMode="numeric"
-        min={0}
+        min={1}
+        step={1}
         value={value ?? ''}
         onChange={(e) => {
           const raw = e.target.value;
-          onChange(raw === '' ? null : Number(raw));
+          if (raw === '') {
+            onChange(null);
+            return;
+          }
+          const n = Number(raw);
+          if (Number.isFinite(n)) onChange(n);
         }}
         aria-label="Capacity"
         placeholder="Unlimited"

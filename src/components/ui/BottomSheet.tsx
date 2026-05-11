@@ -11,8 +11,6 @@ type BottomSheetProps = {
   /** When true, omit the bottom border under the title (matches design's `compact` sheet). */
   compact?: boolean;
   children: ReactNode;
-  /** Optional accessible description for the sheet contents. */
-  description?: string;
 };
 
 /**
@@ -25,14 +23,13 @@ export function BottomSheet({
   title,
   compact = false,
   children,
-  description,
 }: BottomSheetProps) {
   return (
     <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[rgb(11_18_32/0.35)] backdrop-blur-sm" />
         <Dialog.Content
-          aria-describedby={description ? undefined : undefined}
+          aria-describedby={undefined}
           className={[
             'fixed z-50 bg-white flex flex-col overflow-hidden',
             // mobile: bottom sheet
@@ -66,10 +63,6 @@ export function BottomSheet({
                 <X size={16} aria-hidden="true" />
               </Dialog.Close>
             </div>
-          ) : null}
-
-          {description ? (
-            <Dialog.Description className="sr-only">{description}</Dialog.Description>
           ) : null}
 
           <div className="min-h-0 flex-1 overflow-auto px-4 pb-5 pt-3 md:px-5">

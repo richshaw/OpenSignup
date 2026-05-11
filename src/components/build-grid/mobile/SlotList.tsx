@@ -4,6 +4,16 @@ import { ChevronDown } from 'lucide-react';
 import { SlotCard } from './SlotCard';
 import type { GridField, GridRow } from '../useGridState';
 
+// `YYYY-MM-DD` parsed via `new Date()` is treated as UTC, then shifted to local
+// time — in negative timezones that flips the previous day/month. Parse the
+// components manually so getMonth() reflects the calendar date the user typed.
+function parseLocalDate(raw: string): Date | null {
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 type SlotListProps = {
   rows: GridRow[];
   fields: GridField[];
@@ -59,18 +69,13 @@ export function SlotList({
     let key: string;
     let label: string;
     if (groupField.type === 'date') {
-      if (!raw) {
+      const parsed = parseLocalDate(raw);
+      if (!parsed) {
         key = '__empty';
         label = 'No date';
       } else {
-        const d = new Date(raw);
-        if (Number.isNaN(d.getTime())) {
-          key = '__empty';
-          label = 'No date';
-        } else {
-          key = `${d.getFullYear()}-${d.getMonth()}`;
-          label = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-        }
+        key = `${parsed.getFullYear()}-${parsed.getMonth()}`;
+        label = parsed.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
       }
     } else {
       if (!raw) {
