@@ -86,7 +86,7 @@ export function BuildGrid({ signupId, signupMeta, initialFields, initialSlots, i
   return (
     <>
       <div
-        className={`grid gap-5 items-start ${state.showPreview ? 'grid-cols-[minmax(720px,1fr)_minmax(380px,440px)]' : 'grid-cols-[1fr]'}`}
+        className={`grid gap-5 items-start ${state.showPreview ? 'grid-cols-[minmax(720px,1fr)_minmax(320px,360px)]' : 'grid-cols-[1fr]'}`}
       >
         {/* Build Grid panel */}
         <div className="border border-surface-sunk rounded-2xl bg-white overflow-hidden min-w-0">
