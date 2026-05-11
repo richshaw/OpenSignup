@@ -44,19 +44,24 @@ export function SideRail({ signupMeta, fields, rows, groupByFieldRef }: SideRail
         <Eye size={12} className="text-brand" />
         LIVE PREVIEW
       </span>
-      <div className="flex flex-col gap-7 rounded-2xl border border-surface-sunk bg-surface-raised p-5">
-        <SignupViewBody
-          signup={{
-            title: signupMeta.title,
-            description: signupMeta.description,
-            status: signupMeta.status,
-          }}
-          fields={fields.map(toViewField)}
-          groupByRef={groupByFieldRef}
-          slots={rows.map(toViewSlot)}
-          slug={signupMeta.slug}
-          mode="preview"
-        />
+      <div className="rounded-[22px] bg-[#0b1220] p-2 shadow-[0_8px_32px_rgb(11_18_32/0.12)]">
+        <div className="overflow-hidden rounded-[16px] bg-white p-4">
+          <div className="flex flex-col gap-7 origin-top-left" style={{ zoom: 0.7 }}>
+            <SignupViewBody
+              signup={{
+                title: signupMeta.title,
+                description: signupMeta.description,
+                status: signupMeta.status,
+              }}
+              fields={fields.map(toViewField)}
+              groupByRef={groupByFieldRef}
+              slots={rows.map(toViewSlot)}
+              slug={signupMeta.slug}
+              mode="preview"
+              showStateBanner={false}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

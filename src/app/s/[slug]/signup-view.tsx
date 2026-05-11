@@ -68,6 +68,9 @@ interface SignupViewProps {
   slug: string;
   mode: 'live' | 'preview';
   ownCommitments?: OwnCommitment[];
+  /** Show the preview/closed status banner. Default true; set false when the
+   *  surrounding context already conveys preview state (e.g. the build rail). */
+  showStateBanner?: boolean;
 }
 
 interface SlotGroup {
@@ -108,7 +111,7 @@ function titleFor(
   primary: SignupViewField | null,
 ): string {
   const value = primary ? renderFieldValue(primary, slot.values[primary.ref]) : null;
-  return value || slot.ref;
+  return value || 'Untitled slot';
 }
 
 export function SignupViewBody({
@@ -119,6 +122,7 @@ export function SignupViewBody({
   slug,
   mode,
   ownCommitments,
+  showStateBanner = true,
 }: SignupViewProps) {
   const isPreview = mode === 'preview';
   const effectiveStatus =
@@ -146,7 +150,7 @@ export function SignupViewBody({
 
   return (
     <>
-      {isPreview ? (
+      {!showStateBanner ? null : isPreview ? (
         <Banner kind="preview" title="Preview" body={previewCopy} />
       ) : effectiveStatus === 'closed' ? (
         <Banner
