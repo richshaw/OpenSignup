@@ -226,6 +226,16 @@ export function useGridState(
     };
   }, []);
 
+  // On mount: default the live-preview side rail to ON when the viewport has
+  // room for both panels (≥xl breakpoint). One-shot — does not re-evaluate on
+  // resize, so a manual toggle off is respected until the next mount.
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    if (window.matchMedia('(min-width: 1280px)').matches) {
+      dispatch({ type: 'SET_SHOW_PREVIEW', show: true });
+    }
+  }, []);
+
   // ---------------------------------------------------------------------------
   // Save status helpers
   // ---------------------------------------------------------------------------

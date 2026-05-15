@@ -707,3 +707,39 @@ describe('useGridState moveField', () => {
     expect(result.current.state.fields.map((f) => f.id)).toEqual(['a', 'b']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// useGridState mount-time showPreview default (viewport-aware)
+// ---------------------------------------------------------------------------
+
+function stubMatchMedia(matches: boolean) {
+  const mql = {
+    matches,
+    media: '',
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+    addListener: () => {},
+    removeListener: () => {},
+  };
+  vi.stubGlobal('matchMedia', vi.fn(() => mql));
+}
+
+describe('useGridState mount-time showPreview default', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('defaults showPreview to true when viewport is ≥1280px', () => {
+    stubMatchMedia(true);
+    const { result } = renderGrid([]);
+    expect(result.current.state.showPreview).toBe(true);
+  });
+
+  it('leaves showPreview false when viewport is <1280px', () => {
+    stubMatchMedia(false);
+    const { result } = renderGrid([]);
+    expect(result.current.state.showPreview).toBe(false);
+  });
+});
