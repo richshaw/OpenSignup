@@ -45,7 +45,6 @@ export function AiDraftBanner({
           fieldsCount === 1 ? 'column' : 'columns'
         } and ${slotsCount} ${slotsCount === 1 ? 'slot' : 'slots'}`}
         body="Edit anything below, then publish when you're ready."
-        action={{ label: 'Re-draft', href: '/app/signups/new' }}
         onDismiss={onDismiss}
       />
       {warnings.length > 0 && (
