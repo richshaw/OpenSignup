@@ -12,6 +12,7 @@ import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
 import { ServiceException } from '@/lib/errors';
 import { SignupAdapter } from './adapter';
 import { canonicalizeMagicLinkUrl } from './magic-link-url';
+import { extractEmailDomain } from './email-domain';
 import { getCurrentRequestIp } from './request-context';
 
 // Built lazily on first request: SignupAdapter() touches getDb() → getEnv(),
@@ -74,7 +75,7 @@ function buildConfig(): NextAuthConfig {
               workspaceId: null,
               actor: { actorId: null, actorType: 'system' },
               eventType: 'auth.magic_link_sent',
-              payload: { email: identifier, expiresInMinutes },
+              payload: { emailDomain: extractEmailDomain(identifier), expiresInMinutes },
             });
           } catch (err) {
             log.warn({ err }, 'recordActivity auth.magic_link_sent failed');

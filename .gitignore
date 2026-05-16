@@ -16,3 +16,6 @@ next-env.d.ts
 .remember
 .claude
 .worktrees
+
+# Non-deterministic LLM eval outputs — local dev artifacts only
+evals/**/snapshots/

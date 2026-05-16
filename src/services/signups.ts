@@ -169,7 +169,6 @@ export async function createSignup(
       actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'signup.created',
       payload: {
-        title: inserted.title,
         templateId: template.id,
         fieldsAdded: template.fields.length,
         slotsAdded: template.slots.length,

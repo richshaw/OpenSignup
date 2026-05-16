@@ -1,5 +1,6 @@
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { activity, type ActivityEvent } from '@/db/schema/activity';
+import { organizers } from '@/db/schema/organizers';
 import type { Db, Queryable } from '@/db/client';
 import { makeId } from './ids';
 
@@ -27,6 +28,13 @@ export async function recordActivity(
     eventType: args.eventType,
     payload: args.payload ?? {},
   });
+
+  if (args.actor.actorType === 'organizer' && args.actor.actorId !== null) {
+    await db
+      .update(organizers)
+      .set({ lastActiveAt: sql`now()` })
+      .where(eq(organizers.id, args.actor.actorId));
+  }
 }
 
 export async function listActivityForSignup(db: Db, signupId: string, limit = 100) {

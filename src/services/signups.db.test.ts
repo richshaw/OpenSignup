@@ -169,6 +169,7 @@ describe('signups service (db)', () => {
       expect(payload.templateId).toBe(DEFAULT_TEMPLATE.id);
       expect(payload.fieldsAdded).toBe(1);
       expect(payload.slotsAdded).toBe(1);
+      expect('title' in payload).toBe(false);
     });
 
     it('applies a custom template when supplied', async () => {

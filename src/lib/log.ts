@@ -15,6 +15,8 @@ export const log = pino({
       '*.apiKey',
       '*.RESEND_API_KEY',
       '*.SMTP_PASSWORD',
+      '*.LLM_API_KEY',
+      '*.headers.authorization',
     ],
     remove: true,
   },

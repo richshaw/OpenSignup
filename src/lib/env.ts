@@ -24,6 +24,10 @@ const baseSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
+  LLM_BASE_URL: z.string().url().optional(),
+  LLM_API_KEY: z.string().optional(),
+  LLM_MODEL: z.string().optional(),
+  LLM_TIMEOUT_MS: z.coerce.number().int().positive().max(600_000).default(180_000),
 });
 
 const conditional = baseSchema.superRefine((env, ctx) => {
@@ -44,6 +48,13 @@ const conditional = baseSchema.superRefine((env, ctx) => {
         });
       }
     }
+  }
+  if (Boolean(env.LLM_BASE_URL) !== Boolean(env.LLM_MODEL)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [env.LLM_BASE_URL ? 'LLM_MODEL' : 'LLM_BASE_URL'],
+      message: 'LLM_BASE_URL and LLM_MODEL must be set together (or both unset)',
+    });
   }
 });
 
@@ -71,4 +82,9 @@ export function getEnv(): Env {
 
 export function resetEnvCache(): void {
   cached = null;
+}
+
+export function magicComposeEnabled(): boolean {
+  const env = getEnv();
+  return Boolean(env.LLM_BASE_URL && env.LLM_MODEL);
 }

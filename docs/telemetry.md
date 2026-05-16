@@ -33,7 +33,7 @@ shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 
 | event | actor | payload | fired from |
 |---|---|---|---|
-| `signup.created` | organizer | `{ title, templateId, fieldsAdded, slotsAdded }` | `services/signups.ts` |
+| `signup.created` | organizer | `{ templateId, fieldsAdded, slotsAdded }` | `services/signups.ts` |
 | `signup.updated` | organizer | `{ changes }` | `services/signups.ts` |
 | `signup.published` | organizer | `{}` | `services/signups.ts` |
 | `signup.closed` | organizer | `{}` | `services/signups.ts` |
@@ -77,7 +77,7 @@ shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 
 | event | actor | payload | fired from |
 |---|---|---|---|
-| `auth.magic_link_sent` | system | `{ email, expiresInMinutes }` | `auth/config.ts` (`sendVerificationRequest`) |
+| `auth.magic_link_sent` | system | `{ emailDomain, expiresInMinutes }` | `auth/config.ts` (`sendVerificationRequest`) |
 | `auth.signed_in` | organizer | `{ isNewUser }` | `auth/config.ts` (`events.signIn`) |
 | `workspace.created` | organizer | `{ kind: 'personal' }` | `auth/adapter.ts` (first-login tx) |
 
@@ -100,9 +100,16 @@ deliberately minimal:
 - `DNT: 1` and `Sec-GPC: 1` short-circuit the insert before any DB write.
 - Bots are skipped via a User-Agent regex.
 
-`auth.magic_link_sent` deliberately keeps the email address in the payload
-(it's necessary to compute consumption rate by linking with `auth.signed_in`).
-Treat the activity table as PII-bearing for retention purposes.
+`auth.magic_link_sent` records only the email **domain**, not the local-part.
+Aggregate anti-abuse questions ("what fraction of magic-link sends go to
+gmail.com / corporate domains / fresh free-mail providers?") work on the
+domain alone, and consumption rate is computed by counting
+`auth.magic_link_sent` vs `auth.signed_in` events — neither requires the
+recipient's full address.
+
+The remaining PII reachable from activity is the foreign-key path to
+`organizers` via `actor_id` when `actor_type = 'organizer'`. Deny `SELECT`
+on `organizers` separately if exposing this table to an analytics role.
 
 ## Workspace scoping
 
@@ -230,6 +237,25 @@ documented here.
 
 The TypeScript compiler will enforce that every `recordActivity` call site
 uses a known event type.
+
+### Organizer activity timestamps
+
+Every `recordActivity` call with `actor_type = 'organizer'` and a non-null
+`actor_id` also bumps `organizers.last_active_at` on the same handle
+(transaction-internal when the caller is inside one). WAU / MAU can therefore
+be answered directly:
+
+```sql
+SELECT count(*) FROM organizers
+WHERE last_active_at >= now() - interval '7 days';
+```
+
+without a `SELECT DISTINCT actor_id` scan of `activity`. The definition of
+"active" is "any organizer-actor activity write" — signup mutations, slot
+edits, `auth.signed_in`, **and** the organizer-side RSC pageview events
+(`signup.editor_opened`, `signup.previewed`, `signup.draft_started`) which
+are written with the organizer as actor. `signup.viewed` is system-actor
+and does not advance `last_active_at`.
 
 ### What's not captured
 
