@@ -31,14 +31,14 @@ export function DeleteSignupForm({ signupId }: Props) {
       className="space-y-3"
     >
       <p className="text-danger text-sm font-medium">
-        This permanently removes the signup. It cannot be undone.
+        This will delete the signup.
       </p>
       <div className="flex flex-wrap gap-2">
         <AsyncSubmitButton
           loadingLabel="Deleting…"
           className="bg-danger rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          Yes, delete permanently
+          Yes, delete signup
         </AsyncSubmitButton>
         <button
           type="button"
