@@ -1,4 +1,4 @@
-import { and, between, eq, or, sql } from 'drizzle-orm';
+import { and, between, eq, isNull, or, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
@@ -31,6 +31,7 @@ export async function dispatchReminders(): Promise<{ enqueued: number }> {
       and(
         or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
         eq(signups.status, 'open'),
+        isNull(signups.deletedAt),
         between(slots.slotAt, windowStart, windowEnd),
         sql`COALESCE((${signups.settings}->>'sendReminders')::boolean, true) = true`,
         // skip if a reminder was already recorded for this commitment
@@ -82,6 +83,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   if (row.commitment.status !== 'confirmed' && row.commitment.status !== 'tentative') {
     return;
   }
+  if (row.signup.deletedAt) return;
 
   // Idempotency guard: if a prior attempt sent the email but failed to record
   // activity (causing a pg-boss retry), skip re-sending.

@@ -17,6 +17,7 @@ import {
   archiveSignup,
   closeSignup,
   createSignup,
+  deleteSignup,
   getPublicSignup,
   getSignupForOrganizer,
   listSignupsForWorkspace,
@@ -777,6 +778,145 @@ describe('signups service (db)', () => {
       if (r.ok) return;
       expect(r.error.code).toBe('not_found');
       expect(r.error.received).toBeUndefined();
+    });
+  });
+
+  describe('deleteSignup', () => {
+    it('soft-deletes the signup: sets deletedAt and records signup.deleted with the prior status in payload', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('To delete'));
+      if (!created.ok) throw new Error('setup failed');
+      expect(created.value.status).toBe('draft');
+
+      const r = await deleteSignup(fx.db, fx.actor, created.value.id);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.deletedAt).toBeInstanceOf(Date);
+      // status is preserved so a human can recover by clearing deletedAt
+      expect(r.value.status).toBe('draft');
+
+      const acts = await fx.db
+        .select()
+        .from(activity)
+        .where(eq(activity.signupId, created.value.id));
+      const deletedEvents = acts.filter((a) => a.eventType === 'signup.deleted');
+      expect(deletedEvents).toHaveLength(1);
+      expect((deletedEvents[0]!.payload as Record<string, unknown>).status).toBe('draft');
+    });
+
+    it('returns not_found for a missing id', async () => {
+      const r = await deleteSignup(fx.db, fx.actor, makeId('sig'));
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('not_found');
+    });
+
+    it('rejects a foreign-workspace actor before the idempotency branch', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Locked'));
+      if (!created.ok) throw new Error('setup failed');
+      // Soft-delete first so we know the policy check still fires when the row is already deleted
+      const first = await deleteSignup(fx.db, fx.actor, created.value.id);
+      if (!first.ok) throw new Error('setup failed');
+
+      const otherFx = await setupWorkspace();
+      try {
+        await expect(
+          deleteSignup(otherFx.db, otherFx.actor, created.value.id),
+        ).rejects.toThrow(/not a member/);
+      } finally {
+        await teardownWorkspace(otherFx.db, otherFx.workspaceId, otherFx.organizerId);
+      }
+    });
+
+    it('rejects a viewer in the workspace (write guard fires)', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Viewer no-delete'));
+      if (!created.ok) throw new Error('setup failed');
+      // Synthesize a viewer-role actor scoped to the same workspace.
+      // requireWorkspaceWrite reads actor.workspaceRoles, so no DB member row is needed.
+      const viewer: Actor = {
+        kind: 'organizer',
+        id: makeId('org'),
+        email: 'viewer@example.test',
+        workspaceIds: [fx.workspaceId],
+        workspaceRoles: { [fx.workspaceId]: 'viewer' },
+      };
+
+      await expect(deleteSignup(fx.db, viewer, created.value.id)).rejects.toThrow(/cannot modify/);
+    });
+
+    it('is idempotent: second call returns ok and only one signup.deleted activity is written', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Twice gone'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const first = await deleteSignup(fx.db, fx.actor, created.value.id);
+      expect(first.ok).toBe(true);
+      const second = await deleteSignup(fx.db, fx.actor, created.value.id);
+      expect(second.ok).toBe(true);
+      if (!first.ok || !second.ok) return;
+      // The deletedAt timestamp should be the one written by the first call
+      expect(second.value.deletedAt?.getTime()).toBe(first.value.deletedAt?.getTime());
+
+      const acts = await fx.db
+        .select()
+        .from(activity)
+        .where(eq(activity.signupId, created.value.id));
+      const deletedEvents = acts.filter((a) => a.eventType === 'signup.deleted');
+      expect(deletedEvents).toHaveLength(1);
+    });
+
+    it('is concurrency-safe: parallel deletes write a single signup.deleted activity', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Race delete'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const [a, b] = await Promise.all([
+        deleteSignup(fx.db, fx.actor, created.value.id),
+        deleteSignup(fx.db, fx.actor, created.value.id),
+      ]);
+      expect(a.ok).toBe(true);
+      expect(b.ok).toBe(true);
+
+      const acts = await fx.db
+        .select()
+        .from(activity)
+        .where(eq(activity.signupId, created.value.id));
+      const deletedEvents = acts.filter((ev) => ev.eventType === 'signup.deleted');
+      expect(deletedEvents).toHaveLength(1);
+    });
+
+    it('causes getSignupForOrganizer to return not_found (read-path guard)', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Hidden after delete'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const before = await getSignupForOrganizer(fx.db, fx.actor, created.value.id);
+      expect(before.ok).toBe(true);
+
+      const del = await deleteSignup(fx.db, fx.actor, created.value.id);
+      if (!del.ok) throw new Error('delete failed');
+
+      const after = await getSignupForOrganizer(fx.db, fx.actor, created.value.id);
+      expect(after.ok).toBe(false);
+      if (after.ok) return;
+      expect(after.error.code).toBe('not_found');
+    });
+
+    it('excludes deleted signups from listSignupsForWorkspace', async () => {
+      const listFx = await setupWorkspace();
+      try {
+        const keep = await createSignup(listFx.db, listFx.actor, listFx.workspaceId, validCreateInput('Keep'));
+        const gone = await createSignup(listFx.db, listFx.actor, listFx.workspaceId, validCreateInput('Gone'));
+        if (!keep.ok || !gone.ok) throw new Error('setup failed');
+
+        const del = await deleteSignup(listFx.db, listFx.actor, gone.value.id);
+        if (!del.ok) throw new Error('delete failed');
+
+        const all = await listSignupsForWorkspace(listFx.db, listFx.actor, listFx.workspaceId);
+        expect(all.ok).toBe(true);
+        if (!all.ok) return;
+        const ids = all.value.map((r) => r.id);
+        expect(ids).toContain(keep.value.id);
+        expect(ids).not.toContain(gone.value.id);
+      } finally {
+        await teardownWorkspace(listFx.db, listFx.workspaceId, listFx.organizerId);
+      }
     });
   });
 });

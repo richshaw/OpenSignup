@@ -187,7 +187,7 @@ export async function getSignupForOrganizer(
 ): Promise<Result<SignupWithSlots, ServiceError>> {
   const found = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
   const row = found[0];
-  if (!row) return err(serviceError('not_found', 'signup not found'));
+  if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceAccess(actor, row.workspaceId);
   const [signupSlots, fields] = await Promise.all([
     db
@@ -280,6 +280,52 @@ export async function archiveSignup(
   signupId: string,
 ): Promise<Result<SignupRow, ServiceError>> {
   return transitionStatus(db, actor, signupId, null, 'archived', 'signup.archived');
+}
+
+export async function deleteSignup(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+): Promise<Result<SignupRow, ServiceError>> {
+  const existing = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
+  const row = existing[0];
+  if (!row) return err(serviceError('not_found', 'signup not found'));
+  // Policy check runs before the idempotency branch so a foreign-workspace
+  // caller still gets ServiceException even if the row is already deleted.
+  requireWorkspaceWrite(actor, row.workspaceId);
+
+  if (row.deletedAt) return ok(row);
+
+  const updated = await db.transaction(async (tx) => {
+    const now = new Date();
+    // Conditional update: another concurrent call may have already deleted.
+    // Only the winner records the activity row, so the log stays single-write.
+    const [next] = await tx
+      .update(signups)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(and(eq(signups.id, signupId), isNull(signups.deletedAt)))
+      .returning();
+    if (!next) {
+      const [existing] = await tx
+        .select()
+        .from(signups)
+        .where(eq(signups.id, signupId))
+        .limit(1);
+      if (!existing) throw new Error('signup vanished mid-delete');
+      return existing;
+    }
+
+    await recordActivity(tx, {
+      signupId,
+      workspaceId: row.workspaceId,
+      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
+      eventType: 'signup.deleted',
+      payload: { status: row.status },
+    });
+    return next;
+  });
+
+  return ok(updated);
 }
 
 async function transitionStatus(

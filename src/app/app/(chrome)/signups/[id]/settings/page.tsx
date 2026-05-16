@@ -6,6 +6,7 @@ import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { SignupSettingsSchema } from '@/schemas/signups';
 import { updateBasicsAction, updateReminderAction } from '../actions';
+import { DeleteSignupForm } from './delete-signup-form';
 
 type PageParams = {
   params: Promise<{ id: string }>;
@@ -109,6 +110,21 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
           </div>
         </form>
       )}
+      <section
+        aria-labelledby="danger-zone-heading"
+        className="space-y-3 rounded-xl border border-danger/30 bg-danger/5 p-6"
+      >
+        <div>
+          <h2 id="danger-zone-heading" className="text-danger text-sm font-semibold">
+            Danger zone
+          </h2>
+          <p className="text-ink-muted mt-1 text-sm">
+            Deleting removes this signup from your dashboard and immediately makes its public
+            link inaccessible.
+          </p>
+        </div>
+        <DeleteSignupForm signupId={id} />
+      </section>
     </section>
   );
 }
