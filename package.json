@@ -32,6 +32,7 @@
     "db:studio": "drizzle-kit studio",
     "email:dev": "email dev --dir src/email/templates --port 3001",
     "worker": "tsx src/jobs/worker.ts",
+    "eval:magic-compose": "tsx scripts/eval-magic-compose.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

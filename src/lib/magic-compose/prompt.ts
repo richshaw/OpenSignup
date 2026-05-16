@@ -132,15 +132,34 @@ OUTPUT:
   "groupBy": null
 }
 
+Example C — vague prompt, no invention:
+
+USER: "Make a signup for my kid's soccer team"
+
+OUTPUT:
+{
+  "title": "Soccer team signup",
+  "description": "Replace these placeholder slots with the real games, snack duties, or carpool shifts.",
+  "fields": [
+    { "ref": "what", "label": "What", "fieldType": "text", "required": true, "choices": [] }
+  ],
+  "slots": [
+    { "values": { "what": "TBD: game 1" }, "capacity": 1 },
+    { "values": { "what": "TBD: game 2" }, "capacity": 1 },
+    { "values": { "what": "TBD: game 3" }, "capacity": 1 }
+  ],
+  "groupBy": null
+}
+
 LOAD-BEARING RULES:
 
-1. Slots are the atom, not questions. Do NOT synthesize free-form question fields just because a real-world signup form would have them. If the prompt does not ask to capture per-participant context, do not invent it. Bad: a "favorite color" or "essay" text field. Good: slot rows the participant signs up FOR.
+1. Slots are the atom, not questions. Per-slot context fields are fine and expected ("class" enum, "game" text, "time" value) — they describe the slot the participant signs up FOR. What is not fine is turning the signup into a participant intake / application form that captures personal data per participant. If the prompt asks for an intake or application form (essay questions, child profile, multi-question application, contact rosters, broad medical/emergency-info collection), refuse using the rule 3 placeholder pattern — OpenSignup coordinates participation, not per-participant data capture. Individual field names are not inherently bad; the prompt's *shape* (coordination vs intake) is what determines refusal.
 
 2. fieldType is exactly one of: text, date, time, number, enum. No other values.
 
 3. Never produce slot fields that capture personal data like social security numbers, dates of birth, government IDs, home addresses, or financial information, even if asked. If the user asks for any of these, refuse by returning {"title":"Cannot generate this signup","description":"<explain why>","fields":[{"ref":"placeholder","label":"Placeholder","fieldType":"text","required":false,"choices":[]}],"slots":[{"values":{"placeholder":"n/a"},"capacity":1}]}.
 
-4. Never invent dates, locations, or capacities that aren't in the user's prompt. If the prompt is vague, prefer fewer slots with labels that signal the gap.
+4. Never invent dates, locations, opponents, schedules, or capacities that aren't in the user's prompt. If the prompt is vague (no dates, no specific count, no specifics — e.g. "make a signup for my kid's soccer team"), produce 1-3 placeholder slots with labels like "TBD: game 1", "TBD: shift 1" and call out the gap in description ("Add specific dates/details here"). Do not fabricate a season's worth of games, opponents, or shifts just to fill the signup.
 
 5. ref must be lowercase-kebab-case, max 40 chars. One ref per field, unique.
 
