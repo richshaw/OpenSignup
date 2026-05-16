@@ -5,10 +5,14 @@ import { getOrganizerSession, toActor } from '@/auth/session';
 import { createSignup } from '@/services/signups';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { recordOrganizerView } from '@/lib/view-tracker';
+import { magicComposeEnabled } from '@/lib/env';
+import { MagicComposeRoot } from '@/components/magic-compose/MagicComposeRoot';
 
 export const metadata = { title: 'New signup' };
 
-export default async function NewSignupPage() {
+type PageProps = { searchParams: Promise<{ manual?: string; error?: string }> };
+
+export default async function NewSignupPage({ searchParams }: PageProps) {
   const session = await getOrganizerSession();
   if (!session) redirect('/login?callbackUrl=/app/signups/new');
 
@@ -24,6 +28,13 @@ export default async function NewSignupPage() {
     );
   }
 
+  const { manual } = await searchParams;
+  const useMagic = magicComposeEnabled() && manual !== '1';
+
+  if (useMagic) {
+    return <MagicComposeRoot />;
+  }
+
   async function createAction(formData: FormData) {
     'use server';
     const s = await getOrganizerSession();
@@ -35,7 +46,7 @@ export default async function NewSignupPage() {
       visibility: 'unlisted',
     });
     if (!result.ok) {
-      redirect(`/app/signups/new?error=${encodeURIComponent(result.error.message)}`);
+      redirect(`/app/signups/new?manual=1&error=${encodeURIComponent(result.error.message)}`);
     }
     redirect(`/app/signups/${result.value.id}`);
   }

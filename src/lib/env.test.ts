@@ -52,4 +52,25 @@ describe('parseEnv', () => {
     expect(env.EMAIL_TRANSPORT).toBe('smtp');
     expect(env.SMTP_PORT).toBe(587);
   });
+
+  it('rejects LLM_BASE_URL without LLM_MODEL', () => {
+    expect(() =>
+      parseEnv({ ...base, LLM_BASE_URL: 'https://api.openai.com/v1' }),
+    ).toThrow(/LLM_MODEL/);
+  });
+
+  it('rejects LLM_MODEL without LLM_BASE_URL', () => {
+    expect(() => parseEnv({ ...base, LLM_MODEL: 'gpt-4o-mini' })).toThrow(/LLM_BASE_URL/);
+  });
+
+  it('accepts LLM_BASE_URL + LLM_MODEL together', () => {
+    const env = parseEnv({
+      ...base,
+      LLM_BASE_URL: 'https://api.openai.com/v1',
+      LLM_MODEL: 'gpt-4o-mini',
+    });
+    expect(env.LLM_BASE_URL).toBe('https://api.openai.com/v1');
+    expect(env.LLM_MODEL).toBe('gpt-4o-mini');
+    expect(env.LLM_API_KEY).toBeUndefined();
+  });
 });

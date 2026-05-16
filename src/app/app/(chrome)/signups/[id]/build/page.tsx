@@ -4,6 +4,7 @@ import { getOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { BuildGrid } from '@/components/build-grid';
+import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
 import { SignupSettingsSchema, type SignupStatus } from '@/schemas/signups';
 
 type PageParams = { params: Promise<{ id: string }> };
@@ -24,22 +25,25 @@ export default async function BuildTab({ params }: PageParams) {
     }),
   );
   return (
-    <BuildGrid
-      signupId={id}
-      signupMeta={{
-        title: sig.title,
-        description: sig.description,
-        status: sig.status as SignupStatus,
-        slug: sig.slug,
-      }}
-      initialFields={sig.fields}
-      initialSlots={sig.slots.map((s) => ({
-        id: s.id,
-        capacity: s.capacity ?? null,
-        sortOrder: s.sortOrder,
-        values: (s.values ?? {}) as Record<string, unknown>,
-      }))}
-      initialSettings={SignupSettingsSchema.parse(sig.settings ?? {})}
-    />
+    <>
+      <AiDraftBanner fieldsCount={sig.fields.length} slotsCount={sig.slots.length} />
+      <BuildGrid
+        signupId={id}
+        signupMeta={{
+          title: sig.title,
+          description: sig.description,
+          status: sig.status as SignupStatus,
+          slug: sig.slug,
+        }}
+        initialFields={sig.fields}
+        initialSlots={sig.slots.map((s) => ({
+          id: s.id,
+          capacity: s.capacity ?? null,
+          sortOrder: s.sortOrder,
+          values: (s.values ?? {}) as Record<string, unknown>,
+        }))}
+        initialSettings={SignupSettingsSchema.parse(sig.settings ?? {})}
+      />
+    </>
   );
 }
