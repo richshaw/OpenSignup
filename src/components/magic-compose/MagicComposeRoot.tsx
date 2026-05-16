@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
-import { STARTER_PROMPTS } from '@/lib/magic-compose/templates';
 import { Compose } from './Compose';
 import { Drafting } from './Drafting';
 import { writeAiDraftWarnings } from './ai-draft-warnings';
@@ -43,7 +42,7 @@ const DRAFTING_WATCHDOG_MS = 210_000;
 export function MagicComposeRoot() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
-  const [prompt, setPrompt] = useState(STARTER_PROMPTS[0]?.body ?? '');
+  const [prompt, setPrompt] = useState('');
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
