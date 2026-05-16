@@ -168,7 +168,8 @@ export async function deleteSignupAction(signupId: string) {
       `/app/signups/${signupId}/settings?error=${encodeURIComponent(result.error.message)}`,
     );
   }
-  // Bust any open tab on the deleted signup so the next interaction 404s cleanly.
+  // Bust any open tab on the deleted signup so the next interaction shows the
+  // organizer "signup not found" state instead of a stale cached layout.
   revalidatePath(`/app/signups/${signupId}`, 'layout');
   revalidatePath('/app');
   redirect('/app');

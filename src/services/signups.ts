@@ -298,12 +298,22 @@ export async function deleteSignup(
 
   const updated = await db.transaction(async (tx) => {
     const now = new Date();
+    // Conditional update: another concurrent call may have already deleted.
+    // Only the winner records the activity row, so the log stays single-write.
     const [next] = await tx
       .update(signups)
       .set({ deletedAt: now, updatedAt: now })
-      .where(eq(signups.id, signupId))
+      .where(and(eq(signups.id, signupId), isNull(signups.deletedAt)))
       .returning();
-    if (!next) throw new Error('update returned nothing');
+    if (!next) {
+      const [existing] = await tx
+        .select()
+        .from(signups)
+        .where(eq(signups.id, signupId))
+        .limit(1);
+      if (!existing) throw new Error('signup vanished mid-delete');
+      return existing;
+    }
 
     await recordActivity(tx, {
       signupId,

@@ -863,6 +863,25 @@ describe('signups service (db)', () => {
       expect(deletedEvents).toHaveLength(1);
     });
 
+    it('is concurrency-safe: parallel deletes write a single signup.deleted activity', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Race delete'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const [a, b] = await Promise.all([
+        deleteSignup(fx.db, fx.actor, created.value.id),
+        deleteSignup(fx.db, fx.actor, created.value.id),
+      ]);
+      expect(a.ok).toBe(true);
+      expect(b.ok).toBe(true);
+
+      const acts = await fx.db
+        .select()
+        .from(activity)
+        .where(eq(activity.signupId, created.value.id));
+      const deletedEvents = acts.filter((ev) => ev.eventType === 'signup.deleted');
+      expect(deletedEvents).toHaveLength(1);
+    });
+
     it('causes getSignupForOrganizer to return not_found (read-path guard)', async () => {
       const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Hidden after delete'));
       if (!created.ok) throw new Error('setup failed');
