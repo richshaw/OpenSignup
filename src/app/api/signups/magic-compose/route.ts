@@ -10,7 +10,11 @@ import { log } from '@/lib/log';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { defaultLlmClient } from '@/lib/magic-compose/llm-client';
 import { buildMessages, MagicComposeDraftSchema } from '@/lib/magic-compose/prompt';
-import { hasDropped, magicComposeToTemplate } from '@/lib/magic-compose/to-template';
+import {
+  buildWarnings,
+  hasDropped,
+  magicComposeToTemplate,
+} from '@/lib/magic-compose/to-template';
 import { createSignup } from '@/services/signups';
 import { mapMagicComposeError } from './errors';
 import { buildDraftPreview } from './preview';
@@ -43,8 +47,10 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getDb();
-    await consumeRateLimit(db, RateLimits.magicComposePerOrganizer, actor.id);
 
+    // Parse & validate before consuming rate-limit so malformed/empty bodies
+    // don't burn the organizer's 10/hr quota — quota only counts requests we
+    // would actually forward to the upstream LLM.
     const body = (await req.json().catch(() => ({}))) as unknown;
     const parsed = PromptBodySchema.safeParse(body);
     if (!parsed.success) {
@@ -56,27 +62,43 @@ export async function POST(req: NextRequest) {
     }
     const userPrompt = parsed.data.prompt;
 
+    await consumeRateLimit(db, RateLimits.magicComposePerOrganizer, actor.id);
+
     const client = defaultLlmClient();
     const raw = await client.generateDraft(buildMessages(userPrompt), req.signal);
     if (!raw.ok) {
       log.warn({ llmError: raw.error }, 'magic-compose generation failed');
       const mapped = mapMagicComposeError(raw.error);
-      const details: Record<string, unknown> = { llmErrorCode: raw.error.code };
+      const details: Record<string, unknown> = {
+        llmErrorCode: raw.error.code,
+        ...(mapped.details ?? {}),
+      };
       if (raw.error.status !== undefined) details.upstreamStatus = raw.error.status;
       // Intentionally NOT shipping raw.error.upstreamBody to the client — it
       // can contain provider stack traces, internal hostnames, and account
       // identifiers that bypass pino's redaction. Server log.warn above keeps
       // the body for operators.
-      return fail(serviceError(mapped.code, mapped.message, { details }));
+      const headers: HeadersInit | undefined =
+        mapped.code === 'rate_limited' && typeof mapped.details?.retryAfterSeconds === 'number'
+          ? { 'Retry-After': String(mapped.details.retryAfterSeconds) }
+          : undefined;
+      return fail(serviceError(mapped.code, mapped.message, { details }), headers);
     }
 
     const draft = MagicComposeDraftSchema.safeParse(raw.value);
     if (!draft.success) {
       log.warn({ issues: draft.error.issues.slice(0, 5), raw: raw.value }, 'magic-compose draft failed Zod');
+      // Drop `received` and `path` from issues before returning to the client.
+      // `received` echoes the raw LLM output back into the response envelope,
+      // bypassing pino redaction and potentially leaking provider-generated
+      // text into client logs. Code+message is enough for the user.
+      const safeIssues = draft.error.issues
+        .slice(0, 5)
+        .map((i) => ({ code: i.code, message: i.message }));
       return fail(
         serviceError('internal', 'AI draft did not match expected shape', {
           suggestion: 'try again or adjust your prompt',
-          details: { issues: draft.error.issues.slice(0, 5) },
+          details: { issues: safeIssues },
         }),
       );
     }
@@ -101,8 +123,21 @@ export async function POST(req: NextRequest) {
     if (hasDropped(dropped)) {
       log.warn(
         { dropped, promptLength: userPrompt.length },
-        'magic-compose dropped values during conversion',
+        'magic-compose adjusted or dropped values during conversion',
       );
+    }
+    const warnings = buildWarnings(dropped);
+
+    // Client closed the connection between the LLM call and persistence —
+    // skip the write so we don't strand a signup the user never sees. This
+    // narrows but does not eliminate the race (no AbortSignal threading into
+    // createSignup yet); the body we return here is discarded by the client.
+    if (req.signal.aborted) {
+      log.info(
+        { promptLength: userPrompt.length },
+        'magic-compose request aborted before persistence',
+      );
+      return fail(serviceError('internal', 'request cancelled'));
     }
 
     const created = await createSignup(
@@ -129,6 +164,7 @@ export async function POST(req: NextRequest) {
           promptLength: userPrompt.length,
           groupByFieldRefs,
         },
+        warnings,
         draft: buildDraftPreview(draft.data, template),
       },
       {

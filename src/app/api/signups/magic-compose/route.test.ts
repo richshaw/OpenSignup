@@ -25,8 +25,6 @@ describe('mapMagicComposeError', () => {
   });
 
   it('aborted is classified as internal, not invalid_input', () => {
-    // Regression: previously aborted mapped to invalid_input/400, misclassifying
-    // client-cancelled requests as user input errors in Sentry.
     const mapped = mapMagicComposeError({ code: 'aborted', message: 'cancelled' });
     expect(mapped.code).not.toBe('invalid_input');
     expect(mapped.code).toBe('internal');
@@ -35,6 +33,38 @@ describe('mapMagicComposeError', () => {
   it('timeout hints at LLM_TIMEOUT_MS', () => {
     const mapped = mapMagicComposeError({ code: 'timeout', message: 'x' });
     expect(mapped.message).toMatch(/LLM_TIMEOUT_MS/);
+  });
+
+  it('distinguishes a 401/403 upstream as an API-key problem', () => {
+    const mapped = mapMagicComposeError({ code: 'upstream', message: 'x', status: 401 });
+    expect(mapped.message).toMatch(/LLM_API_KEY/);
+  });
+
+  it('distinguishes a 5xx upstream as provider unavailability', () => {
+    const mapped = mapMagicComposeError({ code: 'upstream', message: 'x', status: 503 });
+    expect(mapped.message).toMatch(/unavailable/i);
+    expect(mapped.message).toMatch(/503/);
+  });
+
+  it('keeps invalid_json and schema_mismatch messages distinct', () => {
+    const a = mapMagicComposeError({ code: 'invalid_json', message: 'x' });
+    const b = mapMagicComposeError({ code: 'schema_mismatch', message: 'x' });
+    expect(a.message).not.toBe(b.message);
+  });
+
+  it('threads retryAfterSeconds into details on rate_limited', () => {
+    const mapped = mapMagicComposeError({
+      code: 'rate_limited',
+      message: 'x',
+      retryAfterSeconds: 12,
+    });
+    expect(mapped.details?.retryAfterSeconds).toBe(12);
+    expect(mapped.message).toMatch(/12s/);
+  });
+
+  it('omits details on rate_limited without retryAfterSeconds', () => {
+    const mapped = mapMagicComposeError({ code: 'rate_limited', message: 'x' });
+    expect(mapped.details).toBeUndefined();
   });
 });
 

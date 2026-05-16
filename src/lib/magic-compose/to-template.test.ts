@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FullDraftSchema } from './prompt';
-import { magicComposeToTemplate } from './to-template';
+import { buildWarnings, magicComposeToTemplate } from './to-template';
 
 function parse(raw: unknown) {
   const r = FullDraftSchema.parse(raw);
@@ -214,6 +214,71 @@ describe('magicComposeToTemplate', () => {
       expect(r.dropped.duplicateRefs).toEqual([]);
       expect(r.dropped.strayValueKeys).toEqual([]);
       expect(r.dropped.coercionFailures).toEqual([]);
+      expect(r.dropped.emptyEnumFields).toEqual([]);
     });
+
+    it('demotes an enum field with no choices to free text and records it', () => {
+      const r = parseFull({
+        title: 'My signup',
+        fields: [
+          { ref: 'role', label: 'Role', fieldType: 'enum' },
+          { ref: 'station', label: 'Station', fieldType: 'enum', choices: ['  ', ' '] },
+        ],
+        slots: [{ values: { role: 'Driver', station: 'A' } }],
+      });
+      expect(r.dropped.emptyEnumFields).toEqual(['role', 'station']);
+      expect(r.template.fields[0]?.fieldType).toBe('text');
+      expect(r.template.fields[1]?.fieldType).toBe('text');
+      // The slot values pass through as text now rather than coerce-failing.
+      expect(r.template.slots[0]?.values).toEqual({ role: 'Driver', station: 'A' });
+    });
+  });
+});
+
+describe('buildWarnings', () => {
+  it('returns nothing for a clean conversion', () => {
+    expect(
+      buildWarnings({
+        duplicateRefs: [],
+        strayValueKeys: [],
+        coercionFailures: [],
+        emptyEnumFields: [],
+      }),
+    ).toEqual([]);
+  });
+
+  it('surfaces coercion failures with cell counts', () => {
+    const out = buildWarnings({
+      duplicateRefs: [],
+      strayValueKeys: [],
+      coercionFailures: [{ slot: 0, ref: 'date', reason: 'date' }],
+      emptyEnumFields: [],
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatch(/cell was left blank/);
+  });
+
+  it('describes a demoted enum field by ref', () => {
+    const out = buildWarnings({
+      duplicateRefs: [],
+      strayValueKeys: [],
+      coercionFailures: [],
+      emptyEnumFields: ['role'],
+    });
+    expect(out[0]).toMatch(/role/);
+    expect(out[0]).toMatch(/free text/);
+  });
+
+  it('concatenates multiple categories of warning', () => {
+    const out = buildWarnings({
+      duplicateRefs: ['date'],
+      strayValueKeys: ['typo'],
+      coercionFailures: [
+        { slot: 0, ref: 'date', reason: 'date' },
+        { slot: 1, ref: 'time', reason: 'time' },
+      ],
+      emptyEnumFields: ['role'],
+    });
+    expect(out).toHaveLength(4);
   });
 });

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defaultLlmClient, resolveChatCompletionsUrl } from './llm-client';
+import { defaultLlmClient, parseRetryAfter, resolveChatCompletionsUrl } from './llm-client';
 import { resetEnvCache } from '@/lib/env';
 
 const ORIGINAL_ENV = { ...process.env };
@@ -138,5 +138,54 @@ describe('defaultLlmClient.generateDraft', () => {
     const r = await defaultLlmClient().generateDraft([], ac.signal);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.code).toBe('aborted');
+  });
+
+  it('parses Retry-After (delta-seconds) on a 429 response', async () => {
+    mockFetch(
+      async () =>
+        new Response('over', {
+          status: 429,
+          headers: { 'Retry-After': '17' },
+        }),
+    );
+    const r = await defaultLlmClient().generateDraft([]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.code).toBe('rate_limited');
+      expect(r.error.retryAfterSeconds).toBe(17);
+    }
+  });
+
+  it('omits retryAfterSeconds when the upstream omits Retry-After', async () => {
+    mockFetch(async () => new Response('over', { status: 429 }));
+    const r = await defaultLlmClient().generateDraft([]);
+    if (!r.ok) expect(r.error.retryAfterSeconds).toBeUndefined();
+  });
+});
+
+describe('parseRetryAfter', () => {
+  it('parses delta-seconds', () => {
+    expect(parseRetryAfter('30')).toBe(30);
+  });
+
+  it('clamps absurd values', () => {
+    expect(parseRetryAfter('99999')).toBe(3600);
+  });
+
+  it('returns 0 for a past HTTP-date', () => {
+    expect(parseRetryAfter('Wed, 21 Oct 2015 07:28:00 GMT')).toBe(0);
+  });
+
+  it('returns seconds from now for a future HTTP-date', () => {
+    const future = new Date(Date.now() + 5000).toUTCString();
+    const got = parseRetryAfter(future);
+    expect(got).toBeGreaterThanOrEqual(4);
+    expect(got).toBeLessThanOrEqual(6);
+  });
+
+  it('returns undefined for nonsense', () => {
+    expect(parseRetryAfter('not-a-date')).toBeUndefined();
+    expect(parseRetryAfter(null)).toBeUndefined();
+    expect(parseRetryAfter('')).toBeUndefined();
   });
 });

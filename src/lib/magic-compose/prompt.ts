@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { FIELD_TYPES } from '@/schemas/slot-fields';
 
 export type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -13,8 +14,6 @@ const RefSchema = z
   .min(1)
   .max(40)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'ref must be lowercase kebab');
-
-const FIELD_TYPES = ['text', 'date', 'time', 'number', 'enum'] as const;
 
 const DraftFieldSchema = z.object({
   ref: RefSchema,
@@ -207,16 +206,23 @@ export function getSystemPromptForTests(): string {
 }
 
 /**
- * JSON Schema sent to the provider via response_format. Uses only the
- * subset of keywords that Gemini, OpenAI, Anthropic, and Ollama all
- * accept: type, enum, properties, required, items. No additionalProperties,
- * pattern, anyOf, minLength/maxLength, or minItems/maxItems — Gemini
- * rejects those. The Zod schema (MagicComposeDraftSchema) is the
- * load-bearing structural check on the server side; this schema is just
- * the model-level hint to keep output well-formed.
+ * Reference JSON Schema describing the expected draft shape. NOT currently
+ * sent to the provider: `defaultLlmClient` requests `response_format:
+ * { type: 'json_object' }` because Gemini's strict structured-output mode
+ * stalled on the permissive `values` object until the token cap. This
+ * constant lives on as (a) executable documentation of the contract and
+ * (b) a drift-lock in `prompt.test.ts` — if a property is added to the Zod
+ * schema, this object must be updated too, which forces the question of
+ * whether to enable strict mode for providers that handle it well.
  *
- * `choices` is always an array (empty for non-enum fields); `capacity`
- * is always an integer (>=1; the converter applies sensible defaults).
+ * Uses only the subset of keywords that Gemini, OpenAI, Anthropic, and
+ * Ollama all accept: type, enum, properties, required, items. No
+ * additionalProperties, pattern, anyOf, minLength/maxLength, or
+ * minItems/maxItems — Gemini rejects those.
+ *
+ * `choices` is an array of strings (empty for non-enum fields). `capacity`
+ * is an integer or null; null means "unlimited" and any positive integer
+ * caps the slot at that count (the converter normalises 0 / negative to 1).
  * `values` is a free-form object because slot value keys are dynamic.
  */
 export const RESPONSE_JSON_SCHEMA = {

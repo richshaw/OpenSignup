@@ -1,8 +1,3 @@
-// Integration test for the Magic Compose chain that the POST route exercises:
-// stub LlmClient -> Zod-validate -> magicComposeToTemplate -> createSignup.
-// We don't invoke POST() directly because that calls next-auth `auth()`; the
-// flow under test is everything after auth, which is the load-bearing path.
-
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';

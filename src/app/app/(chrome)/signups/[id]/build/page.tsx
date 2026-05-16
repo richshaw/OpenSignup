@@ -26,7 +26,11 @@ export default async function BuildTab({ params }: PageParams) {
   );
   return (
     <>
-      <AiDraftBanner fieldsCount={sig.fields.length} slotsCount={sig.slots.length} />
+      <AiDraftBanner
+        signupId={sig.id}
+        fieldsCount={sig.fields.length}
+        slotsCount={sig.slots.length}
+      />
       <BuildGrid
         signupId={id}
         signupMeta={{

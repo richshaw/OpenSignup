@@ -18,6 +18,8 @@ export interface MagicComposeError {
   status?: number;
   /** First ~500 chars of the upstream response body, for debugging. */
   upstreamBody?: string;
+  /** Seconds to wait before retrying, parsed from upstream `Retry-After`. */
+  retryAfterSeconds?: number;
 }
 
 export interface LlmClient {
@@ -70,14 +72,16 @@ export function defaultLlmClient(): LlmClient {
 
         if (!res.ok) {
           const status = res.status;
-          const upstreamBody = await safeReadBodyText(res);
+          const upstreamBody = await safeReadBodyText(res, 4096);
           log.warn({ status, model: env.LLM_MODEL, upstreamBody }, 'magic-compose upstream non-2xx');
           if (status === 429) {
+            const retryAfterSeconds = parseRetryAfter(res.headers.get('retry-after'));
             return err({
               code: 'rate_limited',
               message: 'LLM provider rate limited the request',
               status,
               upstreamBody,
+              ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
             });
           }
           if (status === 401 || status === 403) {
@@ -96,9 +100,9 @@ export function defaultLlmClient(): LlmClient {
           });
         }
 
-        let rawText = '';
+        let rawText: string;
         try {
-          rawText = await res.text();
+          rawText = await readBoundedText(res, MAX_SUCCESS_BODY_BYTES);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           if (timeoutController.signal.aborted) {
@@ -177,13 +181,82 @@ export function resolveChatCompletionsUrl(baseUrl: string): string {
   return `${trimmed}/chat/completions`;
 }
 
-async function safeReadBodyText(res: Response): Promise<string> {
+/**
+ * 2 MiB cap on the success-path response body. A well-formed completion at
+ * max_tokens 16k is ~80 KB; the ceiling guards against a hostile or buggy
+ * provider streaming an unbounded payload into a worker's memory.
+ */
+const MAX_SUCCESS_BODY_BYTES = 2 * 1024 * 1024;
+
+async function safeReadBodyText(res: Response, maxBytes: number): Promise<string> {
   try {
-    const text = await res.text();
+    const text = await readBoundedText(res, maxBytes);
     return text.slice(0, 2000);
   } catch {
     return '';
   }
+}
+
+async function readBoundedText(res: Response, maxBytes: number): Promise<string> {
+  if (!res.body) {
+    const fallback = await res.text();
+    return fallback.length > maxBytes ? fallback.slice(0, maxBytes) : fallback;
+  }
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.length;
+      if (total > maxBytes) {
+        chunks.push(value.subarray(0, value.length - (total - maxBytes)));
+        try {
+          await reader.cancel();
+        } catch {
+          // best-effort
+        }
+        break;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // releaseLock throws if the reader was already cancelled — ignore.
+    }
+  }
+  const merged = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+  let offset = 0;
+  for (const c of chunks) {
+    merged.set(c, offset);
+    offset += c.length;
+  }
+  return new TextDecoder('utf-8', { fatal: false }).decode(merged);
+}
+
+/**
+ * Parse a `Retry-After` header (either delta-seconds or HTTP-date) into
+ * seconds-from-now. Returns undefined when the header is missing or
+ * malformed; caller falls back to its own policy. Clamps to 3600s to avoid
+ * a hostile provider locking us out indefinitely.
+ */
+export function parseRetryAfter(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return undefined;
+  const asInt = Number(trimmed);
+  if (Number.isFinite(asInt) && asInt >= 0) {
+    return Math.min(3600, Math.floor(asInt));
+  }
+  const asDate = Date.parse(trimmed);
+  if (!Number.isFinite(asDate)) return undefined;
+  const seconds = Math.ceil((asDate - Date.now()) / 1000);
+  if (seconds <= 0) return 0;
+  return Math.min(3600, seconds);
 }
 
 function stripCodeFence(s: string): string {

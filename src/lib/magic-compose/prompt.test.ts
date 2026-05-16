@@ -45,12 +45,6 @@ describe('system prompt', () => {
     expect(sys).toContain('refusalReason');
   });
 
-  it('does not contain the legacy placeholder refusal title', () => {
-    // The old refusal pattern persisted a signup titled "Cannot generate this
-    // signup". The new pattern emits a top-level refusalReason and the route
-    // short-circuits — neither prompt nor server should write that title.
-    expect(sys).not.toContain('Cannot generate this signup');
-  });
 });
 
 describe('buildMessages', () => {

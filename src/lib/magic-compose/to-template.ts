@@ -5,6 +5,13 @@ import type { MagicComposeDraft } from './prompt';
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HHMM_24H = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+function sanitizeEnumChoices(choices: string[] | undefined): string[] {
+  return (choices ?? [])
+    .map((c) => c.trim())
+    .filter((c) => c.length > 0)
+    .slice(0, 20);
+}
+
 function configFor(
   fieldType: SlotFieldInput['fieldType'],
   choices: string[] | undefined,
@@ -18,24 +25,18 @@ function configFor(
       return { fieldType: 'time' };
     case 'number':
       return { fieldType: 'number' };
-    case 'enum': {
-      const safeChoices = (choices ?? [])
-        .map((c) => c.trim())
-        .filter((c) => c.length > 0)
-        .slice(0, 20);
-      if (safeChoices.length === 0) {
-        return { fieldType: 'enum', choices: ['Option 1'] };
-      }
-      return { fieldType: 'enum', choices: safeChoices };
-    }
+    case 'enum':
+      return { fieldType: 'enum', choices: sanitizeEnumChoices(choices) };
   }
 }
+
+type CoercedValue = string | number;
 
 function coerceValue(
   fieldType: SlotFieldInput['fieldType'],
   raw: unknown,
   enumChoices?: string[],
-): unknown | undefined {
+): CoercedValue | undefined {
   if (raw == null) return undefined;
   switch (fieldType) {
     case 'text': {
@@ -72,13 +73,15 @@ export interface DroppedSummary {
     ref: string;
     reason: 'date' | 'time' | 'enum' | 'number' | 'text';
   }>;
+  /** Enum fields that arrived with no usable choices; demoted to free text. */
+  emptyEnumFields: string[];
 }
 
 export interface MagicComposeConversion {
   template: SignupTemplate;
   /** Field refs to visually group by in the participant view. Length 0 or 1. */
   groupByFieldRefs: string[];
-  /** Per-call telemetry: what the model produced that we silently dropped. */
+  /** Per-call telemetry: what the model produced that we adjusted or dropped. */
   dropped: DroppedSummary;
 }
 
@@ -86,8 +89,37 @@ export function hasDropped(d: DroppedSummary): boolean {
   return (
     d.duplicateRefs.length > 0 ||
     d.strayValueKeys.length > 0 ||
-    d.coercionFailures.length > 0
+    d.coercionFailures.length > 0 ||
+    d.emptyEnumFields.length > 0
   );
+}
+
+/** Build short user-facing warnings the build page can surface in a banner. */
+export function buildWarnings(dropped: DroppedSummary): string[] {
+  const out: string[] = [];
+  if (dropped.coercionFailures.length > 0) {
+    const n = dropped.coercionFailures.length;
+    out.push(
+      `${n} ${n === 1 ? 'cell was' : 'cells were'} left blank because the AI's value didn't match the column's format. Fill them in below.`,
+    );
+  }
+  if (dropped.emptyEnumFields.length > 0) {
+    const labels = dropped.emptyEnumFields.join(', ');
+    out.push(
+      `Column${dropped.emptyEnumFields.length === 1 ? '' : 's'} ${labels} arrived without a fixed list of options, so ${dropped.emptyEnumFields.length === 1 ? 'it was' : 'they were'} switched to free text.`,
+    );
+  }
+  if (dropped.duplicateRefs.length > 0) {
+    out.push(
+      `Removed ${dropped.duplicateRefs.length} duplicate column${dropped.duplicateRefs.length === 1 ? '' : 's'} the AI tried to add twice.`,
+    );
+  }
+  if (dropped.strayValueKeys.length > 0) {
+    out.push(
+      `Ignored ${dropped.strayValueKeys.length} stray value${dropped.strayValueKeys.length === 1 ? '' : 's'} that didn't match any column.`,
+    );
+  }
+  return out;
 }
 
 export function magicComposeToTemplate(draft: MagicComposeDraft): MagicComposeConversion {
@@ -97,6 +129,7 @@ export function magicComposeToTemplate(draft: MagicComposeDraft): MagicComposeCo
     duplicateRefs: [],
     strayValueKeys: [],
     coercionFailures: [],
+    emptyEnumFields: [],
   };
 
   draft.fields.forEach((f, i) => {
@@ -105,11 +138,18 @@ export function magicComposeToTemplate(draft: MagicComposeDraft): MagicComposeCo
       return;
     }
     seenRefs.add(f.ref);
-    const config = configFor(f.fieldType, f.choices);
+    let fieldType = f.fieldType;
+    let choices = f.choices;
+    if (fieldType === 'enum' && sanitizeEnumChoices(choices).length === 0) {
+      dropped.emptyEnumFields.push(f.ref);
+      fieldType = 'text';
+      choices = undefined;
+    }
+    const config = configFor(fieldType, choices);
     fields.push({
       ref: f.ref,
       label: f.label,
-      fieldType: f.fieldType,
+      fieldType,
       required: f.required ?? false,
       sortOrder: i,
       config,

@@ -6,44 +6,73 @@ import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { STARTER_PROMPTS } from '@/lib/magic-compose/templates';
 import { Compose } from './Compose';
 import { Drafting } from './Drafting';
-
-type MagicComposeState =
-  | { kind: 'idle' }
-  | { kind: 'drafting' }
-  | { kind: 'error'; message: string };
+import { writeAiDraftWarnings } from './ai-draft-warnings';
 
 interface DraftResponse {
   id: string;
   slug: string;
 }
 
+interface ApiBody {
+  data?: {
+    id: string;
+    slug: string;
+    draft: DraftPreview;
+    warnings?: string[];
+  };
+  error?: { message: string; suggestion?: string };
+}
+
+type Phase =
+  | { kind: 'idle' }
+  | {
+      kind: 'drafting';
+      draft: DraftPreview | null;
+      response: DraftResponse | null;
+      animationDone: boolean;
+    }
+  | { kind: 'error'; message: string };
+
+/**
+ * Hard ceiling on the drafting phase. The LLM timeout is 180s server-side
+ * and the animation adds ~6s. We give it generous headroom and then surface
+ * an error rather than spinning forever if the response never arrives.
+ */
+const DRAFTING_WATCHDOG_MS = 210_000;
+
 export function MagicComposeRoot() {
   const router = useRouter();
-  const [state, setState] = useState<MagicComposeState>({ kind: 'idle' });
+  const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [prompt, setPrompt] = useState(STARTER_PROMPTS[0]?.body ?? '');
-  const [animationDone, setAnimationDone] = useState(false);
-  const [response, setResponse] = useState<DraftResponse | null>(null);
-  const [draft, setDraft] = useState<DraftPreview | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Both-states-resolved redirect.
   useEffect(() => {
-    if (animationDone && response && state.kind === 'drafting') {
-      router.push(`/app/signups/${response.id}/build?aiDraft=1`);
+    if (phase.kind !== 'drafting') return;
+    if (phase.animationDone && phase.response) {
+      router.push(`/app/signups/${phase.response.id}/build?aiDraft=1`);
     }
-  }, [animationDone, response, state.kind, router]);
+  }, [phase, router]);
+
+  useEffect(() => {
+    if (phase.kind !== 'drafting') return;
+    const timer = setTimeout(() => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setPhase({
+        kind: 'error',
+        message: 'AI drafting is taking longer than expected. Try again or simplify your prompt.',
+      });
+    }, DRAFTING_WATCHDOG_MS);
+    return () => clearTimeout(timer);
+  }, [phase.kind]);
 
   const onDraft = useCallback(async () => {
-    if (!prompt.trim()) return;
     const trimmed = prompt.trim();
-
-    setAnimationDone(false);
-    setResponse(null);
-    setDraft(null);
-    setState({ kind: 'drafting' });
+    if (!trimmed) return;
 
     const controller = new AbortController();
     abortRef.current = controller;
+    setPhase({ kind: 'drafting', draft: null, response: null, animationDone: false });
 
     try {
       const res = await fetch('/api/signups/magic-compose', {
@@ -53,45 +82,62 @@ export function MagicComposeRoot() {
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
-      const body = (await res.json().catch(() => null)) as
-        | {
-            data?: { id: string; slug: string; draft: DraftPreview };
-            error?: { message: string; suggestion?: string };
-          }
-        | null;
+
+      let body: ApiBody | null;
+      try {
+        body = (await res.json()) as ApiBody;
+      } catch {
+        if (controller.signal.aborted) return;
+        setPhase({
+          kind: 'error',
+          message: 'The server returned an unexpected response. Try again.',
+        });
+        return;
+      }
       if (controller.signal.aborted) return;
-      if (!res.ok || !body?.data?.id) {
+
+      const data = body?.data;
+      if (!res.ok || !data?.id) {
         const base = body?.error?.message ?? `AI drafting failed (HTTP ${res.status}). Try again.`;
         const suggestion = body?.error?.suggestion;
         const message = suggestion ? `${base} — ${suggestion}` : base;
-        setState({ kind: 'error', message });
+        setPhase({ kind: 'error', message });
         return;
       }
-      setResponse({ id: body.data.id, slug: body.data.slug });
-      setDraft(body.data.draft);
+
+      writeAiDraftWarnings(data.id, data.warnings ?? []);
+
+      setPhase((p) =>
+        p.kind === 'drafting'
+          ? {
+              kind: 'drafting',
+              draft: data.draft,
+              response: { id: data.id, slug: data.slug },
+              animationDone: p.animationDone,
+            }
+          : p,
+      );
     } catch (e) {
-      if (controller.signal.aborted) return; // cancel path handled separately
-      const message = e instanceof Error ? e.message : 'Network error';
-      setState({ kind: 'error', message });
+      if (controller.signal.aborted) return;
+      setPhase({ kind: 'error', message: explainFetchError(e) });
     }
   }, [prompt]);
 
   const onCancel = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
-    setAnimationDone(false);
-    setResponse(null);
-    setDraft(null);
-    setState({ kind: 'idle' });
+    setPhase({ kind: 'idle' });
   }, []);
 
-  const onAnimationDone = useCallback(() => setAnimationDone(true), []);
+  const onAnimationDone = useCallback(() => {
+    setPhase((p) => (p.kind === 'drafting' ? { ...p, animationDone: true } : p));
+  }, []);
 
-  if (state.kind === 'drafting') {
+  if (phase.kind === 'drafting') {
     return (
       <Drafting
         prompt={prompt}
-        draft={draft}
+        draft={phase.draft}
         onCancel={onCancel}
         onAnimationDone={onAnimationDone}
       />
@@ -100,15 +146,34 @@ export function MagicComposeRoot() {
 
   return (
     <>
-      {state.kind === 'error' && (
+      {phase.kind === 'error' && (
         <div
           role="alert"
           className="bg-danger/10 text-danger mx-auto mt-6 max-w-[760px] rounded-lg px-4 py-3 text-sm"
         >
-          {state.message}
+          {phase.message}
         </div>
       )}
       <Compose prompt={prompt} setPrompt={setPrompt} onDraft={onDraft} />
     </>
   );
+}
+
+/**
+ * Translate the various shapes `fetch` rejects with into a single
+ * actionable sentence. Raw browser strings ("Failed to fetch", "Load
+ * failed", "NetworkError when attempting to fetch resource") are not
+ * actionable; abort errors are handled by the caller before we land here.
+ */
+export function explainFetchError(e: unknown): string {
+  if (e instanceof DOMException && e.name === 'AbortError') {
+    return 'Request was cancelled.';
+  }
+  if (e instanceof TypeError) {
+    return "Couldn't reach the server. Check your connection and try again.";
+  }
+  if (e instanceof SyntaxError) {
+    return 'The server returned an unexpected response. Try again.';
+  }
+  return 'Something went wrong while drafting. Try again.';
 }
