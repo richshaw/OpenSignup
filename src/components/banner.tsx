@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 type Kind = 'preview' | 'closed' | 'aiDraft';
 
 const STYLES: Record<Kind, string> = {
@@ -36,12 +38,12 @@ export function Banner({
       {(action || onDismiss) && (
         <div className="flex flex-shrink-0 items-center gap-2">
           {action && (
-            <a
+            <Link
               href={action.href}
               className="rounded-md border border-current/20 px-3 py-1 text-sm font-medium hover:bg-current/10"
             >
               {action.label}
-            </a>
+            </Link>
           )}
           {onDismiss && (
             <button

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { parseEnv } from './env';
+import { afterEach, describe, expect, it } from 'vitest';
+import { magicComposeEnabled, parseEnv, resetEnvCache } from './env';
 
 const base = {
   DATABASE_URL: 'postgres://x',
@@ -72,5 +72,38 @@ describe('parseEnv', () => {
     expect(env.LLM_BASE_URL).toBe('https://api.openai.com/v1');
     expect(env.LLM_MODEL).toBe('gpt-4o-mini');
     expect(env.LLM_API_KEY).toBeUndefined();
+  });
+});
+
+describe('magicComposeEnabled', () => {
+  const originalEnv = { ...process.env };
+
+  function setBaseEnv(): void {
+    process.env.DATABASE_URL = 'postgres://x';
+    process.env.AUTH_SECRET = 'x'.repeat(32);
+    process.env.AUTH_URL = 'http://localhost:3000';
+    process.env.EMAIL_FROM = 'test@example.com';
+    process.env.EMAIL_TRANSPORT = 'console';
+  }
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+    resetEnvCache();
+  });
+
+  it('returns true when LLM_BASE_URL and LLM_MODEL are both set', () => {
+    setBaseEnv();
+    process.env.LLM_BASE_URL = 'https://api.openai.com/v1';
+    process.env.LLM_MODEL = 'gpt-4o-mini';
+    resetEnvCache();
+    expect(magicComposeEnabled()).toBe(true);
+  });
+
+  it('returns false when both LLM_BASE_URL and LLM_MODEL are unset', () => {
+    setBaseEnv();
+    delete process.env.LLM_BASE_URL;
+    delete process.env.LLM_MODEL;
+    resetEnvCache();
+    expect(magicComposeEnabled()).toBe(false);
   });
 });

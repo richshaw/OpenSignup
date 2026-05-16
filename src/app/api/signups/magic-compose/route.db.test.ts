@@ -17,6 +17,7 @@ import type { Actor } from '@/lib/policy';
 import { ok } from '@/lib/result';
 import {
   buildMessages,
+  FullDraftSchema,
   MagicComposeDraftSchema,
   type ChatMessage,
 } from '@/lib/magic-compose/prompt';
@@ -113,7 +114,7 @@ describe('magic-compose route chain (db)', () => {
     const llm = await client.generateDraft(buildMessages(userPrompt));
     expect(llm.ok).toBe(true);
     if (!llm.ok) return;
-    const draft = MagicComposeDraftSchema.parse(llm.value);
+    const draft = FullDraftSchema.parse(llm.value);
     const { template } = magicComposeToTemplate(draft);
     expect(template.id).toBe('magic-compose');
     expect(template.fields).toHaveLength(2);
@@ -163,7 +164,7 @@ describe('magic-compose route chain (db)', () => {
     });
     const llm = await client.generateDraft([]);
     if (!llm.ok) throw new Error('stub should not error');
-    const draft = MagicComposeDraftSchema.parse(llm.value);
+    const draft = FullDraftSchema.parse(llm.value);
     const { template } = magicComposeToTemplate(draft);
     expect(template.slots[0]?.values).toEqual({ date: '2026-04-25' });
 

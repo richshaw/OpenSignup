@@ -38,7 +38,7 @@ const DraftSlotSchema = z.object({
   capacity: z.number().int().nullable().optional().default(1),
 });
 
-export const MagicComposeDraftSchema = z.object({
+export const FullDraftSchema = z.object({
   title: z.string().min(2).max(120),
   description: z.string().max(2000).default(''),
   fields: z.array(DraftFieldSchema).min(1).max(MAX_FIELDS),
@@ -47,7 +47,21 @@ export const MagicComposeDraftSchema = z.object({
   groupBy: z.string().nullable().optional().transform((v) => v ?? undefined),
 });
 
-export type MagicComposeDraft = z.infer<typeof MagicComposeDraftSchema>;
+/**
+ * Structured refusal. The model returns ONLY this object — no title, fields,
+ * or slots — when the prompt asks for something OpenSignup will not generate
+ * (PII harvesting, intake/application forms). The route short-circuits on this
+ * shape before createSignup so no DB row is created.
+ */
+export const RefusalSchema = z.object({
+  refusalReason: z.string().min(1).max(500),
+});
+
+export const MagicComposeDraftSchema = z.union([RefusalSchema, FullDraftSchema]);
+
+export type MagicComposeDraft = z.infer<typeof FullDraftSchema>;
+export type MagicComposeRefusal = z.infer<typeof RefusalSchema>;
+export type MagicComposeParsed = z.infer<typeof MagicComposeDraftSchema>;
 
 const SYSTEM_PROMPT = `You are OpenSignup's signup drafter. OpenSignup is a coordination tool where organizers create signups containing slots, and participants commit to slots without ever creating an account.
 
@@ -153,11 +167,11 @@ OUTPUT:
 
 LOAD-BEARING RULES:
 
-1. Slots are the atom, not questions. Per-slot context fields are fine and expected ("class" enum, "game" text, "time" value) — they describe the slot the participant signs up FOR. What is not fine is turning the signup into a participant intake / application form that captures personal data per participant. If the prompt asks for an intake or application form (essay questions, child profile, multi-question application, contact rosters, broad medical/emergency-info collection), refuse using the rule 3 placeholder pattern — OpenSignup coordinates participation, not per-participant data capture. Individual field names are not inherently bad; the prompt's *shape* (coordination vs intake) is what determines refusal.
+1. Slots are the atom, not questions. Per-slot context fields are fine and expected ("class" enum, "game" text, "time" value) — they describe the slot the participant signs up FOR. What is not fine is turning the signup into a participant intake / application form that captures personal data per participant. If the prompt asks for an intake or application form (essay questions, child profile, multi-question application, contact rosters, broad medical/emergency-info collection), refuse using the rule 3 refusal pattern — OpenSignup coordinates participation, not per-participant data capture. Individual field names are not inherently bad; the prompt's *shape* (coordination vs intake) is what determines refusal.
 
 2. fieldType is exactly one of: text, date, time, number, enum. No other values.
 
-3. Never produce slot fields that capture personal data like social security numbers, dates of birth, government IDs, home addresses, or financial information, even if asked. If the user asks for any of these, refuse by returning {"title":"Cannot generate this signup","description":"<explain why>","fields":[{"ref":"placeholder","label":"Placeholder","fieldType":"text","required":false,"choices":[]}],"slots":[{"values":{"placeholder":"n/a"},"capacity":1}]}.
+3. Never produce slot fields that capture personal data like social security numbers, dates of birth, government IDs, home addresses, or financial information, even if asked. To refuse, return ONLY this object — no title, fields, or slots: {"refusalReason":"<short sentence explaining why this is not something OpenSignup will draft>"}. The server short-circuits on this shape and surfaces the reason to the user without persisting anything.
 
 4. Never invent dates, locations, opponents, schedules, or capacities that aren't in the user's prompt. If the prompt is vague (no dates, no specific count, no specifics — e.g. "make a signup for my kid's soccer team"), produce 1-3 placeholder slots with labels like "TBD: game 1", "TBD: shift 1" and call out the gap in description ("Add specific dates/details here"). Do not fabricate a season's worth of games, opponents, or shifts just to fill the signup.
 
@@ -243,6 +257,7 @@ export const RESPONSE_JSON_SCHEMA = {
         },
       },
       groupBy: { type: 'string', nullable: true },
+      refusalReason: { type: 'string', nullable: true },
     },
   },
 } as const;

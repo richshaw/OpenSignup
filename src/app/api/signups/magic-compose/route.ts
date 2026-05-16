@@ -4,51 +4,19 @@ import { getOrganizerSession, requireActor } from '@/auth/session';
 import { getDb } from '@/db/client';
 import { magicComposeEnabled } from '@/lib/env';
 import { fail, handle, ok } from '@/lib/api-response';
-import { serviceError, type ErrorCode } from '@/lib/errors';
+import { serviceError } from '@/lib/errors';
 import { link, publicSignupUrl } from '@/lib/links';
 import { log } from '@/lib/log';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
-import {
-  defaultLlmClient,
-  type LlmClient,
-  type MagicComposeError,
-} from '@/lib/magic-compose/llm-client';
+import { defaultLlmClient } from '@/lib/magic-compose/llm-client';
 import { buildMessages, MagicComposeDraftSchema } from '@/lib/magic-compose/prompt';
-import { magicComposeToTemplate } from '@/lib/magic-compose/to-template';
+import { hasDropped, magicComposeToTemplate } from '@/lib/magic-compose/to-template';
 import { createSignup } from '@/services/signups';
+import { mapMagicComposeError } from './errors';
 
 const PromptBodySchema = z.object({
   prompt: z.string().min(1).max(4000),
 });
-
-let injectedClient: LlmClient | null = null;
-
-export function setLlmClientForTests(client: LlmClient | null): void {
-  injectedClient = client;
-}
-
-function mapMagicComposeError(e: MagicComposeError): {
-  code: ErrorCode;
-  message: string;
-} {
-  switch (e.code) {
-    case 'not_configured':
-      return { code: 'forbidden', message: 'Magic Compose is not enabled on this instance' };
-    case 'rate_limited':
-      return { code: 'rate_limited', message: 'LLM provider rate limited the request' };
-    case 'aborted':
-      return { code: 'invalid_input', message: 'request cancelled' };
-    case 'timeout':
-      return {
-        code: 'internal',
-        message: 'AI drafting timed out. Try a simpler prompt or raise LLM_TIMEOUT_MS.',
-      };
-    case 'upstream':
-    case 'invalid_json':
-    case 'schema_mismatch':
-      return { code: 'internal', message: 'AI drafting failed; please try again' };
-  }
-}
 
 export async function POST(req: NextRequest) {
   return handle(async () => {
@@ -87,14 +55,17 @@ export async function POST(req: NextRequest) {
     }
     const userPrompt = parsed.data.prompt;
 
-    const client = injectedClient ?? defaultLlmClient();
+    const client = defaultLlmClient();
     const raw = await client.generateDraft(buildMessages(userPrompt), req.signal);
     if (!raw.ok) {
       log.warn({ llmError: raw.error }, 'magic-compose generation failed');
       const mapped = mapMagicComposeError(raw.error);
       const details: Record<string, unknown> = { llmErrorCode: raw.error.code };
       if (raw.error.status !== undefined) details.upstreamStatus = raw.error.status;
-      if (raw.error.upstreamBody) details.upstreamBody = raw.error.upstreamBody;
+      // Intentionally NOT shipping raw.error.upstreamBody to the client — it
+      // can contain provider stack traces, internal hostnames, and account
+      // identifiers that bypass pino's redaction. Server log.warn above keeps
+      // the body for operators.
       return fail(serviceError(mapped.code, mapped.message, { details }));
     }
 
@@ -109,7 +80,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { template, groupByFieldRefs } = magicComposeToTemplate(draft.data);
+    // Structured refusal: model returned only `refusalReason`. Surface the
+    // reason to the user without creating a signup, writing activity, or
+    // burning further work. Rate-limit stays consumed (the LLM call did happen).
+    if ('refusalReason' in draft.data) {
+      log.info(
+        { refusalReason: draft.data.refusalReason, promptLength: userPrompt.length },
+        'magic-compose refusal returned by model',
+      );
+      return fail(
+        serviceError('invalid_input', draft.data.refusalReason, {
+          details: { reason: 'refusal' },
+        }),
+      );
+    }
+
+    const conversion = magicComposeToTemplate(draft.data);
+    const { template, groupByFieldRefs, dropped } = conversion;
+    if (hasDropped(dropped)) {
+      log.warn(
+        { dropped, promptLength: userPrompt.length },
+        'magic-compose dropped values during conversion',
+      );
+    }
 
     const created = await createSignup(
       db,

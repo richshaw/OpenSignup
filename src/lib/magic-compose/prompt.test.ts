@@ -3,6 +3,7 @@ import {
   MagicComposeDraftSchema,
   MAX_FIELDS,
   MAX_SLOTS,
+  RESPONSE_JSON_SCHEMA,
   buildMessages,
   getSystemPromptForTests,
 } from './prompt';
@@ -38,6 +39,17 @@ describe('system prompt', () => {
   it('caps fields and slots', () => {
     expect(sys).toContain(String(MAX_FIELDS));
     expect(sys).toContain(String(MAX_SLOTS));
+  });
+
+  it('describes the structured refusal pattern', () => {
+    expect(sys).toContain('refusalReason');
+  });
+
+  it('does not contain the legacy placeholder refusal title', () => {
+    // The old refusal pattern persisted a signup titled "Cannot generate this
+    // signup". The new pattern emits a top-level refusalReason and the route
+    // short-circuits — neither prompt nor server should write that title.
+    expect(sys).not.toContain('Cannot generate this signup');
   });
 });
 
@@ -106,5 +118,34 @@ describe('MagicComposeDraftSchema', () => {
   it('rejects an empty title', () => {
     const r = MagicComposeDraftSchema.safeParse({ ...valid, title: '' });
     expect(r.success).toBe(false);
+  });
+
+  it('accepts a structured refusal payload (no fields or slots required)', () => {
+    const r = MagicComposeDraftSchema.safeParse({
+      refusalReason: 'OpenSignup does not draft data-harvesting forms.',
+    });
+    expect(r.success).toBe(true);
+    if (r.success && 'refusalReason' in r.data) {
+      expect(r.data.refusalReason).toMatch(/data-harvesting/);
+    }
+  });
+
+  it('rejects a refusal with an empty refusalReason', () => {
+    const r = MagicComposeDraftSchema.safeParse({ refusalReason: '' });
+    expect(r.success).toBe(false);
+  });
+});
+
+describe('RESPONSE_JSON_SCHEMA', () => {
+  it('declares every top-level property the Zod schema accepts', () => {
+    // Locks Zod ↔ JSON-Schema drift. If a new property is added to the Zod
+    // schema, it must be mirrored here (or vice versa).
+    const props = RESPONSE_JSON_SCHEMA.schema.properties;
+    expect(props).toHaveProperty('title');
+    expect(props).toHaveProperty('description');
+    expect(props).toHaveProperty('fields');
+    expect(props).toHaveProperty('slots');
+    expect(props).toHaveProperty('groupBy');
+    expect(props).toHaveProperty('refusalReason');
   });
 });

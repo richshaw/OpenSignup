@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { MagicComposeDraftSchema } from './prompt';
+import { FullDraftSchema } from './prompt';
 import { magicComposeToTemplate } from './to-template';
 
 function parse(raw: unknown) {
-  const r = MagicComposeDraftSchema.parse(raw);
+  const r = FullDraftSchema.parse(raw);
   return magicComposeToTemplate(r).template;
 }
 
 function parseFull(raw: unknown) {
-  const r = MagicComposeDraftSchema.parse(raw);
+  const r = FullDraftSchema.parse(raw);
   return magicComposeToTemplate(r);
 }
 
@@ -162,6 +162,58 @@ describe('magicComposeToTemplate', () => {
         slots: [{ values: { a: 'hi' } }],
       });
       expect(r.groupByFieldRefs).toEqual([]);
+    });
+  });
+
+  describe('dropped telemetry', () => {
+    it('records duplicate refs after the first occurrence', () => {
+      const r = parseFull({
+        title: 'My signup',
+        fields: [
+          { ref: 'date', label: 'Date one', fieldType: 'date' },
+          { ref: 'date', label: 'Date two', fieldType: 'text' },
+        ],
+        slots: [{ values: { date: '2026-04-25' } }],
+      });
+      expect(r.dropped.duplicateRefs).toEqual(['date']);
+      expect(r.dropped.strayValueKeys).toEqual([]);
+      expect(r.dropped.coercionFailures).toEqual([]);
+    });
+
+    it('records stray value keys that have no matching field', () => {
+      const r = parseFull({
+        title: 'My signup',
+        fields: [{ ref: 'date', label: 'Date', fieldType: 'date' }],
+        slots: [{ values: { date: '2026-04-25', typo: 'nope' } }],
+      });
+      expect(r.dropped.strayValueKeys).toEqual(['typo']);
+      expect(r.dropped.duplicateRefs).toEqual([]);
+    });
+
+    it('records coercion failures for malformed values', () => {
+      const r = parseFull({
+        title: 'My signup',
+        fields: [
+          { ref: 'date', label: 'Date', fieldType: 'date' },
+          { ref: 'time', label: 'Time', fieldType: 'time' },
+        ],
+        slots: [{ values: { date: '04/25/2026', time: '25:00' } }],
+      });
+      expect(r.dropped.coercionFailures).toEqual([
+        { slot: 0, ref: 'date', reason: 'date' },
+        { slot: 0, ref: 'time', reason: 'time' },
+      ]);
+    });
+
+    it('returns empty dropped summary for a clean draft', () => {
+      const r = parseFull({
+        title: 'My signup',
+        fields: [{ ref: 'date', label: 'Date', fieldType: 'date' }],
+        slots: [{ values: { date: '2026-04-25' } }],
+      });
+      expect(r.dropped.duplicateRefs).toEqual([]);
+      expect(r.dropped.strayValueKeys).toEqual([]);
+      expect(r.dropped.coercionFailures).toEqual([]);
     });
   });
 });

@@ -80,6 +80,14 @@ export function defaultLlmClient(): LlmClient {
               upstreamBody,
             });
           }
+          if (status === 401 || status === 403) {
+            return err({
+              code: 'upstream',
+              message: `LLM provider rejected the request (HTTP ${status}); verify LLM_API_KEY`,
+              status,
+              upstreamBody,
+            });
+          }
           return err({
             code: 'upstream',
             message: `LLM provider returned HTTP ${status}`,
@@ -119,11 +127,12 @@ export function defaultLlmClient(): LlmClient {
 
         const content = extractChoiceContent(body);
         if (content === null) {
-          log.warn({ body }, 'magic-compose upstream missing choices[0].message.content');
+          const truncated = JSON.stringify(body).slice(0, 500);
+          log.warn({ upstreamBody: truncated }, 'magic-compose upstream missing choices[0].message.content');
           return err({
             code: 'schema_mismatch',
             message: 'LLM response did not contain choices[0].message.content',
-            upstreamBody: JSON.stringify(body).slice(0, 500),
+            upstreamBody: truncated,
           });
         }
 

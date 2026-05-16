@@ -49,11 +49,18 @@ export function MagicComposeRoot() {
         body: JSON.stringify({ prompt: trimmed }),
         signal: controller.signal,
       });
+      if (controller.signal.aborted) return;
       const body = (await res.json().catch(() => null)) as
-        | { data?: { id: string; slug: string }; error?: { message: string } }
+        | {
+            data?: { id: string; slug: string };
+            error?: { message: string; suggestion?: string };
+          }
         | null;
+      if (controller.signal.aborted) return;
       if (!res.ok || !body?.data?.id) {
-        const message = body?.error?.message ?? 'AI drafting failed. Try again.';
+        const base = body?.error?.message ?? `AI drafting failed (HTTP ${res.status}). Try again.`;
+        const suggestion = body?.error?.suggestion;
+        const message = suggestion ? `${base} — ${suggestion}` : base;
         setState({ kind: 'error', message });
         return;
       }

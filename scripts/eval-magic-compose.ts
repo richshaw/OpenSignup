@@ -20,7 +20,12 @@ config({ path: '.env' });
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { defaultLlmClient } from '@/lib/magic-compose/llm-client';
-import { buildMessages, MagicComposeDraftSchema, type MagicComposeDraft } from '@/lib/magic-compose/prompt';
+import {
+  buildMessages,
+  MagicComposeDraftSchema,
+  type MagicComposeDraft,
+  type MagicComposeParsed,
+} from '@/lib/magic-compose/prompt';
 import { magicComposeEnabled } from '@/lib/env';
 
 const REPO_ROOT = process.cwd();
@@ -53,8 +58,13 @@ interface CaseRun {
   llmErrorMessage?: string;
   rawOutput?: unknown;
   draft?: MagicComposeDraft;
+  refusalReason?: string;
   checks: CheckResult[];
   tokens?: { ms: number };
+}
+
+function isRefusal(p: MagicComposeParsed): p is { refusalReason: string } {
+  return 'refusalReason' in p && typeof p.refusalReason === 'string';
 }
 
 function parseArgs(argv: string[]): {
@@ -152,14 +162,38 @@ function normalizeKey(key: string): string {
 function runCheck(
   rawKey: string,
   expected: unknown,
-  draft: MagicComposeDraft,
+  draft: MagicComposeDraft | null,
   rawOutput: unknown,
+  refusalReason: string | null = null,
 ): CheckResult {
   const key = normalizeKey(rawKey);
   const arr = (v: unknown): string[] | null =>
     Array.isArray(v) && v.every((x) => typeof x === 'string') ? (v as string[]) : null;
   const num = (v: unknown): number | null =>
     typeof v === 'number' && Number.isFinite(v) ? v : null;
+
+  // Refusal-only check keys (apply regardless of which arm parsed).
+  switch (key) {
+    case 'refusalReason_must_be_present': {
+      if (expected !== true) return skip(rawKey, 'expected true');
+      return refusalReason && refusalReason.length > 0
+        ? pass(rawKey)
+        : fail(rawKey, 'parsed output has no refusalReason');
+    }
+    case 'refusalReason_must_mention_any': {
+      const a = arr(expected);
+      if (!a) return skip(rawKey, 'expected string[]');
+      if (!refusalReason) return fail(rawKey, 'parsed output has no refusalReason');
+      return a.some((s) => looseIncludes(refusalReason, s))
+        ? pass(rawKey)
+        : fail(rawKey, `refusalReason "${refusalReason}" mentions none of ${JSON.stringify(a)}`);
+    }
+  }
+
+  // Every check below needs a full draft (the refusal arm has no fields/slots).
+  if (draft === null) {
+    return skip(rawKey, 'not applicable to a refusal payload');
+  }
 
   switch (key) {
     case 'title_must_match_any': {
@@ -580,6 +614,15 @@ async function runOneCase(c: EvalCase): Promise<CaseRun> {
     };
   }
 
+  if (isRefusal(parsed.data)) {
+    const refusalReason = parsed.data.refusalReason;
+    const checks: CheckResult[] = [];
+    for (const [k, v] of Object.entries(c.expect)) {
+      checks.push(runCheck(k, v, null, res.value, refusalReason));
+    }
+    return { ...base, rawOutput: res.value, refusalReason, checks, tokens: { ms } };
+  }
+
   const draft = parsed.data;
   const checks: CheckResult[] = [];
   for (const [k, v] of Object.entries(c.expect)) {
@@ -625,6 +668,8 @@ function printCase(run: CaseRun): void {
     console.log(
       `  title="${run.draft.title.slice(0, 60)}"  fields=${run.draft.fields.length}  slots=${run.draft.slots.length}  groupBy=${run.draft.groupBy ?? 'null'}`,
     );
+  } else if (run.refusalReason) {
+    console.log(`  refusalReason="${run.refusalReason.slice(0, 100)}"`);
   }
   for (const c of run.checks) {
     if (c.outcome === 'pass') continue;
