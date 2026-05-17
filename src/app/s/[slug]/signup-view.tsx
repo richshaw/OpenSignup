@@ -66,7 +66,15 @@ interface SignupViewProps {
   groupByRef: string | null;
   slots: SignupViewSlot[];
   slug: string;
-  mode: 'live' | 'preview';
+  /**
+   * - 'live': real signup, real CommitDialog.
+   * - 'preview': organizer-only preview (Build tab); Sign-up button is
+   *   disabled and the preview banner explains why.
+   * - 'showcase': marketing/example use (homepage); Sign-up button is rendered
+   *   as an inert solid-blue span so the card matches a published signup
+   *   visually. The wrapping context must convey that it's not real.
+   */
+  mode: 'live' | 'preview' | 'showcase';
   ownCommitments?: OwnCommitment[];
   /** Show the preview/closed status banner. Default true; set false when the
    *  surrounding context already conveys preview state (e.g. the build rail). */
@@ -247,6 +255,10 @@ export function SignupViewBody({
                           >
                             Sign up
                           </button>
+                        ) : mode === 'showcase' ? (
+                          <span className="bg-brand rounded-lg px-4 py-1.5 text-sm font-medium text-white">
+                            Sign up
+                          </span>
                         ) : (
                           <CommitDialog
                             slotId={slot.id}

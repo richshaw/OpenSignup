@@ -73,6 +73,20 @@ describe('parseEnv', () => {
     expect(env.LLM_MODEL).toBe('gpt-4o-mini');
     expect(env.LLM_API_KEY).toBeUndefined();
   });
+
+  it('accepts an empty DEMO_URL (treats blank .env line as unset)', () => {
+    const env = parseEnv({ ...base, DEMO_URL: '' });
+    expect(env.DEMO_URL).toBeUndefined();
+  });
+
+  it('accepts a valid DEMO_URL', () => {
+    const env = parseEnv({ ...base, DEMO_URL: 'https://example.com/demo' });
+    expect(env.DEMO_URL).toBe('https://example.com/demo');
+  });
+
+  it('rejects an invalid DEMO_URL', () => {
+    expect(() => parseEnv({ ...base, DEMO_URL: 'not-a-url' })).toThrow(/DEMO_URL/);
+  });
 });
 
 describe('magicComposeEnabled', () => {
