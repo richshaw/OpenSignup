@@ -19,7 +19,7 @@ export default function LandingPage() {
       <main className="mx-auto grid w-full max-w-[1280px] flex-1 grid-cols-1 items-center gap-10 px-5 pb-12 pt-2 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:px-12 lg:pb-16 lg:pt-4">
         <div className="flex flex-col gap-6 lg:gap-7">
           <span className="border-surface-sunk text-ink-muted inline-flex items-center gap-2 self-start rounded-full border px-3 py-1.5 text-xs font-medium">
-            <span className="bg-success h-1.5 w-1.5 rounded-full" />
+            <span aria-hidden="true" className="bg-success h-1.5 w-1.5 rounded-full" />
             Ad-free · No accounts for participants
           </span>
 

@@ -256,10 +256,7 @@ export function SignupViewBody({
                             Sign up
                           </button>
                         ) : mode === 'showcase' ? (
-                          <span
-                            aria-hidden="true"
-                            className="bg-brand rounded-lg px-4 py-1.5 text-sm font-medium text-white"
-                          >
+                          <span className="bg-brand rounded-lg px-4 py-1.5 text-sm font-medium text-white">
                             Sign up
                           </span>
                         ) : (

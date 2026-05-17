@@ -45,7 +45,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
     expect(labels).toHaveLength(1);
     const pill = labels[0]!;
     expect(pill.tagName).toBe('SPAN');
-    expect(pill).toHaveAttribute('aria-hidden', 'true');
+    expect(pill).not.toHaveAttribute('aria-hidden');
     expect(pill).toHaveClass('bg-brand');
     expect(pill).not.toHaveClass('opacity-60');
     expect(pill).not.toHaveClass('cursor-not-allowed');
