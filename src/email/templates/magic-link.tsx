@@ -1,4 +1,5 @@
 import { Button, Heading, Text } from '@react-email/components';
+import { formatDuration } from '@/lib/format-duration';
 import { EmailLayout } from './layout';
 
 export interface MagicLinkEmailProps {
@@ -7,15 +8,15 @@ export interface MagicLinkEmailProps {
   expiresInMinutes?: number;
 }
 
-export function MagicLinkEmail({ url, email, expiresInMinutes = 15 }: MagicLinkEmailProps) {
+export function MagicLinkEmail({ url, email, expiresInMinutes = 60 }: MagicLinkEmailProps) {
   return (
     <EmailLayout preview={`Sign in to OpenSignup as ${email}`}>
       <Heading as="h1" className="m-0 text-xl font-semibold">
         Sign in to OpenSignup
       </Heading>
       <Text className="mt-2 text-[#5b6474]">
-        Click the button below to sign in as <strong>{email}</strong>. This link will expire in
-        {` ${expiresInMinutes} minutes`}.
+        Click the button below to sign in as <strong>{email}</strong>. This link will expire in{' '}
+        {formatDuration(expiresInMinutes)}.
       </Text>
       <Button
         href={url}

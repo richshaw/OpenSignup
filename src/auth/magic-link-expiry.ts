@@ -1,0 +1,2 @@
+export const MAGIC_LINK_MAX_AGE_SECONDS = 60 * 60;
+export const MAGIC_LINK_MAX_AGE_MINUTES = 60;
