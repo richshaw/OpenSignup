@@ -7,6 +7,12 @@ const baseSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   AUTH_SECRET: z.string().min(32, 'AUTH_SECRET must be at least 32 characters'),
   AUTH_URL: z.string().url('AUTH_URL must be a valid URL'),
+  AUTH_MAGIC_LINK_MAX_AGE_MINUTES: z.coerce
+    .number()
+    .int()
+    .min(1, 'AUTH_MAGIC_LINK_MAX_AGE_MINUTES must be at least 1')
+    .max(10_080, 'AUTH_MAGIC_LINK_MAX_AGE_MINUTES must be at most 10080 (1 week)')
+    .default(60),
   EMAIL_TRANSPORT: transportEnum.default('console'),
   EMAIL_FROM: z.string().min(1, 'EMAIL_FROM is required'),
   RESEND_API_KEY: z.string().optional(),

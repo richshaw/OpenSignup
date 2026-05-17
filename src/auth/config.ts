@@ -13,7 +13,7 @@ import { ServiceException } from '@/lib/errors';
 import { SignupAdapter } from './adapter';
 import { canonicalizeMagicLinkUrl } from './magic-link-url';
 import { extractEmailDomain } from './email-domain';
-import { MAGIC_LINK_MAX_AGE_SECONDS } from './magic-link-expiry';
+import { getMagicLinkMaxAgeSeconds } from './magic-link-expiry';
 import { getCurrentRequestIp } from './request-context';
 
 // Built lazily on first request: SignupAdapter() touches getDb() → getEnv(),
@@ -33,7 +33,7 @@ function buildConfig(): NextAuthConfig {
         // which reads EMAIL_FROM lazily at request time.
         server: 'smtp://user:pass@localhost:2525',
         from: 'noreply@opensignup.invalid',
-        maxAge: MAGIC_LINK_MAX_AGE_SECONDS,
+        maxAge: getMagicLinkMaxAgeSeconds(),
         async sendVerificationRequest({ identifier, url, expires }) {
           const subject = identifier.trim().toLowerCase();
           const ip = await getCurrentRequestIp();
