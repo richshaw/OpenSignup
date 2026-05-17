@@ -3,22 +3,35 @@ import { describe, it, expect } from 'vitest';
 import { nextVelocity, shouldStartMomentum, MOMENTUM_DECAY } from './useDragScroll';
 
 describe('nextVelocity', () => {
-  it('multiplies velocity by the decay factor', () => {
+  it('applies the per-16ms-frame decay at the reference frame size', () => {
     expect(nextVelocity(10)).toBeCloseTo(10 * MOMENTUM_DECAY);
     expect(nextVelocity(-4)).toBeCloseTo(-4 * MOMENTUM_DECAY);
   });
 
-  it('decays to below the stop threshold within ~250ms at 60fps', () => {
-    // ~15 frames at 60fps ≈ 250ms. Starting velocity 20 px/frame should reach <0.05.
+  it('decays to below the stop threshold within ~15 frames at 60fps', () => {
+    // log_{0.94}(0.05/20) ≈ 96.8 16ms-steps. With 20 px/frame initial velocity
+    // we expect roughly 97 frames before crossing 0.05; cap generously.
     let v = 20;
-    for (let i = 0; i < 100; i++) {
+    let frames = 0;
+    while (Math.abs(v) >= 0.05 && frames < 200) {
       v = nextVelocity(v);
-      if (Math.abs(v) < 0.05) {
-        expect(i).toBeLessThanOrEqual(100);
-        return;
-      }
+      frames++;
     }
-    throw new Error(`velocity ${v} never decayed below 0.05`);
+    expect(Math.abs(v)).toBeLessThan(0.05);
+    expect(frames).toBeGreaterThan(90);
+    expect(frames).toBeLessThan(110);
+  });
+
+  it('is frame-rate independent: 1×16ms ≡ 2×8ms ≡ 4×4ms', () => {
+    const v0 = 10;
+    const after16 = nextVelocity(v0, 16);
+    const after8x2 = nextVelocity(nextVelocity(v0, 8), 8);
+    const after4x4 = nextVelocity(
+      nextVelocity(nextVelocity(nextVelocity(v0, 4), 4), 4),
+      4,
+    );
+    expect(after8x2).toBeCloseTo(after16, 10);
+    expect(after4x4).toBeCloseTo(after16, 10);
   });
 });
 

@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent, PointerEventHandler } from 'react';
 
+// Decay is expressed per 16ms reference frame (0.94 ≈ -6%/frame at 60Hz).
+// Per-frame decay = MOMENTUM_DECAY ^ (deltaMs / FRAME_MS) so behavior is
+// identical on 60Hz, 120Hz, and variable-rate displays.
 export const MOMENTUM_DECAY = 0.94;
-const MOMENTUM_STOP = 0.05;
-const MOMENTUM_MIN_START = 1.5;
+const MOMENTUM_STOP = 0.05; // px/frame-equivalent
+const MOMENTUM_MIN_START = 1.5; // px/frame-equivalent
 const FRAME_MS = 16;
 
-export function nextVelocity(vy: number): number {
-  return vy * MOMENTUM_DECAY;
+export function nextVelocity(vy: number, deltaMs: number = FRAME_MS): number {
+  return vy * Math.pow(MOMENTUM_DECAY, deltaMs / FRAME_MS);
 }
 
 export function shouldStartMomentum(vy: number): boolean {
@@ -54,8 +57,12 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(): UseDrag
     const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
     reduceMotion.current = mql.matches;
     const handler = (e: MediaQueryListEvent) => { reduceMotion.current = e.matches; };
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', handler);
+      return () => mql.removeEventListener('change', handler);
+    }
+    mql.addListener(handler);
+    return () => mql.removeListener(handler);
   }, []);
 
   const stopMomentum = useCallback(() => {
@@ -66,11 +73,15 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(): UseDrag
   const runMomentum = useCallback(() => {
     const el = ref.current;
     if (!el) return;
-    const step = () => {
+    let lastT = performance.now();
+    const step = (now: number) => {
       const s = state.current;
       if (Math.abs(s.vy) < MOMENTUM_STOP) { s.raf = 0; return; }
-      el.scrollTop += s.vy;
-      s.vy = nextVelocity(s.vy);
+      const dt = Math.max(1, now - lastT);
+      lastT = now;
+      // vy is normalized to px per 16ms reference frame; scale travel by dt/16.
+      el.scrollTop += s.vy * (dt / FRAME_MS);
+      s.vy = nextVelocity(s.vy, dt);
       s.raf = requestAnimationFrame(step);
     };
     state.current.raf = requestAnimationFrame(step);
@@ -79,7 +90,7 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(): UseDrag
   useEffect(() => () => stopMomentum(), [stopMomentum]);
 
   const onPointerDown: PointerEventHandler<T> = (e: ReactPointerEvent<T>) => {
-    if (e.pointerType !== 'mouse') return;
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target.closest('button, a, input, textarea, select, [role=button]')) return;
     const el = ref.current;
