@@ -118,7 +118,6 @@ export function BuildGrid({ signupId, signupMeta, initialFields, initialSlots, i
             showPreview={state.showPreview}
             onTogglePreview={() => setShowPreview(!state.showPreview)}
             saveStatus={state.saveStatus}
-            onAddField={() => setShowFieldEditorCreate(true)}
           />
           <ScrollableTable totalWidth={totalGridWidth(state.fields)}>
             <GridHeader

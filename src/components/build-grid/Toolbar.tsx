@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, ChevronDown, Smartphone } from 'lucide-react';
+import { ChevronDown, Smartphone } from 'lucide-react';
 import { SaveStatus } from './SaveStatus';
 import type { GridField, GridRow, SaveStatus as SaveStatusType } from './useGridState';
 
@@ -13,7 +13,6 @@ type ToolbarProps = {
   showPreview: boolean;
   onTogglePreview: () => void;
   saveStatus: SaveStatusType;
-  onAddField: () => void;
 };
 
 export function Toolbar({
@@ -24,7 +23,6 @@ export function Toolbar({
   showPreview,
   onTogglePreview,
   saveStatus,
-  onAddField,
 }: ToolbarProps) {
   const [groupByOpen, setGroupByOpen] = useState(false);
   const groupByRef = useRef<HTMLDivElement>(null);
@@ -47,19 +45,6 @@ export function Toolbar({
 
   return (
     <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-surface-sunk bg-surface-raised">
-      {/* Add column button */}
-      <button
-        onClick={onAddField}
-        aria-label="Add column"
-        className="flex items-center gap-1 text-sm text-ink-muted font-medium hover:text-ink"
-      >
-        <Plus size={13} />
-        Add column
-      </button>
-
-      {/* Divider */}
-      <div className="w-px h-4.5 bg-surface-sunk mx-1" />
-
       {/* Group by label */}
       <span className="text-xs text-ink-soft">Group by</span>
 
