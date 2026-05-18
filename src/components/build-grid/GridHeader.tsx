@@ -178,17 +178,17 @@ export function GridHeader({
         <span className="text-[13px] font-medium text-ink truncate">Cap.</span>
       </div>
 
-      {/* Trailing + button — 60px */}
-      <div className="flex items-center justify-center">
-        <button
-          onClick={onAddField}
-          title="Add column"
-          aria-label="Add column"
-          className="text-brand hover:text-brand/80 p-1 rounded"
-        >
-          <Plus size={13} />
-        </button>
-      </div>
+      {/* Trailing labeled "+ Add field" link — 130px. Mirrors the
+          AddRowAffordance footer style: muted ink + Plus icon + label. */}
+      <button
+        type="button"
+        onClick={onAddField}
+        aria-label="Add field"
+        className="flex h-full w-full items-center justify-start gap-1.5 border-l border-surface-sunk px-3 text-sm font-medium text-ink-muted hover:bg-surface-sunk/50 hover:text-ink transition-colors"
+      >
+        <Plus size={13} />
+        Add field
+      </button>
     </div>
   );
 }
