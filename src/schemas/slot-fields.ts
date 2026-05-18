@@ -53,7 +53,6 @@ export const SlotFieldInputSchema = z
     ref: RefSchema,
     label: LabelSchema,
     fieldType: z.enum(FIELD_TYPES),
-    required: z.boolean().default(true),
     sortOrder: z.number().int().nonnegative().default(0),
     config: SlotFieldConfigSchema,
   })
@@ -66,7 +65,6 @@ export type SlotFieldInput = z.infer<typeof SlotFieldInputSchema>;
 export const SlotFieldUpdateInputSchema = z
   .object({
     label: LabelSchema.optional(),
-    required: z.boolean().optional(),
     sortOrder: z.number().int().nonnegative().optional(),
     fieldType: z.enum(FIELD_TYPES).optional(),
     config: SlotFieldConfigSchema.optional(),
@@ -88,7 +86,6 @@ export const SlotFieldDefinitionSchema = z.object({
   ref: RefSchema,
   label: z.string(),
   fieldType: z.enum(FIELD_TYPES),
-  required: z.boolean(),
   sortOrder: z.number().int(),
   config: SlotFieldConfigSchema,
 });

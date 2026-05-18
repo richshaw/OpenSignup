@@ -89,10 +89,7 @@ function FieldRow({
     >
       <div className="flex w-[100px] shrink-0 items-center gap-1.5 text-xs text-ink-muted">
         <Icon size={12} className="text-ink-soft" aria-hidden="true" />
-        <span className="truncate">
-          {field.name}
-          {field.required ? <span className="text-danger"> *</span> : null}
-        </span>
+        <span className="truncate">{field.name}</span>
       </div>
       {field.type === 'enum' ? (
         <select

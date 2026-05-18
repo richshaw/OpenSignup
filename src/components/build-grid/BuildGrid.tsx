@@ -160,8 +160,8 @@ export function BuildGrid({ signupId, signupMeta, initialFields, initialSlots, i
       {editingField && (
         <FieldEditor
           editorMode={{ mode: 'edit', field: editingField }}
-          onSave={(type, name, config, required) => {
-            void updateField(editingField.id, { name, type, config, required });
+          onSave={(type, name, config) => {
+            void updateField(editingField.id, { name, type, config });
             setEditingField(null);
           }}
           onDelete={() => {
@@ -175,8 +175,8 @@ export function BuildGrid({ signupId, signupMeta, initialFields, initialSlots, i
       {showFieldEditorCreate && (
         <FieldEditor
           editorMode={{ mode: 'create' }}
-          onSave={(type, name, config, required) => {
-            void addField(type, name, config, required);
+          onSave={(type, name, config) => {
+            void addField(type, name, config);
             setShowFieldEditorCreate(false);
           }}
           onClose={() => setShowFieldEditorCreate(false)}

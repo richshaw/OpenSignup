@@ -22,6 +22,13 @@
       "when": 1746662400000,
       "tag": "0002_normalize_organizer_emails",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779130424502,
+      "tag": "0003_robust_abomination",
+      "breakpoints": true
     }
   ]
 }

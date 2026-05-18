@@ -83,7 +83,6 @@ describe('SlotFieldInputSchema', () => {
     });
     expect(parsed.ref).toBe('teacher');
     expect(parsed.label).toBe('Teacher');
-    expect(parsed.required).toBe(true);
     expect(parsed.sortOrder).toBe(0);
   });
 
@@ -93,10 +92,8 @@ describe('SlotFieldInputSchema', () => {
       label: 'Subject',
       fieldType: 'enum',
       config: { fieldType: 'enum', choices: ['Math', 'Science'] },
-      required: false,
       sortOrder: 5,
     });
-    expect(parsed.required).toBe(false);
     expect(parsed.sortOrder).toBe(5);
     if (parsed.config.fieldType === 'enum') {
       expect(parsed.config.choices).toEqual(['Math', 'Science']);
@@ -165,14 +162,12 @@ describe('SlotFieldUpdateInputSchema', () => {
     expect(parsed.label).toBe('New Label');
   });
 
-  it('accepts required + sortOrder + config update', () => {
+  it('accepts sortOrder + config update', () => {
     const parsed = SlotFieldUpdateInputSchema.parse({
-      required: false,
       sortOrder: 10,
       fieldType: 'text',
       config: { fieldType: 'text', maxLength: 50 },
     });
-    expect(parsed.required).toBe(false);
     expect(parsed.sortOrder).toBe(10);
   });
 

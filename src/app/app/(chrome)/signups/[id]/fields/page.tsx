@@ -57,9 +57,6 @@ export default async function FieldsTab({ params }: PageParams) {
                   <p className="flex flex-wrap items-baseline gap-2">
                     <span className="font-medium">{f.label}</span>
                     <span className="text-ink-muted text-sm">{fieldTypeLabel(f)}</span>
-                    <span className="text-ink-muted text-xs">
-                      · {f.required ? 'Required' : 'Optional'}
-                    </span>
                   </p>
                   {choices ? (
                     <p className="text-ink-muted mt-1 text-sm">

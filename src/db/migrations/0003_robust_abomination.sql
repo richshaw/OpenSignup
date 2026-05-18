@@ -1,0 +1,1 @@
+ALTER TABLE "slot_fields" DROP COLUMN "required";

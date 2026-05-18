@@ -8,7 +8,6 @@ function field(ref: string, label: string): SlotFieldDefinition {
     ref,
     label,
     fieldType: 'text',
-    required: false,
     sortOrder: 0,
     config: { fieldType: 'text', maxLength: 200 },
   };

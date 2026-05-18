@@ -7,7 +7,6 @@ const dateField: SlotFieldDefinition = {
   ref: 'date',
   label: 'Date',
   fieldType: 'date',
-  required: true,
   sortOrder: 0,
   config: { fieldType: 'date' },
 };
@@ -17,7 +16,6 @@ const timeField: SlotFieldDefinition = {
   ref: 'startTime',
   label: 'Start Time',
   fieldType: 'time',
-  required: false,
   sortOrder: 1,
   config: { fieldType: 'time' },
 };
@@ -32,7 +30,6 @@ describe('extractSlotAt', () => {
           ref: 'note',
           label: 'Note',
           fieldType: 'text',
-          required: false,
           sortOrder: 0,
           config: { fieldType: 'text', maxLength: 200 },
         },
@@ -70,7 +67,6 @@ describe('extractSlotAt', () => {
       ref: 'returnDate',
       label: 'Return',
       fieldType: 'date',
-      required: false,
       sortOrder: 1,
       config: { fieldType: 'date' },
     };
@@ -88,7 +84,6 @@ describe('extractSlotAt', () => {
       ref: 'returnDate',
       label: 'Return',
       fieldType: 'date',
-      required: false,
       sortOrder: 1,
       config: { fieldType: 'date' },
     };
