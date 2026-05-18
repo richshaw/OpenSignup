@@ -123,8 +123,11 @@ export async function deleteSlotAction(signupId: string, formData: FormData) {
 
 export async function publishAction(signupId: string) {
   const actor = await requireActor();
-  await publishSignup(getDb(), actor, signupId);
+  const result = await publishSignup(getDb(), actor, signupId);
   revalidateSignup(signupId);
+  if (result.ok) {
+    redirect(`/app/signups/${signupId}/build?published=1`);
+  }
 }
 
 export async function closeAction(signupId: string) {
