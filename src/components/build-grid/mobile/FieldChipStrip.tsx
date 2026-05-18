@@ -34,7 +34,7 @@ export function FieldChipStrip({ fields, onEditField, onAddField }: FieldChipStr
           className="inline-flex shrink-0 items-center gap-1 rounded-full border border-dashed border-brand-soft bg-white px-3 py-1.5 text-sm font-medium text-brand"
         >
           <Plus size={13} aria-hidden="true" />
-          Add column
+          Add field
         </button>
       </div>
     </div>

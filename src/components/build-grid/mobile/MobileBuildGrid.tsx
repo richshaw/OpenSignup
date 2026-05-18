@@ -45,7 +45,7 @@ export function MobileBuildGrid({
     <div className="flex min-h-[calc(100vh-280px)] flex-col">
       <div className="flex flex-col gap-4 pb-3">
         <SectionHeader
-          label="COLUMNS"
+          label="FIELDS"
           count={fields.length}
           right={<SaveStatus status={saveStatus} />}
         />

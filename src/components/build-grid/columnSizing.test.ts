@@ -49,50 +49,50 @@ describe('sizingFor', () => {
 
 describe('buildColsTemplate', () => {
   it('returns fixed header/footer with no fields', () => {
-    expect(buildColsTemplate([])).toBe('38px 90px 60px');
+    expect(buildColsTemplate([])).toBe('38px 90px 130px');
   });
 
   it('inserts fixed px track for a date field', () => {
-    expect(buildColsTemplate([{ type: 'date' }])).toBe('38px 150px 90px 60px');
+    expect(buildColsTemplate([{ type: 'date' }])).toBe('38px 150px 90px 130px');
   });
 
   it('inserts minmax track for a text field (first text gets +0.5 bonus)', () => {
-    expect(buildColsTemplate([{ type: 'text' }])).toBe('38px minmax(140px, 2fr) 90px 60px');
+    expect(buildColsTemplate([{ type: 'text' }])).toBe('38px minmax(140px, 2fr) 90px 130px');
   });
 
   it('handles two text fields: first is 2fr, second is 1.5fr', () => {
     expect(buildColsTemplate([{ type: 'text' }, { type: 'text' }])).toBe(
-      '38px minmax(140px, 2fr) minmax(140px, 1.5fr) 90px 60px',
+      '38px minmax(140px, 2fr) minmax(140px, 1.5fr) 90px 130px',
     );
   });
 
   it('handles mixed fixed and flex fields', () => {
     expect(buildColsTemplate([{ type: 'date' }, { type: 'text' }])).toBe(
-      '38px 150px minmax(140px, 1.5fr) 90px 60px',
+      '38px 150px minmax(140px, 1.5fr) 90px 130px',
     );
   });
 
   it('uses custom width override as fixed track', () => {
-    expect(buildColsTemplate([{ type: 'text', width: 220 }])).toBe('38px 220px 90px 60px');
+    expect(buildColsTemplate([{ type: 'text', width: 220 }])).toBe('38px 220px 90px 130px');
   });
 });
 
 describe('totalGridWidth', () => {
-  it('returns 188 for no fields (38 + 90 + 60)', () => {
-    expect(totalGridWidth([])).toBe(188);
+  it('returns 258 for no fields (38 + 90 + 130)', () => {
+    expect(totalGridWidth([])).toBe(258);
   });
 
-  it('returns 338 for one date field (188 + 150)', () => {
-    expect(totalGridWidth([{ type: 'date' }])).toBe(338);
+  it('returns 408 for one date field (258 + 150)', () => {
+    expect(totalGridWidth([{ type: 'date' }])).toBe(408);
   });
 
-  it('returns 328 for one text field (188 + 140)', () => {
-    expect(totalGridWidth([{ type: 'text' }])).toBe(328);
+  it('returns 398 for one text field (258 + 140)', () => {
+    expect(totalGridWidth([{ type: 'text' }])).toBe(398);
   });
 
   it('sums min widths for multiple fields', () => {
-    // date (150) + text (140) = 290 + 188 = 478
-    expect(totalGridWidth([{ type: 'date' }, { type: 'text' }])).toBe(478);
+    // date (150) + text (140) = 290 + 258 = 548
+    expect(totalGridWidth([{ type: 'date' }, { type: 'text' }])).toBe(548);
   });
 });
 

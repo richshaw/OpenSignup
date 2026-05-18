@@ -104,7 +104,7 @@ export function FieldEditor({ editorMode, onSave, onDelete, onClose }: FieldEdit
   const nameError = errors.name;
   const choicesErrors = errors.choices;
 
-  const titleText = isEdit ? 'Edit column' : 'New column';
+  const titleText = isEdit ? 'Edit field' : 'New field';
 
   const nameInputClasses = [
     'border rounded-lg px-2.5 py-2 text-base md:text-sm font-[inherit] outline-none bg-white w-full',
@@ -257,7 +257,7 @@ export function FieldEditor({ editorMode, onSave, onDelete, onClose }: FieldEdit
                     onClick={onDelete}
                     className="text-sm text-danger font-medium hover:opacity-70"
                   >
-                    Remove column
+                    Remove field
                   </button>
                 )}
               </div>

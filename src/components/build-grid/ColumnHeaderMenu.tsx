@@ -63,7 +63,7 @@ export function ColumnHeaderMenu({
       { kind: 'item', label: 'Move to start', icon: ArrowLeftToLine, onClick: onMoveStart, disabled: isFirst },
       { kind: 'item', label: 'Move to end', icon: ArrowRightToLine, onClick: onMoveEnd, disabled: isLast },
       { kind: 'divider' },
-      { kind: 'item', label: 'Delete column', icon: Trash2, onClick: onDelete, disabled: false, danger: true },
+      { kind: 'item', label: 'Delete field', icon: Trash2, onClick: onDelete, disabled: false, danger: true },
     ],
     [isFirst, isLast, onEdit, onMoveLeft, onMoveRight, onMoveStart, onMoveEnd, onDelete],
   );
