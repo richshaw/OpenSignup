@@ -100,12 +100,11 @@ export async function createSignup(
     ref: f.ref,
     label: f.label,
     fieldType: f.fieldType,
-    required: f.required,
     sortOrder: f.sortOrder,
     config: f.config,
   }));
   for (const slot of parsedSlots) {
-    const v = validateSlotValues(fieldDefs, slot.values, { enforceRequired: false });
+    const v = validateSlotValues(fieldDefs, slot.values);
     if (!v.ok) return v;
   }
 
@@ -141,7 +140,6 @@ export async function createSignup(
         ref: field.ref,
         label: field.label,
         fieldType: field.fieldType,
-        required: field.required,
         sortOrder: field.sortOrder,
         config: field.config,
       });

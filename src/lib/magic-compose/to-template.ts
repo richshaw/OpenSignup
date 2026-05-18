@@ -150,7 +150,6 @@ export function magicComposeToTemplate(draft: MagicComposeDraft): MagicComposeCo
       ref: f.ref,
       label: f.label,
       fieldType,
-      required: f.required ?? false,
       sortOrder: i,
       config,
     });

@@ -135,7 +135,6 @@ export function GridHeader({
             >
               <Icon size={12} className="text-brand flex-shrink-0" />
               <span className="text-[13px] font-medium text-ink truncate">{f.name}</span>
-              {f.required && <span className="text-danger text-[11px]">*</span>}
               <span
                 aria-hidden
                 className={`ml-auto flex flex-shrink-0 items-center justify-center rounded px-1 py-0.5 ${

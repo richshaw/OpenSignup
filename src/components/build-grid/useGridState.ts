@@ -11,7 +11,6 @@ export type GridField = {
   ref: string;
   name: string; // field label
   type: FieldType;
-  required: boolean;
   config: SlotFieldConfig;
   sortOrder: number;
   width?: number; // session-only resize override; not sent to API
@@ -159,7 +158,6 @@ function toGridFields(fields: SlotFieldDefinition[]): GridField[] {
     ref: f.ref,
     name: f.label,
     type: f.fieldType,
-    required: f.required,
     config: f.config,
     sortOrder: f.sortOrder,
   }));
@@ -273,17 +271,13 @@ export function useGridState(
       type: FieldType,
       name: string,
       config: SlotFieldConfig,
-      required: boolean,
     ): Promise<void> => {
       markSaving();
       try {
-        // Existing slots have no value for the new field, so required:true would
-        // 409. Start optional; organiser can flip required once slots are filled.
-        const effectiveRequired = stateRef.current.rows.length > 0 ? false : required;
         const res = await fetch(`/api/signups/${signupId}/fields`, {
           method: 'POST',
           headers: JSON_HEADERS,
-          body: JSON.stringify({ ref: toLabelRef(name, stateRef.current.fields.map((f) => f.ref)), label: name, fieldType: type, config, required: effectiveRequired }),
+          body: JSON.stringify({ ref: toLabelRef(name, stateRef.current.fields.map((f) => f.ref)), label: name, fieldType: type, config }),
         });
         if (!res.ok) throw new Error(await res.text());
         const envelope = (await res.json()) as { data: SlotFieldDefinition };
@@ -300,14 +294,13 @@ export function useGridState(
   const updateField = useCallback(
     async (
       fieldId: string,
-      patch: { name?: string; type?: FieldType; required?: boolean; config?: SlotFieldConfig },
+      patch: { name?: string; type?: FieldType; config?: SlotFieldConfig },
     ): Promise<void> => {
       markSaving();
       try {
         const body: Record<string, unknown> = {};
         if (patch.name !== undefined) body['label'] = patch.name;
         if (patch.type !== undefined) body['fieldType'] = patch.type;
-        if (patch.required !== undefined) body['required'] = patch.required;
         if (patch.config !== undefined) body['config'] = patch.config;
 
         const res = await fetch(`/api/signups/${signupId}/fields/${fieldId}`, {

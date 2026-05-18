@@ -167,55 +167,6 @@ describe('slot-fields service (db)', () => {
       }
     });
 
-    it('rejects a required field when an existing slot has no value for it', async () => {
-      const sigId = await createTestSignup(fx, 'Add required after slot');
-      const first = await addField(fx.db, fx.actor, sigId, {
-        ref: 'game',
-        label: 'Game',
-        fieldType: 'text',
-        config: { fieldType: 'text' },
-      });
-      if (!first.ok) throw new Error('setup failed');
-      const slotR = await addSlot(fx.db, fx.actor, sigId, {
-        values: { game: 'Lakers vs Celtics' },
-      });
-      if (!slotR.ok) throw new Error('slot setup failed');
-
-      const r = await addField(fx.db, fx.actor, sigId, {
-        ref: 'type',
-        label: 'Type',
-        fieldType: 'enum',
-        config: { fieldType: 'enum', choices: ['Food', 'Drink'] },
-        required: true,
-      });
-      expect(r.ok).toBe(false);
-      if (r.ok) return;
-      expect(r.error.code).toBe('conflict');
-    });
-
-    it('allows an optional field to be added after slots exist', async () => {
-      const sigId = await createTestSignup(fx, 'Add optional after slot');
-      const first = await addField(fx.db, fx.actor, sigId, {
-        ref: 'game',
-        label: 'Game',
-        fieldType: 'text',
-        config: { fieldType: 'text' },
-      });
-      if (!first.ok) throw new Error('setup failed');
-      const slotR = await addSlot(fx.db, fx.actor, sigId, {
-        values: { game: 'Lakers vs Celtics' },
-      });
-      if (!slotR.ok) throw new Error('slot setup failed');
-
-      const r = await addField(fx.db, fx.actor, sigId, {
-        ref: 'note',
-        label: 'Note',
-        fieldType: 'text',
-        config: { fieldType: 'text' },
-        required: false,
-      });
-      expect(r.ok).toBe(true);
-    });
   });
 
   describe('updateField', () => {
@@ -249,25 +200,6 @@ describe('slot-fields service (db)', () => {
       expect(r.ok).toBe(false);
       if (r.ok) return;
       expect(r.error.code).toBe('invalid_input');
-    });
-
-    it('rejects required-flip when an existing slot has no value', async () => {
-      const sigId = await createTestSignup(fx, 'Flip required');
-      const created = await addField(fx.db, fx.actor, sigId, {
-        ref: 'note',
-        label: 'Note',
-        fieldType: 'text',
-        config: { fieldType: 'text' },
-        required: false,
-      });
-      if (!created.ok) throw new Error('setup failed');
-      const slotR = await addSlot(fx.db, fx.actor, sigId, { values: {} });
-      if (!slotR.ok) throw new Error('slot setup failed');
-
-      const r = await updateField(fx.db, fx.actor, created.value.id, { required: true });
-      expect(r.ok).toBe(false);
-      if (r.ok) return;
-      expect(r.error.code).toBe('conflict');
     });
 
     it('rejects tightening enum choices that drops an in-use value', async () => {
@@ -324,7 +256,6 @@ describe('slot-fields service (db)', () => {
         label: 'Unused',
         fieldType: 'text',
         config: { fieldType: 'text' },
-        required: false,
       });
       if (!created.ok) throw new Error('setup failed');
       const r = await deleteField(fx.db, fx.actor, created.value.id);
@@ -341,7 +272,6 @@ describe('slot-fields service (db)', () => {
         label: 'Deadline',
         fieldType: 'date',
         config: { fieldType: 'date' },
-        required: false,
       });
       if (!created.ok) throw new Error('field setup failed');
       const upd = await updateSignup(fx.db, fx.actor, sigId, {
@@ -364,7 +294,6 @@ describe('slot-fields service (db)', () => {
         label: 'Category',
         fieldType: 'enum',
         config: { fieldType: 'enum', choices: ['A', 'B'] },
-        required: false,
       });
       if (!created.ok) throw new Error('field setup failed');
       const upd = await updateSignup(fx.db, fx.actor, sigId, {
@@ -387,7 +316,6 @@ describe('slot-fields service (db)', () => {
         label: 'Field A',
         fieldType: 'date',
         config: { fieldType: 'date' },
-        required: false,
       });
       if (!fldA.ok) throw new Error('field-a setup failed');
       const fldB = await addField(fx.db, fx.actor, sigId, {
@@ -395,7 +323,6 @@ describe('slot-fields service (db)', () => {
         label: 'Field B',
         fieldType: 'date',
         config: { fieldType: 'date' },
-        required: false,
       });
       if (!fldB.ok) throw new Error('field-b setup failed');
       const upd = await updateSignup(fx.db, fx.actor, sigId, {
@@ -425,7 +352,6 @@ describe('slot-fields service (db)', () => {
         label: 'Field A',
         fieldType: 'date',
         config: { fieldType: 'date' },
-        required: false,
       });
       if (!fldA.ok) throw new Error('field-a setup failed');
       const fldB = await addField(fx.db, fx.actor, sigId, {
@@ -433,7 +359,6 @@ describe('slot-fields service (db)', () => {
         label: 'Field B',
         fieldType: 'date',
         config: { fieldType: 'date' },
-        required: false,
       });
       if (!fldB.ok) throw new Error('field-b setup failed');
 
@@ -512,7 +437,6 @@ describe('slot-fields service (db)', () => {
         label: 'Time',
         fieldType: 'time',
         config: { fieldType: 'time' },
-        required: false,
       });
       const r = await addSlot(fx.db, fx.actor, sigId, {
         values: { date: '2026-05-15', time: '09:30' },

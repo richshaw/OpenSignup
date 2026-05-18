@@ -1,5 +1,4 @@
 import {
-  boolean,
   index,
   integer,
   jsonb,
@@ -24,7 +23,6 @@ export const slotFields = pgTable(
     ref: text('ref').notNull(),
     label: text('label').notNull(),
     fieldType: text('field_type').notNull(), // text | date | time | number | enum
-    required: boolean('required').notNull().default(true),
     sortOrder: integer('sort_order').notNull().default(0),
     config: jsonb('config').notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

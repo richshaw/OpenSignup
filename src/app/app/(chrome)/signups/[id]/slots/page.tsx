@@ -70,16 +70,13 @@ export default async function SlotsTab({ params }: PageParams) {
             'focus:border-brand focus:ring-brand block min-h-[42px] w-full appearance-none rounded-lg border border-surface-sunk bg-white px-3 py-2 focus:outline-none focus:ring-1';
           const inputName = `field:${f.ref}`;
           const labelEl = (
-            <span className="mb-1 block text-sm font-medium">
-              {f.label}
-              {f.required ? '' : ' (optional)'}
-            </span>
+            <span className="mb-1 block text-sm font-medium">{f.label}</span>
           );
           if (f.fieldType === 'enum' && f.config.fieldType === 'enum') {
             return (
               <label key={f.id} className="block">
                 {labelEl}
-                <select name={inputName} className={inputBase} {...(f.required ? { required: true } : {})}>
+                <select name={inputName} className={inputBase}>
                   <option value="">—</option>
                   {f.config.choices.map((c) => (
                     <option key={c} value={c}>
@@ -104,7 +101,6 @@ export default async function SlotsTab({ params }: PageParams) {
               <input
                 type={inputType}
                 name={inputName}
-                {...(f.required ? { required: true } : {})}
                 className={inputBase}
               />
             </label>

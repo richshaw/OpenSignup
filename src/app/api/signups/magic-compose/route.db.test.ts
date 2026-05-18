@@ -73,7 +73,7 @@ const CANNED_DRAFT = {
   title: 'U9 snack duty, Spring',
   description: 'Two families per game. No nuts please.',
   fields: [
-    { ref: 'date', label: 'Date', fieldType: 'date', required: true },
+    { ref: 'date', label: 'Date', fieldType: 'date' },
     { ref: 'opponent', label: 'Opponent', fieldType: 'text' },
   ],
   slots: [

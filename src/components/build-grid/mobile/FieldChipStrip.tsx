@@ -25,9 +25,6 @@ export function FieldChipStrip({ fields, onEditField, onAddField }: FieldChipStr
             >
               <Icon size={13} className="text-brand" aria-hidden="true" />
               <span className="truncate max-w-[160px]">{field.name}</span>
-              {field.required ? (
-                <span className="text-danger" aria-hidden="true">*</span>
-              ) : null}
             </button>
           );
         })}
