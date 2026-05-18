@@ -47,10 +47,11 @@ export function sizingFor(field: SizableField, isFirst: boolean): FieldSizing {
 /**
  * Builds a CSS `grid-template-columns` string for the build grid.
  *
- * Layout: 38px <field tracks…> 90px 60px
+ * Layout: 38px <field tracks…> 90px 130px
  * - 38px = leading row-index column
  * - 90px = trailing Capacity column (fixed)
- * - 60px = trailing actions column (fixed)
+ * - 130px = trailing actions column (fixed) — sized for the labeled
+ *   "+ Add field" link in the header and the slot delete `×` in the body.
  * - fixed fields → "${px}px"
  * - flex fields  → "minmax(${min}px, ${weight}fr)"
  *
@@ -65,7 +66,7 @@ export function buildColsTemplate(fields: SizableField[]): string {
     return `minmax(${s.min}px, ${s.weight}fr)`;
   });
 
-  return ['38px', ...tracks, '90px', '60px'].join(' ');
+  return ['38px', ...tracks, '90px', '130px'].join(' ');
 }
 
 /**
@@ -80,10 +81,10 @@ export function widthFor(field: SizableField, fieldIndex: number): number {
 /**
  * Returns the sum of minimum column widths for the full grid.
  *
- * = 38 (index) + 90 (capacity) + 60 (actions) + Σ each field's min/fixed width
+ * = 38 (index) + 90 (capacity) + 130 (actions) + Σ each field's min/fixed width
  */
 export function totalGridWidth(fields: SizableField[]): number {
-  const FIXED_COLS = 38 + 90 + 60;
+  const FIXED_COLS = 38 + 90 + 130;
   const fieldsWidth = fields.reduce((sum, f) => {
     const s = sizingFor(f, false); // isFirst doesn't affect width for totalGridWidth
     return sum + (s.mode === 'fixed' ? s.px : s.min);
