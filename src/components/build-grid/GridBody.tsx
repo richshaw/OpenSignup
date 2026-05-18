@@ -72,8 +72,8 @@ export function GridBody({
             />
           </div>
 
-          {/* Trailing actions — 60px (visible on group-hover) */}
-          <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* Trailing actions — 130px, left-aligned to line up with the "+ Add field" header link */}
+          <div className="flex items-center justify-start pl-3 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={(e) => {
                 e.stopPropagation();
