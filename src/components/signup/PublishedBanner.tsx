@@ -11,7 +11,7 @@ export function PublishedBanner({ signupStatus }: { signupStatus: string }) {
   const showFromUrl = searchParams.get('published') === '1';
   const [dismissed, setDismissed] = useState(false);
 
-  if (!showFromUrl || dismissed || signupStatus === 'draft') return null;
+  if (!showFromUrl || dismissed || signupStatus !== 'open') return null;
 
   const onDismiss = () => {
     setDismissed(true);
