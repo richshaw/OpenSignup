@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, ChevronDown } from 'lucide-react';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { buildColsTemplate } from './columnSizing';
 import { ColumnHeaderMenu } from './ColumnHeaderMenu';
 import { fieldTypeMeta } from './fieldTypes';
@@ -174,8 +175,18 @@ export function GridHeader({
       })}
 
       {/* Trailing Capacity header — 90px */}
-      <div className="flex items-center justify-center px-2 py-2 border-r border-surface-sunk">
+      <div className="flex items-center justify-center gap-1 px-2 py-2 border-r border-surface-sunk">
         <span className="text-[13px] font-medium text-ink truncate">Cap.</span>
+        <Tooltip label="Maximum number of people who can sign up for this slot.">
+          <span
+            tabIndex={0}
+            role="img"
+            aria-label="About the Cap column"
+            className="inline-flex h-[13px] w-[13px] cursor-help items-center justify-center rounded-full border border-ink-soft text-[9px] font-bold leading-none text-ink-soft"
+          >
+            i
+          </span>
+        </Tooltip>
       </div>
 
       {/* Trailing labeled "+ Add field" link — 130px. Right-aligned to match
