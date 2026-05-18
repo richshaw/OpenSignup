@@ -19,7 +19,6 @@ export const DEFAULT_TEMPLATE: SignupTemplate = {
       ref: 'date',
       label: 'Date',
       fieldType: 'date',
-      required: true,
       sortOrder: 0,
       config: { fieldType: 'date' },
     },

@@ -15,7 +15,7 @@ type FieldEditorMode =
 
 type FieldEditorProps = {
   editorMode: FieldEditorMode;
-  onSave: (type: FieldType, name: string, config: SlotFieldConfig, required: boolean) => void;
+  onSave: (type: FieldType, name: string, config: SlotFieldConfig) => void;
   onDelete?: () => void;
   onClose: () => void;
 };
@@ -52,11 +52,6 @@ export function FieldEditor({ editorMode, onSave, onDelete, onClose }: FieldEdit
   const [fieldType, setFieldType] = useState<FieldType>(() => {
     if (editorMode.mode === 'edit') return editorMode.field.type;
     return 'text';
-  });
-
-  const [required, setRequired] = useState<boolean>(() => {
-    if (editorMode.mode === 'edit') return editorMode.field.required;
-    return true;
   });
 
   const [choicesText, setChoicesText] = useState<string>(() => {
@@ -102,7 +97,7 @@ export function FieldEditor({ editorMode, onSave, onDelete, onClose }: FieldEdit
             .filter((c) => c.length > 0)
         : [];
 
-    onSave(fieldType, name.trim(), buildConfig(fieldType, parsedChoices), required);
+    onSave(fieldType, name.trim(), buildConfig(fieldType, parsedChoices));
   }
 
   const errors = submitted ? validate(name, fieldType, choicesText) : {};
@@ -252,17 +247,6 @@ export function FieldEditor({ editorMode, onSave, onDelete, onClose }: FieldEdit
                   ) : null}
                 </div>
               )}
-
-              {/* Required checkbox */}
-              <label className="flex items-center gap-2 cursor-pointer text-sm text-ink">
-                <input
-                  type="checkbox"
-                  checked={required}
-                  onChange={(e) => setRequired(e.target.checked)}
-                  className="rounded"
-                />
-                Required for every slot
-              </label>
             </div>
 
             {/* Footer */}

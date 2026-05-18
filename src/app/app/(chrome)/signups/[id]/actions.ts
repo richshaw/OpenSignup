@@ -26,7 +26,6 @@ export async function addFieldAction(signupId: string, formData: FormData) {
   const actor = await requireActor();
   const label = String(formData.get('label') ?? '').trim();
   const fieldType = String(formData.get('fieldType') ?? 'text') as SlotFieldDefinition['fieldType'];
-  const requiredFlag = formData.get('required') !== null;
   const choicesRaw = String(formData.get('choices') ?? '').trim();
   const ref = label ? toSlug(label, { suffix: false }) : '';
 
@@ -58,7 +57,6 @@ export async function addFieldAction(signupId: string, formData: FormData) {
     ref,
     label,
     fieldType,
-    required: requiredFlag,
     config,
   });
   revalidateSignup(signupId);

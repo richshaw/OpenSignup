@@ -73,8 +73,8 @@ describe('buildDraftPreview', () => {
     title: 'U9 snack duty, Spring',
     description: 'Two families per game.',
     fields: [
-      { ref: 'date', label: 'Date', fieldType: 'date', required: true },
-      { ref: 'opponent', label: 'Opponent', fieldType: 'text', required: false },
+      { ref: 'date', label: 'Date', fieldType: 'date' },
+      { ref: 'opponent', label: 'Opponent', fieldType: 'text' },
     ],
     slots: [
       { values: { date: '2026-04-25', opponent: 'Hawks' }, capacity: 2 },
