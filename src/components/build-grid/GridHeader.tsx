@@ -178,13 +178,13 @@ export function GridHeader({
         <span className="text-[13px] font-medium text-ink truncate">Cap.</span>
       </div>
 
-      {/* Trailing labeled "+ Add field" link — 130px. Mirrors the
-          AddRowAffordance footer style: muted ink + Plus icon + label. */}
+      {/* Trailing labeled "+ Add field" link — 130px. Right-aligned to match
+          the per-row trailing actions cell. */}
       <button
         type="button"
         onClick={onAddField}
         aria-label="Add field"
-        className="flex h-full w-full items-center justify-start gap-1.5 border-l border-surface-sunk px-3 text-sm font-medium text-ink-muted hover:bg-surface-sunk/50 hover:text-ink transition-colors"
+        className="flex h-full w-full items-center justify-end gap-1.5 border-l border-surface-sunk px-3 text-sm font-medium text-ink-muted hover:bg-surface-sunk/50 hover:text-ink transition-colors"
       >
         <Plus size={13} />
         Add field
