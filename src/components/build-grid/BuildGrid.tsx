@@ -8,7 +8,7 @@ import { totalGridWidth } from './columnSizing';
 import { Toolbar } from './Toolbar';
 import { ScrollableTable } from './ScrollableTable';
 import { GridHeader } from './GridHeader';
-import { GridBody } from './GridBody';
+import { GroupedBody } from './GroupedBody';
 import { SideRail } from './SideRail';
 import { FieldEditor } from './FieldEditor';
 import { MobileBuildGrid } from './mobile/MobileBuildGrid';
@@ -129,9 +129,10 @@ export function BuildGrid({ signupId, signupMeta, initialFields, initialSlots, i
               onResize={(fieldId, width) => setFieldWidth(fieldId, width)}
               onResetWidth={(fieldId) => setFieldWidth(fieldId, undefined)}
             />
-            <GridBody
+            <GroupedBody
               fields={state.fields}
               rows={state.rows}
+              groupByFieldRef={state.groupByFieldRef}
               highlightedRowIdx={state.previewRowIdx}
               onEditCell={(rowId, fieldRef, value) => editCell(rowId, fieldRef, value)}
               onSetCapacity={(rowId, cap) => { void setCapacity(rowId, cap); }}
