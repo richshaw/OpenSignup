@@ -491,6 +491,62 @@ export function useGridState(
     [state.rows],
   );
 
+  // Concurrent reorders by other organizers can race; this client converges via
+  // refetch on error. Mirrors moveField — fine for v1 slot counts (<30 typical).
+  const moveRow = useCallback(
+    async (fromIdx: number, toIdx: number): Promise<void> => {
+      const previous = state.rows;
+      if (fromIdx < 0 || fromIdx >= previous.length) return;
+      const clamped = Math.max(0, Math.min(previous.length - 1, toIdx));
+      if (clamped === fromIdx) return;
+
+      const reordered = previous.slice();
+      const [moved] = reordered.splice(fromIdx, 1);
+      if (!moved) return;
+      reordered.splice(clamped, 0, moved);
+      const resequenced = reordered.map((r, i) => ({ ...r, sortOrder: i }));
+
+      dispatch({ type: 'SET_ROWS', rows: resequenced });
+      markSaving();
+      try {
+        const changed = resequenced.filter(
+          (r, i) => previous[i]?.id !== r.id || previous[i]?.sortOrder !== r.sortOrder,
+        );
+        for (const r of changed) {
+          const res = await fetch(`/api/slots/${r.id}`, {
+            method: 'PATCH',
+            headers: JSON_HEADERS,
+            body: JSON.stringify({ sortOrder: r.sortOrder }),
+          });
+          if (!res.ok) throw new Error('reorder failed');
+        }
+        markSaved();
+      } catch {
+        try {
+          const res = await fetch(`/api/signups/${signupId}/slots`);
+          if (res.ok) {
+            const envelope = (await res.json()) as {
+              data: Array<{ id: string; capacity: number | null; sortOrder: number; values: Record<string, unknown> }>;
+            };
+            const refreshed = envelope.data.map((s) => ({
+              id: s.id,
+              capacity: s.capacity,
+              sortOrder: s.sortOrder,
+              values: toStringValues(s.values ?? {}),
+            }));
+            dispatch({ type: 'SET_ROWS', rows: refreshed });
+          } else {
+            dispatch({ type: 'SET_ROWS', rows: previous });
+          }
+        } catch {
+          dispatch({ type: 'SET_ROWS', rows: previous });
+        }
+        markError();
+      }
+    },
+    [signupId, state.rows],
+  );
+
   const moveRowDown = useCallback(
     async (rowId: string): Promise<void> => {
       const idx = state.rows.findIndex((r) => r.id === rowId);
@@ -674,6 +730,7 @@ export function useGridState(
     deleteRow,
     moveRowUp,
     moveRowDown,
+    moveRow,
     editCell,
     setCapacity,
     setPreviewRow,

@@ -35,6 +35,7 @@ const baseHandlers = {
   onEditCell: vi.fn(),
   onSetCapacity: vi.fn(),
   onDeleteRow: vi.fn(),
+  onMoveRow: vi.fn(),
   onMoveRowUp: vi.fn(),
   onMoveRowDown: vi.fn(),
 };

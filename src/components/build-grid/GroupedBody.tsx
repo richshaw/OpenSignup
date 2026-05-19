@@ -16,6 +16,8 @@ type GroupedBodyProps = {
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;
   onSetCapacity: (rowId: string, capacity: number | null) => void;
   onDeleteRow: (rowId: string) => void;
+  /** Drag reorder — only passed through in flat (ungrouped) mode. */
+  onMoveRow: (fromIdx: number, toIdx: number) => void;
   onMoveRowUp: (rowId: string) => void;
   onMoveRowDown: (rowId: string) => void;
 };
@@ -47,6 +49,7 @@ export function GroupedBody({
   onEditCell,
   onSetCapacity,
   onDeleteRow,
+  onMoveRow,
   onMoveRowUp,
   onMoveRowDown,
 }: GroupedBodyProps) {
@@ -76,6 +79,7 @@ export function GroupedBody({
         onEditCell={onEditCell}
         onSetCapacity={onSetCapacity}
         onDeleteRow={onDeleteRow}
+        onMoveRow={onMoveRow}
         onMoveRowUp={onMoveRowUp}
         onMoveRowDown={onMoveRowDown}
       />
@@ -163,8 +167,29 @@ export function GroupedBody({
                 onEditCell={onEditCell}
                 onSetCapacity={onSetCapacity}
                 onDeleteRow={onDeleteRow}
-                onMoveRowUp={onMoveRowUp}
-                onMoveRowDown={onMoveRowDown}
+                // Group-aware keyboard reorder: swap with the within-group
+                // neighbor, not the flat-array neighbor. Calls onMoveRow with
+                // flat indices so other groups' relative order is preserved.
+                onMoveRowUp={(rowId) => {
+                  const local = groupRows.findIndex((r) => r.id === rowId);
+                  if (local <= 0) return;
+                  const fromFlat = flatIndexById.get(rowId);
+                  const prev = groupRows[local - 1];
+                  if (fromFlat === undefined || !prev) return;
+                  const toFlat = flatIndexById.get(prev.id);
+                  if (toFlat === undefined) return;
+                  onMoveRow(fromFlat, toFlat);
+                }}
+                onMoveRowDown={(rowId) => {
+                  const local = groupRows.findIndex((r) => r.id === rowId);
+                  if (local < 0 || local >= groupRows.length - 1) return;
+                  const fromFlat = flatIndexById.get(rowId);
+                  const next = groupRows[local + 1];
+                  if (fromFlat === undefined || !next) return;
+                  const toFlat = flatIndexById.get(next.id);
+                  if (toFlat === undefined) return;
+                  onMoveRow(fromFlat, toFlat);
+                }}
               />
             )}
           </div>
