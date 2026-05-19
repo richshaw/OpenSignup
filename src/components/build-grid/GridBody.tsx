@@ -18,7 +18,8 @@ interface GridBodyProps {
   onDeleteRow: (rowId: string) => void;
   /** Drag reorder by index. When absent, drag handle stays hidden (e.g. grouped mode). */
   onMoveRow?: (fromIdx: number, toIdx: number) => void;
-  /** Keyboard reorder by id. Stays enabled in grouped mode (within-group). */
+  /** Keyboard reorder by id. Caller defines "up/down" — flat-adjacent in flat
+   *  mode, within-group adjacent in grouped mode (see GroupedBody). */
   onMoveRowUp: (rowId: string) => void;
   onMoveRowDown: (rowId: string) => void;
 }
@@ -118,18 +119,28 @@ function GridBodyRow({
       style={{
         display: 'grid',
         gridTemplateColumns: cols,
-        borderTop: isDropTarget ? '2px solid var(--brand)' : '1px solid #eef1f5',
-        marginTop: isDropTarget ? -1 : 0,
-        background: highlighted ? 'rgb(31 111 235 / 0.04)' : 'transparent',
+        borderBottom: '1px solid #eef1f5',
+        // Inset shadow paints the 2px brand drop indicator at the top of the
+        // target row without affecting layout, so we avoid doubling the 1px
+        // separator that the header (and grouped-mode group header) already
+        // render. `undefined` lets the className `hover:bg-brand/5` apply.
+        boxShadow: isDropTarget ? 'inset 0 2px 0 var(--brand)' : undefined,
         opacity: isDragging ? 0.5 : 1,
         cursor: 'pointer',
+        // Only set inline backgroundColor when highlighted-and-not-dragging.
+        // Leaving it unset lets `bg-brand-soft` (dragged) and `hover:bg-brand/5`
+        // (hover) take effect via className specificity.
+        ...(highlighted && !isDragging
+          ? { backgroundColor: 'rgb(31 111 235 / 0.04)' }
+          : {}),
       }}
       className={`group transition-colors hover:bg-brand/5 ${isDragging ? 'bg-brand-soft' : ''}`}
     >
-      {/* Row # / drag handle — keyboard-focusable for Cmd/Ctrl+↑/↓ reorder. */}
+      {/* Row # / drag handle — focusable for Cmd/Ctrl+↑/↓ reorder. Not a
+          button: it doesn't activate on Enter/Space, so we leave it role-less
+          and rely on aria-label + aria-keyshortcuts to describe the contract. */}
       <div
         {...sourceProps}
-        role="button"
         tabIndex={0}
         onFocus={() => setHandleFocused(true)}
         onBlur={() => setHandleFocused(false)}
