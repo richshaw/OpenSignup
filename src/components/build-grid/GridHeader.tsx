@@ -113,8 +113,12 @@ export function GridHeader({
                 marginLeft: isDropTarget ? -2 : 0,
                 opacity: isDragging ? 0.5 : 1,
               }}
-              className={`flex items-center border-r border-surface-sunk transition-colors ${
-                isDragging ? 'bg-brand-soft' : ''
+              className={`flex items-center border-r border-surface-sunk transition-colors duration-300 ${
+                isDragging
+                  ? 'bg-brand-soft'
+                  : isHover
+                    ? 'bg-white'
+                    : 'bg-transparent'
               }`}
             >
               {/* Type icon doubles as the drag handle. Hover swaps to GripVertical
@@ -128,7 +132,11 @@ export function GridHeader({
                 title="Drag to reorder"
                 className="ml-2 inline-flex h-[22px] w-[22px] flex-shrink-0 cursor-grab items-center justify-center rounded text-brand"
               >
-                {isHover ? <GripVertical size={12} /> : <TypeIcon size={12} />}
+                {isHover ? (
+                  <GripVertical size={12} />
+                ) : (
+                  <TypeIcon size={12} className="opacity-60" />
+                )}
               </span>
 
               {/* Field name — plain label, not interactive. */}
@@ -138,7 +146,8 @@ export function GridHeader({
 
               {/* Pencil button — opens FieldEditor; keyboard reorder when focused.
                   Stops mousedown so a press on the pencil can never initiate a drag
-                  on the parent. */}
+                  on the parent. At rest: quiet 22×22 pencil glyph. On header hover:
+                  brand-tinted pill with leading pencil + "Edit" label. */}
               <button
                 type="button"
                 data-column-header-edit
@@ -164,14 +173,20 @@ export function GridHeader({
                 aria-label={`Edit field ${f.name}. Use Cmd or Ctrl plus arrow keys to reorder.`}
                 aria-keyshortcuts="Meta+ArrowLeft Meta+ArrowRight Control+ArrowLeft Control+ArrowRight Meta+Home Meta+End Control+Home Control+End"
                 title="Edit field"
-                className={`mr-2 inline-flex h-[22px] flex-shrink-0 items-center justify-center rounded border transition-colors ${
-                  isHover
-                    ? 'border-surface-sunk bg-white text-ink-muted hover:text-ink'
-                    : 'border-transparent bg-transparent text-ink-soft/60'
+                className={`mr-2 inline-flex h-[22px] shrink-0 cursor-pointer items-center justify-center gap-1 rounded border border-transparent text-[11px] font-semibold transition-[background-color,color,padding] duration-300 ${
+                  isHover ? 'bg-brand/10 text-brand' : 'bg-transparent text-ink-soft'
                 }`}
-                style={{ width: 22 }}
+                style={{
+                  width: isHover ? 'auto' : 22,
+                  padding: isHover ? '0 8px' : 0,
+                }}
               >
-                <Pencil size={12} />
+                <Pencil
+                  size={13}
+                  className="transition-opacity duration-300"
+                  style={{ opacity: isHover ? 1 : 0.6 }}
+                />
+                {isHover && <span>Edit</span>}
               </button>
 
               <ResizeHandle
@@ -204,9 +219,9 @@ export function GridHeader({
           type="button"
           onClick={onAddField}
           aria-label="Add field"
-          className="flex h-full w-full items-center justify-end gap-1.5 border-l border-surface-sunk px-3 text-sm font-medium text-ink-muted hover:bg-surface-sunk/50 hover:text-ink transition-colors"
+          className="flex h-full w-full items-center justify-start gap-1.5 border-l border-surface-sunk pl-[18px] pr-3 text-[13px] font-medium text-ink-muted hover:bg-surface-sunk/50 hover:text-ink transition-colors"
         >
-          <Plus size={13} />
+          <Plus size={13} className="shrink-0" />
           Add field
         </button>
       </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, GripHorizontal } from 'lucide-react';
+import { Trash, GripHorizontal } from 'lucide-react';
 import { buildColsTemplate } from './columnSizing';
 import { CellInput } from './CellInput';
 import { CapacityCell } from './CapacityCell';
@@ -197,11 +197,11 @@ function GridBodyRow({
             e.stopPropagation();
             onDeleteRow(row.id);
           }}
-          title="Remove slot"
-          aria-label="Remove slot"
-          className="p-1 rounded text-ink-soft hover:text-danger hover:bg-surface-raised"
+          title="Delete slot"
+          aria-label="Delete slot"
+          className="p-1.5 rounded text-ink-soft hover:text-danger"
         >
-          <X size={13} />
+          <Trash size={13} />
         </button>
       </div>
     </div>
