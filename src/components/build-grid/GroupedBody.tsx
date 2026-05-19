@@ -16,8 +16,10 @@ type GroupedBodyProps = {
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;
   onSetCapacity: (rowId: string, capacity: number | null) => void;
   onDeleteRow: (rowId: string) => void;
+  onMoveRow: (fromIdx: number, toIdx: number) => void;
   onMoveRowUp: (rowId: string) => void;
   onMoveRowDown: (rowId: string) => void;
+  onAnnounce?: (message: string) => void;
 };
 
 const dateFmt = new Intl.DateTimeFormat('en-US', {
@@ -47,8 +49,10 @@ export function GroupedBody({
   onEditCell,
   onSetCapacity,
   onDeleteRow,
+  onMoveRow,
   onMoveRowUp,
   onMoveRowDown,
+  onAnnounce,
 }: GroupedBodyProps) {
   const groupField = groupByFieldRef
     ? fields.find((f) => f.ref === groupByFieldRef) ?? null
@@ -76,8 +80,10 @@ export function GroupedBody({
         onEditCell={onEditCell}
         onSetCapacity={onSetCapacity}
         onDeleteRow={onDeleteRow}
+        onMoveRow={onMoveRow}
         onMoveRowUp={onMoveRowUp}
         onMoveRowDown={onMoveRowDown}
+        {...(onAnnounce ? { onAnnounce } : {})}
       />
     );
   }
@@ -163,8 +169,18 @@ export function GroupedBody({
                 onEditCell={onEditCell}
                 onSetCapacity={onSetCapacity}
                 onDeleteRow={onDeleteRow}
+                onMoveRow={(localFrom, localTo) => {
+                  const fromRow = groupRows[localFrom];
+                  const toRow = groupRows[localTo];
+                  if (!fromRow || !toRow) return;
+                  const flatFrom = flatIndexById.get(fromRow.id);
+                  const flatTo = flatIndexById.get(toRow.id);
+                  if (flatFrom === undefined || flatTo === undefined) return;
+                  onMoveRow(flatFrom, flatTo);
+                }}
                 onMoveRowUp={onMoveRowUp}
                 onMoveRowDown={onMoveRowDown}
+                {...(onAnnounce ? { onAnnounce } : {})}
               />
             )}
           </div>

@@ -532,6 +532,46 @@ export function useGridState(
     [state.rows],
   );
 
+  // Multi-position row move. Mirrors moveField: optimistic resequencing followed
+  // by per-row sortOrder PATCHes for any row whose sortOrder changed. Used by
+  // drag/drop; keyboard reorder still uses the adjacent-swap moveRowUp/Down.
+  const moveRow = useCallback(
+    async (rowId: string, toIdx: number): Promise<void> => {
+      const previous = state.rows;
+      const fromIdx = previous.findIndex((r) => r.id === rowId);
+      if (fromIdx === -1) return;
+      const clamped = Math.max(0, Math.min(previous.length - 1, toIdx));
+      if (clamped === fromIdx) return;
+
+      const reordered = previous.slice();
+      const [moved] = reordered.splice(fromIdx, 1);
+      if (!moved) return;
+      reordered.splice(clamped, 0, moved);
+      const resequenced = reordered.map((r, i) => ({ ...r, sortOrder: i }));
+
+      dispatch({ type: 'SET_ROWS', rows: resequenced });
+      markSaving();
+      try {
+        const changed = resequenced.filter(
+          (r, i) => previous[i]?.id !== r.id || previous[i]?.sortOrder !== r.sortOrder,
+        );
+        for (const r of changed) {
+          const res = await fetch(`/api/slots/${r.id}`, {
+            method: 'PATCH',
+            headers: JSON_HEADERS,
+            body: JSON.stringify({ sortOrder: r.sortOrder }),
+          });
+          if (!res.ok) throw new Error('reorder failed');
+        }
+        markSaved();
+      } catch {
+        dispatch({ type: 'SET_ROWS', rows: previous });
+        markError();
+      }
+    },
+    [state.rows],
+  );
+
   // ---------------------------------------------------------------------------
   // Cell / capacity debounced saves
   // ---------------------------------------------------------------------------
@@ -672,6 +712,7 @@ export function useGridState(
     setFieldWidth,
     addRow,
     deleteRow,
+    moveRow,
     moveRowUp,
     moveRowDown,
     editCell,
