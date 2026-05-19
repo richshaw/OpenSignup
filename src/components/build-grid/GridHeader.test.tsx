@@ -39,7 +39,6 @@ function renderHeader(overrides: Partial<React.ComponentProps<typeof GridHeader>
       fields={sampleFields}
       onEditField={vi.fn()}
       onAddField={vi.fn()}
-      onDeleteField={vi.fn()}
       onMoveField={vi.fn()}
       onResize={vi.fn()}
       onResetWidth={vi.fn()}
@@ -134,5 +133,61 @@ describe('<GridHeader />', () => {
     const live = container.querySelector('[data-grid-header-announcement]');
     expect(live).not.toBeNull();
     expect(live).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('drag handle is not exposed as a button to assistive tech', () => {
+    // Per-column buttons should only be the pencils. The drag handle is
+    // mouse-only (keyboard reorder lives on the pencil), so exposing it as
+    // a non-focusable button with no Enter/Space behavior would mislead SR users.
+    renderHeader();
+    const editButtons = screen.getAllByRole('button', { name: /^Edit field /i });
+    expect(editButtons).toHaveLength(sampleFields.length);
+    expect(screen.queryByRole('button', { name: /drag to reorder/i })).toBeNull();
+  });
+
+  describe('drag-drop reorder', () => {
+    // Returns the column container for a given field id — the element that
+    // receives the drop target props from useReorderable.
+    function columnByFieldId(fieldId: string): HTMLElement {
+      const fieldName = sampleFields.find((f) => f.id === fieldId)!.name;
+      const pencil = screen.getByRole('button', {
+        name: new RegExp(`^Edit field ${fieldName}`, 'i'),
+      });
+      return pencil.parentElement as HTMLElement;
+    }
+
+    function dragColumnOnto(sourceFieldId: string, targetFieldId: string) {
+      const sourceCol = columnByFieldId(sourceFieldId);
+      const targetCol = columnByFieldId(targetFieldId);
+      const sourceHandle = sourceCol.querySelector('[title="Drag to reorder"]');
+      expect(sourceHandle).not.toBeNull();
+      const dt = { setData: () => undefined, effectAllowed: '' };
+      fireEvent.dragStart(sourceHandle!, { dataTransfer: dt });
+      fireEvent.dragOver(targetCol, { dataTransfer: dt });
+      fireEvent.drop(targetCol, { dataTransfer: dt });
+    }
+
+    it('forward drag lands the source on the target\'s left edge', () => {
+      // Fields are [Date, Notes, Shift]. Drag Date (idx 0) → drop on Shift
+      // (idx 2). User expects [Notes, Date, Shift] — Date sits where Shift's
+      // left edge was. With the raw pre-move target index (2), `moveField`
+      // splices Date out then inserts at 2, yielding [Notes, Shift, Date].
+      // The adjusted index (1) is correct.
+      const onMoveField = vi.fn();
+      renderHeader({ onMoveField });
+      dragColumnOnto('sf_1', 'sf_3');
+      expect(onMoveField).toHaveBeenCalledTimes(1);
+      expect(onMoveField).toHaveBeenCalledWith('sf_1', 1);
+    });
+
+    it('backward drag passes the target index unchanged', () => {
+      // Drag Shift (idx 2) → drop on Date (idx 0). Expected: [Shift, Date, Notes].
+      // For from > to no shift occurs, so the raw target index is correct.
+      const onMoveField = vi.fn();
+      renderHeader({ onMoveField });
+      dragColumnOnto('sf_3', 'sf_1');
+      expect(onMoveField).toHaveBeenCalledTimes(1);
+      expect(onMoveField).toHaveBeenCalledWith('sf_3', 0);
+    });
   });
 });

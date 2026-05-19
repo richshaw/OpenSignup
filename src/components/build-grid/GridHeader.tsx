@@ -13,7 +13,6 @@ interface GridHeaderProps {
   fields: GridField[];
   onEditField: (field: GridField) => void;
   onAddField: () => void;
-  onDeleteField: (fieldId: string) => void;
   onMoveField: (fieldId: string, toIdx: number) => void;
   onResize: (fieldId: string, width: number) => void;
   onResetWidth: (fieldId: string) => void;
@@ -25,8 +24,6 @@ export function GridHeader({
   fields,
   onEditField,
   onAddField,
-  // onDeleteField retained for callers; deletion routes through the FieldEditor opened from the pencil.
-  onDeleteField: _onDeleteField,
   onMoveField,
   onResize,
   onResetWidth,
@@ -39,8 +36,17 @@ export function GridHeader({
     onReorder: (from, to) => {
       const moved = fields[from];
       if (!moved) return;
-      onMoveField(moved.id, to);
-      setAnnouncement(`Field ${moved.name} moved to position ${to + 1} of ${fields.length}.`);
+      // The drop indicator sits on the target's LEFT edge, so the user expects
+      // the source to land where the target currently is. `useReorderable`
+      // hands back pre-move indices; `onMoveField` (useGridState.moveField)
+      // splices the source out FIRST then inserts at the destination, so for
+      // a forward drag the destination shifts by one. Without this adjustment,
+      // dragging A onto C ends up at C's right side, not its left.
+      const targetIdx = from < to ? to - 1 : to;
+      onMoveField(moved.id, targetIdx);
+      setAnnouncement(
+        `Field ${moved.name} moved to position ${targetIdx + 1} of ${fields.length}.`,
+      );
     },
   });
 
@@ -112,11 +118,13 @@ export function GridHeader({
               }`}
             >
               {/* Type icon doubles as the drag handle. Hover swaps to GripVertical
-                  so the affordance is obvious without permanent visual noise. */}
+                  so the affordance is obvious without permanent visual noise.
+                  Mouse-only — keyboard reorder lives on the pencil button below
+                  (Cmd/Ctrl+Arrow), so this span is intentionally not focusable
+                  and carries no button role/label. */}
               <span
                 {...sourceProps}
-                role="button"
-                aria-label={`Drag to reorder ${f.name}`}
+                aria-hidden="true"
                 title="Drag to reorder"
                 className="ml-2 inline-flex h-[22px] w-[22px] flex-shrink-0 cursor-grab items-center justify-center rounded text-brand"
               >
