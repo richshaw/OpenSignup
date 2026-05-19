@@ -45,7 +45,7 @@ function AddRowAffordance({ onAdd }: { onAdd: () => void }) {
       className="w-full bg-surface-raised border-t border-surface-sunk cursor-pointer text-left font-[inherit] hover:bg-surface-sunk/50"
     >
       <span className="flex items-center gap-1 px-3 py-3 text-[13px] text-ink-muted font-medium">
-        <Plus size={13} style={{ width: 13, height: 13, flexShrink: 0 }} />
+        <Plus size={13} className="shrink-0" />
         Add slot
       </span>
     </button>
