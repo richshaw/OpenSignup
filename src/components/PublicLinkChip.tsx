@@ -6,9 +6,10 @@ import { Check, Copy, ExternalLink } from 'lucide-react';
 interface PublicLinkChipProps {
   url: string;
   compact?: boolean;
+  className?: string;
 }
 
-export function PublicLinkChip({ url, compact = false }: PublicLinkChipProps) {
+export function PublicLinkChip({ url, compact = false, className = '' }: PublicLinkChipProps) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -34,7 +35,9 @@ export function PublicLinkChip({ url, compact = false }: PublicLinkChipProps) {
   }
 
   return (
-    <div className="border-surface-sunk bg-surface-raised text-ink inline-flex max-w-full items-center rounded-full border py-0.5 pr-1 pl-3 text-[13px]">
+    <div
+      className={`border-surface-sunk bg-surface-raised text-ink inline-flex max-w-full items-center rounded-full border py-0.5 pr-1 pl-3 text-[13px] ${className}`}
+    >
       {!compact ? (
         <span className="text-ink-muted border-surface-sunk mr-2 border-r pr-2 text-xs font-medium">
           Public link
