@@ -78,7 +78,13 @@ export function useReorderable<T extends Reorderable>({
         onDragOver: (e) => {
           if (!dragId) return;
           e.preventDefault();
-          if (dragId !== id && overId !== id) setOverId(id);
+          if (dragId === id) {
+            // Pointer is back over the source — clear any indicator left on
+            // a previously-hovered target so it doesn't stay painted.
+            if (overId !== null) setOverId(null);
+            return;
+          }
+          if (overId !== id) setOverId(id);
         },
         onDrop: (e) => {
           e.preventDefault();
