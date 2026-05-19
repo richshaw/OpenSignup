@@ -62,6 +62,7 @@ export function BuildGrid({ signupId, signupMeta, initialFields, initialSlots, i
     setFieldWidth,
     addRow,
     deleteRow,
+    moveRow,
     moveRowUp,
     moveRowDown,
     editCell,
@@ -124,7 +125,6 @@ export function BuildGrid({ signupId, signupMeta, initialFields, initialSlots, i
               fields={state.fields}
               onEditField={(field) => setEditingField(field)}
               onAddField={() => setShowFieldEditorCreate(true)}
-              onDeleteField={(fieldId) => { void deleteField(fieldId); }}
               onMoveField={(fieldId, toIdx) => { void moveField(fieldId, toIdx); }}
               onResize={(fieldId, width) => setFieldWidth(fieldId, width)}
               onResetWidth={(fieldId) => setFieldWidth(fieldId, undefined)}
@@ -137,6 +137,7 @@ export function BuildGrid({ signupId, signupMeta, initialFields, initialSlots, i
               onEditCell={(rowId, fieldRef, value) => editCell(rowId, fieldRef, value)}
               onSetCapacity={(rowId, cap) => { void setCapacity(rowId, cap); }}
               onDeleteRow={(rowId) => { void deleteRow(rowId); }}
+              onMoveRow={(from, to) => { void moveRow(from, to); }}
               onMoveRowUp={(rowId) => { void moveRowUp(rowId); }}
               onMoveRowDown={(rowId) => { void moveRowDown(rowId); }}
               onSelectRow={(idx) => setPreviewRow(idx)}
