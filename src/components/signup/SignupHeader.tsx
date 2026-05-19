@@ -3,13 +3,14 @@ import { Download, Eye } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
+import type { SignupStatus } from '@/schemas/signups';
 import { MobileSignupHeader } from './MobileSignupHeader';
 
 interface SignupHeaderProps {
   signupId: string;
   title: string;
   description: string | null;
-  status: string;
+  status: SignupStatus;
   publicUrl: string;
   publishAction: () => void | Promise<void>;
   closeAction: () => void | Promise<void>;
@@ -93,7 +94,7 @@ export function SignupHeader({
             </form>
           ) : null}
           <div className={`${colSpanClass} min-w-0`}>
-            <PublicLinkChip url={publicUrl} />
+            <PublicLinkChip url={publicUrl} className="flex w-full" />
           </div>
         </div>
       </div>
