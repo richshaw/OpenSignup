@@ -93,6 +93,18 @@ describe('useReorderable', () => {
     expect(result.current.overId).toBeNull();
   });
 
+  it('clears prior overId when the pointer moves back over the source', () => {
+    const onReorder = vi.fn();
+    const { result } = renderHook(() => useReorderable({ items, onReorder }));
+
+    act(() => result.current.source('a').onDragStart(makeDragEvent()));
+    act(() => result.current.target('b').onDragOver(makeDragEvent()));
+    expect(result.current.overId).toBe('b');
+
+    act(() => result.current.target('a').onDragOver(makeDragEvent()));
+    expect(result.current.overId).toBeNull();
+  });
+
   it('fires onReorder with from/to indices on drop', () => {
     const onReorder = vi.fn();
     const { result } = renderHook(() => useReorderable({ items, onReorder }));
