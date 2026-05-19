@@ -707,6 +707,137 @@ describe('useGridState moveField', () => {
 });
 
 // ---------------------------------------------------------------------------
+// useGridState moveRow (renderHook + mocked fetch)
+// ---------------------------------------------------------------------------
+
+interface InitialRowInput {
+  id: string;
+  capacity: number | null;
+  sortOrder?: number;
+  values: Record<string, unknown>;
+}
+
+function rowIdFromUrl(url: string): string | undefined {
+  return url.match(/\/api\/slots\/([^/]+)$/)?.[1];
+}
+
+function renderGridWith(initialRows: InitialRowInput[]) {
+  return renderHook(() =>
+    useGridState('sig_test', [], initialRows, defaultSettings),
+  );
+}
+
+describe('useGridState moveRow', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('reorders rows and PATCHes each changed row with its new sortOrder', async () => {
+    const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
+    const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
+    const r3: InitialRowInput = { id: 'r3', capacity: null, sortOrder: 2, values: {} };
+
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGridWith([r1, r2, r3]);
+    await act(async () => {
+      await result.current.moveRow(2, 0);
+    });
+
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['r3', 'r1', 'r2']);
+    expect(result.current.state.rows.map((r) => r.sortOrder)).toEqual([0, 1, 2]);
+
+    const sentPatches = new Map<string, number>();
+    for (const call of fetchMock.mock.calls) {
+      const url = String(call[0]);
+      const init = call[1] as RequestInit | undefined;
+      if (init?.method !== 'PATCH') continue;
+      const id = rowIdFromUrl(url);
+      const body = JSON.parse(String(init.body)) as { sortOrder: number };
+      if (id !== undefined) sentPatches.set(id, body.sortOrder);
+    }
+    expect(sentPatches.get('r3')).toBe(0);
+    expect(sentPatches.get('r1')).toBe(1);
+    expect(sentPatches.get('r2')).toBe(2);
+    expect(result.current.state.saveStatus).toBe('saved');
+  });
+
+  it('refetches server truth on PATCH failure', async () => {
+    const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: { notes: 'one' } };
+    const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: { notes: 'two' } };
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === 'PATCH') {
+        return jsonResponse({}, { ok: false });
+      }
+      if (url.endsWith('/slots')) {
+        return jsonResponse({
+          data: [
+            { id: 'r1', capacity: null, sortOrder: 0, values: { notes: 'one' } },
+            { id: 'r2', capacity: null, sortOrder: 1, values: { notes: 'two' } },
+          ],
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGridWith([r1, r2]);
+    await act(async () => {
+      await result.current.moveRow(0, 1);
+    });
+
+    const getCalls = fetchMock.mock.calls.filter(
+      (c) => (c[1] as RequestInit | undefined)?.method !== 'PATCH',
+    );
+    expect(getCalls.length).toBe(1);
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['r1', 'r2']);
+    expect(result.current.state.saveStatus).toBe('error');
+  });
+
+  it('falls back to snapshot when refetch also fails', async () => {
+    const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
+    const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
+
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, { ok: false }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGridWith([r1, r2]);
+    await act(async () => {
+      await result.current.moveRow(0, 1);
+    });
+
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['r1', 'r2']);
+    expect(result.current.state.saveStatus).toBe('error');
+  });
+
+  it('is a no-op when fromIdx clamps to toIdx or is out of bounds', async () => {
+    const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
+    const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGridWith([r1, r2]);
+
+    await act(async () => {
+      await result.current.moveRow(0, -1); // clamps to 0 — same as fromIdx
+    });
+    await act(async () => {
+      await result.current.moveRow(0, 0); // explicit no-op
+    });
+    await act(async () => {
+      await result.current.moveRow(5, 0); // out of bounds
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['r1', 'r2']);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // useGridState mount-time showPreview default (viewport-aware)
 // ---------------------------------------------------------------------------
 

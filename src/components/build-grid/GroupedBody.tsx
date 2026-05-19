@@ -16,6 +16,8 @@ type GroupedBodyProps = {
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;
   onSetCapacity: (rowId: string, capacity: number | null) => void;
   onDeleteRow: (rowId: string) => void;
+  /** Drag reorder — only passed through in flat (ungrouped) mode. */
+  onMoveRow: (fromIdx: number, toIdx: number) => void;
   onMoveRowUp: (rowId: string) => void;
   onMoveRowDown: (rowId: string) => void;
 };
@@ -47,6 +49,7 @@ export function GroupedBody({
   onEditCell,
   onSetCapacity,
   onDeleteRow,
+  onMoveRow,
   onMoveRowUp,
   onMoveRowDown,
 }: GroupedBodyProps) {
@@ -76,6 +79,7 @@ export function GroupedBody({
         onEditCell={onEditCell}
         onSetCapacity={onSetCapacity}
         onDeleteRow={onDeleteRow}
+        onMoveRow={onMoveRow}
         onMoveRowUp={onMoveRowUp}
         onMoveRowDown={onMoveRowDown}
       />
