@@ -80,6 +80,7 @@ export function BuildGrid({ signupId, signupMeta, initialFields, initialSlots, i
       values: s.values,
     })),
     initialSettings,
+    { title: signupMeta.title, description: signupMeta.description },
   );
 
   const [editingField, setEditingField] = useState<GridField | null>(null);

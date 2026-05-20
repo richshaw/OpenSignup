@@ -29,6 +29,8 @@ const makeRow = (overrides: Partial<GridRow> = {}): GridRow => ({
 });
 
 const makeState = (overrides: Partial<GridState> = {}): GridState => ({
+  title: '',
+  description: '',
   fields: [],
   rows: [],
   groupByFieldRef: null,
@@ -870,5 +872,139 @@ describe('useGridState mount-time showPreview default', () => {
     stubMatchMedia(false);
     const { result } = renderGrid([]);
     expect(result.current.state.showPreview).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// gridReducer OPTIMISTIC_UPDATE_META
+// ---------------------------------------------------------------------------
+
+describe('gridReducer OPTIMISTIC_UPDATE_META', () => {
+  it('updates title when patch carries a title', () => {
+    const state = makeState({ title: 'Old', description: 'desc' });
+    const next = gridReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { title: 'New' } });
+    expect(next.title).toBe('New');
+    expect(next.description).toBe('desc');
+  });
+
+  it('updates description when patch carries a description', () => {
+    const state = makeState({ title: 'T', description: 'old' });
+    const next = gridReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: 'new' } });
+    expect(next.title).toBe('T');
+    expect(next.description).toBe('new');
+  });
+
+  it('preserves the other field when only one is patched', () => {
+    const state = makeState({ title: 'keep me', description: 'replace me' });
+    const next = gridReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: 'replaced' } });
+    expect(next.title).toBe('keep me');
+  });
+
+  it('allows clearing description to empty string', () => {
+    const state = makeState({ title: 'T', description: 'present' });
+    const next = gridReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: '' } });
+    expect(next.description).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useGridState updateSignupMeta (renderHook + mocked fetch, debounced)
+// ---------------------------------------------------------------------------
+
+function renderGridWithMeta(meta: { title: string; description: string | null }) {
+  return renderHook(() =>
+    useGridState('sig_test', [], [], defaultSettings, meta),
+  );
+}
+
+describe('useGridState updateSignupMeta', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('updates optimistic state immediately', () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'Old', description: 'desc' });
+    act(() => {
+      result.current.updateSignupMeta({ title: 'New title' });
+    });
+    expect(result.current.state.title).toBe('New title');
+    expect(fetchMock).not.toHaveBeenCalled(); // debounced
+  });
+
+  it('PATCHes /api/signups/[id] with the latest title after debounce', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'Old', description: 'desc' });
+    act(() => {
+      result.current.updateSignupMeta({ title: 'New' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe('/api/signups/sig_test');
+    expect((init as RequestInit).method).toBe('PATCH');
+    const body = JSON.parse(String((init as RequestInit).body)) as { title?: string; description?: string };
+    expect(body.title).toBe('New');
+    expect(body.description).toBeUndefined();
+  });
+
+  it('coalesces consecutive title edits into a single PATCH carrying the latest value', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: '', description: '' });
+    act(() => {
+      result.current.updateSignupMeta({ title: 'A' });
+      result.current.updateSignupMeta({ title: 'AB' });
+      result.current.updateSignupMeta({ title: 'ABC' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as { title?: string };
+    expect(body.title).toBe('ABC');
+  });
+
+  it('coalesces title + description edits into one PATCH carrying both', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'A', description: '1' });
+    act(() => {
+      result.current.updateSignupMeta({ title: 'A2' });
+      result.current.updateSignupMeta({ description: '2' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
+      title?: string;
+      description?: string;
+    };
+    expect(body.title).toBe('A2');
+    expect(body.description).toBe('2');
+  });
+
+  it('marks saveStatus error and keeps optimistic state when PATCH fails', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, { ok: false }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'Old', description: '' });
+    act(() => {
+      result.current.updateSignupMeta({ title: 'New' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(result.current.state.title).toBe('New'); // optimistic update preserved
+    expect(result.current.state.saveStatus).toBe('error');
   });
 });

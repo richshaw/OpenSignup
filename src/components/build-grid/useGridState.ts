@@ -26,6 +26,8 @@ export type GridRow = {
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 export type GridState = {
+  title: string;
+  description: string;
   fields: GridField[];
   rows: GridRow[];
   groupByFieldRef: string | null;
@@ -50,6 +52,7 @@ export type GridAction =
   | { type: 'OPTIMISTIC_REMOVE_ROW'; rowId: string }
   | { type: 'OPTIMISTIC_EDIT_CELL'; rowId: string; fieldRef: string; value: string }
   | { type: 'OPTIMISTIC_SET_CAPACITY'; rowId: string; capacity: number | null }
+  | { type: 'OPTIMISTIC_UPDATE_META'; patch: { title?: string; description?: string } }
   | { type: 'APPEND_FIELD'; field: GridField }
   | { type: 'REPLACE_FIELD'; field: GridField }
   | { type: 'DELETE_FIELD'; fieldId: string; fieldRef: string };
@@ -114,6 +117,13 @@ export function gridReducer(state: GridState, action: GridAction): GridState {
         rows: state.rows.map((r) =>
           r.id === action.rowId ? { ...r, capacity: action.capacity } : r,
         ),
+      };
+
+    case 'OPTIMISTIC_UPDATE_META':
+      return {
+        ...state,
+        ...(action.patch.title !== undefined ? { title: action.patch.title } : {}),
+        ...(action.patch.description !== undefined ? { description: action.patch.description } : {}),
       };
 
     case 'APPEND_FIELD':
@@ -195,8 +205,11 @@ export function useGridState(
   initialFields: SlotFieldDefinition[],
   initialRows: Array<{ id: string; capacity: number | null; sortOrder?: number; values: Record<string, unknown> }>,
   initialSettings: SignupSettings,
+  initialMeta: { title: string; description: string | null } = { title: '', description: '' },
 ) {
   const [state, dispatch] = useReducer(gridReducer, undefined, () => ({
+    title: initialMeta.title,
+    description: initialMeta.description ?? '',
     fields: toGridFields(initialFields),
     rows: initialRows.map((r, i) => ({
       id: r.id,
@@ -698,6 +711,38 @@ export function useGridState(
     dispatch({ type: 'SET_SHOW_PREVIEW', show });
   }, []);
 
+  const touchedMetaRef = useRef<Set<'title' | 'description'>>(new Set());
+
+  const updateSignupMeta = useCallback(
+    (patch: { title?: string; description?: string }): void => {
+      // Track which keys have been touched across consecutive calls so the
+      // debounced PATCH carries every field the user edited in the burst —
+      // not just whichever one was passed in the final call.
+      if (patch.title !== undefined) touchedMetaRef.current.add('title');
+      if (patch.description !== undefined) touchedMetaRef.current.add('description');
+      dispatch({ type: 'OPTIMISTIC_UPDATE_META', patch });
+      flushTimer('signup-meta', async () => {
+        const touched = Array.from(touchedMetaRef.current);
+        touchedMetaRef.current = new Set();
+        const body: Record<string, string> = {};
+        for (const key of touched) body[key] = stateRef.current[key];
+        markSaving();
+        try {
+          const res = await fetch(`/api/signups/${signupId}`, {
+            method: 'PATCH',
+            headers: JSON_HEADERS,
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          markSaved();
+        } catch {
+          markError();
+        }
+      });
+    },
+    [signupId, flushTimer],
+  );
+
   const setGroupBy = useCallback(
     async (ref: string | null): Promise<void> => {
       markSaving();
@@ -736,5 +781,6 @@ export function useGridState(
     setPreviewRow,
     setShowPreview,
     setGroupBy,
+    updateSignupMeta,
   };
 }
