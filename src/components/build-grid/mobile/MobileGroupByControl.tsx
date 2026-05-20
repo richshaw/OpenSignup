@@ -15,7 +15,9 @@ export function MobileGroupByControl({ fields, value, onChange }: MobileGroupByC
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const groupable = fields.filter((f) => f.type === 'date' || f.type === 'text');
+  const groupable = fields.filter(
+    (f) => f.type === 'date' || f.type === 'text' || f.type === 'enum',
+  );
   const active = value ? fields.find((f) => f.ref === value) ?? null : null;
 
   useEffect(() => {
