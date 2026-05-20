@@ -1,7 +1,8 @@
 'use client';
 
-import { Copy, Pencil, Trash2 } from 'lucide-react';
+import { Copy, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { SlotEditor } from './SlotEditor';
+import type { UseReorderableResult } from '../build-grid/useReorderable';
 import type { GridField, GridRow } from '../build-grid/useGridState';
 
 type WysiwygSlotProps = {
@@ -17,6 +18,8 @@ type WysiwygSlotProps = {
   onAddEnumOption: (fieldId: string, value: string) => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  /** Optional drag-reorder bindings. When omitted, the grip is hidden. */
+  reorder?: UseReorderableResult;
 };
 
 /**
@@ -38,6 +41,7 @@ export function WysiwygSlot({
   onAddEnumOption,
   onDuplicate,
   onDelete,
+  reorder,
 }: WysiwygSlotProps) {
   if (expanded) {
     return (
@@ -65,11 +69,34 @@ export function WysiwygSlot({
     .filter((v) => v && v.length > 0)
     .join(' \u00b7 ');
 
+  const isDragging = reorder?.dragId === row.id;
+  const isDropTarget = reorder?.overId === row.id && reorder?.dragId && reorder?.dragId !== row.id;
+  const dragTargetProps = reorder?.target(row.id) ?? {};
+
   return (
     <div
       data-testid={`wysiwyg-slot-${row.id}`}
-      className="group relative border-t border-transparent first:border-t-0 focus-within:bg-surface-raised/50 hover:bg-surface-raised/50"
+      {...dragTargetProps}
+      className={
+        'group relative border-t first:border-t-0 transition-colors duration-180 ' +
+        (isDragging
+          ? 'border-transparent bg-brand-soft opacity-50'
+          : isDropTarget
+            ? 'border-t-2 border-brand bg-surface-raised'
+            : 'border-transparent focus-within:bg-surface-raised/50 hover:bg-surface-raised/50')
+      }
     >
+      {reorder && (
+        <span
+          {...reorder.source(row.id)}
+          role="button"
+          aria-label="Drag to reorder slot"
+          tabIndex={0}
+          className="absolute -left-1 top-1/2 z-10 inline-flex h-6 w-4 -translate-y-1/2 cursor-grab items-center justify-center text-ink-soft opacity-0 transition-opacity duration-180 group-hover:opacity-95 group-focus-within:opacity-95"
+        >
+          <GripVertical size={11} />
+        </span>
+      )}
       <button
         type="button"
         onClick={onExpand}

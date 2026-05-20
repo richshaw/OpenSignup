@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import { Editable } from './Editable';
 import { WysiwygSlot } from './WysiwygSlot';
 import { prettyHeader } from './prettyHeader';
+import type { UseReorderableResult } from '../build-grid/useReorderable';
 import type { GridField, GridRow } from '../build-grid/useGridState';
 
 export type SlotGroup = {
@@ -29,6 +30,8 @@ type WysiwygGroupProps = {
   onDeleteRow: (rowId: string) => void;
   onAddSlot: (groupKey: string) => void;
   onRenameGroup: (oldKey: string, newKey: string) => void;
+  /** Shared drag-reorder bindings for slot rows. */
+  reorder?: UseReorderableResult;
 };
 
 export function WysiwygGroup({
@@ -46,6 +49,7 @@ export function WysiwygGroup({
   onDeleteRow,
   onAddSlot,
   onRenameGroup,
+  reorder,
 }: WysiwygGroupProps) {
   const showHeader = groupField !== null;
   const display = groupField ? prettyHeader(group.rawValue, groupField.type) : '';
@@ -80,6 +84,7 @@ export function WysiwygGroup({
             onAddEnumOption={onAddEnumOption}
             onDuplicate={() => onDuplicateRow(row.id)}
             onDelete={() => onDeleteRow(row.id)}
+            {...(reorder ? { reorder } : {})}
           />
         ))}
         <button
