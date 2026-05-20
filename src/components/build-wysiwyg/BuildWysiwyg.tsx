@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useGridState } from '../build-grid/useGridState';
 import { Editable } from './Editable';
 import { EditingRail } from './EditingRail';
+import { FieldsPopover } from './FieldsPopover';
 import type { SignupMeta } from '../build-grid/BuildGrid';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
@@ -35,7 +36,15 @@ export function BuildWysiwyg({
   initialSlots,
   initialSettings,
 }: BuildWysiwygProps) {
-  const { state, updateSignupMeta } = useGridState(
+  const {
+    state,
+    updateSignupMeta,
+    addField,
+    updateField,
+    deleteField,
+    moveField,
+    setGroupBy,
+  } = useGridState(
     signupId,
     initialFields,
     initialSlots.map((s) => ({
@@ -84,7 +93,7 @@ export function BuildWysiwyg({
             />
           </div>
 
-          {/* Slot groups + Fields modal land in PR 2 / PR 3. */}
+          {/* Slot list lands in PR 3. */}
           <div className="mt-6 rounded-lg border border-dashed border-surface-sunk bg-surface-raised p-6 text-center text-xs text-ink-soft">
             <p>
               Slot list lands in PR 3.
@@ -94,6 +103,18 @@ export function BuildWysiwyg({
           </div>
         </div>
       </div>
+
+      <FieldsPopover
+        open={fieldsOpen}
+        onOpenChange={setFieldsOpen}
+        fields={state.fields}
+        groupByFieldRef={state.groupByFieldRef}
+        onAddField={(type, name, config) => { void addField(type, name, config); }}
+        onUpdateField={(fieldId, patch) => { void updateField(fieldId, patch); }}
+        onDeleteField={(fieldId) => { void deleteField(fieldId); }}
+        onMoveField={(fieldId, toIdx) => { void moveField(fieldId, toIdx); }}
+        onGroupByChange={(ref) => { void setGroupBy(ref); }}
+      />
     </div>
   );
 }
