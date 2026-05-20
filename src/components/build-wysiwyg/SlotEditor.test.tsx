@@ -31,12 +31,14 @@ function renderEditor(overrides: {
   fields?: GridField[];
   onCellChange?: ReturnType<typeof vi.fn>;
   onCapacity?: ReturnType<typeof vi.fn>;
+  onAddEnumOption?: ReturnType<typeof vi.fn>;
   onDuplicate?: ReturnType<typeof vi.fn>;
   onDelete?: ReturnType<typeof vi.fn>;
   onClose?: ReturnType<typeof vi.fn>;
 } = {}) {
   const onCellChange = overrides.onCellChange ?? vi.fn();
   const onCapacity = overrides.onCapacity ?? vi.fn();
+  const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn();
   const onDuplicate = overrides.onDuplicate ?? vi.fn();
   const onDelete = overrides.onDelete ?? vi.fn();
   const onClose = overrides.onClose ?? vi.fn();
@@ -46,12 +48,13 @@ function renderEditor(overrides: {
       fields={overrides.fields ?? [makeField()]}
       onCellChange={onCellChange}
       onCapacity={onCapacity}
+      onAddEnumOption={onAddEnumOption}
       onDuplicate={onDuplicate}
       onDelete={onDelete}
       onClose={onClose}
     />,
   );
-  return { ...utils, onCellChange, onCapacity, onDuplicate, onDelete, onClose };
+  return { ...utils, onCellChange, onCapacity, onAddEnumOption, onDuplicate, onDelete, onClose };
 }
 
 describe('SlotEditor', () => {

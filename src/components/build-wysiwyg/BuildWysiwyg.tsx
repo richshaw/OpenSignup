@@ -183,6 +183,14 @@ export function BuildWysiwyg({
                 onExpandRow={setExpandedRowId}
                 onEditCell={editCell}
                 onSetCapacity={(rowId, c) => setCapacity(rowId, c)}
+                onAddEnumOption={(fieldId, value) => {
+                  const field = state.fields.find((f) => f.id === fieldId);
+                  if (!field || field.config.fieldType !== 'enum') return;
+                  if (field.config.choices.includes(value)) return;
+                  void updateField(fieldId, {
+                    config: { fieldType: 'enum', choices: [...field.config.choices, value] },
+                  });
+                }}
                 onDuplicateRow={(rowId) => { void duplicateRow(rowId); }}
                 onDeleteRow={(rowId) => {
                   if (expandedRowId === rowId) setExpandedRowId(null);

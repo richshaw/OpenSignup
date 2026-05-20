@@ -33,6 +33,7 @@ type RenderProps = {
   onCollapse?: ReturnType<typeof vi.fn>;
   onEditCell?: ReturnType<typeof vi.fn>;
   onSetCapacity?: ReturnType<typeof vi.fn>;
+  onAddEnumOption?: ReturnType<typeof vi.fn>;
   onDuplicate?: ReturnType<typeof vi.fn>;
   onDelete?: ReturnType<typeof vi.fn>;
 };
@@ -42,6 +43,7 @@ function renderSlot(overrides: RenderProps = {}) {
   const onCollapse = overrides.onCollapse ?? vi.fn();
   const onEditCell = overrides.onEditCell ?? vi.fn();
   const onSetCapacity = overrides.onSetCapacity ?? vi.fn();
+  const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn();
   const onDuplicate = overrides.onDuplicate ?? vi.fn();
   const onDelete = overrides.onDelete ?? vi.fn();
   const timeField = makeField({ ref: 'shift', name: 'Shift', type: 'time' });
@@ -57,11 +59,12 @@ function renderSlot(overrides: RenderProps = {}) {
       onCollapse={onCollapse}
       onEditCell={onEditCell}
       onSetCapacity={onSetCapacity}
+      onAddEnumOption={onAddEnumOption}
       onDuplicate={onDuplicate}
       onDelete={onDelete}
     />,
   );
-  return { ...utils, onExpand, onCollapse, onEditCell, onSetCapacity, onDuplicate, onDelete };
+  return { ...utils, onExpand, onCollapse, onEditCell, onSetCapacity, onAddEnumOption, onDuplicate, onDelete };
 }
 
 describe('WysiwygSlot — collapsed', () => {
