@@ -19,6 +19,13 @@ type WysiwygGroupProps = {
   groupField: GridField | null;
   timeField: GridField | null;
   otherFields: GridField[];
+  fields: GridField[];
+  expandedRowId: string | null;
+  onExpandRow: (rowId: string | null) => void;
+  onEditCell: (rowId: string, fieldRef: string, value: string) => void;
+  onSetCapacity: (rowId: string, capacity: number) => void;
+  onDuplicateRow: (rowId: string) => void;
+  onDeleteRow: (rowId: string) => void;
   onAddSlot: (groupKey: string) => void;
   onRenameGroup: (oldKey: string, newKey: string) => void;
 };
@@ -28,6 +35,13 @@ export function WysiwygGroup({
   groupField,
   timeField,
   otherFields,
+  fields,
+  expandedRowId,
+  onExpandRow,
+  onEditCell,
+  onSetCapacity,
+  onDuplicateRow,
+  onDeleteRow,
   onAddSlot,
   onRenameGroup,
 }: WysiwygGroupProps) {
@@ -53,8 +67,16 @@ export function WysiwygGroup({
           <WysiwygSlot
             key={row.id}
             row={row}
+            fields={fields}
             timeField={timeField}
             otherFields={otherFields}
+            expanded={expandedRowId === row.id}
+            onExpand={() => onExpandRow(row.id)}
+            onCollapse={() => onExpandRow(null)}
+            onEditCell={(ref, v) => onEditCell(row.id, ref, v)}
+            onSetCapacity={(c) => onSetCapacity(row.id, c)}
+            onDuplicate={() => onDuplicateRow(row.id)}
+            onDelete={() => onDeleteRow(row.id)}
           />
         ))}
         <button

@@ -31,11 +31,23 @@ function renderGroup(overrides: {
   groupField?: GridField | null;
   timeField?: GridField | null;
   otherFields?: GridField[];
+  fields?: GridField[];
+  expandedRowId?: string | null;
+  onExpandRow?: ReturnType<typeof vi.fn>;
+  onEditCell?: ReturnType<typeof vi.fn>;
+  onSetCapacity?: ReturnType<typeof vi.fn>;
+  onDuplicateRow?: ReturnType<typeof vi.fn>;
+  onDeleteRow?: ReturnType<typeof vi.fn>;
   onAddSlot?: ReturnType<typeof vi.fn>;
   onRenameGroup?: ReturnType<typeof vi.fn>;
 } = {}) {
   const onAddSlot = overrides.onAddSlot ?? vi.fn();
   const onRenameGroup = overrides.onRenameGroup ?? vi.fn();
+  const onExpandRow = overrides.onExpandRow ?? vi.fn();
+  const onEditCell = overrides.onEditCell ?? vi.fn();
+  const onSetCapacity = overrides.onSetCapacity ?? vi.fn();
+  const onDuplicateRow = overrides.onDuplicateRow ?? vi.fn();
+  const onDeleteRow = overrides.onDeleteRow ?? vi.fn();
   const group: SlotGroup = {
     key: '2026-05-21',
     rawValue: '2026-05-21',
@@ -50,11 +62,18 @@ function renderGroup(overrides: {
       groupField={groupField}
       timeField={overrides.timeField ?? null}
       otherFields={overrides.otherFields ?? []}
+      fields={overrides.fields ?? (groupField ? [groupField] : [])}
+      expandedRowId={overrides.expandedRowId ?? null}
+      onExpandRow={onExpandRow}
+      onEditCell={onEditCell}
+      onSetCapacity={onSetCapacity}
+      onDuplicateRow={onDuplicateRow}
+      onDeleteRow={onDeleteRow}
       onAddSlot={onAddSlot}
       onRenameGroup={onRenameGroup}
     />,
   );
-  return { ...utils, onAddSlot, onRenameGroup };
+  return { ...utils, onAddSlot, onRenameGroup, onExpandRow, onEditCell, onSetCapacity, onDuplicateRow, onDeleteRow };
 }
 
 describe('WysiwygGroup', () => {
