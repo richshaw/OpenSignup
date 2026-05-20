@@ -876,6 +876,77 @@ describe('useGridState mount-time showPreview default', () => {
 });
 
 // ---------------------------------------------------------------------------
+// useGridState duplicateRow
+// ---------------------------------------------------------------------------
+
+describe('useGridState duplicateRow', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('POSTs the source values + capacity to /api/signups/[id]/slots', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ data: { id: 'new', capacity: 3, sortOrder: 99, values: {} } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    // Inject an initial row by seeding via the hook.
+    const { result } = renderHook(() =>
+      useGridState(
+        'sig_test',
+        [],
+        [{ id: 'src', capacity: 3, sortOrder: 0, values: { name: 'Jane' } }],
+        defaultSettings,
+      ),
+    );
+    await act(async () => {
+      await result.current.duplicateRow('src');
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe('/api/signups/sig_test/slots');
+    expect((init as RequestInit).method).toBe('POST');
+    const body = JSON.parse(String((init as RequestInit).body)) as {
+      values: Record<string, string>;
+      capacity: number;
+    };
+    expect(body.values).toEqual({ name: 'Jane' });
+    expect(body.capacity).toBe(3);
+  });
+
+  it('is a no-op when the source row is missing', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useGridState('sig_test', [], [], defaultSettings));
+    await act(async () => {
+      await result.current.duplicateRow('does-not-exist');
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back capacity to 1 when source had null capacity', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ data: { id: 'new', capacity: 1, sortOrder: 99, values: {} } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useGridState(
+        'sig_test',
+        [],
+        [{ id: 'src', capacity: null, sortOrder: 0, values: {} }],
+        defaultSettings,
+      ),
+    );
+    await act(async () => {
+      await result.current.duplicateRow('src');
+    });
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
+      capacity: number;
+    };
+    expect(body.capacity).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // gridReducer OPTIMISTIC_UPDATE_META
 // ---------------------------------------------------------------------------
 

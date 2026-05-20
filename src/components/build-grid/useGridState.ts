@@ -452,6 +452,20 @@ export function useGridState(
     }
   }, [signupId]);
 
+  const duplicateRow = useCallback(async (rowId: string): Promise<void> => {
+    const source = stateRef.current.rows.find((r) => r.id === rowId);
+    if (!source) return;
+    // Clone values verbatim (already string-typed; addRow re-serializes for
+    // the API). Capacity falls back to 1 when the source was uncapped — the
+    // grid uses null to mean "no limit", but new slots ship with capacity 1
+    // to stay safe and consistent with the bare addRow contract.
+    const seedValues: Record<string, unknown> = { ...source.values };
+    await addRow({
+      values: seedValues,
+      capacity: source.capacity ?? 1,
+    });
+  }, [addRow]);
+
   const deleteRow = useCallback(async (rowId: string): Promise<void> => {
     markSaving();
     try {
@@ -774,6 +788,7 @@ export function useGridState(
     moveField,
     setFieldWidth,
     addRow,
+    duplicateRow,
     deleteRow,
     moveRowUp,
     moveRowDown,

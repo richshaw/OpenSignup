@@ -78,7 +78,10 @@ export function BuildWysiwyg({
     moveField,
     setGroupBy,
     addRow,
+    duplicateRow,
+    deleteRow,
     editCell,
+    setCapacity,
   } = useGridState(
     signupId,
     initialFields,
@@ -93,6 +96,7 @@ export function BuildWysiwyg({
   );
 
   const [fieldsOpen, setFieldsOpen] = useState(false);
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const publicHref = `/s/${signupMeta.slug}`;
 
   const groupField = state.groupByFieldRef
@@ -174,6 +178,16 @@ export function BuildWysiwyg({
                 groupField={groupField}
                 timeField={timeField}
                 otherFields={otherFields}
+                fields={state.fields}
+                expandedRowId={expandedRowId}
+                onExpandRow={setExpandedRowId}
+                onEditCell={editCell}
+                onSetCapacity={(rowId, c) => setCapacity(rowId, c)}
+                onDuplicateRow={(rowId) => { void duplicateRow(rowId); }}
+                onDeleteRow={(rowId) => {
+                  if (expandedRowId === rowId) setExpandedRowId(null);
+                  void deleteRow(rowId);
+                }}
                 onAddSlot={handleAddSlot}
                 onRenameGroup={handleRenameGroup}
               />
