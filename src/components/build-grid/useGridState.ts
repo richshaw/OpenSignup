@@ -422,13 +422,15 @@ export function useGridState(
   // Row mutations
   // ---------------------------------------------------------------------------
 
-  const addRow = useCallback(async (): Promise<void> => {
+  const addRow = useCallback(async (
+    seed?: { values?: Record<string, unknown>; capacity?: number },
+  ): Promise<void> => {
     markSaving();
     try {
       const res = await fetch(`/api/signups/${signupId}/slots`, {
         method: 'POST',
         headers: JSON_HEADERS,
-        body: JSON.stringify({ values: {}, capacity: 1 }),
+        body: JSON.stringify({ values: seed?.values ?? {}, capacity: seed?.capacity ?? 1 }),
       });
       if (!res.ok) throw new Error(await res.text());
       const envelope = (await res.json()) as {
