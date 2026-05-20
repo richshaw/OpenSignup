@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useGridState, type GridField, type GridRow } from '../build-grid/useGridState';
+import { useReorderable } from '../build-grid/useReorderable';
 import { Editable } from './Editable';
 import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
@@ -82,6 +83,7 @@ export function BuildWysiwyg({
     deleteRow,
     editCell,
     setCapacity,
+    moveRow,
   } = useGridState(
     signupId,
     initialFields,
@@ -108,6 +110,27 @@ export function BuildWysiwyg({
   );
 
   const groups = useMemo(() => partitionRows(state.rows, groupField), [state.rows, groupField]);
+
+  const slotReorder = useReorderable<GridRow>({
+    items: state.rows,
+    onReorder: (fromIdx, toIdx) => { void moveRow(fromIdx, toIdx); },
+    ...(groupField
+      ? {
+          getGroupKey: (row) => {
+            const v = row.values[groupField.ref] ?? '';
+            return v === '' ? EMPTY_GROUP_KEY : v;
+          },
+          onTransfer: (rowId, toGroupKey, toIdx) => {
+            const newGroupValue = toGroupKey === EMPTY_GROUP_KEY ? '' : (toGroupKey ?? '');
+            editCell(rowId, groupField.ref, newGroupValue);
+            const fromIdx = state.rows.findIndex((r) => r.id === rowId);
+            if (fromIdx >= 0 && fromIdx !== toIdx) {
+              void moveRow(fromIdx, toIdx);
+            }
+          },
+        }
+      : {}),
+  });
 
   const handleAddSlot = (groupKey: string) => {
     const seedValues: Record<string, string> = {};
@@ -198,6 +221,7 @@ export function BuildWysiwyg({
                 }}
                 onAddSlot={handleAddSlot}
                 onRenameGroup={handleRenameGroup}
+                reorder={slotReorder}
               />
             ))}
           </div>
