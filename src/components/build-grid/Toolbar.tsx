@@ -28,7 +28,9 @@ export function Toolbar({
   const [groupByOpen, setGroupByOpen] = useState(false);
   const groupByRef = useRef<HTMLDivElement>(null);
 
-  const groupableFields = fields.filter((f) => f.type === 'date' || f.type === 'text');
+  const groupableFields = fields.filter(
+    (f) => f.type === 'date' || f.type === 'text' || f.type === 'enum',
+  );
   const activeField = groupByFieldRef
     ? fields.find((f) => f.ref === groupByFieldRef)
     : null;
@@ -102,7 +104,7 @@ export function Toolbar({
             </button>
             {groupableFields.length === 0 ? (
               <div className="px-2.5 py-2 text-[11px] text-ink-muted leading-snug">
-                Add a date or text field to group slots.
+                Add a date, text, or list field to group slots.
               </div>
             ) : (
               groupableFields.map((f) => {
