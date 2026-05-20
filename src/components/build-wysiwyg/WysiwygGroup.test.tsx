@@ -36,6 +36,7 @@ function renderGroup(overrides: {
   onExpandRow?: ReturnType<typeof vi.fn>;
   onEditCell?: ReturnType<typeof vi.fn>;
   onSetCapacity?: ReturnType<typeof vi.fn>;
+  onAddEnumOption?: ReturnType<typeof vi.fn>;
   onDuplicateRow?: ReturnType<typeof vi.fn>;
   onDeleteRow?: ReturnType<typeof vi.fn>;
   onAddSlot?: ReturnType<typeof vi.fn>;
@@ -46,6 +47,7 @@ function renderGroup(overrides: {
   const onExpandRow = overrides.onExpandRow ?? vi.fn();
   const onEditCell = overrides.onEditCell ?? vi.fn();
   const onSetCapacity = overrides.onSetCapacity ?? vi.fn();
+  const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn();
   const onDuplicateRow = overrides.onDuplicateRow ?? vi.fn();
   const onDeleteRow = overrides.onDeleteRow ?? vi.fn();
   const group: SlotGroup = {
@@ -67,13 +69,14 @@ function renderGroup(overrides: {
       onExpandRow={onExpandRow}
       onEditCell={onEditCell}
       onSetCapacity={onSetCapacity}
+      onAddEnumOption={onAddEnumOption}
       onDuplicateRow={onDuplicateRow}
       onDeleteRow={onDeleteRow}
       onAddSlot={onAddSlot}
       onRenameGroup={onRenameGroup}
     />,
   );
-  return { ...utils, onAddSlot, onRenameGroup, onExpandRow, onEditCell, onSetCapacity, onDuplicateRow, onDeleteRow };
+  return { ...utils, onAddSlot, onRenameGroup, onExpandRow, onEditCell, onSetCapacity, onAddEnumOption, onDuplicateRow, onDeleteRow };
 }
 
 describe('WysiwygGroup', () => {

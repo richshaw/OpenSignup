@@ -2,6 +2,7 @@
 
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
 import { FIELD_TYPE_META } from '../build-grid/fieldTypes';
+import { EnumPicker } from './EnumPicker';
 import type { GridField, GridRow } from '../build-grid/useGridState';
 
 type SlotEditorProps = {
@@ -9,6 +10,8 @@ type SlotEditorProps = {
   fields: GridField[];
   onCellChange: (fieldRef: string, value: string) => void;
   onCapacity: (capacity: number) => void;
+  /** Append `value` to the field's enum choices config. Only called for enum cells. */
+  onAddEnumOption: (fieldId: string, value: string) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onClose: () => void;
@@ -32,6 +35,7 @@ export function SlotEditor({
   fields,
   onCellChange,
   onCapacity,
+  onAddEnumOption,
   onDuplicate,
   onDelete,
   onClose,
@@ -72,6 +76,8 @@ export function SlotEditor({
       <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5">
         {fields.map((f) => {
           const TypeIcon = FIELD_TYPE_META[f.type].icon;
+          const isEnum = f.type === 'enum' && f.config.fieldType === 'enum';
+          const choices = isEnum && f.config.fieldType === 'enum' ? f.config.choices : [];
           return (
             <label
               key={f.id}
@@ -81,13 +87,23 @@ export function SlotEditor({
                 <TypeIcon size={10} className="text-ink-soft" />
                 {f.name}
               </span>
-              <input
-                value={row.values[f.ref] ?? ''}
-                placeholder={TYPE_PLACEHOLDERS[f.type] ?? ''}
-                onChange={(e) => onCellChange(f.ref, e.target.value)}
-                className="rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand"
-                aria-label={`${f.name} value`}
-              />
+              {isEnum ? (
+                <EnumPicker
+                  value={row.values[f.ref] ?? ''}
+                  options={choices}
+                  ariaLabel={`${f.name} value`}
+                  onChange={(v) => onCellChange(f.ref, v)}
+                  onAddOption={(v) => onAddEnumOption(f.id, v)}
+                />
+              ) : (
+                <input
+                  value={row.values[f.ref] ?? ''}
+                  placeholder={TYPE_PLACEHOLDERS[f.type] ?? ''}
+                  onChange={(e) => onCellChange(f.ref, e.target.value)}
+                  className="rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand"
+                  aria-label={`${f.name} value`}
+                />
+              )}
             </label>
           );
         })}

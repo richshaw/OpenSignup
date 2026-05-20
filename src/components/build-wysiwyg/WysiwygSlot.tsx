@@ -14,6 +14,7 @@ type WysiwygSlotProps = {
   onCollapse: () => void;
   onEditCell: (fieldRef: string, value: string) => void;
   onSetCapacity: (capacity: number) => void;
+  onAddEnumOption: (fieldId: string, value: string) => void;
   onDuplicate: () => void;
   onDelete: () => void;
 };
@@ -34,6 +35,7 @@ export function WysiwygSlot({
   onCollapse,
   onEditCell,
   onSetCapacity,
+  onAddEnumOption,
   onDuplicate,
   onDelete,
 }: WysiwygSlotProps) {
@@ -48,6 +50,7 @@ export function WysiwygSlot({
           fields={fields}
           onCellChange={onEditCell}
           onCapacity={onSetCapacity}
+          onAddEnumOption={onAddEnumOption}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
           onClose={onCollapse}

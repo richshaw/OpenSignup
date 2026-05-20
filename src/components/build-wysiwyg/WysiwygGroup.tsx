@@ -24,6 +24,7 @@ type WysiwygGroupProps = {
   onExpandRow: (rowId: string | null) => void;
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;
   onSetCapacity: (rowId: string, capacity: number) => void;
+  onAddEnumOption: (fieldId: string, value: string) => void;
   onDuplicateRow: (rowId: string) => void;
   onDeleteRow: (rowId: string) => void;
   onAddSlot: (groupKey: string) => void;
@@ -40,6 +41,7 @@ export function WysiwygGroup({
   onExpandRow,
   onEditCell,
   onSetCapacity,
+  onAddEnumOption,
   onDuplicateRow,
   onDeleteRow,
   onAddSlot,
@@ -75,6 +77,7 @@ export function WysiwygGroup({
             onCollapse={() => onExpandRow(null)}
             onEditCell={(ref, v) => onEditCell(row.id, ref, v)}
             onSetCapacity={(c) => onSetCapacity(row.id, c)}
+            onAddEnumOption={onAddEnumOption}
             onDuplicate={() => onDuplicateRow(row.id)}
             onDelete={() => onDeleteRow(row.id)}
           />
