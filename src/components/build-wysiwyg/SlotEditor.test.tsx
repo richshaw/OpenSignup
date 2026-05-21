@@ -80,15 +80,31 @@ describe('SlotEditor', () => {
     expect(onCellChange).toHaveBeenCalledWith('name', 'New');
   });
 
-  it('capacity input clamps to >= 1 and rejects NaN', () => {
+  it('capacity input clamps numeric values to >= 1', () => {
     const { onCapacity } = renderEditor({ row: makeRow({ capacity: 3 }) });
     const cap = screen.getByLabelText('Capacity') as HTMLInputElement;
     fireEvent.change(cap, { target: { value: '5' } });
     expect(onCapacity).toHaveBeenLastCalledWith(5);
     fireEvent.change(cap, { target: { value: '-2' } });
     expect(onCapacity).toHaveBeenLastCalledWith(1);
+    // Non-numeric input on a type=number control surfaces as '' and is
+    // treated as unlimited, not clamped to 1.
     fireEvent.change(cap, { target: { value: 'abc' } });
-    expect(onCapacity).toHaveBeenLastCalledWith(1);
+    expect(onCapacity).toHaveBeenLastCalledWith(null);
+  });
+
+  it('clearing the capacity input sends null (unlimited)', () => {
+    const { onCapacity } = renderEditor({ row: makeRow({ capacity: 3 }) });
+    const cap = screen.getByLabelText('Capacity') as HTMLInputElement;
+    fireEvent.change(cap, { target: { value: '' } });
+    expect(onCapacity).toHaveBeenLastCalledWith(null);
+  });
+
+  it('renders an empty input with an \u221e placeholder when capacity is null', () => {
+    renderEditor({ row: makeRow({ capacity: null }) });
+    const cap = screen.getByLabelText('Capacity') as HTMLInputElement;
+    expect(cap.value).toBe('');
+    expect(cap.placeholder).toBe('\u221e');
   });
 
   it('Done button calls onClose', () => {

@@ -26,4 +26,11 @@ describe('prettyHeader', () => {
     expect(prettyHeader('05/21/2026', 'date')).toBe('05/21/2026');
     expect(prettyHeader('next Tuesday', 'date')).toBe('next Tuesday');
   });
+
+  it('passes through ISO-shaped but invalid dates unchanged (no silent normalization)', () => {
+    // Feb 31 would otherwise roll forward into March.
+    expect(prettyHeader('2026-02-31', 'date')).toBe('2026-02-31');
+    // Month 13.
+    expect(prettyHeader('2026-13-01', 'date')).toBe('2026-13-01');
+  });
 });

@@ -24,7 +24,7 @@ type WysiwygGroupProps = {
   expandedRowId: string | null;
   onExpandRow: (rowId: string | null) => void;
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;
-  onSetCapacity: (rowId: string, capacity: number) => void;
+  onSetCapacity: (rowId: string, capacity: number | null) => void;
   onAddEnumOption: (fieldId: string, value: string) => void;
   onDuplicateRow: (rowId: string) => void;
   onDeleteRow: (rowId: string) => void;
@@ -62,7 +62,7 @@ export function WysiwygGroup({
             value={group.rawValue}
             display={display}
             onChange={(next) => onRenameGroup(group.key, next)}
-            placeholder={groupField.type === 'date' ? 'YYYY-MM-DD' : 'Group name'}
+            placeholder={groupField.type === 'date' ? 'Set a date' : 'Group name'}
             ariaLabel={`Group header — ${display}`}
             className="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-soft"
           />

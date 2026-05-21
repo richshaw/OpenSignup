@@ -80,6 +80,11 @@ describe('WysiwygSlot — collapsed', () => {
     expect(screen.getByText('Set a time')).toBeTruthy();
   });
 
+  it('renders 0/\u221e when capacity is null (unlimited)', () => {
+    renderSlot({ row: makeRow({ capacity: null }) });
+    expect(screen.getByText('0/\u221e')).toBeTruthy();
+  });
+
   it('clicking the row body calls onExpand', () => {
     const { onExpand } = renderSlot();
     fireEvent.click(screen.getByRole('button', { name: /Edit slot at 09:00/ }));

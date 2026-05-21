@@ -9,7 +9,7 @@ type SlotEditorProps = {
   row: GridRow;
   fields: GridField[];
   onCellChange: (fieldRef: string, value: string) => void;
-  onCapacity: (capacity: number) => void;
+  onCapacity: (capacity: number | null) => void;
   /** Append `value` to the field's enum choices config. Only called for enum cells. */
   onAddEnumOption: (fieldId: string, value: string) => void;
   onDuplicate: () => void;
@@ -115,9 +115,15 @@ export function SlotEditor({
           <input
             type="number"
             min={1}
-            value={row.capacity ?? 1}
+            value={row.capacity ?? ''}
+            placeholder={'\u221e'}
             onChange={(e) => {
-              const parsed = parseInt(e.target.value, 10);
+              const raw = e.target.value;
+              if (raw === '') {
+                onCapacity(null);
+                return;
+              }
+              const parsed = parseInt(raw, 10);
               onCapacity(Math.max(1, Number.isFinite(parsed) ? parsed : 1));
             }}
             aria-label="Capacity"

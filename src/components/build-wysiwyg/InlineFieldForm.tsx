@@ -28,9 +28,9 @@ function defaultConfigFor(type: FieldType): SlotFieldConfig {
     case 'number':
       return { fieldType: 'number' };
     case 'enum':
-      // Enum choices are added inline from the slot editor in PR 5; brand-new
-      // enum fields seed an empty array so the picker has somewhere to push.
-      return { fieldType: 'enum', choices: [] };
+      // Server schema requires choices.min(1); seed a placeholder option that
+      // the organizer renames (or replaces) via the inline EnumPicker.
+      return { fieldType: 'enum', choices: ['Option 1'] };
   }
 }
 

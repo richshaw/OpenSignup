@@ -80,7 +80,7 @@ describe('InlineFieldForm — create mode', () => {
     expect(onSave).toHaveBeenCalledWith({
       type: 'enum',
       name: 'Teacher',
-      config: { fieldType: 'enum', choices: [] },
+      config: { fieldType: 'enum', choices: ['Option 1'] },
     });
   });
 

@@ -728,6 +728,13 @@ export function useGridState(
   }, []);
 
   const touchedMetaRef = useRef<Set<'title' | 'description'>>(new Set());
+  // Last server-accepted meta values. Used to revert the optimistic state when
+  // a user edit would fail server validation (e.g. clearing the title), so the
+  // input doesn't strand on an invalid value the server never accepted.
+  const lastCommittedMetaRef = useRef<{ title: string; description: string }>({
+    title: initialMeta.title,
+    description: initialMeta.description ?? '',
+  });
 
   const updateSignupMeta = useCallback(
     (patch: { title?: string; description?: string }): void => {
@@ -741,7 +748,25 @@ export function useGridState(
         const touched = Array.from(touchedMetaRef.current);
         touchedMetaRef.current = new Set();
         const body: Record<string, string> = {};
-        for (const key of touched) body[key] = stateRef.current[key];
+        const revert: { title?: string; description?: string } = {};
+        for (const key of touched) {
+          const raw = stateRef.current[key];
+          const trimmed = raw.trim();
+          if (key === 'title') {
+            if (trimmed.length < 2) {
+              // Server requires min(2). Revert to the last committed title.
+              revert.title = lastCommittedMetaRef.current.title;
+              continue;
+            }
+            body['title'] = trimmed.slice(0, 120);
+          } else {
+            body['description'] = trimmed.slice(0, 2000);
+          }
+        }
+        if (Object.keys(revert).length > 0) {
+          dispatch({ type: 'OPTIMISTIC_UPDATE_META', patch: revert });
+        }
+        if (Object.keys(body).length === 0) return;
         markSaving();
         try {
           const res = await fetch(`/api/signups/${signupId}`, {
@@ -750,6 +775,8 @@ export function useGridState(
             body: JSON.stringify(body),
           });
           if (!res.ok) throw new Error(await res.text());
+          if (body['title'] !== undefined) lastCommittedMetaRef.current.title = body['title'];
+          if (body['description'] !== undefined) lastCommittedMetaRef.current.description = body['description'];
           markSaved();
         } catch {
           markError();

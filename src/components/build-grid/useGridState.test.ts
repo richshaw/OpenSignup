@@ -1064,6 +1064,37 @@ describe('useGridState updateSignupMeta', () => {
     expect(body.description).toBe('2');
   });
 
+  it('reverts to the last committed title when the user clears it (skips the failing PATCH)', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'Original', description: 'desc' });
+    act(() => {
+      result.current.updateSignupMeta({ title: '' });
+    });
+    expect(result.current.state.title).toBe(''); // optimistic clear
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.state.title).toBe('Original');
+  });
+
+  it('trims title before PATCH and reverts when trimmed length < 2', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'Original', description: '' });
+    act(() => {
+      result.current.updateSignupMeta({ title: ' A ' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.state.title).toBe('Original');
+  });
+
   it('marks saveStatus error and keeps optimistic state when PATCH fails', async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, { ok: false }));

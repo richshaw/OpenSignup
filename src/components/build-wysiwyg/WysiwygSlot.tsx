@@ -14,7 +14,7 @@ type WysiwygSlotProps = {
   onExpand: () => void;
   onCollapse: () => void;
   onEditCell: (fieldRef: string, value: string) => void;
-  onSetCapacity: (capacity: number) => void;
+  onSetCapacity: (capacity: number | null) => void;
   onAddEnumOption: (fieldId: string, value: string) => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -116,7 +116,7 @@ export function WysiwygSlot({
           )}
         </div>
         <span className="shrink-0 font-mono text-[11px] text-ink-soft">
-          0/{row.capacity ?? 1}
+          0/{row.capacity ?? '\u221e'}
         </span>
       </button>
       <div

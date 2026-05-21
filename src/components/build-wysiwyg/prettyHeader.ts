@@ -18,11 +18,24 @@ export function prettyHeader(rawKey: string | null | undefined, fieldType: Field
   }
   if (fieldType !== 'date') return rawKey;
 
-  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawKey);
+  const iso = rawKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) {
     const [, y, m, d] = iso;
-    const dt = new Date(Number(y), Number(m) - 1, Number(d));
-    if (!Number.isNaN(dt.getTime())) return dateFmt.format(dt).toUpperCase();
+    const yi = Number(y);
+    const mi = Number(m);
+    const di = Number(d);
+    const dt = new Date(yi, mi - 1, di);
+    // `new Date(...)` silently normalizes invalid dates (e.g. Feb 31 rolls
+    // forward into March). Round-trip the components so an invalid input
+    // falls through to the raw key rather than rendering a misleading date.
+    if (
+      !Number.isNaN(dt.getTime()) &&
+      dt.getFullYear() === yi &&
+      dt.getMonth() === mi - 1 &&
+      dt.getDate() === di
+    ) {
+      return dateFmt.format(dt).toUpperCase();
+    }
   }
   return rawKey;
 }

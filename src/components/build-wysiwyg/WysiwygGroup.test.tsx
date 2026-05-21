@@ -119,5 +119,7 @@ describe('WysiwygGroup', () => {
       groupField: makeField({ type: 'date' }),
     });
     expect(screen.getByRole('button', { name: /Group header.*Set a date/ })).toBeTruthy();
+    // Visible placeholder must match the aria-label — not the ISO format string.
+    expect(screen.getByText('Set a date')).toBeTruthy();
   });
 });
