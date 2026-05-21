@@ -27,11 +27,15 @@ type BuildWysiwygProps = {
 
 const EMPTY_GROUP_KEY = '__empty__';
 
-/** Maximum sheet width grows with field count — keeps small schemas tight, wide ones legible. */
+/**
+ * Maximum sheet width grows with field count above the `md` breakpoint —
+ * keeps small schemas tight, wide ones legible. Below `md` the sheet goes
+ * full-bleed so cramped phone screens don't waste margins.
+ */
 function sheetMaxWidthClass(fieldCount: number): string {
-  if (fieldCount <= 3) return 'max-w-[580px]';
-  if (fieldCount === 4) return 'max-w-[720px]';
-  return 'max-w-[960px]';
+  if (fieldCount <= 3) return 'md:max-w-[580px]';
+  if (fieldCount === 4) return 'md:max-w-[720px]';
+  return 'md:max-w-[960px]';
 }
 
 /** Bucket rows by the group field's value. Empty / missing values go into `__empty__`. */
@@ -163,7 +167,12 @@ export function BuildWysiwyg({
   return (
     <div className="min-h-[calc(100vh-12rem)] bg-surface-raised">
       <div
-        className={`mx-auto w-full ${sheetMaxWidthClass(state.fields.length)} my-6 mb-32 rounded-xl border border-surface-sunk border-t-[3px] border-t-brand bg-white shadow-card transition-[max-width] duration-180 ease-emphasized`}
+        className={
+          'mx-auto w-full my-3 mb-24 md:my-6 md:mb-32 ' +
+          'rounded-none md:rounded-xl border border-surface-sunk border-t-[3px] border-t-brand bg-white shadow-card ' +
+          'transition-[max-width] duration-180 ease-emphasized ' +
+          sheetMaxWidthClass(state.fields.length)
+        }
       >
         <EditingRail
           fieldCount={state.fields.length}
@@ -173,7 +182,7 @@ export function BuildWysiwyg({
           saveStatus={state.saveStatus}
         />
 
-        <div className="px-7 pt-5 pb-6">
+        <div className="px-4 pt-4 pb-5 md:px-7 md:pt-5 md:pb-6">
           <Editable
             value={state.title}
             onChange={(next) => updateSignupMeta({ title: next })}
@@ -193,7 +202,7 @@ export function BuildWysiwyg({
             />
           </div>
 
-          <div className="mt-6 flex flex-col gap-5">
+          <div className="mt-5 flex flex-col gap-4 md:mt-6 md:gap-5">
             {groups.map((g) => (
               <WysiwygGroup
                 key={g.key}
