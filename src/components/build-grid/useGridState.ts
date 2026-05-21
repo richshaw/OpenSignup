@@ -1,6 +1,7 @@
 import { useReducer, useRef, useEffect, useCallback } from 'react';
-import type { SlotFieldDefinition, SlotFieldConfig, FieldType } from '@/schemas/slot-fields';
+import type { SlotFieldDefinition, SlotFieldConfig } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
+import type { ErrorCode } from '@/lib/errors';
 
 // ---------------------------------------------------------------------------
 // State types
@@ -10,7 +11,11 @@ export type GridField = {
   id: string;
   ref: string;
   name: string; // field label
-  type: FieldType;
+  /**
+   * Field type + per-type config. `config.fieldType` is the single discriminant —
+   * there is no parallel top-level `type` field, so narrowing on `config.fieldType`
+   * makes inconsistent state unrepresentable.
+   */
   config: SlotFieldConfig;
   sortOrder: number;
   width?: number; // session-only resize override; not sent to API
@@ -23,9 +28,36 @@ export type GridRow = {
   values: Record<string, string>; // fieldRef → string value
 };
 
-export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+/**
+ * `error` carries the closed `ErrorCode` enum the server returns via the
+ * `{ error: { code, message } }` envelope (see `lib/api-response.ts`), so the
+ * rail can render code-specific messages instead of a generic "Save failed".
+ */
+export type SaveStatus =
+  | { kind: 'idle' }
+  | { kind: 'saving' }
+  | { kind: 'saved' }
+  | { kind: 'error'; code: ErrorCode; message?: string };
+
+const SAVING: SaveStatus = { kind: 'saving' };
+const SAVED: SaveStatus = { kind: 'saved' };
+const IDLE: SaveStatus = { kind: 'idle' };
+
+/** Best-effort parse of `{ error: { code, message } }` from a non-OK Response. */
+async function parseErrorEnvelope(res: Response): Promise<{ code: ErrorCode; message?: string }> {
+  try {
+    const body = (await res.clone().json()) as { error?: { code?: ErrorCode; message?: string } };
+    const code = body.error?.code ?? 'internal';
+    const message = body.error?.message;
+    return message !== undefined ? { code, message } : { code };
+  } catch {
+    return { code: 'internal' };
+  }
+}
 
 export type GridState = {
+  title: string;
+  description: string;
   fields: GridField[];
   rows: GridRow[];
   groupByFieldRef: string | null;
@@ -50,6 +82,7 @@ export type GridAction =
   | { type: 'OPTIMISTIC_REMOVE_ROW'; rowId: string }
   | { type: 'OPTIMISTIC_EDIT_CELL'; rowId: string; fieldRef: string; value: string }
   | { type: 'OPTIMISTIC_SET_CAPACITY'; rowId: string; capacity: number | null }
+  | { type: 'OPTIMISTIC_UPDATE_META'; patch: { title?: string; description?: string } }
   | { type: 'APPEND_FIELD'; field: GridField }
   | { type: 'REPLACE_FIELD'; field: GridField }
   | { type: 'DELETE_FIELD'; fieldId: string; fieldRef: string };
@@ -116,6 +149,13 @@ export function gridReducer(state: GridState, action: GridAction): GridState {
         ),
       };
 
+    case 'OPTIMISTIC_UPDATE_META':
+      return {
+        ...state,
+        ...(action.patch.title !== undefined ? { title: action.patch.title } : {}),
+        ...(action.patch.description !== undefined ? { description: action.patch.description } : {}),
+      };
+
     case 'APPEND_FIELD':
       return { ...state, fields: [...state.fields, action.field] };
 
@@ -157,7 +197,6 @@ function toGridFields(fields: SlotFieldDefinition[]): GridField[] {
     id: f.id,
     ref: f.ref,
     name: f.label,
-    type: f.fieldType,
     config: f.config,
     sortOrder: f.sortOrder,
   }));
@@ -195,8 +234,11 @@ export function useGridState(
   initialFields: SlotFieldDefinition[],
   initialRows: Array<{ id: string; capacity: number | null; sortOrder?: number; values: Record<string, unknown> }>,
   initialSettings: SignupSettings,
+  initialMeta: { title: string; description: string | null } = { title: '', description: '' },
 ) {
   const [state, dispatch] = useReducer(gridReducer, undefined, () => ({
+    title: initialMeta.title,
+    description: initialMeta.description ?? '',
     fields: toGridFields(initialFields),
     rows: initialRows.map((r, i) => ({
       id: r.id,
@@ -207,7 +249,7 @@ export function useGridState(
     groupByFieldRef: initialSettings.groupByFieldRefs[0] ?? null,
     previewRowIdx: 0,
     showPreview: false,
-    saveStatus: 'idle' as SaveStatus,
+    saveStatus: IDLE,
   }));
 
   // Per-slot debounce entries: key = `${rowId}:${fieldRef}` or `${rowId}:capacity`
@@ -245,21 +287,41 @@ export function useGridState(
       clearTimeout(savedTimerRef.current);
       savedTimerRef.current = null;
     }
-    dispatch({ type: 'SET_SAVE_STATUS', status: 'saving' });
+    dispatch({ type: 'SET_SAVE_STATUS', status: SAVING });
   }
 
   function markSaved() {
-    dispatch({ type: 'SET_SAVE_STATUS', status: 'saved' });
+    dispatch({ type: 'SET_SAVE_STATUS', status: SAVED });
     if (savedTimerRef.current !== null) clearTimeout(savedTimerRef.current);
-    savedTimerRef.current = setTimeout(() => dispatch({ type: 'SET_SAVE_STATUS', status: 'idle' }), SAVED_CLEAR_MS);
+    savedTimerRef.current = setTimeout(() => dispatch({ type: 'SET_SAVE_STATUS', status: IDLE }), SAVED_CLEAR_MS);
   }
 
-  function markError() {
+  function markError(err: { code: ErrorCode; message?: string } = { code: 'internal' }) {
     if (savedTimerRef.current !== null) {
       clearTimeout(savedTimerRef.current);
       savedTimerRef.current = null;
     }
-    dispatch({ type: 'SET_SAVE_STATUS', status: 'error' });
+    dispatch({
+      type: 'SET_SAVE_STATUS',
+      status: err.message !== undefined
+        ? { kind: 'error', code: err.code, message: err.message }
+        : { kind: 'error', code: err.code },
+    });
+  }
+
+  /** Wraps a fetch + parseErrorEnvelope so the catch site has the typed code. */
+  async function expectOk(res: Response): Promise<void> {
+    if (res.ok) return;
+    const err = await parseErrorEnvelope(res);
+    throw err;
+  }
+
+  function asErr(e: unknown): { code: ErrorCode; message?: string } {
+    if (e && typeof e === 'object' && 'code' in e) {
+      const obj = e as { code: ErrorCode; message?: string };
+      return obj.message !== undefined ? { code: obj.code, message: obj.message } : { code: obj.code };
+    }
+    return { code: 'internal' };
   }
 
   // ---------------------------------------------------------------------------
@@ -268,7 +330,6 @@ export function useGridState(
 
   const addField = useCallback(
     async (
-      type: FieldType,
       name: string,
       config: SlotFieldConfig,
     ): Promise<void> => {
@@ -277,15 +338,20 @@ export function useGridState(
         const res = await fetch(`/api/signups/${signupId}/fields`, {
           method: 'POST',
           headers: JSON_HEADERS,
-          body: JSON.stringify({ ref: toLabelRef(name, stateRef.current.fields.map((f) => f.ref)), label: name, fieldType: type, config }),
+          body: JSON.stringify({
+            ref: toLabelRef(name, stateRef.current.fields.map((f) => f.ref)),
+            label: name,
+            fieldType: config.fieldType,
+            config,
+          }),
         });
-        if (!res.ok) throw new Error(await res.text());
+        await expectOk(res);
         const envelope = (await res.json()) as { data: SlotFieldDefinition };
         const field = toGridFields([envelope.data])[0]!;
         dispatch({ type: 'APPEND_FIELD', field });
         markSaved();
-      } catch {
-        markError();
+      } catch (e) {
+        markError(asErr(e));
       }
     },
     [signupId],
@@ -294,27 +360,29 @@ export function useGridState(
   const updateField = useCallback(
     async (
       fieldId: string,
-      patch: { name?: string; type?: FieldType; config?: SlotFieldConfig },
+      patch: { name?: string; config?: SlotFieldConfig },
     ): Promise<void> => {
       markSaving();
       try {
         const body: Record<string, unknown> = {};
         if (patch.name !== undefined) body['label'] = patch.name;
-        if (patch.type !== undefined) body['fieldType'] = patch.type;
-        if (patch.config !== undefined) body['config'] = patch.config;
+        if (patch.config !== undefined) {
+          body['fieldType'] = patch.config.fieldType;
+          body['config'] = patch.config;
+        }
 
         const res = await fetch(`/api/signups/${signupId}/fields/${fieldId}`, {
           method: 'PATCH',
           headers: JSON_HEADERS,
           body: JSON.stringify(body),
         });
-        if (!res.ok) throw new Error(await res.text());
+        await expectOk(res);
         const envelope = (await res.json()) as { data: SlotFieldDefinition };
         const updated = toGridFields([envelope.data])[0]!;
         dispatch({ type: 'REPLACE_FIELD', field: updated });
         markSaved();
-      } catch {
-        markError();
+      } catch (e) {
+        markError(asErr(e));
       }
     },
     [signupId],
@@ -330,11 +398,11 @@ export function useGridState(
         const res = await fetch(`/api/signups/${signupId}/fields/${fieldId}`, {
           method: 'DELETE',
         });
-        if (!res.ok) throw new Error(await res.text());
+        await expectOk(res);
         dispatch({ type: 'DELETE_FIELD', fieldId, fieldRef });
         markSaved();
-      } catch {
-        markError();
+      } catch (e) {
+        markError(asErr(e));
       }
     },
     [signupId, state.fields],
@@ -359,6 +427,7 @@ export function useGridState(
       // Optimistic update so the UI reorders immediately.
       dispatch({ type: 'SET_FIELDS', fields: resequenced });
       markSaving();
+      let failure: { code: ErrorCode; message?: string } | null = null;
       try {
         const changed = resequenced.filter(
           (f, i) => previous[i]?.id !== f.id || previous[i]?.sortOrder !== f.sortOrder,
@@ -369,10 +438,13 @@ export function useGridState(
             headers: JSON_HEADERS,
             body: JSON.stringify({ sortOrder: f.sortOrder }),
           });
-          if (!res.ok) throw new Error('reorder failed');
+          await expectOk(res);
         }
         markSaved();
-      } catch {
+      } catch (e) {
+        failure = asErr(e);
+      }
+      if (failure !== null) {
         // Server may hold a partial reorder; converge on server truth via refetch.
         // `previous` already carries session-only column widths — preserve them on
         // refresh by id, since `toGridFields` cannot populate `width`.
@@ -392,7 +464,7 @@ export function useGridState(
         } catch {
           dispatch({ type: 'SET_FIELDS', fields: previous });
         }
-        markError();
+        markError(failure);
       }
     },
     [signupId, state.fields],
@@ -409,15 +481,17 @@ export function useGridState(
   // Row mutations
   // ---------------------------------------------------------------------------
 
-  const addRow = useCallback(async (): Promise<void> => {
+  const addRow = useCallback(async (
+    seed?: { values?: Record<string, unknown>; capacity?: number },
+  ): Promise<void> => {
     markSaving();
     try {
       const res = await fetch(`/api/signups/${signupId}/slots`, {
         method: 'POST',
         headers: JSON_HEADERS,
-        body: JSON.stringify({ values: {}, capacity: 1 }),
+        body: JSON.stringify({ values: seed?.values ?? {}, capacity: seed?.capacity ?? 1 }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      await expectOk(res);
       const envelope = (await res.json()) as {
         data: { id: string; capacity: number | null; sortOrder: number; values: Record<string, unknown> };
       };
@@ -432,20 +506,34 @@ export function useGridState(
         },
       });
       markSaved();
-    } catch {
-      markError();
+    } catch (e) {
+      markError(asErr(e));
     }
   }, [signupId]);
+
+  const duplicateRow = useCallback(async (rowId: string): Promise<void> => {
+    const source = stateRef.current.rows.find((r) => r.id === rowId);
+    if (!source) return;
+    // Clone values verbatim (already string-typed; addRow re-serializes for
+    // the API). Capacity falls back to 1 when the source was uncapped — the
+    // grid uses null to mean "no limit", but new slots ship with capacity 1
+    // to stay safe and consistent with the bare addRow contract.
+    const seedValues: Record<string, unknown> = { ...source.values };
+    await addRow({
+      values: seedValues,
+      capacity: source.capacity ?? 1,
+    });
+  }, [addRow]);
 
   const deleteRow = useCallback(async (rowId: string): Promise<void> => {
     markSaving();
     try {
       const res = await fetch(`/api/slots/${rowId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(await res.text());
+      await expectOk(res);
       dispatch({ type: 'OPTIMISTIC_REMOVE_ROW', rowId });
       markSaved();
-    } catch {
-      markError();
+    } catch (e) {
+      markError(asErr(e));
     }
     // markSaving/Saved/Error are stable (inline fns, not deps); rowId is a param
   }, []);
@@ -473,7 +561,9 @@ export function useGridState(
             body: JSON.stringify({ sortOrder: newCurrentSortOrder }),
           }),
         ]);
-        if (!r1.ok || !r2.ok) throw new Error('reorder failed');
+        // Surface whichever side failed; if both, the first non-OK wins.
+        if (!r1.ok) await expectOk(r1);
+        if (!r2.ok) await expectOk(r2);
         const updatedRows = state.rows.map((r) => {
           if (r.id === above.id) return { ...r, sortOrder: newAboveSortOrder };
           if (r.id === current.id) return { ...r, sortOrder: newCurrentSortOrder };
@@ -484,8 +574,8 @@ export function useGridState(
           rows: [...updatedRows].sort((a, b) => a.sortOrder - b.sortOrder),
         });
         markSaved();
-      } catch {
-        markError();
+      } catch (e) {
+        markError(asErr(e));
       }
     },
     [state.rows],
@@ -508,6 +598,7 @@ export function useGridState(
 
       dispatch({ type: 'SET_ROWS', rows: resequenced });
       markSaving();
+      let failure: { code: ErrorCode; message?: string } | null = null;
       try {
         const changed = resequenced.filter(
           (r, i) => previous[i]?.id !== r.id || previous[i]?.sortOrder !== r.sortOrder,
@@ -518,10 +609,13 @@ export function useGridState(
             headers: JSON_HEADERS,
             body: JSON.stringify({ sortOrder: r.sortOrder }),
           });
-          if (!res.ok) throw new Error('reorder failed');
+          await expectOk(res);
         }
         markSaved();
-      } catch {
+      } catch (e) {
+        failure = asErr(e);
+      }
+      if (failure !== null) {
         try {
           const res = await fetch(`/api/signups/${signupId}/slots`);
           if (res.ok) {
@@ -541,7 +635,7 @@ export function useGridState(
         } catch {
           dispatch({ type: 'SET_ROWS', rows: previous });
         }
-        markError();
+        markError(failure);
       }
     },
     [signupId, state.rows],
@@ -570,7 +664,8 @@ export function useGridState(
             body: JSON.stringify({ sortOrder: newBelowSortOrder }),
           }),
         ]);
-        if (!r1.ok || !r2.ok) throw new Error('reorder failed');
+        if (!r1.ok) await expectOk(r1);
+        if (!r2.ok) await expectOk(r2);
         const updatedRows = state.rows.map((r) => {
           if (r.id === current.id) return { ...r, sortOrder: newCurrentSortOrder };
           if (r.id === below.id) return { ...r, sortOrder: newBelowSortOrder };
@@ -581,8 +676,8 @@ export function useGridState(
           rows: [...updatedRows].sort((a, b) => a.sortOrder - b.sortOrder),
         });
         markSaved();
-      } catch {
-        markError();
+      } catch (e) {
+        markError(asErr(e));
       }
     },
     [state.rows],
@@ -610,25 +705,15 @@ export function useGridState(
       flushTimer(key, async () => {
         const row = stateRef.current.rows.find((r) => r.id === rowId);
         if (!row) return;
-        const fields = stateRef.current.fields;
-        const typedValues: Record<string, unknown> = {};
-        for (const [ref, raw] of Object.entries(row.values)) {
-          if (!raw) continue;
-          const field = fields.find((f) => f.ref === ref);
-          if (field?.type === 'number') {
-            const n = Number(raw);
-            if (Number.isFinite(n)) typedValues[ref] = n;
-          } else {
-            typedValues[ref] = raw;
-          }
-        }
         markSaving();
         try {
           const fields = stateRef.current.fields;
+          // Coerce by field type so numeric cells round-trip as numbers and
+          // empty strings on number fields drop out of the patch body.
           const typedValues: Record<string, unknown> = {};
           for (const [ref, strVal] of Object.entries(row.values)) {
             const fld = fields.find((f) => f.ref === ref);
-            if (fld?.type === 'number') {
+            if (fld?.config.fieldType === 'number') {
               const n = Number(strVal);
               if (strVal !== '' && Number.isFinite(n)) typedValues[ref] = n;
             } else {
@@ -640,10 +725,10 @@ export function useGridState(
             headers: JSON_HEADERS,
             body: JSON.stringify({ values: typedValues }),
           });
-          if (!res.ok) throw new Error(await res.text());
+          await expectOk(res);
           markSaved();
-        } catch {
-          markError();
+        } catch (e) {
+          markError(asErr(e));
         }
       });
     },
@@ -662,10 +747,10 @@ export function useGridState(
             headers: JSON_HEADERS,
             body: JSON.stringify({ capacity }),
           });
-          if (!res.ok) throw new Error(await res.text());
+          await expectOk(res);
           markSaved();
-        } catch {
-          markError();
+        } catch (e) {
+          markError(asErr(e));
         }
       });
     },
@@ -698,6 +783,80 @@ export function useGridState(
     dispatch({ type: 'SET_SHOW_PREVIEW', show });
   }, []);
 
+  const touchedMetaRef = useRef<Set<'title' | 'description'>>(new Set());
+  // Last server-accepted meta values. Used to revert the optimistic state when
+  // a user edit would fail server validation (e.g. clearing the title), so the
+  // input doesn't strand on an invalid value the server never accepted.
+  const lastCommittedMetaRef = useRef<{ title: string; description: string }>({
+    title: initialMeta.title,
+    description: initialMeta.description ?? '',
+  });
+
+  const updateSignupMeta = useCallback(
+    (patch: { title?: string; description?: string }): void => {
+      // Track which keys have been touched across consecutive calls so the
+      // debounced PATCH carries every field the user edited in the burst —
+      // not just whichever one was passed in the final call.
+      if (patch.title !== undefined) touchedMetaRef.current.add('title');
+      if (patch.description !== undefined) touchedMetaRef.current.add('description');
+      dispatch({ type: 'OPTIMISTIC_UPDATE_META', patch });
+      flushTimer('signup-meta', async () => {
+        const touched = Array.from(touchedMetaRef.current);
+        touchedMetaRef.current = new Set();
+        const body: Record<string, string> = {};
+        const revert: { title?: string; description?: string } = {};
+        let titleTooShort = false;
+        for (const key of touched) {
+          const raw = stateRef.current[key];
+          const trimmed = raw.trim();
+          if (key === 'title') {
+            if (trimmed.length < 2) {
+              // Server requires min(2). Revert the optimistic value and surface
+              // the validation error so the user knows why their edit didn't
+              // stick — otherwise the title just snaps back with no explanation.
+              revert.title = lastCommittedMetaRef.current.title;
+              titleTooShort = true;
+              continue;
+            }
+            body['title'] = trimmed.slice(0, 120);
+          } else {
+            body['description'] = trimmed.slice(0, 2000);
+          }
+        }
+        if (Object.keys(revert).length > 0) {
+          dispatch({ type: 'OPTIMISTIC_UPDATE_META', patch: revert });
+        }
+        if (Object.keys(body).length === 0) {
+          if (titleTooShort) {
+            markError({ code: 'invalid_input', message: 'Title must be at least 2 characters.' });
+          }
+          return;
+        }
+        markSaving();
+        try {
+          const res = await fetch(`/api/signups/${signupId}`, {
+            method: 'PATCH',
+            headers: JSON_HEADERS,
+            body: JSON.stringify(body),
+          });
+          await expectOk(res);
+          if (body['title'] !== undefined) lastCommittedMetaRef.current.title = body['title'];
+          if (body['description'] !== undefined) lastCommittedMetaRef.current.description = body['description'];
+          if (titleTooShort) {
+            // Description saved but title was rejected client-side — surface
+            // the validation message anyway so the user gets the feedback.
+            markError({ code: 'invalid_input', message: 'Title must be at least 2 characters.' });
+          } else {
+            markSaved();
+          }
+        } catch (e) {
+          markError(asErr(e));
+        }
+      });
+    },
+    [signupId, flushTimer],
+  );
+
   const setGroupBy = useCallback(
     async (ref: string | null): Promise<void> => {
       markSaving();
@@ -708,12 +867,12 @@ export function useGridState(
           headers: JSON_HEADERS,
           body: JSON.stringify({ settings: nextSettings }),
         });
-        if (!res.ok) throw new Error(await res.text());
+        await expectOk(res);
         settingsRef.current = nextSettings;
         dispatch({ type: 'SET_GROUP_BY', ref });
         markSaved();
-      } catch {
-        markError();
+      } catch (e) {
+        markError(asErr(e));
       }
     },
     [signupId],
@@ -727,6 +886,7 @@ export function useGridState(
     moveField,
     setFieldWidth,
     addRow,
+    duplicateRow,
     deleteRow,
     moveRowUp,
     moveRowDown,
@@ -736,5 +896,6 @@ export function useGridState(
     setPreviewRow,
     setShowPreview,
     setGroupBy,
+    updateSignupMeta,
   };
 }
