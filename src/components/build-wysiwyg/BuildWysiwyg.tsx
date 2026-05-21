@@ -8,9 +8,16 @@ import { Editable } from './Editable';
 import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
-import type { SignupMeta } from '../build-grid/BuildGrid';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
-import type { SignupSettings } from '@/schemas/signups';
+import type { SignupSettings, SignupStatus } from '@/schemas/signups';
+
+/** Server-loaded chrome snapshot. Title + description are then edited in-place via updateSignupMeta. */
+export type SignupMeta = {
+  title: string;
+  description: string | null;
+  status: SignupStatus;
+  slug: string;
+};
 
 type BuildWysiwygProps = {
   signupId: string;
