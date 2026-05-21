@@ -89,9 +89,7 @@ export function WysiwygSlot({
       {reorder && (
         <span
           {...reorder.source(row.id)}
-          role="button"
-          aria-label="Drag to reorder slot"
-          tabIndex={0}
+          aria-hidden="true"
           className="absolute -left-1 top-1/2 z-10 inline-flex h-6 w-4 -translate-y-1/2 cursor-grab items-center justify-center text-ink-soft opacity-0 transition-opacity duration-180 group-hover:opacity-95 group-focus-within:opacity-95"
         >
           <GripVertical size={11} />

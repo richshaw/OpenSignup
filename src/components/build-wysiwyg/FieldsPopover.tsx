@@ -198,9 +198,7 @@ function FieldsListView({
             >
               <span
                 {...reorder.source(f.id)}
-                role="button"
-                aria-label={`Drag ${f.name} to reorder`}
-                tabIndex={0}
+                aria-hidden="true"
                 className="inline-flex cursor-grab items-center justify-center p-1 text-ink-soft hover:text-ink"
               >
                 <GripVertical size={11} />

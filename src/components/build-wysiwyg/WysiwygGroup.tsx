@@ -62,7 +62,7 @@ export function WysiwygGroup({
             value={group.rawValue}
             display={display}
             onChange={(next) => onRenameGroup(group.key, next)}
-            placeholder={groupField.type === 'date' ? 'Set a date' : 'Group name'}
+            placeholder={groupField.type === 'date' ? 'Set a date' : 'Set a value'}
             ariaLabel={`Group header — ${display}`}
             className="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-soft"
           />
