@@ -124,4 +124,20 @@ describe('SlotEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: /Duplicate/ }));
     expect(onDuplicate).toHaveBeenCalled();
   });
+
+  it('renders native input types for date / time / number fields', () => {
+    renderEditor({
+      fields: [
+        makeField({ id: 'f1', ref: 'date', name: 'Date', type: 'date', config: { fieldType: 'date' } }),
+        makeField({ id: 'f2', ref: 'time', name: 'Time', type: 'time', config: { fieldType: 'time' } }),
+        makeField({ id: 'f3', ref: 'qty', name: 'Quantity', type: 'number', config: { fieldType: 'number' } }),
+      ],
+      row: makeRow({ values: {} }),
+    });
+    expect((screen.getByLabelText('Date value') as HTMLInputElement).type).toBe('date');
+    expect((screen.getByLabelText('Time value') as HTMLInputElement).type).toBe('time');
+    const qty = screen.getByLabelText('Quantity value') as HTMLInputElement;
+    expect(qty.type).toBe('number');
+    expect(qty.inputMode).toBe('numeric');
+  });
 });

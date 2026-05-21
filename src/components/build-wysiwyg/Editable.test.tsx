@@ -96,4 +96,26 @@ describe('Editable', () => {
     const ta = screen.getByRole('textbox');
     expect(ta.tagName).toBe('TEXTAREA');
   });
+
+  it('does not double-commit when Enter is followed by an unmount blur', () => {
+    const { onChange } = renderEditable({ value: 'hello' });
+    fireEvent.click(screen.getByRole('button'));
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'world' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    // Simulates the blur React fires when the focused input unmounts.
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('world');
+  });
+
+  it('does not commit when Escape is followed by an unmount blur', () => {
+    const { onChange } = renderEditable({ value: 'hello' });
+    fireEvent.click(screen.getByRole('button'));
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'world' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    fireEvent.blur(input);
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

@@ -87,4 +87,29 @@ describe('EnumPicker', () => {
     expect(onAddOption).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('does not double-add when Enter is followed by an unmount blur', () => {
+    const { onChange, onAddOption } = renderPicker({ options: ['Main'] });
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Dessert' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    // Simulates the blur React fires when the focused input unmounts on close.
+    fireEvent.blur(input);
+    expect(onAddOption).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not add when Escape is followed by an unmount blur', () => {
+    const { onChange, onAddOption } = renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Dessert' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    fireEvent.blur(input);
+    expect(onAddOption).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

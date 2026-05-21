@@ -28,9 +28,15 @@ export function EnumPicker({ value, options, ariaLabel, onChange, onAddOption }:
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Prevents Enter committing and then the unmount-triggered onBlur committing
+  // a second time (which would call onAddOption twice).
+  const settledRef = useRef(false);
 
   useEffect(() => {
-    if (adding) inputRef.current?.focus();
+    if (adding) {
+      settledRef.current = false;
+      inputRef.current?.focus();
+    }
   }, [adding]);
 
   useEffect(() => {
@@ -49,18 +55,25 @@ export function EnumPicker({ value, options, ariaLabel, onChange, onAddOption }:
   }, [open]);
 
   const close = () => {
+    // Mark settled so any blur fired during unmount (Escape, click-outside)
+    // doesn't fall into commitNew and add the draft as a new option.
+    settledRef.current = true;
     setOpen(false);
     setAdding(false);
     setDraft('');
   };
 
   const commitNew = () => {
+    if (settledRef.current) return;
+    settledRef.current = true;
     const v = draft.trim();
     if (v) {
       onAddOption(v);
       onChange(v);
     }
-    close();
+    setOpen(false);
+    setAdding(false);
+    setDraft('');
   };
 
   return (

@@ -25,6 +25,13 @@ const TYPE_PLACEHOLDERS: Record<string, string> = {
   enum: 'Pick from list',
 };
 
+const TYPE_INPUT_ATTRS: Record<string, { type?: string; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'] }> = {
+  text: { type: 'text' },
+  date: { type: 'date' },
+  time: { type: 'time' },
+  number: { type: 'number', inputMode: 'numeric' },
+};
+
 /**
  * Inline accordion editor for a single slot. Auto-fit grid keeps small
  * schemas tight while letting wider schemas wrap naturally; capacity rides
@@ -97,6 +104,7 @@ export function SlotEditor({
                 />
               ) : (
                 <input
+                  {...(TYPE_INPUT_ATTRS[f.type] ?? { type: 'text' })}
                   value={row.values[f.ref] ?? ''}
                   placeholder={TYPE_PLACEHOLDERS[f.type] ?? ''}
                   onChange={(e) => onCellChange(f.ref, e.target.value)}

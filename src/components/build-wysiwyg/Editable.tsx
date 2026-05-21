@@ -25,6 +25,9 @@ export function Editable({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  // Guards against Enter/Escape committing and then the unmount-triggered onBlur
+  // re-committing the same draft (which would fire onChange twice).
+  const settledRef = useRef(false);
 
   // Reset draft when the underlying value changes from outside (e.g. server refresh).
   useEffect(() => {
@@ -33,17 +36,22 @@ export function Editable({
 
   useEffect(() => {
     if (editing && inputRef.current) {
+      settledRef.current = false;
       inputRef.current.focus();
       if ('select' in inputRef.current) inputRef.current.select();
     }
   }, [editing]);
 
   const commit = () => {
+    if (settledRef.current) return;
+    settledRef.current = true;
     if (draft !== value) onChange(draft);
     setEditing(false);
   };
 
   const cancel = () => {
+    if (settledRef.current) return;
+    settledRef.current = true;
     setDraft(value);
     setEditing(false);
   };
