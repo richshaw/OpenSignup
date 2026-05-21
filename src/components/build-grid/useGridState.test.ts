@@ -34,46 +34,8 @@ const makeState = (overrides: Partial<GridState> = {}): GridState => ({
   fields: [],
   rows: [],
   groupByFieldRef: null,
-  previewRowIdx: 0,
-  showPreview: false,
   saveStatus: 'idle',
   ...overrides,
-});
-
-// ---------------------------------------------------------------------------
-// SET_FIELD_WIDTH
-// ---------------------------------------------------------------------------
-
-describe('gridReducer SET_FIELD_WIDTH', () => {
-  it('sets width on the correct field', () => {
-    const field1 = makeField({ id: 'f1', ref: 'alpha' });
-    const field2 = makeField({ id: 'f2', ref: 'beta' });
-    const state = makeState({ fields: [field1, field2] });
-
-    const next = gridReducer(state, { type: 'SET_FIELD_WIDTH', fieldId: 'f1', width: 300 });
-
-    expect(next.fields[0]?.width).toBe(300);
-    expect(next.fields[1]?.width).toBeUndefined();
-  });
-
-  it('does not mutate other fields', () => {
-    const field1 = makeField({ id: 'f1' });
-    const field2 = makeField({ id: 'f2', name: 'Other', ref: 'other' });
-    const state = makeState({ fields: [field1, field2] });
-
-    const next = gridReducer(state, { type: 'SET_FIELD_WIDTH', fieldId: 'f1', width: 200 });
-
-    expect(next.fields[1]).toEqual(field2);
-  });
-
-  it('clears width when undefined is passed', () => {
-    const field = makeField({ id: 'f1', width: 300 });
-    const state = makeState({ fields: [field] });
-
-    const next = gridReducer(state, { type: 'SET_FIELD_WIDTH', fieldId: 'f1', width: undefined });
-
-    expect(next.fields[0]?.width).toBeUndefined();
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -140,38 +102,6 @@ describe('gridReducer OPTIMISTIC_REMOVE_ROW', () => {
     expect(next.rows).toHaveLength(0);
   });
 
-  it('clamps previewRowIdx when the highlighted row is deleted', () => {
-    const row1 = makeRow({ id: 'r1' });
-    const row2 = makeRow({ id: 'r2' });
-    const state = makeState({ rows: [row1, row2], previewRowIdx: 1 });
-
-    const next = gridReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r2' });
-
-    expect(next.rows).toHaveLength(1);
-    expect(next.previewRowIdx).toBe(0);
-  });
-
-  it('clamps previewRowIdx to 0 when all rows are deleted', () => {
-    const row1 = makeRow({ id: 'r1' });
-    const state = makeState({ rows: [row1], previewRowIdx: 0 });
-
-    const next = gridReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
-
-    expect(next.rows).toHaveLength(0);
-    expect(next.previewRowIdx).toBe(0);
-  });
-
-  it('clamps previewRowIdx when deletion shrinks the list below the current index', () => {
-    const row1 = makeRow({ id: 'r1' });
-    const row2 = makeRow({ id: 'r2' });
-    const row3 = makeRow({ id: 'r3' });
-    const state = makeState({ rows: [row1, row2, row3], previewRowIdx: 2 });
-
-    const next = gridReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
-
-    expect(next.rows).toHaveLength(2);
-    expect(next.previewRowIdx).toBe(1);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -281,23 +211,6 @@ describe('gridReducer SET_SAVE_STATUS', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// SET_SHOW_PREVIEW
-// ---------------------------------------------------------------------------
-
-describe('gridReducer SET_SHOW_PREVIEW', () => {
-  it('sets showPreview to true', () => {
-    const state = makeState({ showPreview: false });
-    const next = gridReducer(state, { type: 'SET_SHOW_PREVIEW', show: true });
-    expect(next.showPreview).toBe(true);
-  });
-
-  it('sets showPreview to false', () => {
-    const state = makeState({ showPreview: true });
-    const next = gridReducer(state, { type: 'SET_SHOW_PREVIEW', show: false });
-    expect(next.showPreview).toBe(false);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // SET_GROUP_BY
@@ -558,7 +471,7 @@ describe('useGridState moveField', () => {
     expect(result.current.state.saveStatus).toBe('saved');
   });
 
-  it('refetches server truth on PATCH failure and preserves session widths', async () => {
+  it('refetches server truth on PATCH failure', async () => {
     const a = makeApiField({ id: 'a', ref: 'a', label: 'A', sortOrder: 0 });
     const b = makeApiField({ id: 'b', ref: 'b', label: 'B', sortOrder: 1 });
     const c = makeApiField({ id: 'c', ref: 'c', label: 'C', sortOrder: 2 });
@@ -582,13 +495,6 @@ describe('useGridState moveField', () => {
 
     const { result } = renderGrid([a, b, c]);
 
-    // Set a session-only width on field "a" before the failing reorder so we can
-    // verify it survives the refetch.
-    act(() => {
-      result.current.setFieldWidth('a', 321);
-    });
-    expect(result.current.state.fields.find((f) => f.id === 'a')?.width).toBe(321);
-
     await act(async () => {
       await result.current.moveField('c', 0);
     });
@@ -602,7 +508,6 @@ describe('useGridState moveField', () => {
     expect(patchCalls.length).toBe(2); // aborted after the failing second PATCH
     expect(getCalls.length).toBe(1); // single refetch
     expect(result.current.state.fields.map((f) => f.id)).toEqual(['a', 'b', 'c']);
-    expect(result.current.state.fields.find((f) => f.id === 'a')?.width).toBe(321);
     expect(result.current.state.saveStatus).toBe('error');
   });
 
@@ -836,42 +741,6 @@ describe('useGridState moveRow', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.state.rows.map((r) => r.id)).toEqual(['r1', 'r2']);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// useGridState mount-time showPreview default (viewport-aware)
-// ---------------------------------------------------------------------------
-
-function stubMatchMedia(matches: boolean) {
-  const mql = {
-    matches,
-    media: '',
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => false,
-    addListener: () => {},
-    removeListener: () => {},
-  };
-  vi.stubGlobal('matchMedia', vi.fn(() => mql));
-}
-
-describe('useGridState mount-time showPreview default', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it('defaults showPreview to true when viewport is ≥1280px', () => {
-    stubMatchMedia(true);
-    const { result } = renderGrid([]);
-    expect(result.current.state.showPreview).toBe(true);
-  });
-
-  it('leaves showPreview false when viewport is <1280px', () => {
-    stubMatchMedia(false);
-    const { result } = renderGrid([]);
-    expect(result.current.state.showPreview).toBe(false);
   });
 });
 

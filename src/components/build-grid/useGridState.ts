@@ -13,7 +13,6 @@ export type GridField = {
   type: FieldType;
   config: SlotFieldConfig;
   sortOrder: number;
-  width?: number; // session-only resize override; not sent to API
 };
 
 export type GridRow = {
@@ -31,8 +30,6 @@ export type GridState = {
   fields: GridField[];
   rows: GridRow[];
   groupByFieldRef: string | null;
-  previewRowIdx: number;
-  showPreview: boolean;
   saveStatus: SaveStatus;
 };
 
@@ -43,9 +40,6 @@ export type GridState = {
 export type GridAction =
   | { type: 'SET_FIELDS'; fields: GridField[] }
   | { type: 'SET_ROWS'; rows: GridRow[] }
-  | { type: 'SET_FIELD_WIDTH'; fieldId: string; width: number | undefined }
-  | { type: 'SET_PREVIEW_ROW'; idx: number }
-  | { type: 'SET_SHOW_PREVIEW'; show: boolean }
   | { type: 'SET_GROUP_BY'; ref: string | null }
   | { type: 'SET_SAVE_STATUS'; status: SaveStatus }
   | { type: 'OPTIMISTIC_ADD_ROW'; row: GridRow }
@@ -69,20 +63,6 @@ export function gridReducer(state: GridState, action: GridAction): GridState {
     case 'SET_ROWS':
       return { ...state, rows: action.rows };
 
-    case 'SET_FIELD_WIDTH':
-      return {
-        ...state,
-        fields: state.fields.map((f) =>
-          f.id === action.fieldId ? { ...f, width: action.width } : f,
-        ),
-      };
-
-    case 'SET_PREVIEW_ROW':
-      return { ...state, previewRowIdx: action.idx };
-
-    case 'SET_SHOW_PREVIEW':
-      return { ...state, showPreview: action.show };
-
     case 'SET_GROUP_BY':
       return { ...state, groupByFieldRef: action.ref };
 
@@ -92,14 +72,8 @@ export function gridReducer(state: GridState, action: GridAction): GridState {
     case 'OPTIMISTIC_ADD_ROW':
       return { ...state, rows: [...state.rows, action.row] };
 
-    case 'OPTIMISTIC_REMOVE_ROW': {
-      const nextRows = state.rows.filter((r) => r.id !== action.rowId);
-      return {
-        ...state,
-        rows: nextRows,
-        previewRowIdx: Math.min(state.previewRowIdx, Math.max(0, nextRows.length - 1)),
-      };
-    }
+    case 'OPTIMISTIC_REMOVE_ROW':
+      return { ...state, rows: state.rows.filter((r) => r.id !== action.rowId) };
 
     case 'OPTIMISTIC_EDIT_CELL':
       return {
@@ -218,8 +192,6 @@ export function useGridState(
       values: toStringValues(r.values),
     })),
     groupByFieldRef: initialSettings.groupByFieldRefs[0] ?? null,
-    previewRowIdx: 0,
-    showPreview: false,
     saveStatus: 'idle' as SaveStatus,
   }));
 
@@ -235,16 +207,6 @@ export function useGridState(
     return () => {
       if (savedTimerRef.current !== null) clearTimeout(savedTimerRef.current);
     };
-  }, []);
-
-  // On mount: default the live-preview side rail to ON when the viewport has
-  // room for both panels (≥xl breakpoint). One-shot — does not re-evaluate on
-  // resize, so a manual toggle off is respected until the next mount.
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return;
-    if (window.matchMedia('(min-width: 1280px)').matches) {
-      dispatch({ type: 'SET_SHOW_PREVIEW', show: true });
-    }
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -387,18 +349,11 @@ export function useGridState(
         markSaved();
       } catch {
         // Server may hold a partial reorder; converge on server truth via refetch.
-        // `previous` already carries session-only column widths — preserve them on
-        // refresh by id, since `toGridFields` cannot populate `width`.
-        const widthById = new Map(previous.map((f) => [f.id, f.width]));
         try {
           const res = await fetch(`/api/signups/${signupId}/fields`);
           if (res.ok) {
             const envelope = (await res.json()) as { data: SlotFieldDefinition[] };
-            const refreshed = toGridFields(envelope.data).map((f) => ({
-              ...f,
-              width: widthById.get(f.id),
-            }));
-            dispatch({ type: 'SET_FIELDS', fields: refreshed });
+            dispatch({ type: 'SET_FIELDS', fields: toGridFields(envelope.data) });
           } else {
             dispatch({ type: 'SET_FIELDS', fields: previous });
           }
@@ -409,13 +364,6 @@ export function useGridState(
       }
     },
     [signupId, state.fields],
-  );
-
-  const setFieldWidth = useCallback(
-    (fieldId: string, width: number | undefined): void => {
-      dispatch({ type: 'SET_FIELD_WIDTH', fieldId, width });
-    },
-    [],
   );
 
   // ---------------------------------------------------------------------------
@@ -715,18 +663,6 @@ export function useGridState(
     };
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // UI state
-  // ---------------------------------------------------------------------------
-
-  const setPreviewRow = useCallback((idx: number): void => {
-    dispatch({ type: 'SET_PREVIEW_ROW', idx });
-  }, []);
-
-  const setShowPreview = useCallback((show: boolean): void => {
-    dispatch({ type: 'SET_SHOW_PREVIEW', show });
-  }, []);
-
   const touchedMetaRef = useRef<Set<'title' | 'description'>>(new Set());
   // Last server-accepted meta values. Used to revert the optimistic state when
   // a user edit would fail server validation (e.g. clearing the title), so the
@@ -813,7 +749,6 @@ export function useGridState(
     updateField,
     deleteField,
     moveField,
-    setFieldWidth,
     addRow,
     duplicateRow,
     deleteRow,
@@ -822,8 +757,6 @@ export function useGridState(
     moveRow,
     editCell,
     setCapacity,
-    setPreviewRow,
-    setShowPreview,
     setGroupBy,
     updateSignupMeta,
   };
