@@ -72,10 +72,20 @@ export function WysiwygSlot({
   }
 
   const timeValue = timeField ? row.values[timeField.ref] : '';
-  const summary = otherFields
+  // When the signup has no time field, the first non-time/non-group field acts
+  // as the row's primary anchor (mirroring the role the time value plays). The
+  // promoted field is dropped from the summary so its value isn't shown twice.
+  const firstOtherField = !timeField ? (otherFields[0] ?? null) : null;
+  const firstOtherValue = firstOtherField ? row.values[firstOtherField.ref] : '';
+  const summaryFields = firstOtherField ? otherFields.slice(1) : otherFields;
+  const summary = summaryFields
     .map((f) => row.values[f.ref])
     .filter((v) => v && v.length > 0)
     .join(' \u00b7 ');
+
+  let ariaLabel = 'Edit slot';
+  if (timeValue) ariaLabel = `Edit slot at ${timeValue}`;
+  else if (firstOtherValue) ariaLabel = `Edit slot \u2014 ${firstOtherValue}`;
 
   const isDragging = reorder?.dragId === row.id;
   const isDropTarget = reorder?.overId === row.id && reorder?.dragId && reorder?.dragId !== row.id;
@@ -114,7 +124,7 @@ export function WysiwygSlot({
       <button
         type="button"
         onClick={onExpand}
-        aria-label={`Edit slot${timeValue ? ` at ${timeValue}` : ''}`}
+        aria-label={ariaLabel}
         className="flex w-full items-center justify-between gap-2.5 border-none bg-transparent px-3.5 py-2.5 text-left"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -122,6 +132,14 @@ export function WysiwygSlot({
             <span className="text-sm font-semibold text-ink">{timeValue}</span>
           ) : timeField ? (
             <span className="text-sm italic font-normal text-ink-soft">Set a time</span>
+          ) : firstOtherValue ? (
+            <span className="min-w-0 truncate text-sm font-semibold text-ink">
+              {firstOtherValue}
+            </span>
+          ) : firstOtherField ? (
+            <span className="text-sm italic font-normal text-ink-soft">
+              Set {firstOtherField.name}
+            </span>
           ) : (
             <span className="text-sm font-semibold text-ink">Slot</span>
           )}
