@@ -74,8 +74,8 @@ export function WysiwygSlot({
     );
   }
 
-  // Anchor = first field in the organizer's chosen order (no type-based promotion).
-  // The remaining fields form the summary so the anchor's value isn't shown twice.
+  // Anchor = first field in the organizer's chosen order. No type-based
+  // promotion: a time field later in the list must not win over field 0.
   const anchorField = displayFields[0] ?? null;
   const anchorValue = anchorField ? row.values[anchorField.ref] : '';
   const summary = displayFields
@@ -84,16 +84,14 @@ export function WysiwygSlot({
     .filter((v) => v && v.length > 0)
     .join(' \u00b7 ');
 
-  // "Set a time" is the long-standing copy for empty time fields; keep it.
-  // Other field types use the generic "Set ${name}" pattern.
-  const anchorPlaceholder =
-    anchorField?.config.fieldType === 'time' ? 'Set a time' : `Set ${anchorField?.name ?? ''}`;
+  // Time anchors keep the long-standing "Set a time" / "at HH:MM" copy;
+  // everything else uses the generic name-based pattern.
+  const isTimeAnchor = anchorField?.config.fieldType === 'time';
 
-  const ariaLabel = anchorValue
-    ? anchorField?.config.fieldType === 'time'
-      ? `Edit slot at ${anchorValue}`
-      : `Edit slot \u2014 ${anchorValue}`
-    : 'Edit slot';
+  let ariaLabel = 'Edit slot';
+  if (anchorValue) {
+    ariaLabel = isTimeAnchor ? `Edit slot at ${anchorValue}` : `Edit slot \u2014 ${anchorValue}`;
+  }
 
   const isDragging = reorder?.dragId === row.id;
   const isDropTarget = reorder?.overId === row.id && reorder?.dragId && reorder?.dragId !== row.id;
@@ -142,7 +140,7 @@ export function WysiwygSlot({
             </span>
           ) : anchorField ? (
             <span className="text-sm italic font-normal text-ink-soft">
-              {anchorPlaceholder}
+              {isTimeAnchor ? 'Set a time' : `Set ${anchorField.name}`}
             </span>
           ) : (
             <span className="text-sm font-semibold text-ink">Slot</span>
