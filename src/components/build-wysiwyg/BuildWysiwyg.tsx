@@ -171,14 +171,9 @@ export function BuildWysiwyg({
   };
 
   return (
-    <div className="min-h-[calc(100vh-12rem)] bg-surface-raised">
+    <div className="-mt-6 -mb-8 min-h-[calc(100vh-12rem)] bg-surface-raised pt-6 pb-24 md:pt-10 md:pb-32">
       <div
-        className={
-          'mx-auto w-full my-3 mb-24 md:my-6 md:mb-32 ' +
-          'rounded-none md:rounded-xl border border-surface-sunk border-t-[3px] border-t-brand bg-white shadow-card ' +
-          'transition-[max-width] duration-180 ease-emphasized ' +
-          sheetMaxWidthClass(state.fields.length)
-        }
+        className={`mx-auto w-full rounded-none border border-surface-sunk border-t-[3px] border-t-brand bg-white shadow-card transition-[max-width] duration-180 ease-emphasized md:rounded-xl ${sheetMaxWidthClass(state.fields.length)}`}
       >
         <EditingRail
           fieldCount={state.fields.length}
