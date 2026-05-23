@@ -11,8 +11,12 @@ type EnumPickerProps = {
   /**
    * Called when the user adds a brand-new option from inside the picker.
    * Implementations should append the value to the field's `choices` config.
+   * May return a promise; the picker awaits it before committing the cell
+   * value so the field-config PATCH always lands before the slot PATCH that
+   * sets the new value (otherwise the server can see a value that is not yet
+   * in `choices` and reject it as `invalid_input`).
    */
-  onAddOption: (value: string) => void;
+  onAddOption: (value: string) => void | Promise<void>;
 };
 
 /**
@@ -63,17 +67,21 @@ export function EnumPicker({ value, options, ariaLabel, onChange, onAddOption }:
     setDraft('');
   };
 
-  const commitNew = () => {
+  const commitNew = async () => {
     if (settledRef.current) return;
     settledRef.current = true;
     const v = draft.trim();
-    if (v) {
-      onAddOption(v);
-      onChange(v);
-    }
+    // Close the picker first so the UI stays snappy while the field PATCH is
+    // in flight. `onAddOption` may persist asynchronously; we await it before
+    // calling `onChange` so the cell value commit can never race the field's
+    // `choices` update on slow networks.
     setOpen(false);
     setAdding(false);
     setDraft('');
+    if (v) {
+      await onAddOption(v);
+      onChange(v);
+    }
   };
 
   return (

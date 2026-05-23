@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Copy, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { SlotEditor } from './SlotEditor';
 import type { UseReorderableResult } from '../build-grid/useReorderable';
@@ -15,7 +16,8 @@ type WysiwygSlotProps = {
   onCollapse: () => void;
   onEditCell: (fieldRef: string, value: string) => void;
   onSetCapacity: (capacity: number | null) => void;
-  onAddEnumOption: (fieldId: string, value: string) => void;
+  /** Threaded through to EnumPicker; may return a promise the picker awaits. */
+  onAddEnumOption: (fieldId: string, value: string) => void | Promise<void>;
   onDuplicate: () => void;
   onDelete: () => void;
   /** Optional drag-reorder bindings. When omitted, the grip is hidden. */
@@ -43,6 +45,12 @@ export function WysiwygSlot({
   onDelete,
   reorder,
 }: WysiwygSlotProps) {
+  // Whether the row is hovered or has focus within. Drives `inert` on the
+  // floating toolbar so its buttons don't pollute the tab order (and stay
+  // hidden from assistive tech) when the row is dormant. CSS already handles
+  // the visual reveal via group-hover / group-focus-within; this state mirrors
+  // those triggers for the JS-only attributes that CSS cannot set.
+  const [interactive, setInteractive] = useState(false);
   if (expanded) {
     return (
       <div
@@ -77,6 +85,14 @@ export function WysiwygSlot({
     <div
       data-testid={`wysiwyg-slot-${row.id}`}
       {...dragTargetProps}
+      onMouseEnter={() => setInteractive(true)}
+      onMouseLeave={() => setInteractive(false)}
+      onFocus={() => setInteractive(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          setInteractive(false);
+        }
+      }}
       className={
         'group relative border-t first:border-t-0 transition-colors duration-180 ' +
         (isDragging
@@ -118,8 +134,8 @@ export function WysiwygSlot({
         </span>
       </button>
       <div
-        className="absolute right-2 top-1.5 flex gap-px rounded-md border border-surface-sunk bg-white p-0.5 opacity-0 shadow-sm transition-opacity duration-180 group-hover:opacity-100 group-focus-within:opacity-100"
-        aria-hidden={false}
+        className="absolute right-2 top-1.5 flex gap-px rounded-md border border-surface-sunk bg-white p-0.5 opacity-0 shadow-sm transition-opacity duration-180 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
+        inert={!interactive}
       >
         <ToolbarButton label="Edit" onClick={onExpand}>
           <Pencil size={11} />

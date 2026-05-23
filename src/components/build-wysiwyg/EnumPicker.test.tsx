@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { EnumPicker } from './EnumPicker';
 
 function renderPicker(overrides: {
@@ -51,7 +51,7 @@ describe('EnumPicker', () => {
     expect(screen.queryByRole('listbox')).toBeNull();
   });
 
-  it('"+ Add to list" footer reveals an input that commits via Enter', () => {
+  it('"+ Add to list" footer reveals an input that commits via Enter', async () => {
     const { onChange, onAddOption } = renderPicker({ options: ['Main'] });
     fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
     fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
@@ -59,7 +59,8 @@ describe('EnumPicker', () => {
     fireEvent.change(input, { target: { value: 'Dessert' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onAddOption).toHaveBeenCalledWith('Dessert');
-    expect(onChange).toHaveBeenCalledWith('Dessert');
+    // onChange fires after awaiting onAddOption — wait one microtask turn.
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith('Dessert'));
   });
 
   it('Escape inside the add-input cancels without saving', () => {
@@ -88,7 +89,7 @@ describe('EnumPicker', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('does not double-add when Enter is followed by an unmount blur', () => {
+  it('does not double-add when Enter is followed by an unmount blur', async () => {
     const { onChange, onAddOption } = renderPicker({ options: ['Main'] });
     fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
     fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
@@ -98,7 +99,8 @@ describe('EnumPicker', () => {
     // Simulates the blur React fires when the focused input unmounts on close.
     fireEvent.blur(input);
     expect(onAddOption).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenCalledTimes(1);
+    // onChange fires after awaiting onAddOption — wait one microtask turn.
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
   });
 
   it('does not add when Escape is followed by an unmount blur', () => {
