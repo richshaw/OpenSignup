@@ -44,7 +44,7 @@ export function AiDraftBanner({
   };
 
   return (
-    <div className="mb-4 flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <Banner
         kind="aiDraft"
         title={`Here's your draft, ${fieldsCount} ${

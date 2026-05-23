@@ -22,13 +22,11 @@ export function PublishedBanner({ signupStatus }: { signupStatus: string }) {
   };
 
   return (
-    <div className="mb-4">
-      <Banner
-        kind="published"
-        title="Signup published"
-        body="Your signup is live. Share the public link to start collecting responses."
-        onDismiss={onDismiss}
-      />
-    </div>
+    <Banner
+      kind="published"
+      title="Signup published"
+      body="Your signup is live. Share the public link to start collecting responses."
+      onDismiss={onDismiss}
+    />
   );
 }
