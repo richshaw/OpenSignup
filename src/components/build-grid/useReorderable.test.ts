@@ -152,3 +152,100 @@ describe('useReorderable', () => {
     expect(result.current.overId).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cross-group transfer (PR 6 — group-aware drag for the WYSIWYG editor)
+// ---------------------------------------------------------------------------
+
+interface GroupedItem {
+  id: string;
+  group: string;
+}
+
+const groupedItems: GroupedItem[] = [
+  { id: 'a1', group: 'A' },
+  { id: 'a2', group: 'A' },
+  { id: 'b1', group: 'B' },
+  { id: 'b2', group: 'B' },
+];
+
+describe('useReorderable — cross-group transfer', () => {
+  it('fires onReorder for within-group drops (same source + target group)', () => {
+    const onReorder = vi.fn();
+    const onTransfer = vi.fn();
+    const { result } = renderHook(() =>
+      useReorderable<GroupedItem>({
+        items: groupedItems,
+        onReorder,
+        getGroupKey: (it) => it.group,
+        onTransfer,
+      }),
+    );
+
+    act(() => result.current.source('a1').onDragStart(makeDragEvent()));
+    act(() => result.current.target('a2').onDrop(makeDragEvent()));
+
+    expect(onReorder).toHaveBeenCalledWith(0, 1);
+    expect(onTransfer).not.toHaveBeenCalled();
+  });
+
+  it('fires onTransfer for cross-group drops with the target group + index', () => {
+    const onReorder = vi.fn();
+    const onTransfer = vi.fn();
+    const { result } = renderHook(() =>
+      useReorderable<GroupedItem>({
+        items: groupedItems,
+        onReorder,
+        getGroupKey: (it) => it.group,
+        onTransfer,
+      }),
+    );
+
+    // Drag from group A onto an item in group B.
+    act(() => result.current.source('a1').onDragStart(makeDragEvent()));
+    act(() => result.current.target('b1').onDrop(makeDragEvent()));
+
+    expect(onTransfer).toHaveBeenCalledWith('a1', 'B', 2);
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('treats undefined group keys as their own bucket', () => {
+    const mixed: GroupedItem[] = [
+      { id: 'x', group: '' },
+      { id: 'y', group: 'B' },
+    ];
+    const onReorder = vi.fn();
+    const onTransfer = vi.fn();
+    const { result } = renderHook(() =>
+      useReorderable<GroupedItem>({
+        items: mixed,
+        onReorder,
+        getGroupKey: (it) => (it.group === '' ? undefined : it.group),
+        onTransfer,
+      }),
+    );
+
+    act(() => result.current.source('x').onDragStart(makeDragEvent()));
+    act(() => result.current.target('y').onDrop(makeDragEvent()));
+
+    expect(onTransfer).toHaveBeenCalledWith('x', 'B', 1);
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('falls back to onReorder when getGroupKey is supplied but onTransfer is not', () => {
+    const onReorder = vi.fn();
+    const { result } = renderHook(() =>
+      useReorderable<GroupedItem>({
+        items: groupedItems,
+        onReorder,
+        getGroupKey: (it) => it.group,
+      }),
+    );
+
+    act(() => result.current.source('a1').onDragStart(makeDragEvent()));
+    act(() => result.current.target('b1').onDrop(makeDragEvent()));
+
+    // No onTransfer, so even cross-group drops collapse to onReorder.
+    expect(onReorder).toHaveBeenCalledWith(0, 2);
+  });
+});

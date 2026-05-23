@@ -27,24 +27,38 @@ export interface UseReorderableResult {
 interface UseReorderableArgs<T extends Reorderable> {
   items: readonly T[];
   onReorder: (fromIdx: number, toIdx: number) => void;
+  /**
+   * Optional group key extractor. When supplied alongside `onTransfer`, a drop
+   * onto an item in a *different* group fires `onTransfer` instead of
+   * `onReorder` — letting the caller rewrite the dragged item's group value
+   * in addition to repositioning it. Within-group drops still fire `onReorder`.
+   *
+   * Omitting both keeps the hook in single-array mode (existing behaviour).
+   */
+  getGroupKey?: (item: T) => string | undefined;
+  /**
+   * Fires when an item is dropped onto a target in a different group. The
+   * receiver is responsible for both the group rewrite (e.g. patching the
+   * row's group-field value) and the positional reorder.
+   */
+  onTransfer?: (itemId: string, toGroupKey: string | undefined, toIdx: number) => void;
 }
 
 /**
- * Tiny HTML5 drag-drop helper for column/row reorder. Mirrors the contract
- * from the Edit Sheet Option A design (`shared.jsx:238`):
- * - `source(id)` props go on the drag handle (type-icon span for columns,
- *   `#` cell for rows).
- * - `target(id)` props go on the whole item container so the drop-indicator
- *   border spans the full cell/row.
- * - `dragId` / `overId` let the consumer paint the drag/drop styling.
+ * HTML5 drag-drop helper. Item reorder within a flat list (default); when
+ * the optional `getGroupKey` + `onTransfer` pair is supplied, drops across
+ * groups route to `onTransfer` so callers can update both the row's group
+ * value and its sort position.
  *
- * `onReorder(from, to)` is called once on a successful drop where the source
- * and target differ. Same-source drop and missing IDs are no-ops. `Esc`
- * cancellation is handled by the browser (no `drop` event fires).
+ * - `source(id)` props go on the drag handle.
+ * - `target(id)` props go on the whole item container.
+ * - `dragId` / `overId` let the consumer paint drag/drop styling.
  */
 export function useReorderable<T extends Reorderable>({
   items,
   onReorder,
+  getGroupKey,
+  onTransfer,
 }: UseReorderableArgs<T>): UseReorderableResult {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -57,13 +71,10 @@ export function useReorderable<T extends Reorderable>({
         draggable: true,
         onDragStart: (e) => {
           e.dataTransfer.effectAllowed = 'move';
-          // `setData` can throw under restricted contexts (some test envs,
-          // sandboxed iframes). It's a best-effort signal — state is the
-          // source of truth, so swallow rather than abort the drag.
           try {
             e.dataTransfer.setData('text/plain', id);
           } catch {
-            // ignore
+            // ignore — restricted contexts; state is the source of truth.
           }
           setDragId(id);
         },
@@ -79,8 +90,6 @@ export function useReorderable<T extends Reorderable>({
           if (!dragId) return;
           e.preventDefault();
           if (dragId === id) {
-            // Pointer is back over the source — clear any indicator left on
-            // a previously-hovered target so it doesn't stay painted.
             if (overId !== null) setOverId(null);
             return;
           }
@@ -90,7 +99,23 @@ export function useReorderable<T extends Reorderable>({
           e.preventDefault();
           const from = items.findIndex((i) => i.id === dragId);
           const to = items.findIndex((i) => i.id === id);
-          if (from >= 0 && to >= 0 && from !== to) onReorder(from, to);
+          if (from < 0 || to < 0 || from === to) {
+            setDragId(null);
+            setOverId(null);
+            return;
+          }
+          const source = items[from];
+          const target = items[to];
+          const transferAllowed =
+            typeof getGroupKey === 'function' && typeof onTransfer === 'function';
+          const sourceGroup = transferAllowed && source ? getGroupKey(source) : undefined;
+          const targetGroup = transferAllowed && target ? getGroupKey(target) : undefined;
+          const crossGroup = transferAllowed && sourceGroup !== targetGroup;
+          if (crossGroup && onTransfer && dragId) {
+            onTransfer(dragId, targetGroup, to);
+          } else {
+            onReorder(from, to);
+          }
           setDragId(null);
           setOverId(null);
         },
