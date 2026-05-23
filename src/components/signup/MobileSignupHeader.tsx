@@ -10,7 +10,6 @@ import { MobileMoreMenuSheet } from './MobileMoreMenuSheet';
 interface MobileSignupHeaderProps {
   signupId: string;
   title: string;
-  description: string | null;
   status: SignupStatus;
   publicUrl: string;
   publishAction: () => void | Promise<void>;
@@ -20,7 +19,6 @@ interface MobileSignupHeaderProps {
 export function MobileSignupHeader({
   signupId,
   title,
-  description,
   status,
   publicUrl,
   publishAction,
@@ -47,10 +45,6 @@ export function MobileSignupHeader({
             <MoreHorizontal size={20} aria-hidden="true" />
           </button>
         </div>
-
-        {description ? (
-          <p className="text-sm leading-relaxed text-ink-muted">{description}</p>
-        ) : null}
 
         <PublicLinkChip url={publicUrl} />
       </header>

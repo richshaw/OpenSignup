@@ -9,7 +9,6 @@ import { MobileSignupHeader } from './MobileSignupHeader';
 interface SignupHeaderProps {
   signupId: string;
   title: string;
-  description: string | null;
   status: SignupStatus;
   publicUrl: string;
   publishAction: () => void | Promise<void>;
@@ -19,7 +18,6 @@ interface SignupHeaderProps {
 export function SignupHeader({
   signupId,
   title,
-  description,
   status,
   publicUrl,
   publishAction,
@@ -38,7 +36,6 @@ export function SignupHeader({
         <MobileSignupHeader
           signupId={signupId}
           title={title}
-          description={description}
           status={status}
           publicUrl={publicUrl}
           publishAction={publishAction}
@@ -52,9 +49,6 @@ export function SignupHeader({
             <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
             <StatusPill status={status} />
           </div>
-          {description ? (
-            <p className="text-ink-muted max-w-full text-sm leading-relaxed">{description}</p>
-          ) : null}
         </div>
         <div className={`grid w-full max-w-full shrink-0 ${gridColsClass} gap-x-2 gap-y-3 sm:w-auto sm:max-w-sm`}>
           <Link
