@@ -175,17 +175,3 @@ export async function deleteSignupAction(signupId: string) {
   revalidatePath('/app');
   redirect('/app');
 }
-
-export async function updateBasicsAction(signupId: string, formData: FormData) {
-  const actor = await requireActor();
-  const updated = await updateSignup(getDb(), actor, signupId, {
-    title: String(formData.get('title') ?? ''),
-    description: String(formData.get('description') ?? ''),
-  });
-  if (!updated.ok) {
-    redirect(
-      `/app/signups/${signupId}/settings?error=${encodeURIComponent(updated.error.message)}`,
-    );
-  }
-  revalidateSignup(signupId);
-}
