@@ -28,6 +28,7 @@ function makeRow(overrides: Partial<GridRow> = {}): GridRow {
 type RenderProps = {
   expanded?: boolean;
   row?: GridRow;
+  displayFields?: GridField[];
   onExpand?: ReturnType<typeof vi.fn>;
   onCollapse?: ReturnType<typeof vi.fn>;
   onEditCell?: ReturnType<typeof vi.fn>;
@@ -45,14 +46,21 @@ function renderSlot(overrides: RenderProps = {}) {
   const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn();
   const onDuplicate = overrides.onDuplicate ?? vi.fn();
   const onDelete = overrides.onDelete ?? vi.fn();
-  const timeField = makeField({ ref: 'shift', name: 'Shift' });
-  const otherField = makeField({ id: 'f2', ref: 'notes', name: 'Notes', config: { fieldType: 'text', maxLength: 200 } });
+  const defaultDisplayFields: GridField[] = [
+    makeField({ ref: 'shift', name: 'Shift' }),
+    makeField({
+      id: 'f2',
+      ref: 'notes',
+      name: 'Notes',
+      config: { fieldType: 'text', maxLength: 200 },
+    }),
+  ];
+  const displayFields = overrides.displayFields ?? defaultDisplayFields;
   const utils = render(
     <WysiwygSlot
       row={overrides.row ?? makeRow()}
-      fields={[timeField, otherField]}
-      timeField={timeField}
-      otherFields={[otherField]}
+      fields={displayFields}
+      displayFields={displayFields}
       expanded={overrides.expanded ?? false}
       onExpand={onExpand}
       onCollapse={onCollapse}
@@ -74,7 +82,7 @@ describe('WysiwygSlot — collapsed', () => {
     expect(screen.getByText('0/2')).toBeTruthy();
   });
 
-  it('falls back to "Set a time" placeholder when the time field is empty', () => {
+  it('falls back to "Set a time" placeholder when the anchor is a time field with no value', () => {
     renderSlot({ row: makeRow({ values: { shift: '', notes: '' } }) });
     expect(screen.getByText('Set a time')).toBeTruthy();
   });
@@ -108,6 +116,111 @@ describe('WysiwygSlot — collapsed', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(onDelete).toHaveBeenCalled();
     expect(onExpand).not.toHaveBeenCalled();
+  });
+
+  describe('anchor = first field by order', () => {
+    const date = makeField({
+      id: 'f-date',
+      ref: 'date',
+      name: 'Date',
+      config: { fieldType: 'date' },
+    });
+    const category = makeField({
+      id: 'f-cat',
+      ref: 'category',
+      name: 'Item Category',
+      config: { fieldType: 'enum', choices: ['Mains', 'Sides'] },
+    });
+    const time = makeField({
+      id: 'f-time',
+      ref: 'time',
+      name: 'Time',
+      config: { fieldType: 'time' },
+    });
+    const activity = makeField({
+      id: 'f-act',
+      ref: 'activity',
+      name: 'Activity',
+      config: { fieldType: 'text', maxLength: 200 },
+    });
+    const location = makeField({
+      id: 'f-loc',
+      ref: 'location',
+      name: 'Location',
+      config: { fieldType: 'text', maxLength: 200 },
+    });
+
+    it('uses the first field by order as the anchor, even when a later field is time-typed', () => {
+      // Regression: Potluck signup (Date, Item Category, Time) used to highlight
+      // Time because of the type-based promotion. Now Date — field 0 — wins.
+      renderSlot({
+        displayFields: [date, category, time],
+        row: makeRow({ values: { date: '2026-05-29', category: 'Mains', time: '17:00' } }),
+      });
+      expect(screen.getByText('2026-05-29')).toBeTruthy();
+      expect(screen.getByText('Mains \u00b7 17:00')).toBeTruthy();
+    });
+
+    it('promotes the first field value and drops it from the summary', () => {
+      renderSlot({
+        displayFields: [activity, location],
+        row: makeRow({ values: { activity: 'Surfing', location: 'Cordoba' } }),
+      });
+      expect(screen.getByText('Surfing')).toBeTruthy();
+      expect(screen.getByText('Cordoba')).toBeTruthy();
+      expect(screen.queryByText(/Surfing \u00b7 Cordoba/)).toBeNull();
+      expect(screen.queryByText('Slot')).toBeNull();
+    });
+
+    it('shows "Set ${name}" placeholder when the anchor (non-time) is empty', () => {
+      renderSlot({
+        displayFields: [activity],
+        row: makeRow({ values: { activity: '' } }),
+      });
+      expect(screen.getByText('Set Activity')).toBeTruthy();
+      expect(screen.queryByText('Slot')).toBeNull();
+    });
+
+    it('keeps the index-0 placeholder even when later fields have values (no skip-to-next-non-empty)', () => {
+      renderSlot({
+        displayFields: [activity, location],
+        row: makeRow({ values: { activity: '', location: 'Cordoba' } }),
+      });
+      expect(screen.getByText('Set Activity')).toBeTruthy();
+      expect(screen.getByText('Cordoba')).toBeTruthy();
+    });
+
+    it('falls back to literal "Slot" when there are no fields at all', () => {
+      renderSlot({
+        displayFields: [],
+        row: makeRow({ values: {} }),
+      });
+      expect(screen.getByText('Slot')).toBeTruthy();
+    });
+
+    it('aria-label reflects the promoted non-time value with em-dash separator', () => {
+      renderSlot({
+        displayFields: [activity],
+        row: makeRow({ values: { activity: 'Surfing' } }),
+      });
+      expect(screen.getByRole('button', { name: 'Edit slot \u2014 Surfing' })).toBeTruthy();
+    });
+
+    it('aria-label includes the placeholder when the anchor is empty (a11y parity with visible label)', () => {
+      renderSlot({
+        displayFields: [activity],
+        row: makeRow({ values: { activity: '' } }),
+      });
+      expect(screen.getByRole('button', { name: 'Edit slot \u2014 Set Activity' })).toBeTruthy();
+    });
+
+    it('aria-label uses "Set a time" placeholder when the anchor is an empty time field', () => {
+      renderSlot({
+        displayFields: [time],
+        row: makeRow({ values: { time: '' } }),
+      });
+      expect(screen.getByRole('button', { name: 'Edit slot \u2014 Set a time' })).toBeTruthy();
+    });
   });
 });
 

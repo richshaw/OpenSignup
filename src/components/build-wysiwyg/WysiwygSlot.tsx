@@ -9,8 +9,12 @@ import type { GridField, GridRow } from '../build-grid/useGridState';
 type WysiwygSlotProps = {
   row: GridRow;
   fields: GridField[];
-  timeField: GridField | null;
-  otherFields: GridField[];
+  /**
+   * All non-group fields in organizer-chosen order. `displayFields[0]` becomes
+   * the collapsed row's primary anchor (large, bold). The rest form the summary
+   * shown next to it.
+   */
+  displayFields: GridField[];
   expanded: boolean;
   onExpand: () => void;
   onCollapse: () => void;
@@ -33,8 +37,7 @@ type WysiwygSlotProps = {
 export function WysiwygSlot({
   row,
   fields,
-  timeField,
-  otherFields,
+  displayFields,
   expanded,
   onExpand,
   onCollapse,
@@ -71,11 +74,34 @@ export function WysiwygSlot({
     );
   }
 
-  const timeValue = timeField ? row.values[timeField.ref] : '';
-  const summary = otherFields
+  // Anchor = first field in the organizer's chosen order. No type-based
+  // promotion: a time field later in the list must not win over field 0.
+  const anchorField = displayFields[0] ?? null;
+  const anchorValue = anchorField ? row.values[anchorField.ref] : '';
+  const summary = displayFields
+    .slice(1)
     .map((f) => row.values[f.ref])
     .filter((v) => v && v.length > 0)
     .join(' \u00b7 ');
+
+  // Time anchors keep the long-standing "Set a time" / "at HH:MM" copy;
+  // everything else uses the generic name-based pattern.
+  const isTimeAnchor = anchorField?.config.fieldType === 'time';
+  const placeholder = anchorField
+    ? isTimeAnchor
+      ? 'Set a time'
+      : `Set ${anchorField.name}`
+    : null;
+
+  // aria-label must mirror the visible primary label — including the empty-state
+  // placeholder — so multiple empty rows aren't exposed as identical "Edit slot"
+  // to assistive tech. (aria-label overrides the button's text content.)
+  let ariaLabel = 'Edit slot';
+  if (anchorValue) {
+    ariaLabel = isTimeAnchor ? `Edit slot at ${anchorValue}` : `Edit slot \u2014 ${anchorValue}`;
+  } else if (placeholder) {
+    ariaLabel = `Edit slot \u2014 ${placeholder}`;
+  }
 
   const isDragging = reorder?.dragId === row.id;
   const isDropTarget = reorder?.overId === row.id && reorder?.dragId && reorder?.dragId !== row.id;
@@ -114,14 +140,18 @@ export function WysiwygSlot({
       <button
         type="button"
         onClick={onExpand}
-        aria-label={`Edit slot${timeValue ? ` at ${timeValue}` : ''}`}
+        aria-label={ariaLabel}
         className="flex w-full items-center justify-between gap-2.5 border-none bg-transparent px-3.5 py-2.5 text-left"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          {timeValue ? (
-            <span className="text-sm font-semibold text-ink">{timeValue}</span>
-          ) : timeField ? (
-            <span className="text-sm italic font-normal text-ink-soft">Set a time</span>
+          {anchorValue ? (
+            <span className="min-w-0 truncate text-sm font-semibold text-ink">
+              {anchorValue}
+            </span>
+          ) : placeholder ? (
+            <span className="text-sm italic font-normal text-ink-soft">
+              {placeholder}
+            </span>
           ) : (
             <span className="text-sm font-semibold text-ink">Slot</span>
           )}

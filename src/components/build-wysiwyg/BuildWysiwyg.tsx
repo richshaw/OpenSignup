@@ -114,10 +114,9 @@ export function BuildWysiwyg({
   const groupField = state.groupByFieldRef
     ? state.fields.find((f) => f.ref === state.groupByFieldRef) ?? null
     : null;
-  const timeField = state.fields.find((f) => f.config.fieldType === 'time') ?? null;
-  const otherFields = state.fields.filter(
-    (f) => f.ref !== groupField?.ref && f.ref !== timeField?.ref,
-  );
+  // Non-group fields in organizer order. WysiwygSlot treats index 0 as the
+  // collapsed row's anchor — order matters, no type-based promotion here.
+  const displayFields = state.fields.filter((f) => f.ref !== groupField?.ref);
 
   const groups = useMemo(() => partitionRows(state.rows, groupField), [state.rows, groupField]);
 
@@ -208,8 +207,7 @@ export function BuildWysiwyg({
                 key={g.key}
                 group={g}
                 groupField={groupField}
-                timeField={timeField}
-                otherFields={otherFields}
+                displayFields={displayFields}
                 fields={state.fields}
                 expandedRowId={expandedRowId}
                 onExpandRow={setExpandedRowId}

@@ -18,8 +18,11 @@ export type SlotGroup = {
 type WysiwygGroupProps = {
   group: SlotGroup;
   groupField: GridField | null;
-  timeField: GridField | null;
-  otherFields: GridField[];
+  /**
+   * All non-group fields in organizer-chosen order. The first becomes the
+   * collapsed row's primary anchor; the rest form the summary.
+   */
+  displayFields: GridField[];
   fields: GridField[];
   expandedRowId: string | null;
   onExpandRow: (rowId: string | null) => void;
@@ -38,8 +41,7 @@ type WysiwygGroupProps = {
 export function WysiwygGroup({
   group,
   groupField,
-  timeField,
-  otherFields,
+  displayFields,
   fields,
   expandedRowId,
   onExpandRow,
@@ -75,8 +77,7 @@ export function WysiwygGroup({
             key={row.id}
             row={row}
             fields={fields}
-            timeField={timeField}
-            otherFields={otherFields}
+            displayFields={displayFields}
             expanded={expandedRowId === row.id}
             onExpand={() => onExpandRow(row.id)}
             onCollapse={() => onExpandRow(null)}
