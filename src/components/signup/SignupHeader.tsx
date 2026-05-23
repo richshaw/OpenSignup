@@ -28,7 +28,6 @@ export function SignupHeader({
   const hasActionButton = status === 'draft' || status === 'open';
   const buttonCount = hasActionButton ? 3 : 2;
   const gridColsClass = buttonCount === 3 ? 'grid-cols-3' : 'grid-cols-2';
-  const colSpanClass = buttonCount === 3 ? 'col-span-3' : 'col-span-2';
 
   return (
     <>
@@ -49,6 +48,7 @@ export function SignupHeader({
             <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
             <StatusPill status={status} />
           </div>
+          <PublicLinkChip url={publicUrl} className="inline-flex max-w-md" />
         </div>
         <div className={`grid w-full max-w-full shrink-0 ${gridColsClass} gap-x-2 gap-y-3 sm:w-auto sm:max-w-sm`}>
           <Link
@@ -87,9 +87,6 @@ export function SignupHeader({
               </AsyncSubmitButton>
             </form>
           ) : null}
-          <div className={`${colSpanClass} min-w-0`}>
-            <PublicLinkChip url={publicUrl} className="flex w-full" />
-          </div>
         </div>
       </div>
       </header>
