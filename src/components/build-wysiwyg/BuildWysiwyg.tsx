@@ -110,7 +110,6 @@ export function BuildWysiwyg({
 
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
-  const publicHref = `/s/${signupMeta.slug}`;
 
   const groupField = state.groupByFieldRef
     ? state.fields.find((f) => f.ref === state.groupByFieldRef) ?? null
@@ -185,7 +184,6 @@ export function BuildWysiwyg({
           fieldCount={state.fields.length}
           fieldsOpen={fieldsOpen}
           onOpenFields={() => setFieldsOpen((o) => !o)}
-          publicHref={publicHref}
           saveStatus={state.saveStatus}
         />
 

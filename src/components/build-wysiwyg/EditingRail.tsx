@@ -1,6 +1,6 @@
 'use client';
 
-import { ExternalLink, Pencil, Settings } from 'lucide-react';
+import { Pencil, Settings } from 'lucide-react';
 import { SaveStatus } from '../build-grid/SaveStatus';
 import type { SaveStatus as SaveStatusType } from '../build-grid/useGridState';
 
@@ -8,7 +8,6 @@ type EditingRailProps = {
   fieldCount: number;
   fieldsOpen: boolean;
   onOpenFields: () => void;
-  publicHref: string;
   saveStatus: SaveStatusType;
 };
 
@@ -16,7 +15,6 @@ export function EditingRail({
   fieldCount,
   fieldsOpen,
   onOpenFields,
-  publicHref,
   saveStatus,
 }: EditingRailProps) {
   return (
@@ -44,15 +42,6 @@ export function EditingRail({
           <Settings size={12} />
           <span>Fields ({fieldCount})</span>
         </button>
-        <a
-          href={publicHref}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-surface-sunk bg-white px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface-raised transition-colors duration-180"
-        >
-          <ExternalLink size={12} />
-          Preview
-        </a>
       </div>
     </div>
   );
