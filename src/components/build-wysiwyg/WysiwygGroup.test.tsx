@@ -28,8 +28,7 @@ function makeField(overrides: Partial<GridField> = {}): GridField {
 function renderGroup(overrides: {
   group?: Partial<SlotGroup>;
   groupField?: GridField | null;
-  timeField?: GridField | null;
-  otherFields?: GridField[];
+  displayFields?: GridField[];
   fields?: GridField[];
   expandedRowId?: string | null;
   onExpandRow?: ReturnType<typeof vi.fn>;
@@ -61,8 +60,7 @@ function renderGroup(overrides: {
     <WysiwygGroup
       group={group}
       groupField={groupField}
-      timeField={overrides.timeField ?? null}
-      otherFields={overrides.otherFields ?? []}
+      displayFields={overrides.displayFields ?? []}
       fields={overrides.fields ?? (groupField ? [groupField] : [])}
       expandedRowId={overrides.expandedRowId ?? null}
       onExpandRow={onExpandRow}

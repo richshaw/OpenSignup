@@ -9,8 +9,12 @@ import type { GridField, GridRow } from '../build-grid/useGridState';
 type WysiwygSlotProps = {
   row: GridRow;
   fields: GridField[];
-  timeField: GridField | null;
-  otherFields: GridField[];
+  /**
+   * All non-group fields in organizer-chosen order. `displayFields[0]` becomes
+   * the collapsed row's primary anchor (large, bold). The rest form the summary
+   * shown next to it.
+   */
+  displayFields: GridField[];
   expanded: boolean;
   onExpand: () => void;
   onCollapse: () => void;
@@ -33,8 +37,7 @@ type WysiwygSlotProps = {
 export function WysiwygSlot({
   row,
   fields,
-  timeField,
-  otherFields,
+  displayFields,
   expanded,
   onExpand,
   onCollapse,
@@ -71,21 +74,26 @@ export function WysiwygSlot({
     );
   }
 
-  const timeValue = timeField ? row.values[timeField.ref] : '';
-  // When the signup has no time field, the first non-time/non-group field acts
-  // as the row's primary anchor (mirroring the role the time value plays). The
-  // promoted field is dropped from the summary so its value isn't shown twice.
-  const firstOtherField = !timeField ? (otherFields[0] ?? null) : null;
-  const firstOtherValue = firstOtherField ? row.values[firstOtherField.ref] : '';
-  const summaryFields = firstOtherField ? otherFields.slice(1) : otherFields;
-  const summary = summaryFields
+  // Anchor = first field in the organizer's chosen order (no type-based promotion).
+  // The remaining fields form the summary so the anchor's value isn't shown twice.
+  const anchorField = displayFields[0] ?? null;
+  const anchorValue = anchorField ? row.values[anchorField.ref] : '';
+  const summary = displayFields
+    .slice(1)
     .map((f) => row.values[f.ref])
     .filter((v) => v && v.length > 0)
     .join(' \u00b7 ');
 
-  let ariaLabel = 'Edit slot';
-  if (timeValue) ariaLabel = `Edit slot at ${timeValue}`;
-  else if (firstOtherValue) ariaLabel = `Edit slot \u2014 ${firstOtherValue}`;
+  // "Set a time" is the long-standing copy for empty time fields; keep it.
+  // Other field types use the generic "Set ${name}" pattern.
+  const anchorPlaceholder =
+    anchorField?.config.fieldType === 'time' ? 'Set a time' : `Set ${anchorField?.name ?? ''}`;
+
+  const ariaLabel = anchorValue
+    ? anchorField?.config.fieldType === 'time'
+      ? `Edit slot at ${anchorValue}`
+      : `Edit slot \u2014 ${anchorValue}`
+    : 'Edit slot';
 
   const isDragging = reorder?.dragId === row.id;
   const isDropTarget = reorder?.overId === row.id && reorder?.dragId && reorder?.dragId !== row.id;
@@ -128,17 +136,13 @@ export function WysiwygSlot({
         className="flex w-full items-center justify-between gap-2.5 border-none bg-transparent px-3.5 py-2.5 text-left"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          {timeValue ? (
-            <span className="text-sm font-semibold text-ink">{timeValue}</span>
-          ) : timeField ? (
-            <span className="text-sm italic font-normal text-ink-soft">Set a time</span>
-          ) : firstOtherValue ? (
+          {anchorValue ? (
             <span className="min-w-0 truncate text-sm font-semibold text-ink">
-              {firstOtherValue}
+              {anchorValue}
             </span>
-          ) : firstOtherField ? (
+          ) : anchorField ? (
             <span className="text-sm italic font-normal text-ink-soft">
-              Set {firstOtherField.name}
+              {anchorPlaceholder}
             </span>
           ) : (
             <span className="text-sm font-semibold text-ink">Slot</span>

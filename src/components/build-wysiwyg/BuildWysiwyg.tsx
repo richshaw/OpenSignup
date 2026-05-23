@@ -114,10 +114,10 @@ export function BuildWysiwyg({
   const groupField = state.groupByFieldRef
     ? state.fields.find((f) => f.ref === state.groupByFieldRef) ?? null
     : null;
-  const timeField = state.fields.find((f) => f.config.fieldType === 'time') ?? null;
-  const otherFields = state.fields.filter(
-    (f) => f.ref !== groupField?.ref && f.ref !== timeField?.ref,
-  );
+  // Fields shown on the collapsed slot row, in the organizer's chosen order.
+  // The first entry becomes the row's primary anchor; the rest form the summary.
+  // No type-based preference — order is what the organizer set in the Fields panel.
+  const displayFields = state.fields.filter((f) => f.ref !== groupField?.ref);
 
   const groups = useMemo(() => partitionRows(state.rows, groupField), [state.rows, groupField]);
 
@@ -208,8 +208,7 @@ export function BuildWysiwyg({
                 key={g.key}
                 group={g}
                 groupField={groupField}
-                timeField={timeField}
-                otherFields={otherFields}
+                displayFields={displayFields}
                 fields={state.fields}
                 expandedRowId={expandedRowId}
                 onExpandRow={setExpandedRowId}
