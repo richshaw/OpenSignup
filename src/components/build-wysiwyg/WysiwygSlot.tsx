@@ -87,10 +87,20 @@ export function WysiwygSlot({
   // Time anchors keep the long-standing "Set a time" / "at HH:MM" copy;
   // everything else uses the generic name-based pattern.
   const isTimeAnchor = anchorField?.config.fieldType === 'time';
+  const placeholder = anchorField
+    ? isTimeAnchor
+      ? 'Set a time'
+      : `Set ${anchorField.name}`
+    : null;
 
+  // aria-label must mirror the visible primary label — including the empty-state
+  // placeholder — so multiple empty rows aren't exposed as identical "Edit slot"
+  // to assistive tech. (aria-label overrides the button's text content.)
   let ariaLabel = 'Edit slot';
   if (anchorValue) {
     ariaLabel = isTimeAnchor ? `Edit slot at ${anchorValue}` : `Edit slot \u2014 ${anchorValue}`;
+  } else if (placeholder) {
+    ariaLabel = `Edit slot \u2014 ${placeholder}`;
   }
 
   const isDragging = reorder?.dragId === row.id;
@@ -138,9 +148,9 @@ export function WysiwygSlot({
             <span className="min-w-0 truncate text-sm font-semibold text-ink">
               {anchorValue}
             </span>
-          ) : anchorField ? (
+          ) : placeholder ? (
             <span className="text-sm italic font-normal text-ink-soft">
-              {isTimeAnchor ? 'Set a time' : `Set ${anchorField.name}`}
+              {placeholder}
             </span>
           ) : (
             <span className="text-sm font-semibold text-ink">Slot</span>

@@ -205,6 +205,22 @@ describe('WysiwygSlot — collapsed', () => {
       });
       expect(screen.getByRole('button', { name: 'Edit slot \u2014 Surfing' })).toBeTruthy();
     });
+
+    it('aria-label includes the placeholder when the anchor is empty (a11y parity with visible label)', () => {
+      renderSlot({
+        displayFields: [activity],
+        row: makeRow({ values: { activity: '' } }),
+      });
+      expect(screen.getByRole('button', { name: 'Edit slot \u2014 Set Activity' })).toBeTruthy();
+    });
+
+    it('aria-label uses "Set a time" placeholder when the anchor is an empty time field', () => {
+      renderSlot({
+        displayFields: [time],
+        row: makeRow({ values: { time: '' } }),
+      });
+      expect(screen.getByRole('button', { name: 'Edit slot \u2014 Set a time' })).toBeTruthy();
+    });
   });
 });
 
