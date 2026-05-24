@@ -36,6 +36,16 @@ Docker image is published to GHCR on release. See `docker-compose.yml` for the c
 
 Email transport is pluggable (`console` for dev, `smtp` for generic self-host, `resend` for hosted). No other external accounts required.
 
+### Branding your instance
+
+The footer, privacy policy, terms, and cookies pages are instance-agnostic — they read the instance name, support email, source-code URL, operator name, and governing-law clause from `NEXT_PUBLIC_*` env vars at build time. Defaults point at the canonical opensignup.org deployment; override these in your `.env` so legal pages reflect your instance:
+
+- `NEXT_PUBLIC_INSTANCE_NAME` — display name (default `OpenSignup`)
+- `NEXT_PUBLIC_SUPPORT_EMAIL` — contact email (default `hello@opensignup.org`)
+- `NEXT_PUBLIC_SOURCE_URL` — required by AGPL-3.0 §13 if you've modified the code; point at your fork
+- `NEXT_PUBLIC_OPERATOR_NAME` — your name or organisation; appears as the data controller
+- `NEXT_PUBLIC_GOVERNING_LAW` — jurisdiction clause for the terms of service
+
 ## Status
 
 v1 — deliberately narrow. See [`docs/plans/2026-04-19-signup-v1.md`](docs/plans/2026-04-19-signup-v1.md) for the full build plan.
