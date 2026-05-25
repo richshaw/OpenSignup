@@ -23,15 +23,18 @@ describe('parseSiteConfig', () => {
     'NEXT_PUBLIC_SUPPORT_EMAIL',
     'NEXT_PUBLIC_SOURCE_URL',
     'NEXT_PUBLIC_GOVERNING_LAW',
-  ] as const)('requires %s', (key) => {
+  ] as const)('reports missing %s with a consistent "is required" message', (key) => {
     const { [key]: _omit, ...rest } = base;
-    expect(() => parseSiteConfig(rest)).toThrow(new RegExp(key));
+    expect(() => parseSiteConfig(rest)).toThrow(new RegExp(`${key} is required`));
   });
 
-  it('rejects an empty required value', () => {
-    expect(() =>
-      parseSiteConfig({ ...base, NEXT_PUBLIC_INSTANCE_NAME: '' }),
-    ).toThrow(/NEXT_PUBLIC_INSTANCE_NAME/);
+  it.each([
+    'NEXT_PUBLIC_INSTANCE_NAME',
+    'NEXT_PUBLIC_GOVERNING_LAW',
+  ] as const)('reports empty %s with the same "is required" message', (key) => {
+    expect(() => parseSiteConfig({ ...base, [key]: '' })).toThrow(
+      new RegExp(`${key} is required`),
+    );
   });
 
   it('rejects a malformed email', () => {

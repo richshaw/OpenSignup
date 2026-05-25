@@ -13,14 +13,31 @@
  */
 import { z } from 'zod';
 
+// `required_error` / `invalid_type_error` fire when the env var is missing
+// (undefined); `.min(1)` / `.email()` / `.url()` only run once the value is
+// already a string. Setting both keeps the surface message consistent whether
+// the var is unset or set to an empty string.
+const requiredString = (name: string) =>
+  z.string({
+    required_error: `${name} is required`,
+    invalid_type_error: `${name} is required`,
+  });
+
 const schema = z.object({
-  NEXT_PUBLIC_INSTANCE_NAME: z.string().min(1, 'NEXT_PUBLIC_INSTANCE_NAME is required'),
-  NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email('NEXT_PUBLIC_SUPPORT_EMAIL must be a valid email'),
-  NEXT_PUBLIC_SOURCE_URL: z
-    .string()
+  NEXT_PUBLIC_INSTANCE_NAME: requiredString('NEXT_PUBLIC_INSTANCE_NAME').min(
+    1,
+    'NEXT_PUBLIC_INSTANCE_NAME is required',
+  ),
+  NEXT_PUBLIC_SUPPORT_EMAIL: requiredString('NEXT_PUBLIC_SUPPORT_EMAIL').email(
+    'NEXT_PUBLIC_SUPPORT_EMAIL must be a valid email',
+  ),
+  NEXT_PUBLIC_SOURCE_URL: requiredString('NEXT_PUBLIC_SOURCE_URL')
     .url('NEXT_PUBLIC_SOURCE_URL must be a valid URL')
     .refine((u) => u.startsWith('https://'), 'NEXT_PUBLIC_SOURCE_URL must use https'),
-  NEXT_PUBLIC_GOVERNING_LAW: z.string().min(1, 'NEXT_PUBLIC_GOVERNING_LAW is required'),
+  NEXT_PUBLIC_GOVERNING_LAW: requiredString('NEXT_PUBLIC_GOVERNING_LAW').min(
+    1,
+    'NEXT_PUBLIC_GOVERNING_LAW is required',
+  ),
   // Optional — when unset or blank, legal copy uses the generic "the operator
   // of this instance" fallback rather than fabricating a name. An empty
   // `NEXT_PUBLIC_OPERATOR_NAME=` line (common when copy-pasting `.env.example`)
