@@ -1,10 +1,16 @@
+import { headers } from 'next/headers';
 import Link from 'next/link';
+import { after } from 'next/server';
 import { SiteFooter } from '@/components/site-footer';
 import { INSTANCE_NAME } from '@/lib/site-config';
+import { readRequestSignals, recordLandingView } from '@/lib/view-tracker';
 import { HomeExampleCard } from './_components/HomeExampleCard';
 
-export default function LandingPage() {
+export default async function LandingPage() {
   const demoUrl = process.env.NEXT_PUBLIC_DEMO_URL;
+
+  const signals = readRequestSignals(await headers());
+  after(() => recordLandingView({ signals }));
 
   return (
     <div className="bg-surface text-ink flex min-h-[100svh] flex-col">
