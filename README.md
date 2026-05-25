@@ -42,7 +42,7 @@ The footer, privacy policy, terms, and cookies pages are instance-agnostic — t
 
 - `NEXT_PUBLIC_INSTANCE_NAME` — display name (required)
 - `NEXT_PUBLIC_SUPPORT_EMAIL` — contact email (required)
-- `NEXT_PUBLIC_SOURCE_URL` — source-code URL surfaced to comply with AGPL-3.0 §13; point at your fork if you've modified the code, otherwise leave it pointed at upstream
+- `NEXT_PUBLIC_SOURCE_URL` — source-code URL surfaced to comply with AGPL-3.0 §13 (required, must be https); point at your fork if you've modified the code, otherwise leave it pointed at upstream
 - `NEXT_PUBLIC_GOVERNING_LAW` — jurisdiction clause for the terms of service (required)
 - `NEXT_PUBLIC_OPERATOR_NAME` — your name or organisation; appears as the data controller (optional; falls back to "the operator of this instance")
 

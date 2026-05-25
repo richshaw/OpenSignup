@@ -98,11 +98,13 @@ export default function PrivacyPage() {
         </p>
         <p>
           For each view of a public signup page, the server writes a single
-          activity entry containing only a user-agent class (browser, bot, or
-          unknown) and the host of the referring page — not the full referer URL
-          and not your IP address. Bot traffic and requests carrying a Do Not
-          Track or Global Privacy Control signal are skipped. The same applies
-          when you follow an &ldquo;edit your commitment&rdquo; link.
+          activity entry containing a user-agent class (browser, bot, or
+          unknown), the host of the referring page (not the full referer URL),
+          the signup&apos;s status, and whether the viewer is a returning
+          participant on that signup. We do not record your IP address on this
+          entry. Bot traffic and requests carrying a Do Not Track or Global
+          Privacy Control signal are skipped. The same applies when you follow
+          an &ldquo;edit your commitment&rdquo; link.
         </p>
       </section>
 
