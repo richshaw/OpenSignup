@@ -38,13 +38,20 @@ Email transport is pluggable (`console` for dev, `smtp` for generic self-host, `
 
 ### Branding your instance
 
-The footer, privacy policy, terms, and cookies pages are instance-agnostic — they read the instance name, support email, source-code URL, operator name, and governing-law clause from `NEXT_PUBLIC_*` env vars at build time. Set these in your `.env` before deploying so legal pages reflect your instance. **Required** values fail the build loudly if missing — there are no silent defaults, since shipping the upstream project's contact email or jurisdiction on your instance is worse than a build failure:
+The footer, privacy policy, terms, and cookies pages are instance-agnostic — they read these `NEXT_PUBLIC_*` values and inline them into the client bundle. **Required** values fail the build loudly if missing; there are no silent defaults, since shipping the upstream project's contact email or jurisdiction on your instance is worse than a build failure.
 
 - `NEXT_PUBLIC_INSTANCE_NAME` — display name (required)
 - `NEXT_PUBLIC_SUPPORT_EMAIL` — contact email (required)
 - `NEXT_PUBLIC_SOURCE_URL` — source-code URL surfaced to comply with AGPL-3.0 §13 (required, must be https); point at your fork if you've modified the code, otherwise leave it pointed at upstream
 - `NEXT_PUBLIC_GOVERNING_LAW` — jurisdiction clause for the terms of service (required)
 - `NEXT_PUBLIC_OPERATOR_NAME` — your name or organisation; appears as the data controller (optional; falls back to "the operator of this instance")
+
+**These values must be present at build time**, not just runtime — Next.js inlines them into the prerendered legal pages, so a runtime `.env` file or `docker run -e` is too late. How you pass them depends on how you deploy:
+
+- **Docker Compose** (`docker-compose.prod.yml`) — set them in the same `.env` file at the project root that Compose already reads for variable substitution. Compose passes them through as `build.args` and fails fast if any required value is missing.
+- **`docker build`** — pass each as `--build-arg NEXT_PUBLIC_INSTANCE_NAME=…`.
+- **Fly.io** — set under `[build.args]` in `fly.toml` (the included file is the upstream's deployment; replace with your own values). `fly secrets` are runtime-only and won't work here.
+- **Local dev** (`pnpm dev`) — set them in `.env.local`; Next.js reads it on each build/restart.
 
 ## Status
 

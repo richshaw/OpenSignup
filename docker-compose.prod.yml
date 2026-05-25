@@ -1,3 +1,18 @@
+# NEXT_PUBLIC_* values are inlined by Next.js at build time, so they must be
+# passed as Docker build args (env_file only sets runtime container env, which
+# is too late). Compose substitutes ${VAR} from the project `.env` file or the
+# shell. The `:?` annotation makes Compose fail with a clear message instead
+# of letting the inner `pnpm build` surface the Zod error.
+x-instance-build: &instance-build
+  build:
+    context: .
+    args:
+      NEXT_PUBLIC_INSTANCE_NAME: ${NEXT_PUBLIC_INSTANCE_NAME:?NEXT_PUBLIC_INSTANCE_NAME required for build}
+      NEXT_PUBLIC_SUPPORT_EMAIL: ${NEXT_PUBLIC_SUPPORT_EMAIL:?NEXT_PUBLIC_SUPPORT_EMAIL required for build}
+      NEXT_PUBLIC_SOURCE_URL: ${NEXT_PUBLIC_SOURCE_URL:?NEXT_PUBLIC_SOURCE_URL required for build}
+      NEXT_PUBLIC_GOVERNING_LAW: ${NEXT_PUBLIC_GOVERNING_LAW:?NEXT_PUBLIC_GOVERNING_LAW required for build}
+      NEXT_PUBLIC_OPERATOR_NAME: ${NEXT_PUBLIC_OPERATOR_NAME:-}
+
 services:
   db:
     image: postgres:16-alpine
@@ -15,7 +30,7 @@ services:
       retries: 20
 
   migrate:
-    build: .
+    <<: *instance-build
     depends_on:
       db:
         condition: service_healthy
@@ -24,7 +39,7 @@ services:
     restart: 'no'
 
   web:
-    build: .
+    <<: *instance-build
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -39,7 +54,7 @@ services:
       retries: 5
 
   worker:
-    build: .
+    <<: *instance-build
     depends_on:
       migrate:
         condition: service_completed_successfully
