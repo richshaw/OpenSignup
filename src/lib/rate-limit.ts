@@ -43,8 +43,11 @@ export async function consumeRateLimit(
   }
 
   if (bumped.count > policy.max) {
-    const retryAfter = Math.ceil(
-      (windowStart.getTime() + policy.windowSeconds * 1000 - now.getTime()) / 1000,
+    const retryAfter = Math.max(
+      1,
+      Math.ceil(
+        (windowStart.getTime() + policy.windowSeconds * 1000 - now.getTime()) / 1000,
+      ),
     );
     throw new ServiceException(
       serviceError('rate_limited', 'too many requests', {
