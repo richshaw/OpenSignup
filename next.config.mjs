@@ -6,8 +6,10 @@ const nextConfig = {
   // is only set when the process is started via pnpm/npm scripts, so reading
   // it at runtime from `node server.js` (as the Docker image does) returns
   // undefined. Wiring it through `env` resolves it at build time instead.
+  // Fall back to '0.0.0' so a bare `next build` invocation doesn't inline the
+  // literal string 'undefined' (which Next.js does for undefined env values).
   env: {
-    NEXT_PUBLIC_APP_VERSION: process.env.npm_package_version,
+    NEXT_PUBLIC_APP_VERSION: process.env.npm_package_version ?? '0.0.0',
   },
   experimental: {
     typedRoutes: false,

@@ -8,6 +8,7 @@ import {
   COMMIT_COOKIE_NAME,
   parseReturningCommits,
 } from '@/lib/returning-participant';
+import { INSTANCE_NAME } from '@/lib/site-config';
 import { readRequestSignals, recordPublicView } from '@/lib/view-tracker';
 import type { SignupStatus } from '@/schemas/signups';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
@@ -30,7 +31,7 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   const result = await loadPublicSignup(slug);
   if (!result.ok) return { title: 'Sign up' };
   const sig = result.value;
-  const description = trimToBoundary(sig.description, 200) ?? 'Sign up via OpenSignup';
+  const description = trimToBoundary(sig.description, 200) ?? `Sign up via ${INSTANCE_NAME}`;
   return {
     title: sig.title,
     description,
@@ -111,7 +112,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
   return (
     <main className="flex min-h-[100svh] flex-col pb-24 pt-10 sm:pt-14">
       <div className="container-tight mb-7 flex items-center gap-2 text-[13px] font-medium text-ink-soft">
-        <span className="font-semibold tracking-tight text-ink">OpenSignup</span>
+        <span className="font-semibold tracking-tight text-ink">{INSTANCE_NAME}</span>
         <span aria-hidden="true">·</span>
         <span>Public signup</span>
       </div>

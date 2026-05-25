@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   INSTANCE_NAME,
+  SOURCE_DISPLAY,
   SOURCE_URL,
   SUPPORT_EMAIL,
+  SUPPORT_MAILTO,
   operatorLabel,
 } from '@/lib/site-config';
 
@@ -27,7 +29,7 @@ export default function PrivacyPage() {
           is written in plain English and reflects what the code actually does — the
           source is open and you can verify any claim here against the schema at{' '}
           <a href={SOURCE_URL} className="text-brand underline">
-            {SOURCE_URL.replace(/^https?:\/\//, '')}
+            {SOURCE_DISPLAY}
           </a>
           .
         </p>
@@ -49,9 +51,13 @@ export default function PrivacyPage() {
           <li>Optional display name and organization name.</li>
           <li>The signups, slots, and settings you create.</li>
           <li>
-            An append-only activity log of mutations you make (creating, editing,
-            closing signups). This exists so an organizer can audit what happened in
-            their own workspace.
+            An append-only activity log of organizer actions (sign-ins, creating
+            and editing signups, sending magic links), participant commitments on
+            your signups, and reminder dispatches. This exists so an organizer
+            can audit what happened in their own workspace and so the operator
+            can investigate abuse. The same log records anonymous view telemetry
+            on your public signup pages (see &ldquo;Logs and rate-limiting&rdquo;
+            below).
           </li>
         </ul>
         <p>No password is ever stored — authentication is magic-link only.</p>
@@ -65,8 +71,11 @@ export default function PrivacyPage() {
         </p>
         <ul className="list-disc space-y-1 pl-6">
           <li>Display name.</li>
-          <li>Email address — only if the organizer has asked for one on that signup.</li>
-          <li>Your slot selection, quantity, optional notes, and any custom-field values the organizer added.</li>
+          <li>
+            Email address. This is required so we can send you a confirmation,
+            optional reminders, and a link to edit or cancel your commitment.
+          </li>
+          <li>Your slot selection, quantity, and any optional notes.</li>
         </ul>
         <p>
           A short-lived browser cookie lets you return and edit or cancel your own
@@ -81,11 +90,19 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Logs and rate-limiting</h2>
         <p>
-          To prevent abuse and debug problems, the server records request IP addresses
-          in short-lived rate-limit and idempotency tables. These rows are scoped to
-          individual API calls and are not joined to your account or commitment for
-          analytics. Server-side application logs are standard request/error logs and
-          do not include cookies, tokens, or magic-link URLs.
+          To prevent abuse, the server records request IP addresses in short-lived
+          rate-limit records (e.g. to throttle magic-link sends). These rows are
+          scoped to individual buckets and are not joined to your account or
+          commitment for analytics. Server-side application logs are standard
+          request/error logs and do not include cookies, tokens, or magic-link URLs.
+        </p>
+        <p>
+          For each view of a public signup page, the server writes a single
+          activity entry containing only a user-agent class (browser, bot, or
+          unknown) and the host of the referring page — not the full referer URL
+          and not your IP address. Bot traffic and requests carrying a Do Not
+          Track or Global Privacy Control signal are skipped. The same applies
+          when you follow an &ldquo;edit your commitment&rdquo; link.
         </p>
       </section>
 
@@ -117,7 +134,7 @@ export default function PrivacyPage() {
         <p>
           You can request a copy of the data we hold about you, or ask us to delete it,
           by emailing{' '}
-          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-brand underline">
+          <a href={SUPPORT_MAILTO} className="text-brand underline">
             {SUPPORT_EMAIL}
           </a>
           . Today this is a manual process — self-service export and deletion endpoints
@@ -140,7 +157,7 @@ export default function PrivacyPage() {
         <h2 className="text-xl font-semibold tracking-tight">Contact</h2>
         <p>
           Questions about this policy or about data we hold:{' '}
-          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-brand underline">
+          <a href={SUPPORT_MAILTO} className="text-brand underline">
             {SUPPORT_EMAIL}
           </a>
           .

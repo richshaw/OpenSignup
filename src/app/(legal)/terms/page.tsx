@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import {
   GOVERNING_LAW,
   INSTANCE_NAME,
+  SOURCE_DISPLAY,
   SOURCE_URL,
   SUPPORT_EMAIL,
+  SUPPORT_MAILTO,
   operatorLabel,
 } from '@/lib/site-config';
 
@@ -26,7 +28,7 @@ export default function TermsPage() {
           {INSTANCE_NAME} is a deployment of the OpenSignup project, released under the
           GNU AGPL-3.0 license. The source code is available at{' '}
           <a href={SOURCE_URL} className="text-brand underline">
-            {SOURCE_URL.replace(/^https?:\/\//, '')}
+            {SOURCE_DISPLAY}
           </a>
           . By using this site you agree to the terms below. If you do not agree, do
           not use the service.
@@ -89,7 +91,7 @@ export default function TermsPage() {
         <h2 className="text-xl font-semibold tracking-tight">Contact</h2>
         <p>
           Questions about these terms:{' '}
-          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-brand underline">
+          <a href={SUPPORT_MAILTO} className="text-brand underline">
             {SUPPORT_EMAIL}
           </a>
           .

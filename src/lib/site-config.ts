@@ -16,11 +16,22 @@ import { z } from 'zod';
 const schema = z.object({
   NEXT_PUBLIC_INSTANCE_NAME: z.string().min(1, 'NEXT_PUBLIC_INSTANCE_NAME is required'),
   NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email('NEXT_PUBLIC_SUPPORT_EMAIL must be a valid email'),
-  NEXT_PUBLIC_SOURCE_URL: z.string().url('NEXT_PUBLIC_SOURCE_URL must be a valid URL'),
+  NEXT_PUBLIC_SOURCE_URL: z
+    .string()
+    .url('NEXT_PUBLIC_SOURCE_URL must be a valid URL')
+    .refine((u) => u.startsWith('https://'), 'NEXT_PUBLIC_SOURCE_URL must use https'),
   NEXT_PUBLIC_GOVERNING_LAW: z.string().min(1, 'NEXT_PUBLIC_GOVERNING_LAW is required'),
-  // Optional — when unset, legal copy uses the generic "the operator of this
-  // instance" fallback rather than fabricating a name.
-  NEXT_PUBLIC_OPERATOR_NAME: z.string().optional(),
+  // Optional — when unset or blank, legal copy uses the generic "the operator
+  // of this instance" fallback rather than fabricating a name. An empty
+  // `NEXT_PUBLIC_OPERATOR_NAME=` line (common when copy-pasting `.env.example`)
+  // normalises to undefined so it triggers the fallback, not a blank string.
+  NEXT_PUBLIC_OPERATOR_NAME: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const trimmed = v?.trim();
+      return trimmed && trimmed.length > 0 ? trimmed : undefined;
+    }),
 });
 
 // Destructure into a literal object so the Next.js compiler can substitute the
@@ -45,6 +56,11 @@ export const SUPPORT_EMAIL = parsed.data.NEXT_PUBLIC_SUPPORT_EMAIL;
 export const SOURCE_URL = parsed.data.NEXT_PUBLIC_SOURCE_URL;
 export const GOVERNING_LAW = parsed.data.NEXT_PUBLIC_GOVERNING_LAW;
 export const OPERATOR_NAME = parsed.data.NEXT_PUBLIC_OPERATOR_NAME ?? null;
+
+// Pre-built derivations so consumers don't hand-prefix `mailto:` or
+// hand-strip the URL scheme — keeps that parsing concern in one place.
+export const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}` as const;
+export const SOURCE_DISPLAY = SOURCE_URL.replace(/^https:\/\//, '');
 
 export function operatorLabel(): string {
   return OPERATOR_NAME ?? 'the operator of this instance';

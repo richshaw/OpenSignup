@@ -6,9 +6,9 @@ export default function PublicParticipantLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
-      {children}
+    <div className="bg-surface text-ink flex min-h-[100svh] flex-col">
+      <div className="flex-1">{children}</div>
       <SiteFooter />
-    </>
+    </div>
   );
 }

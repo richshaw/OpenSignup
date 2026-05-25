@@ -46,11 +46,19 @@ export default function CookiesPage() {
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">
-                  authjs.csrf-token, authjs.callback-url (prefixed with __Secure- or __Host- over
-                  HTTPS)
+                  authjs.csrf-token (__Host-authjs.csrf-token over HTTPS)
                 </td>
                 <td className="px-4 py-3">
-                  Required by the magic-link sign-in flow to prevent CSRF.
+                  Prevents cross-site request forgery on the sign-in form.
+                </td>
+                <td className="px-4 py-3">Short-lived</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs">
+                  authjs.callback-url (__Secure-authjs.callback-url over HTTPS)
+                </td>
+                <td className="px-4 py-3">
+                  Remembers where to return you after a successful magic-link sign-in.
                 </td>
                 <td className="px-4 py-3">Short-lived</td>
               </tr>
