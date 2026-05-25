@@ -73,6 +73,17 @@ shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 | `reminder.sent` | system | `{ commitmentId, channel }` | `jobs/reminders.ts` |
 | `reminder.failed` | system | `{ commitmentId, error }` | `jobs/reminders.ts` |
 
+### Marketing / acquisition
+
+| event | actor | payload | fired from |
+|---|---|---|---|
+| `landing.viewed` | system | `{ uaClass, refererHost }` | RSC at `/` (marketing home) |
+
+`landing.viewed` rows have both `signup_id` and `workspace_id` set to `NULL`
+— the page is tenant-independent. It is the top of the organizer funnel
+(`landing.viewed` → `auth.magic_link_sent` → `auth.signed_in` →
+`signup.draft_started` → `signup.created`).
+
 ### Auth & workspace
 
 | event | actor | payload | fired from |
@@ -88,8 +99,8 @@ shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 
 ## Privacy guarantees
 
-The `signup.viewed` and `commitment.edit_link_followed` events are
-deliberately minimal:
+The `landing.viewed`, `signup.viewed`, and `commitment.edit_link_followed`
+events are deliberately minimal:
 
 - **No IP address.** Postgres receives no client IP for view events.
 - **No request body, form input, or email address** (in view events).
@@ -218,9 +229,9 @@ GROUP BY 1;
 
 ### Volume
 
-Pageview-shaped events (`signup.editor_opened`, `signup.previewed`,
-`signup.viewed`, `signup.draft_started`, `commitment.edit_link_followed`)
-fire on every RSC render. Refreshes count. The activity table grows mostly
+Pageview-shaped events (`landing.viewed`, `signup.editor_opened`,
+`signup.previewed`, `signup.viewed`, `signup.draft_started`,
+`commitment.edit_link_followed`) fire on every RSC render. Refreshes count. The activity table grows mostly
 with these events. All dashboard queries should filter on `event_type` so
 read performance scales with the queried subset, not the table size.
 
