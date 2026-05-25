@@ -20,7 +20,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-ink-muted text-sm">Last updated: 24 May 2026</p>
+        <p className="text-ink-muted text-sm">Last updated: 25 May 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -56,8 +56,8 @@ export default function PrivacyPage() {
             your signups, and reminder dispatches. This exists so an organizer
             can audit what happened in their own workspace and so the operator
             can investigate abuse. The same log records anonymous view telemetry
-            on your public signup pages (see &ldquo;Logs and rate-limiting&rdquo;
-            below).
+            on the marketing home page and on your public signup pages (see
+            &ldquo;Logs and rate-limiting&rdquo; below).
           </li>
         </ul>
         <p>No password is ever stored — authentication is magic-link only.</p>
@@ -104,7 +104,9 @@ export default function PrivacyPage() {
           participant on that signup. We do not record your IP address on this
           entry. Bot traffic and requests carrying a Do Not Track or Global
           Privacy Control signal are skipped. The same applies when you follow
-          an &ldquo;edit your commitment&rdquo; link.
+          an &ldquo;edit your commitment&rdquo; link, and when you load the
+          marketing home page (where we record only the user-agent class and
+          the referring host).
         </p>
       </section>
 
