@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { INSTANCE_NAME, SOURCE_URL, SUPPORT_EMAIL } from '@/lib/site-config';
 
 export function SiteFooter() {
-  const version = process.env.npm_package_version ?? '0.1.0';
+  const version = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.0';
   return (
     <footer className="text-ink-soft border-surface-sunk flex flex-col items-center justify-between gap-3 border-t px-5 py-5 text-sm lg:flex-row lg:gap-4 lg:px-12">
       <span>

@@ -38,13 +38,13 @@ Email transport is pluggable (`console` for dev, `smtp` for generic self-host, `
 
 ### Branding your instance
 
-The footer, privacy policy, terms, and cookies pages are instance-agnostic — they read the instance name, support email, source-code URL, operator name, and governing-law clause from `NEXT_PUBLIC_*` env vars at build time. Defaults point at the canonical opensignup.org deployment; override these in your `.env` so legal pages reflect your instance:
+The footer, privacy policy, terms, and cookies pages are instance-agnostic — they read the instance name, support email, source-code URL, operator name, and governing-law clause from `NEXT_PUBLIC_*` env vars at build time. Set these in your `.env` before deploying so legal pages reflect your instance. **Required** values fail the build loudly if missing — there are no silent defaults, since shipping the upstream project's contact email or jurisdiction on your instance is worse than a build failure:
 
-- `NEXT_PUBLIC_INSTANCE_NAME` — display name (default `OpenSignup`)
-- `NEXT_PUBLIC_SUPPORT_EMAIL` — contact email (default `hello@opensignup.org`)
+- `NEXT_PUBLIC_INSTANCE_NAME` — display name (required)
+- `NEXT_PUBLIC_SUPPORT_EMAIL` — contact email (required)
 - `NEXT_PUBLIC_SOURCE_URL` — required by AGPL-3.0 §13 if you've modified the code; point at your fork
-- `NEXT_PUBLIC_OPERATOR_NAME` — your name or organisation; appears as the data controller
-- `NEXT_PUBLIC_GOVERNING_LAW` — jurisdiction clause for the terms of service
+- `NEXT_PUBLIC_GOVERNING_LAW` — jurisdiction clause for the terms of service (required)
+- `NEXT_PUBLIC_OPERATOR_NAME` — your name or organisation; appears as the data controller (optional; falls back to "the operator of this instance")
 
 ## Status
 

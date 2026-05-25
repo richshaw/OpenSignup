@@ -36,23 +36,32 @@ export default function CookiesPage() {
             </thead>
             <tbody className="divide-surface-sunk divide-y">
               <tr>
-                <td className="px-4 py-3 font-mono text-xs">authjs.session-token</td>
-                <td className="px-4 py-3">Keeps organizers signed in after they click their magic link.</td>
+                <td className="px-4 py-3 font-mono text-xs">
+                  authjs.session-token (or __Secure-authjs.session-token over HTTPS)
+                </td>
+                <td className="px-4 py-3">
+                  Keeps organizers signed in after they click their magic link.
+                </td>
                 <td className="px-4 py-3">Session</td>
               </tr>
               <tr>
-                <td className="px-4 py-3 font-mono text-xs">authjs.csrf-token, authjs.callback-url</td>
-                <td className="px-4 py-3">Required by the magic-link sign-in flow to prevent CSRF.</td>
+                <td className="px-4 py-3 font-mono text-xs">
+                  authjs.csrf-token, authjs.callback-url (prefixed with __Secure- or __Host- over
+                  HTTPS)
+                </td>
+                <td className="px-4 py-3">
+                  Required by the magic-link sign-in flow to prevent CSRF.
+                </td>
                 <td className="px-4 py-3">Short-lived</td>
               </tr>
               <tr>
-                <td className="px-4 py-3 font-mono text-xs">signup_participant</td>
+                <td className="px-4 py-3 font-mono text-xs">os_commit</td>
                 <td className="px-4 py-3">
                   Lets participants who already committed to a slot return and edit or
                   cancel without re-entering their email. <code>httpOnly</code>; not
                   readable from JavaScript.
                 </td>
-                <td className="px-4 py-3">90 days</td>
+                <td className="px-4 py-3">60 days</td>
               </tr>
             </tbody>
           </table>
