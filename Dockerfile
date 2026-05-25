@@ -11,6 +11,23 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+
+# NEXT_PUBLIC_* values must be visible to `pnpm build` so Next.js inlines
+# them into the prerendered legal pages (privacy/terms/cookies). Passed
+# in via `[build.args]` in fly.toml on Fly; default empty locally so the
+# Zod schema in src/lib/site-config.ts surfaces a clear build error
+# instead of silently falling back.
+ARG NEXT_PUBLIC_INSTANCE_NAME
+ARG NEXT_PUBLIC_SUPPORT_EMAIL
+ARG NEXT_PUBLIC_SOURCE_URL
+ARG NEXT_PUBLIC_GOVERNING_LAW
+ARG NEXT_PUBLIC_OPERATOR_NAME
+ENV NEXT_PUBLIC_INSTANCE_NAME=$NEXT_PUBLIC_INSTANCE_NAME
+ENV NEXT_PUBLIC_SUPPORT_EMAIL=$NEXT_PUBLIC_SUPPORT_EMAIL
+ENV NEXT_PUBLIC_SOURCE_URL=$NEXT_PUBLIC_SOURCE_URL
+ENV NEXT_PUBLIC_GOVERNING_LAW=$NEXT_PUBLIC_GOVERNING_LAW
+ENV NEXT_PUBLIC_OPERATOR_NAME=$NEXT_PUBLIC_OPERATOR_NAME
+
 RUN pnpm build
 
 FROM base AS runner

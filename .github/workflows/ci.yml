@@ -30,6 +30,14 @@ jobs:
       EMAIL_TRANSPORT: console
       EMAIL_FROM: 'ci@signup.local'
       NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # Deterministic placeholders for CI only — `pnpm build` runs the
+      # site-config Zod check which fails loudly on missing values. Real
+      # deployments set these in their own env; we just need the build to
+      # complete here.
+      NEXT_PUBLIC_INSTANCE_NAME: OpenSignup (CI)
+      NEXT_PUBLIC_SUPPORT_EMAIL: ci@signup.local
+      NEXT_PUBLIC_SOURCE_URL: https://github.com/richshaw/OpenSignup
+      NEXT_PUBLIC_GOVERNING_LAW: the State of Washington, United States
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

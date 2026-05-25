@@ -1,7 +1,7 @@
 import Link from 'next/link';
+import { SiteFooter } from '@/components/site-footer';
+import { INSTANCE_NAME } from '@/lib/site-config';
 import { HomeExampleCard } from './_components/HomeExampleCard';
-
-const GITHUB_URL = 'https://github.com/richshaw/OpenSignup';
 
 export default function LandingPage() {
   const demoUrl = process.env.NEXT_PUBLIC_DEMO_URL;
@@ -9,7 +9,7 @@ export default function LandingPage() {
   return (
     <div className="bg-surface text-ink flex min-h-[100svh] flex-col">
       <header className="flex items-center justify-between px-5 py-5 lg:px-12 lg:py-6">
-        <span className="text-lg font-semibold tracking-tight lg:text-xl">OpenSignup</span>
+        <span className="text-lg font-semibold tracking-tight lg:text-xl">{INSTANCE_NAME}</span>
         <Link href="/login" className="text-sm font-medium hover:underline">
           Organizer sign in
         </Link>
@@ -82,14 +82,7 @@ export default function LandingPage() {
         </div>
       </main>
 
-      <footer className="text-ink-soft flex flex-col items-center justify-between gap-2 px-5 py-5 text-sm lg:flex-row lg:gap-3 lg:px-12">
-        <span>
-          v{process.env.npm_package_version ?? '0.1.0'} · AGPL-3.0 · Built for real community groups.
-        </span>
-        <a href={GITHUB_URL} className="hover:underline">
-          Source on GitHub
-        </a>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
