@@ -20,7 +20,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-ink-muted text-sm">Last updated: 25 May 2026</p>
+        <p className="text-ink-muted text-sm">Last updated: 28 May 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -104,9 +104,10 @@ export default function PrivacyPage() {
           participant on that signup. We do not record your IP address on this
           entry. Bot traffic and requests carrying a Do Not Track or Global
           Privacy Control signal are skipped. The same applies when you follow
-          an &ldquo;edit your commitment&rdquo; link, and when you load the
-          marketing home page (where we record only the user-agent class and
-          the referring host).
+          an &ldquo;edit your commitment&rdquo; link, when you load the
+          marketing home page, and when you click the &ldquo;Start a
+          signup&rdquo; button on it (where we record only the user-agent class
+          and the referring host).
         </p>
       </section>
 

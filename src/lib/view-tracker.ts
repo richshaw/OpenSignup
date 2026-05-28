@@ -120,6 +120,28 @@ export async function recordLandingView(args: {
   }
 }
 
+export async function recordLandingCtaClicked(args: {
+  signals: RequestSignals;
+}): Promise<void> {
+  try {
+    if (args.signals.dnt) return;
+    const uaClass = classifyUa(args.signals.userAgent);
+    if (uaClass === 'bot') return;
+    await writeActivity({
+      signupId: null,
+      workspaceId: null,
+      actor: { actorId: null, actorType: 'system' },
+      eventType: 'landing.cta_clicked',
+      payload: {
+        uaClass,
+        refererHost: refererHost(args.signals.referer),
+      },
+    });
+  } catch (err) {
+    log.warn({ err }, 'recordLandingCtaClicked failed');
+  }
+}
+
 export async function recordEditLinkFollowed(args: {
   signupId: string;
   workspaceId: string | null;
