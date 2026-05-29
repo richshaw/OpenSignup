@@ -78,11 +78,15 @@ shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 | event | actor | payload | fired from |
 |---|---|---|---|
 | `landing.viewed` | system | `{ uaClass, refererHost }` | RSC at `/` (marketing home) |
+| `landing.cta_clicked` | system | `{ uaClass, refererHost }` | client beacon from the "Start a signup" CTA on `/`, via `POST /api/telemetry/landing-cta-clicked` |
 
-`landing.viewed` rows have both `signup_id` and `workspace_id` set to `NULL`
-— the page is tenant-independent. It is the top of the organizer funnel
-(`landing.viewed` → `auth.magic_link_sent` → `auth.signed_in` →
-`signup.draft_started` → `signup.created`).
+Both rows have `signup_id` and `workspace_id` set to `NULL` — the page is
+tenant-independent. Together they form the top of the organizer funnel
+(`landing.viewed` → `landing.cta_clicked` → `auth.magic_link_sent` →
+`auth.signed_in` → `signup.draft_started` → `signup.created`).
+`landing.cta_clicked` is the only client-emitted event in the catalogue;
+all others fire server-side. The beacon reads UA/referer/DNT from request
+headers server-side — no client-supplied data is trusted.
 
 ### Auth & workspace
 
@@ -99,8 +103,8 @@ shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 
 ## Privacy guarantees
 
-The `landing.viewed`, `signup.viewed`, and `commitment.edit_link_followed`
-events are deliberately minimal:
+The `landing.viewed`, `landing.cta_clicked`, `signup.viewed`, and
+`commitment.edit_link_followed` events are deliberately minimal:
 
 - **No IP address.** Postgres receives no client IP for view events.
 - **No request body, form input, or email address** (in view events).

@@ -5,6 +5,7 @@ import { SiteFooter } from '@/components/site-footer';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { readRequestSignals, recordLandingView } from '@/lib/view-tracker';
 import { HomeExampleCard } from './_components/HomeExampleCard';
+import { StartSignupCta } from './_components/StartSignupCta';
 
 export default async function LandingPage() {
   const demoUrl = process.env.NEXT_PUBLIC_DEMO_URL;
@@ -40,7 +41,7 @@ export default async function LandingPage() {
           </p>
 
           <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap">
-            <Link
+            <StartSignupCta
               href="/app/signups/new"
               className="bg-brand inline-flex items-center justify-center gap-2 rounded-[14px] px-5 py-3 text-base font-semibold text-white transition hover:brightness-110 lg:text-[15px]"
             >
@@ -58,7 +59,7 @@ export default async function LandingPage() {
               >
                 <path d="M5 12h14M13 5l7 7-7 7" />
               </svg>
-            </Link>
+            </StartSignupCta>
             {demoUrl ? (
               <a
                 href={demoUrl}

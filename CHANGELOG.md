@@ -5,6 +5,7 @@ All notable changes to OpenSignup are documented here. Format follows [Keep a Ch
 ## [Unreleased]
 
 ### Added
+- Landing-page CTA click telemetry (`landing.cta_clicked` activity event).
 - Initial v1 scaffolding: Next.js 15 + TypeScript + Drizzle + Auth.js v5 + pg-boss.
 - Full entity schema (workspaces, organizers, members, signups, slot groups, slots, participants, commitments, activity, magic links, claims).
 - Zod schemas as source of truth with discriminated union on `slot_type`.

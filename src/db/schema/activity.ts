@@ -56,6 +56,7 @@ export const ACTIVITY_EVENTS = [
   'auth.signed_in',
   'workspace.created',
   'landing.viewed',
+  'landing.cta_clicked',
 ] as const;
 
 export type ActivityEvent = (typeof ACTIVITY_EVENTS)[number];

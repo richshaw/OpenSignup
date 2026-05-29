@@ -9,6 +9,7 @@ import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import {
   recordEditLinkFollowed,
+  recordLandingCtaClicked,
   recordLandingView,
   recordOrganizerView,
   recordPublicView,
@@ -285,6 +286,72 @@ describe('view-tracker (db)', () => {
         .select()
         .from(activity)
         .where(eq(activity.eventType, 'landing.viewed'));
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  describe('recordLandingCtaClicked', () => {
+    // Like landing.viewed, these rows have NULL signup_id/workspace_id, so the
+    // suite-level cleanup (scoped to signupId) won't clear them. Wipe by
+    // event_type; db tests run sequentially (fileParallelism: false).
+    beforeEach(async () => {
+      await db.delete(activity).where(eq(activity.eventType, 'landing.cta_clicked'));
+    });
+
+    it('writes a landing.cta_clicked row with NULL signup/workspace for a browser UA', async () => {
+      await recordLandingCtaClicked({
+        signals: browserSignals({ referer: 'https://opensignup.org/' }),
+      });
+      const rows = await db
+        .select()
+        .from(activity)
+        .where(eq(activity.eventType, 'landing.cta_clicked'));
+      expect(rows).toHaveLength(1);
+      const row = rows[0]!;
+      expect(row.actorType).toBe('system');
+      expect(row.actorId).toBeNull();
+      expect(row.signupId).toBeNull();
+      expect(row.workspaceId).toBeNull();
+      expect(row.payload).toEqual({
+        uaClass: 'browser',
+        refererHost: 'opensignup.org',
+      });
+    });
+
+    it('records uaClass=unknown when UA is missing', async () => {
+      await recordLandingCtaClicked({
+        signals: { userAgent: null, referer: null, dnt: false },
+      });
+      const rows = await db
+        .select()
+        .from(activity)
+        .where(eq(activity.eventType, 'landing.cta_clicked'));
+      expect(rows).toHaveLength(1);
+      const payload = rows[0]!.payload as Record<string, unknown>;
+      expect(payload.uaClass).toBe('unknown');
+      expect(payload.refererHost).toBeNull();
+    });
+
+    it('does not write when DNT/GPC is set', async () => {
+      await recordLandingCtaClicked({ signals: browserSignals({ dnt: true }) });
+      const rows = await db
+        .select()
+        .from(activity)
+        .where(eq(activity.eventType, 'landing.cta_clicked'));
+      expect(rows).toHaveLength(0);
+    });
+
+    it('does not write for a Googlebot UA', async () => {
+      await recordLandingCtaClicked({
+        signals: browserSignals({
+          userAgent:
+            'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        }),
+      });
+      const rows = await db
+        .select()
+        .from(activity)
+        .where(eq(activity.eventType, 'landing.cta_clicked'));
       expect(rows).toHaveLength(0);
     });
   });
