@@ -300,6 +300,7 @@ describe('view-tracker (db)', () => {
 
     it('writes a landing.cta_clicked row with NULL signup/workspace for a browser UA', async () => {
       await recordLandingCtaClicked({
+        cta: 'start_signup',
         signals: browserSignals({ referer: 'https://opensignup.org/' }),
       });
       const rows = await db
@@ -313,13 +314,29 @@ describe('view-tracker (db)', () => {
       expect(row.signupId).toBeNull();
       expect(row.workspaceId).toBeNull();
       expect(row.payload).toEqual({
+        cta: 'start_signup',
         uaClass: 'browser',
         refererHost: 'opensignup.org',
       });
     });
 
+    it('persists the cta discriminator (demo_video)', async () => {
+      await recordLandingCtaClicked({
+        cta: 'demo_video',
+        signals: browserSignals({}),
+      });
+      const rows = await db
+        .select()
+        .from(activity)
+        .where(eq(activity.eventType, 'landing.cta_clicked'));
+      expect(rows).toHaveLength(1);
+      const payload = rows[0]!.payload as Record<string, unknown>;
+      expect(payload.cta).toBe('demo_video');
+    });
+
     it('records uaClass=unknown when UA is missing', async () => {
       await recordLandingCtaClicked({
+        cta: 'start_signup',
         signals: { userAgent: null, referer: null, dnt: false },
       });
       const rows = await db
@@ -333,7 +350,10 @@ describe('view-tracker (db)', () => {
     });
 
     it('does not write when DNT/GPC is set', async () => {
-      await recordLandingCtaClicked({ signals: browserSignals({ dnt: true }) });
+      await recordLandingCtaClicked({
+        cta: 'start_signup',
+        signals: browserSignals({ dnt: true }),
+      });
       const rows = await db
         .select()
         .from(activity)
@@ -343,6 +363,7 @@ describe('view-tracker (db)', () => {
 
     it('does not write for a Googlebot UA', async () => {
       await recordLandingCtaClicked({
+        cta: 'start_signup',
         signals: browserSignals({
           userAgent:
             'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',

@@ -120,7 +120,10 @@ export async function recordLandingView(args: {
   }
 }
 
+export type LandingCta = 'start_signup' | 'demo_video';
+
 export async function recordLandingCtaClicked(args: {
+  cta: LandingCta;
   signals: RequestSignals;
 }): Promise<void> {
   try {
@@ -133,6 +136,7 @@ export async function recordLandingCtaClicked(args: {
       actor: { actorId: null, actorType: 'system' },
       eventType: 'landing.cta_clicked',
       payload: {
+        cta: args.cta,
         uaClass,
         refererHost: refererHost(args.signals.referer),
       },
