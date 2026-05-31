@@ -4,11 +4,14 @@ import { after } from 'next/server';
 import { SiteFooter } from '@/components/site-footer';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { readRequestSignals, recordLandingView } from '@/lib/view-tracker';
+import { DemoVideoCta } from './_components/DemoVideoCta';
 import { HomeExampleCard } from './_components/HomeExampleCard';
 import { StartSignupCta } from './_components/StartSignupCta';
 
 export default async function LandingPage() {
   const demoUrl = process.env.NEXT_PUBLIC_DEMO_URL;
+  const demoVideoUrl = process.env.NEXT_PUBLIC_DEMO_VIDEO_URL;
+  const demoVideoPoster = process.env.NEXT_PUBLIC_DEMO_VIDEO_POSTER;
 
   const signals = readRequestSignals(await headers());
   after(() => recordLandingView({ signals }));
@@ -60,7 +63,9 @@ export default async function LandingPage() {
                 <path d="M5 12h14M13 5l7 7-7 7" />
               </svg>
             </StartSignupCta>
-            {demoUrl ? (
+            {demoVideoUrl ? (
+              <DemoVideoCta videoUrl={demoVideoUrl} posterUrl={demoVideoPoster} />
+            ) : demoUrl ? (
               <a
                 href={demoUrl}
                 className="bg-surface border-surface-sunk text-ink hover:bg-surface-raised inline-flex items-center justify-center gap-2 rounded-[14px] border px-5 py-3 text-base font-medium transition lg:text-[15px]"
@@ -68,7 +73,7 @@ export default async function LandingPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
                   <polygon points="6 4 20 12 6 20 6 4" fill="currentColor" />
                 </svg>
-                Watch 30-sec demo
+                Watch demo
               </a>
             ) : null}
           </div>

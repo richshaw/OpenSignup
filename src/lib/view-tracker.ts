@@ -1,6 +1,7 @@
 import type { ActivityEvent } from '@/db/schema/activity';
 import { getDb } from '@/db/client';
 import { recordActivity, type ActivityActor } from '@/lib/activity';
+import type { LandingCta } from '@/lib/landing-cta';
 import { log } from '@/lib/log';
 
 const BOT_RE =
@@ -121,6 +122,7 @@ export async function recordLandingView(args: {
 }
 
 export async function recordLandingCtaClicked(args: {
+  cta: LandingCta;
   signals: RequestSignals;
 }): Promise<void> {
   try {
@@ -133,6 +135,7 @@ export async function recordLandingCtaClicked(args: {
       actor: { actorId: null, actorType: 'system' },
       eventType: 'landing.cta_clicked',
       payload: {
+        cta: args.cta,
         uaClass,
         refererHost: refererHost(args.signals.referer),
       },
