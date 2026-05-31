@@ -78,7 +78,7 @@ shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 | event | actor | payload | fired from |
 |---|---|---|---|
 | `landing.viewed` | system | `{ uaClass, refererHost }` | RSC at `/` (marketing home) |
-| `landing.cta_clicked` | system | `{ uaClass, refererHost }` | client beacon from the "Start a signup" CTA on `/`, via `POST /api/telemetry/landing-cta-clicked` |
+| `landing.cta_clicked` | system | `{ cta, uaClass, refererHost }` | client beacon from a landing-page CTA on `/`, via `POST /api/telemetry/landing-cta-clicked?cta=…`. `cta` discriminates which CTA fired: `start_signup` \| `demo_video` |
 
 Both rows have `signup_id` and `workspace_id` set to `NULL` — the page is
 tenant-independent. Together they form the top of the organizer funnel

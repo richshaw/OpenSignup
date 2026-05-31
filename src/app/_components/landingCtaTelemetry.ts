@@ -1,4 +1,4 @@
-export type LandingCta = 'start_signup' | 'demo_video';
+import type { LandingCta } from '@/lib/landing-cta';
 
 const TELEMETRY_PATH = '/api/telemetry/landing-cta-clicked';
 

@@ -1,6 +1,7 @@
 import type { ActivityEvent } from '@/db/schema/activity';
 import { getDb } from '@/db/client';
 import { recordActivity, type ActivityActor } from '@/lib/activity';
+import type { LandingCta } from '@/lib/landing-cta';
 import { log } from '@/lib/log';
 
 const BOT_RE =
@@ -119,8 +120,6 @@ export async function recordLandingView(args: {
     log.warn({ err }, 'recordLandingView failed');
   }
 }
-
-export type LandingCta = 'start_signup' | 'demo_video';
 
 export async function recordLandingCtaClicked(args: {
   cta: LandingCta;

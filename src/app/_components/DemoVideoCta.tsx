@@ -11,6 +11,8 @@ interface DemoVideoCtaProps {
 export function DemoVideoCta({ videoUrl, posterUrl }: DemoVideoCtaProps) {
   const [open, setOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   const openModal = useCallback(() => {
     emitLandingCtaClicked('demo_video');
@@ -24,10 +26,12 @@ export function DemoVideoCta({ videoUrl, posterUrl }: DemoVideoCtaProps) {
       video.currentTime = 0;
     }
     setOpen(false);
+    triggerRef.current?.focus();
   }, []);
 
   useEffect(() => {
     if (!open) return;
+    closeRef.current?.focus();
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') close();
     }
@@ -38,6 +42,7 @@ export function DemoVideoCta({ videoUrl, posterUrl }: DemoVideoCtaProps) {
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={openModal}
         className="bg-surface border-surface-sunk text-ink hover:bg-surface-raised inline-flex items-center justify-center gap-2 rounded-[14px] border px-5 py-3 text-base font-medium transition lg:text-[15px]"
@@ -60,6 +65,7 @@ export function DemoVideoCta({ videoUrl, posterUrl }: DemoVideoCtaProps) {
         >
           <div className="relative w-full max-w-3xl">
             <button
+              ref={closeRef}
               type="button"
               onClick={close}
               aria-label="Close video"
@@ -89,9 +95,7 @@ export function DemoVideoCta({ videoUrl, posterUrl }: DemoVideoCtaProps) {
                 playsInline
                 preload="metadata"
                 className="h-full w-full"
-              >
-                <track kind="captions" />
-              </video>
+              />
             </div>
           </div>
         </div>

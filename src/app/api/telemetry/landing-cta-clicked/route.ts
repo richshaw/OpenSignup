@@ -1,12 +1,13 @@
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { handle } from '@/lib/api-response';
+import { LANDING_CTAS } from '@/lib/landing-cta';
 import { readRequestSignals, recordLandingCtaClicked } from '@/lib/view-tracker';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const ctaSchema = z.enum(['start_signup', 'demo_video']).default('start_signup');
+const ctaSchema = z.enum(LANDING_CTAS).default('start_signup');
 
 export async function POST(request: Request) {
   return handle(async () => {
