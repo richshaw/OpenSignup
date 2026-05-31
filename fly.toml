@@ -39,6 +39,10 @@ primary_region = "iad"
   NODE_ENV = "production"
   PORT = "3000"
   NEXT_TELEMETRY_DISABLED = "1"
+  # Public landing-page demo asset for the opensignup.org instance.
+  # Read at request time by the dynamic landing page — no Dockerfile
+  # build-arg wiring needed. Self-hosters override or omit.
+  NEXT_PUBLIC_DEMO_VIDEO_URL = "https://opensignup-public.t3.tigrisfiles.io/demo.mp4"
 
 [http_service]
   internal_port = 3000
