@@ -3,7 +3,7 @@
 import { Plus } from 'lucide-react';
 import { Editable } from './Editable';
 import { WysiwygSlot } from './WysiwygSlot';
-import { prettyHeader } from './prettyHeader';
+import { prettyHeader, emptyHeaderCopy } from './prettyHeader';
 import type { UseReorderableResult } from '../build-grid/useReorderable';
 import type { GridField, GridRow } from '../build-grid/useGridState';
 
@@ -55,7 +55,12 @@ export function WysiwygGroup({
   reorder,
 }: WysiwygGroupProps) {
   const showHeader = groupField !== null;
-  const display = groupField ? prettyHeader(group.rawValue, groupField.config.fieldType) : '';
+  const display = groupField
+    ? prettyHeader(group.rawValue, groupField.config.fieldType, groupField.name)
+    : '';
+  const placeholder = groupField
+    ? emptyHeaderCopy(groupField.config.fieldType, groupField.name)
+    : '';
 
   return (
     <div>
@@ -65,7 +70,7 @@ export function WysiwygGroup({
             value={group.rawValue}
             display={display}
             onChange={(next) => onRenameGroup(group.key, next)}
-            placeholder={groupField.config.fieldType === 'date' ? 'Set a date' : 'Set a value'}
+            placeholder={placeholder}
             ariaLabel={`Group header \u2014 ${display}`}
             className="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-soft"
           />

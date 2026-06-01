@@ -149,9 +149,12 @@ describe('signups service (db)', () => {
       if (!r.ok) return;
 
       const fields = await listFieldsForSignup(fx.db, r.value.id);
-      expect(fields).toHaveLength(1);
-      expect(fields[0]!.ref).toBe('date');
-      expect(fields[0]!.fieldType).toBe('date');
+      expect(fields).toHaveLength(2);
+      const byRef = Object.fromEntries(fields.map((f) => [f.ref, f]));
+      expect(byRef.what?.fieldType).toBe('text');
+      expect(byRef.what?.sortOrder).toBe(0);
+      expect(byRef.date?.fieldType).toBe('date');
+      expect(byRef.date?.sortOrder).toBe(1);
 
       const slotRows = await fx.db
         .select()
@@ -167,7 +170,7 @@ describe('signups service (db)', () => {
       expect(created).toBeDefined();
       const payload = created!.payload as Record<string, unknown>;
       expect(payload.templateId).toBe(DEFAULT_TEMPLATE.id);
-      expect(payload.fieldsAdded).toBe(1);
+      expect(payload.fieldsAdded).toBe(2);
       expect(payload.slotsAdded).toBe(1);
       expect('title' in payload).toBe(false);
     });

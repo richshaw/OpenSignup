@@ -119,4 +119,17 @@ describe('WysiwygGroup', () => {
     // Visible placeholder must match the aria-label — not the ISO format string.
     expect(screen.getByText('Set a date')).toBeTruthy();
   });
+
+  it('derives empty-bucket placeholder from the field label for non-date types', () => {
+    renderGroup({
+      group: { key: '__empty__', rawValue: '', rows: [makeRow()] },
+      groupField: makeField({
+        ref: 'what',
+        name: 'What',
+        config: { fieldType: 'text', maxLength: 200 },
+      }),
+    });
+    expect(screen.getByRole('button', { name: /Group header.*Set what/ })).toBeTruthy();
+    expect(screen.getByText('Set what')).toBeTruthy();
+  });
 });
