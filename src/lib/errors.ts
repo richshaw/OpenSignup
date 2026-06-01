@@ -68,7 +68,6 @@ export function fromZodError(error: ZodError): ServiceError {
       first?.message && first.path.length > 0
         ? `Check the value of "${first.path.join('.')}".`
         : 'Check your request payload.',
-    details: { issues: error.issues },
   };
 }
 
