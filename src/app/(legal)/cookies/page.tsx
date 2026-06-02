@@ -12,14 +12,16 @@ export default function CookiesPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Cookies</h1>
-        <p className="text-ink-muted text-sm">Last updated: 24 May 2026</p>
+        <p className="text-ink-muted text-sm">Last updated: 2 June 2026</p>
       </header>
 
       <section className="space-y-3">
         <p>
-          {INSTANCE_NAME} sets only the cookies it needs to operate. There are no
-          analytics, advertising, or cross-site tracking cookies, and no third-party
-          cookies of any kind.
+          {INSTANCE_NAME} sets only the cookies it needs to operate. It sets no
+          analytics, advertising, or cross-site tracking cookies. If the operator has
+          enabled third-party sign-in (for example, Google) and you use it, that
+          provider may set cookies on its own domain when you sign in there; those are
+          governed by the provider&apos;s policies, not ours.
         </p>
       </section>
 
@@ -40,7 +42,7 @@ export default function CookiesPage() {
                   authjs.session-token (or __Secure-authjs.session-token over HTTPS)
                 </td>
                 <td className="px-4 py-3">
-                  Keeps organizers signed in after they click their magic link.
+                  Keeps organizers signed in after they sign in.
                 </td>
                 <td className="px-4 py-3">Session</td>
               </tr>

@@ -96,6 +96,20 @@ describe('parseEnv', () => {
     expect(env.LLM_API_KEY).toBeUndefined();
   });
 
+  it('rejects GOOGLE_CLIENT_ID without GOOGLE_CLIENT_SECRET', () => {
+    expect(() => parseEnv({ ...base, GOOGLE_CLIENT_ID: 'id' })).toThrow(/GOOGLE_CLIENT_SECRET/);
+  });
+
+  it('rejects GOOGLE_CLIENT_SECRET without GOOGLE_CLIENT_ID', () => {
+    expect(() => parseEnv({ ...base, GOOGLE_CLIENT_SECRET: 'secret' })).toThrow(/GOOGLE_CLIENT_ID/);
+  });
+
+  it('accepts GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET together', () => {
+    const env = parseEnv({ ...base, GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' });
+    expect(env.GOOGLE_CLIENT_ID).toBe('id');
+    expect(env.GOOGLE_CLIENT_SECRET).toBe('secret');
+  });
+
 });
 
 describe('magicComposeEnabled', () => {
