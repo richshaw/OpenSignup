@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Copy, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { SlotEditor } from './SlotEditor';
+import { emptyHeaderCopy } from './prettyHeader';
 import type { UseReorderableResult } from '../build-grid/useReorderable';
 import type { GridField, GridRow } from '../build-grid/useGridState';
 
@@ -84,13 +85,13 @@ export function WysiwygSlot({
     .filter((v) => v && v.length > 0)
     .join(' \u00b7 ');
 
-  // Time anchors keep the long-standing "Set a time" / "at HH:MM" copy;
-  // everything else uses the generic name-based pattern.
+  // Anchor placeholder shares one source of truth with the group header
+  // (see emptyHeaderCopy) so identical fields read identically in both
+  // surfaces — "Set a date" / "Set a time" for those types, "Set <label>"
+  // (lowercased) for everything else, "Set a value" without a label.
   const isTimeAnchor = anchorField?.config.fieldType === 'time';
   const placeholder = anchorField
-    ? isTimeAnchor
-      ? 'Set a time'
-      : `Set ${anchorField.name}`
+    ? emptyHeaderCopy(anchorField.config.fieldType, anchorField.name)
     : null;
 
   // aria-label must mirror the visible primary label — including the empty-state
