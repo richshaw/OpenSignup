@@ -33,12 +33,15 @@ describe('fromZodError', () => {
   });
 
   it('builds LLM-friendly error with field/received/expected/suggestion', () => {
-    const parsed = schema.safeParse({ name: 'x', count: -1 });
+    const parsed = schema.safeParse({ name: 123, count: -1 });
     expect(parsed.success).toBe(false);
     if (parsed.success) return;
     const err = fromZodError(parsed.error);
     expect(err.code).toBe('invalid_input');
     expect(err.field).toBe('name');
+    expect(err.expected).toBe('string');
+    expect(err.received).toBe('number');
     expect(err.suggestion).toBeDefined();
+    expect(err.details).toBeUndefined();
   });
 });
