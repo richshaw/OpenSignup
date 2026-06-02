@@ -40,5 +40,6 @@ describe('fromZodError', () => {
     expect(err.code).toBe('invalid_input');
     expect(err.field).toBe('name');
     expect(err.suggestion).toBeDefined();
+    expect(err.details).toBeUndefined();
   });
 });
