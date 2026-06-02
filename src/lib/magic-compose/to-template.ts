@@ -122,6 +122,18 @@ export function buildWarnings(dropped: DroppedSummary): string[] {
   return out;
 }
 
+function hasUsableGrouping(slots: SignupTemplateSlot[], fieldRef: string): boolean {
+  const counts = new Map<string, number>();
+  for (const s of slots) {
+    const raw = s.values[fieldRef];
+    if (raw === undefined || raw === null) continue;
+    const key = String(raw);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  for (const n of counts.values()) if (n >= 2) return true;
+  return false;
+}
+
 export function magicComposeToTemplate(draft: MagicComposeDraft): MagicComposeConversion {
   const seenRefs = new Set<string>();
   const fields: SlotFieldInput[] = [];
@@ -150,7 +162,6 @@ export function magicComposeToTemplate(draft: MagicComposeDraft): MagicComposeCo
       ref: f.ref,
       label: f.label,
       fieldType,
-      required: f.required ?? false,
       sortOrder: i,
       config,
     });
@@ -191,12 +202,19 @@ export function magicComposeToTemplate(draft: MagicComposeDraft): MagicComposeCo
   // Honour the model's groupBy if it points at a declared field. Otherwise
   // fall back: if exactly one enum field exists, group by it (covers the
   // common cross-product case even when the model forgets to set groupBy).
+  // Either way, only keep the grouping if it produces at least one group with
+  // >1 slot — otherwise the "Group by" pill creates one-item groups that add
+  // no scannability and confuse organizers.
   let groupByFieldRefs: string[] = [];
+  let candidate: string | undefined;
   if (draft.groupBy && fieldByRef.has(draft.groupBy)) {
-    groupByFieldRefs = [draft.groupBy];
+    candidate = draft.groupBy;
   } else {
     const enumFields = fields.filter((f) => f.fieldType === 'enum');
-    if (enumFields.length === 1) groupByFieldRefs = [enumFields[0]!.ref];
+    if (enumFields.length === 1) candidate = enumFields[0]!.ref;
+  }
+  if (candidate && hasUsableGrouping(slots, candidate)) {
+    groupByFieldRefs = [candidate];
   }
 
   return { template, groupByFieldRefs, dropped };

@@ -26,7 +26,6 @@ export async function addFieldAction(signupId: string, formData: FormData) {
   const actor = await requireActor();
   const label = String(formData.get('label') ?? '').trim();
   const fieldType = String(formData.get('fieldType') ?? 'text') as SlotFieldDefinition['fieldType'];
-  const requiredFlag = formData.get('required') !== null;
   const choicesRaw = String(formData.get('choices') ?? '').trim();
   const ref = label ? toSlug(label, { suffix: false }) : '';
 
@@ -58,7 +57,6 @@ export async function addFieldAction(signupId: string, formData: FormData) {
     ref,
     label,
     fieldType,
-    required: requiredFlag,
     config,
   });
   revalidateSignup(signupId);
@@ -125,8 +123,11 @@ export async function deleteSlotAction(signupId: string, formData: FormData) {
 
 export async function publishAction(signupId: string) {
   const actor = await requireActor();
-  await publishSignup(getDb(), actor, signupId);
+  const result = await publishSignup(getDb(), actor, signupId);
   revalidateSignup(signupId);
+  if (result.ok) {
+    redirect(`/app/signups/${signupId}/build?published=1`);
+  }
 }
 
 export async function closeAction(signupId: string) {
@@ -173,18 +174,4 @@ export async function deleteSignupAction(signupId: string) {
   revalidatePath(`/app/signups/${signupId}`, 'layout');
   revalidatePath('/app');
   redirect('/app');
-}
-
-export async function updateBasicsAction(signupId: string, formData: FormData) {
-  const actor = await requireActor();
-  const updated = await updateSignup(getDb(), actor, signupId, {
-    title: String(formData.get('title') ?? ''),
-    description: String(formData.get('description') ?? ''),
-  });
-  if (!updated.ok) {
-    redirect(
-      `/app/signups/${signupId}/settings?error=${encodeURIComponent(updated.error.message)}`,
-    );
-  }
-  revalidateSignup(signupId);
 }

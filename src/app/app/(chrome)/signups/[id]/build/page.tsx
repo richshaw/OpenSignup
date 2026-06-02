@@ -3,8 +3,7 @@ import { after } from 'next/server';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { recordOrganizerView } from '@/lib/view-tracker';
-import { BuildGrid } from '@/components/build-grid';
-import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
+import { BuildWysiwyg } from '@/components/build-wysiwyg/BuildWysiwyg';
 import { SignupSettingsSchema, type SignupStatus } from '@/schemas/signups';
 
 type PageParams = { params: Promise<{ id: string }> };
@@ -26,12 +25,7 @@ export default async function BuildTab({ params }: PageParams) {
   );
   return (
     <>
-      <AiDraftBanner
-        signupId={sig.id}
-        fieldsCount={sig.fields.length}
-        slotsCount={sig.slots.length}
-      />
-      <BuildGrid
+      <BuildWysiwyg
         signupId={id}
         signupMeta={{
           title: sig.title,

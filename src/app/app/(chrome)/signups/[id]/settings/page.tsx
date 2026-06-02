@@ -5,7 +5,7 @@ import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { SignupSettingsSchema } from '@/schemas/signups';
-import { updateBasicsAction, updateReminderAction } from '../actions';
+import { updateReminderAction } from '../actions';
 import { DeleteSignupForm } from './delete-signup-form';
 
 type PageParams = {
@@ -39,41 +39,6 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
       {error ? (
         <p role="alert" className="bg-danger/10 text-danger rounded-lg px-3 py-2 text-sm">{error}</p>
       ) : null}
-      <form
-        action={updateBasicsAction.bind(null, id)}
-        className="space-y-5 rounded-xl border border-surface-sunk bg-white p-6"
-      >
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium">Title</span>
-          <input
-            type="text"
-            name="title"
-            required
-            minLength={2}
-            maxLength={120}
-            defaultValue={sig.title}
-            className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk bg-white px-4 py-3 shadow-sm focus:outline-none focus:ring-1"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium">Description (optional)</span>
-          <textarea
-            name="description"
-            rows={4}
-            maxLength={2000}
-            defaultValue={sig.description ?? ''}
-            className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk bg-white px-4 py-3 shadow-sm focus:outline-none focus:ring-1"
-          />
-        </label>
-        <div className="flex items-center justify-end">
-          <AsyncSubmitButton
-            loadingLabel="Saving…"
-            className="bg-brand rounded-lg px-5 py-2 font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
-          >
-            Save changes
-          </AsyncSubmitButton>
-        </div>
-      </form>
       {sig.fields.some((f) => f.fieldType === 'date') && (
         <form
           action={updateReminderAction.bind(null, id)}

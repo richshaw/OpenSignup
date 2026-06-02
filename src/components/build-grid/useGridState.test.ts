@@ -14,8 +14,6 @@ const makeField = (overrides: Partial<GridField> = {}): GridField => ({
   id: 'field-1',
   ref: 'name',
   name: 'Name',
-  type: 'text',
-  required: true,
   config: { fieldType: 'text', maxLength: 200 },
   sortOrder: 0,
   ...overrides,
@@ -30,12 +28,14 @@ const makeRow = (overrides: Partial<GridRow> = {}): GridRow => ({
 });
 
 const makeState = (overrides: Partial<GridState> = {}): GridState => ({
+  title: '',
+  description: '',
   fields: [],
   rows: [],
   groupByFieldRef: null,
   previewRowIdx: 0,
   showPreview: false,
-  saveStatus: 'idle',
+  saveStatus: { kind: 'idle' },
   ...overrides,
 });
 
@@ -256,27 +256,30 @@ describe('gridReducer OPTIMISTIC_SET_CAPACITY', () => {
 
 describe('gridReducer SET_SAVE_STATUS', () => {
   it('updates saveStatus to saving', () => {
-    const state = makeState({ saveStatus: 'idle' });
-    const next = gridReducer(state, { type: 'SET_SAVE_STATUS', status: 'saving' });
-    expect(next.saveStatus).toBe('saving');
+    const state = makeState({ saveStatus: { kind: 'idle' } });
+    const next = gridReducer(state, { type: 'SET_SAVE_STATUS', status: { kind: 'saving' } });
+    expect(next.saveStatus).toEqual({ kind: 'saving' });
   });
 
   it('updates saveStatus to saved', () => {
-    const state = makeState({ saveStatus: 'saving' });
-    const next = gridReducer(state, { type: 'SET_SAVE_STATUS', status: 'saved' });
-    expect(next.saveStatus).toBe('saved');
+    const state = makeState({ saveStatus: { kind: 'saving' } });
+    const next = gridReducer(state, { type: 'SET_SAVE_STATUS', status: { kind: 'saved' } });
+    expect(next.saveStatus).toEqual({ kind: 'saved' });
   });
 
-  it('updates saveStatus to error', () => {
-    const state = makeState({ saveStatus: 'saving' });
-    const next = gridReducer(state, { type: 'SET_SAVE_STATUS', status: 'error' });
-    expect(next.saveStatus).toBe('error');
+  it('updates saveStatus to error with code + message', () => {
+    const state = makeState({ saveStatus: { kind: 'saving' } });
+    const next = gridReducer(state, {
+      type: 'SET_SAVE_STATUS',
+      status: { kind: 'error', code: 'conflict', message: 'Reload to see latest.' },
+    });
+    expect(next.saveStatus).toEqual({ kind: 'error', code: 'conflict', message: 'Reload to see latest.' });
   });
 
   it('updates saveStatus back to idle', () => {
-    const state = makeState({ saveStatus: 'saved' });
-    const next = gridReducer(state, { type: 'SET_SAVE_STATUS', status: 'idle' });
-    expect(next.saveStatus).toBe('idle');
+    const state = makeState({ saveStatus: { kind: 'saved' } });
+    const next = gridReducer(state, { type: 'SET_SAVE_STATUS', status: { kind: 'idle' } });
+    expect(next.saveStatus).toEqual({ kind: 'idle' });
   });
 });
 
@@ -490,7 +493,6 @@ const makeApiField = (overrides: Partial<SlotFieldDefinition> = {}): SlotFieldDe
   ref: 'alpha',
   label: 'Alpha',
   fieldType: 'text',
-  required: false,
   sortOrder: 0,
   config: { fieldType: 'text', maxLength: 200 },
   ...overrides,
@@ -555,7 +557,7 @@ describe('useGridState moveField', () => {
     expect(sentPatches.get('c')).toBe(0);
     expect(sentPatches.get('a')).toBe(1);
     expect(sentPatches.get('b')).toBe(2);
-    expect(result.current.state.saveStatus).toBe('saved');
+    expect(result.current.state.saveStatus.kind).toBe('saved');
   });
 
   it('refetches server truth on PATCH failure and preserves session widths', async () => {
@@ -603,7 +605,7 @@ describe('useGridState moveField', () => {
     expect(getCalls.length).toBe(1); // single refetch
     expect(result.current.state.fields.map((f) => f.id)).toEqual(['a', 'b', 'c']);
     expect(result.current.state.fields.find((f) => f.id === 'a')?.width).toBe(321);
-    expect(result.current.state.saveStatus).toBe('error');
+    expect(result.current.state.saveStatus.kind).toBe('error');
   });
 
   it('falls back to snapshot with sticky error when refetch also fails', async () => {
@@ -623,7 +625,7 @@ describe('useGridState moveField', () => {
     // The contract is "sticky error, refresh converges them" — the snapshot
     // is not necessarily server-correct, only that the user sees `error`.
     expect(result.current.state.fields.map((f) => f.id)).toEqual(['a', 'b']);
-    expect(result.current.state.saveStatus).toBe('error');
+    expect(result.current.state.saveStatus.kind).toBe('error');
   });
 
   it("clears the pending 'saved → idle' timer when a new save begins", async () => {
@@ -656,7 +658,7 @@ describe('useGridState moveField', () => {
       await act(async () => {
         await result.current.moveField('b', 0);
       });
-      expect(result.current.state.saveStatus).toBe('saved');
+      expect(result.current.state.saveStatus.kind).toBe('saved');
 
       // Kick off the second move; its first PATCH is deferred, so the hook
       // sits in `saving` until we resolve the promise below.
@@ -664,7 +666,7 @@ describe('useGridState moveField', () => {
       await act(async () => {
         secondMove = result.current.moveField('a', 0);
       });
-      expect(result.current.state.saveStatus).toBe('saving');
+      expect(result.current.state.saveStatus.kind).toBe('saving');
 
       // Advance past SAVED_CLEAR_MS (3000ms). Without the markSaving fix,
       // the stale timer from the first move fires here and demotes the
@@ -672,14 +674,14 @@ describe('useGridState moveField', () => {
       await act(async () => {
         vi.advanceTimersByTime(3500);
       });
-      expect(result.current.state.saveStatus).toBe('saving');
+      expect(result.current.state.saveStatus.kind).toBe('saving');
 
       // Resolve the deferred PATCH so the second move completes cleanly.
       await act(async () => {
         resolveDeferredPatch!(jsonResponse({ data: {} }));
         await secondMove;
       });
-      expect(result.current.state.saveStatus).toBe('saved');
+      expect(result.current.state.saveStatus.kind).toBe('saved');
     } finally {
       vi.useRealTimers();
     }
@@ -705,6 +707,137 @@ describe('useGridState moveField', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.state.fields.map((f) => f.id)).toEqual(['a', 'b']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useGridState moveRow (renderHook + mocked fetch)
+// ---------------------------------------------------------------------------
+
+interface InitialRowInput {
+  id: string;
+  capacity: number | null;
+  sortOrder?: number;
+  values: Record<string, unknown>;
+}
+
+function rowIdFromUrl(url: string): string | undefined {
+  return url.match(/\/api\/slots\/([^/]+)$/)?.[1];
+}
+
+function renderGridWith(initialRows: InitialRowInput[]) {
+  return renderHook(() =>
+    useGridState('sig_test', [], initialRows, defaultSettings),
+  );
+}
+
+describe('useGridState moveRow', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('reorders rows and PATCHes each changed row with its new sortOrder', async () => {
+    const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
+    const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
+    const r3: InitialRowInput = { id: 'r3', capacity: null, sortOrder: 2, values: {} };
+
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGridWith([r1, r2, r3]);
+    await act(async () => {
+      await result.current.moveRow(2, 0);
+    });
+
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['r3', 'r1', 'r2']);
+    expect(result.current.state.rows.map((r) => r.sortOrder)).toEqual([0, 1, 2]);
+
+    const sentPatches = new Map<string, number>();
+    for (const call of fetchMock.mock.calls) {
+      const url = String(call[0]);
+      const init = call[1] as RequestInit | undefined;
+      if (init?.method !== 'PATCH') continue;
+      const id = rowIdFromUrl(url);
+      const body = JSON.parse(String(init.body)) as { sortOrder: number };
+      if (id !== undefined) sentPatches.set(id, body.sortOrder);
+    }
+    expect(sentPatches.get('r3')).toBe(0);
+    expect(sentPatches.get('r1')).toBe(1);
+    expect(sentPatches.get('r2')).toBe(2);
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('refetches server truth on PATCH failure', async () => {
+    const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: { notes: 'one' } };
+    const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: { notes: 'two' } };
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === 'PATCH') {
+        return jsonResponse({}, { ok: false });
+      }
+      if (url.endsWith('/slots')) {
+        return jsonResponse({
+          data: [
+            { id: 'r1', capacity: null, sortOrder: 0, values: { notes: 'one' } },
+            { id: 'r2', capacity: null, sortOrder: 1, values: { notes: 'two' } },
+          ],
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGridWith([r1, r2]);
+    await act(async () => {
+      await result.current.moveRow(0, 1);
+    });
+
+    const getCalls = fetchMock.mock.calls.filter(
+      (c) => (c[1] as RequestInit | undefined)?.method !== 'PATCH',
+    );
+    expect(getCalls.length).toBe(1);
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['r1', 'r2']);
+    expect(result.current.state.saveStatus.kind).toBe('error');
+  });
+
+  it('falls back to snapshot when refetch also fails', async () => {
+    const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
+    const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
+
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, { ok: false }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGridWith([r1, r2]);
+    await act(async () => {
+      await result.current.moveRow(0, 1);
+    });
+
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['r1', 'r2']);
+    expect(result.current.state.saveStatus.kind).toBe('error');
+  });
+
+  it('is a no-op when fromIdx clamps to toIdx or is out of bounds', async () => {
+    const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
+    const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGridWith([r1, r2]);
+
+    await act(async () => {
+      await result.current.moveRow(0, -1); // clamps to 0 — same as fromIdx
+    });
+    await act(async () => {
+      await result.current.moveRow(0, 0); // explicit no-op
+    });
+    await act(async () => {
+      await result.current.moveRow(5, 0); // out of bounds
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['r1', 'r2']);
   });
 });
 
@@ -741,5 +874,318 @@ describe('useGridState mount-time showPreview default', () => {
     stubMatchMedia(false);
     const { result } = renderGrid([]);
     expect(result.current.state.showPreview).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useGridState duplicateRow
+// ---------------------------------------------------------------------------
+
+describe('useGridState duplicateRow', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('POSTs the source values + capacity to /api/signups/[id]/slots', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ data: { id: 'new', capacity: 3, sortOrder: 99, values: {} } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    // Inject an initial row by seeding via the hook.
+    const { result } = renderHook(() =>
+      useGridState(
+        'sig_test',
+        [],
+        [{ id: 'src', capacity: 3, sortOrder: 0, values: { name: 'Jane' } }],
+        defaultSettings,
+      ),
+    );
+    await act(async () => {
+      await result.current.duplicateRow('src');
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe('/api/signups/sig_test/slots');
+    expect((init as RequestInit).method).toBe('POST');
+    const body = JSON.parse(String((init as RequestInit).body)) as {
+      values: Record<string, string>;
+      capacity: number;
+    };
+    expect(body.values).toEqual({ name: 'Jane' });
+    expect(body.capacity).toBe(3);
+  });
+
+  it('is a no-op when the source row is missing', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useGridState('sig_test', [], [], defaultSettings));
+    await act(async () => {
+      await result.current.duplicateRow('does-not-exist');
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back capacity to 1 when source had null capacity', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ data: { id: 'new', capacity: 1, sortOrder: 99, values: {} } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useGridState(
+        'sig_test',
+        [],
+        [{ id: 'src', capacity: null, sortOrder: 0, values: {} }],
+        defaultSettings,
+      ),
+    );
+    await act(async () => {
+      await result.current.duplicateRow('src');
+    });
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
+      capacity: number;
+    };
+    expect(body.capacity).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// gridReducer OPTIMISTIC_UPDATE_META
+// ---------------------------------------------------------------------------
+
+describe('gridReducer OPTIMISTIC_UPDATE_META', () => {
+  it('updates title when patch carries a title', () => {
+    const state = makeState({ title: 'Old', description: 'desc' });
+    const next = gridReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { title: 'New' } });
+    expect(next.title).toBe('New');
+    expect(next.description).toBe('desc');
+  });
+
+  it('updates description when patch carries a description', () => {
+    const state = makeState({ title: 'T', description: 'old' });
+    const next = gridReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: 'new' } });
+    expect(next.title).toBe('T');
+    expect(next.description).toBe('new');
+  });
+
+  it('preserves the other field when only one is patched', () => {
+    const state = makeState({ title: 'keep me', description: 'replace me' });
+    const next = gridReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: 'replaced' } });
+    expect(next.title).toBe('keep me');
+  });
+
+  it('allows clearing description to empty string', () => {
+    const state = makeState({ title: 'T', description: 'present' });
+    const next = gridReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: '' } });
+    expect(next.description).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useGridState updateSignupMeta (renderHook + mocked fetch, debounced)
+// ---------------------------------------------------------------------------
+
+function renderGridWithMeta(meta: { title: string; description: string | null }) {
+  return renderHook(() =>
+    useGridState('sig_test', [], [], defaultSettings, meta),
+  );
+}
+
+describe('useGridState updateSignupMeta', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('updates optimistic state immediately', () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'Old', description: 'desc' });
+    act(() => {
+      result.current.updateSignupMeta({ title: 'New title' });
+    });
+    expect(result.current.state.title).toBe('New title');
+    expect(fetchMock).not.toHaveBeenCalled(); // debounced
+  });
+
+  it('PATCHes /api/signups/[id] with the latest title after debounce', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'Old', description: 'desc' });
+    act(() => {
+      result.current.updateSignupMeta({ title: 'New' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe('/api/signups/sig_test');
+    expect((init as RequestInit).method).toBe('PATCH');
+    const body = JSON.parse(String((init as RequestInit).body)) as { title?: string; description?: string };
+    expect(body.title).toBe('New');
+    expect(body.description).toBeUndefined();
+  });
+
+  it('coalesces consecutive title edits into a single PATCH carrying the latest value', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: '', description: '' });
+    act(() => {
+      result.current.updateSignupMeta({ title: 'A' });
+      result.current.updateSignupMeta({ title: 'AB' });
+      result.current.updateSignupMeta({ title: 'ABC' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as { title?: string };
+    expect(body.title).toBe('ABC');
+  });
+
+  it('coalesces title + description edits into one PATCH carrying both', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'A', description: '1' });
+    act(() => {
+      result.current.updateSignupMeta({ title: 'A2' });
+      result.current.updateSignupMeta({ description: '2' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
+      title?: string;
+      description?: string;
+    };
+    expect(body.title).toBe('A2');
+    expect(body.description).toBe('2');
+  });
+
+  it('reverts the title and surfaces an invalid_input error when the user clears it', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'Original', description: 'desc' });
+    act(() => {
+      result.current.updateSignupMeta({ title: '' });
+    });
+    expect(result.current.state.title).toBe(''); // optimistic clear
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.state.title).toBe('Original');
+    // Don't let the revert be silent — the user needs to know why their edit
+    // bounced back, otherwise they think the save just failed mysteriously.
+    expect(result.current.state.saveStatus).toEqual({
+      kind: 'error',
+      code: 'invalid_input',
+      message: 'Title must be at least 2 characters.',
+    });
+  });
+
+  it('trims title before PATCH and surfaces an error when trimmed length < 2', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'Original', description: '' });
+    act(() => {
+      result.current.updateSignupMeta({ title: ' A ' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.state.title).toBe('Original');
+    expect(result.current.state.saveStatus.kind).toBe('error');
+  });
+
+  it('marks saveStatus error with the server error code when PATCH fails', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        { error: { code: 'conflict', message: 'Stale snapshot' } },
+        { ok: false, status: 409 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'Old', description: '' });
+    act(() => {
+      result.current.updateSignupMeta({ title: 'New' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(result.current.state.title).toBe('New'); // optimistic update preserved
+    expect(result.current.state.saveStatus).toEqual({
+      kind: 'error',
+      code: 'conflict',
+      message: 'Stale snapshot',
+    });
+  });
+
+  it('falls back to code: internal when the error envelope is missing', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, { ok: false }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderGridWithMeta({ title: 'Old', description: '' });
+    act(() => {
+      result.current.updateSignupMeta({ title: 'New' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(result.current.state.saveStatus.kind).toBe('error');
+    if (result.current.state.saveStatus.kind === 'error') {
+      expect(result.current.state.saveStatus.code).toBe('internal');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useGridState unmount-flush: pending debounced saves fire on unmount
+// ---------------------------------------------------------------------------
+
+describe('useGridState unmount flush', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('flushes pending editCell saves on unmount so navigate-away does not silently lose edits', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const field = makeApiField({ id: 'f1', ref: 'name', label: 'Name', fieldType: 'text' });
+    const { result, unmount } = renderHook(() =>
+      useGridState(
+        'sig_test',
+        [field],
+        [{ id: 'r1', capacity: 1, sortOrder: 0, values: { name: '' } }],
+        defaultSettings,
+      ),
+    );
+    // Optimistic edit; the PATCH is debounced 800ms and not yet sent.
+    act(() => {
+      result.current.editCell('r1', 'name', 'Pending');
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    // Simulate navigating away before the debounce fires.
+    unmount();
+    // Run microtasks so the unmount-triggered fire-and-forget can dispatch.
+    await Promise.resolve();
+    const patchCalls = fetchMock.mock.calls.filter(
+      (c) => (c[1] as RequestInit | undefined)?.method === 'PATCH',
+    );
+    expect(patchCalls.length).toBe(1);
+    const body = JSON.parse(String((patchCalls[0]![1] as RequestInit).body)) as {
+      values: Record<string, unknown>;
+    };
+    expect(body.values).toEqual({ name: 'Pending' });
   });
 });

@@ -7,10 +7,12 @@ import { clearAiDraftWarnings, readAiDraftWarnings } from './ai-draft-warnings';
 
 export function AiDraftBanner({
   signupId,
+  signupStatus,
   fieldsCount,
   slotsCount,
 }: {
   signupId: string;
+  signupStatus: string;
   fieldsCount: number;
   slotsCount: number;
 }) {
@@ -22,11 +24,15 @@ export function AiDraftBanner({
   const [warnings, setWarnings] = useState<string[]>([]);
 
   useEffect(() => {
+    if (signupStatus !== 'draft') {
+      clearAiDraftWarnings(signupId);
+      return;
+    }
     if (!showFromUrl) return;
     setWarnings(readAiDraftWarnings(signupId));
-  }, [showFromUrl, signupId]);
+  }, [showFromUrl, signupId, signupStatus]);
 
-  if (!showFromUrl || dismissed) return null;
+  if (signupStatus !== 'draft' || !showFromUrl || dismissed) return null;
 
   const onDismiss = () => {
     setDismissed(true);
@@ -38,7 +44,7 @@ export function AiDraftBanner({
   };
 
   return (
-    <div className="mb-4 flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <Banner
         kind="aiDraft"
         title={`Here's your draft, ${fieldsCount} ${

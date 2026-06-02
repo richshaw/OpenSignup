@@ -24,7 +24,6 @@ function rowToDefinition(row: FieldRow): SlotFieldDefinition {
     ref: row.ref,
     label: row.label,
     fieldType: row.fieldType as SlotFieldDefinition['fieldType'],
-    required: row.required,
     sortOrder: row.sortOrder,
     config: row.config as SlotFieldConfig,
   };
@@ -129,32 +128,6 @@ export async function addField(
     );
   }
 
-  if (data.required) {
-    const slotRows = await db
-      .select({ id: slots.id, values: slots.values })
-      .from(slots)
-      .where(eq(slots.signupId, signupId));
-    const offending = slotRows.filter((r) => {
-      const v = (r.values as Record<string, unknown>)?.[data.ref];
-      return v === undefined || v === null || v === '';
-    });
-    if (offending.length > 0) {
-      return err(
-        serviceError(
-          'conflict',
-          `cannot add a required field while ${offending.length} slot(s) have no value for "${data.ref}". Make the field optional, or remove/edit the slots first.`,
-          {
-            field: 'required',
-            details: {
-              slotIds: offending.slice(0, 20).map((r) => r.id),
-              count: offending.length,
-            },
-          },
-        ),
-      );
-    }
-  }
-
   const id = makeId('fld');
   const inserted = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -166,7 +139,6 @@ export async function addField(
         ref: data.ref,
         label: data.label,
         fieldType: data.fieldType,
-        required: data.required,
         sortOrder: data.sortOrder,
         config: data.config,
       })
@@ -229,16 +201,14 @@ export async function updateField(
     ref: existing.ref,
     label: data.label ?? existing.label,
     fieldType: (data.fieldType ?? existing.fieldType) as SlotFieldDefinition['fieldType'],
-    required: data.required ?? existing.required,
     sortOrder: data.sortOrder ?? existing.sortOrder,
     config: (data.config ?? (existing.config as SlotFieldConfig)) as SlotFieldConfig,
   };
 
-  const typeCheckDef = { ...nextDef, required: false };
   const offending: string[] = [];
   for (const row of slotRows) {
     const values = (row.values as Record<string, unknown>) ?? {};
-    const r = validateOneValue(typeCheckDef, values[existing.ref]);
+    const r = validateOneValue(nextDef, values[existing.ref]);
     if (!r.ok) offending.push(row.id);
   }
   if (offending.length > 0) {
@@ -249,28 +219,11 @@ export async function updateField(
     );
   }
 
-  if (data.required === true && !existing.required) {
-    const missing = slotRows.filter((row) => {
-      const v = (row.values as Record<string, unknown>)?.[existing.ref];
-      return v === undefined || v === null || v === '';
-    });
-    if (missing.length > 0) {
-      return err(
-        serviceError(
-          'conflict',
-          `cannot make field required while ${missing.length} slot(s) have no value for "${existing.ref}"`,
-          { field: 'required', details: { slotIds: missing.slice(0, 20).map((r) => r.id), count: missing.length } },
-        ),
-      );
-    }
-  }
-
   const updated = await db.transaction(async (tx) => {
     const [row] = await tx
       .update(slotFields)
       .set({
         ...(data.label !== undefined ? { label: data.label } : {}),
-        ...(data.required !== undefined ? { required: data.required } : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
         ...(data.fieldType !== undefined ? { fieldType: data.fieldType } : {}),
         ...(data.config !== undefined ? { config: data.config } : {}),
@@ -379,7 +332,6 @@ export async function listFields(
 export function validateSlotValues(
   fields: SlotFieldDefinition[],
   values: Record<string, unknown>,
-  { enforceRequired = true }: { enforceRequired?: boolean } = {},
 ): Result<void, ServiceError> {
   const knownRefs = new Set(fields.map((f) => f.ref));
   for (const ref of Object.keys(values)) {
@@ -392,10 +344,7 @@ export function validateSlotValues(
     }
   }
   for (const field of fields) {
-    const r = validateOneValue(
-      enforceRequired ? field : { ...field, required: false },
-      values[field.ref],
-    );
+    const r = validateOneValue(field, values[field.ref]);
     if (!r.ok) return r;
   }
   return ok(undefined);
@@ -410,11 +359,6 @@ function validateOneValue(
   value: unknown,
 ): Result<void, ServiceError> {
   if (isMissing(value)) {
-    if (field.required) {
-      return err(
-        serviceError('invalid_input', `"${field.ref}" is required`, { field: field.ref }),
-      );
-    }
     return ok(undefined);
   }
 

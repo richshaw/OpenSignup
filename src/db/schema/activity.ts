@@ -55,6 +55,8 @@ export const ACTIVITY_EVENTS = [
   'auth.magic_link_sent',
   'auth.signed_in',
   'workspace.created',
+  'landing.viewed',
+  'landing.cta_clicked',
 ] as const;
 
 export type ActivityEvent = (typeof ACTIVITY_EVENTS)[number];

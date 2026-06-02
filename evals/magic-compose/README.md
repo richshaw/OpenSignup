@@ -4,7 +4,7 @@ Developer evals for OpenSignup's Magic Compose feature (natural-language to sign
 
 ## Files
 
-- `dev-evals.json` — 23-case developer eval suite covering each `fieldType`, cross-product/groupBy correctness, edge cases, multilingual input, hostile prompts, and the server invariants that hold regardless of model output.
+- `dev-evals.json` — 24-case developer eval suite covering each `fieldType`, cross-product/groupBy correctness, edge cases, multilingual input, hostile prompts, and the server invariants that hold regardless of model output.
 
 The user-facing starter prompts (School, Sports, Volunteering) shipped in the UI as click-to-try chips live in the Magic Compose UI code, not as a JSON file in this directory.
 
@@ -103,7 +103,7 @@ When adding a case:
 ## Regression targets (don't let these break)
 
 - Cross-product expansion: 3×12 grid produces 36 slots, every `values` non-empty (`ev_021`).
-- `groupBy` correctness: small named dimension → `groupBy=<that ref>`; pure date list → `null` (`ev_021`, `ev_022`, `ev_023`).
+- `groupBy` correctness: small named dimension → `groupBy=<that ref>`; pure date list → `null` (`ev_021`, `ev_022`, `ev_023`); uniform-unique candidate column → `null` (`ev_024`).
 - Server forces `state='draft'` and writes `templateId='magic-compose'` in activity (`ev_018`).
 - Empty prompt rejected with `invalid_input` before LLM call (`ev_014`).
 - No PII fields, no tenant IDs in model output (`ev_012`, `ev_020`).

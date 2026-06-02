@@ -1,15 +1,25 @@
+import { headers } from 'next/headers';
 import Link from 'next/link';
+import { after } from 'next/server';
+import { SiteFooter } from '@/components/site-footer';
+import { INSTANCE_NAME } from '@/lib/site-config';
+import { readRequestSignals, recordLandingView } from '@/lib/view-tracker';
+import { DemoVideoCta } from './_components/DemoVideoCta';
 import { HomeExampleCard } from './_components/HomeExampleCard';
+import { StartSignupCta } from './_components/StartSignupCta';
 
-const GITHUB_URL = 'https://github.com/richshaw/OpenSignup';
-
-export default function LandingPage() {
+export default async function LandingPage() {
   const demoUrl = process.env.NEXT_PUBLIC_DEMO_URL;
+  const demoVideoUrl = process.env.NEXT_PUBLIC_DEMO_VIDEO_URL;
+  const demoVideoPoster = process.env.NEXT_PUBLIC_DEMO_VIDEO_POSTER;
+
+  const signals = readRequestSignals(await headers());
+  after(() => recordLandingView({ signals }));
 
   return (
     <div className="bg-surface text-ink flex min-h-[100svh] flex-col">
       <header className="flex items-center justify-between px-5 py-5 lg:px-12 lg:py-6">
-        <span className="text-lg font-semibold tracking-tight lg:text-xl">OpenSignup</span>
+        <span className="text-lg font-semibold tracking-tight lg:text-xl">{INSTANCE_NAME}</span>
         <Link href="/login" className="text-sm font-medium hover:underline">
           Organizer sign in
         </Link>
@@ -34,7 +44,7 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap">
-            <Link
+            <StartSignupCta
               href="/app/signups/new"
               className="bg-brand inline-flex items-center justify-center gap-2 rounded-[14px] px-5 py-3 text-base font-semibold text-white transition hover:brightness-110 lg:text-[15px]"
             >
@@ -52,8 +62,10 @@ export default function LandingPage() {
               >
                 <path d="M5 12h14M13 5l7 7-7 7" />
               </svg>
-            </Link>
-            {demoUrl ? (
+            </StartSignupCta>
+            {demoVideoUrl ? (
+              <DemoVideoCta videoUrl={demoVideoUrl} posterUrl={demoVideoPoster} />
+            ) : demoUrl ? (
               <a
                 href={demoUrl}
                 className="bg-surface border-surface-sunk text-ink hover:bg-surface-raised inline-flex items-center justify-center gap-2 rounded-[14px] border px-5 py-3 text-base font-medium transition lg:text-[15px]"
@@ -61,7 +73,7 @@ export default function LandingPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
                   <polygon points="6 4 20 12 6 20 6 4" fill="currentColor" />
                 </svg>
-                Watch 30-sec demo
+                Watch demo
               </a>
             ) : null}
           </div>
@@ -82,14 +94,7 @@ export default function LandingPage() {
         </div>
       </main>
 
-      <footer className="text-ink-soft flex flex-col items-center justify-between gap-2 px-5 py-5 text-sm lg:flex-row lg:gap-3 lg:px-12">
-        <span>
-          v{process.env.npm_package_version ?? '0.1.0'} · AGPL-3.0 · Built for real community groups.
-        </span>
-        <a href={GITHUB_URL} className="hover:underline">
-          Source on GitHub
-        </a>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

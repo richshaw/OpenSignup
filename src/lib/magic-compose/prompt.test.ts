@@ -66,7 +66,7 @@ describe('MagicComposeDraftSchema', () => {
     title: 'U9 snack duty',
     description: 'Saturdays in spring.',
     fields: [
-      { ref: 'date', label: 'Date', fieldType: 'date', required: true },
+      { ref: 'date', label: 'Date', fieldType: 'date' },
       { ref: 'opponent', label: 'Opponent', fieldType: 'text' },
     ],
     slots: [{ values: { date: '2026-04-25', opponent: 'Hawks' }, capacity: 2 }],

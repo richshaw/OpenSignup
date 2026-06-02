@@ -152,7 +152,6 @@ describe('signups service (db)', () => {
       expect(fields).toHaveLength(1);
       expect(fields[0]!.ref).toBe('date');
       expect(fields[0]!.fieldType).toBe('date');
-      expect(fields[0]!.required).toBe(true);
 
       const slotRows = await fx.db
         .select()
@@ -181,7 +180,6 @@ describe('signups service (db)', () => {
             ref: 'date',
             label: 'Date',
             fieldType: 'date',
-            required: true,
             sortOrder: 0,
             config: { fieldType: 'date' },
           },
@@ -189,7 +187,6 @@ describe('signups service (db)', () => {
             ref: 'item',
             label: 'Item',
             fieldType: 'text',
-            required: false,
             sortOrder: 1,
             config: { fieldType: 'text', maxLength: 200 },
           },
@@ -230,7 +227,6 @@ describe('signups service (db)', () => {
             ref: 'date',
             label: 'Date',
             fieldType: 'date',
-            required: true,
             sortOrder: 0,
             config: { fieldType: 'date' },
           },
@@ -238,7 +234,6 @@ describe('signups service (db)', () => {
             ref: 'date',
             label: 'Date again',
             fieldType: 'date',
-            required: true,
             sortOrder: 1,
             config: { fieldType: 'date' },
           },
@@ -298,7 +293,6 @@ describe('signups service (db)', () => {
             ref: 'date',
             label: 'Date',
             fieldType: 'date',
-            required: true,
             sortOrder: 0,
             config: { fieldType: 'date' },
           },
@@ -326,7 +320,6 @@ describe('signups service (db)', () => {
             ref: 'date',
             label: 'Date',
             fieldType: 'date',
-            required: true,
             sortOrder: 0,
             config: { fieldType: 'date' },
           },
@@ -365,7 +358,6 @@ describe('signups service (db)', () => {
             ref: 'NotKebab',
             label: 'X',
             fieldType: 'text',
-            required: true,
             sortOrder: 0,
             config: { fieldType: 'text', maxLength: 200 },
           },

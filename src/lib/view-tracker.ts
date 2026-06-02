@@ -1,6 +1,7 @@
 import type { ActivityEvent } from '@/db/schema/activity';
 import { getDb } from '@/db/client';
 import { recordActivity, type ActivityActor } from '@/lib/activity';
+import type { LandingCta } from '@/lib/landing-cta';
 import { log } from '@/lib/log';
 
 const BOT_RE =
@@ -95,6 +96,52 @@ export async function recordPublicView(args: {
     });
   } catch (err) {
     log.warn({ err }, 'recordPublicView failed');
+  }
+}
+
+export async function recordLandingView(args: {
+  signals: RequestSignals;
+}): Promise<void> {
+  try {
+    if (args.signals.dnt) return;
+    const uaClass = classifyUa(args.signals.userAgent);
+    if (uaClass === 'bot') return;
+    await writeActivity({
+      signupId: null,
+      workspaceId: null,
+      actor: { actorId: null, actorType: 'system' },
+      eventType: 'landing.viewed',
+      payload: {
+        uaClass,
+        refererHost: refererHost(args.signals.referer),
+      },
+    });
+  } catch (err) {
+    log.warn({ err }, 'recordLandingView failed');
+  }
+}
+
+export async function recordLandingCtaClicked(args: {
+  cta: LandingCta;
+  signals: RequestSignals;
+}): Promise<void> {
+  try {
+    if (args.signals.dnt) return;
+    const uaClass = classifyUa(args.signals.userAgent);
+    if (uaClass === 'bot') return;
+    await writeActivity({
+      signupId: null,
+      workspaceId: null,
+      actor: { actorId: null, actorType: 'system' },
+      eventType: 'landing.cta_clicked',
+      payload: {
+        cta: args.cta,
+        uaClass,
+        refererHost: refererHost(args.signals.referer),
+      },
+    });
+  } catch (err) {
+    log.warn({ err }, 'recordLandingCtaClicked failed');
   }
 }
 

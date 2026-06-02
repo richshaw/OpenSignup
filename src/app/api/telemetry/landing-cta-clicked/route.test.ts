@@ -1,0 +1,80 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+let currentHeaders: Headers;
+
+vi.mock('next/headers', () => ({
+  headers: () => Promise.resolve(currentHeaders),
+}));
+
+vi.mock('@/lib/view-tracker', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/view-tracker')>();
+  return { ...actual, recordLandingCtaClicked: vi.fn(async () => {}) };
+});
+
+import { recordLandingCtaClicked } from '@/lib/view-tracker';
+import { POST } from './route';
+
+const browserUa =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+function request(query = ''): Request {
+  return new Request(`http://localhost/api/telemetry/landing-cta-clicked${query}`, {
+    method: 'POST',
+  });
+}
+
+describe('POST /api/telemetry/landing-cta-clicked', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns 204 with an empty body, forwards header-derived signals, and defaults cta=start_signup', async () => {
+    currentHeaders = new Headers({
+      'user-agent': browserUa,
+      referer: 'https://opensignup.org/',
+    });
+
+    const res = await POST(request());
+
+    expect(res.status).toBe(204);
+    expect(await res.text()).toBe('');
+    expect(recordLandingCtaClicked).toHaveBeenCalledTimes(1);
+    expect(recordLandingCtaClicked).toHaveBeenCalledWith({
+      cta: 'start_signup',
+      signals: { userAgent: browserUa, referer: 'https://opensignup.org/', dnt: false },
+    });
+  });
+
+  it('forwards an explicit cta=demo_video query param', async () => {
+    currentHeaders = new Headers({ 'user-agent': browserUa });
+
+    const res = await POST(request('?cta=demo_video'));
+
+    expect(res.status).toBe(204);
+    expect(recordLandingCtaClicked).toHaveBeenCalledWith({
+      cta: 'demo_video',
+      signals: { userAgent: browserUa, referer: null, dnt: false },
+    });
+  });
+
+  it('rejects unknown cta values with a 400', async () => {
+    currentHeaders = new Headers({ 'user-agent': browserUa });
+
+    const res = await POST(request('?cta=mystery'));
+
+    expect(res.status).toBe(400);
+    expect(recordLandingCtaClicked).not.toHaveBeenCalled();
+  });
+
+  it('derives dnt=true from the DNT header (signals come from headers, not a body)', async () => {
+    currentHeaders = new Headers({ 'user-agent': browserUa, dnt: '1' });
+
+    const res = await POST(request());
+
+    expect(res.status).toBe(204);
+    expect(recordLandingCtaClicked).toHaveBeenCalledWith({
+      cta: 'start_signup',
+      signals: { userAgent: browserUa, referer: null, dnt: true },
+    });
+  });
+});

@@ -16,6 +16,18 @@
 app = "signups"
 primary_region = "iad"
 
+# Build args for NEXT_PUBLIC_* values. These must be available during
+# `pnpm build` (Next.js inlines them into the prerendered legal pages),
+# so fly secrets — which are runtime-only — are not sufficient. Values
+# here are public (they ship in the client bundle) and represent this
+# instance's branding. Self-hosters override in their own fly.toml.
+[build]
+  [build.args]
+    NEXT_PUBLIC_INSTANCE_NAME = "OpenSignup"
+    NEXT_PUBLIC_SUPPORT_EMAIL = "hello@opensignup.org"
+    NEXT_PUBLIC_SOURCE_URL = "https://github.com/richshaw/OpenSignup"
+    NEXT_PUBLIC_GOVERNING_LAW = "the State of Washington, United States"
+
 [deploy]
   release_command = "pnpm db:migrate"
 
@@ -27,6 +39,7 @@ primary_region = "iad"
   NODE_ENV = "production"
   PORT = "3000"
   NEXT_TELEMETRY_DISABLED = "1"
+  NEXT_PUBLIC_DEMO_VIDEO_URL = "https://opensignup-public.t3.tigrisfiles.io/demo.mp4"
 
 [http_service]
   internal_port = 3000

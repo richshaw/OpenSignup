@@ -285,9 +285,6 @@ export default function SignupView(props: SignupViewProps) {
   return (
     <div className="container-tight flex flex-col gap-7">
       <SignupViewBody {...props} />
-      <footer className="text-ink-soft pt-4 text-center text-xs">
-        Ad-free · Run by OpenSignup · <Link className="underline" href="/">About</Link>
-      </footer>
     </div>
   );
 }

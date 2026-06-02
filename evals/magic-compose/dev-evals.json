@@ -396,6 +396,17 @@
         "groupBy_or_converter_fallback_must_reference_enum_field": true,
         "rationale": "If the model omits groupBy, the converter's fallback uses the sole enum field. Either path should yield groupByFieldRefs=['<enum-ref>']."
       }
+    },
+    {
+      "id": "ev_024_unique_items_no_groupby",
+      "tags": ["groupBy", "regression"],
+      "runner": "llm",
+      "prompt": "Easter party potluck — three items to bring: cookies, candy, and plastic eggs.",
+      "expect": {
+        "slots.count_range": [3, 3],
+        "groupBy_should_be_null": true,
+        "rationale": "Regression: model set groupBy on a uniform-unique item column, producing one-item groups that confuse organizers (screenshot 2026-05-18). Prompt now instructs groupBy=null when every row would be unique; converter sanitizer enforces it server-side regardless."
+      }
     }
   ]
 }

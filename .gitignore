@@ -9,6 +9,7 @@ dist
 coverage
 playwright-report
 test-results
+.playwright-mcp
 .vscode
 .idea
 *.tsbuildinfo

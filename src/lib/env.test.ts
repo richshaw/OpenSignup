@@ -53,6 +53,28 @@ describe('parseEnv', () => {
     expect(env.SMTP_PORT).toBe(587);
   });
 
+  it('defaults AUTH_MAGIC_LINK_MAX_AGE_MINUTES to 60', () => {
+    const env = parseEnv(base);
+    expect(env.AUTH_MAGIC_LINK_MAX_AGE_MINUTES).toBe(60);
+  });
+
+  it('coerces AUTH_MAGIC_LINK_MAX_AGE_MINUTES from a string', () => {
+    const env = parseEnv({ ...base, AUTH_MAGIC_LINK_MAX_AGE_MINUTES: '15' });
+    expect(env.AUTH_MAGIC_LINK_MAX_AGE_MINUTES).toBe(15);
+  });
+
+  it('rejects AUTH_MAGIC_LINK_MAX_AGE_MINUTES below 1', () => {
+    expect(() => parseEnv({ ...base, AUTH_MAGIC_LINK_MAX_AGE_MINUTES: '0' })).toThrow(
+      /AUTH_MAGIC_LINK_MAX_AGE_MINUTES/,
+    );
+  });
+
+  it('rejects AUTH_MAGIC_LINK_MAX_AGE_MINUTES above 10080', () => {
+    expect(() => parseEnv({ ...base, AUTH_MAGIC_LINK_MAX_AGE_MINUTES: '20000' })).toThrow(
+      /AUTH_MAGIC_LINK_MAX_AGE_MINUTES/,
+    );
+  });
+
   it('rejects LLM_BASE_URL without LLM_MODEL', () => {
     expect(() =>
       parseEnv({ ...base, LLM_BASE_URL: 'https://api.openai.com/v1' }),

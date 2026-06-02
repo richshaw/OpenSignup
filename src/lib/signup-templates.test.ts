@@ -11,7 +11,6 @@ describe('signup templates', () => {
       const field = DEFAULT_TEMPLATE.fields[0]!;
       expect(field.ref).toBe('date');
       expect(field.fieldType).toBe('date');
-      expect(field.required).toBe(true);
 
       const slot = DEFAULT_TEMPLATE.slots[0]!;
       expect(slot.capacity).toBe(1);

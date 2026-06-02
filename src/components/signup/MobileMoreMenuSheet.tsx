@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { ChevronRight, Download, Send, XCircle } from 'lucide-react';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
+import type { SignupStatus } from '@/schemas/signups';
 
 type MobileMoreMenuSheetProps = {
   open: boolean;
   onClose: () => void;
   signupId: string;
-  status: string;
+  status: SignupStatus;
   title: string;
   publishAction: () => void | Promise<void>;
   closeAction: () => void | Promise<void>;

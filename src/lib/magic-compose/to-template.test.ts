@@ -124,6 +124,7 @@ describe('magicComposeToTemplate', () => {
         ],
         slots: [
           { values: { class: 'Maple', time: '09:00' } },
+          { values: { class: 'Maple', time: '09:30' } },
           { values: { class: 'Cedar', time: '09:00' } },
         ],
       });
@@ -137,7 +138,10 @@ describe('magicComposeToTemplate', () => {
           { ref: 'class', label: 'Class', fieldType: 'enum', choices: ['Maple', 'Cedar'] },
           { ref: 'time', label: 'Time', fieldType: 'time' },
         ],
-        slots: [{ values: { class: 'Maple', time: '09:00' } }],
+        slots: [
+          { values: { class: 'Maple', time: '09:00' } },
+          { values: { class: 'Maple', time: '09:30' } },
+        ],
       });
       expect(r.groupByFieldRefs).toEqual(['class']);
     });
@@ -162,6 +166,66 @@ describe('magicComposeToTemplate', () => {
         slots: [{ values: { a: 'hi' } }],
       });
       expect(r.groupByFieldRefs).toEqual([]);
+    });
+
+    it('demotes groupBy when every slot has a unique value', () => {
+      const r = parseFull({
+        title: 'Easter potluck',
+        groupBy: 'item',
+        fields: [{ ref: 'item', label: 'Item to Bring', fieldType: 'text' }],
+        slots: [
+          { values: { item: 'Cookies' } },
+          { values: { item: 'Candy' } },
+          { values: { item: 'Plastic Eggs' } },
+        ],
+      });
+      expect(r.groupByFieldRefs).toEqual([]);
+    });
+
+    it('keeps groupBy when at least one group has multiple slots', () => {
+      const r = parseFull({
+        title: 'Snack rotation',
+        groupBy: 'week',
+        fields: [{ ref: 'week', label: 'Week', fieldType: 'text' }],
+        slots: [
+          { values: { week: 'Week 1' } },
+          { values: { week: 'Week 1' } },
+          { values: { week: 'Week 2' } },
+        ],
+      });
+      expect(r.groupByFieldRefs).toEqual(['week']);
+    });
+
+    it('demotes the single-enum fallback when every slot has a unique enum value', () => {
+      const r = parseFull({
+        title: 'PT conferences',
+        fields: [
+          { ref: 'class', label: 'Class', fieldType: 'enum', choices: ['Maple', 'Cedar'] },
+          { ref: 'time', label: 'Time', fieldType: 'time' },
+        ],
+        slots: [
+          { values: { class: 'Maple', time: '09:00' } },
+          { values: { class: 'Cedar', time: '09:00' } },
+        ],
+      });
+      expect(r.groupByFieldRefs).toEqual([]);
+    });
+
+    it('ignores missing values when counting groups', () => {
+      const r = parseFull({
+        title: 'Snack rotation',
+        groupBy: 'week',
+        fields: [
+          { ref: 'week', label: 'Week', fieldType: 'text' },
+          { ref: 'note', label: 'Note', fieldType: 'text' },
+        ],
+        slots: [
+          { values: { week: 'Week 1', note: 'a' } },
+          { values: { week: 'Week 1', note: 'b' } },
+          { values: { note: 'c' } },
+        ],
+      });
+      expect(r.groupByFieldRefs).toEqual(['week']);
     });
   });
 

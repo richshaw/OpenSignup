@@ -7,6 +7,9 @@ import { countCommitmentsForSignup } from '@/services/commitments';
 import { publicSignupUrl } from '@/lib/links';
 import { SignupHeader } from '@/components/signup/SignupHeader';
 import { TabsNav } from '@/components/signup/TabsNav';
+import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
+import { PublishedBanner } from '@/components/signup/PublishedBanner';
+import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, publishAction } from './actions';
 
 type LayoutProps = {
@@ -47,11 +50,17 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
       <SignupHeader
         signupId={id}
         title={sig.title}
-        description={sig.description ?? null}
-        status={sig.status}
+        status={sig.status as SignupStatus}
         publicUrl={publicSignupUrl(sig.slug)}
         publishAction={publishAction.bind(null, id)}
         closeAction={closeAction.bind(null, id)}
+      />
+      <PublishedBanner signupStatus={sig.status} />
+      <AiDraftBanner
+        signupId={id}
+        signupStatus={sig.status}
+        fieldsCount={sig.fields.length}
+        slotsCount={sig.slots.length}
       />
       <TabsNav
         signupId={id}

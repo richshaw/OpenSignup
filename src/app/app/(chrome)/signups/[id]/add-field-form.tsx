@@ -13,7 +13,7 @@ export default function AddFieldForm({ action }: AddFieldFormProps) {
   return (
     <form
       action={action}
-      className="grid grid-cols-1 gap-3 rounded-xl border border-surface-sunk bg-white p-5 sm:grid-cols-[1fr_140px_120px_auto] sm:items-end"
+      className="grid grid-cols-1 gap-3 rounded-xl border border-surface-sunk bg-white p-5 sm:grid-cols-[1fr_140px_auto] sm:items-end"
     >
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Label</span>
@@ -40,9 +40,6 @@ export default function AddFieldForm({ action }: AddFieldFormProps) {
           <option value="enum">Enum</option>
         </select>
       </label>
-      <label className="flex min-h-[42px] items-center justify-center gap-2 text-sm">
-        <input type="checkbox" name="required" defaultChecked /> Required
-      </label>
       <AsyncSubmitButton
         loadingLabel="Adding…"
         className="bg-brand rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
@@ -50,7 +47,7 @@ export default function AddFieldForm({ action }: AddFieldFormProps) {
         Add field
       </AsyncSubmitButton>
       {fieldType === 'enum' ? (
-        <label className="block sm:col-span-4">
+        <label className="block sm:col-span-3">
           <span className="mb-1 block text-sm font-medium">Choices (one per line)</span>
           <textarea
             name="choices"

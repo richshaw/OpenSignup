@@ -19,7 +19,6 @@ const DraftFieldSchema = z.object({
   ref: RefSchema,
   label: z.string().min(1).max(80),
   fieldType: z.enum(FIELD_TYPES),
-  required: z.boolean().optional().default(false),
   // Accept null (sent by strict json_schema models for non-enum fields) or an array.
   choices: z
     .array(z.string().min(1).max(60))
@@ -70,7 +69,7 @@ Output schema (return ONLY this JSON object, no prose, no fences):
   "title": "<short signup title, 2-120 chars>",
   "description": "<one short paragraph, max 2000 chars; OK to be empty>",
   "fields": [
-    { "ref": "<lowercase-kebab>", "label": "<Human label>", "fieldType": "text|date|time|number|enum", "required": <bool>, "choices": [<strings, [] when not enum>] }
+    { "ref": "<lowercase-kebab>", "label": "<Human label>", "fieldType": "text|date|time|number|enum", "choices": [<strings, [] when not enum>] }
   ],
   "slots": [
     { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default> }
@@ -94,6 +93,7 @@ GROUPING — set "groupBy" to the field ref the participant will visually scan b
 - Cross-product with a small named dimension (classes, teachers, stations): groupBy that dimension's ref.
 - Pure date list (weekly games, shift dates): groupBy = null.
 - Single dimension with many text labels: groupBy = null.
+- If every slot would have a unique value for the candidate field (one row per value, no repeats), set groupBy = null — grouping only helps when participants can scan multiple options under one heading.
 
 WORKED EXAMPLES — study these patterns then apply to the user's request:
 
@@ -106,8 +106,8 @@ OUTPUT:
   "title": "Parent-teacher conferences, Maple and Cedar",
   "description": "30-minute slots. Sign up under your child's class.",
   "fields": [
-    { "ref": "class", "label": "Class", "fieldType": "enum", "required": true, "choices": ["Maple", "Cedar"] },
-    { "ref": "time", "label": "Time", "fieldType": "time", "required": true, "choices": [] }
+    { "ref": "class", "label": "Class", "fieldType": "enum", "choices": ["Maple", "Cedar"] },
+    { "ref": "time", "label": "Time", "fieldType": "time", "choices": [] }
   ],
   "slots": [
     { "values": { "class": "Maple", "time": "09:00" }, "capacity": 1 },
@@ -131,8 +131,8 @@ OUTPUT:
   "title": "U9 snack duty, Spring",
   "description": "Two families bring snacks and drinks each Saturday.",
   "fields": [
-    { "ref": "game", "label": "Game", "fieldType": "text", "required": true, "choices": [] },
-    { "ref": "date", "label": "Date", "fieldType": "date", "required": true, "choices": [] }
+    { "ref": "game", "label": "Game", "fieldType": "text", "choices": [] },
+    { "ref": "date", "label": "Date", "fieldType": "date", "choices": [] }
   ],
   "slots": [
     { "values": { "game": "Game 1", "date": "2026-04-25" }, "capacity": 2 },
@@ -154,7 +154,7 @@ OUTPUT:
   "title": "Soccer team signup",
   "description": "Replace these placeholder slots with the real games, snack duties, or carpool shifts.",
   "fields": [
-    { "ref": "what", "label": "What", "fieldType": "text", "required": true, "choices": [] }
+    { "ref": "what", "label": "What", "fieldType": "text", "choices": [] }
   ],
   "slots": [
     { "values": { "what": "TBD: game 1" }, "capacity": 1 },
@@ -238,7 +238,7 @@ export const RESPONSE_JSON_SCHEMA = {
         type: 'array',
         items: {
           type: 'object',
-          required: ['ref', 'label', 'fieldType', 'required', 'choices'],
+          required: ['ref', 'label', 'fieldType', 'choices'],
           properties: {
             ref: { type: 'string' },
             label: { type: 'string' },
@@ -246,7 +246,6 @@ export const RESPONSE_JSON_SCHEMA = {
               type: 'string',
               enum: ['text', 'date', 'time', 'number', 'enum'],
             },
-            required: { type: 'boolean' },
             choices: { type: 'array', items: { type: 'string' } },
           },
         },

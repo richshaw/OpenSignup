@@ -73,6 +73,21 @@ shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 | `reminder.sent` | system | `{ commitmentId, channel }` | `jobs/reminders.ts` |
 | `reminder.failed` | system | `{ commitmentId, error }` | `jobs/reminders.ts` |
 
+### Marketing / acquisition
+
+| event | actor | payload | fired from |
+|---|---|---|---|
+| `landing.viewed` | system | `{ uaClass, refererHost }` | RSC at `/` (marketing home) |
+| `landing.cta_clicked` | system | `{ cta, uaClass, refererHost }` | client beacon from a landing-page CTA on `/`, via `POST /api/telemetry/landing-cta-clicked?cta=…`. `cta` discriminates which CTA fired: `start_signup` \| `demo_video` |
+
+Both rows have `signup_id` and `workspace_id` set to `NULL` — the page is
+tenant-independent. Together they form the top of the organizer funnel
+(`landing.viewed` → `landing.cta_clicked` → `auth.magic_link_sent` →
+`auth.signed_in` → `signup.draft_started` → `signup.created`).
+`landing.cta_clicked` is the only client-emitted event in the catalogue;
+all others fire server-side. The beacon reads UA/referer/DNT from request
+headers server-side — no client-supplied data is trusted.
+
 ### Auth & workspace
 
 | event | actor | payload | fired from |
@@ -88,8 +103,8 @@ shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 
 ## Privacy guarantees
 
-The `signup.viewed` and `commitment.edit_link_followed` events are
-deliberately minimal:
+The `landing.viewed`, `landing.cta_clicked`, `signup.viewed`, and
+`commitment.edit_link_followed` events are deliberately minimal:
 
 - **No IP address.** Postgres receives no client IP for view events.
 - **No request body, form input, or email address** (in view events).
@@ -218,9 +233,9 @@ GROUP BY 1;
 
 ### Volume
 
-Pageview-shaped events (`signup.editor_opened`, `signup.previewed`,
-`signup.viewed`, `signup.draft_started`, `commitment.edit_link_followed`)
-fire on every RSC render. Refreshes count. The activity table grows mostly
+Pageview-shaped events (`landing.viewed`, `signup.editor_opened`,
+`signup.previewed`, `signup.viewed`, `signup.draft_started`,
+`commitment.edit_link_followed`) fire on every RSC render. Refreshes count. The activity table grows mostly
 with these events. All dashboard queries should filter on `event_type` so
 read performance scales with the queried subset, not the table size.
 

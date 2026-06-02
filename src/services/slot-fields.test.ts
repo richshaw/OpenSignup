@@ -7,7 +7,6 @@ const def = (overrides: Partial<SlotFieldDefinition>): SlotFieldDefinition => ({
   ref: 'date',
   label: 'Date',
   fieldType: 'date',
-  required: true,
   sortOrder: 0,
   config: { fieldType: 'date' },
   ...overrides,
@@ -105,32 +104,16 @@ describe('validateSlotValues', () => {
     if (!r.ok) expect(r.error.code).toBe('invalid_input');
   });
 
-  it('rejects missing required field', () => {
+  it('allows a missing value (blanks pass through)', () => {
     const r = validateSlotValues([def({})], {});
-    expect(r.ok).toBe(false);
-  });
-
-  it('allows empty optional field', () => {
-    const r = validateSlotValues([def({ required: false })], {});
     expect(r.ok).toBe(true);
   });
 
-  it('coerces null/empty string as missing for required check', () => {
+  it('treats null and empty string as missing (no type check)', () => {
     const r1 = validateSlotValues([def({})], { date: '' });
     const r2 = validateSlotValues([def({})], { date: null });
-    expect(r1.ok).toBe(false);
-    expect(r2.ok).toBe(false);
-  });
-
-  it('allows missing required field when enforceRequired is false', () => {
-    const r = validateSlotValues([def({})], {}, { enforceRequired: false });
-    expect(r.ok).toBe(true);
-  });
-
-  it('still rejects wrong type when enforceRequired is false', () => {
-    const r = validateSlotValues([def({})], { date: 'not-a-date' }, { enforceRequired: false });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error.code).toBe('invalid_input');
+    expect(r1.ok).toBe(true);
+    expect(r2.ok).toBe(true);
   });
 });
 
