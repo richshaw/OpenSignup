@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WysiwygSlot } from './WysiwygSlot';
 import type { GridField, GridRow } from '../build-grid/useGridState';
@@ -29,23 +29,23 @@ type RenderProps = {
   expanded?: boolean;
   row?: GridRow;
   displayFields?: GridField[];
-  onExpand?: ReturnType<typeof vi.fn>;
-  onCollapse?: ReturnType<typeof vi.fn>;
-  onEditCell?: ReturnType<typeof vi.fn>;
-  onSetCapacity?: ReturnType<typeof vi.fn>;
-  onAddEnumOption?: ReturnType<typeof vi.fn>;
-  onDuplicate?: ReturnType<typeof vi.fn>;
-  onDelete?: ReturnType<typeof vi.fn>;
+  onExpand?: Mock<() => void>;
+  onCollapse?: Mock<() => void>;
+  onEditCell?: Mock<(fieldRef: string, value: string) => void>;
+  onSetCapacity?: Mock<(capacity: number | null) => void>;
+  onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;
+  onDuplicate?: Mock<() => void>;
+  onDelete?: Mock<() => void>;
 };
 
 function renderSlot(overrides: RenderProps = {}) {
-  const onExpand = overrides.onExpand ?? vi.fn();
-  const onCollapse = overrides.onCollapse ?? vi.fn();
-  const onEditCell = overrides.onEditCell ?? vi.fn();
-  const onSetCapacity = overrides.onSetCapacity ?? vi.fn();
-  const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn();
-  const onDuplicate = overrides.onDuplicate ?? vi.fn();
-  const onDelete = overrides.onDelete ?? vi.fn();
+  const onExpand = overrides.onExpand ?? vi.fn<() => void>();
+  const onCollapse = overrides.onCollapse ?? vi.fn<() => void>();
+  const onEditCell = overrides.onEditCell ?? vi.fn<(fieldRef: string, value: string) => void>();
+  const onSetCapacity = overrides.onSetCapacity ?? vi.fn<(capacity: number | null) => void>();
+  const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
+  const onDuplicate = overrides.onDuplicate ?? vi.fn<() => void>();
+  const onDelete = overrides.onDelete ?? vi.fn<() => void>();
   const defaultDisplayFields: GridField[] = [
     makeField({ ref: 'shift', name: 'Shift' }),
     makeField({
