@@ -9,12 +9,16 @@ const dateFmt = new Intl.DateTimeFormat('en-US', {
 /**
  * Prettify a group key for display in a WysiwygGroup header.
  * - ISO dates (YYYY-MM-DD) -> "THU, MAY 21" (uppercase per the design).
- * - Empty / no-value sentinel -> "Set a date" (date) or "Set a value" (other).
+ * - Empty / no-value sentinel -> type/label-aware prompt (see emptyHeaderCopy).
  * - Anything else -> pass through.
  */
-export function prettyHeader(rawKey: string | null | undefined, fieldType: FieldType): string {
+export function prettyHeader(
+  rawKey: string | null | undefined,
+  fieldType: FieldType,
+  fieldLabel?: string,
+): string {
   if (!rawKey) {
-    return fieldType === 'date' ? 'Set a date' : 'Set a value';
+    return emptyHeaderCopy(fieldType, fieldLabel);
   }
   if (fieldType !== 'date') return rawKey;
 
@@ -38,4 +42,16 @@ export function prettyHeader(rawKey: string | null | undefined, fieldType: Field
     }
   }
   return rawKey;
+}
+
+/**
+ * Action-prompt copy for an empty-bucket group header.
+ * date/time get a fixed phrase; other types derive from the field label when
+ * provided so an "Item" field reads "Set item" rather than the bland fallback.
+ */
+export function emptyHeaderCopy(fieldType: FieldType, fieldLabel?: string): string {
+  if (fieldType === 'date') return 'Set a date';
+  if (fieldType === 'time') return 'Set a time';
+  const trimmed = fieldLabel?.trim();
+  return trimmed ? `Set ${trimmed.toLowerCase()}` : 'Set a value';
 }

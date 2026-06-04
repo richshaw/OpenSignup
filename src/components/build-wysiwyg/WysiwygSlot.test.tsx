@@ -172,13 +172,21 @@ describe('WysiwygSlot — collapsed', () => {
       expect(screen.queryByText('Slot')).toBeNull();
     });
 
-    it('shows "Set ${name}" placeholder when the anchor (non-time) is empty', () => {
+    it('shows "Set <label>" placeholder (lowercased) when the anchor (non-date/time) is empty', () => {
       renderSlot({
         displayFields: [activity],
         row: makeRow({ values: { activity: '' } }),
       });
-      expect(screen.getByText('Set Activity')).toBeTruthy();
+      expect(screen.getByText('Set activity')).toBeTruthy();
       expect(screen.queryByText('Slot')).toBeNull();
+    });
+
+    it('uses "Set a date" placeholder when the anchor is an empty date field', () => {
+      renderSlot({
+        displayFields: [date],
+        row: makeRow({ values: { date: '' } }),
+      });
+      expect(screen.getByText('Set a date')).toBeTruthy();
     });
 
     it('keeps the index-0 placeholder even when later fields have values (no skip-to-next-non-empty)', () => {
@@ -186,7 +194,7 @@ describe('WysiwygSlot — collapsed', () => {
         displayFields: [activity, location],
         row: makeRow({ values: { activity: '', location: 'Cordoba' } }),
       });
-      expect(screen.getByText('Set Activity')).toBeTruthy();
+      expect(screen.getByText('Set activity')).toBeTruthy();
       expect(screen.getByText('Cordoba')).toBeTruthy();
     });
 
@@ -211,7 +219,7 @@ describe('WysiwygSlot — collapsed', () => {
         displayFields: [activity],
         row: makeRow({ values: { activity: '' } }),
       });
-      expect(screen.getByRole('button', { name: 'Edit slot \u2014 Set Activity' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Edit slot \u2014 Set activity' })).toBeTruthy();
     });
 
     it('aria-label uses "Set a time" placeholder when the anchor is an empty time field', () => {

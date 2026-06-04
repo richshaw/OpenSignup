@@ -16,10 +16,17 @@ export const DEFAULT_TEMPLATE: SignupTemplate = {
   id: 'default',
   fields: [
     {
+      ref: 'what',
+      label: 'What',
+      fieldType: 'text',
+      sortOrder: 0,
+      config: { fieldType: 'text', maxLength: 200 },
+    },
+    {
       ref: 'date',
       label: 'Date',
       fieldType: 'date',
-      sortOrder: 0,
+      sortOrder: 1,
       config: { fieldType: 'date' },
     },
   ],
