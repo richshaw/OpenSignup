@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SlotEditor } from './SlotEditor';
 import type { GridField, GridRow } from '../build-grid/useGridState';
@@ -28,19 +28,19 @@ function makeRow(overrides: Partial<GridRow> = {}): GridRow {
 function renderEditor(overrides: {
   row?: GridRow;
   fields?: GridField[];
-  onCellChange?: ReturnType<typeof vi.fn>;
-  onCapacity?: ReturnType<typeof vi.fn>;
-  onAddEnumOption?: ReturnType<typeof vi.fn>;
-  onDuplicate?: ReturnType<typeof vi.fn>;
-  onDelete?: ReturnType<typeof vi.fn>;
-  onClose?: ReturnType<typeof vi.fn>;
+  onCellChange?: Mock<(fieldRef: string, value: string) => void>;
+  onCapacity?: Mock<(capacity: number | null) => void>;
+  onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;
+  onDuplicate?: Mock<() => void>;
+  onDelete?: Mock<() => void>;
+  onClose?: Mock<() => void>;
 } = {}) {
-  const onCellChange = overrides.onCellChange ?? vi.fn();
-  const onCapacity = overrides.onCapacity ?? vi.fn();
-  const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn();
-  const onDuplicate = overrides.onDuplicate ?? vi.fn();
-  const onDelete = overrides.onDelete ?? vi.fn();
-  const onClose = overrides.onClose ?? vi.fn();
+  const onCellChange = overrides.onCellChange ?? vi.fn<(fieldRef: string, value: string) => void>();
+  const onCapacity = overrides.onCapacity ?? vi.fn<(capacity: number | null) => void>();
+  const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
+  const onDuplicate = overrides.onDuplicate ?? vi.fn<() => void>();
+  const onDelete = overrides.onDelete ?? vi.fn<() => void>();
+  const onClose = overrides.onClose ?? vi.fn<() => void>();
   const utils = render(
     <SlotEditor
       row={overrides.row ?? makeRow({ values: { name: 'Existing' } })}

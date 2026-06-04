@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FieldsPopover } from './FieldsPopover';
 import type { GridField } from '../build-grid/useGridState';
+import type { SlotFieldConfig } from '@/schemas/slot-fields';
 
 function makeField(overrides: Partial<GridField> = {}): GridField {
   return {
@@ -20,20 +21,20 @@ type RenderProps = {
   groupByFieldRef?: string | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  onAddField?: ReturnType<typeof vi.fn>;
-  onUpdateField?: ReturnType<typeof vi.fn>;
-  onDeleteField?: ReturnType<typeof vi.fn>;
-  onMoveField?: ReturnType<typeof vi.fn>;
-  onGroupByChange?: ReturnType<typeof vi.fn>;
+  onAddField?: Mock<(name: string, config: SlotFieldConfig) => void>;
+  onUpdateField?: Mock<(fieldId: string, patch: { name?: string; config?: SlotFieldConfig }) => void>;
+  onDeleteField?: Mock<(fieldId: string) => void>;
+  onMoveField?: Mock<(fieldId: string, toIdx: number) => void>;
+  onGroupByChange?: Mock<(ref: string | null) => void>;
 };
 
 function renderPopover(overrides: RenderProps = {}) {
-  const onOpenChange = overrides.onOpenChange ?? vi.fn();
-  const onAddField = overrides.onAddField ?? vi.fn();
-  const onUpdateField = overrides.onUpdateField ?? vi.fn();
-  const onDeleteField = overrides.onDeleteField ?? vi.fn();
-  const onMoveField = overrides.onMoveField ?? vi.fn();
-  const onGroupByChange = overrides.onGroupByChange ?? vi.fn();
+  const onOpenChange = overrides.onOpenChange ?? vi.fn<(open: boolean) => void>();
+  const onAddField = overrides.onAddField ?? vi.fn<(name: string, config: SlotFieldConfig) => void>();
+  const onUpdateField = overrides.onUpdateField ?? vi.fn<(fieldId: string, patch: { name?: string; config?: SlotFieldConfig }) => void>();
+  const onDeleteField = overrides.onDeleteField ?? vi.fn<(fieldId: string) => void>();
+  const onMoveField = overrides.onMoveField ?? vi.fn<(fieldId: string, toIdx: number) => void>();
+  const onGroupByChange = overrides.onGroupByChange ?? vi.fn<(ref: string | null) => void>();
   const utils = render(
     <FieldsPopover
       open={overrides.open ?? true}
@@ -176,31 +177,36 @@ describe('FieldsPopover', () => {
     const { rerender, onAddField } = renderPopover();
     fireEvent.click(screen.getByRole('button', { name: 'Add field' }));
     expect(screen.getByText('New field')).toBeTruthy();
+    const noopOpen = vi.fn<(open: boolean) => void>();
+    const noopUpdate = vi.fn<(fieldId: string, patch: { name?: string; config?: SlotFieldConfig }) => void>();
+    const noopDelete = vi.fn<(fieldId: string) => void>();
+    const noopMove = vi.fn<(fieldId: string, toIdx: number) => void>();
+    const noopGroupBy = vi.fn<(ref: string | null) => void>();
     // Simulate close then re-open from the parent.
     rerender(
       <FieldsPopover
         open={false}
-        onOpenChange={vi.fn()}
+        onOpenChange={noopOpen}
         fields={[makeField()]}
         groupByFieldRef={null}
         onAddField={onAddField}
-        onUpdateField={vi.fn()}
-        onDeleteField={vi.fn()}
-        onMoveField={vi.fn()}
-        onGroupByChange={vi.fn()}
+        onUpdateField={noopUpdate}
+        onDeleteField={noopDelete}
+        onMoveField={noopMove}
+        onGroupByChange={noopGroupBy}
       />,
     );
     rerender(
       <FieldsPopover
         open
-        onOpenChange={vi.fn()}
+        onOpenChange={noopOpen}
         fields={[makeField()]}
         groupByFieldRef={null}
         onAddField={onAddField}
-        onUpdateField={vi.fn()}
-        onDeleteField={vi.fn()}
-        onMoveField={vi.fn()}
-        onGroupByChange={vi.fn()}
+        onUpdateField={noopUpdate}
+        onDeleteField={noopDelete}
+        onMoveField={noopMove}
+        onGroupByChange={noopGroupBy}
       />,
     );
     expect(screen.queryByText('New field')).toBeNull();

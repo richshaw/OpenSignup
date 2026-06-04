@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
 import type { GridField, GridRow } from '../build-grid/useGridState';
@@ -31,23 +31,23 @@ function renderGroup(overrides: {
   displayFields?: GridField[];
   fields?: GridField[];
   expandedRowId?: string | null;
-  onExpandRow?: ReturnType<typeof vi.fn>;
-  onEditCell?: ReturnType<typeof vi.fn>;
-  onSetCapacity?: ReturnType<typeof vi.fn>;
-  onAddEnumOption?: ReturnType<typeof vi.fn>;
-  onDuplicateRow?: ReturnType<typeof vi.fn>;
-  onDeleteRow?: ReturnType<typeof vi.fn>;
-  onAddSlot?: ReturnType<typeof vi.fn>;
-  onRenameGroup?: ReturnType<typeof vi.fn>;
+  onExpandRow?: Mock<(rowId: string | null) => void>;
+  onEditCell?: Mock<(rowId: string, fieldRef: string, value: string) => void>;
+  onSetCapacity?: Mock<(rowId: string, capacity: number | null) => void>;
+  onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;
+  onDuplicateRow?: Mock<(rowId: string) => void>;
+  onDeleteRow?: Mock<(rowId: string) => void>;
+  onAddSlot?: Mock<(groupKey: string) => void>;
+  onRenameGroup?: Mock<(oldKey: string, newKey: string) => void>;
 } = {}) {
-  const onAddSlot = overrides.onAddSlot ?? vi.fn();
-  const onRenameGroup = overrides.onRenameGroup ?? vi.fn();
-  const onExpandRow = overrides.onExpandRow ?? vi.fn();
-  const onEditCell = overrides.onEditCell ?? vi.fn();
-  const onSetCapacity = overrides.onSetCapacity ?? vi.fn();
-  const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn();
-  const onDuplicateRow = overrides.onDuplicateRow ?? vi.fn();
-  const onDeleteRow = overrides.onDeleteRow ?? vi.fn();
+  const onAddSlot = overrides.onAddSlot ?? vi.fn<(groupKey: string) => void>();
+  const onRenameGroup = overrides.onRenameGroup ?? vi.fn<(oldKey: string, newKey: string) => void>();
+  const onExpandRow = overrides.onExpandRow ?? vi.fn<(rowId: string | null) => void>();
+  const onEditCell = overrides.onEditCell ?? vi.fn<(rowId: string, fieldRef: string, value: string) => void>();
+  const onSetCapacity = overrides.onSetCapacity ?? vi.fn<(rowId: string, capacity: number | null) => void>();
+  const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
+  const onDuplicateRow = overrides.onDuplicateRow ?? vi.fn<(rowId: string) => void>();
+  const onDeleteRow = overrides.onDeleteRow ?? vi.fn<(rowId: string) => void>();
   const group: SlotGroup = {
     key: '2026-05-21',
     rawValue: '2026-05-21',
