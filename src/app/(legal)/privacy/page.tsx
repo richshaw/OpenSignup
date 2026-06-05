@@ -20,7 +20,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-ink-muted text-sm">Last updated: 28 May 2026</p>
+        <p className="text-ink-muted text-sm">Last updated: 2 June 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -43,8 +43,9 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">What we collect from organizers</h2>
         <p>
-          Organizers (people who create signups) sign in via a magic link sent to their
-          email. We store:
+          Organizers (people who create signups) sign in without a password — either
+          via a magic link sent to their email or, where the operator has enabled it,
+          an optional third-party sign-in such as Google. We store:
         </p>
         <ul className="list-disc space-y-1 pl-6">
           <li>Email address (used to send magic-link sign-in emails).</li>
@@ -60,7 +61,7 @@ export default function PrivacyPage() {
             &ldquo;Logs and rate-limiting&rdquo; below).
           </li>
         </ul>
-        <p>No password is ever stored — authentication is magic-link only.</p>
+        <p>No password is ever stored — sign-in is passwordless.</p>
       </section>
 
       <section className="space-y-3">
@@ -127,10 +128,19 @@ export default function PrivacyPage() {
         <p>
           OpenSignup is designed to have no required external dependencies beyond a
           Postgres database. Optional integrations (email provider, error reporting,
-          product analytics, AI draft generation) are off by default and only enabled
-          if the operator has configured them via environment variables. Where this
-          instance has enabled any such integration, the operator will list it on
-          request.
+          product analytics, AI draft generation, and third-party sign-in) are off by
+          default and only enabled if the operator has configured them via environment
+          variables. Where this instance has enabled any such integration, the operator
+          will list it on request.
+        </p>
+        <p>
+          If third-party sign-in (for example, Google) is enabled and you choose it, you
+          authenticate on the provider&apos;s own site and they return your email, name,
+          avatar, and a unique account identifier. We store the link between that provider
+          account and your organizer record — along with the standard sign-in tokens the
+          provider issues — so we can recognise you on future sign-ins. We do not use those
+          tokens to access anything on the provider beyond the basic profile needed to sign
+          you in.
         </p>
       </section>
 

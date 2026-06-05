@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation';
 import { signIn } from '@/auth/config';
 import { getOrganizerSession } from '@/auth/session';
+import { getEnabledOAuthProviders } from '@/auth/oauth-providers';
 import { log } from '@/lib/log';
 import { EmailSchema } from '@/schemas/common';
 import { LoginForm, type LoginActionResult } from './login-form';
+import { OAuthButtons } from './oauth-buttons';
 
 export const metadata = { title: 'Sign in' };
 
@@ -22,6 +24,8 @@ export default async function LoginPage({
   const session = await getOrganizerSession();
   const callbackUrl = safeCallbackUrl(params.callbackUrl);
   if (session) redirect(callbackUrl);
+
+  const oauthProviders = getEnabledOAuthProviders();
 
   async function handle(formData: FormData): Promise<LoginActionResult> {
     'use server';
@@ -43,7 +47,9 @@ export default async function LoginPage({
       <div className="space-y-3">
         <h1 className="text-3xl font-semibold tracking-tight">Sign in to OpenSignup</h1>
         <p className="text-ink-muted">
-          Enter your email and we&apos;ll send you a magic link to sign in. No passwords.
+          {oauthProviders.length > 0
+            ? 'Continue with a provider below, or get a magic link by email. No passwords.'
+            : "Enter your email and we'll send you a magic link to sign in. No passwords."}
         </p>
       </div>
       {params.error ? (
@@ -51,6 +57,7 @@ export default async function LoginPage({
           Something went wrong. Try again.
         </p>
       ) : null}
+      <OAuthButtons providers={oauthProviders} callbackUrl={callbackUrl} />
       <LoginForm action={handle} />
     </main>
   );

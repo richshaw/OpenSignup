@@ -20,7 +20,7 @@ export default function TermsPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Terms of service</h1>
-        <p className="text-ink-muted text-sm">Last updated: 24 May 2026</p>
+        <p className="text-ink-muted text-sm">Last updated: 2 June 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -57,6 +57,16 @@ export default function TermsPage() {
           <li>Attempt to access data belonging to other organizers or workspaces.</li>
           <li>Interfere with the service&apos;s normal operation, including by automated abuse, rate-limit evasion, or denial-of-service.</li>
         </ul>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">Third-party sign-in</h2>
+        <p>
+          If this instance offers sign-in through a third-party provider (for example,
+          Google) and you choose it, your use of that provider is also governed by that
+          provider&apos;s own terms and privacy policy.{' '}
+          {INSTANCE_NAME} is not responsible for third-party services.
+        </p>
       </section>
 
       <section className="space-y-3">

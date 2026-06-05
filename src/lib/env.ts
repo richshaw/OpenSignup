@@ -62,6 +62,13 @@ const conditional = baseSchema.superRefine((env, ctx) => {
       message: 'LLM_BASE_URL and LLM_MODEL must be set together (or both unset)',
     });
   }
+  if (Boolean(env.GOOGLE_CLIENT_ID) !== Boolean(env.GOOGLE_CLIENT_SECRET)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [env.GOOGLE_CLIENT_ID ? 'GOOGLE_CLIENT_SECRET' : 'GOOGLE_CLIENT_ID'],
+      message: 'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together (or both unset)',
+    });
+  }
 });
 
 export type Env = z.infer<typeof baseSchema>;

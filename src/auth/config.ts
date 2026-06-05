@@ -11,6 +11,7 @@ import { log } from '@/lib/log';
 import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
 import { ServiceException } from '@/lib/errors';
 import { SignupAdapter } from './adapter';
+import { buildOAuthProviders } from './oauth-providers';
 import { canonicalizeMagicLinkUrl } from './magic-link-url';
 import { extractEmailDomain } from './email-domain';
 import { getMagicLinkMaxAgeSeconds } from './magic-link-expiry';
@@ -84,6 +85,9 @@ function buildConfig(): NextAuthConfig {
           }
         },
       }),
+      // Optional, env-gated OAuth providers (e.g. Google). Empty when none are
+      // configured, so the magic-link flow is unaffected by default.
+      ...buildOAuthProviders(),
     ],
     pages: {
       signIn: '/login',
