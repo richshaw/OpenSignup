@@ -1,5 +1,4 @@
 import type { NextRequest } from 'next/server';
-import { isIP } from 'node:net';
 import { getDb } from '@/db/client';
 import { fail, handle, respond } from '@/lib/api-response';
 import {
@@ -10,6 +9,7 @@ import {
 import { commitmentEditUrl, link } from '@/lib/links';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { commitToSlot } from '@/services/commitments';
+import { extractClientIp } from '@/auth/request-context';
 
 export async function POST(
   req: NextRequest,
@@ -18,11 +18,7 @@ export async function POST(
   return handle(async () => {
     const { id: slotId } = await ctx.params;
     const db = getDb();
-    const rawIp =
-      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      req.headers.get('x-real-ip')?.trim() ||
-      null;
-    const clientIp = rawIp && isIP(rawIp) ? rawIp : null;
+    const clientIp = extractClientIp(req.headers);
     await consumeRateLimit(db, RateLimits.commitmentPerIp, clientIp ?? 'unknown');
     const body = await req.json().catch(() => ({}));
     const result = await commitToSlot(db, slotId, body);
