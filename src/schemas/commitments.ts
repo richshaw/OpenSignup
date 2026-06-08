@@ -10,7 +10,7 @@ const ParticipantEmailSchema = z
   .transform((v) => v.trim())
   .pipe(z.string().email());
 
-export const COMMITMENT_STATUSES = [
+const COMMITMENT_STATUSES = [
   'confirmed',
   'tentative',
   'waitlist',
