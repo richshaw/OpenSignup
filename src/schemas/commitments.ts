@@ -18,6 +18,7 @@ const COMMITMENT_STATUSES = [
   'no_show',
   'orphaned',
 ] as const;
+export type CommitmentStatus = (typeof COMMITMENT_STATUSES)[number];
 
 export const CommitmentCreateInputSchema = z.object({
   name: NameSchema,
