@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const SLOT_STATUSES = ['open', 'closed'] as const;
+const SLOT_STATUSES = ['open', 'closed'] as const;
 export type SlotStatus = (typeof SLOT_STATUSES)[number];
 
 const SlotValuesSchema = z.record(z.string(), z.unknown());

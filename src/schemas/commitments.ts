@@ -10,7 +10,7 @@ const ParticipantEmailSchema = z
   .transform((v) => v.trim())
   .pipe(z.string().email());
 
-export const COMMITMENT_STATUSES = [
+const COMMITMENT_STATUSES = [
   'confirmed',
   'tentative',
   'waitlist',
@@ -18,6 +18,7 @@ export const COMMITMENT_STATUSES = [
   'no_show',
   'orphaned',
 ] as const;
+export type CommitmentStatus = (typeof COMMITMENT_STATUSES)[number];
 
 export const CommitmentCreateInputSchema = z.object({
   name: NameSchema,
