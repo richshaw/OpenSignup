@@ -27,6 +27,7 @@ primary_region = "iad"
     NEXT_PUBLIC_SUPPORT_EMAIL = "hello@opensignup.org"
     NEXT_PUBLIC_SOURCE_URL = "https://github.com/richshaw/OpenSignup"
     NEXT_PUBLIC_GOVERNING_LAW = "the State of Washington, United States"
+    NEXT_PUBLIC_APP_URL = "https://opensignup.org"
 
 [deploy]
   release_command = "pnpm db:migrate"

@@ -2,8 +2,11 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { signOut } from '@/auth/config';
 import { getOrganizerSession } from '@/auth/session';
+import { INSTANCE_NAME } from '@/lib/site-config';
 
-export const metadata = { title: { default: 'Dashboard', template: '%s · OpenSignup' } };
+export const metadata = {
+  title: { default: 'Dashboard', template: `%s · ${INSTANCE_NAME}` },
+};
 
 export default async function OrganizerLayout({
   children,

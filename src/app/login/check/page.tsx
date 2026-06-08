@@ -1,7 +1,7 @@
 import { getMagicLinkMaxAgeMinutes } from '@/auth/magic-link-expiry';
 import { formatDuration } from '@/lib/format-duration';
 
-export const metadata = { title: 'Check your email' };
+export const metadata = { title: 'Check your email', robots: { index: false } };
 
 // Force dynamic so getMagicLinkMaxAgeMinutes() (→ getEnv()) runs at request
 // time, not during `next build` where server env is absent.
