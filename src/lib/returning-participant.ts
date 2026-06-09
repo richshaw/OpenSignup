@@ -88,6 +88,19 @@ export function removeReturningCommit(
   );
 }
 
+/**
+ * `Secure` follows the deployment scheme, not NODE_ENV: a production build
+ * served over plain HTTP (intranet self-host, local `next start`, e2e) must
+ * not set Secure or browsers silently drop the cookie — Chromium exempts
+ * localhost, WebKit/Firefox do not. Falls back to NODE_ENV when
+ * NEXT_PUBLIC_APP_URL is unset.
+ */
+function isHttpsDeployment(): boolean {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) return appUrl.startsWith('https:');
+  return process.env.NODE_ENV === 'production';
+}
+
 export function setReturningCommitCookie(response: NextResponse, value: string): void {
   // Path `/` — every API route mutating commits needs to read/write this cookie,
   // and SSR filters by signup_id, so cross-signup leakage is impossible.
@@ -99,6 +112,6 @@ export function setReturningCommitCookie(response: NextResponse, value: string):
     maxAge: MAX_AGE_DAYS * 24 * 60 * 60,
     sameSite: 'lax',
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isHttpsDeployment(),
   });
 }
