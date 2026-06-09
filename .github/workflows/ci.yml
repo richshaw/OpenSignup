@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Both jobs only read the repo; artifact upload uses its own scope, not the
+# GITHUB_TOKEN. Restricting here covers every job in the workflow.
+permissions:
+  contents: read
+
 jobs:
   lint-type-test:
     runs-on: ubuntu-latest
