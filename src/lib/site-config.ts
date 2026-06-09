@@ -109,6 +109,17 @@ export const OPERATOR_NAME = config.OPERATOR_NAME;
 export const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}` as const;
 export const SOURCE_DISPLAY = SOURCE_URL.replace(/^https:\/\//, '');
 
+// Public origin of this deployment (e.g. https://opensignup.org), used for
+// canonical URLs, sitemap/robots, and absolute Open Graph image URLs. Next.js
+// bakes all of these at build time, so this must be a build-time value — it's
+// wired through Dockerfile + fly.toml `[build.args]` alongside the branding
+// vars above. Read directly from `process.env` (static-safe, like the block
+// above); defaults to localhost for dev, mirroring `NEXT_PUBLIC_APP_URL` in
+// src/lib/env.ts. `new URL(...).origin` strips any trailing slash or path.
+export const APP_ORIGIN = new URL(
+  process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+).origin;
+
 export function operatorLabel(): string {
   return OPERATOR_NAME ?? 'the operator of this instance';
 }
