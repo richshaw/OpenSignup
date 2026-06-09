@@ -59,6 +59,12 @@ export const RateLimits = {
   magicLinkPerEmail: { bucket: 'auth.magic.email', max: 5, windowSeconds: 3600 },
   magicLinkPerIp: { bucket: 'auth.magic.ip', max: 20, windowSeconds: 3600 },
   commitmentPerIp: { bucket: 'commit.ip', max: 10, windowSeconds: 60 },
+  // Anonymous token-authenticated reads/edits on /api/commitments/[id]:
+  // generous for legitimate participants, hostile to edit-token brute force
+  // and unmetered DB hits.
+  commitmentTokenOpsPerIp: { bucket: 'commit.token.ip', max: 30, windowSeconds: 60 },
   signupCreatePerOrganizer: { bucket: 'signup.create', max: 60, windowSeconds: 3600 },
   magicComposePerOrganizer: { bucket: 'magic.compose', max: 10, windowSeconds: 3600 },
+  // Unauthenticated writes into the append-only activity log.
+  telemetryPerIp: { bucket: 'telemetry.ip', max: 30, windowSeconds: 3600 },
 } as const;

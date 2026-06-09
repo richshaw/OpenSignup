@@ -58,7 +58,7 @@ Helpers used by every service:
 - `src/lib/parse.ts` — wraps Zod parsing into a `Result`.
 - `src/lib/activity.ts` — `recordActivity(tx, …)` writes to the append-only activity log **inside the same transaction** as the mutation it describes. Telemetry-only events (no describing mutation) write outside a tx; see `src/lib/view-tracker.ts` and `safeRecordAttemptFailed` in `src/services/commitments.ts`.
 - `src/lib/ids.ts` — UUIDv7 + base62 + 3–4 char type prefix (`sig_`, `slot_`, `org_`, `ws_`, `mem_`, `com_`, `par_`).
-- `src/lib/idempotency.ts`, `src/lib/rate-limit.ts` — Postgres-backed (no Redis); applied at API boundaries.
+- `src/lib/idempotency.ts`, `src/lib/rate-limit.ts` — Postgres-backed (no Redis); applied at API boundaries. Rate-limited surfaces: magic link (per email + per IP), public commit POST (per IP), `/api/commitments/[id]` token ops (per IP), signup create + Magic Compose (per organizer), landing telemetry (per IP). Every unauthenticated write endpoint must consume a rate limit before doing any work.
 
 ### Schemas: Zod is the source of truth
 
@@ -78,7 +78,7 @@ Helpers used by every service:
 
 ### Jobs
 
-pg-boss runs against the same Postgres (schema `pgboss`). The Next.js server **does not** run the worker — `pnpm worker` (`src/jobs/worker.ts`) is a separate process. Two queues: `reminderDispatch` (cron every 10 min, scans the 48h window) and `reminderSend` (per-commitment send with retries). On commit, schedule with `singletonKey: commitmentId` so swap/edit replaces the prior job.
+pg-boss runs against the same Postgres (schema `pgboss`). The Next.js server **does not** run the worker — `pnpm worker` (`src/jobs/worker.ts`) is a separate process. Two queues: `reminderDispatch` (cron every 10 min, scans the 48h window) and `reminderSend` (per-commitment send with retries). On commit, schedule with `singletonKey: commitmentId` so swap/edit replaces the prior job. Worker liveness is observable from the web process: `GET /api/public/health` reports `worker: ok | stale | unknown` by checking `pgboss.job` for a recent dispatch completion (`src/lib/worker-health.ts`) — informational only, never fails the HTTP check.
 
 ### Magic Compose (AI-drafted signups)
 
