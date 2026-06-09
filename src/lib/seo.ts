@@ -28,14 +28,19 @@ export function buildRobots(origin: string): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
-      allow: '/',
-      // `/app$` matches the exact authed landing (`/app`), which `/app/` alone
-      // does not cover; `/app/` covers the authed subtree; `/api/` covers JSON
-      // endpoints. The exact match is anchored with `$` so a bare `/app` prefix
-      // doesn't also block `/apple-icon.png`. Private participant pages (`/s/*`)
-      // are intentionally NOT disallowed: they rely on a `noindex` meta tag,
-      // which a crawler can only honor if it's allowed to fetch the page.
-      disallow: ['/app$', '/app/', '/api/'],
+      // `/apple-icon.png` is listed explicitly so it isn't swept up by the
+      // `/app` prefix below. Longest-match wins for every major crawler that
+      // implements `Allow` (Google, Bing, etc.) — and unlike `$`, this is in
+      // the original RFC 9309 robots spec, so strict implementations honor it
+      // too. `/` is kept for clarity (it's also the default).
+      allow: ['/', '/apple-icon.png'],
+      // Plain `/app` prefix covers both the exact authed landing (`/app`) and
+      // the authed subtree (`/app/...`) for *every* crawler, including those
+      // that don't understand the `$` end-of-URL extension. `/api/` covers
+      // JSON endpoints. Private participant pages (`/s/*`) are intentionally
+      // NOT disallowed: they rely on a `noindex` meta tag, which a crawler
+      // can only honor if it's allowed to fetch the page.
+      disallow: ['/app', '/api/'],
     },
     sitemap: `${origin}/sitemap.xml`,
     host: origin,

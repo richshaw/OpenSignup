@@ -40,20 +40,24 @@ describe('buildRobots', () => {
     expect(buildRobots(ORIGIN).sitemap).toBe('https://example.test/sitemap.xml');
   });
 
-  it('disallows the authed app (exact + subtree) and the API', () => {
+  it('disallows the /app prefix (covers exact + subtree) and the API', () => {
     const { rules } = buildRobots(ORIGIN);
     const rule = Array.isArray(rules) ? rules[0] : rules;
-    expect(rule?.disallow).toEqual(['/app$', '/app/', '/api/']);
+    expect(rule?.disallow).toEqual(['/app', '/api/']);
   });
 
-  it('does not disallow /s/ (noindex meta instead) or accidentally block /apple-icon.png', () => {
+  it('does not disallow /s/ and carves /apple-icon.png out of the /app prefix via Allow', () => {
     const { rules } = buildRobots(ORIGIN);
     const rule = Array.isArray(rules) ? rules[0] : rules;
     const disallow = (rule?.disallow ?? []) as string[];
+    const allow = (rule?.allow ?? []) as string | string[];
+    const allowList = Array.isArray(allow) ? allow : [allow];
+
     expect(disallow.some((r) => r.startsWith('/s'))).toBe(false);
-    // a bare '/app' prefix would also match '/apple-icon.png'; the exact rule must be anchored
-    expect(disallow).not.toContain('/app');
-    expect(disallow).toContain('/app$');
+    // `/apple-icon.png` is `/app`-prefixed and would be blocked without an
+    // explicit longest-match Allow override.
+    expect(disallow).toContain('/app');
+    expect(allowList).toContain('/apple-icon.png');
   });
 });
 
