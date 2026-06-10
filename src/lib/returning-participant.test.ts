@@ -97,18 +97,27 @@ describe('setReturningCommitCookie', () => {
     return { response: { cookies: { set } } as unknown as NextResponse, set };
   }
 
-  it('sets secure:true in production', () => {
-    vi.stubEnv('NODE_ENV', 'production');
+  it('sets secure:true when the app is served over https', () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://opensignup.org');
     const { response, set } = mockResponse();
     setReturningCommitCookie(response, 'com_a.tok');
     expect(set).toHaveBeenCalledWith(expect.objectContaining({ secure: true }));
   });
 
-  it('sets secure:false outside production', () => {
-    vi.stubEnv('NODE_ENV', 'test');
+  it('sets secure:false over plain http even in production builds', () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
+    vi.stubEnv('NODE_ENV', 'production');
     const { response, set } = mockResponse();
     setReturningCommitCookie(response, 'com_a.tok');
     expect(set).toHaveBeenCalledWith(expect.objectContaining({ secure: false }));
+  });
+
+  it('falls back to NODE_ENV when NEXT_PUBLIC_APP_URL is unset', () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', '');
+    vi.stubEnv('NODE_ENV', 'production');
+    const { response, set } = mockResponse();
+    setReturningCommitCookie(response, 'com_a.tok');
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({ secure: true }));
   });
 
   it('always sets httpOnly and sameSite:lax', () => {

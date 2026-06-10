@@ -14,7 +14,9 @@ export default {
         ink: {
           DEFAULT: '#0b1220',
           muted: '#5b6474',
-          soft: '#8a93a4',
+          // Lightest tone that still meets WCAG AA 4.5:1 for small text on
+          // both `surface` (#fff) and `surface.raised` (#f7f8fa).
+          soft: '#667085',
         },
         brand: {
           DEFAULT: '#1f6feb',

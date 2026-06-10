@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Both jobs only read the repo; artifact upload uses its own scope, not the
+# GITHUB_TOKEN. Restricting here covers every job in the workflow.
+permissions:
+  contents: read
+
 jobs:
   lint-type-test:
     runs-on: ubuntu-latest
@@ -52,3 +57,50 @@ jobs:
       - run: pnpm test
       - run: pnpm test:db
       - run: pnpm build
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: signup
+          POSTGRES_PASSWORD: signup
+          POSTGRES_DB: signup
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd="pg_isready -U signup"
+          --health-interval=3s
+          --health-timeout=3s
+          --health-retries=10
+    env:
+      DATABASE_URL: postgres://signup:signup@localhost:5433/signup
+      # Deterministic placeholder for CI only — the seeded session and edit
+      # tokens are derived from it inside this job and never leave it.
+      AUTH_SECRET: ci-secret-ci-secret-ci-secret-ci
+      AUTH_URL: http://localhost:3000
+      EMAIL_TRANSPORT: console
+      EMAIL_FROM: 'ci@signup.local'
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_INSTANCE_NAME: OpenSignup (CI)
+      NEXT_PUBLIC_SUPPORT_EMAIL: ci@signup.local
+      NEXT_PUBLIC_SOURCE_URL: https://github.com/richshaw/OpenSignup
+      NEXT_PUBLIC_GOVERNING_LAW: the State of Washington, United States
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm db:migrate
+      - run: pnpm build
+      - run: pnpm test:e2e --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

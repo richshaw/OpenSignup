@@ -120,7 +120,7 @@ From `CONTRIBUTING.md` and the v1 plan:
 
 - `src/**/*.test.ts(x)` — unit, run by `pnpm test`.
 - `src/**/*.db.test.ts` — integration against real Postgres, run by `pnpm test:db` (sequential; needs `docker compose up -d` and migrations applied).
-- `tests/e2e/**` — Playwright (`testDir` in `playwright.config.ts`), run by `pnpm test:e2e`. `@axe-core/playwright` is installed; no axe specs exist yet (planned for `/s/[slug]`).
+- `tests/e2e/**` — Playwright smokes (`testDir` in `playwright.config.ts`), run by `pnpm test:e2e`. Needs Postgres up, migrations applied, and a production build (`pnpm build`) — the config starts `pnpm start` itself; locally an already-running `pnpm dev` on :3000 is reused instead. `tests/e2e/global-setup.ts` reseeds fixture data (organizer + session, published/draft signups, a commitment with edit token) into the database on every run and writes ids/tokens to the gitignored `tests/e2e/.seed.json`. Axe (WCAG A/AA) specs cover `/s/[slug]` and the commit dialog in `tests/e2e/a11y.spec.ts`. CI runs the chromium project in a dedicated job.
 
 ## Recurring mistakes to avoid
 
