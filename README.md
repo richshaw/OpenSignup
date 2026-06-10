@@ -32,7 +32,7 @@ Open `http://localhost:3000`, request a magic link with any email, and look at t
 
 ## Self-host
 
-Docker image is published to GHCR on release. See `docker-compose.yml` for the canonical setup (app + db + worker). Configuration is entirely via environment variables — see `.env.example`.
+Build the Docker image from source with the included `Dockerfile` (a prebuilt registry image is planned but not yet published). See `docker-compose.prod.yml` for the canonical setup (app + db + migrate + worker). Configuration is entirely via environment variables — see `.env.example`.
 
 Email transport is pluggable (`console` for dev, `smtp` for generic self-host, `resend` for hosted). No other external accounts required.
 
