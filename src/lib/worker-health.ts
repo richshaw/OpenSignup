@@ -21,8 +21,9 @@ export function classifyWorkerStatus(
 /**
  * Observes worker liveness from the web process with zero extra infra: the
  * dispatch cron leaves completed jobs in `pgboss.job`, so a recent completion
- * proves the worker is alive. Returns 'unknown' when the pgboss schema does
- * not exist yet (worker never started against this database).
+ * proves the worker is alive. Returns 'unknown' when the query fails for any
+ * reason — most commonly the pgboss schema not existing yet (worker never
+ * started against this database), but also permissions or transient DB errors.
  */
 export async function getWorkerStatus(db: Db): Promise<WorkerStatus> {
   try {
@@ -35,7 +36,7 @@ export async function getWorkerStatus(db: Db): Promise<WorkerStatus> {
     const last = raw === null ? null : new Date(raw);
     return classifyWorkerStatus(last, new Date());
   } catch (err) {
-    log.warn({ err }, 'health: pgboss schema unavailable, worker status unknown');
+    log.warn({ err }, 'health: worker status query failed, reporting unknown');
     return 'unknown';
   }
 }
