@@ -55,6 +55,15 @@ primary_region = "iad"
     soft_limit = 200
     hard_limit = 250
 
+  # Restarts the web machine when the app can't serve or reach Postgres.
+  # A stale worker is reported in the body but never fails this check.
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/api/public/health"
+
 [[vm]]
   size = "shared-cpu-1x"
   memory = "1gb"
