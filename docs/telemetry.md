@@ -284,5 +284,5 @@ and does not advance `last_active_at`.
   pino logs.
 - HTTP errors and Web Vitals — these belong in pino + Sentry, not the
   activity log. Sentry env stubs (`SENTRY_DSN`) exist in `src/lib/env.ts`
-  but are not yet wired up; see Task 2.8 in
-  [`docs/plans/2026-04-19-signup-v1.md`](plans/2026-04-19-signup-v1.md).
+  but are not yet wired up; see Task 2.8 in the internal v1 build plan
+  (`docs/plans/`, kept local).
