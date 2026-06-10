@@ -8,12 +8,16 @@ import { BASE_URL, loadSeed } from './fixtures';
  */
 export async function loginAsSeededOrganizer(context: BrowserContext): Promise<void> {
   const seed = loadSeed();
+  // Auth.js derives useSecureCookies from the app URL scheme: over https the
+  // cookie is renamed `__Secure-authjs.session-token` and must be `secure`.
+  const secure = BASE_URL.startsWith('https://');
   await context.addCookies([
     {
-      name: 'authjs.session-token',
+      name: secure ? '__Secure-authjs.session-token' : 'authjs.session-token',
       value: seed.sessionToken,
       url: BASE_URL,
       httpOnly: true,
+      secure,
       sameSite: 'Lax',
     },
   ]);
