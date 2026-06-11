@@ -8,7 +8,7 @@ OpenSignup — ad-free, open-source coordination tool (a self-hostable sign-up c
 
 The product name is **OpenSignup** (one word, served from `opensignup.org`). Lowercase `signup` remains acceptable for code/infra identifiers (folders, table, types, ID prefix `sig_`), and an individual entity is still called a "signup".
 
-Authoritative build plan: `docs/plans/2026-04-19-signup-v1.md`. Read this first when picking up significant new work — phases, task numbering, and "non-negotiables" referenced throughout the code originate there.
+Authoritative build plan: `docs/plans/2026-04-19-signup-v1.md` (local-only — `docs/plans/` is gitignored and not in the public repo). Read this first when picking up significant new work — phases, task numbering, and "non-negotiables" referenced throughout the code originate there.
 
 ## Common commands
 

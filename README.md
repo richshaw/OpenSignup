@@ -1,11 +1,30 @@
-# OpenSignup
+<p align="center">
+  <img src="docs/assets/logo.png" width="80" alt="OpenSignup logo" />
+</p>
 
-Ad-free, open-source coordination for school parents, coaches, and community organizers.
+<h1 align="center">OpenSignup</h1>
 
-A modern, self-hostable sign-up and volunteer coordination tool.
+<p align="center">
+  <strong>Ad-free, open-source sign-up sheets. No accounts for participants — ever.</strong>
+</p>
 
-- **Slots are the atom, not questions.** Commitments, capacity, reminders — not form fields.
-- **Participants are not users.** No account required, ever, to sign up.
+<p align="center">
+  <a href="https://opensignup.org"><strong>Use it free at opensignup.org →</strong></a>
+  <br />
+  No credit card, publish a signup in minutes. There's a live example on the homepage you can poke without signing in.
+</p>
+
+<p align="center">
+  <img src="docs/assets/example-signup.png" width="600" alt="A public OpenSignup sheet titled 'U9 Soccer Snack Duty' with six date slots, capacity counters, and Sign up buttons" />
+</p>
+
+Coordinate snack rotations, potlucks, volunteer shifts, and carpools. Made for school parents, coaches, and community organizers who are tired of ad-soaked signup tools.
+
+## Why OpenSignup
+
+- **Participants are not users.** Parents click a link, pick a slot, done. No account required, ever, to sign up.
+- **Ad-free, structurally.** The code is AGPL-3.0 open source — "we won't bait-and-switch you" is enforced by the license, not a pricing page.
+- **Slots are the atom, not questions.** Commitments, capacity, reminders — not a form builder.
 - **Self-hostable from day one.** `git clone`, one Docker Compose, zero vendor accounts required.
 - **AI-native.** Clean primitives designed for Claude, MCP, and future agent surfaces.
 
@@ -55,9 +74,8 @@ The footer, privacy policy, terms, and cookies pages are instance-agnostic — t
 
 ## Status
 
-v1 — deliberately narrow. See [`docs/plans/2026-04-19-signup-v1.md`](docs/plans/2026-04-19-signup-v1.md) for the full build plan.
+v1 — deliberately narrow. Date, time, item, role, and quantity slots; capacity with race-safe commits; email reminders; magic-link auth for organizers only.
 
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md). Contributors retain copyright on their contributions and license them under AGPL-3.0.
-

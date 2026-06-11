@@ -21,3 +21,6 @@ next-env.d.ts
 
 # Non-deterministic LLM eval outputs — local dev artifacts only
 evals/**/snapshots/
+
+# Internal planning docs — kept local, not published
+docs/plans/
