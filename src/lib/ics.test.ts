@@ -44,6 +44,21 @@ describe('buildIcs', () => {
     expect(ics).toContain('DESCRIPTION:line1\\nline2');
   });
 
+  it('escapes carriage returns so they cannot forge ICS lines', () => {
+    const ics = buildIcs({
+      uid: 'com_x@opensignup.org',
+      title: 'Pickup\r\nSUMMARY:Injected',
+      description: 'old-mac\rline',
+      start: new Date('2026-05-02T15:00:00Z'),
+      now: new Date('2026-04-30T12:00:00Z'),
+    });
+    // CRLF, lone CR, and lone LF all collapse to a single escaped newline,
+    // leaving no raw CR/LF inside a content line.
+    expect(ics).toContain('SUMMARY:Pickup\\nSUMMARY:Injected');
+    expect(ics).toContain('DESCRIPTION:old-mac\\nline');
+    expect(ics.split('\r\n')).not.toContain('SUMMARY:Injected');
+  });
+
   it('uses CRLF line endings', () => {
     const ics = buildIcs({
       uid: 'com_x@opensignup.org',
