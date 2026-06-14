@@ -1,13 +1,11 @@
-import { randomBytes } from 'node:crypto';
+import { randomInt } from 'node:crypto';
 
 const CROCKFORD = '0123456789abcdefghjkmnpqrstvwxyz';
 
 export function randomSuffix(length = 5): string {
-  const bytes = randomBytes(length);
   let out = '';
   for (let i = 0; i < length; i++) {
-    const byte = bytes[i] ?? 0;
-    out += CROCKFORD[byte % CROCKFORD.length];
+    out += CROCKFORD[randomInt(CROCKFORD.length)];
   }
   return out;
 }
