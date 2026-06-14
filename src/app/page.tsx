@@ -1,12 +1,40 @@
+import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { after } from 'next/server';
 import { SiteFooter } from '@/components/site-footer';
-import { INSTANCE_NAME } from '@/lib/site-config';
+import { buildLandingJsonLd, serializeJsonLd } from '@/lib/seo';
+import { APP_ORIGIN, INSTANCE_NAME } from '@/lib/site-config';
 import { readRequestSignals, recordLandingView } from '@/lib/view-tracker';
 import { DemoVideoCta } from './_components/DemoVideoCta';
 import { HomeExampleCard } from './_components/HomeExampleCard';
 import { StartSignupCta } from './_components/StartSignupCta';
+
+const PAGE_TITLE = `${INSTANCE_NAME} — free, ad-free sign-up sheets`;
+const PAGE_DESCRIPTION =
+  'Coordinate snack rotations, potlucks, volunteer shifts, and carpools. Ad-free, open-source, and no accounts for participants — share a link and people commit to slots.';
+
+export const metadata: Metadata = {
+  // Absolute title so the homepage isn't suffixed with the instance name twice.
+  title: { absolute: PAGE_TITLE },
+  description: PAGE_DESCRIPTION,
+  alternates: { canonical: '/' },
+  // Next merges metadata shallowly: defining `openGraph`/`twitter` here replaces
+  // the root layout's objects wholesale, so re-state type/siteName/locale/card.
+  openGraph: {
+    type: 'website',
+    siteName: INSTANCE_NAME,
+    locale: 'en_US',
+    url: '/',
+    title: PAGE_TITLE,
+    description: PAGE_DESCRIPTION,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: PAGE_TITLE,
+    description: PAGE_DESCRIPTION,
+  },
+};
 
 export default async function LandingPage() {
   const demoUrl = process.env.NEXT_PUBLIC_DEMO_URL;
@@ -16,8 +44,11 @@ export default async function LandingPage() {
   const signals = readRequestSignals(await headers());
   after(() => recordLandingView({ signals }));
 
+  const jsonLd = serializeJsonLd(buildLandingJsonLd(APP_ORIGIN, INSTANCE_NAME, PAGE_DESCRIPTION));
+
   return (
     <div className="bg-surface text-ink flex min-h-[100svh] flex-col">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
       <header className="flex items-center justify-between px-5 py-5 lg:px-12 lg:py-6">
         <span className="text-lg font-semibold tracking-tight lg:text-xl">{INSTANCE_NAME}</span>
         <Link href="/login" className="text-sm font-medium hover:underline">

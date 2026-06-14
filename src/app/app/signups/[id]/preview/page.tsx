@@ -11,7 +11,9 @@ import SignupView, {
   toSignupViewSlots,
 } from '@/app/s/[slug]/signup-view';
 
-export const metadata = { title: 'Preview · OpenSignup' };
+// Plain string so the root template (`%s · <INSTANCE_NAME>`) supplies the
+// instance suffix exactly once.
+export const metadata = { title: 'Preview' };
 
 type PageParams = { params: Promise<{ id: string }> };
 

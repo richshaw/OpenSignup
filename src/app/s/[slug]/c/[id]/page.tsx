@@ -6,7 +6,7 @@ import { getOwnCommitment } from '@/services/commitments';
 import { readRequestSignals, recordEditLinkFollowed } from '@/lib/view-tracker';
 import EditForm from './edit-form';
 
-export const metadata = { title: 'Your signup' };
+export const metadata = { title: 'Your signup', robots: { index: false, follow: false } };
 
 type PageParams = {
   params: Promise<{ slug: string; id: string }>;

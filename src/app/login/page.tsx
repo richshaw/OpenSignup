@@ -7,7 +7,7 @@ import { EmailSchema } from '@/schemas/common';
 import { LoginForm, type LoginActionResult } from './login-form';
 import { OAuthButtons } from './oauth-buttons';
 
-export const metadata = { title: 'Sign in' };
+export const metadata = { title: 'Sign in', robots: { index: false } };
 
 function safeCallbackUrl(raw: string | undefined): string {
   if (!raw) return '/app';

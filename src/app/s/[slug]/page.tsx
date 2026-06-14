@@ -29,12 +29,16 @@ function trimToBoundary(value: string | null | undefined, max: number): string |
 export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
   const { slug } = await params;
   const result = await loadPublicSignup(slug);
-  if (!result.ok) return { title: 'Sign up' };
+  // Private share links: keep these out of the search index. They stay
+  // crawlable (not robots-disallowed) so the noindex directive is honored.
+  const robots = { index: false, follow: false } as const;
+  if (!result.ok) return { title: 'Sign up', robots };
   const sig = result.value;
   const description = trimToBoundary(sig.description, 200) ?? `Sign up via ${INSTANCE_NAME}`;
   return {
     title: sig.title,
     description,
+    robots,
     openGraph: {
       title: sig.title,
       description,
