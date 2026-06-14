@@ -58,7 +58,6 @@ export const RefusalSchema = z.object({
 export const MagicComposeDraftSchema = z.union([RefusalSchema, FullDraftSchema]);
 
 export type MagicComposeDraft = z.infer<typeof FullDraftSchema>;
-export type MagicComposeRefusal = z.infer<typeof RefusalSchema>;
 export type MagicComposeParsed = z.infer<typeof MagicComposeDraftSchema>;
 
 const SYSTEM_PROMPT = `You are OpenSignup's signup drafter. OpenSignup is a coordination tool where organizers create signups containing slots, and participants commit to slots without ever creating an account.
