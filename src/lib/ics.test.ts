@@ -44,6 +44,38 @@ describe('buildIcs', () => {
     expect(ics).toContain('DESCRIPTION:line1\\nline2');
   });
 
+  it('escapes carriage returns so they cannot forge ICS lines', () => {
+    const ics = buildIcs({
+      uid: 'com_x@opensignup.org',
+      title: 'Pickup\r\nSUMMARY:Injected',
+      description: 'old-mac\rline',
+      start: new Date('2026-05-02T15:00:00Z'),
+      now: new Date('2026-04-30T12:00:00Z'),
+    });
+    // CRLF, lone CR, and lone LF all collapse to a single escaped newline.
+    // Assert the structural invariant: exactly one physical SUMMARY line, equal
+    // to the escaped value — no forged SUMMARY line slips through.
+    const summaryLines = ics.split('\r\n').filter((l) => l.startsWith('SUMMARY:'));
+    expect(summaryLines).toEqual(['SUMMARY:Pickup\\nSUMMARY:Injected']);
+    expect(ics).toContain('DESCRIPTION:old-mac\\nline');
+  });
+
+  it('strips line breaks from structural UID and URL fields', () => {
+    const ics = buildIcs({
+      uid: 'com_x@opensignup.org\r\nUID:forged',
+      url: 'https://opensignup.org/a\r\nATTENDEE:forged',
+      title: 'Pickup',
+      start: new Date('2026-05-02T15:00:00Z'),
+      now: new Date('2026-04-30T12:00:00Z'),
+    });
+    const lines = ics.split('\r\n');
+    expect(lines.filter((l) => l.startsWith('UID:'))).toEqual(['UID:com_x@opensignup.orgUID:forged']);
+    expect(lines.filter((l) => l.startsWith('URL:'))).toEqual([
+      'URL:https://opensignup.org/aATTENDEE:forged',
+    ]);
+    expect(lines).not.toContain('ATTENDEE:forged');
+  });
+
   it('uses CRLF line endings', () => {
     const ics = buildIcs({
       uid: 'com_x@opensignup.org',

@@ -25,9 +25,21 @@ function formatUtc(d: Date): string {
 function escapeText(value: string): string {
   return value
     .replace(/\\/g, '\\\\')
-    .replace(/\n/g, '\\n')
+    // Collapse every line-break form (CRLF, lone CR, lone LF) into a single
+    // escaped newline. A raw CR left in a content line corrupts the file and
+    // lets attacker-controlled text forge ICS lines (calendar injection).
+    .replace(/\r\n|\r|\n/g, '\\n')
     .replace(/,/g, '\\,')
     .replace(/;/g, '\\;');
+}
+
+/**
+ * UID and URL are not TEXT values, so they aren't comma/semicolon-escaped
+ * (that would corrupt a URL). But a raw CR/LF would still break out of the
+ * content line, so strip line breaks to keep these fields from forging lines.
+ */
+function stripBreaks(value: string): string {
+  return value.replace(/[\r\n]/g, '');
 }
 
 /**
@@ -66,7 +78,7 @@ export function buildIcs(input: IcsEventInput): string {
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
-    `UID:${input.uid}`,
+    `UID:${stripBreaks(input.uid)}`,
     `DTSTAMP:${formatUtc(now)}`,
     `DTSTART:${formatUtc(start)}`,
     `DTEND:${formatUtc(end)}`,
@@ -74,7 +86,7 @@ export function buildIcs(input: IcsEventInput): string {
   ];
   if (input.description) rawLines.push(`DESCRIPTION:${escapeText(input.description)}`);
   if (input.location) rawLines.push(`LOCATION:${escapeText(input.location)}`);
-  if (input.url) rawLines.push(`URL:${input.url}`);
+  if (input.url) rawLines.push(`URL:${stripBreaks(input.url)}`);
   rawLines.push('END:VEVENT', 'END:VCALENDAR');
 
   return rawLines.map(foldLine).join(CRLF) + CRLF;
