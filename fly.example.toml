@@ -1,5 +1,10 @@
-# Fly.io configuration for OpenSignup.
-# First time: `fly launch --no-deploy --copy-config` (or `fly apps create signups`),
+# Fly.io configuration template for OpenSignup.
+#
+# Copy this to `fly.toml` and fill in your own values before deploying:
+#   cp fly.example.toml fly.toml
+# `fly.toml` is gitignored so your instance's config never lands in git.
+#
+# First time: `fly launch --no-deploy --copy-config` (or `fly apps create your-app-name`),
 # then `fly postgres create` + `fly postgres attach`, then set secrets (see below),
 # then `fly deploy`.
 #
@@ -13,21 +18,21 @@
 #   EMAIL_FROM    — e.g. "OpenSignup <hello@signup.example.com>"
 #   EMAIL_TRANSPORT + RESEND_API_KEY (or SMTP_* vars) — see .env.example
 
-app = "signups"
+app = "your-app-name"
 primary_region = "iad"
 
 # Build args for NEXT_PUBLIC_* values. These must be available during
 # `pnpm build` (Next.js inlines them into the prerendered legal pages),
 # so fly secrets — which are runtime-only — are not sufficient. Values
 # here are public (they ship in the client bundle) and represent this
-# instance's branding. Self-hosters override in their own fly.toml.
+# instance's branding. Replace them all with your own.
 [build]
   [build.args]
-    NEXT_PUBLIC_INSTANCE_NAME = "OpenSignup"
-    NEXT_PUBLIC_SUPPORT_EMAIL = "hello@opensignup.org"
-    NEXT_PUBLIC_SOURCE_URL = "https://github.com/richshaw/OpenSignup"
-    NEXT_PUBLIC_GOVERNING_LAW = "the State of Washington, United States"
-    NEXT_PUBLIC_APP_URL = "https://opensignup.org"
+    NEXT_PUBLIC_INSTANCE_NAME = "Your Instance"
+    NEXT_PUBLIC_SUPPORT_EMAIL = "hello@example.com"
+    NEXT_PUBLIC_SOURCE_URL = "https://github.com/you/your-fork"
+    NEXT_PUBLIC_GOVERNING_LAW = "your jurisdiction"
+    NEXT_PUBLIC_APP_URL = "https://your-domain.example"
 
 [deploy]
   release_command = "pnpm db:migrate"
@@ -40,7 +45,8 @@ primary_region = "iad"
   NODE_ENV = "production"
   PORT = "3000"
   NEXT_TELEMETRY_DISABLED = "1"
-  NEXT_PUBLIC_DEMO_VIDEO_URL = "https://opensignup-public.t3.tigrisfiles.io/demo.mp4"
+  # Optional: URL of the demo video shown on the landing page.
+  # NEXT_PUBLIC_DEMO_VIDEO_URL = "https://cdn.example.com/demo.mp4"
 
 [http_service]
   internal_port = 3000

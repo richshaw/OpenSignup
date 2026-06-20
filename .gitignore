@@ -24,3 +24,7 @@ evals/**/snapshots/
 
 # Internal planning docs — kept local, not published
 docs/plans/
+
+# Your instance's real Fly config — copy fly.example.toml to fly.toml.
+# Keeps instance branding/app name out of the public repo.
+fly.toml

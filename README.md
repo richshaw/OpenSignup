@@ -69,7 +69,7 @@ The footer, privacy policy, terms, and cookies pages are instance-agnostic — t
 
 - **Docker Compose** (`docker-compose.prod.yml`) — set them in the same `.env` file at the project root that Compose already reads for variable substitution. Compose passes them through as `build.args` and fails fast if any required value is missing.
 - **`docker build`** — pass each as `--build-arg NEXT_PUBLIC_INSTANCE_NAME=…`.
-- **Fly.io** — set under `[build.args]` in `fly.toml` (the included file is the upstream's deployment; replace with your own values). `fly secrets` are runtime-only and won't work here.
+- **Fly.io** — copy the template (`cp fly.example.toml fly.toml`) and set your values under `[build.args]` in `fly.toml`. `fly.toml` is gitignored, so your instance's config stays out of git. `fly secrets` are runtime-only and won't work here.
 - **Local dev** (`pnpm dev`) — set them in `.env.local`; Next.js reads it on each build/restart.
 
 ## Status
