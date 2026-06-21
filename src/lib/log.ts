@@ -16,6 +16,8 @@ export const log = pino({
       '*.RESEND_API_KEY',
       '*.SMTP_PASSWORD',
       '*.LLM_API_KEY',
+      '*.GOOGLE_CLIENT_SECRET',
+      '*.AUTH_SECRET',
       '*.headers.authorization',
     ],
     remove: true,
