@@ -47,7 +47,18 @@ export function fail(error: ServiceError, headers?: HeadersInit): NextResponse {
       ...(error.details !== undefined ? { details: error.details } : {}),
     },
   };
-  return NextResponse.json(body, { status: httpStatusFor(error.code), headers });
+  // Centralised so every rate_limited response — thrown through handle(),
+  // returned via respond(), or built directly — tells the client how long to
+  // back off. An explicit Retry-After passed in by the caller wins.
+  const finalHeaders = new Headers(headers);
+  if (
+    error.code === 'rate_limited' &&
+    typeof error.details?.retryAfterSeconds === 'number' &&
+    !finalHeaders.has('Retry-After')
+  ) {
+    finalHeaders.set('Retry-After', String(error.details.retryAfterSeconds));
+  }
+  return NextResponse.json(body, { status: httpStatusFor(error.code), headers: finalHeaders });
 }
 
 export function respond<T>(
@@ -64,12 +75,7 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
   } catch (e) {
     if (e instanceof ZodError) return fail(fromZodError(e));
     if (e && typeof e === 'object' && 'serviceError' in e) {
-      const se = (e as { serviceError: ServiceError }).serviceError;
-      const headers: HeadersInit | undefined =
-        se.code === 'rate_limited' && typeof se.details?.retryAfterSeconds === 'number'
-          ? { 'Retry-After': String(se.details.retryAfterSeconds) }
-          : undefined;
-      return fail(se, headers);
+      return fail((e as { serviceError: ServiceError }).serviceError);
     }
     log.error({ err: e }, 'unhandled route error');
     return fail({ code: 'internal', message: 'something went wrong' });

@@ -77,12 +77,9 @@ export async function POST(req: NextRequest) {
       // Intentionally NOT shipping raw.error.upstreamBody to the client — it
       // can contain provider stack traces, internal hostnames, and account
       // identifiers that bypass pino's redaction. Server log.warn above keeps
-      // the body for operators.
-      const headers: HeadersInit | undefined =
-        mapped.code === 'rate_limited' && typeof mapped.details?.retryAfterSeconds === 'number'
-          ? { 'Retry-After': String(mapped.details.retryAfterSeconds) }
-          : undefined;
-      return fail(serviceError(mapped.code, mapped.message, { details }), headers);
+      // the body for operators. fail() attaches Retry-After when details carry
+      // retryAfterSeconds (rate_limited path).
+      return fail(serviceError(mapped.code, mapped.message, { details }));
     }
 
     const draft = MagicComposeDraftSchema.safeParse(raw.value);
