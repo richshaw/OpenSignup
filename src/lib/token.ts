@@ -21,9 +21,8 @@ export function verifyHash(token: string, storedHash: string): boolean {
  * This lets the service layer reconstruct the hash without a stored value
  * when needed, while still storing the hash in the DB for revocation.
  */
-export function editTokenFor(commitmentId: string, extraSecret?: string): string {
+export function editTokenFor(commitmentId: string): string {
   const h = createHmac('sha256', secret());
   h.update(commitmentId);
-  if (extraSecret) h.update(extraSecret);
   return h.digest('base64url');
 }
