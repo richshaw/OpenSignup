@@ -83,5 +83,5 @@ export function buildLandingJsonLd(origin: string, name: string, description: st
  * field cannot break out of the surrounding `<script>` tag.
  */
 export function serializeJsonLd(data: JsonLd): string {
-  return JSON.stringify(data).replace(/</g, '\\u003c');
+  return JSON.stringify(data).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
 }

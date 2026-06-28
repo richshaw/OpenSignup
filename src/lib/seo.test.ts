@@ -82,4 +82,10 @@ describe('serializeJsonLd', () => {
     expect(out).not.toContain('</script>');
     expect(out).toContain('\\u003c/script');
   });
+
+  it('escapes > for defense-in-depth against HTML parser edge cases', () => {
+    const out = serializeJsonLd({ name: 'a > b' });
+    expect(out).not.toContain('>');
+    expect(out).toContain('\\u003e');
+  });
 });
