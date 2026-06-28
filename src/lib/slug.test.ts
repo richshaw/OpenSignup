@@ -34,6 +34,18 @@ describe('toSlug', () => {
     const s = toSlug(long, { maxLength: 20 });
     expect(s.length).toBeLessThanOrEqual(20);
   });
+
+  it('never leaves a trailing dash when truncation lands mid-word', () => {
+    // Normalizes to 59 a's + '-' + 'b'; the default 60-char cut would
+    // otherwise keep the separator.
+    expect(toSlug('a'.repeat(59) + ' b')).toBe('a'.repeat(59));
+    expect(toSlug('hello ' + 'x'.repeat(40), { maxLength: 6 })).toBe('hello');
+  });
+
+  it('honours a maxLength above the default cap', () => {
+    const s = toSlug('a'.repeat(80), { maxLength: 80 });
+    expect(s).toBe('a'.repeat(80));
+  });
 });
 
 describe('randomSuffix', () => {

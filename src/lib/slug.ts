@@ -10,7 +10,7 @@ export function randomSuffix(length = 5): string {
   return out;
 }
 
-function normalize(input: string): string {
+function normalize(input: string, maxLength: number): string {
   return input
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -18,7 +18,9 @@ function normalize(input: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .replace(/-{2,}/g, '-')
-    .slice(0, 60);
+    .slice(0, maxLength)
+    // Truncating can land mid-word and leave a dangling separator.
+    .replace(/-+$/, '');
 }
 
 export interface SlugOptions {
@@ -29,9 +31,8 @@ export interface SlugOptions {
 
 export function toSlug(input: string, opts: SlugOptions = {}): string {
   const { suffix = false, fallback = 'signup', maxLength = 60 } = opts;
-  let base = normalize(input);
+  let base = normalize(input, maxLength);
   if (!base) base = fallback;
-  if (base.length > maxLength) base = base.slice(0, maxLength).replace(/-+$/, '');
   if (!suffix) return base;
   return `${base}-${randomSuffix(5)}`;
 }
