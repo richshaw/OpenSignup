@@ -44,7 +44,12 @@ export function defaultLlmClient(): LlmClient {
       const timeoutController = new AbortController();
       const timeout = setTimeout(() => timeoutController.abort(), env.LLM_TIMEOUT_MS);
 
-      const combinedSignal = anySignal([signal, timeoutController.signal]);
+      // Native since Node 20.3 — settles listener lifecycle for us (the old
+      // hand-rolled combiner leaked an abort listener on a caller-supplied
+      // signal on the success path).
+      const combinedSignal = signal
+        ? AbortSignal.any([signal, timeoutController.signal])
+        : timeoutController.signal;
 
       try {
         const res = await fetch(url, {
@@ -275,17 +280,4 @@ function extractChoiceContent(body: unknown): string | null {
   if (!message || typeof message !== 'object') return null;
   const content = (message as { content?: unknown }).content;
   return typeof content === 'string' ? content : null;
-}
-
-function anySignal(signals: Array<AbortSignal | undefined>): AbortSignal {
-  const controller = new AbortController();
-  for (const s of signals) {
-    if (!s) continue;
-    if (s.aborted) {
-      controller.abort();
-      return controller.signal;
-    }
-    s.addEventListener('abort', () => controller.abort(), { once: true });
-  }
-  return controller.signal;
 }
