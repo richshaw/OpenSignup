@@ -44,9 +44,7 @@ export function defaultLlmClient(): LlmClient {
       const timeoutController = new AbortController();
       const timeout = setTimeout(() => timeoutController.abort(), env.LLM_TIMEOUT_MS);
 
-      // Native since Node 20.3 — settles listener lifecycle for us (the old
-      // hand-rolled combiner leaked an abort listener on a caller-supplied
-      // signal on the success path).
+      // Native since Node 20.3 (floor is 20.19 via package.json engines).
       const combinedSignal = signal
         ? AbortSignal.any([signal, timeoutController.signal])
         : timeoutController.signal;
