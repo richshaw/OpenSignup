@@ -29,8 +29,3 @@ export const FIELD_TYPE_META: Record<FieldType, FieldTypeMeta> = {
     label: 'List',
   },
 };
-
-/** Returns metadata for a field type; falls back to `text` for unknown types. */
-export function fieldTypeMeta(type: FieldType): FieldTypeMeta {
-  return FIELD_TYPE_META[type] ?? FIELD_TYPE_META.text;
-}
