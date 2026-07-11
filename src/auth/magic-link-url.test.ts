@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalizeMagicLinkUrl } from './magic-link-url';
+import { canonicalizeMagicLinkUrl, buildConfirmationUrl } from './magic-link-url';
 
 describe('canonicalizeMagicLinkUrl', () => {
   it('rewrites a fly.dev origin to the AUTH_URL origin', () => {
@@ -29,5 +29,34 @@ describe('canonicalizeMagicLinkUrl', () => {
     const raw = 'http://signups.fly.dev/api/auth/callback/nodemailer?token=t';
     const result = canonicalizeMagicLinkUrl(raw, 'https://opensignup.org');
     expect(result.startsWith('https://opensignup.org/')).toBe(true);
+  });
+});
+
+describe('buildConfirmationUrl', () => {
+  it('wraps the callback URL in a /login/confirm page', () => {
+    const callback =
+      'https://opensignup.org/api/auth/callback/nodemailer?token=abc&email=user%40example.com';
+    const result = buildConfirmationUrl(callback, 'https://opensignup.org');
+    const url = new URL(result);
+    expect(url.pathname).toBe('/login/confirm');
+    expect(url.searchParams.get('next')).toBe(callback);
+  });
+
+  it('uses the authUrl origin for the confirmation page', () => {
+    const callback =
+      'https://opensignup.org/api/auth/callback/nodemailer?token=t&email=a%40b.com';
+    const result = buildConfirmationUrl(callback, 'https://opensignup.org');
+    expect(result.startsWith('https://opensignup.org/login/confirm')).toBe(true);
+  });
+
+  it('preserves token and email in the nested next param', () => {
+    const callback =
+      'https://opensignup.org/api/auth/callback/nodemailer?token=xyz&email=foo%40bar.com&callbackUrl=%2Fapp';
+    const result = buildConfirmationUrl(callback, 'https://opensignup.org');
+    const next = new URL(result).searchParams.get('next')!;
+    const inner = new URL(next);
+    expect(inner.searchParams.get('token')).toBe('xyz');
+    expect(inner.searchParams.get('email')).toBe('foo@bar.com');
+    expect(inner.searchParams.get('callbackUrl')).toBe('/app');
   });
 });

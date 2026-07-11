@@ -12,7 +12,7 @@ import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
 import { ServiceException } from '@/lib/errors';
 import { SignupAdapter } from './adapter';
 import { buildOAuthProviders } from './oauth-providers';
-import { canonicalizeMagicLinkUrl } from './magic-link-url';
+import { canonicalizeMagicLinkUrl, buildConfirmationUrl } from './magic-link-url';
 import { extractEmailDomain } from './email-domain';
 import { getMagicLinkMaxAgeSeconds } from './magic-link-expiry';
 import { getCurrentRequestIp } from './request-context';
@@ -59,8 +59,9 @@ function buildConfig(): NextAuthConfig {
             Math.round((expires.getTime() - Date.now()) / 60_000),
           );
           const safeUrl = canonicalizeMagicLinkUrl(url, getEnv().AUTH_URL);
+          const confirmUrl = buildConfirmationUrl(safeUrl, getEnv().AUTH_URL);
           const node = createElement(MagicLinkEmail, {
-            url: safeUrl,
+            url: confirmUrl,
             email: identifier,
             expiresInMinutes,
           });

@@ -9,3 +9,14 @@ export function canonicalizeMagicLinkUrl(rawUrl: string, authUrl: string): strin
   link.host = canonical.host;
   return link.toString();
 }
+
+// Wrap the Auth.js callback URL in a /login/confirm page so that corporate
+// email security scanners (Mimecast, Proofpoint, etc.) that pre-click links
+// don't consume the token. The actual callback URL is passed as `next` and
+// only visited when the user clicks the "Sign in" button on that page.
+export function buildConfirmationUrl(callbackUrl: string, authUrl: string): string {
+  const base = new URL(authUrl);
+  const confirm = new URL('/login/confirm', base);
+  confirm.searchParams.set('next', callbackUrl);
+  return confirm.toString();
+}
