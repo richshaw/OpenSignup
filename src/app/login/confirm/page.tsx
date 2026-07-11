@@ -43,6 +43,7 @@ export default async function ConfirmLoginPage({
       </div>
       <a
         href={next}
+        referrerPolicy="no-referrer"
         className="w-full rounded-lg bg-[#1f6feb] px-5 py-3 text-center font-medium text-white no-underline transition-colors hover:bg-[#1658c4]"
       >
         Sign in →
