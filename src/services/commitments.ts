@@ -5,7 +5,7 @@ import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { recordActivity } from '@/lib/activity';
-import { serviceError, type ServiceError } from '@/lib/errors';
+import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
 import { parseInputSafe } from '@/lib/parse';
@@ -389,7 +389,9 @@ export async function updateOwnCommitment(
         )
         .returning({ id: commitments.id });
       if (cancelled.length === 0) {
-        throw new Error('commitment is not active'); // rolls back the transaction
+        // Throw (not return err) to roll back the transaction; ServiceException
+        // so the route maps it to 409 instead of an opaque 500.
+        throw new ServiceException(serviceError('conflict', 'commitment is not active'));
       }
 
       const newCommit = await commitToSlot(tx, swapToSlotId, {
@@ -399,7 +401,9 @@ export async function updateOwnCommitment(
         quantity: data.quantity ?? current.quantity,
       });
       if (!newCommit.ok) {
-        throw new Error(newCommit.error.message); // rolls back the transaction
+        // Roll back the cancellation and surface the real error (e.g. the target
+        // slot just filled → capacity_full with alternatives), not a bare 500.
+        throw new ServiceException(newCommit.error);
       }
 
       await recordActivity(tx, {

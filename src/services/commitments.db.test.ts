@@ -167,6 +167,47 @@ describe('updateOwnCommitment swap (db)', () => {
     expect(inB.length).toBe(0);
   });
 
+  it('surfaces capacity_full (not a bare Error) when the swap target is full', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Signup Full-Swap');
+    const target = await addSlot(fx.db, fx.actor, a.signupId, {
+      values: {},
+      capacity: 1,
+    });
+    if (!target.ok) throw new Error(`target addSlot failed: ${target.error.message}`);
+
+    // Fill the target slot to capacity with a different participant.
+    const filler = await commitToSlot(fx.db, target.value.id, {
+      name: 'Filler',
+      email: 'filler@example.test',
+      quantity: 1,
+    });
+    if (!filler.ok) throw new Error(`filler commit failed: ${filler.error.message}`);
+
+    const committed = await commitToSlot(fx.db, a.slotId, {
+      name: 'Carol',
+      email: 'carol@example.test',
+      quantity: 1,
+    });
+    if (!committed.ok) throw new Error(`commitToSlot failed: ${committed.error.message}`);
+    const original = committed.value.commitment;
+
+    // The swap into the full slot rolls back and throws a ServiceException
+    // carrying capacity_full, so the route maps it to 409 (not an opaque 500).
+    await expect(
+      updateOwnCommitment(fx.db, original.id, committed.value.editToken, {
+        swapToSlotId: target.value.id,
+      }),
+    ).rejects.toMatchObject({ serviceError: { code: 'capacity_full' } });
+
+    // Original commitment stays confirmed on its slot (transaction rolled back).
+    const originalRow = await fx.db
+      .select()
+      .from(commitments)
+      .where(eq(commitments.id, original.id))
+      .limit(1);
+    expect(originalRow[0]?.status).toBe('confirmed');
+  });
+
   it('allows a swap to another slot within the same signup', async () => {
     const a = await makeOpenSignupWithSlot(fx, 'Signup C');
     const second = await addSlot(fx.db, fx.actor, a.signupId, {
