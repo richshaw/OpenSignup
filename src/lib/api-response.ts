@@ -47,7 +47,27 @@ export function fail(error: ServiceError, headers?: HeadersInit): NextResponse {
       ...(error.details !== undefined ? { details: error.details } : {}),
     },
   };
-  return NextResponse.json(body, { status: httpStatusFor(error.code), headers });
+  return NextResponse.json(body, {
+    status: httpStatusFor(error.code),
+    headers: withRetryAfter(error, headers),
+  });
+}
+
+/**
+ * Every `rate_limited` response should carry a `Retry-After` header (RFC 9110
+ * §10.2.3) whenever we know the wait. Centralising it here means both thrown
+ * `ServiceException`s and `Result`-returned errors get it consistently, without
+ * each route reconstructing the header. Caller-supplied `Retry-After` wins.
+ */
+function withRetryAfter(error: ServiceError, headers?: HeadersInit): HeadersInit | undefined {
+  const retryAfter =
+    error.code === 'rate_limited' && typeof error.details?.retryAfterSeconds === 'number'
+      ? String(error.details.retryAfterSeconds)
+      : undefined;
+  if (!retryAfter) return headers;
+  const merged = new Headers(headers);
+  if (!merged.has('Retry-After')) merged.set('Retry-After', retryAfter);
+  return merged;
 }
 
 export function respond<T>(
@@ -64,12 +84,7 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
   } catch (e) {
     if (e instanceof ZodError) return fail(fromZodError(e));
     if (e && typeof e === 'object' && 'serviceError' in e) {
-      const se = (e as { serviceError: ServiceError }).serviceError;
-      const headers: HeadersInit | undefined =
-        se.code === 'rate_limited' && typeof se.details?.retryAfterSeconds === 'number'
-          ? { 'Retry-After': String(se.details.retryAfterSeconds) }
-          : undefined;
-      return fail(se, headers);
+      return fail((e as { serviceError: ServiceError }).serviceError);
     }
     log.error({ err: e }, 'unhandled route error');
     return fail({ code: 'internal', message: 'something went wrong' });

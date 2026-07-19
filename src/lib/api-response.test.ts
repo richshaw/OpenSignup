@@ -1,7 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
 import { ServiceException, serviceError } from './errors';
-import { handle } from './api-response';
+import { fail, handle } from './api-response';
+
+describe('fail()', () => {
+  it('sets Retry-After for a rate_limited error returned (not thrown)', () => {
+    const res = fail(
+      serviceError('rate_limited', 'slow down', { details: { retryAfterSeconds: 7 } }),
+    );
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('7');
+  });
+
+  it('does not clobber a caller-supplied Retry-After header', () => {
+    const res = fail(
+      serviceError('rate_limited', 'slow down', { details: { retryAfterSeconds: 7 } }),
+      { 'Retry-After': '99' },
+    );
+    expect(res.headers.get('Retry-After')).toBe('99');
+  });
+});
 
 describe('handle()', () => {
   it('sets Retry-After header when rate_limited with retryAfterSeconds', async () => {
