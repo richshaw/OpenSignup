@@ -78,6 +78,16 @@ describe('returning-participant cookie', () => {
     expect(parseReturningCommits(after).map((c) => c.commitmentId)).toEqual(['com_a', 'com_c']);
   });
 
+  it('caps parsing at the write-side entry limit for oversized cookies', () => {
+    // A spoofed cookie can hold far more entries than we ever write; parsing
+    // must not feed an unbounded id list into the downstream DB lookup.
+    const raw = Array.from({ length: 200 }, (_, i) => `com_${i}.tok${i}`).join(',');
+    const parsed = parseReturningCommits(raw);
+    expect(parsed).toHaveLength(40);
+    expect(parsed[0]?.commitmentId).toBe('com_0');
+    expect(parsed[39]?.commitmentId).toBe('com_39');
+  });
+
   it('mixes legacy and new entries in one cookie', () => {
     const value = 'com_old.tokOld,com_new.tokNew.sig_z';
     expect(parseReturningCommits(value)).toEqual([

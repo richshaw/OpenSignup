@@ -61,6 +61,10 @@ export function parseReturningCommits(raw: string | null | undefined): Returning
     if (seen.has(parsed.commitmentId)) continue;
     seen.add(parsed.commitmentId);
     out.push(parsed);
+    // Bound work on an attacker-supplied cookie: we never write more than
+    // MAX_ENTRIES, so anything beyond that is spoofed. Each parsed id is fed
+    // into an `inArray` lookup + per-row token verify on every public view.
+    if (out.length >= MAX_ENTRIES) break;
   }
   return out;
 }
