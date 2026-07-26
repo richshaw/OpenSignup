@@ -34,6 +34,17 @@ const nextConfig = {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains',
           },
+          // Conservative additions only: object-src/base-uri/frame-ancestors don't
+          // touch script or style loading, so this can't break Next.js's own
+          // bundling or hydration. frame-ancestors is the modern, iframe-proof
+          // successor to X-Frame-Options; object-src/base-uri close off legacy
+          // plugin-embed and <base>-tag injection vectors. Not attempting a
+          // script-src allowlist here — Next's inline hydration payloads would
+          // need per-request nonces threaded through middleware to do that safely.
+          {
+            key: 'Content-Security-Policy',
+            value: "object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          },
         ],
       },
     ];
