@@ -87,7 +87,7 @@
     "eslint-config-next": "15.5.15",
     "jsdom": "^25.0.1",
     "pino-pretty": "^13.0.0",
-    "postcss": "^8.4.49",
+    "postcss": "^8.5.18",
     "prettier": "^3.4.2",
     "prettier-plugin-tailwindcss": "^0.6.9",
     "tailwindcss": "^3.4.17",
