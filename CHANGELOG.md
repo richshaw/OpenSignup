@@ -15,3 +15,10 @@ All notable changes to OpenSignup are documented here. Format follows [Keep a Ch
 - 48-hour reminder emails via pg-boss.
 - Pluggable email transport: console, SMTP, Resend.
 - AGPL-3.0 license.
+
+### Fixed
+- Landing-page JSON-LD no longer declares a `SoftwareApplication`, which Google's rich result requires to carry `aggregateRating` or `review`; it now describes the site and its publisher with `WebSite` + `Organization`.
+- The landing page rendered two `<h1>` elements — the hero headline plus the example signup card. `SignupViewBody` now emits an `h2` in `showcase` mode.
+- Meta descriptions on the landing page, root layout, and the three legal pages are within the 110–160 character range crawlers expect.
+- The privacy, terms, and cookies pages now declare a self-referencing canonical URL.
+- `/login` and `/login/check` now render the site footer, so both link to the privacy policy and terms.

@@ -146,6 +146,7 @@ export function SignupViewBody({
   const ownCount = ownCommitments?.length ?? 0;
   const firstOwnSlot = firstOwn ? slots.find((s) => s.id === firstOwn.slotId) ?? null : null;
   const firstOwnTitle = firstOwnSlot ? titleFor(firstOwnSlot, primary) : '';
+  const Title = mode === 'showcase' ? 'h2' : 'h1';
 
   const previewCopy =
     signup.status === 'draft'
@@ -190,7 +191,11 @@ export function SignupViewBody({
       ) : null}
 
       <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">{signup.title}</h1>
+        {/* On /s/[slug] this title *is* the page heading, so it's an h1. In
+            'showcase' mode the card is embedded in a page that already has its
+            own h1 (the marketing headline), and a second h1 is an SEO defect —
+            demote to h2 there. Styling is identical either way. */}
+        <Title className="text-3xl font-semibold tracking-tight">{signup.title}</Title>
         {signup.description ? (
           <p className="text-ink-muted whitespace-pre-line">{signup.description}</p>
         ) : null}
