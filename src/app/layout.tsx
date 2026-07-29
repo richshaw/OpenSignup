@@ -3,8 +3,10 @@ import { APP_ORIGIN, INSTANCE_NAME } from '@/lib/site-config';
 import { inter } from './fonts';
 import './globals.css';
 
+// Kept under 160 characters so search engines don't truncate it, and over 110
+// so crawlers (Ahrefs, Screaming Frog) don't flag it as too thin.
 const DESCRIPTION =
-  'Ad-free, open-source sign-up coordination. Organize potlucks, volunteer shifts, snack rotations, and carpools — share a link and let people commit to slots, no accounts required.';
+  'Ad-free, open-source sign-up coordination for potlucks, volunteer shifts, snack rotations, and carpools. Share a link — participants need no account.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_ORIGIN),

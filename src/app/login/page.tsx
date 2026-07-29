@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { signIn } from '@/auth/config';
 import { getOrganizerSession } from '@/auth/session';
 import { getEnabledOAuthProviders } from '@/auth/oauth-providers';
+import { SiteFooter } from '@/components/site-footer';
 import { log } from '@/lib/log';
 import { EmailSchema } from '@/schemas/common';
 import { LoginForm, type LoginActionResult } from './login-form';
@@ -43,7 +44,8 @@ export default async function LoginPage({
   }
 
   return (
-    <main className="container-tight flex min-h-[100svh] flex-col justify-center gap-8 py-16">
+    <div className="flex min-h-[100svh] flex-col">
+      <main className="container-tight flex flex-1 flex-col justify-center gap-8 py-16">
       <div className="space-y-3">
         <h1 className="text-3xl font-semibold tracking-tight">Sign in to OpenSignup</h1>
         <p className="text-ink-muted">
@@ -59,6 +61,10 @@ export default async function LoginPage({
       ) : null}
       <OAuthButtons providers={oauthProviders} callbackUrl={callbackUrl} />
       <LoginForm action={handle} />
-    </main>
+      </main>
+      {/* Also gives this page outgoing links — a page that collects an email
+          address should link to the privacy policy and terms. */}
+      <SiteFooter />
+    </div>
   );
 }

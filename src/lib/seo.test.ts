@@ -62,17 +62,27 @@ describe('buildRobots', () => {
 });
 
 describe('buildLandingJsonLd', () => {
-  it('describes the WebSite and a free, web-based SoftwareApplication', () => {
-    const graph = buildLandingJsonLd(ORIGIN, 'Acme Signups', 'Coordinate anything.')[
-      '@graph'
-    ] as Array<Record<string, unknown>>;
-    const types = graph.map((node) => node['@type']);
-    expect(types).toContain('WebSite');
-    expect(types).toContain('SoftwareApplication');
+  const graphOf = (): Array<Record<string, unknown>> =>
+    buildLandingJsonLd(ORIGIN, 'Acme Signups', 'Coordinate anything.')['@graph'] as Array<
+      Record<string, unknown>
+    >;
 
-    const app = graph.find((node) => node['@type'] === 'SoftwareApplication');
-    expect(app?.name).toBe('Acme Signups');
-    expect(app?.offers).toMatchObject({ price: '0', priceCurrency: 'USD' });
+  it('describes the WebSite and the Organization that publishes it', () => {
+    const graph = graphOf();
+    expect(graph.map((node) => node['@type'])).toEqual(['WebSite', 'Organization']);
+
+    const site = graph.find((node) => node['@type'] === 'WebSite');
+    const org = graph.find((node) => node['@type'] === 'Organization');
+    expect(site?.name).toBe('Acme Signups');
+    // The publisher reference must resolve to the Organization node in-graph.
+    expect(site?.publisher).toEqual({ '@id': org?.['@id'] });
+    expect(org?.['@id']).toBe(`${ORIGIN}/#organization`);
+  });
+
+  it('emits no SoftwareApplication, which Google would reject without a rating', () => {
+    // Google's software-app rich result requires aggregateRating or review; we
+    // have neither, so the type must stay out of the graph entirely.
+    expect(graphOf().map((node) => node['@type'])).not.toContain('SoftwareApplication');
   });
 });
 

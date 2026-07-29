@@ -4,7 +4,8 @@ import { INSTANCE_NAME } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Cookies',
-  description: `Cookies set by ${INSTANCE_NAME}.`,
+  description: `Every cookie ${INSTANCE_NAME} sets, what each one is for, and how long it lasts — plus why there are no advertising or cross-site tracking cookies here.`,
+  alternates: { canonical: '/cookies' },
 };
 
 export default function CookiesPage() {
