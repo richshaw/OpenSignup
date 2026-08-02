@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
-import { findReminderFields, validateSlotValues } from './slot-fields';
+import { extractSlotAt, findReminderFields, validateSlotValues } from './slot-fields';
 
 const def = (overrides: Partial<SlotFieldDefinition>): SlotFieldDefinition => ({
   id: 'fld_aaaaaaaaaaaaaaaaaaaaaa',
@@ -22,6 +22,28 @@ describe('validateSlotValues', () => {
     const r = validateSlotValues([def({})], { date: '2026/05/15' });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.code).toBe('invalid_input');
+  });
+
+  it('rejects calendar-impossible dates that would silently roll over or crash', () => {
+    // 2026-02-30 would roll to Mar 2 in extractSlotAt; 2026-13-01 would become
+    // an Invalid Date. Both must be rejected at the validation boundary.
+    for (const date of ['2026-02-30', '2026-04-31', '2026-02-29', '2026-13-01', '2026-00-10']) {
+      const r = validateSlotValues([def({})], { date });
+      expect(r.ok, date).toBe(false);
+    }
+  });
+
+  it('accepts a real leap day', () => {
+    const r = validateSlotValues([def({})], { date: '2024-02-29' });
+    expect(r.ok).toBe(true);
+  });
+
+  it('rejects out-of-range clock times', () => {
+    const time = def({ ref: 'time', fieldType: 'time', config: { fieldType: 'time' } });
+    for (const value of ['24:00', '25:00', '12:60', '99:99']) {
+      const r = validateSlotValues([time], { time: value });
+      expect(r.ok, value).toBe(false);
+    }
   });
 
   it('accepts HH:MM time', () => {
@@ -114,6 +136,34 @@ describe('validateSlotValues', () => {
     const r2 = validateSlotValues([def({})], { date: null });
     expect(r1.ok).toBe(true);
     expect(r2.ok).toBe(true);
+  });
+});
+
+describe('extractSlotAt', () => {
+  const dateField = def({ ref: 'date', fieldType: 'date' });
+  const timeField = def({
+    id: 'fld_ffffffffffffffffffffff',
+    ref: 'time',
+    fieldType: 'time',
+    config: { fieldType: 'time' },
+    sortOrder: 1,
+  });
+
+  it('combines date and time into a UTC instant', () => {
+    const at = extractSlotAt({}, [dateField, timeField], { date: '2026-05-15', time: '09:30' });
+    expect(at?.toISOString()).toBe('2026-05-15T09:30:00.000Z');
+  });
+
+  it('defaults to midnight UTC when no time field is present', () => {
+    const at = extractSlotAt({}, [dateField], { date: '2026-05-15' });
+    expect(at?.toISOString()).toBe('2026-05-15T00:00:00.000Z');
+  });
+
+  it('returns null for a calendar-impossible stored date instead of rolling over', () => {
+    // Guards legacy/edge rows: a bad stored value must not become an Invalid
+    // Date (which throws on serialization) or silently shift to another day.
+    expect(extractSlotAt({}, [dateField], { date: '2026-02-30' })).toBeNull();
+    expect(extractSlotAt({}, [dateField], { date: '2026-13-01' })).toBeNull();
   });
 });
 

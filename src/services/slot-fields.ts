@@ -54,11 +54,10 @@ export function extractSlotAt(
   const { dateField, timeField } = findReminderFields(settings, fields);
   if (!dateField) return null;
   const dateVal = values[dateField.ref];
-  if (typeof dateVal !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) return null;
+  if (typeof dateVal !== 'string' || !isCalendarDate(dateVal)) return null;
   const timeVal = timeField ? values[timeField.ref] : undefined;
-  const timePart = typeof timeVal === 'string' && /^\d{2}:\d{2}$/.test(timeVal)
-    ? `${timeVal}:00`
-    : '00:00:00';
+  const timePart =
+    typeof timeVal === 'string' && isClockTime(timeVal) ? `${timeVal}:00` : '00:00:00';
   return new Date(`${dateVal}T${timePart}.000Z`);
 }
 
@@ -354,6 +353,26 @@ function isMissing(value: unknown): boolean {
   return value === undefined || value === null || value === '';
 }
 
+/**
+ * The `\d{4}-\d{2}-\d{2}` / `\d{2}:\d{2}` regexes only assert shape — they accept
+ * calendar-impossible values. These assert the value is a REAL date/time.
+ * Without them `2026-02-30` passes validation and then silently rolls over to
+ * Mar 2 inside `extractSlotAt` (reminders fire on the wrong day), while
+ * `2026-13-01` becomes an Invalid Date that throws when serialized into
+ * `slots.slot_at`.
+ */
+function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const dt = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(dt.getTime()) && dt.toISOString().startsWith(value);
+}
+
+function isClockTime(value: string): boolean {
+  if (!/^\d{2}:\d{2}$/.test(value)) return false;
+  const dt = new Date(`2000-01-01T${value}:00.000Z`);
+  return !Number.isNaN(dt.getTime()) && dt.toISOString().slice(11, 16) === value;
+}
+
 function validateOneValue(
   field: SlotFieldDefinition,
   value: unknown,
@@ -382,9 +401,9 @@ function validateOneValue(
       return ok(undefined);
     }
     case 'date': {
-      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      if (typeof value !== 'string' || !isCalendarDate(value)) {
         return err(
-          serviceError('invalid_input', `"${field.ref}" must be YYYY-MM-DD`, {
+          serviceError('invalid_input', `"${field.ref}" must be a valid YYYY-MM-DD date`, {
             field: field.ref,
           }),
         );
@@ -392,9 +411,9 @@ function validateOneValue(
       return ok(undefined);
     }
     case 'time': {
-      if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) {
+      if (typeof value !== 'string' || !isClockTime(value)) {
         return err(
-          serviceError('invalid_input', `"${field.ref}" must be HH:MM`, {
+          serviceError('invalid_input', `"${field.ref}" must be a valid HH:MM time`, {
             field: field.ref,
           }),
         );
