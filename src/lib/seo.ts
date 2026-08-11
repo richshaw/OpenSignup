@@ -50,8 +50,15 @@ export function buildRobots(origin: string): MetadataRoute.Robots {
 type JsonLd = Record<string, unknown>;
 
 /**
- * Structured data for the landing page: a `WebSite` node plus a free,
- * web-based `SoftwareApplication` node, combined in an `@graph`.
+ * Structured data for the landing page: a `WebSite` node plus the `Organization`
+ * that publishes it, combined in an `@graph`.
+ *
+ * Deliberately NOT a `SoftwareApplication`. Google's software-app rich result
+ * requires `aggregateRating` or `review` in addition to `name` and `offers`, and
+ * emitting the type without one is a hard validation error in the Rich Results
+ * Test (Ahrefs reports it as "structured data has Google rich results
+ * validation error"). We have no review data and won't invent any, so we
+ * describe the site and its publisher instead — both are rating-free types.
  */
 export function buildLandingJsonLd(origin: string, name: string, description: string): JsonLd {
   return {
@@ -63,15 +70,14 @@ export function buildLandingJsonLd(origin: string, name: string, description: st
         name,
         url: origin,
         description,
+        publisher: { '@id': `${origin}/#organization` },
       },
       {
-        '@type': 'SoftwareApplication',
+        '@type': 'Organization',
+        '@id': `${origin}/#organization`,
         name,
-        applicationCategory: 'BusinessApplication',
-        operatingSystem: 'Web',
         url: origin,
         description,
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
       },
     ],
   };

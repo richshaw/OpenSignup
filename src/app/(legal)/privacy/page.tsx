@@ -11,7 +11,8 @@ import {
 
 export const metadata: Metadata = {
   title: 'Privacy policy',
-  description: `How ${INSTANCE_NAME} collects and uses your data.`,
+  description: `How ${INSTANCE_NAME} collects, uses, and stores your data — what we keep for organizers and participants, the cookies we set, and how long we retain it.`,
+  alternates: { canonical: '/privacy' },
 };
 
 export default function PrivacyPage() {
