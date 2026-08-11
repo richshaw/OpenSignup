@@ -11,7 +11,8 @@ import {
 
 export const metadata: Metadata = {
   title: 'Terms of service',
-  description: `Terms for using ${INSTANCE_NAME}.`,
+  description: `The terms for using ${INSTANCE_NAME}: acceptable use, what organizers and participants are responsible for, availability, liability, and the AGPL-3.0 licence.`,
+  alternates: { canonical: '/terms' },
 };
 
 export default function TermsPage() {

@@ -84,4 +84,41 @@ describe('<SignupViewBody mode="showcase" />', () => {
     expect(button).toBeDisabled();
     expect(button).toHaveClass('opacity-60');
   });
+
+  it('demotes the title to h2 so an embedding page keeps a single h1', () => {
+    // Showcase mode is embedded in a page that already has its own h1 (the
+    // landing hero). Two h1s on one page is an SEO defect.
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="showcase"
+      />,
+    );
+    expect(screen.getByRole('heading', { level: 2, name: 'Snack duty' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+  });
+});
+
+describe('<SignupViewBody /> heading level', () => {
+  // Only 'preview' is exercised here: 'live' mounts CommitDialog, which calls
+  // useRouter() and needs an App Router context jsdom doesn't provide. Both
+  // take the same non-showcase branch, so preview is a faithful stand-in.
+  it('keeps the title as the h1 outside showcase mode, where it is the page heading', () => {
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+        showStateBanner={false}
+      />,
+    );
+    expect(screen.getByRole('heading', { level: 1, name: 'Snack duty' })).toBeInTheDocument();
+  });
 });

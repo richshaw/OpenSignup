@@ -11,8 +11,9 @@ import { HomeExampleCard } from './_components/HomeExampleCard';
 import { StartSignupCta } from './_components/StartSignupCta';
 
 const PAGE_TITLE = `${INSTANCE_NAME} — free, ad-free sign-up sheets`;
+// Under 160 characters — see the note on DESCRIPTION in src/app/layout.tsx.
 const PAGE_DESCRIPTION =
-  'Coordinate snack rotations, potlucks, volunteer shifts, and carpools. Ad-free, open-source, and no accounts for participants — share a link and people commit to slots.';
+  'Coordinate snack rotations, potlucks, volunteer shifts, and carpools. Ad-free, open-source, and no accounts for participants — just share a link.';
 
 export const metadata: Metadata = {
   // Absolute title so the homepage isn't suffixed with the instance name twice.
