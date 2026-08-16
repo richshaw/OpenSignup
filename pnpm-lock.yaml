@@ -6,7 +6,7 @@ settings:
 
 overrides:
   next: 15.5.22
-  shell-quote: 1.8.4
+  shell-quote: 1.10.0
 
 importers:
 
@@ -14,7 +14,7 @@ importers:
     dependencies:
       '@auth/drizzle-adapter':
         specifier: ^1.11.3
-        version: 1.11.3(nodemailer@9.0.3)
+        version: 1.11.3(nodemailer@9.0.5)
       '@radix-ui/react-dialog':
         specifier: ^1.1.4
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -50,10 +50,10 @@ importers:
         version: 15.5.22(@babel/core@7.24.5)(@playwright/test@1.59.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       next-auth:
         specifier: 5.0.0-beta.32
-        version: 5.0.0-beta.32(next@15.5.22(@babel/core@7.24.5)(@playwright/test@1.59.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(nodemailer@9.0.3)(react@19.0.0)
+        version: 5.0.0-beta.32(next@15.5.22(@babel/core@7.24.5)(@playwright/test@1.59.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(nodemailer@9.0.5)(react@19.0.0)
       nodemailer:
-        specifier: ^9.0.3
-        version: 9.0.3
+        specifier: ^9.0.5
+        version: 9.0.5
       pg-boss:
         specifier: ^10.1.5
         version: 10.4.2
@@ -3180,9 +3180,6 @@ packages:
   jose@6.2.3:
     resolution: {integrity: sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw==}
 
-  jose@6.2.4:
-    resolution: {integrity: sha512-N8acGzVsQy6M/fjFcxtysNc4Q379TcM5dM/qKkNtsHFji88yANnXTr7BLeP75iPnFwBfQzM/jg2BZ9+HZrHCZA==}
-
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
@@ -3414,8 +3411,8 @@ packages:
   node-releases@2.0.38:
     resolution: {integrity: sha512-3qT/88Y3FbH/Kx4szpQQ4HzUbVrHPKTLVpVocKiLfoYvw9XSGOX2FmD2d6DrXbVYyAQTF2HeF6My8jmzx7/CRw==}
 
-  nodemailer@9.0.3:
-    resolution: {integrity: sha512-n+YP+NKwR5zRWa60k3GiQ6Q3B4KXCoAw40dAKeCtYn020iNN74aWK2liXIC3ZEATeGql7we3tE3t8QwhY0eskw==}
+  nodemailer@9.0.5:
+    resolution: {integrity: sha512-wvjiKvjczmsN7U/8006JOdXubgBk2XFAbioDMbT+sM7cPs0QrhJTa6KBRX7P5REGGkDcLUz/EarWidb8G8C1jQ==}
     engines: {node: '>=6.0.0'}
 
   normalize-path@3.0.0:
@@ -4001,8 +3998,8 @@ packages:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
 
-  shell-quote@1.8.4:
-    resolution: {integrity: sha512-VsC6n6vz1ihYYyZZwX7YZSF5l5x36ca17OC+a69h94YqB7X6XLwf+5MOgynYir2SLFUbl8gIYvBo8K8RoNQ6bQ==}
+  shell-quote@1.10.0:
+    resolution: {integrity: sha512-w1aiOKwKuRgtwAReIIj89puqg+I7GvX4IbLrvmhXbzQsj1+Zwi4VO3+fa6ZF91TWSjIxoEkKnMeHcLEODK5ZXA==}
     engines: {node: '>= 0.4'}
 
   side-channel-list@1.0.1:
@@ -4520,7 +4517,7 @@ snapshots:
       '@csstools/css-tokenizer': 3.0.4
       lru-cache: 10.4.3
 
-  '@auth/core@0.41.3(nodemailer@9.0.3)':
+  '@auth/core@0.41.3(nodemailer@9.0.5)':
     dependencies:
       '@panva/hkdf': 1.2.1
       jose: 6.2.3
@@ -4528,11 +4525,11 @@ snapshots:
       preact: 10.24.3
       preact-render-to-string: 6.5.11(preact@10.24.3)
     optionalDependencies:
-      nodemailer: 9.0.3
+      nodemailer: 9.0.5
 
-  '@auth/drizzle-adapter@1.11.3(nodemailer@9.0.3)':
+  '@auth/drizzle-adapter@1.11.3(nodemailer@9.0.5)':
     dependencies:
-      '@auth/core': 0.41.3(nodemailer@9.0.3)
+      '@auth/core': 0.41.3(nodemailer@9.0.5)
     transitivePeerDependencies:
       - '@simplewebauthn/browser'
       - '@simplewebauthn/server'
@@ -6998,7 +6995,7 @@ snapshots:
       debug: 4.4.3
       env-paths: 3.0.0
       semver: 7.8.0
-      shell-quote: 1.8.4
+      shell-quote: 1.10.0
       which: 4.0.0
     transitivePeerDependencies:
       - supports-color
@@ -7295,8 +7292,6 @@ snapshots:
 
   jose@6.2.3: {}
 
-  jose@6.2.4: {}
-
   joycon@3.1.1: {}
 
   js-tokens@4.0.0: {}
@@ -7466,13 +7461,13 @@ snapshots:
 
   negotiator@0.6.3: {}
 
-  next-auth@5.0.0-beta.32(next@15.5.22(@babel/core@7.24.5)(@playwright/test@1.59.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(nodemailer@9.0.3)(react@19.0.0):
+  next-auth@5.0.0-beta.32(next@15.5.22(@babel/core@7.24.5)(@playwright/test@1.59.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(nodemailer@9.0.5)(react@19.0.0):
     dependencies:
-      '@auth/core': 0.41.3(nodemailer@9.0.3)
+      '@auth/core': 0.41.3(nodemailer@9.0.5)
       next: 15.5.22(@babel/core@7.24.5)(@playwright/test@1.59.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       react: 19.0.0
     optionalDependencies:
-      nodemailer: 9.0.3
+      nodemailer: 9.0.5
 
   next@15.5.22(@babel/core@7.24.5)(@playwright/test@1.59.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
     dependencies:
@@ -7507,7 +7502,7 @@ snapshots:
 
   node-releases@2.0.38: {}
 
-  nodemailer@9.0.3: {}
+  nodemailer@9.0.5: {}
 
   normalize-path@3.0.0: {}
 
@@ -8128,7 +8123,7 @@ snapshots:
 
   shebang-regex@3.0.0: {}
 
-  shell-quote@1.8.4: {}
+  shell-quote@1.10.0: {}
 
   side-channel-list@1.0.1:
     dependencies:
