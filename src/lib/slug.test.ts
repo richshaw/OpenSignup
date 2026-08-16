@@ -34,6 +34,18 @@ describe('toSlug', () => {
     const s = toSlug(long, { maxLength: 20 });
     expect(s.length).toBeLessThanOrEqual(20);
   });
+
+  it('honors a maxLength above 60', () => {
+    const long = 'a'.repeat(200);
+    expect(toSlug(long, { maxLength: 100 })).toHaveLength(100);
+  });
+
+  it('does not leave a trailing dash when truncation lands on a separator', () => {
+    // Truncating at maxLength 20 would otherwise cut right after the dash.
+    const s = toSlug('aaaaaaaaaaaaaaaaaaa bbbbb', { maxLength: 20 });
+    expect(s).toBe('aaaaaaaaaaaaaaaaaaa');
+    expect(s.endsWith('-')).toBe(false);
+  });
 });
 
 describe('randomSuffix', () => {
