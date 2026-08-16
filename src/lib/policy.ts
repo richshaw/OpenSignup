@@ -31,10 +31,6 @@ export function workspaceRole(actor: Actor, workspaceId: string): WorkspaceRole 
   return actor.workspaceRoles[workspaceId] ?? null;
 }
 
-export function isInWorkspace(actor: Actor, workspaceId: string): boolean {
-  return workspaceRole(actor, workspaceId) !== null;
-}
-
 export function requireOrganizer(actor: Actor): asserts actor is Extract<Actor, { kind: 'organizer' }> {
   if (actor.kind !== 'organizer') {
     throw new ServiceException(serviceError('unauthorized', 'organizer session required'));
