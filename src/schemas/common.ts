@@ -32,7 +32,3 @@ export const NotesSchema = z.string().max(500).optional().default('');
 
 export const TagsSchema = z.array(z.string().min(1).max(40)).max(20).default([]);
 
-export const DateOnlySchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD');
-
