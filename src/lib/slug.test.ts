@@ -34,6 +34,18 @@ describe('toSlug', () => {
     const s = toSlug(long, { maxLength: 20 });
     expect(s.length).toBeLessThanOrEqual(20);
   });
+
+  it('does not leave a trailing dash when truncation lands on a word boundary', () => {
+    const s = toSlug('a'.repeat(59) + ' word');
+    expect(s.endsWith('-')).toBe(false);
+    expect(s).not.toMatch(/--/);
+  });
+
+  it('does not produce a double dash before the suffix after truncation', () => {
+    const s = toSlug('a'.repeat(59) + ' word', { suffix: true });
+    expect(s).not.toMatch(/--/);
+    expect(s).toMatch(/^a+-[0-9a-z]{5}$/);
+  });
 });
 
 describe('randomSuffix', () => {

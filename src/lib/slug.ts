@@ -16,9 +16,12 @@ function normalize(input: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
     .replace(/-{2,}/g, '-')
-    .slice(0, 60);
+    .slice(0, 60)
+    // Strip dashes AFTER truncation: a cut landing on a word boundary can
+    // leave a trailing dash, which would otherwise survive into the final
+    // slug (or become a double dash once a suffix is appended).
+    .replace(/^-+|-+$/g, '');
 }
 
 export interface SlugOptions {
