@@ -17,8 +17,7 @@ function normalize(input: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-')
-    .slice(0, 60);
+    .replace(/-{2,}/g, '-');
 }
 
 export interface SlugOptions {
