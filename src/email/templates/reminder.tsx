@@ -70,10 +70,17 @@ export function ReminderEmail({
       </Text>
       {unsubscribeUrl ? (
         <Text className="mt-4 text-xs text-[#8a93a4]">
+          You&apos;ll still get a confirmation if you sign up for something new.{' '}
+          {/*
+            Nothing may follow this link in the sentence. react-email renders a
+            <Link> in plaintext as "label\nURL", so trailing punctuation lands
+            hard against the bare URL and clients that autolink plaintext
+            commonly swallow it into the href — which would break the one link
+            that must never break.
+          */}
           <Link href={unsubscribeUrl} className="text-[#8a93a4] underline">
             Stop reminders for {signupTitle}
           </Link>
-          . You&apos;ll still get a confirmation if you sign up for something new.
         </Text>
       ) : null}
     </EmailLayout>
