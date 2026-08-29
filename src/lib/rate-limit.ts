@@ -72,6 +72,9 @@ export const RateLimits = {
   commitmentTokenOpsPerIp: { bucket: 'commit.token.ip', max: 30, windowSeconds: 60 },
   signupCreatePerOrganizer: { bucket: 'signup.create', max: 60, windowSeconds: 3600 },
   magicComposePerOrganizer: { bucket: 'magic.compose', max: 10, windowSeconds: 3600 },
+  // Unsubscribe is unauthenticated and token-guarded; meter it so the endpoint
+  // can't be used to probe participant ids.
+  reminderOptOutPerIp: { bucket: 'reminder.optout.ip', max: 20, windowSeconds: 3600 },
   // Unauthenticated writes into the append-only activity log.
   telemetryPerIp: { bucket: 'telemetry.ip', max: 30, windowSeconds: 3600 },
 } as const;

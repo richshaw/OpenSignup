@@ -27,5 +27,16 @@ export async function sendReminder(to: string, props: ReminderEmailProps) {
     subject: `Reminder: ${props.slotLabel} · ${props.signupTitle}`,
     html,
     text,
+    // Lets a mail client offer its own unsubscribe control. One-Click means the
+    // client may POST without a human ever seeing our page, so the endpoint has
+    // to be safe to call unattended — it is: token-scoped and idempotent.
+    ...(props.unsubscribeUrl
+      ? {
+          headers: {
+            'List-Unsubscribe': `<${props.unsubscribeUrl}>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          },
+        }
+      : {}),
   });
 }

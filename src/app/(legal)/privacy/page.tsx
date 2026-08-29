@@ -77,6 +77,9 @@ export default function PrivacyPage() {
             and a link to edit or cancel your commitment.
           </li>
           <li>Your slot selection, quantity, and any optional notes.</li>
+          <li>
+            Whether you have opted out of reminder emails for that signup, and when.
+          </li>
         </ul>
         <p>
           A short-lived browser cookie lets you return and edit or cancel your own commitment
@@ -118,8 +121,10 @@ export default function PrivacyPage() {
           the old one stops working. Confirmations and reminders each contain a private link that
           lets you change or cancel that commitment without signing in, so treat them as you would a
           password and don&apos;t forward them. Organizers choose how far ahead reminders go out,
-          and can turn them off for a signup entirely. Delivery uses whichever transport the
-          operator has configured (SMTP, a transactional provider, or local console output in
+          and can turn them off for a signup entirely. Every reminder carries a link that stops
+          reminders for that signup; we record only the time you opted out, and it does not affect
+          any other signup or your slot itself. Delivery uses whichever transport the operator has
+          configured (SMTP, a transactional provider, or local console output in
           development). No marketing email is ever sent.
         </p>
       </section>

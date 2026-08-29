@@ -59,6 +59,7 @@ export const ACTIVITY_EVENTS = [
   'commitment.edit_link_followed',
   'reminder.scheduled',
   'reminder.sent',
+  'reminder.opted_out',
   'reminder.failed',
   'auth.magic_link_sent',
   'auth.signed_in',

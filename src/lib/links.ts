@@ -20,3 +20,12 @@ export function commitmentEditUrl(slug: string, commitmentId: string, token: str
   const env = getEnv();
   return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/s/${slug}/c/${commitmentId}?token=${token}`;
 }
+
+export function reminderUnsubscribeUrl(
+  slug: string,
+  participantId: string,
+  token: string,
+): string {
+  const env = getEnv();
+  return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/s/${slug}/unsubscribe?p=${participantId}&token=${token}`;
+}
