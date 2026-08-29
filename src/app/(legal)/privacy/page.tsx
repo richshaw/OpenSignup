@@ -21,7 +21,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-ink-muted text-sm">Last updated: 2 June 2026</p>
+        <p className="text-ink-muted text-sm">Last updated: 29 August 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -116,11 +116,15 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Email delivery</h2>
         <p>
-          {INSTANCE_NAME} sends two kinds of email: organizer magic-link sign-in
-          emails, and slot reminders to participants who provided an email address.
-          Delivery uses whichever transport the operator has configured (SMTP, a
-          transactional provider, or local console output in development). No marketing
-          email is ever sent.
+          {INSTANCE_NAME} sends three kinds of email: organizer magic-link sign-in
+          emails, a confirmation to a participant when they commit to a slot, and a
+          reminder before a dated slot. Confirmations and reminders each contain a
+          private link that lets you change or cancel that commitment without signing
+          in, so treat them as you would a password and don&apos;t forward them.
+          Organizers choose how far ahead reminders go out, and can turn them off for
+          a signup entirely. Delivery uses whichever transport the operator has
+          configured (SMTP, a transactional provider, or local console output in
+          development). No marketing email is ever sent.
         </p>
       </section>
 
