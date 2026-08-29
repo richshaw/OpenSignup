@@ -17,11 +17,13 @@ const run = promisify(execFile);
  * in the test suite to notice.
  *
  * So this test shells out to the worker's real toolchain rather than importing
- * the templates directly. If it fails, reminder emails are broken in
+ * the templates directly. The set it covers is whatever
+ * scripts/render-email-templates.ts lists — the sendable templates, plus the
+ * shared layout they all compose. If it fails, reminder emails are broken in
  * production even though every other email test is green.
  */
 describe('email templates under the worker toolchain', () => {
-  it('renders every template with tsx + tsconfig.worker.json', async () => {
+  it('renders each sendable template with tsx + tsconfig.worker.json', async () => {
     const { stdout } = await run(
       'pnpm',
       ['exec', 'tsx', '--tsconfig', 'tsconfig.worker.json', 'scripts/render-email-templates.ts'],

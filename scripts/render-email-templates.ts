@@ -1,5 +1,8 @@
 /**
- * Renders every email template and exits non-zero if any of them throws.
+ * Renders each sendable email template and exits non-zero if any of them
+ * throws. Shared pieces under src/email/templates (layout.tsx) are covered
+ * transitively, since every sendable template composes them; add a case here
+ * whenever a new template gains a `send*` function.
  *
  * Exists to be run under the *worker's* toolchain (`tsx --tsconfig
  * tsconfig.worker.json`), which is the only place templates are compiled
