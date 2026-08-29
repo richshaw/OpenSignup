@@ -58,6 +58,34 @@ describe('parseEnv', () => {
     expect(env.AUTH_MAGIC_LINK_MAX_AGE_MINUTES).toBe(60);
   });
 
+  it('treats empty-string values as unset', () => {
+    // `cp .env.example .env.local` leaves every optional var as a bare `FOO=`,
+    // which dotenv loads as ''. Those must behave as if absent.
+    const env = parseEnv({
+      ...base,
+      LLM_BASE_URL: '',
+      LLM_API_KEY: '',
+      LLM_MODEL: '',
+      LLM_TIMEOUT_MS: '',
+      RESEND_API_KEY: '',
+      SMTP_HOST: '',
+      GOOGLE_CLIENT_ID: '',
+      GOOGLE_CLIENT_SECRET: '',
+    });
+    expect(env.LLM_BASE_URL).toBeUndefined();
+    expect(env.RESEND_API_KEY).toBeUndefined();
+    // Defaults still apply rather than being overridden by ''.
+    expect(env.LLM_TIMEOUT_MS).toBe(180_000);
+  });
+
+  it('does not let an empty EMAIL_TRANSPORT override the default', () => {
+    expect(parseEnv({ ...base, EMAIL_TRANSPORT: '' }).EMAIL_TRANSPORT).toBe('console');
+  });
+
+  it('still rejects a required var that is present but empty', () => {
+    expect(() => parseEnv({ ...base, DATABASE_URL: '' })).toThrow(/DATABASE_URL/);
+  });
+
   it('coerces AUTH_MAGIC_LINK_MAX_AGE_MINUTES from a string', () => {
     const env = parseEnv({ ...base, AUTH_MAGIC_LINK_MAX_AGE_MINUTES: '15' });
     expect(env.AUTH_MAGIC_LINK_MAX_AGE_MINUTES).toBe(15);

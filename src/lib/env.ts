@@ -73,8 +73,24 @@ const conditional = baseSchema.superRefine((env, ctx) => {
 
 export type Env = z.infer<typeof baseSchema>;
 
+/**
+ * Treat `FOO=` as unset rather than as the empty string.
+ *
+ * `.env.example` ships every optional var as a bare `FOO=` placeholder, and
+ * dotenv loads those as `''`. Without this, the documented first-time setup
+ * (`cp .env.example .env.local`) produces an env that fails validation on
+ * `LLM_BASE_URL: Invalid url` — an empty string is not a URL, and `.optional()`
+ * only tolerates `undefined`. Stripping the empties makes an unfilled
+ * placeholder mean what it looks like it means.
+ */
+function withoutEmptyValues(
+  raw: NodeJS.ProcessEnv | Record<string, string | undefined>,
+): Record<string, string | undefined> {
+  return Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== ''));
+}
+
 export function parseEnv(raw: NodeJS.ProcessEnv | Record<string, string | undefined>): Env {
-  const result = conditional.safeParse(raw);
+  const result = conditional.safeParse(withoutEmptyValues(raw));
   if (!result.success) {
     const issues = result.error.issues
       .map((i) => `  - ${i.path.join('.') || '(root)'}: ${i.message}`)
