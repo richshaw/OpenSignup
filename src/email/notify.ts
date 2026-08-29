@@ -56,7 +56,16 @@ export async function notifyCommitmentCreated(
       return;
     }
 
-    // Guards a pathological double-POST: one commitment, one receipt.
+    // Belt and braces, not the primary defence. This is a read-then-write with
+    // no lock, so it would not survive two concurrent calls for the same
+    // commitment — but there is no path that produces them. This runs once per
+    // successful POST (from `after()`), each successful POST inserts exactly
+    // one commitment with a fresh UUIDv7 id, and a racing duplicate commit by
+    // the same participant is rejected as `conflict` under the slot's
+    // SELECT ... FOR UPDATE (src/services/commitments.ts). The check earns its
+    // place only against a future caller that retries; if one is ever added,
+    // the claim has to move before the send, not after it — an atomic guard
+    // here would still leave the email already sent.
     const [alreadySent] = await db
       .select({ id: activity.id })
       .from(activity)
