@@ -76,8 +76,9 @@ export const RateLimits = {
   // RFC 8058 one-click POSTs arrive from a handful of provider egress IPs on
   // behalf of every recipient, so a tight per-IP cap would become an
   // instance-wide ceiling on unsubscribes — the one request we must never
-  // drop. A wrong token is rejected before any query, so a low ceiling buys
-  // little anyway.
+  // drop. The downside is small: a wrong token is rejected before the
+  // participant lookup, so a bogus request costs this bucket's own upsert and
+  // an HMAC, nothing more.
   reminderOptOutPerIp: { bucket: 'reminder.optout.ip', max: 300, windowSeconds: 3600 },
   // Unauthenticated writes into the append-only activity log.
   telemetryPerIp: { bucket: 'telemetry.ip', max: 30, windowSeconds: 3600 },
