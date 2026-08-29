@@ -50,6 +50,7 @@ export const ACTIVITY_EVENTS = [
   'field.deleted',
   'participant.created',
   'commitment.created',
+  'commitment.confirmation_sent',
   'commitment.updated',
   'commitment.cancelled',
   'commitment.swapped',

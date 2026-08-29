@@ -1,4 +1,4 @@
-import type { NextRequest } from 'next/server';
+import { after, type NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
 import { fail, handle, respond } from '@/lib/api-response';
 import {
@@ -7,6 +7,7 @@ import {
   setReturningCommitCookie,
 } from '@/lib/returning-participant';
 import { commitmentEditUrl, link } from '@/lib/links';
+import { notifyCommitmentCreated } from '@/email/notify';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { commitToSlot } from '@/services/commitments';
 import { extractClientIp } from '@/auth/request-context';
@@ -44,6 +45,13 @@ export async function POST(
       responseValue.commitment.signupId,
     );
     setReturningCommitCookie(response, nextCookie);
+
+    // After the response, so a slow mail server never holds up a participant
+    // who has already got their slot. Failures are logged, never surfaced.
+    after(() =>
+      notifyCommitmentCreated(db, responseValue.commitment.id, responseValue.editToken),
+    );
+
     return response;
   });
 }
