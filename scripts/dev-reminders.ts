@@ -27,8 +27,8 @@ async function main(): Promise<void> {
     console.log(
       'A reminder is due when the slot is still ahead and within the signup\'s\n' +
         'reminderLeadHours (default 24), the participant signed up more than an\n' +
-        'hour ago, sendReminders is on for the signup, and no reminder.sent was\n' +
-        'recorded for the commitment yet.',
+        'hour ago and has not opted out, sendReminders is on for the signup, and\n' +
+        'no reminder.sent was recorded for the commitment yet.',
     );
   } else {
     console.log(`${due.length} reminder(s) due:\n`);

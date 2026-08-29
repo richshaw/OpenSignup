@@ -7,13 +7,14 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { recordActivity } from '@/lib/activity';
 import { log } from '@/lib/log';
-import { commitmentEditUrl, publicSignupUrl } from '@/lib/links';
+import { commitmentEditUrl, publicSignupUrl, reminderUnsubscribeUrl } from '@/lib/links';
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { formatSlotWhen } from '@/lib/slot-time';
 import { editTokenFor } from '@/lib/token';
 import { DEFAULT_REMINDER_LEAD_HOURS, SignupSettingsSchema } from '@/schemas/signups';
 import { slotDisplayLabel } from '@/lib/slot-label';
 import { listFieldsForSignup, slotTimeOfDay } from '@/services/slot-fields';
+import { reminderOptOutTokenFor } from '@/services/reminder-optout';
 import { sendReminder } from '@/email/send';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
 
@@ -82,6 +83,8 @@ export async function selectDueReminders(db: Db): Promise<DueReminder[]> {
         // Not still in the afterglow of their own confirmation (see doc comment).
         sql`${commitments.createdAt} < now() - make_interval(hours => ${REMINDER_SETTLE_HOURS})`,
         sql`COALESCE((${signups.settings}->>'sendReminders')::boolean, true) = true`,
+        // Participants who unsubscribed from this signup's reminders.
+        isNull(participants.remindersOptedOutAt),
         // skip if a reminder was already recorded for this commitment
         sql`NOT EXISTS (
           SELECT 1 FROM activity a
@@ -181,6 +184,11 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
       row.signup.slug,
       row.commitment.id,
       editTokenFor(row.commitment.id),
+    ),
+    unsubscribeUrl: reminderUnsubscribeUrl(
+      row.signup.slug,
+      row.participant.id,
+      reminderOptOutTokenFor(row.participant.id),
     ),
     slotLabel,
     slotDateLabel: formatSlotWhen(row.slot.slotAt, { hasTime }) ?? 'Soon',

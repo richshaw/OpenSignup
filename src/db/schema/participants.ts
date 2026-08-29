@@ -17,6 +17,13 @@ export const participants = pgTable(
     name: text('name').notNull(),
     phone: text('phone'),
     sessionTokenHash: text('session_token_hash'), // for same-device UX (hashed)
+    /**
+     * Set when this participant opts out of reminder emails for this signup.
+     * Participants rows are per-signup, so an opt-out is naturally scoped to
+     * the signup they unsubscribed from and never silences another organizer.
+     * Confirmations are unaffected: they acknowledge an action just taken.
+     */
+    remindersOptedOutAt: timestamp('reminders_opted_out_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
   },

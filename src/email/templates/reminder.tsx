@@ -1,4 +1,4 @@
-import { Button, Heading, Text } from '@react-email/components';
+import { Button, Heading, Link, Text } from '@react-email/components';
 import { EmailLayout } from './layout';
 
 export interface ReminderEmailProps {
@@ -16,6 +16,8 @@ export interface ReminderEmailProps {
   slotDateLabel: string;
   notes?: string | null;
   organizerDisplayName?: string;
+  /** Per-signup opt-out link. Reminders are the only email it silences. */
+  unsubscribeUrl?: string;
 }
 
 export function ReminderEmail({
@@ -27,6 +29,7 @@ export function ReminderEmail({
   slotDateLabel,
   notes,
   organizerDisplayName,
+  unsubscribeUrl,
 }: ReminderEmailProps) {
   const preview = `Reminder: ${slotLabel} · ${signupTitle}`;
   return (
@@ -65,6 +68,14 @@ export function ReminderEmail({
         Need to change or cancel? Tap the button above — it opens your sign-up directly, no
         password needed. Keep this email to yourself: anyone with the link can change your slot.
       </Text>
+      {unsubscribeUrl ? (
+        <Text className="mt-4 text-xs text-[#8a93a4]">
+          <Link href={unsubscribeUrl} className="text-[#8a93a4] underline">
+            Stop reminders for {signupTitle}
+          </Link>
+          . You&apos;ll still get a confirmation if you sign up for something new.
+        </Text>
+      ) : null}
     </EmailLayout>
   );
 }
