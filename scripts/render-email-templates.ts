@@ -11,6 +11,7 @@
  */
 import { createElement, type ReactElement } from 'react';
 import { renderEmail } from '@/email/render';
+import { CommitmentConfirmationEmail } from '@/email/templates/commitment-confirmation';
 import { MagicLinkEmail } from '@/email/templates/magic-link';
 import { ReminderEmail } from '@/email/templates/reminder';
 
@@ -21,6 +22,19 @@ const cases: Array<[string, ReactElement]> = [
       url: 'https://example.test/login/confirm?token=abc',
       email: 'organizer@example.test',
       expiresInMinutes: 60,
+    }),
+  ],
+  [
+    'commitment-confirmation',
+    createElement(CommitmentConfirmationEmail, {
+      participantName: 'Dana',
+      signupTitle: 'Saturday Snack Rotation',
+      manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
+      slotLabel: 'Week 1',
+      slotDateLabel: 'Saturday, September 5 at 9:00 AM',
+      notes: 'Bringing grapes',
+      quantity: 2,
+      reminderLeadHours: 24,
     }),
   ],
   [
