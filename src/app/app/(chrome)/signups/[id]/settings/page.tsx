@@ -75,7 +75,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
             <span className="text-sm">
               <span className="block font-medium">Send reminder emails</span>
               <span className="text-ink-muted block">
-                Participants can opt out of reminders for this signup at any time.
+                Off means no reminders go out for this signup, whatever the timing below says.
               </span>
             </span>
           </label>

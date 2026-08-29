@@ -14,6 +14,7 @@ import {
   DEFAULT_REMINDER_LEAD_HOURS,
   REMINDER_LEAD_HOUR_CHOICES,
   SignupSettingsSchema,
+  type SignupSettings,
 } from '@/schemas/signups';
 
 function revalidateSignup(id: string) {
@@ -152,19 +153,22 @@ export async function updateReminderAction(signupId: string, formData: FormData)
     redirect(`/app/signups/${signupId}/settings?error=${encodeURIComponent(current.error.message)}`);
   }
   const parsedSettings = SignupSettingsSchema.safeParse(current.value.settings ?? {});
-  const prevSettings = parsedSettings.success
-    ? parsedSettings.data
-    : ({} as { reminderFromFieldRef?: string });
+  const prevSettings: Partial<SignupSettings> = parsedSettings.success ? parsedSettings.data : {};
   const { reminderFromFieldRef: _removed, ...restSettings } = prevSettings;
 
   // An unchecked checkbox submits nothing, so absence means "off".
   const sendReminders = formData.get('sendReminders') !== null;
-  const leadRaw = Number(formData.get('reminderLeadHours'));
-  const leadHours = REMINDER_LEAD_HOUR_CHOICES.includes(
-    leadRaw as (typeof REMINDER_LEAD_HOUR_CHOICES)[number],
-  )
-    ? leadRaw
-    : DEFAULT_REMINDER_LEAD_HOURS;
+
+  // A select always submits a value, so an *absent* field means this POST did
+  // not carry the lead-time control at all (a stale cached form, say). Keep
+  // whatever is saved rather than silently downgrading 72h to the default.
+  const leadField = formData.get('reminderLeadHours');
+  const leadRaw = Number(leadField);
+  const leadHours =
+    leadField !== null &&
+    REMINDER_LEAD_HOUR_CHOICES.includes(leadRaw as (typeof REMINDER_LEAD_HOUR_CHOICES)[number])
+      ? leadRaw
+      : (restSettings.reminderLeadHours ?? DEFAULT_REMINDER_LEAD_HOURS);
 
   const nextSettings = {
     ...restSettings,

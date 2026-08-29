@@ -175,12 +175,34 @@ describe('selectDueReminders (db)', () => {
     expect(await dueIds()).not.toContain(commitmentId);
   });
 
-  it('does not remind someone who committed after the reminder was already due', async () => {
-    const { commitmentId } = await makeScenario(fx, 'Late signup', {
+  it('does not remind someone who signed up minutes ago', async () => {
+    const { commitmentId } = await makeScenario(fx, 'Just signed up', {
       slotInHours: 6,
-      committedHoursAgo: 1,
+      committedHoursAgo: 0,
     });
     expect(await dueIds()).not.toContain(commitmentId);
+  });
+
+  it('still reminds someone who committed inside a long lead window', async () => {
+    // Regression: a `created_at < slot_at - lead` guard reads naturally but
+    // silently denies a reminder to everyone who commits within the lead
+    // window. At a 72h lead that is most participants.
+    const { commitmentId } = await makeScenario(fx, 'Committed inside the window', {
+      slotInHours: 60,
+      committedHoursAgo: 2,
+      settings: { reminderLeadHours: 72 },
+    });
+    expect(await dueIds()).toContain(commitmentId);
+  });
+
+  it('does not strip reminders from existing commitments when the lead time is raised', async () => {
+    // Organizer moves 2h -> 72h after someone already committed.
+    const { commitmentId } = await makeScenario(fx, 'Lead raised later', {
+      slotInHours: 40,
+      committedHoursAgo: 6,
+      settings: { reminderLeadHours: 72 },
+    });
+    expect(await dueIds()).toContain(commitmentId);
   });
 
   it('respects sendReminders=false', async () => {

@@ -39,10 +39,13 @@ export interface DueReminder {
  * a due test re-selects those commitments on the next healthy tick, so an
  * outage delays reminders instead of losing them.
  *
- * The created_at guard keeps that catch-up honest: someone who commits *after*
- * their reminder was already due gets no reminder, because they just signed up
- * and a "coming up soon" email moments later is noise. It also bounds what the
- * catch-up can do on the first tick after a lead-time change.
+ * The created_at guard suppresses only the genuinely redundant case: someone
+ * who signed up in the last hour does not need a "coming up soon" email on the
+ * heels of their confirmation. It is deliberately relative to *now* and not to
+ * the reminder's due point — a guard of `created_at < slot_at - lead` reads
+ * naturally but silently denies a reminder to anyone who commits inside the
+ * lead window, so at a 72h lead every participant who signed up two days ahead
+ * would get nothing at all.
  */
 export async function selectDueReminders(db: Db): Promise<DueReminder[]> {
   return db
@@ -66,8 +69,8 @@ export async function selectDueReminders(db: Db): Promise<DueReminder[]> {
         // Still ahead of the participant, and inside the reminder lead time.
         sql`${slots.slotAt} > now()`,
         sql`${slots.slotAt} <= now() + ${leadInterval}`,
-        // Committed before the reminder came due (see doc comment).
-        sql`${commitments.createdAt} < ${slots.slotAt} - ${leadInterval}`,
+        // Not still in the afterglow of their own confirmation (see doc comment).
+        sql`${commitments.createdAt} < now() - interval '1 hour'`,
         sql`COALESCE((${signups.settings}->>'sendReminders')::boolean, true) = true`,
         // skip if a reminder was already recorded for this commitment
         sql`NOT EXISTS (

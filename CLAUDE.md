@@ -78,7 +78,7 @@ Helpers used by every service:
 
 ### Jobs
 
-pg-boss runs against the same Postgres (schema `pgboss`). The Next.js server **does not** run the worker — `pnpm worker` (`src/jobs/worker.ts`) is a separate process. Two queues: `reminderDispatch` (cron every 10 min, scans the 48h window) and `reminderSend` (per-commitment send with retries). On commit, schedule with `singletonKey: commitmentId` so swap/edit replaces the prior job. Worker liveness is observable from the web process: `GET /api/public/health` reports `worker: ok | stale | unknown` by checking `pgboss.job` for a recent dispatch completion (`src/lib/worker-health.ts`) — informational only, never fails the HTTP check.
+pg-boss runs against the same Postgres (schema `pgboss`). The Next.js server **does not** run the worker — `pnpm worker` (`src/jobs/worker.ts`) is a separate process. Two queues: `reminderDispatch` (cron every 10 min, selects commitments whose reminder has come due — slot still ahead and within the signup's `reminderLeadHours`, default 24) and `reminderSend` (per-commitment send with retries). On commit, schedule with `singletonKey: commitmentId` so swap/edit replaces the prior job. Worker liveness is observable from the web process: `GET /api/public/health` reports `worker: ok | stale | unknown` by checking `pgboss.job` for a recent dispatch completion (`src/lib/worker-health.ts`) — informational only, never fails the HTTP check.
 
 ### Magic Compose (AI-drafted signups)
 
