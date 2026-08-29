@@ -10,7 +10,11 @@ import { addSlot, deleteSlot } from '@/services/slots';
 import { addField, deleteField } from '@/services/slot-fields';
 import { toSlug } from '@/lib/slug';
 import type { SlotFieldConfig, SlotFieldDefinition } from '@/schemas/slot-fields';
-import { SignupSettingsSchema } from '@/schemas/signups';
+import {
+  DEFAULT_REMINDER_LEAD_HOURS,
+  REMINDER_LEAD_HOUR_CHOICES,
+  SignupSettingsSchema,
+} from '@/schemas/signups';
 
 function revalidateSignup(id: string) {
   revalidatePath(`/app/signups/${id}`, 'layout');
@@ -152,7 +156,22 @@ export async function updateReminderAction(signupId: string, formData: FormData)
     ? parsedSettings.data
     : ({} as { reminderFromFieldRef?: string });
   const { reminderFromFieldRef: _removed, ...restSettings } = prevSettings;
-  const nextSettings = reminder ? { ...restSettings, reminderFromFieldRef: reminder } : restSettings;
+
+  // An unchecked checkbox submits nothing, so absence means "off".
+  const sendReminders = formData.get('sendReminders') !== null;
+  const leadRaw = Number(formData.get('reminderLeadHours'));
+  const leadHours = REMINDER_LEAD_HOUR_CHOICES.includes(
+    leadRaw as (typeof REMINDER_LEAD_HOUR_CHOICES)[number],
+  )
+    ? leadRaw
+    : DEFAULT_REMINDER_LEAD_HOURS;
+
+  const nextSettings = {
+    ...restSettings,
+    sendReminders,
+    reminderLeadHours: leadHours,
+    ...(reminder ? { reminderFromFieldRef: reminder } : {}),
+  };
 
   const result = await updateSignup(getDb(), actor, signupId, { settings: nextSettings });
   if (!result.ok) {

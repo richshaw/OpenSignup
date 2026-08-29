@@ -34,7 +34,8 @@
     "worker": "tsx --tsconfig tsconfig.worker.json src/jobs/worker.ts",
     "eval:magic-compose": "tsx scripts/eval-magic-compose.ts",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "reminders:due": "tsx scripts/dev-reminders.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",

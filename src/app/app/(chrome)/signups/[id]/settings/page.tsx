@@ -4,9 +4,20 @@ import { getOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { recordOrganizerView } from '@/lib/view-tracker';
-import { SignupSettingsSchema } from '@/schemas/signups';
+import {
+  DEFAULT_REMINDER_LEAD_HOURS,
+  REMINDER_LEAD_HOUR_CHOICES,
+  SignupSettingsSchema,
+} from '@/schemas/signups';
 import { updateReminderAction } from '../actions';
 import { DeleteSignupForm } from './delete-signup-form';
+
+const LEAD_HOUR_LABELS: Record<(typeof REMINDER_LEAD_HOUR_CHOICES)[number], string> = {
+  2: '2 hours before',
+  24: '1 day before',
+  48: '2 days before',
+  72: '3 days before',
+};
 
 type PageParams = {
   params: Promise<{ id: string }>;
@@ -33,6 +44,10 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
 
   const parsedSettings = SignupSettingsSchema.safeParse(sig.settings ?? {});
   const reminderRef = parsedSettings.success ? (parsedSettings.data.reminderFromFieldRef ?? '') : '';
+  const sendReminders = parsedSettings.success ? parsedSettings.data.sendReminders : true;
+  const leadHours = parsedSettings.success
+    ? parsedSettings.data.reminderLeadHours
+    : DEFAULT_REMINDER_LEAD_HOURS;
 
   return (
     <section className="max-w-2xl space-y-6">
@@ -50,6 +65,20 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
               Send participants a reminder email before their slot.
             </p>
           </div>
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              name="sendReminders"
+              defaultChecked={sendReminders}
+              className="text-brand focus:ring-brand mt-0.5 h-4 w-4 rounded border-surface-sunk focus:ring-1"
+            />
+            <span className="text-sm">
+              <span className="block font-medium">Send reminder emails</span>
+              <span className="text-ink-muted block">
+                Participants can opt out of reminders for this signup at any time.
+              </span>
+            </span>
+          </label>
           <label className="block">
             <span className="mb-1 block text-sm font-medium">Reminder date field</span>
             <select
@@ -63,6 +92,20 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
                 .map((f) => (
                   <option key={f.id} value={f.ref}>{f.label}</option>
                 ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium">Send reminder</span>
+            <select
+              name="reminderLeadHours"
+              defaultValue={String(leadHours)}
+              className="focus:border-brand focus:ring-brand block min-h-[42px] w-full appearance-none rounded-lg border border-surface-sunk bg-white px-3 py-2 focus:outline-none focus:ring-1"
+            >
+              {REMINDER_LEAD_HOUR_CHOICES.map((hours) => (
+                <option key={hours} value={String(hours)}>
+                  {LEAD_HOUR_LABELS[hours]}
+                </option>
+              ))}
             </select>
           </label>
           <div className="flex justify-end">

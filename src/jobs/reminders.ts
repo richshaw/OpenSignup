@@ -1,5 +1,5 @@
-import { and, between, eq, isNull, or, sql } from 'drizzle-orm';
-import { getDb } from '@/db/client';
+import { and, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
@@ -7,24 +7,54 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { recordActivity } from '@/lib/activity';
 import { log } from '@/lib/log';
-import { publicSignupUrl } from '@/lib/links';
+import { commitmentEditUrl, publicSignupUrl } from '@/lib/links';
+import { formatSlotWhen } from '@/lib/slot-time';
+import { editTokenFor } from '@/lib/token';
+import { DEFAULT_REMINDER_LEAD_HOURS } from '@/schemas/signups';
 import { sendReminder } from '@/email/send';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
 
 /**
- * Scans for confirmed/tentative commitments whose slots occur in [~47h, ~49h]
- * from now, that have not yet had a reminder recorded in activity, and
- * enqueues one reminders.send job per commitment.
+ * Per-signup reminder lead time, in hours, as a SQL interval. Signups created
+ * before `reminderLeadHours` existed have no key in their settings jsonb and
+ * fall back to the schema default, so no backfill is needed.
  */
-export async function dispatchReminders(): Promise<{ enqueued: number }> {
-  const db = getDb();
-  const now = Date.now();
-  const windowStart = new Date(now + 47 * 3600 * 1000);
-  const windowEnd = new Date(now + 49 * 3600 * 1000);
+const leadInterval = sql`make_interval(hours => COALESCE((${signups.settings}->>'reminderLeadHours')::int, ${DEFAULT_REMINDER_LEAD_HOURS}))`;
 
-  const rows = await db
-    .select({ commitmentId: commitments.id })
+export interface DueReminder {
+  commitmentId: string;
+  participantEmail: string;
+  signupTitle: string;
+  slotRef: string;
+  slotAt: Date | null;
+}
+
+/**
+ * Selects the commitments whose reminder is *due* — slot still in the future,
+ * but now within the signup's reminder lead time — and that have no
+ * reminder.sent activity row yet.
+ *
+ * This is a "due now" test rather than a window around the lead time. A window
+ * silently drops every reminder whose moment passed while the worker was down;
+ * a due test re-selects those commitments on the next healthy tick, so an
+ * outage delays reminders instead of losing them.
+ *
+ * The created_at guard keeps that catch-up honest: someone who commits *after*
+ * their reminder was already due gets no reminder, because they just signed up
+ * and a "coming up soon" email moments later is noise. It also bounds what the
+ * catch-up can do on the first tick after a lead-time change.
+ */
+export async function selectDueReminders(db: Db): Promise<DueReminder[]> {
+  return db
+    .select({
+      commitmentId: commitments.id,
+      participantEmail: participants.email,
+      signupTitle: signups.title,
+      slotRef: slots.ref,
+      slotAt: slots.slotAt,
+    })
     .from(commitments)
+    .innerJoin(participants, eq(participants.id, commitments.participantId))
     .innerJoin(slots, eq(slots.id, commitments.slotId))
     .innerJoin(signups, eq(signups.id, commitments.signupId))
     .where(
@@ -32,7 +62,12 @@ export async function dispatchReminders(): Promise<{ enqueued: number }> {
         or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
         eq(signups.status, 'open'),
         isNull(signups.deletedAt),
-        between(slots.slotAt, windowStart, windowEnd),
+        isNotNull(slots.slotAt),
+        // Still ahead of the participant, and inside the reminder lead time.
+        sql`${slots.slotAt} > now()`,
+        sql`${slots.slotAt} <= now() + ${leadInterval}`,
+        // Committed before the reminder came due (see doc comment).
+        sql`${commitments.createdAt} < ${slots.slotAt} - ${leadInterval}`,
         sql`COALESCE((${signups.settings}->>'sendReminders')::boolean, true) = true`,
         // skip if a reminder was already recorded for this commitment
         sql`NOT EXISTS (
@@ -42,6 +77,11 @@ export async function dispatchReminders(): Promise<{ enqueued: number }> {
         )`,
       ),
     );
+}
+
+/** Enqueues one reminders.send job per due commitment. */
+export async function dispatchReminders(): Promise<{ enqueued: number }> {
+  const rows = await selectDueReminders(getDb());
 
   if (rows.length === 0) return { enqueued: 0 };
   const boss = await getBoss();
@@ -106,17 +146,15 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     participantName: row.participant.name,
     signupTitle: row.signup.title,
     signupUrl: publicSignupUrl(row.signup.slug),
+    // Edit tokens are HMAC(secret, commitment_id), so the job can re-derive the
+    // participant's own link without storing anything recoverable.
+    manageUrl: commitmentEditUrl(
+      row.signup.slug,
+      row.commitment.id,
+      editTokenFor(row.commitment.id),
+    ),
     slotLabel: row.slot.ref,
-    slotDateLabel: row.slot.slotAt
-      ? row.slot.slotAt.toLocaleString('en-US', {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-          timeZoneName: 'short',
-        })
-      : 'Soon',
+    slotDateLabel: formatSlotWhen(row.slot.slotAt) ?? 'Soon',
     notes: row.commitment.notes,
   });
 
