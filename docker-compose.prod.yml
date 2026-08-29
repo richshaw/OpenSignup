@@ -59,7 +59,9 @@ services:
       migrate:
         condition: service_completed_successfully
     env_file: .env
-    command: ['pnpm', 'exec', 'tsx', 'src/jobs/worker.ts']
+    # Go through the `worker` script rather than invoking tsx directly, so the
+    # worker's JSX tsconfig stays defined in exactly one place.
+    command: ['pnpm', 'worker']
     restart: unless-stopped
 
 volumes:
