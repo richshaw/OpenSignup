@@ -2,11 +2,22 @@ import { z } from 'zod';
 
 const transportEnum = z.enum(['console', 'smtp', 'resend']);
 
+// `required_error` fires when the key is absent, `.min()`/`.url()` only once a
+// value is present. Both are set so a required var reports the same tailored
+// message whether it was never provided or explicitly emptied — the latter
+// reaches the schema as absent, because `withoutEmptyValues` strips it.
+// Mirrors the `requiredString` helper in src/lib/site-config.ts.
 const baseSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-  AUTH_SECRET: z.string().min(32, 'AUTH_SECRET must be at least 32 characters'),
-  AUTH_URL: z.string().url('AUTH_URL must be a valid URL'),
+  DATABASE_URL: z
+    .string({ required_error: 'DATABASE_URL is required' })
+    .min(1, 'DATABASE_URL is required'),
+  AUTH_SECRET: z
+    .string({ required_error: 'AUTH_SECRET is required' })
+    .min(32, 'AUTH_SECRET must be at least 32 characters'),
+  AUTH_URL: z
+    .string({ required_error: 'AUTH_URL is required' })
+    .url('AUTH_URL must be a valid URL'),
   AUTH_MAGIC_LINK_MAX_AGE_MINUTES: z.coerce
     .number()
     .int()
@@ -14,7 +25,9 @@ const baseSchema = z.object({
     .max(10_080, 'AUTH_MAGIC_LINK_MAX_AGE_MINUTES must be at most 10080 (1 week)')
     .default(60),
   EMAIL_TRANSPORT: transportEnum.default('console'),
-  EMAIL_FROM: z.string().min(1, 'EMAIL_FROM is required'),
+  EMAIL_FROM: z
+    .string({ required_error: 'EMAIL_FROM is required' })
+    .min(1, 'EMAIL_FROM is required'),
   RESEND_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),

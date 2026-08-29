@@ -86,6 +86,17 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...base, DATABASE_URL: '' })).toThrow(/DATABASE_URL/);
   });
 
+  it('keeps the tailored message when a required var is emptied, not a bare "Required"', () => {
+    // Stripping empties makes an emptied var reach the schema as absent, so the
+    // per-field message has to cover the missing case too or the operator gets
+    // an unhelpful "DATABASE_URL: Required".
+    for (const key of ['DATABASE_URL', 'AUTH_SECRET', 'AUTH_URL', 'EMAIL_FROM'] as const) {
+      expect(() => parseEnv({ ...base, [key]: '' })).toThrow(`${key} is required`);
+      const { [key]: _omitted, ...without } = base;
+      expect(() => parseEnv(without)).toThrow(`${key} is required`);
+    }
+  });
+
   it('coerces AUTH_MAGIC_LINK_MAX_AGE_MINUTES from a string', () => {
     const env = parseEnv({ ...base, AUTH_MAGIC_LINK_MAX_AGE_MINUTES: '15' });
     expect(env.AUTH_MAGIC_LINK_MAX_AGE_MINUTES).toBe(15);
