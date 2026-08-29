@@ -5,6 +5,7 @@ import { commitments } from '@/db/schema/commitments';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { participants } from '@/db/schema/participants';
+import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
@@ -106,6 +107,15 @@ async function makeDueCommitment(fx: Fixture, title: string) {
   return { commitmentId: commit.value.commitment.id, participantId: row.participantId };
 }
 
+async function signupIdFor(fx: Fixture, participantId: string): Promise<string | undefined> {
+  const [row] = await fx.db
+    .select({ signupId: participants.signupId })
+    .from(participants)
+    .where(eq(participants.id, participantId))
+    .limit(1);
+  return row?.signupId;
+}
+
 describe('reminder opt-out (db)', () => {
   let fx: Fixture;
 
@@ -190,6 +200,21 @@ describe('reminder opt-out (db)', () => {
       .where(eq(participants.id, participantId))
       .limit(1);
     expect(row?.optedOut).toBeNull();
+  });
+
+  it('does not resolve a soft-deleted signup', async () => {
+    const { participantId } = await makeDueCommitment(fx, 'Deleted signup');
+    await fx.db
+      .update(signups)
+      .set({ deletedAt: new Date() })
+      .where(eq(signups.id, (await signupIdFor(fx, participantId)) ?? ''));
+    const result = await previewReminderOptOut(
+      fx.db,
+      participantId,
+      reminderOptOutTokenFor(participantId),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('not_found');
   });
 
   it('reports not_found for an unknown participant with a valid-shaped token', async () => {

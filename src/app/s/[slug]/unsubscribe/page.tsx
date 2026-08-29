@@ -8,7 +8,7 @@ export const metadata = {
 
 type PageParams = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ p?: string; token?: string; done?: string }>;
+  searchParams: Promise<{ p?: string; token?: string; done?: string; error?: string }>;
 };
 
 function Shell({ title, children }: { title: string; children: React.ReactNode }) {
@@ -24,7 +24,21 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
 
 export default async function UnsubscribePage({ params, searchParams }: PageParams) {
   const { slug } = await params;
-  const { p: participantId, token, done } = await searchParams;
+  const { p: participantId, token, done, error } = await searchParams;
+
+  if (error) {
+    return (
+      <Shell title="That didn't work">
+        <p className="text-ink-muted text-sm">
+          We couldn&apos;t turn off your reminders just now. Open the link from your reminder email
+          again, or reply to the organizer and ask them to stop.
+        </p>
+        <a href={`/s/${slug}`} className="text-brand text-sm underline">
+          Back to the signup
+        </a>
+      </Shell>
+    );
+  }
 
   if (done) {
     return (
@@ -75,7 +89,7 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
           Reminders for <strong>{target.signupTitle}</strong> are already off for{' '}
           {target.participantEmail}.
         </p>
-        <a href={`/s/${slug}`} className="text-brand text-sm underline">
+        <a href={`/s/${target.signupSlug}`} className="text-brand text-sm underline">
           Back to the signup
         </a>
       </Shell>
@@ -93,6 +107,7 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
       <form action="/api/public/reminder-optout" method="post" className="flex gap-3">
         <input type="hidden" name="p" value={target.participantId} />
         <input type="hidden" name="token" value={token} />
+        <input type="hidden" name="slug" value={target.signupSlug} />
         <button
           type="submit"
           className="bg-brand rounded-lg px-5 py-2 font-medium text-white transition hover:brightness-110"
@@ -100,7 +115,7 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
           Stop reminders
         </button>
         <a
-          href={`/s/${slug}`}
+          href={`/s/${target.signupSlug}`}
           className="border-surface-sunk rounded-lg border px-5 py-2 font-medium transition hover:bg-surface-sunk/40"
         >
           Keep them

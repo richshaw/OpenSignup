@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
+import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
@@ -13,7 +14,7 @@ import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
-import { selectDueReminders } from './reminders';
+import { selectDueReminders, sendReminderJob } from './reminders';
 
 interface Fixture {
   db: Db;
@@ -259,6 +260,31 @@ describe('selectDueReminders (db)', () => {
     });
     await fx.db.update(signups).set({ status }).where(eq(signups.id, signupId));
     expect(await dueIds()).not.toContain(commitmentId);
+  });
+
+  it('skips the send when the participant opted out after being enqueued', async () => {
+    // The dispatcher filter can't cover this: the opt-out link lives in the
+    // previous reminder, so acting on it lands between enqueue and send.
+    const { commitmentId, signupId } = await makeScenario(fx, 'Opted out mid-flight', {
+      slotInHours: 20,
+    });
+    await fx.db
+      .update(participants)
+      .set({ remindersOptedOutAt: new Date() })
+      .where(eq(participants.signupId, signupId));
+
+    await sendReminderJob({ commitmentId });
+
+    const sent = await fx.db
+      .select({ id: activity.id })
+      .from(activity)
+      .where(
+        and(
+          eq(activity.eventType, 'reminder.sent'),
+          sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
+        ),
+      );
+    expect(sent).toHaveLength(0);
   });
 
   it('does not select a slot with no slot_at', async () => {

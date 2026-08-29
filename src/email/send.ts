@@ -20,20 +20,27 @@ export async function sendCommitmentConfirmation(
   });
 }
 
-export async function sendReminder(to: string, props: ReminderEmailProps) {
+export async function sendReminder(
+  to: string,
+  props: ReminderEmailProps,
+  /**
+   * RFC 8058 one-click target. Deliberately separate from
+   * `props.unsubscribeUrl`: that one is the human-visible link to a confirm
+   * page, while this is POSTed unattended by the mail provider and must be the
+   * API route that actually applies the opt-out.
+   */
+  opts: { unsubscribePostUrl?: string } = {},
+) {
   const { html, text } = await renderEmail(createElement(ReminderEmail, props));
   return getEmailTransport().send({
     to,
     subject: `Reminder: ${props.slotLabel} · ${props.signupTitle}`,
     html,
     text,
-    // Lets a mail client offer its own unsubscribe control. One-Click means the
-    // client may POST without a human ever seeing our page, so the endpoint has
-    // to be safe to call unattended — it is: token-scoped and idempotent.
-    ...(props.unsubscribeUrl
+    ...(opts.unsubscribePostUrl
       ? {
           headers: {
-            'List-Unsubscribe': `<${props.unsubscribeUrl}>`,
+            'List-Unsubscribe': `<${opts.unsubscribePostUrl}>`,
             'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
           },
         }

@@ -72,9 +72,13 @@ export const RateLimits = {
   commitmentTokenOpsPerIp: { bucket: 'commit.token.ip', max: 30, windowSeconds: 60 },
   signupCreatePerOrganizer: { bucket: 'signup.create', max: 60, windowSeconds: 3600 },
   magicComposePerOrganizer: { bucket: 'magic.compose', max: 10, windowSeconds: 3600 },
-  // Unsubscribe is unauthenticated and token-guarded; meter it so the endpoint
-  // can't be used to probe participant ids.
-  reminderOptOutPerIp: { bucket: 'reminder.optout.ip', max: 20, windowSeconds: 3600 },
+  // Unsubscribe is unauthenticated and token-guarded. Generous on purpose:
+  // RFC 8058 one-click POSTs arrive from a handful of provider egress IPs on
+  // behalf of every recipient, so a tight per-IP cap would become an
+  // instance-wide ceiling on unsubscribes — the one request we must never
+  // drop. A wrong token is rejected before any query, so a low ceiling buys
+  // little anyway.
+  reminderOptOutPerIp: { bucket: 'reminder.optout.ip', max: 300, windowSeconds: 3600 },
   // Unauthenticated writes into the append-only activity log.
   telemetryPerIp: { bucket: 'telemetry.ip', max: 30, windowSeconds: 3600 },
 } as const;
