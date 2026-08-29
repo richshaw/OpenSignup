@@ -65,6 +65,8 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
               Send participants a reminder email before their slot.
             </p>
           </div>
+          {/* Always submits, so the action can tell "unticked" from "absent". */}
+          <input type="hidden" name="sendRemindersPresent" value="1" />
           <label className="flex items-start gap-3">
             <input
               type="checkbox"

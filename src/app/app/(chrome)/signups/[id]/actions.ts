@@ -10,12 +10,8 @@ import { addSlot, deleteSlot } from '@/services/slots';
 import { addField, deleteField } from '@/services/slot-fields';
 import { toSlug } from '@/lib/slug';
 import type { SlotFieldConfig, SlotFieldDefinition } from '@/schemas/slot-fields';
-import {
-  DEFAULT_REMINDER_LEAD_HOURS,
-  REMINDER_LEAD_HOUR_CHOICES,
-  SignupSettingsSchema,
-  type SignupSettings,
-} from '@/schemas/signups';
+import { SignupSettingsSchema, type SignupSettings } from '@/schemas/signups';
+import { resolveReminderSettings } from '@/lib/reminder-settings';
 
 function revalidateSignup(id: string) {
   revalidatePath(`/app/signups/${id}`, 'layout');
@@ -156,24 +152,20 @@ export async function updateReminderAction(signupId: string, formData: FormData)
   const prevSettings: Partial<SignupSettings> = parsedSettings.success ? parsedSettings.data : {};
   const { reminderFromFieldRef: _removed, ...restSettings } = prevSettings;
 
-  // An unchecked checkbox submits nothing, so absence means "off".
-  const sendReminders = formData.get('sendReminders') !== null;
-
-  // A select always submits a value, so an *absent* field means this POST did
-  // not carry the lead-time control at all (a stale cached form, say). Keep
-  // whatever is saved rather than silently downgrading 72h to the default.
   const leadField = formData.get('reminderLeadHours');
-  const leadRaw = Number(leadField);
-  const leadHours =
-    leadField !== null &&
-    REMINDER_LEAD_HOUR_CHOICES.includes(leadRaw as (typeof REMINDER_LEAD_HOUR_CHOICES)[number])
-      ? leadRaw
-      : (restSettings.reminderLeadHours ?? DEFAULT_REMINDER_LEAD_HOURS);
+  const { sendReminders, reminderLeadHours } = resolveReminderSettings(
+    {
+      sendRemindersPresent: formData.get('sendRemindersPresent') !== null,
+      sendRemindersChecked: formData.get('sendReminders') !== null,
+      leadHoursRaw: leadField === null ? null : String(leadField),
+    },
+    restSettings,
+  );
 
   const nextSettings = {
     ...restSettings,
     sendReminders,
-    reminderLeadHours: leadHours,
+    reminderLeadHours,
     ...(reminder ? { reminderFromFieldRef: reminder } : {}),
   };
 
