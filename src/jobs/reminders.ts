@@ -10,7 +10,9 @@ import { log } from '@/lib/log';
 import { commitmentEditUrl, publicSignupUrl } from '@/lib/links';
 import { formatSlotWhen } from '@/lib/slot-time';
 import { editTokenFor } from '@/lib/token';
-import { DEFAULT_REMINDER_LEAD_HOURS } from '@/schemas/signups';
+import { DEFAULT_REMINDER_LEAD_HOURS, SignupSettingsSchema } from '@/schemas/signups';
+import { slotDisplayLabel } from '@/lib/slot-label';
+import { listFieldsForSignup } from '@/services/slot-fields';
 import { sendReminder } from '@/email/send';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
 
@@ -145,6 +147,18 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     return;
   }
 
+  // The slot's `ref` is a slug, not a display name — read the label the
+  // participant page shows so the email agrees with it.
+  const fields = await listFieldsForSignup(db, row.signup.id);
+  const settings = SignupSettingsSchema.safeParse(row.signup.settings ?? {});
+  const groupRef = settings.success ? settings.data.groupByFieldRefs[0] : undefined;
+  const slotLabel = slotDisplayLabel(
+    fields,
+    (row.slot.values as Record<string, unknown>) ?? {},
+    row.slot.ref,
+    groupRef,
+  );
+
   await sendReminder(row.participant.email, {
     participantName: row.participant.name,
     signupTitle: row.signup.title,
@@ -156,7 +170,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
       row.commitment.id,
       editTokenFor(row.commitment.id),
     ),
-    slotLabel: row.slot.ref,
+    slotLabel,
     slotDateLabel: formatSlotWhen(row.slot.slotAt) ?? 'Soon',
     notes: row.commitment.notes,
   });
