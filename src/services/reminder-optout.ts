@@ -10,7 +10,7 @@
  * The opt-out lives on `participants`, which is per-signup, so unsubscribing
  * from one organizer's snack rotation never silences another's.
  */
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { Db } from '@/db/client';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
@@ -59,7 +59,7 @@ async function loadVerified(
     })
     .from(participants)
     .innerJoin(signups, eq(signups.id, participants.signupId))
-    .where(eq(participants.id, participantId))
+    .where(and(eq(participants.id, participantId), isNull(signups.deletedAt)))
     .limit(1);
 
   if (!row) return err(serviceError('not_found', 'that sign-up could not be found'));
@@ -100,17 +100,22 @@ export async function optOutOfReminders(
   const target = found.value;
   if (target.optedOut) return ok(publicPart(target));
 
-  await db
-    .update(participants)
-    .set({ remindersOptedOutAt: new Date() })
-    .where(eq(participants.id, participantId));
+  // Same transaction as the mutation it describes, per CLAUDE.md. Split, a
+  // failed activity insert leaves the participant opted out while the request
+  // returns a 500 — they are told it failed and the log has no record of it.
+  await db.transaction(async (tx) => {
+    await tx
+      .update(participants)
+      .set({ remindersOptedOutAt: new Date() })
+      .where(eq(participants.id, participantId));
 
-  await recordActivity(db, {
-    signupId: target.signupId,
-    workspaceId: target.workspaceId,
-    actor: { actorId: participantId, actorType: 'participant' },
-    eventType: 'reminder.opted_out',
-    payload: { participantId },
+    await recordActivity(tx, {
+      signupId: target.signupId,
+      workspaceId: target.workspaceId,
+      actor: { actorId: participantId, actorType: 'participant' },
+      eventType: 'reminder.opted_out',
+      payload: { participantId },
+    });
   });
 
   return ok({ ...publicPart(target), optedOut: true });
