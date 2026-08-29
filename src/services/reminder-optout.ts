@@ -43,8 +43,10 @@ async function loadVerified(
   participantId: string,
   token: string,
 ): Promise<Result<LoadedTarget, ServiceError>> {
-  // Constant-time, and checked before touching the DB so a wrong token costs
-  // nothing and reveals nothing about whether the participant exists.
+  // Constant-time, and checked before this function touches the DB, so a wrong
+  // token costs no lookup and reveals nothing about whether the participant
+  // exists. (The route consumes a rate limit before calling in, so the request
+  // as a whole does still write one row.)
   if (!verifyHash(token, hashToken(reminderOptOutTokenFor(participantId)))) {
     return err(serviceError('forbidden', 'that unsubscribe link is not valid'));
   }
