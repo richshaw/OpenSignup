@@ -21,6 +21,8 @@ import { commitmentEditUrl } from '@/lib/links';
 import { log } from '@/lib/log';
 import { formatSlotWhen } from '@/lib/slot-time';
 import { SignupSettingsSchema } from '@/schemas/signups';
+import { slotDisplayLabel } from '@/lib/slot-label';
+import { listFieldsForSignup } from '@/services/slot-fields';
 import { sendCommitmentConfirmation } from './send';
 
 /**
@@ -87,11 +89,21 @@ export async function notifyCommitmentCreated(
         ? (settings.success ? settings.data.reminderLeadHours : null)
         : null;
 
+    // `slots.ref` is a slug, not a display name — use the label the
+    // participant page shows, so the receipt names what they picked.
+    const fields = await listFieldsForSignup(db, row.signup.id);
+    const slotLabel = slotDisplayLabel(
+      fields,
+      (row.slot.values as Record<string, unknown>) ?? {},
+      row.slot.ref,
+      settings.success ? settings.data.groupByFieldRefs[0] : undefined,
+    );
+
     await sendCommitmentConfirmation(row.participant.email, {
       participantName: row.participant.name,
       signupTitle: row.signup.title,
       manageUrl: commitmentEditUrl(row.signup.slug, row.commitment.id, editToken),
-      slotLabel: row.slot.ref,
+      slotLabel,
       slotDateLabel: formatSlotWhen(row.slot.slotAt),
       notes: row.commitment.notes,
       quantity: row.commitment.quantity,
