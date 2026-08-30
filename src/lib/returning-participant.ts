@@ -61,6 +61,11 @@ export function parseReturningCommits(raw: string | null | undefined): Returning
     if (seen.has(parsed.commitmentId)) continue;
     seen.add(parsed.commitmentId);
     out.push(parsed);
+    // Cap on read, mirroring the write-side cap. The cookie is client-supplied
+    // (httpOnly stops JS reads, not a hand-crafted Cookie header), so an
+    // oversized value must not fan out into an unbounded `IN (...)` lookup on
+    // the anonymous /s/[slug] render.
+    if (out.length >= MAX_ENTRIES) break;
   }
   return out;
 }

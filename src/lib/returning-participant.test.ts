@@ -78,6 +78,11 @@ describe('returning-participant cookie', () => {
     expect(parseReturningCommits(after).map((c) => c.commitmentId)).toEqual(['com_a', 'com_c']);
   });
 
+  it('caps the parsed list so an oversized cookie cannot fan out', () => {
+    const raw = Array.from({ length: 200 }, (_, i) => `com_${i}.tok${i}`).join(',');
+    expect(parseReturningCommits(raw)).toHaveLength(40);
+  });
+
   it('mixes legacy and new entries in one cookie', () => {
     const value = 'com_old.tokOld,com_new.tokNew.sig_z';
     expect(parseReturningCommits(value)).toEqual([
