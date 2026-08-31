@@ -20,12 +20,30 @@ export async function sendCommitmentConfirmation(
   });
 }
 
-export async function sendReminder(to: string, props: ReminderEmailProps) {
+export async function sendReminder(
+  to: string,
+  props: ReminderEmailProps,
+  /**
+   * RFC 8058 one-click target. Deliberately separate from
+   * `props.unsubscribeUrl`: that one is the human-visible link to a confirm
+   * page, while this is POSTed unattended by the mail provider and must be the
+   * API route that actually applies the opt-out.
+   */
+  opts: { unsubscribePostUrl?: string } = {},
+) {
   const { html, text } = await renderEmail(createElement(ReminderEmail, props));
   return getEmailTransport().send({
     to,
     subject: `Reminder: ${props.slotLabel} · ${props.signupTitle}`,
     html,
     text,
+    ...(opts.unsubscribePostUrl
+      ? {
+          headers: {
+            'List-Unsubscribe': `<${opts.unsubscribePostUrl}>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          },
+        }
+      : {}),
   });
 }

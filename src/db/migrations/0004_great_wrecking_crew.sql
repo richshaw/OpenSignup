@@ -1,0 +1,1 @@
+ALTER TABLE "participants" ADD COLUMN "reminders_opted_out_at" timestamp with time zone;
