@@ -19,6 +19,7 @@ import { slots } from '@/db/schema/slots';
 import { recordActivity } from '@/lib/activity';
 import { commitmentEditUrl } from '@/lib/links';
 import { log } from '@/lib/log';
+import { willSendReminder } from '@/lib/reminder-eligibility';
 import { formatSlotWhen } from '@/lib/slot-time';
 import { SignupSettingsSchema } from '@/schemas/signups';
 import { slotDisplayLabel } from '@/lib/slot-label';
@@ -74,6 +75,10 @@ export async function notifyCommitmentCreated(
       .where(
         and(
           eq(activity.eventType, 'commitment.confirmation_sent'),
+          // Scoped to the signup as well as the commitment: the row carries
+          // signup_id anyway, and it keeps this off a full scan of every
+          // confirmation ever sent even where the expression index is absent.
+          eq(activity.signupId, row.signup.id),
           sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
         ),
       )
@@ -81,13 +86,20 @@ export async function notifyCommitmentCreated(
     if (alreadySent) return;
 
     const settings = SignupSettingsSchema.safeParse(row.signup.settings ?? {});
-    // Only promise a reminder the dispatcher would actually send: it needs
-    // reminders enabled and a slot date to count back from.
+    // Only promise a reminder the dispatcher would actually send. The gate is
+    // the dispatcher's own rule (src/lib/reminder-eligibility.ts), not a
+    // paraphrase of it: reminders on and a slot date are not enough, because a
+    // slot less than an hour out is one the created_at guard can never reach.
     const remindersOn = settings.success ? settings.data.sendReminders : true;
-    const reminderLeadHours =
-      remindersOn && row.slot.slotAt
-        ? (settings.success ? settings.data.reminderLeadHours : null)
-        : null;
+    const reminderLeadHours = willSendReminder({
+      sendReminders: remindersOn,
+      slotAt: row.slot.slotAt,
+      createdAt: row.commitment.createdAt,
+    })
+      ? settings.success
+        ? settings.data.reminderLeadHours
+        : null
+      : null;
 
     // `slots.ref` is a slug, not a display name — use the label the
     // participant page shows, so the receipt names what they picked.

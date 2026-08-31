@@ -59,6 +59,13 @@ export const RateLimits = {
   magicLinkPerEmail: { bucket: 'auth.magic.email', max: 5, windowSeconds: 3600 },
   magicLinkPerIp: { bucket: 'auth.magic.ip', max: 20, windowSeconds: 3600 },
   commitmentPerIp: { bucket: 'commit.ip', max: 10, windowSeconds: 60 },
+  // Per-address, mirroring magicLinkPerEmail. A commit now sends a confirmation
+  // to an address nobody has verified, so without this one IP can put a
+  // stranger's address on every slot of a signup and turn each into an
+  // unsolicited token-bearing email. Well above what a real participant needs:
+  // one address committing to more than this many slots an hour is not a person
+  // signing up for a rota.
+  commitmentPerEmail: { bucket: 'commit.email', max: 10, windowSeconds: 3600 },
   // Anonymous token-authenticated reads/edits on /api/commitments/[id]:
   // generous for legitimate participants, hostile to edit-token brute force
   // and unmetered DB hits.
