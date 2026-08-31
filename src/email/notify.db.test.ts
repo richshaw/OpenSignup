@@ -10,6 +10,10 @@ import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
+import { commitments } from '@/db/schema/commitments';
+import { slots } from '@/db/schema/slots';
+import { willSendReminder } from '@/lib/reminder-eligibility';
+import { selectDueReminders } from '@/jobs/reminders';
 import { notifyCommitmentCreated } from './notify';
 
 interface Fixture {
@@ -122,5 +126,58 @@ describe('notifyCommitmentCreated (db)', () => {
     await expect(
       notifyCommitmentCreated(fx.db, makeId('com'), 'irrelevant'),
     ).resolves.toBeUndefined();
+  });
+
+  describe('the reminder it promises', () => {
+    /**
+     * Places a commitment at a known offset from its own creation, then winds
+     * both timestamps back so `now` sits where the first eligible scan would
+     * be. That is the only way to ask the real question: not "is it due at
+     * commit time" — it never is — but "will any later scan ever select it".
+     */
+    async function agreesWithDispatcher(
+      title: string,
+      slotMinutesAfterSignup: number,
+      hoursSinceSignup: number,
+    ): Promise<{ promised: boolean; dispatched: boolean }> {
+      const { commitmentId } = await commitOnce(fx, title);
+      const [row] = await fx.db
+        .select({ slotId: commitments.slotId })
+        .from(commitments)
+        .where(eq(commitments.id, commitmentId));
+      if (!row) throw new Error('commitment vanished');
+
+      const createdAt = new Date(Date.now() - hoursSinceSignup * 3_600_000);
+      const slotAt = new Date(createdAt.getTime() + slotMinutesAfterSignup * 60_000);
+      await fx.db.update(commitments).set({ createdAt }).where(eq(commitments.id, commitmentId));
+      await fx.db.update(slots).set({ slotAt }).where(eq(slots.id, row.slotId));
+
+      const due = await selectDueReminders(fx.db);
+      return {
+        promised: willSendReminder({ sendReminders: true, slotAt, createdAt }),
+        dispatched: due.some((d) => d.commitmentId === commitmentId),
+      };
+    }
+
+    it('does not promise one for a slot too soon after signing up', async () => {
+      // Sign up at 09:00 for a 09:40 slot. By the time the created_at guard
+      // lets the scan reach it, the slot has already happened — so the receipt
+      // must not say a reminder is coming.
+      const { promised, dispatched } = await agreesWithDispatcher('Slot 40m out', 40, 1.5);
+      expect(promised).toBe(false);
+      expect(dispatched).toBe(false);
+    });
+
+    it('does not promise one for a slot already in the past', async () => {
+      const { promised, dispatched } = await agreesWithDispatcher('Slot already gone', -120, 3);
+      expect(promised).toBe(false);
+      expect(dispatched).toBe(false);
+    });
+
+    it('promises one when the dispatcher will in fact send it', async () => {
+      const { promised, dispatched } = await agreesWithDispatcher('Slot 20h out', 20 * 60, 2);
+      expect(promised).toBe(true);
+      expect(dispatched).toBe(true);
+    });
   });
 });
