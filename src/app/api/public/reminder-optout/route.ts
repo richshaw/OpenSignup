@@ -2,7 +2,12 @@ import { getDb } from '@/db/client';
 import { extractClientIp } from '@/auth/request-context';
 import { fail, handle } from '@/lib/api-response';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
-import { optOutOfReminders } from '@/services/reminder-optout';
+import { log } from '@/lib/log';
+import {
+  optInToReminders,
+  optOutOfReminders,
+  previewReminderOptOut,
+} from '@/services/reminder-optout';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,6 +28,34 @@ const SLUG_RE = /^[a-z0-9-]{1,120}$/;
  * only the status code and ignores the body, while a person submitting the
  * confirm page must land on a page rather than a raw JSON envelope.
  */
+/**
+ * Sends a person to the confirm page for a link that was opened rather than
+ * POSTed.
+ *
+ * RFC 8058 clients POST, but clients that predate or ignore
+ * `List-Unsubscribe-Post` — some webmail unsubscribe affordances, and anyone
+ * copying the URL out of "show original" — just open it, and a 405 tells them
+ * nothing. Redirecting mutates nothing, so it stays as scanner-safe as the POST
+ * requirement makes it.
+ */
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const participantId = url.searchParams.get('p') ?? '';
+  const token = url.searchParams.get('token') ?? '';
+  const target = await previewReminderOptOut(getDb(), participantId, token);
+  if (!target.ok) {
+    // No slug to send them to, so render the page's own invalid-link state.
+    return Response.redirect(new URL('/s/-/unsubscribe', url.origin), 302);
+  }
+  return Response.redirect(
+    new URL(
+      `/s/${target.value.signupSlug}/unsubscribe?p=${encodeURIComponent(participantId)}&token=${encodeURIComponent(token)}`,
+      url.origin,
+    ),
+    302,
+  );
+}
+
 export async function POST(request: Request) {
   const url = new URL(request.url);
   const form = await request.formData().catch(() => null);
@@ -32,6 +65,9 @@ export async function POST(request: Request) {
   // even when the opt-out fails and we never loaded the signup.
   const formSlug = String(form?.get('slug') ?? '');
   const fallbackSlug = SLUG_RE.test(formSlug) ? formSlug : null;
+  // Only the confirm page asks to turn reminders back on; a provider's
+  // one-click POST carries no form body and always means "stop".
+  const turningOn = String(form?.get('action') ?? '') === 'start';
 
   const toPage = (slug: string, query: string) =>
     Response.redirect(new URL(`/s/${slug}/unsubscribe${query}`, url.origin), 303);
@@ -39,23 +75,39 @@ export async function POST(request: Request) {
   return handle(async () => {
     const participantId = String(form?.get('p') ?? url.searchParams.get('p') ?? '');
     const token = String(form?.get('token') ?? url.searchParams.get('token') ?? '');
+    const credentials = `p=${encodeURIComponent(participantId)}&token=${encodeURIComponent(token)}`;
 
     try {
       const clientIp = extractClientIp(new Headers(request.headers));
       await consumeRateLimit(getDb(), RateLimits.reminderOptOutPerIp, clientIp ?? 'unknown');
 
-      const result = await optOutOfReminders(getDb(), participantId, token);
+      const result = turningOn
+        ? await optInToReminders(getDb(), participantId, token)
+        : await optOutOfReminders(getDb(), participantId, token);
       if (!result.ok) {
-        if (wantsHtml && fallbackSlug) return toPage(fallbackSlug, '?error=1');
+        if (wantsHtml && fallbackSlug) return toPage(fallbackSlug, `?error=1&${credentials}`);
+        // One-click: a signup that no longer exists means there is nothing left
+        // to unsubscribe from, which is the outcome the provider asked for.
+        // RFC 8058 §3.2 expects 2xx, and a `List-Unsubscribe` URL that answers
+        // 404 forever — for every reminder already sitting in inboxes when an
+        // organizer deletes a signup — is exactly the deliverability signal
+        // this endpoint exists to protect. A bad token and a spent rate limit
+        // are real failures and still surface as themselves.
+        if (result.error.code === 'not_found') return new Response(null, { status: 200 });
         return fail(result.error);
       }
-      if (wantsHtml) return toPage(result.value.signupSlug, '?done=1');
+      if (wantsHtml) {
+        return toPage(result.value.signupSlug, `?done=${turningOn ? 'on' : 'off'}&${credentials}`);
+      }
       // One-click: the provider wants a bare success and ignores the body.
       return new Response(null, { status: 200 });
     } catch (err) {
-      // Rate limiting throws. A machine caller should still see the JSON error
-      // `handle` produces, but a person must not.
-      if (wantsHtml && fallbackSlug) return toPage(fallbackSlug, '?error=1');
+      // Rate limiting throws, but so does an unreachable database or a bug in
+      // the service — and `handle()` is what logs unhandled route errors, so
+      // without this every browser unsubscribe would render "That didn't work"
+      // with not one line anywhere saying why.
+      log.error({ err, participantId, turningOn }, 'reminder opt-out failed');
+      if (wantsHtml && fallbackSlug) return toPage(fallbackSlug, `?error=1&${credentials}`);
       throw err;
     }
   });

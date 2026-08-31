@@ -10,7 +10,7 @@
  * The opt-out lives on `participants`, which is per-signup, so unsubscribing
  * from one organizer's snack rotation never silences another's.
  */
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { Db } from '@/db/client';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
@@ -91,6 +91,49 @@ export async function previewReminderOptOut(
   return found.ok ? ok(publicPart(found.value)) : found;
 }
 
+/**
+ * Flips a participant's reminder opt-out and logs it, or does nothing if it is
+ * already in the requested state.
+ *
+ * The state check lives in the UPDATE's own predicate, not in a prior read: two
+ * concurrent POSTs — a browser double-submit, or a provider retry racing the
+ * human click — would both see the pre-read value and both write an entry into
+ * an append-only log that is supposed to record what happened, not how many
+ * times it was asked. Only the update that actually changed a row writes the
+ * activity row, in the same transaction, per CLAUDE.md.
+ */
+async function setOptOut(
+  db: Db,
+  target: LoadedTarget,
+  optedOut: boolean,
+): Promise<Result<OptOutTarget, ServiceError>> {
+  await db.transaction(async (tx) => {
+    const changed = await tx
+      .update(participants)
+      .set({ remindersOptedOutAt: optedOut ? new Date() : null })
+      .where(
+        and(
+          eq(participants.id, target.participantId),
+          optedOut
+            ? isNull(participants.remindersOptedOutAt)
+            : isNotNull(participants.remindersOptedOutAt),
+        ),
+      )
+      .returning({ id: participants.id });
+    if (changed.length === 0) return;
+
+    await recordActivity(tx, {
+      signupId: target.signupId,
+      workspaceId: target.workspaceId,
+      actor: { actorId: target.participantId, actorType: 'participant' },
+      eventType: optedOut ? 'reminder.opted_out' : 'reminder.opted_in',
+      payload: { participantId: target.participantId },
+    });
+  });
+
+  return ok({ ...publicPart(target), optedOut });
+}
+
 /** Applies the opt-out. Idempotent: unsubscribing twice is a no-op success. */
 export async function optOutOfReminders(
   db: Db,
@@ -99,26 +142,25 @@ export async function optOutOfReminders(
 ): Promise<Result<OptOutTarget, ServiceError>> {
   const found = await loadVerified(db, participantId, token);
   if (!found.ok) return found;
-  const target = found.value;
-  if (target.optedOut) return ok(publicPart(target));
+  return setOptOut(db, found.value, true);
+}
 
-  // Same transaction as the mutation it describes, per CLAUDE.md. Split, a
-  // failed activity insert leaves the participant opted out while the request
-  // returns a 500 — they are told it failed and the log has no record of it.
-  await db.transaction(async (tx) => {
-    await tx
-      .update(participants)
-      .set({ remindersOptedOutAt: new Date() })
-      .where(eq(participants.id, participantId));
-
-    await recordActivity(tx, {
-      signupId: target.signupId,
-      workspaceId: target.workspaceId,
-      actor: { actorId: participantId, actorType: 'participant' },
-      eventType: 'reminder.opted_out',
-      payload: { participantId },
-    });
-  });
-
-  return ok({ ...publicPart(target), optedOut: true });
+/**
+ * Turns reminders back on.
+ *
+ * Without this an opt-out is permanent and invisible: `participants` rows are
+ * unique on (signupId, emailLower) and reused, so someone who unsubscribed from
+ * the September rota and then signs up again in November for the *same* signup
+ * silently gets no reminder, with no signal to them or the organizer. The same
+ * token authorises both directions — it proves the same thing either way, and
+ * the only page offering this is the one reached by that token.
+ */
+export async function optInToReminders(
+  db: Db,
+  participantId: string,
+  token: string,
+): Promise<Result<OptOutTarget, ServiceError>> {
+  const found = await loadVerified(db, participantId, token);
+  if (!found.ok) return found;
+  return setOptOut(db, found.value, false);
 }

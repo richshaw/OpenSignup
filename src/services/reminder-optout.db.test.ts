@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
+import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
@@ -16,6 +17,7 @@ import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
 import {
+  optInToReminders,
   optOutOfReminders,
   previewReminderOptOut,
   reminderOptOutTokenFor,
@@ -68,7 +70,7 @@ async function setupWorkspace(): Promise<Fixture> {
 }
 
 /** An open signup with one participant committed to a slot 20h out. */
-async function makeDueCommitment(fx: Fixture, title: string) {
+async function makeDueCommitment(fx: Fixture, title: string, email?: string) {
   const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
     title,
     description: '',
@@ -83,7 +85,7 @@ async function makeDueCommitment(fx: Fixture, title: string) {
   if (!pub.ok) throw new Error(pub.error.message);
   const commit = await commitToSlot(fx.db, slot.value.id, {
     name: 'Dana Participant',
-    email: `${slot.value.id.slice(-10).toLowerCase()}@example.test`,
+    email: email ?? `${slot.value.id.slice(-10).toLowerCase()}@example.test`,
     quantity: 1,
   });
   if (!commit.ok) throw new Error(commit.error.message);
@@ -105,6 +107,24 @@ async function makeDueCommitment(fx: Fixture, title: string) {
   if (!row) throw new Error('commitment not found');
 
   return { commitmentId: commit.value.commitment.id, participantId: row.participantId };
+}
+
+/** How many activity rows of one type name this participant. */
+async function optOutActivityRows(
+  db: Db,
+  participantId: string,
+  eventType: 'reminder.opted_out' | 'reminder.opted_in',
+): Promise<number> {
+  const rows = await db
+    .select({ id: activity.id })
+    .from(activity)
+    .where(
+      and(
+        eq(activity.eventType, eventType),
+        sql`(${activity.payload}->>'participantId') = ${participantId}`,
+      ),
+    );
+  return rows.length;
 }
 
 async function signupIdFor(fx: Fixture, participantId: string): Promise<string | undefined> {
@@ -171,15 +191,56 @@ describe('reminder opt-out (db)', () => {
   });
 
   it('only silences the signup that was unsubscribed from', async () => {
-    // participants rows are per-signup, so the same person signing up
-    // elsewhere keeps their reminders there.
-    const a = await makeDueCommitment(fx, 'Signup A');
-    const b = await makeDueCommitment(fx, 'Signup B');
+    // The same *address* on both signups, which is the whole point: participants
+    // rows are per-signup, so unsubscribing from one must leave the other alone.
+    // With two different emails this passed even if opt-out were global.
+    const shared = `shared-${makeId('par').slice(-8).toLowerCase()}@example.test`;
+    const a = await makeDueCommitment(fx, 'Signup A', shared);
+    const b = await makeDueCommitment(fx, 'Signup B', shared);
+    expect(a.participantId).not.toBe(b.participantId);
     await optOutOfReminders(fx.db, a.participantId, reminderOptOutTokenFor(a.participantId));
 
     const due = (await selectDueReminders(fx.db)).map((r) => r.commitmentId);
     expect(due).not.toContain(a.commitmentId);
     expect(due).toContain(b.commitmentId);
+  });
+
+  it('writes one activity row per actual change, not per request', async () => {
+    // The state check is in the UPDATE predicate, not a prior read, so a double
+    // submit or a provider retry racing the human click cannot put two
+    // reminder.opted_out rows in an append-only log for one opt-out.
+    const { participantId } = await makeDueCommitment(fx, 'Double submit');
+    const token = reminderOptOutTokenFor(participantId);
+    await Promise.all([
+      optOutOfReminders(fx.db, participantId, token),
+      optOutOfReminders(fx.db, participantId, token),
+    ]);
+    await optOutOfReminders(fx.db, participantId, token);
+    expect(await optOutActivityRows(fx.db, participantId, 'reminder.opted_out')).toBe(1);
+  });
+
+  it('turns reminders back on, and the dispatcher sees it', async () => {
+    // Without a way back the opt-out is permanent and invisible: the
+    // participants row is reused, so signing up again months later would
+    // silently get nothing.
+    const { participantId, commitmentId } = await makeDueCommitment(fx, 'Back on');
+    const token = reminderOptOutTokenFor(participantId);
+    await optOutOfReminders(fx.db, participantId, token);
+    expect((await selectDueReminders(fx.db)).map((r) => r.commitmentId)).not.toContain(
+      commitmentId,
+    );
+
+    const back = await optInToReminders(fx.db, participantId, token);
+    expect(back.ok && back.value.optedOut).toBe(false);
+    expect((await selectDueReminders(fx.db)).map((r) => r.commitmentId)).toContain(commitmentId);
+    expect(await optOutActivityRows(fx.db, participantId, 'reminder.opted_in')).toBe(1);
+  });
+
+  it('refuses to turn reminders back on with a bad token', async () => {
+    const { participantId } = await makeDueCommitment(fx, 'Bad token opt-in');
+    const result = await optInToReminders(fx.db, participantId, 'not-the-token');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('forbidden');
   });
 
   it('preview reports the target without changing it', async () => {
