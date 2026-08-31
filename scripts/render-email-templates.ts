@@ -58,6 +58,7 @@ const cases: Array<[string, ReactElement]> = [
  */
 const expected: Record<string, string> = {
   'magic-link': 'https://example.test/login/confirm?token=abc',
+  'commitment-confirmation': 'https://example.test/s/snacks/c/com_1?token=abc',
   reminder: 'Saturday Snack Rotation',
 };
 
