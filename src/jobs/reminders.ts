@@ -12,7 +12,7 @@ import { formatSlotWhen } from '@/lib/slot-time';
 import { editTokenFor } from '@/lib/token';
 import { DEFAULT_REMINDER_LEAD_HOURS, SignupSettingsSchema } from '@/schemas/signups';
 import { slotDisplayLabel } from '@/lib/slot-label';
-import { listFieldsForSignup } from '@/services/slot-fields';
+import { listFieldsForSignup, slotTimeOfDay } from '@/services/slot-fields';
 import { sendReminder } from '@/email/send';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
 
@@ -65,7 +65,14 @@ export async function selectDueReminders(db: Db): Promise<DueReminder[]> {
     .where(
       and(
         or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-        eq(signups.status, 'open'),
+        // 'closed' too, not just 'open'. Closing a signup means "no longer
+        // collecting responses" — the commitments already made stay valid and
+        // their participants still need the reminder. Excluding it silently
+        // cancelled reminders whenever an organizer tidied up after sign-ups
+        // ended, which the shorter default lead makes far more likely: at 24h,
+        // closing the evening before the event now lands inside the window.
+        // 'draft' and 'archived' stay excluded — never public, and put away.
+        or(eq(signups.status, 'open'), eq(signups.status, 'closed')),
         isNull(signups.deletedAt),
         isNotNull(slots.slotAt),
         // Still ahead of the participant, and inside the reminder lead time.
@@ -152,12 +159,16 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   const fields = await listFieldsForSignup(db, row.signup.id);
   const settings = SignupSettingsSchema.safeParse(row.signup.settings ?? {});
   const groupRef = settings.success ? settings.data.groupByFieldRefs[0] : undefined;
-  const slotLabel = slotDisplayLabel(
-    fields,
-    (row.slot.values as Record<string, unknown>) ?? {},
-    row.slot.ref,
-    groupRef,
-  );
+  const slotValues = (row.slot.values as Record<string, unknown>) ?? {};
+  const slotLabel = slotDisplayLabel(fields, slotValues, row.slot.ref, groupRef);
+  // Asked explicitly rather than inferred from the instant: a slot at a genuine
+  // 00:00 is indistinguishable from a date-only slot once stored.
+  const hasTime =
+    slotTimeOfDay(
+      (row.signup.settings as Record<string, unknown> | null) ?? {},
+      fields,
+      slotValues,
+    ) !== null;
 
   await sendReminder(row.participant.email, {
     participantName: row.participant.name,
@@ -171,7 +182,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
       editTokenFor(row.commitment.id),
     ),
     slotLabel,
-    slotDateLabel: formatSlotWhen(row.slot.slotAt) ?? 'Soon',
+    slotDateLabel: formatSlotWhen(row.slot.slotAt, { hasTime }) ?? 'Soon',
     notes: row.commitment.notes,
   });
 
@@ -187,4 +198,3 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     },
   });
 }
-

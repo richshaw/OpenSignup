@@ -24,9 +24,7 @@ export interface ResolvedReminderSettings {
 }
 
 function isOfferedLead(hours: number): boolean {
-  return REMINDER_LEAD_HOUR_CHOICES.includes(
-    hours as (typeof REMINDER_LEAD_HOUR_CHOICES)[number],
-  );
+  return REMINDER_LEAD_HOUR_CHOICES.includes(hours as (typeof REMINDER_LEAD_HOUR_CHOICES)[number]);
 }
 
 /**
@@ -47,9 +45,32 @@ export function resolveReminderSettings(
 
   const submittedLead = fields.leadHoursRaw === null ? null : Number(fields.leadHoursRaw);
   const reminderLeadHours =
-    submittedLead !== null && isOfferedLead(submittedLead)
+    submittedLead !== null &&
+    (isOfferedLead(submittedLead) || submittedLead === previous.reminderLeadHours)
       ? submittedLead
       : (previous.reminderLeadHours ?? DEFAULT_REMINDER_LEAD_HOURS);
 
   return { sendReminders, reminderLeadHours };
+}
+
+/**
+ * The lead times to offer, given what is currently saved.
+ *
+ * The saved value is always included even when it is not one of the standard
+ * choices. `PATCH /api/signups/[id]` accepts the schema's full 1–168 range, so
+ * a value like 12 can legitimately be stored; without it in the list no option
+ * matches, the browser preselects the first one, and the next Save silently
+ * rewrites 12h to 2h with nothing shown to the organizer.
+ */
+export function leadHourOptions(saved: number): number[] {
+  return [...new Set<number>([...REMINDER_LEAD_HOUR_CHOICES, saved])].sort((a, b) => a - b);
+}
+
+/** Human label for a lead time, e.g. `2 days before`, `12 hours before`. */
+export function leadHourLabel(hours: number): string {
+  if (hours % 24 === 0) {
+    const days = hours / 24;
+    return days === 1 ? '1 day before' : `${days} days before`;
+  }
+  return hours === 1 ? '1 hour before' : `${hours} hours before`;
 }

@@ -28,15 +28,21 @@ const TIME_PARTS: Intl.DateTimeFormatOptions = {
  * Renders a slot instant as the organizer typed it, e.g.
  * `Saturday, September 6 at 6:00 PM`.
  *
- * A slot whose time is exactly midnight came from a date-only field —
- * `extractSlotAt` defaults the time part to `00:00:00` when the signup has no
- * time field — so the time is dropped rather than shown as a misleading
- * "12:00 AM".
+ * Pass `hasTime` when the caller knows whether the slot carries a time of its
+ * own — `slotTimeOfDay()` in src/services/slot-fields.ts answers that from the
+ * field definitions. Without it this falls back to reading midnight as
+ * date-only, which is right for the common case but wrong for a genuine
+ * midnight slot: `extractSlotAt` defaults an absent time to `00:00:00`, so the
+ * stored instant alone cannot tell the two apart.
  */
-export function formatSlotWhen(slotAt: Date | null | undefined): string | null {
+export function formatSlotWhen(
+  slotAt: Date | null | undefined,
+  opts: { hasTime?: boolean } = {},
+): string | null {
   if (!slotAt || Number.isNaN(slotAt.getTime())) return null;
   const date = slotAt.toLocaleDateString('en-US', DATE_PARTS);
-  const dateOnly = slotAt.getUTCHours() === 0 && slotAt.getUTCMinutes() === 0;
+  const atMidnight = slotAt.getUTCHours() === 0 && slotAt.getUTCMinutes() === 0;
+  const dateOnly = opts.hasTime === undefined ? atMidnight : !opts.hasTime;
   if (dateOnly) return date;
   return `${date} at ${slotAt.toLocaleTimeString('en-US', TIME_PARTS)}`;
 }

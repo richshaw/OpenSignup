@@ -22,8 +22,26 @@ describe('formatSlotWhen', () => {
         'Sunday, September 6 at 2:00 AM',
       );
     } finally {
-      process.env.TZ = original;
+      // TZ is unset in this repo, so assigning `original` back would store the
+      // string "undefined" and pin the process to GMT rather than clearing the
+      // override. Contained today by vitest file isolation; still wrong.
+      if (original === undefined) delete process.env.TZ;
+      else process.env.TZ = original;
     }
+  });
+
+  it('shows the time for a genuine midnight slot when the caller knows there is one', () => {
+    // A signup with a time field set to 00:00 stores exactly what a date-only
+    // slot stores, so the instant alone cannot tell them apart. The caller can.
+    expect(formatSlotWhen(new Date('2026-09-05T00:00:00.000Z'), { hasTime: true })).toBe(
+      'Saturday, September 5 at 12:00 AM',
+    );
+  });
+
+  it('drops the time when the caller says the slot has none', () => {
+    expect(formatSlotWhen(new Date('2026-09-05T18:30:00.000Z'), { hasTime: false })).toBe(
+      'Saturday, September 5',
+    );
   });
 
   it('returns null for a missing or invalid instant', () => {

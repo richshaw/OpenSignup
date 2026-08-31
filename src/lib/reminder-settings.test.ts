@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resolveReminderSettings } from './reminder-settings';
+import { REMINDER_LEAD_HOUR_CHOICES } from '@/schemas/signups';
+import { leadHourLabel, leadHourOptions, resolveReminderSettings } from './reminder-settings';
 
 const saved = { sendReminders: true, reminderLeadHours: 72 };
 
@@ -70,5 +71,36 @@ describe('resolveReminderSettings', () => {
         {},
       ),
     ).toEqual({ sendReminders: true, reminderLeadHours: 24 });
+  });
+});
+
+describe('leadHourOptions', () => {
+  it('offers the standard choices when the saved value is one of them', () => {
+    expect(leadHourOptions(24)).toEqual([...REMINDER_LEAD_HOUR_CHOICES]);
+  });
+
+  it('includes a saved value the standard choices do not cover', () => {
+    // The API accepts 1–168, so 12 is legitimately storable. Left out of the
+    // list, no option matches and the next Save rewrites it to the first one.
+    expect(leadHourOptions(12)).toEqual([2, 12, 24, 48, 72]);
+  });
+
+  it('keeps the list sorted and free of duplicates', () => {
+    expect(leadHourOptions(168)).toEqual([2, 24, 48, 72, 168]);
+    expect(leadHourOptions(2)).toEqual([2, 24, 48, 72]);
+  });
+});
+
+describe('leadHourLabel', () => {
+  it('labels whole days as days', () => {
+    expect(leadHourLabel(24)).toBe('1 day before');
+    expect(leadHourLabel(48)).toBe('2 days before');
+    expect(leadHourLabel(168)).toBe('7 days before');
+  });
+
+  it('labels sub-day and non-multiple values as hours', () => {
+    expect(leadHourLabel(1)).toBe('1 hour before');
+    expect(leadHourLabel(2)).toBe('2 hours before');
+    expect(leadHourLabel(36)).toBe('36 hours before');
   });
 });

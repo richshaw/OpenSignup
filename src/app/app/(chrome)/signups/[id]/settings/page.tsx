@@ -4,20 +4,10 @@ import { getOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { recordOrganizerView } from '@/lib/view-tracker';
-import {
-  DEFAULT_REMINDER_LEAD_HOURS,
-  REMINDER_LEAD_HOUR_CHOICES,
-  SignupSettingsSchema,
-} from '@/schemas/signups';
+import { DEFAULT_REMINDER_LEAD_HOURS, SignupSettingsSchema } from '@/schemas/signups';
+import { leadHourLabel, leadHourOptions } from '@/lib/reminder-settings';
 import { updateReminderAction } from '../actions';
 import { DeleteSignupForm } from './delete-signup-form';
-
-const LEAD_HOUR_LABELS: Record<(typeof REMINDER_LEAD_HOUR_CHOICES)[number], string> = {
-  2: '2 hours before',
-  24: '1 day before',
-  48: '2 days before',
-  72: '3 days before',
-};
 
 type PageParams = {
   params: Promise<{ id: string }>;
@@ -43,7 +33,9 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
   );
 
   const parsedSettings = SignupSettingsSchema.safeParse(sig.settings ?? {});
-  const reminderRef = parsedSettings.success ? (parsedSettings.data.reminderFromFieldRef ?? '') : '';
+  const reminderRef = parsedSettings.success
+    ? (parsedSettings.data.reminderFromFieldRef ?? '')
+    : '';
   const sendReminders = parsedSettings.success ? parsedSettings.data.sendReminders : true;
   const leadHours = parsedSettings.success
     ? parsedSettings.data.reminderLeadHours
@@ -52,7 +44,9 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
   return (
     <section className="max-w-2xl space-y-6">
       {error ? (
-        <p role="alert" className="bg-danger/10 text-danger rounded-lg px-3 py-2 text-sm">{error}</p>
+        <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
+          {error}
+        </p>
       ) : null}
       {sig.fields.some((f) => f.fieldType === 'date') && (
         <form
@@ -61,7 +55,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
         >
           <div>
             <h2 className="text-sm font-semibold">Reminders</h2>
-            <p className="text-ink-muted mt-1 text-sm">
+            <p className="mt-1 text-sm text-ink-muted">
               Send participants a reminder email before their slot.
             </p>
           </div>
@@ -72,11 +66,11 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
               type="checkbox"
               name="sendReminders"
               defaultChecked={sendReminders}
-              className="text-brand focus:ring-brand mt-0.5 h-4 w-4 rounded border-surface-sunk focus:ring-1"
+              className="mt-0.5 h-4 w-4 rounded border-surface-sunk text-brand focus:ring-1 focus:ring-brand"
             />
             <span className="text-sm">
               <span className="block font-medium">Send reminder emails</span>
-              <span className="text-ink-muted block">
+              <span className="block text-ink-muted">
                 Off means no reminders go out for this signup, whatever the timing below says.
               </span>
             </span>
@@ -86,13 +80,15 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
             <select
               name="reminderFromFieldRef"
               defaultValue={reminderRef}
-              className="focus:border-brand focus:ring-brand block min-h-[42px] w-full appearance-none rounded-lg border border-surface-sunk bg-white px-3 py-2 focus:outline-none focus:ring-1"
+              className="block min-h-[42px] w-full appearance-none rounded-lg border border-surface-sunk bg-white px-3 py-2 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
             >
               <option value="">— No reminder —</option>
               {sig.fields
                 .filter((f) => f.fieldType === 'date')
                 .map((f) => (
-                  <option key={f.id} value={f.ref}>{f.label}</option>
+                  <option key={f.id} value={f.ref}>
+                    {f.label}
+                  </option>
                 ))}
             </select>
           </label>
@@ -101,11 +97,11 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
             <select
               name="reminderLeadHours"
               defaultValue={String(leadHours)}
-              className="focus:border-brand focus:ring-brand block min-h-[42px] w-full appearance-none rounded-lg border border-surface-sunk bg-white px-3 py-2 focus:outline-none focus:ring-1"
+              className="block min-h-[42px] w-full appearance-none rounded-lg border border-surface-sunk bg-white px-3 py-2 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
             >
-              {REMINDER_LEAD_HOUR_CHOICES.map((hours) => (
+              {leadHourOptions(leadHours).map((hours) => (
                 <option key={hours} value={String(hours)}>
-                  {LEAD_HOUR_LABELS[hours]}
+                  {leadHourLabel(hours)}
                 </option>
               ))}
             </select>
@@ -113,7 +109,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
           <div className="flex justify-end">
             <AsyncSubmitButton
               loadingLabel="Saving…"
-              className="bg-brand rounded-lg px-5 py-2 font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
+              className="rounded-lg bg-brand px-5 py-2 font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
             >
               Save
             </AsyncSubmitButton>
@@ -125,12 +121,12 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
         className="space-y-3 rounded-xl border border-danger/30 bg-danger/5 p-6"
       >
         <div>
-          <h2 id="danger-zone-heading" className="text-danger text-sm font-semibold">
+          <h2 id="danger-zone-heading" className="text-sm font-semibold text-danger">
             Danger zone
           </h2>
-          <p className="text-ink-muted mt-1 text-sm">
-            Deleting removes this signup from your dashboard and immediately makes its public
-            link inaccessible.
+          <p className="mt-1 text-sm text-ink-muted">
+            Deleting removes this signup from your dashboard and immediately makes its public link
+            inaccessible.
           </p>
         </div>
         <DeleteSignupForm signupId={id} />

@@ -241,11 +241,23 @@ describe('selectDueReminders (db)', () => {
     expect(await dueIds()).not.toContain(commitmentId);
   });
 
-  it('does not select a commitment on a signup that is no longer open', async () => {
+  it('still reminds participants after the organizer closes the signup', async () => {
+    // Closing means "no longer collecting responses", not "cancelled" — the
+    // commitments already made stay valid. Excluding closed signups silently
+    // cancelled reminders whenever an organizer tidied up after sign-ups ended,
+    // which at a 24h lead is an ordinary thing to do the evening before.
     const { signupId, commitmentId } = await makeScenario(fx, 'Closed signup', {
       slotInHours: 20,
     });
     await fx.db.update(signups).set({ status: 'closed' }).where(eq(signups.id, signupId));
+    expect(await dueIds()).toContain(commitmentId);
+  });
+
+  it.each(['draft', 'archived'])('does not select a commitment on a %s signup', async (status) => {
+    const { signupId, commitmentId } = await makeScenario(fx, `Signup ${status}`, {
+      slotInHours: 20,
+    });
+    await fx.db.update(signups).set({ status }).where(eq(signups.id, signupId));
     expect(await dueIds()).not.toContain(commitmentId);
   });
 
