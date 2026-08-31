@@ -1,8 +1,21 @@
 import { execFile } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 
 const run = promisify(execFile);
+
+const repoRoot = resolve(import.meta.dirname, '../../..');
+
+function workerScript(): string {
+  const pkg = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8')) as {
+    scripts?: Record<string, string>;
+  };
+  const script = pkg.scripts?.worker;
+  if (!script) throw new Error('package.json has no "worker" script');
+  return script;
+}
 
 /**
  * Guards the reminder worker's JSX transform.
@@ -23,13 +36,34 @@ const run = promisify(execFile);
  * production even though every other email test is green.
  */
 describe('email templates under the worker toolchain', () => {
-  it('renders each sendable template with tsx + tsconfig.worker.json', async () => {
+  it('renders each sendable template under the flags the worker script uses', async () => {
+    // Derived from package.json rather than hardcoded, so reverting the
+    // `worker` script — or a deployment invoking tsx directly, which
+    // docker-compose.prod.yml did before this change — fails here instead of
+    // staying green while reminder emails break again.
+    const script = workerScript();
+    const flags = script.split(/\s+/).slice(1, -1);
     const { stdout } = await run(
       'pnpm',
-      ['exec', 'tsx', '--tsconfig', 'tsconfig.worker.json', 'scripts/render-email-templates.ts'],
-      { cwd: process.cwd() },
+      ['exec', 'tsx', ...flags, 'scripts/render-email-templates.ts'],
+      { cwd: repoRoot },
     );
     expect(stdout).toContain('ok magic-link');
     expect(stdout).toContain('ok reminder');
   }, 60_000);
+
+  it('ships every tsconfig the worker script needs in the runner image', async () => {
+    // CI has no docker build step, so nothing else catches a tsconfig that the
+    // worker command references but the image never receives. tsx hard-errors
+    // on a missing tsconfig, so the worker would crash-loop on deploy.
+    const referenced = [...workerScript().matchAll(/--tsconfig\s+(\S+)/g)].map(
+      (m) => m[1] as string,
+    );
+    expect(referenced.length).toBeGreaterThan(0);
+
+    const dockerfile = readFileSync(resolve(repoRoot, 'Dockerfile'), 'utf8');
+    for (const path of referenced) {
+      expect(dockerfile).toMatch(new RegExp(`COPY .*/${path}\\b`));
+    }
+  });
 });

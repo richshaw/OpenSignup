@@ -36,11 +36,34 @@ const cases: Array<[string, ReactElement]> = [
   ],
 ];
 
+/**
+ * A distinctive string each template must put in its output. Asserting on real
+ * rendered content rather than "not empty" is what makes the guard notice a
+ * template that renders but drops a section — e.g. after gaining a prop the
+ * fixture above does not supply.
+ */
+const expected: Record<string, string> = {
+  'magic-link': 'https://example.test/login/confirm?token=abc',
+  reminder: 'Saturday Snack Rotation',
+};
+
 async function main(): Promise<void> {
   for (const [name, node] of cases) {
     const { html, text } = await renderEmail(node);
     if (!html.trim() || !text.trim()) {
       throw new Error(`${name} rendered empty output`);
+    }
+    const needle = expected[name];
+    if (needle === undefined) {
+      throw new Error(`${name} has no expected-content entry; add one`);
+    }
+    for (const [format, body] of [
+      ['html', html],
+      ['text', text],
+    ] as const) {
+      if (!body.includes(needle)) {
+        throw new Error(`${name} ${format} output is missing ${JSON.stringify(needle)}`);
+      }
     }
     console.log(`ok ${name}`);
   }
