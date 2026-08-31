@@ -1,23 +1,16 @@
 import { z } from 'zod';
+import { requiredString } from './zod-env';
 
 const transportEnum = z.enum(['console', 'smtp', 'resend']);
 
-// `required_error` fires when the key is absent, `.min()`/`.url()` only once a
-// value is present. Both are set so a required var reports the same tailored
-// message whether it was never provided or explicitly emptied — the latter
-// reaches the schema as absent, because `withoutEmptyValues` strips it.
-// Mirrors the `requiredString` helper in src/lib/site-config.ts.
+// Required vars use `requiredString` so they report the same tailored message
+// whether the var was never provided or explicitly emptied — the latter reaches
+// the schema as absent, because `withoutEmptyValues` strips it.
 const baseSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  DATABASE_URL: z
-    .string({ required_error: 'DATABASE_URL is required' })
-    .min(1, 'DATABASE_URL is required'),
-  AUTH_SECRET: z
-    .string({ required_error: 'AUTH_SECRET is required' })
-    .min(32, 'AUTH_SECRET must be at least 32 characters'),
-  AUTH_URL: z
-    .string({ required_error: 'AUTH_URL is required' })
-    .url('AUTH_URL must be a valid URL'),
+  DATABASE_URL: requiredString('DATABASE_URL').min(1, 'DATABASE_URL is required'),
+  AUTH_SECRET: requiredString('AUTH_SECRET').min(32, 'AUTH_SECRET must be at least 32 characters'),
+  AUTH_URL: requiredString('AUTH_URL').url('AUTH_URL must be a valid URL'),
   AUTH_MAGIC_LINK_MAX_AGE_MINUTES: z.coerce
     .number()
     .int()
@@ -25,9 +18,7 @@ const baseSchema = z.object({
     .max(10_080, 'AUTH_MAGIC_LINK_MAX_AGE_MINUTES must be at most 10080 (1 week)')
     .default(60),
   EMAIL_TRANSPORT: transportEnum.default('console'),
-  EMAIL_FROM: z
-    .string({ required_error: 'EMAIL_FROM is required' })
-    .min(1, 'EMAIL_FROM is required'),
+  EMAIL_FROM: requiredString('EMAIL_FROM').min(1, 'EMAIL_FROM is required'),
   RESEND_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
@@ -87,19 +78,59 @@ const conditional = baseSchema.superRefine((env, ctx) => {
 export type Env = z.infer<typeof baseSchema>;
 
 /**
- * Treat `FOO=` as unset rather than as the empty string.
+ * The `.default()` fields exempt from the rule below, for which `FOO=` still
+ * means "unset".
  *
- * `.env.example` ships every optional var as a bare `FOO=` placeholder, and
+ * `.env.example` ships `LLM_TIMEOUT_MS=` bare, so the documented first-time
+ * setup (`cp .env.example .env.local`) would otherwise fail on it. Unlike the
+ * hazards named below, its default is not a development stand-in — it is simply
+ * the value — so an operator who leaves it blank gets what the comment beside
+ * it in `.env.example` promises.
+ *
+ * Add to this list only for a var whose default is safe in production; the
+ * point of keeping it explicit is that a new `.default()` var has to be
+ * considered rather than silently inheriting the exemption.
+ */
+const EMPTY_AS_UNSET_DEFAULTS: ReadonlySet<string> = new Set(['LLM_TIMEOUT_MS']);
+
+/**
+ * Whether `FOO=` should be read as "unset" rather than as the empty string.
+ *
+ * True for everything except `.default()`-backed vars. A default is what an
+ * *absent* var means, and for several of these that default is a development
+ * value: silently accepting `EMAIL_TRANSPORT=` in production routes every
+ * magic-link and reminder email to the log with nobody able to sign in and no
+ * error raised; `NEXT_PUBLIC_APP_URL=` puts localhost links in outgoing email;
+ * `NODE_ENV=` makes src/email/console.ts log magic-link URLs with their tokens
+ * intact. Those must stay loud boot failures rather than quiet fallbacks.
+ *
+ * Required vars carry no default, so stripping them changes no outcome — both
+ * paths fail — but it does keep one message for a var whether it was emptied or
+ * never set, instead of an emptied `AUTH_SECRET` reporting a length complaint.
+ */
+function emptyMeansUnset(key: string): boolean {
+  const field = (baseSchema.shape as Record<string, z.ZodTypeAny | undefined>)[key];
+  if (!(field instanceof z.ZodDefault)) return true;
+  return EMPTY_AS_UNSET_DEFAULTS.has(key);
+}
+
+/**
+ * Treat `FOO=` as unset, for the keys where that is the honest reading.
+ *
+ * `.env.example` ships most optional vars as a bare `FOO=` placeholder, and
  * dotenv loads those as `''`. Without this, the documented first-time setup
- * (`cp .env.example .env.local`) produces an env that fails validation on
- * `LLM_BASE_URL: Invalid url` — an empty string is not a URL, and `.optional()`
- * only tolerates `undefined`. Stripping the empties makes an unfilled
- * placeholder mean what it looks like it means.
+ * produces an env that fails validation on `LLM_BASE_URL: Invalid url` — an
+ * empty string is not a URL, and `.optional()` only tolerates `undefined`.
+ * Stripping those empties makes an unfilled placeholder mean what it looks like
+ * it means, without extending the same courtesy to vars where an empty value
+ * would quietly select a different behaviour.
  */
 function withoutEmptyValues(
   raw: NodeJS.ProcessEnv | Record<string, string | undefined>,
 ): Record<string, string | undefined> {
-  return Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== ''));
+  return Object.fromEntries(
+    Object.entries(raw).filter(([key, value]) => !(value === '' && emptyMeansUnset(key))),
+  );
 }
 
 export function parseEnv(raw: NodeJS.ProcessEnv | Record<string, string | undefined>): Env {

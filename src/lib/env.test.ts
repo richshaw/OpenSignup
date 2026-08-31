@@ -1,5 +1,29 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { magicComposeEnabled, parseEnv, resetEnvCache } from './env';
+
+/**
+ * Minimal dotenv reader — enough for `.env.example`, which uses only bare
+ * `KEY=value` lines, `#` comments, and one double-quoted value. Deliberately
+ * not the dotenv package: the point is to read the file exactly as shipped,
+ * and a dependency that silently drops empty keys would defeat the test.
+ */
+function parseDotenv(contents: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of contents.split('\n')) {
+    const match = /^\s*([A-Z0-9_]+)\s*=(.*)$/.exec(line);
+    if (!match) continue;
+    const [, key, rawValue] = match as unknown as [string, string, string];
+    const value = rawValue.trim();
+    out[key] =
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+        ? value.slice(1, -1)
+        : value;
+  }
+  return out;
+}
 
 const base = {
   DATABASE_URL: 'postgres://x',
@@ -78,8 +102,32 @@ describe('parseEnv', () => {
     expect(env.LLM_TIMEOUT_MS).toBe(180_000);
   });
 
-  it('does not let an empty EMAIL_TRANSPORT override the default', () => {
-    expect(parseEnv({ ...base, EMAIL_TRANSPORT: '' }).EMAIL_TRANSPORT).toBe('console');
+  it.each([
+    ['EMAIL_TRANSPORT', /EMAIL_TRANSPORT/],
+    ['NEXT_PUBLIC_APP_URL', /NEXT_PUBLIC_APP_URL/],
+    ['NODE_ENV', /NODE_ENV/],
+    ['AUTH_MAGIC_LINK_MAX_AGE_MINUTES', /AUTH_MAGIC_LINK_MAX_AGE_MINUTES/],
+  ])('rejects an emptied %s rather than silently applying its default', (key, matcher) => {
+    // These defaults are development values. Swallowing `FOO=` in production
+    // would mean: every email routed to the log with nobody able to sign in
+    // (EMAIL_TRANSPORT), localhost links in outgoing mail (NEXT_PUBLIC_APP_URL),
+    // and magic-link tokens written to the log (NODE_ENV). Each has to stay a
+    // loud boot failure, not a quiet fallback.
+    expect(() => parseEnv({ ...base, [key]: '' })).toThrow(matcher);
+  });
+
+  it('still applies the default for an emptied var on the exemption list', () => {
+    // `.env.example` ships `LLM_TIMEOUT_MS=` bare and its default is the real
+    // value rather than a dev stand-in, so this one is deliberately exempt.
+    expect(parseEnv({ ...base, LLM_TIMEOUT_MS: '' }).LLM_TIMEOUT_MS).toBe(180_000);
+  });
+
+  it('parses .env.example as shipped', () => {
+    // The setup this PR exists for: `cp .env.example .env.local`. Reading the
+    // real file keeps the exemption list honest — adding a bare `FOO=` line for
+    // a `.default()` var fails here instead of on a contributor's first run.
+    const raw = readFileSync(resolve(import.meta.dirname, '../../.env.example'), 'utf8');
+    expect(() => parseEnv(parseDotenv(raw))).not.toThrow();
   });
 
   it('still rejects a required var that is present but empty', () => {
@@ -115,9 +163,9 @@ describe('parseEnv', () => {
   });
 
   it('rejects LLM_BASE_URL without LLM_MODEL', () => {
-    expect(() =>
-      parseEnv({ ...base, LLM_BASE_URL: 'https://api.openai.com/v1' }),
-    ).toThrow(/LLM_MODEL/);
+    expect(() => parseEnv({ ...base, LLM_BASE_URL: 'https://api.openai.com/v1' })).toThrow(
+      /LLM_MODEL/,
+    );
   });
 
   it('rejects LLM_MODEL without LLM_BASE_URL', () => {
@@ -148,7 +196,6 @@ describe('parseEnv', () => {
     expect(env.GOOGLE_CLIENT_ID).toBe('id');
     expect(env.GOOGLE_CLIENT_SECRET).toBe('secret');
   });
-
 });
 
 describe('magicComposeEnabled', () => {
