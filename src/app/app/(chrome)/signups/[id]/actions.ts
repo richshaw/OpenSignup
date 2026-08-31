@@ -10,7 +10,8 @@ import { addSlot, deleteSlot } from '@/services/slots';
 import { addField, deleteField } from '@/services/slot-fields';
 import { toSlug } from '@/lib/slug';
 import type { SlotFieldConfig, SlotFieldDefinition } from '@/schemas/slot-fields';
-import { SignupSettingsSchema } from '@/schemas/signups';
+import { SignupSettingsSchema, type SignupSettings } from '@/schemas/signups';
+import { resolveReminderSettings } from '@/lib/reminder-settings';
 
 function revalidateSignup(id: string) {
   revalidatePath(`/app/signups/${id}`, 'layout');
@@ -148,11 +149,25 @@ export async function updateReminderAction(signupId: string, formData: FormData)
     redirect(`/app/signups/${signupId}/settings?error=${encodeURIComponent(current.error.message)}`);
   }
   const parsedSettings = SignupSettingsSchema.safeParse(current.value.settings ?? {});
-  const prevSettings = parsedSettings.success
-    ? parsedSettings.data
-    : ({} as { reminderFromFieldRef?: string });
+  const prevSettings: Partial<SignupSettings> = parsedSettings.success ? parsedSettings.data : {};
   const { reminderFromFieldRef: _removed, ...restSettings } = prevSettings;
-  const nextSettings = reminder ? { ...restSettings, reminderFromFieldRef: reminder } : restSettings;
+
+  const leadField = formData.get('reminderLeadHours');
+  const { sendReminders, reminderLeadHours } = resolveReminderSettings(
+    {
+      sendRemindersPresent: formData.get('sendRemindersPresent') !== null,
+      sendRemindersChecked: formData.get('sendReminders') !== null,
+      leadHoursRaw: leadField === null ? null : String(leadField),
+    },
+    restSettings,
+  );
+
+  const nextSettings = {
+    ...restSettings,
+    sendReminders,
+    reminderLeadHours,
+    ...(reminder ? { reminderFromFieldRef: reminder } : {}),
+  };
 
   const result = await updateSignup(getDb(), actor, signupId, { settings: nextSettings });
   if (!result.ok) {

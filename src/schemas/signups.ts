@@ -7,6 +7,15 @@ export type SignupStatus = (typeof SIGNUP_STATUSES)[number];
 export const SIGNUP_VISIBILITIES = ['public', 'unlisted', 'password'] as const;
 export type SignupVisibility = (typeof SIGNUP_VISIBILITIES)[number];
 
+/**
+ * Hours before a slot that a participant reminder is sent. 24h matches what
+ * organizers coming from SignUp.com expect (issue #165).
+ */
+export const DEFAULT_REMINDER_LEAD_HOURS = 24;
+
+/** Lead times offered in the organizer settings UI. */
+export const REMINDER_LEAD_HOUR_CHOICES = [2, 24, 48, 72] as const;
+
 export const SignupSettingsSchema = z
   .object({
     requireEmail: z.boolean().default(true),
@@ -15,6 +24,13 @@ export const SignupSettingsSchema = z
     maxCommitmentsPerParticipant: z.number().int().positive().optional(),
     lockoutHoursBeforeSlot: z.number().int().nonnegative().default(0),
     sendReminders: z.boolean().default(true),
+    /** Hours before the slot to send the reminder. Capped at a week. */
+    reminderLeadHours: z
+      .number()
+      .int()
+      .min(1)
+      .max(168)
+      .default(DEFAULT_REMINDER_LEAD_HOURS),
     confirmationMessage: z.string().max(500).optional(),
     /** Slot-field refs to group by in the participant view. v1 caps at length 1; nested grouping deferred. */
     groupByFieldRefs: z.array(z.string()).max(1).default([]),

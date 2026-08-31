@@ -504,6 +504,7 @@ const defaultSettings: SignupSettings = {
   showWhoSignedUp: true,
   lockoutHoursBeforeSlot: 0,
   sendReminders: true,
+  reminderLeadHours: 24,
   groupByFieldRefs: [],
 };
 

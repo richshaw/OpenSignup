@@ -7,7 +7,12 @@ import { recordActivity } from '@/lib/activity';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
-import { requireOrganizerId, requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
+import {
+  requireOrganizerId,
+  requireWorkspaceAccess,
+  requireWorkspaceWrite,
+  type Actor,
+} from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import {
   type SlotFieldConfig,
@@ -46,20 +51,35 @@ interface ReminderSettingsLike {
   [k: string]: unknown;
 }
 
+/**
+ * The slot's own time-of-day, or null when the signup has no time field or the
+ * slot leaves it blank.
+ *
+ * Split out so callers can tell a genuine midnight slot from a date-only one.
+ * The stored instant cannot: `extractSlotAt` defaults a missing time to
+ * `00:00:00`, which is byte-for-byte what a real `00:00` produces.
+ */
+export function slotTimeOfDay(
+  settings: ReminderSettingsLike,
+  fields: SlotFieldDefinition[],
+  values: Record<string, unknown>,
+): string | null {
+  const { timeField } = findReminderFields(settings, fields);
+  const timeVal = timeField ? values[timeField.ref] : undefined;
+  return typeof timeVal === 'string' && /^\d{2}:\d{2}$/.test(timeVal) ? timeVal : null;
+}
+
 export function extractSlotAt(
   settings: ReminderSettingsLike,
   fields: SlotFieldDefinition[],
   values: Record<string, unknown>,
 ): Date | null {
-  const { dateField, timeField } = findReminderFields(settings, fields);
+  const { dateField } = findReminderFields(settings, fields);
   if (!dateField) return null;
   const dateVal = values[dateField.ref];
   if (typeof dateVal !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) return null;
-  const timeVal = timeField ? values[timeField.ref] : undefined;
-  const timePart = typeof timeVal === 'string' && /^\d{2}:\d{2}$/.test(timeVal)
-    ? `${timeVal}:00`
-    : '00:00:00';
-  return new Date(`${dateVal}T${timePart}.000Z`);
+  const timeOfDay = slotTimeOfDay(settings, fields, values);
+  return new Date(`${dateVal}T${timeOfDay ? `${timeOfDay}:00` : '00:00:00'}.000Z`);
 }
 
 /** Re-derive slots.slot_at for every slot in a signup. Safe to call inside a tx. */
@@ -178,16 +198,12 @@ export async function updateField(
   requireWorkspaceWrite(actor, existing.workspaceId);
 
   if (data.fieldType !== undefined && data.config === undefined) {
-    return err(
-      serviceError('invalid_input', 'fieldType change requires matching config'),
-    );
+    return err(serviceError('invalid_input', 'fieldType change requires matching config'));
   }
   if (data.config !== undefined) {
     const nextType = data.fieldType ?? existing.fieldType;
     if (data.config.fieldType !== nextType) {
-      return err(
-        serviceError('invalid_input', 'config.fieldType must match the field type'),
-      );
+      return err(serviceError('invalid_input', 'config.fieldType must match the field type'));
     }
   }
 
@@ -270,7 +286,11 @@ export async function deleteField(
     .limit(1)
     .then((r) => r[0]);
   const currentSettings =
-    (signupRow?.settings as { reminderFromFieldRef?: string; groupByFieldRefs?: string[]; [k: string]: unknown }) ?? {};
+    (signupRow?.settings as {
+      reminderFromFieldRef?: string;
+      groupByFieldRefs?: string[];
+      [k: string]: unknown;
+    }) ?? {};
   const clearedReminder = currentSettings.reminderFromFieldRef === existing.ref;
   const groupBy = currentSettings.groupByFieldRefs ?? [];
   const removedFromGroupBy = groupBy.includes(existing.ref);
@@ -354,10 +374,7 @@ function isMissing(value: unknown): boolean {
   return value === undefined || value === null || value === '';
 }
 
-function validateOneValue(
-  field: SlotFieldDefinition,
-  value: unknown,
-): Result<void, ServiceError> {
+function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<void, ServiceError> {
   if (isMissing(value)) {
     return ok(undefined);
   }
@@ -446,11 +463,12 @@ export function findReminderFields(
 ): ReminderFields {
   const dateFields = fields.filter((f) => f.fieldType === 'date');
   const timeFields = fields.filter((f) => f.fieldType === 'time');
-  const timeField = timeFields.length > 0
-    ? [...timeFields].sort(
-        (a, b) => a.sortOrder - b.sortOrder || a.ref.localeCompare(b.ref),
-      )[0] ?? null
-    : null;
+  const timeField =
+    timeFields.length > 0
+      ? ([...timeFields].sort(
+          (a, b) => a.sortOrder - b.sortOrder || a.ref.localeCompare(b.ref),
+        )[0] ?? null)
+      : null;
 
   if (settings.reminderFromFieldRef) {
     const explicit = dateFields.find((f) => f.ref === settings.reminderFromFieldRef);

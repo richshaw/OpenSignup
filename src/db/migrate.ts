@@ -2,6 +2,7 @@ import { config } from 'dotenv';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
+import { applyConcurrentIndexes } from './concurrent-indexes';
 
 // Load env from .env.local first (Next.js convention), then .env as fallback.
 config({ path: '.env.local' });
@@ -19,6 +20,11 @@ async function main() {
 
   console.log('Running migrations…');
   await migrate(db, { migrationsFolder: 'src/db/migrations' });
+
+  // After the migrations, and deliberately outside their transaction: these
+  // build with CONCURRENTLY so they never block writes to a busy table.
+  console.log('Applying concurrent indexes…');
+  await applyConcurrentIndexes(sql, (message) => console.log(`  ${message}`));
   console.log('Done.');
 
   await sql.end();
