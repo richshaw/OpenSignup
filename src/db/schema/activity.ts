@@ -60,6 +60,7 @@ export const ACTIVITY_EVENTS = [
   'reminder.scheduled',
   'reminder.sent',
   'reminder.opted_out',
+  'reminder.opted_in',
   'reminder.failed',
   'auth.magic_link_sent',
   'auth.signed_in',
