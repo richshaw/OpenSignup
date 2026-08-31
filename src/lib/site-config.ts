@@ -12,16 +12,7 @@
  * Operators set these in their own `.env` before deploying.
  */
 import { z } from 'zod';
-
-// `required_error` / `invalid_type_error` fire when the env var is missing
-// (undefined); `.min(1)` / `.email()` / `.url()` only run once the value is
-// already a string. Setting both keeps the surface message consistent whether
-// the var is unset or set to an empty string.
-const requiredString = (name: string) =>
-  z.string({
-    required_error: `${name} is required`,
-    invalid_type_error: `${name} is required`,
-  });
+import { requiredString } from './zod-env';
 
 const schema = z.object({
   NEXT_PUBLIC_INSTANCE_NAME: requiredString('NEXT_PUBLIC_INSTANCE_NAME').min(
@@ -117,7 +108,10 @@ export const SOURCE_DISPLAY = SOURCE_URL.replace(/^https:\/\//, '');
 // above); defaults to localhost for dev, mirroring `NEXT_PUBLIC_APP_URL` in
 // src/lib/env.ts. `new URL(...).origin` strips any trailing slash or path.
 export const APP_ORIGIN = new URL(
-  process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+  // `||`, not `??`: an unset build arg reaches this as `''` (Dockerfile's
+  // `ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL`), and `new URL('')` throws an
+  // unattributed TypeError at module load. Empty means unset here too.
+  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
 ).origin;
 
 export function operatorLabel(): string {
