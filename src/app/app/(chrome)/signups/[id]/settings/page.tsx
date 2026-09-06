@@ -59,11 +59,23 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
               Send participants a reminder email before their slot.
             </p>
           </div>
+          {/*
+            Every uncontrolled control below is keyed on its saved value.
+
+            React resets a form's uncontrolled fields once its action resolves,
+            and that reset restores each control to its DOM default — the
+            `checked`/`selected` attribute React writes at mount and leaves
+            alone on re-render. Without a key the save lands in the database
+            and the control visibly snaps back to what it was on page load,
+            which reads as a failed save. Changing the key remounts the
+            control so the newly saved default takes effect.
+          */}
           {/* Always submits, so the action can tell "unticked" from "absent". */}
           <input type="hidden" name="sendRemindersPresent" value="1" />
           <label className="flex items-start gap-3">
             <input
               type="checkbox"
+              key={String(sendReminders)}
               name="sendReminders"
               defaultChecked={sendReminders}
               className="mt-0.5 h-4 w-4 rounded border-surface-sunk text-brand focus:ring-1 focus:ring-brand"
@@ -95,6 +107,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
           <label className="block">
             <span className="mb-1 block text-sm font-medium">Send reminder</span>
             <select
+              key={leadHours}
               name="reminderLeadHours"
               defaultValue={String(leadHours)}
               className="block min-h-[42px] w-full appearance-none rounded-lg border border-surface-sunk bg-white px-3 py-2 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
