@@ -80,7 +80,15 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
 
   if (target.optedOut) {
     return (
-      <Shell title={done === 'off' ? 'Reminders turned off' : "You're already unsubscribed"}>
+      /*
+        The neutral heading states the current state and claims nothing about
+        when it was reached. "You're already unsubscribed" told anyone whose
+        `?done=off` went missing that their click had changed nothing, seconds
+        after it had — the one message guaranteed to make someone click again
+        or give up and mark the mail as spam. `done=off` still earns the
+        affirmative wording; without it we say only what the row shows.
+      */
+      <Shell title={done === 'off' ? 'Reminders turned off' : 'Reminders are off'}>
         <p className="text-sm text-ink-muted">
           {done === 'off' ? (
             <>
@@ -90,8 +98,8 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
             </>
           ) : (
             <>
-              Reminders for <strong>{target.signupTitle}</strong> are already off for{' '}
-              {target.participantEmail}.
+              Reminders for <strong>{target.signupTitle}</strong> are off for{' '}
+              {target.participantEmail}. You won&apos;t get any reminder emails about it.
             </>
           )}
         </p>

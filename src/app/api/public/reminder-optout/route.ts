@@ -59,7 +59,26 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const url = new URL(request.url);
   const form = await request.formData().catch(() => null);
-  const wantsHtml = request.headers.get('accept')?.includes('text/html') ?? false;
+
+  /**
+   * Whether a person submitted the confirm page, as opposed to a mail
+   * provider's unattended one-click POST.
+   *
+   * Read from a field the confirm page always posts, never from `Accept`.
+   * Sniffing that header looks equivalent and is not: anything submitting the
+   * form without a document-navigation `Accept` — a fetch-based submit, a
+   * browser or extension that normalises the header — took the machine path,
+   * got a bare 200 with nowhere to go, and left the person on the old page
+   * with their opt-out silently applied and no confirmation that their click
+   * had worked. A person who cannot tell whether unsubscribing worked clicks
+   * again, or reports the mail as spam.
+   *
+   * RFC 8058 one-click sends `List-Unsubscribe=One-Click` and never this
+   * marker, so the two callers are separable without guessing at a header.
+   * Presence is the signal; validity below only decides where a failure can
+   * redirect to.
+   */
+  const fromConfirmPage = form?.has('slug') ?? false;
 
   // The confirm page posts its own slug so we can send the person back to it
   // even when the opt-out fails and we never loaded the signup.
@@ -85,7 +104,7 @@ export async function POST(request: Request) {
         ? await optInToReminders(getDb(), participantId, token)
         : await optOutOfReminders(getDb(), participantId, token);
       if (!result.ok) {
-        if (wantsHtml && fallbackSlug) return toPage(fallbackSlug, `?error=1&${credentials}`);
+        if (fromConfirmPage && fallbackSlug) return toPage(fallbackSlug, `?error=1&${credentials}`);
         // One-click: a signup that no longer exists means there is nothing left
         // to unsubscribe from, which is the outcome the provider asked for.
         // RFC 8058 §3.2 expects 2xx, and a `List-Unsubscribe` URL that answers
@@ -96,7 +115,7 @@ export async function POST(request: Request) {
         if (result.error.code === 'not_found') return new Response(null, { status: 200 });
         return fail(result.error);
       }
-      if (wantsHtml) {
+      if (fromConfirmPage) {
         return toPage(result.value.signupSlug, `?done=${turningOn ? 'on' : 'off'}&${credentials}`);
       }
       // One-click: the provider wants a bare success and ignores the body.
@@ -107,7 +126,7 @@ export async function POST(request: Request) {
       // without this every browser unsubscribe would render "That didn't work"
       // with not one line anywhere saying why.
       log.error({ err, participantId, turningOn }, 'reminder opt-out failed');
-      if (wantsHtml && fallbackSlug) return toPage(fallbackSlug, `?error=1&${credentials}`);
+      if (fromConfirmPage && fallbackSlug) return toPage(fallbackSlug, `?error=1&${credentials}`);
       throw err;
     }
   });
