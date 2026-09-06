@@ -389,9 +389,10 @@ export async function updateOwnCommitment(
         )
         .returning({ id: commitments.id });
       if (cancelled.length === 0) {
-        // Rolls back the transaction. ServiceException (not a bare Error) so the
-        // route handler surfaces a proper 409 instead of a generic 500.
-        throw new ServiceException(serviceError('conflict', 'commitment is not active'));
+        // Nothing was mutated (the UPDATE matched no active row), so there is
+        // no work to roll back. Return the error like the guards above, matching
+        // cancelOwnCommitment's handling of the same condition.
+        return err(serviceError('conflict', 'commitment is not active'));
       }
 
       const newCommit = await commitToSlot(tx, swapToSlotId, {

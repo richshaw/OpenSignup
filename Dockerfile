@@ -44,6 +44,10 @@ COPY --from=builder --chown=signup:signup /app/.next/static ./.next/static
 COPY --from=builder --chown=signup:signup /app/src ./src
 COPY --from=builder --chown=signup:signup /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder --chown=signup:signup /app/tsconfig.json ./tsconfig.json
+# The reminder worker runs `tsx --tsconfig tsconfig.worker.json`, and tsx
+# hard-errors on a missing tsconfig rather than falling back to a default —
+# omit this and the worker crash-loops under `restart: unless-stopped`.
+COPY --from=builder --chown=signup:signup /app/tsconfig.worker.json ./tsconfig.worker.json
 COPY --from=builder --chown=signup:signup /app/node_modules ./node_modules
 COPY --from=builder --chown=signup:signup /app/package.json ./package.json
 

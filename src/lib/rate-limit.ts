@@ -59,12 +59,27 @@ export const RateLimits = {
   magicLinkPerEmail: { bucket: 'auth.magic.email', max: 5, windowSeconds: 3600 },
   magicLinkPerIp: { bucket: 'auth.magic.ip', max: 20, windowSeconds: 3600 },
   commitmentPerIp: { bucket: 'commit.ip', max: 10, windowSeconds: 60 },
+  // Per-address, mirroring magicLinkPerEmail. A commit now sends a confirmation
+  // to an address nobody has verified, so without this one IP can put a
+  // stranger's address on every slot of a signup and turn each into an
+  // unsolicited token-bearing email. Well above what a real participant needs:
+  // one address committing to more than this many slots an hour is not a person
+  // signing up for a rota.
+  commitmentPerEmail: { bucket: 'commit.email', max: 10, windowSeconds: 3600 },
   // Anonymous token-authenticated reads/edits on /api/commitments/[id]:
   // generous for legitimate participants, hostile to edit-token brute force
   // and unmetered DB hits.
   commitmentTokenOpsPerIp: { bucket: 'commit.token.ip', max: 30, windowSeconds: 60 },
   signupCreatePerOrganizer: { bucket: 'signup.create', max: 60, windowSeconds: 3600 },
   magicComposePerOrganizer: { bucket: 'magic.compose', max: 10, windowSeconds: 3600 },
+  // Unsubscribe is unauthenticated and token-guarded. Generous on purpose:
+  // RFC 8058 one-click POSTs arrive from a handful of provider egress IPs on
+  // behalf of every recipient, so a tight per-IP cap would become an
+  // instance-wide ceiling on unsubscribes — the one request we must never
+  // drop. The downside is small: a wrong token is rejected before the
+  // participant lookup, so a bogus request costs this bucket's own upsert and
+  // an HMAC, nothing more.
+  reminderOptOutPerIp: { bucket: 'reminder.optout.ip', max: 300, windowSeconds: 3600 },
   // Unauthenticated writes into the append-only activity log.
   telemetryPerIp: { bucket: 'telemetry.ip', max: 30, windowSeconds: 3600 },
 } as const;
