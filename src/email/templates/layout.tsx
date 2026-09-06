@@ -14,11 +14,9 @@ import type { ReactNode } from 'react';
 export function EmailLayout({
   preview,
   children,
-  footer,
 }: {
   preview: string;
   children: ReactNode;
-  footer?: ReactNode;
 }) {
   return (
     <Html>
@@ -32,14 +30,6 @@ export function EmailLayout({
             </Section>
             <Hr className="border-[#eef1f5]" />
             <Section className="py-4">{children}</Section>
-            <Hr className="border-[#eef1f5]" />
-            <Section className="pt-4 text-xs text-[#8a93a4]">
-              {footer ?? (
-                <Text className="m-0">
-                  Sent by OpenSignup. If you did not expect this email, you can safely ignore it.
-                </Text>
-              )}
-            </Section>
           </Container>
         </Body>
       </Tailwind>

@@ -1,24 +1,35 @@
-import { Button, Heading, Text } from '@react-email/components';
+import { Button, Heading, Link, Text } from '@react-email/components';
 import { EmailLayout } from './layout';
 
 export interface ReminderEmailProps {
   participantName: string;
   signupTitle: string;
   signupUrl: string;
+  /**
+   * The participant's own token-bearing link. Preferred over signupUrl because
+   * participants have no account to sign in to — this is the only way they can
+   * reach their commitment from a device that has lost the returning-participant
+   * cookie.
+   */
+  manageUrl?: string;
   slotLabel: string;
   slotDateLabel: string;
   notes?: string | null;
   organizerDisplayName?: string;
+  /** Per-signup opt-out link. Reminders are the only email it silences. */
+  unsubscribeUrl?: string;
 }
 
 export function ReminderEmail({
   participantName,
   signupTitle,
   signupUrl,
+  manageUrl,
   slotLabel,
   slotDateLabel,
   notes,
   organizerDisplayName,
+  unsubscribeUrl,
 }: ReminderEmailProps) {
   const preview = `Reminder: ${slotLabel} · ${signupTitle}`;
   return (
@@ -48,15 +59,30 @@ export function ReminderEmail({
         </Text>
       ) : null}
       <Button
-        href={signupUrl}
+        href={manageUrl ?? signupUrl}
         className="mt-6 inline-block rounded-lg bg-[#1f6feb] px-5 py-3 text-sm font-medium text-white no-underline"
       >
-        View signup
+        {manageUrl ? 'View or change your slot' : 'View signup'}
       </Button>
       <Text className="mt-6 text-xs text-[#8a93a4]">
-        Need to change or cancel? Tap the button above. You&apos;ll see your commitment highlighted
-        at the top.
+        Need to change or cancel? Tap the button above — it opens your sign-up directly, no
+        password needed. Keep this email to yourself: anyone with the link can change your slot.
       </Text>
+      {unsubscribeUrl ? (
+        <Text className="mt-4 text-xs text-[#8a93a4]">
+          You&apos;ll still get a confirmation if you sign up for something new.{' '}
+          {/*
+            Nothing may follow this link in the sentence. react-email renders a
+            <Link> in plaintext as "label\nURL", so trailing punctuation lands
+            hard against the bare URL and clients that autolink plaintext
+            commonly swallow it into the href — which would break the one link
+            that must never break.
+          */}
+          <Link href={unsubscribeUrl} className="text-[#8a93a4] underline">
+            Stop reminders for {signupTitle}
+          </Link>
+        </Text>
+      ) : null}
     </EmailLayout>
   );
 }
