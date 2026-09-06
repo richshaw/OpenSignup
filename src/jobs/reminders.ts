@@ -7,13 +7,19 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { recordActivity } from '@/lib/activity';
 import { log } from '@/lib/log';
-import { commitmentEditUrl, publicSignupUrl } from '@/lib/links';
+import {
+  commitmentEditUrl,
+  publicSignupUrl,
+  reminderUnsubscribePostUrl,
+  reminderUnsubscribeUrl,
+} from '@/lib/links';
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { formatSlotWhen } from '@/lib/slot-time';
 import { editTokenFor } from '@/lib/token';
 import { DEFAULT_REMINDER_LEAD_HOURS, SignupSettingsSchema } from '@/schemas/signups';
 import { slotDisplayLabel } from '@/lib/slot-label';
 import { listFieldsForSignup, slotTimeOfDay } from '@/services/slot-fields';
+import { reminderOptOutTokenFor } from '@/services/reminder-optout';
 import { sendReminder } from '@/email/send';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
 
@@ -82,6 +88,8 @@ export async function selectDueReminders(db: Db): Promise<DueReminder[]> {
         // Not still in the afterglow of their own confirmation (see doc comment).
         sql`${commitments.createdAt} < now() - make_interval(hours => ${REMINDER_SETTLE_HOURS})`,
         sql`COALESCE((${signups.settings}->>'sendReminders')::boolean, true) = true`,
+        // Participants who unsubscribed from this signup's reminders.
+        isNull(participants.remindersOptedOutAt),
         // skip if a reminder was already recorded for this commitment
         sql`NOT EXISTS (
           SELECT 1 FROM activity a
@@ -137,6 +145,14 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     return;
   }
   if (row.signup.deletedAt) return;
+  // Re-checked here, not just in the dispatcher scan: a participant can
+  // unsubscribe in the gap between being enqueued and the job running, which
+  // pg-boss retries can stretch to hours. The unsubscribe link is in the
+  // previous reminder, so acting on it lands squarely in that window.
+  if (row.participant.remindersOptedOutAt) {
+    log.info({ commitmentId: payload.commitmentId }, 'participant opted out; skipping reminder');
+    return;
+  }
 
   // Idempotency guard: if a prior attempt sent the email but failed to record
   // activity (causing a pg-boss retry), skip re-sending.
@@ -170,22 +186,28 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
       fields,
       slotValues,
     ) !== null;
+  const optOutToken = reminderOptOutTokenFor(row.participant.id);
 
-  await sendReminder(row.participant.email, {
-    participantName: row.participant.name,
-    signupTitle: row.signup.title,
-    signupUrl: publicSignupUrl(row.signup.slug),
-    // Edit tokens are HMAC(secret, commitment_id), so the job can re-derive the
-    // participant's own link without storing anything recoverable.
-    manageUrl: commitmentEditUrl(
-      row.signup.slug,
-      row.commitment.id,
-      editTokenFor(row.commitment.id),
-    ),
-    slotLabel,
-    slotDateLabel: formatSlotWhen(row.slot.slotAt, { hasTime }) ?? 'Soon',
-    notes: row.commitment.notes,
-  });
+  await sendReminder(
+    row.participant.email,
+    {
+      participantName: row.participant.name,
+      signupTitle: row.signup.title,
+      signupUrl: publicSignupUrl(row.signup.slug),
+      // Edit tokens are HMAC(secret, commitment_id), so the job can re-derive the
+      // participant's own link without storing anything recoverable.
+      manageUrl: commitmentEditUrl(
+        row.signup.slug,
+        row.commitment.id,
+        editTokenFor(row.commitment.id),
+      ),
+      unsubscribeUrl: reminderUnsubscribeUrl(row.signup.slug, row.participant.id, optOutToken),
+      slotLabel,
+      slotDateLabel: formatSlotWhen(row.slot.slotAt, { hasTime }) ?? 'Soon',
+      notes: row.commitment.notes,
+    },
+    { unsubscribePostUrl: reminderUnsubscribePostUrl(row.participant.id, optOutToken) },
+  );
 
   await recordActivity(db, {
     signupId: row.signup.id,
