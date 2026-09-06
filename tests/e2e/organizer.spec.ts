@@ -44,6 +44,46 @@ test.describe('organizer flow', () => {
     await expect(page.getByText('Signup published')).toBeVisible();
   });
 
+  test('saved reminder field survives the post-save re-render', async ({ page }) => {
+    // Regression: server actions used to read the signup through
+    // `signups.cached`, whose React cache() memo is request-scoped. The read
+    // happened before the write, and `revalidatePath` re-renders inside that
+    // same request, so the page came back showing the value that had just been
+    // overwritten. The row was correct; only a reload revealed it. Asserting
+    // after a reload would pass either way, so this checks the rendered value
+    // once the action's own round trip has completed.
+    const created = await page.request.post('/api/signups', {
+      data: {
+        title: `Reminder settings ${Date.now()}`,
+        description: '',
+        tags: [],
+        visibility: 'unlisted',
+        settings: {},
+      },
+    });
+    expect(created.ok()).toBe(true);
+    const signupId = (await created.json()).data.id as string;
+
+    await page.goto(`/app/signups/${signupId}/settings`);
+    const select = page.getByLabel('Reminder date field');
+    await expect(select).toHaveValue('');
+
+    // 'date' is the DEFAULT_TEMPLATE date field applied to every new signup.
+    await select.selectOption('date');
+    const save = page.getByRole('button', { name: 'Save' });
+    const saved = page.waitForResponse(
+      (r) => r.request().method() === 'POST' && r.url().includes(`/app/signups/${signupId}/settings`),
+    );
+    await save.click();
+    await saved;
+    // useFormStatus clears `pending` only once the action resolves and React
+    // has committed the re-rendered tree, so this is the point the stale value
+    // would land.
+    await expect(save).toBeEnabled();
+
+    await expect(select).toHaveValue('date');
+  });
+
   test('unauthenticated visitor is redirected to login', async ({ browser }) => {
     const anonContext = await browser.newContext();
     const page = await anonContext.newPage();
