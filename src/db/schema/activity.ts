@@ -20,6 +20,13 @@ export const activity = pgTable(
     bySignupOccurred: index('activity_by_signup_occurred').on(t.signupId, t.occurredAt),
     byWorkspaceOccurred: index('activity_by_workspace_occurred').on(t.workspaceId, t.occurredAt),
     byEvent: index('activity_by_event').on(t.eventType),
+    // NOTE: one more index exists on this table that is not declared here —
+    // `activity_commitment_lookup`, a partial expression index on
+    // (payload->>'commitmentId'). It is built with CONCURRENTLY so it never
+    // blocks writes to this table, which rules out both a drizzle migration and
+    // this schema. It lives in src/db/concurrent-indexes.ts and is applied by
+    // `pnpm db:migrate`. `pnpm db:push` will not create it, and will drop it if
+    // it exists; re-run `pnpm db:migrate` to get it back.
   }),
 );
 
