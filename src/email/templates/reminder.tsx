@@ -5,6 +5,13 @@ export interface ReminderEmailProps {
   participantName: string;
   signupTitle: string;
   signupUrl: string;
+  /**
+   * The participant's own token-bearing link. Preferred over signupUrl because
+   * participants have no account to sign in to — this is the only way they can
+   * reach their commitment from a device that has lost the returning-participant
+   * cookie.
+   */
+  manageUrl?: string;
   slotLabel: string;
   slotDateLabel: string;
   notes?: string | null;
@@ -15,6 +22,7 @@ export function ReminderEmail({
   participantName,
   signupTitle,
   signupUrl,
+  manageUrl,
   slotLabel,
   slotDateLabel,
   notes,
@@ -48,14 +56,14 @@ export function ReminderEmail({
         </Text>
       ) : null}
       <Button
-        href={signupUrl}
+        href={manageUrl ?? signupUrl}
         className="mt-6 inline-block rounded-lg bg-[#1f6feb] px-5 py-3 text-sm font-medium text-white no-underline"
       >
-        View signup
+        {manageUrl ? 'View or change your slot' : 'View signup'}
       </Button>
       <Text className="mt-6 text-xs text-[#8a93a4]">
-        Need to change or cancel? Tap the button above. You&apos;ll see your commitment highlighted
-        at the top.
+        Need to change or cancel? Tap the button above — it opens your sign-up directly, no
+        password needed. Keep this email to yourself: anyone with the link can change your slot.
       </Text>
     </EmailLayout>
   );
