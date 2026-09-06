@@ -40,7 +40,7 @@ export function CommitmentConfirmationEmail({
         You&apos;re signed up
       </Heading>
       <Text className="mt-2 text-[#5b6474]">
-        Thanks {participantName} — you&apos;re down for <strong>{signupTitle}</strong>.
+        Thanks {participantName}, you&apos;re down for <strong>{signupTitle}</strong>.
       </Text>
       <Text className="mt-4 text-[#0b1220]">
         <strong>What:</strong> {slotLabel}
@@ -69,7 +69,7 @@ export function CommitmentConfirmationEmail({
         View or change your slot
       </Button>
       <Text className="mt-6 text-xs text-[#8a93a4]">
-        Keep this email — the button above is how you change or cancel later, with no password to
+        Keep this email. The button above is how you change or cancel later, with no password to
         remember. Anyone with that link can change your slot, so don&apos;t forward it.
         {reminderLeadHours ? (
           <> We&apos;ll also send you a reminder {reminderSentence(reminderLeadHours)}.</>
