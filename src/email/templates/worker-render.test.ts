@@ -49,6 +49,7 @@ describe('email templates under the worker toolchain', () => {
       { cwd: repoRoot },
     );
     expect(stdout).toContain('ok magic-link');
+    expect(stdout).toContain('ok commitment-confirmation');
     expect(stdout).toContain('ok reminder');
   }, 60_000);
 
