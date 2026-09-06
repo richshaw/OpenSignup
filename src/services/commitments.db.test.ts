@@ -207,6 +207,44 @@ describe('updateOwnCommitment swap (db)', () => {
       .where(and(eq(commitments.slotId, second.value.id), eq(commitments.status, 'confirmed')));
     expect(onSecond.length).toBe(1);
   });
+
+  it('surfaces the structured error (not a generic 500) when the target slot is full', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Signup D');
+    const full = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 1 });
+    if (!full.ok) throw new Error(`addSlot failed: ${full.error.message}`);
+
+    // Fill the target slot with someone else's commitment.
+    const filler = await commitToSlot(fx.db, full.value.id, {
+      name: 'Filler',
+      email: 'filler@example.test',
+      quantity: 1,
+    });
+    if (!filler.ok) throw new Error(`commitToSlot failed: ${filler.error.message}`);
+
+    const mine = await commitToSlot(fx.db, a.slotId, {
+      name: 'Dana',
+      email: 'dana@example.test',
+      quantity: 1,
+    });
+    if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
+
+    // A failed inner commit inside the swap transaction must short-circuit via
+    // ServiceException so the route handler returns capacity_full, not internal.
+    await expect(
+      updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
+        swapToSlotId: full.value.id,
+      }),
+    ).rejects.toMatchObject({ serviceError: { code: 'capacity_full' } });
+
+    // Rolled back: the original commitment is still active on its slot.
+    const originalRow = await fx.db
+      .select({ status: commitments.status, slotId: commitments.slotId })
+      .from(commitments)
+      .where(eq(commitments.id, mine.value.commitment.id))
+      .limit(1);
+    expect(originalRow[0]?.status).toBe('confirmed');
+    expect(originalRow[0]?.slotId).toBe(a.slotId);
+  });
 });
 
 describe('cancelOwnCommitment (db)', () => {
