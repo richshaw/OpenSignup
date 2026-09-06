@@ -5,7 +5,7 @@ import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { recordActivity } from '@/lib/activity';
-import { serviceError, type ServiceError } from '@/lib/errors';
+import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
 import { parseInputSafe } from '@/lib/parse';
@@ -389,7 +389,10 @@ export async function updateOwnCommitment(
         )
         .returning({ id: commitments.id });
       if (cancelled.length === 0) {
-        throw new Error('commitment is not active'); // rolls back the transaction
+        // Nothing was mutated (the UPDATE matched no active row), so there is
+        // no work to roll back. Return the error like the guards above, matching
+        // cancelOwnCommitment's handling of the same condition.
+        return err(serviceError('conflict', 'commitment is not active'));
       }
 
       const newCommit = await commitToSlot(tx, swapToSlotId, {
@@ -399,7 +402,10 @@ export async function updateOwnCommitment(
         quantity: data.quantity ?? current.quantity,
       });
       if (!newCommit.ok) {
-        throw new Error(newCommit.error.message); // rolls back the transaction
+        // Rolls back the transaction while preserving the structured error
+        // (capacity_full / closed / conflict, with its details & suggestion)
+        // rather than degrading to a generic 500.
+        throw new ServiceException(newCommit.error);
       }
 
       await recordActivity(tx, {

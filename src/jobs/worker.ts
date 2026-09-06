@@ -20,7 +20,7 @@ async function main() {
     }
   });
 
-  // Dispatcher: poll every 10 minutes, scanning the 48h window.
+  // Dispatcher: poll every 10 minutes for reminders that have come due.
   await boss.schedule(QUEUES.reminderDispatch, '*/10 * * * *');
   await boss.work(QUEUES.reminderDispatch, async () => {
     try {
