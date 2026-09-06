@@ -1,3 +1,12 @@
+/**
+ * Whether this build serves production traffic.
+ *
+ * `next build` runs with NODE_ENV=production and `next dev` with development,
+ * and Next serialises `headers()` into the build output, so this is decided
+ * once per build rather than per request.
+ */
+const isProduction = process.env.NODE_ENV === 'production';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -30,10 +39,28 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains',
-          },
+          // HSTS, and only from a production build.
+          //
+          // Sent over plain http — which is exactly what `next dev` serves —
+          // it tells the browser to force https on that host for the next two
+          // years. A dev server has no TLS to answer with, so the site becomes
+          // unreachable in a way reloading never fixes and nothing in the
+          // server log explains; clearing it means a trip to
+          // chrome://net-internals/#hsts. Chrome exempts `localhost`, which is
+          // why this went unnoticed, but any other local hostname — a .local
+          // name, a LAN IP, a tunnel — is not exempt.
+          //
+          // A production build served over plain http still sends it. That
+          // combination is an operator's deliberate choice, not a default
+          // anyone falls into.
+          ...(isProduction
+            ? [
+                {
+                  key: 'Strict-Transport-Security',
+                  value: 'max-age=63072000; includeSubDomains',
+                },
+              ]
+            : []),
           // Conservative additions only: object-src/base-uri/frame-ancestors don't
           // touch script or style loading, so this can't break Next.js's own
           // bundling or hydration. frame-ancestors is the modern, iframe-proof
