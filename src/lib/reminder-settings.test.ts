@@ -82,11 +82,18 @@ describe('leadHourOptions', () => {
   it('includes a saved value the standard choices do not cover', () => {
     // The API accepts 1–168, so 12 is legitimately storable. Left out of the
     // list, no option matches and the next Save rewrites it to the first one.
-    expect(leadHourOptions(12)).toEqual([2, 12, 24, 48, 72]);
+    expect(leadHourOptions(12)).toEqual([12, 24, 48, 72]);
   });
 
   it('keeps the list sorted and free of duplicates', () => {
-    expect(leadHourOptions(168)).toEqual([2, 24, 48, 72, 168]);
+    expect(leadHourOptions(168)).toEqual([24, 48, 72, 168]);
+  });
+
+  it('still offers a legacy 2h value rather than silently rewriting it', () => {
+    // 2h is no longer a standard choice, and migration 0005 moves stored rows
+    // to 24. A row that predates the migration, or one set through the API's
+    // full 1–168 range, must still render its own value — otherwise no option
+    // matches and the next Save rewrites it with nothing shown to the organizer.
     expect(leadHourOptions(2)).toEqual([2, 24, 48, 72]);
   });
 });

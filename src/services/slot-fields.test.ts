@@ -24,6 +24,36 @@ describe('validateSlotValues', () => {
     if (!r.ok) expect(r.error.code).toBe('invalid_input');
   });
 
+  // The shape regex alone accepted all of these. They reached new Date() as an
+  // Invalid Date, which recomputeSlotAtForSignup then rewrote on every pass
+  // because NaN is never equal to itself.
+  it.each(['2026-13-45', '2026-02-30', '2026-00-10', '2026-01-32'])(
+    'rejects the impossible date %s',
+    (date) => {
+      const r = validateSlotValues([def({})], { date });
+      expect(r.ok).toBe(false);
+    },
+  );
+
+  it('accepts a real leap day and rejects one in a common year', () => {
+    expect(validateSlotValues([def({})], { date: '2028-02-29' }).ok).toBe(true);
+    expect(validateSlotValues([def({})], { date: '2026-02-29' }).ok).toBe(false);
+  });
+
+  it.each(['99:99', '24:00', '12:60'])('rejects the impossible time %s', (time) => {
+    const r = validateSlotValues(
+      [def({ ref: 'time', fieldType: 'time', config: { fieldType: 'time' } })],
+      { time },
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it('accepts the edges of the clock', () => {
+    const field = [def({ ref: 'time', fieldType: 'time', config: { fieldType: 'time' } })];
+    expect(validateSlotValues(field, { time: '00:00' }).ok).toBe(true);
+    expect(validateSlotValues(field, { time: '23:59' }).ok).toBe(true);
+  });
+
   it('accepts HH:MM time', () => {
     const r = validateSlotValues(
       [def({ ref: 'time', fieldType: 'time', config: { fieldType: 'time' } })],
@@ -147,17 +177,65 @@ describe('findReminderFields', () => {
   });
 
   it('uses reminderFromFieldRef when set with multiple date fields', () => {
-    const r = findReminderFields(
-      { groupByFieldRefs: [], reminderFromFieldRef: 'returnDate' },
-      [dateField, altDate, timeField],
-    );
+    const r = findReminderFields({ groupByFieldRefs: [], reminderFromFieldRef: 'returnDate' }, [
+      dateField,
+      altDate,
+      timeField,
+    ]);
     expect(r.dateField?.ref).toBe('returnDate');
   });
 
-  it('returns ambiguous=true when 2+ date fields and reminderFromFieldRef unset', () => {
+  it('auto-picks the first date field when several exist and none is configured', () => {
+    // Was: returned null and killed reminders for the whole signup. Resolution
+    // is total now, so a second date field can never switch reminders off.
     const r = findReminderFields({ groupByFieldRefs: [] }, [dateField, altDate]);
-    expect(r.ambiguous).toBe(true);
+    expect(r.dateField?.ref).toBe('date');
+  });
+
+  it('picks by sortOrder, not by the order the caller passed', () => {
+    const r = findReminderFields({ groupByFieldRefs: [] }, [altDate, dateField]);
+    expect(r.dateField?.ref).toBe('date');
+  });
+
+  it('returns a null date when reminderFromFieldRef points at nothing', () => {
+    // Deliberately no fallback: one typo must not re-aim every reminder on the
+    // signup at a different column.
+    const r = findReminderFields({ groupByFieldRefs: [], reminderFromFieldRef: 'nope' }, [
+      dateField,
+      altDate,
+    ]);
     expect(r.dateField).toBeNull();
+  });
+
+  it('pairs the time field that follows the chosen date, not the lowest overall', () => {
+    const departTime = def({
+      id: 'fld_ffffffffffffffffffffff',
+      ref: 'departTime',
+      fieldType: 'time',
+      config: { fieldType: 'time' },
+      sortOrder: 1,
+    });
+    const returnTime = def({
+      id: 'fld_gggggggggggggggggggggg',
+      ref: 'returnTime',
+      fieldType: 'time',
+      config: { fieldType: 'time' },
+      sortOrder: 3,
+    });
+    const returnDate = def({
+      id: 'fld_hhhhhhhhhhhhhhhhhhhhhh',
+      ref: 'returnDate',
+      fieldType: 'date',
+      sortOrder: 2,
+    });
+    const r = findReminderFields({ groupByFieldRefs: [], reminderFromFieldRef: 'returnDate' }, [
+      dateField,
+      departTime,
+      returnDate,
+      returnTime,
+    ]);
+    expect(r.dateField?.ref).toBe('returnDate');
+    expect(r.timeField?.ref).toBe('returnTime');
   });
 
   it('falls back to no time field when none exists', () => {

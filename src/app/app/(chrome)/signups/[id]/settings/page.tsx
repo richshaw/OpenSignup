@@ -6,6 +6,7 @@ import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { DEFAULT_REMINDER_LEAD_HOURS, SignupSettingsSchema } from '@/schemas/signups';
 import { leadHourLabel, leadHourOptions } from '@/lib/reminder-settings';
+import { findReminderFields } from '@/services/slot-fields';
 import { updateReminderAction } from '../actions';
 import { DeleteSignupForm } from './delete-signup-form';
 
@@ -37,6 +38,15 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
     ? (parsedSettings.data.reminderFromFieldRef ?? '')
     : '';
   const sendReminders = parsedSettings.success ? parsedSettings.data.sendReminders : true;
+  const dateFields = sig.fields.filter((f) => f.fieldType === 'date');
+  // What an empty ref resolves to. The empty option used to read "— No reminder —",
+  // which was false whenever a date field existed: the key is simply omitted on
+  // save and findReminderFields auto-picks. `sendReminders` above is the actual
+  // off switch, so this option names the automatic choice instead of denying it.
+  const autoPicked = findReminderFields({}, sig.fields).dateField;
+  // Only reachable by PATCHing a ref that matches no date field. Rendered so the
+  // select cannot quietly show an anchor the signup does not have.
+  const danglingRef = reminderRef !== '' && !dateFields.some((f) => f.ref === reminderRef);
   const leadHours = parsedSettings.success
     ? parsedSettings.data.reminderLeadHours
     : DEFAULT_REMINDER_LEAD_HOURS;
@@ -91,18 +101,22 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
           <label className="block">
             <span className="mb-1 block text-sm font-medium">Reminder date field</span>
             <select
+              key={`reminder:${reminderRef}`}
               name="reminderFromFieldRef"
               defaultValue={reminderRef}
               className="block min-h-[42px] w-full appearance-none rounded-lg border border-surface-sunk bg-white px-3 py-2 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
             >
-              <option value="">— No reminder —</option>
-              {sig.fields
-                .filter((f) => f.fieldType === 'date')
-                .map((f) => (
-                  <option key={f.id} value={f.ref}>
-                    {f.label}
-                  </option>
-                ))}
+              <option value="">
+                {autoPicked ? `Automatic (${autoPicked.label})` : 'Automatic'}
+              </option>
+              {danglingRef ? (
+                <option value={reminderRef}>Unavailable field — no reminders sent</option>
+              ) : null}
+              {dateFields.map((f) => (
+                <option key={f.id} value={f.ref}>
+                  {f.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="block">

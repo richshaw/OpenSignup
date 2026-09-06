@@ -13,8 +13,19 @@ export type SignupVisibility = (typeof SIGNUP_VISIBILITIES)[number];
  */
 export const DEFAULT_REMINDER_LEAD_HOURS = 24;
 
-/** Lead times offered in the organizer settings UI. */
-export const REMINDER_LEAD_HOUR_CHOICES = [2, 24, 48, 72] as const;
+/**
+ * Lead times offered in the organizer settings UI.
+ *
+ * Sub-24h leads are deliberately absent. `extractSlotAt` pins the organizer's
+ * wall clock to UTC because a signup carries no timezone, so every reminder
+ * instant is off by the organizer's UTC offset. That error is a constant, not a
+ * proportion: at 24h it is a rounding error nobody notices, but at 2h it
+ * exceeds the lead itself (a UTC-4 organizer's "2 hours before" arrives 6 hours
+ * before). A 2h lead is also meaningless on a signup with no time field, where
+ * slot_at falls back to midnight and the reminder lands at 22:00 the night
+ * before. Restore short leads once a signup carries a real timezone.
+ */
+export const REMINDER_LEAD_HOUR_CHOICES = [24, 48, 72] as const;
 
 export const SignupSettingsSchema = z
   .object({
@@ -34,7 +45,11 @@ export const SignupSettingsSchema = z
     confirmationMessage: z.string().max(500).optional(),
     /** Slot-field refs to group by in the participant view. v1 caps at length 1; nested grouping deferred. */
     groupByFieldRefs: z.array(z.string()).max(1).default([]),
-    /** Slot-field ref that drives slot_at and reminder timing. Auto-defaults when there's exactly one date field. */
+    /**
+     * Slot-field ref that drives slot_at and reminder timing. Unset means
+     * automatic: the first date field in (sortOrder, ref) order. Set means that
+     * exact field, with no fallback if it stops existing or stops being a date.
+     */
     reminderFromFieldRef: z.string().optional(),
   })
   .default({});

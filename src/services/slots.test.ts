@@ -53,15 +53,13 @@ describe('extractSlotAt', () => {
   });
 
   it('returns null when reminderFromFieldRef points at a non-existent ref', () => {
-    const at = extractSlotAt(
-      { groupByFieldRefs: [], reminderFromFieldRef: 'nope' },
-      [dateField],
-      { date: '2026-05-15' },
-    );
+    const at = extractSlotAt({ groupByFieldRefs: [], reminderFromFieldRef: 'nope' }, [dateField], {
+      date: '2026-05-15',
+    });
     expect(at).toBeNull();
   });
 
-  it('returns null when 2+ date fields and reminderFromFieldRef unset', () => {
+  it('uses the first date field when several exist and none is configured', () => {
     const altDate: SlotFieldDefinition = {
       id: 'fld_dddddddddddddddddddddd',
       ref: 'returnDate',
@@ -70,12 +68,11 @@ describe('extractSlotAt', () => {
       sortOrder: 1,
       config: { fieldType: 'date' },
     };
-    const at = extractSlotAt(
-      { groupByFieldRefs: [] },
-      [dateField, altDate],
-      { date: '2026-05-15', returnDate: '2026-05-20' },
-    );
-    expect(at).toBeNull();
+    const at = extractSlotAt({ groupByFieldRefs: [] }, [dateField, altDate], {
+      date: '2026-05-15',
+      returnDate: '2026-05-20',
+    });
+    expect(at?.toISOString()).toBe('2026-05-15T00:00:00.000Z');
   });
 
   it('uses configured reminderFromFieldRef when set', () => {
@@ -93,6 +90,14 @@ describe('extractSlotAt', () => {
       { date: '2026-05-15', returnDate: '2026-05-20' },
     );
     expect(at?.toISOString()).toBe('2026-05-20T00:00:00.000Z');
+  });
+
+  it('returns null rather than an Invalid Date for an impossible date value', () => {
+    // Reaches here only through a legacy row: validateSlotValues now rejects it
+    // on the way in. An Invalid Date would make recomputeSlotAtForSignup rewrite
+    // the row on every pass, since NaN never compares equal to itself.
+    const at = extractSlotAt({ groupByFieldRefs: [] }, [dateField], { date: '2026-13-45' });
+    expect(at).toBeNull();
   });
 
   it('returns null when the chosen date value is missing', () => {

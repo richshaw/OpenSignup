@@ -35,7 +35,8 @@
     "eval:magic-compose": "tsx scripts/eval-magic-compose.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "reminders:due": "tsx scripts/dev-reminders.ts"
+    "reminders:due": "tsx scripts/dev-reminders.ts",
+    "backfill:slot-at": "tsx scripts/backfill-slot-at.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",

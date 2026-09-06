@@ -87,7 +87,17 @@ export async function selectDueReminders(db: Db): Promise<DueReminder[]> {
         sql`${slots.slotAt} <= now() + ${leadInterval}`,
         // Not still in the afterglow of their own confirmation (see doc comment).
         sql`${commitments.createdAt} < now() - make_interval(hours => ${REMINDER_SETTLE_HOURS})`,
-        sql`COALESCE((${signups.settings}->>'sendReminders')::boolean, true) = true`,
+        // Guarded rather than a bare ::boolean cast. settings is jsonb written
+        // by more than one path, and a single row holding a non-boolean (say
+        // "yes") makes the cast throw — which fails this whole query and stops
+        // reminders for every signup in the deployment on every tick, visible
+        // only as a log line. jsonb_typeof keeps one bad row from doing that;
+        // anything that is not a real boolean reads as unset and takes the
+        // default-on branch.
+        sql`CASE WHEN jsonb_typeof(${signups.settings}->'sendReminders') = 'boolean'
+              THEN (${signups.settings}->>'sendReminders')::boolean
+              ELSE true
+            END`,
         // Participants who unsubscribed from this signup's reminders.
         isNull(participants.remindersOptedOutAt),
         // skip if a reminder was already recorded for this commitment

@@ -66,7 +66,7 @@ export function slotTimeOfDay(
 ): string | null {
   const { timeField } = findReminderFields(settings, fields);
   const timeVal = timeField ? values[timeField.ref] : undefined;
-  return typeof timeVal === 'string' && /^\d{2}:\d{2}$/.test(timeVal) ? timeVal : null;
+  return typeof timeVal === 'string' && isRealTime(timeVal) ? timeVal : null;
 }
 
 export function extractSlotAt(
@@ -77,9 +77,13 @@ export function extractSlotAt(
   const { dateField } = findReminderFields(settings, fields);
   if (!dateField) return null;
   const dateVal = values[dateField.ref];
-  if (typeof dateVal !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) return null;
+  if (typeof dateVal !== 'string' || !isRealDate(dateVal)) return null;
   const timeOfDay = slotTimeOfDay(settings, fields, values);
-  return new Date(`${dateVal}T${timeOfDay ? `${timeOfDay}:00` : '00:00:00'}.000Z`);
+  const at = new Date(`${dateVal}T${timeOfDay ? `${timeOfDay}:00` : '00:00:00'}.000Z`);
+  // An unparseable instant is null, never an Invalid Date. A NaN date is not
+  // equal to itself, so recomputeSlotAtForSignup's change check never matches
+  // and it would rewrite that row on every single pass, forever.
+  return Number.isNaN(at.getTime()) ? null : at;
 }
 
 /** Re-derive slots.slot_at for every slot in a signup. Safe to call inside a tx. */
@@ -165,6 +169,14 @@ export async function addField(
       .returning();
     if (!row) throw new Error('field insert failed');
 
+    // slot_at is a cache of (anchor field, slot values). Adding a date field
+    // can move the anchor — a new date sorting before the current one takes
+    // over — so the cache has to be rebuilt here. Without this, slots created
+    // before the change keep a stale slot_at and go on reminding, while
+    // anything created or edited afterwards resolves differently: one signup
+    // where whether you get a reminder depends on edit order.
+    await recomputeSlotAtForSignup(tx, signupId);
+
     await recordActivity(tx, {
       signupId,
       workspaceId: signupRow.workspaceId,
@@ -235,6 +247,23 @@ export async function updateField(
     );
   }
 
+  // Retyping the anchor field away from `date` leaves reminderFromFieldRef
+  // pointing at something that is no longer a date. findReminderFields treats
+  // that as "no anchor" and deliberately does not fall back, so reminders would
+  // stop for the whole signup with nothing said. deleteField already clears the
+  // ref for the same reason; this is the other way to stop being a date.
+  const stopsBeingDate =
+    existing.fieldType === 'date' && data.fieldType !== undefined && data.fieldType !== 'date';
+  const signupSettingsRow = await db
+    .select({ settings: signups.settings })
+    .from(signups)
+    .where(eq(signups.id, existing.signupId))
+    .limit(1)
+    .then((r) => r[0]);
+  const priorSettings =
+    (signupSettingsRow?.settings as { reminderFromFieldRef?: string; [k: string]: unknown }) ?? {};
+  const clearsReminderRef = stopsBeingDate && priorSettings.reminderFromFieldRef === existing.ref;
+
   const updated = await db.transaction(async (tx) => {
     const [row] = await tx
       .update(slotFields)
@@ -248,6 +277,19 @@ export async function updateField(
       .returning();
     if (!row) throw new Error('field update returned nothing');
 
+    if (clearsReminderRef) {
+      const { reminderFromFieldRef: _dropped, ...nextSettings } = priorSettings;
+      await tx
+        .update(signups)
+        .set({ settings: nextSettings, updatedAt: new Date() })
+        .where(eq(signups.id, existing.signupId));
+    }
+
+    // A type change, a reorder, or a relabel can all move which field the
+    // anchor resolves to, so rebuild the cache rather than trying to predict
+    // when it matters. No-ops when nothing actually changed.
+    await recomputeSlotAtForSignup(tx, existing.signupId);
+
     const changes: Record<string, unknown> = {};
     for (const key of Object.keys(data) as (keyof typeof data)[]) {
       changes[key] = data[key];
@@ -257,7 +299,12 @@ export async function updateField(
       workspaceId: existing.workspaceId,
       actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'field.updated',
-      payload: { fieldId: row.id, ref: row.ref, changes },
+      payload: {
+        fieldId: row.id,
+        ref: row.ref,
+        changes,
+        ...(clearsReminderRef ? { clearedReminderFromFieldRef: true } : {}),
+      },
     });
     return row;
   });
@@ -313,9 +360,12 @@ export async function deleteField(
       .set({ values: sql`${slots.values} - ${existing.ref}::text` })
       .where(eq(slots.signupId, existing.signupId));
     await tx.delete(slotFields).where(eq(slotFields.id, fieldId));
-    if (clearedReminder) {
-      await recomputeSlotAtForSignup(tx, existing.signupId);
-    }
+    // Unconditional. Gating this on `clearedReminder` missed the case that
+    // matters most: with the pointer unset, deleting one of two date fields
+    // moves the anchor to the survivor (and deleting the anchor itself strands
+    // every slot_at on a column that no longer exists), yet no rebuild ran.
+    // The values wipe above can also change what a slot resolves to.
+    await recomputeSlotAtForSignup(tx, existing.signupId);
     await recordActivity(tx, {
       signupId: existing.signupId,
       workspaceId: existing.workspaceId,
@@ -374,6 +424,28 @@ function isMissing(value: unknown): boolean {
   return value === undefined || value === null || value === '';
 }
 
+/**
+ * A YYYY-MM-DD string naming a day that exists.
+ *
+ * The shape regex alone accepts 2026-13-45 and 2026-02-30, which reach
+ * `new Date()` as an Invalid Date (or, for 02-30, silently roll into March).
+ * Checking the parts round-trip rejects both.
+ */
+function isRealDate(value: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const at = new Date(Date.UTC(y, mo - 1, d));
+  return at.getUTCFullYear() === y && at.getUTCMonth() === mo - 1 && at.getUTCDate() === d;
+}
+
+/** An HH:MM string naming a time that exists. The shape regex accepts 99:99. */
+function isRealTime(value: string): boolean {
+  const m = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!m) return false;
+  return Number(m[1]) <= 23 && Number(m[2]) <= 59;
+}
+
 function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<void, ServiceError> {
   if (isMissing(value)) {
     return ok(undefined);
@@ -399,20 +471,22 @@ function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<vo
       return ok(undefined);
     }
     case 'date': {
-      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      if (typeof value !== 'string' || !isRealDate(value)) {
         return err(
-          serviceError('invalid_input', `"${field.ref}" must be YYYY-MM-DD`, {
+          serviceError('invalid_input', `"${field.ref}" must be a real date as YYYY-MM-DD`, {
             field: field.ref,
+            received: value,
           }),
         );
       }
       return ok(undefined);
     }
     case 'time': {
-      if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) {
+      if (typeof value !== 'string' || !isRealTime(value)) {
         return err(
-          serviceError('invalid_input', `"${field.ref}" must be HH:MM`, {
+          serviceError('invalid_input', `"${field.ref}" must be a real time as HH:MM`, {
             field: field.ref,
+            received: value,
           }),
         );
       }
@@ -453,34 +527,58 @@ function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<vo
 export interface ReminderFields {
   dateField: SlotFieldDefinition | null;
   timeField: SlotFieldDefinition | null;
-  /** True when 2+ date fields exist and reminderFromFieldRef is unset. */
-  ambiguous: boolean;
 }
 
+/** Canonical field order, so resolution never depends on how the caller sorted. */
+function byOrder(a: SlotFieldDefinition, b: SlotFieldDefinition): number {
+  return a.sortOrder - b.sortOrder || a.ref.localeCompare(b.ref);
+}
+
+/**
+ * The time field paired with `dateField`, or null when the signup has none.
+ *
+ * Paired rather than picked globally: a signup with depart/return dates and
+ * depart/return times used to take the lowest-sorted time whatever date won, so
+ * a return date could be stamped with a departure time and the participant got
+ * a reminder that was confidently wrong. Preferring the first time field that
+ * sorts *after* the chosen date matches how organizers lay columns out — the
+ * time belonging to a date sits beside it. Falls back to the first time field
+ * so a signup that puts its only time column first still resolves.
+ */
+function pairedTimeField(
+  dateField: SlotFieldDefinition | null,
+  fields: SlotFieldDefinition[],
+): SlotFieldDefinition | null {
+  const timeFields = fields.filter((f) => f.fieldType === 'time').sort(byOrder);
+  if (timeFields.length === 0) return null;
+  if (!dateField) return timeFields[0] ?? null;
+  return timeFields.find((f) => byOrder(f, dateField) > 0) ?? timeFields[0] ?? null;
+}
+
+/**
+ * Resolves which fields drive `slots.slot_at`, and therefore reminder timing.
+ *
+ * Resolution is total: while the signup has any date field, this returns one.
+ * It previously refused to choose between two or more date fields, returning a
+ * null date that made `extractSlotAt` yield null, `slot_at` stay NULL and the
+ * dispatcher's `isNotNull(slots.slotAt)` skip every commitment — reminders died
+ * for the whole signup with nothing said to anyone. The `ambiguous` flag that
+ * would have let the UI explain it was computed and never read. Adding a second
+ * date field is a routine build-page action (and one Magic Compose takes on its
+ * own), so it must not be able to switch reminders off.
+ *
+ * An explicit `reminderFromFieldRef` still wins and deliberately does NOT fall
+ * back: a ref pointing at nothing means no anchor, not "pick another column".
+ * Falling back would let one typo silently re-aim every reminder on the signup.
+ */
 export function findReminderFields(
   settings: { reminderFromFieldRef?: string | undefined; [k: string]: unknown },
   fields: SlotFieldDefinition[],
 ): ReminderFields {
-  const dateFields = fields.filter((f) => f.fieldType === 'date');
-  const timeFields = fields.filter((f) => f.fieldType === 'time');
-  const timeField =
-    timeFields.length > 0
-      ? ([...timeFields].sort(
-          (a, b) => a.sortOrder - b.sortOrder || a.ref.localeCompare(b.ref),
-        )[0] ?? null)
-      : null;
+  const dateFields = fields.filter((f) => f.fieldType === 'date').sort(byOrder);
+  const dateField = settings.reminderFromFieldRef
+    ? (dateFields.find((f) => f.ref === settings.reminderFromFieldRef) ?? null)
+    : (dateFields[0] ?? null);
 
-  if (settings.reminderFromFieldRef) {
-    const explicit = dateFields.find((f) => f.ref === settings.reminderFromFieldRef);
-    if (explicit) return { dateField: explicit, timeField, ambiguous: false };
-    return { dateField: null, timeField, ambiguous: false };
-  }
-
-  if (dateFields.length === 0) {
-    return { dateField: null, timeField, ambiguous: false };
-  }
-  if (dateFields.length === 1) {
-    return { dateField: dateFields[0] ?? null, timeField, ambiguous: false };
-  }
-  return { dateField: null, timeField, ambiguous: true };
+  return { dateField, timeField: pairedTimeField(dateField, fields) };
 }
