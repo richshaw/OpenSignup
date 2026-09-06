@@ -45,13 +45,19 @@ test.describe('organizer flow', () => {
   });
 
   test('saved reminder field survives the post-save re-render', async ({ page }) => {
-    // Regression: server actions used to read the signup through
-    // `signups.cached`, whose React cache() memo is request-scoped. The read
-    // happened before the write, and `revalidatePath` re-renders inside that
-    // same request, so the page came back showing the value that had just been
-    // overwritten. The row was correct; only a reload revealed it. Asserting
-    // after a reload would pass either way, so this checks the rendered value
-    // once the action's own round trip has completed.
+    // Regression: React resets a form's uncontrolled fields once its action
+    // resolves, and that reset restores each control to its DOM default — for
+    // a select, the option carrying the `selected` attribute. React writes that
+    // attribute from `defaultValue` at mount and leaves it alone on re-render,
+    // so the re-rendered `defaultValue` never reached the DOM and the reset
+    // snapped the control back to the page-load selection. The server was
+    // never at fault: it re-rendered with the new value and the row was
+    // correct throughout, which is why only a reload showed the truth. The fix
+    // keys the select on the saved value so a save remounts it. Asserting
+    // after a reload would pass either way, and asserting straight after the
+    // click would pass on the value the user just picked — the reset lands
+    // slightly later — so this checks the rendered value once the action's own
+    // round trip has completed.
     const created = await page.request.post('/api/signups', {
       data: {
         title: `Reminder settings ${Date.now()}`,
