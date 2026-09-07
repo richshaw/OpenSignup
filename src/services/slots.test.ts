@@ -95,6 +95,14 @@ describe('extractSlotAt', () => {
     expect(at?.toISOString()).toBe('2026-05-20T00:00:00.000Z');
   });
 
+  it('returns null rather than an Invalid Date for an impossible date value', () => {
+    // Reaches here only through a legacy row: validateSlotValues now rejects it
+    // on the way in. An Invalid Date would make recomputeSlotAtForSignup rewrite
+    // the row on every pass, since NaN never compares equal to itself.
+    const at = extractSlotAt({ groupByFieldRefs: [] }, [dateField], { date: '2026-13-45' });
+    expect(at).toBeNull();
+  });
+
   it('returns null when the chosen date value is missing', () => {
     const at = extractSlotAt({ groupByFieldRefs: [] }, [dateField, timeField], {
       startTime: '09:00',
