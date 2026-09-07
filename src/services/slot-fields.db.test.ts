@@ -167,6 +167,37 @@ describe('slot-fields service (db)', () => {
       }
     });
 
+    it('appends when sortOrder is omitted', async () => {
+      // Regression: the build page adds fields without a sortOrder. While the
+      // input schema defaulted that to 0, the new field sorted ahead of
+      // the template's date column (DEFAULT_TEMPLATE pins it at 1) and
+      // reappeared mid-grid after a reload. This signup starts empty, so the
+      // first field is placed explicitly and the second must land after it.
+      const sigId = await createTestSignup(fx, 'Append not prepend');
+      const first = await addField(fx.db, fx.actor, sigId, {
+        ref: 'first',
+        label: 'First',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+        sortOrder: 1,
+      });
+      if (!first.ok) throw new Error('first field setup failed');
+
+      // No sortOrder, exactly as useGridState.addField sends it.
+      const added = await addField(fx.db, fx.actor, sigId, {
+        ref: 'added',
+        label: 'Added',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      expect(added.ok).toBe(true);
+      if (!added.ok) return;
+      expect(added.value.sortOrder).toBeGreaterThan(first.value.sortOrder);
+
+      const listed = await listFields(fx.db, fx.actor, sigId);
+      if (!listed.ok) throw new Error('list failed');
+      expect(listed.value.map((f) => f.ref)).toEqual(['first', 'added']);
+    });
   });
 
   describe('updateField', () => {
