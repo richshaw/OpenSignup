@@ -62,6 +62,13 @@ export type GridState = {
   fields: GridField[];
   rows: GridRow[];
   groupByFieldRef: string | null;
+  /**
+   * The date field reminders are sent the day before, or null when reminders
+   * are off for this signup. Derived from settings — `sendReminders` is the
+   * only off switch, and `reminderFromFieldRef` (the slot-instant anchor) stays
+   * put even while they are off — so the UI has one value to read.
+   */
+  reminderFieldRef: string | null;
   previewRowIdx: number;
   showPreview: boolean;
   saveStatus: SaveStatus;
@@ -78,6 +85,7 @@ export type GridAction =
   | { type: 'SET_PREVIEW_ROW'; idx: number }
   | { type: 'SET_SHOW_PREVIEW'; show: boolean }
   | { type: 'SET_GROUP_BY'; ref: string | null }
+  | { type: 'SET_REMINDER_FIELD'; ref: string | null }
   | { type: 'SET_SAVE_STATUS'; status: SaveStatus }
   | { type: 'OPTIMISTIC_ADD_ROW'; row: GridRow }
   | { type: 'OPTIMISTIC_REMOVE_ROW'; rowId: string }
@@ -116,6 +124,9 @@ export function gridReducer(state: GridState, action: GridAction): GridState {
 
     case 'SET_GROUP_BY':
       return { ...state, groupByFieldRef: action.ref };
+
+    case 'SET_REMINDER_FIELD':
+      return { ...state, reminderFieldRef: action.ref };
 
     case 'SET_SAVE_STATUS':
       return { ...state, saveStatus: action.status };
@@ -226,6 +237,13 @@ function toStringValues(values: Record<string, unknown>): Record<string, string>
   return result;
 }
 
+/** The field reminders are sent for, or null when they are switched off. */
+function reminderFieldFrom(settings: SignupSettings): string | null {
+  return settings.sendReminders && settings.reminderFromFieldRef
+    ? settings.reminderFromFieldRef
+    : null;
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -248,6 +266,7 @@ export function useGridState(
       values: toStringValues(r.values),
     })),
     groupByFieldRef: initialSettings.groupByFieldRefs[0] ?? null,
+    reminderFieldRef: reminderFieldFrom(initialSettings),
     previewRowIdx: 0,
     showPreview: false,
     saveStatus: IDLE,
@@ -300,6 +319,10 @@ export function useGridState(
     const groupRef = groupBy[0] ?? null;
     if (groupRef !== stateRef.current.groupByFieldRef) {
       dispatch({ type: 'SET_GROUP_BY', ref: groupRef });
+    }
+    const reminderRef = reminderFieldFrom(settingsRef.current);
+    if (reminderRef !== stateRef.current.reminderFieldRef) {
+      dispatch({ type: 'SET_REMINDER_FIELD', ref: reminderRef });
     }
   }
 
@@ -908,6 +931,36 @@ export function useGridState(
     [signupId],
   );
 
+  /**
+   * Makes `ref` the reminder field, or switches reminders off with null.
+   * Off keeps the current `reminderFromFieldRef`: it still anchors every
+   * slot's instant (calendar links, date order), only the switch flips.
+   */
+  const setReminderField = useCallback(
+    async (ref: string | null): Promise<void> => {
+      markSaving();
+      const nextSettings: SignupSettings = {
+        ...settingsRef.current,
+        sendReminders: ref !== null,
+        ...(ref ? { reminderFromFieldRef: ref } : {}),
+      };
+      try {
+        const res = await fetch(`/api/signups/${signupId}`, {
+          method: 'PATCH',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ settings: nextSettings }),
+        });
+        await expectOk(res);
+        settingsRef.current = nextSettings;
+        dispatch({ type: 'SET_REMINDER_FIELD', ref });
+        markSaved();
+      } catch (e) {
+        markError(asErr(e));
+      }
+    },
+    [signupId],
+  );
+
   return {
     state,
     addField,
@@ -926,6 +979,7 @@ export function useGridState(
     setPreviewRow,
     setShowPreview,
     setGroupBy,
+    setReminderField,
     updateSignupMeta,
   };
 }

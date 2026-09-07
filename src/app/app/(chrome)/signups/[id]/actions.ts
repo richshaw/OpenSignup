@@ -4,10 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { getOrganizerSession, toActor } from '@/auth/session';
-import { closeSignup, deleteSignup, publishSignup, updateSignup } from '@/services/signups';
-import { loadSignupForOrganizer } from '@/services/signups.cached';
-import { SignupSettingsSchema, type SignupSettings } from '@/schemas/signups';
-import { resolveSendReminders } from '@/lib/reminder-settings';
+import { closeSignup, deleteSignup, publishSignup } from '@/services/signups';
 
 function revalidateSignup(id: string) {
   revalidatePath(`/app/signups/${id}`, 'layout');
@@ -31,42 +28,6 @@ export async function publishAction(signupId: string) {
 export async function closeAction(signupId: string) {
   const actor = await requireActor();
   await closeSignup(getDb(), actor, signupId);
-  revalidateSignup(signupId);
-}
-
-export async function updateReminderAction(signupId: string, formData: FormData) {
-  const actor = await requireActor();
-  const reminder = String(formData.get('reminderFromFieldRef') ?? '').trim();
-
-  // Read current settings so we can send the full object: the service replaces
-  // settings rather than merging them. reminderFromFieldRef is the exception —
-  // omitted, it keeps the current anchor; named, it must be a date field.
-  const current = await loadSignupForOrganizer(actor, signupId);
-  if (!current.ok) {
-    redirect(`/app/signups/${signupId}/settings?error=${encodeURIComponent(current.error.message)}`);
-  }
-  const parsedSettings = SignupSettingsSchema.safeParse(current.value.settings ?? {});
-  const prevSettings: Partial<SignupSettings> = parsedSettings.success ? parsedSettings.data : {};
-  const { reminderFromFieldRef: _current, ...restSettings } = prevSettings;
-
-  const sendReminders = resolveSendReminders(
-    {
-      sendRemindersPresent: formData.get('sendRemindersPresent') !== null,
-      sendRemindersChecked: formData.get('sendReminders') !== null,
-    },
-    restSettings,
-  );
-
-  const nextSettings = {
-    ...restSettings,
-    sendReminders,
-    ...(reminder ? { reminderFromFieldRef: reminder } : {}),
-  };
-
-  const result = await updateSignup(getDb(), actor, signupId, { settings: nextSettings });
-  if (!result.ok) {
-    redirect(`/app/signups/${signupId}/settings?error=${encodeURIComponent(result.error.message)}`);
-  }
   revalidateSignup(signupId);
 }
 

@@ -89,6 +89,7 @@ export function BuildWysiwyg({
     deleteField,
     moveField,
     setGroupBy,
+    setReminderField,
     addRow,
     duplicateRow,
     deleteRow,
@@ -254,11 +255,13 @@ export function BuildWysiwyg({
         onOpenChange={setFieldsOpen}
         fields={state.fields}
         groupByFieldRef={state.groupByFieldRef}
+        reminderFieldRef={state.reminderFieldRef}
         onAddField={(name, config) => { void addField(name, config); }}
-        onUpdateField={(fieldId, patch) => { void updateField(fieldId, patch); }}
+        onUpdateField={(fieldId, patch) => updateField(fieldId, patch)}
         onDeleteField={(fieldId) => { void deleteField(fieldId); }}
         onMoveField={(fieldId, toIdx) => { void moveField(fieldId, toIdx); }}
         onGroupByChange={(ref) => { void setGroupBy(ref); }}
+        onSetReminder={(ref) => { void setReminderField(ref); }}
       />
     </div>
   );

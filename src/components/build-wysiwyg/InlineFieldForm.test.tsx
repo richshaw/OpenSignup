@@ -20,6 +20,8 @@ describe('InlineFieldForm — create mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'create' }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={vi.fn()}
         onCancel={vi.fn()}
       />,
@@ -32,6 +34,8 @@ describe('InlineFieldForm — create mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'create' }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={vi.fn()}
         onCancel={vi.fn()}
       />,
@@ -43,6 +47,8 @@ describe('InlineFieldForm — create mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'create' }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={vi.fn()}
         onCancel={vi.fn()}
       />,
@@ -54,6 +60,8 @@ describe('InlineFieldForm — create mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'create' }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={vi.fn()}
         onCancel={vi.fn()}
       />,
@@ -68,6 +76,8 @@ describe('InlineFieldForm — create mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'create' }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={onSave}
         onCancel={vi.fn()}
       />,
@@ -87,6 +97,8 @@ describe('InlineFieldForm — create mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'create' }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={onSave}
         onCancel={vi.fn()}
       />,
@@ -100,6 +112,8 @@ describe('InlineFieldForm — create mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'create' }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={onSave}
         onCancel={vi.fn()}
       />,
@@ -116,6 +130,8 @@ describe('InlineFieldForm — create mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'create' }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={onSave}
         onCancel={onCancel}
       />,
@@ -130,6 +146,8 @@ describe('InlineFieldForm — create mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'create' }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={vi.fn()}
         onCancel={onCancel}
       />,
@@ -145,6 +163,8 @@ describe('InlineFieldForm — edit mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'edit', field }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={vi.fn()}
         onCancel={vi.fn()}
       />,
@@ -159,6 +179,8 @@ describe('InlineFieldForm — edit mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'edit', field }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={vi.fn()}
         onCancel={vi.fn()}
         onDelete={vi.fn()}
@@ -176,6 +198,8 @@ describe('InlineFieldForm — edit mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'edit', field }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={onSave}
         onCancel={vi.fn()}
       />,
@@ -192,6 +216,8 @@ describe('InlineFieldForm — edit mode', () => {
     render(
       <InlineFieldForm
         formMode={{ mode: 'edit', field: makeField() }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
         onSave={vi.fn()}
         onCancel={vi.fn()}
         onDelete={onDelete}
@@ -199,5 +225,106 @@ describe('InlineFieldForm — edit mode', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Remove field' }));
     expect(onDelete).toHaveBeenCalled();
+  });
+});
+
+describe('InlineFieldForm — reminder checkbox', () => {
+  const CHECKBOX = 'Send a reminder email before this date';
+  const dateField = makeField({ id: 'f-date', ref: 'date', name: 'Date', config: { fieldType: 'date' } });
+
+  function renderEdit(
+    field: GridField,
+    reminder: { ref: string | null; label: string | null },
+    onSave = vi.fn(),
+  ) {
+    render(
+      <InlineFieldForm
+        formMode={{ mode: 'edit', field }}
+        reminderFieldRef={reminder.ref}
+        reminderFieldLabel={reminder.label}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+    return onSave;
+  }
+
+  it('is checked and enabled when editing the reminder field', () => {
+    renderEdit(dateField, { ref: 'date', label: 'Date' });
+    const box = screen.getByRole('checkbox', { name: CHECKBOX }) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    expect(box.disabled).toBe(false);
+    expect(screen.getByText(/Sent the day before\./)).toBeTruthy();
+    expect(screen.queryByRole('note')).toBeNull();
+  });
+
+  it('is unchecked and enabled for a date field when no field holds the reminder', () => {
+    renderEdit(dateField, { ref: null, label: null });
+    const box = screen.getByRole('checkbox', { name: CHECKBOX }) as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    expect(box.disabled).toBe(false);
+    expect(screen.queryByRole('note')).toBeNull();
+  });
+
+  it('is disabled, drops the helper and names the other field when one already holds the reminder', () => {
+    const setupDay = makeField({ id: 'f-setup', ref: 'setup-day', name: 'Setup day', config: { fieldType: 'date' } });
+    renderEdit(setupDay, { ref: 'date', label: 'Date' });
+    const box = screen.getByRole('checkbox', { name: CHECKBOX }) as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    expect(box.disabled).toBe(true);
+    expect(screen.queryByText(/Sent the day before\./)).toBeNull();
+    const note = screen.getByRole('note');
+    expect(note.textContent).toBe(
+      'Date is already the reminder field for this signup. Turn it off there to use this one instead.',
+    );
+    expect(note.querySelector('strong')?.textContent).toBe('Date');
+  });
+
+  it('is not rendered for a non-date field', () => {
+    renderEdit(makeField({ config: { fieldType: 'text', maxLength: 200 } }), { ref: 'date', label: 'Date' });
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.queryByRole('note')).toBeNull();
+  });
+
+  it('is not rendered in create mode', () => {
+    render(
+      <InlineFieldForm
+        formMode={{ mode: 'create' }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Date' }));
+    expect(screen.queryByRole('checkbox')).toBeNull();
+  });
+
+  it('appears once an existing field is switched to Date', () => {
+    renderEdit(makeField({ config: { fieldType: 'text', maxLength: 200 } }), { ref: null, label: null });
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Date' }));
+    expect(screen.getByRole('checkbox', { name: CHECKBOX })).toBeTruthy();
+  });
+
+  it('saves reminder: true after ticking', () => {
+    const onSave = renderEdit(dateField, { ref: null, label: null });
+    fireEvent.click(screen.getByRole('checkbox', { name: CHECKBOX }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).toHaveBeenCalledWith({ name: 'Date', config: { fieldType: 'date' }, reminder: true });
+  });
+
+  it('saves reminder: false after unticking the reminder field', () => {
+    const onSave = renderEdit(dateField, { ref: 'date', label: 'Date' });
+    fireEvent.click(screen.getByRole('checkbox', { name: CHECKBOX }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).toHaveBeenCalledWith({ name: 'Date', config: { fieldType: 'date' }, reminder: false });
+  });
+
+  it('saves without a reminder key for a non-date field', () => {
+    const onSave = renderEdit(makeField(), { ref: 'date', label: 'Date' });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).toHaveBeenCalledWith({ name: 'Name', config: { fieldType: 'text', maxLength: 200 } });
+    expect(onSave.mock.calls[0]![0]).not.toHaveProperty('reminder');
   });
 });

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { ArrowLeft, Info } from 'lucide-react';
 import { FIELD_TYPE_META } from '../build-grid/fieldTypes';
 import { FIELD_TYPES, type FieldType, type SlotFieldConfig } from '@/schemas/slot-fields';
 import type { GridField } from '../build-grid/useGridState';
@@ -12,7 +12,15 @@ export type InlineFieldFormMode =
 
 type InlineFieldFormProps = {
   formMode: InlineFieldFormMode;
-  onSave: (input: { name: string; config: SlotFieldConfig }) => void;
+  /** Ref of the field reminders are sent for, or null when they are off. */
+  reminderFieldRef: string | null;
+  /** Label of that field, for telling the organizer which one holds the reminder. */
+  reminderFieldLabel: string | null;
+  /**
+   * `reminder` is present only when editing a field whose (current) type is
+   * date: whether this field should be the one reminders are sent for.
+   */
+  onSave: (input: { name: string; config: SlotFieldConfig; reminder?: boolean }) => void;
   onCancel: () => void;
   onDelete?: () => void;
 };
@@ -34,14 +42,31 @@ function defaultConfigFor(type: FieldType): SlotFieldConfig {
   }
 }
 
-export function InlineFieldForm({ formMode, onSave, onCancel, onDelete }: InlineFieldFormProps) {
+export function InlineFieldForm({
+  formMode,
+  reminderFieldRef,
+  reminderFieldLabel,
+  onSave,
+  onCancel,
+  onDelete,
+}: InlineFieldFormProps) {
   const isEdit = formMode.mode === 'edit';
   const initialName = isEdit ? formMode.field.name : '';
   const initialType: FieldType = isEdit ? formMode.field.config.fieldType : 'text';
+  const editingRef = isEdit ? formMode.field.ref : null;
 
   const [name, setName] = useState(initialName);
   const [type, setType] = useState<FieldType>(initialType);
+  const [reminder, setReminder] = useState(isEdit && reminderFieldRef === editingRef);
   const nameRef = useRef<HTMLInputElement>(null);
+  const reminderTitleId = useId();
+  const reminderHelpId = useId();
+  const reminderNoteId = useId();
+
+  // Only one date field per signup carries the reminder. Creating a field
+  // never shows the control: the server anchors the first date field itself.
+  const showReminder = isEdit && type === 'date';
+  const reminderBlocked = reminderFieldRef !== null && reminderFieldRef !== editingRef;
 
   useEffect(() => {
     nameRef.current?.focus();
@@ -56,7 +81,7 @@ export function InlineFieldForm({ formMode, onSave, onCancel, onDelete }: Inline
       isEdit && formMode.field.config.fieldType === type
         ? formMode.field.config
         : defaultConfigFor(type);
-    onSave({ name: trimmed, config });
+    onSave(showReminder ? { name: trimmed, config, reminder } : { name: trimmed, config });
   };
 
   return (
@@ -121,6 +146,55 @@ export function InlineFieldForm({ formMode, onSave, onCancel, onDelete }: Inline
           })}
         </div>
       </div>
+
+      {showReminder && (
+        <div className="border-t border-surface-sunk pt-2.5 mb-2.5">
+          <label
+            className={
+              'flex items-start gap-2 ' +
+              (reminderBlocked ? 'opacity-[0.55] cursor-not-allowed' : 'cursor-pointer')
+            }
+          >
+            {/*
+              Named by the title alone; the helper is a description. Left to
+              the wrapping label, the checkbox's name would be both sentences.
+            */}
+            <input
+              type="checkbox"
+              checked={reminder}
+              disabled={reminderBlocked}
+              onChange={(e) => setReminder(e.target.checked)}
+              aria-labelledby={reminderTitleId}
+              aria-describedby={reminderBlocked ? reminderNoteId : reminderHelpId}
+              className="mt-px h-3.5 w-3.5 shrink-0 rounded border-surface-sunk text-brand focus:ring-1 focus:ring-brand disabled:cursor-not-allowed"
+            />
+            <span className="flex flex-col gap-0.5">
+              <span id={reminderTitleId} className="text-[11px] font-medium text-ink">
+                Send a reminder email before this date
+              </span>
+              {!reminderBlocked && (
+                <span id={reminderHelpId} className="text-[11px] leading-[1.35] text-ink-muted">
+                  Sent the day before. One date field per signup drives reminders, and
+                  participants can opt out of any reminder they get.
+                </span>
+              )}
+            </span>
+          </label>
+          {reminderBlocked && (
+            <div
+              id={reminderNoteId}
+              role="note"
+              className="mt-2 flex items-start gap-1.5 rounded-md bg-brand/10 px-2.5 py-2 text-[11px] leading-[1.35] text-ink-muted"
+            >
+              <Info size={12} className="mt-px shrink-0 text-brand" aria-hidden="true" />
+              <span>
+                <strong className="font-medium text-ink">{reminderFieldLabel}</strong> is already
+                the reminder field for this signup. Turn it off there to use this one instead.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-3 flex items-center justify-between">
         <div>

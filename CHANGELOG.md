@@ -17,6 +17,7 @@ All notable changes to OpenSignup are documented here. Format follows [Keep a Ch
 - AGPL-3.0 license.
 
 ### Changed
+- Reminders are set on the date field itself: the field editor on the Build tab has a "Send a reminder email before this date" checkbox, one date field per signup carries it (a bell marks it in the fields list), and the Settings tab's reminders card is gone — Settings keeps only the danger zone.
 - Reminders go out a fixed 24 hours before a slot. The per-signup lead time (`reminderLeadHours`, 2/24/48/72h) is gone: `slot_at` pins the organizer's wall clock to UTC because a signup carries no timezone, so a short lead was wrong by the organizer's UTC offset, and a longer one was rarely what anyone meant. Migration `0005` drops the stored value; `sendReminders` remains the only off switch.
 - `settings.reminderFromFieldRef` is now always the date field slots take their instant from — calendar links, date ordering and reminder timing all read it. It is set on creation (the first date field), moved by the field services when that field is deleted or retyped, and refused by `PATCH /api/signups/[id]` when it names anything else; an omitted key keeps the current anchor instead of clearing it. Migration `0005` pins it on existing signups and rebuilds `slot_at` where the old auto-pick had resolved to nothing.
 - The reminder time-of-day field is paired with the chosen date field rather than picked globally, so a return date can no longer be stamped with a departure time.
