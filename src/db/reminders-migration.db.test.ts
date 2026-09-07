@@ -19,6 +19,9 @@ import { listFieldsForSignup } from '@/services/slot-fields';
  * the migration's statements against hand-built legacy rows inside a
  * transaction that is always rolled back, and checks the SQL lands exactly
  * where the TypeScript would.
+ *
+ * 0005 still anchors a date-only slot at midnight UTC, as it did when it
+ * shipped; migration 0006 moves those rows to noon afterwards.
  */
 const MIGRATION = readFileSync(
   path.resolve(__dirname, 'migrations/0005_reminders_day_before.sql'),

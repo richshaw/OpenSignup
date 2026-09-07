@@ -120,7 +120,9 @@ export async function commitToSlot(
       return err(serviceError('closed', 'signup has closed'));
     }
 
-    // Lockout before slot if configured
+    // Lockout before slot if configured. Counted back from slot_at, so for a
+    // date-only slot it is measured from the noon-UTC anchor rather than from
+    // midnight (see extractSlotAt). No UI sets lockoutHoursBeforeSlot today.
     const settings = (signupRow.settings ?? {}) as { lockoutHoursBeforeSlot?: number };
     if (slot.slotAt && settings.lockoutHoursBeforeSlot && settings.lockoutHoursBeforeSlot > 0) {
       const lockoutMs = settings.lockoutHoursBeforeSlot * 3600 * 1000;

@@ -136,4 +136,64 @@ describe('buildIcs', () => {
     expect(ics).toContain('URL:https://opensignup.org/s/team/c/com_x?token=abc');
     expect(ics).toContain('LOCATION:Main gym');
   });
+
+  describe('all-day events', () => {
+    it('exports VALUE=DATE with an exclusive next-day end instead of a timed noon event', () => {
+      // A date-only slot is stored at 12:00Z. As a timed event that is 5am in
+      // Los Angeles and 10pm in Sydney; as an all-day event it is the day.
+      const ics = buildIcs({
+        uid: 'com_x@opensignup.org',
+        title: 'Bake sale',
+        start: new Date('2026-05-02T12:00:00Z'),
+        allDay: true,
+        now: new Date('2026-04-30T12:00:00Z'),
+      });
+      const lines = ics.split('\r\n');
+      expect(lines).toContain('DTSTART;VALUE=DATE:20260502');
+      expect(lines).toContain('DTEND;VALUE=DATE:20260503');
+      const when = lines.filter((l) => l.startsWith('DTSTART') || l.startsWith('DTEND'));
+      expect(when).toHaveLength(2);
+      expect(ics).not.toContain('DTSTART:');
+      // DTSTAMP is still an instant.
+      expect(ics).toContain('DTSTAMP:20260430T120000Z');
+    });
+
+    it('rolls the end date over a month and a year boundary', () => {
+      const ics = buildIcs({
+        uid: 'com_x@opensignup.org',
+        title: 'New Year',
+        start: new Date('2026-12-31T12:00:00Z'),
+        allDay: true,
+        now: new Date('2026-04-30T12:00:00Z'),
+      });
+      expect(ics).toContain('DTSTART;VALUE=DATE:20261231');
+      expect(ics).toContain('DTEND;VALUE=DATE:20270101');
+    });
+
+    it('ignores an explicit end for an all-day event', () => {
+      const ics = buildIcs({
+        uid: 'com_x@opensignup.org',
+        title: 'Bake sale',
+        start: new Date('2026-05-02T12:00:00Z'),
+        end: new Date('2026-05-02T13:00:00Z'),
+        allDay: true,
+        now: new Date('2026-04-30T12:00:00Z'),
+      });
+      expect(ics).toContain('DTEND;VALUE=DATE:20260503');
+      expect(ics).not.toContain('DTEND:');
+    });
+
+    it('still exports a timed event when allDay is false', () => {
+      const ics = buildIcs({
+        uid: 'com_x@opensignup.org',
+        title: 'Noon shift',
+        start: new Date('2026-05-02T12:00:00Z'),
+        allDay: false,
+        now: new Date('2026-04-30T12:00:00Z'),
+      });
+      expect(ics).toContain('DTSTART:20260502T120000Z');
+      expect(ics).toContain('DTEND:20260502T130000Z');
+      expect(ics).not.toContain('VALUE=DATE');
+    });
+  });
 });

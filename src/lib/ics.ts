@@ -6,6 +6,13 @@ export interface IcsEventInput {
   url?: string;
   start: Date;
   end?: Date;
+  /**
+   * Export as an all-day event on `start`'s UTC calendar day (RFC 5545
+   * `VALUE=DATE`), ignoring `end` and `start`'s time of day. A date-only slot
+   * is stored at noon UTC (see `extractSlotAt`); exported as a timed event it
+   * would land at 5am in Los Angeles and 10pm in Sydney.
+   */
+  allDay?: boolean;
   now?: Date;
 }
 
@@ -15,11 +22,20 @@ function pad(n: number): string {
   return n.toString().padStart(2, '0');
 }
 
+function formatUtcDate(d: Date): string {
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
+}
+
 function formatUtc(d: Date): string {
   return (
-    `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}` +
+    formatUtcDate(d) +
     `T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`
   );
+}
+
+/** The calendar day after `d`, in UTC. An all-day event's DTEND is exclusive. */
+function nextUtcDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1));
 }
 
 function escapeText(value: string): string {
@@ -68,8 +84,16 @@ function foldLine(line: string): string {
 
 export function buildIcs(input: IcsEventInput): string {
   const start = input.start;
-  const end = input.end ?? new Date(start.getTime() + 60 * 60 * 1000);
   const now = input.now ?? new Date();
+  const when = input.allDay
+    ? [
+        `DTSTART;VALUE=DATE:${formatUtcDate(start)}`,
+        `DTEND;VALUE=DATE:${formatUtcDate(nextUtcDay(start))}`,
+      ]
+    : [
+        `DTSTART:${formatUtc(start)}`,
+        `DTEND:${formatUtc(input.end ?? new Date(start.getTime() + 60 * 60 * 1000))}`,
+      ];
 
   const rawLines = [
     'BEGIN:VCALENDAR',
@@ -80,8 +104,7 @@ export function buildIcs(input: IcsEventInput): string {
     'BEGIN:VEVENT',
     `UID:${stripBreaks(input.uid)}`,
     `DTSTAMP:${formatUtc(now)}`,
-    `DTSTART:${formatUtc(start)}`,
-    `DTEND:${formatUtc(end)}`,
+    ...when,
     `SUMMARY:${escapeText(input.title)}`,
   ];
   if (input.description) rawLines.push(`DESCRIPTION:${escapeText(input.description)}`);

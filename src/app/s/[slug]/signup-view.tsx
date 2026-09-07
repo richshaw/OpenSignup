@@ -122,6 +122,28 @@ function titleFor(
   return value || 'Untitled slot';
 }
 
+/**
+ * Whether the slot carries a time of its own, which decides whether "Add to
+ * calendar" exports a timed or an all-day event. A date-only slot's `slotAt`
+ * is a noon-UTC anchor (see `extractSlotAt`), not a time anyone typed.
+ *
+ * Any time field holding a real HH:MM counts — the same test `slotTimeOfDay`
+ * applies on the server, so a blank or malformed legacy value does not turn an
+ * all-day export into a timed one. The view carries neither sort orders nor
+ * the anchor ref, so it cannot replay the server's pairing rule; the two only
+ * disagree on a signup with several time fields of which only some are filled
+ * in.
+ */
+const REAL_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function slotHasTime(slot: SignupViewSlot, fields: readonly SignupViewField[]): boolean {
+  return fields.some((f) => {
+    if (f.fieldType !== 'time') return false;
+    const value = slot.values[f.ref];
+    return typeof value === 'string' && REAL_TIME.test(value);
+  });
+}
+
 export function SignupViewBody({
   signup,
   fields,
@@ -269,6 +291,7 @@ export function SignupViewBody({
                             slotId={slot.id}
                             slotTitle={title}
                             slotAt={slot.slotAt}
+                            slotHasTime={slotHasTime(slot, fields)}
                             signupTitle={signup.title}
                             slug={slug}
                           />

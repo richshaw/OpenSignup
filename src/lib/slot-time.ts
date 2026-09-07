@@ -3,12 +3,14 @@
  *
  * `extractSlotAt()` builds slot_at as `${date}T${time}.000Z` — the organizer's
  * wall-clock date and time pinned to UTC, because a signup carries no timezone
- * of its own. The instant is therefore only meaningful when read back in UTC:
- * formatting it in the server's local zone shifts the displayed day by the host
- * offset, so a worker in UTC-7 would tell a participant their Saturday morning
- * slot is on Friday. `src/app/s/[slug]/slot-format.ts` avoids the same trap on
- * the public page by constructing a local-midnight Date; emails render from the
- * stored instant instead, so they pin the formatter to UTC.
+ * of its own — and anchors a date-only slot at `12:00:00Z`, so its day-before
+ * reminder lands on the day before in every timezone. The instant is therefore
+ * only meaningful when read back in UTC: formatting it in the server's local
+ * zone shifts the displayed day by the host offset, so a worker in UTC-7 would
+ * tell a participant their Saturday morning slot is on Friday.
+ * `src/app/s/[slug]/slot-format.ts` avoids the same trap on the public page by
+ * constructing a local-midnight Date; emails render from the stored instant
+ * instead, so they pin the formatter to UTC.
  */
 
 const DATE_PARTS: Intl.DateTimeFormatOptions = {
@@ -26,23 +28,20 @@ const TIME_PARTS: Intl.DateTimeFormatOptions = {
 
 /**
  * Renders a slot instant as the organizer typed it, e.g.
- * `Saturday, September 6 at 6:00 PM`.
+ * `Saturday, September 6 at 6:00 PM`, or the date alone when the slot has no
+ * time of its own.
  *
- * Pass `hasTime` when the caller knows whether the slot carries a time of its
- * own — `slotTimeOfDay()` in src/services/slot-fields.ts answers that from the
- * field definitions. Without it this falls back to reading midnight as
- * date-only, which is right for the common case but wrong for a genuine
- * midnight slot: `extractSlotAt` defaults an absent time to `00:00:00`, so the
- * stored instant alone cannot tell the two apart.
+ * `hasTime` is required because the instant cannot answer it: a date-only slot
+ * is stored at noon UTC, byte-for-byte what a genuine `12:00` slot produces.
+ * `slotTimeOfDay()` in src/services/slot-fields.ts answers it from the field
+ * definitions and the slot's values.
  */
 export function formatSlotWhen(
   slotAt: Date | null | undefined,
-  opts: { hasTime?: boolean } = {},
+  opts: { hasTime: boolean },
 ): string | null {
   if (!slotAt || Number.isNaN(slotAt.getTime())) return null;
   const date = slotAt.toLocaleDateString('en-US', DATE_PARTS);
-  const atMidnight = slotAt.getUTCHours() === 0 && slotAt.getUTCMinutes() === 0;
-  const dateOnly = opts.hasTime === undefined ? atMidnight : !opts.hasTime;
-  if (dateOnly) return date;
+  if (!opts.hasTime) return date;
   return `${date} at ${slotAt.toLocaleTimeString('en-US', TIME_PARTS)}`;
 }

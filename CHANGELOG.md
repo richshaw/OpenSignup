@@ -34,3 +34,4 @@ All notable changes to OpenSignup are documented here. Format follows [Keep a Ch
 - The privacy, terms, and cookies pages now declare a self-referencing canonical URL.
 - `/login` and `/login/check` now render the site footer, so both link to the privacy policy and terms.
 - Slot `date` and `time` values are validated as real dates and times, not just as shapes: `2026-13-45`, `2026-02-30` and `99:99` are rejected on the way in, and `extractSlotAt` never stores an Invalid Date.
+- A date-only slot is anchored at noon UTC rather than midnight, so its day-before reminder lands on the day before in every timezone from UTC-11 to UTC+11 (it used to arrive two days early for organizers west of Greenwich). Its calendar export is now an all-day event rather than a timed one at 12:00Z. Migration `0006` moves existing date-only slots.

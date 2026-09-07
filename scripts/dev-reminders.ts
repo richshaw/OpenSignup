@@ -15,7 +15,6 @@ config({ path: '.env.local' });
 config({ path: '.env' });
 
 import { getDb } from '@/db/client';
-import { formatSlotWhen } from '@/lib/slot-time';
 import { dispatchReminders, selectDueReminders } from '@/jobs/reminders';
 
 async function main(): Promise<void> {
@@ -35,7 +34,10 @@ async function main(): Promise<void> {
     for (const r of due) {
       console.log(`  ${r.participantEmail}`);
       console.log(`    ${r.signupTitle} · ${r.slotRef}`);
-      console.log(`    ${formatSlotWhen(r.slotAt) ?? 'no date'}  [${r.commitmentId}]`);
+      // The raw instant rather than formatSlotWhen: the dispatcher row carries
+      // no field definitions to say whether the slot has a time, and the ISO
+      // form is what the database holds (a date-only slot sits at 12:00Z).
+      console.log(`    ${r.slotAt?.toISOString() ?? 'no date'}  [${r.commitmentId}]`);
     }
     console.log('');
   }

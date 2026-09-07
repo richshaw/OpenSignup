@@ -371,7 +371,7 @@ describe('slot-fields service (db)', () => {
       expect(r.ok).toBe(true);
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
-      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T00:00:00.000Z');
+      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T12:00:00.000Z');
     });
   });
 
@@ -402,7 +402,7 @@ describe('slot-fields service (db)', () => {
         values: { 'field-a': '2026-05-10', 'field-b': '2026-06-15' },
       });
       if (!slot.ok) throw new Error('slot setup failed');
-      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T00:00:00.000Z');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T12:00:00.000Z');
 
       const settingsB = await updateSignup(fx.db, fx.actor, sigId, {
         settings: { reminderFromFieldRef: 'field-b' },
@@ -410,7 +410,7 @@ describe('slot-fields service (db)', () => {
       expect(settingsB.ok).toBe(true);
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
-      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T00:00:00.000Z');
+      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T12:00:00.000Z');
     });
   });
 
@@ -441,7 +441,7 @@ describe('slot-fields service (db)', () => {
         values: { when: '2026-06-15' },
       });
       expect(edited.ok).toBe(true);
-      expect(edited.ok && edited.value.slotAt?.toISOString()).toBe('2026-06-15T00:00:00.000Z');
+      expect(edited.ok && edited.value.slotAt?.toISOString()).toBe('2026-06-15T12:00:00.000Z');
     });
 
     it('leaves the anchor alone when a second date field is added', async () => {
@@ -482,7 +482,7 @@ describe('slot-fields service (db)', () => {
         values: { a: '2026-05-10', b: '2026-06-15' },
       });
       if (!slot.ok) throw new Error('slot setup failed');
-      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T00:00:00.000Z');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T12:00:00.000Z');
 
       const retyped = await updateField(fx.db, fx.actor, a.value.id, {
         fieldType: 'text',
@@ -492,7 +492,7 @@ describe('slot-fields service (db)', () => {
       expect(await anchorOf(sigId)).toBe('b');
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
-      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T00:00:00.000Z');
+      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T12:00:00.000Z');
     });
 
     it('rebuilds slot_at when a time field is deleted, not only the date field', async () => {
@@ -521,7 +521,7 @@ describe('slot-fields service (db)', () => {
       expect(await anchorOf(sigId)).toBe('day');
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
-      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T00:00:00.000Z');
+      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T12:00:00.000Z');
     });
 
     it('keeps the template anchor a signup was created with', async () => {

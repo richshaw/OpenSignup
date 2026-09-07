@@ -3,13 +3,17 @@ import { formatSlotWhen } from './slot-time';
 
 describe('formatSlotWhen', () => {
   it('renders a dated slot with its time', () => {
-    expect(formatSlotWhen(new Date('2026-09-05T18:30:00.000Z'))).toBe(
+    expect(formatSlotWhen(new Date('2026-09-05T18:30:00.000Z'), { hasTime: true })).toBe(
       'Saturday, September 5 at 6:30 PM',
     );
   });
 
-  it('drops the time for a date-only slot rather than showing 12:00 AM', () => {
-    expect(formatSlotWhen(new Date('2026-09-05T00:00:00.000Z'))).toBe('Saturday, September 5');
+  it('drops the time for a date-only slot rather than showing its noon anchor', () => {
+    // extractSlotAt stores a date-only slot at 12:00Z. Nobody typed that time,
+    // so nobody should read it.
+    expect(formatSlotWhen(new Date('2026-09-05T12:00:00.000Z'), { hasTime: false })).toBe(
+      'Saturday, September 5',
+    );
   });
 
   it('reads the instant back in UTC regardless of the host timezone', () => {
@@ -18,7 +22,7 @@ describe('formatSlotWhen', () => {
     const original = process.env.TZ;
     try {
       process.env.TZ = 'America/Los_Angeles';
-      expect(formatSlotWhen(new Date('2026-09-06T02:00:00.000Z'))).toBe(
+      expect(formatSlotWhen(new Date('2026-09-06T02:00:00.000Z'), { hasTime: true })).toBe(
         'Sunday, September 6 at 2:00 AM',
       );
     } finally {
@@ -30,9 +34,15 @@ describe('formatSlotWhen', () => {
     }
   });
 
-  it('shows the time for a genuine midnight slot when the caller knows there is one', () => {
-    // A signup with a time field set to 00:00 stores exactly what a date-only
+  it('shows the time for a genuine noon slot when the caller says there is one', () => {
+    // A signup with a time field set to 12:00 stores exactly what a date-only
     // slot stores, so the instant alone cannot tell them apart. The caller can.
+    expect(formatSlotWhen(new Date('2026-09-05T12:00:00.000Z'), { hasTime: true })).toBe(
+      'Saturday, September 5 at 12:00 PM',
+    );
+  });
+
+  it('shows the time for a genuine midnight slot', () => {
     expect(formatSlotWhen(new Date('2026-09-05T00:00:00.000Z'), { hasTime: true })).toBe(
       'Saturday, September 5 at 12:00 AM',
     );
@@ -45,8 +55,8 @@ describe('formatSlotWhen', () => {
   });
 
   it('returns null for a missing or invalid instant', () => {
-    expect(formatSlotWhen(null)).toBeNull();
-    expect(formatSlotWhen(undefined)).toBeNull();
-    expect(formatSlotWhen(new Date('nonsense'))).toBeNull();
+    expect(formatSlotWhen(null, { hasTime: false })).toBeNull();
+    expect(formatSlotWhen(undefined, { hasTime: true })).toBeNull();
+    expect(formatSlotWhen(new Date('nonsense'), { hasTime: true })).toBeNull();
   });
 });
