@@ -25,7 +25,7 @@ type FieldsPopoverProps = {
   onUpdateField: (
     fieldId: string,
     patch: { name?: string; config?: SlotFieldConfig },
-  ) => Promise<void> | void;
+  ) => Promise<void>;
   onDeleteField: (fieldId: string) => void;
   onMoveField: (fieldId: string, toIdx: number) => void;
   onGroupByChange: (ref: string | null) => void;
@@ -92,9 +92,7 @@ export function FieldsPopover({
                     if (turnOn || turnOff) {
                       // After the field save, never alongside it: the settings
                       // PATCH names this field as a date field.
-                      void Promise.resolve(updated).then(() =>
-                        onSetReminder(turnOn ? field.ref : null),
-                      );
+                      void updated.then(() => onSetReminder(turnOn ? field.ref : null));
                     }
                   }
                 } else {

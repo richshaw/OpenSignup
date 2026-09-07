@@ -61,6 +61,7 @@ export function InlineFieldForm({
   const nameRef = useRef<HTMLInputElement>(null);
   const reminderTitleId = useId();
   const reminderHelpId = useId();
+  const reminderNoteId = useId();
 
   // Only one date field per signup carries the reminder. Creating a field
   // never shows the control: the server anchors the first date field itself.
@@ -164,7 +165,7 @@ export function InlineFieldForm({
               disabled={reminderBlocked}
               onChange={(e) => setReminder(e.target.checked)}
               aria-labelledby={reminderTitleId}
-              aria-describedby={reminderBlocked ? undefined : reminderHelpId}
+              aria-describedby={reminderBlocked ? reminderNoteId : reminderHelpId}
               className="mt-px h-3.5 w-3.5 shrink-0 rounded border-surface-sunk text-brand focus:ring-1 focus:ring-brand disabled:cursor-not-allowed"
             />
             <span className="flex flex-col gap-0.5">
@@ -181,6 +182,7 @@ export function InlineFieldForm({
           </label>
           {reminderBlocked && (
             <div
+              id={reminderNoteId}
               role="note"
               className="mt-2 flex items-start gap-1.5 rounded-md bg-brand/10 px-2.5 py-2 text-[11px] leading-[1.35] text-ink-muted"
             >

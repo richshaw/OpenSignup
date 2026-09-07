@@ -19,7 +19,7 @@ function makeField(overrides: Partial<GridField> = {}): GridField {
 type UpdateFieldFn = (
   fieldId: string,
   patch: { name?: string; config?: SlotFieldConfig },
-) => Promise<void> | void;
+) => Promise<void>;
 
 type RenderProps = {
   fields?: GridField[];
@@ -38,7 +38,7 @@ type RenderProps = {
 function renderPopover(overrides: RenderProps = {}) {
   const onOpenChange = overrides.onOpenChange ?? vi.fn<(open: boolean) => void>();
   const onAddField = overrides.onAddField ?? vi.fn<(name: string, config: SlotFieldConfig) => void>();
-  const onUpdateField = overrides.onUpdateField ?? vi.fn<UpdateFieldFn>();
+  const onUpdateField = overrides.onUpdateField ?? vi.fn<UpdateFieldFn>(async () => {});
   const onDeleteField = overrides.onDeleteField ?? vi.fn<(fieldId: string) => void>();
   const onMoveField = overrides.onMoveField ?? vi.fn<(fieldId: string, toIdx: number) => void>();
   const onGroupByChange = overrides.onGroupByChange ?? vi.fn<(ref: string | null) => void>();
@@ -197,7 +197,7 @@ describe('FieldsPopover', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add field' }));
     expect(screen.getByText('New field')).toBeTruthy();
     const noopOpen = vi.fn<(open: boolean) => void>();
-    const noopUpdate = vi.fn<UpdateFieldFn>();
+    const noopUpdate = vi.fn<UpdateFieldFn>(async () => {});
     const noopDelete = vi.fn<(fieldId: string) => void>();
     const noopMove = vi.fn<(fieldId: string, toIdx: number) => void>();
     const noopGroupBy = vi.fn<(ref: string | null) => void>();
