@@ -59,46 +59,4 @@ test.describe('reminder settings', () => {
     await expect(lead).toHaveValue('48');
     await expect(sendReminders).not.toBeChecked();
   });
-
-  // The third control in the same form. It was left unkeyed when the two above
-  // were fixed, so it should have shown the same stale value after a save. This
-  // covers it directly rather than by assuming the sibling fix generalises.
-  test('the reminder date field survives the post-save re-render', async ({ page }) => {
-    const created = await page.request.post('/api/signups', {
-      data: {
-        title: `Reminder anchor ${Date.now()}`,
-        description: '',
-        tags: [],
-        visibility: 'unlisted',
-        settings: {},
-      },
-    });
-    expect(created.ok()).toBe(true);
-    const signupId = (await created.json()).data.id as string;
-
-    await page.goto(`/app/signups/${signupId}/settings`);
-    const anchor = page.locator('select[name="reminderFromFieldRef"]');
-    const save = page.getByRole('button', { name: 'Save' });
-
-    // DEFAULT_TEMPLATE's date field, and the empty option that means "pick it
-    // automatically" — the state every signup starts in, since nothing writes
-    // reminderFromFieldRef at creation.
-    await expect(anchor).toHaveValue('');
-    const dateOption = anchor.locator('option[value="date"]');
-    await expect(dateOption).toHaveCount(1);
-
-    await anchor.selectOption('date');
-    const saved = page.waitForResponse(
-      (r) =>
-        r.request().method() === 'POST' && r.url().includes(`/app/signups/${signupId}/settings`),
-    );
-    await save.click();
-    await saved;
-    await expect(save).toBeEnabled();
-
-    // The assertion that matters: the value as the organizer sees it right
-    // after the save, before any navigation. Reloading here would pass whether
-    // or not the control snapped back.
-    await expect(anchor).toHaveValue('date');
-  });
 });

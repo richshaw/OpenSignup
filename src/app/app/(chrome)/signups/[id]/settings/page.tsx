@@ -100,8 +100,23 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
           </label>
           <label className="block">
             <span className="mb-1 block text-sm font-medium">Reminder date field</span>
+            {/*
+              Keyed on the saved value so a save remounts this select.
+
+              React resets a form's uncontrolled fields once its action
+              resolves, and that reset restores each control to its DOM default
+              — for a select, the option carrying the `selected` attribute.
+              React writes that attribute from `defaultValue` at mount and
+              leaves it alone on re-render, so a freshly re-rendered
+              `defaultValue` never reached the DOM: saving "Date" wrote the row,
+              then the reset snapped the control back to whatever was selected
+              when the page loaded, and only a reload showed the truth.
+              Changing the key remounts the select, which is what makes the new
+              default take effect. Any uncontrolled control added to this form
+              needs the same treatment.
+            */}
             <select
-              key={`reminder:${reminderRef}`}
+              key={reminderRef}
               name="reminderFromFieldRef"
               defaultValue={reminderRef}
               className="block min-h-[42px] w-full appearance-none rounded-lg border border-surface-sunk bg-white px-3 py-2 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
