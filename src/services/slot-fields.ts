@@ -341,21 +341,26 @@ export async function deleteField(
   if (!existing) return err(serviceError('not_found', 'field not found'));
   requireWorkspaceWrite(actor, existing.workspaceId);
 
-  const signupRow = await db
-    .select({ settings: signups.settings })
-    .from(signups)
-    .where(eq(signups.id, existing.signupId))
-    .limit(1)
-    .then((r) => r[0]);
-  const currentSettings =
-    (signupRow?.settings as {
-      groupByFieldRefs?: string[];
-      [k: string]: unknown;
-    }) ?? {};
-  const groupBy = currentSettings.groupByFieldRefs ?? [];
-  const removedFromGroupBy = groupBy.includes(existing.ref);
-
   await db.transaction(async (tx) => {
+    // Settings are read and rewritten inside the transaction, under a row
+    // lock: read outside it, a settings save landing in between would be
+    // overwritten here with a stale copy. The lock also serialises the
+    // re-anchor below against a concurrent add or retype on the same signup.
+    const signupRow = await tx
+      .select({ settings: signups.settings })
+      .from(signups)
+      .where(eq(signups.id, existing.signupId))
+      .for('update')
+      .limit(1)
+      .then((r) => r[0]);
+    const currentSettings =
+      (signupRow?.settings as {
+        groupByFieldRefs?: string[];
+        [k: string]: unknown;
+      }) ?? {};
+    const groupBy = currentSettings.groupByFieldRefs ?? [];
+    const removedFromGroupBy = groupBy.includes(existing.ref);
+
     if (removedFromGroupBy) {
       await tx
         .update(signups)
