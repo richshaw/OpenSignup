@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { ChevronDown, GripVertical, List, Plus, X } from 'lucide-react';
+import { Bell, ChevronDown, GripVertical, List, Plus, X } from 'lucide-react';
 import { FIELD_TYPE_META } from '../build-grid/fieldTypes';
 import { useReorderable } from '../build-grid/useReorderable';
 import type { GridField } from '../build-grid/useGridState';
@@ -14,11 +14,22 @@ type FieldsPopoverProps = {
   onOpenChange: (open: boolean) => void;
   fields: GridField[];
   groupByFieldRef: string | null;
+  /** Ref of the date field reminders are sent for, or null when they are off. */
+  reminderFieldRef: string | null;
   onAddField: (name: string, config: SlotFieldConfig) => void;
-  onUpdateField: (fieldId: string, patch: { name?: string; config?: SlotFieldConfig }) => void;
+  /**
+   * Returns the save's promise so a reminder change can wait for it: the
+   * server checks the reminder field is a date field, so a retype must land
+   * before the settings PATCH that names it.
+   */
+  onUpdateField: (
+    fieldId: string,
+    patch: { name?: string; config?: SlotFieldConfig },
+  ) => Promise<void> | void;
   onDeleteField: (fieldId: string) => void;
   onMoveField: (fieldId: string, toIdx: number) => void;
   onGroupByChange: (ref: string | null) => void;
+  onSetReminder: (ref: string | null) => void;
 };
 
 export function FieldsPopover({
@@ -26,14 +37,19 @@ export function FieldsPopover({
   onOpenChange,
   fields,
   groupByFieldRef,
+  reminderFieldRef,
   onAddField,
   onUpdateField,
   onDeleteField,
   onMoveField,
   onGroupByChange,
+  onSetReminder,
 }: FieldsPopoverProps) {
   // null = list view; otherwise inline-edit view (create or edit existing).
   const [formMode, setFormMode] = useState<InlineFieldFormMode | null>(null);
+  const reminderField = reminderFieldRef
+    ? (fields.find((f) => f.ref === reminderFieldRef) ?? null)
+    : null;
 
   // Reset back to the list view whenever the modal is closed/reopened so a
   // half-finished create state doesn't leak across mounts.
@@ -63,10 +79,24 @@ export function FieldsPopover({
           {formMode ? (
             <InlineFieldForm
               formMode={formMode}
+              reminderFieldRef={reminderFieldRef}
+              reminderFieldLabel={reminderField?.name ?? null}
               onCancel={() => setFormMode(null)}
-              onSave={({ name, config }) => {
+              onSave={({ name, config, reminder }) => {
                 if (formMode.mode === 'edit') {
-                  onUpdateField(formMode.field.id, { name, config });
+                  const field = formMode.field;
+                  const updated = onUpdateField(field.id, { name, config });
+                  if (reminder !== undefined) {
+                    const turnOn = reminder && reminderFieldRef !== field.ref;
+                    const turnOff = !reminder && reminderFieldRef === field.ref;
+                    if (turnOn || turnOff) {
+                      // After the field save, never alongside it: the settings
+                      // PATCH names this field as a date field.
+                      void Promise.resolve(updated).then(() =>
+                        onSetReminder(turnOn ? field.ref : null),
+                      );
+                    }
+                  }
                 } else {
                   onAddField(name, config);
                 }
@@ -85,6 +115,7 @@ export function FieldsPopover({
             <FieldsListView
               fields={fields}
               groupByFieldRef={groupByFieldRef}
+              reminderFieldRef={reminderFieldRef}
               onDelete={onDeleteField}
               onMoveField={onMoveField}
               onGroupByChange={onGroupByChange}
@@ -120,6 +151,7 @@ function FieldsPopoverHeader({ title }: { title: string }) {
 type FieldsListViewProps = {
   fields: GridField[];
   groupByFieldRef: string | null;
+  reminderFieldRef: string | null;
   onDelete: (fieldId: string) => void;
   onMoveField: (fieldId: string, toIdx: number) => void;
   onGroupByChange: (ref: string | null) => void;
@@ -130,6 +162,7 @@ type FieldsListViewProps = {
 function FieldsListView({
   fields,
   groupByFieldRef,
+  reminderFieldRef,
   onDelete,
   onMoveField,
   onGroupByChange,
@@ -214,6 +247,16 @@ function FieldsListView({
               >
                 {f.name}
               </button>
+              {f.ref === reminderFieldRef && (
+                <span
+                  role="img"
+                  title="Reminders sent the day before this date"
+                  aria-label="Reminders sent the day before this date"
+                  className="inline-flex items-center justify-center p-[3px] text-ink-soft"
+                >
+                  <Bell size={11} />
+                </span>
+              )}
               <span className="text-[11px] text-ink-soft">
                 {enumChoiceCount > 0
                   ? `${FIELD_TYPE_META[fieldType].label} · ${enumChoiceCount}`

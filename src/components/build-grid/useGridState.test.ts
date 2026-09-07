@@ -33,6 +33,7 @@ const makeState = (overrides: Partial<GridState> = {}): GridState => ({
   fields: [],
   rows: [],
   groupByFieldRef: null,
+  reminderFieldRef: null,
   previewRowIdx: 0,
   showPreview: false,
   saveStatus: { kind: 'idle' },
@@ -1187,5 +1188,193 @@ describe('useGridState unmount flush', () => {
       values: Record<string, unknown>;
     };
     expect(body.values).toEqual({ name: 'Pending' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setReminderField + reminder state mirroring
+// ---------------------------------------------------------------------------
+
+describe('useGridState setReminderField', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const dateField = makeApiField({
+    id: 'f-date',
+    ref: 'date',
+    label: 'Date',
+    fieldType: 'date',
+    sortOrder: 1,
+    config: { fieldType: 'date' },
+  });
+  const textField = makeApiField({ id: 'f-what', ref: 'what', label: 'What', sortOrder: 0 });
+
+  function settingsPatchBody(fetchMock: ReturnType<typeof vi.fn>): SignupSettings {
+    const patches = fetchMock.mock.calls.filter(
+      (c) => String(c[0]) === '/api/signups/sig_test' && (c[1] as RequestInit).method === 'PATCH',
+    );
+    expect(patches).toHaveLength(1);
+    const body = JSON.parse(String((patches[0]![1] as RequestInit).body)) as { settings: SignupSettings };
+    return body.settings;
+  }
+
+  it('starts from settings: the anchor while reminders are on, null once they are off', () => {
+    const on = renderHook(() =>
+      useGridState('sig_test', [textField, dateField], [], {
+        ...defaultSettings,
+        sendReminders: true,
+        reminderFromFieldRef: 'date',
+      }),
+    );
+    expect(on.result.current.state.reminderFieldRef).toBe('date');
+
+    const off = renderHook(() =>
+      useGridState('sig_test', [textField, dateField], [], {
+        ...defaultSettings,
+        sendReminders: false,
+        reminderFromFieldRef: 'date',
+      }),
+    );
+    expect(off.result.current.state.reminderFieldRef).toBeNull();
+  });
+
+  it('ticking a field PATCHes settings with sendReminders on and that field as the anchor', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useGridState('sig_test', [textField, dateField], [], {
+        ...defaultSettings,
+        sendReminders: false,
+        reminderFromFieldRef: 'date',
+        groupByFieldRefs: ['what'],
+      }),
+    );
+
+    await act(async () => {
+      await result.current.setReminderField('date');
+    });
+
+    const settings = settingsPatchBody(fetchMock);
+    expect(settings.sendReminders).toBe(true);
+    expect(settings.reminderFromFieldRef).toBe('date');
+    // The rest of settings rides along untouched — the service replaces, not merges.
+    expect(settings.groupByFieldRefs).toEqual(['what']);
+    expect(result.current.state.reminderFieldRef).toBe('date');
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('unticking PATCHes sendReminders off but keeps the anchor, which slots still take their instant from', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useGridState('sig_test', [textField, dateField], [], {
+        ...defaultSettings,
+        sendReminders: true,
+        reminderFromFieldRef: 'date',
+      }),
+    );
+    expect(result.current.state.reminderFieldRef).toBe('date');
+
+    await act(async () => {
+      await result.current.setReminderField(null);
+    });
+
+    const settings = settingsPatchBody(fetchMock);
+    expect(settings.sendReminders).toBe(false);
+    expect(settings.reminderFromFieldRef).toBe('date');
+    expect(result.current.state.reminderFieldRef).toBeNull();
+  });
+
+  it('leaves state alone and reports the error when the PATCH is refused', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ error: { code: 'invalid_input', message: 'not a date field' } }, { status: 400 }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useGridState('sig_test', [textField, dateField], [], {
+        ...defaultSettings,
+        sendReminders: false,
+        reminderFromFieldRef: 'date',
+      }),
+    );
+
+    await act(async () => {
+      await result.current.setReminderField('what');
+    });
+
+    expect(result.current.state.reminderFieldRef).toBeNull();
+    expect(result.current.state.saveStatus).toEqual({
+      kind: 'error',
+      code: 'invalid_input',
+      message: 'not a date field',
+    });
+  });
+
+  it('follows the anchor when the reminder field is deleted: the next date field, or off when none is left', async () => {
+    const setupDay = makeApiField({
+      id: 'f-setup',
+      ref: 'setup-day',
+      label: 'Setup day',
+      fieldType: 'date',
+      sortOrder: 2,
+      config: { fieldType: 'date' },
+    });
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useGridState('sig_test', [textField, dateField, setupDay], [], {
+        ...defaultSettings,
+        sendReminders: true,
+        reminderFromFieldRef: 'date',
+      }),
+    );
+
+    await act(async () => {
+      await result.current.deleteField('f-date');
+    });
+    // Same rule as the server: the anchor moves to the first remaining date field.
+    expect(result.current.state.reminderFieldRef).toBe('setup-day');
+
+    await act(async () => {
+      await result.current.deleteField('f-setup');
+    });
+    expect(result.current.state.reminderFieldRef).toBeNull();
+  });
+
+  it('does not switch reminders back on when the anchor moves while they are off', async () => {
+    const setupDay = makeApiField({
+      id: 'f-setup',
+      ref: 'setup-day',
+      label: 'Setup day',
+      fieldType: 'date',
+      sortOrder: 2,
+      config: { fieldType: 'date' },
+    });
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useGridState('sig_test', [textField, dateField, setupDay], [], {
+        ...defaultSettings,
+        sendReminders: false,
+        reminderFromFieldRef: 'date',
+      }),
+    );
+
+    await act(async () => {
+      await result.current.deleteField('f-date');
+    });
+    // The anchor has moved to `setup-day` underneath, but the switch is still off.
+    expect(result.current.state.reminderFieldRef).toBeNull();
+
+    // Turning reminders on now uses the moved anchor, not the deleted field.
+    await act(async () => {
+      await result.current.setReminderField('setup-day');
+    });
+    const settings = settingsPatchBody(fetchMock);
+    expect(settings).toMatchObject({ sendReminders: true, reminderFromFieldRef: 'setup-day' });
+    expect(result.current.state.reminderFieldRef).toBe('setup-day');
   });
 });
