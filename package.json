@@ -65,7 +65,7 @@
   "pnpm": {
     "overrides": {
       "next": "15.5.22",
-      "shell-quote": "1.8.4"
+      "shell-quote": "1.9.0"
     }
   },
   "devDependencies": {
