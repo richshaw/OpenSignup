@@ -16,6 +16,9 @@ All notable changes to OpenSignup are documented here. Format follows [Keep a Ch
 - Pluggable email transport: console, SMTP, Resend.
 - AGPL-3.0 license.
 
+### Changed
+- Removed the orphaned `/app/signups/[id]/fields` and `/app/signups/[id]/slots` pages and the server actions only they used. Neither was reachable from the signup tabs; the Build tab already covers field and slot editing and grouping.
+
 ### Fixed
 - Slot fields added without an explicit `sortOrder` now append instead of landing at position 0. The build page never sends one, so every field it added sorted ahead of the template's date column (`DEFAULT_TEMPLATE` pins it at 1) and reappeared mid-grid after a reload. Appends take a row lock on the signup so two concurrent adds cannot claim the same position.
 - Landing-page JSON-LD no longer declares a `SoftwareApplication`, which Google's rich result requires to carry `aggregateRating` or `review`; it now describes the site and its publisher with `WebSite` + `Organization`.
