@@ -170,7 +170,9 @@ describe('slot-fields service (db)', () => {
     it('appends when sortOrder is omitted', async () => {
       // Regression: the build page adds fields without a sortOrder. While the
       // input schema defaulted that to 0, the new field sorted ahead of
-      // template fields pinned at 1+ and reappeared mid-grid after a reload.
+      // the template's date column (DEFAULT_TEMPLATE pins it at 1) and
+      // reappeared mid-grid after a reload. This signup starts empty, so the
+      // first field is placed explicitly and the second must land after it.
       const sigId = await createTestSignup(fx, 'Append not prepend');
       const first = await addField(fx.db, fx.actor, sigId, {
         ref: 'first',
