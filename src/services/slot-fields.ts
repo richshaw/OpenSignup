@@ -66,7 +66,7 @@ export function slotTimeOfDay(
 ): string | null {
   const { timeField } = findReminderFields(settings, fields);
   const timeVal = timeField ? values[timeField.ref] : undefined;
-  return typeof timeVal === 'string' && /^\d{2}:\d{2}$/.test(timeVal) ? timeVal : null;
+  return typeof timeVal === 'string' && isRealTime(timeVal) ? timeVal : null;
 }
 
 export function extractSlotAt(
@@ -77,9 +77,13 @@ export function extractSlotAt(
   const { dateField } = findReminderFields(settings, fields);
   if (!dateField) return null;
   const dateVal = values[dateField.ref];
-  if (typeof dateVal !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) return null;
+  if (typeof dateVal !== 'string' || !isRealDate(dateVal)) return null;
   const timeOfDay = slotTimeOfDay(settings, fields, values);
-  return new Date(`${dateVal}T${timeOfDay ? `${timeOfDay}:00` : '00:00:00'}.000Z`);
+  const at = new Date(`${dateVal}T${timeOfDay ? `${timeOfDay}:00` : '00:00:00'}.000Z`);
+  // An unparseable instant is null, never an Invalid Date. A NaN date is not
+  // equal to itself, so recomputeSlotAtForSignup's change check never matches
+  // and it would rewrite that row on every single pass, forever.
+  return Number.isNaN(at.getTime()) ? null : at;
 }
 
 /** Re-derive slots.slot_at for every slot in a signup. Safe to call inside a tx. */
@@ -374,6 +378,32 @@ function isMissing(value: unknown): boolean {
   return value === undefined || value === null || value === '';
 }
 
+/**
+ * A YYYY-MM-DD string naming a day that exists.
+ *
+ * The shape regex alone accepts 2026-13-45 and 2026-02-30, which reach
+ * `new Date()` as an Invalid Date (or, for 02-30, silently roll into March).
+ * Checking the parts round-trip rejects both.
+ */
+function isRealDate(value: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  // Not `Date.UTC(y, …)`: it reads years 0–99 as 1900–1999, so a genuine
+  // 0099-12-31 would fail the round trip below. setUTCFullYear takes the year
+  // as written.
+  const at = new Date(0);
+  at.setUTCFullYear(y, mo - 1, d);
+  return at.getUTCFullYear() === y && at.getUTCMonth() === mo - 1 && at.getUTCDate() === d;
+}
+
+/** An HH:MM string naming a time that exists. The shape regex accepts 99:99. */
+function isRealTime(value: string): boolean {
+  const m = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!m) return false;
+  return Number(m[1]) <= 23 && Number(m[2]) <= 59;
+}
+
 function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<void, ServiceError> {
   if (isMissing(value)) {
     return ok(undefined);
@@ -399,20 +429,22 @@ function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<vo
       return ok(undefined);
     }
     case 'date': {
-      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      if (typeof value !== 'string' || !isRealDate(value)) {
         return err(
-          serviceError('invalid_input', `"${field.ref}" must be YYYY-MM-DD`, {
+          serviceError('invalid_input', `"${field.ref}" must be a real date as YYYY-MM-DD`, {
             field: field.ref,
+            received: value,
           }),
         );
       }
       return ok(undefined);
     }
     case 'time': {
-      if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) {
+      if (typeof value !== 'string' || !isRealTime(value)) {
         return err(
-          serviceError('invalid_input', `"${field.ref}" must be HH:MM`, {
+          serviceError('invalid_input', `"${field.ref}" must be a real time as HH:MM`, {
             field: field.ref,
+            received: value,
           }),
         );
       }
