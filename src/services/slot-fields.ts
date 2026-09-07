@@ -389,7 +389,11 @@ function isRealDate(value: string): boolean {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!m) return false;
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const at = new Date(Date.UTC(y, mo - 1, d));
+  // Not `Date.UTC(y, …)`: it reads years 0–99 as 1900–1999, so a genuine
+  // 0099-12-31 would fail the round trip below. setUTCFullYear takes the year
+  // as written.
+  const at = new Date(0);
+  at.setUTCFullYear(y, mo - 1, d);
   return at.getUTCFullYear() === y && at.getUTCMonth() === mo - 1 && at.getUTCDate() === d;
 }
 

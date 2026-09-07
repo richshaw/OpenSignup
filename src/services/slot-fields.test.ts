@@ -35,6 +35,13 @@ describe('validateSlotValues', () => {
     },
   );
 
+  it('takes a two-digit year as written rather than as 19xx', () => {
+    // Date.UTC(99, 11, 31) is 1999-12-31, which would fail the round trip and
+    // reject a well-formed date. Odd input, but the check must not lie about it.
+    expect(validateSlotValues([def({})], { date: '0099-12-31' }).ok).toBe(true);
+    expect(validateSlotValues([def({})], { date: '0099-02-29' }).ok).toBe(false);
+  });
+
   it('accepts a real leap day and rejects one in a common year', () => {
     expect(validateSlotValues([def({})], { date: '2028-02-29' }).ok).toBe(true);
     expect(validateSlotValues([def({})], { date: '2026-02-29' }).ok).toBe(false);
