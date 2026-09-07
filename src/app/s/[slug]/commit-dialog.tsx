@@ -9,6 +9,12 @@ interface CommitDialogProps {
   slotId: string;
   slotTitle: string;
   slotAt: string | null;
+  /**
+   * Whether the slot carries a time of its own. A date-only slot's `slotAt` is
+   * a noon-UTC anchor (see `extractSlotAt`), not a time anyone typed, so its
+   * calendar export is an all-day event.
+   */
+  slotHasTime: boolean;
   signupTitle: string;
   slug: string;
 }
@@ -56,6 +62,7 @@ export default function CommitDialog({
   slotId,
   slotTitle,
   slotAt,
+  slotHasTime,
   signupTitle,
   slug,
 }: CommitDialogProps) {
@@ -152,6 +159,7 @@ export default function CommitDialog({
       description: `Edit or cancel: ${success.editUrl}`,
       url: success.editUrl,
       start,
+      allDay: !slotHasTime,
     });
     const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);

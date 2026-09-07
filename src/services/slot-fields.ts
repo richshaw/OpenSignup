@@ -66,9 +66,9 @@ interface ReminderSettingsLike {
  * The slot's own time-of-day, or null when the signup has no time field or the
  * slot leaves it blank.
  *
- * Split out so callers can tell a genuine midnight slot from a date-only one.
- * The stored instant cannot: `extractSlotAt` defaults a missing time to
- * `00:00:00`, which is byte-for-byte what a real `00:00` produces.
+ * Split out so callers can tell a date-only slot from one with a real time.
+ * The stored instant cannot: `extractSlotAt` anchors a date-only slot at
+ * `12:00:00`, which is byte-for-byte what a genuine `12:00` produces.
  */
 export function slotTimeOfDay(
   settings: ReminderSettingsLike,
@@ -80,6 +80,19 @@ export function slotTimeOfDay(
   return typeof timeVal === 'string' && isRealTime(timeVal) ? timeVal : null;
 }
 
+/**
+ * The instant a slot's values resolve to, or null when the signup has no
+ * anchor date field or the slot's date is blank or not a real date.
+ *
+ * A signup carries no timezone, so this pins the organizer's wall clock to
+ * UTC: a slot with a time is `${date}T${time}:00Z`. A date-only slot anchors
+ * at `12:00:00Z`, not midnight. Reminders go out `REMINDER_LEAD_HOURS` before
+ * the instant, and noon UTC the day before is still the day before everywhere
+ * from UTC-11 to UTC+11 (5am Pacific, 8am New York, 1pm London, 10pm Sydney);
+ * midnight UTC was two days early for everyone west of Greenwich. Anything
+ * reading the instant back must ask `slotTimeOfDay` whether the slot has a
+ * time — noon is not a sentinel, a genuine `12:00` slot stores the same bytes.
+ */
 export function extractSlotAt(
   settings: ReminderSettingsLike,
   fields: SlotFieldDefinition[],
@@ -90,7 +103,7 @@ export function extractSlotAt(
   const dateVal = values[dateField.ref];
   if (typeof dateVal !== 'string' || !isRealDate(dateVal)) return null;
   const timeOfDay = slotTimeOfDay(settings, fields, values);
-  const at = new Date(`${dateVal}T${timeOfDay ? `${timeOfDay}:00` : '00:00:00'}.000Z`);
+  const at = new Date(`${dateVal}T${timeOfDay ? `${timeOfDay}:00` : '12:00:00'}.000Z`);
   // An unparseable instant is null, never an Invalid Date. A NaN date is not
   // equal to itself, so recomputeSlotAtForSignup's change check never matches
   // and it would rewrite that row on every single pass, forever.

@@ -41,9 +41,20 @@ describe('extractSlotAt', () => {
     expect(at).toBeNull();
   });
 
-  it('returns midnight UTC when only a date field is set', () => {
+  it('anchors a date-only slot at noon UTC, not midnight', () => {
+    // Reminders go out a day before this instant. A day before midnight UTC is
+    // 5pm two days before in Los Angeles; a day before noon UTC is still the
+    // day before everywhere from UTC-11 to UTC+11.
     const at = extractSlotAt(anchored, [dateField], { date: '2026-05-15' });
-    expect(at?.toISOString()).toBe('2026-05-15T00:00:00.000Z');
+    expect(at?.toISOString()).toBe('2026-05-15T12:00:00.000Z');
+  });
+
+  it('treats a blank time value as date-only', () => {
+    const at = extractSlotAt(anchored, [dateField, timeField], {
+      date: '2026-05-15',
+      startTime: '',
+    });
+    expect(at?.toISOString()).toBe('2026-05-15T12:00:00.000Z');
   });
 
   it('combines date with HH:MM time as UTC', () => {
@@ -97,7 +108,7 @@ describe('extractSlotAt', () => {
       [dateField, altDate],
       { date: '2026-05-15', returnDate: '2026-05-20' },
     );
-    expect(at?.toISOString()).toBe('2026-05-20T00:00:00.000Z');
+    expect(at?.toISOString()).toBe('2026-05-20T12:00:00.000Z');
   });
 
   it('returns null rather than an Invalid Date for an impossible date value', () => {

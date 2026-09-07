@@ -13,9 +13,12 @@ export type SignupVisibility = (typeof SIGNUP_VISIBILITIES)[number];
  * Fixed rather than configurable. `extractSlotAt` pins the organizer's wall
  * clock to UTC because a signup carries no timezone, so every reminder instant
  * is off by the organizer's UTC offset. At a day's lead that is a rounding
- * error nobody notices; at two hours it exceeds the lead itself. A day also
- * matches what organizers coming from SignUp.com expect (issue #165). Shorter
- * leads can return once a signup carries a real timezone.
+ * error nobody notices; at two hours it exceeds the lead itself. A date-only
+ * slot anchors at noon UTC for the same reason: a day before noon UTC is still
+ * the day before from UTC-11 to UTC+11, where a day before midnight UTC was
+ * two days early for everyone west of Greenwich. A day also matches what
+ * organizers coming from SignUp.com expect (issue #165). Shorter leads can
+ * return once a signup carries a real timezone.
  */
 export const REMINDER_LEAD_HOURS = 24;
 

@@ -43,6 +43,13 @@
       "when": 1788747409475,
       "tag": "0005_reminders_day_before",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788748697870,
+      "tag": "0006_date_only_slots_at_noon",
+      "breakpoints": true
     }
   ]
 }

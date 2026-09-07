@@ -174,8 +174,8 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   const groupRef = settings.success ? settings.data.groupByFieldRefs[0] : undefined;
   const slotValues = (row.slot.values as Record<string, unknown>) ?? {};
   const slotLabel = slotDisplayLabel(fields, slotValues, row.slot.ref, groupRef);
-  // Asked explicitly rather than inferred from the instant: a slot at a genuine
-  // 00:00 is indistinguishable from a date-only slot once stored.
+  // Asked explicitly rather than inferred from the instant: a date-only slot
+  // is stored at noon UTC, byte-for-byte what a genuine 12:00 slot produces.
   const hasTime =
     slotTimeOfDay(
       (row.signup.settings as Record<string, unknown> | null) ?? {},

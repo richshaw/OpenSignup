@@ -344,7 +344,7 @@ describe('signups service (db)', () => {
         .from(slots)
         .where(eq(slots.signupId, r.value.id));
       expect(slotRows).toHaveLength(1);
-      expect(slotRows[0]!.slotAt).toEqual(new Date('2027-01-15T00:00:00.000Z'));
+      expect(slotRows[0]!.slotAt).toEqual(new Date('2027-01-15T12:00:00.000Z'));
     });
 
     it('rejects a template with an invalid field shape (no DB writes)', async () => {
