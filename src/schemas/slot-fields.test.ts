@@ -83,7 +83,11 @@ describe('SlotFieldInputSchema', () => {
     });
     expect(parsed.ref).toBe('teacher');
     expect(parsed.label).toBe('Teacher');
-    expect(parsed.sortOrder).toBe(0);
+    // Omitted stays undefined so addField can tell "append" from "put it first".
+    // It used to default to 0, which put every field added from the build page
+    // ahead of template fields pinned at 1+ — including, once reminders anchor
+    // to the first date field, ahead of the date column driving the reminders.
+    expect(parsed.sortOrder).toBeUndefined();
   });
 
   it('accepts an enum field with choices', () => {

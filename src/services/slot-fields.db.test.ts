@@ -265,6 +265,43 @@ describe('slot-fields service (db)', () => {
       expect(acts.some((a) => a.eventType === 'field.deleted')).toBe(true);
     });
 
+    it('appends when sortOrder is omitted, so a new date field cannot steal the anchor', async () => {
+      // Regression. The build page adds fields without sending a sortOrder.
+      // While the input schema defaulted that to 0, an added date column sorted
+      // ahead of a template date field pinned at 1, took the reminder anchor,
+      // and — having no value on any existing slot — made the recompute in
+      // addField null every slot_at, killing reminders already promised.
+      const sigId = await createTestSignup(fx, 'Append not prepend');
+      const first = await addField(fx.db, fx.actor, sigId, {
+        ref: 'event-date',
+        label: 'Event date',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+        sortOrder: 1,
+      });
+      if (!first.ok) throw new Error('first field setup failed');
+
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { 'event-date': '2026-07-04' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-07-04T00:00:00.000Z');
+
+      // No sortOrder, exactly as useGridState.addField sends it.
+      const added = await addField(fx.db, fx.actor, sigId, {
+        ref: 'deadline',
+        label: 'Deadline',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      if (!added.ok) throw new Error('added field setup failed');
+      expect(added.value.sortOrder).toBeGreaterThan(first.value.sortOrder);
+
+      // The anchor did not move, so the existing slot still drives a reminder.
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect(after?.slotAt?.toISOString()).toBe('2026-07-04T00:00:00.000Z');
+    });
+
     it('clears reminderFromFieldRef in signup settings when the referenced field is deleted', async () => {
       const sigId = await createTestSignup(fx, 'Delete clears reminder');
       const created = await addField(fx.db, fx.actor, sigId, {

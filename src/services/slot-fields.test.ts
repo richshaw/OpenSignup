@@ -197,6 +197,24 @@ describe('findReminderFields', () => {
     expect(r.dateField?.ref).toBe('date');
   });
 
+  it('does not let a field added later outrank a template field', () => {
+    // Regression. DEFAULT_TEMPLATE pins its date column at sortOrder 1, and the
+    // build page adds fields without sending a sortOrder. While the input schema
+    // defaulted that to 0, a newly added date column sorted ahead of the working
+    // one and took the anchor — and since it has no values on any existing slot,
+    // recomputing wiped every slot_at and killed reminders already promised.
+    // addField now appends instead, so the added field cannot be dateFields[0].
+    const templateDate = def({ ref: 'date', fieldType: 'date', sortOrder: 1 });
+    const appended = def({
+      id: 'fld_iiiiiiiiiiiiiiiiiiiiii',
+      ref: 'deadline',
+      fieldType: 'date',
+      sortOrder: 2,
+    });
+    const r = findReminderFields({ groupByFieldRefs: [] }, [templateDate, appended]);
+    expect(r.dateField?.ref).toBe('date');
+  });
+
   it('returns a null date when reminderFromFieldRef points at nothing', () => {
     // Deliberately no fallback: one typo must not re-aim every reminder on the
     // signup at a different column.

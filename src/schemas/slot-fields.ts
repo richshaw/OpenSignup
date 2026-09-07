@@ -53,7 +53,17 @@ export const SlotFieldInputSchema = z
     ref: RefSchema,
     label: LabelSchema,
     fieldType: z.enum(FIELD_TYPES),
-    sortOrder: z.number().int().nonnegative().default(0),
+    /**
+     * Position among the signup's fields. Omit to append.
+     *
+     * Deliberately optional rather than `.default(0)`: defaulting made every
+     * field added from the build page (which does not send one) land at 0, i.e.
+     * *before* fields the templates pin at 1+. That is wrong on its own — a new
+     * column reappears mid-grid after reload — and it is dangerous now that
+     * reminder anchoring takes the first date field: adding a date column would
+     * hand the anchor to the new, empty one and null every slot_at.
+     */
+    sortOrder: z.number().int().nonnegative().optional(),
     config: SlotFieldConfigSchema,
   })
   .refine((d) => d.fieldType === d.config.fieldType, {

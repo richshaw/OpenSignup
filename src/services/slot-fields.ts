@@ -154,6 +154,21 @@ export async function addField(
 
   const id = makeId('fld');
   const inserted = await db.transaction(async (tx) => {
+    // Omitted sortOrder appends. The build page never sends one, and landing
+    // every such field at 0 put it ahead of template fields pinned at 1+ —
+    // which, with reminders anchored to the first date field, let a new empty
+    // date column take the anchor and null every slot_at on a live signup.
+    // Appending keeps `dateFields[0]` stable, so adding a field is inert for
+    // reminder timing and the recompute below is a no-op.
+    let sortOrder = data.sortOrder;
+    if (sortOrder === undefined) {
+      const [top] = await tx
+        .select({ max: sql<number | null>`max(${slotFields.sortOrder})` })
+        .from(slotFields)
+        .where(eq(slotFields.signupId, signupId));
+      sortOrder = top?.max === null || top?.max === undefined ? 0 : top.max + 1;
+    }
+
     const [row] = await tx
       .insert(slotFields)
       .values({
@@ -163,7 +178,7 @@ export async function addField(
         ref: data.ref,
         label: data.label,
         fieldType: data.fieldType,
-        sortOrder: data.sortOrder,
+        sortOrder,
         config: data.config,
       })
       .returning();
