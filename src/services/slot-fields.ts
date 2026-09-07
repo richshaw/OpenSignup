@@ -154,6 +154,18 @@ export async function addField(
 
   const id = makeId('fld');
   const inserted = await db.transaction(async (tx) => {
+    // An omitted sortOrder appends. The build page never sends one, and
+    // defaulting it to 0 put every field it added ahead of template fields
+    // pinned at 1+, so a new column reappeared mid-grid after a reload.
+    let sortOrder = data.sortOrder;
+    if (sortOrder === undefined) {
+      const [top] = await tx
+        .select({ max: sql<number | null>`max(${slotFields.sortOrder})` })
+        .from(slotFields)
+        .where(eq(slotFields.signupId, signupId));
+      sortOrder = top?.max === null || top?.max === undefined ? 0 : top.max + 1;
+    }
+
     const [row] = await tx
       .insert(slotFields)
       .values({
@@ -163,7 +175,7 @@ export async function addField(
         ref: data.ref,
         label: data.label,
         fieldType: data.fieldType,
-        sortOrder: data.sortOrder,
+        sortOrder,
         config: data.config,
       })
       .returning();

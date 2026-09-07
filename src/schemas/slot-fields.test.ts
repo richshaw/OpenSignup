@@ -83,7 +83,8 @@ describe('SlotFieldInputSchema', () => {
     });
     expect(parsed.ref).toBe('teacher');
     expect(parsed.label).toBe('Teacher');
-    expect(parsed.sortOrder).toBe(0);
+    // Omitted stays undefined so addField can tell "append" from "put it first".
+    expect(parsed.sortOrder).toBeUndefined();
   });
 
   it('accepts an enum field with choices', () => {

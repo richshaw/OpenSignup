@@ -17,6 +17,7 @@ All notable changes to OpenSignup are documented here. Format follows [Keep a Ch
 - AGPL-3.0 license.
 
 ### Fixed
+- Slot fields added without an explicit `sortOrder` now append instead of landing at position 0. The build page never sends one, so every field it added sorted ahead of template fields pinned at 1+ and reappeared mid-grid after a reload.
 - Landing-page JSON-LD no longer declares a `SoftwareApplication`, which Google's rich result requires to carry `aggregateRating` or `review`; it now describes the site and its publisher with `WebSite` + `Organization`.
 - The landing page rendered two `<h1>` elements — the hero headline plus the example signup card. `SignupViewBody` now emits an `h2` in `showcase` mode.
 - Meta descriptions on the landing page, root layout, and the three legal pages are within the 110–160 character range crawlers expect.

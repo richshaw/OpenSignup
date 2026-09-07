@@ -53,7 +53,8 @@ export const SlotFieldInputSchema = z
     ref: RefSchema,
     label: LabelSchema,
     fieldType: z.enum(FIELD_TYPES),
-    sortOrder: z.number().int().nonnegative().default(0),
+    /** Position among the signup's fields. Omit to append. */
+    sortOrder: z.number().int().nonnegative().optional(),
     config: SlotFieldConfigSchema,
   })
   .refine((d) => d.fieldType === d.config.fieldType, {

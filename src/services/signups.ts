@@ -95,12 +95,13 @@ export async function createSignup(
     parsedSlots.push(parsed.data);
   }
 
-  const fieldDefs: SlotFieldDefinition[] = parsedFields.map((f) => ({
+  // Templates may omit sortOrder; array position is the fallback (matches the insert loop below).
+  const fieldDefs: SlotFieldDefinition[] = parsedFields.map((f, index) => ({
     id: '',
     ref: f.ref,
     label: f.label,
     fieldType: f.fieldType,
-    sortOrder: f.sortOrder,
+    sortOrder: f.sortOrder ?? index,
     config: f.config,
   }));
   for (const slot of parsedSlots) {
@@ -132,7 +133,7 @@ export async function createSignup(
 
     const settings = (inserted.settings as ReminderSettingsLike) ?? {};
 
-    for (const field of parsedFields) {
+    for (const [index, field] of parsedFields.entries()) {
       await tx.insert(slotFields).values({
         id: makeId('fld'),
         signupId: inserted.id,
@@ -140,7 +141,7 @@ export async function createSignup(
         ref: field.ref,
         label: field.label,
         fieldType: field.fieldType,
-        sortOrder: field.sortOrder,
+        sortOrder: field.sortOrder ?? index,
         config: field.config,
       });
     }
