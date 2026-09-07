@@ -303,6 +303,29 @@ describe('migration 0006_date_only_slots_at_noon (db)', () => {
     );
   });
 
+  it('leaves a slot alone when its signup\'s ref names no date field', async () => {
+    // 0005 leaves every ref valid or absent, so this cannot happen in a normal
+    // deploy — but a dangling ref must never turn into a wiped slot_at. The
+    // field services repair the ref on the next change; the migration only
+    // touches signups it can resolve.
+    let dangling!: { signupId: string; slotId: string };
+    await withMigrated(
+      async (tx) => {
+        dangling = await insertLegacy(tx, fx, {
+          settings: { reminderFromFieldRef: 'gone' },
+          fields: [{ ref: 'when', fieldType: 'date', sortOrder: 0 }],
+          slotValues: { when: '2026-08-01' },
+          slotAt: new Date('2026-08-01T00:00:00.000Z'),
+        });
+      },
+      async (tx) => {
+        expect((await slotAtOf(tx, dangling.slotId))?.toISOString()).toBe(
+          '2026-08-01T00:00:00.000Z',
+        );
+      },
+    );
+  });
+
   it('stores NULL rather than a rolled-over date for an impossible legacy value', async () => {
     let ids!: { signupId: string; slotId: string };
     const values = { when: '2026-02-30' };

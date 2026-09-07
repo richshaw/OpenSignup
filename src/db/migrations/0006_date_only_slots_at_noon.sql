@@ -37,17 +37,19 @@ WITH "anchor" AS (
       LIMIT 1
     ) AS "time_ref"
   FROM "signups" s
-  LEFT JOIN "slot_fields" d
+  -- Inner join: only signups whose ref names a real date field are touched.
+  -- Migration 0005 leaves every ref valid or absent, but if one were dangling
+  -- this must not null out the signup's slots; the field services repair
+  -- such a ref on the next change instead.
+  JOIN "slot_fields" d
     ON d."signup_id" = s."id"
    AND d."field_type" = 'date'
    AND d."ref" = s."settings"->>'reminderFromFieldRef'
-  WHERE s."settings" ? 'reminderFromFieldRef'
 ),
 "next" AS (
   SELECT
     sl."id",
     CASE
-      WHEN a."date_ref" IS NULL THEN NULL
       -- Same shape extractSlotAt demands, then a day that exists.
       WHEN (sl."values"->>a."date_ref") !~ '^[1-9]\d{3}-\d{2}-\d{2}$' THEN NULL
       WHEN pg_temp.reminder_real_date(sl."values"->>a."date_ref") IS NULL THEN NULL
