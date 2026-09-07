@@ -9,14 +9,14 @@ import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
-import { EMPTY_TEMPLATE } from '@/lib/signup-templates';
+import { DEFAULT_TEMPLATE, EMPTY_TEMPLATE } from '@/lib/signup-templates';
 import {
   addField,
   deleteField,
   listFields,
   updateField,
 } from '@/services/slot-fields';
-import { addSlot } from '@/services/slots';
+import { addSlot, updateSlot } from '@/services/slots';
 import { createSignup, updateSignup } from '@/services/signups';
 
 interface Fixture {
@@ -411,6 +411,130 @@ describe('slot-fields service (db)', () => {
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
       expect(after?.slotAt?.toISOString()).toBe('2026-06-15T00:00:00.000Z');
+    });
+  });
+
+  describe('reminder anchor maintenance', () => {
+    async function anchorOf(sigId: string): Promise<string | undefined> {
+      const [row] = await fx.db.select().from(signups).where(eq(signups.id, sigId)).limit(1);
+      return ((row?.settings ?? {}) as { reminderFromFieldRef?: string }).reminderFromFieldRef;
+    }
+
+    it('anchors a signup on the first date field it gains', async () => {
+      const sigId = await createTestSignup(fx, 'First date anchors');
+      expect(await anchorOf(sigId)).toBeUndefined();
+
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: {} });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      const when = await addField(fx.db, fx.actor, sigId, {
+        ref: 'when',
+        label: 'When',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      expect(when.ok).toBe(true);
+      expect(await anchorOf(sigId)).toBe('when');
+
+      // The anchor is live: a value written to the new column becomes slot_at.
+      const edited = await updateSlot(fx.db, fx.actor, slot.value.id, {
+        values: { when: '2026-06-15' },
+      });
+      expect(edited.ok).toBe(true);
+      expect(edited.ok && edited.value.slotAt?.toISOString()).toBe('2026-06-15T00:00:00.000Z');
+    });
+
+    it('leaves the anchor alone when a second date field is added', async () => {
+      const sigId = await createTestSignup(fx, 'Second date is inert');
+      const first = await addField(fx.db, fx.actor, sigId, {
+        ref: 'first',
+        label: 'First',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      if (!first.ok) throw new Error('first setup failed');
+      const second = await addField(fx.db, fx.actor, sigId, {
+        ref: 'second',
+        label: 'Second',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      expect(second.ok).toBe(true);
+      expect(await anchorOf(sigId)).toBe('first');
+    });
+
+    it('moves the anchor to the next date field when its own is retyped', async () => {
+      const sigId = await createTestSignup(fx, 'Retype moves anchor');
+      const a = await addField(fx.db, fx.actor, sigId, {
+        ref: 'a',
+        label: 'A',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      const b = await addField(fx.db, fx.actor, sigId, {
+        ref: 'b',
+        label: 'B',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      if (!a.ok || !b.ok) throw new Error('field setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { a: '2026-05-10', b: '2026-06-15' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T00:00:00.000Z');
+
+      const retyped = await updateField(fx.db, fx.actor, a.value.id, {
+        fieldType: 'text',
+        config: { fieldType: 'text', maxLength: 200 },
+      });
+      expect(retyped.ok).toBe(true);
+      expect(await anchorOf(sigId)).toBe('b');
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T00:00:00.000Z');
+    });
+
+    it('rebuilds slot_at when a time field is deleted, not only the date field', async () => {
+      const sigId = await createTestSignup(fx, 'Time delete rebuilds');
+      const day = await addField(fx.db, fx.actor, sigId, {
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      const at = await addField(fx.db, fx.actor, sigId, {
+        ref: 'at',
+        label: 'At',
+        fieldType: 'time',
+        config: { fieldType: 'time' },
+      });
+      if (!day.ok || !at.ok) throw new Error('field setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { day: '2026-06-15', at: '09:30' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-06-15T09:30:00.000Z');
+
+      const r = await deleteField(fx.db, fx.actor, at.value.id);
+      expect(r.ok).toBe(true);
+      expect(await anchorOf(sigId)).toBe('day');
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T00:00:00.000Z');
+    });
+
+    it('keeps the template anchor a signup was created with', async () => {
+      const r = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        { title: 'Template anchor', description: '', tags: [], visibility: 'unlisted', settings: {} },
+        { template: DEFAULT_TEMPLATE },
+      );
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(await anchorOf(r.value.id)).toBe('date');
     });
   });
 

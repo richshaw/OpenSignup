@@ -11,16 +11,12 @@ export interface CommitmentConfirmationEmailProps {
   slotDateLabel?: string | null;
   notes?: string | null;
   quantity?: number;
-  /** Set when this signup will also send a reminder before the slot. */
-  reminderLeadHours?: number | null;
-}
-
-function reminderSentence(hours: number): string {
-  if (hours % 24 === 0) {
-    const days = hours / 24;
-    return days === 1 ? 'the day before' : `${days} days before`;
-  }
-  return hours === 1 ? 'an hour before' : `${hours} hours before`;
+  /**
+   * True when this signup will also send a reminder the day before the slot.
+   * Decide it with `willSendReminder` so the receipt never promises a reminder
+   * the dispatcher will not send.
+   */
+  promisesReminder?: boolean;
 }
 
 export function CommitmentConfirmationEmail({
@@ -31,7 +27,7 @@ export function CommitmentConfirmationEmail({
   slotDateLabel,
   notes,
   quantity,
-  reminderLeadHours,
+  promisesReminder,
 }: CommitmentConfirmationEmailProps) {
   const preview = `You're signed up: ${slotLabel} · ${signupTitle}`;
   return (
@@ -71,9 +67,7 @@ export function CommitmentConfirmationEmail({
       <Text className="mt-6 text-xs text-[#8a93a4]">
         Keep this email. The button above is how you change or cancel later, with no password to
         remember. Anyone with that link can change your slot, so don&apos;t forward it.
-        {reminderLeadHours ? (
-          <> We&apos;ll also send you a reminder {reminderSentence(reminderLeadHours)}.</>
-        ) : null}
+        {promisesReminder ? <> We&apos;ll also send you a reminder the day before.</> : null}
       </Text>
     </EmailLayout>
   );

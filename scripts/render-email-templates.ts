@@ -34,7 +34,7 @@ const cases: Array<[string, ReactElement]> = [
       slotDateLabel: 'Saturday, September 5 at 9:00 AM',
       notes: 'Bringing grapes',
       quantity: 2,
-      reminderLeadHours: 24,
+      promisesReminder: true,
     }),
   ],
   [

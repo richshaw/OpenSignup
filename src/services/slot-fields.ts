@@ -13,6 +13,12 @@ import {
   requireWorkspaceWrite,
   type Actor,
 } from '@/lib/policy';
+import {
+  findReminderFields,
+  pickAnchorRef,
+  resolveAnchorRef,
+  type ReminderFields,
+} from '@/lib/reminder-fields';
 import { err, ok, type Result } from '@/lib/result';
 import {
   type SlotFieldConfig,
@@ -22,6 +28,11 @@ import {
 } from '@/schemas/slot-fields';
 
 type FieldRow = typeof slotFields.$inferSelect;
+
+// The pure resolution rules live in src/lib/reminder-fields.ts so the build
+// page can share them; re-exported here for the callers that already import
+// them alongside the field services.
+export { findReminderFields, pickAnchorRef, type ReminderFields };
 
 function rowToDefinition(row: FieldRow): SlotFieldDefinition {
   return {
@@ -186,12 +197,24 @@ export async function addField(
       .returning();
     if (!row) throw new Error('field insert failed');
 
+    // A signup that just gained its first date field now has something to
+    // anchor on, and a new time field may pair with the existing date, so the
+    // slot_at cache is rebuilt after every add. No-op when nothing resolves
+    // differently.
+    const anchor = await reanchor(tx, signupId, await listFieldsForSignup(tx, signupId));
+    await recomputeSlotAtForSignup(tx, signupId);
+
     await recordActivity(tx, {
       signupId,
       workspaceId: signupRow.workspaceId,
       actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'field.created',
-      payload: { fieldId: row.id, ref: row.ref, fieldType: row.fieldType },
+      payload: {
+        fieldId: row.id,
+        ref: row.ref,
+        fieldType: row.fieldType,
+        ...(anchor !== undefined ? { reminderFromFieldRef: anchor } : {}),
+      },
     });
     return row;
   });
@@ -269,6 +292,19 @@ export async function updateField(
       .returning();
     if (!row) throw new Error('field update returned nothing');
 
+    // Retyping the anchor away from `date` would leave reminderFromFieldRef
+    // naming something that is no longer a date, and reminders would stop for
+    // the whole signup with nothing said; retyping *to* `date` on a signup
+    // with no anchor gives it one. A reorder can also change which time field
+    // pairs with the date. Re-anchor and rebuild rather than predict which of
+    // those applied.
+    const anchor = await reanchor(
+      tx,
+      existing.signupId,
+      await listFieldsForSignup(tx, existing.signupId),
+    );
+    await recomputeSlotAtForSignup(tx, existing.signupId);
+
     const changes: Record<string, unknown> = {};
     for (const key of Object.keys(data) as (keyof typeof data)[]) {
       changes[key] = data[key];
@@ -278,7 +314,12 @@ export async function updateField(
       workspaceId: existing.workspaceId,
       actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
       eventType: 'field.updated',
-      payload: { fieldId: row.id, ref: row.ref, changes },
+      payload: {
+        fieldId: row.id,
+        ref: row.ref,
+        changes,
+        ...(anchor !== undefined ? { reminderFromFieldRef: anchor } : {}),
+      },
     });
     return row;
   });
@@ -308,25 +349,23 @@ export async function deleteField(
     .then((r) => r[0]);
   const currentSettings =
     (signupRow?.settings as {
-      reminderFromFieldRef?: string;
       groupByFieldRefs?: string[];
       [k: string]: unknown;
     }) ?? {};
-  const clearedReminder = currentSettings.reminderFromFieldRef === existing.ref;
   const groupBy = currentSettings.groupByFieldRefs ?? [];
   const removedFromGroupBy = groupBy.includes(existing.ref);
-  const settingsChanged = clearedReminder || removedFromGroupBy;
-  const nextSettings: Record<string, unknown> = { ...currentSettings };
-  if (clearedReminder) delete nextSettings.reminderFromFieldRef;
-  if (removedFromGroupBy) {
-    nextSettings.groupByFieldRefs = groupBy.filter((ref) => ref !== existing.ref);
-  }
 
   await db.transaction(async (tx) => {
-    if (settingsChanged) {
+    if (removedFromGroupBy) {
       await tx
         .update(signups)
-        .set({ settings: nextSettings, updatedAt: new Date() })
+        .set({
+          settings: {
+            ...currentSettings,
+            groupByFieldRefs: groupBy.filter((ref) => ref !== existing.ref),
+          },
+          updatedAt: new Date(),
+        })
         .where(eq(signups.id, existing.signupId));
     }
     await tx
@@ -334,9 +373,18 @@ export async function deleteField(
       .set({ values: sql`${slots.values} - ${existing.ref}::text` })
       .where(eq(slots.signupId, existing.signupId));
     await tx.delete(slotFields).where(eq(slotFields.id, fieldId));
-    if (clearedReminder) {
-      await recomputeSlotAtForSignup(tx, existing.signupId);
-    }
+
+    // Deleting the anchor moves it to the next date field (or drops it when
+    // none is left); deleting a time field changes what pairs with the date;
+    // and the values wipe above changes what every slot resolves to. Rebuild
+    // unconditionally — gating this on "was it the anchor" missed the rest.
+    const moved = await reanchor(
+      tx,
+      existing.signupId,
+      await listFieldsForSignup(tx, existing.signupId),
+    );
+    await recomputeSlotAtForSignup(tx, existing.signupId);
+
     await recordActivity(tx, {
       signupId: existing.signupId,
       workspaceId: existing.workspaceId,
@@ -345,7 +393,7 @@ export async function deleteField(
       payload: {
         fieldId,
         ref: existing.ref,
-        ...(clearedReminder ? { clearedReminderFromFieldRef: true } : {}),
+        ...(moved !== undefined ? { reminderFromFieldRef: moved } : {}),
         ...(removedFromGroupBy ? { removedFromGroupByFieldRefs: true } : {}),
       },
     });
@@ -499,37 +547,36 @@ function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<vo
   }
 }
 
-export interface ReminderFields {
-  dateField: SlotFieldDefinition | null;
-  timeField: SlotFieldDefinition | null;
-  /** True when 2+ date fields exist and reminderFromFieldRef is unset. */
-  ambiguous: boolean;
-}
-
-export function findReminderFields(
-  settings: { reminderFromFieldRef?: string | undefined; [k: string]: unknown },
+/**
+ * Keeps `settings.reminderFromFieldRef` naming a real date field after a
+ * field change. Left alone while it names one of `fields`' date fields;
+ * otherwise moved to the first date field, or dropped when there is none.
+ * Returns the ref it moved to (null = dropped), or undefined when nothing
+ * changed. Must run inside the same transaction as the field change.
+ */
+async function reanchor(
+  tx: Queryable,
+  signupId: string,
   fields: SlotFieldDefinition[],
-): ReminderFields {
-  const dateFields = fields.filter((f) => f.fieldType === 'date');
-  const timeFields = fields.filter((f) => f.fieldType === 'time');
-  const timeField =
-    timeFields.length > 0
-      ? ([...timeFields].sort(
-          (a, b) => a.sortOrder - b.sortOrder || a.ref.localeCompare(b.ref),
-        )[0] ?? null)
-      : null;
+): Promise<string | null | undefined> {
+  const row = await tx
+    .select({ settings: signups.settings })
+    .from(signups)
+    .where(eq(signups.id, signupId))
+    .limit(1)
+    .then((r) => r[0]);
+  if (!row) return undefined;
+  const settings = (row.settings as ReminderSettingsLike) ?? {};
+  const next = resolveAnchorRef(settings, fields);
+  if (next === (settings.reminderFromFieldRef ?? null)) return undefined;
 
-  if (settings.reminderFromFieldRef) {
-    const explicit = dateFields.find((f) => f.ref === settings.reminderFromFieldRef);
-    if (explicit) return { dateField: explicit, timeField, ambiguous: false };
-    return { dateField: null, timeField, ambiguous: false };
-  }
-
-  if (dateFields.length === 0) {
-    return { dateField: null, timeField, ambiguous: false };
-  }
-  if (dateFields.length === 1) {
-    return { dateField: dateFields[0] ?? null, timeField, ambiguous: false };
-  }
-  return { dateField: null, timeField, ambiguous: true };
+  const { reminderFromFieldRef: _stale, ...rest } = settings;
+  await tx
+    .update(signups)
+    .set({
+      settings: next === null ? rest : { ...rest, reminderFromFieldRef: next },
+      updatedAt: new Date(),
+    })
+    .where(eq(signups.id, signupId));
+  return next;
 }

@@ -488,22 +488,56 @@ describe('signups service (db)', () => {
       expect(r.error.code).toBe('not_found');
     });
 
-    it('clears reminderFromFieldRef when omitted from settings update', async () => {
+    it('anchors a new signup on its template date field', async () => {
+      // DEFAULT_TEMPLATE has one date field, `date`. Nothing else in settings
+      // is touched.
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Anchor'));
+      expect(created.ok).toBe(true);
+      if (!created.ok) return;
+      const s = created.value.settings as { reminderFromFieldRef?: string; sendReminders?: boolean };
+      expect(s.reminderFromFieldRef).toBe('date');
+      expect(s.sendReminders).toBe(true);
+    });
+
+    it('rejects a creation whose reminderFromFieldRef is not one of the template date fields', async () => {
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Bad anchor'),
+        settings: { reminderFromFieldRef: 'what' },
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('invalid_input');
+    });
+
+    it('keeps reminderFromFieldRef when a settings update omits it', async () => {
+      // Replace-not-merge applies to every other key; the anchor must keep
+      // naming a date field for as long as the signup has one, so omitting it
+      // cannot clear it.
       const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Reminder'));
       if (!created.ok) throw new Error('setup failed');
 
-      const set = await updateSignup(fx.db, fx.actor, created.value.id, {
-        settings: { reminderFromFieldRef: 'date' },
+      const updated = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { sendReminders: false },
       });
-      expect(set.ok).toBe(true);
+      expect(updated.ok).toBe(true);
+      if (!updated.ok) return;
+      const s = updated.value.settings as { reminderFromFieldRef?: string; sendReminders?: boolean };
+      expect(s.reminderFromFieldRef).toBe('date');
+      expect(s.sendReminders).toBe(false);
+    });
 
-      const cleared = await updateSignup(fx.db, fx.actor, created.value.id, {
-        settings: {},
-      });
-      expect(cleared.ok).toBe(true);
-      if (!cleared.ok) return;
-      const s = cleared.value.settings as { reminderFromFieldRef?: string };
-      expect(s.reminderFromFieldRef).toBeUndefined();
+    it('refuses a reminderFromFieldRef that names anything but a date field', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Bad ref'));
+      if (!created.ok) throw new Error('setup failed');
+
+      for (const bad of ['what', 'nope']) {
+        const r = await updateSignup(fx.db, fx.actor, created.value.id, {
+          settings: { reminderFromFieldRef: bad },
+        });
+        expect(r.ok).toBe(false);
+        if (r.ok) continue;
+        expect(r.error.code).toBe('invalid_input');
+      }
     });
   });
 
