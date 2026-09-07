@@ -70,12 +70,18 @@ test.describe('organizer flow', () => {
     expect(created.ok()).toBe(true);
     const signupId = (await created.json()).data.id as string;
 
+    // A second date field, so there is something other than the template's
+    // `date` (the anchor every new signup starts on) to switch to.
+    const added = await page.request.post(`/api/signups/${signupId}/fields`, {
+      data: { ref: 'setup-day', label: 'Setup day', fieldType: 'date', config: { fieldType: 'date' } },
+    });
+    expect(added.ok()).toBe(true);
+
     await page.goto(`/app/signups/${signupId}/settings`);
     const select = page.getByLabel('Reminder date field');
-    await expect(select).toHaveValue('');
+    await expect(select).toHaveValue('date');
 
-    // 'date' is the DEFAULT_TEMPLATE date field applied to every new signup.
-    await select.selectOption('date');
+    await select.selectOption('setup-day');
     const save = page.getByRole('button', { name: 'Save' });
     const saved = page.waitForResponse(
       (r) => r.request().method() === 'POST' && r.url().includes(`/app/signups/${signupId}/settings`),
@@ -87,7 +93,7 @@ test.describe('organizer flow', () => {
     // would land.
     await expect(save).toBeEnabled();
 
-    await expect(select).toHaveValue('date');
+    await expect(select).toHaveValue('setup-day');
   });
 
   test('unauthenticated visitor is redirected to login', async ({ browser }) => {

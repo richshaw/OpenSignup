@@ -8,13 +8,16 @@ export const SIGNUP_VISIBILITIES = ['public', 'unlisted', 'password'] as const;
 export type SignupVisibility = (typeof SIGNUP_VISIBILITIES)[number];
 
 /**
- * Hours before a slot that a participant reminder is sent. 24h matches what
- * organizers coming from SignUp.com expect (issue #165).
+ * Hours before a slot that its reminder goes out: the day before.
+ *
+ * Fixed rather than configurable. `extractSlotAt` pins the organizer's wall
+ * clock to UTC because a signup carries no timezone, so every reminder instant
+ * is off by the organizer's UTC offset. At a day's lead that is a rounding
+ * error nobody notices; at two hours it exceeds the lead itself. A day also
+ * matches what organizers coming from SignUp.com expect (issue #165). Shorter
+ * leads can return once a signup carries a real timezone.
  */
-export const DEFAULT_REMINDER_LEAD_HOURS = 24;
-
-/** Lead times offered in the organizer settings UI. */
-export const REMINDER_LEAD_HOUR_CHOICES = [2, 24, 48, 72] as const;
+export const REMINDER_LEAD_HOURS = 24;
 
 export const SignupSettingsSchema = z
   .object({
@@ -23,18 +26,19 @@ export const SignupSettingsSchema = z
     showWhoSignedUp: z.boolean().default(true),
     maxCommitmentsPerParticipant: z.number().int().positive().optional(),
     lockoutHoursBeforeSlot: z.number().int().nonnegative().default(0),
+    /** The only reminder off switch. Timing is fixed: see REMINDER_LEAD_HOURS. */
     sendReminders: z.boolean().default(true),
-    /** Hours before the slot to send the reminder. Capped at a week. */
-    reminderLeadHours: z
-      .number()
-      .int()
-      .min(1)
-      .max(168)
-      .default(DEFAULT_REMINDER_LEAD_HOURS),
     confirmationMessage: z.string().max(500).optional(),
     /** Slot-field refs to group by in the participant view. v1 caps at length 1; nested grouping deferred. */
     groupByFieldRefs: z.array(z.string()).max(1).default([]),
-    /** Slot-field ref that drives slot_at and reminder timing. Auto-defaults when there's exactly one date field. */
+    /**
+     * The date field that gives every slot its instant (`slots.slot_at`): what
+     * "Add to calendar" exports, what slots order by, and when a reminder is
+     * due. The services keep it naming an existing date field — set on
+     * creation, moved when that field is deleted or retyped — and
+     * `updateSignup` rejects a value naming anything else. Absent only while
+     * the signup has no date field at all.
+     */
     reminderFromFieldRef: z.string().optional(),
   })
   .default({});

@@ -149,18 +149,12 @@ describe('selectDueReminders (db)', () => {
     expect(await dueIds()).not.toContain(commitmentId);
   });
 
-  it('honours a longer per-signup reminderLeadHours', async () => {
-    const { commitmentId } = await makeScenario(fx, 'Long lead', {
+  it('ignores a legacy reminderLeadHours left in settings', async () => {
+    // The lead is fixed at 24h. A stored value from before that survives only
+    // until migration 0005 strips it, and must not change the timing meanwhile.
+    const { commitmentId } = await makeScenario(fx, 'Legacy lead', {
       slotInHours: 40,
       settings: { reminderLeadHours: 48 },
-    });
-    expect(await dueIds()).toContain(commitmentId);
-  });
-
-  it('honours a shorter per-signup reminderLeadHours', async () => {
-    const { commitmentId } = await makeScenario(fx, 'Short lead', {
-      slotInHours: 20,
-      settings: { reminderLeadHours: 2 },
     });
     expect(await dueIds()).not.toContain(commitmentId);
   });
@@ -184,24 +178,13 @@ describe('selectDueReminders (db)', () => {
     expect(await dueIds()).not.toContain(commitmentId);
   });
 
-  it('still reminds someone who committed inside a long lead window', async () => {
+  it('still reminds someone who committed inside the lead window', async () => {
     // Regression: a `created_at < slot_at - lead` guard reads naturally but
     // silently denies a reminder to everyone who commits within the lead
-    // window. At a 72h lead that is most participants.
+    // window — at 24h, everyone who signs up the day before.
     const { commitmentId } = await makeScenario(fx, 'Committed inside the window', {
-      slotInHours: 60,
+      slotInHours: 20,
       committedHoursAgo: 2,
-      settings: { reminderLeadHours: 72 },
-    });
-    expect(await dueIds()).toContain(commitmentId);
-  });
-
-  it('does not strip reminders from existing commitments when the lead time is raised', async () => {
-    // Organizer moves 2h -> 72h after someone already committed.
-    const { commitmentId } = await makeScenario(fx, 'Lead raised later', {
-      slotInHours: 40,
-      committedHoursAgo: 6,
-      settings: { reminderLeadHours: 72 },
     });
     expect(await dueIds()).toContain(commitmentId);
   });

@@ -2,6 +2,7 @@ import { useReducer, useRef, useEffect, useCallback } from 'react';
 import type { SlotFieldDefinition, SlotFieldConfig } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
 import type { ErrorCode } from '@/lib/errors';
+import { resolveAnchorRef } from '@/lib/reminder-fields';
 
 // ---------------------------------------------------------------------------
 // State types
@@ -276,6 +277,32 @@ export function useGridState(
     }
   }, []);
 
+  /**
+   * Mirrors what the field services do to settings on a field change: the
+   * reminder anchor moves to the first date field once its own is gone (or
+   * appears with the first date field), and a deleted field leaves the
+   * group-by. Same pure rule as the server (src/lib/reminder-fields.ts), so
+   * the copy here never drifts. Without it the next settings save would send
+   * the server a ref it has already dropped — which it refuses.
+   */
+  function mirrorFieldChange(fields: GridField[]) {
+    const current = settingsRef.current;
+    const anchor = resolveAnchorRef(
+      current,
+      fields.map((f) => ({ ref: f.ref, fieldType: f.config.fieldType, sortOrder: f.sortOrder })),
+    );
+    const groupBy = current.groupByFieldRefs.filter((ref) => fields.some((f) => f.ref === ref));
+    const { reminderFromFieldRef: _stale, ...rest } = current;
+    settingsRef.current =
+      anchor === null
+        ? { ...rest, groupByFieldRefs: groupBy }
+        : { ...rest, groupByFieldRefs: groupBy, reminderFromFieldRef: anchor };
+    const groupRef = groupBy[0] ?? null;
+    if (groupRef !== stateRef.current.groupByFieldRef) {
+      dispatch({ type: 'SET_GROUP_BY', ref: groupRef });
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Save status helpers
   // ---------------------------------------------------------------------------
@@ -349,6 +376,7 @@ export function useGridState(
         const envelope = (await res.json()) as { data: SlotFieldDefinition };
         const field = toGridFields([envelope.data])[0]!;
         dispatch({ type: 'APPEND_FIELD', field });
+        mirrorFieldChange([...stateRef.current.fields, field]);
         markSaved();
       } catch (e) {
         markError(asErr(e));
@@ -380,6 +408,7 @@ export function useGridState(
         const envelope = (await res.json()) as { data: SlotFieldDefinition };
         const updated = toGridFields([envelope.data])[0]!;
         dispatch({ type: 'REPLACE_FIELD', field: updated });
+        mirrorFieldChange(stateRef.current.fields.map((f) => (f.id === updated.id ? updated : f)));
         markSaved();
       } catch (e) {
         markError(asErr(e));
@@ -400,6 +429,7 @@ export function useGridState(
         });
         await expectOk(res);
         dispatch({ type: 'DELETE_FIELD', fieldId, fieldRef });
+        mirrorFieldChange(stateRef.current.fields.filter((f) => f.id !== fieldId));
         markSaved();
       } catch (e) {
         markError(asErr(e));

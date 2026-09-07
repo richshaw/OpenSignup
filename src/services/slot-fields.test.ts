@@ -177,33 +177,90 @@ describe('findReminderFields', () => {
     expect(r.dateField).toBeNull();
   });
 
-  it('auto-picks the only date field', () => {
-    const r = findReminderFields({ groupByFieldRefs: [] }, [dateField, timeField]);
+  it('uses the date field reminderFromFieldRef names', () => {
+    const r = findReminderFields({ groupByFieldRefs: [], reminderFromFieldRef: 'date' }, [
+      dateField,
+      timeField,
+    ]);
     expect(r.dateField?.ref).toBe('date');
     expect(r.timeField?.ref).toBe('startTime');
   });
 
   it('uses reminderFromFieldRef when set with multiple date fields', () => {
-    const r = findReminderFields(
-      { groupByFieldRefs: [], reminderFromFieldRef: 'returnDate' },
-      [dateField, altDate, timeField],
-    );
+    const r = findReminderFields({ groupByFieldRefs: [], reminderFromFieldRef: 'returnDate' }, [
+      dateField,
+      altDate,
+      timeField,
+    ]);
     expect(r.dateField?.ref).toBe('returnDate');
   });
 
-  it('returns ambiguous=true when 2+ date fields and reminderFromFieldRef unset', () => {
-    const r = findReminderFields({ groupByFieldRefs: [] }, [dateField, altDate]);
-    expect(r.ambiguous).toBe(true);
+  it('never guesses: an unset ref resolves to no date field even with exactly one', () => {
+    // The services keep the ref set whenever a date field exists, so an unset
+    // ref here is a signup with no anchor — not an invitation to pick one.
+    // Guessing "the only date field" hid the two-date-fields hole for months.
+    expect(findReminderFields({ groupByFieldRefs: [] }, [dateField]).dateField).toBeNull();
+    expect(findReminderFields({ groupByFieldRefs: [] }, [dateField, altDate]).dateField).toBeNull();
+  });
+
+  it('returns a null date when reminderFromFieldRef points at nothing', () => {
+    // Deliberately no fallback: one typo must not re-aim every reminder on the
+    // signup at a different column.
+    const r = findReminderFields({ groupByFieldRefs: [], reminderFromFieldRef: 'nope' }, [
+      dateField,
+      altDate,
+    ]);
+    expect(r.dateField).toBeNull();
+  });
+
+  it('ignores a ref that names a field which is not a date', () => {
+    const r = findReminderFields({ groupByFieldRefs: [], reminderFromFieldRef: 'startTime' }, [
+      dateField,
+      timeField,
+    ]);
     expect(r.dateField).toBeNull();
   });
 
   it('falls back to no time field when none exists', () => {
-    const r = findReminderFields({ groupByFieldRefs: [] }, [dateField]);
+    const r = findReminderFields({ groupByFieldRefs: [], reminderFromFieldRef: 'date' }, [
+      dateField,
+    ]);
     expect(r.dateField?.ref).toBe('date');
     expect(r.timeField).toBeNull();
   });
 
-  it('picks lowest sortOrder time field when several exist', () => {
+  it('pairs the time field that follows the chosen date, not the lowest overall', () => {
+    const departTime = def({
+      id: 'fld_ffffffffffffffffffffff',
+      ref: 'departTime',
+      fieldType: 'time',
+      config: { fieldType: 'time' },
+      sortOrder: 1,
+    });
+    const returnTime = def({
+      id: 'fld_gggggggggggggggggggggg',
+      ref: 'returnTime',
+      fieldType: 'time',
+      config: { fieldType: 'time' },
+      sortOrder: 3,
+    });
+    const returnDate = def({
+      id: 'fld_hhhhhhhhhhhhhhhhhhhhhh',
+      ref: 'returnDate',
+      fieldType: 'date',
+      sortOrder: 2,
+    });
+    const r = findReminderFields({ groupByFieldRefs: [], reminderFromFieldRef: 'returnDate' }, [
+      dateField,
+      departTime,
+      returnDate,
+      returnTime,
+    ]);
+    expect(r.dateField?.ref).toBe('returnDate');
+    expect(r.timeField?.ref).toBe('returnTime');
+  });
+
+  it('falls back to the first time field when none follows the chosen date', () => {
     const t1 = def({
       id: 'fld_dddddddddddddddddddddd',
       ref: 't1',
@@ -218,7 +275,12 @@ describe('findReminderFields', () => {
       config: { fieldType: 'time' },
       sortOrder: 2,
     });
-    const r = findReminderFields({ groupByFieldRefs: [] }, [dateField, t1, t2]);
+    const lateDate = def({ id: 'fld_iiiiiiiiiiiiiiiiiiiiii', ref: 'late', fieldType: 'date', sortOrder: 9 });
+    const r = findReminderFields({ groupByFieldRefs: [], reminderFromFieldRef: 'late' }, [
+      lateDate,
+      t1,
+      t2,
+    ]);
     expect(r.timeField?.ref).toBe('t2');
   });
 });

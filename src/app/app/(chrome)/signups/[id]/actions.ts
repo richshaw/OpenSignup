@@ -7,7 +7,7 @@ import { getOrganizerSession, toActor } from '@/auth/session';
 import { closeSignup, deleteSignup, publishSignup, updateSignup } from '@/services/signups';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { SignupSettingsSchema, type SignupSettings } from '@/schemas/signups';
-import { resolveReminderSettings } from '@/lib/reminder-settings';
+import { resolveSendReminders } from '@/lib/reminder-settings';
 
 function revalidateSignup(id: string) {
   revalidatePath(`/app/signups/${id}`, 'layout');
@@ -38,23 +38,21 @@ export async function updateReminderAction(signupId: string, formData: FormData)
   const actor = await requireActor();
   const reminder = String(formData.get('reminderFromFieldRef') ?? '').trim();
 
-  // Read current settings so we can send the full object.
-  // The service replaces settings entirely (not a merge), so we must include
-  // all keys — omitting reminderFromFieldRef here is how we clear it.
+  // Read current settings so we can send the full object: the service replaces
+  // settings rather than merging them. reminderFromFieldRef is the exception —
+  // omitted, it keeps the current anchor; named, it must be a date field.
   const current = await loadSignupForOrganizer(actor, signupId);
   if (!current.ok) {
     redirect(`/app/signups/${signupId}/settings?error=${encodeURIComponent(current.error.message)}`);
   }
   const parsedSettings = SignupSettingsSchema.safeParse(current.value.settings ?? {});
   const prevSettings: Partial<SignupSettings> = parsedSettings.success ? parsedSettings.data : {};
-  const { reminderFromFieldRef: _removed, ...restSettings } = prevSettings;
+  const { reminderFromFieldRef: _current, ...restSettings } = prevSettings;
 
-  const leadField = formData.get('reminderLeadHours');
-  const { sendReminders, reminderLeadHours } = resolveReminderSettings(
+  const sendReminders = resolveSendReminders(
     {
       sendRemindersPresent: formData.get('sendRemindersPresent') !== null,
       sendRemindersChecked: formData.get('sendReminders') !== null,
-      leadHoursRaw: leadField === null ? null : String(leadField),
     },
     restSettings,
   );
@@ -62,7 +60,6 @@ export async function updateReminderAction(signupId: string, formData: FormData)
   const nextSettings = {
     ...restSettings,
     sendReminders,
-    reminderLeadHours,
     ...(reminder ? { reminderFromFieldRef: reminder } : {}),
   };
 

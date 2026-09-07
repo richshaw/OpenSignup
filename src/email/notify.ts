@@ -91,15 +91,11 @@ export async function notifyCommitmentCreated(
     // paraphrase of it: reminders on and a slot date are not enough, because a
     // slot less than an hour out is one the created_at guard can never reach.
     const remindersOn = settings.success ? settings.data.sendReminders : true;
-    const reminderLeadHours = willSendReminder({
+    const promisesReminder = willSendReminder({
       sendReminders: remindersOn,
       slotAt: row.slot.slotAt,
       createdAt: row.commitment.createdAt,
-    })
-      ? settings.success
-        ? settings.data.reminderLeadHours
-        : null
-      : null;
+    });
 
     // `slots.ref` is a slug, not a display name — use the label the
     // participant page shows, so the receipt names what they picked.
@@ -119,7 +115,7 @@ export async function notifyCommitmentCreated(
       slotDateLabel: formatSlotWhen(row.slot.slotAt),
       notes: row.commitment.notes,
       quantity: row.commitment.quantity,
-      reminderLeadHours,
+      promisesReminder,
     });
 
     await recordActivity(db, {

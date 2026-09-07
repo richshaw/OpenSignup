@@ -20,13 +20,13 @@ test.describe('reminder settings', () => {
     await loginAsSeededOrganizer(context);
   });
 
-  test('lead time and the reminders toggle survive the post-save re-render', async ({ page }) => {
+  test('the reminders toggle survives the post-save re-render', async ({ page }) => {
     // A fresh signup per run so retries and projects never compete over one row.
     // createSignup applies DEFAULT_TEMPLATE, whose date field is what makes the
     // reminders form render at all.
     const created = await page.request.post('/api/signups', {
       data: {
-        title: `Reminder lead ${Date.now()}`,
+        title: `Reminder toggle ${Date.now()}`,
         description: '',
         tags: [],
         visibility: 'unlisted',
@@ -37,25 +37,26 @@ test.describe('reminder settings', () => {
     const signupId = (await created.json()).data.id as string;
 
     await page.goto(`/app/signups/${signupId}/settings`);
-    // Addressed by name: "Send reminder" and "Send reminder emails" both match
-    // a by-label lookup, and the select's accessible name absorbs its options.
-    const lead = page.locator('select[name="reminderLeadHours"]');
     const sendReminders = page.locator('input[name="sendReminders"]');
+    const select = page.getByLabel('Reminder date field');
     const save = page.getByRole('button', { name: 'Save' });
 
-    await expect(lead).toHaveValue('24');
+    // The lead is fixed; there is no timing control to find.
+    await expect(page.locator('select[name="reminderLeadHours"]')).toHaveCount(0);
     await expect(sendReminders).toBeChecked();
+    // A new signup is anchored on its template date field from the start.
+    await expect(select).toHaveValue('date');
 
-    await lead.selectOption('48');
     await sendReminders.uncheck();
     const saved = page.waitForResponse(
-      (r) => r.request().method() === 'POST' && r.url().includes(`/app/signups/${signupId}/settings`),
+      (r) =>
+        r.request().method() === 'POST' && r.url().includes(`/app/signups/${signupId}/settings`),
     );
     await save.click();
     await saved;
     await expect(save).toBeEnabled();
 
-    await expect(lead).toHaveValue('48');
     await expect(sendReminders).not.toBeChecked();
+    await expect(select).toHaveValue('date');
   });
 });

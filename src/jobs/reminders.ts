@@ -16,19 +16,15 @@ import {
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { formatSlotWhen } from '@/lib/slot-time';
 import { editTokenFor } from '@/lib/token';
-import { DEFAULT_REMINDER_LEAD_HOURS, SignupSettingsSchema } from '@/schemas/signups';
+import { REMINDER_LEAD_HOURS, SignupSettingsSchema } from '@/schemas/signups';
 import { slotDisplayLabel } from '@/lib/slot-label';
 import { listFieldsForSignup, slotTimeOfDay } from '@/services/slot-fields';
 import { reminderOptOutTokenFor } from '@/services/reminder-optout';
 import { sendReminder } from '@/email/send';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
 
-/**
- * Per-signup reminder lead time, in hours, as a SQL interval. Signups created
- * before `reminderLeadHours` existed have no key in their settings jsonb and
- * fall back to the schema default, so no backfill is needed.
- */
-const leadInterval = sql`make_interval(hours => COALESCE((${signups.settings}->>'reminderLeadHours')::int, ${DEFAULT_REMINDER_LEAD_HOURS}))`;
+/** The reminder lead time as a SQL interval. Fixed for every signup. */
+const leadInterval = sql`make_interval(hours => ${REMINDER_LEAD_HOURS})`;
 
 export interface DueReminder {
   commitmentId: string;
