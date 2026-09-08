@@ -1,37 +1,37 @@
 import { describe, expect, it } from 'vitest';
-import { slotDisplayLabel } from './slot-label';
+import { slotDetails } from './slot-label';
 
 const fields = [
-  { ref: 'what', label: 'What', fieldType: 'text' },
   { ref: 'date', label: 'Date', fieldType: 'date' },
+  { ref: 'time', label: 'Time', fieldType: 'time' },
+  { ref: 'role', label: 'Role', fieldType: 'text' },
 ];
 
-describe('slotDisplayLabel', () => {
-  it('uses the primary field value, not the slug-shaped ref', () => {
-    expect(
-      slotDisplayLabel(
-        fields,
-        { what: 'Front Desk Shift', date: '2026-08-30' },
-        'front-desk-shift-2026-08-30',
-      ),
-    ).toBe('Front Desk Shift');
+describe('slotDetails', () => {
+  it('returns every field with a value, in definition order', () => {
+    expect(slotDetails(fields, { date: '2026-08-30', time: '13:00', role: 'Front desk' })).toEqual([
+      { label: 'Date', value: 'Sun, Aug 30' },
+      { label: 'Time', value: '13:00' },
+      { label: 'Role', value: 'Front desk' },
+    ]);
   });
 
-  it('skips the group-by field when picking the primary', () => {
-    expect(
-      slotDisplayLabel(fields, { what: 'Front Desk Shift', date: '2026-08-30' }, 'ref', 'what'),
-    ).toBe('Sun, Aug 30');
+  it('keeps the date field even when the signup groups by it', () => {
+    // The old primary-field rule skipped the group field, which is how a
+    // date-grouped signup ended up labelling its time value "What".
+    expect(slotDetails(fields, { date: '2026-08-30', time: '13:00' })).toEqual([
+      { label: 'Date', value: 'Sun, Aug 30' },
+      { label: 'Time', value: '13:00' },
+    ]);
   });
 
-  it('formats a date primary the way the public page does', () => {
-    expect(slotDisplayLabel([fields[1]!], { date: '2026-08-30' }, 'ref')).toBe('Sun, Aug 30');
+  it('drops fields the slot has no value for', () => {
+    expect(slotDetails(fields, { role: 'Front desk', time: '' })).toEqual([
+      { label: 'Role', value: 'Front desk' },
+    ]);
   });
 
-  it('falls back to the ref when the primary value is empty', () => {
-    expect(slotDisplayLabel(fields, { what: '' }, 'cookies-2')).toBe('cookies-2');
-  });
-
-  it('falls back to the ref when the slot has no fields', () => {
-    expect(slotDisplayLabel([], {}, 'slot-1788014486217-1')).toBe('slot-1788014486217-1');
+  it('is empty for a slot with no fields', () => {
+    expect(slotDetails([], {})).toEqual([]);
   });
 });

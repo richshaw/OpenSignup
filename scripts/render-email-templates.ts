@@ -30,8 +30,12 @@ const cases: Array<[string, ReactElement]> = [
       participantName: 'Dana',
       signupTitle: 'Saturday Snack Rotation',
       manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
-      slotLabel: 'Week 1',
-      slotDateLabel: 'Saturday, September 5 at 9:00 AM',
+      slotDetails: [
+        { label: 'Date', value: 'Sat, Sep 5' },
+        { label: 'Time', value: '09:00' },
+        { label: 'Snack', value: 'Fruit' },
+      ],
+      slotSummary: 'Sat, Sep 5 · 09:00 · Fruit',
       notes: 'Bringing grapes',
       quantity: 2,
       promisesReminder: true,
@@ -43,8 +47,11 @@ const cases: Array<[string, ReactElement]> = [
       participantName: 'Dana',
       signupTitle: 'Saturday Snack Rotation',
       signupUrl: 'https://example.test/s/snacks',
-      slotLabel: 'Week 1',
-      slotDateLabel: 'Saturday, September 5',
+      slotDetails: [
+        { label: 'Date', value: 'Sat, Sep 5' },
+        { label: 'Snack', value: 'Fruit' },
+      ],
+      slotSummary: 'Sat, Sep 5 · Fruit',
       notes: 'Bringing grapes',
     }),
   ],
@@ -59,7 +66,7 @@ const cases: Array<[string, ReactElement]> = [
 const expected: Record<string, string> = {
   'magic-link': 'https://example.test/login/confirm?token=abc',
   'commitment-confirmation': 'https://example.test/s/snacks/c/com_1?token=abc',
-  reminder: 'Saturday Snack Rotation',
+  reminder: 'Sat, Sep 5',
 };
 
 async function main(): Promise<void> {
