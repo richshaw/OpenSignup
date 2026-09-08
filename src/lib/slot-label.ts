@@ -60,22 +60,35 @@ export function renderFieldValue(field: LabelledField, raw: unknown): string | n
   return String(raw);
 }
 
+/** One printable `Label: value` line from a slot's field values. */
+export interface SlotDetail {
+  label: string;
+  value: string;
+}
+
 /**
- * The slot's display name, matching what the public page puts at the top of
- * the slot card: the primary field's rendered value.
+ * Every field the organizer defined that this slot has a value for, in
+ * definition order, ready to print as `Label: value`.
  *
- * Falls back to `ref` only when there is nothing better — a slot with no
- * fields, or whose primary value is empty. That is still a slug, but it beats
- * an empty heading, and it is the same string the organizer sees in the
- * builder for such a slot.
+ * Deliberately singles out nothing. The emails used to name one "primary"
+ * field as a "What:" line and derive a separate "When:" line from
+ * `slots.slot_at`, which guessed wrong the moment that primary field *was* the
+ * date or time: a signup grouped by date sent "What: 13:00" above "When:
+ * Wednesday, September 9 at 1:00 PM", and dropped every other field the
+ * organizer had asked about. Printing all of them needs no rule to get right.
+ *
+ * The values are rendered exactly as the public page renders them
+ * (`renderFieldValue`), so a slot reads the same in the inbox as on the page.
  */
-export function slotDisplayLabel(
+export function slotDetails(
   fields: readonly LabelledField[],
   values: Record<string, unknown>,
-  fallbackRef: string,
-  groupRef?: string | null,
-): string {
-  const primary = pickPrimaryField(fields, groupRef);
-  const rendered = primary ? renderFieldValue(primary, values[primary.ref]) : null;
-  return rendered ?? fallbackRef;
+): SlotDetail[] {
+  const out: SlotDetail[] = [];
+  for (const field of fields) {
+    const value = renderFieldValue(field, values[field.ref]);
+    if (value === null) continue;
+    out.push({ label: field.label, value });
+  }
+  return out;
 }

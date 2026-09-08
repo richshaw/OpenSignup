@@ -20,10 +20,10 @@ import { recordActivity } from '@/lib/activity';
 import { commitmentEditUrl } from '@/lib/links';
 import { log } from '@/lib/log';
 import { willSendReminder } from '@/lib/reminder-eligibility';
-import { formatSlotWhen } from '@/lib/slot-time';
+import { slotDetails } from '@/lib/slot-label';
+import { summarizeSlotValues } from '@/lib/slot-summary';
 import { SignupSettingsSchema } from '@/schemas/signups';
-import { slotDisplayLabel } from '@/lib/slot-label';
-import { listFieldsForSignup, slotTimeOfDay } from '@/services/slot-fields';
+import { listFieldsForSignup } from '@/services/slot-fields';
 import { sendCommitmentConfirmation } from './send';
 
 /**
@@ -97,31 +97,17 @@ export async function notifyCommitmentCreated(
       createdAt: row.commitment.createdAt,
     });
 
-    // `slots.ref` is a slug, not a display name — use the label the
-    // participant page shows, so the receipt names what they picked.
+    // Every field the organizer defined, rendered the way the participant page
+    // renders it. `slots.ref` is a slug and never appears here.
     const fields = await listFieldsForSignup(db, row.signup.id);
     const slotValues = (row.slot.values as Record<string, unknown>) ?? {};
-    const slotLabel = slotDisplayLabel(
-      fields,
-      slotValues,
-      row.slot.ref,
-      settings.success ? settings.data.groupByFieldRefs[0] : undefined,
-    );
-    // Asked explicitly rather than inferred from the instant: a date-only slot
-    // is stored at noon UTC, byte-for-byte what a genuine 12:00 slot produces.
-    const hasTime =
-      slotTimeOfDay(
-        (row.signup.settings as Record<string, unknown> | null) ?? {},
-        fields,
-        slotValues,
-      ) !== null;
 
     await sendCommitmentConfirmation(row.participant.email, {
       participantName: row.participant.name,
       signupTitle: row.signup.title,
       manageUrl: commitmentEditUrl(row.signup.slug, row.commitment.id, editToken),
-      slotLabel,
-      slotDateLabel: formatSlotWhen(row.slot.slotAt, { hasTime }),
+      slotDetails: slotDetails(fields, slotValues),
+      slotSummary: summarizeSlotValues(fields, slotValues),
       notes: row.commitment.notes,
       quantity: row.commitment.quantity,
       promisesReminder,

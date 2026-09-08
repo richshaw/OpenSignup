@@ -1,5 +1,6 @@
 import { createElement } from 'react';
 import { getEmailTransport } from './index';
+import { confirmationSubject, reminderSubject } from './subjects';
 import {
   CommitmentConfirmationEmail,
   type CommitmentConfirmationEmailProps,
@@ -14,7 +15,7 @@ export async function sendCommitmentConfirmation(
   const { html, text } = await renderEmail(createElement(CommitmentConfirmationEmail, props));
   return getEmailTransport().send({
     to,
-    subject: `You're signed up: ${props.slotLabel} · ${props.signupTitle}`,
+    subject: confirmationSubject(props.signupTitle, props.slotSummary),
     html,
     text,
   });
@@ -34,7 +35,7 @@ export async function sendReminder(
   const { html, text } = await renderEmail(createElement(ReminderEmail, props));
   return getEmailTransport().send({
     to,
-    subject: `Reminder: ${props.slotLabel} · ${props.signupTitle}`,
+    subject: reminderSubject(props.signupTitle, props.slotSummary),
     html,
     text,
     ...(opts.unsubscribePostUrl
