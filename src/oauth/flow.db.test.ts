@@ -1,6 +1,17 @@
 import { and, eq, like } from 'drizzle-orm';
 import { decodeJwt } from 'jose';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// The seam derives issuer and resource from AUTH_URL; point it at this
+// test's provider rather than the local dev origin. Everything else
+// (DATABASE_URL, AUTH_SECRET) comes from the real env.
+vi.mock('@/lib/env', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/env')>();
+  return {
+    ...actual,
+    getEnv: () => ({ ...actual.getEnv(), AUTH_URL: 'https://signup.example.org' }),
+  };
+});
 import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { organizers } from '@/db/schema/organizers';
@@ -9,7 +20,8 @@ import { workspaceMembers } from '@/db/schema/members';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
-import { createVerifier } from '@/auth/bearer';
+import { createVerifier, resolveBearerActor } from '@/auth/bearer';
+import { resetSigningKeysCache } from '@/oauth/instance';
 import { loadOrganizerSessionById, toActor } from '@/auth/organizer-session';
 import { DrizzleOidcAdapter } from './adapter';
 import { OAUTH_TTL } from './config';
@@ -124,12 +136,40 @@ describe('authorization code flow on Postgres', () => {
     const tokens = await tokenRes.json();
     expect(decodeJwt(tokens.access_token).sub).toBe(organizerId);
 
-    // The bearer seam yields the same Actor the cookie path builds.
+    // The verifier alone maps the token to the organizer…
     const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys: async () => ({ keys: (await loadOrCreateSigningKeys(db)).publicKeys }), reload() {} });
     const info = await v.verifyAccessToken(tokens.access_token);
-    const bearerActor = toActor(await loadOrganizerSessionById(db, String(info.extra?.sub)));
-    expect(bearerActor).toEqual(organizerActor);
-    expect(bearerActor.kind).toBe('organizer');
+    expect(toActor(await loadOrganizerSessionById(db, String(info.extra?.sub)))).toEqual(organizerActor);
+
+    // …and the seam itself, given a real request, yields the same Actor the
+    // cookie path builds, the token's scopes, and the SDK's challenges.
+    resetSigningKeysCache();
+    const bearer = (token?: string) =>
+      new Request(RESOURCE, { headers: token ? { authorization: `Bearer ${token}` } : {} });
+    const seam = await resolveBearerActor(bearer(tokens.access_token));
+    expect(seam.ok).toBe(true);
+    if (seam.ok) {
+      expect(seam.actor).toEqual(organizerActor);
+      expect(seam.scopes).toEqual(['signups:read', 'signups:write']);
+      expect(seam.clientId).toBe(CLIENT);
+    }
+    const noHeader = await resolveBearerActor(bearer());
+    expect(noHeader.ok).toBe(false);
+    if (!noHeader.ok) {
+      expect(noHeader.response.status).toBe(401);
+      expect(noHeader.response.headers.get('www-authenticate')).toContain(
+        'resource_metadata="https://signup.example.org/.well-known/oauth-protected-resource/api/mcp"',
+      );
+    }
+    const garbage = await resolveBearerActor(bearer('not.a.jwt'));
+    expect(garbage.ok).toBe(false);
+    if (!garbage.ok) expect(garbage.response.status).toBe(401);
+    const stepUp = await resolveBearerActor(bearer(tokens.access_token), { requiredScopes: ['commitments:read'] });
+    expect(stepUp.ok).toBe(false);
+    if (!stepUp.ok) {
+      expect(stepUp.response.status).toBe(403);
+      expect(stepUp.response.headers.get('www-authenticate')).toContain('scope="commitments:read"');
+    }
 
     // Grant bookkeeping.
     const apps = await listConnectedApps(db, organizerActor);
@@ -139,7 +179,11 @@ describe('authorization code flow on Postgres', () => {
       client: { domain: 'client.example', name: 'Example Assistant', isUrl: true },
       scopes: ['signups:read', 'signups:write'],
     });
-    expect(apps[0]!.lastUsedAt).toBeInstanceOf(Date);
+    // `onGrantUsed` runs off the provider's grant.success event without
+    // being awaited by the token response; give it a moment.
+    await expect
+      .poll(async () => (await listConnectedApps(db, organizerActor))[0]?.lastUsedAt, { timeout: 2000 })
+      .toBeInstanceOf(Date);
     expect(apps[0]!.expiresAt!.getTime() - Date.now()).toBeGreaterThan((OAUTH_TTL.GRANT_MAX - 60) * 1000);
 
     // Re-approving extends the same grant rather than creating a second one.
@@ -214,6 +258,34 @@ describe('ensureGrant', () => {
     // Which racer wins decides the order; only the union is deterministic.
     expect([...(apps.find((a) => a.client.domain === 'racer.example')?.scopes ?? [])].sort()).toEqual(['signups:read', 'signups:write']);
     await revokeConnectedApp(db, d.provider, organizerActor, [...ids][0]!);
+  });
+});
+
+describe('resolveBearerActor for an organizer that no longer exists', () => {
+  it('rejects the token as invalid rather than producing an anonymous actor', async () => {
+    const ghostId = makeId('org');
+    await db.insert(organizers).values({ id: ghostId, email: `${ghostId}@example.com` });
+    // A fresh browser: the shared jar carries the first organizer's provider session.
+    const g = createDriver(d.provider, ISSUER);
+    const { verifier, challenge } = pkcePair();
+    const { uid } = await startAuthorization(g, { clientId: CLIENT, redirectUri: REDIRECT, scope: 'signups:read', challenge });
+    const details = await interactionDetails(g, uid);
+    const grant = new g.provider.Grant({ accountId: ghostId, clientId: String(details.params.client_id) });
+    grant.addOIDCScope('signups:read');
+    grant.addResourceScope(RESOURCE, 'signups:read');
+    const grantId = await grant.save();
+    await finishInteraction(g, uid, { login: { accountId: ghostId }, consent: { grantId } });
+    const { code } = codeFromRedirect(await resume(g, uid));
+    const exchanged = await exchangeCode(g, { clientId: CLIENT, redirectUri: REDIRECT, code, verifier });
+    const tokens = await exchanged.json();
+    expect(exchanged.status, JSON.stringify(tokens)).toBe(200);
+    await db.delete(organizers).where(eq(organizers.id, ghostId));
+    const r = await resolveBearerActor(new Request(RESOURCE, { headers: { authorization: `Bearer ${tokens.access_token}` } }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.response.status).toBe(401);
+      expect(r.response.headers.get('www-authenticate'), r.response.headers.get('www-authenticate') ?? '').toContain('unknown account');
+    }
   });
 });
 
