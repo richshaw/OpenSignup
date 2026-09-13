@@ -50,6 +50,13 @@
       "when": 1788748697870,
       "tag": "0006_date_only_slots_at_noon",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789318226599,
+      "tag": "0007_oauth_authorization_server",
+      "breakpoints": true
     }
   ]
 }
