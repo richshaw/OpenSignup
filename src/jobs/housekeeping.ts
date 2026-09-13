@@ -1,3 +1,4 @@
+import { sweepExpiredLoginCodes } from '@/auth/login-code';
 import { getDb } from '@/db/client';
 import { log } from '@/lib/log';
 import { sweepExpiredRateLimits } from '@/lib/rate-limit';
@@ -10,10 +11,11 @@ import { sweepExpiredOauthRecords } from '@/oauth/adapter';
  * authorization, any IP can hit a metered endpoint — so this is what keeps
  * them bounded.
  */
-export async function runHousekeeping(): Promise<{ oauthRecords: number; rateLimits: number }> {
+export async function runHousekeeping(): Promise<{ oauthRecords: number; rateLimits: number; loginCodes: number }> {
   const db = getDb();
   const oauthRecords = await sweepExpiredOauthRecords(db);
   const rateLimits = await sweepExpiredRateLimits(db);
-  log.info({ oauthRecords, rateLimits }, 'housekeeping: swept expired rows');
-  return { oauthRecords, rateLimits };
+  const loginCodes = await sweepExpiredLoginCodes(db);
+  log.info({ oauthRecords, rateLimits, loginCodes }, 'housekeeping: swept expired rows');
+  return { oauthRecords, rateLimits, loginCodes };
 }

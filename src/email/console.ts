@@ -15,6 +15,16 @@ export function redactUrlQueryStrings(text: string): string {
   return text.replace(/(https?:\/\/[^\s?]+)\?\S*/g, '$1?[redacted]');
 }
 
+/**
+ * The sign-in email prints a six-digit code that redeems the same single-use
+ * callback as the link. Like the link's token it must never reach a log, so
+ * outside development any standalone six-digit number in the preview is
+ * blanked (a slot count or a date never appears as exactly six bare digits).
+ */
+export function redactSignInCodes(text: string): string {
+  return text.replace(/(?<!\d)\d{6}(?!\d)/g, '[redacted]');
+}
+
 export class ConsoleTransport implements EmailTransport {
   constructor(private readonly from: string) {}
 
@@ -28,7 +38,7 @@ export class ConsoleTransport implements EmailTransport {
     // token-bearing link in the body, well inside the 600-char slice.
     const isDev = getEnv().NODE_ENV === 'development';
     const urls = isDev ? matched : matched.map((u) => u.split('?')[0]);
-    const text = isDev ? msg.text : redactUrlQueryStrings(msg.text);
+    const text = isDev ? msg.text : redactSignInCodes(redactUrlQueryStrings(msg.text));
     log.info(
       {
         emailId: id,

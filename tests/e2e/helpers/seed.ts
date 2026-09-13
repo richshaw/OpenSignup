@@ -1,4 +1,7 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { issueLoginCode } from '@/auth/login-code';
+import { verificationTokens } from '@/db/schema/auth';
+import { getEnv } from '@/lib/env';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { eq } from 'drizzle-orm';
@@ -22,6 +25,7 @@ export const SEED_FILE = path.join(process.cwd(), 'tests', 'e2e', '.seed.json');
 export interface SeedData {
   sessionToken: string;
   organizerId: string;
+  organizerEmail: string;
   /** Published signup with an open slot ("Cookies") and a full slot ("Brownies"). */
   publicSlug: string;
   publicTitle: string;
@@ -176,6 +180,7 @@ export async function seedE2E(): Promise<SeedData> {
   const data: SeedData = {
     sessionToken,
     organizerId,
+    organizerEmail: E2E_ORGANIZER_EMAIL,
     publicSlug: publicSignup.slug,
     publicTitle: 'Bake Sale',
     openSlotLabel: 'Cookies',
@@ -205,4 +210,26 @@ export async function createDisposableSession(organizerId: string): Promise<stri
     expires: new Date(Date.now() + 60 * 60 * 1000),
   });
   return token;
+}
+
+/**
+ * Mint a real magic-link callback for the seeded organizer — a
+ * `verification_tokens` row hashed the way Auth.js hashes it
+ * (sha256(token + secret)) — and a sign-in code that redeems it. Lets a
+ * browser test walk the code path end to end without reading an inbox.
+ */
+export async function mintLoginCodeForTest(email: string, callbackUrl: string): Promise<string> {
+  const db = getDb();
+  const token = randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + 10 * 60 * 1000);
+  await db.insert(verificationTokens).values({
+    identifier: email,
+    token: createHash('sha256').update(`${token}${getEnv().AUTH_SECRET}`).digest('hex'),
+    expires,
+  });
+  const authCallback = new URL('/api/auth/callback/nodemailer', getEnv().AUTH_URL);
+  authCallback.searchParams.set('callbackUrl', callbackUrl);
+  authCallback.searchParams.set('token', token);
+  authCallback.searchParams.set('email', email);
+  return issueLoginCode(db, { email, callbackUrl: authCallback.toString(), expiresAt: expires });
 }
