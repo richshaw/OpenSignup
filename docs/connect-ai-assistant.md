@@ -136,3 +136,5 @@ OAUTH_STATIC_CLIENTS='[{"client_id":"mcp-inspector","client_name":"MCP Inspector
 Static clients are public clients: no secret, PKCE required, and redirect URIs
 matched exactly — except loopback addresses, where any port matches, as RFC
 8252 requires for native apps.
+
+Each static client may also set `"application_type": "web"` for a hosted client. The default, `native`, matches loopback redirect URIs on any port, which desktop MCP clients rely on.
