@@ -13,7 +13,7 @@ export default function CookiesPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Cookies</h1>
-        <p className="text-ink-muted text-sm">Last updated: 2 June 2026</p>
+        <p className="text-ink-muted text-sm">Last updated: 13 September 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -74,16 +74,54 @@ export default function CookiesPage() {
                 </td>
                 <td className="px-4 py-3">60 days</td>
               </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs">os_oauth_session</td>
+                <td className="px-4 py-3">
+                  Records which organizer is signed in while connecting an app or AI
+                  assistant to their account. Sent only to the connection endpoints
+                  under <code>/api/oauth</code>.
+                </td>
+                <td className="px-4 py-3">24 hours</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs">os_oauth_interaction</td>
+                <td className="px-4 py-3">
+                  Ties a pending connection request to the browser that started it, so
+                  only that browser can approve it.
+                </td>
+                <td className="px-4 py-3">15 minutes</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs">os_oauth_resume</td>
+                <td className="px-4 py-3">
+                  Carries your allow-or-decline answer back to finish (or cancel) the
+                  connection.
+                </td>
+                <td className="px-4 py-3">15 minutes</td>
+              </tr>
             </tbody>
           </table>
         </div>
+        <p className="text-ink-muted text-sm">
+          The three <code>os_oauth_*</code> cookies are set only when an organizer
+          connects an app or AI assistant to their account, and each one is paired with
+          a <code>.sig</code> cookie of the same name and lifetime holding the signature
+          that proves we set it. All of them are <code>httpOnly</code>, limited to the
+          page or endpoint that needs them, and marked <code>Secure</code> over HTTPS.
+          See the{' '}
+          <Link href="/privacy" className="text-brand underline">
+            privacy policy
+          </Link>{' '}
+          for what a connected app can reach and how to disconnect it.
+        </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Why there is no cookie banner</h2>
         <p>
-          Every cookie above is strictly necessary to make the service work — either
-          for sign-in or to let a participant edit their own commitment. Under
+          Every cookie above is strictly necessary to make the service work — for
+          sign-in, to let a participant edit their own commitment, or to complete a
+          connection an organizer asked for. Under
           GDPR/ePrivacy, strictly-necessary cookies do not require a consent banner.
           That is why you don&apos;t see a popup.
         </p>

@@ -101,6 +101,24 @@ headers server-side — no client-supplied data is trusted.
 > (and after, in the case of the response). Filter by `event_type` alone
 > when computing auth funnels.
 
+### Connected apps (OAuth)
+
+| event | actor | payload | fired from |
+|---|---|---|---|
+| `oauth.consent_granted` | organizer | `{ clientDomain, scopes, extended }` | `oauth/consent.ts` |
+| `oauth.consent_denied` | organizer | `{ clientDomain, scopes }` | `oauth/consent.ts` |
+| `oauth.grant_revoked` | organizer | `{ clientDomain }` | `oauth/grants.ts` |
+
+These fire when an organizer approves, declines, or disconnects a third-party
+app (an AI assistant over MCP, in practice). `signup_id` and `workspace_id`
+are `NULL`: a grant belongs to the organizer and spans every workspace they
+belong to, so it is not tenant-scoped. `clientDomain` is the host the client
+id was served from — the part a client cannot forge — never its self-reported
+name. `scopes` lists the resource scopes only. `extended` is `true` when the
+approval extended an existing grant rather than creating a new one (the
+organizer re-approving the same app). No event carries a token, an
+authorization code, or an email address.
+
 ## Privacy guarantees
 
 The `landing.viewed`, `landing.cta_clicked`, `signup.viewed`, and
