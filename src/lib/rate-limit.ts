@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { lt, sql } from 'drizzle-orm';
 import { rateLimits } from '@/db/schema/idempotency';
 import type { Db } from '@/db/client';
 import { serviceError, ServiceException } from './errors';
@@ -82,4 +82,50 @@ export const RateLimits = {
   reminderOptOutPerIp: { bucket: 'reminder.optout.ip', max: 300, windowSeconds: 3600 },
   // Unauthenticated writes into the append-only activity log.
   telemetryPerIp: { bucket: 'telemetry.ip', max: 30, windowSeconds: 3600 },
+  // OAuth token endpoint: authorization-code exchange and refresh. The main
+  // brute-force target (codes are single-use and short-lived, but a guess costs
+  // us a DB round trip). Sized for machine traffic: a client that has just
+  // connected exchanges once and then refreshes on a schedule measured in
+  // minutes, so even several clients behind one NAT stay far under this. Set
+  // too tight, a rejected refresh sends the client back through the whole
+  // authorization flow, which is worse for everyone.
+  oauthTokenPerIp: { bucket: 'oauth.token.ip', max: 60, windowSeconds: 60 },
+  // OAuth authorization endpoint. Cheap for us to serve but each request can
+  // trigger a CIMD metadata fetch to a third party, so it is metered before
+  // the provider sees it. A human clicking Connect hits this a handful of
+  // times an hour at most.
+  oauthAuthorizePerIp: { bucket: 'oauth.authorize.ip', max: 30, windowSeconds: 600 },
+  // Everything else under /api/oauth (jwks, revocation, discovery). Generous:
+  // these are cacheable reads and revocations, not credential guesses.
+  oauthOtherPerIp: { bucket: 'oauth.other.ip', max: 120, windowSeconds: 60 },
+  // Consent approve/deny submissions, per organizer. Nobody approves more than
+  // a few connections an hour; this stops a stolen session being used to mint
+  // grants in bulk.
+  oauthConsentPerOrganizer: { bucket: 'oauth.consent.org', max: 30, windowSeconds: 3600 },
+  // Outbound CIMD metadata fetches, per client origin. An authorization
+  // request names a client by URL and we fetch that URL, so an attacker can
+  // make us hammer a third party (or burn our own egress) by inventing client
+  // ids on one host. The library caches a document for at least five minutes
+  // (see `cacheDuration` in src/oauth/provider.ts), so a real client needs a
+  // handful of fetches an hour at most.
+  oauthCimdPerOrigin: { bucket: 'oauth.cimd.origin', max: 30, windowSeconds: 3600 },
+  // The MCP endpoint's unauthenticated face: every request costs a signature
+  // check before any identity exists, and an unknown key id costs a signing-key
+  // reload. Generous for a real client (one call per tool use), hostile to a
+  // flood of forged tokens.
+  mcpPerIp: { bucket: 'mcp.ip', max: 120, windowSeconds: 60 },
 } as const;
+
+/** Longest window any policy uses; rows older than this can never be read again. */
+const LONGEST_WINDOW_SECONDS = Math.max(...Object.values(RateLimits).map((p) => p.windowSeconds));
+
+/**
+ * Delete counters whose window closed. Subjects are partly attacker-chosen
+ * (client IPs, CIMD origins), so without this the table only ever grows.
+ * Returns the number of rows removed.
+ */
+export async function sweepExpiredRateLimits(db: Db): Promise<number> {
+  const cutoff = new Date(Date.now() - 2 * LONGEST_WINDOW_SECONDS * 1000);
+  const rows = await db.delete(rateLimits).where(lt(rateLimits.windowStart, cutoff)).returning({ b: rateLimits.bucket });
+  return rows.length;
+}

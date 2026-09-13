@@ -65,6 +65,9 @@ export const ACTIVITY_EVENTS = [
   'auth.magic_link_sent',
   'auth.signed_in',
   'workspace.created',
+  'oauth.consent_granted',
+  'oauth.consent_denied',
+  'oauth.grant_revoked',
   'landing.viewed',
   'landing.cta_clicked',
 ] as const;
