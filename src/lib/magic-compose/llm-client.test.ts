@@ -188,4 +188,12 @@ describe('parseRetryAfter', () => {
     expect(parseRetryAfter(null)).toBeUndefined();
     expect(parseRetryAfter('')).toBeUndefined();
   });
+
+  it('rejects non-integer delta-seconds forms rather than misreading them', () => {
+    // Number() would turn each of these into a bogus delay (e.g. 0x1e -> 30).
+    expect(parseRetryAfter('0x1e')).toBeUndefined();
+    expect(parseRetryAfter('1e3')).toBeUndefined();
+    expect(parseRetryAfter('+30')).toBeUndefined();
+    expect(parseRetryAfter('30.5')).toBeUndefined();
+  });
 });
