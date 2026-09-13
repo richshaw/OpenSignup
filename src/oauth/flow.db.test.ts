@@ -211,7 +211,8 @@ describe('ensureGrant', () => {
       .where(and(eq(oauthRecords.model, 'Grant'), eq(oauthRecords.clientId, clientId)));
     expect(rows).toHaveLength(1);
     const apps = await listConnectedApps(db, organizerActor);
-    expect(apps.find((a) => a.client.domain === 'racer.example')?.scopes).toEqual(['signups:read', 'signups:write']);
+    // Which racer wins decides the order; only the union is deterministic.
+    expect([...(apps.find((a) => a.client.domain === 'racer.example')?.scopes ?? [])].sort()).toEqual(['signups:read', 'signups:write']);
     await revokeConnectedApp(db, d.provider, organizerActor, [...ids][0]!);
   });
 });
