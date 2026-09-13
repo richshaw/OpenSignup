@@ -21,6 +21,7 @@ export const SEED_FILE = path.join(process.cwd(), 'tests', 'e2e', '.seed.json');
 
 export interface SeedData {
   sessionToken: string;
+  organizerId: string;
   /** Published signup with an open slot ("Cookies") and a full slot ("Brownies"). */
   publicSlug: string;
   publicTitle: string;
@@ -174,6 +175,7 @@ export async function seedE2E(): Promise<SeedData> {
 
   const data: SeedData = {
     sessionToken,
+    organizerId,
     publicSlug: publicSignup.slug,
     publicTitle: 'Bake Sale',
     openSlotLabel: 'Cookies',
@@ -187,4 +189,20 @@ export async function seedE2E(): Promise<SeedData> {
   };
   writeFileSync(SEED_FILE, JSON.stringify(data, null, 2));
   return data;
+}
+
+/**
+ * A throwaway session for a test that signs out. Sign-out deletes the
+ * session row, so such a test must never borrow the shared one — and must
+ * mint a fresh row on every attempt, retries included.
+ */
+export async function createDisposableSession(organizerId: string): Promise<string> {
+  const db = getDb();
+  const token = randomBytes(32).toString('hex');
+  await db.insert(sessions).values({
+    sessionToken: token,
+    userId: organizerId,
+    expires: new Date(Date.now() + 60 * 60 * 1000),
+  });
+  return token;
 }
