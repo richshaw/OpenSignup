@@ -1,7 +1,7 @@
 import { and, desc, eq, gt, isNull, or, sql } from 'drizzle-orm';
 import type Provider from 'oidc-provider';
 import { oauthRecords } from '@/db/schema/oauth';
-import type { Queryable } from '@/db/client';
+import type { Db, Queryable } from '@/db/client';
 import { recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException } from '@/lib/errors';
 import { log } from '@/lib/log';
@@ -45,6 +45,40 @@ export async function touchGrantUsed(db: Queryable, grantId: string): Promise<vo
     .update(oauthRecords)
     .set({ lastUsedAt: sql`now()` })
     .where(and(eq(oauthRecords.model, GRANT), eq(oauthRecords.id, grantId)));
+}
+
+export interface EnsureGrantInput {
+  accountId: string;
+  clientId: string;
+  clientName: string | null;
+  resource: string;
+  /** Scopes the request named at the OIDC level (openid, offline_access, …). */
+  oidcScopes: string[];
+  /** Scopes that reach the access token. */
+  resourceScopes: string[];
+}
+
+/**
+ * Find-or-create the one live grant for an organizer + client, then add the
+ * approved scopes to it. Serialized per (organizer, client) with a
+ * transaction-scoped advisory lock: two consent windows approving at once
+ * would otherwise both see "no grant", create two, and disconnecting one
+ * would leave the other's refresh tokens alive. The lock is what serializes;
+ * the provider writes through its own connection, which is fine because
+ * the second caller cannot look until the first has saved.
+ */
+export async function ensureGrant(db: Db, provider: Provider, input: EnsureGrantInput): Promise<{ grantId: string; extended: boolean }> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`oauth-grant:${input.accountId}:${input.clientId}`}))`);
+    const existingId = await findGrantIdFor(tx, input.accountId, input.clientId);
+    const existing = existingId ? await provider.Grant.find(existingId) : undefined;
+    const grant = existing ?? new provider.Grant({ accountId: input.accountId, clientId: input.clientId });
+    if (input.oidcScopes.length > 0) grant.addOIDCScope(input.oidcScopes.join(' '));
+    grant.addResourceScope(input.resource, input.resourceScopes.join(' '));
+    const grantId = await grant.save();
+    await labelGrant(tx, grantId, input.clientName);
+    return { grantId, extended: Boolean(existing) };
+  });
 }
 
 /** Remember how the client introduced itself, for the connected-apps page. */

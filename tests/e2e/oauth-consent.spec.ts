@@ -104,6 +104,22 @@ test.describe('OAuth consent', () => {
     await page.waitForURL(/\/e2e\/oauth-callback\?/);
   });
 
+  test('"sign in as someone else" signs out and returns to the same consent request', async ({ browser }) => {
+    const context = await browser.newContext();
+    await loginAsSeededOrganizer(context, { disposable: true });
+    const page = await context.newPage();
+    const { challenge } = pkce();
+    await page.goto(authorizeUrl(challenge, 'signups:read'));
+    await expect(page).toHaveURL(/\/oauth\/consent\//);
+    const consentUrl = page.url();
+    await page.getByRole('button', { name: 'Sign in as someone else' }).click();
+    await expect(page).toHaveURL(/\/login\?callbackUrl=%2Foauth%2Fconsent%2F/);
+    // Signed out for real: the consent page now demands a login.
+    await page.goto(consentUrl);
+    await expect(page).toHaveURL(/\/login\?callbackUrl=/);
+    await context.close();
+  });
+
   test('the consent page without a session sends the organizer to log in and back', async ({ browser }) => {
     const fresh = await browser.newContext();
     const page = await fresh.newPage();

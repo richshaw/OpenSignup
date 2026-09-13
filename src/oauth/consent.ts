@@ -7,7 +7,7 @@ import { log } from '@/lib/log';
 import { requireOrganizerId, type Actor } from '@/lib/policy';
 import { describeClient, type ClientDisplay } from './client-display';
 import { consentPath, mcpResourceUrl, oauthIssuer, PROVIDER_SCOPES } from './config';
-import { findGrantIdFor, labelGrant } from './grants';
+import { ensureGrant } from './grants';
 import { getProvider } from './instance';
 import { withNodePair } from './node-shim';
 import { describeScopes, parseScopeString, RESOURCE_SCOPES, type Scope, type ScopeDescription } from './scopes';
@@ -97,9 +97,6 @@ export async function decideConsent(uid: string, actor: Actor, decision: Decisio
   } else if (resourceScopes.length === 0) {
     result = { error: 'invalid_scope', error_description: 'No usable permission was requested' };
   } else {
-    const existingId = await findGrantIdFor(db, organizerId, clientId);
-    const existing = existingId ? await provider.Grant.find(existingId) : undefined;
-    const grant = existing ?? new provider.Grant({ accountId: organizerId, clientId });
     // The provider's consent policy checks OIDC-level and resource-level
     // scopes independently and must see every requested value in both, or
     // it bounces the browser back here forever. Any OIDC scope the request
@@ -108,15 +105,19 @@ export async function decideConsent(uid: string, actor: Actor, decision: Decisio
     const oidcScopes = String(interaction.params.scope ?? '')
       .split(/\s+/)
       .filter((s) => (PROVIDER_SCOPES as readonly string[]).includes(s) || s === 'openid');
-    if (oidcScopes.length > 0) grant.addOIDCScope(oidcScopes.join(' '));
-    grant.addResourceScope(mcpResourceUrl(), resourceScopes.join(' '));
-    const grantId = await grant.save();
-    await labelGrant(db, grantId, display.name);
+    const { grantId, extended } = await ensureGrant(db, provider, {
+      accountId: organizerId,
+      clientId,
+      clientName: display.name,
+      resource: mcpResourceUrl(),
+      oidcScopes,
+      resourceScopes,
+    });
     result = { login: { accountId: organizerId }, consent: { grantId } };
     await safeActivity(db, organizerId, 'oauth.consent_granted', {
       clientDomain: display.domain,
       scopes: resourceScopes,
-      extended: Boolean(existing),
+      extended,
     });
   }
 

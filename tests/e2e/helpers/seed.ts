@@ -21,6 +21,8 @@ export const SEED_FILE = path.join(process.cwd(), 'tests', 'e2e', '.seed.json');
 
 export interface SeedData {
   sessionToken: string;
+  /** A second session for tests that sign out; never share `sessionToken` with those. */
+  disposableSessionToken: string;
   /** Published signup with an open slot ("Cookies") and a full slot ("Brownies"). */
   publicSlug: string;
   publicTitle: string;
@@ -119,11 +121,14 @@ export async function seedE2E(): Promise<SeedData> {
   });
 
   const sessionToken = randomBytes(32).toString('hex');
-  await db.insert(sessions).values({
-    sessionToken,
-    userId: organizerId,
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-  });
+  const disposableSessionToken = randomBytes(32).toString('hex');
+  await db.insert(sessions).values(
+    [sessionToken, disposableSessionToken].map((token) => ({
+      sessionToken: token,
+      userId: organizerId,
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    })),
+  );
 
   const actor: Actor = {
     kind: 'organizer',
@@ -174,6 +179,7 @@ export async function seedE2E(): Promise<SeedData> {
 
   const data: SeedData = {
     sessionToken,
+    disposableSessionToken,
     publicSlug: publicSignup.slug,
     publicTitle: 'Bake Sale',
     openSlotLabel: 'Cookies',

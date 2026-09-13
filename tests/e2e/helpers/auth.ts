@@ -6,7 +6,10 @@ import { BASE_URL, loadSeed } from './fixtures';
  * session cookie directly (session strategy is 'database', so the cookie
  * value is just the sessions.session_token row seeded in global-setup).
  */
-export async function loginAsSeededOrganizer(context: BrowserContext): Promise<void> {
+export async function loginAsSeededOrganizer(
+  context: BrowserContext,
+  opts: { disposable?: boolean } = {},
+): Promise<void> {
   const seed = loadSeed();
   // Auth.js derives useSecureCookies from the app URL scheme: over https the
   // cookie is renamed `__Secure-authjs.session-token` and must be `secure`.
@@ -14,7 +17,9 @@ export async function loginAsSeededOrganizer(context: BrowserContext): Promise<v
   await context.addCookies([
     {
       name: secure ? '__Secure-authjs.session-token' : 'authjs.session-token',
-      value: seed.sessionToken,
+      // A test that signs out deletes its session row; it must not take the
+      // shared one down with it.
+      value: opts.disposable ? seed.disposableSessionToken : seed.sessionToken,
       url: BASE_URL,
       httpOnly: true,
       secure,

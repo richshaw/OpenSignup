@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { signOut } from '@/auth/config';
 import { getOrganizerSession } from '@/auth/session';
 import { SiteFooter } from '@/components/site-footer';
 import { INSTANCE_NAME } from '@/lib/site-config';
-import { consentPath, isInteractionUid } from '@/oauth/config';
+import { OAUTH_COOKIES, OAUTH_SESSION_COOKIE_PATH, consentPath, isInteractionUid } from '@/oauth/config';
 import { ConsentUnavailable, loadConsentContext, type ConsentContext } from '@/oauth/consent';
 import { ConsentForm } from './consent-form';
 
@@ -25,6 +27,19 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
   }
 
   const workspaceNames = session.memberships.map((m) => m.workspaceName);
+
+  // "/login" would bounce a signed-in organizer straight back to /app, so
+  // switching accounts has to sign this one out first — and keep the
+  // pending consent as the place to come back to. The provider's own
+  // session cookie goes too, so the next organizer's decision is theirs.
+  async function switchAccount() {
+    'use server';
+    const jar = await cookies();
+    for (const name of [OAUTH_COOKIES.session, `${OAUTH_COOKIES.session}.sig`]) {
+      jar.delete({ name, path: OAUTH_SESSION_COOKIE_PATH });
+    }
+    await signOut({ redirectTo: `/login?callbackUrl=${encodeURIComponent(consentPath(uid))}` });
+  }
 
   return (
     <div className="flex min-h-[100svh] flex-col">
@@ -98,10 +113,11 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
             Connected apps
           </Link>
           . Not you?{' '}
-          <Link href="/login" className="underline">
-            Sign in as someone else
-          </Link>
-          .
+          <form action={switchAccount} className="inline">
+            <button type="submit" className="underline">
+              Sign in as someone else
+            </button>
+          </form>
         </p>
       </main>
       <SiteFooter />

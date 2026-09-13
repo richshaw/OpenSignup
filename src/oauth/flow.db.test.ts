@@ -1,4 +1,4 @@
-import { eq, like } from 'drizzle-orm';
+import { and, eq, like } from 'drizzle-orm';
 import { decodeJwt } from 'jose';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getDb } from '@/db/client';
@@ -13,7 +13,7 @@ import { createVerifier } from '@/auth/bearer';
 import { loadOrganizerSessionById, toActor } from '@/auth/organizer-session';
 import { DrizzleOidcAdapter } from './adapter';
 import { OAUTH_TTL } from './config';
-import { findGrantIdFor, labelGrant, listConnectedApps, revokeConnectedApp, touchGrantUsed } from './grants';
+import { ensureGrant, findGrantIdFor, labelGrant, listConnectedApps, revokeConnectedApp, touchGrantUsed } from './grants';
 import { loadOrCreateSigningKeys } from './keys';
 import { buildProvider } from './provider';
 import {
@@ -185,3 +185,34 @@ describe('authorization code flow on Postgres', () => {
     expect(await r.response.text()).toContain('invalid_client');
   });
 });
+
+describe('ensureGrant', () => {
+  it('serializes concurrent approvals so one organizer + client ends with exactly one grant', async () => {
+    const clientId = 'https://racer.example/meta.json';
+    const input = {
+      accountId: organizerId,
+      clientId,
+      clientName: 'Racer',
+      resource: RESOURCE,
+      oidcScopes: [] as string[],
+      resourceScopes: ['signups:read'],
+    };
+    const results = await Promise.all([
+      ensureGrant(db, d.provider, input),
+      ensureGrant(db, d.provider, { ...input, resourceScopes: ['signups:write'] }),
+      ensureGrant(db, d.provider, input),
+    ]);
+    const ids = new Set(results.map((r) => r.grantId));
+    expect(ids.size).toBe(1);
+    expect(results.filter((r) => r.extended)).toHaveLength(2);
+    const rows = await db
+      .select({ id: oauthRecords.id })
+      .from(oauthRecords)
+      .where(and(eq(oauthRecords.model, 'Grant'), eq(oauthRecords.clientId, clientId)));
+    expect(rows).toHaveLength(1);
+    const apps = await listConnectedApps(db, organizerActor);
+    expect(apps.find((a) => a.client.domain === 'racer.example')?.scopes).toEqual(['signups:read', 'signups:write']);
+    await revokeConnectedApp(db, d.provider, organizerActor, [...ids][0]!);
+  });
+});
+
