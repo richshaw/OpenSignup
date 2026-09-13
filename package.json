@@ -49,7 +49,7 @@
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^0.468.0",
-    "next": "15.5.22",
+    "next": "15.5.25",
     "next-auth": "5.0.0-beta.32",
     "nodemailer": "^9.0.3",
     "pg-boss": "^10.1.5",
@@ -64,7 +64,7 @@
   },
   "pnpm": {
     "overrides": {
-      "next": "15.5.22",
+      "next": "15.5.25",
       "shell-quote": "1.9.0"
     }
   },
