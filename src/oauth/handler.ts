@@ -51,7 +51,7 @@ export async function handleOAuthRequest(request: Request, opts: { path?: string
  * under /api/oauth that is not recognised gets the tightest one.
  */
 export function policyFor(rawPath: string): RateLimitPolicy {
-  const path = rawPath.toLowerCase().replace(/\/+$/, '');
+  const path = rawPath.toLowerCase().replace(/\/$/, '');
   if (path === OAUTH_ROUTES.token) return RateLimits.oauthTokenPerIp;
   if (
     path === OAUTH_ROUTES.authorization ||
@@ -74,8 +74,10 @@ function rateLimited(request: Request, retryAfterSeconds: number): Response {
   const headers: Record<string, string> = { 'Retry-After': String(retryAfterSeconds), 'Cache-Control': 'no-store' };
   const wantsHtml = (request.headers.get('accept') ?? '').includes('text/html');
   if (wantsHtml) {
+    const wait =
+      retryAfterSeconds >= 120 ? `${Math.ceil(retryAfterSeconds / 60)} minutes` : `${retryAfterSeconds} seconds`;
     return new Response(
-      renderErrorPage({ error: 'too_many_requests', error_description: 'Too many requests. Wait a minute and try again.' }),
+      renderErrorPage({ error: 'too_many_requests', error_description: `Too many requests. Wait ${wait} and try again.` }),
       { status: 429, headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } },
     );
   }

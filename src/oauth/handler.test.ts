@@ -69,6 +69,13 @@ describe('handleOAuthRequest', () => {
     expect(html.status).toBe(429);
     expect(html.headers.get('content-type')).toMatch(/text\/html/);
     expect(await html.text()).toContain('too_many_requests');
+    consume.mockImplementationOnce(async () => {
+      throw new ServiceException(serviceError('rate_limited', 'too many', { details: { retryAfterSeconds: 540 } }));
+    });
+    const long = await handleOAuthRequest(
+      new Request('https://signup.example.org/api/oauth/authorize?x=1', { headers: { accept: 'text/html' } }),
+    );
+    expect(await long.text()).toContain('Wait 9 minutes');
   });
 });
 
@@ -77,6 +84,8 @@ describe('policyFor', () => {
     const { policyFor } = await import('./handler');
     expect(policyFor('/api/oauth/AUTHORIZE').bucket).toBe('oauth.authorize.ip');
     expect(policyFor('/api/oauth/token/').bucket).toBe('oauth.token.ip');
+    // The router strips one trailing slash, not several; match it exactly.
+    expect(policyFor('/api/oauth/token//').bucket).toBe('oauth.authorize.ip');
     expect(policyFor('/api/oauth/TOKEN').bucket).toBe('oauth.token.ip');
     expect(policyFor('/api/oauth/par').bucket).toBe('oauth.authorize.ip');
     expect(policyFor('/api/oauth/jwks').bucket).toBe('oauth.other.ip');
