@@ -38,6 +38,10 @@ const baseSchema = z.object({
   LLM_API_KEY: z.string().optional(),
   LLM_MODEL: z.string().optional(),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().max(600_000).default(180_000),
+  // JSON array of pre-registered OAuth clients for MCP clients that cannot
+  // identify themselves with a Client ID Metadata Document (and for local
+  // testing). Validated in src/oauth/static-clients.ts; unset means none.
+  OAUTH_STATIC_CLIENTS: z.string().optional(),
 });
 
 const conditional = baseSchema.superRefine((env, ctx) => {

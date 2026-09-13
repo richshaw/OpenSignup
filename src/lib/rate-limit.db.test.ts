@@ -76,3 +76,20 @@ describe('consumeRateLimit (db)', () => {
     });
   });
 });
+
+describe('sweepExpiredRateLimits', () => {
+  it('removes only windows that closed long ago', async () => {
+    const { sweepExpiredRateLimits } = await import('./rate-limit');
+    const { rateLimits } = await import('@/db/schema/idempotency');
+    const { eq } = await import('drizzle-orm');
+    const db = getDb();
+    await db.insert(rateLimits).values([
+      { bucket: 'sweep.test', subject: 'old', windowStart: new Date(Date.now() - 3 * 24 * 3600 * 1000), count: 1 },
+      { bucket: 'sweep.test', subject: 'fresh', windowStart: new Date(), count: 1 },
+    ]);
+    await sweepExpiredRateLimits(db);
+    const rows = await db.select({ subject: rateLimits.subject }).from(rateLimits).where(eq(rateLimits.bucket, 'sweep.test'));
+    expect(rows.map((r) => r.subject)).toEqual(['fresh']);
+    await db.delete(rateLimits).where(eq(rateLimits.bucket, 'sweep.test'));
+  });
+});
