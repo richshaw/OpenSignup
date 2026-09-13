@@ -92,7 +92,7 @@ not approve by renewing.
 
 ## Disconnecting
 
-Go to **Connected apps** in the organizer header (`/app/settings/connected-apps`).
+Click your email address in the organizer header to open **Settings**, then **Connected apps** (`/app/settings/connected-apps`).
 Each connection shows the domain, the name the app reports, the permissions
 you approved, when you approved it, when it was last used, and when it
 expires.
