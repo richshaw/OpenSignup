@@ -58,6 +58,12 @@ export async function consumeRateLimit(
 export const RateLimits = {
   magicLinkPerEmail: { bucket: 'auth.magic.email', max: 5, windowSeconds: 3600 },
   magicLinkPerIp: { bucket: 'auth.magic.ip', max: 20, windowSeconds: 3600 },
+  // Guesses at the six-digit sign-in code. A code lives as long as the link
+  // (an hour by default) and is keyed to its email, so 5 tries per quarter
+  // hour caps an attacker at 20 guesses per code — one in fifty thousand.
+  // Real people mistype once, maybe twice.
+  loginCodePerEmail: { bucket: 'auth.code.email', max: 5, windowSeconds: 900 },
+  loginCodePerIp: { bucket: 'auth.code.ip', max: 30, windowSeconds: 900 },
   commitmentPerIp: { bucket: 'commit.ip', max: 10, windowSeconds: 60 },
   // Per-address, mirroring magicLinkPerEmail. A commit now sends a confirmation
   // to an address nobody has verified, so without this one IP can put a

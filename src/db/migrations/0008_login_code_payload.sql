@@ -1,0 +1,1 @@
+ALTER TABLE "magic_links" ADD COLUMN "payload_encrypted" text;
