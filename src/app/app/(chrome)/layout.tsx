@@ -1,8 +1,10 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { signOut } from '@/auth/config';
 import { getOrganizerSession } from '@/auth/session';
 import { INSTANCE_NAME } from '@/lib/site-config';
+import { OAUTH_COOKIES, OAUTH_SESSION_COOKIE_PATH } from '@/oauth/config';
 
 export const metadata = {
   title: { default: 'Dashboard', template: `%s · ${INSTANCE_NAME}` },
@@ -20,6 +22,13 @@ export default async function OrganizerLayout({
 
   async function handleSignOut() {
     'use server';
+    // The OAuth authorization server keeps its own record of who is signed
+    // in; drop it too so a later "connect an app" on this browser starts
+    // from whoever signs in next, not from this organizer.
+    const jar = await cookies();
+    for (const name of [OAUTH_COOKIES.session, `${OAUTH_COOKIES.session}.sig`]) {
+      jar.delete({ name, path: OAUTH_SESSION_COOKIE_PATH });
+    }
     await signOut({ redirectTo: '/' });
   }
 
@@ -37,6 +46,12 @@ export default async function OrganizerLayout({
             {crumbs}
           </nav>
           <nav className="flex shrink-0 items-center gap-4">
+            <Link
+              href="/app/settings/connected-apps"
+              className="text-ink-muted hover:text-ink text-sm transition"
+            >
+              Connected apps
+            </Link>
             <span className="text-ink-muted hidden text-sm sm:inline">{session.email}</span>
             <form action={handleSignOut}>
               <button
