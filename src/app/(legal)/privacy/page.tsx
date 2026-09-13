@@ -21,7 +21,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 6 September 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 13 September 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -59,6 +59,10 @@ export default function PrivacyPage() {
             and so the operator can investigate abuse. The same log records anonymous view telemetry
             on the marketing home page and on your public signup pages (see &ldquo;Logs and
             rate-limiting&rdquo; below).
+          </li>
+          <li>
+            If you connect an app or AI assistant to your account, a record of that approval and the
+            tokens that keep it working. See &ldquo;Connected apps and AI assistants&rdquo; below.
           </li>
         </ul>
         <p>No password is ever stored — sign-in is passwordless.</p>
@@ -130,13 +134,57 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">Connected apps and AI assistants</h2>
+        <p>
+          An organizer can connect a third-party app, typically an AI assistant such as the Claude
+          app, Claude Code, or ChatGPT, to their {INSTANCE_NAME} account. Nothing is connected
+          unless the organizer approves it on a consent screen that names the domain the app
+          identified itself from and lists exactly what it will be able to do. Participants are
+          never asked to sign in and cannot connect anything.
+        </p>
+        <p>
+          A connected app acts as the organizer who approved it, across every workspace that
+          organizer belongs to, with the same role and never more access than the organizer has
+          themselves. Permissions are approved individually: seeing your signups and their slots,
+          and creating and editing signups. Participant names and email addresses sit behind a
+          separate permission an app has to ask for explicitly; the consent screen flags it in amber
+          and says plainly that participants gave those details to you, not to the app. An app that
+          was not granted that permission cannot read participant details at all.
+        </p>
+        <p>
+          For each connected app we store the approval (which organizer, which app, which
+          permissions, when it was approved, when it was last used, and when it expires), the
+          app&apos;s identifier and the name it reports about itself, and the refresh tokens and
+          short-lived authorization codes that keep the connection alive. Access tokens themselves
+          are not stored. The activity log records that a connection was approved, declined, or
+          disconnected, together with the app&apos;s domain. It never records a token or an email
+          address.
+        </p>
+        <p>
+          You can see and end every connection from <strong>Connected apps</strong> in your account
+          settings. Disconnecting deletes the approval and every refresh token under it at once, so
+          the app can get no new access; an access token it already holds keeps working until it
+          expires, which is at most 15 minutes. No approval survives longer than 90 days without you
+          approving the app again.
+        </p>
+        <p>
+          Whatever a connected assistant reads under the permissions you approved is then processed
+          by that assistant&apos;s vendor under their own terms and privacy policy, not ours. By
+          itself, {INSTANCE_NAME} sends nothing to an AI vendor: only an app you connected, acting
+          on your instructions, can pull data out.
+        </p>
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Third parties</h2>
         <p>
           OpenSignup is designed to have no required external dependencies beyond a Postgres
           database. Optional integrations (email provider, error reporting, product analytics, AI
           draft generation, and third-party sign-in) are off by default and only enabled if the
           operator has configured them via environment variables. Where this instance has enabled
-          any such integration, the operator will list it on request.
+          any such integration, the operator will list it on request. Separately from anything the
+          operator configures, an organizer can connect an app or AI assistant to their own account.
+          See &ldquo;Connected apps and AI assistants&rdquo; above.
         </p>
         <p>
           If third-party sign-in (for example, Google) is enabled and you choose it, you
