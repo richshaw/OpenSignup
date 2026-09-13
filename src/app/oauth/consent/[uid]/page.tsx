@@ -107,7 +107,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
 
         <ConsentForm action={`${consentPath(uid)}/decision`} />
 
-        <p className="text-sm text-ink-soft">
+        <div className="text-sm text-ink-soft">
           You can disconnect it at any time from{' '}
           <Link href="/app/settings/connected-apps" className="underline">
             Connected apps
@@ -118,7 +118,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
               Sign in as someone else
             </button>
           </form>
-        </p>
+        </div>
       </main>
       <SiteFooter />
     </div>

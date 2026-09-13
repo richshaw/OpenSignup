@@ -1,12 +1,18 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { loginAsSeededOrganizer } from './helpers/auth';
-import { BASE_URL } from './helpers/fixtures';
+import { BASE_URL, loadSeed } from './helpers/fixtures';
+import { createDisposableSession } from './helpers/seed';
 
 /**
  * Consent smoke: approve, deny, and disconnect, driven the way a real MCP
- * client would drive a browser. Needs the `e2e-client` entry in
- * OAUTH_STATIC_CLIENTS (see ci.yml and .env.example).
+ * client would drive a browser.
+ *
+ * Needs the `e2e-client` entry in OAUTH_STATIC_CLIENTS (ci.yml sets it; see
+ * .env.example for the local line). When it is missing the whole file skips
+ * with a message rather than failing on invalid_client. Stateful — one
+ * organizer, one client, one grant — so playwright.config.ts runs it in a
+ * single project.
  */
 
 const CLIENT_ID = 'e2e-client';
@@ -34,6 +40,18 @@ function authorizeUrl(challenge: string, scope: string) {
 }
 
 test.describe('OAuth consent', () => {
+  test.beforeAll(async ({ request }) => {
+    const probe = await request.get(authorizeUrl('probe-only-not-a-real-challenge-value-0000000', 'signups:read'), {
+      maxRedirects: 0,
+      headers: { accept: 'text/html' },
+    });
+    const body = await probe.text();
+    test.skip(
+      probe.status() === 400 && body.includes('invalid_client'),
+      'OAUTH_STATIC_CLIENTS has no "e2e-client" — set it as in .env.example to run the consent smoke',
+    );
+  });
+
   test.beforeEach(async ({ context }) => {
     await loginAsSeededOrganizer(context);
   });
@@ -106,7 +124,7 @@ test.describe('OAuth consent', () => {
 
   test('"sign in as someone else" signs out and returns to the same consent request', async ({ browser }) => {
     const context = await browser.newContext();
-    await loginAsSeededOrganizer(context, { disposable: true });
+    await loginAsSeededOrganizer(context, { sessionToken: await createDisposableSession(loadSeed().organizerId) });
     const page = await context.newPage();
     const { challenge } = pkce();
     await page.goto(authorizeUrl(challenge, 'signups:read'));

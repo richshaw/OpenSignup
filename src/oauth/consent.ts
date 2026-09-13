@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import type Provider from 'oidc-provider';
+import Provider, { errors as oidcErrors } from 'oidc-provider';
 import { getDb } from '@/db/client';
 import { recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException } from '@/lib/errors';
@@ -50,8 +50,15 @@ async function details(provider: Provider, request: Request) {
     );
     return value;
   } catch (err) {
-    log.info({ err: err instanceof Error ? err.message : err }, 'oauth: interaction lookup failed');
-    throw new ConsentUnavailable('expired');
+    // Only "no such interaction for this browser" means the request is
+    // gone (expired, already decided, or a different browser). Anything
+    // else — a database outage, say — must surface as an error the person
+    // can retry, not as a misleading "expired" page.
+    if (err instanceof oidcErrors.SessionNotFound) {
+      log.info({ reason: err.error_description }, 'oauth: interaction not found');
+      throw new ConsentUnavailable('expired');
+    }
+    throw err;
   }
 }
 
@@ -93,7 +100,7 @@ export async function decideConsent(uid: string, actor: Actor, decision: Decisio
   let result: Record<string, unknown>;
   if (decision === 'deny') {
     result = { error: 'access_denied', error_description: 'The organizer declined the connection' };
-    await safeActivity(db, organizerId, 'oauth.consent_denied', { clientDomain: display.domain, scopes: requested });
+    await safeActivity(db, organizerId, 'oauth.consent_denied', { clientDomain: display.domain, scopes: resourceScopes });
   } else if (resourceScopes.length === 0) {
     result = { error: 'invalid_scope', error_description: 'No usable permission was requested' };
   } else {

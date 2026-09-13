@@ -13,7 +13,10 @@ import { renderErrorPage } from '@/oauth/provider';
  *
  * Cross-site protection is layered: the provider's interaction cookie and
  * the Auth.js session cookie are both SameSite=Lax, so neither arrives on a
- * cross-site POST, and the Origin header is checked explicitly on top.
+ * cross-site POST, and on top of that the request must prove where it came
+ * from — an Origin header (every browser sends one on a form POST) or,
+ * failing that, a same-origin Referer. A request with neither is refused
+ * rather than waved through on cookies alone.
  */
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -22,10 +25,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
   const { uid } = await params;
   if (!isInteractionUid(uid)) return new Response('Not found', { status: 404 });
 
-  const origin = request.headers.get('origin');
-  if (origin !== null && origin !== oauthIssuer()) {
-    return new Response('Forbidden', { status: 403 });
-  }
+  if (!sameOrigin(request)) return new Response('Forbidden', { status: 403 });
 
   const actor = await requireActor();
   if (actor.kind !== 'organizer') {
@@ -48,6 +48,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
     }
     log.error({ err }, 'oauth: consent decision failed');
     return html(500, 'server_error', 'Something went wrong recording your decision. Nothing was connected.');
+  }
+}
+
+function sameOrigin(request: Request): boolean {
+  const issuer = oauthIssuer();
+  const origin = request.headers.get('origin');
+  if (origin !== null) return origin === issuer;
+  const referer = request.headers.get('referer');
+  if (referer === null) return false;
+  try {
+    return new URL(referer).origin === issuer;
+  } catch {
+    return false;
   }
 }
 
