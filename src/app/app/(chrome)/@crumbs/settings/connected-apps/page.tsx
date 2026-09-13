@@ -1,5 +1,10 @@
 import { Crumb } from '@/components/chrome/Crumb';
 
 export default function ConnectedAppsCrumb() {
-  return <Crumb>Connected apps</Crumb>;
+  return (
+    <>
+      <Crumb href="/app/settings">Settings</Crumb>
+      <Crumb>Connected apps</Crumb>
+    </>
+  );
 }

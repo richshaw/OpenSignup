@@ -50,10 +50,10 @@ export default async function ConnectedAppsPage({
   }
 
   return (
-    <section className="max-w-2xl space-y-6">
+    <section className="space-y-6">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Connected apps</h1>
-        <p className="text-ink-muted text-sm">
+        <p className="text-ink-muted max-w-2xl text-sm">
           Apps and AI assistants you have allowed to use your account. Each one acts as you, in every
           workspace you belong to, with the permissions you approved.
         </p>
@@ -110,7 +110,7 @@ export default async function ConnectedAppsPage({
         </ul>
       )}
 
-      <p className="text-ink-soft text-xs">
+      <p className="text-ink-soft max-w-2xl text-xs">
         Disconnecting stops an app from getting new access straight away. Access it already holds
         expires on its own within {residualMinutes} minutes and cannot be cut short.
       </p>

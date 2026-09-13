@@ -88,7 +88,12 @@ test.describe('OAuth consent', () => {
     expect(noToken.status()).toBe(401);
     expect(noToken.headers()['www-authenticate']).toContain('resource_metadata=');
 
-    await page.goto(`${BASE_URL}/app/settings/connected-apps`);
+    // The account link in the header opens the settings hub, which lists this section.
+    await page.goto(`${BASE_URL}/app`);
+    await page.getByRole('link', { name: 'Settings' }).click();
+    await expect(page).toHaveURL(/\/app\/settings$/);
+    await page.getByRole('link', { name: /Connected apps/ }).click();
+    await expect(page).toHaveURL(/\/app\/settings\/connected-apps$/);
     const row = page.getByRole('listitem').filter({ hasText: 'e2e-client' });
     await expect(row).toBeVisible();
     await row.getByRole('button', { name: 'Disconnect' }).click();
