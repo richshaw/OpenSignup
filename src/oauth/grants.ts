@@ -76,7 +76,15 @@ export async function ensureGrant(db: Db, provider: Provider, input: EnsureGrant
     if (input.oidcScopes.length > 0) grant.addOIDCScope(input.oidcScopes.join(' '));
     grant.addResourceScope(input.resource, input.resourceScopes.join(' '));
     const grantId = await grant.save();
-    await labelGrant(tx, grantId, input.clientName);
+    // The provider writes through its own connection, so the grant is
+    // committed the moment save() returns; the label is cosmetic and must
+    // not turn a successful approval into a failure. A retry extends the
+    // same grant and labels it then.
+    try {
+      await labelGrant(tx, grantId, input.clientName);
+    } catch (err) {
+      log.warn({ err, grantId }, 'oauth: could not label grant');
+    }
     return { grantId, extended: Boolean(existing) };
   });
 }
