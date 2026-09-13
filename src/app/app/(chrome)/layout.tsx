@@ -37,6 +37,12 @@ export default async function OrganizerLayout({
             {crumbs}
           </nav>
           <nav className="flex shrink-0 items-center gap-4">
+            <Link
+              href="/app/settings/connected-apps"
+              className="text-ink-muted hover:text-ink text-sm transition"
+            >
+              Connected apps
+            </Link>
             <span className="text-ink-muted hidden text-sm sm:inline">{session.email}</span>
             <form action={handleSignOut}>
               <button

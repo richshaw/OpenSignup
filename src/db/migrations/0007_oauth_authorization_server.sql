@@ -7,6 +7,7 @@ CREATE TABLE "oauth_records" (
 	"user_code" text,
 	"account_id" text,
 	"client_id" text,
+	"client_name" text,
 	"expires_at" timestamp with time zone,
 	"consumed_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,

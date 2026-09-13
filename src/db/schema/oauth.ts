@@ -26,6 +26,8 @@ export const oauthRecords = pgTable(
     userCode: text('user_code'),
     accountId: text('account_id'),
     clientId: text('client_id'),
+    /** Display name of the client at approval time (Grant rows only). */
+    clientName: text('client_name'),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     consumedAt: timestamp('consumed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

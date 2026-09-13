@@ -164,12 +164,17 @@ export function buildProvider(deps: ProviderDeps): Provider {
   });
   provider.on('authorization.error', (ctx: KoaContextWithOIDC, err: OidcError) => {
     log.warn(
-      { error: err.error, description: err.error_description, clientId: ctx.oidc?.params?.client_id },
+      {
+        error: err.error,
+        description: err.error_description,
+        detail: err.error_detail,
+        clientId: ctx.oidc?.params?.client_id,
+      },
       'oauth: authorization error',
     );
   });
   provider.on('grant.error', (_ctx: KoaContextWithOIDC, err: OidcError) => {
-    log.warn({ error: err.error, description: err.error_description }, 'oauth: token error');
+    log.warn({ error: err.error, description: err.error_description, detail: err.error_detail }, 'oauth: token error');
   });
   provider.on('grant.success', (ctx: KoaContextWithOIDC) => {
     const grantId = ctx.oidc.entities.Grant?.jti;
@@ -184,6 +189,8 @@ export function buildProvider(deps: ProviderDeps): Provider {
 interface OidcError {
   error?: string;
   error_description?: string;
+  /** The library's internal reason; more specific than the public description. */
+  error_detail?: string;
 }
 
 function toClientMetadata(c: StaticClient): ClientMetadata {
