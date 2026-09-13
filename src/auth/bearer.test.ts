@@ -89,10 +89,22 @@ describe('createVerifier', () => {
     await expect(v.verifyAccessToken(fresh)).resolves.toMatchObject({ clientId: 'c' });
     expect(reload).toHaveBeenCalledTimes(1);
     expect(loadKeys).toHaveBeenCalledTimes(2);
-    // A genuinely unknown kid does not loop: one reload, then rejection.
+    // A genuinely unknown kid does not loop, and within the reload interval a
+    // second unknown kid cannot flush the cache again (a forged token must not
+    // be able to force a key-store read per request).
     const bogus = await mint((await generateKeyPair('ES256')).privateKey, 'k3', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c' });
     await expect(v.verifyAccessToken(bogus)).rejects.toMatchObject({ code: 'invalid_token' });
-    expect(reload).toHaveBeenCalledTimes(2);
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(loadKeys).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('createVerifier infrastructure failures', () => {
+  it('reports a key-store outage as server_error, not invalid_token', async () => {
+    const { createVerifier } = await import('./bearer');
+    const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys: async () => { throw new Error('db down'); }, reload() {} });
+    const token = await mint(signer, 'k1', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c' });
+    await expect(v.verifyAccessToken(token)).rejects.toMatchObject({ code: 'server_error' });
   });
 });
 

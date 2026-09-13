@@ -1,5 +1,6 @@
 import Provider, {
   errors,
+  interactionPolicy,
   type AdapterConstructor,
   type AdapterFactory,
   type ClientMetadata,
@@ -100,6 +101,7 @@ export function buildProvider(deps: ProviderDeps): Provider {
     // refresh silently fails once the OP session (a day, see SESSION) ends.
     expiresWithSession: async () => false,
     interactions: {
+      policy: alwaysConsentPolicy(),
       url: (_ctx, interaction) => consentPath(interaction.uid),
     },
     async loadExistingGrant(ctx) {
@@ -186,6 +188,29 @@ export function buildProvider(deps: ProviderDeps): Provider {
   return provider;
 }
 
+/**
+ * The library only forces a consent screen for native clients; a client
+ * whose metadata says `web` could be re-authorized silently from the
+ * provider's own login session — which outlives an OpenSignup sign-out.
+ * Every authorization here goes through a person, so the organizer signed
+ * in *right now* is always the one who approves, and the provider session
+ * is re-pointed at them on each decision.
+ */
+function alwaysConsentPolicy() {
+  const policy = interactionPolicy.base();
+  const consent = policy.get('consent');
+  if (!consent) throw new Error('oidc-provider base policy has no consent prompt');
+  consent.checks.add(
+    new interactionPolicy.Check(
+      'always_prompt',
+      'every connection needs the organizer to approve it',
+      'interaction_required',
+      (ctx) => (ctx.oidc.result?.consent ? interactionPolicy.Check.NO_NEED_TO_PROMPT : interactionPolicy.Check.REQUEST_PROMPT),
+    ),
+  );
+  return policy;
+}
+
 interface OidcError {
   error?: string;
   error_description?: string;
@@ -199,7 +224,7 @@ function toClientMetadata(c: StaticClient): ClientMetadata {
     client_name: c.client_name,
     redirect_uris: c.redirect_uris,
     token_endpoint_auth_method: 'none',
-    application_type: 'native',
+    application_type: c.application_type ?? 'native',
     grant_types: ['authorization_code', 'refresh_token'],
     response_types: ['code'],
   };

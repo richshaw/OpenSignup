@@ -71,3 +71,16 @@ describe('handleOAuthRequest', () => {
     expect(await html.text()).toContain('too_many_requests');
   });
 });
+
+describe('policyFor', () => {
+  it('normalises case and trailing slashes and fails tight on unknown paths', async () => {
+    const { policyFor } = await import('./handler');
+    expect(policyFor('/api/oauth/AUTHORIZE').bucket).toBe('oauth.authorize.ip');
+    expect(policyFor('/api/oauth/token/').bucket).toBe('oauth.token.ip');
+    expect(policyFor('/api/oauth/TOKEN').bucket).toBe('oauth.token.ip');
+    expect(policyFor('/api/oauth/par').bucket).toBe('oauth.authorize.ip');
+    expect(policyFor('/api/oauth/jwks').bucket).toBe('oauth.other.ip');
+    expect(policyFor('/.well-known/oauth-authorization-server').bucket).toBe('oauth.other.ip');
+    expect(policyFor('/api/oauth/whatever').bucket).toBe('oauth.authorize.ip');
+  });
+});

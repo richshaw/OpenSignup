@@ -51,6 +51,11 @@ export function consentPath(uid: string): string {
   return `${CONSENT_PATH_PREFIX}/${uid}`;
 }
 
+/** Interaction ids are base64url; anything else never reaches the provider. */
+export function isInteractionUid(uid: string): boolean {
+  return /^[A-Za-z0-9_-]{1,128}$/.test(uid);
+}
+
 /**
  * Cookie names. Prefixed so they are recognisably ours in the browser's
  * cookie list and on the cookies legal page.

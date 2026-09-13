@@ -1,4 +1,8 @@
 import { resolveBearerActor } from '@/auth/bearer';
+import { extractClientIp } from '@/auth/request-context';
+import { getDb } from '@/db/client';
+import { ServiceException } from '@/lib/errors';
+import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
 
 /**
  * Placeholder for the MCP endpoint. It exists so the authorization server is
@@ -12,6 +16,18 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 async function handle(request: Request): Promise<Response> {
+  try {
+    await consumeRateLimit(getDb(), RateLimits.mcpPerIp, extractClientIp(request.headers) ?? 'unknown');
+  } catch (err) {
+    if (err instanceof ServiceException && err.serviceError.code === 'rate_limited') {
+      const retry = err.serviceError.details?.retryAfterSeconds;
+      return Response.json(
+        { error: 'too_many_requests', error_description: 'too many requests' },
+        { status: 429, headers: { 'Retry-After': String(typeof retry === 'number' ? retry : 60) } },
+      );
+    }
+    throw err;
+  }
   const auth = await resolveBearerActor(request);
   if (!auth.ok) return auth.response;
   return Response.json(

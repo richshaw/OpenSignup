@@ -5,6 +5,7 @@ config({ path: '.env' });
 import { log } from '@/lib/log';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
 import { dispatchReminders, sendReminderJob } from './reminders';
+import { runHousekeeping } from './housekeeping';
 
 async function main() {
   const boss = await getBoss();
@@ -31,7 +32,19 @@ async function main() {
     }
   });
 
-  log.info('signup worker started · reminderDispatch + reminderSend queues online');
+  // Housekeeping: hourly. Reads already ignore expired rows, so a missed run
+  // costs disk, never correctness.
+  await boss.schedule(QUEUES.housekeeping, '17 * * * *');
+  await boss.work(QUEUES.housekeeping, async () => {
+    try {
+      await runHousekeeping();
+    } catch (err) {
+      log.error({ err }, 'housekeeping failed');
+      throw err;
+    }
+  });
+
+  log.info('signup worker started · reminderDispatch + reminderSend + housekeeping queues online');
 
   const shutdown = async (signal: string) => {
     log.info({ signal }, 'stopping worker');

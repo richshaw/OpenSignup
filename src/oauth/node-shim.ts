@@ -203,9 +203,48 @@ export class ShimResponse extends EventEmitter {
   }
 }
 
-export async function readRequestBody(request: Request): Promise<Buffer> {
+/**
+ * Largest request body the OAuth endpoints accept. oidc-provider caps bodies
+ * at 56 KiB itself, but only once Koa is reading the stream; the shim
+ * materialises the body first, so the cap has to be enforced here or a
+ * single unauthenticated POST could allocate arbitrarily.
+ */
+export const MAX_BODY_BYTES = 64 * 1024;
+
+export class BodyTooLarge extends Error {
+  constructor() {
+    super('request body too large');
+    this.name = 'BodyTooLarge';
+  }
+}
+
+export async function readRequestBody(request: Request, limit = MAX_BODY_BYTES): Promise<Buffer> {
   if (request.method === 'GET' || request.method === 'HEAD') return Buffer.alloc(0);
-  return Buffer.from(await request.arrayBuffer());
+  const declared = Number(request.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > limit) throw new BodyTooLarge();
+  if (!request.body) return Buffer.alloc(0);
+  const chunks: Buffer[] = [];
+  let total = 0;
+  const reader = request.body.getReader();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > limit) throw new BodyTooLarge();
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks);
+}
+
+function tooLarge(): Response {
+  return Response.json(
+    { error: 'invalid_request', error_description: 'request body too large' },
+    { status: 413, headers: { 'Cache-Control': 'no-store' } },
+  );
 }
 
 /**
@@ -217,7 +256,13 @@ export async function invokeNodeHandler(
   request: Request,
   opts: ShimOptions,
 ): Promise<Response> {
-  const body = await readRequestBody(request);
+  let body: Buffer;
+  try {
+    body = await readRequestBody(request);
+  } catch (err) {
+    if (err instanceof BodyTooLarge) return tooLarge();
+    throw err;
+  }
   const req = toNodeRequest(request, body, opts);
   const res = new ShimResponse(req);
   const finished = once(res, 'finish');
@@ -235,7 +280,15 @@ export async function withNodePair<T>(
   opts: ShimOptions,
   fn: (req: IncomingMessage, res: ServerResponse) => Promise<T>,
 ): Promise<{ value: T; response: Response; ended: boolean }> {
-  const body = await readRequestBody(request);
+  let body: Buffer;
+  try {
+    body = await readRequestBody(request);
+  } catch (err) {
+    if (err instanceof BodyTooLarge) {
+      return { value: undefined as T, response: tooLarge(), ended: true };
+    }
+    throw err;
+  }
   const req = toNodeRequest(request, body, opts);
   const res = new ShimResponse(req);
   const value = await fn(req, res as unknown as ServerResponse);

@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { lt, sql } from 'drizzle-orm';
 import { rateLimits } from '@/db/schema/idempotency';
 import type { Db } from '@/db/client';
 import { serviceError, ServiceException } from './errors';
@@ -109,4 +109,23 @@ export const RateLimits = {
   // (see `cacheDuration` in src/oauth/provider.ts), so a real client needs a
   // handful of fetches an hour at most.
   oauthCimdPerOrigin: { bucket: 'oauth.cimd.origin', max: 30, windowSeconds: 3600 },
+  // The MCP endpoint's unauthenticated face: every request costs a signature
+  // check before any identity exists, and an unknown key id costs a signing-key
+  // reload. Generous for a real client (one call per tool use), hostile to a
+  // flood of forged tokens.
+  mcpPerIp: { bucket: 'mcp.ip', max: 120, windowSeconds: 60 },
 } as const;
+
+/** Longest window any policy uses; rows older than this can never be read again. */
+const LONGEST_WINDOW_SECONDS = Math.max(...Object.values(RateLimits).map((p) => p.windowSeconds));
+
+/**
+ * Delete counters whose window closed. Subjects are partly attacker-chosen
+ * (client IPs, CIMD origins), so without this the table only ever grows.
+ * Returns the number of rows removed.
+ */
+export async function sweepExpiredRateLimits(db: Db): Promise<number> {
+  const cutoff = new Date(Date.now() - 2 * LONGEST_WINDOW_SECONDS * 1000);
+  const rows = await db.delete(rateLimits).where(lt(rateLimits.windowStart, cutoff)).returning({ b: rateLimits.bucket });
+  return rows.length;
+}

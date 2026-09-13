@@ -33,7 +33,10 @@ beforeAll(async () => {
     resource: RESOURCE,
     jwks: { keys: [jwk] },
     cookieKeys: ['test-cookie-secret'],
-    staticClients: [{ client_id: CLIENT, client_name: 'Test', redirect_uris: [REDIRECT] }],
+    staticClients: [
+      { client_id: CLIENT, client_name: 'Test', redirect_uris: [REDIRECT] },
+      { client_id: 'web-client', client_name: 'Hosted', redirect_uris: ['https://hosted.example/cb'], application_type: 'web' },
+    ],
     organizerExists: async (id) => id === ORG,
     findGrantId: async (a, c) => grantIndex.get(`${a}|${c}`),
     allowCimdFetch: async () => true,
@@ -287,3 +290,20 @@ describe('authorization code flow', () => {
     expect(await r.text()).toContain('invalid_redirect_uri');
   });
 });
+
+describe('consent is never skipped', () => {
+  it('prompts a web client again even with a live provider session and an existing grant', async () => {
+    const { verifier, challenge } = pkcePair();
+    const first = await startAuthorization(d, { clientId: 'web-client', redirectUri: 'https://hosted.example/cb', scope: 'signups:read', challenge });
+    await approve(first.uid, ['signups:read']);
+    const { code } = codeFromRedirect(await resume(d, first.uid));
+    expect((await exchangeCode(d, { clientId: 'web-client', redirectUri: 'https://hosted.example/cb', code, verifier })).status).toBe(200);
+    // Same browser (same cookie jar → provider session), same client, same scopes.
+    const second = await startAuthorization(d, { clientId: 'web-client', redirectUri: 'https://hosted.example/cb', scope: 'signups:read', challenge: pkcePair().challenge });
+    expect(second.response.status).toBe(303);
+    expect(second.response.headers.get('location')).toBe(consentPath(second.uid));
+    const details = await interactionDetails(d, second.uid);
+    expect(details.prompt.name).toBe('consent');
+  });
+});
+

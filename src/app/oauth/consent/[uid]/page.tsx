@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { getOrganizerSession } from '@/auth/session';
 import { SiteFooter } from '@/components/site-footer';
 import { INSTANCE_NAME } from '@/lib/site-config';
-import { consentPath } from '@/oauth/config';
+import { consentPath, isInteractionUid } from '@/oauth/config';
 import { ConsentUnavailable, loadConsentContext, type ConsentContext } from '@/oauth/consent';
 import { ConsentForm } from './consent-form';
 
@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function ConsentPage({ params }: { params: Promise<{ uid: string }> }) {
   const { uid } = await params;
+  if (!isInteractionUid(uid)) return <Unavailable />;
   const session = await getOrganizerSession();
   if (!session) redirect(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
 

@@ -4,6 +4,7 @@ import { oauthRecords } from '@/db/schema/oauth';
 import type { Queryable } from '@/db/client';
 import { recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException } from '@/lib/errors';
+import { log } from '@/lib/log';
 import { requireOrganizerId, type Actor } from '@/lib/policy';
 import { parseScopeString, type Scope } from './scopes';
 import { describeClient, type ClientDisplay } from './client-display';
@@ -117,11 +118,17 @@ export async function revokeConnectedApp(
     provider.Grant.adapter.destroy(grantId),
   ]);
 
-  await recordActivity(db, {
-    signupId: null,
-    workspaceId: null,
-    actor: { actorId: organizerId, actorType: 'organizer' },
-    eventType: 'oauth.grant_revoked',
-    payload: { clientDomain: describeClient(row.clientId ?? '', row.clientName).domain },
-  });
+  // Telemetry only, and the revocation above is already done: a failed
+  // insert here must not report the disconnect as failed.
+  try {
+    await recordActivity(db, {
+      signupId: null,
+      workspaceId: null,
+      actor: { actorId: organizerId, actorType: 'organizer' },
+      eventType: 'oauth.grant_revoked',
+      payload: { clientDomain: describeClient(row.clientId ?? '', row.clientName).domain },
+    });
+  } catch (err) {
+    log.warn({ err }, 'recordActivity oauth.grant_revoked failed');
+  }
 }

@@ -114,3 +114,34 @@ describe('withNodePair', () => {
     expect(out.response.headers.get('x-test')).toBe('1');
   });
 });
+
+describe('body cap', () => {
+  it('rejects a declared oversized body with 413 before reading it', async () => {
+    const { MAX_BODY_BYTES } = await import('./node-shim');
+    const response = await invokeNodeHandler(
+      () => {
+        throw new Error('handler must not run');
+      },
+      new Request('https://x.test/token', {
+        method: 'POST',
+        headers: { 'content-length': String(MAX_BODY_BYTES + 1) },
+        body: 'x',
+      }),
+      { origin: ORIGIN, clientIp: null },
+    );
+    expect(response.status).toBe(413);
+  });
+
+  it('rejects a streamed body that grows past the cap', async () => {
+    const { MAX_BODY_BYTES } = await import('./node-shim');
+    const big = new Uint8Array(MAX_BODY_BYTES + 10);
+    const response = await invokeNodeHandler(
+      () => {
+        throw new Error('handler must not run');
+      },
+      new Request('https://x.test/token', { method: 'POST', body: big }),
+      { origin: ORIGIN, clientIp: null },
+    );
+    expect(response.status).toBe(413);
+  });
+});

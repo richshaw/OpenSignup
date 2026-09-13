@@ -85,6 +85,7 @@ export function insufficientScopeResponse(required: Scope[]): Response {
 }
 
 let verifier: OAuthTokenVerifier | null = null;
+const RELOAD_INTERVAL_MS = 30_000;
 
 function getVerifier(): OAuthTokenVerifier {
   if (!verifier) verifier = createVerifier({ issuer: oauthIssuer(), resource: mcpResourceUrl() });
@@ -108,9 +109,16 @@ export function createVerifier(opts: {
     opts.loadKeys ?? (async () => ({ keys: (await getSigningKeys()).publicKeys }));
   const reload = opts.reload ?? resetSigningKeysCache;
   let keySet: ReturnType<typeof createLocalJWKSet> | null = null;
+  let lastReloadAt = 0;
 
+  /**
+   * A forged token with a random `kid` must not be able to flush the key
+   * cache on every request, so reloads are limited to one per interval; a
+   * genuinely rotated key still shows up within that interval.
+   */
   async function keys(force = false) {
-    if (force) {
+    if (force && Date.now() - lastReloadAt >= RELOAD_INTERVAL_MS) {
+      lastReloadAt = Date.now();
       reload();
       keySet = null;
     }
@@ -119,8 +127,18 @@ export function createVerifier(opts: {
   }
 
   async function verify(token: string, retry: boolean): Promise<AuthInfo> {
+    // Loading keys is infrastructure, not the client's fault: a database
+    // outage must surface as server_error (500), never as invalid_token,
+    // or clients would discard perfectly good refresh tokens.
+    let keySetNow: ReturnType<typeof createLocalJWKSet>;
     try {
-      const { payload } = await jwtVerify(token, await keys(!retry), {
+      keySetNow = await keys(!retry);
+    } catch (err) {
+      log.error({ err }, 'oauth: signing keys unavailable');
+      throw new OAuthError(OAuthErrorCode.ServerError, 'token verification unavailable');
+    }
+    try {
+      const { payload } = await jwtVerify(token, keySetNow, {
         issuer: opts.issuer,
         audience: opts.resource,
         typ: 'at+jwt',

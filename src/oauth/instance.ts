@@ -1,3 +1,4 @@
+import { hkdfSync } from 'node:crypto';
 import type Provider from 'oidc-provider';
 import { getDb } from '@/db/client';
 import { eq } from 'drizzle-orm';
@@ -50,6 +51,15 @@ export function getProvider(): Promise<Provider> {
   return globalThis.__signup_oidc_provider__;
 }
 
+/**
+ * Auth.js already uses AUTH_SECRET for its own key derivation; the provider
+ * signs cookies with HMAC. Deriving a separate key keeps the two systems
+ * from sharing raw key material without asking operators for another secret.
+ */
+function cookieSigningKey(authSecret: string): string {
+  return Buffer.from(hkdfSync('sha256', authSecret, 'opensignup-oauth', 'oauth-cookie-signing', 32)).toString('base64url');
+}
+
 async function build(): Promise<Provider> {
   const env = getEnv();
   const db = getDb();
@@ -58,7 +68,7 @@ async function build(): Promise<Provider> {
     issuer: oauthIssuer(),
     resource: mcpResourceUrl(),
     jwks: { keys: keys.privateKeys },
-    cookieKeys: [env.AUTH_SECRET],
+    cookieKeys: [cookieSigningKey(env.AUTH_SECRET)],
     adapter: DrizzleOidcAdapter,
     staticClients: parseStaticClients(env.OAUTH_STATIC_CLIENTS),
     organizerExists: async (id) => {

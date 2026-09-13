@@ -11,6 +11,9 @@ export const StaticClientSchema = z.object({
   client_id: z.string().min(1).max(200),
   client_name: z.string().min(1).max(100),
   redirect_uris: z.array(z.string().url()).min(1).max(20),
+  // `native` (the default) matches loopback redirect URIs on any port, which
+  // every desktop MCP client relies on. `web` is for hosted clients.
+  application_type: z.enum(['native', 'web']).optional(),
 });
 
 export type StaticClient = z.infer<typeof StaticClientSchema>;

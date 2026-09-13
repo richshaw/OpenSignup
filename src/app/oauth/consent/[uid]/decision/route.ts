@@ -4,7 +4,7 @@ import { getDb } from '@/db/client';
 import { ServiceException } from '@/lib/errors';
 import { log } from '@/lib/log';
 import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
-import { consentPath, oauthIssuer } from '@/oauth/config';
+import { consentPath, isInteractionUid, oauthIssuer } from '@/oauth/config';
 import { ConsentUnavailable, decideConsent, type Decision } from '@/oauth/consent';
 import { renderErrorPage } from '@/oauth/provider';
 
@@ -20,7 +20,7 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request, { params }: { params: Promise<{ uid: string }> }) {
   const { uid } = await params;
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid)) return new Response('Not found', { status: 404 });
+  if (!isInteractionUid(uid)) return new Response('Not found', { status: 404 });
 
   const origin = request.headers.get('origin');
   if (origin !== null && origin !== oauthIssuer()) {
