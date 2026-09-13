@@ -20,6 +20,8 @@ export const magicLinks = pgTable(
   },
   (t) => ({
     byEmail: index('magic_links_by_email').on(t.email),
+    // The housekeeping sweep deletes by expiry; without this it scans.
+    byExpiry: index('magic_links_by_expiry').on(t.expiresAt),
   }),
 );
 

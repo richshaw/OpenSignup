@@ -61,9 +61,10 @@ export default function PrivacyPage() {
             rate-limiting&rdquo; below).
           </li>
           <li>
-            While a sign-in email is valid, the six-digit code printed in it (stored as a keyed
-            hash) and the encrypted sign-in link it stands for, so you can finish signing in from
-            the window you started in. Both are single use and are discarded on use or expiry.
+            For up to 15 minutes after a sign-in email is sent, the six-digit code printed in it
+            (stored as a keyed hash) and the encrypted sign-in link it stands for, so you can
+            finish signing in from the window you started in. A code is single use; used and
+            expired records cannot be redeemed and are deleted by an hourly cleanup.
           </li>
           <li>
             If you connect an app or AI assistant to your account, a record of that approval and the

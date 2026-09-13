@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes, randomInt } from 'node:crypto';
-import { and, eq, isNull } from 'drizzle-orm';
-import type { Queryable } from '@/db/client';
+import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
+import type { Db, Queryable } from '@/db/client';
 import { magicLinks } from '@/db/schema/magic-links';
 import { getEnv } from '@/lib/env';
 import { serviceError } from '@/lib/errors';
@@ -22,6 +22,14 @@ import type { ServiceError } from '@/lib/errors';
  */
 
 export const LOGIN_CODE_LENGTH = 6;
+/**
+ * A code never outlives this, whatever the link's own expiry: the per-email
+ * attempt budget (5 per 15 minutes, `RateLimits.loginCodePerEmail`) is only a
+ * meaningful bound on guessing if the code is gone when the window resets.
+ * Fifteen minutes covers "I asked for it and I'm sitting here"; after that the
+ * link still works.
+ */
+export const LOGIN_CODE_MAX_AGE_MS = 15 * 60 * 1000;
 const PURPOSE = 'login_code';
 
 export function generateLoginCode(): string {
@@ -65,27 +73,58 @@ export function decryptCallbackUrl(blob: string, secret = getEnv().AUTH_SECRET):
  * Mint a code for this email and remember the callback it redeems. Any
  * earlier unredeemed code for the same email is retired: only the latest
  * email's code works, which is also what a person expects.
+ *
+ * Retire-and-insert runs in one transaction under a per-email advisory
+ * lock, so two overlapping requests cannot both retire and then both insert,
+ * leaving two live codes. A six-digit code can collide with a row still in
+ * the table (`token_hash` is unique); the insert is retried with a fresh
+ * code rather than failing the email.
  */
 export async function issueLoginCode(
-  db: Queryable,
+  db: Db,
   input: { email: string; callbackUrl: string; expiresAt: Date },
 ): Promise<string> {
   const email = input.email.trim().toLowerCase();
-  const code = generateLoginCode();
-  await db
-    .update(magicLinks)
-    .set({ consumedAt: new Date() })
-    .where(and(eq(magicLinks.email, email), eq(magicLinks.purpose, PURPOSE), isNull(magicLinks.consumedAt)));
-  await db.insert(magicLinks).values({
-    id: makeId('ml'),
-    tokenHash: hashLoginCode(email, code),
-    email,
-    purpose: PURPOSE,
-    scopeId: null,
-    payloadEncrypted: encryptCallbackUrl(input.callbackUrl),
-    expiresAt: input.expiresAt,
+  const expiresAt = new Date(Math.min(input.expiresAt.getTime(), Date.now() + LOGIN_CODE_MAX_AGE_MS));
+  const payloadEncrypted = encryptCallbackUrl(input.callbackUrl);
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`login-code:${email}`}))`);
+    await tx
+      .update(magicLinks)
+      .set({ consumedAt: new Date() })
+      .where(and(eq(magicLinks.email, email), eq(magicLinks.purpose, PURPOSE), isNull(magicLinks.consumedAt)));
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = generateLoginCode();
+      const inserted = await tx
+        .insert(magicLinks)
+        .values({
+          id: makeId('ml'),
+          tokenHash: hashLoginCode(email, code),
+          email,
+          purpose: PURPOSE,
+          scopeId: null,
+          payloadEncrypted,
+          expiresAt,
+        })
+        .onConflictDoNothing({ target: magicLinks.tokenHash })
+        .returning({ id: magicLinks.id });
+      if (inserted.length > 0) return code;
+    }
+    throw new Error('could not mint a unique sign-in code');
   });
-  return code;
+}
+
+/**
+ * Delete codes that can never be redeemed again: expired, or already used
+ * (a consumed row serves nothing once its replacement exists). Returns the
+ * number removed. Run by the housekeeping job.
+ */
+export async function sweepExpiredLoginCodes(db: Queryable): Promise<number> {
+  const rows = await db
+    .delete(magicLinks)
+    .where(and(eq(magicLinks.purpose, PURPOSE), or(lt(magicLinks.expiresAt, new Date()), sql`${magicLinks.consumedAt} is not null`)))
+    .returning({ id: magicLinks.id });
+  return rows.length;
 }
 
 /**

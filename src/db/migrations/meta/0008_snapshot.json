@@ -1,5 +1,5 @@
 {
-  "id": "80324cbe-e026-4550-a135-38a017ce349f",
+  "id": "a690b98f-e742-48ed-b154-a922e8aab024",
   "prevId": "2c289ef8-c0e5-4ece-85dd-543f45a823c4",
   "version": "7",
   "dialect": "postgresql",
@@ -1470,6 +1470,21 @@
           "columns": [
             {
               "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "magic_links_by_expiry": {
+          "name": "magic_links_by_expiry",
+          "columns": [
+            {
+              "expression": "expires_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
