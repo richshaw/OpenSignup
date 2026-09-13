@@ -23,6 +23,20 @@ export class DrizzleOidcAdapter implements Adapter {
   ) {}
 
   async upsert(id: string, payload: AdapterPayload, expiresIn?: number): Promise<void> {
+    // A token can only be minted under a grant that still exists. Disconnect
+    // deletes the grant and its tokens without a lock against the token
+    // endpoint, so a refresh that loaded the grant just before could
+    // otherwise save a new refresh token after the delete. The library
+    // already refuses to *use* such an orphan (no grant → invalid_grant);
+    // refusing to *write* it closes the window entirely.
+    if (TOKENS_UNDER_A_GRANT.has(this.model) && typeof payload.grantId === 'string') {
+      const [grant] = await this.db
+        .select({ id: oauthRecords.id })
+        .from(oauthRecords)
+        .where(and(eq(oauthRecords.model, 'Grant'), eq(oauthRecords.id, payload.grantId)))
+        .limit(1);
+      if (!grant) throw new Error(`oauth: refusing to store ${this.model} for revoked grant`);
+    }
     const expiresAt =
       typeof expiresIn === 'number' && expiresIn > 0
         ? new Date(Date.now() + expiresIn * 1000)
@@ -102,6 +116,8 @@ export class DrizzleOidcAdapter implements Adapter {
       .where(and(eq(oauthRecords.model, this.model), eq(oauthRecords.grantId, grantId)));
   }
 }
+
+const TOKENS_UNDER_A_GRANT: ReadonlySet<string> = new Set(['RefreshToken', 'AuthorizationCode']);
 
 /** Delete rows whose expiry has passed. Returns the number removed. */
 export async function sweepExpiredOauthRecords(db: Queryable): Promise<number> {

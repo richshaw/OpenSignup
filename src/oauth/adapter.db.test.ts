@@ -9,6 +9,9 @@ const db = getDb();
 async function wipe() {
   await db.delete(oauthRecords).where(eq(oauthRecords.model, 'TestModel'));
   await db.delete(oauthRecords).where(eq(oauthRecords.model, 'OtherModel'));
+  await db.delete(oauthRecords).where(eq(oauthRecords.id, 'g-live'));
+  await db.delete(oauthRecords).where(eq(oauthRecords.grantId, 'g-live'));
+  await db.delete(oauthRecords).where(eq(oauthRecords.grantId, 'g-gone'));
 }
 
 describe('DrizzleOidcAdapter', () => {
@@ -107,5 +110,18 @@ describe('DrizzleOidcAdapter', () => {
     expect(await a.find('live')).toBeDefined();
     expect(await a.find('eternal')).toBeDefined();
     expect(await a.find('dead')).toBeUndefined();
+  });
+
+  it('refuses to store a refresh token or code under a grant that no longer exists', async () => {
+    const grants = new DrizzleOidcAdapter('Grant');
+    const tokens = new DrizzleOidcAdapter('RefreshToken');
+    const codes = new DrizzleOidcAdapter('AuthorizationCode');
+    await grants.upsert('g-live', { accountId: 'org_1', clientId: 'c' });
+    await expect(tokens.upsert('rt-1', { grantId: 'g-live' }, 60)).resolves.toBeUndefined();
+    await expect(tokens.upsert('rt-2', { grantId: 'g-gone' }, 60)).rejects.toThrow(/revoked grant/);
+    await expect(codes.upsert('c-2', { grantId: 'g-gone' }, 60)).rejects.toThrow(/revoked grant/);
+    // The disconnect ordering the guard exists for: grant gone, then a late save.
+    await grants.destroy('g-live');
+    await expect(tokens.upsert('rt-3', { grantId: 'g-live' }, 60)).rejects.toThrow(/revoked grant/);
   });
 });
