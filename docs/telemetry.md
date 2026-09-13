@@ -114,7 +114,9 @@ app (an AI assistant over MCP, in practice). `signup_id` and `workspace_id`
 are `NULL`: a grant belongs to the organizer and spans every workspace they
 belong to, so it is not tenant-scoped. `clientDomain` is the host the client
 id was served from — the part a client cannot forge — never its self-reported
-name. `scopes` lists the resource scopes only. `extended` is `true` when the
+name; for a client the operator pre-registered in `OAUTH_STATIC_CLIENTS` it is
+the configured client id instead, since there is no fetched document.
+`scopes` lists the resource scopes only, for granted and denied events alike. `extended` is `true` when the
 approval extended an existing grant rather than creating a new one (the
 organizer re-approving the same app). No event carries a token, an
 authorization code, or an email address.

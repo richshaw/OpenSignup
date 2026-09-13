@@ -74,7 +74,7 @@ Helpers used by every service:
 
 ### OAuth authorization server (AI connectors)
 
-An organizer can connect an AI assistant (Claude app, Claude Code, ChatGPT, any MCP client) to their account. The MCP server itself is not built yet — `GET/POST /api/mcp` only validates the token. Organizer-facing docs: `docs/connect-ai-assistant.md`.
+An organizer can connect an AI assistant (Claude app, Claude Code, ChatGPT, any MCP client) to their account. The MCP server itself is not built yet — `GET/POST /api/mcp` only validates the token and answers `{ authenticated: true, scopes }`, nothing about the account. Organizer-facing docs: `docs/connect-ai-assistant.md`.
 
 - **Hybrid, deliberately.** Auth.js still owns human sign-in (magic link / Google) and nothing about it changed. `oidc-provider` (node-oidc-provider) issues tokens to apps. The resource-server pieces — RFC 9728 protected-resource metadata and the bearer challenge — come from the official MCP SDK `@modelcontextprotocol/server`. Access tokens are verified in-process with `jose`, no HTTP round trip to our own JWKS.
 - **The seam.** `resolveBearerActor` in `src/auth/bearer.ts` is the **only** auth import allowed under MCP routes and tool handlers. It returns the same `Actor` the cookie path builds (both go through `src/auth/organizer-session.ts`), so `requireWorkspaceAccess` / `requireWorkspaceWrite` still judge every call. Scope checks sit *on top of* the policy layer, never instead of it: `signups:write` does not let a viewer write.
@@ -82,7 +82,7 @@ An organizer can connect an AI assistant (Claude app, Claude Code, ChatGPT, any 
 - **Node shim gotchas** (`src/oauth/node-shim.ts`): Koa needs `host` present, `content-length` on POST bodies, and `socket.writable === true` or `respond()` silently drops the body. Every request is re-anchored to the `AUTH_URL` origin, so a proxy hostname can never leak into discovery.
 - **`commitments:read` is not advertised** in the protected-resource metadata (`ADVERTISED_SCOPES` in `src/oauth/scopes.ts`). Clients request everything the metadata lists, so advertising it would put participant emails in the very first authorization request. It is reached by an explicit step-up (403 `insufficient_scope`) and flagged in amber on the consent screen. Don't "fix" the asymmetry.
 - **TTLs** (`OAUTH_TTL` in `src/oauth/config.ts`): access token 15 min, code 60 s, refresh 30 days rotating, grant ceiling 90 days from the original approval. Access tokens are JWTs — **nothing can revoke one early**; disconnect only stops the next refresh, and both the connected-apps page and the legal pages say so.
-- Clients identify by Client ID Metadata Document (CIMD); dynamic registration is off. `OAUTH_STATIC_CLIENTS` (JSON array) pre-registers clients that cannot serve one. Requires Node 22.
+- Clients identify by Client ID Metadata Document (CIMD); dynamic registration is off. `OAUTH_STATIC_CLIENTS` (JSON array) pre-registers clients that cannot serve one. Requires Node 22.12 or later (`engines` in package.json).
 - **Run `pnpm test:db` when touching `src/oauth`** — the adapter, key, and full-flow tests are DB tests.
 
 ### Email

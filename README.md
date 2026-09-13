@@ -51,7 +51,7 @@ Open `http://localhost:3000`, request a magic link with any email, and look at t
 
 ## Self-host
 
-Requires **Node 22 or later** (the `Dockerfile` and CI both run Node 22) and Postgres.
+Requires **Node 22.12 or later** (the `Dockerfile` and CI both run Node 22) and Postgres.
 
 Build the Docker image from source with the included `Dockerfile` (a prebuilt registry image is planned but not yet published). See `docker-compose.prod.yml` for the canonical setup (app + db + migrate + worker). Configuration is entirely via environment variables — see `.env.example`.
 

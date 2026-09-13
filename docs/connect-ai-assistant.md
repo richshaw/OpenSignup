@@ -2,7 +2,8 @@
 
 > **Ahead of the feature.** OpenSignup can now sign an AI assistant in to your
 > account, but the MCP tools it would call are not built yet. `/api/mcp` only
-> checks the token and reports that MCP is not yet available. Connecting today
+> checks the token and answers with whether it was accepted and which
+> permissions it carries — nothing about your account. Connecting today
 > proves the sign-in works; it does not let an assistant read or change
 > anything. This page describes the connection flow so it is documented when
 > the tools land.
@@ -50,7 +51,9 @@ you are not signed in already, and see a consent screen.
 The consent screen names the app by **the domain its identity was fetched
 from** — the one part of its identity it cannot fake. Any name the app reports
 about itself is shown underneath, as a secondary label, because it is just a
-claim.
+claim. (An app the operator registered in advance with `OAUTH_STATIC_CLIENTS`
+has no fetched identity; the screen says so and shows the name and id the
+operator configured instead.)
 
 A connected app acts as *you*. It covers every workspace you belong to, with
 the role you have in each, and it can never do anything you could not do
@@ -109,8 +112,8 @@ derives everything from `AUTH_URL`:
   OAuth issuer, the discovery documents, and the resource the tokens are bound
   to are all built from its origin, so a wrong value breaks every client.
   Plain HTTP is accepted only on loopback, for local development.
-- **Node 22 or later.** The `oidc-provider` library needs it, and the
-  `Dockerfile` and CI moved to Node 22 for this reason.
+- **Node 22.12 or later** (the floor in `package.json`). The `oidc-provider`
+  library needs it, and the `Dockerfile` and CI moved to Node 22 for this reason.
 - Signing keys generate themselves on first use and live in the database, so
   every instance behind a load balancer verifies the others' tokens and a
   redeploy does not disconnect anyone.

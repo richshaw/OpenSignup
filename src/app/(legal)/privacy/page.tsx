@@ -139,7 +139,8 @@ export default function PrivacyPage() {
           An organizer can connect a third-party app, typically an AI assistant such as the Claude
           app, Claude Code, or ChatGPT, to their {INSTANCE_NAME} account. Nothing is connected
           unless the organizer approves it on a consent screen that names the domain the app
-          identified itself from and lists exactly what it will be able to do. Participants are
+          identified itself from (or, for an app the operator of this instance registered in
+          advance, the name the operator gave it) and lists exactly what it will be able to do. Participants are
           never asked to sign in and cannot connect anything.
         </p>
         <p>
@@ -154,11 +155,12 @@ export default function PrivacyPage() {
         <p>
           For each connected app we store the approval (which organizer, which app, which
           permissions, when it was approved, when it was last used, and when it expires), the
-          app&apos;s identifier and the name it reports about itself, and the refresh tokens and
-          short-lived authorization codes that keep the connection alive. Access tokens themselves
-          are not stored. The activity log records that a connection was approved, declined, or
-          disconnected, together with the app&apos;s domain. It never records a token or an email
-          address.
+          app&apos;s identifier and the name it reports about itself, the refresh tokens that keep
+          the connection alive, and, for the minute it takes to set a connection up, the
+          single-use code that establishes it. Access tokens themselves are not stored. The
+          activity log records that a connection was approved, declined, or disconnected,
+          together with the app&apos;s domain (or its configured identifier, for a
+          pre-registered app). It never records a token or an email address.
         </p>
         <p>
           You can see and end every connection from <strong>Connected apps</strong> in your account
