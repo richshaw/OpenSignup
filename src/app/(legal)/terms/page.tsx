@@ -21,7 +21,7 @@ export default function TermsPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Terms of service</h1>
-        <p className="text-ink-muted text-sm">Last updated: 2 June 2026</p>
+        <p className="text-ink-muted text-sm">Last updated: 13 September 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -67,6 +67,28 @@ export default function TermsPage() {
           Google) and you choose it, your use of that provider is also governed by that
           provider&apos;s own terms and privacy policy.{' '}
           {INSTANCE_NAME} is not responsible for third-party services.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">Connecting apps to your account</h2>
+        <p>
+          You can connect a third-party app or AI assistant to your account. Anything you connect
+          acts as you, in every workspace you belong to, with the permissions you approved, so what
+          it does counts as your own action under these terms. You are responsible for choosing what
+          to connect, for reading that app&apos;s own terms and privacy policy first, and for
+          disconnecting it when you no longer need it.
+        </p>
+        <p>
+          Letting an app see participant names and email addresses is a separate permission and a
+          separate decision. Those participants gave their details to you as the organizer; sharing
+          them with an assistant is your call, and the same care you would apply to sharing a
+          participant list any other way applies here.
+        </p>
+        <p>
+          {operator} may refuse, block, or revoke a client that abuses the service, misrepresents
+          who it is, or is used to break the acceptable use rules above. You can revoke any
+          connection yourself at any time from Connected apps in your settings.
         </p>
       </section>
 

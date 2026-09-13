@@ -51,9 +51,13 @@ Open `http://localhost:3000`, request a magic link with any email, and look at t
 
 ## Self-host
 
+Requires **Node 22.12 or later** (the `Dockerfile` and CI both run Node 22) and Postgres.
+
 Build the Docker image from source with the included `Dockerfile` (a prebuilt registry image is planned but not yet published). See `docker-compose.prod.yml` for the canonical setup (app + db + migrate + worker). Configuration is entirely via environment variables — see `.env.example`.
 
 Email transport is pluggable (`console` for dev, `smtp` for generic self-host, `resend` for hosted). No other external accounts required.
+
+Organizers can connect an AI assistant (Claude, ChatGPT, any MCP client) to their account over OAuth — see [`docs/connect-ai-assistant.md`](docs/connect-ai-assistant.md). Nothing to configure beyond a correct `AUTH_URL`.
 
 ### Branding your instance
 
