@@ -70,7 +70,7 @@ Helpers used by every service:
 
 ### Auth
 
-`src/auth/config.ts` — Auth.js v5 with magic-link provider. `src/auth/adapter.ts` — custom Drizzle adapter that, on first login, creates an Organizer + personal Workspace + owner Member in one transaction. Magic-link emails go through our `EmailTransport` (not Auth.js's nodemailer) so there is one email pipeline. `src/auth/session.ts` builds the `Actor` consumed by the policy module.
+`src/auth/config.ts` — Auth.js v5 with magic-link provider. `src/auth/adapter.ts` — custom Drizzle adapter that, on first login, creates an Organizer + personal Workspace + owner Member in one transaction. Magic-link emails go through our `EmailTransport` (not Auth.js's nodemailer) so there is one email pipeline. `src/auth/session.ts` builds the `Actor` consumed by the policy module. The magic-link email also carries a six-digit code (`src/auth/login-code.ts`: email-keyed HMAC, callback URL encrypted at rest, single use, rate-limited) so sign-in can finish in the window that requested it; redemption hands the callback URL back to the client for a top-level navigation — a server-action `redirect()` to it would lose Auth.js's cookie. `/login` and `/login/check` poll `/api/auth/session` and move on once a session exists.
 
 ### OAuth authorization server (AI connectors)
 
