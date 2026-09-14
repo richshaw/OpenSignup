@@ -166,7 +166,8 @@ export default function PrivacyPage() {
           single-use code that establishes it. Access tokens themselves are not stored. The
           activity log records that a connection was approved, declined, or disconnected,
           together with the app&apos;s domain (or its configured identifier, for a
-          pre-registered app). It never records a token or an email address.
+          pre-registered app), and, for every change a connected app makes on your behalf,
+          which app made it. It never records a token or an email address.
         </p>
         <p>
           You can see and end every connection from <strong>Connected apps</strong> in your account

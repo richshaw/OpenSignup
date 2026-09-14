@@ -29,6 +29,10 @@ change — no migration required.
 Every entry maps to a fired event in the codebase. If you change a payload
 shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 
+Any organizer-actor row may also carry `viaClientId`: the connected app's
+client id (usually a URL) when the change came through the MCP server rather
+than the browser. It is added by `recordActivity` and is not listed per event.
+
 ### Signup lifecycle
 
 | event | actor | payload | fired from |
