@@ -16,6 +16,7 @@ import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { organizers } from '@/db/schema/organizers';
 import { oauthRecords, oauthSigningKeys } from '@/db/schema/oauth';
+import { signups } from '@/db/schema/signups';
 import { workspaceMembers } from '@/db/schema/members';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
@@ -104,6 +105,8 @@ afterAll(async () => {
   await db.delete(oauthRecords);
   await db.delete(oauthSigningKeys);
   await db.delete(activity).where(like(activity.eventType, 'oauth.%'));
+  await db.delete(activity).where(eq(activity.workspaceId, workspaceId));
+  await db.delete(signups).where(eq(signups.workspaceId, workspaceId));
   await db.delete(organizers).where(eq(organizers.id, organizerId));
   await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
 });
@@ -177,6 +180,50 @@ describe('authorization code flow on Postgres', () => {
       expect(stepUp.response.headers.get('www-authenticate')).toContain('scope="commitments:read"');
     }
 
+    // The real endpoint with the real token: list the tools and call one.
+    const { POST: mcp } = await import('@/app/api/mcp/route');
+    const call = (token: string, body: unknown) =>
+      mcp(
+        new Request(RESOURCE, {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${token}`,
+            'content-type': 'application/json',
+            accept: 'application/json, text/event-stream',
+          },
+          body: JSON.stringify(body),
+        }),
+      );
+    const readRpc = async (res: Response) => {
+      const text = await res.text();
+      const line = text.split('\n').find((l) => l.startsWith('data:'));
+      return JSON.parse(line ? line.slice(5) : text) as { result?: Record<string, unknown>; error?: unknown };
+    };
+    const listed = await call(tokens.access_token, { jsonrpc: '2.0', id: 1, method: 'tools/list' });
+    expect(listed.status).toBe(200);
+    expect(((await readRpc(listed)).result as { tools: unknown[] }).tools).toHaveLength(15);
+    const created = await call(tokens.access_token, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: {
+        name: 'create_signup',
+        arguments: { title: 'Token test', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
+      },
+    });
+    expect(created.status).toBe(200);
+    const createdResult = (await readRpc(created)).result as {
+      isError?: boolean;
+      structuredContent: { signup: { id: string } };
+    };
+    expect(createdResult.isError, JSON.stringify(createdResult)).toBeFalsy();
+    expect(createdResult.structuredContent.signup.id).toMatch(/^sig_/);
+    const [createdRow] = await db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, createdResult.structuredContent.signup.id), eq(activity.eventType, 'signup.created')));
+    expect(createdRow?.payload).toMatchObject({ viaClientId: CLIENT, templateId: 'mcp' });
+
     // Grant bookkeeping.
     const apps = await listConnectedApps(db, organizerActor);
     expect(apps).toHaveLength(1);
@@ -202,6 +249,33 @@ describe('authorization code flow on Postgres', () => {
     const r1 = await refresh(d, { clientId: CLIENT, refreshToken: tokens.refresh_token });
     expect(r1.status).toBe(200);
     expect(decodeJwt((await r1.json()).access_token).scope).toBe('signups:read signups:write');
+
+    // A token that holds only signups:read gets the step-up challenge from
+    // the endpoint when it reaches for a write tool. The grant already
+    // carries write; the issued token's scope follows the request.
+    const ro = pkcePair();
+    const third = await startAuthorization(d, { clientId: CLIENT, redirectUri: REDIRECT, scope: 'signups:read', resource: RESOURCE, challenge: ro.challenge });
+    await approve(third.uid, ['signups:read']);
+    const roCode = codeFromRedirect(await resume(d, third.uid)).code;
+    const roRes = await exchangeCode(d, { clientId: CLIENT, redirectUri: REDIRECT, code: roCode, verifier: ro.verifier, resource: RESOURCE });
+    expect(roRes.status, await roRes.clone().text()).toBe(200);
+    const readOnly = await roRes.json();
+    expect(decodeJwt(readOnly.access_token).scope).toBe('signups:read');
+    const stepUpCall = await call(readOnly.access_token, {
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: { name: 'create_signup', arguments: {} },
+    });
+    expect(stepUpCall.status).toBe(403);
+    expect(stepUpCall.headers.get('www-authenticate')).toContain('scope="signups:write"');
+    const readCall = await call(readOnly.access_token, {
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: { name: 'list_signups', arguments: {} },
+    });
+    expect(readCall.status).toBe(200);
 
     // Nobody else can see or revoke it.
     const stranger: Actor = { kind: 'organizer', id: makeId('org'), email: 'x@example.com', workspaceIds: [], workspaceRoles: {} };
