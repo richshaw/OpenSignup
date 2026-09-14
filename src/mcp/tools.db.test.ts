@@ -1,7 +1,8 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
+import { commitments } from '@/db/schema/commitments';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
@@ -224,5 +225,88 @@ describe('signup write tools on Postgres', () => {
     expect(cl.signup.settings).not.toHaveProperty('maxCommitmentsPerParticipant');
     expect(cl.signup.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['day'] });
     expect(cl.signup.closesAt).toBeNull();
+  });
+});
+
+describe('field and slot tools on Postgres', () => {
+  it('add_field, add_slots, update_slot, delete_slot round-trip and get_signup follows', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const created = await client.callTool({
+      name: 'create_signup',
+      arguments: { title: 'Fields and slots', fields: [{ ref: 'what', label: 'What', fieldType: 'text' }], slots: [{ values: { what: 'Fruit' } }] },
+    });
+    const id = (created.structuredContent as { signup: { id: string } }).signup.id;
+    const f = await client.callTool({
+      name: 'add_field',
+      arguments: { signupId: id, ref: 'date', label: 'Date', fieldType: 'date', config: { fieldType: 'date' } },
+    });
+    expect(f.isError, JSON.stringify(f.structuredContent)).toBeFalsy();
+    const bad = await client.callTool({
+      name: 'add_field',
+      arguments: { signupId: id, ref: 'n', label: 'N', fieldType: 'number', config: { fieldType: 'text', maxLength: 5 } },
+    });
+    expect((bad.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
+    const added = await client.callTool({
+      name: 'add_slots',
+      arguments: { signupId: id, rows: [{ values: { what: 'Crackers', date: '2026-10-10' }, capacity: 3 }] },
+    });
+    expect(added.isError, JSON.stringify(added.structuredContent)).toBeFalsy();
+    const slotId = (added.structuredContent as { slots: { id: string }[] }).slots[0]!.id;
+    const upd = await client.callTool({ name: 'update_slot', arguments: { slotId, capacity: 5 } });
+    expect((upd.structuredContent as { slot: { capacity: number } }).slot.capacity).toBe(5);
+    const del = await client.callTool({ name: 'delete_slot', arguments: { slotId } });
+    expect(del.structuredContent).toEqual({ deleted: true });
+    const detail = await client.callTool({ name: 'get_signup', arguments: { signupId: id } });
+    const d = detail.structuredContent as { slots: unknown[]; fields: unknown[] };
+    expect(d.slots).toHaveLength(1);
+    expect(d.fields).toHaveLength(2);
+  });
+
+  it('a viewer cannot add slots', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const created = await client.callTool({
+      name: 'create_signup',
+      arguments: { title: 'Viewer check', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
+    });
+    const id = (created.structuredContent as { signup: { id: string } }).signup.id;
+    const viewer = await connectTestClient(viewerCtx, TOOLS);
+    const r = await viewer.callTool({ name: 'add_slots', arguments: { signupId: id, rows: [{ values: { a: 'y' } }] } });
+    expect(r.isError).toBe(true);
+    expect((r.structuredContent as { error: { code: string } }).error.code).toBe('forbidden');
+  });
+
+  it('deleting a slot someone committed to succeeds and removes the commitment with it, as in the browser', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const created = await client.callTool({
+      name: 'create_signup',
+      arguments: { title: 'Orphan check', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
+    });
+    const id = (created.structuredContent as { signup: { id: string } }).signup.id;
+    await client.callTool({ name: 'publish_signup', arguments: { signupId: id } });
+    const detail = await client.callTool({ name: 'get_signup', arguments: { signupId: id } });
+    const slotId = (detail.structuredContent as { slots: { id: string }[] }).slots[0]!.id;
+    const commit = await commitToSlot(db, slotId, { name: 'Sam', email: 'sam@example.com' });
+    expect(commit.ok).toBe(true);
+    const before = await client.callTool({ name: 'get_signup', arguments: { signupId: id } });
+    expect((before.structuredContent as { slots: { filled: number }[] }).slots[0]!.filled).toBe(1);
+    const del = await client.callTool({ name: 'delete_slot', arguments: { slotId } });
+    expect(del.structuredContent).toEqual({ deleted: true });
+    // `deleteSlot` marks commitments orphaned and then deletes the slot; the
+    // slot foreign key cascades, so the row is gone. Asserted, not changed.
+    const rows = await db.select({ status: commitments.status }).from(commitments).where(eq(commitments.slotId, slotId));
+    expect(rows).toHaveLength(0);
+  });
+
+  it('every row the client wrote is attributed to the connected app', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const mine = await client.callTool({ name: 'list_signups', arguments: {} });
+    const ids = (mine.structuredContent as { signups: { id: string }[] }).signups.map((s) => s.id);
+    const rows = await db
+      .select({ payload: activity.payload, eventType: activity.eventType })
+      .from(activity)
+      .where(inArray(activity.signupId, ids));
+    const organizerRows = rows.filter((r) => /^(signup|slot|field)\./.test(r.eventType));
+    expect(organizerRows.length).toBeGreaterThan(8);
+    for (const r of organizerRows) expect(r.payload, r.eventType).toMatchObject({ viaClientId: CLIENT });
   });
 });
