@@ -1,4 +1,5 @@
 import { EventEmitter, once } from 'node:events';
+import { BodyTooLarge, readRequestBody } from '@/lib/request-body';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Readable } from 'node:stream';
 
@@ -211,34 +212,8 @@ export class ShimResponse extends EventEmitter {
  */
 export const MAX_BODY_BYTES = 64 * 1024;
 
-export class BodyTooLarge extends Error {
-  constructor() {
-    super('request body too large');
-    this.name = 'BodyTooLarge';
-  }
-}
 
-export async function readRequestBody(request: Request, limit = MAX_BODY_BYTES): Promise<Buffer> {
-  if (request.method === 'GET' || request.method === 'HEAD') return Buffer.alloc(0);
-  const declared = Number(request.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > limit) throw new BodyTooLarge();
-  if (!request.body) return Buffer.alloc(0);
-  const chunks: Buffer[] = [];
-  let total = 0;
-  const reader = request.body.getReader();
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > limit) throw new BodyTooLarge();
-      chunks.push(Buffer.from(value));
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  return Buffer.concat(chunks);
-}
+export { BodyTooLarge, readRequestBody };
 
 function tooLarge(): Response {
   return Response.json(
@@ -258,7 +233,7 @@ export async function invokeNodeHandler(
 ): Promise<Response> {
   let body: Buffer;
   try {
-    body = await readRequestBody(request);
+    body = await readRequestBody(request, MAX_BODY_BYTES);
   } catch (err) {
     if (err instanceof BodyTooLarge) return tooLarge();
     throw err;
@@ -282,7 +257,7 @@ export async function withNodePair<T>(
 ): Promise<{ value: T; response: Response; ended: boolean }> {
   let body: Buffer;
   try {
-    body = await readRequestBody(request);
+    body = await readRequestBody(request, MAX_BODY_BYTES);
   } catch (err) {
     if (err instanceof BodyTooLarge) {
       return { value: undefined as T, response: tooLarge(), ended: true };
