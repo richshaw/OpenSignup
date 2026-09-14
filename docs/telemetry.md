@@ -40,7 +40,7 @@ browser. It is added by `recordActivity` whenever the actor came through
 
 | event | actor | payload | fired from |
 |---|---|---|---|
-| `signup.created` | organizer | `{ templateId, fieldsAdded, slotsAdded }` | `services/signups.ts` |
+| `signup.created` | organizer | `{ templateId, fieldsAdded, slotsAdded }` — `templateId` is `default`, `empty`, `magic-compose`, or `mcp` (created by a connected assistant) | `services/signups.ts` |
 | `signup.updated` | organizer | `{ changes }` | `services/signups.ts` |
 | `signup.published` | organizer | `{}` | `services/signups.ts` |
 | `signup.closed` | organizer | `{}` | `services/signups.ts` |
