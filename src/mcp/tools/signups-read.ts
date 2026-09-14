@@ -1,12 +1,24 @@
 import { z } from 'zod';
 import { ok } from '@/lib/result';
 import { SIGNUP_STATUSES } from '@/schemas/signups';
+import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { getSignupForOrganizer, listSignupsForWorkspace, type SignupWithSlots } from '@/services/signups';
 import { resolveWorkspaceId } from '../context';
 import { signupLinks } from '../links';
 import { defineTool } from '../registry';
 
 type SignupRow = Omit<SignupWithSlots, 'slots' | 'fields'>;
+type SlotRow = SignupWithSlots['slots'][number];
+
+/** A field as every tool shows it. */
+export function fieldOut(f: SlotFieldDefinition) {
+  return { id: f.id, ref: f.ref, label: f.label, fieldType: f.fieldType, sortOrder: f.sortOrder, config: f.config };
+}
+
+/** A slot as every tool shows it; `filled` is added where the count is known. */
+export function slotOut(s: SlotRow) {
+  return { id: s.id, values: s.values, capacity: s.capacity, status: s.status, sortOrder: s.sortOrder };
+}
 
 function signupCore(row: SignupRow) {
   return {
@@ -81,22 +93,8 @@ export const getSignup = defineTool({
     const { slots, fields, committedBySlot: filled = {}, ...row } = found.value;
     return ok({
       signup: signupDetail(row),
-      fields: fields.map((f) => ({
-        id: f.id,
-        ref: f.ref,
-        label: f.label,
-        fieldType: f.fieldType,
-        sortOrder: f.sortOrder,
-        config: f.config,
-      })),
-      slots: slots.map((s) => ({
-        id: s.id,
-        values: s.values,
-        capacity: s.capacity,
-        filled: filled[s.id] ?? 0,
-        status: s.status,
-        sortOrder: s.sortOrder,
-      })),
+      fields: fields.map(fieldOut),
+      slots: slots.map((s) => ({ ...slotOut(s), filled: filled[s.id] ?? 0 })),
       links: signupLinks(row),
     });
   },
