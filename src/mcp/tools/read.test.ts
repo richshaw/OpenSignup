@@ -3,6 +3,10 @@ import { serviceError } from '@/lib/errors';
 import { err, ok } from '@/lib/result';
 import type { ToolContext } from '../context';
 import { connectTestClient } from '../testing/client';
+import { getSignup, listSignups } from './signups-read';
+import { listWorkspaces } from './workspaces';
+
+const READ_TOOLS = [listWorkspaces, listSignups, getSignup];
 
 const listSignupsForWorkspace = vi.fn();
 const getSignupForOrganizer = vi.fn();
@@ -60,7 +64,7 @@ beforeEach(() => {
 
 describe('read tools', () => {
   it('lists the three read tools with read-only annotations', async () => {
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, READ_TOOLS);
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);
     expect(names).toEqual(expect.arrayContaining(['list_workspaces', 'list_signups', 'get_signup']));
@@ -71,7 +75,7 @@ describe('read tools', () => {
   });
 
   it('list_workspaces marks the default', async () => {
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'list_workspaces', arguments: {} });
     expect(r.structuredContent).toEqual({
       workspaces: [
@@ -83,7 +87,7 @@ describe('read tools', () => {
 
   it('list_signups defaults to the default workspace and returns summaries without descriptions', async () => {
     listSignupsForWorkspace.mockResolvedValueOnce(ok([row]));
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'list_signups', arguments: {} });
     expect(listSignupsForWorkspace).toHaveBeenCalledWith(ctx.db, ctx.actor, 'ws_1', {});
     const body = r.structuredContent as { signups: Record<string, unknown>[] };
@@ -103,7 +107,7 @@ describe('read tools', () => {
 
   it('list_signups passes an explicit workspace and status through', async () => {
     listSignupsForWorkspace.mockResolvedValueOnce(ok([]));
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, READ_TOOLS);
     await client.callTool({ name: 'list_signups', arguments: { workspaceId: 'ws_2', status: 'open' } });
     expect(listSignupsForWorkspace).toHaveBeenCalledWith(ctx.db, ctx.actor, 'ws_2', { status: 'open' });
   });
@@ -132,7 +136,7 @@ describe('read tools', () => {
         committedBySlot: { slot_1: 2 },
       }),
     );
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 'sig_1' } });
     expect(getSignupForOrganizer).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', { includeFilled: true });
     const body = r.structuredContent as {
@@ -150,7 +154,7 @@ describe('read tools', () => {
 
   it('service errors come back as tool errors with the same code', async () => {
     getSignupForOrganizer.mockResolvedValueOnce(err(serviceError('not_found', 'signup not found')));
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 'sig_9' } });
     expect(r.isError).toBe(true);
     expect(r.structuredContent).toEqual({ error: { code: 'not_found', message: 'signup not found' } });

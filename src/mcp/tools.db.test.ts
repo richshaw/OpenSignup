@@ -10,6 +10,7 @@ import { createSignup, getPublicSignup, publishSignup } from '@/services/signups
 import type { ToolContext } from './context';
 import { connectTestClient } from './testing/client';
 import { contextForOrganizer } from './testing/context';
+import { TOOLS } from './tools';
 
 const db = getDb();
 const CLIENT = 'https://assistant.example/oauth/metadata.json';
@@ -60,7 +61,7 @@ describe('read tools on Postgres', () => {
     const commit = await commitToSlot(db, slotId, { name: 'Pat', email: 'pat@example.com' });
     expect(commit.ok, JSON.stringify(commit)).toBe(true);
 
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, TOOLS);
     const r = await client.callTool({ name: 'get_signup', arguments: { signupId: created.value.id } });
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
     const body = r.structuredContent as { slots: { id: string; filled: number }[] };
@@ -75,7 +76,7 @@ describe('read tools on Postgres', () => {
   });
 
   it('list_signups sees the workspace and a foreign workspace is forbidden', async () => {
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, TOOLS);
     const mine = await client.callTool({ name: 'list_signups', arguments: {} });
     expect((mine.structuredContent as { signups: unknown[] }).signups.length).toBeGreaterThan(0);
     const other = await client.callTool({ name: 'list_signups', arguments: { workspaceId: makeId('ws') } });
