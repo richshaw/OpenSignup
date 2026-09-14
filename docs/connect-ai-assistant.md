@@ -1,13 +1,5 @@
 # Connect an AI assistant
 
-> **Ahead of the feature.** OpenSignup can now sign an AI assistant in to your
-> account, but the MCP tools it would call are not built yet. `/api/mcp` only
-> checks the token and answers with whether it was accepted and which
-> permissions it carries — nothing about your account. Connecting today
-> proves the sign-in works; it does not let an assistant read or change
-> anything. This page describes the connection flow so it is documented when
-> the tools land.
-
 OpenSignup speaks OAuth 2.1, so any MCP client — the Claude app, Claude Code,
 ChatGPT, or something you wrote yourself — can ask for access to your
 organizer account. You approve the request in your browser, and you can take
@@ -21,6 +13,34 @@ https://<your-instance>/api/mcp
 ```
 
 On the public instance that is `https://opensignup.org/api/mcp`.
+
+## What an assistant can do
+
+Once connected, an assistant can work on your signups the way you would in
+the browser:
+
+- **See** your workspaces, your signups, and each signup's fields and slots,
+  including how many places are taken.
+- **Create** a signup with its fields and slots in one go. It starts as a
+  draft that nobody else can see.
+- **Change** a signup: title, description, tags, closing time, visibility,
+  settings, fields, and slots.
+- **Publish, close, archive, or delete** a signup.
+
+Try: "Build me a snack rota for six Saturday games starting 3 October, two
+families per game." Then: "Publish it and give me the link to share."
+
+An assistant cannot see who has signed up. Names and email addresses sit behind
+a separate permission that no assistant receives by default (see below), and
+even with it there is no tool that returns them yet.
+
+Your role in each workspace still decides what it can do there. In a workspace
+where you are a viewer, an assistant can read your signups but cannot create or
+change anything, exactly as you cannot.
+
+Every change an assistant makes is recorded with the app that made it, so the
+record can always tell your own edits from the assistant's. There is no page
+that shows you that history yet.
 
 ## Connecting
 
@@ -62,11 +82,11 @@ decide.
 
 Permissions are approved individually:
 
-| Permission | What it means |
+| Permission | What it unlocks |
 |---|---|
-| See your signups and their slots | Read-only access to your signups |
-| Create and edit signups | Make and change signups on your behalf |
-| See who has signed up, including their names and email addresses | Participant contact details |
+| See your signups and their slots | Reading: workspaces, signups, fields, slots, and how full each slot is |
+| Create and edit signups | Everything that changes a signup, including publishing and deleting |
+| See who has signed up, including their names and email addresses | Participant contact details (no tool returns them yet) |
 
 The third one is deliberately harder to get. It is not advertised to clients,
 so an app does not receive it by default — it has to ask for it explicitly,
