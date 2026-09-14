@@ -41,12 +41,12 @@ browser. It is added by `recordActivity` whenever the actor came through
 | event | actor | payload | fired from |
 |---|---|---|---|
 | `signup.created` | organizer | `{ templateId, fieldsAdded, slotsAdded }` — `templateId` is `default`, `empty`, `magic-compose`, or `mcp` (created by a connected assistant) | `services/signups.ts` |
-| `signup.updated` | organizer | `{ changes }` | `services/signups.ts` |
-| `signup.published` | organizer | `{}` | `services/signups.ts` |
-| `signup.closed` | organizer | `{}` | `services/signups.ts` |
-| `signup.archived` | organizer | `{}` | `services/signups.ts` |
+| `signup.updated` | organizer | `{ changed }` (the input keys that changed) | `services/signups.ts` |
+| `signup.published` | organizer | `{ from, to }` | `services/signups.ts` |
+| `signup.closed` | organizer | `{ from, to }` | `services/signups.ts` |
+| `signup.archived` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.duplicated` | organizer | `{ sourceSignupId }` | `services/signups.ts` |
-| `signup.deleted` | organizer | `{}` | `services/signups.ts` |
+| `signup.deleted` | organizer | `{ status }` (the status it had when deleted) | `services/signups.ts` |
 | `signup.draft_started` | organizer | `{}` | RSC at `/app/signups/new` |
 | `signup.editor_opened` | organizer | `{ section: 'fields' \| 'slots' \| 'settings' \| 'responses' }` | RSC under `/app/signups/[id]/...` |
 | `signup.previewed` | organizer | `{}` | RSC at `/app/signups/[id]/preview` |
