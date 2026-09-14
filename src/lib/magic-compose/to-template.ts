@@ -12,7 +12,7 @@ function sanitizeEnumChoices(choices: string[] | undefined): string[] {
     .slice(0, 20);
 }
 
-function configFor(
+export function configFor(
   fieldType: SlotFieldInput['fieldType'],
   choices: string[] | undefined,
 ): SlotFieldConfig {

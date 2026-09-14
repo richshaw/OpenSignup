@@ -14,10 +14,9 @@ import {
 } from '@/services/signups';
 import { resolveWorkspaceId } from '../context';
 import { defineTool } from '../registry';
+import { FIELD_GUIDE } from './guides';
 import { signupDetail, signupWithLinks } from './signups-read';
 
-export const FIELD_GUIDE =
-  'Field types: text, date (values are ISO dates like 2026-10-03), time (values are HH:MM), number (values are numbers, not strings), enum (give choices; values must be one of them). Slot values are keyed by field ref. capacity null means unlimited; omitted means 1.';
 
 export const createSignupTool = defineTool({
   name: 'create_signup',

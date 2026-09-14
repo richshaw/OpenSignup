@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ok } from '@/lib/result';
-import type { ToolContext } from '../context';
+import { err, ok } from '@/lib/result';
+import { serviceError } from '@/lib/errors';
 import { connectTestClient } from '../testing/client';
+import { unitContext } from '../testing/fixtures';
 import { addFieldTool, deleteFieldTool, updateFieldTool } from './fields';
 import { addSlotsTool, deleteSlotTool, updateSlotTool } from './slots';
 
@@ -17,24 +18,10 @@ vi.mock('@/services/slots', () => ({
   updateSlot: (...a: unknown[]) => slots.updateSlot(...a),
   deleteSlot: (...a: unknown[]) => slots.deleteSlot(...a),
 }));
+vi.mock('@/mcp/links', () => ({ signupLinks: () => ({ build: 'b', public: 'p' }) }));
 
 const TOOLS = [addFieldTool, updateFieldTool, deleteFieldTool, addSlotsTool, updateSlotTool, deleteSlotTool];
-
-const ctx: ToolContext = {
-  db: {} as ToolContext['db'],
-  actor: {
-    kind: 'organizer',
-    id: 'org_1',
-    email: 'a@example.com',
-    workspaceIds: ['ws_1'],
-    workspaceRoles: { ws_1: 'owner' },
-    via: { clientId: 'c' },
-  },
-  scopes: ['signups:read', 'signups:write'],
-  clientId: 'c',
-  defaultWorkspaceId: 'ws_1',
-  workspaces: [],
-};
+const ctx = unitContext();
 const field = {
   id: 'fld_1',
   ref: 'what',
@@ -61,21 +48,34 @@ beforeEach(() => {
 });
 
 describe('field tools', () => {
-  it('add_field strips signupId and passes the field input through', async () => {
-    fields.addField.mockResolvedValueOnce(ok(field));
+  it('add_field takes the create_signup field shape and builds the config itself', async () => {
+    fields.addField.mockResolvedValueOnce(ok({ ...field, ref: 'day', label: 'Day', fieldType: 'enum', config: { fieldType: 'enum', choices: ['Sat', 'Sun'] } }));
     const client = await connectTestClient(ctx, TOOLS);
     const r = await client.callTool({
       name: 'add_field',
-      arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'text', config: { fieldType: 'text', maxLength: 200 } },
+      arguments: { signupId: 'sig_1', ref: 'day', label: 'Day', fieldType: 'enum', choices: ['Sat', 'Sun'] },
     });
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    expect(fields.addField).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
+      ref: 'day',
+      label: 'Day',
+      fieldType: 'enum',
+      config: { fieldType: 'enum', choices: ['Sat', 'Sun'] },
+    });
+    expect((r.structuredContent as { field: { config: unknown } }).field.config).toEqual({ fieldType: 'enum', choices: ['Sat', 'Sun'] });
+  });
+
+  it('add_field passes an explicit position through and defaults text to a 200-character config', async () => {
+    fields.addField.mockResolvedValueOnce(ok(field));
+    const client = await connectTestClient(ctx, TOOLS);
+    await client.callTool({ name: 'add_field', arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'text', sortOrder: 3 } });
     expect(fields.addField).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
       ref: 'what',
       label: 'What',
       fieldType: 'text',
       config: { fieldType: 'text', maxLength: 200 },
+      sortOrder: 3,
     });
-    expect(r.structuredContent).toEqual({ field });
   });
 
   it('update_field keeps the strict schema closed', async () => {
@@ -101,29 +101,45 @@ describe('field tools', () => {
 });
 
 describe('slot tools', () => {
-  it('add_slots sends the rows to the bulk service', async () => {
-    slots.addSlotsBulk.mockResolvedValueOnce(ok([slot]));
+  it('add_slots sends the rows to the bulk service with capacity defaulting to 1', async () => {
+    slots.addSlotsBulk.mockResolvedValueOnce(ok([slot, { ...slot, id: 'slot_2', capacity: null }]));
     const client = await connectTestClient(ctx, TOOLS);
     const r = await client.callTool({
       name: 'add_slots',
-      arguments: { signupId: 'sig_1', rows: [{ values: { what: 'x' }, capacity: 1 }] },
+      arguments: { signupId: 'sig_1', rows: [{ values: { what: 'x' } }, { values: { what: 'y' }, capacity: null }] },
     });
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
     expect(slots.addSlotsBulk).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
-      rows: [{ values: { what: 'x' }, capacity: 1 }],
+      rows: [
+        { values: { what: 'x' }, capacity: 1 },
+        { values: { what: 'y' }, capacity: null },
+      ],
     });
     expect(r.structuredContent).toEqual({
-      slots: [{ id: 'slot_1', values: { what: 'x' }, capacity: 1, status: 'open', sortOrder: 0 }],
+      slots: [
+        { id: 'slot_1', values: { what: 'x' }, capacity: 1, status: 'open', sortOrder: 0 },
+        { id: 'slot_2', values: { what: 'x' }, capacity: null, status: 'open', sortOrder: 0 },
+      ],
     });
   });
 
-  it('update_slot and delete_slot address the slot by id', async () => {
+  it('update_slot addresses the slot by id', async () => {
     slots.updateSlot.mockResolvedValueOnce(ok({ ...slot, capacity: 4 }));
-    slots.deleteSlot.mockResolvedValueOnce(ok({ deleted: true }));
     const client = await connectTestClient(ctx, TOOLS);
-    await client.callTool({ name: 'update_slot', arguments: { slotId: 'slot_1', capacity: 4 } });
+    const r = await client.callTool({ name: 'update_slot', arguments: { slotId: 'slot_1', capacity: 4 } });
     expect(slots.updateSlot).toHaveBeenCalledWith(ctx.db, ctx.actor, 'slot_1', { capacity: 4 });
-    const r = await client.callTool({ name: 'delete_slot', arguments: { slotId: 'slot_1' } });
-    expect(r.structuredContent).toEqual({ deleted: true });
+    expect((r.structuredContent as { slot: { capacity: number } }).slot.capacity).toBe(4);
+  });
+
+  it('delete_slot asks the service not to force unless told, and relays the conflict', async () => {
+    slots.deleteSlot.mockResolvedValueOnce(err(serviceError('conflict', '2 people have signed up for this slot', { details: { filled: 2 } })));
+    const client = await connectTestClient(ctx, TOOLS);
+    const refused = await client.callTool({ name: 'delete_slot', arguments: { slotId: 'slot_1' } });
+    expect(slots.deleteSlot).toHaveBeenCalledWith(ctx.db, ctx.actor, 'slot_1', { force: false });
+    expect((refused.structuredContent as { error: { code: string; details: { filled: number } } }).error).toMatchObject({ code: 'conflict', details: { filled: 2 } });
+    slots.deleteSlot.mockResolvedValueOnce(ok({ deleted: true, commitmentsRemoved: 2 }));
+    const forced = await client.callTool({ name: 'delete_slot', arguments: { slotId: 'slot_1', force: true } });
+    expect(slots.deleteSlot).toHaveBeenLastCalledWith(ctx.db, ctx.actor, 'slot_1', { force: true });
+    expect(forced.structuredContent).toEqual({ deleted: true, commitmentsRemoved: 2 });
   });
 });

@@ -3,25 +3,21 @@ import { ok } from '@/lib/result';
 import { SlotBulkInputSchema, SlotUpdateInputSchema } from '@/schemas/slots';
 import { addSlotsBulk, deleteSlot, updateSlot } from '@/services/slots';
 import { defineTool } from '../registry';
+import { slotOut } from './signups-read';
 
-function slotOut(s: { id: string; values: unknown; capacity: number | null; status: string; sortOrder: number }) {
-  return {
-    id: s.id,
-    values: s.values as Record<string, unknown>,
-    capacity: s.capacity,
-    status: s.status,
-    sortOrder: s.sortOrder,
-  };
-}
+/** Like the REST bulk row, but an omitted capacity means 1, as it does in create_signup. */
+const SlotRowSchema = SlotBulkInputSchema.shape.rows.element.extend({
+  capacity: z.number().int().positive().nullable().default(1),
+});
 
 export const addSlotsTool = defineTool({
   name: 'add_slots',
   scope: 'signups:write',
   title: 'Add slots',
   description:
-    'Add one or more slots (up to 500) to a signup. Each row has values keyed by field ref (dates as ISO dates, times as HH:MM, enums as one of the choices) and a capacity (null means unlimited). Call get_signup first to see the field refs.',
+    'Add one or more slots (up to 500) to the end of a signup. Each row has values keyed by field ref (dates as ISO dates like 2026-10-03, times as HH:MM, numbers as numbers, enums as one of the choices) and a capacity: a number, null for unlimited, or omitted for 1. Call get_signup first to see the field refs.',
   annotations: {},
-  inputSchema: SlotBulkInputSchema.extend({ signupId: z.string() }),
+  inputSchema: z.object({ signupId: z.string(), rows: z.array(SlotRowSchema).min(1).max(500) }),
   handler: async (ctx, input) => {
     const { signupId, ...rest } = input;
     const r = await addSlotsBulk(ctx.db, ctx.actor, signupId, rest);
@@ -34,7 +30,7 @@ export const updateSlotTool = defineTool({
   scope: 'signups:write',
   title: 'Update slot',
   description:
-    'Change a slot values, capacity, order or status (open or closed). Pass only what changes. If you pass values, they replace all of the slot values, so include every field.',
+    "Change a slot's values, capacity (a number, or null for unlimited), order or status (open or closed). Pass only what changes. If you pass values, they replace all of the slot's values, so include every field.",
   annotations: {},
   inputSchema: SlotUpdateInputSchema.extend({ slotId: z.string() }),
   handler: async (ctx, input) => {
@@ -48,11 +44,12 @@ export const deleteSlotTool = defineTool({
   name: 'delete_slot',
   scope: 'signups:write',
   title: 'Delete slot',
-  description: 'Remove a slot. Anyone who had signed up for it loses their place. Ask the organizer first.',
+  description:
+    'Remove a slot. If anyone has signed up for it the call fails with conflict and says how many; tell the organizer, and only if they agree call again with force: true, which removes the slot and their places.',
   annotations: { destructiveHint: true },
-  inputSchema: z.object({ slotId: z.string() }),
-  handler: async (ctx, input) => {
-    const r = await deleteSlot(ctx.db, ctx.actor, input.slotId);
-    return r.ok ? ok(r.value) : r;
-  },
+  inputSchema: z.object({
+    slotId: z.string(),
+    force: z.boolean().default(false).describe('Remove the slot even if people have signed up for it.'),
+  }),
+  handler: (ctx, input) => deleteSlot(ctx.db, ctx.actor, input.slotId, { force: input.force }),
 });
