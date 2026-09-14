@@ -1,6 +1,5 @@
-import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import type { Db } from '@/db/client';
-import { commitments } from '@/db/schema/commitments';
 import { signups } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import { slots } from '@/db/schema/slots';
@@ -27,6 +26,7 @@ import {
   recomputeSlotAtForSignup,
   validateSlotValues,
 } from './slot-fields';
+import { committedBySlot } from './commitments';
 import { pickAvailableRef, summarizeValues } from './slots';
 
 interface ReminderSettingsLike {
@@ -478,26 +478,8 @@ export async function getPublicSignup(
     listFieldsForSignup(db, row.id),
   ]);
 
-  const committerRows = await db
-    .select({
-      slotId: commitments.slotId,
-      sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int`,
-    })
-    .from(commitments)
-    .where(
-      and(
-        eq(commitments.signupId, row.id),
-        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-      ),
-    )
-    .groupBy(commitments.slotId);
-
-  const committedBySlot: Record<string, number> = {};
-  for (const c of committerRows) {
-    committedBySlot[c.slotId] = c.sum;
-  }
-
-  return ok({ ...row, slots: signupSlots, fields, committedBySlot });
+  const committedBySlotMap = await committedBySlot(db, row.id);
+  return ok({ ...row, slots: signupSlots, fields, committedBySlot: committedBySlotMap });
 }
 
 async function pickAvailableSlug(db: Db, title: string): Promise<string> {
