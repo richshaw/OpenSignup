@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { serviceError } from '@/lib/errors';
 import { err, ok } from '@/lib/result';
-import type { ToolContext } from '../context';
 import { connectTestClient } from '../testing/client';
+import { signupRow, unitContext } from '../testing/fixtures';
 import { getSignup, listSignups } from './signups-read';
 import { listWorkspaces } from './workspaces';
 
@@ -21,8 +21,7 @@ vi.mock('@/mcp/links', () => ({
   }),
 }));
 
-const ctx: ToolContext = {
-  db: {} as ToolContext['db'],
+const ctx = unitContext({
   actor: {
     kind: 'organizer',
     id: 'org_1',
@@ -32,30 +31,13 @@ const ctx: ToolContext = {
     via: { clientId: 'c' },
   },
   scopes: ['signups:read'],
-  clientId: 'c',
-  defaultWorkspaceId: 'ws_1',
   workspaces: [
     { id: 'ws_1', slug: 'mine', name: 'Mine', role: 'owner' },
     { id: 'ws_2', slug: 'school', name: 'School', role: 'viewer' },
   ],
-};
+});
 
-const row = {
-  id: 'sig_1',
-  slug: 'bake-sale',
-  title: 'Bake sale',
-  description: 'Bring cakes',
-  status: 'draft',
-  visibility: 'unlisted',
-  closesAt: null,
-  settings: { groupByFieldRefs: [] },
-  createdAt: new Date('2026-09-01T00:00:00Z'),
-  updatedAt: new Date('2026-09-02T00:00:00Z'),
-  workspaceId: 'ws_1',
-  organizerId: 'org_1',
-  deletedAt: null,
-  tags: [],
-};
+const row = signupRow();
 
 beforeEach(() => {
   listSignupsForWorkspace.mockReset();

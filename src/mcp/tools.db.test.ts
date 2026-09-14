@@ -161,6 +161,32 @@ describe('signup write tools on Postgres', () => {
     expect((closed.structuredContent as { signup: { status: string } }).signup.status).toBe('closed');
   });
 
+  it('create_signup refuses a value that does not fit and writes nothing', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const before = (await client.callTool({ name: 'list_signups', arguments: {} })).structuredContent as { signups: unknown[] };
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: { title: 'Bad date', fields: [{ ref: 'date', label: 'Date', fieldType: 'date' }], slots: [{ values: { date: '3 October' } }] },
+    });
+    expect((r.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
+    const after = (await client.callTool({ name: 'list_signups', arguments: {} })).structuredContent as { signups: unknown[] };
+    expect(after.signups).toHaveLength(before.signups.length);
+  });
+
+  it('a deleted signup cannot be updated or published', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const created = await client.callTool({
+      name: 'create_signup',
+      arguments: { title: 'Gone soon', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
+    });
+    const id = (created.structuredContent as { signup: { id: string } }).signup.id;
+    await client.callTool({ name: 'delete_signup', arguments: { signupId: id } });
+    const upd = await client.callTool({ name: 'update_signup', arguments: { signupId: id, title: 'Renamed' } });
+    expect((upd.structuredContent as { error: { code: string } }).error.code).toBe('not_found');
+    const pub = await client.callTool({ name: 'publish_signup', arguments: { signupId: id } });
+    expect((pub.structuredContent as { error: { code: string } }).error.code).toBe('not_found');
+  });
+
   it('update_signup changes one setting and keeps the rest', async () => {
     const client = await connectTestClient(ctx, TOOLS);
     const created = await client.callTool({
@@ -181,5 +207,22 @@ describe('signup write tools on Postgres', () => {
     expect(updated.isError, JSON.stringify(updated.structuredContent)).toBeFalsy();
     const u = updated.structuredContent as { signup: { settings: Record<string, unknown> } };
     expect(u.signup.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['day'] });
+
+    // A cap can be set, then cleared with null; the closing time likewise.
+    const capped = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: c.signup.id, settings: { maxCommitmentsPerParticipant: 2 }, closesAt: '2026-12-01T00:00:00.000Z' },
+    });
+    const cs = capped.structuredContent as { signup: { settings: Record<string, unknown>; closesAt: string | null } };
+    expect(cs.signup.settings.maxCommitmentsPerParticipant).toBe(2);
+    expect(cs.signup.closesAt).toBe('2026-12-01T00:00:00.000Z');
+    const cleared = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: c.signup.id, settings: { maxCommitmentsPerParticipant: null }, closesAt: null },
+    });
+    const cl = cleared.structuredContent as { signup: { settings: Record<string, unknown>; closesAt: string | null } };
+    expect(cl.signup.settings).not.toHaveProperty('maxCommitmentsPerParticipant');
+    expect(cl.signup.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['day'] });
+    expect(cl.signup.closesAt).toBeNull();
   });
 });

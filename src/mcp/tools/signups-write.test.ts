@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { serviceError, ServiceException } from '@/lib/errors';
 import { err, ok } from '@/lib/result';
-import type { ToolContext } from '../context';
 import { connectTestClient } from '../testing/client';
+import { signupRow, unitContext } from '../testing/fixtures';
 import {
   archiveSignupTool,
   closeSignupTool,
@@ -41,47 +41,22 @@ vi.mock('@/services/signups', () => ({
   getSignupForOrganizer: (...a: unknown[]) => svc.getSignupForOrganizer(...a),
   listSignupsForWorkspace: (...a: unknown[]) => svc.listSignupsForWorkspace(...a),
 }));
-vi.mock('@/services/commitments', () => ({ committedBySlot: vi.fn(async () => ({})) }));
 const consume = vi.fn(async (..._args: unknown[]) => {});
 vi.mock('@/lib/rate-limit', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/rate-limit')>();
-  return { ...actual, consumeRateLimit: (...a: unknown[]) => consume(...(a as [])) };
+  return { ...actual, consumeRateLimit: (...a: unknown[]) => consume(...a) };
 });
 vi.mock('@/mcp/links', () => ({
   signupLinks: (r: { id: string; slug: string }) => ({ build: `b/${r.id}`, public: `p/${r.slug}` }),
 }));
 
-const ctx: ToolContext = {
-  db: {} as ToolContext['db'],
-  actor: {
-    kind: 'organizer',
-    id: 'org_1',
-    email: 'a@example.com',
-    workspaceIds: ['ws_1'],
-    workspaceRoles: { ws_1: 'owner' },
-    via: { clientId: 'c' },
-  },
-  scopes: ['signups:read', 'signups:write'],
-  clientId: 'c',
-  defaultWorkspaceId: 'ws_1',
-  workspaces: [{ id: 'ws_1', slug: 'w', name: 'W', role: 'owner' }],
-};
-const row = {
-  id: 'sig_1',
+const ctx = unitContext();
+const row = signupRow({
   slug: 'snack-rota',
   title: 'Snack rota',
   description: '',
-  status: 'draft',
-  visibility: 'unlisted',
-  closesAt: null,
   settings: { groupByFieldRefs: ['date'], sendReminders: true, requireEmail: true },
-  createdAt: new Date(0),
-  updatedAt: new Date(0),
-  workspaceId: 'ws_1',
-  organizerId: 'org_1',
-  deletedAt: null,
-  tags: [],
-};
+});
 
 beforeEach(() => {
   for (const f of Object.values(svc)) f.mockReset();
@@ -131,8 +106,7 @@ describe('create_signup', () => {
     });
   });
 
-  it('reports what it could not keep as warnings', async () => {
-    svc.createSignup.mockResolvedValueOnce(ok(row));
+  it('refuses a value that does not fit its field and creates nothing', async () => {
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const r = await client.callTool({
       name: 'create_signup',
@@ -142,7 +116,27 @@ describe('create_signup', () => {
         slots: [{ values: { date: 'next saturday' } }],
       },
     });
-    expect((r.structuredContent as { warnings: string[] }).warnings.length).toBeGreaterThan(0);
+    expect(r.isError).toBe(true);
+    const body = r.structuredContent as { error: { code: string; suggestion: string; details: { dropped: unknown } } };
+    expect(body.error.code).toBe('invalid_input');
+    expect(body.error.suggestion).toMatch(/date/i);
+    expect(body.error.details.dropped).toBeTruthy();
+    expect(svc.createSignup).not.toHaveBeenCalled();
+  });
+
+  it('checks the workspace role before spending create quota', async () => {
+    const viewer = unitContext({
+      actor: { ...ctx.actor, workspaceRoles: { ws_1: 'viewer' } },
+      workspaces: [{ id: 'ws_1', slug: 'w', name: 'W', role: 'viewer' }],
+    });
+    const client = await connectTestClient(viewer, WRITE_TOOLS);
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: { title: 'x y', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{}] },
+    });
+    expect((r.structuredContent as { error: { code: string } }).error.code).toBe('forbidden');
+    expect(consume).not.toHaveBeenCalled();
+    expect(svc.createSignup).not.toHaveBeenCalled();
   });
 
   it('turns the rate limit into a tool error', async () => {
@@ -161,26 +155,48 @@ describe('create_signup', () => {
 });
 
 describe('update_signup', () => {
-  it('merges settings over the current row before calling the service', async () => {
-    svc.getSignupForOrganizer.mockResolvedValueOnce(ok({ ...row, slots: [], fields: [] }));
+  it('hands sparse settings to the service to merge, including nulls that clear a key', async () => {
     svc.updateSignup.mockResolvedValueOnce(ok({ ...row, settings: { ...row.settings, sendReminders: false } }));
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const r = await client.callTool({
       name: 'update_signup',
-      arguments: { signupId: 'sig_1', settings: { sendReminders: false } },
+      arguments: { signupId: 'sig_1', settings: { sendReminders: false, maxCommitmentsPerParticipant: null } },
     });
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
-    expect(svc.updateSignup).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
-      settings: { groupByFieldRefs: ['date'], sendReminders: false, requireEmail: true },
-    });
+    expect(svc.getSignupForOrganizer).not.toHaveBeenCalled();
+    expect(svc.updateSignup).toHaveBeenCalledWith(
+      ctx.db,
+      ctx.actor,
+      'sig_1',
+      { settings: { sendReminders: false, maxCommitmentsPerParticipant: null } },
+      { mergeSettings: true },
+    );
   });
 
-  it('passes plain fields through without touching settings', async () => {
+  it('passes plain fields through and lets closesAt be cleared with null', async () => {
     svc.updateSignup.mockResolvedValueOnce(ok({ ...row, title: 'New' }));
     const client = await connectTestClient(ctx, WRITE_TOOLS);
-    await client.callTool({ name: 'update_signup', arguments: { signupId: 'sig_1', title: 'New', description: 'Desc' } });
-    expect(svc.getSignupForOrganizer).not.toHaveBeenCalled();
-    expect(svc.updateSignup).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', { title: 'New', description: 'Desc' });
+    await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: 'sig_1', title: 'New', description: 'Desc', closesAt: null },
+    });
+    expect(svc.updateSignup).toHaveBeenCalledWith(
+      ctx.db,
+      ctx.actor,
+      'sig_1',
+      { title: 'New', description: 'Desc', closesAt: null },
+      { mergeSettings: true },
+    );
+  });
+
+  it('does not offer the password visibility, which nothing enforces', async () => {
+    const client = await connectTestClient(ctx, WRITE_TOOLS);
+    const r = await client.callTool({ name: 'update_signup', arguments: { signupId: 'sig_1', visibility: 'password' } });
+    expect((r.structuredContent as { error: { code: string; field?: string } }).error).toMatchObject({
+      code: 'invalid_input',
+      field: 'visibility',
+    });
+    expect(svc.updateSignup).not.toHaveBeenCalled();
   });
 });
 

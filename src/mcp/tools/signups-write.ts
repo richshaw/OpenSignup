@@ -1,32 +1,29 @@
 import { z } from 'zod';
-import { log } from '@/lib/log';
+import { persistDraft } from '@/lib/magic-compose/persist';
 import { FullDraftSchema } from '@/lib/magic-compose/prompt';
-import { buildWarnings, hasDropped, magicComposeToTemplate } from '@/lib/magic-compose/to-template';
+import { requireWorkspaceWrite } from '@/lib/policy';
 import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
-import { err, ok } from '@/lib/result';
+import { ok } from '@/lib/result';
 import { SignupSettingsSchema, SignupUpdateInputSchema } from '@/schemas/signups';
 import {
   archiveSignup,
   closeSignup,
-  createSignup,
   deleteSignup,
-  getSignupForOrganizer,
   publishSignup,
   updateSignup,
 } from '@/services/signups';
 import { resolveWorkspaceId } from '../context';
-import { signupLinks } from '../links';
 import { defineTool } from '../registry';
-import { signupDetail } from './signups-read';
+import { signupDetail, signupWithLinks } from './signups-read';
 
-const FIELD_GUIDE =
-  'Field types: text, date (values are ISO dates like 2026-10-03), time (values are HH:MM), number, enum (give choices). Slot values are keyed by field ref. capacity null means unlimited.';
+export const FIELD_GUIDE =
+  'Field types: text, date (values are ISO dates like 2026-10-03), time (values are HH:MM), number (values are numbers, not strings), enum (give choices; values must be one of them). Slot values are keyed by field ref. capacity null means unlimited; omitted means 1.';
 
 export const createSignupTool = defineTool({
   name: 'create_signup',
   scope: 'signups:write',
   title: 'Create signup',
-  description: `Create a signup with its fields and slots in one step. It starts as a draft nobody can see; call publish_signup when the organizer is ready. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. Values that do not fit their field are dropped and reported in warnings.`,
+  description: `Create a signup with its fields and slots in one step. It starts as a draft nobody can see; call publish_signup when the organizer is ready. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field makes the whole call fail with invalid_input and nothing is created, so fix the value and call again.`,
   annotations: {},
   inputSchema: FullDraftSchema.extend({
     workspaceId: z.string().optional().describe('Defaults to the account default workspace.'),
@@ -35,58 +32,51 @@ export const createSignupTool = defineTool({
     const { workspaceId, ...draft } = input;
     const ws = resolveWorkspaceId(ctx, workspaceId);
     if (!ws.ok) return ws;
+    // Policy first: a viewer's attempt must not cost a create-quota unit.
+    requireWorkspaceWrite(ctx.actor, ws.value);
     await consumeRateLimit(ctx.db, RateLimits.signupCreatePerOrganizer, ctx.actor.id);
-    const { template, groupByFieldRefs, dropped } = magicComposeToTemplate(draft, { templateId: 'mcp' });
-    if (hasDropped(dropped)) {
-      log.warn({ dropped, clientId: ctx.clientId }, 'mcp create_signup adjusted or dropped values');
-    }
-    const created = await createSignup(
-      ctx.db,
-      ctx.actor,
-      ws.value,
-      {
-        title: draft.title,
-        description: draft.description,
-        visibility: 'unlisted',
-        settings: groupByFieldRefs.length > 0 ? { groupByFieldRefs } : {},
-      },
-      { template },
-    );
-    if (!created.ok) return created;
+    const persisted = await persistDraft(ctx.db, ctx.actor, ws.value, draft, {
+      templateId: 'mcp',
+      strict: true,
+      logContext: { clientId: ctx.clientId },
+    });
+    if (!persisted.ok) return persisted;
+    const { signup, template, groupByFieldRefs, warnings } = persisted.value;
     return ok({
-      signup: signupDetail(created.value),
+      ...signupWithLinks(signup),
       summary: { fieldsAdded: template.fields.length, slotsAdded: template.slots.length, groupByFieldRefs },
-      warnings: buildWarnings(dropped),
-      links: signupLinks(created.value),
+      warnings,
     });
   },
 });
 
-/** Settings arrive sparse (no defaults filled in) so they can be merged over the current row. */
-const SparseSettingsSchema = SignupSettingsSchema.removeDefault().partial();
+/**
+ * Settings arrive sparse: only the keys the model wants to change, with
+ * `null` clearing an optional one. The service merges them over the row.
+ */
+const SparseSettingsSchema = SignupSettingsSchema.removeDefault()
+  .partial()
+  .extend({
+    maxCommitmentsPerParticipant: z.number().int().positive().nullable().optional(),
+    confirmationMessage: z.string().max(500).nullable().optional(),
+  });
 
 export const updateSignupTool = defineTool({
   name: 'update_signup',
   scope: 'signups:write',
   title: 'Update signup',
   description:
-    'Change a signup title, description, tags, closing time (ISO datetime), visibility (public, unlisted, password) or settings. Only the settings you pass change; the rest stay as they are. Use the field and slot tools to change what participants sign up for.',
+    'Change a signup title, description, tags, closing time (ISO datetime, or null to remove it), visibility (public or unlisted) or settings. Only the settings you pass change; pass null to clear maxCommitmentsPerParticipant or confirmationMessage. Use the field and slot tools to change what participants sign up for.',
   annotations: {},
-  inputSchema: SignupUpdateInputSchema.omit({ settings: true }).extend({
+  inputSchema: SignupUpdateInputSchema.omit({ settings: true, visibility: true }).extend({
     signupId: z.string(),
+    visibility: z.enum(['public', 'unlisted']).optional(),
     settings: SparseSettingsSchema.optional(),
   }),
   handler: async (ctx, input) => {
-    const { signupId, settings, ...rest } = input;
-    let merged: Record<string, unknown> | undefined;
-    if (settings) {
-      const current = await getSignupForOrganizer(ctx.db, ctx.actor, signupId);
-      if (!current.ok) return current;
-      merged = { ...(current.value.settings as Record<string, unknown>), ...settings };
-    }
-    const updated = await updateSignup(ctx.db, ctx.actor, signupId, merged ? { ...rest, settings: merged } : rest);
-    if (!updated.ok) return updated;
-    return ok({ signup: signupDetail(updated.value), links: signupLinks(updated.value) });
+    const { signupId, ...rest } = input;
+    const updated = await updateSignup(ctx.db, ctx.actor, signupId, rest, { mergeSettings: true });
+    return updated.ok ? ok(signupWithLinks(updated.value)) : updated;
   },
 });
 
@@ -96,7 +86,7 @@ function statusTool(
   description: string,
   annotations: { destructiveHint?: boolean },
   fn: typeof publishSignup,
-  opts: { links: boolean } = { links: true },
+  shape: (row: Parameters<typeof signupDetail>[0]) => Record<string, unknown> = signupWithLinks,
 ) {
   return defineTool({
     name,
@@ -107,12 +97,7 @@ function statusTool(
     inputSchema: z.object({ signupId: z.string() }),
     handler: async (ctx, input) => {
       const r = await fn(ctx.db, ctx.actor, input.signupId);
-      if (!r.ok) return err(r.error);
-      return ok(
-        opts.links
-          ? { signup: signupDetail(r.value), links: signupLinks(r.value) }
-          : { signup: signupDetail(r.value) },
-      );
+      return r.ok ? ok(shape(r.value)) : r;
     },
   });
 }
@@ -145,5 +130,5 @@ export const deleteSignupTool = statusTool(
   { destructiveHint: true },
   deleteSignup,
   // No links: nothing to open after a delete.
-  { links: false },
+  (row) => ({ signup: signupDetail(row) }),
 );
