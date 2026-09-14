@@ -1,12 +1,14 @@
 import { createMcpHandler, McpServer, type AuthInfo, type McpHttpHandler } from '@modelcontextprotocol/server';
-import pkg from '../../package.json';
 import { log } from '@/lib/log';
 import type { ToolContext } from './context';
 import { registerAll } from './registry';
 import { COMPILED_TOOLS } from './tools';
 
 const CONTEXT_KEY = 'opensignup';
-const SERVER_INFO = { name: 'opensignup', version: pkg.version };
+// Stamped at build time by next.config.mjs, like the site footer; '0.0.0' when
+// the build ran without it.
+const rawVersion = process.env.NEXT_PUBLIC_APP_VERSION;
+const SERVER_INFO = { name: 'opensignup', version: rawVersion && rawVersion !== 'undefined' ? rawVersion : '0.0.0' };
 
 /** Rides the per-request context on the SDK's pass-through auth info. In-process only; never serialised. */
 export function attachContext(authInfo: AuthInfo, ctx: ToolContext): AuthInfo {

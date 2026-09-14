@@ -26,6 +26,11 @@ export function signupSummary(row: SignupRow) {
   return { ...signupCore(row), links: signupLinks(row) };
 }
 
+/** The detail shape plus links: what every tool that changes a signup returns. */
+export function signupWithLinks(row: SignupRow) {
+  return { signup: signupDetail(row), links: signupLinks(row) };
+}
+
 /** The detail shape: everything the organizer can edit. */
 export function signupDetail(row: SignupRow) {
   return {

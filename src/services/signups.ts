@@ -36,6 +36,10 @@ interface ReminderSettingsLike {
 
 type SignupRow = typeof signups.$inferSelect;
 
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 export interface SignupWithSlots extends SignupRow {
   slots: (typeof slots.$inferSelect)[];
   fields: SlotFieldDefinition[];
@@ -228,11 +232,25 @@ export async function updateSignup(
   actor: Actor,
   signupId: string,
   rawInput: unknown,
+  opts: {
+    /**
+     * Merge `settings` over the row's current settings instead of replacing
+     * them, with a `null` value clearing a key. For callers that send one
+     * setting at a time (the MCP tool); the browser sends the whole object.
+     */
+    mergeSettings?: boolean;
+  } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
   const existing = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
   const row = existing[0];
-  if (!row) return err(serviceError('not_found', 'signup not found'));
+  if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, row.workspaceId);
+
+  if (opts.mergeSettings && isObject(rawInput) && isObject(rawInput.settings)) {
+    const merged: Record<string, unknown> = { ...(row.settings as Record<string, unknown>), ...rawInput.settings };
+    for (const key of Object.keys(merged)) if (merged[key] === null) delete merged[key];
+    rawInput = { ...rawInput, settings: merged };
+  }
 
   const input = parseInputSafe(SignupUpdateInputSchema, rawInput);
   if (!input.ok) return input;
@@ -388,7 +406,7 @@ async function transitionStatus(
 ): Promise<Result<SignupRow, ServiceError>> {
   const existing = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
   const row = existing[0];
-  if (!row) return err(serviceError('not_found', 'signup not found'));
+  if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, row.workspaceId);
 
   if (from !== null && row.status !== from) {
