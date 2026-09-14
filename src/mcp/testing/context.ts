@@ -1,3 +1,4 @@
+import { bearerWorkspaces } from '@/auth/bearer';
 import { loadOrganizerSessionById, toActor } from '@/auth/organizer-session';
 import type { Db } from '@/db/client';
 import type { Scope } from '@/oauth/scopes';
@@ -20,11 +21,6 @@ export async function contextForOrganizer(
     scopes,
     clientId,
     defaultWorkspaceId: session.defaultWorkspaceId,
-    workspaces: session.memberships.map((m) => ({
-      id: m.workspaceId,
-      slug: m.workspaceSlug,
-      name: m.workspaceName,
-      role: m.role,
-    })),
+    workspaces: bearerWorkspaces(session),
   };
 }

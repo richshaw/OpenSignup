@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import { err, ok } from '@/lib/result';
+import { ok } from '@/lib/result';
 import { SIGNUP_STATUSES } from '@/schemas/signups';
-import { committedBySlot } from '@/services/commitments';
 import { getSignupForOrganizer, listSignupsForWorkspace, type SignupWithSlots } from '@/services/signups';
 import { resolveWorkspaceId } from '../context';
 import { signupLinks } from '../links';
@@ -9,8 +8,7 @@ import { defineTool } from '../registry';
 
 type SignupRow = Omit<SignupWithSlots, 'slots' | 'fields'>;
 
-/** The list shape: enough to pick a signup, small enough for 200 rows. */
-export function signupSummary(row: SignupRow) {
+function signupCore(row: SignupRow) {
   return {
     id: row.id,
     slug: row.slug,
@@ -20,18 +18,21 @@ export function signupSummary(row: SignupRow) {
     closesAt: row.closesAt ? row.closesAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    links: signupLinks(row),
   };
+}
+
+/** The list shape: enough to pick a signup, small enough for 200 rows. */
+export function signupSummary(row: SignupRow) {
+  return { ...signupCore(row), links: signupLinks(row) };
 }
 
 /** The detail shape: everything the organizer can edit. */
 export function signupDetail(row: SignupRow) {
-  const { links: _links, ...summary } = signupSummary(row);
   return {
-    ...summary,
+    ...signupCore(row),
     description: row.description,
     tags: row.tags,
-    settings: row.settings as Record<string, unknown>,
+    settings: row.settings,
     workspaceId: row.workspaceId,
   };
 }
@@ -70,10 +71,9 @@ export const getSignup = defineTool({
   annotations: { readOnlyHint: true },
   inputSchema: z.object({ signupId: z.string() }),
   handler: async (ctx, input) => {
-    const found = await getSignupForOrganizer(ctx.db, ctx.actor, input.signupId);
-    if (!found.ok) return err(found.error);
-    const filled = await committedBySlot(ctx.db, input.signupId);
-    const { slots, fields, ...row } = found.value;
+    const found = await getSignupForOrganizer(ctx.db, ctx.actor, input.signupId, { includeFilled: true });
+    if (!found.ok) return found;
+    const { slots, fields, committedBySlot: filled = {}, ...row } = found.value;
     return ok({
       signup: signupDetail(row),
       fields: fields.map((f) => ({
@@ -86,7 +86,7 @@ export const getSignup = defineTool({
       })),
       slots: slots.map((s) => ({
         id: s.id,
-        values: s.values as Record<string, unknown>,
+        values: s.values,
         capacity: s.capacity,
         filled: filled[s.id] ?? 0,
         status: s.status,

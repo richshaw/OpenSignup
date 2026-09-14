@@ -6,14 +6,14 @@ import type { ToolContext } from './context';
 import { defineTool } from './registry';
 import { runTool, toolFailure, toolSuccess } from './results';
 
-const ctx = { actor: { id: 'org_1' }, clientId: 'c' } as ToolContext;
+const ctx = { actor: { id: 'org_1' }, clientId: 'c', scopes: ['signups:read', 'signups:write'] } as ToolContext;
 
 describe('tool results', () => {
   it('success carries the value as structuredContent and as JSON text', () => {
     const r = toolSuccess({ a: 1 });
     expect(r.isError).toBeUndefined();
     expect(r.structuredContent).toEqual({ a: 1 });
-    expect(r.content).toEqual([{ type: 'text', text: JSON.stringify({ a: 1 }, null, 2) }]);
+    expect(r.content).toEqual([{ type: 'text', text: '{"a":1}' }]);
   });
 
   it('failure keeps code, message, field, suggestion and details', () => {
@@ -45,6 +45,26 @@ describe('tool results', () => {
       field: 'n',
     });
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('runTool refuses a tool the token has no scope for, before parsing', async () => {
+    const handler = vi.fn(async () => ok({}));
+    const def = defineTool({
+      name: 'w',
+      scope: 'signups:write',
+      title: 'w',
+      description: 'w',
+      annotations: {},
+      inputSchema: z.object({}),
+      handler,
+    });
+    const r = await runTool(def, { ...ctx, scopes: ['signups:read'] }, {});
+    expect(r.isError).toBe(true);
+    expect((r.structuredContent as { error: { code: string; details: unknown } }).error).toMatchObject({
+      code: 'forbidden',
+      details: { requiredScope: 'signups:write' },
+    });
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it('runTool maps err results, thrown ServiceException, and unknown errors', async () => {

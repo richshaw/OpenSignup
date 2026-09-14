@@ -588,6 +588,11 @@ export async function countCommitmentsForSignup(db: Db, signupId: string): Promi
  * tentative commitments count; cancelled and orphaned do not — the same
  * rule `commitToSlot` applies when it checks capacity. Slots with no
  * commitments are absent from the map.
+ *
+ * Guard-free by design, like `listSlotsForSignup`: it is a building block
+ * for a read that has already checked the signup (`getSignupForOrganizer`
+ * with `includeFilled`, `getPublicSignup`). Never call it with an id taken
+ * straight from a request.
  */
 export async function committedBySlot(db: Db, signupId: string): Promise<Record<string, number>> {
   const rows = await db

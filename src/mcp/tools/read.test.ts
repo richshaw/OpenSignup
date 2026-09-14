@@ -10,7 +10,6 @@ vi.mock('@/services/signups', () => ({
   listSignupsForWorkspace: (...a: unknown[]) => listSignupsForWorkspace(...a),
   getSignupForOrganizer: (...a: unknown[]) => getSignupForOrganizer(...a),
 }));
-vi.mock('@/services/commitments', () => ({ committedBySlot: vi.fn(async () => ({ slot_1: 2 })) }));
 vi.mock('@/mcp/links', () => ({
   signupLinks: (r: { id: string; slug: string }) => ({
     build: `https://x/app/signups/${r.id}/build`,
@@ -130,10 +129,12 @@ describe('read tools', () => {
             updatedAt: new Date(0),
           },
         ],
+        committedBySlot: { slot_1: 2 },
       }),
     );
     const client = await connectTestClient(ctx);
     const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 'sig_1' } });
+    expect(getSignupForOrganizer).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', { includeFilled: true });
     const body = r.structuredContent as {
       signup: Record<string, unknown>;
       slots: Record<string, unknown>[];

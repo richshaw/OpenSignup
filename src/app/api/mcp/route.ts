@@ -2,22 +2,31 @@ import { resolveBearerActor } from '@/auth/bearer';
 import { extractClientIp } from '@/auth/request-context';
 import { getDb } from '@/db/client';
 import { ServiceException } from '@/lib/errors';
-import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
+import { RateLimits, consumeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
+import { BodyTooLarge, readRequestBody } from '@/lib/request-body';
 import type { ToolContext } from '@/mcp/context';
 import { attachContext, getMcpHandler } from '@/mcp/handler';
 import { requiredScopesFor } from '@/mcp/scope-gate';
 import { toolScope } from '@/mcp/tools';
 
 /**
- * The MCP endpoint. Order matters: the per-IP limit first (every request
- * costs a signature check), then a peek at the JSON-RPC body to learn which
- * scope a tools/call needs, then the bearer seam, then the SDK. The seam
- * stays the only thing here that knows about authentication.
+ * The MCP endpoint. Order matters, and every step before the seam is bounded
+ * work an unauthenticated caller can trigger: a free method and size check,
+ * the per-IP limit (every request costs a signature check), a capped body
+ * read, a peek at the JSON-RPC body to learn which scope a tools/call needs,
+ * then the bearer seam, the per-organizer limit, and the SDK. The seam stays
+ * the only thing here that knows about authentication.
  */
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const MAX_BODY_BYTES = 1_000_000;
+/** A 2025-era client may batch JSON-RPC messages; each tools/call is a DB round trip. */
+const MAX_BATCH = 20;
+
+function rpcError(status: number, code: number, message: string): Response {
+  return Response.json({ jsonrpc: '2.0', error: { code, message }, id: null }, { status });
+}
 
 function tooLarge(): Response {
   return Response.json(
@@ -26,9 +35,11 @@ function tooLarge(): Response {
   );
 }
 
-async function handle(request: Request): Promise<Response> {
+/** Consume one unit or answer 429; anything but a rate limit is rethrown. */
+async function meter(policy: RateLimitPolicy, subject: string): Promise<Response | null> {
   try {
-    await consumeRateLimit(getDb(), RateLimits.mcpPerIp, extractClientIp(request.headers) ?? 'unknown');
+    await consumeRateLimit(getDb(), policy, subject);
+    return null;
   } catch (err) {
     if (err instanceof ServiceException && err.serviceError.code === 'rate_limited') {
       const retry = err.serviceError.details?.retryAfterSeconds;
@@ -39,26 +50,48 @@ async function handle(request: Request): Promise<Response> {
     }
     throw err;
   }
+}
 
-  if (Number(request.headers.get('content-length') ?? '0') > MAX_BODY_BYTES) return tooLarge();
+/**
+ * There are no sessions, so there is no server-push stream to open: the SDK
+ * would answer 405 itself, but only after a token check and a session read
+ * that a constant answer does not need. Clients try this once after
+ * initialize and move on.
+ */
+export function GET(): Response {
+  return rpcError(405, -32000, 'Method not allowed: this server has no session stream');
+}
 
-  // Peek on a clone: the SDK reads the original body itself when we cannot
-  // hand it a parsed one, and a consumed body would surface as a misleading
-  // "could not be read" error instead of the spec's invalid-JSON 400.
+export async function POST(request: Request): Promise<Response> {
+  const declared = Number(request.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return tooLarge();
+
+  const ipLimited = await meter(RateLimits.mcpPerIp, extractClientIp(request.headers) ?? 'unknown');
+  if (ipLimited) return ipLimited;
+
+  let raw: Buffer;
+  try {
+    raw = await readRequestBody(request, MAX_BODY_BYTES);
+  } catch (err) {
+    if (err instanceof BodyTooLarge) return tooLarge();
+    throw err;
+  }
   let parsedBody: unknown;
-  if (request.method === 'POST') {
-    const text = await request.clone().text();
-    if (text.length > MAX_BODY_BYTES) return tooLarge();
-    try {
-      parsedBody = JSON.parse(text);
-    } catch {
-      parsedBody = undefined;
-    }
+  try {
+    parsedBody = JSON.parse(raw.toString('utf8'));
+  } catch {
+    return rpcError(400, -32700, 'Parse error: the request body is not valid JSON');
+  }
+  if (Array.isArray(parsedBody) && parsedBody.length > MAX_BATCH) {
+    return rpcError(400, -32600, `Invalid request: at most ${MAX_BATCH} messages per batch`);
   }
 
   const requiredScopes = requiredScopesFor(parsedBody, toolScope);
-  const auth = await resolveBearerActor(request, requiredScopes.length > 0 ? { requiredScopes } : {});
+  const auth = await resolveBearerActor(request, { requiredScopes });
   if (!auth.ok) return auth.response;
+
+  const organizerLimited = await meter(RateLimits.mcpPerOrganizer, auth.actor.id);
+  if (organizerLimited) return organizerLimited;
 
   const ctx: ToolContext = {
     db: getDb(),
@@ -68,14 +101,6 @@ async function handle(request: Request): Promise<Response> {
     defaultWorkspaceId: auth.defaultWorkspaceId,
     workspaces: auth.workspaces,
   };
-  const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? '';
-  const authInfo = attachContext({ token, clientId: auth.clientId, scopes: auth.scopes }, ctx);
-  return getMcpHandler().fetch(request, parsedBody === undefined ? { authInfo } : { authInfo, parsedBody });
-}
-
-export function GET(request: Request) {
-  return handle(request);
-}
-export function POST(request: Request) {
-  return handle(request);
+  // The body is already consumed; the SDK never reads it when parsedBody is given.
+  return getMcpHandler().fetch(request, { authInfo: attachContext(auth.authInfo, ctx), parsedBody });
 }

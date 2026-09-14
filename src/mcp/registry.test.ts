@@ -15,9 +15,12 @@ describe('toJsonSchema', () => {
     expect(json.required as string[]).toEqual(['signupId']);
   });
 
-  it('inlines reused sub-schemas instead of referencing them', () => {
-    const json = toJsonSchema(SlotBulkInputSchema.extend({ signupId: z.string() }));
-    expect(JSON.stringify(json)).not.toContain('$ref');
+  it('inlines a sub-schema that is reused, instead of a $ref pointer clients cannot follow', () => {
+    const Values = z.object({ a: z.string() });
+    const json = toJsonSchema(z.object({ first: Values, second: Values, rows: SlotBulkInputSchema.shape.rows }));
+    const text = JSON.stringify(json);
+    expect(text).not.toContain('$ref');
+    expect((json as { properties: Record<string, { type?: string }> }).properties.second?.type).toBe('object');
   });
 
   it('keeps strict objects closed when extended with an id', () => {

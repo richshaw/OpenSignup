@@ -205,20 +205,22 @@ export async function getSignupForOrganizer(
   db: Db,
   actor: Actor,
   signupId: string,
-): Promise<Result<SignupWithSlots, ServiceError>> {
+  opts: { includeFilled?: boolean } = {},
+): Promise<Result<SignupWithSlots & { committedBySlot?: Record<string, number> }, ServiceError>> {
   const found = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
   const row = found[0];
   if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceAccess(actor, row.workspaceId);
-  const [signupSlots, fields] = await Promise.all([
+  const [signupSlots, fields, filled] = await Promise.all([
     db
       .select()
       .from(slots)
       .where(eq(slots.signupId, signupId))
       .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt)),
     listFieldsForSignup(db, signupId),
+    opts.includeFilled ? committedBySlot(db, signupId) : Promise.resolve(undefined),
   ]);
-  return ok({ ...row, slots: signupSlots, fields });
+  return ok(filled ? { ...row, slots: signupSlots, fields, committedBySlot: filled } : { ...row, slots: signupSlots, fields });
 }
 
 export async function updateSignup(
@@ -469,16 +471,15 @@ export async function getPublicSignup(
     return err(serviceError('not_found', 'signup is no longer available', { received: 'archived' }));
   }
 
-  const [signupSlots, fields] = await Promise.all([
+  const [signupSlots, fields, committedBySlotMap] = await Promise.all([
     db
       .select()
       .from(slots)
       .where(eq(slots.signupId, row.id))
       .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt)),
     listFieldsForSignup(db, row.id),
+    committedBySlot(db, row.id),
   ]);
-
-  const committedBySlotMap = await committedBySlot(db, row.id);
   return ok({ ...row, slots: signupSlots, fields, committedBySlot: committedBySlotMap });
 }
 

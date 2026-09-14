@@ -3,6 +3,7 @@ import {
   type JsonSchemaType,
   type McpServer,
   type StandardSchemaWithJSON,
+  type ToolAnnotations,
 } from '@modelcontextprotocol/server';
 import type { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
@@ -11,12 +12,6 @@ import type { Result } from '@/lib/result';
 import type { Scope } from '@/oauth/scopes';
 import type { ToolContext } from './context';
 import { runTool } from './results';
-
-export interface ToolAnnotations {
-  readOnlyHint?: boolean;
-  destructiveHint?: boolean;
-  idempotentHint?: boolean;
-}
 
 export interface ToolDefinition<S extends z.ZodTypeAny = z.ZodTypeAny> {
   /** snake_case, stable: clients cache it. */
@@ -52,7 +47,13 @@ export function toJsonSchema(schema: z.ZodTypeAny): JsonSchemaType {
 
 export interface CompiledTool {
   def: ToolDefinition;
-  input: StandardSchemaWithJSON<Record<string, unknown>, Record<string, unknown>>;
+  /** The `registerTool` config, built once so a request only allocates the callback. */
+  config: {
+    title: string;
+    description: string;
+    inputSchema: StandardSchemaWithJSON<Record<string, unknown>, Record<string, unknown>>;
+    annotations: ToolAnnotations;
+  };
 }
 
 /**
@@ -62,16 +63,17 @@ export interface CompiledTool {
 export function compileTools(tools: readonly ToolDefinition[]): CompiledTool[] {
   return tools.map((def) => ({
     def,
-    input: fromJsonSchema<Record<string, unknown>>(toJsonSchema(def.inputSchema)),
+    config: {
+      title: def.title,
+      description: def.description,
+      inputSchema: fromJsonSchema<Record<string, unknown>>(toJsonSchema(def.inputSchema)),
+      annotations: def.annotations,
+    },
   }));
 }
 
 export function registerAll(server: McpServer, ctx: ToolContext, tools: readonly CompiledTool[]): void {
-  for (const { def, input } of tools) {
-    server.registerTool(
-      def.name,
-      { title: def.title, description: def.description, inputSchema: input, annotations: def.annotations },
-      async (args) => runTool(def, ctx, args),
-    );
+  for (const { def, config } of tools) {
+    server.registerTool(def.name, config, async (args) => runTool(def, ctx, args));
   }
 }

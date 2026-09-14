@@ -37,7 +37,10 @@ export function getMcpHandler(): McpHttpHandler {
       {
         legacy: 'stateless',
         maxSubscriptions: 0,
-        onerror: (error) => log.error({ err: error }, 'mcp handler error'),
+        // The SDK reports client mistakes here too (wrong Content-Type,
+        // malformed JSON-RPC, a refused subscription), so this is warn, not
+        // error: tool failures are logged by `runTool` with their own outcome.
+        onerror: (error) => log.warn({ err: error }, 'mcp handler rejected a request'),
       },
     );
   }

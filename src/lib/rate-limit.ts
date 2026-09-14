@@ -117,9 +117,15 @@ export const RateLimits = {
   oauthCimdPerOrigin: { bucket: 'oauth.cimd.origin', max: 30, windowSeconds: 3600 },
   // The MCP endpoint's unauthenticated face: every request costs a signature
   // check before any identity exists, and an unknown key id costs a signing-key
-  // reload. Generous for a real client (one call per tool use), hostile to a
-  // flood of forged tokens.
-  mcpPerIp: { bucket: 'mcp.ip', max: 120, windowSeconds: 60 },
+  // reload. Hosted assistants (the Claude app, ChatGPT) call from a small pool
+  // of shared egress addresses, so one address may carry several organizers at
+  // once; the per-IP bucket is sized for that and the per-organizer bucket
+  // below is what bounds any one account.
+  mcpPerIp: { bucket: 'mcp.ip', max: 600, windowSeconds: 60 },
+  // After the token has resolved: one connected assistant's tool traffic.
+  // A session is chatty (initialize, tools/list, one POST per tool call) but a
+  // runaway loop is what this stops.
+  mcpPerOrganizer: { bucket: 'mcp.organizer', max: 240, windowSeconds: 60 },
 } as const;
 
 /** Longest window any policy uses; rows older than this can never be read again. */
