@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
@@ -229,84 +229,88 @@ describe('signup write tools on Postgres', () => {
 });
 
 describe('field and slot tools on Postgres', () => {
-  it('add_field, add_slots, update_slot, delete_slot round-trip and get_signup follows', async () => {
-    const client = await connectTestClient(ctx, TOOLS);
+  async function createVia(client: Awaited<ReturnType<typeof connectTestClient>>, title: string) {
     const created = await client.callTool({
       name: 'create_signup',
-      arguments: { title: 'Fields and slots', fields: [{ ref: 'what', label: 'What', fieldType: 'text' }], slots: [{ values: { what: 'Fruit' } }] },
+      arguments: { title, fields: [{ ref: 'what', label: 'What', fieldType: 'text' }], slots: [{ values: { what: 'Fruit' } }] },
     });
-    const id = (created.structuredContent as { signup: { id: string } }).signup.id;
-    const f = await client.callTool({
-      name: 'add_field',
-      arguments: { signupId: id, ref: 'date', label: 'Date', fieldType: 'date', config: { fieldType: 'date' } },
-    });
+    expect(created.isError, JSON.stringify(created.structuredContent)).toBeFalsy();
+    return (created.structuredContent as { signup: { id: string } }).signup.id;
+  }
+
+  it('add_field, add_slots, update_slot, delete_slot round-trip and get_signup follows', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const id = await createVia(client, 'Fields and slots');
+    const f = await client.callTool({ name: 'add_field', arguments: { signupId: id, ref: 'date', label: 'Date', fieldType: 'date' } });
     expect(f.isError, JSON.stringify(f.structuredContent)).toBeFalsy();
-    const bad = await client.callTool({
-      name: 'add_field',
-      arguments: { signupId: id, ref: 'n', label: 'N', fieldType: 'number', config: { fieldType: 'text', maxLength: 5 } },
-    });
+    const bad = await client.callTool({ name: 'update_field', arguments: { fieldId: (f.structuredContent as { field: { id: string } }).field.id, fieldType: 'number', config: { fieldType: 'text', maxLength: 5 } } });
     expect((bad.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
     const added = await client.callTool({
       name: 'add_slots',
-      arguments: { signupId: id, rows: [{ values: { what: 'Crackers', date: '2026-10-10' }, capacity: 3 }] },
+      arguments: { signupId: id, rows: [{ values: { what: 'Crackers', date: '2026-10-10' }, capacity: 3 }, { values: { what: 'Juice' } }] },
     });
     expect(added.isError, JSON.stringify(added.structuredContent)).toBeFalsy();
-    const slotId = (added.structuredContent as { slots: { id: string }[] }).slots[0]!.id;
-    const upd = await client.callTool({ name: 'update_slot', arguments: { slotId, capacity: 5 } });
+    const rows = (added.structuredContent as { slots: { id: string; capacity: number | null; sortOrder: number }[] }).slots;
+    // Appended after the template's slot 0, in order, and capacity defaults to 1.
+    expect(rows.map((r) => r.sortOrder)).toEqual([1, 2]);
+    expect(rows[1]!.capacity).toBe(1);
+    const upd = await client.callTool({ name: 'update_slot', arguments: { slotId: rows[0]!.id, capacity: 5 } });
     expect((upd.structuredContent as { slot: { capacity: number } }).slot.capacity).toBe(5);
-    const del = await client.callTool({ name: 'delete_slot', arguments: { slotId } });
-    expect(del.structuredContent).toEqual({ deleted: true });
+    const del = await client.callTool({ name: 'delete_slot', arguments: { slotId: rows[0]!.id } });
+    expect(del.structuredContent).toEqual({ deleted: true, commitmentsRemoved: 0 });
     const detail = await client.callTool({ name: 'get_signup', arguments: { signupId: id } });
-    const d = detail.structuredContent as { slots: unknown[]; fields: unknown[] };
-    expect(d.slots).toHaveLength(1);
+    const d = detail.structuredContent as { slots: { sortOrder: number }[]; fields: unknown[] };
+    expect(d.slots.map((s) => s.sortOrder)).toEqual([0, 2]);
     expect(d.fields).toHaveLength(2);
   });
 
   it('a viewer cannot add slots', async () => {
     const client = await connectTestClient(ctx, TOOLS);
-    const created = await client.callTool({
-      name: 'create_signup',
-      arguments: { title: 'Viewer check', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
-    });
-    const id = (created.structuredContent as { signup: { id: string } }).signup.id;
+    const id = await createVia(client, 'Viewer check');
     const viewer = await connectTestClient(viewerCtx, TOOLS);
-    const r = await viewer.callTool({ name: 'add_slots', arguments: { signupId: id, rows: [{ values: { a: 'y' } }] } });
+    const r = await viewer.callTool({ name: 'add_slots', arguments: { signupId: id, rows: [{ values: { what: 'y' } }] } });
     expect(r.isError).toBe(true);
     expect((r.structuredContent as { error: { code: string } }).error.code).toBe('forbidden');
   });
 
-  it('deleting a slot someone committed to succeeds and removes the commitment with it, as in the browser', async () => {
+  it('delete_slot refuses a slot someone committed to until forced, then reports the loss', async () => {
     const client = await connectTestClient(ctx, TOOLS);
-    const created = await client.callTool({
-      name: 'create_signup',
-      arguments: { title: 'Orphan check', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
-    });
-    const id = (created.structuredContent as { signup: { id: string } }).signup.id;
+    const id = await createVia(client, 'Orphan check');
     await client.callTool({ name: 'publish_signup', arguments: { signupId: id } });
     const detail = await client.callTool({ name: 'get_signup', arguments: { signupId: id } });
     const slotId = (detail.structuredContent as { slots: { id: string }[] }).slots[0]!.id;
     const commit = await commitToSlot(db, slotId, { name: 'Sam', email: 'sam@example.com' });
     expect(commit.ok).toBe(true);
-    const before = await client.callTool({ name: 'get_signup', arguments: { signupId: id } });
-    expect((before.structuredContent as { slots: { filled: number }[] }).slots[0]!.filled).toBe(1);
-    const del = await client.callTool({ name: 'delete_slot', arguments: { slotId } });
-    expect(del.structuredContent).toEqual({ deleted: true });
-    // `deleteSlot` marks commitments orphaned and then deletes the slot; the
-    // slot foreign key cascades, so the row is gone. Asserted, not changed.
-    const rows = await db.select({ status: commitments.status }).from(commitments).where(eq(commitments.slotId, slotId));
-    expect(rows).toHaveLength(0);
+    const refused = await client.callTool({ name: 'delete_slot', arguments: { slotId } });
+    expect((refused.structuredContent as { error: { code: string; details: { filled: number } } }).error).toMatchObject({ code: 'conflict', details: { filled: 1 } });
+    expect(await db.select({ id: commitments.id }).from(commitments).where(eq(commitments.slotId, slotId))).toHaveLength(1);
+    const forced = await client.callTool({ name: 'delete_slot', arguments: { slotId, force: true } });
+    expect(forced.structuredContent).toEqual({ deleted: true, commitmentsRemoved: 1 });
+    // The slot foreign key cascades, so the commitment goes with the slot. Pre-existing; asserted here.
+    expect(await db.select({ id: commitments.id }).from(commitments).where(eq(commitments.slotId, slotId))).toHaveLength(0);
   });
 
-  it('every row the client wrote is attributed to the connected app', async () => {
+  it('every row the client wrote for a signup is attributed to the connected app', async () => {
     const client = await connectTestClient(ctx, TOOLS);
-    const mine = await client.callTool({ name: 'list_signups', arguments: {} });
-    const ids = (mine.structuredContent as { signups: { id: string }[] }).signups.map((s) => s.id);
+    const id = await createVia(client, 'Attribution');
+    const f = await client.callTool({ name: 'add_field', arguments: { signupId: id, ref: 'n', label: 'N', fieldType: 'number' } });
+    const fieldId = (f.structuredContent as { field: { id: string } }).field.id;
+    await client.callTool({ name: 'update_field', arguments: { fieldId, label: 'Number' } });
+    const added = await client.callTool({ name: 'add_slots', arguments: { signupId: id, rows: [{ values: { what: 'x', n: 2 } }] } });
+    const slotId = (added.structuredContent as { slots: { id: string }[] }).slots[0]!.id;
+    await client.callTool({ name: 'update_slot', arguments: { slotId, capacity: 2 } });
+    await client.callTool({ name: 'delete_slot', arguments: { slotId } });
+    await client.callTool({ name: 'delete_field', arguments: { fieldId } });
+    await client.callTool({ name: 'publish_signup', arguments: { signupId: id } });
     const rows = await db
-      .select({ payload: activity.payload, eventType: activity.eventType })
+      .select({ eventType: activity.eventType, actorType: activity.actorType, payload: activity.payload })
       .from(activity)
-      .where(inArray(activity.signupId, ids));
-    const organizerRows = rows.filter((r) => /^(signup|slot|field)\./.test(r.eventType));
-    expect(organizerRows.length).toBeGreaterThan(8);
+      .where(eq(activity.signupId, id));
+    const organizerRows = rows.filter((r) => r.actorType === 'organizer');
+    expect(organizerRows.map((r) => r.eventType).sort()).toEqual(
+      ['field.created', 'field.deleted', 'field.updated', 'signup.created', 'signup.published', 'slot.created', 'slot.deleted', 'slot.updated'].sort(),
+    );
     for (const r of organizerRows) expect(r.payload, r.eventType).toMatchObject({ viaClientId: CLIENT });
+    expect(rows.find((r) => r.eventType === 'slot.created')?.payload).toMatchObject({ slotIds: [slotId] });
   });
 });

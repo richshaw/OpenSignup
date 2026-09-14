@@ -15,7 +15,7 @@ const RefSchema = z
   .max(40)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'ref must be lowercase kebab');
 
-const DraftFieldSchema = z.object({
+export const DraftFieldSchema = z.object({
   ref: RefSchema,
   label: z.string().min(1).max(80),
   fieldType: z.enum(FIELD_TYPES),
