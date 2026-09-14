@@ -1,6 +1,8 @@
 import {
   fromJsonSchema,
   type JsonSchemaType,
+  type JsonSchemaValidator,
+  type jsonSchemaValidator,
   type McpServer,
   type StandardSchemaWithJSON,
   type ToolAnnotations,
@@ -57,16 +59,27 @@ export interface CompiledTool {
 }
 
 /**
- * Convert once. Ajv caches compiled validators by schema object identity,
- * so converting per request would add a new entry on every call.
+ * Accepts anything. The JSON Schema is advertised to clients as-is, but the
+ * SDK's own Ajv check is switched off so that `runTool` and the zod schema
+ * do every bit of validation: one pass, and every input mistake comes back
+ * in the same structured `invalid_input` shape with a field and a
+ * suggestion, instead of Ajv's plain-text message for some and ours for
+ * the rest.
  */
+const zodDoesTheValidating: jsonSchemaValidator = {
+  getValidator<T>(): JsonSchemaValidator<T> {
+    return (input) => ({ valid: true, data: input as T, errorMessage: undefined });
+  },
+};
+
+/** Convert once at module load; the result is bound to a context per request in `registerAll`. */
 export function compileTools(tools: readonly ToolDefinition[]): CompiledTool[] {
   return tools.map((def) => ({
     def,
     config: {
       title: def.title,
       description: def.description,
-      inputSchema: fromJsonSchema<Record<string, unknown>>(toJsonSchema(def.inputSchema)),
+      inputSchema: fromJsonSchema<Record<string, unknown>>(toJsonSchema(def.inputSchema), zodDoesTheValidating),
       annotations: def.annotations,
     },
   }));

@@ -96,6 +96,7 @@ function statusTool(
   description: string,
   annotations: { destructiveHint?: boolean },
   fn: typeof publishSignup,
+  opts: { links: boolean } = { links: true },
 ) {
   return defineTool({
     name,
@@ -107,7 +108,11 @@ function statusTool(
     handler: async (ctx, input) => {
       const r = await fn(ctx.db, ctx.actor, input.signupId);
       if (!r.ok) return err(r.error);
-      return ok({ signup: signupDetail(r.value), links: signupLinks(r.value) });
+      return ok(
+        opts.links
+          ? { signup: signupDetail(r.value), links: signupLinks(r.value) }
+          : { signup: signupDetail(r.value) },
+      );
     },
   });
 }
@@ -139,4 +144,6 @@ export const deleteSignupTool = statusTool(
   'Delete a signup and everything in it. Ask the organizer before calling this.',
   { destructiveHint: true },
   deleteSignup,
+  // No links: nothing to open after a delete.
+  { links: false },
 );

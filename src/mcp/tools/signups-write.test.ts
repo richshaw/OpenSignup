@@ -198,6 +198,13 @@ describe('status tools', () => {
     expect(svc[fn]).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1');
   });
 
+  it('delete_signup returns the signup without links', async () => {
+    svc.deleteSignup.mockResolvedValueOnce(ok(row));
+    const client = await connectTestClient(ctx, WRITE_TOOLS);
+    const r = await client.callTool({ name: 'delete_signup', arguments: { signupId: 'sig_1' } });
+    expect(Object.keys(r.structuredContent as object)).toEqual(['signup']);
+  });
+
   it('a wrong-state transition surfaces the conflict with its suggestion', async () => {
     svc.publishSignup.mockResolvedValueOnce(
       err(

@@ -152,6 +152,17 @@ describe('read tools', () => {
     expect(body.links).toEqual({ build: 'https://x/app/signups/sig_1/build', public: 'https://x/s/bake-sale' });
   });
 
+  it('a wrong argument type comes back as a structured invalid_input, not the SDK text error', async () => {
+    const client = await connectTestClient(ctx, READ_TOOLS);
+    const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 5 } });
+    expect(r.isError).toBe(true);
+    expect((r.structuredContent as { error: { code: string; field?: string } }).error).toMatchObject({
+      code: 'invalid_input',
+      field: 'signupId',
+    });
+    expect(getSignupForOrganizer).not.toHaveBeenCalled();
+  });
+
   it('service errors come back as tool errors with the same code', async () => {
     getSignupForOrganizer.mockResolvedValueOnce(err(serviceError('not_found', 'signup not found')));
     const client = await connectTestClient(ctx, READ_TOOLS);
