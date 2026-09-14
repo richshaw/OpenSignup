@@ -78,7 +78,7 @@ The footer, privacy policy, terms, and cookies pages are instance-agnostic — t
 
 ## Status
 
-v1 — deliberately narrow. Date, time, item, role, and quantity slots; capacity with race-safe commits; email reminders; magic-link auth for organizers only.
+v1 — deliberately narrow. Organizers define custom fields per signup (text, date, time, number, or a fixed set of choices) instead of picking from a fixed slot type; capacity with race-safe commits; email reminders; magic-link auth for organizers only.
 
 ## Contributing
 
