@@ -1,0 +1,45 @@
+import { createMcpHandler, McpServer, type AuthInfo, type McpHttpHandler } from '@modelcontextprotocol/server';
+import { log } from '@/lib/log';
+import type { ToolContext } from './context';
+import { registerAll } from './registry';
+import { COMPILED_TOOLS } from './tools';
+
+const CONTEXT_KEY = 'opensignup';
+const SERVER_INFO = { name: 'opensignup', version: '1' };
+
+/** Rides the per-request context on the SDK's pass-through auth info. In-process only; never serialised. */
+export function attachContext(authInfo: AuthInfo, ctx: ToolContext): AuthInfo {
+  return { ...authInfo, extra: { ...(authInfo.extra ?? {}), [CONTEXT_KEY]: ctx } };
+}
+
+export function contextFrom(authInfo?: AuthInfo): ToolContext {
+  const ctx = authInfo?.extra?.[CONTEXT_KEY];
+  if (!ctx) throw new Error('mcp: request reached the handler without a tool context');
+  return ctx as ToolContext;
+}
+
+let handler: McpHttpHandler | null = null;
+
+/**
+ * One handler for the process. Stateless: every request gets a fresh server
+ * from the factory, bound to that request's context. `maxSubscriptions: 0`
+ * refuses `subscriptions/listen` streams outright — this server publishes
+ * no change events, so an open stream would only hold a connection.
+ */
+export function getMcpHandler(): McpHttpHandler {
+  if (!handler) {
+    handler = createMcpHandler(
+      (rc) => {
+        const server = new McpServer(SERVER_INFO);
+        registerAll(server, contextFrom(rc.authInfo), COMPILED_TOOLS);
+        return server;
+      },
+      {
+        legacy: 'stateless',
+        maxSubscriptions: 0,
+        onerror: (error) => log.error({ err: error }, 'mcp handler error'),
+      },
+    );
+  }
+  return handler;
+}
