@@ -5,6 +5,15 @@ ChatGPT, or something you wrote yourself — can ask for access to your
 organizer account. You approve the request in your browser, and you can take
 the access away again at any time.
 
+The address of the MCP endpoint is always your instance's URL with
+`/api/mcp` on the end:
+
+```
+https://<your-instance>/api/mcp
+```
+
+On the public instance that is `https://opensignup.org/api/mcp`.
+
 ## What an assistant can do
 
 Once connected, an assistant can work on your signups the way you would in
@@ -14,8 +23,8 @@ the browser:
   including how many places are taken.
 - **Create** a signup with its fields and slots in one go. It starts as a
   draft that nobody else can see.
-- **Change** a signup: title, description, closing time, visibility, settings,
-  fields, and slots.
+- **Change** a signup: title, description, tags, closing time, visibility,
+  settings, fields, and slots.
 - **Publish, close, archive, or delete** a signup.
 
 Try: "Build me a snack rota for six Saturday games starting 3 October, two
@@ -23,21 +32,15 @@ families per game." Then: "Publish it and give me the link to share."
 
 An assistant cannot see who has signed up. Names and email addresses sit behind
 a separate permission that no assistant receives by default (see below), and
-even with it there is no tool that returns them yet. It also cannot do anything
-in a workspace where your role is viewer.
+even with it there is no tool that returns them yet.
 
-Every change an assistant makes is recorded in the signup's activity log with
-the app that made it, so you can always tell your own edits from the
-assistant's.
+Your role in each workspace still decides what it can do there. In a workspace
+where you are a viewer, an assistant can read your signups but cannot create or
+change anything, exactly as you cannot.
 
-The address of the MCP endpoint is always your instance's URL with
-`/api/mcp` on the end:
-
-```
-https://<your-instance>/api/mcp
-```
-
-On the public instance that is `https://opensignup.org/api/mcp`.
+Every change an assistant makes is recorded with the app that made it, so the
+record can always tell your own edits from the assistant's. There is no page
+that shows you that history yet.
 
 ## Connecting
 

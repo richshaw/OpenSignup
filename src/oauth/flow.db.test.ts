@@ -21,7 +21,10 @@ import { workspaceMembers } from '@/db/schema/members';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
+import { POST as mcpRoute } from '@/app/api/mcp/route';
 import { createVerifier, resolveBearerActor } from '@/auth/bearer';
+import { TOOLS } from '@/mcp/tools';
+import { readRpc } from '@/mcp/testing/rpc';
 import { resetSigningKeysCache } from '@/oauth/instance';
 import { loadOrganizerSessionById, toActor } from '@/auth/organizer-session';
 import { DrizzleOidcAdapter } from './adapter';
@@ -105,11 +108,45 @@ afterAll(async () => {
   await db.delete(oauthRecords);
   await db.delete(oauthSigningKeys);
   await db.delete(activity).where(like(activity.eventType, 'oauth.%'));
-  await db.delete(activity).where(eq(activity.workspaceId, workspaceId));
+  // Signups first: `signups.organizer_id` is ON DELETE restrict, so the
+  // organizer below cannot go while a signup a tool created still points at
+  // it. Their activity rows cascade from the signup and workspace deletes.
   await db.delete(signups).where(eq(signups.workspaceId, workspaceId));
   await db.delete(organizers).where(eq(organizers.id, organizerId));
   await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
 });
+
+/** Run a full authorization for `scopes` and return the token response. */
+async function mintToken(scopes: string[]): Promise<{ access_token: string; refresh_token?: string }> {
+  const { verifier, challenge } = pkcePair();
+  const started = await startAuthorization(d, {
+    clientId: CLIENT,
+    redirectUri: REDIRECT,
+    scope: scopes.join(' '),
+    resource: RESOURCE,
+    challenge,
+  });
+  await approve(started.uid, scopes);
+  const { code } = codeFromRedirect(await resume(d, started.uid));
+  const res = await exchangeCode(d, { clientId: CLIENT, redirectUri: REDIRECT, code, verifier, resource: RESOURCE });
+  expect(res.status, await res.clone().text()).toBe(200);
+  return res.json();
+}
+
+/** POST a JSON-RPC body to the real MCP route with a bearer token. */
+function callMcp(token: string, body: unknown): Promise<Response> {
+  return mcpRoute(
+    new Request(RESOURCE, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify(body),
+    }),
+  );
+}
 
 async function approve(uid: string, scopes: string[]): Promise<string> {
   const details = await interactionDetails(d, uid);
@@ -180,50 +217,6 @@ describe('authorization code flow on Postgres', () => {
       expect(stepUp.response.headers.get('www-authenticate')).toContain('scope="commitments:read"');
     }
 
-    // The real endpoint with the real token: list the tools and call one.
-    const { POST: mcp } = await import('@/app/api/mcp/route');
-    const call = (token: string, body: unknown) =>
-      mcp(
-        new Request(RESOURCE, {
-          method: 'POST',
-          headers: {
-            authorization: `Bearer ${token}`,
-            'content-type': 'application/json',
-            accept: 'application/json, text/event-stream',
-          },
-          body: JSON.stringify(body),
-        }),
-      );
-    const readRpc = async (res: Response) => {
-      const text = await res.text();
-      const line = text.split('\n').find((l) => l.startsWith('data:'));
-      return JSON.parse(line ? line.slice(5) : text) as { result?: Record<string, unknown>; error?: unknown };
-    };
-    const listed = await call(tokens.access_token, { jsonrpc: '2.0', id: 1, method: 'tools/list' });
-    expect(listed.status).toBe(200);
-    expect(((await readRpc(listed)).result as { tools: unknown[] }).tools).toHaveLength(15);
-    const created = await call(tokens.access_token, {
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'tools/call',
-      params: {
-        name: 'create_signup',
-        arguments: { title: 'Token test', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
-      },
-    });
-    expect(created.status).toBe(200);
-    const createdResult = (await readRpc(created)).result as {
-      isError?: boolean;
-      structuredContent: { signup: { id: string } };
-    };
-    expect(createdResult.isError, JSON.stringify(createdResult)).toBeFalsy();
-    expect(createdResult.structuredContent.signup.id).toMatch(/^sig_/);
-    const [createdRow] = await db
-      .select({ payload: activity.payload })
-      .from(activity)
-      .where(and(eq(activity.signupId, createdResult.structuredContent.signup.id), eq(activity.eventType, 'signup.created')));
-    expect(createdRow?.payload).toMatchObject({ viaClientId: CLIENT, templateId: 'mcp' });
-
     // Grant bookkeeping.
     const apps = await listConnectedApps(db, organizerActor);
     expect(apps).toHaveLength(1);
@@ -250,33 +243,6 @@ describe('authorization code flow on Postgres', () => {
     expect(r1.status).toBe(200);
     expect(decodeJwt((await r1.json()).access_token).scope).toBe('signups:read signups:write');
 
-    // A token that holds only signups:read gets the step-up challenge from
-    // the endpoint when it reaches for a write tool. The grant already
-    // carries write; the issued token's scope follows the request.
-    const ro = pkcePair();
-    const third = await startAuthorization(d, { clientId: CLIENT, redirectUri: REDIRECT, scope: 'signups:read', resource: RESOURCE, challenge: ro.challenge });
-    await approve(third.uid, ['signups:read']);
-    const roCode = codeFromRedirect(await resume(d, third.uid)).code;
-    const roRes = await exchangeCode(d, { clientId: CLIENT, redirectUri: REDIRECT, code: roCode, verifier: ro.verifier, resource: RESOURCE });
-    expect(roRes.status, await roRes.clone().text()).toBe(200);
-    const readOnly = await roRes.json();
-    expect(decodeJwt(readOnly.access_token).scope).toBe('signups:read');
-    const stepUpCall = await call(readOnly.access_token, {
-      jsonrpc: '2.0',
-      id: 3,
-      method: 'tools/call',
-      params: { name: 'create_signup', arguments: {} },
-    });
-    expect(stepUpCall.status).toBe(403);
-    expect(stepUpCall.headers.get('www-authenticate')).toContain('scope="signups:write"');
-    const readCall = await call(readOnly.access_token, {
-      jsonrpc: '2.0',
-      id: 4,
-      method: 'tools/call',
-      params: { name: 'list_signups', arguments: {} },
-    });
-    expect(readCall.status).toBe(200);
-
     // Nobody else can see or revoke it.
     const stranger: Actor = { kind: 'organizer', id: makeId('org'), email: 'x@example.com', workspaceIds: [], workspaceRoles: {} };
     expect(await listConnectedApps(db, stranger)).toEqual([]);
@@ -292,6 +258,68 @@ describe('authorization code flow on Postgres', () => {
     expect(await db.select({ id: oauthRecords.id }).from(oauthRecords).where(eq(oauthRecords.id, grantId))).toEqual([]);
     const events = await db.select({ e: activity.eventType }).from(activity).where(eq(activity.actorId, organizerId));
     expect(events.map((r) => r.e)).toContain('oauth.grant_revoked');
+  });
+
+  it('serves the MCP tools over the real endpoint with a real token', async () => {
+    const tokens = await mintToken(['signups:read', 'signups:write']);
+
+    const listed = await callMcp(tokens.access_token, { jsonrpc: '2.0', id: 1, method: 'tools/list' });
+    expect(listed.status).toBe(200);
+    const listedBody = await readRpc<{ result: { tools: { name: string }[] } }>(listed);
+    expect(listedBody?.result.tools.map((t) => t.name).sort()).toEqual(TOOLS.map((t) => t.name).sort());
+
+    const created = await callMcp(tokens.access_token, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: {
+        name: 'create_signup',
+        arguments: { title: 'Token test', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
+      },
+    });
+    expect(created.status).toBe(200);
+    const createdResult = (await readRpc<{
+      result: { isError?: boolean; structuredContent: { signup: { id: string } } };
+    }>(created))?.result;
+    expect(createdResult?.isError, JSON.stringify(createdResult)).toBeFalsy();
+    const signupId = createdResult!.structuredContent.signup.id;
+    expect(signupId).toMatch(/^sig_/);
+
+    // The change is attributed to the app that made it.
+    const [createdRow] = await db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.created')));
+    expect(createdRow?.payload).toMatchObject({ viaClientId: CLIENT, templateId: 'mcp' });
+  });
+
+  it('answers a read-only token with the step-up challenge for a write tool, and still serves reads', async () => {
+    // The grant already carries write from the tests above; the issued
+    // token's scope follows the request, not the grant.
+    const readOnly = await mintToken(['signups:read']);
+    expect(decodeJwt(readOnly.access_token).scope).toBe('signups:read');
+
+    const stepUp = await callMcp(readOnly.access_token, {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: { name: 'create_signup', arguments: {} },
+    });
+    expect(stepUp.status).toBe(403);
+    expect(stepUp.headers.get('www-authenticate')).toContain('scope="signups:write"');
+
+    const read = await callMcp(readOnly.access_token, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'list_signups', arguments: {} },
+    });
+    expect(read.status).toBe(200);
+    const readResult = (await readRpc<{
+      result: { isError?: boolean; structuredContent: { signups: { title: string }[] } };
+    }>(read))?.result;
+    expect(readResult?.isError, JSON.stringify(readResult)).toBeFalsy();
+    expect(readResult!.structuredContent.signups.map((s) => s.title)).toContain('Token test');
   });
 
   it('rejects a CIMD client whose document does not match its id', async () => {
