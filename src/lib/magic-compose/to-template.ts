@@ -134,7 +134,10 @@ function hasUsableGrouping(slots: SignupTemplateSlot[], fieldRef: string): boole
   return false;
 }
 
-export function magicComposeToTemplate(draft: MagicComposeDraft): MagicComposeConversion {
+export function magicComposeToTemplate(
+  draft: MagicComposeDraft,
+  opts: { templateId?: string } = {},
+): MagicComposeConversion {
   const seenRefs = new Set<string>();
   const fields: SlotFieldInput[] = [];
   const dropped: DroppedSummary = {
@@ -197,7 +200,7 @@ export function magicComposeToTemplate(draft: MagicComposeDraft): MagicComposeCo
     return { values, capacity, sortOrder: i };
   });
 
-  const template: SignupTemplate = { id: 'magic-compose', fields, slots };
+  const template: SignupTemplate = { id: opts.templateId ?? 'magic-compose', fields, slots };
 
   // Honour the model's groupBy if it points at a declared field. Otherwise
   // fall back: if exactly one enum field exists, group by it (covers the
