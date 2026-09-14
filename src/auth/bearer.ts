@@ -9,7 +9,7 @@ import {
 import { createLocalJWKSet, errors as joseErrors, jwtVerify, type JSONWebKeySet } from 'jose';
 import { getDb } from '@/db/client';
 import { log } from '@/lib/log';
-import type { Actor } from '@/lib/policy';
+import type { Actor, WorkspaceRole } from '@/lib/policy';
 import { mcpResourceUrl, oauthIssuer } from '@/oauth/config';
 import { getSigningKeys, resetSigningKeysCache } from '@/oauth/instance';
 import { protectedResourceMetadataUrl } from '@/oauth/resource-metadata';
@@ -31,8 +31,24 @@ import { loadOrganizerSessionById, toActor } from './organizer-session';
  * organizer is a viewer, because the actor is the same one
  * `requireWorkspaceWrite` already judges.
  */
+export interface BearerWorkspace {
+  id: string;
+  slug: string;
+  name: string;
+  role: WorkspaceRole;
+}
+
 export type BearerResolution =
-  | { ok: true; actor: Extract<Actor, { kind: 'organizer' }>; scopes: Scope[]; clientId: string }
+  | {
+      ok: true;
+      actor: Extract<Actor, { kind: 'organizer' }>;
+      scopes: Scope[];
+      clientId: string;
+      /** The organizer's default workspace, for tools called without one. */
+      defaultWorkspaceId: string | null;
+      /** Every workspace the organizer belongs to, with names for display. */
+      workspaces: BearerWorkspace[];
+    }
   | { ok: false; response: Response };
 
 export async function resolveBearerActor(
@@ -69,7 +85,20 @@ export async function resolveBearerActor(
       }),
     };
   }
-  return { ok: true, actor, scopes: parseScopeString(auth.scopes.join(' ')), clientId: auth.clientId };
+  return {
+    ok: true,
+    // Spread rather than mutate: `toActor` is React-cached and the object may be shared.
+    actor: { ...actor, via: { clientId: auth.clientId } },
+    scopes: parseScopeString(auth.scopes.join(' ')),
+    clientId: auth.clientId,
+    defaultWorkspaceId: session.defaultWorkspaceId,
+    workspaces: session.memberships.map((m) => ({
+      id: m.workspaceId,
+      slug: m.workspaceSlug,
+      name: m.workspaceName,
+      role: m.role,
+    })),
+  };
 }
 
 /**

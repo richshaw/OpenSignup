@@ -149,9 +149,14 @@ describe('authorization code flow on Postgres', () => {
     const seam = await resolveBearerActor(bearer(tokens.access_token));
     expect(seam.ok).toBe(true);
     if (seam.ok) {
-      expect(seam.actor).toEqual(organizerActor);
+      // Same actor the cookie path builds, plus the app that carried it.
+      expect(seam.actor).toEqual({ ...organizerActor, via: { clientId: CLIENT } });
       expect(seam.scopes).toEqual(['signups:read', 'signups:write']);
       expect(seam.clientId).toBe(CLIENT);
+      expect(seam.defaultWorkspaceId).toBe(workspaceId);
+      expect(seam.workspaces).toEqual([
+        { id: workspaceId, slug: organizerId.toLowerCase(), name: 'Flow', role: 'owner' },
+      ]);
     }
     const noHeader = await resolveBearerActor(bearer());
     expect(noHeader.ok).toBe(false);
