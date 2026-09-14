@@ -3,7 +3,7 @@ import { activity, type ActivityEvent } from '@/db/schema/activity';
 import { organizers } from '@/db/schema/organizers';
 import type { Db, Queryable } from '@/db/client';
 import { makeId } from './ids';
-import { requireOrganizerId, type Actor } from './policy';
+import { requireOrganizer, type Actor } from './policy';
 
 export interface ActivityActor {
   actorId: string | null;
@@ -20,9 +20,10 @@ export interface ActivityActor {
  * actors, exactly like `requireOrganizerId`.
  */
 export function activityActor(actor: Actor): ActivityActor {
-  const actorId = requireOrganizerId(actor);
-  const clientId = actor.kind === 'organizer' ? actor.via?.clientId : undefined;
-  return clientId ? { actorId, actorType: 'organizer', clientId } : { actorId, actorType: 'organizer' };
+  requireOrganizer(actor);
+  return actor.via
+    ? { actorId: actor.id, actorType: 'organizer', clientId: actor.via.clientId }
+    : { actorId: actor.id, actorType: 'organizer' };
 }
 
 export async function recordActivity(
@@ -35,9 +36,8 @@ export async function recordActivity(
     payload?: Record<string, unknown>;
   },
 ) {
-  const payload = args.actor.clientId
-    ? { ...(args.payload ?? {}), viaClientId: args.actor.clientId }
-    : (args.payload ?? {});
+  const given = args.payload ?? {};
+  const payload = args.actor.clientId ? { ...given, viaClientId: args.actor.clientId } : given;
   await db.insert(activity).values({
     id: makeId('act'),
     signupId: args.signupId ?? null,

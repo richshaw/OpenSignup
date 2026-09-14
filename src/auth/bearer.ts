@@ -14,7 +14,7 @@ import { mcpResourceUrl, oauthIssuer } from '@/oauth/config';
 import { getSigningKeys, resetSigningKeysCache } from '@/oauth/instance';
 import { protectedResourceMetadataUrl } from '@/oauth/resource-metadata';
 import { parseScopeString, type Scope } from '@/oauth/scopes';
-import { loadOrganizerSessionById, toActor } from './organizer-session';
+import { loadOrganizerSessionById, toActor, type OrganizerSession } from './organizer-session';
 
 /**
  * The seam between the authorization server and the MCP layer.
@@ -48,8 +48,24 @@ export type BearerResolution =
       defaultWorkspaceId: string | null;
       /** Every workspace the organizer belongs to, with names for display. */
       workspaces: BearerWorkspace[];
+      /**
+       * What the SDK verified, for handing back to SDK code that wants it
+       * (the MCP handler's pass-through auth info). Carries the raw token;
+       * never log it.
+       */
+      authInfo: AuthInfo;
     }
   | { ok: false; response: Response };
+
+/** The organizer's memberships in the shape the MCP layer shows to a client. */
+export function bearerWorkspaces(session: OrganizerSession): BearerWorkspace[] {
+  return session.memberships.map((m) => ({
+    id: m.workspaceId,
+    slug: m.workspaceSlug,
+    name: m.workspaceName,
+    role: m.role,
+  }));
+}
 
 export async function resolveBearerActor(
   request: Request,
@@ -92,12 +108,8 @@ export async function resolveBearerActor(
     scopes: parseScopeString(auth.scopes.join(' ')),
     clientId: auth.clientId,
     defaultWorkspaceId: session.defaultWorkspaceId,
-    workspaces: session.memberships.map((m) => ({
-      id: m.workspaceId,
-      slug: m.workspaceSlug,
-      name: m.workspaceName,
-      role: m.role,
-    })),
+    workspaces: bearerWorkspaces(session),
+    authInfo: auth,
   };
 }
 

@@ -24,7 +24,14 @@ describe('activityActor', () => {
     });
   });
 
-  it('refuses anything that is not an organizer', () => {
-    expect(() => activityActor({ kind: 'anonymous' })).toThrow(ServiceException);
+  it('refuses anything that is not an organizer with unauthorized, like requireOrganizerId', () => {
+    let thrown: unknown;
+    try {
+      activityActor({ kind: 'anonymous' });
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(ServiceException);
+    expect((thrown as ServiceException).serviceError.code).toBe('unauthorized');
   });
 });

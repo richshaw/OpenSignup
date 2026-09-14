@@ -157,6 +157,7 @@ describe('authorization code flow on Postgres', () => {
       expect(seam.workspaces).toEqual([
         { id: workspaceId, slug: organizerId.toLowerCase(), name: 'Flow', role: 'owner' },
       ]);
+      expect(seam.authInfo).toMatchObject({ token: tokens.access_token, clientId: CLIENT, scopes: ['signups:read', 'signups:write'] });
     }
     const noHeader = await resolveBearerActor(bearer());
     expect(noHeader.ok).toBe(false);

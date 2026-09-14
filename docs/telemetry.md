@@ -29,9 +29,12 @@ change — no migration required.
 Every entry maps to a fired event in the codebase. If you change a payload
 shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 
-Any organizer-actor row may also carry `viaClientId`: the connected app's
-client id (usually a URL) when the change came through the MCP server rather
-than the browser. It is added by `recordActivity` and is not listed per event.
+Rows written by the signup, slot, and field services (`signup.*`, `slot.*`,
+`field.*`) may also carry `viaClientId`: the connected app's client id
+(usually a URL) when the change came through the MCP server rather than the
+browser. It is added by `recordActivity` whenever the actor came through
+`activityActor` with a bearer-token actor, and is not listed per event. The
+`oauth.*` events identify the app by `clientDomain` instead.
 
 ### Signup lifecycle
 
