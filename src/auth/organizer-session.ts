@@ -11,9 +11,10 @@ import type { Actor, WorkspaceRole } from '@/lib/policy';
  * (`./session.ts`, via Auth.js) and the bearer-token path (`./bearer.ts`).
  * Both hand an organizer id to `loadOrganizerSessionById` and both run the
  * result through `toActor`, so a token and a cookie for the same organizer
- * produce byte-identical actors — the property every workspace-scoping
- * guard in `src/lib/policy.ts` relies on. This module deliberately imports
- * nothing from Auth.js.
+ * produce the same actor — the property every workspace-scoping guard in
+ * `src/lib/policy.ts` relies on. The bearer path adds one field on top,
+ * `via`, naming the connected app; nothing in the policy layer reads it.
+ * This module deliberately imports nothing from Auth.js.
  */
 export interface OrganizerSession {
   organizerId: string;

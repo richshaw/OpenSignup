@@ -4,11 +4,11 @@ import { commitments } from '@/db/schema/commitments';
 import { signups } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import { slots } from '@/db/schema/slots';
-import { recordActivity } from '@/lib/activity';
+import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
-import { requireOrganizerId, requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
+import { requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
 import { toSlug } from '@/lib/slug';
@@ -187,7 +187,7 @@ export async function createSignup(
     await recordActivity(tx, {
       signupId: inserted.id,
       workspaceId,
-      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType: 'signup.created',
       payload: {
         templateId: template.id,
@@ -296,7 +296,7 @@ export async function updateSignup(
     await recordActivity(tx, {
       signupId,
       workspaceId: row.workspaceId,
-      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType: 'signup.updated',
       payload: { changed: Object.keys(data) },
     });
@@ -366,7 +366,7 @@ export async function deleteSignup(
     await recordActivity(tx, {
       signupId,
       workspaceId: row.workspaceId,
-      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType: 'signup.deleted',
       payload: { status: row.status },
     });
@@ -426,7 +426,7 @@ async function transitionStatus(
     await recordActivity(tx, {
       signupId,
       workspaceId: row.workspaceId,
-      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType,
       payload: { from: row.status, to },
     });

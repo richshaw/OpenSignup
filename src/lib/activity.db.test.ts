@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
+import { activity } from '@/db/schema/activity';
 import { getDb, type Db } from '@/db/client';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
@@ -83,6 +84,32 @@ describe('recordActivity → organizers.last_active_at', () => {
 
     const after = await readLastActiveAt(fx.db, fx.organizerId);
     expect(after.getTime()).toBeGreaterThan(before.getTime());
+  });
+
+  it('writes viaClientId into the payload only when the actor names a connected app', async () => {
+    await recordActivity(fx.db, {
+      signupId: null,
+      workspaceId: fx.workspaceId,
+      actor: { actorId: fx.organizerId, actorType: 'organizer', clientId: 'https://client.example/meta.json' },
+      eventType: 'signup.updated',
+      payload: { changed: ['title'] },
+    });
+    await recordActivity(fx.db, {
+      signupId: null,
+      workspaceId: fx.workspaceId,
+      actor: { actorId: fx.organizerId, actorType: 'organizer' },
+      eventType: 'signup.published',
+      payload: { from: 'draft', to: 'open' },
+    });
+    const rows = await fx.db
+      .select({ eventType: activity.eventType, payload: activity.payload })
+      .from(activity)
+      .where(eq(activity.workspaceId, fx.workspaceId));
+    expect(rows.find((r) => r.eventType === 'signup.updated')?.payload).toEqual({
+      changed: ['title'],
+      viaClientId: 'https://client.example/meta.json',
+    });
+    expect(rows.find((r) => r.eventType === 'signup.published')?.payload).toEqual({ from: 'draft', to: 'open' });
   });
 
   it('does not advance last_active_at when actorType is system', async () => {
