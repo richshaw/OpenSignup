@@ -4,7 +4,7 @@ import { SlotFieldUpdateInputSchema } from '@/schemas/slot-fields';
 import { SlotBulkInputSchema } from '@/schemas/slots';
 import { RESOURCE_SCOPES } from '@/oauth/scopes';
 import { toJsonSchema } from './registry';
-import { TOOLS } from './tools';
+import { TOOLS, toolScope } from './tools';
 
 describe('toJsonSchema', () => {
   it('emits an object-rooted schema with no $schema and no $ref', () => {
@@ -45,5 +45,11 @@ describe('the tool registry', () => {
       expect(JSON.stringify(json), tool.name).not.toContain('$ref');
       expect(tool.description.length, tool.name).toBeGreaterThan(40);
     }
+  });
+
+  it('toolScope answers for known tools and null for unknown ones', () => {
+    expect(toolScope('list_signups')).toBe('signups:read');
+    expect(toolScope('create_signup')).toBe('signups:write');
+    expect(toolScope('nope')).toBeNull();
   });
 });
