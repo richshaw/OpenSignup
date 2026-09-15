@@ -22,7 +22,8 @@ the browser:
 - **See** your workspaces, your signups, and each signup's fields and slots,
   including how many places are taken.
 - **Create** a signup with its fields and slots in one go. It starts as a
-  draft that nobody else can see.
+  draft: participants cannot see it until you publish it, though other people
+  in the same workspace can.
 - **Change** a signup: title, description, tags, closing time, visibility,
   settings, fields, and slots.
 - **Publish, close, archive, or delete** a signup.

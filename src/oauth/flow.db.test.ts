@@ -26,6 +26,7 @@ import { createVerifier, resolveBearerActor } from '@/auth/bearer';
 import { TOOLS } from '@/mcp/tools';
 import { readRpc } from '@/mcp/testing/rpc';
 import { resetSigningKeysCache } from '@/oauth/instance';
+import { createSignup } from '@/services/signups';
 import { loadOrganizerSessionById, toActor } from '@/auth/organizer-session';
 import { DrizzleOidcAdapter } from './adapter';
 import { OAUTH_TTL } from './config';
@@ -294,6 +295,11 @@ describe('authorization code flow on Postgres', () => {
   });
 
   it('answers a read-only token with the step-up challenge for a write tool, and still serves reads', async () => {
+    // Seed the row this test reads back. Asserting on a signup an earlier test
+    // happened to create made this one fail when run alone or reordered.
+    const seeded = await createSignup(db, organizerActor, workspaceId, { title: 'Read-only listing' });
+    expect(seeded.ok, JSON.stringify(seeded)).toBe(true);
+
     // The grant already carries write from the tests above; the issued
     // token's scope follows the request, not the grant.
     const readOnly = await mintToken(['signups:read']);
@@ -319,7 +325,7 @@ describe('authorization code flow on Postgres', () => {
       result: { isError?: boolean; structuredContent: { signups: { title: string }[] } };
     }>(read))?.result;
     expect(readResult?.isError, JSON.stringify(readResult)).toBeFalsy();
-    expect(readResult!.structuredContent.signups.map((s) => s.title)).toContain('Token test');
+    expect(readResult!.structuredContent.signups.map((s) => s.title)).toContain('Read-only listing');
   });
 
   it('rejects a CIMD client whose document does not match its id', async () => {
