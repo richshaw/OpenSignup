@@ -23,10 +23,10 @@ export const createSignupTool = defineTool({
   name: 'create_signup',
   scope: 'signups:write',
   title: 'Create signup',
-  description: `Create a signup with its fields and slots in one step. It starts as a draft nobody can see; call publish_signup when the organizer is ready. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field makes the whole call fail with invalid_input and nothing is created, so fix the value and call again.`,
+  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see; call publish_signup when the organizer is ready. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field makes the whole call fail with invalid_input and nothing is created, so fix the value and call again.`,
   annotations: {},
   inputSchema: FullDraftSchema.extend({
-    workspaceId: z.string().optional().describe('Defaults to the account default workspace.'),
+    workspaceId: z.string().min(1).optional().describe('Defaults to the account default workspace.'),
   }),
   handler: async (ctx, input) => {
     const { workspaceId, ...draft } = input;
@@ -41,11 +41,12 @@ export const createSignupTool = defineTool({
       logContext: { clientId: ctx.clientId },
     });
     if (!persisted.ok) return persisted;
-    const { signup, template, groupByFieldRefs, warnings } = persisted.value;
+    // No `warnings`: a strict create refuses anything it cannot represent, so
+    // there is never a dropped value left to report.
+    const { signup, template, groupByFieldRefs } = persisted.value;
     return ok({
       ...signupWithLinks(signup),
       summary: { fieldsAdded: template.fields.length, slotsAdded: template.slots.length, groupByFieldRefs },
-      warnings,
     });
   },
 });
@@ -68,7 +69,9 @@ export const updateSignupTool = defineTool({
   description:
     'Change a signup title, description, tags, closing time (ISO datetime, or null to remove it), visibility (public or unlisted) or settings. Only the settings you pass change; pass null to clear maxCommitmentsPerParticipant or confirmationMessage. Use the field and slot tools to change what participants sign up for.',
   annotations: {},
-  inputSchema: SignupUpdateInputSchema.omit({ settings: true, visibility: true }).extend({
+  // organizerDisplayName is omitted on purpose: no column stores it, so
+  // accepting it would report a change that never happened.
+  inputSchema: SignupUpdateInputSchema.omit({ settings: true, visibility: true, organizerDisplayName: true }).extend({
     signupId: z.string(),
     visibility: z.enum(['public', 'unlisted']).optional(),
     settings: SparseSettingsSchema.optional(),
@@ -119,14 +122,14 @@ export const closeSignupTool = statusTool(
 export const archiveSignupTool = statusTool(
   'archive_signup',
   'Archive signup',
-  'Hide a signup from participants and from the main list. Its data is kept.',
+  "Take a signup out of use. Anyone opening the public link is told it is archived, and reminders stop. It stays in the organizer's list marked archived, with its data. This cannot be undone.",
   { destructiveHint: true },
   archiveSignup,
 );
 export const deleteSignupTool = statusTool(
   'delete_signup',
   'Delete signup',
-  'Delete a signup and everything in it. Ask the organizer before calling this.',
+  'Remove a signup from the account: it stops appearing in lists and its public link stops working. The record is marked deleted rather than erased, so erasing it for good is a separate request to the site owner. Ask the organizer before calling this.',
   { destructiveHint: true },
   deleteSignup,
   // No links: nothing to open after a delete.

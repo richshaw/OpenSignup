@@ -101,7 +101,6 @@ describe('create_signup', () => {
     expect(r.structuredContent).toMatchObject({
       signup: { id: 'sig_1', status: 'draft' },
       summary: { fieldsAdded: 2, slotsAdded: 2, groupByFieldRefs: [] },
-      warnings: [],
       links: { build: 'b/sig_1', public: 'p/snack-rota' },
     });
   });

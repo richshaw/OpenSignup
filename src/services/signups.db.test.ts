@@ -526,6 +526,31 @@ describe('signups service (db)', () => {
       expect(s.sendReminders).toBe(false);
     });
 
+    it('does not lose a key when two sparse settings updates run at once', async () => {
+      // Each call merges over the row it locks, so the second sees the first
+      // one's key. Merging from a snapshot read before the transaction let the
+      // later write drop the earlier key.
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Concurrent'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const [a, b] = await Promise.all([
+        updateSignup(fx.db, fx.actor, created.value.id, { settings: { sendReminders: false } }, { mergeSettings: true }),
+        updateSignup(fx.db, fx.actor, created.value.id, { settings: { groupByFieldRefs: ['date'] } }, { mergeSettings: true }),
+      ]);
+      expect(a.ok && b.ok).toBe(true);
+
+      const after = await getSignupForOrganizer(fx.db, fx.actor, created.value.id);
+      if (!after.ok) throw new Error('read back failed');
+      const s = after.value.settings as {
+        sendReminders?: boolean;
+        groupByFieldRefs?: string[];
+        reminderFromFieldRef?: string;
+      };
+      expect(s.sendReminders).toBe(false);
+      expect(s.groupByFieldRefs).toEqual(['date']);
+      expect(s.reminderFromFieldRef).toBe('date');
+    });
+
     it('refuses a reminderFromFieldRef that names anything but a date field', async () => {
       const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Bad ref'));
       if (!created.ok) throw new Error('setup failed');

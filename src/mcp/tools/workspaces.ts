@@ -7,7 +7,7 @@ export const listWorkspaces = defineTool({
   scope: 'signups:read',
   title: 'List workspaces',
   description:
-    'The workspaces this account belongs to, with the role in each. list_signups takes a workspaceId and uses the default workspace without one. Every other tool works out the workspace from the id you pass it. A viewer role cannot create or change anything.',
+    'The workspaces this account belongs to, with the role in each. list_signups and create_signup take a workspaceId and use the default workspace without one. Every other tool works out the workspace from the id you pass it. A viewer role cannot create or change anything.',
   annotations: { readOnlyHint: true },
   inputSchema: z.object({}),
   handler: async (ctx) =>
