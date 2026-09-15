@@ -26,7 +26,14 @@ export async function readRequestBody(request: Request, limit: number): Promise<
       const { done, value } = await reader.read();
       if (done) break;
       total += value.byteLength;
-      if (total > limit) throw new BodyTooLarge();
+      if (total > limit) {
+        // Releasing the lock only detaches us; the upload keeps flowing until
+        // the stream itself is cancelled. This has to happen before the
+        // `finally` releases the lock, because a released reader can no longer
+        // cancel its stream. A cancel that rejects must not mask BodyTooLarge.
+        await reader.cancel().catch(() => {});
+        throw new BodyTooLarge();
+      }
       chunks.push(Buffer.from(value));
     }
   } finally {

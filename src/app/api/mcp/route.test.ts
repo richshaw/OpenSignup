@@ -81,6 +81,30 @@ describe('/api/mcp', () => {
     expect(consume.mock.calls[1]?.[2]).toBe('org_1');
   });
 
+  it('charges the organizer one unit per tool call in a batch, not one per request', async () => {
+    const { POST } = await import('./route');
+    consume.mockClear();
+    resolve.mockResolvedValue(okResolution);
+    const batch = `[${[
+      rpc('tools/call', { name: 'list_signups', arguments: {} }, 1),
+      rpc('tools/call', { name: 'list_workspaces', arguments: {} }, 2),
+      rpc('tools/call', { name: 'get_signup', arguments: { signupId: 'sig_1' } }, 3),
+    ].join(',')}]`;
+    await POST(post(batch));
+    expect(buckets()).toEqual(['mcp.ip', 'mcp.organizer']);
+    // Per IP the request still costs one; per organizer it costs the work it does.
+    expect(consume.mock.calls[0]?.[3]).toBe(1);
+    expect(consume.mock.calls[1]?.[3]).toBe(3);
+  });
+
+  it('charges one unit for a request that calls no tools', async () => {
+    const { POST } = await import('./route');
+    consume.mockClear();
+    resolve.mockResolvedValue(okResolution);
+    await POST(post(rpc('tools/list')));
+    expect(consume.mock.calls[1]?.[3]).toBe(1);
+  });
+
   it('asks the seam for the tool scope on tools/call and for none on initialize', async () => {
     const { POST } = await import('./route');
     resolve.mockResolvedValue(okResolution);
@@ -107,6 +131,7 @@ describe('/api/mcp', () => {
     resolve.mockClear();
     const r = GET();
     expect(r.status).toBe(405);
+    expect(r.headers.get('Allow')).toBe('POST');
     expect(consume).not.toHaveBeenCalled();
     expect(resolve).not.toHaveBeenCalled();
   });

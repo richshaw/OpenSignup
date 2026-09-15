@@ -18,6 +18,12 @@ export async function consumeRateLimit(
   db: Db,
   policy: RateLimitPolicy,
   subject: string,
+  /**
+   * Units this request costs. Defaults to one. A caller that does N pieces of
+   * metered work in a single request (a JSON-RPC batch) charges N, so the
+   * limit bounds the work rather than the request count.
+   */
+  cost = 1,
 ): Promise<void> {
   const now = new Date();
   const windowStart = new Date(
@@ -30,11 +36,11 @@ export async function consumeRateLimit(
       bucket: policy.bucket,
       subject,
       windowStart,
-      count: 1,
+      count: cost,
     })
     .onConflictDoUpdate({
       target: [rateLimits.bucket, rateLimits.subject, rateLimits.windowStart],
-      set: { count: sql`${rateLimits.count} + 1` },
+      set: { count: sql`${rateLimits.count} + ${cost}` },
     })
     .returning({ count: rateLimits.count });
 

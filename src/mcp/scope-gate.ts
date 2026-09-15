@@ -22,3 +22,15 @@ export function requiredScopesFor(body: unknown, lookup: (name: string) => Scope
   }
   return out;
 }
+
+/**
+ * How many tool calls a body asks for. A batch does one round trip to the
+ * database per `tools/call`, so it costs the per-organizer limit that many
+ * units; `initialize` and `tools/list` do no such work and cost nothing here.
+ */
+export function countToolCalls(body: unknown): number {
+  const messages = Array.isArray(body) ? body : [body];
+  return messages.filter(
+    (m) => m && typeof m === 'object' && (m as { method?: unknown }).method === 'tools/call',
+  ).length;
+}

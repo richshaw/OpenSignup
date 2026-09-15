@@ -28,6 +28,17 @@ export interface ToolContext {
 
 /** The workspace a tool acts in: the argument if given, else the organizer's default. */
 export function resolveWorkspaceId(ctx: ToolContext, requested?: string): Result<string, ServiceError> {
+  // An empty string is a caller mistake, not an omission. Falling through to
+  // the default workspace would quietly act somewhere the caller did not ask
+  // for; the REST list route rejects the same input.
+  if (requested !== undefined && requested.trim() === '') {
+    return err(
+      serviceError('invalid_input', 'workspaceId must not be empty', {
+        field: 'workspaceId',
+        suggestion: 'omit workspaceId to use the default workspace, or pass an id from list_workspaces',
+      }),
+    );
+  }
   if (requested) return ok(requested);
   if (ctx.defaultWorkspaceId) return ok(ctx.defaultWorkspaceId);
   return err(

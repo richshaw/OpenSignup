@@ -6,7 +6,7 @@ import { RateLimits, consumeRateLimit, type RateLimitPolicy } from '@/lib/rate-l
 import { BodyTooLarge, readRequestBody } from '@/lib/request-body';
 import type { ToolContext } from '@/mcp/context';
 import { attachContext, getMcpHandler } from '@/mcp/handler';
-import { requiredScopesFor } from '@/mcp/scope-gate';
+import { countToolCalls, requiredScopesFor } from '@/mcp/scope-gate';
 import { toolScope } from '@/mcp/tools';
 
 /**
@@ -14,8 +14,12 @@ import { toolScope } from '@/mcp/tools';
  * work an unauthenticated caller can trigger: a free method and size check,
  * the per-IP limit (every request costs a signature check), a capped body
  * read, a peek at the JSON-RPC body to learn which scope a tools/call needs,
- * then the bearer seam, the per-organizer limit, and the SDK. The seam stays
- * the only thing here that knows about authentication.
+ * then the bearer seam, the per-organizer limit (charged per tools/call), and
+ * the SDK. The seam stays the only thing here that knows about authentication.
+ *
+ * The route parses the body itself rather than handing the request to the SDK
+ * to read, because it has to see the method and tool name before the seam
+ * runs. That makes malformed JSON this route's error to answer, not the SDK's.
  */
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -24,8 +28,8 @@ const MAX_BODY_BYTES = 1_000_000;
 /** A 2025-era client may batch JSON-RPC messages; each tools/call is a DB round trip. */
 const MAX_BATCH = 20;
 
-function rpcError(status: number, code: number, message: string): Response {
-  return Response.json({ jsonrpc: '2.0', error: { code, message }, id: null }, { status });
+function rpcError(status: number, code: number, message: string, headers?: HeadersInit): Response {
+  return Response.json({ jsonrpc: '2.0', error: { code, message }, id: null }, { status, headers });
 }
 
 function tooLarge(): Response {
@@ -35,10 +39,10 @@ function tooLarge(): Response {
   );
 }
 
-/** Consume one unit or answer 429; anything but a rate limit is rethrown. */
-async function meter(policy: RateLimitPolicy, subject: string): Promise<Response | null> {
+/** Consume `cost` units or answer 429; anything but a rate limit is rethrown. */
+async function meter(policy: RateLimitPolicy, subject: string, cost = 1): Promise<Response | null> {
   try {
-    await consumeRateLimit(getDb(), policy, subject);
+    await consumeRateLimit(getDb(), policy, subject, cost);
     return null;
   } catch (err) {
     if (err instanceof ServiceException && err.serviceError.code === 'rate_limited') {
@@ -59,7 +63,10 @@ async function meter(policy: RateLimitPolicy, subject: string): Promise<Response
  * initialize and move on.
  */
 export function GET(): Response {
-  return rpcError(405, -32000, 'Method not allowed: this server has no session stream');
+  // RFC 9110 makes Allow a MUST on a 405.
+  return rpcError(405, -32000, 'Method not allowed: this server has no session stream', {
+    Allow: 'POST',
+  });
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -90,7 +97,17 @@ export async function POST(request: Request): Promise<Response> {
   const auth = await resolveBearerActor(request, { requiredScopes });
   if (!auth.ok) return auth.response;
 
-  const organizerLimited = await meter(RateLimits.mcpPerOrganizer, auth.actor.id);
+  // Charged per tools/call, not per request: a batch of 20 does 20 round trips
+  // to the database, and charging it one unit would let a token do twenty times
+  // the work the limit is meant to allow. The per-IP limit above stays per
+  // request, because one address is shared by every organizer using a hosted
+  // assistant. A batch that crosses the line is refused whole; the window is
+  // a minute.
+  const organizerLimited = await meter(
+    RateLimits.mcpPerOrganizer,
+    auth.actor.id,
+    Math.max(1, countToolCalls(parsedBody)),
+  );
   if (organizerLimited) return organizerLimited;
 
   const ctx: ToolContext = {

@@ -45,7 +45,7 @@ export const listSignups = defineTool({
     'Signups in a workspace, newest first, up to 200. Filter by status: draft (not yet visible to participants), open (taking signups), closed, archived. Use get_signup for fields, slots and the description.',
   annotations: { readOnlyHint: true },
   inputSchema: z.object({
-    workspaceId: z.string().optional().describe('Defaults to the account default workspace.'),
+    workspaceId: z.string().min(1).optional().describe('Defaults to the account default workspace.'),
     status: z.enum(SIGNUP_STATUSES).optional(),
   }),
   handler: async (ctx, input) => {
