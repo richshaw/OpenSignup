@@ -290,6 +290,35 @@ describe('field and slot tools on Postgres', () => {
     expect(await db.select({ id: commitments.id }).from(commitments).where(eq(commitments.slotId, slotId))).toHaveLength(0);
   });
 
+  it('delete_slot counts the places taken, not the number of commitments', async () => {
+    // One commitment can reserve several places. Counting rows understated
+    // what the organizer is about to take away.
+    const client = await connectTestClient(ctx, TOOLS);
+    const id = await createVia(client, 'Quantity check');
+    await client.callTool({ name: 'publish_signup', arguments: { signupId: id } });
+    const added = await client.callTool({
+      name: 'add_slots',
+      arguments: { signupId: id, rows: [{ values: { what: 'Bulk buy' }, capacity: 5 }] },
+    });
+    const slotId = (added.structuredContent as { slots: { id: string }[] }).slots[0]!.id;
+    const commit = await commitToSlot(db, slotId, {
+      name: 'Sam',
+      email: 'sam@example.com',
+      quantity: 3,
+    });
+    expect(commit.ok, JSON.stringify(commit)).toBe(true);
+
+    const refused = await client.callTool({ name: 'delete_slot', arguments: { slotId } });
+    const error = (refused.structuredContent as {
+      error: { code: string; message: string; details: { filled: number; commitments: number } };
+    }).error;
+    expect(error).toMatchObject({ code: 'conflict', details: { filled: 3, commitments: 1 } });
+    expect(error.message).toContain('3 people have');
+
+    const forced = await client.callTool({ name: 'delete_slot', arguments: { slotId, force: true } });
+    expect(forced.structuredContent).toEqual({ deleted: true, commitmentsRemoved: 1 });
+  });
+
   it('every row the client wrote for a signup is attributed to the connected app', async () => {
     const client = await connectTestClient(ctx, TOOLS);
     const id = await createVia(client, 'Attribution');

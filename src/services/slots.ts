@@ -114,6 +114,11 @@ export async function addSlotsBulk(
     // has, in the order given, so a bulk add appends instead of interleaving
     // with the template's 0..n-1 (which is what defaulting to the array
     // index did, and what `addField` had to fix for fields).
+    // Serialise appends per signup, the same way `addField` does: two bulk adds
+    // running at once would otherwise read the same max and land on the same
+    // sortOrder, leaving their order to the createdAt tiebreak. Released with
+    // the transaction.
+    await tx.execute(sql`select 1 from ${signups} where ${signups.id} = ${signupId} for update`);
     const [top] = await tx
       .select({ max: sql<number | null>`max(${slots.sortOrder})` })
       .from(slots)
@@ -180,11 +185,15 @@ export async function updateSlot(
     const usedQty = sumRows[0]?.sum ?? 0;
     if (usedQty > data.capacity) {
       return err(
-        serviceError('conflict', `capacity (${data.capacity}) is less than active quantity (${usedQty})`, {
-          field: 'capacity',
-          received: data.capacity,
-          suggestion: 'cancel some commitments before lowering capacity',
-        }),
+        serviceError(
+          'conflict',
+          `capacity (${data.capacity}) is less than active quantity (${usedQty})`,
+          {
+            field: 'capacity',
+            received: data.capacity,
+            suggestion: 'cancel some commitments before lowering capacity',
+          },
+        ),
       );
     }
   }
@@ -249,31 +258,60 @@ export async function deleteSlot(
   if (!slotRow) return err(serviceError('not_found', 'slot not found'));
   requireWorkspaceWrite(actor, slotRow.workspaceId);
 
-  const [booked] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(commitments)
-    .where(
-      and(
-        eq(commitments.slotId, slotId),
-        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-      ),
-    );
-  const filled = booked?.n ?? 0;
-  if (filled > 0 && opts.force === false) {
-    return err(
-      serviceError('conflict', `${filled} ${filled === 1 ? 'person has' : 'people have'} signed up for this slot`, {
-        field: 'slotId',
-        suggestion: 'confirm with the organizer, then call again with force: true to remove the slot and their places',
-        details: { filled },
-      }),
-    );
-  }
+  return db.transaction(async (tx) => {
+    // Lock the slot before counting, on the row `commitToSlot` locks. Counting
+    // outside the transaction left a window where someone could take the last
+    // place after the count came back empty, and lose it without the organizer
+    // ever being asked.
+    const [locked] = await tx
+      .select()
+      .from(slots)
+      .where(eq(slots.id, slotId))
+      .for('update')
+      .limit(1);
+    if (!locked) return err(serviceError('not_found', 'slot not found'));
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(commitments)
-      .set({ status: 'orphaned' })
-      .where(eq(commitments.slotId, slotId));
+    const [booked] = await tx
+      .select({
+        rows: sql<number>`count(*)::int`,
+        places: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int`,
+      })
+      .from(commitments)
+      .where(
+        and(
+          eq(commitments.slotId, slotId),
+          // `waitlist` counts as signed up here even though it does not count
+          // towards capacity (see `committedBySlot`): a waitlisted person is
+          // someone a participant-side cancel still applies to, and deleting
+          // the slot takes their place away too.
+          or(
+            eq(commitments.status, 'confirmed'),
+            eq(commitments.status, 'tentative'),
+            eq(commitments.status, 'waitlist'),
+          ),
+        ),
+      );
+    const commitmentsRemoved = booked?.rows ?? 0;
+    // One commitment can reserve several places, so the count the organizer is
+    // asked about is places, not rows.
+    const places = booked?.places ?? 0;
+
+    if (commitmentsRemoved > 0 && opts.force === false) {
+      return err(
+        serviceError(
+          'conflict',
+          `${places} ${places === 1 ? 'person has' : 'people have'} signed up for this slot`,
+          {
+            field: 'slotId',
+            suggestion:
+              'confirm with the organizer, then call again with force: true to remove the slot and their places',
+            details: { filled: places, commitments: commitmentsRemoved },
+          },
+        ),
+      );
+    }
+
+    // The commitments go with the slot: their foreign key cascades on delete.
     await tx.delete(slots).where(eq(slots.id, slotId));
 
     await recordActivity(tx, {
@@ -281,10 +319,10 @@ export async function deleteSlot(
       workspaceId: slotRow.workspaceId,
       actor: activityActor(actor),
       eventType: 'slot.deleted',
-      payload: { slotId, commitmentsRemoved: filled },
+      payload: { slotId, commitmentsRemoved, places },
     });
+    return ok({ deleted: true, commitmentsRemoved });
   });
-  return ok({ deleted: true, commitmentsRemoved: filled });
 }
 
 export async function listSlotsForSignup(db: Db, signupId: string) {
@@ -305,7 +343,11 @@ export function summarizeValues(values: Record<string, unknown>): string {
   return parts.join('-') || 'slot';
 }
 
-export async function pickAvailableRef(db: Queryable, signupId: string, seed: string): Promise<string> {
+export async function pickAvailableRef(
+  db: Queryable,
+  signupId: string,
+  seed: string,
+): Promise<string> {
   const base = toSlug(seed, { suffix: false, fallback: 'slot' });
   for (let i = 0; i < 6; i++) {
     const candidate = i === 0 ? base : `${base}-${toSlug(`${Date.now()}-${i}`, { suffix: false })}`;
