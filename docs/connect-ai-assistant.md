@@ -1,12 +1,9 @@
 # Connect an AI assistant
 
-> **Ahead of the feature.** OpenSignup can now sign an AI assistant in to your
-> account, but the MCP tools it would call are not built yet. `/api/mcp` only
-> checks the token and answers with whether it was accepted and which
-> permissions it carries — nothing about your account. Connecting today
-> proves the sign-in works; it does not let an assistant read or change
-> anything. This page describes the connection flow so it is documented when
-> the tools land.
+> **Read-only for now.** A connected assistant can see your workspaces, your
+> signups, and each signup's fields and slots, including how many places are
+> taken. It cannot create or change anything yet, and it never sees who
+> signed up. The tools that make changes land next.
 
 OpenSignup speaks OAuth 2.1, so any MCP client — the Claude app, Claude Code,
 ChatGPT, or something you wrote yourself — can ask for access to your

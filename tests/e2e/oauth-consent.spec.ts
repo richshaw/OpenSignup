@@ -80,11 +80,25 @@ test.describe('OAuth consent', () => {
     const tokens = await tokenRes.json();
     expect(tokens.scope).toBe('signups:read signups:write');
 
-    const mcp = await request.get(`${BASE_URL}/api/mcp`, { headers: { authorization: `Bearer ${tokens.access_token}` } });
+    // The token opens the MCP server: a tools/list comes back over SSE.
+    const mcp = await request.post(`${BASE_URL}/api/mcp`, {
+      headers: {
+        authorization: `Bearer ${tokens.access_token}`,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      },
+      data: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+    });
     expect(mcp.status()).toBe(200);
-    expect((await mcp.json()).data.scopes).toEqual(['signups:read', 'signups:write']);
+    const line = (await mcp.text()).split('\n').find((l) => l.startsWith('data:'));
+    expect(line, 'an SSE data line').toBeTruthy();
+    const listed = JSON.parse(line!.slice(5)) as { result: { tools: { name: string }[] } };
+    expect(listed.result.tools.map((t) => t.name)).toContain('list_signups');
 
-    const noToken = await request.get(`${BASE_URL}/api/mcp`);
+    const noToken = await request.post(`${BASE_URL}/api/mcp`, {
+      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+      data: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+    });
     expect(noToken.status()).toBe(401);
     expect(noToken.headers()['www-authenticate']).toContain('resource_metadata=');
 

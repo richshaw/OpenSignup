@@ -1,6 +1,5 @@
-import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import type { Db } from '@/db/client';
-import { commitments } from '@/db/schema/commitments';
 import { signups } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import { slots } from '@/db/schema/slots';
@@ -27,6 +26,7 @@ import {
   recomputeSlotAtForSignup,
   validateSlotValues,
 } from './slot-fields';
+import { committedBySlot } from './commitments';
 import { pickAvailableRef, summarizeValues } from './slots';
 
 interface ReminderSettingsLike {
@@ -205,20 +205,22 @@ export async function getSignupForOrganizer(
   db: Db,
   actor: Actor,
   signupId: string,
-): Promise<Result<SignupWithSlots, ServiceError>> {
+  opts: { includeFilled?: boolean } = {},
+): Promise<Result<SignupWithSlots & { committedBySlot?: Record<string, number> }, ServiceError>> {
   const found = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
   const row = found[0];
   if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceAccess(actor, row.workspaceId);
-  const [signupSlots, fields] = await Promise.all([
+  const [signupSlots, fields, filled] = await Promise.all([
     db
       .select()
       .from(slots)
       .where(eq(slots.signupId, signupId))
       .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt)),
     listFieldsForSignup(db, signupId),
+    opts.includeFilled ? committedBySlot(db, signupId) : Promise.resolve(undefined),
   ]);
-  return ok({ ...row, slots: signupSlots, fields });
+  return ok(filled ? { ...row, slots: signupSlots, fields, committedBySlot: filled } : { ...row, slots: signupSlots, fields });
 }
 
 export async function updateSignup(
@@ -469,35 +471,16 @@ export async function getPublicSignup(
     return err(serviceError('not_found', 'signup is no longer available', { received: 'archived' }));
   }
 
-  const [signupSlots, fields] = await Promise.all([
+  const [signupSlots, fields, committedBySlotMap] = await Promise.all([
     db
       .select()
       .from(slots)
       .where(eq(slots.signupId, row.id))
       .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt)),
     listFieldsForSignup(db, row.id),
+    committedBySlot(db, row.id),
   ]);
-
-  const committerRows = await db
-    .select({
-      slotId: commitments.slotId,
-      sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int`,
-    })
-    .from(commitments)
-    .where(
-      and(
-        eq(commitments.signupId, row.id),
-        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-      ),
-    )
-    .groupBy(commitments.slotId);
-
-  const committedBySlot: Record<string, number> = {};
-  for (const c of committerRows) {
-    committedBySlot[c.slotId] = c.sum;
-  }
-
-  return ok({ ...row, slots: signupSlots, fields, committedBySlot });
+  return ok({ ...row, slots: signupSlots, fields, committedBySlot: committedBySlotMap });
 }
 
 async function pickAvailableSlug(db: Db, title: string): Promise<string> {

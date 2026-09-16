@@ -1,0 +1,98 @@
+import { z } from 'zod';
+import { ok } from '@/lib/result';
+import { SIGNUP_STATUSES } from '@/schemas/signups';
+import { getSignupForOrganizer, listSignupsForWorkspace, type SignupWithSlots } from '@/services/signups';
+import { resolveWorkspaceId } from '../context';
+import { signupLinks } from '../links';
+import { defineTool } from '../registry';
+
+type SignupRow = Omit<SignupWithSlots, 'slots' | 'fields'>;
+
+function signupCore(row: SignupRow) {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    status: row.status,
+    visibility: row.visibility,
+    closesAt: row.closesAt ? row.closesAt.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+/** The list shape: enough to pick a signup, small enough for 200 rows. */
+export function signupSummary(row: SignupRow) {
+  return { ...signupCore(row), links: signupLinks(row) };
+}
+
+/** The detail shape: everything the organizer can edit. */
+export function signupDetail(row: SignupRow) {
+  return {
+    ...signupCore(row),
+    description: row.description,
+    tags: row.tags,
+    settings: row.settings,
+    workspaceId: row.workspaceId,
+  };
+}
+
+export const listSignups = defineTool({
+  name: 'list_signups',
+  scope: 'signups:read',
+  title: 'List signups',
+  description:
+    'Signups in a workspace, newest first, up to 200. Filter by status: draft (not yet visible to participants), open (taking signups), closed, archived. Use get_signup for fields, slots and the description.',
+  annotations: { readOnlyHint: true },
+  inputSchema: z.object({
+    workspaceId: z.string().min(1).optional().describe('Defaults to the account default workspace.'),
+    status: z.enum(SIGNUP_STATUSES).optional(),
+  }),
+  handler: async (ctx, input) => {
+    const ws = resolveWorkspaceId(ctx, input.workspaceId);
+    if (!ws.ok) return ws;
+    const rows = await listSignupsForWorkspace(
+      ctx.db,
+      ctx.actor,
+      ws.value,
+      input.status ? { status: input.status } : {},
+    );
+    if (!rows.ok) return rows;
+    return ok({ signups: rows.value.map(signupSummary) });
+  },
+});
+
+export const getSignup = defineTool({
+  name: 'get_signup',
+  scope: 'signups:read',
+  title: 'Get signup',
+  description:
+    'One signup with its fields (the columns every slot has), its slots (each with values keyed by field ref, capacity, and how many places are filled), and links to the build page and the public page. Never includes who signed up.',
+  annotations: { readOnlyHint: true },
+  inputSchema: z.object({ signupId: z.string() }),
+  handler: async (ctx, input) => {
+    const found = await getSignupForOrganizer(ctx.db, ctx.actor, input.signupId, { includeFilled: true });
+    if (!found.ok) return found;
+    const { slots, fields, committedBySlot: filled = {}, ...row } = found.value;
+    return ok({
+      signup: signupDetail(row),
+      fields: fields.map((f) => ({
+        id: f.id,
+        ref: f.ref,
+        label: f.label,
+        fieldType: f.fieldType,
+        sortOrder: f.sortOrder,
+        config: f.config,
+      })),
+      slots: slots.map((s) => ({
+        id: s.id,
+        values: s.values,
+        capacity: s.capacity,
+        filled: filled[s.id] ?? 0,
+        status: s.status,
+        sortOrder: s.sortOrder,
+      })),
+      links: signupLinks(row),
+    });
+  },
+});
