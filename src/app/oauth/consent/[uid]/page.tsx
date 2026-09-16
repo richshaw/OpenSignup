@@ -104,7 +104,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
           </ul>
           <p className="text-sm text-ink-muted">
             It acts as you (<strong className="text-ink">{session.email}</strong>)
-            {workspaceCount > 1 ? ` in all ${workspaceCount} of your workspaces` : ''} and can&apos;t do
+            {workspaceCount > 1 ? ' in every workspace you belong to' : ''} and can&apos;t do
             anything you couldn&apos;t do yourself.
           </p>
         </section>
