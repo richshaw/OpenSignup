@@ -1,4 +1,9 @@
 FROM node:22-alpine AS base
+# Corepack caches pnpm under $HOME by default, which is /root here. The runner
+# stage runs as `signup`, who cannot read that, so `pnpm worker` and the
+# migrate step would download pnpm again on every container start. A shared
+# path keeps the copy prepared at build time usable by both users.
+ENV COREPACK_HOME=/usr/local/share/corepack
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 WORKDIR /app
 
@@ -14,7 +19,8 @@ ENV NODE_ENV=production
 
 # NEXT_PUBLIC_* values must be visible to `pnpm build` so Next.js inlines
 # them into the prerendered legal pages (privacy/terms/cookies). Passed
-# in via `[build.args]` in fly.toml on Fly; default empty locally so the
+# in via `[build.args]` in fly.toml on Fly and `build.args` in
+# docker-compose.prod.yml; default empty locally so the
 # Zod schema in src/lib/site-config.ts surfaces a clear build error
 # instead of silently falling back.
 ARG NEXT_PUBLIC_INSTANCE_NAME

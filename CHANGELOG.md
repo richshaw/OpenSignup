@@ -24,6 +24,10 @@ All notable changes to OpenSignup are documented here. Format follows [Keep a Ch
 - Removed the orphaned `/app/signups/[id]/fields` and `/app/signups/[id]/slots` pages and the server actions only they used. Neither was reachable from the signup tabs; the Build tab already covers field and slot editing and grouping.
 
 ### Fixed
+- Self-hosting with `docker-compose.prod.yml` works with the `.env` that `.env.example` produces (#236). Compose now builds `DATABASE_URL` from `POSTGRES_*` and points it at the `db` service; before, the copied `localhost` URL made the migrate step fail with `ECONNREFUSED`.
+- The Compose web container now passes its healthcheck. It pins `HOSTNAME=0.0.0.0` (Docker's default, the container id, left `127.0.0.1` unbound) and `PORT=3000` (a `PORT` in `.env`, meant for the host port, moved the server off 3000).
+- Compose builds now receive `NEXT_PUBLIC_APP_URL`, so canonical links, `sitemap.xml`, `robots.txt` and Open Graph URLs use the real address instead of `http://localhost:3000`.
+- The Docker image no longer downloads pnpm each time the migrate or worker container starts: Corepack's cache now lives where the non-root `signup` user can read it.
 - Adding, editing or deleting a slot field now rebuilds `slots.slot_at`. Previously only deleting the chosen date field did, so a field change could leave some slots stale and others null depending on edit order.
 - A signup with two date fields and no chosen one used to resolve to *no* date field, which silently switched off reminders and the "Add to calendar" button for the whole signup. Resolution no longer guesses; the anchor is always explicit.
 - The build page now mirrors the server when a field change moves or drops the reminder anchor or the group-by field, so its next settings save cannot resurrect a field that no longer exists.
