@@ -52,4 +52,28 @@ describe('the tool registry', () => {
     expect(toolScope('create_signup')).toBe('signups:write');
     expect(toolScope('nope')).toBeNull();
   });
+
+  it('exposes exactly this roster', () => {
+    // Spelled out rather than derived from TOOLS: the flow test compares the
+    // endpoint against TOOLS, so if a tool went missing from TOOLS both would
+    // still agree with each other. This is the list that has to change on
+    // purpose.
+    expect([...TOOLS].map((t) => t.name).sort()).toEqual([
+      'add_field',
+      'add_slots',
+      'archive_signup',
+      'close_signup',
+      'create_signup',
+      'delete_field',
+      'delete_signup',
+      'delete_slot',
+      'get_signup',
+      'list_signups',
+      'list_workspaces',
+      'publish_signup',
+      'update_field',
+      'update_signup',
+      'update_slot',
+    ]);
+  });
 });

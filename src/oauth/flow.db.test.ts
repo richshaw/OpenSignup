@@ -16,12 +16,17 @@ import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { organizers } from '@/db/schema/organizers';
 import { oauthRecords, oauthSigningKeys } from '@/db/schema/oauth';
+import { signups } from '@/db/schema/signups';
 import { workspaceMembers } from '@/db/schema/members';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
+import { POST as mcpRoute } from '@/app/api/mcp/route';
 import { createVerifier, resolveBearerActor } from '@/auth/bearer';
+import { TOOLS } from '@/mcp/tools';
+import { readRpc } from '@/mcp/testing/rpc';
 import { resetSigningKeysCache } from '@/oauth/instance';
+import { createSignup } from '@/services/signups';
 import { loadOrganizerSessionById, toActor } from '@/auth/organizer-session';
 import { DrizzleOidcAdapter } from './adapter';
 import { OAUTH_TTL } from './config';
@@ -104,9 +109,45 @@ afterAll(async () => {
   await db.delete(oauthRecords);
   await db.delete(oauthSigningKeys);
   await db.delete(activity).where(like(activity.eventType, 'oauth.%'));
+  // Signups first: `signups.organizer_id` is ON DELETE restrict, so the
+  // organizer below cannot go while a signup a tool created still points at
+  // it. Their activity rows cascade from the signup and workspace deletes.
+  await db.delete(signups).where(eq(signups.workspaceId, workspaceId));
   await db.delete(organizers).where(eq(organizers.id, organizerId));
   await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
 });
+
+/** Run a full authorization for `scopes` and return the token response. */
+async function mintToken(scopes: string[]): Promise<{ access_token: string; refresh_token?: string }> {
+  const { verifier, challenge } = pkcePair();
+  const started = await startAuthorization(d, {
+    clientId: CLIENT,
+    redirectUri: REDIRECT,
+    scope: scopes.join(' '),
+    resource: RESOURCE,
+    challenge,
+  });
+  await approve(started.uid, scopes);
+  const { code } = codeFromRedirect(await resume(d, started.uid));
+  const res = await exchangeCode(d, { clientId: CLIENT, redirectUri: REDIRECT, code, verifier, resource: RESOURCE });
+  expect(res.status, await res.clone().text()).toBe(200);
+  return res.json();
+}
+
+/** POST a JSON-RPC body to the real MCP route with a bearer token. */
+function callMcp(token: string, body: unknown): Promise<Response> {
+  return mcpRoute(
+    new Request(RESOURCE, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify(body),
+    }),
+  );
+}
 
 async function approve(uid: string, scopes: string[]): Promise<string> {
   const details = await interactionDetails(d, uid);
@@ -218,6 +259,73 @@ describe('authorization code flow on Postgres', () => {
     expect(await db.select({ id: oauthRecords.id }).from(oauthRecords).where(eq(oauthRecords.id, grantId))).toEqual([]);
     const events = await db.select({ e: activity.eventType }).from(activity).where(eq(activity.actorId, organizerId));
     expect(events.map((r) => r.e)).toContain('oauth.grant_revoked');
+  });
+
+  it('serves the MCP tools over the real endpoint with a real token', async () => {
+    const tokens = await mintToken(['signups:read', 'signups:write']);
+
+    const listed = await callMcp(tokens.access_token, { jsonrpc: '2.0', id: 1, method: 'tools/list' });
+    expect(listed.status).toBe(200);
+    const listedBody = await readRpc<{ result: { tools: { name: string }[] } }>(listed);
+    expect(listedBody?.result.tools.map((t) => t.name).sort()).toEqual(TOOLS.map((t) => t.name).sort());
+
+    const created = await callMcp(tokens.access_token, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: {
+        name: 'create_signup',
+        arguments: { title: 'Token test', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
+      },
+    });
+    expect(created.status).toBe(200);
+    const createdResult = (await readRpc<{
+      result: { isError?: boolean; structuredContent: { signup: { id: string } } };
+    }>(created))?.result;
+    expect(createdResult?.isError, JSON.stringify(createdResult)).toBeFalsy();
+    const signupId = createdResult!.structuredContent.signup.id;
+    expect(signupId).toMatch(/^sig_/);
+
+    // The change is attributed to the app that made it.
+    const [createdRow] = await db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.created')));
+    expect(createdRow?.payload).toMatchObject({ viaClientId: CLIENT, templateId: 'mcp' });
+  });
+
+  it('answers a read-only token with the step-up challenge for a write tool, and still serves reads', async () => {
+    // Seed the row this test reads back. Asserting on a signup an earlier test
+    // happened to create made this one fail when run alone or reordered.
+    const seeded = await createSignup(db, organizerActor, workspaceId, { title: 'Read-only listing' });
+    expect(seeded.ok, JSON.stringify(seeded)).toBe(true);
+
+    // The grant already carries write from the tests above; the issued
+    // token's scope follows the request, not the grant.
+    const readOnly = await mintToken(['signups:read']);
+    expect(decodeJwt(readOnly.access_token).scope).toBe('signups:read');
+
+    const stepUp = await callMcp(readOnly.access_token, {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: { name: 'create_signup', arguments: {} },
+    });
+    expect(stepUp.status).toBe(403);
+    expect(stepUp.headers.get('www-authenticate')).toContain('scope="signups:write"');
+
+    const read = await callMcp(readOnly.access_token, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'list_signups', arguments: {} },
+    });
+    expect(read.status).toBe(200);
+    const readResult = (await readRpc<{
+      result: { isError?: boolean; structuredContent: { signups: { title: string }[] } };
+    }>(read))?.result;
+    expect(readResult?.isError, JSON.stringify(readResult)).toBeFalsy();
+    expect(readResult!.structuredContent.signups.map((s) => s.title)).toContain('Read-only listing');
   });
 
   it('rejects a CIMD client whose document does not match its id', async () => {

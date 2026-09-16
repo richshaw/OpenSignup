@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { readRpc } from '@/mcp/testing/rpc';
 
 const resolve = vi.fn();
 vi.mock('@/auth/bearer', () => ({ resolveBearerActor: (...a: unknown[]) => resolve(...a) }));
@@ -43,16 +44,6 @@ function post(body: string | ReadableStream, headers: Record<string, string> = H
     body,
     ...(typeof body === 'string' ? {} : { duplex: 'half' }),
   } as RequestInit);
-}
-
-/** The legacy stateless leg answers with SSE; pull the JSON-RPC response out of either shape. */
-async function readRpc(res: Response): Promise<unknown> {
-  const text = await res.text();
-  if (res.headers.get('content-type')?.includes('text/event-stream')) {
-    const line = text.split('\n').find((l) => l.startsWith('data:'));
-    return line ? JSON.parse(line.slice(5)) : undefined;
-  }
-  return text ? JSON.parse(text) : undefined;
 }
 
 const buckets = () => consume.mock.calls.map((c) => (c[1] as { bucket: string }).bucket);
