@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { serviceError } from '@/lib/errors';
 import { err, ok } from '@/lib/result';
-import type { ToolContext } from '../context';
 import { connectTestClient } from '../testing/client';
+import { signupRow, unitContext } from '../testing/fixtures';
+import { getSignup, listSignups } from './signups-read';
+import { listWorkspaces } from './workspaces';
+
+const READ_TOOLS = [listWorkspaces, listSignups, getSignup];
 
 const listSignupsForWorkspace = vi.fn();
 const getSignupForOrganizer = vi.fn();
@@ -17,8 +21,7 @@ vi.mock('@/mcp/links', () => ({
   }),
 }));
 
-const ctx: ToolContext = {
-  db: {} as ToolContext['db'],
+const ctx = unitContext({
   actor: {
     kind: 'organizer',
     id: 'org_1',
@@ -28,30 +31,13 @@ const ctx: ToolContext = {
     via: { clientId: 'c' },
   },
   scopes: ['signups:read'],
-  clientId: 'c',
-  defaultWorkspaceId: 'ws_1',
   workspaces: [
     { id: 'ws_1', slug: 'mine', name: 'Mine', role: 'owner' },
     { id: 'ws_2', slug: 'school', name: 'School', role: 'viewer' },
   ],
-};
+});
 
-const row = {
-  id: 'sig_1',
-  slug: 'bake-sale',
-  title: 'Bake sale',
-  description: 'Bring cakes',
-  status: 'draft',
-  visibility: 'unlisted',
-  closesAt: null,
-  settings: { groupByFieldRefs: [] },
-  createdAt: new Date('2026-09-01T00:00:00Z'),
-  updatedAt: new Date('2026-09-02T00:00:00Z'),
-  workspaceId: 'ws_1',
-  organizerId: 'org_1',
-  deletedAt: null,
-  tags: [],
-};
+const row = signupRow();
 
 beforeEach(() => {
   listSignupsForWorkspace.mockReset();
@@ -60,7 +46,7 @@ beforeEach(() => {
 
 describe('read tools', () => {
   it('lists the three read tools with read-only annotations', async () => {
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, READ_TOOLS);
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);
     expect(names).toEqual(expect.arrayContaining(['list_workspaces', 'list_signups', 'get_signup']));
@@ -71,7 +57,7 @@ describe('read tools', () => {
   });
 
   it('list_workspaces marks the default', async () => {
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'list_workspaces', arguments: {} });
     expect(r.structuredContent).toEqual({
       workspaces: [
@@ -83,7 +69,7 @@ describe('read tools', () => {
 
   it('list_signups defaults to the default workspace and returns summaries without descriptions', async () => {
     listSignupsForWorkspace.mockResolvedValueOnce(ok([row]));
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'list_signups', arguments: {} });
     expect(listSignupsForWorkspace).toHaveBeenCalledWith(ctx.db, ctx.actor, 'ws_1', {});
     const body = r.structuredContent as { signups: Record<string, unknown>[] };
@@ -103,7 +89,7 @@ describe('read tools', () => {
 
   it('list_signups passes an explicit workspace and status through', async () => {
     listSignupsForWorkspace.mockResolvedValueOnce(ok([]));
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, READ_TOOLS);
     await client.callTool({ name: 'list_signups', arguments: { workspaceId: 'ws_2', status: 'open' } });
     expect(listSignupsForWorkspace).toHaveBeenCalledWith(ctx.db, ctx.actor, 'ws_2', { status: 'open' });
   });
@@ -132,7 +118,7 @@ describe('read tools', () => {
         committedBySlot: { slot_1: 2 },
       }),
     );
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 'sig_1' } });
     expect(getSignupForOrganizer).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', { includeFilled: true });
     const body = r.structuredContent as {
@@ -148,9 +134,20 @@ describe('read tools', () => {
     expect(body.links).toEqual({ build: 'https://x/app/signups/sig_1/build', public: 'https://x/s/bake-sale' });
   });
 
+  it('a wrong argument type comes back as a structured invalid_input, not the SDK text error', async () => {
+    const client = await connectTestClient(ctx, READ_TOOLS);
+    const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 5 } });
+    expect(r.isError).toBe(true);
+    expect((r.structuredContent as { error: { code: string; field?: string } }).error).toMatchObject({
+      code: 'invalid_input',
+      field: 'signupId',
+    });
+    expect(getSignupForOrganizer).not.toHaveBeenCalled();
+  });
+
   it('service errors come back as tool errors with the same code', async () => {
     getSignupForOrganizer.mockResolvedValueOnce(err(serviceError('not_found', 'signup not found')));
-    const client = await connectTestClient(ctx);
+    const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 'sig_9' } });
     expect(r.isError).toBe(true);
     expect(r.structuredContent).toEqual({ error: { code: 'not_found', message: 'signup not found' } });
