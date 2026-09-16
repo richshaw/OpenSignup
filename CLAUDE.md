@@ -62,7 +62,7 @@ Helpers used by every service:
 
 ### Schemas: Zod is the source of truth
 
-`src/schemas/*.ts` defines per-entity input/output schemas. Slot `type_data` is a discriminated union over `slot_type` (`date | time | item | role | quantity`). DB stores `type_data` as `jsonb`; validation lives in Zod, not in PG enums.
+`src/schemas/*.ts` defines per-entity input/output schemas. Slots don't have a fixed type; each signup defines its own custom fields in `slot_fields` (ref, label, `sortOrder`), and every field carries a `field_type` — `text | date | time | number | enum` — validated by `SlotFieldConfigSchema`, a discriminated union over `fieldType` (`src/schemas/slot-fields.ts`). A slot's answers live in `slots.values`, a jsonb map keyed by field ref. DB stores both `config` and `values` as `jsonb`; validation lives in Zod, not in PG enums.
 
 ### Capacity safety (the hot path)
 
