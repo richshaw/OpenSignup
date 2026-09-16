@@ -22,6 +22,19 @@ describe('magicComposeToTemplate', () => {
     expect(t.id).toBe('magic-compose');
   });
 
+  it('lets the caller name the template', () => {
+    const { template } = magicComposeToTemplate(
+      {
+        title: 'My signup',
+        description: '',
+        fields: [{ ref: 'date', label: 'Date', fieldType: 'date' }],
+        slots: [{ values: { date: '2026-04-25' }, capacity: 1 }],
+      },
+      { templateId: 'mcp' },
+    );
+    expect(template.id).toBe('mcp');
+  });
+
   it('fills config deterministically per fieldType', () => {
     const t = parse({
       title: 'My signup',

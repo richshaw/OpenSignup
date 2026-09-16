@@ -582,3 +582,33 @@ export async function countCommitmentsForSignup(db: Db, signupId: string): Promi
     .where(eq(commitments.signupId, signupId));
   return rows[0]?.count ?? 0;
 }
+
+/**
+ * How many places each slot has taken, keyed by slot id. Confirmed and
+ * tentative commitments count; cancelled and orphaned do not — the same
+ * rule `commitToSlot` applies when it checks capacity. Slots with no
+ * commitments are absent from the map.
+ *
+ * Guard-free by design, like `listSlotsForSignup`: it is a building block
+ * for a read that has already checked the signup (`getSignupForOrganizer`
+ * with `includeFilled`, `getPublicSignup`). Never call it with an id taken
+ * straight from a request.
+ */
+export async function committedBySlot(db: Db, signupId: string): Promise<Record<string, number>> {
+  const rows = await db
+    .select({
+      slotId: commitments.slotId,
+      sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int`,
+    })
+    .from(commitments)
+    .where(
+      and(
+        eq(commitments.signupId, signupId),
+        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
+      ),
+    )
+    .groupBy(commitments.slotId);
+  const out: Record<string, number> = {};
+  for (const r of rows) out[r.slotId] = r.sum;
+  return out;
+}

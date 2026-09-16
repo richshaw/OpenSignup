@@ -21,7 +21,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 13 September 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 15 September 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -153,7 +153,7 @@ export default function PrivacyPage() {
           A connected app acts as the organizer who approved it, across every workspace that
           organizer belongs to, with the same role and never more access than the organizer has
           themselves. Permissions are approved individually: seeing your signups and their slots,
-          and creating and editing signups. Participant names and email addresses sit behind a
+          and creating, editing, publishing and deleting signups. Participant names and email addresses sit behind a
           separate permission an app has to ask for explicitly; the consent screen flags it in amber
           and says plainly that participants gave those details to you, not to the app. An app that
           was not granted that permission cannot read participant details at all.
@@ -166,7 +166,8 @@ export default function PrivacyPage() {
           single-use code that establishes it. Access tokens themselves are not stored. The
           activity log records that a connection was approved, declined, or disconnected,
           together with the app&apos;s domain (or its configured identifier, for a
-          pre-registered app). It never records a token or an email address.
+          pre-registered app), and, for every change a connected app makes on your behalf,
+          which app made it. It never records a token or an email address.
         </p>
         <p>
           You can see and end every connection from <strong>Connected apps</strong> in your account
