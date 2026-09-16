@@ -26,9 +26,9 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
     throw err;
   }
 
-  // Every organizer starts with one personal workspace, named after their
-  // email, and the app never shows workspaces. Only mention them when there
-  // is more than one to reach.
+  // Every organizer starts with one personal workspace, and the app never
+  // shows workspaces, so a name here would mean nothing to them. Only mention
+  // workspaces when there is more than one to reach.
   const workspaceCount = session.memberships.length;
 
   // "/login" would bounce a signed-in organizer straight back to /app, so
