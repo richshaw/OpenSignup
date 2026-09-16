@@ -102,6 +102,7 @@ function buildConfig(): NextAuthConfig {
     pages: {
       signIn: '/login',
       verifyRequest: '/login/check',
+      error: '/login',
     },
     callbacks: {
       async session({ session, user }) {
