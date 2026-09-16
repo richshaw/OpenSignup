@@ -90,7 +90,9 @@ export default async function LoginPage({
       </div>
       {params.error ? (
         <p className="text-danger text-sm" role="alert">
-          Something went wrong. Try again.
+          {params.error === 'Verification'
+            ? 'That sign-in link is no longer valid. It may have been used already or it may have expired. Request a new one below.'
+            : 'Something went wrong. Try again.'}
         </p>
       ) : null}
       <OAuthButtons providers={oauthProviders} callbackUrl={callbackUrl} />

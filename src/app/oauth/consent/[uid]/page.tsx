@@ -26,7 +26,10 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
     throw err;
   }
 
-  const workspaceNames = session.memberships.map((m) => m.workspaceName);
+  // Every organizer starts with one personal workspace, and the app never
+  // shows workspaces, so a name here would mean nothing to them. Only mention
+  // workspaces when there is more than one to reach.
+  const workspaceCount = session.memberships.length;
 
   // "/login" would bounce a signed-in organizer straight back to /app, so
   // switching accounts has to sign this one out first — and keep the
@@ -60,16 +63,18 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
               <>
                 {ctx.client.name ? (
                   <>
-                    This app calls itself <strong className="text-ink">{ctx.client.name}</strong>.{' '}
+                    <strong className="text-ink">{ctx.client.name}</strong> from{' '}
                   </>
-                ) : null}
-                The request came from <strong className="text-ink">{ctx.client.domain}</strong>; that
-                is the part it cannot fake.
+                ) : (
+                  'An app from '
+                )}
+                <strong className="text-ink">{ctx.client.domain}</strong> wants to connect to your
+                account. Only allow it if you trust {ctx.client.domain}.
               </>
             ) : (
               <>
-                <strong className="text-ink">{ctx.client.name ?? ctx.client.domain}</strong> is an app
-                the operator of this instance registered in advance.
+                <strong className="text-ink">{ctx.client.name ?? ctx.client.domain}</strong> was set up
+                by the people who run this site.
               </>
             )}
           </p>
@@ -98,10 +103,9 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
             ))}
           </ul>
           <p className="text-sm text-ink-muted">
-            This covers {workspaceNames.length === 1 ? 'your workspace' : 'all your workspaces'}:{' '}
-            <strong className="text-ink">{workspaceNames.join(', ') || 'none yet'}</strong>. It acts as{' '}
-            <strong className="text-ink">{session.email}</strong>, with the same role you have in each
-            workspace, and can never do more than you can.
+            It acts as you (<strong className="text-ink">{session.email}</strong>)
+            {workspaceCount > 1 ? ' in every workspace you belong to' : ''} and can&apos;t do
+            anything you couldn&apos;t do yourself.
           </p>
         </section>
 
