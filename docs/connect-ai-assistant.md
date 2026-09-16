@@ -69,17 +69,16 @@ you are not signed in already, and see a consent screen.
 
 ## What you are approving
 
-The consent screen names the app by **the domain its identity was fetched
-from** — the one part of its identity it cannot fake. Any name the app reports
-about itself is shown underneath, as a secondary label, because it is just a
-claim. (An app the operator registered in advance with `OAUTH_STATIC_CLIENTS`
-has no fetched identity; the screen says so and shows the name and id the
-operator configured instead.)
+The consent screen leads with the website the app comes from, such as
+`claude.ai`. OpenSignup checks that part for you. The app picks its own name,
+so the name is shown next to the website, never instead of it. Only allow an
+app if you trust the website. (If whoever runs your OpenSignup site set an app
+up for you with `OAUTH_STATIC_CLIENTS`, there is no website to check, and the
+screen shows the name they gave it.)
 
-A connected app acts as *you*. It covers every workspace you belong to, with
-the role you have in each, and it can never do anything you could not do
-yourself. The screen lists your workspaces so you can see the reach before you
-decide.
+A connected app acts as *you*, and it can't do anything you couldn't do
+yourself. If you belong to more than one workspace, it can reach all of them,
+with the same role you have in each.
 
 Permissions are approved individually:
 
