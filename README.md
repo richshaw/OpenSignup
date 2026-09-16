@@ -64,7 +64,7 @@ The easiest way to run your own OpenSignup is Docker Compose. It runs the web ap
    - `AUTH_SECRET`: a random string of 32 characters or more, for example the output of `openssl rand -hex 32`.
    - `AUTH_URL` and `NEXT_PUBLIC_APP_URL`: the address people use to open your site, for example `https://signups.example.org`.
    - The branding values in [Branding your instance](#branding-your-instance).
-   - The email settings, so that organizers get their sign-in links. `EMAIL_TRANSPORT=smtp` works with most email providers. To try things out first, keep `EMAIL_TRANSPORT=console`: sign-in links then appear in the web app's logs.
+   - The email settings. Organizers sign in with a link that we email to them, so you need working email to sign in. `EMAIL_TRANSPORT=smtp` works with most email providers.
 
    You do not need to change `DATABASE_URL`. Compose connects the app to its own database.
 
