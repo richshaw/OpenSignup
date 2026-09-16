@@ -3,12 +3,11 @@ import type { Db, Queryable } from '@/db/client';
 import { signups } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import { slots } from '@/db/schema/slots';
-import { recordActivity } from '@/lib/activity';
+import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
 import {
-  requireOrganizerId,
   requireWorkspaceAccess,
   requireWorkspaceWrite,
   type Actor,
@@ -220,7 +219,7 @@ export async function addField(
     await recordActivity(tx, {
       signupId,
       workspaceId: signupRow.workspaceId,
-      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType: 'field.created',
       payload: {
         fieldId: row.id,
@@ -325,7 +324,7 @@ export async function updateField(
     await recordActivity(tx, {
       signupId: existing.signupId,
       workspaceId: existing.workspaceId,
-      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType: 'field.updated',
       payload: {
         fieldId: row.id,
@@ -406,7 +405,7 @@ export async function deleteField(
     await recordActivity(tx, {
       signupId: existing.signupId,
       workspaceId: existing.workspaceId,
-      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType: 'field.deleted',
       payload: {
         fieldId,
