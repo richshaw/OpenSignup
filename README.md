@@ -66,7 +66,7 @@ The easiest way to run your own OpenSignup is Docker Compose. It runs the web ap
    - The branding values in [Branding your instance](#branding-your-instance).
    - The email settings. Organizers sign in with a link that we email to them, so you need working email to sign in. For most email providers, set `EMAIL_TRANSPORT=smtp`, fill in the `SMTP_` values, and set `EMAIL_FROM` to an address your provider lets you send from.
 
-   You do not need to change `DATABASE_URL`. Compose connects the app to its own database. To use a Postgres database you already run instead, set `EXTERNAL_DATABASE_URL`.
+   You do not need to change `DATABASE_URL`. Compose connects the app to its own database. To use a Postgres database you already run instead, set `EXTERNAL_DATABASE_URL`. Compose still starts its own database, which the app then does not use, so you still need `POSTGRES_PASSWORD`.
 
 3. Start OpenSignup:
 
