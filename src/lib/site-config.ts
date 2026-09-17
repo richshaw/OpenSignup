@@ -9,7 +9,9 @@
  * Required values are validated with Zod; an unset required var fails the
  * build loudly rather than silently shipping wrong copy on a self-hosted
  * deployment (e.g. an unintended governing-law jurisdiction in the terms).
- * Operators set these in their own `.env` before deploying.
+ * Operators set these in their own `.env` before deploying. The one exception
+ * is `pnpm dev`, which fills blanks with `DEV_PLACEHOLDERS` so the README
+ * Quickstart runs straight from `.env.example`.
  */
 import { z } from 'zod';
 import { requiredString } from './zod-env';
@@ -51,12 +53,39 @@ export type SiteConfig = {
 };
 
 /**
+ * Stand-ins for blank required values under `pnpm dev` only. `.env.example`
+ * leaves these blank on purpose, and the Quickstart copies it as-is, so without
+ * them the first page load of a fresh clone throws. `next build` always runs
+ * with NODE_ENV=production and never sees these, so a deployment still fails
+ * loudly instead of shipping them. Each one reads as a placeholder wherever it
+ * appears (footer, privacy, terms).
+ */
+export const DEV_PLACEHOLDERS = {
+  NEXT_PUBLIC_INSTANCE_NAME: 'OpenSignup (dev)',
+  NEXT_PUBLIC_SUPPORT_EMAIL: 'dev@example.com',
+  NEXT_PUBLIC_SOURCE_URL: 'https://github.com/richshaw/OpenSignup',
+  NEXT_PUBLIC_GOVERNING_LAW: 'your jurisdiction (dev placeholder)',
+} as const;
+
+function withDevPlaceholders(
+  raw: NodeJS.ProcessEnv | Record<string, string | undefined>,
+): Record<string, string | undefined> {
+  if (raw.NODE_ENV !== 'development') return raw;
+  const filled: Record<string, string | undefined> = { ...raw };
+  for (const [key, placeholder] of Object.entries(DEV_PLACEHOLDERS)) {
+    if (!filled[key]?.trim()) filled[key] = placeholder;
+  }
+  return filled;
+}
+
+/**
  * Pure schema validator — exported for tests. Mirrors `parseEnv` in env.ts so
  * the validation rules can be exercised without manipulating `process.env`.
  */
 export function parseSiteConfig(
-  raw: NodeJS.ProcessEnv | Record<string, string | undefined>,
+  input: NodeJS.ProcessEnv | Record<string, string | undefined>,
 ): SiteConfig {
+  const raw = withDevPlaceholders(input);
   const parsed = schema.safeParse({
     NEXT_PUBLIC_INSTANCE_NAME: raw.NEXT_PUBLIC_INSTANCE_NAME,
     NEXT_PUBLIC_SUPPORT_EMAIL: raw.NEXT_PUBLIC_SUPPORT_EMAIL,
@@ -82,6 +111,7 @@ export function parseSiteConfig(
 // Reads the `process.env.NEXT_PUBLIC_*` keys literally so Next.js's compile-time
 // substitution still kicks in — calling parseSiteConfig(process.env) would not.
 const config = parseSiteConfig({
+  NODE_ENV: process.env.NODE_ENV,
   NEXT_PUBLIC_INSTANCE_NAME: process.env.NEXT_PUBLIC_INSTANCE_NAME,
   NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
   NEXT_PUBLIC_SOURCE_URL: process.env.NEXT_PUBLIC_SOURCE_URL,
