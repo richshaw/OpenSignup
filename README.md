@@ -107,7 +107,7 @@ The footer and the privacy, terms and cookies pages show your details, not the O
 - `NEXT_PUBLIC_GOVERNING_LAW`: the jurisdiction for your terms of service (required)
 - `NEXT_PUBLIC_OPERATOR_NAME`: your name or organisation, shown as the data controller (optional; without it the pages say "the operator of this instance")
 
-If a required value is missing, the build stops with an error. That is on purpose: a failed build is better than a site that shows someone else's contact email or jurisdiction.
+If a required value is missing, the build stops with an error. That is on purpose: a failed build is better than a site that shows someone else's contact email or jurisdiction. Local development (`pnpm dev`) is the exception: it shows placeholders such as "OpenSignup (dev)" instead, so the Quickstart works before you fill these in.
 
 These values are built into the app, so they must be set when you build it. Setting them only when the app starts (for example with `docker run -e`) is too late:
 
