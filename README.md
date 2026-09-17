@@ -60,13 +60,13 @@ The easiest way to run your own OpenSignup is Docker Compose. It runs the web ap
    ```
 
 2. Open `.env` and fill in:
-   - `POSTGRES_PASSWORD`: a password for the database. Use only letters and numbers, for example the output of `openssl rand -hex 24`.
+   - `POSTGRES_PASSWORD`: a password for the database, for example the output of `openssl rand -hex 24`. Do not use the `$` character.
    - `AUTH_SECRET`: a random string of 32 characters or more, for example the output of `openssl rand -hex 32`.
    - `AUTH_URL` and `NEXT_PUBLIC_APP_URL`: the address people use to open your site, for example `https://signups.example.org`.
    - The branding values in [Branding your instance](#branding-your-instance).
-   - The email settings. Organizers sign in with a link that we email to them, so you need working email to sign in. `EMAIL_TRANSPORT=smtp` works with most email providers.
+   - The email settings. Organizers sign in with a link that we email to them, so you need working email to sign in. For most email providers, set `EMAIL_TRANSPORT=smtp`, fill in the `SMTP_` values, and set `EMAIL_FROM` to an address your provider lets you send from.
 
-   You do not need to change `DATABASE_URL`. Compose connects the app to its own database.
+   You do not need to change `DATABASE_URL`. Compose connects the app to its own database. To use a Postgres database you already run instead, set `EXTERNAL_DATABASE_URL`.
 
 3. Start OpenSignup:
 
@@ -74,7 +74,7 @@ The easiest way to run your own OpenSignup is Docker Compose. It runs the web ap
    docker compose -f docker-compose.prod.yml up -d --build
    ```
 
-The site runs on port 3000. To use a different port, set `PORT` in `.env`. Compose does not set up HTTPS, so for a public site put a reverse proxy (for example Caddy or nginx) in front of it.
+The site runs on port 3000. To use a different port, set `PORT` in `.env`. If people open the site on that port, put the port in `AUTH_URL` and `NEXT_PUBLIC_APP_URL` too. Compose does not set up HTTPS, so for a public site put a reverse proxy (for example Caddy or nginx) in front of it.
 
 When you change `.env`, run the same command again. Values that start with `NEXT_PUBLIC_` are built into the app, and `--build` picks up the new ones.
 
@@ -85,7 +85,13 @@ When you change `.env`, run the same command again. Values that start with `NEXT
 
 ### Other ways to run it
 
-You can run the image from the `Dockerfile` on any container host, or run the app directly with **Node 22.12 or later** and your own Postgres. All settings are environment variables, listed in `.env.example`. For Fly.io, start from `fly.example.toml`.
+You can run the image from the `Dockerfile` on any container host, or run the app directly with **Node 22.12 or later** and your own Postgres. Either way, you run three parts:
+
+- `pnpm db:migrate`, before the first start and after each update. It prepares the database.
+- The web app: `node server.js` in the image, or `pnpm build` and then `pnpm start` from the source code.
+- `pnpm worker`, which sends reminder emails. It runs next to the web app, as a second process.
+
+All settings are environment variables, listed in `.env.example`. For Fly.io, start from `fly.example.toml`.
 
 Email can go out through SMTP or Resend, or to the logs (`console`) for development. OpenSignup needs no other outside accounts.
 

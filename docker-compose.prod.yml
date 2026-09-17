@@ -19,11 +19,15 @@ x-instance-build: &instance-build
 # The app containers reach Postgres by its service name, `db`: `localhost`
 # inside a container is that container. Built here, and set under
 # `environment` so it wins over `.env`, which usually still holds the
-# local-dev `localhost:5433` URL copied from `.env.example`. The password goes
-# into the URL as-is, so it must be URL-safe (the README says letters and
-# numbers only).
+# local-dev `localhost:5433` URL copied from `.env.example`.
+#
+# The password travels as PGPASSWORD, which both drivers (postgres.js and pg,
+# under pg-boss) read when the URL has none, so it needs no URL-encoding.
+# EXTERNAL_DATABASE_URL replaces the whole URL for operators who run their
+# own Postgres; a password in that URL takes precedence over PGPASSWORD.
 x-app-env: &app-env
-  DATABASE_URL: postgres://${POSTGRES_USER:-signup}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@db:5432/${POSTGRES_DB:-signup}
+  DATABASE_URL: ${EXTERNAL_DATABASE_URL:-postgres://${POSTGRES_USER:-signup}@db:5432/${POSTGRES_DB:-signup}}
+  PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
 
 services:
   db:

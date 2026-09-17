@@ -1,8 +1,8 @@
 FROM node:22-alpine AS base
-# Corepack caches pnpm under $HOME by default, which is /root here. The runner
-# stage runs as `signup`, who cannot read that, so `pnpm worker` and the
-# migrate step would download pnpm again on every container start. A shared
-# path keeps the copy prepared at build time usable by both users.
+# Corepack keeps pnpm in the running user's home by default. The build runs as
+# root, but the runner stage runs as `signup`, whose home has no copy, so
+# `pnpm worker` and the migrate step would download pnpm again on every
+# container start. One fixed path serves both users.
 ENV COREPACK_HOME=/usr/local/share/corepack
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 WORKDIR /app
