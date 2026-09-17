@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://opensignup.org"><strong>Use it free at opensignup.org →</strong></a>
   <br />
-  No credit card, publish a signup in minutes. There's a live example on the homepage you can poke without signing in.
+  No credit card. Publish a signup in minutes, or try the live example on the homepage without signing in.
 </p>
 
 <p align="center">
@@ -22,32 +22,32 @@ Coordinate snack rotations, potlucks, volunteer shifts, and carpools. Made for s
 
 ## Why OpenSignup
 
-- **Participants are not users.** Parents click a link, pick a slot, done. No account required, ever, to sign up.
+- **No accounts for participants.** People click a link, pick a slot, and they're done.
 - **Ad-free, structurally.** The code is AGPL-3.0 open source — "we won't bait-and-switch you" is enforced by the license, not a pricing page.
-- **Slots are the atom, not questions.** Commitments, capacity, reminders — not a form builder.
-- **Self-hostable from day one.** `git clone`, one Docker Compose, zero vendor accounts required.
-- **AI-native.** Clean primitives designed for Claude, MCP, and future agent surfaces.
+- **Slots, not forms.** Each signup has its own fields (text, date, time, number, or a list of choices). Slots stop taking people when they're full, and participants can get a reminder email the day before.
+- **Self-hostable.** One Docker Compose file runs everything. The only outside service you need is email.
+- **Works with AI assistants.** Organizers can connect Claude, ChatGPT, or any MCP client to create and manage signups. See [`docs/connect-ai-assistant.md`](docs/connect-ai-assistant.md).
 
-Licensed under [AGPL-3.0](LICENSE). If you run a modified version of OpenSignup as a network service, the AGPL requires you to offer your users the corresponding source. See the [AGPL FAQ](https://www.gnu.org/licenses/agpl-3.0.html) for details.
+## Run it locally
 
-## Quickstart (five minutes)
+You need Node 22.12 or later, pnpm (`corepack enable` installs it), and Docker.
 
 ```bash
 git clone https://github.com/richshaw/OpenSignup.git && cd OpenSignup
 cp .env.example .env.local
-docker compose up -d           # local Postgres on :5433
+docker compose up -d   # Postgres on :5433
 pnpm install
 pnpm db:migrate
-pnpm dev                        # http://localhost:3000
+pnpm dev               # http://localhost:3000
 ```
 
-In a second terminal:
+Open `http://localhost:3000` and sign in with any email address. Nothing is sent: with `EMAIL_TRANSPORT=console`, the sign-in email is printed in the `pnpm dev` terminal.
+
+Reminder emails need the worker. Run it in a second terminal:
 
 ```bash
-pnpm worker                     # reminder worker
+pnpm worker
 ```
-
-Open `http://localhost:3000`, request a magic link with any email, and look at the server log — with `EMAIL_TRANSPORT=console`, login links are printed directly to stdout for local development.
 
 ## Self-host
 
@@ -64,7 +64,7 @@ The easiest way to run your own OpenSignup is Docker Compose. It runs the web ap
    - `AUTH_SECRET`: a random string of 32 characters or more, for example the output of `openssl rand -hex 32`.
    - `AUTH_URL` and `NEXT_PUBLIC_APP_URL`: the address people use to open your site, for example `https://signups.example.org`.
    - The branding values in [Branding your instance](#branding-your-instance).
-   - The email settings. Organizers sign in with a link that we email to them, so you need working email to sign in. For most email providers, set `EMAIL_TRANSPORT=smtp`, fill in the `SMTP_` values, and set `EMAIL_FROM` to an address your provider lets you send from.
+   - The email settings. Organizers sign in with a link that we email to them, so you need working email to sign in. For most email providers, set `EMAIL_TRANSPORT=smtp`, fill in the `SMTP_` values, and set `EMAIL_FROM` to an address your provider lets you send from. To use Resend instead, set `EMAIL_TRANSPORT=resend` and `RESEND_API_KEY`.
 
    You do not need to change `DATABASE_URL`. Compose connects the app to its own database. To use a Postgres database you already run instead, set `EXTERNAL_DATABASE_URL`. Compose still starts its own database, which the app then does not use, so you still need `POSTGRES_PASSWORD`.
 
@@ -77,6 +77,8 @@ The easiest way to run your own OpenSignup is Docker Compose. It runs the web ap
 The site runs on port 3000. To use a different port, set `PORT` in `.env`. If people open the site on that port, put the port in `AUTH_URL` and `NEXT_PUBLIC_APP_URL` too. Compose does not set up HTTPS, so for a public site put a reverse proxy (for example Caddy or nginx) in front of it.
 
 When you change `.env`, run the same command again. Values that start with `NEXT_PUBLIC_` are built into the app, and `--build` picks up the new ones.
+
+Organizers can connect AI assistants with no extra setup, as long as `AUTH_URL` is your site's HTTPS address. See [For self-hosters](docs/connect-ai-assistant.md#for-self-hosters).
 
 ### If something goes wrong
 
@@ -93,10 +95,6 @@ You can run the image from the `Dockerfile` on any container host, or run the ap
 
 All settings are environment variables, listed in `.env.example`. For Fly.io, start from `fly.example.toml`.
 
-Email can go out through SMTP or Resend, or to the logs (`console`) for development. OpenSignup needs no other outside accounts.
-
-Organizers can connect an AI assistant (Claude, ChatGPT, any MCP client) to their account over OAuth — see [`docs/connect-ai-assistant.md`](docs/connect-ai-assistant.md). Nothing to configure beyond a correct `AUTH_URL`.
-
 ### Branding your instance
 
 The footer and the privacy, terms and cookies pages show your details, not the OpenSignup project's. They come from these values:
@@ -107,7 +105,7 @@ The footer and the privacy, terms and cookies pages show your details, not the O
 - `NEXT_PUBLIC_GOVERNING_LAW`: the jurisdiction for your terms of service (required)
 - `NEXT_PUBLIC_OPERATOR_NAME`: your name or organisation, shown as the data controller (optional; without it the pages say "the operator of this instance")
 
-If a required value is missing, the build stops with an error. That is on purpose: a failed build is better than a site that shows someone else's contact email or jurisdiction. Local development (`pnpm dev`) is the exception: it shows placeholders such as "OpenSignup (dev)" instead, so the Quickstart works before you fill these in.
+If a required value is missing, the build stops with an error. That is on purpose: a failed build is better than a site that shows someone else's contact email or jurisdiction. Local development (`pnpm dev`) is the exception: it shows placeholders such as "OpenSignup (dev)" instead, so you can [run it locally](#run-it-locally) before you fill these in.
 
 These values are built into the app, so they must be set when you build it. Setting them only when the app starts (for example with `docker run -e`) is too late:
 
@@ -116,10 +114,10 @@ These values are built into the app, so they must be set when you build it. Sett
 - **Fly.io**: copy the template (`cp fly.example.toml fly.toml`) and set your values under `[build.args]`. Git ignores `fly.toml`, so your settings stay out of the repository. `fly secrets` only apply when the app starts, so they do not work here.
 - **Local development** (`pnpm dev`): put them in `.env.local`. Next.js reads it each time it starts.
 
-## Status
-
-v1 — deliberately narrow. Organizers define custom fields per signup (text, date, time, number, or a fixed set of choices) instead of picking from a fixed slot type; capacity with race-safe commits; email reminders; magic-link auth for organizers only.
-
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). Contributors retain copyright on their contributions and license them under AGPL-3.0.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). To report a security issue, see [`SECURITY.md`](SECURITY.md).
+
+## License
+
+[AGPL-3.0](LICENSE). Contributors keep the copyright on their contributions and license them under the same terms. If you run a modified version of OpenSignup as a network service, the AGPL requires you to offer its source code to your users. See the [AGPL FAQ](https://www.gnu.org/licenses/agpl-3.0.html) for details.
