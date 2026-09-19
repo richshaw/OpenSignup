@@ -272,8 +272,12 @@ export async function reorderSlots(
   return db.transaction(async (tx) => {
     // The same lock `addSlotsBulk` takes, so the list is checked against the
     // slots the signup really has: a bulk add cannot slip a slot in between
-    // the check and the renumbering and end up tied with one of these.
-    await tx.execute(sql`select 1 from ${signups} where ${signups.id} = ${signupId} for update`);
+    // the check and the renumbering and end up tied with one of these. `no key
+    // update` for the reason given there: someone signing up must not deadlock
+    // with this.
+    await tx.execute(
+      sql`select 1 from ${signups} where ${signups.id} = ${signupId} for no key update`,
+    );
     const current = await listSlotsForSignup(tx, signupId);
     const known = new Set(current.map((s) => s.id));
 
