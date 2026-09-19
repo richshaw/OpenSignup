@@ -25,6 +25,10 @@ export const SlotBulkInputSchema = z.object({
     )
     .min(1)
     .max(500),
+  // Put the rows in front of this slot instead of at the end. Not allowed
+  // together with a row `sortOrder`; `addSlotsBulk` checks that, because a
+  // refinement here would hide `.shape` from the MCP tool that builds on it.
+  beforeSlotId: z.string().optional(),
 });
 export type SlotBulkInput = z.infer<typeof SlotBulkInputSchema>;
 
