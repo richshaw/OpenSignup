@@ -128,16 +128,24 @@ describe('create_signup', () => {
     expect(r.structuredContent).not.toHaveProperty('summary');
   });
 
-  it('returns the error when the signup cannot be read back', async () => {
+  // The signup exists by then, so an error would invite a retry that creates it twice.
+  it.each([
+    ['returns an error', () => Promise.resolve(err(serviceError('not_found', 'gone')))],
+    ['throws', () => Promise.reject(new Error('connection lost'))],
+  ])('still reports the create when reading it back %s', async (_how, readBack) => {
     svc.createSignup.mockResolvedValueOnce(ok(row));
-    svc.getSignupForOrganizer.mockResolvedValueOnce(err(serviceError('not_found', 'gone')));
+    svc.getSignupForOrganizer.mockImplementationOnce(readBack);
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const r = await client.callTool({
       name: 'create_signup',
       arguments: { title: 'x y', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{}] },
     });
-    expect(r.isError).toBe(true);
-    expect((r.structuredContent as { error: { code: string } }).error.code).toBe('not_found');
+    expect(r.isError).toBeFalsy();
+    const body = r.structuredContent as { signup: { id: string }; links: unknown; note: string };
+    expect(body.signup.id).toBe('sig_1');
+    expect(body.links).toEqual({ edit: 'e/sig_1', preview: 'v/sig_1', public: 'p/snack-rota' });
+    expect(body.note).toContain('get_signup');
+    expect(body).not.toHaveProperty('slots');
   });
 
   it('refuses a value that does not fit its field and creates nothing', async () => {

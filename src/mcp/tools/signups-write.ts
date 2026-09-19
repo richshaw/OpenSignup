@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { log } from '@/lib/log';
 import { persistDraft } from '@/lib/magic-compose/persist';
 import { FullDraftSchema } from '@/lib/magic-compose/prompt';
 import { requireWorkspaceWrite } from '@/lib/policy';
@@ -44,8 +45,20 @@ export const createSignupTool = defineTool({
     // Read it back so ids and order are the stored ones, exactly as get_signup
     // shows them. No `warnings`: a strict create refuses anything it cannot
     // represent, so there is never a dropped value left to report.
-    const found = await getSignupForOrganizer(ctx.db, ctx.actor, persisted.value.signup.id);
-    return found.ok ? ok(signupWithContents(found.value)) : found;
+    const { signup } = persisted.value;
+    const found = await getSignupForOrganizer(ctx.db, ctx.actor, signup.id).catch(
+      (error: unknown) => {
+        log.warn({ err: error, signupId: signup.id }, 'mcp: create_signup read-back failed');
+        return null;
+      },
+    );
+    if (found?.ok) return ok(signupWithContents(found.value));
+    // The signup exists by now. An error here would invite a retry that creates
+    // it twice, so report the create and point at get_signup for the rest.
+    return ok({
+      ...signupWithLinks(signup),
+      note: 'Created. Call get_signup with this id for its fields and slots.',
+    });
   },
 });
 
