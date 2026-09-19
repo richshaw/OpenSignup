@@ -10,10 +10,13 @@ import { slotOut } from './signups-read';
  * create_signup, and there is no sortOrder: an assistant asked for "at the
  * top" sent 0, tied with the slot already there and landed second. It says
  * which slot the rows go in front of instead, and the service does the numbers.
+ * Strict, so a sortOrder from an assistant that remembers the old input is
+ * refused: dropping it would put the slot last and report a success.
  */
 const SlotRowSchema = SlotBulkInputSchema.shape.rows.element
   .omit({ sortOrder: true })
-  .extend({ capacity: z.number().int().positive().nullable().default(1) });
+  .extend({ capacity: z.number().int().positive().nullable().default(1) })
+  .strict('A row takes values and capacity only. To place rows, pass beforeSlotId.');
 
 export const addSlotsTool = defineTool({
   name: 'add_slots',

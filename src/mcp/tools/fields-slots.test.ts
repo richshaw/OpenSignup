@@ -123,24 +123,32 @@ describe('slot tools', () => {
     });
   });
 
-  it('add_slots passes beforeSlotId through and never sends a row sortOrder', async () => {
+  it('add_slots passes beforeSlotId through', async () => {
     slots.addSlotsBulk.mockResolvedValueOnce(ok([slot]));
     const client = await connectTestClient(ctx, TOOLS);
     const r = await client.callTool({
       name: 'add_slots',
-      arguments: {
-        signupId: 'sig_1',
-        beforeSlotId: 'slot_9',
-        // An assistant that remembers the old input still sends this. Zod drops
-        // keys the row schema does not name, so the service never sees it.
-        rows: [{ values: { what: 'x' }, sortOrder: 0 }],
-      },
+      arguments: { signupId: 'sig_1', beforeSlotId: 'slot_9', rows: [{ values: { what: 'x' } }] },
     });
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
     expect(slots.addSlotsBulk).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
       rows: [{ values: { what: 'x' }, capacity: 1 }],
       beforeSlotId: 'slot_9',
     });
+  });
+
+  it('add_slots refuses a row sortOrder and points at beforeSlotId', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    // An assistant that remembers the old input sends this to mean "at the
+    // top". Dropping it quietly would put the slot last and call it a success.
+    const r = await client.callTool({
+      name: 'add_slots',
+      arguments: { signupId: 'sig_1', rows: [{ values: { what: 'x' }, sortOrder: 0 }] },
+    });
+    expect(r.isError).toBe(true);
+    expect(JSON.stringify(r.structuredContent)).toContain('invalid_input');
+    expect(JSON.stringify(r.structuredContent)).toContain('beforeSlotId');
+    expect(slots.addSlotsBulk).not.toHaveBeenCalled();
   });
 
   it('add_slots says where the rows go and offers beforeSlotId, not sortOrder', () => {
