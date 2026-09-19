@@ -270,11 +270,12 @@ export async function reorderSlots(
   requireWorkspaceWrite(actor, signupRow.workspaceId);
 
   return db.transaction(async (tx) => {
-    // The same lock `addSlotsBulk` takes, so the list is checked against the
-    // slots the signup really has: a bulk add cannot slip a slot in between
-    // the check and the renumbering and end up tied with one of these. `no key
-    // update` for the reason given there: someone signing up must not deadlock
-    // with this.
+    // The same lock `addSlotsBulk` takes, so a bulk add cannot slip a slot in
+    // between the check and the renumbering and end up tied with one of these.
+    // A single `addSlot` takes no lock and still can, but it numbers itself in
+    // epoch seconds, so it lands last and ties with nothing. `no key update`
+    // for the reason given there: someone signing up must not deadlock with
+    // this.
     await tx.execute(
       sql`select 1 from ${signups} where ${signups.id} = ${signupId} for no key update`,
     );

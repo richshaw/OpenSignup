@@ -555,6 +555,8 @@ describe('reorderSlots (db)', () => {
       // signup_id foreign key takes a key-share lock on the signup row.
       await tx.select().from(slots).where(eq(slots.id, idOf('a'))).for('update');
       moving = reorderSlots(fx.db, fx.actor, signupId, { slotIds: [idOf('b'), idOf('a')] });
+      // Awaited below. Until then a failure here must not count as unhandled.
+      moving.catch(() => undefined);
       // Long enough for the reorder to take the signup lock and queue behind
       // the slot. See the same test for `addSlotsBulk` above.
       await new Promise((resolve) => setTimeout(resolve, 300));
