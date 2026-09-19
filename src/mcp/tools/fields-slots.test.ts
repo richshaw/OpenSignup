@@ -123,6 +123,32 @@ describe('slot tools', () => {
     });
   });
 
+  it('add_slots passes beforeSlotId through and never sends a row sortOrder', async () => {
+    slots.addSlotsBulk.mockResolvedValueOnce(ok([slot]));
+    const client = await connectTestClient(ctx, TOOLS);
+    const r = await client.callTool({
+      name: 'add_slots',
+      arguments: {
+        signupId: 'sig_1',
+        beforeSlotId: 'slot_9',
+        // An assistant that remembers the old input still sends this. Zod drops
+        // keys the row schema does not name, so the service never sees it.
+        rows: [{ values: { what: 'x' }, sortOrder: 0 }],
+      },
+    });
+    expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    expect(slots.addSlotsBulk).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
+      rows: [{ values: { what: 'x' }, capacity: 1 }],
+      beforeSlotId: 'slot_9',
+    });
+  });
+
+  it('add_slots says where the rows go and offers beforeSlotId, not sortOrder', () => {
+    expect(addSlotsTool.description).toContain('beforeSlotId');
+    expect(addSlotsTool.description).toContain('at the end');
+    expect(addSlotsTool.description).not.toContain('sortOrder');
+  });
+
   it('update_slot addresses the slot by id', async () => {
     slots.updateSlot.mockResolvedValueOnce(ok({ ...slot, capacity: 4 }));
     const client = await connectTestClient(ctx, TOOLS);

@@ -273,6 +273,38 @@ describe('field and slot tools on Postgres', () => {
     expect(d.fields).toHaveLength(2);
   });
 
+  it('add_slots with beforeSlotId puts the new slot first, and get_signup agrees', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const created = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Insert before',
+        fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+        slots: [{ values: { what: 'a' } }, { values: { what: 'b' } }, { values: { what: 'c' } }],
+      },
+    });
+    expect(created.isError, JSON.stringify(created.structuredContent)).toBeFalsy();
+    type Shown = { id: string; values: { what: string }; sortOrder: number };
+    const c = created.structuredContent as { signup: { id: string }; slots: Shown[] };
+    const added = await client.callTool({
+      name: 'add_slots',
+      arguments: {
+        signupId: c.signup.id,
+        beforeSlotId: c.slots[0]!.id,
+        rows: [{ values: { what: 'new' } }],
+      },
+    });
+    expect(added.isError, JSON.stringify(added.structuredContent)).toBeFalsy();
+    expect((added.structuredContent as { slots: Shown[] }).slots[0]!.sortOrder).toBe(0);
+    const detail = await client.callTool({
+      name: 'get_signup',
+      arguments: { signupId: c.signup.id },
+    });
+    const d = detail.structuredContent as { slots: Shown[] };
+    expect(d.slots.map((s) => s.values.what)).toEqual(['new', 'a', 'b', 'c']);
+    expect(d.slots.map((s) => s.sortOrder)).toEqual([0, 1, 2, 3]);
+  });
+
   it('a viewer cannot add slots', async () => {
     const client = await connectTestClient(ctx, TOOLS);
     const id = await createVia(client, 'Viewer check');

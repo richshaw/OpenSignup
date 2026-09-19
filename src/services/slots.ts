@@ -107,23 +107,55 @@ export async function addSlotsBulk(
     if (!valid.ok) return valid;
   }
 
+  const { beforeSlotId } = data;
+  if (beforeSlotId !== undefined) {
+    const numbered = data.rows.findIndex((r) => r.sortOrder !== undefined);
+    if (numbered >= 0) {
+      return err(
+        serviceError('invalid_input', 'sortOrder cannot be used together with beforeSlotId', {
+          field: `rows.${numbered}.sortOrder`,
+          suggestion:
+            'leave sortOrder out: the rows go in front of beforeSlotId, in the order given',
+        }),
+      );
+    }
+  }
+
   const settings = (signupRow.settings as SignupSettingsLike) ?? {};
 
-  const inserted = await db.transaction(async (tx) => {
-    // Rows without an explicit order go after everything the signup already
-    // has, in the order given, so a bulk add appends instead of interleaving
-    // with the template's 0..n-1 (which is what defaulting to the array
-    // index did, and what `addField` had to fix for fields).
+  return db.transaction(async (tx) => {
     // Serialise appends per signup, the same way `addField` does: two bulk adds
     // running at once would otherwise read the same max and land on the same
     // sortOrder, leaving their order to the createdAt tiebreak. Released with
     // the transaction.
     await tx.execute(sql`select 1 from ${signups} where ${signups.id} = ${signupId} for update`);
-    const [top] = await tx
-      .select({ max: sql<number | null>`max(${slots.sortOrder})` })
-      .from(slots)
-      .where(eq(slots.signupId, signupId));
-    const base = (top?.max ?? -1) + 1;
+    let base: number;
+    let shown: SlotRow[] | undefined;
+    if (beforeSlotId !== undefined) {
+      // Read under the lock, so the position found here is still the target's
+      // position when the renumbering below runs.
+      shown = await listSlotsForSignup(tx, signupId);
+      base = shown.findIndex((s) => s.id === beforeSlotId);
+      if (base < 0) {
+        return err(
+          serviceError('invalid_input', 'beforeSlotId is not a slot in this signup', {
+            field: 'beforeSlotId',
+            received: beforeSlotId,
+            suggestion: 'call get_signup to see the ids of its slots, in the order they are shown',
+          }),
+        );
+      }
+    } else {
+      // Rows without an explicit order go after everything the signup already
+      // has, in the order given, so a bulk add appends instead of interleaving
+      // with the template's 0..n-1 (which is what defaulting to the array
+      // index did, and what `addField` had to fix for fields).
+      const [top] = await tx
+        .select({ max: sql<number | null>`max(${slots.sortOrder})` })
+        .from(slots)
+        .where(eq(slots.signupId, signupId));
+      base = (top?.max ?? -1) + 1;
+    }
     const out: SlotRow[] = [];
     for (const [index, row] of data.rows.entries()) {
       const slotAt = extractSlotAt(settings, fields, row.values);
@@ -145,16 +177,61 @@ export async function addSlotsBulk(
       if (created) out.push(created);
     }
 
+    if (shown) {
+      // The new rows already sit at the position they were given, base onwards.
+      // Everything else is renumbered around them rather than shifted up by
+      // the number of new rows: existing orders can be tied (a template's
+      // slots, or several sent as 0) or sparse (`addSlot` uses epoch seconds),
+      // and a shift would keep a tie and leave the new rows on the wrong side
+      // of it.
+      const ids = shown.map((s) => s.id);
+      ids.splice(base, 0, ...out.map((s) => s.id));
+      await writeSlotOrder(tx, signupId, ids);
+    }
+
     await recordActivity(tx, {
       signupId,
       workspaceId: signupRow.workspaceId,
       actor: activityActor(actor),
       eventType: 'slot.created',
-      payload: { count: out.length, bulk: true, slotIds: out.map((s) => s.id) },
+      payload: {
+        count: out.length,
+        bulk: true,
+        slotIds: out.map((s) => s.id),
+        ...(beforeSlotId !== undefined ? { beforeSlotId } : {}),
+      },
     });
-    return out;
+    return ok(out);
   });
-  return ok(inserted);
+}
+
+/**
+ * Number a signup's slots 0..n-1 in the order of `orderedIds`, writing only
+ * the rows whose order changes. The caller has already passed the policy guard
+ * and holds the signup row lock (`for update`), and `orderedIds` is every slot
+ * of the signup: a partial list would tie with the slots it leaves out.
+ */
+export async function writeSlotOrder(
+  tx: Queryable,
+  signupId: string,
+  orderedIds: string[],
+): Promise<void> {
+  if (orderedIds.length === 0) return;
+  // The ids travel as one JSON parameter: drizzle would spread a JS array into
+  // one placeholder per id, and 500 slots is a lot of placeholders.
+  const wanted = sql`jsonb_array_elements_text(${JSON.stringify(orderedIds)}::jsonb)
+    with ordinality as wanted(id, position)`;
+  await tx
+    .update(slots)
+    .set({ sortOrder: sql`(wanted.position - 1)::int`, updatedAt: new Date() })
+    .from(wanted)
+    .where(
+      and(
+        eq(slots.signupId, signupId),
+        sql`${slots.id} = wanted.id`,
+        sql`${slots.sortOrder} <> wanted.position - 1`,
+      ),
+    );
 }
 
 export async function updateSlot(
@@ -325,7 +402,7 @@ export async function deleteSlot(
   });
 }
 
-export async function listSlotsForSignup(db: Db, signupId: string) {
+export async function listSlotsForSignup(db: Queryable, signupId: string) {
   return db
     .select()
     .from(slots)
