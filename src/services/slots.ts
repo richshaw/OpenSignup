@@ -270,16 +270,17 @@ export async function reorderSlots(
   requireWorkspaceWrite(actor, signupRow.workspaceId);
 
   return db.transaction(async (tx) => {
-    // The same lock `addSlotsBulk` takes, so a bulk add cannot slip a slot in
-    // between the check and the renumbering and end up tied with one of these.
-    // A single `addSlot` takes no lock and still can, but it numbers itself in
-    // epoch seconds, so it lands last and ties with nothing. `no key update`
-    // for the reason given there: someone signing up must not deadlock with
-    // this.
+    // The same two locks as inserting before a slot, for the same reasons: the
+    // signup row keeps bulk adds and other reorders out (`no key update`, so
+    // someone signing up does not deadlock with this), and the slot rows make
+    // a delete or a browser `sortOrder` PATCH in flight finish first, so the
+    // list is checked against the slots the signup really has. A slot `addSlot`
+    // inserts meanwhile is not checked; with no sortOrder of its own it
+    // numbers itself in epoch seconds and stays last.
     await tx.execute(
       sql`select 1 from ${signups} where ${signups.id} = ${signupId} for no key update`,
     );
-    const current = await listSlotsForSignup(tx, signupId);
+    const current = await lockSlotsForSignup(tx, signupId);
     const known = new Set(current.map((s) => s.id));
 
     const seen = new Set<string>();

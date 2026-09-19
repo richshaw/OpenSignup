@@ -347,7 +347,7 @@ describe('addSlotsBulk beforeSlotId (db)', () => {
   });
 
   it('waits for a delete in flight, and refuses if the target is the slot that went', async () => {
-    const { signupId, idOf } = await makeSignup('Delete race', [0, 1, 2]);
+    const { signupId, idOf } = await makeSignup(fx, 'Delete race', [0, 1, 2]);
     let adding: ReturnType<typeof addSlotsBulk> | undefined;
     await fx.db.transaction(async (tx) => {
       // What `deleteSlot` does, held open: it takes the slot row, not the signup.
@@ -364,7 +364,7 @@ describe('addSlotsBulk beforeSlotId (db)', () => {
     const r = await adding!;
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toMatchObject({ code: 'invalid_input', field: 'beforeSlotId' });
-    expect(await shown(signupId)).toEqual({ names: ['a', 'c'], sortOrders: [0, 2] });
+    expect(await shown(fx, signupId)).toEqual({ names: ['a', 'c'], sortOrders: [0, 2] });
   });
 
   it('does not deadlock with someone signing up for a slot that has to move', async () => {
@@ -570,6 +570,34 @@ describe('reorderSlots (db)', () => {
     const r = await moving!;
     expect(r.ok, JSON.stringify(r)).toBe(true);
     expect((await shown(fx, signupId)).names).toEqual(['b', 'a']);
+  });
+
+  it('waits for a delete in flight, then refuses the list that still names the slot', async () => {
+    const { signupId, idOf } = await makeSignup(fx, 'Reorder delete race', [0, 1, 2]);
+    const wanted = [idOf('c'), idOf('b'), idOf('a')];
+    let moving: ReturnType<typeof reorderSlots> | undefined;
+    await fx.db.transaction(async (tx) => {
+      // What `deleteSlot` does, held open: it takes the slot row, not the signup.
+      await tx.delete(slots).where(eq(slots.id, idOf('b')));
+      moving = reorderSlots(fx.db, fx.actor, signupId, { slotIds: wanted });
+      moving.catch(() => undefined);
+      // Long enough for the reorder to read the slots. Reading without locking
+      // the rows would still see `b`, accept the list, and record an order
+      // that names a slot which no longer exists.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    const r = await moving!;
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toMatchObject({
+        code: 'invalid_input',
+        field: 'slotIds',
+        details: { unknown: [idOf('b')] },
+      });
+    }
+    expect(await shown(fx, signupId)).toEqual({ names: ['a', 'c'], sortOrders: [0, 2] });
+    const acts = await fx.db.select().from(activity).where(eq(activity.signupId, signupId));
+    expect(acts.filter((a) => a.eventType === 'slot.reordered')).toHaveLength(0);
   });
 
   it('records one slot.reordered row that carries the new order', async () => {
