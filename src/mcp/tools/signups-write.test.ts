@@ -47,7 +47,7 @@ vi.mock('@/lib/rate-limit', async (importOriginal) => {
   return { ...actual, consumeRateLimit: (...a: unknown[]) => consume(...a) };
 });
 vi.mock('@/mcp/links', () => ({
-  signupLinks: (r: { id: string; slug: string }) => ({ build: `b/${r.id}`, public: `p/${r.slug}` }),
+  signupLinks: (r: { id: string; slug: string }) => ({ edit: `e/${r.id}`, preview: `v/${r.id}`, public: `p/${r.slug}` }),
 }));
 
 const ctx = unitContext();
@@ -101,7 +101,7 @@ describe('create_signup', () => {
     expect(r.structuredContent).toMatchObject({
       signup: { id: 'sig_1', status: 'draft' },
       summary: { fieldsAdded: 2, slotsAdded: 2, groupByFieldRefs: [] },
-      links: { build: 'b/sig_1', public: 'p/snack-rota' },
+      links: { edit: 'e/sig_1', preview: 'v/sig_1', public: 'p/snack-rota' },
     });
   });
 
@@ -211,6 +211,13 @@ describe('status tools', () => {
     const r = await client.callTool({ name: tool, arguments: { signupId: 'sig_1' } });
     expect(r.isError).toBeFalsy();
     expect(svc[fn]).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1');
+  });
+
+  it('says which link to hand over before and after publishing', () => {
+    expect(createSignupTool.description).toContain('links.edit');
+    expect(createSignupTool.description).toContain('links.preview');
+    expect(createSignupTool.description).toContain('links.public');
+    expect(publishSignupTool.description).toContain('links.public');
   });
 
   it('delete_signup returns the signup without links', async () => {

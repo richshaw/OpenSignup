@@ -16,7 +16,8 @@ vi.mock('@/services/signups', () => ({
 }));
 vi.mock('@/mcp/links', () => ({
   signupLinks: (r: { id: string; slug: string }) => ({
-    build: `https://x/app/signups/${r.id}/build`,
+    edit: `https://x/app/signups/${r.id}/build`,
+    preview: `https://x/app/signups/${r.id}/preview`,
     public: `https://x/s/${r.slug}`,
   }),
 }));
@@ -82,7 +83,11 @@ describe('read tools', () => {
       closesAt: null,
       createdAt: '2026-09-01T00:00:00.000Z',
       updatedAt: '2026-09-02T00:00:00.000Z',
-      links: { build: 'https://x/app/signups/sig_1/build', public: 'https://x/s/bake-sale' },
+      links: {
+        edit: 'https://x/app/signups/sig_1/build',
+        preview: 'https://x/app/signups/sig_1/preview',
+        public: 'https://x/s/bake-sale',
+      },
     });
     expect(JSON.stringify(body)).not.toContain('Bring cakes');
   });
@@ -131,7 +136,17 @@ describe('read tools', () => {
     expect(body.signup).not.toHaveProperty('links');
     expect(body.slots[0]).toEqual({ id: 'slot_1', values: { what: 'Cake' }, capacity: 3, filled: 2, status: 'open', sortOrder: 0 });
     expect(body.fields).toHaveLength(1);
-    expect(body.links).toEqual({ build: 'https://x/app/signups/sig_1/build', public: 'https://x/s/bake-sale' });
+    expect(body.links).toEqual({
+      edit: 'https://x/app/signups/sig_1/build',
+      preview: 'https://x/app/signups/sig_1/preview',
+      public: 'https://x/s/bake-sale',
+    });
+  });
+
+  it('get_signup names the links it returns', () => {
+    expect(getSignup.description).toContain('links.edit');
+    expect(getSignup.description).toContain('links.preview');
+    expect(getSignup.description).not.toContain('build page');
   });
 
   it('a wrong argument type comes back as a structured invalid_input, not the SDK text error', async () => {
