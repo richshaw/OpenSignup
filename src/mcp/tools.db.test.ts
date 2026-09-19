@@ -123,11 +123,20 @@ describe('signup write tools on Postgres', () => {
       },
     });
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
-    const body = r.structuredContent as { signup: { id: string } };
+    const body = r.structuredContent as {
+      signup: { id: string };
+      fields: { id: string; ref: string }[];
+      slots: { id: string; values: Record<string, unknown>; filled: number }[];
+    };
+    expect(body).not.toHaveProperty('summary');
+    expect(body.fields.map((f) => f.ref)).toEqual(['date', 'what']);
+    expect(body.slots.map((s) => s.values.what)).toEqual(['Fruit', 'Crackers']);
+    expect(body.slots.every((s) => s.id.startsWith('slot_') && s.filled === 0)).toBe(true);
+    // Same ids, same order, same shape as a read straight afterwards.
     const detail = await client.callTool({ name: 'get_signup', arguments: { signupId: body.signup.id } });
     const d = detail.structuredContent as { fields: unknown[]; slots: unknown[] };
-    expect(d.fields).toHaveLength(2);
-    expect(d.slots).toHaveLength(2);
+    expect(d.fields).toEqual(body.fields);
+    expect(d.slots).toEqual(body.slots);
     const [act] = await db
       .select()
       .from(activity)
