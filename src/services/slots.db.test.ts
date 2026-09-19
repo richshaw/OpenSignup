@@ -333,6 +333,8 @@ describe('addSlotsBulk beforeSlotId (db)', () => {
         rows: [{ values: { what: 'top' } }],
         beforeSlotId: idOf('a'),
       });
+      // Awaited below. Until then a failure here must not count as unhandled.
+      adding.catch(() => undefined);
       // Long enough for the add to take the signup lock and queue behind the
       // slot. A `for update` signup lock would now block the insert below, and
       // Postgres would break the cycle by failing one of the two.

@@ -213,8 +213,9 @@ export async function addSlotsBulk(
 /**
  * Number a signup's slots 0..n-1 in the order of `orderedIds`, writing only
  * the rows whose order changes. The caller has already passed the policy guard
- * and holds the signup row lock (`for update`), and `orderedIds` is every slot
- * of the signup: a partial list would tie with the slots it leaves out.
+ * and holds the signup row lock (`for no key update`), and `orderedIds` is
+ * every slot of the signup: a partial list would tie with the slots it leaves
+ * out.
  */
 export async function writeSlotOrder(
   tx: Queryable,
