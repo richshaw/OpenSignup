@@ -4,7 +4,9 @@ import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
+import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { recordActivity } from '@/lib/activity';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
@@ -318,6 +320,33 @@ describe('addSlotsBulk beforeSlotId (db)', () => {
       names: ['top1', 'top2', 'a', 'b', 'c', 'end1', 'end2'],
       sortOrders: [0, 1, 2, 3, 4, 5, 6],
     });
+  });
+
+  it('does not deadlock with someone signing up for a slot that has to move', async () => {
+    const { signupId, idOf } = await makeSignup('Commit race', [0, 1]);
+    let adding: ReturnType<typeof addSlotsBulk> | undefined;
+    await fx.db.transaction(async (tx) => {
+      // What `commitToSlot` does: lock the slot, then insert rows whose
+      // signup_id foreign key takes a key-share lock on the signup row.
+      await tx.select().from(slots).where(eq(slots.id, idOf('a'))).for('update');
+      adding = addSlotsBulk(fx.db, fx.actor, signupId, {
+        rows: [{ values: { what: 'top' } }],
+        beforeSlotId: idOf('a'),
+      });
+      // Long enough for the add to take the signup lock and queue behind the
+      // slot. A `for update` signup lock would now block the insert below, and
+      // Postgres would break the cycle by failing one of the two.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await recordActivity(tx, {
+        signupId,
+        workspaceId: fx.workspaceId,
+        actor: { actorId: null, actorType: 'system' },
+        eventType: 'slot.updated',
+      });
+    });
+    const r = await adding!;
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    expect((await shown(signupId)).names).toEqual(['top', 'a', 'b']);
   });
 
   it('records one slot.created row that names the slot it went in front of', async () => {

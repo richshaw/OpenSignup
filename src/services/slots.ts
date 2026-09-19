@@ -127,8 +127,13 @@ export async function addSlotsBulk(
     // Serialise appends per signup, the same way `addField` does: two bulk adds
     // running at once would otherwise read the same max and land on the same
     // sortOrder, leaving their order to the createdAt tiebreak. Released with
-    // the transaction.
-    await tx.execute(sql`select 1 from ${signups} where ${signups.id} = ${signupId} for update`);
+    // the transaction. `no key update`, not `update`: inserting before a slot
+    // renumbers slot rows, and someone signing up holds their slot row while
+    // their commitment's signup_id foreign key key-shares this one. A full
+    // `for update` blocks that key-share, and the two deadlock.
+    await tx.execute(
+      sql`select 1 from ${signups} where ${signups.id} = ${signupId} for no key update`,
+    );
     let base: number;
     let shown: SlotRow[] | undefined;
     if (beforeSlotId !== undefined) {
