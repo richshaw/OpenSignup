@@ -44,14 +44,23 @@ export const addSlotsTool = defineTool({
   },
 });
 
+/**
+ * Like the REST update, without sortOrder: one slot's number set on its own can
+ * tie with another's. The browser sends both halves of a swap; an assistant
+ * sent one, so it gets reorder_slots, which takes the whole order.
+ */
+const SlotUpdateSchema = SlotUpdateInputSchema.omit({ sortOrder: true })
+  .extend({ slotId: z.string() })
+  .strict('update_slot takes values, capacity and status. To reorder, call reorder_slots.');
+
 export const updateSlotTool = defineTool({
   name: 'update_slot',
   scope: 'signups:write',
   title: 'Update slot',
   description:
-    "Change a slot's values, capacity (a number, or null for unlimited), order or status (open or closed). Pass only what changes. If you pass values, they replace all of the slot's values, so include every field.",
+    "Change a slot's values, capacity (a number, or null for unlimited) or status (open or closed). Pass only what changes. If you pass values, they replace all of the slot's values, so include every field. To change the order slots are shown in, call reorder_slots.",
   annotations: {},
-  inputSchema: SlotUpdateInputSchema.extend({ slotId: z.string() }),
+  inputSchema: SlotUpdateSchema,
   handler: async (ctx, input) => {
     const { slotId, ...rest } = input;
     const r = await updateSlot(ctx.db, ctx.actor, slotId, rest);
