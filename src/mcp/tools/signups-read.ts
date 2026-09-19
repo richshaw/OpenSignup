@@ -54,6 +54,19 @@ export function signupDetail(row: SignupRow) {
   };
 }
 
+/** A signup with its fields, slots and links: what get_signup and create_signup return. */
+export function signupWithContents(
+  found: SignupWithSlots & { committedBySlot?: Record<string, number> },
+) {
+  const { slots, fields, committedBySlot: filled = {}, ...row } = found;
+  return {
+    signup: signupDetail(row),
+    fields: fields.map(fieldOut),
+    slots: slots.map((s) => ({ ...slotOut(s), filled: filled[s.id] ?? 0 })),
+    links: signupLinks(row),
+  };
+}
+
 export const listSignups = defineTool({
   name: 'list_signups',
   scope: 'signups:read',
@@ -89,13 +102,6 @@ export const getSignup = defineTool({
   inputSchema: z.object({ signupId: z.string() }),
   handler: async (ctx, input) => {
     const found = await getSignupForOrganizer(ctx.db, ctx.actor, input.signupId, { includeFilled: true });
-    if (!found.ok) return found;
-    const { slots, fields, committedBySlot: filled = {}, ...row } = found.value;
-    return ok({
-      signup: signupDetail(row),
-      fields: fields.map(fieldOut),
-      slots: slots.map((s) => ({ ...slotOut(s), filled: filled[s.id] ?? 0 })),
-      links: signupLinks(row),
-    });
+    return found.ok ? ok(signupWithContents(found.value)) : found;
   },
 });

@@ -58,6 +58,19 @@ const row = signupRow({
   settings: { groupByFieldRefs: ['date'], sendReminders: true, requireEmail: true },
 });
 
+/** What the read service hands back for the signup `create_signup` just made. */
+const created = {
+  ...row,
+  fields: [
+    { id: 'fld_1', ref: 'date', label: 'Date', fieldType: 'date', sortOrder: 0, config: {} },
+    { id: 'fld_2', ref: 'what', label: 'What', fieldType: 'text', sortOrder: 1, config: {} },
+  ],
+  slots: [
+    { id: 'slot_1', values: { what: 'Fruit' }, capacity: 2, status: 'open', sortOrder: 0 },
+    { id: 'slot_2', values: { what: 'Crackers' }, capacity: null, status: 'open', sortOrder: 1 },
+  ],
+};
+
 beforeEach(() => {
   for (const f of Object.values(svc)) f.mockReset();
   consume.mockClear();
@@ -66,6 +79,7 @@ beforeEach(() => {
 describe('create_signup', () => {
   it('converts the draft, meters the organizer, and creates everything in one call', async () => {
     svc.createSignup.mockResolvedValueOnce(ok(row));
+    svc.getSignupForOrganizer.mockResolvedValueOnce(ok(created));
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const r = await client.callTool({
       name: 'create_signup',
@@ -98,11 +112,32 @@ describe('create_signup', () => {
     expect(opts.template.id).toBe('mcp');
     expect(opts.template.fields).toHaveLength(2);
     expect(opts.template.slots).toHaveLength(2);
+    // The slots come from a read of what was stored, not from the input.
+    expect(svc.getSignupForOrganizer).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1');
     expect(r.structuredContent).toMatchObject({
       signup: { id: 'sig_1', status: 'draft' },
-      summary: { fieldsAdded: 2, slotsAdded: 2, groupByFieldRefs: [] },
+      fields: [
+        { id: 'fld_1', ref: 'date' },
+        { id: 'fld_2', ref: 'what' },
+      ],
       links: { edit: 'e/sig_1', preview: 'v/sig_1', public: 'p/snack-rota' },
     });
+    expect((r.structuredContent as { slots: unknown[] }).slots).toEqual(
+      created.slots.map((s) => ({ ...s, filled: 0 })),
+    );
+    expect(r.structuredContent).not.toHaveProperty('summary');
+  });
+
+  it('returns the error when the signup cannot be read back', async () => {
+    svc.createSignup.mockResolvedValueOnce(ok(row));
+    svc.getSignupForOrganizer.mockResolvedValueOnce(err(serviceError('not_found', 'gone')));
+    const client = await connectTestClient(ctx, WRITE_TOOLS);
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: { title: 'x y', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{}] },
+    });
+    expect(r.isError).toBe(true);
+    expect((r.structuredContent as { error: { code: string } }).error.code).toBe('not_found');
   });
 
   it('refuses a value that does not fit its field and creates nothing', async () => {
@@ -217,6 +252,8 @@ describe('status tools', () => {
     expect(createSignupTool.description).toContain('links.edit');
     expect(createSignupTool.description).toContain('links.preview');
     expect(createSignupTool.description).toContain('links.public');
+    expect(createSignupTool.description).toMatch(/table/);
+    expect(createSignupTool.description).toMatch(/slot.*\bid\b/);
     expect(publishSignupTool.description).toContain('links.public');
   });
 
