@@ -10,7 +10,7 @@ import {
   publishSignupTool,
   updateSignupTool,
 } from './signups-write';
-import { addSlotsTool, deleteSlotTool, updateSlotTool } from './slots';
+import { addSlotsTool, deleteSlotTool, reorderSlotsTool, updateSlotTool } from './slots';
 import { listWorkspaces } from './workspaces';
 
 /** Every tool the server exposes, in the order `tools/list` returns them. */
@@ -29,6 +29,7 @@ export const TOOLS: readonly ToolDefinition[] = [
   deleteFieldTool,
   addSlotsTool,
   updateSlotTool,
+  reorderSlotsTool,
   deleteSlotTool,
 ];
 

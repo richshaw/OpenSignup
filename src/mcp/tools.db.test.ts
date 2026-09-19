@@ -305,6 +305,46 @@ describe('field and slot tools on Postgres', () => {
     expect(d.slots.map((s) => s.sortOrder)).toEqual([0, 1, 2, 3]);
   });
 
+  it('reorder_slots reverses the slots, and a partial list changes nothing', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const created = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Reorder',
+        fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+        slots: [{ values: { what: 'a' } }, { values: { what: 'b' } }, { values: { what: 'c' } }],
+      },
+    });
+    expect(created.isError, JSON.stringify(created.structuredContent)).toBeFalsy();
+    type Shown = { id: string; values: { what: string }; sortOrder: number };
+    const c = created.structuredContent as { signup: { id: string }; slots: Shown[] };
+    const reversed = c.slots.map((s) => s.id).reverse();
+    const moved = await client.callTool({
+      name: 'reorder_slots',
+      arguments: { signupId: c.signup.id, slotIds: reversed },
+    });
+    expect(moved.isError, JSON.stringify(moved.structuredContent)).toBeFalsy();
+    const m = moved.structuredContent as { slots: Shown[] };
+    expect(m.slots.map((s) => s.id)).toEqual(reversed);
+
+    const partial = await client.callTool({
+      name: 'reorder_slots',
+      arguments: { signupId: c.signup.id, slotIds: reversed.slice(1) },
+    });
+    expect(partial.isError).toBe(true);
+    expect(partial.structuredContent).toMatchObject({
+      error: { code: 'invalid_input', field: 'slotIds', details: { missing: [reversed[0]] } },
+    });
+
+    const detail = await client.callTool({
+      name: 'get_signup',
+      arguments: { signupId: c.signup.id },
+    });
+    const d = detail.structuredContent as { slots: Shown[] };
+    expect(d.slots.map((s) => s.values.what)).toEqual(['c', 'b', 'a']);
+    expect(d.slots.map((s) => s.sortOrder)).toEqual([0, 1, 2]);
+  });
+
   it('a viewer cannot add slots', async () => {
     const client = await connectTestClient(ctx, TOOLS);
     const id = await createVia(client, 'Viewer check');

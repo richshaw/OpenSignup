@@ -32,6 +32,13 @@ export const SlotBulkInputSchema = z.object({
 });
 export type SlotBulkInput = z.infer<typeof SlotBulkInputSchema>;
 
+// Every slot id of the signup, in the order they should be shown. Nothing caps
+// slots per signup, so the ceiling is only there to bound the request.
+export const SlotReorderInputSchema = z.object({
+  slotIds: z.array(z.string()).min(1).max(5000),
+});
+export type SlotReorderInput = z.infer<typeof SlotReorderInputSchema>;
+
 export const SlotUpdateInputSchema = z
   .object({
     values: SlotValuesSchema.optional(),
