@@ -230,6 +230,25 @@ describe('slot tools', () => {
     expect((r.structuredContent as { slot: { capacity: number } }).slot.capacity).toBe(4);
   });
 
+  it('update_slot refuses a sortOrder and points at reorder_slots', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    // One slot's number on its own can tie with another's, which is how a slot
+    // meant for the top landed second.
+    const r = await client.callTool({
+      name: 'update_slot',
+      arguments: { slotId: 'slot_1', sortOrder: 0 },
+    });
+    expect(r.isError).toBe(true);
+    expect(JSON.stringify(r.structuredContent)).toContain('invalid_input');
+    expect(JSON.stringify(r.structuredContent)).toContain('reorder_slots');
+    expect(slots.updateSlot).not.toHaveBeenCalled();
+  });
+
+  it('update_slot sends order changes to reorder_slots', () => {
+    expect(updateSlotTool.description).toContain('reorder_slots');
+    expect(updateSlotTool.description).not.toContain('sortOrder');
+  });
+
   it('delete_slot asks the service not to force unless told, and relays the conflict', async () => {
     slots.deleteSlot.mockResolvedValueOnce(err(serviceError('conflict', '2 people have signed up for this slot', { details: { filled: 2 } })));
     const client = await connectTestClient(ctx, TOOLS);

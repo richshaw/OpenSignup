@@ -345,6 +345,39 @@ describe('field and slot tools on Postgres', () => {
     expect(d.slots.map((s) => s.sortOrder)).toEqual([0, 1, 2]);
   });
 
+  it('update_slot refuses a sortOrder, names reorder_slots, and the order stays put', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const created = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'No single numbers',
+        fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+        slots: [{ values: { what: 'a' } }, { values: { what: 'b' } }],
+      },
+    });
+    expect(created.isError, JSON.stringify(created.structuredContent)).toBeFalsy();
+    type Shown = { id: string; values: { what: string }; sortOrder: number };
+    const c = created.structuredContent as { signup: { id: string }; slots: Shown[] };
+
+    const r = await client.callTool({
+      name: 'update_slot',
+      arguments: { slotId: c.slots[1]!.id, sortOrder: 0 },
+    });
+    expect(r.isError).toBe(true);
+    expect(r.structuredContent).toMatchObject({ error: { code: 'invalid_input' } });
+    expect(JSON.stringify(r.structuredContent)).toContain('reorder_slots');
+
+    const detail = await client.callTool({
+      name: 'get_signup',
+      arguments: { signupId: c.signup.id },
+    });
+    const d = detail.structuredContent as { slots: Shown[] };
+    expect(d.slots.map((s) => [s.values.what, s.sortOrder])).toEqual([
+      ['a', 0],
+      ['b', 1],
+    ]);
+  });
+
   it('a viewer cannot add slots', async () => {
     const client = await connectTestClient(ctx, TOOLS);
     const id = await createVia(client, 'Viewer check');
