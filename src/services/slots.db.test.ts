@@ -11,7 +11,14 @@ import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
-import { addSlot, addSlotsBulk, listSlotsForSignup, updateSlot } from '@/services/slots';
+import {
+  addSlot,
+  addSlotsBulk,
+  deleteSlot,
+  listSlotsForSignup,
+  updateSlot,
+  writeSlotOrder,
+} from '@/services/slots';
 
 interface Fixture {
   db: Db;
@@ -320,6 +327,22 @@ describe('addSlotsBulk beforeSlotId (db)', () => {
       names: ['top1', 'top2', 'a', 'b', 'c', 'end1', 'end2'],
       sortOrders: [0, 1, 2, 3, 4, 5, 6],
     });
+  });
+
+  it('a slot deleted or added without the lock leaves a gap or lands last, not a tie', async () => {
+    const { signupId, idOf } = await makeSignup('Stale list', [0, 1, 2]);
+    // The list an insert-before read, before two single-slot calls that do not
+    // take the signup lock got in ahead of its renumbering.
+    const stale = [idOf('c'), idOf('b'), idOf('a')];
+    expect((await deleteSlot(fx.db, fx.actor, idOf('b'))).ok).toBe(true);
+    expect((await addSlot(fx.db, fx.actor, signupId, { values: { what: 'late' } })).ok).toBe(true);
+
+    await fx.db.transaction((tx) => writeSlotOrder(tx, signupId, stale));
+
+    const after = await shown(signupId);
+    expect(after.names).toEqual(['c', 'a', 'late']);
+    expect(after.sortOrders.slice(0, 2)).toEqual([0, 2]);
+    expect(new Set(after.sortOrders).size).toBe(3);
   });
 
   it('does not deadlock with someone signing up for a slot that has to move', async () => {

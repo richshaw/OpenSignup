@@ -137,8 +137,13 @@ export async function addSlotsBulk(
     let base: number;
     let shown: SlotRow[] | undefined;
     if (beforeSlotId !== undefined) {
-      // Read under the lock, so the position found here is still the target's
-      // position when the renumbering below runs.
+      // Read under the lock, so no bulk add or reorder moves the target between
+      // here and the renumbering below. The single-slot services do not take
+      // the lock, and do not need to for the order to stay free of ties: a slot
+      // from `addSlot` numbers itself in epoch seconds and stays last, and one
+      // deleted meanwhile just leaves a gap. A `sortOrder` the browser PATCHes
+      // in that window is last-writer-wins against this, as it already is
+      // against another browser tab.
       shown = await listSlotsForSignup(tx, signupId);
       base = shown.findIndex((s) => s.id === beforeSlotId);
       if (base < 0) {
