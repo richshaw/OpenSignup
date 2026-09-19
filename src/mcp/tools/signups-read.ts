@@ -84,7 +84,7 @@ export const getSignup = defineTool({
   scope: 'signups:read',
   title: 'Get signup',
   description:
-    'One signup with its fields (the columns every slot has), its slots (each with values keyed by field ref, capacity, and how many places are filled), and links to the build page and the public page. Never includes who signed up.',
+    'One signup with its fields (the columns every slot has), its slots (each with values keyed by field ref, capacity, and how many places are filled), and links: links.edit to change it, links.preview to see what participants will see, and links.public to share with participants once it is published. Never includes who signed up.',
   annotations: { readOnlyHint: true },
   inputSchema: z.object({ signupId: z.string() }),
   handler: async (ctx, input) => {

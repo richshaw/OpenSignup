@@ -22,7 +22,7 @@ export const createSignupTool = defineTool({
   name: 'create_signup',
   scope: 'signups:write',
   title: 'Create signup',
-  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see; call publish_signup when the organizer is ready. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field makes the whole call fail with invalid_input and nothing is created, so fix the value and call again.`,
+  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see; call publish_signup when the organizer is ready. Afterwards give the organizer links.edit to change it and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field makes the whole call fail with invalid_input and nothing is created, so fix the value and call again.`,
   annotations: {},
   inputSchema: FullDraftSchema.extend({
     workspaceId: z.string().min(1).optional().describe('Defaults to the account default workspace.'),
@@ -107,7 +107,7 @@ function statusTool(
 export const publishSignupTool = statusTool(
   'publish_signup',
   'Publish signup',
-  'Make a draft signup live so participants can sign up at the public link. Only a draft can be published. Confirm with the organizer first.',
+  'Make a draft signup live so participants can sign up at the public link. Only a draft can be published. Confirm with the organizer first. Once it is published, links.public is the link to share with participants.',
   {},
   publishSignup,
 );

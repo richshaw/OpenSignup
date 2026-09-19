@@ -18,7 +18,7 @@ vi.mock('@/services/slots', () => ({
   updateSlot: (...a: unknown[]) => slots.updateSlot(...a),
   deleteSlot: (...a: unknown[]) => slots.deleteSlot(...a),
 }));
-vi.mock('@/mcp/links', () => ({ signupLinks: () => ({ build: 'b', public: 'p' }) }));
+vi.mock('@/mcp/links', () => ({ signupLinks: () => ({ edit: 'e', preview: 'v', public: 'p' }) }));
 
 const TOOLS = [addFieldTool, updateFieldTool, deleteFieldTool, addSlotsTool, updateSlotTool, deleteSlotTool];
 const ctx = unitContext();
