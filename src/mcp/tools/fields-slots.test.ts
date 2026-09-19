@@ -4,10 +4,15 @@ import { serviceError } from '@/lib/errors';
 import { connectTestClient } from '../testing/client';
 import { unitContext } from '../testing/fixtures';
 import { addFieldTool, deleteFieldTool, updateFieldTool } from './fields';
-import { addSlotsTool, deleteSlotTool, updateSlotTool } from './slots';
+import { addSlotsTool, deleteSlotTool, reorderSlotsTool, updateSlotTool } from './slots';
 
 const fields = { addField: vi.fn(), updateField: vi.fn(), deleteField: vi.fn() };
-const slots = { addSlotsBulk: vi.fn(), updateSlot: vi.fn(), deleteSlot: vi.fn() };
+const slots = {
+  addSlotsBulk: vi.fn(),
+  updateSlot: vi.fn(),
+  deleteSlot: vi.fn(),
+  reorderSlots: vi.fn(),
+};
 vi.mock('@/services/slot-fields', () => ({
   addField: (...a: unknown[]) => fields.addField(...a),
   updateField: (...a: unknown[]) => fields.updateField(...a),
@@ -17,10 +22,19 @@ vi.mock('@/services/slots', () => ({
   addSlotsBulk: (...a: unknown[]) => slots.addSlotsBulk(...a),
   updateSlot: (...a: unknown[]) => slots.updateSlot(...a),
   deleteSlot: (...a: unknown[]) => slots.deleteSlot(...a),
+  reorderSlots: (...a: unknown[]) => slots.reorderSlots(...a),
 }));
 vi.mock('@/mcp/links', () => ({ signupLinks: () => ({ edit: 'e', preview: 'v', public: 'p' }) }));
 
-const TOOLS = [addFieldTool, updateFieldTool, deleteFieldTool, addSlotsTool, updateSlotTool, deleteSlotTool];
+const TOOLS = [
+  addFieldTool,
+  updateFieldTool,
+  deleteFieldTool,
+  addSlotsTool,
+  updateSlotTool,
+  deleteSlotTool,
+  reorderSlotsTool,
+];
 const ctx = unitContext();
 const field = {
   id: 'fld_1',
@@ -155,6 +169,57 @@ describe('slot tools', () => {
     expect(addSlotsTool.description).toContain('beforeSlotId');
     expect(addSlotsTool.description).toContain('at the end');
     expect(addSlotsTool.description).not.toContain('sortOrder');
+  });
+
+  it('reorder_slots strips signupId and returns the slots in the new order', async () => {
+    slots.reorderSlots.mockResolvedValueOnce(
+      ok([
+        { ...slot, id: 'slot_2', sortOrder: 0 },
+        { ...slot, id: 'slot_1', sortOrder: 1 },
+      ]),
+    );
+    const client = await connectTestClient(ctx, TOOLS);
+    const r = await client.callTool({
+      name: 'reorder_slots',
+      arguments: { signupId: 'sig_1', slotIds: ['slot_2', 'slot_1'] },
+    });
+    expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    expect(slots.reorderSlots).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
+      slotIds: ['slot_2', 'slot_1'],
+    });
+    expect(r.structuredContent).toEqual({
+      slots: [
+        { id: 'slot_2', values: { what: 'x' }, capacity: 1, status: 'open', sortOrder: 0 },
+        { id: 'slot_1', values: { what: 'x' }, capacity: 1, status: 'open', sortOrder: 1 },
+      ],
+    });
+  });
+
+  it('reorder_slots relays a refusal with what was wrong', async () => {
+    slots.reorderSlots.mockResolvedValueOnce(
+      err(
+        serviceError('invalid_input', 'slotIds must list every slot', {
+          field: 'slotIds',
+          details: { missing: ['slot_3'] },
+        }),
+      ),
+    );
+    const client = await connectTestClient(ctx, TOOLS);
+    const r = await client.callTool({
+      name: 'reorder_slots',
+      arguments: { signupId: 'sig_1', slotIds: ['slot_2', 'slot_1'] },
+    });
+    expect(r.isError).toBe(true);
+    expect(r.structuredContent).toMatchObject({
+      error: { code: 'invalid_input', field: 'slotIds', details: { missing: ['slot_3'] } },
+    });
+  });
+
+  it('reorder_slots asks for every slot id and says where to get them', () => {
+    expect(reorderSlotsTool.description).toContain('every slot id');
+    expect(reorderSlotsTool.description).toContain('get_signup');
+    expect(reorderSlotsTool.description).toContain('nothing changes');
+    expect(reorderSlotsTool.scope).toBe('signups:write');
   });
 
   it('update_slot addresses the slot by id', async () => {

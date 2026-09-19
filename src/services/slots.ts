@@ -14,6 +14,7 @@ import {
   type SlotUpdateInput,
   SlotBulkInputSchema,
   SlotCreateInputSchema,
+  SlotReorderInputSchema,
   SlotUpdateInputSchema,
 } from '@/schemas/slots';
 import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
@@ -242,6 +243,83 @@ export async function writeSlotOrder(
         sql`${slots.sortOrder} <> wanted.position - 1`,
       ),
     );
+}
+
+/**
+ * Put a signup's slots in a new order. `slotIds` has to be every slot of the
+ * signup exactly once: a partial list would leave the slots it skips tied with
+ * the ones it names, which is the state this exists to get out of.
+ */
+export async function reorderSlots(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+  rawInput: unknown,
+): Promise<Result<SlotRow[], ServiceError>> {
+  const input = parseInputSafe(SlotReorderInputSchema, rawInput);
+  if (!input.ok) return input;
+  const { slotIds } = input.value;
+
+  const signupRow = await db
+    .select()
+    .from(signups)
+    .where(eq(signups.id, signupId))
+    .limit(1)
+    .then((r) => r[0]);
+  if (!signupRow) return err(serviceError('not_found', 'signup not found'));
+  requireWorkspaceWrite(actor, signupRow.workspaceId);
+
+  return db.transaction(async (tx) => {
+    // The same two locks as inserting before a slot, for the same reasons: the
+    // signup row keeps bulk adds and other reorders out (`no key update`, so
+    // someone signing up does not deadlock with this), and the slot rows make
+    // a delete or a browser `sortOrder` PATCH in flight finish first, so the
+    // list is checked against the slots the signup really has. A slot `addSlot`
+    // inserts meanwhile is not checked; with no sortOrder of its own it
+    // numbers itself in epoch seconds and stays last.
+    await tx.execute(
+      sql`select 1 from ${signups} where ${signups.id} = ${signupId} for no key update`,
+    );
+    const current = await lockSlotsForSignup(tx, signupId);
+    const known = new Set(current.map((s) => s.id));
+
+    const seen = new Set<string>();
+    const duplicates = new Set<string>();
+    for (const id of slotIds) (seen.has(id) ? duplicates : seen).add(id);
+    const unknown = [...seen].filter((id) => !known.has(id));
+    const missing = current.filter((s) => !seen.has(s.id)).map((s) => s.id);
+    if (duplicates.size > 0 || unknown.length > 0 || missing.length > 0) {
+      return err(
+        serviceError('invalid_input', 'slotIds must list every slot of the signup exactly once', {
+          field: 'slotIds',
+          details: {
+            ...(missing.length > 0 ? { missing } : {}),
+            ...(unknown.length > 0 ? { unknown } : {}),
+            ...(duplicates.size > 0 ? { duplicates: [...duplicates] } : {}),
+          },
+          suggestion:
+            'call get_signup to see the ids of its slots, then send every one of them once, ' +
+            'in the order you want them shown',
+        }),
+      );
+    }
+
+    await writeSlotOrder(tx, signupId, slotIds);
+
+    // Recorded even when the order already matched: the organizer asked for
+    // this order, and a second code path to stay silent is not worth having.
+    await recordActivity(tx, {
+      signupId,
+      workspaceId: signupRow.workspaceId,
+      actor: activityActor(actor),
+      eventType: 'slot.reordered',
+      payload: { slotIds },
+    });
+
+    // Read back rather than patched in memory, so the rows carry the
+    // `updatedAt` the renumbering gave the ones that moved.
+    return ok(await listSlotsForSignup(tx, signupId));
+  });
 }
 
 export async function updateSlot(

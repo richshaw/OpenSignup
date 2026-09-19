@@ -32,6 +32,14 @@ export const SlotBulkInputSchema = z.object({
 });
 export type SlotBulkInput = z.infer<typeof SlotBulkInputSchema>;
 
+// Every slot id of the signup, in the order they should be shown. No maximum:
+// nothing caps slots per signup, so any ceiling here would make a signup above
+// it impossible to reorder. The MCP route's body cap is what bounds a request.
+export const SlotReorderInputSchema = z.object({
+  slotIds: z.array(z.string()).min(1),
+});
+export type SlotReorderInput = z.infer<typeof SlotReorderInputSchema>;
+
 export const SlotUpdateInputSchema = z
   .object({
     values: SlotValuesSchema.optional(),

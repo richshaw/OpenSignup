@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import { ok } from '@/lib/result';
-import { SlotBulkInputSchema, SlotUpdateInputSchema } from '@/schemas/slots';
-import { addSlotsBulk, deleteSlot, updateSlot } from '@/services/slots';
+import {
+  SlotBulkInputSchema,
+  SlotReorderInputSchema,
+  SlotUpdateInputSchema,
+} from '@/schemas/slots';
+import { addSlotsBulk, deleteSlot, reorderSlots, updateSlot } from '@/services/slots';
 import { defineTool } from '../registry';
 import { slotOut } from './signups-read';
 
@@ -67,4 +71,19 @@ export const deleteSlotTool = defineTool({
     force: z.boolean().default(false).describe('Remove the slot even if people have signed up for it.'),
   }),
   handler: (ctx, input) => deleteSlot(ctx.db, ctx.actor, input.slotId, { force: input.force }),
+});
+
+export const reorderSlotsTool = defineTool({
+  name: 'reorder_slots',
+  scope: 'signups:write',
+  title: 'Reorder slots',
+  description:
+    "Put a signup's slots in a new order in one call. Pass every slot id of the signup exactly once, in the order the organizer wants them shown. Get the ids from get_signup, or from the result of create_signup or add_slots. A list that leaves a slot out or names one twice is refused and nothing changes.",
+  annotations: {},
+  inputSchema: SlotReorderInputSchema.extend({ signupId: z.string() }),
+  handler: async (ctx, input) => {
+    const { signupId, ...rest } = input;
+    const r = await reorderSlots(ctx.db, ctx.actor, signupId, rest);
+    return r.ok ? ok({ slots: r.value.map(slotOut) }) : r;
+  },
 });
