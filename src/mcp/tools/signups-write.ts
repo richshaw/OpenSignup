@@ -24,7 +24,7 @@ export const createSignupTool = defineTool({
   name: 'create_signup',
   scope: 'signups:write',
   title: 'Create signup',
-  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see; call publish_signup when the organizer is ready. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. Afterwards show the organizer the slots as a table, with links.edit to change them and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field makes the whole call fail with invalid_input and nothing is created, so fix the value and call again.`,
+  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see; call publish_signup when the organizer is ready. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. If the result has a note instead of fields and slots, the signup was still created: call get_signup with its id, and do not create it again. Afterwards show the organizer the slots as a table, with links.edit to change them and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field makes the whole call fail with invalid_input and nothing is created, so fix the value and call again.`,
   annotations: {},
   inputSchema: FullDraftSchema.extend({
     workspaceId: z.string().min(1).optional().describe('Defaults to the account default workspace.'),
@@ -55,7 +55,9 @@ export const createSignupTool = defineTool({
     log.warn({ err: found.error, signupId: signup.id }, 'mcp: create_signup read-back failed');
     return ok({
       ...signupWithLinks(signup),
-      note: 'Created. Call get_signup with this id for its fields and slots.',
+      note:
+        'Created, but its fields and slots could not be read back. ' +
+        'Call get_signup with this id; do not create it again.',
     });
   },
 });

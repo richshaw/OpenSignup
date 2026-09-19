@@ -145,6 +145,8 @@ describe('create_signup', () => {
     expect(body.signup.id).toBe('sig_1');
     expect(body.links).toEqual({ edit: 'e/sig_1', preview: 'v/sig_1', public: 'p/snack-rota' });
     expect(body.note).toContain('get_signup');
+    expect(body.note).toContain('do not create it again');
+    expect(body).not.toHaveProperty('fields');
     expect(body).not.toHaveProperty('slots');
   });
 
@@ -263,6 +265,12 @@ describe('status tools', () => {
     expect(createSignupTool.description).toMatch(/table/);
     expect(createSignupTool.description).toMatch(/slot.*\bid\b/);
     expect(publishSignupTool.description).toContain('links.public');
+  });
+
+  it('says what a create_signup result without fields and slots means', () => {
+    expect(createSignupTool.description).toMatch(/note instead of fields and slots/);
+    expect(createSignupTool.description).toContain('get_signup with its id');
+    expect(createSignupTool.description).toContain('do not create it again');
   });
 
   it('delete_signup returns the signup without links', async () => {
