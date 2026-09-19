@@ -47,14 +47,12 @@ export const createSignupTool = defineTool({
     // represent, so there is never a dropped value left to report.
     const { signup } = persisted.value;
     const found = await getSignupForOrganizer(ctx.db, ctx.actor, signup.id).catch(
-      (error: unknown) => {
-        log.warn({ err: error, signupId: signup.id }, 'mcp: create_signup read-back failed');
-        return null;
-      },
+      (error: unknown) => ({ ok: false as const, error }),
     );
-    if (found?.ok) return ok(signupWithContents(found.value));
+    if (found.ok) return ok(signupWithContents(found.value));
     // The signup exists by now. An error here would invite a retry that creates
     // it twice, so report the create and point at get_signup for the rest.
+    log.warn({ err: found.error, signupId: signup.id }, 'mcp: create_signup read-back failed');
     return ok({
       ...signupWithLinks(signup),
       note: 'Created. Call get_signup with this id for its fields and slots.',
