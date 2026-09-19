@@ -345,6 +345,27 @@ describe('addSlotsBulk beforeSlotId (db)', () => {
     expect(new Set(after.sortOrders).size).toBe(3);
   });
 
+  it('waits for a delete in flight, and refuses if the target is the slot that went', async () => {
+    const { signupId, idOf } = await makeSignup('Delete race', [0, 1, 2]);
+    let adding: ReturnType<typeof addSlotsBulk> | undefined;
+    await fx.db.transaction(async (tx) => {
+      // What `deleteSlot` does, held open: it takes the slot row, not the signup.
+      await tx.delete(slots).where(eq(slots.id, idOf('b')));
+      adding = addSlotsBulk(fx.db, fx.actor, signupId, {
+        rows: [{ values: { what: 'x' } }],
+        beforeSlotId: idOf('b'),
+      });
+      adding.catch(() => undefined);
+      // Long enough for the add to read the slots. Reading without locking the
+      // rows would still see `b` and carry on as if it were there.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    const r = await adding!;
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatchObject({ code: 'invalid_input', field: 'beforeSlotId' });
+    expect(await shown(signupId)).toEqual({ names: ['a', 'c'], sortOrders: [0, 2] });
+  });
+
   it('does not deadlock with someone signing up for a slot that has to move', async () => {
     const { signupId, idOf } = await makeSignup('Commit race', [0, 1]);
     let adding: ReturnType<typeof addSlotsBulk> | undefined;

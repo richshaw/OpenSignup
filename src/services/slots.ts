@@ -137,14 +137,13 @@ export async function addSlotsBulk(
     let base: number;
     let shown: SlotRow[] | undefined;
     if (beforeSlotId !== undefined) {
-      // Read under the lock, so no bulk add or reorder moves the target between
-      // here and the renumbering below. The single-slot services do not take
-      // the lock, and do not need to for the order to stay free of ties: a slot
-      // from `addSlot` numbers itself in epoch seconds and stays last, and one
-      // deleted meanwhile just leaves a gap. A `sortOrder` the browser PATCHes
-      // in that window is last-writer-wins against this, as it already is
-      // against another browser tab.
-      shown = await listSlotsForSignup(tx, signupId);
+      // The signup lock keeps bulk adds and reorders out. The single-slot
+      // services do not take it, so the slot rows are locked too: a delete or a
+      // browser `sortOrder` PATCH in flight finishes first, and the target's
+      // position found here is still its position when the renumbering runs.
+      // A slot `addSlot` inserts meanwhile is not in this list; with no
+      // sortOrder of its own it numbers itself in epoch seconds and stays last.
+      shown = await lockSlotsForSignup(tx, signupId);
       base = shown.findIndex((s) => s.id === beforeSlotId);
       if (base < 0) {
         return err(
@@ -411,6 +410,21 @@ export async function deleteSlot(
     });
     return ok({ deleted: true, commitmentsRemoved });
   });
+}
+
+/**
+ * A signup's slots in the order they are shown, with every row locked until
+ * the transaction ends. Take the signup row lock first: `commitToSlot` and
+ * `deleteSlot` hold one slot row and then key-share the signup, so signup
+ * before slots is the only order that cannot deadlock with them.
+ */
+export async function lockSlotsForSignup(tx: Queryable, signupId: string) {
+  return tx
+    .select()
+    .from(slots)
+    .where(eq(slots.signupId, signupId))
+    .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt))
+    .for('update');
 }
 
 export async function listSlotsForSignup(db: Queryable, signupId: string) {
