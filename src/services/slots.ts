@@ -55,7 +55,8 @@ export async function addSlot(
     // gone is refused, and slot_at comes from the anchor as it now stands.
     // No slot row is held yet, so signup-then-slots holds.
     const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
-    if (!locked) return err(serviceError('not_found', 'signup not found'));
+    // A soft delete that committed while this waited, as `updateSignup` checks.
+    if (!locked || locked.deletedAt) return err(serviceError('not_found', 'signup not found'));
 
     const fields = await listFieldsForSignup(tx, signupId);
     const valid = validateSlotValues(fields, data.values);
@@ -130,7 +131,7 @@ export async function addSlotsBulk(
     // running at once would otherwise read the same max and land on the same
     // sortOrder, leaving their order to the createdAt tiebreak.
     const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
-    if (!locked) return err(serviceError('not_found', 'signup not found'));
+    if (!locked || locked.deletedAt) return err(serviceError('not_found', 'signup not found'));
 
     // Read under the lock, as in `addSlot`: a field delete or an anchor move
     // that this waited for has committed, and the rows are checked against the

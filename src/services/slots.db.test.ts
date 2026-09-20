@@ -9,7 +9,7 @@ import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
-import { createSignup, publishSignup, updateSignup } from '@/services/signups';
+import { createSignup, deleteSignup, publishSignup, updateSignup } from '@/services/signups';
 import { deleteField, listFieldsForSignup } from '@/services/slot-fields';
 import {
   addSlot,
@@ -771,6 +771,23 @@ describe('slot inserts and the signup lock (db)', () => {
     const r = await adding!;
     expect(r.ok, JSON.stringify(r)).toBe(false);
     if (!r.ok) expect(r.error).toMatchObject({ code: 'invalid_input', field: 'note' });
+    expect(await listSlotsForSignup(fx.db, signupId)).toEqual([]);
+  });
+
+  it('addSlot queued behind a signup delete is not_found, and inserts nothing', async () => {
+    const { signupId } = await makeDatedSignup(fx, 'Add during signup delete');
+    let adding: ReturnType<typeof addSlot> | undefined;
+    await fx.db.transaction(async (tx) => {
+      // The soft delete's update holds the signup row the way the lock does.
+      const gone = await deleteSignup(tx as unknown as Db, colleague, signupId);
+      expect(gone.ok, JSON.stringify(gone)).toBe(true);
+      // Still sees a live signup, since the delete has not committed.
+      adding = addSlot(fx.db, fx.actor, signupId, { values: { day: '2026-05-10' } });
+      await untilServiceBlockedOn(fx.db, tx, adding);
+    });
+    const r = await adding!;
+    expect(r.ok, JSON.stringify(r)).toBe(false);
+    if (!r.ok) expect(r.error).toMatchObject({ code: 'not_found' });
     expect(await listSlotsForSignup(fx.db, signupId)).toEqual([]);
   });
 });
