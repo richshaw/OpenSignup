@@ -358,20 +358,12 @@ export async function deleteField(
   requireWorkspaceWrite(actor, existing.workspaceId);
 
   await db.transaction(async (tx) => {
-    // Settings are read and rewritten inside the transaction, under a row
-    // lock: read outside it, a settings save landing in between would be
-    // overwritten here with a stale copy. The lock also serialises the
-    // re-anchor below against a concurrent add or retype on the same signup.
-    // `no key update`, not `update`: every slot row is written below, and a
-    // full lock deadlocks with someone signing up for one of them (see
-    // `addSlotsBulk` in ./slots.ts).
-    const signupRow = await tx
-      .select({ settings: signups.settings })
-      .from(signups)
-      .where(eq(signups.id, existing.signupId))
-      .for('no key update')
-      .limit(1)
-      .then((r) => r[0]);
+    // Settings are read and rewritten inside the transaction, under the
+    // signup lock: read outside it, a settings save landing in between would
+    // be overwritten here with a stale copy. The lock also serialises the
+    // re-anchor below against a concurrent `addField`, `updateSignup` or
+    // another delete. `updateField` does not take it yet.
+    const signupRow = await lockSignupForWrite(tx, existing.signupId);
     const currentSettings =
       (signupRow?.settings as {
         groupByFieldRefs?: string[];
