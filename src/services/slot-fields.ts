@@ -121,8 +121,9 @@ export function extractSlotAt(
 export async function recomputeSlotAtForSignup(
   tx: Tx,
   signupId: string,
+  workspaceId: string | null,
 ): Promise<{ updated: number }> {
-  const signupRow = await lockSignupForWrite(tx, signupId);
+  const signupRow = await lockSignupForWrite(tx, signupId, workspaceId);
   if (!signupRow) return { updated: 0 };
   const settings = (signupRow.settings as ReminderSettingsLike) ?? {};
   const fields = await listFieldsForSignup(tx, signupId);
@@ -183,7 +184,7 @@ export async function addField(
   const inserted = await db.transaction(async (tx) => {
     // Taken whatever the input: the re-anchor below reads settings and writes
     // them back, and a settings save landing in between would be lost.
-    await lockSignupForWrite(tx, signupId);
+    await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
 
     // An omitted sortOrder appends. The build page never sends one, and
     // defaulting it to 0 put every field it added ahead of the template's
@@ -221,7 +222,7 @@ export async function addField(
     // slot_at cache is rebuilt after every add. No-op when nothing resolves
     // differently.
     const anchor = await reanchor(tx, signupId, await listFieldsForSignup(tx, signupId));
-    await recomputeSlotAtForSignup(tx, signupId);
+    await recomputeSlotAtForSignup(tx, signupId, signupRow.workspaceId);
 
     await recordActivity(tx, {
       signupId,
@@ -303,7 +304,7 @@ export async function updateField(
     // The re-anchor below reads settings and writes them back, and the rebuild
     // writes slot rows: both need the signup lock, as in `addField`. Taken even
     // when neither runs. It is cheap, and the order stays the same for all.
-    await lockSignupForWrite(tx, existing.signupId);
+    await lockSignupForWrite(tx, existing.signupId, existing.workspaceId);
 
     // Read again under the lock. `deleteField` and another `updateField` take
     // it too, and either may have committed while this one waited: the field
@@ -355,7 +356,7 @@ export async function updateField(
         existing.signupId,
         await listFieldsForSignup(tx, existing.signupId),
       );
-      await recomputeSlotAtForSignup(tx, existing.signupId);
+      await recomputeSlotAtForSignup(tx, existing.signupId, existing.workspaceId);
     }
 
     const changes: Record<string, unknown> = {};
@@ -405,7 +406,7 @@ export async function deleteField(
     // be overwritten here with a stale copy. The lock also serialises the
     // re-anchor below against a concurrent add, retype or delete of a field
     // on the same signup: all three take it.
-    const signupRow = await lockSignupForWrite(tx, existing.signupId);
+    const signupRow = await lockSignupForWrite(tx, existing.signupId, existing.workspaceId);
     const currentSettings =
       (signupRow?.settings as {
         groupByFieldRefs?: string[];
@@ -444,7 +445,7 @@ export async function deleteField(
       existing.signupId,
       await listFieldsForSignup(tx, existing.signupId),
     );
-    await recomputeSlotAtForSignup(tx, existing.signupId);
+    await recomputeSlotAtForSignup(tx, existing.signupId, existing.workspaceId);
 
     await recordActivity(tx, {
       signupId: existing.signupId,

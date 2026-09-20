@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
@@ -21,13 +21,19 @@ import { slots } from '@/db/schema/slots';
  * afterwards.
  *
  * `tx` is a transaction, not `Queryable`: on the pool handle the lock would be
- * gone as soon as the select's own autocommit ended.
+ * gone as soon as the select's own autocommit ended. `workspaceId` is the one
+ * the caller passed to `requireWorkspaceWrite`, so the row is scoped to the
+ * workspace the actor was cleared for, like every other tenant-table query
+ * (null, which the guard lets through as guest scope, matches only a signup
+ * with no workspace).
  */
-export async function lockSignupForWrite(tx: Tx, signupId: string) {
+export async function lockSignupForWrite(tx: Tx, signupId: string, workspaceId: string | null) {
+  const inWorkspace =
+    workspaceId === null ? isNull(signups.workspaceId) : eq(signups.workspaceId, workspaceId);
   const [row] = await tx
     .select()
     .from(signups)
-    .where(eq(signups.id, signupId))
+    .where(and(eq(signups.id, signupId), inWorkspace))
     .for('no key update')
     .limit(1);
   return row;

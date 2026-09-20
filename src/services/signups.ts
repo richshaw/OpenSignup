@@ -269,7 +269,7 @@ export async function updateSignup(
     // snapshot taken outside the transaction let two concurrent updates start
     // from the same settings and the second write drop the first one's key,
     // which is the one thing "only the settings you pass change" promises.
-    const row = await lockSignupForWrite(tx, signupId);
+    const row = await lockSignupForWrite(tx, signupId, found.workspaceId);
     if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
 
     if (opts.mergeSettings && isObject(rawInput) && isObject(rawInput.settings)) {
@@ -338,7 +338,7 @@ export async function updateSignup(
     if (!updated) throw new Error('update returned nothing');
 
     if (reminderRefChanged) {
-      await recomputeSlotAtForSignup(tx, signupId);
+      await recomputeSlotAtForSignup(tx, signupId, found.workspaceId);
     }
 
     await recordActivity(tx, {

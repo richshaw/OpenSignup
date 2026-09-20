@@ -129,7 +129,7 @@ export async function addSlotsBulk(
     // Serialise appends per signup, the same way `addField` does: two bulk adds
     // running at once would otherwise read the same max and land on the same
     // sortOrder, leaving their order to the createdAt tiebreak.
-    await lockSignupForWrite(tx, signupId);
+    await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
     let base: number;
     let shown: SlotRow[] | undefined;
     if (beforeSlotId !== undefined) {
@@ -271,7 +271,7 @@ export async function reorderSlots(
     // list is checked against the slots the signup really has. A slot `addSlot`
     // inserts meanwhile is not checked; with no sortOrder of its own it
     // numbers itself in epoch seconds and stays last.
-    await lockSignupForWrite(tx, signupId);
+    await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
     const current = await lockSlotsForSignup(tx, signupId);
     const known = new Set(current.map((s) => s.id));
 
