@@ -124,7 +124,9 @@ export async function recomputeSlotAtForSignup(
   workspaceId: string | null,
 ): Promise<{ updated: number }> {
   const signupRow = await lockSignupForWrite(tx, signupId, workspaceId);
-  if (!signupRow) return { updated: 0 };
+  // Every caller has found the signup and holds its lock, so a miss is a wrong
+  // id or workspace passed in. Carrying on would rewrite nothing and say so.
+  if (!signupRow) throw new Error('slot_at rebuild: signup not found under the lock');
   const settings = (signupRow.settings as ReminderSettingsLike) ?? {};
   const fields = await listFieldsForSignup(tx, signupId);
   // Locked, not just read: a slot edit in flight finishes first, so the instant
@@ -181,10 +183,12 @@ export async function addField(
   }
 
   const id = makeId('fld');
-  const inserted = await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     // Taken whatever the input: the re-anchor below reads settings and writes
-    // them back, and a settings save landing in between would be lost.
-    await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
+    // them back, and a settings save landing in between would be lost. No row
+    // means no lock was taken, so nothing below may run.
+    const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
+    if (!locked) return err(serviceError('not_found', 'signup not found'));
 
     // An omitted sortOrder appends. The build page never sends one, and
     // defaulting it to 0 put every field it added ahead of the template's
@@ -236,10 +240,8 @@ export async function addField(
         ...(anchor !== undefined ? { reminderFromFieldRef: anchor } : {}),
       },
     });
-    return row;
+    return ok(rowToDefinition(row));
   });
-
-  return ok(rowToDefinition(inserted));
 }
 
 export async function updateField(
@@ -304,7 +306,8 @@ export async function updateField(
     // The re-anchor below reads settings and writes them back, and the rebuild
     // writes slot rows: both need the signup lock, as in `addField`. Taken even
     // when neither runs. It is cheap, and the order stays the same for all.
-    await lockSignupForWrite(tx, existing.signupId, existing.workspaceId);
+    const locked = await lockSignupForWrite(tx, existing.signupId, existing.workspaceId);
+    if (!locked) return err(serviceError('not_found', 'signup not found'));
 
     // Read again under the lock. `deleteField` and another `updateField` take
     // it too, and either may have committed while this one waited: the field
@@ -400,15 +403,16 @@ export async function deleteField(
   if (!existing) return err(serviceError('not_found', 'field not found'));
   requireWorkspaceWrite(actor, existing.workspaceId);
 
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     // Settings are read and rewritten inside the transaction, under the
     // signup lock: read outside it, a settings save landing in between would
     // be overwritten here with a stale copy. The lock also serialises the
     // re-anchor below against a concurrent add, retype or delete of a field
     // on the same signup: all three take it.
     const signupRow = await lockSignupForWrite(tx, existing.signupId, existing.workspaceId);
+    if (!signupRow) return err(serviceError('not_found', 'signup not found'));
     const currentSettings =
-      (signupRow?.settings as {
+      (signupRow.settings as {
         groupByFieldRefs?: string[];
         [k: string]: unknown;
       }) ?? {};
@@ -459,9 +463,8 @@ export async function deleteField(
         ...(removedFromGroupBy ? { removedFromGroupByFieldRefs: true } : {}),
       },
     });
+    return ok({ deleted: true });
   });
-
-  return ok({ deleted: true });
 }
 
 export async function listFields(

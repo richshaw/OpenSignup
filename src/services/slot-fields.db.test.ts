@@ -17,6 +17,7 @@ import {
   listFields,
   updateField,
 } from '@/services/slot-fields';
+import { lockSignupForWrite } from '@/services/locks';
 import { addSlot, updateSlot } from '@/services/slots';
 import { createSignup, updateSignup } from '@/services/signups';
 import {
@@ -315,6 +316,36 @@ describe('slot-fields service (db)', () => {
 
       const [after] = await fx.db.select().from(signups).where(eq(signups.id, sigId)).limit(1);
       expect(after?.settings).toMatchObject({ sendReminders: false, reminderFromFieldRef: 'day' });
+    });
+
+    it('returns not_found when the signup row is gone by the time it has the lock', async () => {
+      const sigId = await createTestSignup(fx, 'Add hard-delete race');
+      let adding: ReturnType<typeof addField> | undefined;
+      await fx.db.transaction(async (tx) => {
+        // No service removes the row; this is the lock coming back empty.
+        await tx.delete(signups).where(eq(signups.id, sigId));
+        adding = addField(fx.db, fx.actor, sigId, {
+          ref: 'day',
+          label: 'Day',
+          fieldType: 'date',
+          config: { fieldType: 'date' },
+        });
+        await untilServiceBlockedOn(fx.db, tx, adding);
+      });
+      const r = await adding!;
+      expect(r.ok, JSON.stringify(r)).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe('not_found');
+    });
+  });
+
+  describe('lockSignupForWrite', () => {
+    it('returns the row for its own workspace and nothing for any other', async () => {
+      const sigId = await createTestSignup(fx, 'Lock workspace scope');
+      await fx.db.transaction(async (tx) => {
+        expect((await lockSignupForWrite(tx, sigId, fx.workspaceId))?.id).toBe(sigId);
+        expect(await lockSignupForWrite(tx, sigId, makeId('ws'))).toBeUndefined();
+        expect(await lockSignupForWrite(tx, sigId, null)).toBeUndefined();
+      });
     });
   });
 

@@ -281,7 +281,8 @@ export async function reorderSlots(
     // signup row keeps adds and other reorders out, and the slot rows make a
     // delete or a browser `sortOrder` PATCH in flight finish first, so the
     // list is checked against the slots the signup really has.
-    await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
+    const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
+    if (!locked) return err(serviceError('not_found', 'signup not found'));
     const current = await lockSlotsForSignup(tx, signupId);
     const known = new Set(current.map((s) => s.id));
 
