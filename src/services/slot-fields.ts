@@ -296,6 +296,10 @@ export async function updateField(
   }
 
   const updated = await db.transaction(async (tx) => {
+    // The re-anchor below reads settings and writes them back, and the rebuild
+    // writes slot rows: both need the signup lock, as in `addField`.
+    await lockSignupForWrite(tx, existing.signupId);
+
     const [row] = await tx
       .update(slotFields)
       .set({
@@ -361,8 +365,8 @@ export async function deleteField(
     // Settings are read and rewritten inside the transaction, under the
     // signup lock: read outside it, a settings save landing in between would
     // be overwritten here with a stale copy. The lock also serialises the
-    // re-anchor below against a concurrent `addField`, `updateSignup` or
-    // another delete. `updateField` does not take it yet.
+    // re-anchor below against a concurrent add, retype or delete of a field
+    // on the same signup: all three take it.
     const signupRow = await lockSignupForWrite(tx, existing.signupId);
     const currentSettings =
       (signupRow?.settings as {

@@ -285,6 +285,45 @@ describe('slot-fields service (db)', () => {
       expect(r.value.label).toBe('Updated');
     });
 
+    it('waits for a settings save in flight and keeps what it saved', async () => {
+      const sigId = await createTestSignup(fx, 'Retype settings race');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      let retyping: ReturnType<typeof updateField> | undefined;
+      let finished = false;
+      await fx.db.transaction(async (tx) => {
+        // What `updateSignup` does, held open: lock the signup, save a setting.
+        await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
+        await tx
+          .update(signups)
+          .set({ settings: { sendReminders: false } })
+          .where(eq(signups.id, sigId));
+        // Retyping to the signup's first date field re-anchors, which writes
+        // settings too.
+        retyping = updateField(fx.db, fx.actor, created.value.id, {
+          fieldType: 'date',
+          config: { fieldType: 'date' },
+        });
+        retyping.then(
+          () => (finished = true),
+          () => undefined,
+        );
+        await untilBlockedOn(fx.db, tx);
+        expect(finished).toBe(false);
+      });
+      const r = await retyping!;
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+
+      const [after] = await fx.db.select().from(signups).where(eq(signups.id, sigId)).limit(1);
+      expect(after?.settings).toMatchObject({ sendReminders: false, reminderFromFieldRef: 'day' });
+    });
+
     it('rejects ref rename (extra key in update payload)', async () => {
       const sigId = await createTestSignup(fx, 'No rename');
       const created = await addField(fx.db, fx.actor, sigId, {
