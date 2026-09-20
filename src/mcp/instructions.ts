@@ -19,9 +19,12 @@ import type { ToolDefinition } from './registry';
  *
  * Takes the tool list rather than importing `./tools`, which would pull every
  * service into any unit test that loads this file. Both lists are derived from
- * it so they cannot drift. Keep the whole text within 2048 bytes (a test
- * checks): some clients cut it off there, which is also why the tools line
- * comes last.
+ * it so they cannot drift.
+ *
+ * Some clients cut the text off at 2048 bytes. Everything before the tools
+ * line must fit in that (a test checks), so no rule is ever lost. The tools
+ * line comes last because it is the part that is safe to lose: tools/list
+ * repeats it, and so a new tool name never forces a reword of the rules.
  */
 export function buildInstructions(
   tools: readonly Pick<ToolDefinition, 'name' | 'annotations'>[],
