@@ -19,6 +19,7 @@ import {
 } from '@/services/slot-fields';
 import { addSlot, updateSlot } from '@/services/slots';
 import { createSignup, updateSignup } from '@/services/signups';
+import { untilBlockedOn } from '@/services/testing/locks';
 
 interface Fixture {
   db: Db;
@@ -264,6 +265,40 @@ describe('slot-fields service (db)', () => {
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
       expect(after?.slotAt?.toISOString()).toBe('2026-05-10T12:00:00.000Z');
+    });
+
+    it('with a sortOrder, waits for a settings save in flight and keeps what it saved', async () => {
+      const sigId = await createTestSignup(fx, 'Add settings race');
+      let adding: ReturnType<typeof addField> | undefined;
+      let finished = false;
+      await fx.db.transaction(async (tx) => {
+        // What `updateSignup` does, held open: lock the signup, save a setting.
+        await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
+        await tx
+          .update(signups)
+          .set({ settings: { sendReminders: false } })
+          .where(eq(signups.id, sigId));
+        // The signup's first date field, so the add re-anchors and writes
+        // settings too. The explicit sortOrder is the path that took no lock.
+        adding = addField(fx.db, fx.actor, sigId, {
+          ref: 'day',
+          label: 'Day',
+          fieldType: 'date',
+          sortOrder: 3,
+          config: { fieldType: 'date' },
+        });
+        adding.then(
+          () => (finished = true),
+          () => undefined,
+        );
+        await untilBlockedOn(fx.db, tx);
+        expect(finished).toBe(false);
+      });
+      const r = await adding!;
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+
+      const [after] = await fx.db.select().from(signups).where(eq(signups.id, sigId)).limit(1);
+      expect(after?.settings).toMatchObject({ sendReminders: false, reminderFromFieldRef: 'day' });
     });
   });
 

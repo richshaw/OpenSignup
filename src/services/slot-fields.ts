@@ -25,6 +25,7 @@ import {
   SlotFieldInputSchema,
   SlotFieldUpdateInputSchema,
 } from '@/schemas/slot-fields';
+import { lockSignupForWrite } from './locks';
 
 type FieldRow = typeof slotFields.$inferSelect;
 
@@ -177,21 +178,19 @@ export async function addField(
 
   const id = makeId('fld');
   const inserted = await db.transaction(async (tx) => {
+    // Taken whatever the input: the re-anchor below reads settings and writes
+    // them back, and a settings save landing in between would be lost.
+    await lockSignupForWrite(tx, signupId);
+
     // An omitted sortOrder appends. The build page never sends one, and
     // defaulting it to 0 put every field it added ahead of the template's
     // date column (DEFAULT_TEMPLATE pins it at 1), so a new column
     // reappeared mid-grid after a reload.
     let sortOrder = data.sortOrder;
     if (sortOrder === undefined) {
-      // Serialise appends per signup: two concurrent adds would otherwise read
-      // the same max and land on the same sortOrder, leaving their order to the
-      // createdAt tiebreak. The lock is released with the transaction.
-      // `no key update`, not `update`: the slot_at rebuild below writes slot
-      // rows, and a full lock deadlocks with someone signing up for one of
-      // them (see `addSlotsBulk` in ./slots.ts).
-      await tx.execute(
-        sql`select 1 from ${signups} where ${signups.id} = ${signupId} for no key update`,
-      );
+      // Under the signup lock: two concurrent adds would otherwise read the
+      // same max and land on the same sortOrder, leaving their order to the
+      // createdAt tiebreak.
       const [top] = await tx
         .select({ max: sql<number | null>`max(${slotFields.sortOrder})` })
         .from(slotFields)
