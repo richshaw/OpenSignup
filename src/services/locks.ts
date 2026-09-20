@@ -26,7 +26,8 @@ function inWorkspace(
  *
  * Lock order: signup row first, then slot rows (`lockSlotsForSignup` below).
  * The single-slot services hold one slot row and never take this lock
- * afterwards.
+ * afterwards. That leaves a single-slot edit (`updateSlot`) uncovered: it still
+ * validates, and works out slot_at, from reads made before its transaction.
  *
  * `tx` is a transaction, not `Queryable`: on the pool handle the lock would be
  * gone as soon as the select's own autocommit ended. `workspaceId` is the one
