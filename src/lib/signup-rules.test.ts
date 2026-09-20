@@ -23,13 +23,20 @@ describe('neverInventRule', () => {
     expect(rule.endsWith(NEVER_INVENT_TAIL)).toBe(true);
   });
 
+  it.each(['drafter', 'assistant'] as const)('joins the %s parts with one space each', (who) => {
+    const rule = neverInventRule(who);
+    expect(rule.startsWith(`${NEVER_INVENT_HEAD} `)).toBe(true);
+    expect(rule.endsWith(`. ${NEVER_INVENT_TAIL}`)).toBe(true);
+    expect(rule).not.toContain('  ');
+  });
+
   it('tells the drafter to fall back to placeholder slots', () => {
-    expect(neverInventRule('drafter')).toContain('placeholder');
+    expect(neverInventRule('drafter')).toContain('produce 1-3 placeholder slots');
   });
 
   it('tells the assistant to ask instead, since it can', () => {
     const rule = neverInventRule('assistant');
-    expect(rule).toContain('ask');
+    expect(rule).toContain('If details are missing, ask before you create anything.');
     expect(rule).not.toContain('placeholder');
   });
 });
