@@ -116,6 +116,21 @@ describe('/api/mcp', () => {
     expect(body.result.tools.map((t) => t.name)).toContain('list_workspaces');
   });
 
+  it('sends the server instructions on initialize, within the byte budget', async () => {
+    const { POST } = await import('./route');
+    const { buildInstructions } = await import('@/mcp/instructions');
+    const { TOOLS } = await import('@/mcp/tools');
+    resolve.mockResolvedValue(okResolution);
+    const clientInfo = { name: 't', version: '0' };
+    const params = { protocolVersion: '2025-06-18', capabilities: {}, clientInfo };
+    const r = await POST(post(rpc('initialize', params)));
+    const body = (await readRpc(r)) as { result: { instructions?: string } };
+    expect(body.result.instructions).toBe(buildInstructions(TOOLS));
+    // Claude Code is reported to cut instructions off at 2048 bytes.
+    expect(Buffer.byteLength(body.result.instructions ?? '', 'utf8')).toBeLessThanOrEqual(2048);
+    expect(body.result.instructions).toContain('create_signup');
+  });
+
   it('answers GET with 405 without metering or reading a token, since there are no sessions', async () => {
     const { GET } = await import('./route');
     consume.mockClear();

@@ -10,6 +10,7 @@ import { makeId } from '@/lib/ids';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, getPublicSignup, publishSignup } from '@/services/signups';
 import type { ToolContext } from './context';
+import { buildInstructions } from './instructions';
 import { connectTestClient } from './testing/client';
 import { contextForOrganizer } from './testing/context';
 import { TOOLS } from './tools';
@@ -66,6 +67,13 @@ afterAll(async () => {
   await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
   await db.delete(organizers).where(eq(organizers.id, organizerId));
   await db.delete(organizers).where(eq(organizers.id, viewerId));
+});
+
+describe('server instructions', () => {
+  it('reach a connected client, built from the full tool list', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    expect(client.getInstructions()).toBe(buildInstructions(TOOLS));
+  });
 });
 
 describe('read tools on Postgres', () => {

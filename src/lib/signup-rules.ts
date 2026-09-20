@@ -33,6 +33,14 @@ export const NEVER_INVENT_HEAD = `Never invent dates, locations, opponents, sche
 
 export const NEVER_INVENT_TAIL = `Do not fabricate a season's worth of games, opponents, or shifts just to fill the signup.`;
 
+// The next two are for assistants only, for now, and so are not in
+// `RULES_IN_BOTH`: adding one to the Magic Compose prompt changes what that
+// model reads, which needs an eval run first.
+
+export const USE_DATE_AND_TIME_FIELDS = `When slots happen on a day or at a time, add a date field, and a time field if needed. Reminder emails are timed from the date field: with a text field like "Sat 9am" nobody gets one.`;
+
+export const USE_CAPACITY_NOT_DUPLICATE_ROWS = `When several people can take the same thing, make ONE slot and set its capacity: 5 shifts that need 8 people each is 5 slots with capacity 8, not 40 identical rows.`;
+
 // The middle differs by reader. The drafter gets one shot and cannot ask, so
 // it falls back to placeholders; an assistant is in a conversation and can.
 // No spaces at either end: `neverInventRule` owns the joins.
