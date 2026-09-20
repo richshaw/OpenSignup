@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FIELD_TYPES } from '@/schemas/slot-fields';
 import {
   FIELD_TYPE_GUIDE,
   NEVER_INVENT_HEAD,
@@ -13,6 +14,11 @@ describe('shared signup rules', () => {
     for (const rule of [FIELD_TYPE_GUIDE, ...RULES_IN_BOTH]) {
       expect(rule.trim()).not.toBe('');
     }
+  });
+
+  // A bullet per type, not just the word: "enum" and "time" also turn up in other bullets.
+  it.each(FIELD_TYPES)('has a field type guide bullet for %s', (fieldType) => {
+    expect(FIELD_TYPE_GUIDE).toMatch(new RegExp(`^- ${fieldType}\\s+→`, 'm'));
   });
 });
 
