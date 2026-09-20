@@ -9,6 +9,8 @@ import { ACTION_SIZING } from './slot-format';
 interface CommitDialogProps {
   slotId: string;
   slotTitle: string;
+  /** Full disambiguating name for the button; see slotAccessibleName. */
+  actionName: string;
   slotAt: string | null;
   /**
    * Whether the slot carries a time of its own. A date-only slot's `slotAt` is
@@ -62,6 +64,7 @@ function writePrefill(value: PrefillState): void {
 export default function CommitDialog({
   slotId,
   slotTitle,
+  actionName,
   slotAt,
   slotHasTime,
   signupTitle,
@@ -206,7 +209,7 @@ export default function CommitDialog({
         // Every row's button reads "Sign up", so without this a screen-reader
         // user swiping the list hears the same name N times with no way to tell
         // which slot they are committing to.
-        aria-label={`Sign up for ${slotTitle}`}
+        aria-label={`Sign up for ${actionName}`}
         className={`${ACTION_SIZING} bg-brand px-4 text-sm font-medium text-white transition hover:brightness-110`}
       >
         Sign up
@@ -222,7 +225,7 @@ export default function CommitDialog({
         // Every row's button reads "Sign up", so without this a screen-reader
         // user swiping the list hears the same name N times with no way to tell
         // which slot they are committing to.
-        aria-label={`Sign up for ${slotTitle}`}
+        aria-label={`Sign up for ${actionName}`}
         className={`${ACTION_SIZING} bg-brand px-4 text-sm font-medium text-white transition hover:brightness-110`}
       >
         Sign up

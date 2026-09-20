@@ -8,6 +8,7 @@ import {
   ACTION_SIZING,
   buildMetaSegments,
   capacityLabel,
+  slotAccessibleName,
   formatGroupLabel,
   pickPrimaryField,
   renderFieldValue,
@@ -242,6 +243,7 @@ export function SignupViewBody({
                 const own = ownBySlot.get(slot.id) ?? null;
                 const isOwn = own !== null;
                 const count = capacityLabel(slot.committed, slot.capacity);
+                const actionName = slotAccessibleName(group.label || null, title, meta);
                 return (
                   <li
                     key={slot.id}
@@ -281,7 +283,7 @@ export function SignupViewBody({
                         {own ? (
                           <Link
                             href={own.editUrl}
-                            aria-label={`Edit your signup for ${title}`}
+                            aria-label={`Edit your signup for ${actionName}`}
                             className={`${ACTION_SIZING} border border-surface-sunk bg-white px-3.5 text-sm font-medium transition hover:bg-surface-raised`}
                           >
                             Edit
@@ -297,7 +299,7 @@ export function SignupViewBody({
                             type="button"
                             disabled
                             title="Preview: publish to enable signups"
-                            aria-label={`Sign up for ${title}`}
+                            aria-label={`Sign up for ${actionName}`}
                             className={`${ACTION_SIZING} cursor-not-allowed bg-brand px-4 text-sm font-medium text-white opacity-60`}
                           >
                             Sign up
@@ -312,6 +314,7 @@ export function SignupViewBody({
                           <CommitDialog
                             slotId={slot.id}
                             slotTitle={title}
+                            actionName={actionName}
                             slotAt={slot.slotAt}
                             slotHasTime={slotHasTime(slot, fields)}
                             signupTitle={signup.title}

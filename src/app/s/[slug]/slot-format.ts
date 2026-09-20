@@ -69,10 +69,14 @@ export function capacityLabel(committed: number, capacity: number | null): Capac
  * link and the inert Full/Closed label stay the same size and the rows keep a
  * common baseline.
  *
- * `min-h-11` is 44px: the old `py-1.5` pill measured 32px tall, under both the
- * iOS HIG 44pt and Material 48dp minimums, in a list whose whole purpose is
- * tapping one row out of many on a phone. It relaxes to a compact 32px from
- * `sm` up, where a pointer is the likely input.
+ * `min-h-11` is 44px: the row's actions measured 28-36px depending on which
+ * state they were in, all under both the iOS HIG 44pt and Material 48dp
+ * minimums, in a list whose whole purpose is tapping one row out of many on a
+ * phone. From `sm` up, where a pointer is the likely input, it relaxes to
+ * `min-h-9` (36px) — the height the real CommitDialog trigger already was
+ * (`px-4 py-2`), so the production button is unchanged on desktop and the
+ * Edit link (34px) and Full/Closed label (28px) join it instead of sitting at
+ * three different heights.
  *
  * Font size stays at each call site on purpose: `text-sm` and `text-xs` sit in
  * the same Tailwind layer, so baking one in here would beat the `text-xs` on
@@ -82,4 +86,27 @@ export function capacityLabel(committed: number, capacity: number | null): Capac
  * can share it without importing a server component.
  */
 export const ACTION_SIZING =
-  'inline-flex min-h-11 items-center justify-center rounded-lg sm:min-h-8';
+  'inline-flex min-h-11 items-center justify-center rounded-lg sm:min-h-9';
+
+/**
+ * The accessible name for a slot row's action.
+ *
+ * `titleFor` alone is not enough. `pickPrimaryField` skips the group field, so
+ * on a signup grouped by date the title of every row is its *time*, and eight
+ * dates each holding a 09:00 slot give eight buttons called "Sign up for
+ * 09:00" — the same collision the aria-label was added to remove. Two
+ * ungrouped rows sharing a primary value ("Cookies" at two locations) collide
+ * the same way, and an empty primary makes several rows "Untitled slot".
+ *
+ * The group label and the meta segments are exactly the detail that
+ * distinguishes them, and they are already computed for the visible row, so
+ * the name is assembled from all three. Commas rather than the visible "·"
+ * so a screen reader pauses instead of reading a punctuation character.
+ */
+export function slotAccessibleName(
+  groupLabel: string | null,
+  title: string,
+  meta: readonly string[],
+): string {
+  return [groupLabel, title, ...meta].filter((p): p is string => Boolean(p)).join(', ');
+}

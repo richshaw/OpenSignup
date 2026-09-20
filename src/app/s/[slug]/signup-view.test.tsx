@@ -80,7 +80,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
         showStateBanner={false}
       />,
     );
-    const button = screen.getByRole('button', { name: 'Sign up for Sun, May 17' });
+    const button = screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' });
     expect(button).toBeDisabled();
     expect(button).toHaveClass('opacity-60');
   });
@@ -204,13 +204,37 @@ describe('<SignupViewBody /> slot row', () => {
     expect(meta).not.toHaveClass('truncate');
   });
 
+  it('disambiguates rows on a grouped signup, where the title is only the time', () => {
+    // pickPrimaryField skips the group field, so every row's title here is its
+    // time: without the group label in the name, both buttons are "09:00".
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={[
+          { ref: 'date', label: 'Date', fieldType: 'date' },
+          { ref: 'time', label: 'Time', fieldType: 'time' },
+        ]}
+        groupByRef="date"
+        slots={[
+          { ...SLOTS[0]!, id: 'g1', values: { date: '2026-05-17', time: '09:00' } },
+          { ...SLOTS[0]!, id: 'g2', values: { date: '2026-05-18', time: '09:00' } },
+        ]}
+        slug="example"
+        mode="preview"
+        showStateBanner={false}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17, 09:00' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18, 09:00' })).toBeInTheDocument();
+  });
+
   it('names each button after its own slot, not a bare "Sign up"', () => {
     // Sixteen identically-named buttons give a screen-reader user no way to
     // tell which slot they are committing to.
     renderRows();
-    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign up for Tue, May 19' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18, Hawks' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Tue, May 19, Hawks' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sign up' })).toBeNull();
   });
 
