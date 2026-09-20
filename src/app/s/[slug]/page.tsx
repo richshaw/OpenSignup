@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
@@ -115,10 +116,15 @@ export default async function PublicSignupPage({ params }: PageParams) {
 
   return (
     <main className="flex min-h-[100svh] flex-col pb-24 pt-10 sm:pt-14">
-      <div className="container-tight mb-7 flex items-center gap-2 text-[13px] font-medium text-ink-soft">
-        <span className="font-semibold tracking-tight text-ink">{INSTANCE_NAME}</span>
-        <span aria-hidden="true">·</span>
-        <span>Public signup</span>
+      {/* Brand mark only. The old "· Public signup" segment told participants
+          nothing actionable — they arrive from a shared link, and the title and
+          Sign-up buttons already say what the page is — while "Public" contradicted
+          this page's own `robots: noindex` above: these are unlisted share links,
+          not listed pages. Same shape as src/app/(legal)/layout.tsx. */}
+      <div className="container-tight mb-7 text-[13px]">
+        <Link href="/" className="font-semibold tracking-tight text-ink hover:underline">
+          {INSTANCE_NAME}
+        </Link>
       </div>
       <SignupView
         signup={{
