@@ -69,11 +69,6 @@ export function capacityLabel(committed: number, capacity: number | null): Capac
  * link and the inert Full/Closed label are the same box and the rows keep a
  * common baseline.
  *
-/**
- * Shared geometry for a slot row's action slot, so the Sign-up button, the Edit
- * link and the inert Full/Closed label are the same box and the rows keep a
- * common baseline.
- *
  * On the width, be precise about what is and is not from the design system.
  * design-system/ui_kits/participant/SlotRow.jsx puts `width: 96` on the
  * *wrapper* with `justifyContent: 'center'` and centres a content-width,
