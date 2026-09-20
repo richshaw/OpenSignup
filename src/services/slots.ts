@@ -47,14 +47,23 @@ export async function addSlot(
   if (!signupRow) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, signupRow.workspaceId);
 
-  const fields = await listFieldsForSignup(db, signupId);
-  const valid = validateSlotValues(fields, data.values);
-  if (!valid.ok) return valid;
+  return db.transaction(async (tx) => {
+    // The field and settings services hold this lock while they strip a deleted
+    // field's values from every slot and rebuild slot_at, and neither can see a
+    // row inserted meanwhile. So the insert queues behind them, and the fields
+    // and the anchor are read under the lock: a value for a field that has just
+    // gone is refused, and slot_at comes from the anchor as it now stands.
+    // No slot row is held yet, so signup-then-slots holds.
+    const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
+    if (!locked) return err(serviceError('not_found', 'signup not found'));
 
-  const settings = (signupRow.settings as SignupSettingsLike) ?? {};
-  const slotAt = extractSlotAt(settings, fields, data.values);
+    const fields = await listFieldsForSignup(tx, signupId);
+    const valid = validateSlotValues(fields, data.values);
+    if (!valid.ok) return valid;
 
-  const row = await db.transaction(async (tx) => {
+    const settings = (locked.settings as SignupSettingsLike) ?? {};
+    const slotAt = extractSlotAt(settings, fields, data.values);
+
     const ref = await pickAvailableRef(tx, signupId, summarizeValues(data.values));
     const [inserted] = await tx
       .insert(slots)
@@ -79,9 +88,8 @@ export async function addSlot(
       eventType: 'slot.created',
       payload: { slotId: inserted.id },
     });
-    return inserted;
+    return ok(inserted);
   });
-  return ok(row);
 }
 
 export async function addSlotsBulk(
@@ -133,12 +141,11 @@ export async function addSlotsBulk(
     let base: number;
     let shown: SlotRow[] | undefined;
     if (beforeSlotId !== undefined) {
-      // The signup lock keeps bulk adds and reorders out. The single-slot
-      // services do not take it, so the slot rows are locked too: a delete or a
-      // browser `sortOrder` PATCH in flight finishes first, and the target's
-      // position found here is still its position when the renumbering runs.
-      // A slot `addSlot` inserts meanwhile is not in this list; with no
-      // sortOrder of its own it numbers itself in epoch seconds and stays last.
+      // The signup lock keeps every other add and reorder out. `updateSlot` and
+      // `deleteSlot` do not take it, so the slot rows are locked too: a delete
+      // or a browser `sortOrder` PATCH in flight finishes first, and the
+      // target's position found here is still its position when the
+      // renumbering runs.
       shown = await lockSlotsForSignup(tx, signupId);
       base = shown.findIndex((s) => s.id === beforeSlotId);
       if (base < 0) {
@@ -266,11 +273,9 @@ export async function reorderSlots(
 
   return db.transaction(async (tx) => {
     // The same two locks as inserting before a slot, for the same reasons: the
-    // signup row keeps bulk adds and other reorders out, and the slot rows make
-    // a delete or a browser `sortOrder` PATCH in flight finish first, so the
-    // list is checked against the slots the signup really has. A slot `addSlot`
-    // inserts meanwhile is not checked; with no sortOrder of its own it
-    // numbers itself in epoch seconds and stays last.
+    // signup row keeps adds and other reorders out, and the slot rows make a
+    // delete or a browser `sortOrder` PATCH in flight finish first, so the
+    // list is checked against the slots the signup really has.
     await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
     const current = await lockSlotsForSignup(tx, signupId);
     const known = new Set(current.map((s) => s.id));
