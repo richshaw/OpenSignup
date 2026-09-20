@@ -727,4 +727,50 @@ describe('slot inserts and the signup lock (db)', () => {
     const [row] = await listSlotsForSignup(fx.db, signupId);
     expect(row?.slotAt?.toISOString()).toBe('2026-07-04T12:00:00.000Z');
   });
+
+  it('addSlotsBulk takes slot_at from the anchor an update in flight moves to', async () => {
+    const { signupId } = await makeDatedSignup(fx, 'Bulk add during anchor move');
+    let adding: ReturnType<typeof addSlotsBulk> | undefined;
+    await fx.db.transaction(async (tx) => {
+      const moved = await updateSignup(
+        tx as unknown as Db,
+        colleague,
+        signupId,
+        { settings: { reminderFromFieldRef: 'day2' } },
+        { mergeSettings: true },
+      );
+      expect(moved.ok, JSON.stringify(moved)).toBe(true);
+      adding = addSlotsBulk(fx.db, fx.actor, signupId, {
+        rows: [
+          { values: { day: '2026-05-10', day2: '2026-07-04' } },
+          { values: { day: '2026-05-11', day2: '2026-07-05' } },
+        ],
+      });
+      await untilServiceBlockedOn(fx.db, tx, adding);
+    });
+    const r = await adding!;
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    const rows = await listSlotsForSignup(fx.db, signupId);
+    expect(rows.map((s) => s.slotAt?.toISOString())).toEqual([
+      '2026-07-04T12:00:00.000Z',
+      '2026-07-05T12:00:00.000Z',
+    ]);
+  });
+
+  it('addSlotsBulk refuses a value for a field that a delete in flight removes', async () => {
+    const { signupId, fieldId } = await makeDatedSignup(fx, 'Bulk add during field delete');
+    let adding: ReturnType<typeof addSlotsBulk> | undefined;
+    await fx.db.transaction(async (tx) => {
+      const gone = await deleteField(tx as unknown as Db, colleague, fieldId('note'));
+      expect(gone.ok, JSON.stringify(gone)).toBe(true);
+      adding = addSlotsBulk(fx.db, fx.actor, signupId, {
+        rows: [{ values: { day: '2026-05-10', note: 'bring a torch' } }],
+      });
+      await untilServiceBlockedOn(fx.db, tx, adding);
+    });
+    const r = await adding!;
+    expect(r.ok, JSON.stringify(r)).toBe(false);
+    if (!r.ok) expect(r.error).toMatchObject({ code: 'invalid_input', field: 'note' });
+    expect(await listSlotsForSignup(fx.db, signupId)).toEqual([]);
+  });
 });

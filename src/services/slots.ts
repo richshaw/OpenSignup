@@ -111,12 +111,6 @@ export async function addSlotsBulk(
   if (!signupRow) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, signupRow.workspaceId);
 
-  const fields = await listFieldsForSignup(db, signupId);
-  for (const r of data.rows) {
-    const valid = validateSlotValues(fields, r.values);
-    if (!valid.ok) return valid;
-  }
-
   const { beforeSlotId } = data;
   if (beforeSlotId !== undefined) {
     const numbered = data.rows.findIndex((r) => r.sortOrder !== undefined);
@@ -131,13 +125,23 @@ export async function addSlotsBulk(
     }
   }
 
-  const settings = (signupRow.settings as SignupSettingsLike) ?? {};
-
   return db.transaction(async (tx) => {
     // Serialise appends per signup, the same way `addField` does: two bulk adds
     // running at once would otherwise read the same max and land on the same
     // sortOrder, leaving their order to the createdAt tiebreak.
-    await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
+    const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
+    if (!locked) return err(serviceError('not_found', 'signup not found'));
+
+    // Read under the lock, as in `addSlot`: a field delete or an anchor move
+    // that this waited for has committed, and the rows are checked against the
+    // fields, and take their slot_at from the anchor, as it left them.
+    const fields = await listFieldsForSignup(tx, signupId);
+    for (const r of data.rows) {
+      const valid = validateSlotValues(fields, r.values);
+      if (!valid.ok) return valid;
+    }
+    const settings = (locked.settings as SignupSettingsLike) ?? {};
+
     let base: number;
     let shown: SlotRow[] | undefined;
     if (beforeSlotId !== undefined) {
