@@ -6,7 +6,6 @@ import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
-import { recordActivity } from '@/lib/activity';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
@@ -20,6 +19,7 @@ import {
   updateSlot,
   writeSlotOrder,
 } from '@/services/slots';
+import { whileSigningUp } from '@/services/testing/locks';
 
 interface Fixture {
   db: Db;
@@ -369,29 +369,13 @@ describe('addSlotsBulk beforeSlotId (db)', () => {
 
   it('does not deadlock with someone signing up for a slot that has to move', async () => {
     const { signupId, idOf } = await makeSignup(fx, 'Commit race', [0, 1]);
-    let adding: ReturnType<typeof addSlotsBulk> | undefined;
-    await fx.db.transaction(async (tx) => {
-      // What `commitToSlot` does: lock the slot, then insert rows whose
-      // signup_id foreign key takes a key-share lock on the signup row.
-      await tx.select().from(slots).where(eq(slots.id, idOf('a'))).for('update');
-      adding = addSlotsBulk(fx.db, fx.actor, signupId, {
+    const at = { signupId, workspaceId: fx.workspaceId, slotId: idOf('a') };
+    const r = await whileSigningUp(fx.db, at, () =>
+      addSlotsBulk(fx.db, fx.actor, signupId, {
         rows: [{ values: { what: 'top' } }],
         beforeSlotId: idOf('a'),
-      });
-      // Awaited below. Until then a failure here must not count as unhandled.
-      adding.catch(() => undefined);
-      // Long enough for the add to take the signup lock and queue behind the
-      // slot. A `for update` signup lock would now block the insert below, and
-      // Postgres would break the cycle by failing one of the two.
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      await recordActivity(tx, {
-        signupId,
-        workspaceId: fx.workspaceId,
-        actor: { actorId: null, actorType: 'system' },
-        eventType: 'slot.updated',
-      });
-    });
-    const r = await adding!;
+      }),
+    );
     expect(r.ok, JSON.stringify(r)).toBe(true);
     expect((await shown(fx, signupId)).names).toEqual(['top', 'a', 'b']);
   });
@@ -549,25 +533,10 @@ describe('reorderSlots (db)', () => {
 
   it('does not deadlock with someone signing up for a slot that has to move', async () => {
     const { signupId, idOf } = await makeSignup(fx, 'Reorder commit race', [0, 1]);
-    let moving: ReturnType<typeof reorderSlots> | undefined;
-    await fx.db.transaction(async (tx) => {
-      // What `commitToSlot` does: lock the slot, then insert rows whose
-      // signup_id foreign key takes a key-share lock on the signup row.
-      await tx.select().from(slots).where(eq(slots.id, idOf('a'))).for('update');
-      moving = reorderSlots(fx.db, fx.actor, signupId, { slotIds: [idOf('b'), idOf('a')] });
-      // Awaited below. Until then a failure here must not count as unhandled.
-      moving.catch(() => undefined);
-      // Long enough for the reorder to take the signup lock and queue behind
-      // the slot. See the same test for `addSlotsBulk` above.
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      await recordActivity(tx, {
-        signupId,
-        workspaceId: fx.workspaceId,
-        actor: { actorId: null, actorType: 'system' },
-        eventType: 'slot.updated',
-      });
-    });
-    const r = await moving!;
+    const at = { signupId, workspaceId: fx.workspaceId, slotId: idOf('a') };
+    const r = await whileSigningUp(fx.db, at, () =>
+      reorderSlots(fx.db, fx.actor, signupId, { slotIds: [idOf('b'), idOf('a')] }),
+    );
     expect(r.ok, JSON.stringify(r)).toBe(true);
     expect((await shown(fx, signupId)).names).toEqual(['b', 'a']);
   });

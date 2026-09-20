@@ -1,5 +1,7 @@
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
+import { slots } from '@/db/schema/slots';
+import { recordActivity } from '@/lib/activity';
 
 /**
  * Resolves once another backend is waiting on a lock `tx` holds. Call it from
@@ -28,4 +30,35 @@ export async function untilBlockedOn(db: Db, tx: Queryable, timeoutMs = 10_000):
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
+}
+
+/**
+ * Runs `service` while someone is part-way through signing up for `slotId`.
+ * What `commitToSlot` does, held open: lock the slot, then insert a row whose
+ * signup_id foreign key takes a key-share lock on the signup row. A service
+ * that holds the signup `for update` and then needs that slot blocks the
+ * insert while it waits for the slot, and Postgres breaks the cycle by failing
+ * one of the two. See `lockSignupForWrite` in src/services/locks.ts.
+ */
+export async function whileSigningUp<T>(
+  db: Db,
+  at: { signupId: string; workspaceId: string; slotId: string },
+  service: () => Promise<T>,
+): Promise<T> {
+  let running: Promise<T> | undefined;
+  await db.transaction(async (tx) => {
+    await tx.select().from(slots).where(eq(slots.id, at.slotId)).for('update');
+    running = service();
+    // Awaited below. Until then a failure here must not count as unhandled.
+    running.catch(() => undefined);
+    // The service now holds the signup lock and is queued behind the slot.
+    await untilBlockedOn(db, tx);
+    await recordActivity(tx, {
+      signupId: at.signupId,
+      workspaceId: at.workspaceId,
+      actor: { actorId: null, actorType: 'system' },
+      eventType: 'slot.updated',
+    });
+  });
+  return running!;
 }

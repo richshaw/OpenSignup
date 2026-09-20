@@ -7,7 +7,6 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
-import { recordActivity } from '@/lib/activity';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { DEFAULT_TEMPLATE, EMPTY_TEMPLATE } from '@/lib/signup-templates';
@@ -19,7 +18,7 @@ import {
 } from '@/services/slot-fields';
 import { addSlot, updateSlot } from '@/services/slots';
 import { createSignup, updateSignup } from '@/services/signups';
-import { untilBlockedOn } from '@/services/testing/locks';
+import { untilBlockedOn, whileSigningUp } from '@/services/testing/locks';
 
 interface Fixture {
   db: Db;
@@ -89,39 +88,6 @@ async function createTestSignup(fx: Fixture, title = 'Field Test'): Promise<stri
   );
   if (!r.ok) throw new Error('signup setup failed');
   return r.value.id;
-}
-
-/**
- * Runs `service` while someone is part-way through signing up for `slotId`.
- * What `commitToSlot` does, held open: lock the slot, then insert rows whose
- * signup_id foreign key takes a key-share lock on the signup row. A service
- * that holds the signup `for update` and then writes to that slot blocks the
- * insert while it waits for the slot, and Postgres breaks the cycle by failing
- * one of the two. See `addSlotsBulk` in src/services/slots.ts.
- */
-async function whileSigningUp<T>(
-  fx: Fixture,
-  signupId: string,
-  slotId: string,
-  service: () => Promise<T>,
-): Promise<T> {
-  let running: Promise<T> | undefined;
-  await fx.db.transaction(async (tx) => {
-    await tx.select().from(slots).where(eq(slots.id, slotId)).for('update');
-    running = service();
-    // Awaited below. Until then a failure here must not count as unhandled.
-    running.catch(() => undefined);
-    // Long enough for the service to take the signup lock and queue behind the
-    // slot.
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    await recordActivity(tx, {
-      signupId,
-      workspaceId: fx.workspaceId,
-      actor: { actorId: null, actorType: 'system' },
-      eventType: 'slot.updated',
-    });
-  });
-  return running!;
 }
 
 describe('slot-fields service (db)', () => {
@@ -253,7 +219,8 @@ describe('slot-fields service (db)', () => {
 
       // A time field after the date pairs with it in place of `doors`, and the
       // slot has no value for it, so the add rewrites the slot row.
-      const r = await whileSigningUp(fx, sigId, slot.value.id, () =>
+      const at = { signupId: sigId, workspaceId: fx.workspaceId, slotId: slot.value.id };
+      const r = await whileSigningUp(fx.db, at, () =>
         addField(fx.db, fx.actor, sigId, {
           ref: 'start',
           label: 'Start',
@@ -488,7 +455,8 @@ describe('slot-fields service (db)', () => {
       const slot = await addSlot(fx.db, fx.actor, sigId, { values: { teacher: 'Ms. J' } });
       if (!slot.ok) throw new Error('slot setup failed');
 
-      const r = await whileSigningUp(fx, sigId, slot.value.id, () =>
+      const at = { signupId: sigId, workspaceId: fx.workspaceId, slotId: slot.value.id };
+      const r = await whileSigningUp(fx.db, at, () =>
         deleteField(fx.db, fx.actor, created.value.id),
       );
       expect(r.ok, JSON.stringify(r)).toBe(true);
@@ -553,7 +521,8 @@ describe('slot-fields service (db)', () => {
       if (!slot.ok) throw new Error('slot setup failed');
       expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T12:00:00.000Z');
 
-      const r = await whileSigningUp(fx, sigId, slot.value.id, () =>
+      const at = { signupId: sigId, workspaceId: fx.workspaceId, slotId: slot.value.id };
+      const r = await whileSigningUp(fx.db, at, () =>
         updateSignup(fx.db, fx.actor, sigId, { settings: { reminderFromFieldRef: 'field-b' } }),
       );
       expect(r.ok, JSON.stringify(r)).toBe(true);
