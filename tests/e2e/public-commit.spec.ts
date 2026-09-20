@@ -37,6 +37,24 @@ test.describe('public commit flow', () => {
     await expect(row.getByText('1/1')).toBeVisible();
   });
 
+  test('header links the instance name home and no longer says "Public signup"', async ({
+    page,
+  }) => {
+    await page.goto(`/s/${seed.publicSlug}`);
+
+    // The brand mark is the page's only trust signal for who is serving it, so
+    // assert it is present, non-empty and points home. Its text is whatever
+    // NEXT_PUBLIC_INSTANCE_NAME is set to, so match on the link, not the copy.
+    const brand = page.locator('main a[href="/"]').first();
+    await expect(brand).toBeVisible();
+    await expect(brand).toHaveText(/\S/);
+
+    // The removed segment. A participant arrives from a shared link, and
+    // "Public" reads as "publicly listed", which this page is not — it is
+    // served with robots: noindex.
+    await expect(page.getByText('Public signup')).toHaveCount(0);
+  });
+
   test('unknown slug renders not-found', async ({ page }) => {
     const response = await page.goto('/s/this-slug-does-not-exist');
     expect(response?.status()).toBe(404);
