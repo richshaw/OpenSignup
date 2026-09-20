@@ -59,6 +59,13 @@ describe('buildMessages', () => {
     const out = buildMessages('hello', new Date('2026-05-15T12:00:00Z'));
     expect(out[0]?.content).toContain("Today's date is 2026-05-15");
   });
+
+  // Characterization: the prompt is tuned against evals, so any refactor of
+  // how it is assembled must leave the bytes the model reads unchanged.
+  it('renders the system prompt byte for byte as the golden file has it', async () => {
+    const out = buildMessages('x', new Date('2026-05-15T00:00:00Z'));
+    await expect(out[0]?.content).toMatchFileSnapshot('./__golden__/system-prompt.txt');
+  });
 });
 
 describe('MagicComposeDraftSchema', () => {
