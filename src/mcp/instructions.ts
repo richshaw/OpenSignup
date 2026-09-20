@@ -18,8 +18,10 @@ import type { ToolDefinition } from './registry';
  * descriptions still stand on their own, because some clients ignore this.
  *
  * Takes the tool list rather than importing `./tools`, which would pull every
- * service into any unit test that loads this file. Both lists are derived from
- * it so they cannot drift.
+ * service into any unit test that loads this file. The tools line is derived
+ * from it and cannot drift; the ask-first line lists only the tools that set
+ * `destructiveHint: true`, so a tool that leaves the hint out is not on it,
+ * even though the MCP spec reads a missing hint as destructive.
  *
  * Some clients cut the text off at 2048 bytes. Everything before the tools
  * line must fit in that (a test checks), so no rule is ever lost. The tools
