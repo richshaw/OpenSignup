@@ -143,6 +143,11 @@ export const deleteSignupTool = statusTool(
   'Remove a signup from the account: it stops appearing in lists and its public link stops working. The record is marked deleted rather than erased, so erasing it for good is a separate request to the site owner. Ask the organizer before calling this.',
   { destructiveHint: true },
   deleteSignup,
-  // No links: nothing to open after a delete.
-  (row) => ({ signup: signupDetail(row) }),
+  // No links: nothing to open after a delete. `deleted` makes the outcome explicit
+  // even though status stays as it was (e.g. draft).
+  (row) => ({
+    signup: signupDetail(row),
+    deleted: true,
+    deletedAt: row.deletedAt?.toISOString() ?? null,
+  }),
 );

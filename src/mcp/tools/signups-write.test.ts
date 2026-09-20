@@ -273,11 +273,17 @@ describe('status tools', () => {
     expect(createSignupTool.description).toContain('do not create it again');
   });
 
-  it('delete_signup returns the signup without links', async () => {
-    svc.deleteSignup.mockResolvedValueOnce(ok(row));
+  it('delete_signup returns the signup with an explicit deleted flag', async () => {
+    const deletedAt = new Date('2026-09-20T00:00:00.000Z');
+    svc.deleteSignup.mockResolvedValueOnce(ok({ ...row, deletedAt }));
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const r = await client.callTool({ name: 'delete_signup', arguments: { signupId: 'sig_1' } });
-    expect(Object.keys(r.structuredContent as object)).toEqual(['signup']);
+    expect(r.structuredContent).toEqual({
+      signup: expect.objectContaining({ id: 'sig_1', status: 'draft' }),
+      deleted: true,
+      deletedAt: '2026-09-20T00:00:00.000Z',
+    });
+    expect((r.structuredContent as { signup: Record<string, unknown> }).signup).not.toHaveProperty('links');
   });
 
   it('a wrong-state transition surfaces the conflict with its suggestion', async () => {
