@@ -1,5 +1,5 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
-import type { Db, Queryable } from '@/db/client';
+import type { Db, Queryable, Tx } from '@/db/client';
 import { signups } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import { slots } from '@/db/schema/slots';
@@ -119,7 +119,7 @@ export function extractSlotAt(
  * read.
  */
 export async function recomputeSlotAtForSignup(
-  tx: Queryable,
+  tx: Tx,
   signupId: string,
 ): Promise<{ updated: number }> {
   const signupRow = await lockSignupForWrite(tx, signupId);
