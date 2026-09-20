@@ -193,7 +193,7 @@ function todayIso(now: Date = new Date()): string {
 }
 
 function renderSystemPrompt(today: string): string {
-  return SYSTEM_PROMPT.replace('{{TODAY}}', today);
+  return SYSTEM_PROMPT.replaceAll('{{TODAY}}', today);
 }
 
 export function buildMessages(userPrompt: string, now: Date = new Date()): ChatMessage[] {

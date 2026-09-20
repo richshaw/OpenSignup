@@ -6,8 +6,7 @@
  *
  * The prompt is tuned against evals and pinned by a golden file: changing a
  * character here changes what the model reads. Template literals throughout,
- * so prettier cannot swap the quotes inside them. Keep `{{TODAY}}` out of
- * this file: the prompt renderer replaces only the first one it finds.
+ * so prettier cannot swap the quotes inside them.
  */
 
 export const FIELD_TYPE_GUIDE = `FIELD TYPE GUIDE — pick the most specific type, not enum:

@@ -14,13 +14,6 @@ describe('shared signup rules', () => {
       expect(rule.trim()).not.toBe('');
     }
   });
-
-  it('keeps the date placeholder out of shared text', () => {
-    // The prompt renderer replaces only the first {{TODAY}} it finds.
-    for (const rule of [FIELD_TYPE_GUIDE, ...RULES_IN_BOTH]) {
-      expect(rule).not.toContain('{{TODAY}}');
-    }
-  });
 });
 
 describe('neverInventRule', () => {
