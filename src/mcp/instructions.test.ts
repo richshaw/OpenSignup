@@ -28,6 +28,17 @@ describe('buildInstructions', () => {
     expect(text).not.toContain('placeholder');
   });
 
+  it('says when not to group, as the prompt does after the same sentence', () => {
+    const line = lines.find((l) => l.includes('"groupBy"'));
+    expect(line).toMatch(/Leave it out when every slot would be its own group/);
+  });
+
+  it('says what is fine before it says what is not', () => {
+    const line = lines.find((l) => l.includes('What is not fine')) ?? '';
+    expect(line.indexOf('are fine and expected')).toBeGreaterThan(-1);
+    expect(line.indexOf('are fine and expected')).toBeLessThan(line.indexOf('What is not fine'));
+  });
+
   it('carries the two rules written for assistants', () => {
     expect(text).toContain(USE_DATE_AND_TIME_FIELDS);
     expect(text).toContain(USE_CAPACITY_NOT_DUPLICATE_ROWS);
