@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { ACTION_SIZING } from './slot-format';
 import {
   SignupViewBody,
   type SignupViewField,
@@ -238,10 +239,40 @@ describe('<SignupViewBody /> slot row', () => {
     expect(screen.queryByRole('button', { name: 'Sign up' })).toBeNull();
   });
 
+  it('gives Full, Closed and Sign up the same box, not a narrow label beside a pill', () => {
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={[
+          { ...MULTI[0]!, id: 'open' },
+          { ...MULTI[0]!, id: 'full', committed: 1 },
+          { ...MULTI[0]!, id: 'shut', status: 'closed' },
+        ]}
+        slug="example"
+        mode="preview"
+        showStateBanner={false}
+      />,
+    );
+    // Assert against ACTION_SIZING rather than naming a class: the invariant
+    // is "every state carries the same geometry", which survives a token
+    // change (w-24 -> w-[96px]) and still fails if one call site drifts.
+    const actions = [
+      screen.getByText('Full'),
+      screen.getByText('Closed'),
+      screen.getByRole('button', { name: /^Sign up for / }),
+    ];
+    for (const el of actions) {
+      for (const cls of ACTION_SIZING.split(' ')) expect(el).toHaveClass(cls);
+    }
+  });
+
   it('keeps every row action at a 44px minimum touch target on mobile', () => {
     renderRows();
     for (const button of screen.getAllByRole('button', { name: /^Sign up for / })) {
-      expect(button).toHaveClass('min-h-11');
+      expect(ACTION_SIZING).toContain('min-h-11');
+      for (const cls of ACTION_SIZING.split(' ')) expect(button).toHaveClass(cls);
     }
   });
 });

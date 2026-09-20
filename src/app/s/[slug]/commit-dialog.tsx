@@ -210,7 +210,7 @@ export default function CommitDialog({
         // user swiping the list hears the same name N times with no way to tell
         // which slot they are committing to.
         aria-label={`Sign up for ${actionName}`}
-        className={`${ACTION_SIZING} bg-brand px-4 text-sm font-medium text-white transition hover:brightness-110`}
+        className={`${ACTION_SIZING} bg-brand font-medium text-white transition hover:brightness-110`}
       >
         Sign up
       </button>
@@ -226,7 +226,7 @@ export default function CommitDialog({
         // user swiping the list hears the same name N times with no way to tell
         // which slot they are committing to.
         aria-label={`Sign up for ${actionName}`}
-        className={`${ACTION_SIZING} bg-brand px-4 text-sm font-medium text-white transition hover:brightness-110`}
+        className={`${ACTION_SIZING} bg-brand font-medium text-white transition hover:brightness-110`}
       >
         Sign up
       </button>
