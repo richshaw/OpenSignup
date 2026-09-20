@@ -113,20 +113,16 @@ export function extractSlotAt(
 
 /**
  * Re-derive slots.slot_at for every slot in a signup. Runs inside the caller's
- * transaction, and the caller already holds the signup lock
- * (`lockSignupForWrite`): the slot rows are locked here, and slots come second
- * in the lock order.
+ * transaction. Takes the signup lock (`lockSignupForWrite`) and then the slot
+ * rows, so the signup-then-slots order holds whoever calls it; for a caller
+ * that already holds the signup lock, taking it again is just the settings
+ * read.
  */
 export async function recomputeSlotAtForSignup(
   tx: Queryable,
   signupId: string,
 ): Promise<{ updated: number }> {
-  const signupRow = await tx
-    .select({ settings: signups.settings })
-    .from(signups)
-    .where(eq(signups.id, signupId))
-    .limit(1)
-    .then((r) => r[0]);
+  const signupRow = await lockSignupForWrite(tx, signupId);
   if (!signupRow) return { updated: 0 };
   const settings = (signupRow.settings as ReminderSettingsLike) ?? {};
   const fields = await listFieldsForSignup(tx, signupId);
