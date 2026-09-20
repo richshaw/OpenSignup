@@ -190,7 +190,9 @@ describe('signup write tools on Postgres', () => {
       arguments: { title: 'Gone soon', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
     });
     const id = (created.structuredContent as { signup: { id: string } }).signup.id;
-    await client.callTool({ name: 'delete_signup', arguments: { signupId: id } });
+    const deleted = await client.callTool({ name: 'delete_signup', arguments: { signupId: id } });
+    expect((deleted.structuredContent as { deleted: boolean; deletedAt: string }).deleted).toBe(true);
+    expect((deleted.structuredContent as { deletedAt: string }).deletedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     const upd = await client.callTool({ name: 'update_signup', arguments: { signupId: id, title: 'Renamed' } });
     expect((upd.structuredContent as { error: { code: string } }).error.code).toBe('not_found');
     const pub = await client.callTool({ name: 'publish_signup', arguments: { signupId: id } });
