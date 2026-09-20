@@ -56,7 +56,11 @@ export function capacityLabel(committed: number, capacity: number | null): Capac
       ? { text: String(committed), sr: `${committed} signed up` }
       : { text: '', sr: null };
   }
-  if (capacity === 1) return { text: '', sr: null };
+  // `capacity` is typed `number | null`, so 0 is representable even though
+  // CapacitySchema is `.positive()` and no validated write can produce it.
+  // Without this it fell through to the fraction branch as a meaningless
+  // "0/0"; the expression this replaced rendered a bare "0" for the same row.
+  if (capacity <= 1) return { text: '', sr: null };
   return { text: `${committed}/${capacity}`, sr: `${committed} of ${capacity} signed up` };
 }
 
