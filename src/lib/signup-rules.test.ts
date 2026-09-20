@@ -52,9 +52,9 @@ describe('neverInventRule', () => {
     expect(neverInventRule('drafter')).toContain('produce 1-3 placeholder slots');
   });
 
-  it('tells the assistant to ask instead, since it can', () => {
+  it('tells the assistant to ask for what the slots need, since it can', () => {
     const rule = neverInventRule('assistant');
-    expect(rule).toContain('If details are missing, ask before you create anything.');
+    expect(rule).toContain('If something the slots need is missing, ask for it.');
     expect(rule).not.toContain('placeholder');
   });
 });

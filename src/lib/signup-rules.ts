@@ -43,10 +43,12 @@ export const USE_CAPACITY_NOT_DUPLICATE_ROWS = `When several people can take the
 
 // The middle differs by reader. The drafter gets one shot and cannot ask, so
 // it falls back to placeholders; an assistant is in a conversation and can.
+// It asks only for what the slots need: a draft is invisible and cheap, so
+// it need not hold up the first create over every missing detail.
 // No spaces at either end: `neverInventRule` owns the joins.
 const NEVER_INVENT_MIDDLE = {
   drafter: `that aren't in the user's prompt. If the prompt is vague (no dates, no specific count, no specifics — e.g. "make a signup for my kid's soccer team"), produce 1-3 placeholder slots with labels like "TBD: game 1", "TBD: shift 1" and call out the gap in description ("Add specific dates/details here").`,
-  assistant: `the organizer has not given you. If details are missing, ask before you create anything.`,
+  assistant: `the organizer has not given you. If something the slots need is missing, ask for it.`,
 } as const;
 
 export function neverInventRule(audience: keyof typeof NEVER_INVENT_MIDDLE): string {
