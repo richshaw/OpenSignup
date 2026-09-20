@@ -219,7 +219,7 @@ export function SignupViewBody({
             'showcase' mode the card is embedded in a page that already has its
             own h1 (the marketing headline), and a second h1 is an SEO defect —
             demote to h2 there. Styling is identical either way. */}
-        <Title className="text-2xl font-semibold tracking-tight sm:text-3xl">{signup.title}</Title>
+        <Title className="text-3xl font-semibold tracking-tight">{signup.title}</Title>
         {signup.description ? (
           <p className="text-ink-muted whitespace-pre-line">{signup.description}</p>
         ) : null}
@@ -277,19 +277,17 @@ export function SignupViewBody({
                           <span className="sr-only">{count.sr}</span>
                         </span>
                       ) : null}
-                      <div className="flex justify-end sm:w-24">
+                      <div className="flex justify-end">
                         {own ? (
                           <Link
                             href={own.editUrl}
                             aria-label={`Edit your signup for ${title}`}
-                            className={`${ACTION_SIZING} border border-surface-sunk bg-white px-3.5 text-sm font-medium transition hover:bg-surface-raised`}
+                            className={`${ACTION_SIZING} border border-surface-sunk bg-white text-sm font-medium transition hover:bg-surface-raised`}
                           >
                             Edit
                           </Link>
                         ) : closed ? (
-                          <span
-                            className={`${ACTION_SIZING} px-3 text-xs font-medium text-ink-soft`}
-                          >
+                          <span className={`${ACTION_SIZING} text-sm font-medium text-ink-soft`}>
                             {full ? 'Full' : 'Closed'}
                           </span>
                         ) : isPreview ? (
@@ -298,13 +296,13 @@ export function SignupViewBody({
                             disabled
                             title="Preview: publish to enable signups"
                             aria-label={`Sign up for ${title}`}
-                            className={`${ACTION_SIZING} cursor-not-allowed bg-brand px-4 text-sm font-medium text-white opacity-60`}
+                            className={`${ACTION_SIZING} cursor-not-allowed bg-brand text-sm font-medium text-white opacity-60`}
                           >
                             Sign up
                           </button>
                         ) : mode === 'showcase' ? (
                           <span
-                            className={`${ACTION_SIZING} bg-brand px-4 text-sm font-medium text-white`}
+                            className={`${ACTION_SIZING} bg-brand text-sm font-medium text-white`}
                           >
                             Sign up
                           </span>

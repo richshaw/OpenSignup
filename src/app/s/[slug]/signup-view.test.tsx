@@ -214,6 +214,48 @@ describe('<SignupViewBody /> slot row', () => {
     expect(screen.queryByRole('button', { name: 'Sign up' })).toBeNull();
   });
 
+  it('gives Full, Closed and Sign up the same box, not a narrow label beside a pill', () => {
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={[
+          { ...MULTI[0]!, id: 'open' },
+          { ...MULTI[0]!, id: 'full', committed: 1 },
+          { ...MULTI[0]!, id: 'shut', status: 'closed' },
+        ]}
+        slug="example"
+        mode="preview"
+        showStateBanner={false}
+      />,
+    );
+    // w-24 is the design system's action column; every state fills it.
+    for (const label of ['Full', 'Closed']) {
+      expect(screen.getByText(label)).toHaveClass('w-24');
+    }
+    expect(screen.getByRole('button', { name: /^Sign up for / })).toHaveClass('w-24');
+  });
+
+  it('sizes the inert Full/Closed label like the action it replaces', () => {
+    // It sat at text-xs while its peers in the same slot were text-sm; colour
+    // (text-ink-soft) already carries the de-emphasis.
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={[{ ...MULTI[0]!, id: 'full', committed: 1 }]}
+        slug="example"
+        mode="preview"
+        showStateBanner={false}
+      />,
+    );
+    const label = screen.getByText('Full');
+    expect(label).toHaveClass('text-sm');
+    expect(label).not.toHaveClass('text-xs');
+  });
+
   it('keeps every row action at a 44px minimum touch target on mobile', () => {
     renderRows();
     for (const button of screen.getAllByRole('button', { name: /^Sign up for / })) {

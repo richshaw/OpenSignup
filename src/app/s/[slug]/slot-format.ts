@@ -62,20 +62,27 @@ export function capacityLabel(committed: number, capacity: number | null): Capac
 
 /**
  * Shared geometry for a slot row's action slot, so the Sign-up button, the Edit
- * link and the inert Full/Closed label stay the same size and the rows keep a
+ * link and the inert Full/Closed label are the same box and the rows keep a
  * common baseline.
+ *
+ * `w-24` is the design system's canonical action column (96px, contents
+ * centred — see design-system/ui_kits/participant/SlotRow.jsx). The app had
+ * drifted to right-aligning a content-width action inside it, which made "Full"
+ * a narrow label hugging the row's edge while "Sign up" was an 82px pill: two
+ * states of one control that did not line up with each other.
  *
  * `min-h-11` is 44px: the old `py-1.5` pill measured 32px tall, under both the
  * iOS HIG 44pt and Material 48dp minimums, in a list whose whole purpose is
  * tapping one row out of many on a phone. It relaxes to a compact 32px from
  * `sm` up, where a pointer is the likely input.
  *
- * Font size stays at each call site on purpose: `text-sm` and `text-xs` sit in
- * the same Tailwind layer, so baking one in here would beat the `text-xs` on
- * the Full/Closed label no matter which order the classes appear in.
+ * Font size stays at each call site: the sizes differ (`text-sm` for the
+ * label-bearing actions), and baking one in here would win over a call site's
+ * own size regardless of class order, since both sit in the same Tailwind
+ * layer.
  *
  * Lives here rather than in signup-view.tsx so the 'use client' commit dialog
  * can share it without importing a server component.
  */
 export const ACTION_SIZING =
-  'inline-flex min-h-11 items-center justify-center rounded-lg sm:min-h-8';
+  'inline-flex w-24 min-h-11 items-center justify-center rounded-lg sm:min-h-8';
