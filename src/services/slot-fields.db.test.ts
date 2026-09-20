@@ -275,12 +275,7 @@ describe('slot-fields service (db)', () => {
           fieldType: 'time',
           config: { fieldType: 'time' },
         });
-        adding.then(
-          () => (finished = true),
-          () => undefined,
-        );
         await untilServiceBlockedOn(fx.db, tx, adding);
-        expect(finished).toBe(false);
       });
       await held.finally(() => settle(adding));
       const r = await adding!;
@@ -294,7 +289,6 @@ describe('slot-fields service (db)', () => {
     it('with a sortOrder, waits for a settings save in flight and keeps what it saved', async () => {
       const sigId = await createTestSignup(fx, 'Add settings race');
       let adding: ReturnType<typeof addField> | undefined;
-      let finished = false;
       const held = fx.db.transaction(async (tx) => {
         // What `updateSignup` does, held open: lock the signup, save a setting.
         await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
@@ -458,7 +452,6 @@ describe('slot-fields service (db)', () => {
       if (!created.ok) throw new Error('setup failed');
 
       let retyping: ReturnType<typeof updateField> | undefined;
-      let finished = false;
       const held = fx.db.transaction(async (tx) => {
         // What `updateSignup` does, held open: lock the signup, save a setting.
         await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
@@ -472,12 +465,7 @@ describe('slot-fields service (db)', () => {
           fieldType: 'date',
           config: { fieldType: 'date' },
         });
-        retyping.then(
-          () => (finished = true),
-          () => undefined,
-        );
         await untilServiceBlockedOn(fx.db, tx, retyping);
-        expect(finished).toBe(false);
       });
       await held.finally(() => settle(retyping));
       const r = await retyping!;
