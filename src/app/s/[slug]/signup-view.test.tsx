@@ -80,7 +80,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
         showStateBanner={false}
       />,
     );
-    const button = screen.getByRole('button', { name: 'Sign up' });
+    const button = screen.getByRole('button', { name: 'Sign up for Sun, May 17' });
     expect(button).toBeDisabled();
     expect(button).toHaveClass('opacity-60');
   });
@@ -120,5 +120,104 @@ describe('<SignupViewBody /> heading level', () => {
       />,
     );
     expect(screen.getByRole('heading', { level: 1, name: 'Snack duty' })).toBeInTheDocument();
+  });
+});
+
+describe('<SignupViewBody /> slot row', () => {
+  // Distinct dates: the primary field is what each button is named after, so
+  // sharing one would hide the very collision this guards against.
+  const MULTI: SignupViewSlot[] = [
+    {
+      ...SLOTS[0]!,
+      id: 'cap1',
+      values: { date: '2026-05-17', team: 'Hawks' },
+      capacity: 1,
+      committed: 0,
+    },
+    {
+      ...SLOTS[0]!,
+      id: 'cap12',
+      values: { date: '2026-05-18', team: 'Hawks' },
+      capacity: 12,
+      committed: 10,
+    },
+    {
+      ...SLOTS[0]!,
+      id: 'uncapped',
+      values: { date: '2026-05-19', team: 'Hawks' },
+      capacity: null,
+      committed: 0,
+    },
+  ];
+
+  function renderRows() {
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={MULTI}
+        slug="example"
+        mode="preview"
+        showStateBanner={false}
+      />,
+    );
+  }
+
+  it('drops the "0/1" counter but keeps a real fraction', () => {
+    renderRows();
+    expect(screen.queryByText('0/1')).toBeNull();
+    expect(screen.getByText('10/12')).toBeInTheDocument();
+  });
+
+  it('does not render a bare "0" for an uncapped slot', () => {
+    renderRows();
+    expect(screen.queryByText('0')).toBeNull();
+  });
+
+  it('gives a counter a screen-reader sentence, not a slash', () => {
+    renderRows();
+    expect(screen.getByText('10 of 12 signed up')).toHaveClass('sr-only');
+  });
+
+  it('lets the meta line wrap instead of clamping the last segment away', () => {
+    // The location was being truncated off every row on a 390px screen.
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={[...FIELDS, { ref: 'where', label: 'Where', fieldType: 'text' }]}
+        groupByRef={null}
+        slots={[
+          {
+            ...SLOTS[0]!,
+            values: { date: '2026-05-17', team: 'Hawks', where: 'Sunnyvale Sports Complex' },
+          },
+        ]}
+        slug="example"
+        mode="preview"
+        showStateBanner={false}
+      />,
+    );
+    const meta = screen.getByText('Hawks · Sunnyvale Sports Complex');
+    expect(meta).toHaveClass('line-clamp-3');
+    expect(meta).toHaveClass('sm:line-clamp-2');
+    expect(meta).not.toHaveClass('truncate');
+  });
+
+  it('names each button after its own slot, not a bare "Sign up"', () => {
+    // Sixteen identically-named buttons give a screen-reader user no way to
+    // tell which slot they are committing to.
+    renderRows();
+    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Tue, May 19' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sign up' })).toBeNull();
+  });
+
+  it('keeps every row action at a 44px minimum touch target on mobile', () => {
+    renderRows();
+    for (const button of screen.getAllByRole('button', { name: /^Sign up for / })) {
+      expect(button).toHaveClass('min-h-11');
+    }
   });
 });

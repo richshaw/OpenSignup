@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   buildMetaSegments,
+  capacityLabel,
   formatGroupLabel,
   formatSlotDate,
   pickPrimaryField,
@@ -154,5 +155,26 @@ describe('formatGroupLabel', () => {
     expect(formatGroupLabel(game, undefined)).toBe('(no game)');
     expect(formatGroupLabel(game, null)).toBe('(no game)');
     expect(formatGroupLabel(game, '')).toBe('(no game)');
+  });
+});
+
+describe('capacityLabel', () => {
+  it('shows nothing for a capacity-1 slot, where the action column says it all', () => {
+    expect(capacityLabel(0, 1)).toEqual({ text: '', sr: null });
+    expect(capacityLabel(1, 1)).toEqual({ text: '', sr: null });
+  });
+
+  it('shows the fraction once there is a denominator worth reading', () => {
+    expect(capacityLabel(2, 4)).toEqual({ text: '2/4', sr: '2 of 4 signed up' });
+  });
+
+  it('announces a full count to screen readers rather than "ten slash twelve"', () => {
+    expect(capacityLabel(10, 12).sr).toBe('10 of 12 signed up');
+  });
+
+  it('hides a bare count on an unlimited slot until someone has signed up', () => {
+    // A lone "0" has no denominator to anchor it and reads as noise.
+    expect(capacityLabel(0, null)).toEqual({ text: '', sr: null });
+    expect(capacityLabel(3, null)).toEqual({ text: '3', sr: '3 signed up' });
   });
 });
