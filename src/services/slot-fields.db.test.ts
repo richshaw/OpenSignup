@@ -365,6 +365,43 @@ describe('slot-fields service (db)', () => {
       expect(outcome).toBe('renamed');
     });
 
+    it('does not deadlock with someone signing up for a slot whose slot_at changes', async () => {
+      const sigId = await createTestSignup(fx, 'Reorder commit race');
+      const ids: Record<string, string> = {};
+      for (const [ref, fieldType] of [
+        ['doors', 'time'],
+        ['day', 'date'],
+        ['start', 'time'],
+      ] as const) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType,
+          config: { fieldType },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+        ids[ref] = f.value.id;
+      }
+      // `start` sorts after the date, so it is the time that pairs with it,
+      // and this slot leaves it blank.
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { doors: '18:30', day: '2026-05-10' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T12:00:00.000Z');
+
+      // Moved ahead of the date, no time is left after it and the first one,
+      // `doors`, pairs instead: the reorder rewrites the slot row.
+      const at = { signupId: sigId, workspaceId: fx.workspaceId, slotId: slot.value.id };
+      const r = await whileSigningUp(fx.db, at, () =>
+        updateField(fx.db, fx.actor, ids['start']!, { sortOrder: 0 }),
+      );
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect(after?.slotAt?.toISOString()).toBe('2026-05-10T18:30:00.000Z');
+    });
+
     it('waits for a settings save in flight and keeps what it saved', async () => {
       const sigId = await createTestSignup(fx, 'Retype settings race');
       const created = await addField(fx.db, fx.actor, sigId, {
