@@ -25,7 +25,7 @@ import {
   SlotFieldInputSchema,
   SlotFieldUpdateInputSchema,
 } from '@/schemas/slot-fields';
-import { lockSignupForWrite } from './locks';
+import { lockSignupForWrite, lockSlotsForSignup } from './locks';
 
 type FieldRow = typeof slotFields.$inferSelect;
 
@@ -110,7 +110,12 @@ export function extractSlotAt(
   return Number.isNaN(at.getTime()) ? null : at;
 }
 
-/** Re-derive slots.slot_at for every slot in a signup. Safe to call inside a tx. */
+/**
+ * Re-derive slots.slot_at for every slot in a signup. Runs inside the caller's
+ * transaction, and the caller already holds the signup lock
+ * (`lockSignupForWrite`): the slot rows are locked here, and slots come second
+ * in the lock order.
+ */
 export async function recomputeSlotAtForSignup(
   tx: Queryable,
   signupId: string,
@@ -124,10 +129,11 @@ export async function recomputeSlotAtForSignup(
   if (!signupRow) return { updated: 0 };
   const settings = (signupRow.settings as ReminderSettingsLike) ?? {};
   const fields = await listFieldsForSignup(tx, signupId);
-  const slotRows = await tx
-    .select({ id: slots.id, values: slots.values, slotAt: slots.slotAt })
-    .from(slots)
-    .where(eq(slots.signupId, signupId));
+  // Locked, not just read: a slot edit in flight finishes first, so the instant
+  // written below comes from the values the slot ends up with. Read unlocked,
+  // the edit's new date was invisible here and its slot_at was overwritten
+  // with the old date's.
+  const slotRows = await lockSlotsForSignup(tx, signupId);
 
   let updated = 0;
   for (const row of slotRows) {
@@ -388,6 +394,9 @@ export async function deleteField(
         })
         .where(eq(signups.id, existing.signupId));
     }
+    // Every slot row is written next. Locked in the shared order first, not
+    // in whatever order the bulk update reaches them.
+    await lockSlotsForSignup(tx, existing.signupId);
     await tx
       .update(slots)
       .set({ values: sql`${slots.values} - ${existing.ref}::text` })

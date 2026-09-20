@@ -234,6 +234,51 @@ describe('slot-fields service (db)', () => {
       expect(after?.slotAt?.toISOString()).toBe('2026-05-10T12:00:00.000Z');
     });
 
+    it('rebuilds slot_at from the date a slot edit in flight ends up saving', async () => {
+      const sigId = await createTestSignup(fx, 'Add slot-edit race');
+      for (const [ref, fieldType] of [['doors', 'time'], ['day', 'date']] as const) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType,
+          config: { fieldType },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+      }
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { doors: '18:30', day: '2026-05-10' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      let adding: ReturnType<typeof addField> | undefined;
+      await fx.db.transaction(async (tx) => {
+        // What `updateSlot` does, held open: move the slot to July.
+        await tx
+          .update(slots)
+          .set({
+            values: { doors: '18:30', day: '2026-07-04' },
+            slotAt: new Date('2026-07-04T18:30:00.000Z'),
+          })
+          .where(eq(slots.id, slot.value.id));
+        // `start` pairs with the date in place of `doors`, so the rebuild has
+        // a new instant to write for this slot whichever date it read.
+        adding = addField(fx.db, fx.actor, sigId, {
+          ref: 'start',
+          label: 'Start',
+          fieldType: 'time',
+          config: { fieldType: 'time' },
+        });
+        adding.catch(() => undefined);
+        await untilBlockedOn(fx.db, tx);
+      });
+      const r = await adding!;
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect((after?.values as { day?: string }).day).toBe('2026-07-04');
+      expect(after?.slotAt?.toISOString()).toBe('2026-07-04T12:00:00.000Z');
+    });
+
     it('with a sortOrder, waits for a settings save in flight and keeps what it saved', async () => {
       const sigId = await createTestSignup(fx, 'Add settings race');
       let adding: ReturnType<typeof addField> | undefined;

@@ -17,7 +17,7 @@ import {
   SlotReorderInputSchema,
   SlotUpdateInputSchema,
 } from '@/schemas/slots';
-import { lockSignupForWrite } from './locks';
+import { lockSignupForWrite, lockSlotsForSignup } from './locks';
 import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
 
 type SlotRow = typeof slots.$inferSelect;
@@ -480,22 +480,6 @@ export async function deleteSlot(
     });
     return ok({ deleted: true, commitmentsRemoved });
   });
-}
-
-/**
- * A signup's slots in the order they are shown, with every row locked until
- * the transaction ends. Take the signup row lock first (`lockSignupForWrite`
- * in ./locks.ts): `commitToSlot` and `deleteSlot` hold one slot row and then
- * key-share the signup, so signup before slots is the only order that cannot
- * deadlock with them.
- */
-export async function lockSlotsForSignup(tx: Queryable, signupId: string) {
-  return tx
-    .select()
-    .from(slots)
-    .where(eq(slots.signupId, signupId))
-    .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt))
-    .for('update');
 }
 
 export async function listSlotsForSignup(db: Queryable, signupId: string) {
