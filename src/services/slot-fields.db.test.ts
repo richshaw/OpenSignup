@@ -330,6 +330,40 @@ describe('slot-fields service (db)', () => {
       expect(r.value.label).toBe('Updated');
     });
 
+    it('renames a field without waiting for someone part-way through signing up', async () => {
+      const sigId = await createTestSignup(fx, 'Rename while committing');
+      const day = await addField(fx.db, fx.actor, sigId, {
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      if (!day.ok) throw new Error('setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { day: '2026-05-10' } });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      let renaming: ReturnType<typeof updateField> | undefined;
+      let outcome: string | undefined;
+      await fx.db.transaction(async (tx) => {
+        // What `commitToSlot` does, held open: lock the slot row.
+        await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
+        renaming = updateField(fx.db, fx.actor, day.value.id, { label: 'Date' });
+        renaming.catch(() => undefined);
+        // A label cannot move slot_at, so the rename has no business with the
+        // slot rows and must finish while this one is still held.
+        outcome = await Promise.race([
+          renaming.then((r) => (r.ok ? 'renamed' : JSON.stringify(r))),
+          untilBlockedOn(fx.db, tx, 5_000).then(
+            () => 'blocked behind the slot row',
+            () => 'neither finished nor blocked',
+          ),
+        ]);
+      });
+      // Let a blocked rename finish before the next test or the teardown runs.
+      await renaming;
+      expect(outcome).toBe('renamed');
+    });
+
     it('waits for a settings save in flight and keeps what it saved', async () => {
       const sigId = await createTestSignup(fx, 'Retype settings race');
       const created = await addField(fx.db, fx.actor, sigId, {

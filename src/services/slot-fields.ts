@@ -303,7 +303,8 @@ export async function updateField(
 
   const updated = await db.transaction(async (tx) => {
     // The re-anchor below reads settings and writes them back, and the rebuild
-    // writes slot rows: both need the signup lock, as in `addField`.
+    // writes slot rows: both need the signup lock, as in `addField`. Taken even
+    // when neither runs. It is cheap, and the order stays the same for all.
     await lockSignupForWrite(tx, existing.signupId);
 
     const [row] = await tx
@@ -324,12 +325,27 @@ export async function updateField(
     // with no anchor gives it one. A reorder can also change which time field
     // pairs with the date. Re-anchor and rebuild rather than predict which of
     // those applied.
-    const anchor = await reanchor(
-      tx,
-      existing.signupId,
-      await listFieldsForSignup(tx, existing.signupId),
-    );
-    await recomputeSlotAtForSignup(tx, existing.signupId);
+    //
+    // Skipped when none of them can have: the rebuild locks every slot row, so
+    // a rename on a live signup would queue behind everyone part-way through
+    // signing up and then hold up everyone after them. The anchor and slot_at
+    // read only the type and order of date and time fields
+    // (src/lib/reminder-fields.ts), never a label, so a change that names
+    // neither, or a field that is not one of those before or after, is safe.
+    // A config sent for a date or time field rebuilds too: neither has options
+    // today, and one that arrives may well move the instant.
+    const feedsSlotAt = isDateOrTime(existing.fieldType) || isDateOrTime(row.fieldType);
+    const mayMoveSlotAt =
+      data.fieldType !== undefined || data.sortOrder !== undefined || data.config !== undefined;
+    let anchor: string | null | undefined;
+    if (feedsSlotAt && mayMoveSlotAt) {
+      anchor = await reanchor(
+        tx,
+        existing.signupId,
+        await listFieldsForSignup(tx, existing.signupId),
+      );
+      await recomputeSlotAtForSignup(tx, existing.signupId);
+    }
 
     const changes: Record<string, unknown> = {};
     for (const key of Object.keys(data) as (keyof typeof data)[]) {
@@ -466,6 +482,11 @@ export function validateSlotValues(
     if (!r.ok) return r;
   }
   return ok(undefined);
+}
+
+/** The only field types the reminder anchor and `slots.slot_at` are read from. */
+function isDateOrTime(fieldType: string): boolean {
+  return fieldType === 'date' || fieldType === 'time';
 }
 
 function isMissing(value: unknown): boolean {
