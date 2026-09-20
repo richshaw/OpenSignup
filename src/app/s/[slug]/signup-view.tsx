@@ -5,7 +5,10 @@ import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { Banner } from '@/components/banner';
 import CommitDialog from './commit-dialog';
 import {
+  ACTION_SIZING,
   buildMetaSegments,
+  capacityLabel,
+  slotAccessibleName,
   formatGroupLabel,
   pickPrimaryField,
   renderFieldValue,
@@ -239,10 +242,12 @@ export function SignupViewBody({
                 const meta = buildMetaSegments({ fields, slot, primaryRef, groupRef });
                 const own = ownBySlot.get(slot.id) ?? null;
                 const isOwn = own !== null;
+                const count = capacityLabel(slot.committed, slot.capacity);
+                const actionName = slotAccessibleName(group.label || null, title, meta);
                 return (
                   <li
                     key={slot.id}
-                    className={`flex items-center justify-between gap-4 px-[18px] py-3 ${
+                    className={`flex items-center justify-between gap-3 px-3 py-2.5 sm:gap-4 sm:px-[18px] sm:py-3 ${
                       idx > 0 ? 'border-t border-surface-sunk' : ''
                     } ${isOwn ? 'bg-success/5' : ''}`}
                   >
@@ -251,26 +256,40 @@ export function SignupViewBody({
                         {title}
                       </p>
                       {meta.length ? (
-                        <p className="truncate text-sm text-ink-muted">
+                        // Wrapped, not `truncate`. The fixed right rail left
+                        // ~160px for text at 390px, so one clamped line dropped
+                        // the last segment — usually the location — from every
+                        // row. The title above stays single-line.
+                        //
+                        // Three lines below `sm`, because a row that also shows
+                        // a count has a third column competing for a 360px
+                        // screen and two lines still clipped the location. This
+                        // is a ceiling, not a height: short meta still wraps to
+                        // one line.
+                        <p className="line-clamp-3 text-sm text-ink-muted sm:line-clamp-2">
                           {meta.join(' · ')}
                         </p>
                       ) : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      <span className="w-9 text-right text-sm tabular-nums text-ink-muted">
-                        {slot.committed}
-                        {slot.capacity ? `/${slot.capacity}` : ''}
-                      </span>
-                      <div className="flex w-24 justify-end">
+                      {count.text ? (
+                        // `min-w`, not `w`: a fixed 36px column clipped "10/12".
+                        <span className="min-w-9 text-right text-sm tabular-nums text-ink-muted">
+                          <span aria-hidden="true">{count.text}</span>
+                          <span className="sr-only">{count.sr}</span>
+                        </span>
+                      ) : null}
+                      <div className="flex">
                         {own ? (
                           <Link
                             href={own.editUrl}
-                            className="rounded-lg border border-surface-sunk bg-white px-3.5 py-1.5 text-sm font-medium transition hover:bg-surface-raised"
+                            aria-label={`Edit your signup for ${actionName}`}
+                            className={`${ACTION_SIZING} border border-surface-sunk bg-white font-medium transition hover:bg-surface-raised`}
                           >
                             Edit
                           </Link>
                         ) : closed ? (
-                          <span className="px-3 py-1.5 text-xs font-medium text-ink-soft">
+                          <span className={`${ACTION_SIZING} font-medium text-ink-soft`}>
                             {full ? 'Full' : 'Closed'}
                           </span>
                         ) : isPreview ? (
@@ -278,18 +297,22 @@ export function SignupViewBody({
                             type="button"
                             disabled
                             title="Preview: publish to enable signups"
-                            className="bg-brand cursor-not-allowed rounded-lg px-4 py-1.5 text-sm font-medium text-white opacity-60"
+                            aria-label={`Sign up for ${actionName}`}
+                            className={`${ACTION_SIZING} cursor-not-allowed bg-brand font-medium text-white opacity-60`}
                           >
                             Sign up
                           </button>
                         ) : mode === 'showcase' ? (
-                          <span className="bg-brand rounded-lg px-4 py-1.5 text-sm font-medium text-white">
+                          <span
+                            className={`${ACTION_SIZING} bg-brand font-medium text-white`}
+                          >
                             Sign up
                           </span>
                         ) : (
                           <CommitDialog
                             slotId={slot.id}
                             slotTitle={title}
+                            actionName={actionName}
                             slotAt={slot.slotAt}
                             slotHasTime={slotHasTime(slot, fields)}
                             signupTitle={signup.title}

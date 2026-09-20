@@ -4,10 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
+import { ACTION_SIZING } from './slot-format';
 
 interface CommitDialogProps {
   slotId: string;
   slotTitle: string;
+  /** Full disambiguating name for the button; see slotAccessibleName. */
+  actionName: string;
   slotAt: string | null;
   /**
    * Whether the slot carries a time of its own. A date-only slot's `slotAt` is
@@ -61,6 +64,7 @@ function writePrefill(value: PrefillState): void {
 export default function CommitDialog({
   slotId,
   slotTitle,
+  actionName,
   slotAt,
   slotHasTime,
   signupTitle,
@@ -202,7 +206,11 @@ export default function CommitDialog({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="bg-brand rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
+        // Every row's button reads "Sign up", so without this a screen-reader
+        // user swiping the list hears the same name N times with no way to tell
+        // which slot they are committing to.
+        aria-label={`Sign up for ${actionName}`}
+        className={`${ACTION_SIZING} bg-brand font-medium text-white transition hover:brightness-110`}
       >
         Sign up
       </button>
@@ -214,7 +222,11 @@ export default function CommitDialog({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="bg-brand rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
+        // Every row's button reads "Sign up", so without this a screen-reader
+        // user swiping the list hears the same name N times with no way to tell
+        // which slot they are committing to.
+        aria-label={`Sign up for ${actionName}`}
+        className={`${ACTION_SIZING} bg-brand font-medium text-white transition hover:brightness-110`}
       >
         Sign up
       </button>
