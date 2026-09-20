@@ -20,6 +20,13 @@ import {
 
 type CommitmentRow = typeof commitments.$inferSelect;
 
+/**
+ * A commitment the participant can still act on. `cancelled`, `no_show` and
+ * `orphaned` are terminal — organizer- or participant-applied end states that
+ * no participant action reopens.
+ */
+const isActiveCommitment = inArray(commitments.status, ['confirmed', 'tentative', 'waitlist']);
+
 // Telemetry write inside an outer tx where a raw INSERT would otherwise abort
 // the surrounding transaction on failure. Uses a SAVEPOINT (Drizzle's nested
 // `tx.transaction`) so a failed activity insert rolls back only the savepoint,
@@ -486,9 +493,13 @@ export async function updateOwnCommitment(
         ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
         updatedAt: new Date(),
       })
-      .where(eq(commitments.id, commitmentId))
+      .where(and(eq(commitments.id, commitmentId), isActiveCommitment))
       .returning();
-    if (!updated) return err(serviceError('internal', 'update returned nothing'));
+    // The row exists — `getOwnCommitment` just read it — so no match means its
+    // status is terminal. Without this the edit would report success on a
+    // cancelled commitment while changing nothing anyone can see. The swap
+    // path above already rejects the same case.
+    if (!updated) return err(serviceError('conflict', 'commitment is not active'));
 
     if (data.name && data.name !== current.participantName) {
       await tx
@@ -521,16 +532,7 @@ export async function cancelOwnCommitment(
     const cancelled = await tx
       .update(commitments)
       .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() })
-      .where(
-        and(
-          eq(commitments.id, commitmentId),
-          or(
-            eq(commitments.status, 'confirmed'),
-            eq(commitments.status, 'tentative'),
-            eq(commitments.status, 'waitlist'),
-          ),
-        ),
-      )
+      .where(and(eq(commitments.id, commitmentId), isActiveCommitment))
       .returning({ id: commitments.id });
     if (cancelled.length === 0) {
       // Idempotent: cancelling an already-cancelled commitment (retry or lost race)

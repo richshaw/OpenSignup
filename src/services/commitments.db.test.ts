@@ -245,6 +245,34 @@ describe('updateOwnCommitment swap (db)', () => {
     expect(originalRow[0]?.status).toBe('confirmed');
     expect(originalRow[0]?.slotId).toBe(a.slotId);
   });
+
+  it('refuses to edit a cancelled commitment', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Signup E');
+    const committed = await commitToSlot(fx.db, a.slotId, {
+      name: 'Eli',
+      email: 'eli@example.test',
+      notes: 'original',
+      quantity: 1,
+    });
+    if (!committed.ok) throw new Error(`commitToSlot failed: ${committed.error.message}`);
+    const { commitment, editToken } = committed.value;
+
+    const cancelled = await cancelOwnCommitment(fx.db, commitment.id, editToken);
+    expect(cancelled.ok).toBe(true);
+
+    // The edit token still verifies, so only the status guard stops this.
+    const r = await updateOwnCommitment(fx.db, commitment.id, editToken, { notes: 'changed' });
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('expected a conflict');
+    expect(r.error.code).toBe('conflict');
+
+    const row = await fx.db
+      .select({ notes: commitments.notes })
+      .from(commitments)
+      .where(eq(commitments.id, commitment.id))
+      .limit(1);
+    expect(row[0]?.notes).toBe('original');
+  });
 });
 
 describe('cancelOwnCommitment (db)', () => {
