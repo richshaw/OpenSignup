@@ -23,8 +23,10 @@ export async function untilBlockedOn(db: Db, tx: Queryable, timeoutMs = 10_000):
  * it blocks fails the test at once with what it did, instead of ten seconds
  * later with "nothing queued". It also takes over the rejection, so the caller
  * needs no `.catch` of its own and still sees the error when it awaits
- * `running` afterwards. On a timeout `running` is left to settle first, so it
- * is not still writing when the next test starts.
+ * `running` afterwards. A failure here is thrown at once, without waiting for
+ * `running`: a service queued behind `tx` cannot settle until that transaction
+ * ends, so waiting would hang until the test timed out and lose the real
+ * error. The caller waits instead, once the transaction is over (`settle`).
  */
 export async function untilServiceBlockedOn(
   db: Db,
@@ -33,17 +35,34 @@ export async function untilServiceBlockedOn(
   timeoutMs = 10_000,
 ): Promise<void> {
   let finished: string | undefined;
-  const settled = running.then(
-    (value) => void (finished = `returned ${JSON.stringify(value)}`),
+  running.then(
+    (value) => void (finished = `returned ${show(value)}`),
     (error: unknown) =>
       void (finished = `threw ${error instanceof Error ? error.message : String(error)}`),
   );
+  await pollUntilBlocked(db, tx, timeoutMs, () => finished);
+}
+
+/** Never throws: a BigInt or a cycle in the value must not hide that it returned. */
+function show(value: unknown): string {
   try {
-    await pollUntilBlocked(db, tx, timeoutMs, () => finished);
-  } catch (error) {
-    if (finished === undefined) await settled;
-    throw error;
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
   }
+}
+
+/**
+ * Waits for a service started inside a lock holder's transaction, whatever
+ * became of either. For `.finally(...)` on that transaction, so a test that
+ * failed inside it does not leave the service writing into the next test. The
+ * test still awaits `running` itself for the result, or the error.
+ */
+export async function settle(running: Promise<unknown> | undefined): Promise<void> {
+  await running?.then(
+    () => undefined,
+    () => undefined,
+  );
 }
 
 async function pollUntilBlocked(
@@ -88,7 +107,7 @@ export async function whileSigningUp<T>(
   service: () => Promise<T>,
 ): Promise<T> {
   let running: Promise<T> | undefined;
-  await db.transaction(async (tx) => {
+  const held = db.transaction(async (tx) => {
     await tx.select().from(slots).where(eq(slots.id, at.slotId)).for('update');
     running = service();
     // The service now holds the signup lock and is queued behind the slot.
@@ -100,5 +119,6 @@ export async function whileSigningUp<T>(
       eventType: 'slot.updated',
     });
   });
+  await held.finally(() => settle(running));
   return running!;
 }

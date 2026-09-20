@@ -21,6 +21,7 @@ import { lockSignupForWrite, lockSlotsForSignup } from '@/services/locks';
 import { addSlot, updateSlot } from '@/services/slots';
 import { createSignup, updateSignup } from '@/services/signups';
 import {
+  settle,
   untilBlockedOn,
   untilServiceBlockedOn,
   whileSigningUp,
@@ -257,7 +258,7 @@ describe('slot-fields service (db)', () => {
       if (!slot.ok) throw new Error('slot setup failed');
 
       let adding: ReturnType<typeof addField> | undefined;
-      await fx.db.transaction(async (tx) => {
+      const held = fx.db.transaction(async (tx) => {
         // What `updateSlot` does, held open: move the slot to July.
         await tx
           .update(slots)
@@ -274,8 +275,14 @@ describe('slot-fields service (db)', () => {
           fieldType: 'time',
           config: { fieldType: 'time' },
         });
+        adding.then(
+          () => (finished = true),
+          () => undefined,
+        );
         await untilServiceBlockedOn(fx.db, tx, adding);
+        expect(finished).toBe(false);
       });
+      await held.finally(() => settle(adding));
       const r = await adding!;
       expect(r.ok, JSON.stringify(r)).toBe(true);
 
@@ -288,7 +295,7 @@ describe('slot-fields service (db)', () => {
       const sigId = await createTestSignup(fx, 'Add settings race');
       let adding: ReturnType<typeof addField> | undefined;
       let finished = false;
-      await fx.db.transaction(async (tx) => {
+      const held = fx.db.transaction(async (tx) => {
         // What `updateSignup` does, held open: lock the signup, save a setting.
         await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
         await tx
@@ -304,13 +311,9 @@ describe('slot-fields service (db)', () => {
           sortOrder: 3,
           config: { fieldType: 'date' },
         });
-        adding.then(
-          () => (finished = true),
-          () => undefined,
-        );
         await untilServiceBlockedOn(fx.db, tx, adding);
-        expect(finished).toBe(false);
       });
+      await held.finally(() => settle(adding));
       const r = await adding!;
       expect(r.ok, JSON.stringify(r)).toBe(true);
 
@@ -321,7 +324,7 @@ describe('slot-fields service (db)', () => {
     it('returns not_found when the signup row is gone by the time it has the lock', async () => {
       const sigId = await createTestSignup(fx, 'Add hard-delete race');
       let adding: ReturnType<typeof addField> | undefined;
-      await fx.db.transaction(async (tx) => {
+      const held = fx.db.transaction(async (tx) => {
         // No service removes the row; this is the lock coming back empty.
         await tx.delete(signups).where(eq(signups.id, sigId));
         adding = addField(fx.db, fx.actor, sigId, {
@@ -332,6 +335,7 @@ describe('slot-fields service (db)', () => {
         });
         await untilServiceBlockedOn(fx.db, tx, adding);
       });
+      await held.finally(() => settle(adding));
       const r = await adding!;
       expect(r.ok, JSON.stringify(r)).toBe(false);
       if (!r.ok) expect(r.error.code).toBe('not_found');
@@ -455,7 +459,7 @@ describe('slot-fields service (db)', () => {
 
       let retyping: ReturnType<typeof updateField> | undefined;
       let finished = false;
-      await fx.db.transaction(async (tx) => {
+      const held = fx.db.transaction(async (tx) => {
         // What `updateSignup` does, held open: lock the signup, save a setting.
         await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
         await tx
@@ -475,6 +479,7 @@ describe('slot-fields service (db)', () => {
         await untilServiceBlockedOn(fx.db, tx, retyping);
         expect(finished).toBe(false);
       });
+      await held.finally(() => settle(retyping));
       const r = await retyping!;
       expect(r.ok, JSON.stringify(r)).toBe(true);
 
@@ -493,7 +498,7 @@ describe('slot-fields service (db)', () => {
       if (!created.ok) throw new Error('setup failed');
 
       let renaming: ReturnType<typeof updateField> | undefined;
-      await fx.db.transaction(async (tx) => {
+      const held = fx.db.transaction(async (tx) => {
         // What `deleteField` does, held open: lock the signup, delete the field.
         await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
         await tx.delete(slotFields).where(eq(slotFields.id, created.value.id));
@@ -501,6 +506,7 @@ describe('slot-fields service (db)', () => {
         renaming = updateField(fx.db, fx.actor, created.value.id, { label: 'Notes' });
         await untilServiceBlockedOn(fx.db, tx, renaming);
       });
+      await held.finally(() => settle(renaming));
       const r = await renaming!;
       expect(r.ok).toBe(false);
       if (r.ok) return;
@@ -518,7 +524,7 @@ describe('slot-fields service (db)', () => {
       if (!created.ok) throw new Error('setup failed');
 
       let configuring: ReturnType<typeof updateField> | undefined;
-      await fx.db.transaction(async (tx) => {
+      const held = fx.db.transaction(async (tx) => {
         // What another `updateField` does, held open: lock the signup, retype.
         await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
         await tx
@@ -531,6 +537,7 @@ describe('slot-fields service (db)', () => {
         });
         await untilServiceBlockedOn(fx.db, tx, configuring);
       });
+      await held.finally(() => settle(configuring));
       const r = await configuring!;
       expect(r.ok).toBe(false);
       if (r.ok) return;

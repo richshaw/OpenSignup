@@ -20,7 +20,7 @@ import {
   updateSlot,
   writeSlotOrder,
 } from '@/services/slots';
-import { untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
+import { settle, untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
 
 interface Fixture {
   db: Db;
@@ -687,7 +687,7 @@ describe('slot inserts and the signup lock (db)', () => {
   it('addSlot waits for a field delete in flight, and refuses a value for that field', async () => {
     const { signupId, fieldId } = await makeDatedSignup(fx, 'Add during field delete');
     let adding: ReturnType<typeof addSlot> | undefined;
-    await fx.db.transaction(async (tx) => {
+    const held = fx.db.transaction(async (tx) => {
       const gone = await deleteField(tx as unknown as Db, colleague, fieldId('note'));
       expect(gone.ok, JSON.stringify(gone)).toBe(true);
       // Still sees `note`, since the delete has not committed.
@@ -696,6 +696,7 @@ describe('slot inserts and the signup lock (db)', () => {
       });
       await untilServiceBlockedOn(fx.db, tx, adding);
     });
+    await held.finally(() => settle(adding));
     const r = await adding!;
     // Validated against the fields as the delete left them. Had the insert gone
     // ahead, the delete's strip of `note` from every slot would have missed it.
@@ -707,7 +708,7 @@ describe('slot inserts and the signup lock (db)', () => {
   it('addSlot waits for an anchor move in flight, and takes slot_at from the new one', async () => {
     const { signupId } = await makeDatedSignup(fx, 'Add during anchor move');
     let adding: ReturnType<typeof addSlot> | undefined;
-    await fx.db.transaction(async (tx) => {
+    const held = fx.db.transaction(async (tx) => {
       const moved = await updateSignup(
         tx as unknown as Db,
         colleague,
@@ -722,6 +723,7 @@ describe('slot inserts and the signup lock (db)', () => {
       });
       await untilServiceBlockedOn(fx.db, tx, adding);
     });
+    await held.finally(() => settle(adding));
     const r = await adding!;
     expect(r.ok, JSON.stringify(r)).toBe(true);
     const [row] = await listSlotsForSignup(fx.db, signupId);
@@ -731,7 +733,7 @@ describe('slot inserts and the signup lock (db)', () => {
   it('addSlotsBulk takes slot_at from the anchor an update in flight moves to', async () => {
     const { signupId } = await makeDatedSignup(fx, 'Bulk add during anchor move');
     let adding: ReturnType<typeof addSlotsBulk> | undefined;
-    await fx.db.transaction(async (tx) => {
+    const held = fx.db.transaction(async (tx) => {
       const moved = await updateSignup(
         tx as unknown as Db,
         colleague,
@@ -748,6 +750,7 @@ describe('slot inserts and the signup lock (db)', () => {
       });
       await untilServiceBlockedOn(fx.db, tx, adding);
     });
+    await held.finally(() => settle(adding));
     const r = await adding!;
     expect(r.ok, JSON.stringify(r)).toBe(true);
     const rows = await listSlotsForSignup(fx.db, signupId);
@@ -760,7 +763,7 @@ describe('slot inserts and the signup lock (db)', () => {
   it('addSlotsBulk refuses a value for a field that a delete in flight removes', async () => {
     const { signupId, fieldId } = await makeDatedSignup(fx, 'Bulk add during field delete');
     let adding: ReturnType<typeof addSlotsBulk> | undefined;
-    await fx.db.transaction(async (tx) => {
+    const held = fx.db.transaction(async (tx) => {
       const gone = await deleteField(tx as unknown as Db, colleague, fieldId('note'));
       expect(gone.ok, JSON.stringify(gone)).toBe(true);
       adding = addSlotsBulk(fx.db, fx.actor, signupId, {
@@ -768,6 +771,7 @@ describe('slot inserts and the signup lock (db)', () => {
       });
       await untilServiceBlockedOn(fx.db, tx, adding);
     });
+    await held.finally(() => settle(adding));
     const r = await adding!;
     expect(r.ok, JSON.stringify(r)).toBe(false);
     if (!r.ok) expect(r.error).toMatchObject({ code: 'invalid_input', field: 'note' });
@@ -777,7 +781,7 @@ describe('slot inserts and the signup lock (db)', () => {
   it('addSlot queued behind a signup delete is not_found, and inserts nothing', async () => {
     const { signupId } = await makeDatedSignup(fx, 'Add during signup delete');
     let adding: ReturnType<typeof addSlot> | undefined;
-    await fx.db.transaction(async (tx) => {
+    const held = fx.db.transaction(async (tx) => {
       // The soft delete's update holds the signup row the way the lock does.
       const gone = await deleteSignup(tx as unknown as Db, colleague, signupId);
       expect(gone.ok, JSON.stringify(gone)).toBe(true);
@@ -785,6 +789,7 @@ describe('slot inserts and the signup lock (db)', () => {
       adding = addSlot(fx.db, fx.actor, signupId, { values: { day: '2026-05-10' } });
       await untilServiceBlockedOn(fx.db, tx, adding);
     });
+    await held.finally(() => settle(adding));
     const r = await adding!;
     expect(r.ok, JSON.stringify(r)).toBe(false);
     if (!r.ok) expect(r.error).toMatchObject({ code: 'not_found' });
