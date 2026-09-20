@@ -8,6 +8,7 @@ import {
   ACTION_SIZING,
   buildMetaSegments,
   capacityLabel,
+  slotAccessibleName,
   formatGroupLabel,
   pickPrimaryField,
   renderFieldValue,
@@ -242,6 +243,7 @@ export function SignupViewBody({
                 const own = ownBySlot.get(slot.id) ?? null;
                 const isOwn = own !== null;
                 const count = capacityLabel(slot.committed, slot.capacity);
+                const actionName = slotAccessibleName(group.label || null, title, meta);
                 return (
                   <li
                     key={slot.id}
@@ -277,17 +279,17 @@ export function SignupViewBody({
                           <span className="sr-only">{count.sr}</span>
                         </span>
                       ) : null}
-                      <div className="flex justify-end">
+                      <div className="flex">
                         {own ? (
                           <Link
                             href={own.editUrl}
-                            aria-label={`Edit your signup for ${title}`}
-                            className={`${ACTION_SIZING} border border-surface-sunk bg-white text-sm font-medium transition hover:bg-surface-raised`}
+                            aria-label={`Edit your signup for ${actionName}`}
+                            className={`${ACTION_SIZING} border border-surface-sunk bg-white font-medium transition hover:bg-surface-raised`}
                           >
                             Edit
                           </Link>
                         ) : closed ? (
-                          <span className={`${ACTION_SIZING} text-sm font-medium text-ink-soft`}>
+                          <span className={`${ACTION_SIZING} font-medium text-ink-soft`}>
                             {full ? 'Full' : 'Closed'}
                           </span>
                         ) : isPreview ? (
@@ -295,14 +297,14 @@ export function SignupViewBody({
                             type="button"
                             disabled
                             title="Preview: publish to enable signups"
-                            aria-label={`Sign up for ${title}`}
-                            className={`${ACTION_SIZING} cursor-not-allowed bg-brand text-sm font-medium text-white opacity-60`}
+                            aria-label={`Sign up for ${actionName}`}
+                            className={`${ACTION_SIZING} cursor-not-allowed bg-brand font-medium text-white opacity-60`}
                           >
                             Sign up
                           </button>
                         ) : mode === 'showcase' ? (
                           <span
-                            className={`${ACTION_SIZING} bg-brand text-sm font-medium text-white`}
+                            className={`${ACTION_SIZING} bg-brand font-medium text-white`}
                           >
                             Sign up
                           </span>
@@ -310,6 +312,7 @@ export function SignupViewBody({
                           <CommitDialog
                             slotId={slot.id}
                             slotTitle={title}
+                            actionName={actionName}
                             slotAt={slot.slotAt}
                             slotHasTime={slotHasTime(slot, fields)}
                             signupTitle={signup.title}

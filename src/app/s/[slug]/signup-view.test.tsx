@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { ACTION_SIZING } from './slot-format';
 import {
   SignupViewBody,
   type SignupViewField,
@@ -80,7 +81,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
         showStateBanner={false}
       />,
     );
-    const button = screen.getByRole('button', { name: 'Sign up for Sun, May 17' });
+    const button = screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' });
     expect(button).toBeDisabled();
     expect(button).toHaveClass('opacity-60');
   });
@@ -204,13 +205,37 @@ describe('<SignupViewBody /> slot row', () => {
     expect(meta).not.toHaveClass('truncate');
   });
 
+  it('disambiguates rows on a grouped signup, where the title is only the time', () => {
+    // pickPrimaryField skips the group field, so every row's title here is its
+    // time: without the group label in the name, both buttons are "09:00".
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={[
+          { ref: 'date', label: 'Date', fieldType: 'date' },
+          { ref: 'time', label: 'Time', fieldType: 'time' },
+        ]}
+        groupByRef="date"
+        slots={[
+          { ...SLOTS[0]!, id: 'g1', values: { date: '2026-05-17', time: '09:00' } },
+          { ...SLOTS[0]!, id: 'g2', values: { date: '2026-05-18', time: '09:00' } },
+        ]}
+        slug="example"
+        mode="preview"
+        showStateBanner={false}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17, 09:00' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18, 09:00' })).toBeInTheDocument();
+  });
+
   it('names each button after its own slot, not a bare "Sign up"', () => {
     // Sixteen identically-named buttons give a screen-reader user no way to
     // tell which slot they are committing to.
     renderRows();
-    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign up for Tue, May 19' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18, Hawks' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Tue, May 19, Hawks' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sign up' })).toBeNull();
   });
 
@@ -230,36 +255,24 @@ describe('<SignupViewBody /> slot row', () => {
         showStateBanner={false}
       />,
     );
-    // w-24 is the design system's action column; every state fills it.
-    for (const label of ['Full', 'Closed']) {
-      expect(screen.getByText(label)).toHaveClass('w-24');
+    // Assert against ACTION_SIZING rather than naming a class: the invariant
+    // is "every state carries the same geometry", which survives a token
+    // change (w-24 -> w-[96px]) and still fails if one call site drifts.
+    const actions = [
+      screen.getByText('Full'),
+      screen.getByText('Closed'),
+      screen.getByRole('button', { name: /^Sign up for / }),
+    ];
+    for (const el of actions) {
+      for (const cls of ACTION_SIZING.split(' ')) expect(el).toHaveClass(cls);
     }
-    expect(screen.getByRole('button', { name: /^Sign up for / })).toHaveClass('w-24');
-  });
-
-  it('sizes the inert Full/Closed label like the action it replaces', () => {
-    // It sat at text-xs while its peers in the same slot were text-sm; colour
-    // (text-ink-soft) already carries the de-emphasis.
-    render(
-      <SignupViewBody
-        signup={SIGNUP}
-        fields={FIELDS}
-        groupByRef={null}
-        slots={[{ ...MULTI[0]!, id: 'full', committed: 1 }]}
-        slug="example"
-        mode="preview"
-        showStateBanner={false}
-      />,
-    );
-    const label = screen.getByText('Full');
-    expect(label).toHaveClass('text-sm');
-    expect(label).not.toHaveClass('text-xs');
   });
 
   it('keeps every row action at a 44px minimum touch target on mobile', () => {
     renderRows();
     for (const button of screen.getAllByRole('button', { name: /^Sign up for / })) {
-      expect(button).toHaveClass('min-h-11');
+      expect(ACTION_SIZING).toContain('min-h-11');
+      for (const cls of ACTION_SIZING.split(' ')) expect(button).toHaveClass(cls);
     }
   });
 });
