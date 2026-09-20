@@ -172,6 +172,12 @@ describe('capacityLabel', () => {
     expect(capacityLabel(10, 12).sr).toBe('10 of 12 signed up');
   });
 
+  it('shows nothing for a non-positive capacity rather than a meaningless "0/0"', () => {
+    // CapacitySchema is `.positive()`, so no validated write produces this;
+    // the type still admits it, and the function should be total.
+    expect(capacityLabel(0, 0)).toEqual({ text: '', sr: null });
+  });
+
   it('hides a bare count on an unlimited slot until someone has signed up', () => {
     // A lone "0" has no denominator to anchor it and reads as noise.
     expect(capacityLabel(0, null)).toEqual({ text: '', sr: null });

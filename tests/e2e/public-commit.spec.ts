@@ -34,7 +34,10 @@ test.describe('public commit flow', () => {
     const row = page.locator('li').filter({ hasText: seed.fullSlotLabel });
     await expect(row.getByText('Full')).toBeVisible();
     await expect(row.getByRole('button', { name: 'Sign up' })).toHaveCount(0);
-    await expect(row.getByText('1/1')).toBeVisible();
+    // A capacity-1 slot shows no counter: "1/1" made a reader decode a
+    // fraction to learn what "Full" beside it already said. The two
+    // assertions above are what the state actually means.
+    await expect(row.getByText('1/1')).toHaveCount(0);
   });
 
   test('unknown slug renders not-found', async ({ page }) => {
