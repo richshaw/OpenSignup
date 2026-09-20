@@ -118,11 +118,24 @@ export default async function PublicSignupPage({ params }: PageParams) {
     <main className="flex min-h-[100svh] flex-col pb-24 pt-10 sm:pt-14">
       {/* Brand mark only. The old "· Public signup" segment told participants
           nothing actionable — they arrive from a shared link, and the title and
-          Sign-up buttons already say what the page is — while "Public" contradicted
-          this page's own `robots: noindex` above: these are unlisted share links,
-          not listed pages. Same shape as src/app/(legal)/layout.tsx. */}
+          Sign-up buttons already say what the page is. "Public" was also
+          ambiguous: it is true in the sense the product means it (no account,
+          anyone with the link), but a reader can just as easily take it as
+          "publicly listed", which these pages are not — `generateMetadata`
+          above sets `robots: noindex` precisely because they are unlisted.
+
+          `prefetch={false}`: `/` writes a `landing.viewed` activity row on
+          render (src/app/page.tsx) with no rate limit of its own. Nothing
+          renders it on prefetch today — that needs a `loading.tsx` in the tree
+          or PPR, and the repo has neither — but this link is a one-off brand
+          mark nobody races to follow, so there is no reason to leave the
+          coupling in place. */}
       <div className="container-tight mb-7 text-[13px]">
-        <Link href="/" className="font-semibold tracking-tight text-ink hover:underline">
+        <Link
+          href="/"
+          prefetch={false}
+          className="font-semibold tracking-tight text-ink hover:underline"
+        >
           {INSTANCE_NAME}
         </Link>
       </div>

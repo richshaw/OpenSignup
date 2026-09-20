@@ -3,6 +3,9 @@ import {
   type SignupViewField,
   type SignupViewSlot,
 } from '@/app/s/[slug]/signup-view';
+// Reads process.env.NEXT_PUBLIC_* directly, so it is safe on a statically
+// prerendered page (see the rule in CLAUDE.md about getEnv in static pages).
+import { INSTANCE_NAME } from '@/lib/site-config';
 
 const FIELDS: SignupViewField[] = [
   { ref: 'date', label: 'Date', fieldType: 'date' },
@@ -40,8 +43,7 @@ export function HomeExampleCard() {
     <div className="relative">
       <div className="bg-white rounded-2xl border border-surface-sunk shadow-card overflow-hidden">
         <div className="text-ink-soft px-6 pt-5 text-xs">
-          <span className="text-ink font-semibold">OpenSignup</span>
-          {' · '}Public signup
+          <span className="text-ink font-semibold">{INSTANCE_NAME}</span>
         </div>
         <div className="flex flex-col gap-7 px-6 pb-6 pt-3">
           <SignupViewBody
@@ -55,7 +57,7 @@ export function HomeExampleCard() {
           />
         </div>
         <div className="text-ink-soft border-t border-surface-sunk px-6 py-4 text-center text-xs">
-          Ad-free · Run by OpenSignup
+          Ad-free · Run by {INSTANCE_NAME}
         </div>
       </div>
       <span className="bg-ink text-white absolute -top-3 right-4 rounded-full px-3 py-1.5 text-[11px] font-medium">
