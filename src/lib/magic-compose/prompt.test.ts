@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RULES_IN_BOTH } from '@/lib/signup-rules';
 import {
   MagicComposeDraftSchema,
   MAX_FIELDS,
@@ -45,6 +46,9 @@ describe('system prompt', () => {
     expect(sys).toContain('refusalReason');
   });
 
+  it('carries every rule it shares with the MCP server instructions, word for word', () => {
+    for (const rule of RULES_IN_BOTH) expect(sys).toContain(rule);
+  });
 });
 
 describe('buildMessages', () => {
