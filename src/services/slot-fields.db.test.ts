@@ -7,6 +7,7 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { recordActivity } from '@/lib/activity';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { DEFAULT_TEMPLATE, EMPTY_TEMPLATE } from '@/lib/signup-templates';
@@ -87,6 +88,39 @@ async function createTestSignup(fx: Fixture, title = 'Field Test'): Promise<stri
   );
   if (!r.ok) throw new Error('signup setup failed');
   return r.value.id;
+}
+
+/**
+ * Runs `service` while someone is part-way through signing up for `slotId`.
+ * What `commitToSlot` does, held open: lock the slot, then insert rows whose
+ * signup_id foreign key takes a key-share lock on the signup row. A service
+ * that holds the signup `for update` and then writes to that slot blocks the
+ * insert while it waits for the slot, and Postgres breaks the cycle by failing
+ * one of the two. See `addSlotsBulk` in src/services/slots.ts.
+ */
+async function whileSigningUp<T>(
+  fx: Fixture,
+  signupId: string,
+  slotId: string,
+  service: () => Promise<T>,
+): Promise<T> {
+  let running: Promise<T> | undefined;
+  await fx.db.transaction(async (tx) => {
+    await tx.select().from(slots).where(eq(slots.id, slotId)).for('update');
+    running = service();
+    // Awaited below. Until then a failure here must not count as unhandled.
+    running.catch(() => undefined);
+    // Long enough for the service to take the signup lock and queue behind the
+    // slot.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await recordActivity(tx, {
+      signupId,
+      workspaceId: fx.workspaceId,
+      actor: { actorId: null, actorType: 'system' },
+      eventType: 'slot.updated',
+    });
+  });
+  return running!;
 }
 
 describe('slot-fields service (db)', () => {
@@ -197,6 +231,39 @@ describe('slot-fields service (db)', () => {
       const listed = await listFields(fx.db, fx.actor, sigId);
       if (!listed.ok) throw new Error('list failed');
       expect(listed.value.map((f) => f.ref)).toEqual(['first', 'added']);
+    });
+
+    it('does not deadlock with someone signing up for a slot whose slot_at changes', async () => {
+      const sigId = await createTestSignup(fx, 'Add commit race');
+      for (const [ref, fieldType] of [['doors', 'time'], ['day', 'date']] as const) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType,
+          config: { fieldType },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+      }
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { doors: '18:30', day: '2026-05-10' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T18:30:00.000Z');
+
+      // A time field after the date pairs with it in place of `doors`, and the
+      // slot has no value for it, so the add rewrites the slot row.
+      const r = await whileSigningUp(fx, sigId, slot.value.id, () =>
+        addField(fx.db, fx.actor, sigId, {
+          ref: 'start',
+          label: 'Start',
+          fieldType: 'time',
+          config: { fieldType: 'time' },
+        }),
+      );
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect(after?.slotAt?.toISOString()).toBe('2026-05-10T12:00:00.000Z');
     });
   });
 
@@ -373,6 +440,27 @@ describe('slot-fields service (db)', () => {
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
       expect(after?.slotAt?.toISOString()).toBe('2026-06-15T12:00:00.000Z');
     });
+
+    it('does not deadlock with someone signing up for one of the slots', async () => {
+      const sigId = await createTestSignup(fx, 'Delete commit race');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'teacher',
+        label: 'Teacher',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { teacher: 'Ms. J' } });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      const r = await whileSigningUp(fx, sigId, slot.value.id, () =>
+        deleteField(fx.db, fx.actor, created.value.id),
+      );
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect((after?.values ?? {}) as Record<string, unknown>).toEqual({});
+    });
   });
 
   describe('updateSignup recomputes slot_at', () => {
@@ -408,6 +496,32 @@ describe('slot-fields service (db)', () => {
         settings: { reminderFromFieldRef: 'field-b' },
       });
       expect(settingsB.ok).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T12:00:00.000Z');
+    });
+
+    it('does not deadlock with someone signing up for a slot whose slot_at changes', async () => {
+      const sigId = await createTestSignup(fx, 'Settings commit race');
+      for (const ref of ['field-a', 'field-b']) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType: 'date',
+          config: { fieldType: 'date' },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+      }
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { 'field-a': '2026-05-10', 'field-b': '2026-06-15' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T12:00:00.000Z');
+
+      const r = await whileSigningUp(fx, sigId, slot.value.id, () =>
+        updateSignup(fx.db, fx.actor, sigId, { settings: { reminderFromFieldRef: 'field-b' } }),
+      );
+      expect(r.ok, JSON.stringify(r)).toBe(true);
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
       expect(after?.slotAt?.toISOString()).toBe('2026-06-15T12:00:00.000Z');

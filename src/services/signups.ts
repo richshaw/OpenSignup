@@ -268,11 +268,14 @@ export async function updateSignup(
     // snapshot taken outside the transaction let two concurrent updates start
     // from the same settings and the second write drop the first one's key,
     // which is the one thing "only the settings you pass change" promises.
+    // `no key update`, not `update`: moving the reminder anchor rewrites slot
+    // rows, and a full lock deadlocks with someone signing up for one of them
+    // (see `addSlotsBulk` in ./slots.ts).
     const [row] = await tx
       .select()
       .from(signups)
       .where(eq(signups.id, signupId))
-      .for('update')
+      .for('no key update')
       .limit(1);
     if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
 

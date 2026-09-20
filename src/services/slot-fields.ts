@@ -186,7 +186,12 @@ export async function addField(
       // Serialise appends per signup: two concurrent adds would otherwise read
       // the same max and land on the same sortOrder, leaving their order to the
       // createdAt tiebreak. The lock is released with the transaction.
-      await tx.execute(sql`select 1 from ${signups} where ${signups.id} = ${signupId} for update`);
+      // `no key update`, not `update`: the slot_at rebuild below writes slot
+      // rows, and a full lock deadlocks with someone signing up for one of
+      // them (see `addSlotsBulk` in ./slots.ts).
+      await tx.execute(
+        sql`select 1 from ${signups} where ${signups.id} = ${signupId} for no key update`,
+      );
       const [top] = await tx
         .select({ max: sql<number | null>`max(${slotFields.sortOrder})` })
         .from(slotFields)
@@ -358,11 +363,14 @@ export async function deleteField(
     // lock: read outside it, a settings save landing in between would be
     // overwritten here with a stale copy. The lock also serialises the
     // re-anchor below against a concurrent add or retype on the same signup.
+    // `no key update`, not `update`: every slot row is written below, and a
+    // full lock deadlocks with someone signing up for one of them (see
+    // `addSlotsBulk` in ./slots.ts).
     const signupRow = await tx
       .select({ settings: signups.settings })
       .from(signups)
       .where(eq(signups.id, existing.signupId))
-      .for('update')
+      .for('no key update')
       .limit(1)
       .then((r) => r[0]);
     const currentSettings =
