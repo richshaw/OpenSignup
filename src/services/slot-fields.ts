@@ -133,7 +133,7 @@ export async function recomputeSlotAtForSignup(
   // written below comes from the values the slot ends up with. Read unlocked,
   // the edit's new date was invisible here and its slot_at was overwritten
   // with the old date's.
-  const slotRows = await lockSlotsForSignup(tx, signupId);
+  const slotRows = await lockSlotsForSignup(tx, signupId, workspaceId);
 
   let updated = 0;
   for (const row of slotRows) {
@@ -433,7 +433,7 @@ export async function deleteField(
     }
     // Every slot row is written next. Locked in the shared order first, not
     // in whatever order the bulk update reaches them.
-    await lockSlotsForSignup(tx, existing.signupId);
+    await lockSlotsForSignup(tx, existing.signupId, existing.workspaceId);
     await tx
       .update(slots)
       .set({ values: sql`${slots.values} - ${existing.ref}::text` })

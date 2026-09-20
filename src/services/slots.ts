@@ -151,7 +151,7 @@ export async function addSlotsBulk(
       // or a browser `sortOrder` PATCH in flight finishes first, and the
       // target's position found here is still its position when the
       // renumbering runs.
-      shown = await lockSlotsForSignup(tx, signupId);
+      shown = await lockSlotsForSignup(tx, signupId, signupRow.workspaceId);
       base = shown.findIndex((s) => s.id === beforeSlotId);
       if (base < 0) {
         return err(
@@ -283,7 +283,7 @@ export async function reorderSlots(
     // list is checked against the slots the signup really has.
     const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
     if (!locked) return err(serviceError('not_found', 'signup not found'));
-    const current = await lockSlotsForSignup(tx, signupId);
+    const current = await lockSlotsForSignup(tx, signupId, signupRow.workspaceId);
     const known = new Set(current.map((s) => s.id));
 
     const seen = new Set<string>();

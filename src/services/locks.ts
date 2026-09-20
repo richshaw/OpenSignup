@@ -3,6 +3,14 @@ import type { Tx } from '@/db/client';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 
+/** `workspace_id = ?`, where null (guest scope) matches only rows with no workspace. */
+function inWorkspace(
+  column: typeof signups.workspaceId | typeof slots.workspaceId,
+  workspaceId: string | null,
+) {
+  return workspaceId === null ? isNull(column) : eq(column, workspaceId);
+}
+
 /**
  * Locks the signup row until the transaction ends and returns it, read under
  * the lock (undefined when there is no such signup). Every service that
@@ -28,12 +36,10 @@ import { slots } from '@/db/schema/slots';
  * with no workspace).
  */
 export async function lockSignupForWrite(tx: Tx, signupId: string, workspaceId: string | null) {
-  const inWorkspace =
-    workspaceId === null ? isNull(signups.workspaceId) : eq(signups.workspaceId, workspaceId);
   const [row] = await tx
     .select()
     .from(signups)
-    .where(and(eq(signups.id, signupId), inWorkspace))
+    .where(and(eq(signups.id, signupId), inWorkspace(signups.workspaceId, workspaceId)))
     .for('no key update')
     .limit(1);
   return row;
@@ -45,13 +51,14 @@ export async function lockSignupForWrite(tx: Tx, signupId: string, workspaceId: 
  * `commitToSlot` and `deleteSlot` hold one slot row and then key-share the
  * signup, so signup before slots is the only order that cannot deadlock with
  * them. A single-slot change in flight finishes first, and the rows come back
- * as it left them. `tx` has to be a transaction, as above.
+ * as it left them. `tx` has to be a transaction, and `workspaceId` scopes the
+ * rows, both as above.
  */
-export async function lockSlotsForSignup(tx: Tx, signupId: string) {
+export async function lockSlotsForSignup(tx: Tx, signupId: string, workspaceId: string | null) {
   return tx
     .select()
     .from(slots)
-    .where(eq(slots.signupId, signupId))
+    .where(and(eq(slots.signupId, signupId), inWorkspace(slots.workspaceId, workspaceId)))
     .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt))
     .for('update');
 }

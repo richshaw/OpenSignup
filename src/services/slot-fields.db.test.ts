@@ -17,7 +17,7 @@ import {
   listFields,
   updateField,
 } from '@/services/slot-fields';
-import { lockSignupForWrite } from '@/services/locks';
+import { lockSignupForWrite, lockSlotsForSignup } from '@/services/locks';
 import { addSlot, updateSlot } from '@/services/slots';
 import { createSignup, updateSignup } from '@/services/signups';
 import {
@@ -338,13 +338,20 @@ describe('slot-fields service (db)', () => {
     });
   });
 
-  describe('lockSignupForWrite', () => {
-    it('returns the row for its own workspace and nothing for any other', async () => {
+  describe('the lock helpers', () => {
+    it('return rows for their own workspace and nothing for any other', async () => {
       const sigId = await createTestSignup(fx, 'Lock workspace scope');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: {} });
+      if (!slot.ok) throw new Error('slot setup failed');
       await fx.db.transaction(async (tx) => {
         expect((await lockSignupForWrite(tx, sigId, fx.workspaceId))?.id).toBe(sigId);
         expect(await lockSignupForWrite(tx, sigId, makeId('ws'))).toBeUndefined();
         expect(await lockSignupForWrite(tx, sigId, null)).toBeUndefined();
+
+        const locked = await lockSlotsForSignup(tx, sigId, fx.workspaceId);
+        expect(locked.map((s) => s.id)).toEqual([slot.value.id]);
+        expect(await lockSlotsForSignup(tx, sigId, makeId('ws'))).toEqual([]);
+        expect(await lockSlotsForSignup(tx, sigId, null)).toEqual([]);
       });
     });
   });
