@@ -19,7 +19,11 @@ import {
 } from '@/services/slot-fields';
 import { addSlot, updateSlot } from '@/services/slots';
 import { createSignup, updateSignup } from '@/services/signups';
-import { untilBlockedOn, whileSigningUp } from '@/services/testing/locks';
+import {
+  untilBlockedOn,
+  untilServiceBlockedOn,
+  whileSigningUp,
+} from '@/services/testing/locks';
 
 interface Fixture {
   db: Db;
@@ -269,8 +273,7 @@ describe('slot-fields service (db)', () => {
           fieldType: 'time',
           config: { fieldType: 'time' },
         });
-        adding.catch(() => undefined);
-        await untilBlockedOn(fx.db, tx);
+        await untilServiceBlockedOn(fx.db, tx, adding);
       });
       const r = await adding!;
       expect(r.ok, JSON.stringify(r)).toBe(true);
@@ -304,7 +307,7 @@ describe('slot-fields service (db)', () => {
           () => (finished = true),
           () => undefined,
         );
-        await untilBlockedOn(fx.db, tx);
+        await untilServiceBlockedOn(fx.db, tx, adding);
         expect(finished).toBe(false);
       });
       const r = await adding!;
@@ -431,7 +434,7 @@ describe('slot-fields service (db)', () => {
           () => (finished = true),
           () => undefined,
         );
-        await untilBlockedOn(fx.db, tx);
+        await untilServiceBlockedOn(fx.db, tx, retyping);
         expect(finished).toBe(false);
       });
       const r = await retyping!;
@@ -458,8 +461,7 @@ describe('slot-fields service (db)', () => {
         await tx.delete(slotFields).where(eq(slotFields.id, created.value.id));
         // Still sees the field, since the delete has not committed.
         renaming = updateField(fx.db, fx.actor, created.value.id, { label: 'Notes' });
-        renaming.catch(() => undefined);
-        await untilBlockedOn(fx.db, tx);
+        await untilServiceBlockedOn(fx.db, tx, renaming);
       });
       const r = await renaming!;
       expect(r.ok).toBe(false);
@@ -489,8 +491,7 @@ describe('slot-fields service (db)', () => {
         configuring = updateField(fx.db, fx.actor, created.value.id, {
           config: { fieldType: 'text', maxLength: 50 },
         });
-        configuring.catch(() => undefined);
-        await untilBlockedOn(fx.db, tx);
+        await untilServiceBlockedOn(fx.db, tx, configuring);
       });
       const r = await configuring!;
       expect(r.ok).toBe(false);

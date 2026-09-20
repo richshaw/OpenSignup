@@ -14,6 +14,44 @@ import { recordActivity } from '@/lib/activity';
  * taken on first read, and would never show the waiter arriving.
  */
 export async function untilBlockedOn(db: Db, tx: Queryable, timeoutMs = 10_000): Promise<void> {
+  return pollUntilBlocked(db, tx, timeoutMs, () => undefined);
+}
+
+/**
+ * `untilBlockedOn` for a service started inside the transaction that holds the
+ * lock, and the way to wait for one: a service that returns or throws before
+ * it blocks fails the test at once with what it did, instead of ten seconds
+ * later with "nothing queued". It also takes over the rejection, so the caller
+ * needs no `.catch` of its own and still sees the error when it awaits
+ * `running` afterwards. On a timeout `running` is left to settle first, so it
+ * is not still writing when the next test starts.
+ */
+export async function untilServiceBlockedOn(
+  db: Db,
+  tx: Queryable,
+  running: Promise<unknown>,
+  timeoutMs = 10_000,
+): Promise<void> {
+  let finished: string | undefined;
+  const settled = running.then(
+    (value) => void (finished = `returned ${JSON.stringify(value)}`),
+    (error: unknown) =>
+      void (finished = `threw ${error instanceof Error ? error.message : String(error)}`),
+  );
+  try {
+    await pollUntilBlocked(db, tx, timeoutMs, () => finished);
+  } catch (error) {
+    if (finished === undefined) await settled;
+    throw error;
+  }
+}
+
+async function pollUntilBlocked(
+  db: Db,
+  tx: Queryable,
+  timeoutMs: number,
+  finished: () => string | undefined,
+): Promise<void> {
   const [holder] = await tx.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`);
   if (!holder) throw new Error('could not read the backend pid');
   const deadline = Date.now() + timeoutMs;
@@ -25,6 +63,10 @@ export async function untilBlockedOn(db: Db, tx: Queryable, timeoutMs = 10_000):
         and ${holder.pid}::int = any(pg_blocking_pids(pid))
     `);
     if ((row?.waiting ?? 0) > 0) return;
+    const outcome = finished();
+    if (outcome !== undefined) {
+      throw new Error(`the service finished before it blocked: ${outcome}`);
+    }
     if (Date.now() > deadline) {
       throw new Error(`nothing queued behind backend ${holder.pid} within ${timeoutMs} ms`);
     }
@@ -49,10 +91,8 @@ export async function whileSigningUp<T>(
   await db.transaction(async (tx) => {
     await tx.select().from(slots).where(eq(slots.id, at.slotId)).for('update');
     running = service();
-    // Awaited below. Until then a failure here must not count as unhandled.
-    running.catch(() => undefined);
     // The service now holds the signup lock and is queued behind the slot.
-    await untilBlockedOn(db, tx);
+    await untilServiceBlockedOn(db, tx, running);
     await recordActivity(tx, {
       signupId: at.signupId,
       workspaceId: at.workspaceId,
