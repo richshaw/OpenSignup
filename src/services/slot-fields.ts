@@ -23,6 +23,7 @@ import {
   type SlotFieldConfig,
   type SlotFieldDefinition,
   SlotFieldInputSchema,
+  type SlotFieldUpdateInput,
   SlotFieldUpdateInputSchema,
 } from '@/schemas/slot-fields';
 import { lockSignupForWrite, lockSlotsForSignup } from './locks';
@@ -266,12 +267,8 @@ export async function updateField(
   if (data.fieldType !== undefined && data.config === undefined) {
     return err(serviceError('invalid_input', 'fieldType change requires matching config'));
   }
-  if (data.config !== undefined) {
-    const nextType = data.fieldType ?? existing.fieldType;
-    if (data.config.fieldType !== nextType) {
-      return err(serviceError('invalid_input', 'config.fieldType must match the field type'));
-    }
-  }
+  const mismatch = configMismatch(data, existing.fieldType);
+  if (mismatch) return err(mismatch);
 
   const slotRows = await db
     .select({ id: slots.id, values: slots.values })
@@ -301,11 +298,24 @@ export async function updateField(
     );
   }
 
-  const updated = await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     // The re-anchor below reads settings and writes them back, and the rebuild
     // writes slot rows: both need the signup lock, as in `addField`. Taken even
     // when neither runs. It is cheap, and the order stays the same for all.
     await lockSignupForWrite(tx, existing.signupId);
+
+    // Read again under the lock. `deleteField` and another `updateField` take
+    // it too, and either may have committed while this one waited: the field
+    // can be gone, or be a type the config above was never checked against.
+    const current = await tx
+      .select()
+      .from(slotFields)
+      .where(eq(slotFields.id, fieldId))
+      .limit(1)
+      .then((r) => r[0]);
+    if (!current) return err(serviceError('not_found', 'field not found'));
+    const stale = configMismatch(data, current.fieldType);
+    if (stale) return err(stale);
 
     const [row] = await tx
       .update(slotFields)
@@ -334,7 +344,7 @@ export async function updateField(
     // neither, or a field that is not one of those before or after, is safe.
     // A config sent for a date or time field rebuilds too: neither has options
     // today, and one that arrives may well move the instant.
-    const feedsSlotAt = isDateOrTime(existing.fieldType) || isDateOrTime(row.fieldType);
+    const feedsSlotAt = isDateOrTime(current.fieldType) || isDateOrTime(row.fieldType);
     const mayMoveSlotAt =
       data.fieldType !== undefined || data.sortOrder !== undefined || data.config !== undefined;
     let anchor: string | null | undefined;
@@ -363,10 +373,15 @@ export async function updateField(
         ...(anchor !== undefined ? { reminderFromFieldRef: anchor } : {}),
       },
     });
-    return row;
+    return ok(rowToDefinition(row));
   });
+}
 
-  return ok(rowToDefinition(updated));
+/** A config sent with an update must be for the type the field ends up with. */
+function configMismatch(data: SlotFieldUpdateInput, currentType: string): ServiceError | null {
+  if (data.config === undefined) return null;
+  if (data.config.fieldType === (data.fieldType ?? currentType)) return null;
+  return serviceError('invalid_input', 'config.fieldType must match the field type');
 }
 
 export async function deleteField(

@@ -5,6 +5,7 @@ import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
+import { slotFields } from '@/db/schema/slot-fields';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
@@ -401,6 +402,70 @@ describe('slot-fields service (db)', () => {
 
       const [after] = await fx.db.select().from(signups).where(eq(signups.id, sigId)).limit(1);
       expect(after?.settings).toMatchObject({ sendReminders: false, reminderFromFieldRef: 'day' });
+    });
+
+    it('returns not_found when the field is deleted while it waits for the lock', async () => {
+      const sigId = await createTestSignup(fx, 'Update delete race');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'note',
+        label: 'Note',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      let renaming: ReturnType<typeof updateField> | undefined;
+      await fx.db.transaction(async (tx) => {
+        // What `deleteField` does, held open: lock the signup, delete the field.
+        await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
+        await tx.delete(slotFields).where(eq(slotFields.id, created.value.id));
+        // Still sees the field, since the delete has not committed.
+        renaming = updateField(fx.db, fx.actor, created.value.id, { label: 'Notes' });
+        renaming.catch(() => undefined);
+        await untilBlockedOn(fx.db, tx);
+      });
+      const r = await renaming!;
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('not_found');
+    });
+
+    it('checks a config against the type a retype in flight leaves the field with', async () => {
+      const sigId = await createTestSignup(fx, 'Update retype race');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'note',
+        label: 'Note',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      let configuring: ReturnType<typeof updateField> | undefined;
+      await fx.db.transaction(async (tx) => {
+        // What another `updateField` does, held open: lock the signup, retype.
+        await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
+        await tx
+          .update(slotFields)
+          .set({ fieldType: 'number', config: { fieldType: 'number' } })
+          .where(eq(slotFields.id, created.value.id));
+        // Fine for the text field this call can still see.
+        configuring = updateField(fx.db, fx.actor, created.value.id, {
+          config: { fieldType: 'text', maxLength: 50 },
+        });
+        configuring.catch(() => undefined);
+        await untilBlockedOn(fx.db, tx);
+      });
+      const r = await configuring!;
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('invalid_input');
+
+      const [after] = await fx.db
+        .select()
+        .from(slotFields)
+        .where(eq(slotFields.id, created.value.id))
+        .limit(1);
+      expect(after?.config).toEqual({ fieldType: 'number' });
     });
 
     it('rejects ref rename (extra key in update payload)', async () => {
