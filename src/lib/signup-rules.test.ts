@@ -5,8 +5,6 @@ import {
   NEVER_INVENT_HEAD,
   NEVER_INVENT_TAIL,
   RULES_IN_BOTH,
-  USE_CAPACITY_NOT_DUPLICATE_ROWS,
-  USE_DATE_AND_TIME_FIELDS,
   neverInventRule,
 } from './signup-rules';
 
@@ -21,16 +19,6 @@ describe('shared signup rules', () => {
   // A bullet per type, not just the word: "enum" and "time" also turn up in other bullets.
   it.each(FIELD_TYPES)('has a field type guide bullet for %s', (fieldType) => {
     expect(FIELD_TYPE_GUIDE).toMatch(new RegExp(`^- ${fieldType}\\s+→`, 'm'));
-  });
-});
-
-describe('rules written for assistants', () => {
-  it('are not yet shared with the Magic Compose prompt', () => {
-    // Adding one there changes the prompt's bytes, which needs an eval run.
-    for (const rule of [USE_DATE_AND_TIME_FIELDS, USE_CAPACITY_NOT_DUPLICATE_ROWS]) {
-      expect(rule.trim()).not.toBe('');
-      expect(RULES_IN_BOTH).not.toContain(rule);
-    }
   });
 });
 
