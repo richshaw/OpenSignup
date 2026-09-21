@@ -23,9 +23,10 @@ import {
   type SlotFieldConfig,
   type SlotFieldDefinition,
   SlotFieldInputSchema,
+  type SlotFieldUpdateInput,
   SlotFieldUpdateInputSchema,
 } from '@/schemas/slot-fields';
-import { lockSignupForWrite } from './locks';
+import { lockSignupForWrite, lockSlotsForSignup } from './locks';
 
 type FieldRow = typeof slotFields.$inferSelect;
 
@@ -110,24 +111,26 @@ export function extractSlotAt(
   return Number.isNaN(at.getTime()) ? null : at;
 }
 
-/** Re-derive slots.slot_at for every slot in a signup. Safe to call inside a tx. */
+/**
+ * Re-derive slots.slot_at for every slot in a signup. Runs inside the caller's
+ * transaction. Takes the signup lock (`lockSignupForWrite`) and then the slot
+ * rows, so the signup-then-slots order holds whoever calls it; for a caller
+ * that already holds the signup lock, taking it again is just the settings
+ * read.
+ */
 export async function recomputeSlotAtForSignup(
   tx: Queryable,
   signupId: string,
 ): Promise<{ updated: number }> {
-  const signupRow = await tx
-    .select({ settings: signups.settings })
-    .from(signups)
-    .where(eq(signups.id, signupId))
-    .limit(1)
-    .then((r) => r[0]);
+  const signupRow = await lockSignupForWrite(tx, signupId);
   if (!signupRow) return { updated: 0 };
   const settings = (signupRow.settings as ReminderSettingsLike) ?? {};
   const fields = await listFieldsForSignup(tx, signupId);
-  const slotRows = await tx
-    .select({ id: slots.id, values: slots.values, slotAt: slots.slotAt })
-    .from(slots)
-    .where(eq(slots.signupId, signupId));
+  // Locked, not just read: a slot edit in flight finishes first, so the instant
+  // written below comes from the values the slot ends up with. Read unlocked,
+  // the edit's new date was invisible here and its slot_at was overwritten
+  // with the old date's.
+  const slotRows = await lockSlotsForSignup(tx, signupId);
 
   let updated = 0;
   for (const row of slotRows) {
@@ -260,17 +263,18 @@ export async function updateField(
   if (data.fieldType !== undefined && data.config === undefined) {
     return err(serviceError('invalid_input', 'fieldType change requires matching config'));
   }
-  if (data.config !== undefined) {
-    const nextType = data.fieldType ?? existing.fieldType;
-    if (data.config.fieldType !== nextType) {
-      return err(serviceError('invalid_input', 'config.fieldType must match the field type'));
-    }
-  }
+  const mismatch = configMismatch(data, existing.fieldType);
+  if (mismatch) return err(mismatch);
 
-  const slotRows = await db
-    .select({ id: slots.id, values: slots.values })
-    .from(slots)
-    .where(eq(slots.signupId, existing.signupId));
+  // Only a new type or config can make a stored value invalid. A rename or a
+  // reorder cannot, so neither reads every slot of the signup to find that out.
+  const canInvalidate = data.fieldType !== undefined || data.config !== undefined;
+  const slotRows = canInvalidate
+    ? await db
+        .select({ id: slots.id, values: slots.values })
+        .from(slots)
+        .where(eq(slots.signupId, existing.signupId))
+    : [];
 
   const nextDef: SlotFieldDefinition = {
     id: existing.id,
@@ -295,7 +299,25 @@ export async function updateField(
     );
   }
 
-  const updated = await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
+    // The re-anchor below reads settings and writes them back, and the rebuild
+    // writes slot rows: both need the signup lock, as in `addField`. Taken even
+    // when neither runs. It is cheap, and the order stays the same for all.
+    await lockSignupForWrite(tx, existing.signupId);
+
+    // Read again under the lock. `deleteField` and another `updateField` take
+    // it too, and either may have committed while this one waited: the field
+    // can be gone, or be a type the config above was never checked against.
+    const current = await tx
+      .select()
+      .from(slotFields)
+      .where(eq(slotFields.id, fieldId))
+      .limit(1)
+      .then((r) => r[0]);
+    if (!current) return err(serviceError('not_found', 'field not found'));
+    const stale = configMismatch(data, current.fieldType);
+    if (stale) return err(stale);
+
     const [row] = await tx
       .update(slotFields)
       .set({
@@ -314,12 +336,27 @@ export async function updateField(
     // with no anchor gives it one. A reorder can also change which time field
     // pairs with the date. Re-anchor and rebuild rather than predict which of
     // those applied.
-    const anchor = await reanchor(
-      tx,
-      existing.signupId,
-      await listFieldsForSignup(tx, existing.signupId),
-    );
-    await recomputeSlotAtForSignup(tx, existing.signupId);
+    //
+    // Skipped when none of them can have: the rebuild locks every slot row, so
+    // a rename on a live signup would queue behind everyone part-way through
+    // signing up and then hold up everyone after them. The anchor and slot_at
+    // read only the type and order of date and time fields
+    // (src/lib/reminder-fields.ts), never a label, so a change that names
+    // neither, or a field that is not one of those before or after, is safe.
+    // A config sent for a date or time field rebuilds too: neither has options
+    // today, and one that arrives may well move the instant.
+    const feedsSlotAt = isDateOrTime(current.fieldType) || isDateOrTime(row.fieldType);
+    const mayMoveSlotAt =
+      data.fieldType !== undefined || data.sortOrder !== undefined || data.config !== undefined;
+    let anchor: string | null | undefined;
+    if (feedsSlotAt && mayMoveSlotAt) {
+      anchor = await reanchor(
+        tx,
+        existing.signupId,
+        await listFieldsForSignup(tx, existing.signupId),
+      );
+      await recomputeSlotAtForSignup(tx, existing.signupId);
+    }
 
     const changes: Record<string, unknown> = {};
     for (const key of Object.keys(data) as (keyof typeof data)[]) {
@@ -337,10 +374,15 @@ export async function updateField(
         ...(anchor !== undefined ? { reminderFromFieldRef: anchor } : {}),
       },
     });
-    return row;
+    return ok(rowToDefinition(row));
   });
+}
 
-  return ok(rowToDefinition(updated));
+/** A config sent with an update must be for the type the field ends up with. */
+function configMismatch(data: SlotFieldUpdateInput, currentType: string): ServiceError | null {
+  if (data.config === undefined) return null;
+  if (data.config.fieldType === (data.fieldType ?? currentType)) return null;
+  return serviceError('invalid_input', 'config.fieldType must match the field type');
 }
 
 export async function deleteField(
@@ -361,8 +403,8 @@ export async function deleteField(
     // Settings are read and rewritten inside the transaction, under the
     // signup lock: read outside it, a settings save landing in between would
     // be overwritten here with a stale copy. The lock also serialises the
-    // re-anchor below against a concurrent `addField`, `updateSignup` or
-    // another delete. `updateField` does not take it yet.
+    // re-anchor below against a concurrent add, retype or delete of a field
+    // on the same signup: all three take it.
     const signupRow = await lockSignupForWrite(tx, existing.signupId);
     const currentSettings =
       (signupRow?.settings as {
@@ -384,6 +426,9 @@ export async function deleteField(
         })
         .where(eq(signups.id, existing.signupId));
     }
+    // Every slot row is written next. Locked in the shared order first, not
+    // in whatever order the bulk update reaches them.
+    await lockSlotsForSignup(tx, existing.signupId);
     await tx
       .update(slots)
       .set({ values: sql`${slots.values} - ${existing.ref}::text` })
@@ -453,6 +498,11 @@ export function validateSlotValues(
     if (!r.ok) return r;
   }
   return ok(undefined);
+}
+
+/** The only field types the reminder anchor and `slots.slot_at` are read from. */
+function isDateOrTime(fieldType: string): boolean {
+  return fieldType === 'date' || fieldType === 'time';
 }
 
 function isMissing(value: unknown): boolean {
