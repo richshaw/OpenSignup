@@ -7,6 +7,7 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { recordActivity } from '@/lib/activity';
 import { makeId } from '@/lib/ids';
 import type { Actor, WorkspaceRole } from '@/lib/policy';
 import { DEFAULT_TEMPLATE, EMPTY_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
@@ -563,6 +564,30 @@ describe('signups service (db)', () => {
         if (r.ok) continue;
         expect(r.error.code).toBe('invalid_input');
       }
+    });
+
+    it('does not deadlock with someone signing up for a slot', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Settings commit race'));
+      if (!created.ok) throw new Error('setup failed');
+      const slotR = await addSlot(fx.db, fx.actor, created.value.id, { values: {} });
+      if (!slotR.ok) throw new Error('slot setup failed');
+      let saving: ReturnType<typeof updateSignup> | undefined;
+      await fx.db.transaction(async (tx) => {
+        await tx.select().from(slots).where(eq(slots.id, slotR.value.id)).for('update');
+        saving = updateSignup(fx.db, fx.actor, created.value.id, {
+          settings: { sendReminders: false },
+        });
+        saving.catch(() => undefined);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await recordActivity(tx, {
+          signupId: created.value.id,
+          workspaceId: fx.workspaceId,
+          actor: { actorId: null, actorType: 'system' },
+          eventType: 'slot.updated',
+        });
+      });
+      const r = await saving!;
+      expect(r.ok, JSON.stringify(r)).toBe(true);
     });
   });
 

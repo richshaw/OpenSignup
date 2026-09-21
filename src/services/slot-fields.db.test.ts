@@ -7,6 +7,7 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { recordActivity } from '@/lib/activity';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { DEFAULT_TEMPLATE, EMPTY_TEMPLATE } from '@/lib/signup-templates';
@@ -198,6 +199,34 @@ describe('slot-fields service (db)', () => {
       if (!listed.ok) throw new Error('list failed');
       expect(listed.value.map((f) => f.ref)).toEqual(['first', 'added']);
     });
+
+    it('does not deadlock with someone signing up for a slot', async () => {
+      const sigId = await createTestSignup(fx, 'Add field commit race');
+      const slotR = await addSlot(fx.db, fx.actor, sigId, { values: {} });
+      if (!slotR.ok) throw new Error('slot setup failed');
+      let adding: ReturnType<typeof addField> | undefined;
+      await fx.db.transaction(async (tx) => {
+        // What `commitToSlot` does: lock the slot, then insert rows whose
+        // signup_id foreign key takes a key-share lock on the signup row.
+        await tx.select().from(slots).where(eq(slots.id, slotR.value.id)).for('update');
+        adding = addField(fx.db, fx.actor, sigId, {
+          ref: 'extra',
+          label: 'Extra',
+          fieldType: 'text',
+          config: { fieldType: 'text' },
+        });
+        adding.catch(() => undefined);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await recordActivity(tx, {
+          signupId: sigId,
+          workspaceId: fx.workspaceId,
+          actor: { actorId: null, actorType: 'system' },
+          eventType: 'slot.updated',
+        });
+      });
+      const r = await adding!;
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+    });
   });
 
   describe('updateField', () => {
@@ -372,6 +401,36 @@ describe('slot-fields service (db)', () => {
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
       expect(after?.slotAt?.toISOString()).toBe('2026-06-15T12:00:00.000Z');
+    });
+
+    it('does not deadlock with someone signing up for a slot', async () => {
+      const sigId = await createTestSignup(fx, 'Delete field commit race');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'teacher',
+        label: 'Teacher',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!created.ok) throw new Error('field setup failed');
+      const slotR = await addSlot(fx.db, fx.actor, sigId, {
+        values: { teacher: 'Ms. J' },
+      });
+      if (!slotR.ok) throw new Error('slot setup failed');
+      let deleting: ReturnType<typeof deleteField> | undefined;
+      await fx.db.transaction(async (tx) => {
+        await tx.select().from(slots).where(eq(slots.id, slotR.value.id)).for('update');
+        deleting = deleteField(fx.db, fx.actor, created.value.id);
+        deleting.catch(() => undefined);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await recordActivity(tx, {
+          signupId: sigId,
+          workspaceId: fx.workspaceId,
+          actor: { actorId: null, actorType: 'system' },
+          eventType: 'slot.updated',
+        });
+      });
+      const r = await deleting!;
+      expect(r.ok, JSON.stringify(r)).toBe(true);
     });
   });
 
