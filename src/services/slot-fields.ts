@@ -25,6 +25,7 @@ import {
   SlotFieldInputSchema,
   SlotFieldUpdateInputSchema,
 } from '@/schemas/slot-fields';
+import { lockSignupForWrite } from './locks';
 
 type FieldRow = typeof slotFields.$inferSelect;
 
@@ -177,16 +178,19 @@ export async function addField(
 
   const id = makeId('fld');
   const inserted = await db.transaction(async (tx) => {
+    // Taken whatever the input: the re-anchor below reads settings and writes
+    // them back, and a settings save landing in between would be lost.
+    await lockSignupForWrite(tx, signupId);
+
     // An omitted sortOrder appends. The build page never sends one, and
     // defaulting it to 0 put every field it added ahead of the template's
     // date column (DEFAULT_TEMPLATE pins it at 1), so a new column
     // reappeared mid-grid after a reload.
     let sortOrder = data.sortOrder;
     if (sortOrder === undefined) {
-      // Serialise appends per signup: two concurrent adds would otherwise read
-      // the same max and land on the same sortOrder, leaving their order to the
-      // createdAt tiebreak. The lock is released with the transaction.
-      await tx.execute(sql`select 1 from ${signups} where ${signups.id} = ${signupId} for update`);
+      // Under the signup lock: two concurrent adds would otherwise read the
+      // same max and land on the same sortOrder, leaving their order to the
+      // createdAt tiebreak.
       const [top] = await tx
         .select({ max: sql<number | null>`max(${slotFields.sortOrder})` })
         .from(slotFields)
@@ -354,17 +358,12 @@ export async function deleteField(
   requireWorkspaceWrite(actor, existing.workspaceId);
 
   await db.transaction(async (tx) => {
-    // Settings are read and rewritten inside the transaction, under a row
-    // lock: read outside it, a settings save landing in between would be
-    // overwritten here with a stale copy. The lock also serialises the
-    // re-anchor below against a concurrent add or retype on the same signup.
-    const signupRow = await tx
-      .select({ settings: signups.settings })
-      .from(signups)
-      .where(eq(signups.id, existing.signupId))
-      .for('update')
-      .limit(1)
-      .then((r) => r[0]);
+    // Settings are read and rewritten inside the transaction, under the
+    // signup lock: read outside it, a settings save landing in between would
+    // be overwritten here with a stale copy. The lock also serialises the
+    // re-anchor below against a concurrent `addField`, `updateSignup` or
+    // another delete. `updateField` does not take it yet.
+    const signupRow = await lockSignupForWrite(tx, existing.signupId);
     const currentSettings =
       (signupRow?.settings as {
         groupByFieldRefs?: string[];

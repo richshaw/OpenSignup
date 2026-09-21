@@ -17,6 +17,7 @@ import {
   SlotReorderInputSchema,
   SlotUpdateInputSchema,
 } from '@/schemas/slots';
+import { lockSignupForWrite } from './locks';
 import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
 
 type SlotRow = typeof slots.$inferSelect;
@@ -127,14 +128,8 @@ export async function addSlotsBulk(
   return db.transaction(async (tx) => {
     // Serialise appends per signup, the same way `addField` does: two bulk adds
     // running at once would otherwise read the same max and land on the same
-    // sortOrder, leaving their order to the createdAt tiebreak. Released with
-    // the transaction. `no key update`, not `update`: inserting before a slot
-    // renumbers slot rows, and someone signing up holds their slot row while
-    // their commitment's signup_id foreign key key-shares this one. A full
-    // `for update` blocks that key-share, and the two deadlock.
-    await tx.execute(
-      sql`select 1 from ${signups} where ${signups.id} = ${signupId} for no key update`,
-    );
+    // sortOrder, leaving their order to the createdAt tiebreak.
+    await lockSignupForWrite(tx, signupId);
     let base: number;
     let shown: SlotRow[] | undefined;
     if (beforeSlotId !== undefined) {
@@ -218,7 +213,7 @@ export async function addSlotsBulk(
 /**
  * Number a signup's slots 0..n-1 in the order of `orderedIds`, writing only
  * the rows whose order changes. The caller has already passed the policy guard
- * and holds the signup row lock (`for no key update`), and `orderedIds` is
+ * and holds the signup row lock (`lockSignupForWrite`), and `orderedIds` is
  * every slot of the signup: a partial list would tie with the slots it leaves
  * out.
  */
@@ -271,15 +266,12 @@ export async function reorderSlots(
 
   return db.transaction(async (tx) => {
     // The same two locks as inserting before a slot, for the same reasons: the
-    // signup row keeps bulk adds and other reorders out (`no key update`, so
-    // someone signing up does not deadlock with this), and the slot rows make
+    // signup row keeps bulk adds and other reorders out, and the slot rows make
     // a delete or a browser `sortOrder` PATCH in flight finish first, so the
     // list is checked against the slots the signup really has. A slot `addSlot`
     // inserts meanwhile is not checked; with no sortOrder of its own it
     // numbers itself in epoch seconds and stays last.
-    await tx.execute(
-      sql`select 1 from ${signups} where ${signups.id} = ${signupId} for no key update`,
-    );
+    await lockSignupForWrite(tx, signupId);
     const current = await lockSlotsForSignup(tx, signupId);
     const known = new Set(current.map((s) => s.id));
 
@@ -492,9 +484,10 @@ export async function deleteSlot(
 
 /**
  * A signup's slots in the order they are shown, with every row locked until
- * the transaction ends. Take the signup row lock first: `commitToSlot` and
- * `deleteSlot` hold one slot row and then key-share the signup, so signup
- * before slots is the only order that cannot deadlock with them.
+ * the transaction ends. Take the signup row lock first (`lockSignupForWrite`
+ * in ./locks.ts): `commitToSlot` and `deleteSlot` hold one slot row and then
+ * key-share the signup, so signup before slots is the only order that cannot
+ * deadlock with them.
  */
 export async function lockSlotsForSignup(tx: Queryable, signupId: string) {
   return tx
