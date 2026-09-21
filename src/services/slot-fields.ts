@@ -266,10 +266,15 @@ export async function updateField(
   const mismatch = configMismatch(data, existing.fieldType);
   if (mismatch) return err(mismatch);
 
-  const slotRows = await db
-    .select({ id: slots.id, values: slots.values })
-    .from(slots)
-    .where(eq(slots.signupId, existing.signupId));
+  // Only a new type or config can make a stored value invalid. A rename or a
+  // reorder cannot, so neither reads every slot of the signup to find that out.
+  const canInvalidate = data.fieldType !== undefined || data.config !== undefined;
+  const slotRows = canInvalidate
+    ? await db
+        .select({ id: slots.id, values: slots.values })
+        .from(slots)
+        .where(eq(slots.signupId, existing.signupId))
+    : [];
 
   const nextDef: SlotFieldDefinition = {
     id: existing.id,

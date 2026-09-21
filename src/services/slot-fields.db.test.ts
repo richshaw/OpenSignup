@@ -544,6 +544,38 @@ describe('slot-fields service (db)', () => {
       if (r.ok) return;
       expect(r.error.code).toBe('conflict');
     });
+
+    it('does not check stored values for a rename or a reorder', async () => {
+      const sigId = await createTestSignup(fx, 'Rename skips the scan');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'subject',
+        label: 'Subject',
+        fieldType: 'enum',
+        config: { fieldType: 'enum', choices: ['Math', 'Science'] },
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const slotR = await addSlot(fx.db, fx.actor, sigId, { values: { subject: 'Science' } });
+      if (!slotR.ok) throw new Error('slot setup failed');
+      // A value the field would refuse today, as an older write could have left
+      // it. Only a type or config change has any business tripping over it.
+      await fx.db
+        .update(slots)
+        .set({ values: { subject: 'Art' } })
+        .where(eq(slots.id, slotR.value.id));
+
+      const renamed = await updateField(fx.db, fx.actor, created.value.id, { label: 'Class' });
+      expect(renamed.ok, JSON.stringify(renamed)).toBe(true);
+      const moved = await updateField(fx.db, fx.actor, created.value.id, { sortOrder: 5 });
+      expect(moved.ok, JSON.stringify(moved)).toBe(true);
+
+      const retyped = await updateField(fx.db, fx.actor, created.value.id, {
+        fieldType: 'enum',
+        config: { fieldType: 'enum', choices: ['Math', 'Science', 'Music'] },
+      });
+      expect(retyped.ok).toBe(false);
+      if (retyped.ok) return;
+      expect(retyped.error.code).toBe('conflict');
+    });
   });
 
   describe('deleteField', () => {
