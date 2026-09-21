@@ -9,7 +9,8 @@ import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
-import { createSignup, publishSignup } from '@/services/signups';
+import { createSignup, deleteSignup, publishSignup, updateSignup } from '@/services/signups';
+import { deleteField, listFieldsForSignup } from '@/services/slot-fields';
 import {
   addSlot,
   addSlotsBulk,
@@ -19,7 +20,7 @@ import {
   updateSlot,
   writeSlotOrder,
 } from '@/services/slots';
-import { whileSigningUp } from '@/services/testing/locks';
+import { settle, untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
 
 interface Fixture {
   db: Db;
@@ -332,8 +333,9 @@ describe('addSlotsBulk beforeSlotId (db)', () => {
 
   it('a slot deleted or added without the lock leaves a gap or lands last, not a tie', async () => {
     const { signupId, idOf } = await makeSignup(fx, 'Stale list', [0, 1, 2]);
-    // The list an insert-before read, before two single-slot calls that do not
-    // take the signup lock got in ahead of its renumbering.
+    // A list gone stale before the renumbering. Only `deleteSlot` can still get
+    // in ahead of one, since `addSlot` queues on the signup lock now; the add
+    // stays to pin what the renumbering does with a row it was not given.
     const stale = [idOf('c'), idOf('b'), idOf('a')];
     expect((await deleteSlot(fx.db, fx.actor, idOf('b'))).ok).toBe(true);
     expect((await addSlot(fx.db, fx.actor, signupId, { values: { what: 'late' } })).ok).toBe(true);
@@ -605,5 +607,192 @@ describe('reorderSlots (db)', () => {
       });
       expect(await reorderEvents(signupId)).toHaveLength(0);
     }
+  });
+});
+
+const DATE = { fieldType: 'date' } as const;
+
+/** A signup with two date fields, anchored on `day`, and a text field. */
+async function makeDatedSignup(fx: Fixture, title: string) {
+  const created = await createSignup(
+    fx.db,
+    fx.actor,
+    fx.workspaceId,
+    { title },
+    {
+      template: {
+        id: 'lock-test',
+        fields: [
+          { ref: 'day', label: 'Day', fieldType: 'date', sortOrder: 0, config: DATE },
+          { ref: 'day2', label: 'Day 2', fieldType: 'date', sortOrder: 1, config: DATE },
+          {
+            ref: 'note',
+            label: 'Note',
+            fieldType: 'text',
+            sortOrder: 2,
+            config: { fieldType: 'text', maxLength: 200 },
+          },
+        ],
+        slots: [],
+      },
+    },
+  );
+  if (!created.ok) throw new Error(`createSignup failed: ${created.error.message}`);
+  const signupId = created.value.id;
+  expect(created.value.settings).toMatchObject({ reminderFromFieldRef: 'day' });
+  const fields = await listFieldsForSignup(fx.db, signupId);
+  const fieldId = (ref: string) => fields.find((f) => f.ref === ref)!.id;
+  return { signupId, fieldId };
+}
+
+// The field and settings services hold the signup `for no key update`, which
+// does not wait for a slot insert in flight the way `for update` did (the
+// insert's signup_id foreign key only key-shares the row). So the services that
+// insert slots queue on the signup lock themselves, and read the fields and
+// the anchor under it. The holder below is the real service, run inside a
+// transaction held open: its own transaction becomes a savepoint, and its locks
+// and writes stay uncommitted until the outer one ends. It runs as a second
+// organizer, because `recordActivity` touches the actor's organizers row and
+// two services run by one person would meet there, lock or no lock.
+describe('slot inserts and the signup lock (db)', () => {
+  let fx: Fixture;
+  let colleague: Extract<Actor, { kind: 'organizer' }>;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+    const id = makeId('org');
+    const email = `colleague-${id.slice(-8).toLowerCase()}@example.test`;
+    await fx.db.insert(organizers).values({ id, email, name: 'Colleague' });
+    await fx.db.insert(workspaceMembers).values({
+      id: makeId('mem'),
+      workspaceId: fx.workspaceId,
+      organizerId: id,
+      role: 'editor',
+      status: 'active',
+    });
+    colleague = {
+      kind: 'organizer',
+      id,
+      email,
+      workspaceIds: [fx.workspaceId],
+      workspaceRoles: { [fx.workspaceId]: 'editor' },
+    };
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+    await fx.db.delete(organizers).where(eq(organizers.id, colleague.id));
+  });
+
+  it('addSlot waits for a field delete in flight, and refuses a value for that field', async () => {
+    const { signupId, fieldId } = await makeDatedSignup(fx, 'Add during field delete');
+    let adding: ReturnType<typeof addSlot> | undefined;
+    const held = fx.db.transaction(async (tx) => {
+      const gone = await deleteField(tx as unknown as Db, colleague, fieldId('note'));
+      expect(gone.ok, JSON.stringify(gone)).toBe(true);
+      // Still sees `note`, since the delete has not committed.
+      adding = addSlot(fx.db, fx.actor, signupId, {
+        values: { day: '2026-05-10', note: 'bring a torch' },
+      });
+      await untilServiceBlockedOn(fx.db, tx, adding);
+    });
+    await held.finally(() => settle(adding));
+    const r = await adding!;
+    // Validated against the fields as the delete left them. Had the insert gone
+    // ahead, the delete's strip of `note` from every slot would have missed it.
+    expect(r.ok, JSON.stringify(r)).toBe(false);
+    if (!r.ok) expect(r.error).toMatchObject({ code: 'invalid_input', field: 'note' });
+    expect(await listSlotsForSignup(fx.db, signupId)).toEqual([]);
+  });
+
+  it('addSlot waits for an anchor move in flight, and takes slot_at from the new one', async () => {
+    const { signupId } = await makeDatedSignup(fx, 'Add during anchor move');
+    let adding: ReturnType<typeof addSlot> | undefined;
+    const held = fx.db.transaction(async (tx) => {
+      const moved = await updateSignup(
+        tx as unknown as Db,
+        colleague,
+        signupId,
+        { settings: { reminderFromFieldRef: 'day2' } },
+        { mergeSettings: true },
+      );
+      expect(moved.ok, JSON.stringify(moved)).toBe(true);
+      // Its rebuild of slot_at has run, and cannot see a row inserted from here.
+      adding = addSlot(fx.db, fx.actor, signupId, {
+        values: { day: '2026-05-10', day2: '2026-07-04' },
+      });
+      await untilServiceBlockedOn(fx.db, tx, adding);
+    });
+    await held.finally(() => settle(adding));
+    const r = await adding!;
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    const [row] = await listSlotsForSignup(fx.db, signupId);
+    expect(row?.slotAt?.toISOString()).toBe('2026-07-04T12:00:00.000Z');
+  });
+
+  it('addSlotsBulk takes slot_at from the anchor an update in flight moves to', async () => {
+    const { signupId } = await makeDatedSignup(fx, 'Bulk add during anchor move');
+    let adding: ReturnType<typeof addSlotsBulk> | undefined;
+    const held = fx.db.transaction(async (tx) => {
+      const moved = await updateSignup(
+        tx as unknown as Db,
+        colleague,
+        signupId,
+        { settings: { reminderFromFieldRef: 'day2' } },
+        { mergeSettings: true },
+      );
+      expect(moved.ok, JSON.stringify(moved)).toBe(true);
+      adding = addSlotsBulk(fx.db, fx.actor, signupId, {
+        rows: [
+          { values: { day: '2026-05-10', day2: '2026-07-04' } },
+          { values: { day: '2026-05-11', day2: '2026-07-05' } },
+        ],
+      });
+      await untilServiceBlockedOn(fx.db, tx, adding);
+    });
+    await held.finally(() => settle(adding));
+    const r = await adding!;
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    const rows = await listSlotsForSignup(fx.db, signupId);
+    expect(rows.map((s) => s.slotAt?.toISOString())).toEqual([
+      '2026-07-04T12:00:00.000Z',
+      '2026-07-05T12:00:00.000Z',
+    ]);
+  });
+
+  it('addSlotsBulk refuses a value for a field that a delete in flight removes', async () => {
+    const { signupId, fieldId } = await makeDatedSignup(fx, 'Bulk add during field delete');
+    let adding: ReturnType<typeof addSlotsBulk> | undefined;
+    const held = fx.db.transaction(async (tx) => {
+      const gone = await deleteField(tx as unknown as Db, colleague, fieldId('note'));
+      expect(gone.ok, JSON.stringify(gone)).toBe(true);
+      adding = addSlotsBulk(fx.db, fx.actor, signupId, {
+        rows: [{ values: { day: '2026-05-10', note: 'bring a torch' } }],
+      });
+      await untilServiceBlockedOn(fx.db, tx, adding);
+    });
+    await held.finally(() => settle(adding));
+    const r = await adding!;
+    expect(r.ok, JSON.stringify(r)).toBe(false);
+    if (!r.ok) expect(r.error).toMatchObject({ code: 'invalid_input', field: 'note' });
+    expect(await listSlotsForSignup(fx.db, signupId)).toEqual([]);
+  });
+
+  it('addSlot queued behind a signup delete is not_found, and inserts nothing', async () => {
+    const { signupId } = await makeDatedSignup(fx, 'Add during signup delete');
+    let adding: ReturnType<typeof addSlot> | undefined;
+    const held = fx.db.transaction(async (tx) => {
+      // The soft delete's update holds the signup row the way the lock does.
+      const gone = await deleteSignup(tx as unknown as Db, colleague, signupId);
+      expect(gone.ok, JSON.stringify(gone)).toBe(true);
+      // Still sees a live signup, since the delete has not committed.
+      adding = addSlot(fx.db, fx.actor, signupId, { values: { day: '2026-05-10' } });
+      await untilServiceBlockedOn(fx.db, tx, adding);
+    });
+    await held.finally(() => settle(adding));
+    const r = await adding!;
+    expect(r.ok, JSON.stringify(r)).toBe(false);
+    if (!r.ok) expect(r.error).toMatchObject({ code: 'not_found' });
+    expect(await listSlotsForSignup(fx.db, signupId)).toEqual([]);
   });
 });
