@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
@@ -14,7 +13,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
   const { id } = await params;
   const { error } = await searchParams;
   const session = await getOrganizerSession();
-  if (!session) redirect(`/login?callbackUrl=/app/signups/${id}/settings`);
+  if (!session) return null;
   const result = await loadSignupForOrganizer(toActor(session), id);
   if (!result.ok) return null;
   const sig = result.value;

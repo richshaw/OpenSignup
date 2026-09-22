@@ -26,7 +26,7 @@ export default async function ConnectedAppsPage({
 }) {
   const { error, disconnected } = await searchParams;
   const session = await getOrganizerSession();
-  if (!session) redirect(`/login?callbackUrl=${PATH}`);
+  if (!session) return null;
   const actor = toActor(session);
   const apps = await listConnectedApps(getDb(), actor);
   const residualMinutes = Math.round(OAUTH_TTL.ACCESS_TOKEN / 60);

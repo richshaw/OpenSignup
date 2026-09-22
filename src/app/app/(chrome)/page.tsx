@@ -3,13 +3,11 @@ import { getDb } from '@/db/client';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { listSignupsForWorkspace } from '@/services/signups';
 import { StatusPill } from '@/components/status-pill';
-import { redirect } from 'next/navigation';
-
 export const metadata = { title: 'Your signups' };
 
 export default async function DashboardPage() {
   const session = await getOrganizerSession();
-  if (!session) redirect('/login');
+  if (!session) return null;
   const actor = toActor(session);
   const workspaceId = session.defaultWorkspaceId;
   if (!workspaceId) {

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { loginAsSeededOrganizer } from './helpers/auth';
-import { loadSeed } from './helpers/fixtures';
+import { BASE_URL, loadSeed } from './helpers/fixtures';
+import { mintLoginCodeForTest } from './helpers/seed';
 
 const seed = loadSeed();
 
@@ -51,4 +52,20 @@ test.describe('organizer flow', () => {
     await expect(page).toHaveURL(/\/login/);
     await anonContext.close();
   });
+});
+
+test('signed-out deep link returns to the signup build tab after sign-in', async ({ page }) => {
+  const { draftSignupId, organizerEmail } = loadSeed();
+  const buildPath = `/app/signups/${draftSignupId}/build`;
+  await page.goto(buildPath);
+  await expect(page).toHaveURL(`${BASE_URL}/login?callbackUrl=${encodeURIComponent(buildPath)}`);
+
+  await page.getByLabel('Email').fill(organizerEmail);
+  await page.getByRole('button', { name: 'Send magic link' }).click();
+  await expect(page.getByPlaceholder('123456')).toBeVisible();
+  const code = await mintLoginCodeForTest(organizerEmail, `${BASE_URL}${buildPath}`);
+  await page.getByPlaceholder('123456').fill(code);
+  await page.getByRole('button', { name: 'Sign in with code' }).click();
+  await page.waitForURL(new RegExp(`${buildPath.replace(/\//g, '\\/')}$`));
+  await expect(page.getByRole('button', { name: 'Publish', exact: true })).toBeVisible();
 });
