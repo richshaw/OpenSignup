@@ -61,6 +61,8 @@ export type SignupCreateInput = z.infer<typeof SignupCreateInputSchema>;
 
 export const SignupUpdateInputSchema = SignupCreateInputSchema.partial().extend({
   title: z.string().min(2).max(120).optional(),
+  /** `null` clears the closing time; omitted leaves it alone. */
+  closesAt: z.string().datetime().nullable().optional(),
 });
 export type SignupUpdateInput = z.infer<typeof SignupUpdateInputSchema>;
 

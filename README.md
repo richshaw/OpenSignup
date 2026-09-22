@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://opensignup.org"><strong>Use it free at opensignup.org →</strong></a>
   <br />
-  No credit card, publish a signup in minutes. There's a live example on the homepage you can poke without signing in.
+  No credit card. Publish a signup in minutes, or try the live example on the homepage without signing in.
 </p>
 
 <p align="center">
@@ -22,60 +22,102 @@ Coordinate snack rotations, potlucks, volunteer shifts, and carpools. Made for s
 
 ## Why OpenSignup
 
-- **Participants are not users.** Parents click a link, pick a slot, done. No account required, ever, to sign up.
+- **No accounts for participants.** People click a link, pick a slot, and they're done.
 - **Ad-free, structurally.** The code is AGPL-3.0 open source — "we won't bait-and-switch you" is enforced by the license, not a pricing page.
-- **Slots are the atom, not questions.** Commitments, capacity, reminders — not a form builder.
-- **Self-hostable from day one.** `git clone`, one Docker Compose, zero vendor accounts required.
-- **AI-native.** Clean primitives designed for Claude, MCP, and future agent surfaces.
+- **Slots, not forms.** Each signup has its own fields (text, date, time, number, or a list of choices). Slots stop taking people when they're full, and participants can get a reminder email the day before.
+- **Self-hostable.** One Docker Compose file runs everything. The only outside service you need is email.
+- **Works with AI assistants.** Organizers can connect Claude, ChatGPT, or any MCP client to create and manage signups. See [`docs/connect-ai-assistant.md`](docs/connect-ai-assistant.md).
 
-Licensed under [AGPL-3.0](LICENSE). If you run a modified version of OpenSignup as a network service, the AGPL requires you to offer your users the corresponding source. See the [AGPL FAQ](https://www.gnu.org/licenses/agpl-3.0.html) for details.
+## Run it locally
 
-## Quickstart (five minutes)
+You need Node 22.12 or later, pnpm (`corepack enable` installs it), and Docker.
 
 ```bash
 git clone https://github.com/richshaw/OpenSignup.git && cd OpenSignup
 cp .env.example .env.local
-docker compose up -d           # local Postgres on :5433
+docker compose up -d   # Postgres on :5433
 pnpm install
 pnpm db:migrate
-pnpm dev                        # http://localhost:3000
+pnpm dev               # http://localhost:3000
 ```
 
-In a second terminal:
+Open `http://localhost:3000` and sign in with any email address. Nothing is sent: with `EMAIL_TRANSPORT=console`, the sign-in email is printed in the `pnpm dev` terminal.
+
+Reminder emails need the worker. Run it in a second terminal:
 
 ```bash
-pnpm worker                     # reminder worker
+pnpm worker
 ```
-
-Open `http://localhost:3000`, request a magic link with any email, and look at the server log — with `EMAIL_TRANSPORT=console`, login links are printed directly to stdout for local development.
 
 ## Self-host
 
-Build the Docker image from source with the included `Dockerfile` (a prebuilt registry image is planned but not yet published). See `docker-compose.prod.yml` for the canonical setup (app + db + migrate + worker). Configuration is entirely via environment variables — see `.env.example`.
+The easiest way to run your own OpenSignup is Docker Compose. It runs the web app, the reminder worker and a Postgres database, and it prepares the database for you. There is no ready-made image yet, so Compose builds one from the source code. The first build takes a few minutes.
 
-Email transport is pluggable (`console` for dev, `smtp` for generic self-host, `resend` for hosted). No other external accounts required.
+1. Copy the example settings:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Open `.env` and fill in:
+   - `POSTGRES_PASSWORD`: a password for the database, for example the output of `openssl rand -hex 24`. Do not use the `$` character.
+   - `AUTH_SECRET`: a random string of 32 characters or more, for example the output of `openssl rand -hex 32`.
+   - `AUTH_URL` and `NEXT_PUBLIC_APP_URL`: the address people use to open your site, for example `https://signups.example.org`.
+   - The branding values in [Branding your instance](#branding-your-instance).
+   - The email settings. Organizers sign in with a link that we email to them, so you need working email to sign in. For most email providers, set `EMAIL_TRANSPORT=smtp`, fill in the `SMTP_` values, and set `EMAIL_FROM` to an address your provider lets you send from. To use Resend instead, set `EMAIL_TRANSPORT=resend` and `RESEND_API_KEY`.
+
+   You do not need to change `DATABASE_URL`. Compose connects the app to its own database. To use a Postgres database you already run instead, set `EXTERNAL_DATABASE_URL`. Compose still starts its own database, which the app then does not use, so you still need `POSTGRES_PASSWORD`.
+
+3. Start OpenSignup:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   ```
+
+The site runs on port 3000. To use a different port, set `PORT` in `.env`. If people open the site on that port, put the port in `AUTH_URL` and `NEXT_PUBLIC_APP_URL` too. Compose does not set up HTTPS, so for a public site put a reverse proxy (for example Caddy or nginx) in front of it.
+
+When you change `.env`, run the same command again. Values that start with `NEXT_PUBLIC_` are built into the app, and `--build` picks up the new ones.
+
+Organizers can connect AI assistants with no extra setup, as long as `AUTH_URL` is your site's HTTPS address. See [For self-hosters](docs/connect-ai-assistant.md#for-self-hosters).
+
+### If something goes wrong
+
+- To see what happened, read the logs: `docker compose -f docker-compose.prod.yml logs migrate web worker`.
+- If the logs say `password authentication failed`, the database still has the password it first started with. Put that password back in `POSTGRES_PASSWORD`. On a new install with no data to keep, you can instead start again with an empty database: `docker compose -f docker-compose.prod.yml down -v`. This deletes all data.
+
+### Other ways to run it
+
+You can run the image from the `Dockerfile` on any container host, or run the app directly with **Node 22.12 or later** and your own Postgres. Either way, you run three parts:
+
+- `pnpm db:migrate`, before the first start and after each update. It prepares the database.
+- The web app: `node server.js` in the image, or `pnpm build` and then `pnpm start` from the source code.
+- `pnpm worker`, which sends reminder emails. It runs next to the web app, as a second process.
+
+All settings are environment variables, listed in `.env.example`. For Fly.io, start from `fly.example.toml`.
 
 ### Branding your instance
 
-The footer, privacy policy, terms, and cookies pages are instance-agnostic — they read these `NEXT_PUBLIC_*` values and inline them into the client bundle. **Required** values fail the build loudly if missing; there are no silent defaults, since shipping the upstream project's contact email or jurisdiction on your instance is worse than a build failure.
+The footer and the privacy, terms and cookies pages show your details, not the OpenSignup project's. They come from these values:
 
-- `NEXT_PUBLIC_INSTANCE_NAME` — display name (required)
-- `NEXT_PUBLIC_SUPPORT_EMAIL` — contact email (required)
-- `NEXT_PUBLIC_SOURCE_URL` — source-code URL surfaced to comply with AGPL-3.0 §13 (required, must be https); point at your fork if you've modified the code, otherwise leave it pointed at upstream
-- `NEXT_PUBLIC_GOVERNING_LAW` — jurisdiction clause for the terms of service (required)
-- `NEXT_PUBLIC_OPERATOR_NAME` — your name or organisation; appears as the data controller (optional; falls back to "the operator of this instance")
+- `NEXT_PUBLIC_INSTANCE_NAME`: the name of your site (required)
+- `NEXT_PUBLIC_SUPPORT_EMAIL`: the email address people can contact (required)
+- `NEXT_PUBLIC_SOURCE_URL`: where people can get the source code, as the AGPL-3.0 license (§13) requires (required, must be https). If you changed the code, point it at your fork. If not, leave it as it is.
+- `NEXT_PUBLIC_GOVERNING_LAW`: the jurisdiction for your terms of service (required)
+- `NEXT_PUBLIC_OPERATOR_NAME`: your name or organisation, shown as the data controller (optional; without it the pages say "the operator of this instance")
 
-**These values must be present at build time**, not just runtime — Next.js inlines them into the prerendered legal pages, so a runtime `.env` file or `docker run -e` is too late. How you pass them depends on how you deploy:
+If a required value is missing, the build stops with an error. That is on purpose: a failed build is better than a site that shows someone else's contact email or jurisdiction. Local development (`pnpm dev`) is the exception: it shows placeholders such as "OpenSignup (dev)" instead, so you can [run it locally](#run-it-locally) before you fill these in.
 
-- **Docker Compose** (`docker-compose.prod.yml`) — set them in the same `.env` file at the project root that Compose already reads for variable substitution. Compose passes them through as `build.args` and fails fast if any required value is missing.
-- **`docker build`** — pass each as `--build-arg NEXT_PUBLIC_INSTANCE_NAME=…`.
-- **Fly.io** — copy the template (`cp fly.example.toml fly.toml`) and set your values under `[build.args]` in `fly.toml`. `fly.toml` is gitignored, so your instance's config stays out of git. `fly secrets` are runtime-only and won't work here.
-- **Local dev** (`pnpm dev`) — set them in `.env.local`; Next.js reads it on each build/restart.
+These values are built into the app, so they must be set when you build it. Setting them only when the app starts (for example with `docker run -e`) is too late:
 
-## Status
-
-v1 — deliberately narrow. Date, time, item, role, and quantity slots; capacity with race-safe commits; email reminders; magic-link auth for organizers only.
+- **Docker Compose**: put them in `.env`. Compose passes them to the build.
+- **`docker build`**: pass each one as `--build-arg NEXT_PUBLIC_INSTANCE_NAME=…`, and `NEXT_PUBLIC_APP_URL` the same way.
+- **Fly.io**: copy the template (`cp fly.example.toml fly.toml`) and set your values under `[build.args]`. Git ignores `fly.toml`, so your settings stay out of the repository. `fly secrets` only apply when the app starts, so they do not work here.
+- **Local development** (`pnpm dev`): put them in `.env.local`. Next.js reads it each time it starts.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). Contributors retain copyright on their contributions and license them under AGPL-3.0.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). To report a security issue, see [`SECURITY.md`](SECURITY.md).
+
+## License
+
+[AGPL-3.0](LICENSE). Contributors keep the copyright on their contributions and license them under the same terms. If you run a modified version of OpenSignup as a network service, the AGPL requires you to offer its source code to your users. See the [AGPL FAQ](https://www.gnu.org/licenses/agpl-3.0.html) for details.

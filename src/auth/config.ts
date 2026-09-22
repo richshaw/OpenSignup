@@ -16,6 +16,7 @@ import { canonicalizeMagicLinkUrl, buildConfirmationUrl } from './magic-link-url
 import { extractEmailDomain } from './email-domain';
 import { getMagicLinkMaxAgeSeconds } from './magic-link-expiry';
 import { getCurrentRequestIp } from './request-context';
+import { issueLoginCode } from './login-code';
 
 // Built lazily on first request: SignupAdapter() touches getDb() → getEnv(),
 // which would otherwise fire at module-load and break `next build`'s page-data
@@ -60,10 +61,18 @@ function buildConfig(): NextAuthConfig {
           );
           const safeUrl = canonicalizeMagicLinkUrl(url, getEnv().AUTH_URL);
           const confirmUrl = buildConfirmationUrl(safeUrl, getEnv().AUTH_URL);
+          // The code redeems the same single-use callback as the link, from
+          // whichever window the person started in (see ./login-code.ts).
+          const code = await issueLoginCode(getDb(), {
+            email: subject,
+            callbackUrl: safeUrl,
+            expiresAt: expires,
+          });
           const node = createElement(MagicLinkEmail, {
             url: confirmUrl,
             email: identifier,
             expiresInMinutes,
+            code,
           });
           const { html, text } = await renderEmail(node);
           await getEmailTransport().send({
@@ -93,6 +102,7 @@ function buildConfig(): NextAuthConfig {
     pages: {
       signIn: '/login',
       verifyRequest: '/login/check',
+      error: '/login',
     },
     callbacks: {
       async session({ session, user }) {

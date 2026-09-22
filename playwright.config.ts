@@ -25,6 +25,12 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile-safari', use: { ...devices['iPhone 14'] } },
+    {
+      name: 'mobile-safari',
+      use: { ...devices['iPhone 14'] },
+      // The OAuth consent smoke is stateful (one seeded organizer, one grant);
+      // two projects running it at once would revoke each other's tokens.
+      testIgnore: /oauth-consent\.spec\.ts/,
+    },
   ],
 });

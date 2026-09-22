@@ -1,18 +1,21 @@
-import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import type { Db } from '@/db/client';
-import { commitments } from '@/db/schema/commitments';
 import { signups } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import { slots } from '@/db/schema/slots';
-import { recordActivity } from '@/lib/activity';
+import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
-import { requireOrganizerId, requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
+import { requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
 import { toSlug } from '@/lib/slug';
-import { type SlotFieldDefinition, type SlotFieldInput, SlotFieldInputSchema } from '@/schemas/slot-fields';
+import {
+  type SlotFieldDefinition,
+  type SlotFieldInput,
+  SlotFieldInputSchema,
+} from '@/schemas/slot-fields';
 import {
   type SignupSettings,
   type SignupStatus,
@@ -27,6 +30,8 @@ import {
   recomputeSlotAtForSignup,
   validateSlotValues,
 } from './slot-fields';
+import { committedBySlot } from './commitments';
+import { lockSignupForWrite } from './locks';
 import { pickAvailableRef, summarizeValues } from './slots';
 
 interface ReminderSettingsLike {
@@ -35,6 +40,10 @@ interface ReminderSettingsLike {
 }
 
 type SignupRow = typeof signups.$inferSelect;
+
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
 
 export interface SignupWithSlots extends SignupRow {
   slots: (typeof slots.$inferSelect)[];
@@ -73,10 +82,14 @@ export async function createSignup(
     }
     if (seenRefs.has(parsed.data.ref)) {
       return err(
-        serviceError('invalid_input', `template "${template.id}" has duplicate field ref "${parsed.data.ref}"`, {
-          field: 'template',
-          details: { templateId: template.id, ref: parsed.data.ref },
-        }),
+        serviceError(
+          'invalid_input',
+          `template "${template.id}" has duplicate field ref "${parsed.data.ref}"`,
+          {
+            field: 'template',
+            details: { templateId: template.id, ref: parsed.data.ref },
+          },
+        ),
       );
     }
     seenRefs.add(parsed.data.ref);
@@ -121,10 +134,14 @@ export async function createSignup(
     !fieldDefs.some((f) => f.fieldType === 'date' && f.ref === requestedAnchor)
   ) {
     return err(
-      serviceError('invalid_input', "reminderFromFieldRef must name one of the signup's date fields", {
-        field: 'settings.reminderFromFieldRef',
-        received: requestedAnchor,
-      }),
+      serviceError(
+        'invalid_input',
+        "reminderFromFieldRef must name one of the signup's date fields",
+        {
+          field: 'settings.reminderFromFieldRef',
+          received: requestedAnchor,
+        },
+      ),
     );
   }
   const defaultAnchor = requestedAnchor === undefined ? pickAnchorRef(fieldDefs) : null;
@@ -187,7 +204,7 @@ export async function createSignup(
     await recordActivity(tx, {
       signupId: inserted.id,
       workspaceId,
-      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType: 'signup.created',
       payload: {
         templateId: template.id,
@@ -205,20 +222,26 @@ export async function getSignupForOrganizer(
   db: Db,
   actor: Actor,
   signupId: string,
-): Promise<Result<SignupWithSlots, ServiceError>> {
+  opts: { includeFilled?: boolean } = {},
+): Promise<Result<SignupWithSlots & { committedBySlot?: Record<string, number> }, ServiceError>> {
   const found = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
   const row = found[0];
   if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceAccess(actor, row.workspaceId);
-  const [signupSlots, fields] = await Promise.all([
+  const [signupSlots, fields, filled] = await Promise.all([
     db
       .select()
       .from(slots)
       .where(eq(slots.signupId, signupId))
       .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt)),
     listFieldsForSignup(db, signupId),
+    opts.includeFilled ? committedBySlot(db, signupId) : Promise.resolve(undefined),
   ]);
-  return ok({ ...row, slots: signupSlots, fields });
+  return ok(
+    filled
+      ? { ...row, slots: signupSlots, fields, committedBySlot: filled }
+      : { ...row, slots: signupSlots, fields },
+  );
 }
 
 export async function updateSignup(
@@ -226,52 +249,77 @@ export async function updateSignup(
   actor: Actor,
   signupId: string,
   rawInput: unknown,
+  opts: {
+    /**
+     * Merge `settings` over the row's current settings instead of replacing
+     * them, with a `null` value clearing a key. For callers that send one
+     * setting at a time (the MCP tool); the browser sends the whole object.
+     */
+    mergeSettings?: boolean;
+  } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
   const existing = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
-  const row = existing[0];
-  if (!row) return err(serviceError('not_found', 'signup not found'));
-  requireWorkspaceWrite(actor, row.workspaceId);
+  const found = existing[0];
+  if (!found || found.deletedAt) return err(serviceError('not_found', 'signup not found'));
+  requireWorkspaceWrite(actor, found.workspaceId);
 
-  const input = parseInputSafe(SignupUpdateInputSchema, rawInput);
-  if (!input.ok) return input;
-  const data = input.value;
+  return db.transaction(async (tx) => {
+    // Everything below reads the row again under a lock, because a sparse
+    // settings update is a read-modify-write of one jsonb column. Merging from a
+    // snapshot taken outside the transaction let two concurrent updates start
+    // from the same settings and the second write drop the first one's key,
+    // which is the one thing "only the settings you pass change" promises.
+    const row = await lockSignupForWrite(tx, signupId, found.workspaceId);
+    if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
 
-  const prevSettings = (row.settings as ReminderSettingsLike) ?? {};
-  // Replacement (not merge): callers pass the complete settings object, and
-  // omitting a key clears it — except reminderFromFieldRef. That key names the
-  // date field every slot takes its instant from, and must keep doing so for
-  // as long as the signup has one, so an omission keeps the current anchor
-  // rather than clearing it, and a value naming anything else is refused. Only
-  // the field services move it (when its field is deleted or retyped); a stale
-  // client must not be able to strand every slot_at on a column that is gone.
-  let mergedSettings: ReminderSettingsLike = prevSettings;
-  if (data.settings !== undefined) {
-    const fields = await listFieldsForSignup(db, signupId);
-    const isDateRef = (ref: unknown): ref is string =>
-      fields.some((f) => f.fieldType === 'date' && f.ref === ref);
-    const requested = data.settings.reminderFromFieldRef;
-    if (requested !== undefined && !isDateRef(requested)) {
-      return err(
-        serviceError(
-          'invalid_input',
-          "reminderFromFieldRef must name one of the signup's date fields",
-          { field: 'settings.reminderFromFieldRef', received: requested },
-        ),
-      );
+    if (opts.mergeSettings && isObject(rawInput) && isObject(rawInput.settings)) {
+      const merged: Record<string, unknown> = {
+        ...(row.settings as Record<string, unknown>),
+        ...rawInput.settings,
+      };
+      for (const key of Object.keys(merged)) if (merged[key] === null) delete merged[key];
+      rawInput = { ...rawInput, settings: merged };
     }
-    const anchor =
-      requested ??
-      (isDateRef(prevSettings.reminderFromFieldRef)
-        ? prevSettings.reminderFromFieldRef
-        : pickAnchorRef(fields));
-    mergedSettings =
-      anchor === null ? data.settings : { ...data.settings, reminderFromFieldRef: anchor };
-  }
-  const reminderRefChanged =
-    data.settings !== undefined &&
-    mergedSettings.reminderFromFieldRef !== prevSettings.reminderFromFieldRef;
 
-  const patched = await db.transaction(async (tx) => {
+    const input = parseInputSafe(SignupUpdateInputSchema, rawInput);
+    if (!input.ok) return input;
+    const data = input.value;
+
+    const prevSettings = (row.settings as ReminderSettingsLike) ?? {};
+    // Replacement (not merge): callers pass the complete settings object, and
+    // omitting a key clears it — except reminderFromFieldRef. That key names the
+    // date field every slot takes its instant from, and must keep doing so for
+    // as long as the signup has one, so an omission keeps the current anchor
+    // rather than clearing it, and a value naming anything else is refused. Only
+    // the field services move it (when its field is deleted or retyped); a stale
+    // client must not be able to strand every slot_at on a column that is gone.
+    let mergedSettings: ReminderSettingsLike = prevSettings;
+    if (data.settings !== undefined) {
+      const fields = await listFieldsForSignup(tx, signupId);
+      const isDateRef = (ref: unknown): ref is string =>
+        fields.some((f) => f.fieldType === 'date' && f.ref === ref);
+      const requested = data.settings.reminderFromFieldRef;
+      if (requested !== undefined && !isDateRef(requested)) {
+        return err(
+          serviceError(
+            'invalid_input',
+            "reminderFromFieldRef must name one of the signup's date fields",
+            { field: 'settings.reminderFromFieldRef', received: requested },
+          ),
+        );
+      }
+      const anchor =
+        requested ??
+        (isDateRef(prevSettings.reminderFromFieldRef)
+          ? prevSettings.reminderFromFieldRef
+          : pickAnchorRef(fields));
+      mergedSettings =
+        anchor === null ? data.settings : { ...data.settings, reminderFromFieldRef: anchor };
+    }
+    const reminderRefChanged =
+      data.settings !== undefined &&
+      mergedSettings.reminderFromFieldRef !== prevSettings.reminderFromFieldRef;
+
     const [updated] = await tx
       .update(signups)
       .set({
@@ -290,20 +338,18 @@ export async function updateSignup(
     if (!updated) throw new Error('update returned nothing');
 
     if (reminderRefChanged) {
-      await recomputeSlotAtForSignup(tx, signupId);
+      await recomputeSlotAtForSignup(tx, signupId, found.workspaceId);
     }
 
     await recordActivity(tx, {
       signupId,
       workspaceId: row.workspaceId,
-      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType: 'signup.updated',
       payload: { changed: Object.keys(data) },
     });
-    return updated;
+    return ok(updated);
   });
-
-  return ok(patched);
 }
 
 export async function publishSignup(
@@ -354,11 +400,7 @@ export async function deleteSignup(
       .where(and(eq(signups.id, signupId), isNull(signups.deletedAt)))
       .returning();
     if (!next) {
-      const [existing] = await tx
-        .select()
-        .from(signups)
-        .where(eq(signups.id, signupId))
-        .limit(1);
+      const [existing] = await tx.select().from(signups).where(eq(signups.id, signupId)).limit(1);
       if (!existing) throw new Error('signup vanished mid-delete');
       return existing;
     }
@@ -366,7 +408,7 @@ export async function deleteSignup(
     await recordActivity(tx, {
       signupId,
       workspaceId: row.workspaceId,
-      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType: 'signup.deleted',
       payload: { status: row.status },
     });
@@ -386,7 +428,7 @@ async function transitionStatus(
 ): Promise<Result<SignupRow, ServiceError>> {
   const existing = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
   const row = existing[0];
-  if (!row) return err(serviceError('not_found', 'signup not found'));
+  if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, row.workspaceId);
 
   if (from !== null && row.status !== from) {
@@ -426,7 +468,7 @@ async function transitionStatus(
     await recordActivity(tx, {
       signupId,
       workspaceId: row.workspaceId,
-      actor: { actorId: requireOrganizerId(actor), actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType,
       payload: { from: row.status, to },
     });
@@ -466,38 +508,21 @@ export async function getPublicSignup(
     return err(serviceError('not_found', 'signup not yet published', { received: 'draft' }));
   }
   if (row.status === 'archived') {
-    return err(serviceError('not_found', 'signup is no longer available', { received: 'archived' }));
+    return err(
+      serviceError('not_found', 'signup is no longer available', { received: 'archived' }),
+    );
   }
 
-  const [signupSlots, fields] = await Promise.all([
+  const [signupSlots, fields, committedBySlotMap] = await Promise.all([
     db
       .select()
       .from(slots)
       .where(eq(slots.signupId, row.id))
       .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt)),
     listFieldsForSignup(db, row.id),
+    committedBySlot(db, row.id),
   ]);
-
-  const committerRows = await db
-    .select({
-      slotId: commitments.slotId,
-      sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int`,
-    })
-    .from(commitments)
-    .where(
-      and(
-        eq(commitments.signupId, row.id),
-        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-      ),
-    )
-    .groupBy(commitments.slotId);
-
-  const committedBySlot: Record<string, number> = {};
-  for (const c of committerRows) {
-    committedBySlot[c.slotId] = c.sum;
-  }
-
-  return ok({ ...row, slots: signupSlots, fields, committedBySlot });
+  return ok({ ...row, slots: signupSlots, fields, committedBySlot: committedBySlotMap });
 }
 
 async function pickAvailableSlug(db: Db, title: string): Promise<string> {
@@ -512,4 +537,3 @@ async function pickAvailableSlug(db: Db, title: string): Promise<string> {
   }
   throw new ServiceException(serviceError('internal', 'could not generate unique slug'));
 }
-

@@ -8,6 +8,13 @@ export type Actor =
       workspaceIds: string[];
       /** Parallel to workspaceIds; each entry is the role in that workspace. */
       workspaceRoles: Record<string, WorkspaceRole>;
+      /**
+       * Set only when the actor arrived through a connected app's bearer
+       * token (`src/auth/bearer.ts`). Names the app so the activity log can
+       * say which app made a change. Never set by the cookie path, and
+       * never read by the policy functions in this file.
+       */
+      via?: { clientId: string };
     }
   | {
       kind: 'participant';

@@ -16,6 +16,18 @@ export function publicSignupUrl(slug: string): string {
   return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/s/${slug}`;
 }
 
+/** The organizer's build page for a signup, absolute so an assistant can hand it to a person. */
+export function buildPageUrl(signupId: string): string {
+  const env = getEnv();
+  return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/app/signups/${signupId}/build`;
+}
+
+/** The organizer's preview of the public page, which works while the signup is still a draft. */
+export function previewPageUrl(signupId: string): string {
+  const env = getEnv();
+  return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/app/signups/${signupId}/preview`;
+}
+
 export function commitmentEditUrl(slug: string, commitmentId: string, token: string): string {
   const env = getEnv();
   return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/s/${slug}/c/${commitmentId}?token=${token}`;

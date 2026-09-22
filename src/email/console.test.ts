@@ -27,3 +27,11 @@ describe('redactUrlQueryStrings', () => {
     expect(out).not.toContain('two');
   });
 });
+
+describe('redactSignInCodes', () => {
+  it('blanks standalone six-digit codes and leaves other numbers alone', async () => {
+    const { redactSignInCodes } = await import('./console');
+    expect(redactSignInCodes('Type this code: 862803 now')).toBe('Type this code: [redacted] now');
+    expect(redactSignInCodes('order 1234567 on 12/03/2026 for 12 people')).toBe('order 1234567 on 12/03/2026 for 12 people');
+  });
+});
