@@ -273,6 +273,13 @@ describe('status tools', () => {
     expect(createSignupTool.description).toContain('do not create it again');
   });
 
+  it('tells a client reading only the tool list to trust deleted over status', () => {
+    // Some clients drop the server instructions, so the description has to stand alone.
+    expect(deleteSignupTool.description).toContain('deletedAt');
+    expect(deleteSignupTool.description).toMatch(/leaves the signup status as it was/);
+    expect(deleteSignupTool.description).toMatch(/not status/);
+  });
+
   it('delete_signup returns the signup with an explicit deleted flag', async () => {
     const deletedAt = new Date('2026-09-20T00:00:00.000Z');
     svc.deleteSignup.mockResolvedValueOnce(ok({ ...row, deletedAt }));
