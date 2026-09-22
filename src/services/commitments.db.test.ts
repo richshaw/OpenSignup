@@ -273,6 +273,51 @@ describe('updateOwnCommitment swap (db)', () => {
       .limit(1);
     expect(row[0]?.notes).toBe('original');
   });
+
+  it('reports conflict, not capacity_full, when a cancelled commitment asks for more', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Signup F');
+    const slot = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 2 });
+    if (!slot.ok) throw new Error(`addSlot failed: ${slot.error.message}`);
+
+    const mine = await commitToSlot(fx.db, slot.value.id, {
+      name: 'Fay',
+      email: 'fay@example.test',
+      quantity: 1,
+    });
+    if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
+
+    const cancelled = await cancelOwnCommitment(
+      fx.db,
+      mine.value.commitment.id,
+      mine.value.editToken,
+    );
+    expect(cancelled.ok).toBe(true);
+
+    // Someone else takes the whole slot, so a quantity increase would trip the
+    // capacity guard if it ran before the status check.
+    const filler = await commitToSlot(fx.db, slot.value.id, {
+      name: 'Filler',
+      email: 'filler-f@example.test',
+      quantity: 2,
+    });
+    if (!filler.ok) throw new Error(`commitToSlot failed: ${filler.error.message}`);
+
+    const r = await updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
+      quantity: 2,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('expected a conflict');
+    expect(r.error.code).toBe('conflict');
+
+    // A terminal commitment must not leave an attempt_failed row behind.
+    const events = await fx.db
+      .select()
+      .from(activity)
+      .where(
+        and(eq(activity.signupId, a.signupId), eq(activity.eventType, 'commitment.attempt_failed')),
+      );
+    expect(events.length).toBe(0);
+  });
 });
 
 describe('cancelOwnCommitment (db)', () => {

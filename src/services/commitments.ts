@@ -429,6 +429,22 @@ export async function updateOwnCommitment(
   }
 
   return db.transaction(async (tx) => {
+    // Status first, under a row lock, before any edit-specific work. Two
+    // reasons it cannot wait until the UPDATE below: `getOwnCommitment` read
+    // outside this transaction, so a cancellation may have landed since; and
+    // the capacity guard would otherwise answer `capacity_full` — and write an
+    // attempt_failed row — for a commitment that is already terminal. A
+    // terminal commitment always takes the conflict path, whatever else the
+    // edit asks for. The lock is held for the rest of the transaction, so the
+    // status cannot change underneath the work that follows.
+    const live = await tx
+      .select({ id: commitments.id })
+      .from(commitments)
+      .where(and(eq(commitments.id, commitmentId), isActiveCommitment))
+      .for('update')
+      .limit(1);
+    if (!live[0]) return err(serviceError('conflict', 'commitment is not active'));
+
     // Capacity guard: only fires when quantity *increases* on the same slot.
     // The swap path (slotId change) returns earlier and re-runs the full
     // capacity check via commitToSlot, so a slot move never reaches here.
@@ -495,10 +511,8 @@ export async function updateOwnCommitment(
       })
       .where(and(eq(commitments.id, commitmentId), isActiveCommitment))
       .returning();
-    // The row exists — `getOwnCommitment` just read it — so no match means its
-    // status is terminal. Without this the edit would report success on a
-    // cancelled commitment while changing nothing anyone can see. The swap
-    // path above already rejects the same case.
+    // Unreachable while the lock above is held; kept so the write states the
+    // invariant it depends on rather than inheriting it from a distant read.
     if (!updated) return err(serviceError('conflict', 'commitment is not active'));
 
     if (data.name && data.name !== current.participantName) {
