@@ -1,6 +1,7 @@
 import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport, McpServer } from '@modelcontextprotocol/server';
 import type { ToolContext } from '../context';
+import { buildInstructions } from '../instructions';
 import { compileTools, registerAll, type ToolDefinition } from '../registry';
 
 /**
@@ -10,7 +11,10 @@ import { compileTools, registerAll, type ToolDefinition } from '../registry';
  * `TOOLS` from `../tools` for the full server.
  */
 export async function connectTestClient(ctx: ToolContext, tools: readonly ToolDefinition[]): Promise<Client> {
-  const server = new McpServer({ name: 'opensignup-test', version: '0.0.0' });
+  const server = new McpServer(
+    { name: 'opensignup-test', version: '0.0.0' },
+    { instructions: buildInstructions(tools) },
+  );
   registerAll(server, ctx, compileTools(tools));
   const [clientEnd, serverEnd] = InMemoryTransport.createLinkedPair();
   await server.connect(serverEnd);
