@@ -36,6 +36,23 @@ export function formatSlotDate(iso: string | null | undefined): string | null {
   });
 }
 
+const TIME_OF_DAY = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+/**
+ * `time`-type slot fields are stored as 24-hour HH:MM; people read them on a
+ * 12-hour clock ("18:30" → "6:30 PM"), matching the en-US dates above. Plain
+ * string arithmetic, not `toLocaleTimeString`: a time field has no date or
+ * zone, so building a Date would let the server's zone move the hour. The
+ * space before AM/PM is non-breaking so a narrow column never strands "PM".
+ */
+export function formatSlotTime(hhmm: string | null | undefined): string | null {
+  const match = hhmm?.match(TIME_OF_DAY);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const period = hour < 12 ? 'AM' : 'PM';
+  return `${hour % 12 || 12}:${match[2]}\u00a0${period}`;
+}
+
 /**
  * Returns the first field in definition order, skipping the group field.
  * Returns null if every field is the group field (or there are no fields).
@@ -55,6 +72,10 @@ export function renderFieldValue(field: LabelledField, raw: unknown): string | n
   if (raw === undefined || raw === null || raw === '') return null;
   if (field.fieldType === 'date') {
     const formatted = formatSlotDate(String(raw));
+    if (formatted) return formatted;
+  }
+  if (field.fieldType === 'time') {
+    const formatted = formatSlotTime(String(raw));
     if (formatted) return formatted;
   }
   return String(raw);

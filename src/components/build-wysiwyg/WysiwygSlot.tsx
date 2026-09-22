@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Copy, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { SlotEditor } from './SlotEditor';
 import { emptyHeaderCopy } from './prettyHeader';
+import { renderFieldValue } from '@/lib/slot-label';
 import type { UseReorderableResult } from '../build-grid/useReorderable';
 import type { GridField, GridRow } from '../build-grid/useGridState';
 
@@ -77,12 +78,19 @@ export function WysiwygSlot({
 
   // Anchor = first field in the organizer's chosen order. No type-based
   // promotion: a time field later in the list must not win over field 0.
+  // Values render as the public page renders them, so the organizer sees
+  // "Wed, Sep 30 · 6:30 PM" here too, not the stored "2026-09-30 · 18:30".
+  const display = (f: GridField): string =>
+    renderFieldValue(
+      { ref: f.ref, label: f.name, fieldType: f.config.fieldType },
+      row.values[f.ref],
+    ) ?? '';
   const anchorField = displayFields[0] ?? null;
-  const anchorValue = anchorField ? row.values[anchorField.ref] : '';
+  const anchorValue = anchorField ? display(anchorField) : '';
   const summary = displayFields
     .slice(1)
-    .map((f) => row.values[f.ref])
-    .filter((v) => v && v.length > 0)
+    .map(display)
+    .filter((v) => v.length > 0)
     .join(' \u00b7 ');
 
   // Anchor placeholder shares one source of truth with the group header
