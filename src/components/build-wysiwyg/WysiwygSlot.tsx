@@ -112,6 +112,8 @@ export function WysiwygSlot({
     ariaLabel = `Edit slot \u2014 ${placeholder}`;
   }
 
+  const anchorSizing = summary ? 'max-w-[60%] shrink-0' : 'min-w-0';
+
   const isDragging = reorder?.dragId === row.id;
   const isDropTarget = reorder?.overId === row.id && reorder?.dragId && reorder?.dragId !== row.id;
   const dragTargetProps = reorder?.target(row.id) ?? {};
@@ -152,20 +154,26 @@ export function WysiwygSlot({
         aria-label={ariaLabel}
         className="flex w-full items-center justify-between gap-2.5 border-none bg-transparent px-3.5 py-2.5 text-left"
       >
+        {/* The anchor keeps its natural width (capped, so a long first value
+            still leaves room) and the summary absorbs the truncation. Left to
+            shrink together, a short anchor like a date lost to the longer
+            summary on a phone: "Wed, S…" beside a mostly visible location.
+            With no summary beside it the cap would only waste the space, so
+            the anchor then simply truncates at the row's edge. */}
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {anchorValue ? (
-            <span className="min-w-0 truncate text-sm font-semibold text-ink">
+            <span className={`${anchorSizing} truncate text-sm font-semibold text-ink`}>
               {anchorValue}
             </span>
           ) : placeholder ? (
-            <span className="text-sm italic font-normal text-ink-soft">
+            <span className={`${anchorSizing} truncate text-sm italic font-normal text-ink-soft`}>
               {placeholder}
             </span>
           ) : (
-            <span className="text-sm font-semibold text-ink">Slot</span>
+            <span className="shrink-0 text-sm font-semibold text-ink">Slot</span>
           )}
           {summary && (
-            <span className="truncate text-xs text-ink-muted">{summary}</span>
+            <span className="min-w-0 truncate text-xs text-ink-muted">{summary}</span>
           )}
         </div>
         <span className="shrink-0 font-mono text-[11px] text-ink-soft">
