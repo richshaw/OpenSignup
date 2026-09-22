@@ -8,6 +8,17 @@ OpenSignup — ad-free, open-source coordination tool (a self-hostable sign-up c
 
 The product name is **OpenSignup** (one word, served from `opensignup.org`). Lowercase `signup` remains acceptable for code/infra identifiers (folders, table, types, ID prefix `sig_`), and an individual entity is still called a "signup".
 
+## This repository is public
+
+Everything that leaves your machine is world-readable and permanent: commits (messages and diffs), branch names, PRs, issues, review comments, and CI logs. Force-pushing or deleting doesn't un-publish anything, because forks, caches and mirrors keep it. Before you commit or post, check for:
+
+- **PII.** No real names, emails, phone numbers, or IP addresses of organizers or participants, and none of your own beyond the git author line. Fixtures, tests and examples use obviously fake data (`pat@example.com`, as the existing tests do).
+- **Production data.** Don't paste rows, activity-log entries, signup slugs/titles, or log excerpts from a real instance into code, tests, commit messages, or PR/issue text. Describe the shape of the problem, or reproduce it with synthetic data.
+- **Secrets.** No API keys, `AUTH_SECRET`, SMTP/Resend credentials, OAuth signing keys, session cookies, magic-link URLs, login codes, or edit tokens, even expired ones. Env values go in `.env.local` (gitignored); `.env.example` holds placeholders only.
+- **Internal material.** `docs/plans/` and `fly.toml` are gitignored for a reason. Don't quote plan text into public files or PR bodies, and don't commit instance-specific config (hostnames, app names, customer names).
+
+If something sensitive gets pushed, stop and tell the user. A secret has to be rotated, not just removed in a follow-up commit.
+
 Authoritative build plan: `docs/plans/2026-04-19-signup-v1.md` (local-only — `docs/plans/` is gitignored and not in the public repo). Read this first when picking up significant new work — phases, task numbering, and "non-negotiables" referenced throughout the code originate there.
 
 ## Common commands
