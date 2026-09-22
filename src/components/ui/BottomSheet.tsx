@@ -66,15 +66,10 @@ export function BottomSheet({
             'md:shadow-[0_12px_48px_rgb(11_18_32/0.18)]',
           ].join(' ')}
         >
-          {/* Drag handle (mobile only) */}
-          <div className="flex justify-center pt-2 pb-1 md:hidden">
-            <div className="h-1 w-9 rounded-full bg-surface-sunk" />
-          </div>
-
           {title ? (
             <div
               className={[
-                'flex items-center justify-between px-4 pt-1 pb-2.5 md:px-5 md:pt-5 md:pb-3',
+                'flex items-center justify-between px-4 pt-5 pb-2.5 md:px-5 md:pb-3',
                 compact ? '' : 'border-b border-surface-sunk',
               ].join(' ')}
             >
