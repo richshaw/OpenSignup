@@ -140,9 +140,16 @@ export const archiveSignupTool = statusTool(
 export const deleteSignupTool = statusTool(
   'delete_signup',
   'Delete signup',
-  'Remove a signup from the account: it stops appearing in lists and its public link stops working. The record is marked deleted rather than erased, so erasing it for good is a separate request to the site owner. Ask the organizer before calling this.',
+  'Remove a signup from the account: it stops appearing in lists and its public link stops working. The record is marked deleted rather than erased, so erasing it for good is a separate request to the site owner. Ask the organizer before calling this. A delete leaves the signup status as it was, so read deleted and deletedAt in the result to confirm it worked, not status.',
   { destructiveHint: true },
   deleteSignup,
-  // No links: nothing to open after a delete.
-  (row) => ({ signup: signupDetail(row) }),
+  // No links: nothing to open after a delete. `deleted` makes the outcome explicit
+  // even though status stays as it was (e.g. draft). deleteSignup sets deletedAt on
+  // every ok() path, the idempotent re-delete included, so the fallback is only here
+  // because the column is nullable in the schema.
+  (row) => ({
+    signup: signupDetail(row),
+    deleted: true,
+    deletedAt: row.deletedAt?.toISOString() ?? null,
+  }),
 );
