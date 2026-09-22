@@ -77,7 +77,7 @@ function renderSlot(overrides: RenderProps = {}) {
 describe('WysiwygSlot — collapsed', () => {
   it('renders time, summary, and capacity', () => {
     renderSlot();
-    expect(screen.getByText('09:00')).toBeTruthy();
+    expect(screen.getByText('9:00 AM')).toBeTruthy();
     expect(screen.getByText('Bring sunscreen')).toBeTruthy();
     expect(screen.getByText('0/2')).toBeTruthy();
   });
@@ -94,7 +94,7 @@ describe('WysiwygSlot — collapsed', () => {
 
   it('clicking the row body calls onExpand', () => {
     const { onExpand } = renderSlot();
-    fireEvent.click(screen.getByRole('button', { name: /Edit slot at 09:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Edit slot at 9:00\u00a0AM/ }));
     expect(onExpand).toHaveBeenCalled();
   });
 
@@ -157,8 +157,8 @@ describe('WysiwygSlot — collapsed', () => {
         displayFields: [date, category, time],
         row: makeRow({ values: { date: '2026-05-29', category: 'Mains', time: '17:00' } }),
       });
-      expect(screen.getByText('2026-05-29')).toBeTruthy();
-      expect(screen.getByText('Mains \u00b7 17:00')).toBeTruthy();
+      expect(screen.getByText('Fri, May 29')).toBeTruthy();
+      expect(screen.getByText('Mains \u00b7 5:00 PM')).toBeTruthy();
     });
 
     it('promotes the first field value and drops it from the summary', () => {

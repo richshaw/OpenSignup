@@ -207,7 +207,7 @@ describe('<SignupViewBody /> slot row', () => {
 
   it('disambiguates rows on a grouped signup, where the title is only the time', () => {
     // pickPrimaryField skips the group field, so every row's title here is its
-    // time: without the group label in the name, both buttons are "09:00".
+    // time: without the group label in the name, both buttons are "9:00 AM".
     render(
       <SignupViewBody
         signup={SIGNUP}
@@ -225,8 +225,8 @@ describe('<SignupViewBody /> slot row', () => {
         showStateBanner={false}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17, 09:00' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18, 09:00' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17, 9:00\u00a0AM' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18, 9:00\u00a0AM' })).toBeInTheDocument();
   });
 
   it('names each button after its own slot, not a bare "Sign up"', () => {
