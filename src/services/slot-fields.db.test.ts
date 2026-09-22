@@ -5,6 +5,7 @@ import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
+import { slotFields } from '@/db/schema/slot-fields';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
@@ -16,8 +17,15 @@ import {
   listFields,
   updateField,
 } from '@/services/slot-fields';
+import { lockSignupForWrite, lockSlotsForSignup } from '@/services/locks';
 import { addSlot, updateSlot } from '@/services/slots';
 import { createSignup, updateSignup } from '@/services/signups';
+import {
+  settle,
+  untilBlockedOn,
+  untilServiceBlockedOn,
+  whileSigningUp,
+} from '@/services/testing/locks';
 
 interface Fixture {
   db: Db;
@@ -198,6 +206,152 @@ describe('slot-fields service (db)', () => {
       if (!listed.ok) throw new Error('list failed');
       expect(listed.value.map((f) => f.ref)).toEqual(['first', 'added']);
     });
+
+    it('does not deadlock with someone signing up for a slot whose slot_at changes', async () => {
+      const sigId = await createTestSignup(fx, 'Add commit race');
+      for (const [ref, fieldType] of [['doors', 'time'], ['day', 'date']] as const) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType,
+          config: { fieldType },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+      }
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { doors: '18:30', day: '2026-05-10' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T18:30:00.000Z');
+
+      // A time field after the date pairs with it in place of `doors`, and the
+      // slot has no value for it, so the add rewrites the slot row.
+      const at = { signupId: sigId, workspaceId: fx.workspaceId, slotId: slot.value.id };
+      const r = await whileSigningUp(fx.db, at, () =>
+        addField(fx.db, fx.actor, sigId, {
+          ref: 'start',
+          label: 'Start',
+          fieldType: 'time',
+          config: { fieldType: 'time' },
+        }),
+      );
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect(after?.slotAt?.toISOString()).toBe('2026-05-10T12:00:00.000Z');
+    });
+
+    it('rebuilds slot_at from the date a slot edit in flight ends up saving', async () => {
+      const sigId = await createTestSignup(fx, 'Add slot-edit race');
+      for (const [ref, fieldType] of [['doors', 'time'], ['day', 'date']] as const) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType,
+          config: { fieldType },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+      }
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { doors: '18:30', day: '2026-05-10' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      let adding: ReturnType<typeof addField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        // What `updateSlot` does, held open: move the slot to July.
+        await tx
+          .update(slots)
+          .set({
+            values: { doors: '18:30', day: '2026-07-04' },
+            slotAt: new Date('2026-07-04T18:30:00.000Z'),
+          })
+          .where(eq(slots.id, slot.value.id));
+        // `start` pairs with the date in place of `doors`, so the rebuild has
+        // a new instant to write for this slot whichever date it read.
+        adding = addField(fx.db, fx.actor, sigId, {
+          ref: 'start',
+          label: 'Start',
+          fieldType: 'time',
+          config: { fieldType: 'time' },
+        });
+        await untilServiceBlockedOn(fx.db, tx, adding);
+      });
+      await held.finally(() => settle(adding));
+      const r = await adding!;
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect((after?.values as { day?: string }).day).toBe('2026-07-04');
+      expect(after?.slotAt?.toISOString()).toBe('2026-07-04T12:00:00.000Z');
+    });
+
+    it('with a sortOrder, waits for a settings save in flight and keeps what it saved', async () => {
+      const sigId = await createTestSignup(fx, 'Add settings race');
+      let adding: ReturnType<typeof addField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        // What `updateSignup` does, held open: lock the signup, save a setting.
+        await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
+        await tx
+          .update(signups)
+          .set({ settings: { sendReminders: false } })
+          .where(eq(signups.id, sigId));
+        // The signup's first date field, so the add re-anchors and writes
+        // settings too. The explicit sortOrder is the path that took no lock.
+        adding = addField(fx.db, fx.actor, sigId, {
+          ref: 'day',
+          label: 'Day',
+          fieldType: 'date',
+          sortOrder: 3,
+          config: { fieldType: 'date' },
+        });
+        await untilServiceBlockedOn(fx.db, tx, adding);
+      });
+      await held.finally(() => settle(adding));
+      const r = await adding!;
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+
+      const [after] = await fx.db.select().from(signups).where(eq(signups.id, sigId)).limit(1);
+      expect(after?.settings).toMatchObject({ sendReminders: false, reminderFromFieldRef: 'day' });
+    });
+
+    it('returns not_found when the signup row is gone by the time it has the lock', async () => {
+      const sigId = await createTestSignup(fx, 'Add hard-delete race');
+      let adding: ReturnType<typeof addField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        // No service removes the row; this is the lock coming back empty.
+        await tx.delete(signups).where(eq(signups.id, sigId));
+        adding = addField(fx.db, fx.actor, sigId, {
+          ref: 'day',
+          label: 'Day',
+          fieldType: 'date',
+          config: { fieldType: 'date' },
+        });
+        await untilServiceBlockedOn(fx.db, tx, adding);
+      });
+      await held.finally(() => settle(adding));
+      const r = await adding!;
+      expect(r.ok, JSON.stringify(r)).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe('not_found');
+    });
+  });
+
+  describe('the lock helpers', () => {
+    it('return rows for their own workspace and nothing for any other', async () => {
+      const sigId = await createTestSignup(fx, 'Lock workspace scope');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: {} });
+      if (!slot.ok) throw new Error('slot setup failed');
+      await fx.db.transaction(async (tx) => {
+        expect((await lockSignupForWrite(tx, sigId, fx.workspaceId))?.id).toBe(sigId);
+        expect(await lockSignupForWrite(tx, sigId, makeId('ws'))).toBeUndefined();
+        expect(await lockSignupForWrite(tx, sigId, null)).toBeUndefined();
+
+        const locked = await lockSlotsForSignup(tx, sigId, fx.workspaceId);
+        expect(locked.map((s) => s.id)).toEqual([slot.value.id]);
+        expect(await lockSlotsForSignup(tx, sigId, makeId('ws'))).toEqual([]);
+        expect(await lockSlotsForSignup(tx, sigId, null)).toEqual([]);
+      });
+    });
   });
 
   describe('updateField', () => {
@@ -214,6 +368,175 @@ describe('slot-fields service (db)', () => {
       expect(r.ok).toBe(true);
       if (!r.ok) return;
       expect(r.value.label).toBe('Updated');
+    });
+
+    it('renames a field without waiting for someone part-way through signing up', async () => {
+      const sigId = await createTestSignup(fx, 'Rename while committing');
+      const day = await addField(fx.db, fx.actor, sigId, {
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      if (!day.ok) throw new Error('setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { day: '2026-05-10' } });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      let renaming: ReturnType<typeof updateField> | undefined;
+      let outcome: string | undefined;
+      await fx.db.transaction(async (tx) => {
+        // What `commitToSlot` does, held open: lock the slot row.
+        await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
+        renaming = updateField(fx.db, fx.actor, day.value.id, { label: 'Date' });
+        renaming.catch(() => undefined);
+        // A label cannot move slot_at, so the rename has no business with the
+        // slot rows and must finish while this one is still held.
+        outcome = await Promise.race([
+          renaming.then((r) => (r.ok ? 'renamed' : JSON.stringify(r))),
+          untilBlockedOn(fx.db, tx, 5_000).then(
+            () => 'blocked behind the slot row',
+            () => 'neither finished nor blocked',
+          ),
+        ]);
+      });
+      // Let a blocked rename finish before the next test or the teardown runs.
+      await renaming;
+      expect(outcome).toBe('renamed');
+    });
+
+    it('does not deadlock with someone signing up for a slot whose slot_at changes', async () => {
+      const sigId = await createTestSignup(fx, 'Reorder commit race');
+      const ids: Record<string, string> = {};
+      for (const [ref, fieldType] of [
+        ['doors', 'time'],
+        ['day', 'date'],
+        ['start', 'time'],
+      ] as const) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType,
+          config: { fieldType },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+        ids[ref] = f.value.id;
+      }
+      // `start` sorts after the date, so it is the time that pairs with it,
+      // and this slot leaves it blank.
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { doors: '18:30', day: '2026-05-10' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T12:00:00.000Z');
+
+      // Moved ahead of the date, no time is left after it and the first one,
+      // `doors`, pairs instead: the reorder rewrites the slot row.
+      const at = { signupId: sigId, workspaceId: fx.workspaceId, slotId: slot.value.id };
+      const r = await whileSigningUp(fx.db, at, () =>
+        updateField(fx.db, fx.actor, ids['start']!, { sortOrder: 0 }),
+      );
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect(after?.slotAt?.toISOString()).toBe('2026-05-10T18:30:00.000Z');
+    });
+
+    it('waits for a settings save in flight and keeps what it saved', async () => {
+      const sigId = await createTestSignup(fx, 'Retype settings race');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      let retyping: ReturnType<typeof updateField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        // What `updateSignup` does, held open: lock the signup, save a setting.
+        await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
+        await tx
+          .update(signups)
+          .set({ settings: { sendReminders: false } })
+          .where(eq(signups.id, sigId));
+        // Retyping to the signup's first date field re-anchors, which writes
+        // settings too.
+        retyping = updateField(fx.db, fx.actor, created.value.id, {
+          fieldType: 'date',
+          config: { fieldType: 'date' },
+        });
+        await untilServiceBlockedOn(fx.db, tx, retyping);
+      });
+      await held.finally(() => settle(retyping));
+      const r = await retyping!;
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+
+      const [after] = await fx.db.select().from(signups).where(eq(signups.id, sigId)).limit(1);
+      expect(after?.settings).toMatchObject({ sendReminders: false, reminderFromFieldRef: 'day' });
+    });
+
+    it('returns not_found when the field is deleted while it waits for the lock', async () => {
+      const sigId = await createTestSignup(fx, 'Update delete race');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'note',
+        label: 'Note',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      let renaming: ReturnType<typeof updateField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        // What `deleteField` does, held open: lock the signup, delete the field.
+        await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
+        await tx.delete(slotFields).where(eq(slotFields.id, created.value.id));
+        // Still sees the field, since the delete has not committed.
+        renaming = updateField(fx.db, fx.actor, created.value.id, { label: 'Notes' });
+        await untilServiceBlockedOn(fx.db, tx, renaming);
+      });
+      await held.finally(() => settle(renaming));
+      const r = await renaming!;
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('not_found');
+    });
+
+    it('checks a config against the type a retype in flight leaves the field with', async () => {
+      const sigId = await createTestSignup(fx, 'Update retype race');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'note',
+        label: 'Note',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      let configuring: ReturnType<typeof updateField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        // What another `updateField` does, held open: lock the signup, retype.
+        await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
+        await tx
+          .update(slotFields)
+          .set({ fieldType: 'number', config: { fieldType: 'number' } })
+          .where(eq(slotFields.id, created.value.id));
+        // Fine for the text field this call can still see.
+        configuring = updateField(fx.db, fx.actor, created.value.id, {
+          config: { fieldType: 'text', maxLength: 50 },
+        });
+        await untilServiceBlockedOn(fx.db, tx, configuring);
+      });
+      await held.finally(() => settle(configuring));
+      const r = await configuring!;
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('invalid_input');
+
+      const [after] = await fx.db
+        .select()
+        .from(slotFields)
+        .where(eq(slotFields.id, created.value.id))
+        .limit(1);
+      expect(after?.config).toEqual({ fieldType: 'number' });
     });
 
     it('rejects ref rename (extra key in update payload)', async () => {
@@ -254,6 +577,38 @@ describe('slot-fields service (db)', () => {
       expect(r.ok).toBe(false);
       if (r.ok) return;
       expect(r.error.code).toBe('conflict');
+    });
+
+    it('does not check stored values for a rename or a reorder', async () => {
+      const sigId = await createTestSignup(fx, 'Rename skips the scan');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'subject',
+        label: 'Subject',
+        fieldType: 'enum',
+        config: { fieldType: 'enum', choices: ['Math', 'Science'] },
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const slotR = await addSlot(fx.db, fx.actor, sigId, { values: { subject: 'Science' } });
+      if (!slotR.ok) throw new Error('slot setup failed');
+      // A value the field would refuse today, as an older write could have left
+      // it. Only a type or config change has any business tripping over it.
+      await fx.db
+        .update(slots)
+        .set({ values: { subject: 'Art' } })
+        .where(eq(slots.id, slotR.value.id));
+
+      const renamed = await updateField(fx.db, fx.actor, created.value.id, { label: 'Class' });
+      expect(renamed.ok, JSON.stringify(renamed)).toBe(true);
+      const moved = await updateField(fx.db, fx.actor, created.value.id, { sortOrder: 5 });
+      expect(moved.ok, JSON.stringify(moved)).toBe(true);
+
+      const retyped = await updateField(fx.db, fx.actor, created.value.id, {
+        fieldType: 'enum',
+        config: { fieldType: 'enum', choices: ['Math', 'Science', 'Music'] },
+      });
+      expect(retyped.ok).toBe(false);
+      if (retyped.ok) return;
+      expect(retyped.error.code).toBe('conflict');
     });
   });
 
@@ -373,6 +728,28 @@ describe('slot-fields service (db)', () => {
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
       expect(after?.slotAt?.toISOString()).toBe('2026-06-15T12:00:00.000Z');
     });
+
+    it('does not deadlock with someone signing up for one of the slots', async () => {
+      const sigId = await createTestSignup(fx, 'Delete commit race');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'teacher',
+        label: 'Teacher',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { teacher: 'Ms. J' } });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      const at = { signupId: sigId, workspaceId: fx.workspaceId, slotId: slot.value.id };
+      const r = await whileSigningUp(fx.db, at, () =>
+        deleteField(fx.db, fx.actor, created.value.id),
+      );
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect((after?.values ?? {}) as Record<string, unknown>).toEqual({});
+    });
   });
 
   describe('updateSignup recomputes slot_at', () => {
@@ -408,6 +785,33 @@ describe('slot-fields service (db)', () => {
         settings: { reminderFromFieldRef: 'field-b' },
       });
       expect(settingsB.ok).toBe(true);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect(after?.slotAt?.toISOString()).toBe('2026-06-15T12:00:00.000Z');
+    });
+
+    it('does not deadlock with someone signing up for a slot whose slot_at changes', async () => {
+      const sigId = await createTestSignup(fx, 'Settings commit race');
+      for (const ref of ['field-a', 'field-b']) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType: 'date',
+          config: { fieldType: 'date' },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+      }
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { 'field-a': '2026-05-10', 'field-b': '2026-06-15' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T12:00:00.000Z');
+
+      const at = { signupId: sigId, workspaceId: fx.workspaceId, slotId: slot.value.id };
+      const r = await whileSigningUp(fx.db, at, () =>
+        updateSignup(fx.db, fx.actor, sigId, { settings: { reminderFromFieldRef: 'field-b' } }),
+      );
+      expect(r.ok, JSON.stringify(r)).toBe(true);
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
       expect(after?.slotAt?.toISOString()).toBe('2026-06-15T12:00:00.000Z');
