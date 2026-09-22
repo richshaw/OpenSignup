@@ -112,6 +112,8 @@ export function WysiwygSlot({
     ariaLabel = `Edit slot \u2014 ${placeholder}`;
   }
 
+  const anchorSizing = summary ? 'max-w-[60%] shrink-0' : 'min-w-0';
+
   const isDragging = reorder?.dragId === row.id;
   const isDropTarget = reorder?.overId === row.id && reorder?.dragId && reorder?.dragId !== row.id;
   const dragTargetProps = reorder?.target(row.id) ?? {};
@@ -155,14 +157,16 @@ export function WysiwygSlot({
         {/* The anchor keeps its natural width (capped, so a long first value
             still leaves room) and the summary absorbs the truncation. Left to
             shrink together, a short anchor like a date lost to the longer
-            summary on a phone: "Wed, S…" beside a mostly visible location. */}
+            summary on a phone: "Wed, S…" beside a mostly visible location.
+            With no summary beside it the cap would only waste the space, so
+            the anchor then simply truncates at the row's edge. */}
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {anchorValue ? (
-            <span className="max-w-[60%] shrink-0 truncate text-sm font-semibold text-ink">
+            <span className={`${anchorSizing} truncate text-sm font-semibold text-ink`}>
               {anchorValue}
             </span>
           ) : placeholder ? (
-            <span className="max-w-[60%] shrink-0 truncate text-sm italic font-normal text-ink-soft">
+            <span className={`${anchorSizing} truncate text-sm italic font-normal text-ink-soft`}>
               {placeholder}
             </span>
           ) : (
