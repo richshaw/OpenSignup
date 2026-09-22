@@ -13,7 +13,7 @@ export const addFieldTool = defineTool({
   scope: 'signups:write',
   title: 'Add field',
   description: `Add a column that every slot in the signup has, in the same shape create_signup takes: ref (lowercase-kebab key used in slot values), label, fieldType, and choices for an enum. ${FIELD_GUIDE} Add fields before slots when you can: existing slots have no value for a new field until you set one with update_slot.`,
-  annotations: {},
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: DraftFieldSchema.extend({
     signupId: z.string(),
     sortOrder: z.number().int().nonnegative().optional().describe('Position among the fields; omit to append.'),
@@ -37,7 +37,7 @@ export const updateFieldTool = defineTool({
   title: 'Update field',
   description:
     'Rename or reorder a field, or change its type. To change the type, pass fieldType and a matching config: text { fieldType: "text", maxLength }, date { fieldType: "date" }, time { fieldType: "time" }, number { fieldType: "number" }, enum { fieldType: "enum", choices: [...] }. A type change is refused with conflict if any existing slot value would not fit; fix those values with update_slot first.',
-  annotations: {},
+  annotations: { readOnlyHint: false, destructiveHint: true },
   inputSchema: SlotFieldUpdateInputSchema.extend({ fieldId: z.string() }),
   handler: async (ctx, input) => {
     const { fieldId, ...rest } = input;
@@ -51,7 +51,8 @@ export const deleteFieldTool = defineTool({
   scope: 'signups:write',
   title: 'Delete field',
   description: 'Remove a field and its value from every slot. Ask the organizer first.',
-  annotations: { destructiveHint: true },
+  annotations: { readOnlyHint: false, destructiveHint: true },
+  askFirst: true,
   inputSchema: z.object({ fieldId: z.string() }),
   handler: (ctx, input) => deleteField(ctx.db, ctx.actor, input.fieldId),
 });
