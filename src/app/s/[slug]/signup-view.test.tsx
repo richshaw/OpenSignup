@@ -225,8 +225,8 @@ describe('<SignupViewBody /> slot row', () => {
         showStateBanner={false}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17, 9:00 AM' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18, 9:00 AM' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17, 9:00\u00a0AM' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18, 9:00\u00a0AM' })).toBeInTheDocument();
   });
 
   it('names each button after its own slot, not a bare "Sign up"', () => {

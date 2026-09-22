@@ -35,8 +35,8 @@ describe('prettyHeader', () => {
   });
 
   it('formats an HH:MM time on a 12-hour clock', () => {
-    expect(prettyHeader('18:30', 'time')).toBe('6:30 PM');
-    expect(prettyHeader('00:00', 'time')).toBe('12:00 AM');
+    expect(prettyHeader('18:30', 'time')).toBe('6:30\u00a0PM');
+    expect(prettyHeader('00:00', 'time')).toBe('12:00\u00a0AM');
   });
 
   it('passes through unparseable time values unchanged', () => {

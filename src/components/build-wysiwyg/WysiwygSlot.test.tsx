@@ -94,7 +94,7 @@ describe('WysiwygSlot — collapsed', () => {
 
   it('clicking the row body calls onExpand', () => {
     const { onExpand } = renderSlot();
-    fireEvent.click(screen.getByRole('button', { name: /Edit slot at 9:00 AM/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Edit slot at 9:00\u00a0AM/ }));
     expect(onExpand).toHaveBeenCalled();
   });
 
