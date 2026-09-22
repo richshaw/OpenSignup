@@ -183,14 +183,22 @@ describe('signup write tools on Postgres', () => {
     expect(after.signups).toHaveLength(before.signups.length);
   });
 
-  it('a deleted signup cannot be updated or published', async () => {
+  it('a deleted signup reports deleted, deletes idempotently, and cannot be updated or published', async () => {
     const client = await connectTestClient(ctx, TOOLS);
     const created = await client.callTool({
       name: 'create_signup',
       arguments: { title: 'Gone soon', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
     });
     const id = (created.structuredContent as { signup: { id: string } }).signup.id;
-    await client.callTool({ name: 'delete_signup', arguments: { signupId: id } });
+    const deleted = await client.callTool({ name: 'delete_signup', arguments: { signupId: id } });
+    const first = deleted.structuredContent as { deleted: boolean; deletedAt: string };
+    expect(first.deleted).toBe(true);
+    expect(first.deletedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    // Deleting again is idempotent: still deleted, and still the first delete's instant.
+    const again = await client.callTool({ name: 'delete_signup', arguments: { signupId: id } });
+    const second = again.structuredContent as { deleted: boolean; deletedAt: string };
+    expect(second.deleted).toBe(true);
+    expect(second.deletedAt).toBe(first.deletedAt);
     const upd = await client.callTool({ name: 'update_signup', arguments: { signupId: id, title: 'Renamed' } });
     expect((upd.structuredContent as { error: { code: string } }).error.code).toBe('not_found');
     const pub = await client.callTool({ name: 'publish_signup', arguments: { signupId: id } });

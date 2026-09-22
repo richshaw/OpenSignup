@@ -7,21 +7,45 @@ import { X } from 'lucide-react';
 type BottomSheetProps = {
   open: boolean;
   onClose: () => void;
-  title?: string;
+  /**
+   * The sheet's heading, and the accessible name Radix gives the dialog. A
+   * node, not just a string, so a caller can name the dialog more fully than
+   * it labels it on screen — an `sr-only` span joined to an `aria-hidden` one.
+   */
+  title?: ReactNode;
   /** When true, omit the bottom border under the title (matches design's `compact` sheet). */
   compact?: boolean;
+  /**
+   * Work in flight that must not be abandoned. The caller is expected to hold
+   * the sheet open by ignoring `onClose`; this greys out the close X to match,
+   * so the control looks as inert as it behaves.
+   */
+  busy?: boolean;
+  /**
+   * Radix focuses the sheet's first tabbable element on open — the close X.
+   * Pass a handler that calls `preventDefault()` and focuses something else to
+   * land the caret on a particular field instead.
+   */
+  onOpenAutoFocus?: (event: Event) => void;
   children: ReactNode;
 };
 
 /**
  * Bottom-sheet on `<md`, centred card on `≥md`. Uses Radix Dialog so backdrop tap,
- * Escape, focus trap, and aria-modal all work for free.
+ * Escape, focus trap, hiding the rest of the page from assistive tech, and body
+ * scroll-lock all work for free.
+ *
+ * The scroll-lock is what keeps this a sheet rather than a toast on a phone:
+ * without it the page carries on scrolling under the backdrop, so the row you
+ * tapped slides away while you are filling the sheet in.
  */
 export function BottomSheet({
   open,
   onClose,
   title,
   compact = false,
+  busy = false,
+  onOpenAutoFocus,
   children,
 }: BottomSheetProps) {
   return (
@@ -30,6 +54,7 @@ export function BottomSheet({
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[rgb(11_18_32/0.35)] backdrop-blur-sm" />
         <Dialog.Content
           aria-describedby={undefined}
+          {...(onOpenAutoFocus ? { onOpenAutoFocus } : {})}
           className={[
             'fixed z-50 bg-white flex flex-col overflow-hidden',
             // mobile: bottom sheet
@@ -53,12 +78,16 @@ export function BottomSheet({
                 compact ? '' : 'border-b border-surface-sunk',
               ].join(' ')}
             >
-              <Dialog.Title className="truncate text-base font-semibold text-ink md:text-lg">
+              {/* Wraps to two lines rather than truncating: this heading is
+                  often the only place the sheet names what it is acting on,
+                  and one clipped line at 390px loses the end of it. */}
+              <Dialog.Title className="line-clamp-2 text-base font-semibold text-ink md:text-lg">
                 {title}
               </Dialog.Title>
               <Dialog.Close
                 aria-label="Close"
-                className="-mr-1 inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-soft hover:bg-surface-raised"
+                disabled={busy}
+                className="-mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-soft hover:bg-surface-raised disabled:opacity-50 disabled:hover:bg-transparent"
               >
                 <X size={16} aria-hidden="true" />
               </Dialog.Close>
