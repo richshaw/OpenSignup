@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { signOut } from '@/auth/config';
+import { ORGANIZER_CALLBACK_HEADER, safeCallbackUrl } from '@/auth/callback-url';
 import { getOrganizerSession } from '@/auth/session';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { OAUTH_COOKIES, OAUTH_SESSION_COOKIE_PATH } from '@/oauth/config';
@@ -18,7 +19,10 @@ export default async function OrganizerLayout({
   crumbs: React.ReactNode;
 }) {
   const session = await getOrganizerSession();
-  if (!session) redirect('/login?callbackUrl=/app');
+  if (!session) {
+    const callbackUrl = safeCallbackUrl((await headers()).get(ORGANIZER_CALLBACK_HEADER));
+    redirect(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+  }
 
   async function handleSignOut() {
     'use server';

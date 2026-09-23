@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { getDb } from '@/db/client';
 import { getOrganizerSession, toActor } from '@/auth/session';
@@ -12,7 +11,7 @@ type PageParams = { params: Promise<{ id: string }> };
 export default async function ResponsesTab({ params }: PageParams) {
   const { id } = await params;
   const session = await getOrganizerSession();
-  if (!session) redirect(`/login?callbackUrl=/app/signups/${id}/responses`);
+  if (!session) return null;
   const result = await loadSignupForOrganizer(toActor(session), id);
   if (!result.ok) return null;
   const sig = result.value;

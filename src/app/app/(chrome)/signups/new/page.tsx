@@ -14,7 +14,7 @@ type PageProps = { searchParams: Promise<{ manual?: string; error?: string }> };
 
 export default async function NewSignupPage({ searchParams }: PageProps) {
   const session = await getOrganizerSession();
-  if (!session) redirect('/login?callbackUrl=/app/signups/new');
+  if (!session) return null;
 
   if (session.defaultWorkspaceId) {
     const workspaceId = session.defaultWorkspaceId;

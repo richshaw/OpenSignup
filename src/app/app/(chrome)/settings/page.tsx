@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { getOrganizerSession } from '@/auth/session';
 
 export const metadata = { title: 'Settings' };
@@ -21,7 +20,7 @@ const SECTIONS = [
 
 export default async function SettingsPage() {
   const session = await getOrganizerSession();
-  if (!session) redirect('/login?callbackUrl=/app/settings');
+  if (!session) return null;
 
   return (
     <section className="space-y-6">
