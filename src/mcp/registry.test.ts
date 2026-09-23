@@ -4,7 +4,7 @@ import { SlotFieldUpdateInputSchema } from '@/schemas/slot-fields';
 import { SlotBulkInputSchema } from '@/schemas/slots';
 import { RESOURCE_SCOPES } from '@/oauth/scopes';
 import { toJsonSchema } from './registry';
-import { TOOLS, toolScope } from './tools';
+import { COMPILED_TOOLS, TOOLS, toolScope } from './tools';
 
 describe('toJsonSchema', () => {
   it('emits an object-rooted schema with no $schema and no $ref', () => {
@@ -44,6 +44,27 @@ describe('the tool registry', () => {
       expect(json.type, tool.name).toBe('object');
       expect(JSON.stringify(json), tool.name).not.toContain('$ref');
       expect(tool.description.length, tool.name).toBeGreaterThan(40);
+    }
+  });
+
+  it('gives every tool a title and both hints, as the Claude connectors directory requires', () => {
+    for (const { def, config } of COMPILED_TOOLS) {
+      expect(def.title.trim(), def.name).not.toBe('');
+      expect(config.annotations.title, def.name).toBe(def.title);
+      expect(config.annotations.openWorldHint, def.name).toBe(false);
+      // Read-scoped tools only read; write-scoped tools say whether they destroy.
+      if (def.scope.endsWith(':read')) {
+        expect(config.annotations.readOnlyHint, def.name).toBe(true);
+      } else {
+        expect(config.annotations.readOnlyHint, def.name).toBe(false);
+        expect(typeof config.annotations.destructiveHint, def.name).toBe('boolean');
+      }
+    }
+  });
+
+  it('marks destructive every tool it asks the organizer about first', () => {
+    for (const tool of TOOLS.filter((t) => t.askFirst)) {
+      expect(tool.annotations.destructiveHint, tool.name).toBe(true);
     }
   });
 

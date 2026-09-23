@@ -33,7 +33,7 @@ describe('tool results', () => {
       scope: 'signups:read',
       title: 'Double',
       description: 'x',
-      annotations: {},
+      annotations: { readOnlyHint: true },
       inputSchema: z.object({ n: z.number().int() }),
       handler,
     });
@@ -54,7 +54,7 @@ describe('tool results', () => {
       scope: 'signups:write',
       title: 'w',
       description: 'w',
-      annotations: {},
+      annotations: { readOnlyHint: false, destructiveHint: false },
       inputSchema: z.object({}),
       handler,
     });
@@ -74,7 +74,7 @@ describe('tool results', () => {
         scope: 'signups:read',
         title: 't',
         description: 't',
-        annotations: {},
+        annotations: { readOnlyHint: true },
         inputSchema: z.object({}),
         handler: h as never,
       });

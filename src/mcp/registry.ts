@@ -15,6 +15,19 @@ import type { Scope } from '@/oauth/scopes';
 import type { ToolContext } from './context';
 import { runTool } from './results';
 
+/**
+ * Every tool states both hints outright. The Claude connectors directory
+ * rejects a tool without them, and the MCP spec reads a missing
+ * `destructiveHint` as true and a missing `readOnlyHint` as false, so
+ * leaving one out says something we may not mean. `destructiveHint` is true
+ * for anything that overwrites or removes data or changes who can see it,
+ * and false only for purely additive writes. `title` is not here: it comes
+ * from the tool's own `title`. Nor is `openWorldHint`: `compileTools` sets it
+ * false for every tool.
+ */
+export type ToolHints = Omit<ToolAnnotations, 'title' | 'readOnlyHint' | 'destructiveHint' | 'openWorldHint'> &
+  ({ readOnlyHint: true; destructiveHint?: never } | { readOnlyHint: false; destructiveHint: boolean });
+
 export interface ToolDefinition<S extends z.ZodTypeAny = z.ZodTypeAny> {
   /** snake_case, stable: clients cache it. */
   name: string;
@@ -23,7 +36,13 @@ export interface ToolDefinition<S extends z.ZodTypeAny = z.ZodTypeAny> {
   title: string;
   /** Written for the model: what the tool does and what it must know to call it well. */
   description: string;
-  annotations: ToolAnnotations;
+  annotations: ToolHints;
+  /**
+   * Named in the server instructions as a tool to ask the organizer about
+   * before calling. Kept apart from `destructiveHint`, which also covers
+   * plain updates that the organizer asked for in the first place.
+   */
+  askFirst?: true;
   /** zod 3. Arguments are camelCase and reuse the REST input schemas. */
   inputSchema: S;
   // Method syntax on purpose: a `ToolDefinition<SpecificSchema>` must be
@@ -80,7 +99,9 @@ export function compileTools(tools: readonly ToolDefinition[]): CompiledTool[] {
       title: def.title,
       description: def.description,
       inputSchema: fromJsonSchema<Record<string, unknown>>(toJsonSchema(def.inputSchema), zodDoesTheValidating),
-      annotations: def.annotations,
+      // `title` repeated for clients that only read it from the annotations.
+      // Closed world: every tool acts on this service's own data only.
+      annotations: { ...def.annotations, title: def.title, openWorldHint: false },
     },
   }));
 }
