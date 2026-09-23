@@ -1,7 +1,6 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
-import { getOrganizerSession, toActor } from '@/auth/session';
+import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { countCommitmentsForSignup } from '@/services/commitments';
 import { publicSignupUrl } from '@/lib/links';
@@ -28,8 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function SignupDetailLayout({ children, params }: LayoutProps) {
   const { id } = await params;
-  const session = await getOrganizerSession();
-  if (!session) redirect(`/login?callbackUrl=/app/signups/${id}`);
+  const session = await requireOrganizerSession();
   const actor = toActor(session);
   const result = await loadSignupForOrganizer(actor, id);
   if (!result.ok) {

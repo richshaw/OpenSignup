@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { getOrganizerSession, toActor } from '@/auth/session';
+import { requireOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { BuildWysiwyg } from '@/components/build-wysiwyg/BuildWysiwyg';
@@ -10,8 +9,7 @@ type PageParams = { params: Promise<{ id: string }> };
 
 export default async function BuildTab({ params }: PageParams) {
   const { id } = await params;
-  const session = await getOrganizerSession();
-  if (!session) redirect(`/login?callbackUrl=/app/signups/${id}/build`);
+  const session = await requireOrganizerSession();
   const result = await loadSignupForOrganizer(toActor(session), id);
   if (!result.ok) return null;
   const sig = result.value;
