@@ -18,7 +18,9 @@ import type { ToolDefinition } from './registry';
  * descriptions still stand on their own, because some clients ignore this,
  * but they only say what a tool does: the Claude connectors directory refuses
  * descriptions that tell the model how to behave, so the "Working with the
- * organizer" lines exist here and nowhere else.
+ * organizer" lines are here and in no description. Tool results are another
+ * matter: delete_slot's conflict suggestion still asks for the organizer's
+ * consent before force: true, and nothing here repeats that.
  *
  * Takes the tool list rather than importing `./tools`, which would pull every
  * service into any unit test that loads this file. The tools line is derived

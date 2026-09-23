@@ -72,8 +72,10 @@ describe('the tool registry', () => {
     // The Claude connectors directory refuses descriptions that steer the
     // model or hide text. Ask-first, publish and show-as-a-table guidance
     // belongs in the server instructions, which build theirs from askFirst.
-    const directive = /\bask the organizer\b|\bconfirm with\b|\b(show|tell) the organizer\b|\bonly if they agree\b/i;
-    const hidden = /[\p{Cc}\p{Cf}]/u;
+    const directive =
+      /\bask (the organizer|first|before)\b|\b(confirm|check) with\b|\b(show|tell|give) the organizer\b|\bonly if they agree\b|\bas a table\b/i;
+    // Control and format characters (zero-width, bidi overrides), except a newline.
+    const hidden = /(?!\n)[\p{Cc}\p{Cf}]/u;
     const descriptions = (node: unknown): string[] =>
       node && typeof node === 'object'
         ? Object.entries(node).flatMap(([key, value]) =>
