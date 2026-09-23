@@ -22,9 +22,10 @@ import { runTool } from './results';
  * leaving one out says something we may not mean. `destructiveHint` is true
  * for anything that overwrites or removes data or changes who can see it,
  * and false only for purely additive writes. `title` is not here: it comes
- * from the tool's own `title`.
+ * from the tool's own `title`. Nor is `openWorldHint`: `compileTools` sets it
+ * false for every tool.
  */
-export type ToolHints = Omit<ToolAnnotations, 'title' | 'readOnlyHint' | 'destructiveHint'> &
+export type ToolHints = Omit<ToolAnnotations, 'title' | 'readOnlyHint' | 'destructiveHint' | 'openWorldHint'> &
   ({ readOnlyHint: true; destructiveHint?: never } | { readOnlyHint: false; destructiveHint: boolean });
 
 export interface ToolDefinition<S extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -100,7 +101,7 @@ export function compileTools(tools: readonly ToolDefinition[]): CompiledTool[] {
       inputSchema: fromJsonSchema<Record<string, unknown>>(toJsonSchema(def.inputSchema), zodDoesTheValidating),
       // `title` repeated for clients that only read it from the annotations.
       // Closed world: every tool acts on this service's own data only.
-      annotations: { title: def.title, openWorldHint: false, ...def.annotations },
+      annotations: { ...def.annotations, title: def.title, openWorldHint: false },
     },
   }));
 }

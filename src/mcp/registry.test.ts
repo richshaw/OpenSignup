@@ -51,6 +51,7 @@ describe('the tool registry', () => {
     for (const { def, config } of COMPILED_TOOLS) {
       expect(def.title.trim(), def.name).not.toBe('');
       expect(config.annotations.title, def.name).toBe(def.title);
+      expect(config.annotations.openWorldHint, def.name).toBe(false);
       // Read-scoped tools only read; write-scoped tools say whether they destroy.
       if (def.scope.endsWith(':read')) {
         expect(config.annotations.readOnlyHint, def.name).toBe(true);
