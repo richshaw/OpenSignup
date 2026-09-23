@@ -1,8 +1,7 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { getDb } from '@/db/client';
-import { getOrganizerSession, toActor } from '@/auth/session';
+import { requireOrganizerSession, toActor } from '@/auth/session';
 import type { SignupStatus } from '@/schemas/signups';
 import { getSignupForOrganizer } from '@/services/signups';
 import { recordOrganizerView } from '@/lib/view-tracker';
@@ -19,8 +18,7 @@ type PageParams = { params: Promise<{ id: string }> };
 
 export default async function SignupPreviewPage({ params }: PageParams) {
   const { id } = await params;
-  const session = await getOrganizerSession();
-  if (!session) redirect(`/login?callbackUrl=/app/signups/${id}/preview`);
+  const session = await requireOrganizerSession();
   const actor = toActor(session);
   const result = await getSignupForOrganizer(getDb(), actor, id);
   if (!result.ok) {
