@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import EditForm from './edit-form';
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
+const router = vi.hoisted(() => ({ refresh: vi.fn(), push: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => router }));
 
 function renderForm(maxQuantity: number | null, initialQuantity = 1) {
   render(
@@ -24,6 +25,7 @@ function renderForm(maxQuantity: number | null, initialQuantity = 1) {
 describe('<EditForm /> quantity', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    router.refresh.mockClear();
   });
 
   it('asks for a quantity only when the slot has room for more than one', () => {
@@ -97,5 +99,11 @@ describe('<EditForm /> quantity', () => {
       'You can have at most 3 spots on this slot, and you asked for 4. Ask for 3 or fewer.',
     );
     expect(alert).not.toHaveTextContent('only 3 left');
+    // The line at the top and the cap take the error's number instead of
+    // still saying 4, without re-reading the page (which would log another
+    // edit-link visit).
+    expect(screen.getByText('You can have up to 3 spots on this slot.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Spots')).toHaveAttribute('max', '3');
+    expect(router.refresh).not.toHaveBeenCalled();
   });
 });

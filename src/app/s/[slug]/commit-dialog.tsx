@@ -42,6 +42,7 @@ interface ApiError {
   details?: {
     alternatives?: { id: string; title: string }[];
     remaining?: number;
+    capacity?: number;
   };
 }
 
@@ -133,7 +134,16 @@ export default function CommitDialog({
   // assistive tech while it is open, so the header says how many are left.
   // Only on a slot with more than one spot, as the row only counts those:
   // "1 of 1 spots left" would say nothing.
-  const showSpotsLeft = spotsLeft !== null && capacity !== null && capacity > 1;
+  //
+  // After a capacity error the server's numbers are newer than the page's, so
+  // the header and the field's max use them; otherwise the header kept saying
+  // "2 of 4 spots left" beside an error saying only 1 was. They last until the
+  // sheet closes. Not a router.refresh(): a slot that just filled would turn
+  // its row to "Full" and take this sheet, error and all, off the page.
+  const [reported, setReported] = useState<{ left: number; capacity: number | null } | null>(null);
+  const left = reported ? reported.left : spotsLeft;
+  const slotCapacity = reported ? reported.capacity : capacity;
+  const showSpotsLeft = left !== null && slotCapacity !== null && slotCapacity > 1;
   const spotsLeftId = useId();
 
   function handleAcceptSuggestion() {
@@ -163,6 +173,14 @@ export default function CommitDialog({
       const payload = await res.json();
       if (!res.ok) {
         setError(payload.error ?? { code: 'internal', message: 'something went wrong' });
+        const remaining = payload.error?.details?.remaining;
+        if (payload.error?.code === 'capacity_full' && typeof remaining === 'number') {
+          const reportedCapacity = payload.error.details?.capacity;
+          setReported({
+            left: remaining,
+            capacity: typeof reportedCapacity === 'number' ? reportedCapacity : capacity,
+          });
+        }
         setSubmitting(false);
         return;
       }
@@ -187,6 +205,7 @@ export default function CommitDialog({
     setOpen(false);
     setSuccess(null);
     setError(null);
+    setReported(null);
     setShareCopied(false);
     if (wasSuccess) router.refresh();
   }
@@ -286,7 +305,7 @@ export default function CommitDialog({
           )
         }
         description={
-          !success && showSpotsLeft ? `${spotsLeft} of ${capacity} spots left` : undefined
+          !success && showSpotsLeft ? `${left} of ${slotCapacity} spots left` : undefined
         }
         descriptionId={spotsLeftId}
       >
@@ -391,7 +410,9 @@ export default function CommitDialog({
                     min={1}
                     // Stops an over-ask before it reaches the server. The count
                     // can be stale, so the server's check still decides.
-                    max={spotsLeft ?? undefined}
+                    // At least 1: once the slot has filled, a max of 0 would
+                    // only add a browser bubble to the error already shown.
+                    max={left === null ? undefined : Math.max(left, 1)}
                     defaultValue={1}
                     aria-describedby={showSpotsLeft ? spotsLeftId : undefined}
                     className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"

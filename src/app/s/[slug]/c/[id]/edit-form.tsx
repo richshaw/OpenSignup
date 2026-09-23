@@ -35,8 +35,13 @@ export default function EditForm({
   // Holding more than the slot now allows can't happen (capacity can't drop
   // below what is taken), but if it did, keep the field so it can be lowered.
   const askQuantity = maxQuantity === null || maxQuantity > 1 || initialQuantity > 1;
+  // After a capacity error, the server's limit is newer than the page's. Kept
+  // here rather than re-read with router.refresh(), which would re-run the
+  // page and log another edit-link visit for what was only a failed save.
+  const [reportedMax, setReportedMax] = useState<number | null>(null);
+  const currentMax = reportedMax ?? maxQuantity;
   // Never below what is already held, or the form could not be saved at all.
-  const spotsMax = maxQuantity === null ? null : Math.max(maxQuantity, initialQuantity);
+  const spotsMax = currentMax === null ? null : Math.max(currentMax, initialQuantity);
   // Said once at the top of the form, as the sign-up sheet says it in its
   // header, rather than on a row of its own under the narrow Spots field.
   const showSpotsMax = askQuantity && spotsMax !== null;
@@ -71,6 +76,10 @@ export default function EditForm({
           ? [capacity.message, capacity.suggestion].filter(Boolean).join(' ')
           : (payload?.error?.message ?? 'save failed'),
       });
+      // Someone else took spots since this page loaded, so the line at the
+      // top and the field's max take the error's number.
+      const remaining = payload?.error?.details?.remaining;
+      if (capacity && typeof remaining === 'number') setReportedMax(remaining);
     } else {
       setMessage({ kind: 'ok', text: 'Saved.' });
       router.refresh();
