@@ -75,7 +75,7 @@ function CommitDialog({ slot, onClose }) {
               <Field label="Notes (optional)">
                 <input style={inputStyle} type="text" name="notes" placeholder="Allergies, preferences, etc." />
               </Field>
-              <Field label="Qty">
+              <Field label="Spots">
                 <input style={inputStyle} type="number" name="quantity" min="1" defaultValue="1" />
               </Field>
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
@@ -22,8 +22,9 @@ interface CommitDialogProps {
   /**
    * Places still open on the slot when the page rendered, or `null` when it is
    * unlimited. At 1 the only quantity the server can accept is 1, so the
-   * quantity field is left out and the form sends the default. The server's
-   * capacity check stays the authority; this only decides what to ask.
+   * quantity field is left out and the form sends the default; above 1 it is
+   * the field's `max`. The server's capacity check stays the authority; this
+   * only decides what to ask.
    */
   spotsLeft: number | null;
   signupTitle: string;
@@ -123,6 +124,7 @@ export default function CommitDialog({
 
   const emailHint = useMemo(() => suggestEmail(emailValue), [emailValue]);
   const askQuantity = spotsLeft === null || spotsLeft > 1;
+  const spotsHintId = useId();
 
   function handleAcceptSuggestion() {
     if (emailHint) setEmailValue(emailHint);
@@ -139,7 +141,7 @@ export default function CommitDialog({
       name,
       email,
       notes: String(data.get('notes') ?? '') || undefined,
-      // No field when only one place is open (see `spotsLeft`), so 1.
+      // No Spots field when only one place is open (see `spotsLeft`), so 1.
       quantity: Number(data.get('quantity') ?? 1),
     };
     try {
@@ -362,16 +364,31 @@ export default function CommitDialog({
                 />
               </label>
               {askQuantity ? (
-                <label className="block w-20">
-                  <span className="mb-1 block text-sm font-medium">Qty</span>
-                  <input
-                    type="number"
-                    name="quantity"
-                    min={1}
-                    defaultValue={1}
-                    className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-                  />
-                </label>
+                <div className="w-20">
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-medium">Spots</span>
+                    <input
+                      type="number"
+                      name="quantity"
+                      required
+                      min={1}
+                      // Stops an over-ask before it reaches the server. The count
+                      // can be stale, so the server's check still decides.
+                      max={spotsLeft ?? undefined}
+                      defaultValue={1}
+                      aria-describedby={spotsLeft === null ? undefined : spotsHintId}
+                      className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
+                    />
+                  </label>
+                  {/* The row's "2/4" is behind the sheet, and hidden from
+                      assistive tech while it is open, so say the limit here.
+                      Outside the label, so the field is still named "Spots". */}
+                  {spotsLeft === null ? null : (
+                    <p id={spotsHintId} className="mt-1 text-xs text-ink-muted">
+                      {spotsLeft} left
+                    </p>
+                  )}
+                </div>
               ) : null}
             </div>
             {error ? (

@@ -317,11 +317,11 @@ describe('<SignupViewBody mode="live" /> quantity', () => {
   it('leaves the quantity out when one place is left', async () => {
     openRow(/^Sign up for .*Hawks/);
     await screen.findByLabelText('Your name', {}, { timeout: 5000 });
-    expect(screen.queryByLabelText('Qty')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Spots')).not.toBeInTheDocument();
   });
 
   it('asks for a quantity when more than one place is left', async () => {
     openRow(/^Sign up for .*Owls/);
-    expect(await screen.findByLabelText('Qty', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Spots', {}, { timeout: 5000 })).toBeInTheDocument();
   });
 });

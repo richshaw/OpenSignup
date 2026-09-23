@@ -158,20 +158,55 @@ describe('<CommitDialog /> sheet', () => {
     vi.unstubAllGlobals();
   });
 
-  // With one place open, 1 is the only quantity the server accepts, so a Qty
+  // With one place open, 1 is the only quantity the server accepts, so a Spots
   // field could only be left alone or turned into an error.
   it('asks for a quantity only when more than one place is open', async () => {
     openSheet({ spotsLeft: 1 });
     await screen.findByLabelText('Your name', {}, settle);
-    expect(screen.queryByLabelText('Qty')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Spots')).not.toBeInTheDocument();
     cleanup();
 
     openSheet({ spotsLeft: 3 });
-    expect(await screen.findByLabelText('Qty', {}, settle)).toHaveValue(1);
+    expect(await screen.findByLabelText('Spots', {}, settle)).toHaveValue(1);
     cleanup();
 
     openSheet({ spotsLeft: null });
-    expect(await screen.findByLabelText('Qty', {}, settle)).toHaveValue(1);
+    expect(await screen.findByLabelText('Spots', {}, settle)).toHaveValue(1);
+  });
+
+  it('caps the spots at what is left and says so, but not on an unlimited slot', async () => {
+    openSheet({ spotsLeft: 3 });
+    const capped = await screen.findByLabelText('Spots', {}, settle);
+    expect(capped).toHaveAttribute('max', '3');
+    expect(capped).toHaveAccessibleDescription('3 left');
+    cleanup();
+
+    openSheet({ spotsLeft: null });
+    const open = await screen.findByLabelText('Spots', {}, settle);
+    expect(open).not.toHaveAttribute('max');
+    expect(open).not.toHaveAccessibleDescription();
+  });
+
+  it('does not send an ask for more spots than are left', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      openSheet({ spotsLeft: 3 });
+      await screen.findByLabelText('Spots', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), {
+        target: { value: 'Jordan Fields' },
+      });
+      fireEvent.change(screen.getByLabelText('Email'), {
+        target: { value: 'jordan@example.test' },
+      });
+      fireEvent.change(screen.getByLabelText('Spots'), { target: { value: '4' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      expect(screen.getByLabelText('Spots')).toBeInvalid();
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('commits one place when it does not ask', async () => {
