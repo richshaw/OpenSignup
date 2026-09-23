@@ -188,23 +188,34 @@ describe('<CommitDialog /> sheet', () => {
     expect(await screen.findByLabelText('Spots', {}, settle)).not.toHaveAttribute('max');
   });
 
-  // The row's "3/5" is behind the sheet and hidden from assistive tech while it
-  // is open, so the header says it and the field is described by it. It stays
-  // out of the heading's name, which is the slot's.
-  it('says how many spots are left in the header, and describes the field with it', async () => {
+  // The row's own count is behind the sheet and hidden from assistive tech
+  // while it is open, so the header says how many are left. It sits beside the
+  // heading, not in it, and describes both the dialog and the Spots field.
+  it('says how many spots are left in the header, and describes the sheet with it', async () => {
     openSheet({ spotsLeft: 3, capacity: 5 });
     const spots = await screen.findByLabelText('Spots', {}, settle);
+    const dialog = screen.getByRole('dialog');
     expect(screen.getByText('3 of 5 spots left')).toBeInTheDocument();
+    expect(dialog).toHaveAccessibleName('Sign up for Sat, May 16, Cookies, Vinland Elementary');
+    expect(dialog).toHaveAccessibleDescription('3 of 5 spots left');
+    expect(screen.getByRole('heading')).not.toHaveTextContent('spots left');
     expect(spots).toHaveAccessibleDescription('3 of 5 spots left');
-    expect(screen.getByRole('dialog')).toHaveAccessibleName(
-      'Sign up for Sat, May 16, Cookies, Vinland Elementary',
-    );
+  });
+
+  // With one spot left there is no Spots field to describe, so the dialog's
+  // own description is the only place a screen reader hears it.
+  it('says it on a slot down to its last spot, where there is no Spots field', async () => {
+    openSheet({ spotsLeft: 1, capacity: 3 });
+    await screen.findByLabelText('Your name', {}, settle);
+    expect(screen.queryByLabelText('Spots')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toHaveAccessibleDescription('1 of 3 spots left');
   });
 
   it('says nothing about spots left on an unlimited slot', async () => {
     openSheet({ spotsLeft: null, capacity: null });
     const spots = await screen.findByLabelText('Spots', {}, settle);
     expect(screen.queryByText(/spots left/)).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog')).not.toHaveAccessibleDescription();
     expect(spots).not.toHaveAccessibleDescription();
   });
 

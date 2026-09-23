@@ -128,9 +128,10 @@ export default function CommitDialog({
 
   const emailHint = useMemo(() => suggestEmail(emailValue), [emailValue]);
   const askQuantity = spotsLeft === null || spotsLeft > 1;
-  // The row's "2/4" is behind the sheet, and hidden from assistive tech while
-  // it is open, so the header says it again. Only on a slot with more than one
-  // spot, as the row does: "1 of 1 spots left" would say nothing.
+  // The row's own count ("2/4" signed up) is behind the sheet, and hidden from
+  // assistive tech while it is open, so the header says how many are left.
+  // Only on a slot with more than one spot, as the row only counts those:
+  // "1 of 1 spots left" would say nothing.
   const showSpotsLeft = spotsLeft !== null && capacity !== null && capacity > 1;
   const spotsLeftId = useId();
 
@@ -276,20 +277,13 @@ export default function CommitDialog({
             <>
               <span className="sr-only">Sign up for {actionName}</span>
               <span aria-hidden="true">{slotTitle}</span>
-              {/* Hidden from the heading's name, which stays the slot's; the
-                  Spots field reads it out as its description instead. */}
-              {showSpotsLeft ? (
-                <span
-                  id={spotsLeftId}
-                  aria-hidden="true"
-                  className="ml-2 text-sm font-normal text-ink-muted"
-                >
-                  {spotsLeft} of {capacity} spots left
-                </span>
-              ) : null}
             </>
           )
         }
+        description={
+          !success && showSpotsLeft ? `${spotsLeft} of ${capacity} spots left` : undefined
+        }
+        descriptionId={spotsLeftId}
       >
         {success ? (
           <div className="space-y-4">
