@@ -1,6 +1,6 @@
 import { after } from 'next/server';
 import { getDb } from '@/db/client';
-import { getOrganizerSession, toActor } from '@/auth/session';
+import { requireOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { listCommitmentsForSignup } from '@/services/commitments';
 import { recordOrganizerView } from '@/lib/view-tracker';
@@ -10,8 +10,7 @@ type PageParams = { params: Promise<{ id: string }> };
 
 export default async function ResponsesTab({ params }: PageParams) {
   const { id } = await params;
-  const session = await getOrganizerSession();
-  if (!session) return null;
+  const session = await requireOrganizerSession();
   const result = await loadSignupForOrganizer(toActor(session), id);
   if (!result.ok) return null;
   const sig = result.value;

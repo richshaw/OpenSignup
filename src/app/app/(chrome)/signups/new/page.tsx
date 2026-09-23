@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { getDb } from '@/db/client';
-import { getOrganizerSession, toActor } from '@/auth/session';
+import { requireOrganizerSession, toActor } from '@/auth/session';
 import { createSignup } from '@/services/signups';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { recordOrganizerView } from '@/lib/view-tracker';
@@ -13,8 +13,7 @@ export const metadata = { title: 'New signup' };
 type PageProps = { searchParams: Promise<{ manual?: string; error?: string }> };
 
 export default async function NewSignupPage({ searchParams }: PageProps) {
-  const session = await getOrganizerSession();
-  if (!session) return null;
+  const session = await requireOrganizerSession();
 
   if (session.defaultWorkspaceId) {
     const workspaceId = session.defaultWorkspaceId;
@@ -37,8 +36,8 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
 
   async function createAction(formData: FormData) {
     'use server';
-    const s = await getOrganizerSession();
-    if (!s || !s.defaultWorkspaceId) redirect('/login');
+    const s = await requireOrganizerSession();
+    if (!s.defaultWorkspaceId) redirect('/app');
     const actor = toActor(s);
     const result = await createSignup(getDb(), actor, s.defaultWorkspaceId, {
       title: String(formData.get('title') ?? ''),

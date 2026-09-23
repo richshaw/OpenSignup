@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getOrganizerSession } from '@/auth/session';
+import { requireOrganizerSession } from '@/auth/session';
 
 export const metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
@@ -19,8 +19,7 @@ const SECTIONS = [
 ] as const;
 
 export default async function SettingsPage() {
-  const session = await getOrganizerSession();
-  if (!session) return null;
+  const session = await requireOrganizerSession();
 
   return (
     <section className="space-y-6">

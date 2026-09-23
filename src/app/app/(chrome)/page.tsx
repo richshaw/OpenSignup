@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import { getDb } from '@/db/client';
-import { getOrganizerSession, toActor } from '@/auth/session';
+import { requireOrganizerSession, toActor } from '@/auth/session';
 import { listSignupsForWorkspace } from '@/services/signups';
 import { StatusPill } from '@/components/status-pill';
+
 export const metadata = { title: 'Your signups' };
 
 export default async function DashboardPage() {
-  const session = await getOrganizerSession();
-  if (!session) return null;
+  const session = await requireOrganizerSession();
   const actor = toActor(session);
   const workspaceId = session.defaultWorkspaceId;
   if (!workspaceId) {

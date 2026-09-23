@@ -9,9 +9,11 @@ export function organizerCallbackPath(request: NextRequest): string {
 }
 
 /**
- * App Router layouts cannot read the request path, so unauthenticated redirects
- * from the organizer chrome used to hard-code `/app`. Copy the path (and query)
- * into a request header the layout can turn into `callbackUrl`.
+ * App Router layouts and pages cannot read the request path, so a signed-out
+ * visit had no way to say where to come back to after sign-in. Copy the path
+ * (and query) into a request header that `requireOrganizerSession` turns into
+ * `callbackUrl`. `set` replaces any value the client sent, so the header always
+ * names the page that was actually requested.
  */
 export function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);

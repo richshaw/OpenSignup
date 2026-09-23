@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { BASE_URL, loadSeed } from './helpers/fixtures';
-import { mintLoginCodeForTest } from './helpers/seed';
 
 const seed = loadSeed();
 
@@ -54,18 +53,37 @@ test.describe('organizer flow', () => {
   });
 });
 
-test('signed-out deep link returns to the signup build tab after sign-in', async ({ page }) => {
-  const { draftSignupId, organizerEmail } = loadSeed();
-  const buildPath = `/app/signups/${draftSignupId}/build`;
-  await page.goto(buildPath);
-  await expect(page).toHaveURL(`${BASE_URL}/login?callbackUrl=${encodeURIComponent(buildPath)}`);
+test.describe('signed-out organizer links', () => {
+  test('a deep link goes to sign-in and comes back to the same page', async ({ page, context }) => {
+    const deepLink = `/app/signups/${seed.draftSignupId}/build?from=email`;
+    await page.goto(deepLink);
+    await expect(page).toHaveURL(`${BASE_URL}/login?callbackUrl=${encodeURIComponent(deepLink)}`);
 
-  await page.getByLabel('Email').fill(organizerEmail);
-  await page.getByRole('button', { name: 'Send magic link' }).click();
-  await expect(page.getByPlaceholder('123456')).toBeVisible();
-  const code = await mintLoginCodeForTest(organizerEmail, `${BASE_URL}${buildPath}`);
-  await page.getByPlaceholder('123456').fill(code);
-  await page.getByRole('button', { name: 'Sign in with code' }).click();
-  await page.waitForURL(new RegExp(`${buildPath.replace(/\//g, '\\/')}$`));
-  await expect(page.getByRole('button', { name: 'Publish', exact: true })).toBeVisible();
+    // Every way of signing in from this page (the emailed link, the code, a
+    // provider, or the page noticing a session) goes to the callbackUrl it read
+    // from its own URL. A reload with a session cookie is the shortest of them,
+    // and it sends no email, so it cannot retire the code login-code.spec.ts
+    // mints for the same organizer.
+    await loginAsSeededOrganizer(context);
+    await page.reload();
+    await expect(page).toHaveURL(`${BASE_URL}${deepLink}`);
+    await expect(page.getByRole('heading', { level: 1, name: seed.draftTitle })).toBeVisible();
+  });
+
+  test('a session that ends mid-visit sends the next page to sign-in', async ({
+    page,
+    context,
+  }) => {
+    await loginAsSeededOrganizer(context);
+    await page.goto('/app');
+    await expect(page.getByRole('heading', { name: 'Your signups' })).toBeVisible();
+
+    await context.clearCookies();
+    // A client-side navigation re-renders the page but not the shared layout,
+    // so it is the page's own check that has to send the organizer to sign in.
+    await page.locator('header').getByTitle('Settings').click();
+    await expect(page).toHaveURL(
+      `${BASE_URL}/login?callbackUrl=${encodeURIComponent('/app/settings')}`,
+    );
+  });
 });
