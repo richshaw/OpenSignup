@@ -27,6 +27,9 @@ interface CommitDialogProps {
    * only decides what to ask.
    */
   spotsLeft: number | null;
+  /** The slot's capacity, or `null` when unlimited; the sheet's header says
+   *  "2 of 4 spots left" from this and `spotsLeft`. */
+  capacity: number | null;
   signupTitle: string;
   slug: string;
 }
@@ -77,6 +80,7 @@ export default function CommitDialog({
   slotAt,
   slotHasTime,
   spotsLeft,
+  capacity,
   signupTitle,
   slug,
 }: CommitDialogProps) {
@@ -124,7 +128,11 @@ export default function CommitDialog({
 
   const emailHint = useMemo(() => suggestEmail(emailValue), [emailValue]);
   const askQuantity = spotsLeft === null || spotsLeft > 1;
-  const spotsHintId = useId();
+  // The row's "2/4" is behind the sheet, and hidden from assistive tech while
+  // it is open, so the header says it again. Only on a slot with more than one
+  // spot, as the row does: "1 of 1 spots left" would say nothing.
+  const showSpotsLeft = spotsLeft !== null && capacity !== null && capacity > 1;
+  const spotsLeftId = useId();
 
   function handleAcceptSuggestion() {
     if (emailHint) setEmailValue(emailHint);
@@ -268,6 +276,17 @@ export default function CommitDialog({
             <>
               <span className="sr-only">Sign up for {actionName}</span>
               <span aria-hidden="true">{slotTitle}</span>
+              {/* Hidden from the heading's name, which stays the slot's; the
+                  Spots field reads it out as its description instead. */}
+              {showSpotsLeft ? (
+                <span
+                  id={spotsLeftId}
+                  aria-hidden="true"
+                  className="ml-2 text-sm font-normal text-ink-muted"
+                >
+                  {spotsLeft} of {capacity} spots left
+                </span>
+              ) : null}
             </>
           )
         }
@@ -364,31 +383,21 @@ export default function CommitDialog({
                 />
               </label>
               {askQuantity ? (
-                <div className="w-20">
-                  <label className="block">
-                    <span className="mb-1 block text-sm font-medium">Spots</span>
-                    <input
-                      type="number"
-                      name="quantity"
-                      required
-                      min={1}
-                      // Stops an over-ask before it reaches the server. The count
-                      // can be stale, so the server's check still decides.
-                      max={spotsLeft ?? undefined}
-                      defaultValue={1}
-                      aria-describedby={spotsLeft === null ? undefined : spotsHintId}
-                      className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-                    />
-                  </label>
-                  {/* The row's "2/4" is behind the sheet, and hidden from
-                      assistive tech while it is open, so say the limit here.
-                      Outside the label, so the field is still named "Spots". */}
-                  {spotsLeft === null ? null : (
-                    <p id={spotsHintId} className="mt-1 text-xs text-ink-muted">
-                      {spotsLeft} left
-                    </p>
-                  )}
-                </div>
+                <label className="block w-20">
+                  <span className="mb-1 block text-sm font-medium">Spots</span>
+                  <input
+                    type="number"
+                    name="quantity"
+                    required
+                    min={1}
+                    // Stops an over-ask before it reaches the server. The count
+                    // can be stale, so the server's check still decides.
+                    max={spotsLeft ?? undefined}
+                    defaultValue={1}
+                    aria-describedby={showSpotsLeft ? spotsLeftId : undefined}
+                    className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
+                  />
+                </label>
               ) : null}
             </div>
             {error ? (

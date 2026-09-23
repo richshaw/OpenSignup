@@ -36,7 +36,10 @@ export default function EditForm({
   const askQuantity = maxQuantity === null || maxQuantity > 1 || initialQuantity > 1;
   // Never below what is already held, or the form could not be saved at all.
   const spotsMax = maxQuantity === null ? null : Math.max(maxQuantity, initialQuantity);
-  const spotsHintId = useId();
+  // Said once at the top of the form, as the sign-up sheet says it in its
+  // header, rather than on a row of its own under the narrow Spots field.
+  const showSpotsMax = askQuantity && spotsMax !== null;
+  const spotsMaxId = useId();
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -84,6 +87,11 @@ export default function EditForm({
 
   return (
     <form onSubmit={handleSave} className="space-y-5 rounded-xl border border-surface-sunk bg-white p-6">
+      {showSpotsMax ? (
+        <p id={spotsMaxId} className="text-sm text-ink-muted">
+          You can have up to {spotsMax} spots on this slot.
+        </p>
+      ) : null}
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Name</span>
         <input
@@ -106,26 +114,19 @@ export default function EditForm({
           />
         </label>
         {askQuantity ? (
-          <div className="w-20">
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium">Spots</span>
-              <input
-                type="number"
-                name="quantity"
-                required
-                min={1}
-                max={spotsMax ?? undefined}
-                defaultValue={initialQuantity}
-                aria-describedby={spotsMax === null ? undefined : spotsHintId}
-                className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-              />
-            </label>
-            {spotsMax === null ? null : (
-              <p id={spotsHintId} className="mt-1 text-xs text-ink-muted">
-                Up to {spotsMax}
-              </p>
-            )}
-          </div>
+          <label className="block w-20">
+            <span className="mb-1 block text-sm font-medium">Spots</span>
+            <input
+              type="number"
+              name="quantity"
+              required
+              min={1}
+              max={spotsMax ?? undefined}
+              defaultValue={initialQuantity}
+              aria-describedby={showSpotsMax ? spotsMaxId : undefined}
+              className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
+            />
+          </label>
         ) : null}
       </div>
       {message ? (

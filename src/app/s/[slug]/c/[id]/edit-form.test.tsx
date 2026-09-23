@@ -36,7 +36,7 @@ describe('<EditForm /> quantity', () => {
     const spots = screen.getByLabelText('Spots');
     expect(spots).toHaveValue(2);
     expect(spots).toHaveAttribute('max', '4');
-    expect(spots).toHaveAccessibleDescription('Up to 4');
+    expect(spots).toHaveAccessibleDescription('You can have up to 4 spots on this slot.');
   });
 
   // Can't happen while capacity can't drop below what is taken, but if it did,

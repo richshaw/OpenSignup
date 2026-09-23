@@ -21,6 +21,7 @@ describe('<CommitDialog /> trigger', () => {
         slotAt={null}
         slotHasTime={false}
         spotsLeft={null}
+        capacity={null}
         signupTitle="Snack duty"
         slug="example"
       />,
@@ -51,7 +52,10 @@ describe('<CommitDialog /> sheet', () => {
     window.localStorage.clear();
   });
 
-  function openSheet({ spotsLeft = null }: { spotsLeft?: number | null } = {}) {
+  function openSheet({
+    spotsLeft = null,
+    capacity = null,
+  }: { spotsLeft?: number | null; capacity?: number | null } = {}) {
     render(
       <CommitDialog
         slotId="slot_1"
@@ -60,6 +64,7 @@ describe('<CommitDialog /> sheet', () => {
         slotAt={null}
         slotHasTime={false}
         spotsLeft={spotsLeft}
+        capacity={capacity}
         signupTitle="Snack duty"
         slug="example"
       />,
@@ -174,17 +179,33 @@ describe('<CommitDialog /> sheet', () => {
     expect(await screen.findByLabelText('Spots', {}, settle)).toHaveValue(1);
   });
 
-  it('caps the spots at what is left and says so, but not on an unlimited slot', async () => {
-    openSheet({ spotsLeft: 3 });
-    const capped = await screen.findByLabelText('Spots', {}, settle);
-    expect(capped).toHaveAttribute('max', '3');
-    expect(capped).toHaveAccessibleDescription('3 left');
+  it('caps the spots at what is left, and not at all on an unlimited slot', async () => {
+    openSheet({ spotsLeft: 3, capacity: 5 });
+    expect(await screen.findByLabelText('Spots', {}, settle)).toHaveAttribute('max', '3');
     cleanup();
 
-    openSheet({ spotsLeft: null });
-    const open = await screen.findByLabelText('Spots', {}, settle);
-    expect(open).not.toHaveAttribute('max');
-    expect(open).not.toHaveAccessibleDescription();
+    openSheet({ spotsLeft: null, capacity: null });
+    expect(await screen.findByLabelText('Spots', {}, settle)).not.toHaveAttribute('max');
+  });
+
+  // The row's "3/5" is behind the sheet and hidden from assistive tech while it
+  // is open, so the header says it and the field is described by it. It stays
+  // out of the heading's name, which is the slot's.
+  it('says how many spots are left in the header, and describes the field with it', async () => {
+    openSheet({ spotsLeft: 3, capacity: 5 });
+    const spots = await screen.findByLabelText('Spots', {}, settle);
+    expect(screen.getByText('3 of 5 spots left')).toBeInTheDocument();
+    expect(spots).toHaveAccessibleDescription('3 of 5 spots left');
+    expect(screen.getByRole('dialog')).toHaveAccessibleName(
+      'Sign up for Sat, May 16, Cookies, Vinland Elementary',
+    );
+  });
+
+  it('says nothing about spots left on an unlimited slot', async () => {
+    openSheet({ spotsLeft: null, capacity: null });
+    const spots = await screen.findByLabelText('Spots', {}, settle);
+    expect(screen.queryByText(/spots left/)).not.toBeInTheDocument();
+    expect(spots).not.toHaveAccessibleDescription();
   });
 
   it('does not send an ask for more spots than are left', async () => {

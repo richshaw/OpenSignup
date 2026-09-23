@@ -320,6 +320,7 @@ export function SignupViewBody({
                                 ? null
                                 : Math.max(0, slot.capacity - slot.committed)
                             }
+                            capacity={slot.capacity}
                             signupTitle={signup.title}
                             slug={slug}
                           />
