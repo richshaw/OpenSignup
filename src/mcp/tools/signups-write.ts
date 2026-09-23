@@ -24,7 +24,7 @@ export const createSignupTool = defineTool({
   name: 'create_signup',
   scope: 'signups:write',
   title: 'Create signup',
-  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see; call publish_signup when the organizer is ready. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. If the result has a note instead of fields and slots, the signup was still created: call get_signup with its id, and do not create it again. Afterwards show the organizer the slots as a table, with links.edit to change them and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field makes the whole call fail with invalid_input and nothing is created, so fix the value and call again.`,
+  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see until publish_signup. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. If the result has a note instead of fields and slots, the signup was still created, and get_signup with its id returns it. The result includes links.edit to change the signup and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field makes the whole call fail with invalid_input and nothing is created, so fix the value and call again.`,
   annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: FullDraftSchema.extend({
     workspaceId: z.string().min(1).optional().describe('Defaults to the account default workspace.'),
@@ -122,7 +122,7 @@ function statusTool(
 export const publishSignupTool = statusTool(
   'publish_signup',
   'Publish signup',
-  'Make a draft signup live so participants can sign up at the public link. Only a draft can be published. Confirm with the organizer first. Once it is published, links.public is the link to share with participants.',
+  'Make a draft signup live so participants can sign up at the public link. Only a draft can be published. Once it is published, links.public is the link to share with participants.',
   // Not in the ask-first line: the instructions give publishing a sentence of its own.
   false,
   publishSignup,
@@ -144,7 +144,7 @@ export const archiveSignupTool = statusTool(
 export const deleteSignupTool = statusTool(
   'delete_signup',
   'Delete signup',
-  'Remove a signup from the account: it stops appearing in lists and its public link stops working. The record is marked deleted rather than erased, so erasing it for good is a separate request to the site owner. Ask the organizer before calling this. A delete leaves the signup status as it was, so read deleted and deletedAt in the result to confirm it worked, not status.',
+  'Remove a signup from the account: it stops appearing in lists and its public link stops working. The record is marked deleted rather than erased, so erasing it for good is a separate request to the site owner. A delete leaves the signup status as it was, so deleted and deletedAt in the result show that it worked, not status.',
   true,
   deleteSignup,
   // No links: nothing to open after a delete. `deleted` makes the outcome explicit

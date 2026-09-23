@@ -12,7 +12,7 @@ export const addFieldTool = defineTool({
   name: 'add_field',
   scope: 'signups:write',
   title: 'Add field',
-  description: `Add a column that every slot in the signup has, in the same shape create_signup takes: ref (lowercase-kebab key used in slot values), label, fieldType, and choices for an enum. ${FIELD_GUIDE} Add fields before slots when you can: existing slots have no value for a new field until you set one with update_slot.`,
+  description: `Add a column that every slot in the signup has, in the same shape create_signup takes: ref (lowercase-kebab key used in slot values), label, fieldType, and choices for an enum. ${FIELD_GUIDE} Existing slots have no value for a new field until one is set with update_slot.`,
   annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: DraftFieldSchema.extend({
     signupId: z.string(),
@@ -50,7 +50,7 @@ export const deleteFieldTool = defineTool({
   name: 'delete_field',
   scope: 'signups:write',
   title: 'Delete field',
-  description: 'Remove a field and its value from every slot. Ask the organizer first.',
+  description: 'Remove a field and its value from every slot. This cannot be undone.',
   annotations: { readOnlyHint: false, destructiveHint: true },
   askFirst: true,
   inputSchema: z.object({ fieldId: z.string() }),

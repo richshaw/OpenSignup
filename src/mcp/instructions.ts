@@ -15,7 +15,10 @@ import type { ToolDefinition } from './registry';
  * signup and how to work with the organizer, in one place instead of spread
  * over tool descriptions. The design rules are the sentences the Magic Compose
  * prompt uses (`src/lib/signup-rules.ts`), so the two cannot disagree. Tool
- * descriptions still stand on their own, because some clients ignore this.
+ * descriptions still stand on their own, because some clients ignore this,
+ * but they only say what a tool does: the Claude connectors directory refuses
+ * descriptions that tell the model how to behave, so the "Working with the
+ * organizer" lines exist here and nowhere else.
  *
  * Takes the tool list rather than importing `./tools`, which would pull every
  * service into any unit test that loads this file. The tools line is derived
