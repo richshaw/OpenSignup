@@ -73,7 +73,7 @@ export const deleteSlotTool = defineTool({
   scope: 'signups:write',
   title: 'Delete slot',
   description:
-    'Remove a slot. If anyone has signed up for it the call fails with conflict and says how many; tell the organizer, and only if they agree call again with force: true, which removes the slot and their places.',
+    "Remove a slot. If anyone has signed up for it the call fails with conflict and says how many; force: true removes the slot and those people's places.",
   annotations: { readOnlyHint: false, destructiveHint: true },
   askFirst: true,
   inputSchema: z.object({

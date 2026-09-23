@@ -68,6 +68,26 @@ describe('the tool registry', () => {
     }
   });
 
+  it('describes what each tool does without telling the model how to behave', () => {
+    // The Claude connectors directory refuses descriptions that steer the
+    // model or hide text. Ask-first, publish and show-as-a-table guidance
+    // belongs in the server instructions, which build theirs from askFirst.
+    const directive = /\bask the organizer\b|\bconfirm with\b|\b(show|tell) the organizer\b|\bonly if they agree\b/i;
+    const hidden = /[\p{Cc}\p{Cf}]/u;
+    const descriptions = (node: unknown): string[] =>
+      node && typeof node === 'object'
+        ? Object.entries(node).flatMap(([key, value]) =>
+            key === 'description' && typeof value === 'string' ? [value] : descriptions(value),
+          )
+        : [];
+    for (const tool of TOOLS) {
+      for (const text of [tool.title, tool.description, ...descriptions(toJsonSchema(tool.inputSchema))]) {
+        expect(text, tool.name).not.toMatch(directive);
+        expect(text, tool.name).not.toMatch(hidden);
+      }
+    }
+  });
+
   it('toolScope answers for known tools and null for unknown ones', () => {
     expect(toolScope('list_signups')).toBe('signups:read');
     expect(toolScope('create_signup')).toBe('signups:write');

@@ -258,19 +258,18 @@ describe('status tools', () => {
     expect(svc[fn]).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1');
   });
 
-  it('says which link to hand over before and after publishing', () => {
+  it('says what each link is for before and after publishing', () => {
     expect(createSignupTool.description).toContain('links.edit');
     expect(createSignupTool.description).toContain('links.preview');
     expect(createSignupTool.description).toContain('links.public');
-    expect(createSignupTool.description).toMatch(/table/);
     expect(createSignupTool.description).toMatch(/slot.*\bid\b/);
     expect(publishSignupTool.description).toContain('links.public');
   });
 
   it('says what a create_signup result without fields and slots means', () => {
     expect(createSignupTool.description).toMatch(/note instead of fields and slots/);
+    expect(createSignupTool.description).toContain('was still created');
     expect(createSignupTool.description).toContain('get_signup with its id');
-    expect(createSignupTool.description).toContain('do not create it again');
   });
 
   it('tells a client reading only the tool list to trust deleted over status', () => {
