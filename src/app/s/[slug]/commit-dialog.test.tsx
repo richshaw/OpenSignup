@@ -2,7 +2,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
 
@@ -20,6 +20,7 @@ describe('<CommitDialog /> trigger', () => {
         actionName="Sat, May 16, Cookies, Vinland Elementary"
         slotAt={null}
         slotHasTime={false}
+        spotsLeft={null}
         signupTitle="Snack duty"
         slug="example"
       />,
@@ -50,7 +51,7 @@ describe('<CommitDialog /> sheet', () => {
     window.localStorage.clear();
   });
 
-  function openSheet() {
+  function openSheet({ spotsLeft = null }: { spotsLeft?: number | null } = {}) {
     render(
       <CommitDialog
         slotId="slot_1"
@@ -58,6 +59,7 @@ describe('<CommitDialog /> sheet', () => {
         actionName="Sat, May 16, Cookies, Vinland Elementary"
         slotAt={null}
         slotHasTime={false}
+        spotsLeft={spotsLeft}
         signupTitle="Snack duty"
         slug="example"
       />,
@@ -152,6 +154,44 @@ describe('<CommitDialog /> sheet', () => {
     await screen.findByRole('heading', { name: "You're in." }, settle);
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), settle);
+
+    vi.unstubAllGlobals();
+  });
+
+  // With one place open, 1 is the only quantity the server accepts, so a Qty
+  // field could only be left alone or turned into an error.
+  it('asks for a quantity only when more than one place is open', async () => {
+    openSheet({ spotsLeft: 1 });
+    await screen.findByLabelText('Your name', {}, settle);
+    expect(screen.queryByLabelText('Qty')).not.toBeInTheDocument();
+    cleanup();
+
+    openSheet({ spotsLeft: 3 });
+    expect(await screen.findByLabelText('Qty', {}, settle)).toHaveValue(1);
+    cleanup();
+
+    openSheet({ spotsLeft: null });
+    expect(await screen.findByLabelText('Qty', {}, settle)).toHaveValue(1);
+  });
+
+  it('commits one place when it does not ask', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: { commitment: { id: 'com_1' }, editUrl: 'https://example.test/s/example/c/com_1' },
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    openSheet({ spotsLeft: 1 });
+    await screen.findByLabelText('Your name', {}, settle);
+    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Fields' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'jordan@example.test' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await screen.findByRole('heading', { name: "You're in." }, settle);
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toMatchObject({ quantity: 1 });
 
     vi.unstubAllGlobals();
   });

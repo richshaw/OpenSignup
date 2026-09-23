@@ -19,6 +19,13 @@ interface CommitDialogProps {
    * calendar export is an all-day event.
    */
   slotHasTime: boolean;
+  /**
+   * Places still open on the slot when the page rendered, or `null` when it is
+   * unlimited. At 1 the only quantity the server can accept is 1, so the
+   * quantity field is left out and the form sends the default. The server's
+   * capacity check stays the authority; this only decides what to ask.
+   */
+  spotsLeft: number | null;
   signupTitle: string;
   slug: string;
 }
@@ -68,6 +75,7 @@ export default function CommitDialog({
   actionName,
   slotAt,
   slotHasTime,
+  spotsLeft,
   signupTitle,
   slug,
 }: CommitDialogProps) {
@@ -114,6 +122,7 @@ export default function CommitDialog({
   }
 
   const emailHint = useMemo(() => suggestEmail(emailValue), [emailValue]);
+  const askQuantity = spotsLeft === null || spotsLeft > 1;
 
   function handleAcceptSuggestion() {
     if (emailHint) setEmailValue(emailHint);
@@ -130,6 +139,7 @@ export default function CommitDialog({
       name,
       email,
       notes: String(data.get('notes') ?? '') || undefined,
+      // No field when only one place is open (see `spotsLeft`), so 1.
       quantity: Number(data.get('quantity') ?? 1),
     };
     try {
@@ -340,7 +350,7 @@ export default function CommitDialog({
                 </p>
               ) : null}
             </label>
-            <div className="grid grid-cols-[1fr_auto] gap-3">
+            <div className={askQuantity ? 'grid grid-cols-[1fr_auto] gap-3' : undefined}>
               <label className="block">
                 <span className="mb-1 block text-sm font-medium">Notes (optional)</span>
                 <input
@@ -351,16 +361,18 @@ export default function CommitDialog({
                   className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
                 />
               </label>
-              <label className="block w-20">
-                <span className="mb-1 block text-sm font-medium">Qty</span>
-                <input
-                  type="number"
-                  name="quantity"
-                  min={1}
-                  defaultValue={1}
-                  className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-                />
-              </label>
+              {askQuantity ? (
+                <label className="block w-20">
+                  <span className="mb-1 block text-sm font-medium">Qty</span>
+                  <input
+                    type="number"
+                    name="quantity"
+                    min={1}
+                    defaultValue={1}
+                    className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
+                  />
+                </label>
+              ) : null}
             </div>
             {error ? (
               <div

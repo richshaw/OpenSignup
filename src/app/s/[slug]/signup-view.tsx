@@ -315,6 +315,11 @@ export function SignupViewBody({
                             actionName={actionName}
                             slotAt={slot.slotAt}
                             slotHasTime={slotHasTime(slot, fields)}
+                            spotsLeft={
+                              slot.capacity === null
+                                ? null
+                                : Math.max(0, slot.capacity - slot.committed)
+                            }
                             signupTitle={signup.title}
                             slug={slug}
                           />

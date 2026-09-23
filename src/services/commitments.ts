@@ -612,3 +612,38 @@ export async function committedBySlot(db: Db, signupId: string): Promise<Record<
   for (const r of rows) out[r.slotId] = r.sum;
   return out;
 }
+
+/**
+ * The most places a commitment could hold on its slot: the slot's capacity
+ * less what every *other* confirmed or tentative commitment holds, which is
+ * the sum the quantity guard in `updateOwnCommitment` checks an increase
+ * against (waitlisted places don't count against capacity). `null`
+ * when the slot is unlimited. The edit page uses it to leave the quantity
+ * field out when the answer is 1, since 1 is then the only value it accepts.
+ *
+ * Guard-free, like `committedBySlot`: call it only with a commitment that
+ * `getOwnCommitment` has already verified against its edit token.
+ */
+export async function maxQuantityForCommitment(
+  db: Db,
+  commitment: { id: string; slotId: string },
+): Promise<number | null> {
+  const slotRows = await db
+    .select({ capacity: slots.capacity })
+    .from(slots)
+    .where(eq(slots.id, commitment.slotId))
+    .limit(1);
+  const cap = slotRows[0]?.capacity ?? null;
+  if (cap === null) return null;
+  const sumRows = await db
+    .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
+    .from(commitments)
+    .where(
+      and(
+        eq(commitments.slotId, commitment.slotId),
+        ne(commitments.id, commitment.id),
+        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
+      ),
+    );
+  return Math.max(0, cap - (sumRows[0]?.sum ?? 0));
+}
