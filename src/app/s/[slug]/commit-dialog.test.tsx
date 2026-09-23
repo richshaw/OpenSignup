@@ -262,4 +262,41 @@ describe('<CommitDialog /> sheet', () => {
 
     vi.unstubAllGlobals();
   });
+
+  // The service's own text for this is developer shorthand; the participant
+  // gets a sentence built from the numbers in `details` instead.
+  it('explains a capacity error in plain words instead of the server text', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: {
+          code: 'capacity_full',
+          message: 'only 1 left, you asked for 2',
+          suggestion: 'lower the quantity to 1 or fewer',
+          details: { remaining: 1, requested: 2, capacity: 3, alternatives: [] },
+        },
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    // jsdom does no layout and leaves scrollIntoView out, and the dialog calls
+    // it to bring the alert on screen.
+    Element.prototype.scrollIntoView = vi.fn();
+
+    try {
+      openSheet();
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Pat Example' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pat@example.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent('Only 1 spot is left, and you asked for 2.');
+      expect(alert).toHaveTextContent('Ask for 1 instead.');
+      expect(alert).not.toHaveTextContent('lower the quantity');
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    }
+  });
 });

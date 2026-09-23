@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { capacityMessage } from './capacity-message';
 import { ACTION_SIZING } from './slot-format';
 
 interface CommitDialogProps {
@@ -237,6 +238,10 @@ export default function CommitDialog({
     }
   }
 
+  // A capacity error gets participant-facing copy built from its numbers; any
+  // other error keeps the server's own message and suggestion.
+  const errorText = error ? (capacityMessage(error, 'join') ?? error) : null;
+
   return (
     <>
       <button
@@ -400,11 +405,10 @@ export default function CommitDialog({
                 role="alert"
                 className="rounded-lg bg-danger/10 p-3 text-sm text-danger"
               >
-                <p className="font-medium">{error.message}</p>
-                {error.suggestion ? <p className="text-xs">{error.suggestion}</p> : null}
+                <p className="font-medium">{errorText?.message}</p>
+                {errorText?.suggestion ? <p className="text-xs">{errorText.suggestion}</p> : null}
                 {error.details?.alternatives?.length && error.details.remaining === 0 ? (
                   <div className="mt-2 space-y-1 text-xs">
-                    <p>Try another slot:</p>
                     <a
                       href={`/s/${slug}`}
                       className="inline-block rounded bg-white px-2 py-1 underline"

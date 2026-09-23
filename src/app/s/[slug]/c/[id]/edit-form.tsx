@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { capacityMessage } from '../../capacity-message';
 
 interface EditFormProps {
   commitmentId: string;
@@ -61,7 +62,15 @@ export default function EditForm({
     });
     const payload = await res.json();
     if (!res.ok) {
-      setMessage({ kind: 'err', text: payload?.error?.message ?? 'save failed' });
+      // `remaining` here is the most this commitment can hold, not the spots
+      // still free, so the copy is the edit page's own.
+      const capacity = capacityMessage(payload?.error, 'change');
+      setMessage({
+        kind: 'err',
+        text: capacity
+          ? [capacity.message, capacity.suggestion].filter(Boolean).join(' ')
+          : (payload?.error?.message ?? 'save failed'),
+      });
     } else {
       setMessage({ kind: 'ok', text: 'Saved.' });
       router.refresh();

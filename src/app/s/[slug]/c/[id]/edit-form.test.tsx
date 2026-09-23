@@ -71,4 +71,31 @@ describe('<EditForm /> quantity', () => {
     const body = JSON.parse(String(init.body));
     expect(body).toEqual({ name: 'Pat Example', notes: 'Bringing oranges' });
   });
+
+  // On this page `remaining` is the most the commitment can hold, spots already
+  // held included, so it needs the edit page's wording rather than "left".
+  it("explains a capacity error in the edit page's own words", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({
+        error: {
+          code: 'capacity_full',
+          message: 'only 3 left — you asked for 4',
+          suggestion: 'x',
+          details: { remaining: 3, requested: 4, capacity: 4 },
+        },
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(4, 2);
+
+    fireEvent.change(screen.getByLabelText('Spots'), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      'You can have at most 3 spots on this slot, and you asked for 4. Ask for 3 or fewer.',
+    );
+    expect(alert).not.toHaveTextContent('only 3 left');
+  });
 });
