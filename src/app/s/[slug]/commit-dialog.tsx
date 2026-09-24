@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
@@ -22,10 +22,14 @@ interface CommitDialogProps {
   /**
    * Places still open on the slot when the page rendered, or `null` when it is
    * unlimited. At 1 the only quantity the server can accept is 1, so the
-   * quantity field is left out and the form sends the default. The server's
-   * capacity check stays the authority; this only decides what to ask.
+   * quantity field is left out and the form sends the default; above 1 it is
+   * the field's `max`. The server's capacity check stays the authority; this
+   * only decides what to ask.
    */
   spotsLeft: number | null;
+  /** The slot's capacity, or `null` when unlimited; the sheet's header says
+   *  "2 of 4 spots left" from this and `spotsLeft`. */
+  capacity: number | null;
   signupTitle: string;
   slug: string;
 }
@@ -76,6 +80,7 @@ export default function CommitDialog({
   slotAt,
   slotHasTime,
   spotsLeft,
+  capacity,
   signupTitle,
   slug,
 }: CommitDialogProps) {
@@ -123,6 +128,12 @@ export default function CommitDialog({
 
   const emailHint = useMemo(() => suggestEmail(emailValue), [emailValue]);
   const askQuantity = spotsLeft === null || spotsLeft > 1;
+  // The row's own count ("2/4" signed up) is behind the sheet, and hidden from
+  // assistive tech while it is open, so the header says how many are left.
+  // Only on a slot with more than one spot, as the row only counts those:
+  // "1 of 1 spots left" would say nothing.
+  const showSpotsLeft = spotsLeft !== null && capacity !== null && capacity > 1;
+  const spotsLeftId = useId();
 
   function handleAcceptSuggestion() {
     if (emailHint) setEmailValue(emailHint);
@@ -139,7 +150,7 @@ export default function CommitDialog({
       name,
       email,
       notes: String(data.get('notes') ?? '') || undefined,
-      // No field when only one place is open (see `spotsLeft`), so 1.
+      // No Spots field when only one place is open (see `spotsLeft`), so 1.
       quantity: Number(data.get('quantity') ?? 1),
     };
     try {
@@ -269,6 +280,10 @@ export default function CommitDialog({
             </>
           )
         }
+        description={
+          !success && showSpotsLeft ? `${spotsLeft} of ${capacity} spots left` : undefined
+        }
+        descriptionId={spotsLeftId}
       >
         {success ? (
           <div className="space-y-4">
@@ -363,12 +378,17 @@ export default function CommitDialog({
               </label>
               {askQuantity ? (
                 <label className="block w-20">
-                  <span className="mb-1 block text-sm font-medium">Qty</span>
+                  <span className="mb-1 block text-sm font-medium">Spots</span>
                   <input
                     type="number"
                     name="quantity"
+                    required
                     min={1}
+                    // Stops an over-ask before it reaches the server. The count
+                    // can be stale, so the server's check still decides.
+                    max={spotsLeft ?? undefined}
                     defaultValue={1}
+                    aria-describedby={showSpotsLeft ? spotsLeftId : undefined}
                     className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
                   />
                 </label>

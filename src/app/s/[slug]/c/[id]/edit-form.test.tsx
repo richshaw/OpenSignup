@@ -28,24 +28,32 @@ describe('<EditForm /> quantity', () => {
 
   it('asks for a quantity only when the slot has room for more than one', () => {
     renderForm(1);
-    expect(screen.queryByLabelText('Qty')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Spots')).not.toBeInTheDocument();
   });
 
   it('shows the quantity on a slot with room for more', () => {
     renderForm(4, 2);
-    expect(screen.getByLabelText('Qty')).toHaveValue(2);
+    const spots = screen.getByLabelText('Spots');
+    expect(spots).toHaveValue(2);
+    expect(spots).toHaveAttribute('max', '4');
+    expect(spots).toHaveAccessibleDescription('You can have up to 4 spots on this slot.');
   });
 
   // Can't happen while capacity can't drop below what is taken, but if it did,
-  // hiding the field would leave the participant no way to hand places back.
+  // hiding the field would leave the participant no way to hand places back,
+  // and a max below what they hold would block every save, even a name edit.
   it('still shows the quantity when more is held than the slot now allows', () => {
     renderForm(1, 2);
-    expect(screen.getByLabelText('Qty')).toHaveValue(2);
+    const spots = screen.getByLabelText('Spots');
+    expect(spots).toHaveValue(2);
+    expect(spots).toHaveAttribute('max', '2');
   });
 
-  it('shows the quantity on an unlimited slot', () => {
+  it('shows the quantity on an unlimited slot, with no cap', () => {
     renderForm(null);
-    expect(screen.getByLabelText('Qty')).toHaveValue(1);
+    const spots = screen.getByLabelText('Spots');
+    expect(spots).toHaveValue(1);
+    expect(spots).not.toHaveAttribute('max');
   });
 
   // Sending the default 1 would be harmless today, but leaving it out means a

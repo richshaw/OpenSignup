@@ -21,6 +21,7 @@ describe('<CommitDialog /> trigger', () => {
         slotAt={null}
         slotHasTime={false}
         spotsLeft={null}
+        capacity={null}
         signupTitle="Snack duty"
         slug="example"
       />,
@@ -51,7 +52,10 @@ describe('<CommitDialog /> sheet', () => {
     window.localStorage.clear();
   });
 
-  function openSheet({ spotsLeft = null }: { spotsLeft?: number | null } = {}) {
+  function openSheet({
+    spotsLeft = null,
+    capacity = null,
+  }: { spotsLeft?: number | null; capacity?: number | null } = {}) {
     render(
       <CommitDialog
         slotId="slot_1"
@@ -60,6 +64,7 @@ describe('<CommitDialog /> sheet', () => {
         slotAt={null}
         slotHasTime={false}
         spotsLeft={spotsLeft}
+        capacity={capacity}
         signupTitle="Snack duty"
         slug="example"
       />,
@@ -158,20 +163,82 @@ describe('<CommitDialog /> sheet', () => {
     vi.unstubAllGlobals();
   });
 
-  // With one place open, 1 is the only quantity the server accepts, so a Qty
+  // With one place open, 1 is the only quantity the server accepts, so a Spots
   // field could only be left alone or turned into an error.
   it('asks for a quantity only when more than one place is open', async () => {
     openSheet({ spotsLeft: 1 });
     await screen.findByLabelText('Your name', {}, settle);
-    expect(screen.queryByLabelText('Qty')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Spots')).not.toBeInTheDocument();
     cleanup();
 
     openSheet({ spotsLeft: 3 });
-    expect(await screen.findByLabelText('Qty', {}, settle)).toHaveValue(1);
+    expect(await screen.findByLabelText('Spots', {}, settle)).toHaveValue(1);
     cleanup();
 
     openSheet({ spotsLeft: null });
-    expect(await screen.findByLabelText('Qty', {}, settle)).toHaveValue(1);
+    expect(await screen.findByLabelText('Spots', {}, settle)).toHaveValue(1);
+  });
+
+  it('caps the spots at what is left, and not at all on an unlimited slot', async () => {
+    openSheet({ spotsLeft: 3, capacity: 5 });
+    expect(await screen.findByLabelText('Spots', {}, settle)).toHaveAttribute('max', '3');
+    cleanup();
+
+    openSheet({ spotsLeft: null, capacity: null });
+    expect(await screen.findByLabelText('Spots', {}, settle)).not.toHaveAttribute('max');
+  });
+
+  // The row's own count is behind the sheet and hidden from assistive tech
+  // while it is open, so the header says how many are left. It sits beside the
+  // heading, not in it, and describes both the dialog and the Spots field.
+  it('says how many spots are left in the header, and describes the sheet with it', async () => {
+    openSheet({ spotsLeft: 3, capacity: 5 });
+    const spots = await screen.findByLabelText('Spots', {}, settle);
+    const dialog = screen.getByRole('dialog');
+    expect(screen.getByText('3 of 5 spots left')).toBeInTheDocument();
+    expect(dialog).toHaveAccessibleName('Sign up for Sat, May 16, Cookies, Vinland Elementary');
+    expect(dialog).toHaveAccessibleDescription('3 of 5 spots left');
+    expect(screen.getByRole('heading')).not.toHaveTextContent('spots left');
+    expect(spots).toHaveAccessibleDescription('3 of 5 spots left');
+  });
+
+  // With one spot left there is no Spots field to describe, so the dialog's
+  // own description is the only place a screen reader hears it.
+  it('says it on a slot down to its last spot, where there is no Spots field', async () => {
+    openSheet({ spotsLeft: 1, capacity: 3 });
+    await screen.findByLabelText('Your name', {}, settle);
+    expect(screen.queryByLabelText('Spots')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toHaveAccessibleDescription('1 of 3 spots left');
+  });
+
+  it('says nothing about spots left on an unlimited slot', async () => {
+    openSheet({ spotsLeft: null, capacity: null });
+    const spots = await screen.findByLabelText('Spots', {}, settle);
+    expect(screen.queryByText(/spots left/)).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog')).not.toHaveAccessibleDescription();
+    expect(spots).not.toHaveAccessibleDescription();
+  });
+
+  it('does not send an ask for more spots than are left', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      openSheet({ spotsLeft: 3 });
+      await screen.findByLabelText('Spots', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), {
+        target: { value: 'Jordan Fields' },
+      });
+      fireEvent.change(screen.getByLabelText('Email'), {
+        target: { value: 'jordan@example.test' },
+      });
+      fireEvent.change(screen.getByLabelText('Spots'), { target: { value: '4' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      expect(screen.getByLabelText('Spots')).toBeInvalid();
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('commits one place when it does not ask', async () => {
