@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { capacityMessage } from '../../capacity-message';
 
 interface EditFormProps {
   commitmentId: string;
@@ -9,6 +10,12 @@ interface EditFormProps {
   initialName: string;
   initialNotes: string;
   initialQuantity: number;
+  /**
+   * The most places this commitment could hold, or `null` on an unlimited
+   * slot (see `maxQuantityForCommitment`). At 1 there is nothing to change, so
+   * the quantity field is left out; above 1 it is the field's `max`.
+   */
+  maxQuantity: number | null;
   slug: string;
 }
 
@@ -18,22 +25,40 @@ export default function EditForm({
   initialName,
   initialNotes,
   initialQuantity,
+  maxQuantity,
   slug,
 }: EditFormProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  // Holding more than the slot now allows can't happen (capacity can't drop
+  // below what is taken), but if it did, keep the field so it can be lowered.
+  const askQuantity = maxQuantity === null || maxQuantity > 1 || initialQuantity > 1;
+  // After a capacity error, the server's limit is newer than the page's. Kept
+  // here rather than re-read with router.refresh(), which would re-run the
+  // page and log another edit-link visit for what was only a failed save.
+  const [reportedMax, setReportedMax] = useState<number | null>(null);
+  const currentMax = reportedMax ?? maxQuantity;
+  // Never below what is already held, or the form could not be saved at all.
+  const spotsMax = currentMax === null ? null : Math.max(currentMax, initialQuantity);
+  // Said once at the top of the form, as the sign-up sheet says it in its
+  // header, rather than on a row of its own under the narrow Spots field.
+  const showSpotsMax = askQuantity && spotsMax !== null;
+  const spotsMaxId = useId();
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
     setMessage(null);
     const data = new FormData(e.currentTarget);
+    const quantity = data.get('quantity');
     const body = {
       name: String(data.get('name') ?? ''),
       notes: String(data.get('notes') ?? ''),
-      quantity: Number(data.get('quantity') ?? 1),
+      // With no quantity field, send none, so saving a name or notes change
+      // leaves the quantity exactly as it is.
+      ...(quantity === null ? {} : { quantity: Number(quantity) }),
     };
     const res = await fetch(`/api/commitments/${commitmentId}?token=${encodeURIComponent(token)}`, {
       method: 'PATCH',
@@ -42,9 +67,24 @@ export default function EditForm({
     });
     const payload = await res.json();
     if (!res.ok) {
-      setMessage({ kind: 'err', text: payload?.error?.message ?? 'save failed' });
+      // `remaining` here is the most this commitment can hold, not the spots
+      // still free, so the copy is the edit page's own.
+      const capacity = capacityMessage(payload?.error, 'change');
+      setMessage({
+        kind: 'err',
+        text: capacity
+          ? [capacity.message, capacity.suggestion].filter(Boolean).join(' ')
+          : (payload?.error?.message ?? 'save failed'),
+      });
+      // Someone else took spots since this page loaded, so the line at the
+      // top and the field's max take the error's number.
+      const remaining = payload?.error?.details?.remaining;
+      if (capacity && typeof remaining === 'number') setReportedMax(remaining);
     } else {
       setMessage({ kind: 'ok', text: 'Saved.' });
+      // The refresh brings a fresh maxQuantity, but this form stays mounted,
+      // so an older error's number would otherwise keep overriding it.
+      setReportedMax(null);
       router.refresh();
     }
     setSaving(false);
@@ -68,6 +108,11 @@ export default function EditForm({
 
   return (
     <form onSubmit={handleSave} className="space-y-5 rounded-xl border border-surface-sunk bg-white p-6">
+      {showSpotsMax ? (
+        <p id={spotsMaxId} className="text-sm text-ink-muted">
+          You can have up to {spotsMax} spots on this slot.
+        </p>
+      ) : null}
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Name</span>
         <input
@@ -78,7 +123,7 @@ export default function EditForm({
           className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
         />
       </label>
-      <div className="grid grid-cols-[1fr_auto] gap-3">
+      <div className={askQuantity ? 'grid grid-cols-[1fr_auto] gap-3' : undefined}>
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Notes</span>
           <input
@@ -89,16 +134,21 @@ export default function EditForm({
             className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
           />
         </label>
-        <label className="block w-20">
-          <span className="mb-1 block text-sm font-medium">Qty</span>
-          <input
-            type="number"
-            name="quantity"
-            min={1}
-            defaultValue={initialQuantity}
-            className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-          />
-        </label>
+        {askQuantity ? (
+          <label className="block w-20">
+            <span className="mb-1 block text-sm font-medium">Spots</span>
+            <input
+              type="number"
+              name="quantity"
+              required
+              min={1}
+              max={spotsMax ?? undefined}
+              defaultValue={initialQuantity}
+              aria-describedby={showSpotsMax ? spotsMaxId : undefined}
+              className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
+            />
+          </label>
+        ) : null}
       </div>
       {message ? (
         <p

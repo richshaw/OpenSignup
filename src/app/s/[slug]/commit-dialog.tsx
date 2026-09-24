@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { capacityMessage } from './capacity-message';
 import { ACTION_SIZING } from './slot-format';
 
 interface CommitDialogProps {
@@ -19,6 +20,17 @@ interface CommitDialogProps {
    * calendar export is an all-day event.
    */
   slotHasTime: boolean;
+  /**
+   * Places still open on the slot when the page rendered, or `null` when it is
+   * unlimited. At 1 the only quantity the server can accept is 1, so the
+   * quantity field is left out and the form sends the default; above 1 it is
+   * the field's `max`. The server's capacity check stays the authority; this
+   * only decides what to ask.
+   */
+  spotsLeft: number | null;
+  /** The slot's capacity, or `null` when unlimited; the sheet's header says
+   *  "2 of 4 spots left" from this and `spotsLeft`. */
+  capacity: number | null;
   signupTitle: string;
   slug: string;
 }
@@ -30,6 +42,7 @@ interface ApiError {
   details?: {
     alternatives?: { id: string; title: string }[];
     remaining?: number;
+    capacity?: number;
   };
 }
 
@@ -68,6 +81,8 @@ export default function CommitDialog({
   actionName,
   slotAt,
   slotHasTime,
+  spotsLeft,
+  capacity,
   signupTitle,
   slug,
 }: CommitDialogProps) {
@@ -114,6 +129,22 @@ export default function CommitDialog({
   }
 
   const emailHint = useMemo(() => suggestEmail(emailValue), [emailValue]);
+  const askQuantity = spotsLeft === null || spotsLeft > 1;
+  // The row's own count ("2/4" signed up) is behind the sheet, and hidden from
+  // assistive tech while it is open, so the header says how many are left.
+  // Only on a slot with more than one spot, as the row only counts those:
+  // "1 of 1 spots left" would say nothing.
+  //
+  // After a capacity error the server's numbers are newer than the page's, so
+  // the header and the field's max use them; otherwise the header kept saying
+  // "2 of 4 spots left" beside an error saying only 1 was. They last until the
+  // sheet closes. Not a router.refresh(): a slot that just filled would turn
+  // its row to "Full" and take this sheet, error and all, off the page.
+  const [reported, setReported] = useState<{ left: number; capacity: number | null } | null>(null);
+  const left = reported ? reported.left : spotsLeft;
+  const slotCapacity = reported ? reported.capacity : capacity;
+  const showSpotsLeft = left !== null && slotCapacity !== null && slotCapacity > 1;
+  const spotsLeftId = useId();
 
   function handleAcceptSuggestion() {
     if (emailHint) setEmailValue(emailHint);
@@ -130,6 +161,7 @@ export default function CommitDialog({
       name,
       email,
       notes: String(data.get('notes') ?? '') || undefined,
+      // No Spots field when only one place is open (see `spotsLeft`), so 1.
       quantity: Number(data.get('quantity') ?? 1),
     };
     try {
@@ -141,6 +173,14 @@ export default function CommitDialog({
       const payload = await res.json();
       if (!res.ok) {
         setError(payload.error ?? { code: 'internal', message: 'something went wrong' });
+        const remaining = payload.error?.details?.remaining;
+        if (payload.error?.code === 'capacity_full' && typeof remaining === 'number') {
+          const reportedCapacity = payload.error.details?.capacity;
+          setReported({
+            left: remaining,
+            capacity: typeof reportedCapacity === 'number' ? reportedCapacity : capacity,
+          });
+        }
         setSubmitting(false);
         return;
       }
@@ -165,6 +205,7 @@ export default function CommitDialog({
     setOpen(false);
     setSuccess(null);
     setError(null);
+    setReported(null);
     setShareCopied(false);
     if (wasSuccess) router.refresh();
   }
@@ -216,6 +257,10 @@ export default function CommitDialog({
     }
   }
 
+  // A capacity error gets participant-facing copy built from its numbers; any
+  // other error keeps the server's own message and suggestion.
+  const errorText = error ? (capacityMessage(error, 'join') ?? error) : null;
+
   return (
     <>
       <button
@@ -259,6 +304,10 @@ export default function CommitDialog({
             </>
           )
         }
+        description={
+          !success && showSpotsLeft ? `${left} of ${slotCapacity} spots left` : undefined
+        }
+        descriptionId={spotsLeftId}
       >
         {success ? (
           <div className="space-y-4">
@@ -340,7 +389,7 @@ export default function CommitDialog({
                 </p>
               ) : null}
             </label>
-            <div className="grid grid-cols-[1fr_auto] gap-3">
+            <div className={askQuantity ? 'grid grid-cols-[1fr_auto] gap-3' : undefined}>
               <label className="block">
                 <span className="mb-1 block text-sm font-medium">Notes (optional)</span>
                 <input
@@ -351,16 +400,25 @@ export default function CommitDialog({
                   className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
                 />
               </label>
-              <label className="block w-20">
-                <span className="mb-1 block text-sm font-medium">Qty</span>
-                <input
-                  type="number"
-                  name="quantity"
-                  min={1}
-                  defaultValue={1}
-                  className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-                />
-              </label>
+              {askQuantity ? (
+                <label className="block w-20">
+                  <span className="mb-1 block text-sm font-medium">Spots</span>
+                  <input
+                    type="number"
+                    name="quantity"
+                    required
+                    min={1}
+                    // Stops an over-ask before it reaches the server. The count
+                    // can be stale, so the server's check still decides.
+                    // At least 1: once the slot has filled, a max of 0 would
+                    // only add a browser bubble to the error already shown.
+                    max={left === null ? undefined : Math.max(left, 1)}
+                    defaultValue={1}
+                    aria-describedby={showSpotsLeft ? spotsLeftId : undefined}
+                    className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
+                  />
+                </label>
+              ) : null}
             </div>
             {error ? (
               <div
@@ -368,11 +426,10 @@ export default function CommitDialog({
                 role="alert"
                 className="rounded-lg bg-danger/10 p-3 text-sm text-danger"
               >
-                <p className="font-medium">{error.message}</p>
-                {error.suggestion ? <p className="text-xs">{error.suggestion}</p> : null}
+                <p className="font-medium">{errorText?.message}</p>
+                {errorText?.suggestion ? <p className="text-xs">{errorText.suggestion}</p> : null}
                 {error.details?.alternatives?.length && error.details.remaining === 0 ? (
                   <div className="mt-2 space-y-1 text-xs">
-                    <p>Try another slot:</p>
                     <a
                       href={`/s/${slug}`}
                       className="inline-block rounded bg-white px-2 py-1 underline"

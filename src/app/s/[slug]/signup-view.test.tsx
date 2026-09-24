@@ -1,14 +1,17 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { ACTION_SIZING } from './slot-format';
 import {
   SignupViewBody,
   type SignupViewField,
   type SignupViewSlot,
 } from './signup-view';
+
+// Only the 'live' tests mount the real CommitDialog, which calls useRouter().
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 const FIELDS: SignupViewField[] = [
   { ref: 'date', label: 'Date', fieldType: 'date' },
@@ -105,9 +108,8 @@ describe('<SignupViewBody mode="showcase" />', () => {
 });
 
 describe('<SignupViewBody /> heading level', () => {
-  // Only 'preview' is exercised here: 'live' mounts CommitDialog, which calls
-  // useRouter() and needs an App Router context jsdom doesn't provide. Both
-  // take the same non-showcase branch, so preview is a faithful stand-in.
+  // Only 'preview' is exercised here: 'live' mounts the whole CommitDialog.
+  // Both take the same non-showcase branch, so preview is a faithful stand-in.
   it('keeps the title as the h1 outside showcase mode, where it is the page heading', () => {
     render(
       <SignupViewBody
@@ -274,5 +276,52 @@ describe('<SignupViewBody /> slot row', () => {
       expect(ACTION_SIZING).toContain('min-h-11');
       for (const cls of ACTION_SIZING.split(' ')) expect(button).toHaveClass(cls);
     }
+  });
+});
+
+describe('<SignupViewBody mode="live" /> quantity', () => {
+  // Places left is capacity less what is taken, so one row has a single place
+  // open and the other two. Only the second has a quantity worth asking for.
+  const LIVE: SignupViewSlot[] = [
+    {
+      ...SLOTS[0]!,
+      id: 'one-left',
+      values: { date: '2026-05-17', team: 'Hawks' },
+      capacity: 12,
+      committed: 11,
+    },
+    {
+      ...SLOTS[0]!,
+      id: 'two-left',
+      values: { date: '2026-05-24', team: 'Owls' },
+      capacity: 12,
+      committed: 10,
+    },
+  ];
+
+  function openRow(team: RegExp) {
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={LIVE}
+        slug="example"
+        mode="live"
+        showStateBanner={false}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: team }));
+  }
+
+  it('leaves the quantity out when one place is left', async () => {
+    openRow(/^Sign up for .*Hawks/);
+    await screen.findByLabelText('Your name', {}, { timeout: 5000 });
+    expect(screen.queryByLabelText('Spots')).not.toBeInTheDocument();
+  });
+
+  it('asks for a quantity when more than one place is left', async () => {
+    openRow(/^Sign up for .*Owls/);
+    expect(await screen.findByLabelText('Spots', {}, { timeout: 5000 })).toBeInTheDocument();
   });
 });
