@@ -17,7 +17,7 @@ export const HELP_ARTICLES = [
   {
     slug: 'create-and-publish-a-signup',
     title: 'Create and publish your first signup',
-    summary: 'Make a signup, add the slots people can take, and share the link.',
+    summary: 'Create a signup, add the slots people can take, then publish it and share the link.',
   },
 ] as const satisfies readonly HelpArticleMeta[];
 

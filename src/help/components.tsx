@@ -49,7 +49,10 @@ export function Screenshot({
   height: number;
 }) {
   return (
-    <figure data-help-shot={src} className="overflow-hidden rounded-lg border border-surface-sunk">
+    <figure
+      data-help-shot={src}
+      className="w-fit max-w-full overflow-hidden rounded-lg border border-surface-sunk"
+    >
       {/* Already cropped at the size we want; nothing for the optimizer to do. */}
       <Image
         src={src}
@@ -57,7 +60,7 @@ export function Screenshot({
         width={width}
         height={height}
         unoptimized
-        className="h-auto w-full"
+        className="block h-auto max-w-full"
       />
     </figure>
   );

@@ -17,12 +17,12 @@ const BANNED: ReadonlyArray<readonly [RegExp, string]> = [
   [/\busers?\b/i, 'say "you" or "people who sign up"'],
   [/\bsimply\b/i, 'cut it: if it were simple, they would not be reading help'],
   [/\bjust\b/i, 'cut it'],
-  [/\beas(y|ily|ier)\b/i, 'cut it: it is not easy for someone who is stuck'],
-  [/\bclick(s|ed|ing)?\b/i, 'say "choose" (people use phones)'],
+  [/\beas(y|ily|ier|iest)\b/i, 'cut it: it is not easy for someone who is stuck'],
+  [/\b(click|tap)(s|ed|ing|ped|ping)?\b/i, 'say "choose": it works for a mouse and a finger'],
   [/\bplease note\b|\bnote that\b/i, 'cut it and say the thing'],
   [/\bslugs?\b|\btokens?\b|\bAPI\b|\bdatabase\b/i, 'leave out technical words'],
   [/\binstances?\b/i, 'say "your site"'],
-  [/\bgo(es)? live\b|\blaunch(es)?\b/i, 'say "publish"'],
+  [/\b(go|goes|going|went|gone) live\b|\blaunch(es|ed|ing)?\b/i, 'say "publish"'],
   [/\bcoming soon\b/i, 'describe what the product does now'],
   [/!/, 'no exclamation marks'],
   [/\p{Extended_Pictographic}/u, 'no emoji'],
@@ -37,24 +37,90 @@ function words(s: string): string[] {
   return s.split(/\s+/).filter(Boolean);
 }
 
-/** Words after the first that start with a capital and have no excuse to. */
-function titleCaseWords(heading: string, allowed: ReadonlySet<string>): string[] {
-  return words(heading)
-    .slice(1)
-    .map((w) => w.replace(/[^\p{L}\p{N}]/gu, ''))
-    .filter((w) => /^\p{Lu}/u.test(w) && !allowed.has(w));
+function bare(word: string): string {
+  return word.replace(/[^\p{L}\p{N}]/gu, '');
 }
 
-/** Text of each paragraph-like block, so a heading doesn't run into the next sentence. */
-function blocks(root: HTMLElement): string[] {
-  return [...root.querySelectorAll('p, h2, h3, li, figcaption')]
-    .filter((el) => el.tagName !== 'LI' || !el.querySelector('p'))
-    .map((el) => (el.textContent ?? '').replace(/\s+/g, ' ').trim())
+/**
+ * Words after the first that start with a capital and have no excuse to. An
+ * on-screen name keeps its own capitals, so each one is swapped for a
+ * lowercase stand-in first; a short all-caps word is taken as an acronym.
+ */
+function titleCaseWords(
+  heading: string,
+  uiNames: ReadonlySet<string>,
+  allowed: ReadonlySet<string>,
+): string[] {
+  let text = heading;
+  for (const name of [...uiNames].sort((a, b) => b.length - a.length)) {
+    text = text.split(name).join('x');
+  }
+  return words(text)
+    .slice(1)
+    .map(bare)
+    .filter((w) => /^\p{Lu}/u.test(w) && !allowed.has(w) && !/^\p{Lu}{2,5}$/u.test(w));
+}
+
+const BLOCK_TAGS = new Set([
+  'ARTICLE',
+  'SECTION',
+  'HEADER',
+  'DIV',
+  'P',
+  'H1',
+  'H2',
+  'H3',
+  'H4',
+  'H5',
+  'H6',
+  'OL',
+  'UL',
+  'LI',
+  'FIGURE',
+  'FIGCAPTION',
+  'BLOCKQUOTE',
+  'TABLE',
+  'TR',
+  'TD',
+  'TH',
+]);
+
+/** A block's own text: its text and inline children, not the blocks inside it. */
+function ownText(el: Element): string {
+  let text = '';
+  for (const node of el.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE) text += node.textContent ?? '';
+    else if (node instanceof Element && !BLOCK_TAGS.has(node.tagName)) {
+      text += node.textContent ?? '';
+    }
+  }
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Text of each block on its own. `textContent` would run a heading straight
+ * into the next line ("Invite usersSign in"), hiding words at the join.
+ */
+function blocks(root: Element): string[] {
+  return [root, ...root.querySelectorAll('*')]
+    .filter((el) => BLOCK_TAGS.has(el.tagName) || el === root)
+    .map(ownText)
     .filter(Boolean);
 }
 
+/** What else a reader meets that isn't body text: alt text. */
+function altTexts(root: Element): string[] {
+  return [...root.querySelectorAll('img[alt]')].map((img) => img.getAttribute('alt') ?? '');
+}
+
+// A sentence ends at . ? or !, perhaps followed by a closing quote or bracket.
 function sentences(block: string): string[] {
-  return block.split(/(?<=[.?])\s+/);
+  return block.split(/(?<=[.?!][\u201D\u2019"')]?)\s+/);
+}
+
+/** Words for counting length: a lone dash or symbol isn't one. */
+function countedWords(sentence: string): string[] {
+  return words(sentence).filter((w) => /[\p{L}\p{N}]/u.test(w));
 }
 
 function pngSize(file: string): { width: number; height: number } {
@@ -67,18 +133,15 @@ describe.each(HELP_ARTICLES.map((a) => [a.slug, a] as const))(
   (_slug, article) => {
     const { Body, ui } = HELP_BODIES[article.slug];
     const uiNames = new Set(Object.values(ui));
-    const allowedCaps = new Set([
-      ...PROPER_NOUNS,
-      ...words(INSTANCE_NAME),
-      ...[...uiNames].flatMap(words).map((w) => w.replace(/[^\p{L}\p{N}]/gu, '')),
-    ]);
+    const allowedCaps = new Set([...PROPER_NOUNS, ...words(INSTANCE_NAME).map(bare)]);
 
     function renderBody(): HTMLElement {
       return render(<Body />).container;
     }
 
     it('avoids the words the style guide rules out', () => {
-      const text = [article.title, article.summary, renderBody().textContent ?? ''].join('\n');
+      const root = renderBody();
+      const text = [article.title, article.summary, ...blocks(root), ...altTexts(root)].join('\n');
       const hits = BANNED.flatMap(([re, why]) => {
         const m = text.match(re);
         return m ? [`"${m[0]}": ${why}`] : [];
@@ -89,7 +152,7 @@ describe.each(HELP_ARTICLES.map((a) => [a.slug, a] as const))(
     it(`keeps sentences to ${MAX_WORDS_PER_SENTENCE} words or fewer`, () => {
       const long = blocks(renderBody())
         .flatMap(sentences)
-        .filter((s) => words(s).length > MAX_WORDS_PER_SENTENCE);
+        .filter((s) => countedWords(s).length > MAX_WORDS_PER_SENTENCE);
       expect(long, 'split these sentences').toEqual([]);
     });
 
@@ -98,7 +161,7 @@ describe.each(HELP_ARTICLES.map((a) => [a.slug, a] as const))(
         article.title,
         ...[...renderBody().querySelectorAll('h2, h3')].map((h) => h.textContent ?? ''),
       ];
-      const offenders = headings.filter((h) => titleCaseWords(h, allowedCaps).length > 0);
+      const offenders = headings.filter((h) => titleCaseWords(h, uiNames, allowedCaps).length > 0);
       expect(offenders, 'only the first word and names take a capital').toEqual([]);
     });
 
@@ -107,12 +170,22 @@ describe.each(HELP_ARTICLES.map((a) => [a.slug, a] as const))(
       expect(article.title).not.toMatch(/^(a|an|the|how|about)\b/i);
     });
 
-    it('writes no site address or email into the text', () => {
-      const text = renderBody().textContent ?? '';
+    it('writes no site address or email into the text or links', () => {
+      const root = renderBody();
+      const hrefs = [...root.querySelectorAll('a[href]')].map((a) => a.getAttribute('href') ?? '');
+      const text = [...blocks(root), ...altTexts(root)].join('\n');
       expect(text, 'use INSTANCE_NAME from site-config').not.toMatch(
         /opensignup\.org|https?:\/\//i,
       );
-      const emails = text.match(/[\w.+-]+@[\w-]+\.[\w.]+/g) ?? [];
+      expect(
+        hrefs.filter((h) => /^https?:\/\/|opensignup\.org/i.test(h)),
+        'link to a path on this site, like /help/...',
+      ).toEqual([]);
+      // Must end on a letter or digit, so a sentence's full stop isn't taken as part of it.
+      const emails = [
+        ...(text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? []),
+        ...hrefs.filter((h) => h.startsWith('mailto:')).map((h) => h.slice('mailto:'.length)),
+      ];
       expect(
         emails.filter((e) => e !== SUPPORT_EMAIL),
         'use SUPPORT_EMAIL from site-config',

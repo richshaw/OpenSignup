@@ -1,3 +1,4 @@
+import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
 import { Note, Screenshot, Step, Steps, Ui } from '../components';
@@ -8,33 +9,38 @@ export { UI };
 // Said the way the builder says it next to the date field.
 const REMINDER_WHEN =
   REMINDER_LEAD_HOURS === 24 ? 'the day before' : `${REMINDER_LEAD_HOURS} hours before`;
+// A sign-up newer than this isn't picked up yet (src/jobs/reminders.ts).
+const SETTLE = REMINDER_SETTLE_HOURS === 1 ? 'an hour' : `${REMINDER_SETTLE_HOURS} hours`;
 
 export function CreateAndPublishASignup() {
   return (
     <>
       <p>
         A signup is a page where people choose something to do or bring. Each thing they can choose
-        is a slot. When you finish this page, you&apos;ll have a signup with slots and a link to
-        send to people.
+        is a slot. By the end, you&apos;ll have a published signup and a link to send to people.
       </p>
       <p>People who sign up don&apos;t need an account. All they need is the link.</p>
 
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Make the signup</h2>
+        <h2 className="text-xl font-semibold tracking-tight">Create the signup</h2>
         <Steps>
           <Step>
             <p>
-              Sign in to {INSTANCE_NAME}. On <Ui>{UI.yourSignups}</Ui>, choose{' '}
-              <Ui>{UI.newSignup}</Ui> at the top of the page.
+              Sign in to {INSTANCE_NAME}. The first time you sign in, this creates your account.
+            </p>
+          </Step>
+          <Step>
+            <p>
+              On the <Ui>{UI.yourSignups}</Ui> page, choose <Ui>{UI.newSignup}</Ui> at the top.
             </p>
             <Note>
               <p>
-                Some sites can write a first draft for you. If you see <Ui>{UI.composeHeading}</Ui>,
-                you can describe your signup in a few sentences and choose{' '}
-                <Ui>{UI.draftCompose}</Ui>. Check the draft before you publish it.
+                Some sites can fill in a signup for you. If you see <Ui>{UI.composeHeading}</Ui>,
+                describe your signup in a few sentences. Then choose <Ui>{UI.draftCompose}</Ui>, and
+                check every slot before you publish.
               </p>
               <p>
-                To follow the steps on this page instead, choose <Ui>{UI.skipCompose}</Ui>.
+                To follow the steps here instead, choose <Ui>{UI.skipCompose}</Ui>.
               </p>
             </Note>
           </Step>
@@ -45,7 +51,7 @@ export function CreateAndPublishASignup() {
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/new-signup.png"
-              alt="The New signup form, with Snack duty — Spring season typed in as the title."
+              alt="The New signup page, with Snack duty — Spring season typed in as the title."
               width={576}
               height={356}
             />
@@ -53,7 +59,7 @@ export function CreateAndPublishASignup() {
           <Step>
             <p>
               Choose <Ui>{UI.createSignup}</Ui>. Your signup is saved as a draft. Nobody else can
-              see it yet.
+              see a draft until you publish it.
             </p>
           </Step>
         </Steps>
@@ -62,77 +68,90 @@ export function CreateAndPublishASignup() {
       <section className="space-y-4">
         <h2 className="text-xl font-semibold tracking-tight">Add slots</h2>
         <p>
-          A slot is one thing people can sign up for, like snacks for one game. A new signup starts
-          with one empty slot.
+          A slot is one thing people can sign up for, like snacks for one game. Each slot has one or
+          more spots. A person can take one spot or several. A new signup starts with one empty
+          slot.
         </p>
         <Steps>
           <Step>
             <p>
-              Choose the empty slot. It says <Ui>{UI.emptySlot}</Ui>.
+              Choose the slot marked <Ui>{UI.emptySlot}</Ui> to open it.
             </p>
           </Step>
           <Step>
             <p>
-              Fill in <Ui>{UI.what}</Ui>, like &ldquo;Fruit and water&rdquo;, and choose a{' '}
-              <Ui>{UI.date}</Ui>.
+              In <Ui>{UI.what}</Ui>, type what the slot is for, like &ldquo;Fruit and water&rdquo;.
             </p>
           </Step>
           <Step>
             <p>
-              In <Ui>{UI.capacity}</Ui>, put how many people can take this slot. For two families
-              per game, put 2.
+              Set the <Ui>{UI.date}</Ui>.
+            </p>
+          </Step>
+          <Step>
+            <p>
+              In <Ui>{UI.capacity}</Ui>, type how many spots this slot has. If two families bring
+              snacks to each game, type 2.
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/slot.png"
-              alt="An open slot with What set to Fruit and water, a date chosen, and Capacity set to 2."
+              alt="A slot being edited, with What set to Fruit and water, a date set, and Capacity set to 2."
               width={520}
               height={182}
             />
           </Step>
           <Step>
             <p>
-              Choose <Ui>{UI.done}</Ui>. Your changes save as you go.
+              Choose <Ui>{UI.done}</Ui> to close the slot. Your changes save as you go.
             </p>
           </Step>
           <Step>
             <p>
-              For the next slot, choose <Ui>{UI.addSlot}</Ui> and fill it in the same way. To copy a
-              slot and change only the date, open it and choose <Ui>{UI.duplicate}</Ui>.
+              For the next slot, choose <Ui>{UI.addSlot}</Ui> and fill it in the same way.
             </p>
           </Step>
           <Step>
             <p>
-              If you have a slot you don&apos;t need, open it and choose <Ui>{UI.delete}</Ui>.
-              People would see an empty slot as <Ui>{UI.untitledSlot}</Ui>.
+              To copy a slot, open it and choose <Ui>{UI.duplicate}</Ui>. Then open the copy and
+              change its date.
             </p>
           </Step>
         </Steps>
+        <p>
+          You can&apos;t undo deleting a slot. To remove one you don&apos;t need, open it and choose{' '}
+          <Ui>{UI.delete}</Ui>. Don&apos;t leave a slot empty: people see it as{' '}
+          <Ui>{UI.untitledSlot}</Ui>.
+        </p>
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Publish and share it</h2>
+        <h2 className="text-xl font-semibold tracking-tight">Publish and share the link</h2>
         <Steps>
           <Step>
             <p>
-              To check your signup first, choose <Ui>{UI.preview}</Ui> at the top of the page. It
-              opens in a new tab and shows the signup the way people will see it. Phones don&apos;t
-              show this button.
+              On a computer, you can check your signup first. Choose <Ui>{UI.preview}</Ui> at the
+              top of the page. It opens in a new tab and shows what people will see. Small screens,
+              like most phones, don&apos;t show this button.
             </p>
           </Step>
           <Step>
             <p>
-              Choose <Ui>{UI.publish}</Ui> at the top of the page. On a phone, tap the three dots at
-              the top, then <Ui>{UI.publishOnPhone}</Ui>.
+              When you publish, anyone with the link can sign up. Choose <Ui>{UI.publish}</Ui> at
+              the top of the page. On a phone, choose the three dots at the top, then{' '}
+              <Ui>{UI.publishOnPhone}</Ui>.
             </p>
             <p>
-              You&apos;ll see <Ui>{UI.published}</Ui>. From now on, anyone with the link can sign
-              up.
+              You&apos;ll see <Ui>{UI.published}</Ui>.
             </p>
           </Step>
           <Step>
             <p>
               Next to <Ui>{UI.publicLink}</Ui>, choose the copy button. Send the link to people by
               email or in a group chat.
+            </p>
+            <p>
+              The link is there before you publish too. Until you publish, it only says the signup
+              isn&apos;t ready.
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/published.png"
@@ -148,19 +167,49 @@ export function CreateAndPublishASignup() {
         <h2 className="text-xl font-semibold tracking-tight">What happens next</h2>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            People open the link, choose a slot, and type their name and email. Each slot shows how
-            many people have taken it, like 1/2.
+            People open the link and choose <Ui>{UI.signUp}</Ui> on a slot. They type their name and
+            email, and can add a note.
+          </li>
+          <li>
+            A slot with more than one spot shows how many are taken, like 1/2. People can take more
+            than one spot at a time. When a slot is full, nobody else can choose it.
           </li>
           <li>
             Each person gets an email saying they&apos;re signed up. It has a link they can use to
             change or cancel.
           </li>
-          <li>People who take a slot with a date get a reminder email {REMINDER_WHEN}.</li>
           <li>
-            Search engines don&apos;t list signup pages. Only people you send the link to will find
-            it.
+            Search engines are asked not to list signup pages. Anyone with the link can open yours,
+            so share it only with the people you want.
           </li>
         </ul>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold tracking-tight">Reminders</h2>
+        <p>
+          If a slot has a date, people who take it get a reminder email {REMINDER_WHEN}. Someone who
+          signs up later than that gets one about {SETTLE} after signing up, unless the slot is less
+          than {SETTLE} away. Each reminder has a link to stop them.
+        </p>
+        <p>Reminders are on for every new signup. To turn them off:</p>
+        <Steps>
+          <Step>
+            <p>
+              Choose <Ui>{UI.fields}</Ui> at the top of your signup.
+            </p>
+          </Step>
+          <Step>
+            <p>
+              Choose <Ui>{UI.date}</Ui>.
+            </p>
+          </Step>
+          <Step>
+            <p>
+              Clear <Ui>{UI.reminderToggle}</Ui>, then choose <Ui>{UI.save}</Ui>.
+            </p>
+          </Step>
+        </Steps>
       </section>
     </>
   );

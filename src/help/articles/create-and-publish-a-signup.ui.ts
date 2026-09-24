@@ -31,6 +31,13 @@ export const UI = {
   moreActions: 'More actions',
   publishOnPhone: 'Publish signup',
   publicLink: 'Public link',
+  // An icon-only button: the article says "the copy button"; the test uses this.
   copyPublicLink: 'Copy public link',
   published: 'Signup published',
+  // On the signup page people open: each slot's button starts with this.
+  signUp: 'Sign up',
+  // The button reads "Fields (2)"; the count changes, so the test matches the start.
+  fields: 'Fields',
+  reminderToggle: 'Send a reminder email before this date',
+  save: 'Save',
 } as const;

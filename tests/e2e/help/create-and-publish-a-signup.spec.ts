@@ -10,7 +10,7 @@ import { UI } from '@/help/articles/create-and-publish-a-signup.ui';
 import { loginAsSeededOrganizer } from '../helpers/auth';
 
 const SLUG = 'create-and-publish-a-signup';
-const CAPTURE = !!process.env.HELP_SCREENSHOTS;
+const CAPTURE = process.env.HELP_SCREENSHOTS === '1';
 const SHOT_DIR = `public/help/${SLUG}`;
 
 async function shot(page: Page, target: Locator, name: string): Promise<void> {
@@ -24,17 +24,20 @@ test.describe('help: create and publish your first signup', () => {
   // Screenshots at 2x so text stays sharp; the article sizes them in CSS pixels.
   test.use({ deviceScaleFactor: 2 });
 
-  test('the steps work as written', async ({ page, context, isMobile }) => {
+  test('the steps work as written', async ({ page, context, browser, isMobile }) => {
     test.skip(isMobile, 'the phone path is its own test below');
     await loginAsSeededOrganizer(context);
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
-    // Make the signup
+    // Create the signup
     await page.goto('/app');
     await expect(page.getByRole('heading', { name: UI.yourSignups })).toBeVisible();
     await page.getByRole('link', { name: UI.newSignup, exact: true }).click();
     // Sites with drafting switched on ask first; the article says to skip it.
+    // Wait for either screen: isVisible() doesn't wait, and the page is still
+    // loading right after the click.
     const compose = page.getByRole('heading', { name: UI.composeHeading });
+    await expect(compose.or(page.getByLabel(UI.title))).toBeVisible();
     if (await compose.isVisible()) {
       await expect(page.getByRole('button', { name: UI.draftCompose })).toBeVisible();
       await page.getByRole('link', { name: UI.skipCompose }).click();
@@ -45,6 +48,15 @@ test.describe('help: create and publish your first signup', () => {
     await page.getByRole('button', { name: UI.createSignup }).click();
     await page.waitForURL(/\/build$/);
     await expect(page.getByText('draft', { exact: true }).locator('visible=true')).toBeVisible();
+    // "Nobody else can see a draft": its link says it isn't ready yet.
+    const draftLink = await page
+      .getByRole('link', { name: 'Open public page' })
+      .locator('visible=true')
+      .getAttribute('href');
+    const outsider = await browser.newPage();
+    await outsider.goto(draftLink ?? '');
+    await expect(outsider.getByText(/isn.t ready yet/)).toBeVisible();
+    await outsider.close();
 
     // Add slots
     await page.getByText(UI.emptySlot, { exact: true }).click();
@@ -75,12 +87,29 @@ test.describe('help: create and publish your first signup', () => {
     await slotEditor.getByRole('button', { name: UI.duplicate }).click();
     await slotEditor.getByRole('button', { name: UI.done }).click();
     await expect(page.getByRole('button', { name: /^Edit slot/ })).toHaveCount(3);
+    // "Then open the copy and change its date." The copy lands last.
+    await page
+      .getByRole('button', { name: /Fruit and water/ })
+      .last()
+      .click();
+    await slotEditor.getByLabel(`${UI.date} value`).fill('2030-04-13');
+    await slotEditor.getByRole('button', { name: UI.done }).click();
     await page.getByText(UI.emptySlot, { exact: true }).click();
     await slotEditor.getByRole('button', { name: UI.delete }).click();
     await expect(page.getByRole('button', { name: /^Edit slot/ })).toHaveCount(2);
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
 
-    // Publish and share it
+    // Reminders: on for a new signup, switched off from the date field.
+    await page.getByRole('button', { name: new RegExp(`^${UI.fields}`) }).click();
+    // One dialog; its name changes to "Edit field" once a field is chosen.
+    const fields = page.getByRole('dialog');
+    await fields.getByRole('button', { name: UI.date, exact: true }).click();
+    await expect(fields.getByRole('checkbox', { name: UI.reminderToggle })).toBeChecked();
+    await expect(fields.getByRole('button', { name: UI.save })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(fields).toBeHidden();
+
+    // Publish and share the link
     const [preview] = await Promise.all([
       page.waitForEvent('popup'),
       page.getByRole('link', { name: UI.preview }).click(),
@@ -142,6 +171,9 @@ test.describe('help: create and publish your first signup', () => {
     await expect(page.getByRole('heading', { name: 'Snack duty — Spring season' })).toBeVisible();
     await expect(page.getByText('Fruit and water')).toHaveCount(2);
     await expect(page.getByText('0 of 2 signed up')).toHaveCount(2);
+    const signUp = page.getByRole('button', { name: new RegExp(`^${UI.signUp} for`) });
+    await expect(signUp).toHaveCount(2);
+    await expect(signUp.first()).toHaveText(UI.signUp);
   });
 
   test.describe('on a phone', () => {

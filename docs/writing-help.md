@@ -34,29 +34,39 @@ learn the product.
 ## Steps
 
 - Number the steps. One action per step.
-- Name each button, link or box exactly as it appears on screen, in bold, using
-  the `Ui` component: `<Ui>{UI.publish}</Ui>`. The walkthrough test clicks
-  every one of these by name, so if the screen changes, the test fails and
-  points at the page.
+- Name each button, link, box or message exactly as it appears on screen, in
+  bold, using the `Ui` component: `<Ui>{UI.publish}</Ui>`. The walkthrough test
+  finds every one of these by name, so if the screen changes, the test fails
+  and points at the page.
+- Some buttons show only an icon. Describe the icon in plain words ("the three
+  dots", "the copy button") and don't bold it. Put its hidden name in the `UI`
+  list anyway, so the walkthrough can find it.
 - Say where to find it when it is not obvious: "at the top of the page".
 - When a phone shows it somewhere else, say so in the same step. For example,
-  on a phone **Publish** is under **More actions**.
-- Don't write "click". Write "choose" or "tap" (people use phones).
+  on a phone **Publish** is behind the three dots, as **Publish signup**.
+- Don't write "click" or "tap". Write "choose": it works for a mouse and a
+  finger.
 
 ## Words
 
-Use these words, the same way every time. Explain a word the first time a page
-uses it.
+Use these words, the same way every time, and give each one only this meaning.
+Explain each one the first time a page uses it.
 
-| Say                        | Meaning                                | Don't say                  |
-| -------------------------- | -------------------------------------- | -------------------------- |
-| signup                     | the page people sign up on             | sheet, form, event, list   |
-| slot                       | one thing people can sign up for       | row, item, entry, question |
-| field                      | a detail every slot has, like its date | column, attribute          |
-| how many people (capacity) | how many people can take one slot      | limit, quota               |
-| publish                    | make the signup open to people         | go live, launch, activate  |
-| people who sign up         | anyone taking a slot                   | users, customers, members  |
-| your site                  | the OpenSignup site the reader is on   | the instance, the server   |
+| Say                | Meaning                                                   | Don't say                               |
+| ------------------ | --------------------------------------------------------- | --------------------------------------- |
+| signup             | the page people sign up on                                | sheet, form, event, list                |
+| slot               | one thing people can sign up for                          | row, item, entry, question              |
+| spot               | one place in a slot; a person can take more than one      | place, seat, space                      |
+| field              | a detail every slot has, like its date                    | column, attribute                       |
+| draft              | a signup that isn't published yet; nobody else can see it | (don't use it for an AI's first go)     |
+| publish            | make the signup open to anyone with the link              | go live, launch, activate               |
+| people who sign up | anyone taking a slot                                      | users, customers, members, participants |
+| your site          | the OpenSignup site the reader is on                      | the instance, the server                |
+
+The box for spots is called **Capacity** on screen. Bold that name when you mean
+the box, and say "spots" everywhere else. The design system allows
+"participants" in the product; help pages say "people who sign up", which is
+plainer.
 
 Leave out technical words: slug, token, workspace ID, API, database. The page
 about connecting an AI assistant is the one place terms like MCP are allowed,
@@ -93,7 +103,8 @@ page's `UI` list. Then the page changes when the code does.
   site, and never with a real name or email in it.
 - Crop to the part that matters, not the whole page.
 - Every screenshot needs alt text that says what it shows ("The New signup
-  form with a title filled in"), not "Screenshot of the form".
+  page with a title filled in"). Don't start it with "Screenshot", "Image" or
+  "Picture".
 - Where a screenshot would show this test server's address, the walkthrough
   swaps in a stand-in (`your-site.example`), since every site's address
   differs.
@@ -105,17 +116,20 @@ page's `UI` list. Then the page changes when the code does.
 `pnpm test` (`src/help/articles.test.tsx`) reads every help page as a reader
 sees it and fails on:
 
-- "user", "simply", "just", "easy", "click", "please note", "note that",
-  "instance", "go live", "launch", "coming soon", technical words (slug, token,
-  API, database), exclamation marks and emoji
+- "user", "simply", "just", "easy", "click", "tap", "please note", "note that",
+  "instance", "go live", "launch", "coming soon" (and their other forms, like
+  "launched" or "easiest"), technical words (slug, token, API, database),
+  exclamation marks and emoji, in the text or in alt text
 - a sentence longer than 25 words
-- a title or heading in Title Case
-- a site address, or any email other than the site's support email, written
-  into the text
+- a title or heading in Title Case. Words inside an on-screen name keep their
+  capitals, and so do short acronyms like CSV.
+- a site address, or any email other than the site's support email, in the
+  text, alt text or a link
 - bold text that isn't an on-screen name in `<Ui>`, or a `<Ui>` name that isn't
   in the page's `UI` list
-- a screenshot with no alt text, alt text that starts "Screenshot of", a
-  missing image file, or a width and height that don't match the file
+- a screenshot with no alt text, alt text that starts with "Screenshot",
+  "Image" or "Picture", a missing image file, or a width and height that aren't
+  half the file's size
 
 `pnpm test:e2e` runs each page's walkthrough, which follows the steps by the
 same names. CI runs both on every pull request.
