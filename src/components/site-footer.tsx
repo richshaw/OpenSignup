@@ -15,6 +15,9 @@ export function SiteFooter() {
         aria-label="Footer"
         className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2"
       >
+        <Link href="/help" className="hover:underline">
+          Help
+        </Link>
         <Link href="/privacy" className="hover:underline">
           Privacy
         </Link>

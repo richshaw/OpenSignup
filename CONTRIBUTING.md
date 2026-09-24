@@ -36,6 +36,7 @@ Run `pnpm test` for unit tests, `pnpm test:db` for integration tests against the
 - `pnpm lint && pnpm typecheck && pnpm test` must pass locally.
 - UI changes should include a Playwright smoke or a screenshot.
 - If you add or change an `ACTIVITY_EVENTS` entry or its payload shape, update [`docs/telemetry.md`](docs/telemetry.md).
+- If you change a screen that a help page at `/help` describes, update the page, its walkthrough and its screenshots in the same PR. How to write help: [`docs/writing-help.md`](docs/writing-help.md).
 
 ## Reporting security issues
 
