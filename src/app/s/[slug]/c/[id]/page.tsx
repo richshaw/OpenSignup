@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
 import { getDb } from '@/db/client';
-import { getOwnCommitment } from '@/services/commitments';
+import { getOwnCommitment, maxQuantityForCommitment } from '@/services/commitments';
 import { readRequestSignals, recordEditLinkFollowed } from '@/lib/view-tracker';
 import EditForm from './edit-form';
 
@@ -20,6 +20,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   const result = await getOwnCommitment(getDb(), id, token);
   if (!result.ok) notFound();
   const c = result.value;
+  const maxQuantity = await maxQuantityForCommitment(getDb(), c);
 
   // Read headers in the request context — `after(...)` runs outside it and
   // Next.js 15 forbids dynamic APIs (headers/cookies) inside the callback.
@@ -51,6 +52,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
         initialName={c.participantName}
         initialNotes={c.notes}
         initialQuantity={c.quantity}
+        maxQuantity={maxQuantity}
         slug={slug}
       />
     </main>

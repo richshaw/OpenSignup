@@ -9,6 +9,12 @@ interface EditFormProps {
   initialName: string;
   initialNotes: string;
   initialQuantity: number;
+  /**
+   * The most places this commitment could hold, or `null` on an unlimited
+   * slot (see `maxQuantityForCommitment`). At 1 there is nothing to change, so
+   * the quantity field is left out.
+   */
+  maxQuantity: number | null;
   slug: string;
 }
 
@@ -18,22 +24,29 @@ export default function EditForm({
   initialName,
   initialNotes,
   initialQuantity,
+  maxQuantity,
   slug,
 }: EditFormProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  // Holding more than the slot now allows can't happen (capacity can't drop
+  // below what is taken), but if it did, keep the field so it can be lowered.
+  const askQuantity = maxQuantity === null || maxQuantity > 1 || initialQuantity > 1;
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
     setMessage(null);
     const data = new FormData(e.currentTarget);
+    const quantity = data.get('quantity');
     const body = {
       name: String(data.get('name') ?? ''),
       notes: String(data.get('notes') ?? ''),
-      quantity: Number(data.get('quantity') ?? 1),
+      // With no quantity field, send none, so saving a name or notes change
+      // leaves the quantity exactly as it is.
+      ...(quantity === null ? {} : { quantity: Number(quantity) }),
     };
     const res = await fetch(`/api/commitments/${commitmentId}?token=${encodeURIComponent(token)}`, {
       method: 'PATCH',
@@ -78,7 +91,7 @@ export default function EditForm({
           className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
         />
       </label>
-      <div className="grid grid-cols-[1fr_auto] gap-3">
+      <div className={askQuantity ? 'grid grid-cols-[1fr_auto] gap-3' : undefined}>
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Notes</span>
           <input
@@ -89,16 +102,18 @@ export default function EditForm({
             className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
           />
         </label>
-        <label className="block w-20">
-          <span className="mb-1 block text-sm font-medium">Qty</span>
-          <input
-            type="number"
-            name="quantity"
-            min={1}
-            defaultValue={initialQuantity}
-            className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-          />
-        </label>
+        {askQuantity ? (
+          <label className="block w-20">
+            <span className="mb-1 block text-sm font-medium">Qty</span>
+            <input
+              type="number"
+              name="quantity"
+              min={1}
+              defaultValue={initialQuantity}
+              className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
+            />
+          </label>
+        ) : null}
       </div>
       {message ? (
         <p
