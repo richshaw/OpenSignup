@@ -26,6 +26,7 @@ const BANNED: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bcoming soon\b/i, 'describe what the product does now'],
   [/!/, 'no exclamation marks'],
   [/\p{Extended_Pictographic}/u, 'no emoji'],
+  [/\bTODO\b|\bFIXME\b/, 'finish the page: a new article starts with TODOs on purpose'],
 ];
 
 const MAX_WORDS_PER_SENTENCE = 25;

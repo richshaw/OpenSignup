@@ -139,11 +139,17 @@ follow it once on a real screen, before you open the pull request.
 
 ## Adding a page
 
+`node .claude/skills/help-pages/scripts/new-article.mjs <slug> "<Title>" "<Summary>"`
+starts the files for steps 1, 2 and 4 and does step 3 for you. The files
+contain TODOs, which fail the checks until the page is finished. AI agents: the `help-pages` skill in `.claude/skills/` covers the
+whole process, reviews included.
+
 1. Put the page's on-screen names in `src/help/articles/<slug>.ui.ts`.
 2. Write the page in `src/help/articles/<slug>.tsx`, following the existing
    one.
 3. Add it to `HELP_ARTICLES` in `src/help/articles.ts` and to `HELP_BODIES` in
-   `src/help/bodies.tsx`.
+   `src/help/bodies.tsx`, and add its address to the sitemap test in
+   `src/lib/seo.test.ts`.
 4. Write its walkthrough in `tests/e2e/help/`, clicking through the same steps
    by the names in the `UI` list.
 5. If the page has pictures, run `pnpm help:screenshots` (it needs the same
@@ -153,3 +159,5 @@ follow it once on a real screen, before you open the pull request.
 
 When a pull request changes a screen that a help page describes, update the
 page, its walkthrough and its screenshots in the same pull request.
+`node .claude/skills/help-pages/scripts/affected-articles.mjs` lists the pages
+your branch's changes might touch.
