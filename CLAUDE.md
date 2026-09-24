@@ -33,6 +33,7 @@ pnpm test               # vitest unit tests (excludes *.db.test.ts and *.e2e.tes
 pnpm test:watch
 pnpm test:db            # vitest against real Postgres (vitest.db.config.ts, fileParallelism:false)
 pnpm test:e2e           # playwright
+pnpm help:screenshots   # re-take help-page screenshots via their walkthroughs
 pnpm format / pnpm format:check
 pnpm db:generate        # drizzle-kit: generate SQL migrations from schema/*.ts
 pnpm db:migrate         # apply migrations via tsx src/db/migrate.ts
@@ -123,6 +124,11 @@ Optional feature: organizers paste a description and get a draft signup. Provide
 - Organizer UI: `src/app/app/...` (requires session).
 - Public participant page: `src/app/s/[slug]/...` (no auth, cookie-based "returning participant" flow).
 - API: `src/app/api/...` — `signups`, `slots`, `commitments`, `public`, `auth`.
+- Help: `src/app/(help)/help/...` (static, public). Organizer help ships with the code so every site has it; site name and contact come from `site-config`.
+
+### Help pages
+
+Articles live in `src/help/articles/`, one `.tsx` body plus a `.ui.ts` list of the on-screen names it prints, registered in `src/help/articles.ts` (metadata, read by the sitemap) and `src/help/bodies.tsx`. Writing rules: `docs/writing-help.md`. Three things keep an article true: facts the code decides are imported (e.g. `REMINDER_LEAD_HOURS`), never typed; its walkthrough in `tests/e2e/help/` clicks through the steps by the same `UI` names, so renaming a control fails that spec; and `src/help/articles.test.tsx` checks the rendered text against the style rules. When you change a screen an article describes, update the article, its `UI` list and walkthrough, and re-run `pnpm help:screenshots` in the same change.
 
 ### Env
 

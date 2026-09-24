@@ -44,6 +44,9 @@ export default async function OrganizerLayout({
             {crumbs}
           </nav>
           <nav className="flex shrink-0 items-center gap-4">
+            <Link href="/help" className="text-ink-muted hover:text-ink text-sm transition">
+              Help
+            </Link>
             {/* The account itself is the way into settings; on narrow screens the
                 address would not fit, so the link reads "Settings" there. */}
             <Link
