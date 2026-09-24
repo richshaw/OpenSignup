@@ -45,6 +45,8 @@ pnpm eval:magic-compose # offline eval of Magic Compose drafts (needs LLM_* env)
 
 Run a single vitest file: `pnpm test src/lib/policy.test.ts`. Run a single test name: `pnpm test -t 'rejects over-capacity'`.
 
+To start the app, sign in and drive it headlessly (as an agent, or in a container without Docker), follow the `run-opensignup` skill: `.claude/skills/run-opensignup/SKILL.md`.
+
 Local Postgres comes from `docker compose up -d` (port **5433**, db/user/password all `signup`). Default `DATABASE_URL` matches.
 
 First-time setup: `pnpm install && cp .env.example .env.local && docker compose up -d && pnpm db:migrate`.
