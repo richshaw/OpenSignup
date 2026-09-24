@@ -106,4 +106,34 @@ describe('<EditForm /> quantity', () => {
     expect(screen.getByLabelText('Spots')).toHaveAttribute('max', '3');
     expect(router.refresh).not.toHaveBeenCalled();
   });
+
+  // The page's refresh after a successful save re-reads the limit, but the form
+  // stays mounted; the error's number must not keep overriding the fresh one.
+  it("drops an error's limit once a later save succeeds", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          error: {
+            code: 'capacity_full',
+            message: 'only 3 left',
+            details: { remaining: 3, requested: 4, capacity: 4 },
+          },
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: {} }) });
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(4, 2);
+
+    fireEvent.change(screen.getByLabelText('Spots'), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    await screen.findByText('You can have up to 3 spots on this slot.');
+
+    fireEvent.change(screen.getByLabelText('Spots'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    await screen.findByText('Saved.');
+    expect(screen.getByText('You can have up to 4 spots on this slot.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Spots')).toHaveAttribute('max', '4');
+  });
 });

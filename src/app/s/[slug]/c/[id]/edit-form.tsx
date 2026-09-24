@@ -82,6 +82,9 @@ export default function EditForm({
       if (capacity && typeof remaining === 'number') setReportedMax(remaining);
     } else {
       setMessage({ kind: 'ok', text: 'Saved.' });
+      // The refresh brings a fresh maxQuantity, but this form stays mounted,
+      // so an older error's number would otherwise keep overriding it.
+      setReportedMax(null);
       router.refresh();
     }
     setSaving(false);
