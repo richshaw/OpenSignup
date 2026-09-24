@@ -262,4 +262,56 @@ describe('<CommitDialog /> sheet', () => {
 
     vi.unstubAllGlobals();
   });
+
+  // The service's own text for this is developer shorthand; the participant
+  // gets a sentence built from the numbers in `details` instead.
+  it('explains a capacity error in plain words instead of the server text', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: {
+          code: 'capacity_full',
+          message: 'only 1 left, you asked for 2',
+          suggestion: 'lower the quantity to 1 or fewer',
+          details: { remaining: 1, requested: 2, capacity: 3, alternatives: [] },
+        },
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    // jsdom does no layout and leaves scrollIntoView out, and the dialog calls
+    // it to bring the alert on screen.
+    Element.prototype.scrollIntoView = vi.fn();
+
+    try {
+      // The page rendered with 3 of 4 left; since then someone took 2 and the
+      // organizer lowered the capacity to 3.
+      openSheet({ spotsLeft: 3, capacity: 4 });
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Pat Example' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pat@example.com' } });
+      fireEvent.change(screen.getByLabelText('Spots'), { target: { value: '2' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent('Only 1 spot is left, and you asked for 2.');
+      expect(alert).toHaveTextContent('Ask for 1 instead.');
+      expect(alert).not.toHaveTextContent('lower the quantity');
+
+      // The header and the cap take the server's numbers, capacity included,
+      // so they agree with the error instead of still saying 3 of 4.
+      expect(screen.getByText('1 of 3 spots left')).toBeInTheDocument();
+      expect(screen.getByLabelText('Spots')).toHaveAttribute('max', '1');
+
+      // They last until the sheet closes; reopened, it shows the page's
+      // numbers again rather than an old error's.
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), settle);
+      fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
+      expect(await screen.findByText('3 of 4 spots left', {}, settle)).toBeInTheDocument();
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    }
+  });
 });

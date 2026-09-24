@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { capacityMessage } from '../../capacity-message';
 
 interface EditFormProps {
   commitmentId: string;
@@ -34,8 +35,13 @@ export default function EditForm({
   // Holding more than the slot now allows can't happen (capacity can't drop
   // below what is taken), but if it did, keep the field so it can be lowered.
   const askQuantity = maxQuantity === null || maxQuantity > 1 || initialQuantity > 1;
+  // After a capacity error, the server's limit is newer than the page's. Kept
+  // here rather than re-read with router.refresh(), which would re-run the
+  // page and log another edit-link visit for what was only a failed save.
+  const [reportedMax, setReportedMax] = useState<number | null>(null);
+  const currentMax = reportedMax ?? maxQuantity;
   // Never below what is already held, or the form could not be saved at all.
-  const spotsMax = maxQuantity === null ? null : Math.max(maxQuantity, initialQuantity);
+  const spotsMax = currentMax === null ? null : Math.max(currentMax, initialQuantity);
   // Said once at the top of the form, as the sign-up sheet says it in its
   // header, rather than on a row of its own under the narrow Spots field.
   const showSpotsMax = askQuantity && spotsMax !== null;
@@ -61,9 +67,24 @@ export default function EditForm({
     });
     const payload = await res.json();
     if (!res.ok) {
-      setMessage({ kind: 'err', text: payload?.error?.message ?? 'save failed' });
+      // `remaining` here is the most this commitment can hold, not the spots
+      // still free, so the copy is the edit page's own.
+      const capacity = capacityMessage(payload?.error, 'change');
+      setMessage({
+        kind: 'err',
+        text: capacity
+          ? [capacity.message, capacity.suggestion].filter(Boolean).join(' ')
+          : (payload?.error?.message ?? 'save failed'),
+      });
+      // Someone else took spots since this page loaded, so the line at the
+      // top and the field's max take the error's number.
+      const remaining = payload?.error?.details?.remaining;
+      if (capacity && typeof remaining === 'number') setReportedMax(remaining);
     } else {
       setMessage({ kind: 'ok', text: 'Saved.' });
+      // The refresh brings a fresh maxQuantity, but this form stays mounted,
+      // so an older error's number would otherwise keep overriding it.
+      setReportedMax(null);
       router.refresh();
     }
     setSaving(false);
