@@ -16,7 +16,9 @@ tests/e2e/.seed.json
 *.tsbuildinfo
 next-env.d.ts
 .remember
-.claude
+# Local agent state stays out of the repo; checked-in skills (.claude/skills/) are shared.
+.claude/*
+!.claude/skills/
 .worktrees
 
 # Non-deterministic LLM eval outputs — local dev artifacts only
