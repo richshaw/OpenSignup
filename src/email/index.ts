@@ -24,7 +24,7 @@ export function getEmailTransport(): EmailTransport {
         port: env.SMTP_PORT,
         user: env.SMTP_USER,
         password: env.SMTP_PASSWORD,
-        secure: env.SMTP_SECURE ?? false,
+        secure: env.SMTP_SECURE,
         from: env.EMAIL_FROM,
       });
       break;
