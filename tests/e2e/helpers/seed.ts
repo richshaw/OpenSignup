@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { sessions } from '@/db/schema/auth';
 import { workspaceMembers } from '@/db/schema/members';
+import { oauthRecords } from '@/db/schema/oauth';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
@@ -53,7 +54,12 @@ async function removeOrganizer(db: Db, email: string, workspaceSlug: string): Pr
     .where(eq(organizers.email, email))
     .limit(1);
   await db.delete(workspaces).where(eq(workspaces.slug, workspaceSlug));
-  if (org) await db.delete(organizers).where(eq(organizers.id, org.id));
+  if (org) {
+    // Apps they connected: nothing ties these rows to the organizer, so
+    // they would otherwise outlive them until they expire.
+    await db.delete(oauthRecords).where(eq(oauthRecords.accountId, org.id));
+    await db.delete(organizers).where(eq(organizers.id, org.id));
+  }
 }
 
 /** An organizer with a personal workspace they own, as first sign-in makes. */

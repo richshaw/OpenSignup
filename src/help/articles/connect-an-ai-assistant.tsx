@@ -130,9 +130,8 @@ export function ConnectAnAiAssistant() {
               </li>
               <li>
                 <Ui>{UI.seePeople}</Ui>. Assistants aren&apos;t offered this, so most don&apos;t ask
-                for it. If one does, the page shows it in amber with a warning. People gave these
-                details to you, not to the assistant. Only allow it if you&apos;re happy for that
-                website to have them.
+                for it. Even if you allow it, no assistant can read these details. If one asks
+                anyway, the page shows it in amber with a warning.
               </li>
             </ul>
             <p>You allow everything on the list, or nothing.</p>
@@ -205,8 +204,8 @@ export function ConnectAnAiAssistant() {
           </Step>
           <Step>
             <p>
-              Choose <Ui>{UI.connectedApps}</Ui>. Each assistant shows its website, what you allowed
-              it to do, and when it was last used.
+              Choose <Ui>{UI.connectedApps}</Ui>. Each assistant shows its website or name, what you
+              allowed it to do, and when it was last used.
             </p>
           </Step>
           <Step>

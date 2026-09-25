@@ -129,6 +129,42 @@ function countedWords(sentence: string): string[] {
   return words(sentence).filter((w) => /[\p{L}\p{N}]/u.test(w));
 }
 
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Addresses in text to copy that aren't this site's own. Each web address is
+ * compared by its origin, so one that only starts the same way
+ * (`https://site.example.evil`) is caught; a bare site name is caught too.
+ */
+function foreignAddresses(text: string, ownOrigin: string): string[] {
+  const urls = text.match(/https?:\/\/[^\s"'<>]+/gi) ?? [];
+  const rest = urls.reduce((t, url) => t.replace(url, ''), text);
+  return [
+    ...urls.filter((url) => originOf(url) !== ownOrigin),
+    ...(rest.match(/opensignup\.org/gi) ?? []),
+  ];
+}
+
+describe('foreignAddresses', () => {
+  const own = 'https://site.example';
+  it("accepts this site's own address, in a command too", () => {
+    expect(foreignAddresses(`claude mcp add opensignup ${own}/api/mcp`, own)).toEqual([]);
+  });
+  it("catches an address that only starts like this site's", () => {
+    expect(foreignAddresses(`${own}.evil/api/mcp`, own)).toEqual([`${own}.evil/api/mcp`]);
+  });
+  it('catches another site, with or without https://', () => {
+    expect(foreignAddresses('https://opensignup.org/api/mcp', own)).toHaveLength(1);
+    expect(foreignAddresses('opensignup.org/api/mcp', own)).toHaveLength(1);
+  });
+});
+
 function pngSize(file: string): { width: number; height: number } {
   const buf = readFileSync(file);
   return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
@@ -202,10 +238,7 @@ describe.each(HELP_ARTICLES.map((a) => [a.slug, a] as const))(
       const copied = [...renderBody().querySelectorAll('[data-help-copy]')].map(
         (el) => el.textContent ?? '',
       );
-      // Once this site's own address is taken out, no other may be left.
-      const foreign = copied.filter((text) =>
-        /https?:\/\/|opensignup\.org/i.test(text.split(APP_ORIGIN).join('')),
-      );
+      const foreign = copied.flatMap((text) => foreignAddresses(text, APP_ORIGIN));
       expect(foreign, 'build addresses from APP_ORIGIN in site-config').toEqual([]);
     });
 
