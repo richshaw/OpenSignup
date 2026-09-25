@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { INSTANCE_NAME, SUPPORT_EMAIL } from '@/lib/site-config';
+import { APP_ORIGIN, INSTANCE_NAME, SUPPORT_EMAIL } from '@/lib/site-config';
 import { HELP_ARTICLES } from './articles';
 import { HELP_BODIES } from './bodies';
 
@@ -86,12 +86,17 @@ const BLOCK_TAGS = new Set([
   'TH',
 ]);
 
+/** Text to copy (`CopyText`): not prose, so the style checks leave it alone. */
+function isCopyText(el: Element): boolean {
+  return el.closest('[data-help-copy]') !== null;
+}
+
 /** A block's own text: its text and inline children, not the blocks inside it. */
 function ownText(el: Element): string {
   let text = '';
   for (const node of el.childNodes) {
     if (node.nodeType === Node.TEXT_NODE) text += node.textContent ?? '';
-    else if (node instanceof Element && !BLOCK_TAGS.has(node.tagName)) {
+    else if (node instanceof Element && !BLOCK_TAGS.has(node.tagName) && !isCopyText(node)) {
       text += node.textContent ?? '';
     }
   }
@@ -104,7 +109,7 @@ function ownText(el: Element): string {
  */
 function blocks(root: Element): string[] {
   return [root, ...root.querySelectorAll('*')]
-    .filter((el) => BLOCK_TAGS.has(el.tagName) || el === root)
+    .filter((el) => (BLOCK_TAGS.has(el.tagName) || el === root) && !isCopyText(el))
     .map(ownText)
     .filter(Boolean);
 }
@@ -123,6 +128,42 @@ function sentences(block: string): string[] {
 function countedWords(sentence: string): string[] {
   return words(sentence).filter((w) => /[\p{L}\p{N}]/u.test(w));
 }
+
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Addresses in text to copy that aren't this site's own. Each web address is
+ * compared by its origin, so one that only starts the same way
+ * (`https://site.example.evil`) is caught; a bare site name is caught too.
+ */
+function foreignAddresses(text: string, ownOrigin: string): string[] {
+  const urls = text.match(/https?:\/\/[^\s"'<>]+/gi) ?? [];
+  const rest = urls.reduce((t, url) => t.replace(url, ''), text);
+  return [
+    ...urls.filter((url) => originOf(url) !== ownOrigin),
+    ...(rest.match(/opensignup\.org/gi) ?? []),
+  ];
+}
+
+describe('foreignAddresses', () => {
+  const own = 'https://site.example';
+  it("accepts this site's own address, in a command too", () => {
+    expect(foreignAddresses(`claude mcp add opensignup ${own}/api/mcp`, own)).toEqual([]);
+  });
+  it("catches an address that only starts like this site's", () => {
+    expect(foreignAddresses(`${own}.evil/api/mcp`, own)).toEqual([`${own}.evil/api/mcp`]);
+  });
+  it('catches another site, with or without https://', () => {
+    expect(foreignAddresses('https://opensignup.org/api/mcp', own)).toHaveLength(1);
+    expect(foreignAddresses('opensignup.org/api/mcp', own)).toHaveLength(1);
+  });
+});
 
 function pngSize(file: string): { width: number; height: number } {
   const buf = readFileSync(file);
@@ -191,6 +232,14 @@ describe.each(HELP_ARTICLES.map((a) => [a.slug, a] as const))(
         emails.filter((e) => e !== SUPPORT_EMAIL),
         'use SUPPORT_EMAIL from site-config',
       ).toEqual([]);
+    });
+
+    it("puts only this site's own address in text to copy", () => {
+      const copied = [...renderBody().querySelectorAll('[data-help-copy]')].map(
+        (el) => el.textContent ?? '',
+      );
+      const foreign = copied.flatMap((text) => foreignAddresses(text, APP_ORIGIN));
+      expect(foreign, 'build addresses from APP_ORIGIN in site-config').toEqual([]);
     });
 
     it('bolds only on-screen names, and only ones the walkthrough knows', () => {
