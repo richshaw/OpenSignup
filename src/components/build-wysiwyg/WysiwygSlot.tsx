@@ -5,8 +5,8 @@ import { Copy, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { SlotEditor } from './SlotEditor';
 import { emptyHeaderCopy } from './prettyHeader';
 import { renderFieldValue } from '@/lib/slot-label';
-import type { UseReorderableResult } from '../build-grid/useReorderable';
-import type { GridField, GridRow } from '../build-grid/useGridState';
+import type { UseReorderableResult } from '../build-shared/useReorderable';
+import type { GridField, GridRow } from '../build-shared/useGridState';
 
 type WysiwygSlotProps = {
   row: GridRow;

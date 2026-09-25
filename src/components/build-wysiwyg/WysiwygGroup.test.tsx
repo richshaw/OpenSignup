@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
-import type { GridField, GridRow } from '../build-grid/useGridState';
+import type { GridField, GridRow } from '../build-shared/useGridState';
 
 function makeRow(overrides: Partial<GridRow> = {}): GridRow {
   return {

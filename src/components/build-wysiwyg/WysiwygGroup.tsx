@@ -4,8 +4,8 @@ import { Plus } from 'lucide-react';
 import { Editable } from './Editable';
 import { WysiwygSlot } from './WysiwygSlot';
 import { prettyHeader, emptyHeaderCopy } from './prettyHeader';
-import type { UseReorderableResult } from '../build-grid/useReorderable';
-import type { GridField, GridRow } from '../build-grid/useGridState';
+import type { UseReorderableResult } from '../build-shared/useReorderable';
+import type { GridField, GridRow } from '../build-shared/useGridState';
 
 export type SlotGroup = {
   /** Stable key — group field value, or `'__empty__'` for the no-value bucket. */

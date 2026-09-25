@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FieldsPopover } from './FieldsPopover';
-import type { GridField } from '../build-grid/useGridState';
+import type { GridField } from '../build-shared/useGridState';
 import type { SlotFieldConfig } from '@/schemas/slot-fields';
 
 function makeField(overrides: Partial<GridField> = {}): GridField {

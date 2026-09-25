@@ -1,9 +1,9 @@
 'use client';
 
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
-import { FIELD_TYPE_META } from '../build-grid/fieldTypes';
+import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
 import { EnumPicker } from './EnumPicker';
-import type { GridField, GridRow } from '../build-grid/useGridState';
+import type { GridField, GridRow } from '../build-shared/useGridState';
 
 type SlotEditorProps = {
   row: GridRow;

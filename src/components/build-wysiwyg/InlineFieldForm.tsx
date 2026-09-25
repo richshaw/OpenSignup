@@ -2,9 +2,9 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeft, Info } from 'lucide-react';
-import { FIELD_TYPE_META } from '../build-grid/fieldTypes';
+import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
 import { FIELD_TYPES, type FieldType, type SlotFieldConfig } from '@/schemas/slot-fields';
-import type { GridField } from '../build-grid/useGridState';
+import type { GridField } from '../build-shared/useGridState';
 
 export type InlineFieldFormMode =
   | { mode: 'edit'; field: GridField }

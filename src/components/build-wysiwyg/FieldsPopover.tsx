@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Bell, ChevronDown, GripVertical, List, Plus, X } from 'lucide-react';
-import { FIELD_TYPE_META } from '../build-grid/fieldTypes';
-import { useReorderable } from '../build-grid/useReorderable';
-import type { GridField } from '../build-grid/useGridState';
+import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
+import { useReorderable } from '../build-shared/useReorderable';
+import type { GridField } from '../build-shared/useGridState';
 import type { SlotFieldConfig } from '@/schemas/slot-fields';
 import { InlineFieldForm, type InlineFieldFormMode } from './InlineFieldForm';
 

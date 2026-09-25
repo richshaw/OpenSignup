@@ -1,8 +1,8 @@
 'use client';
 
 import { Pencil, Settings } from 'lucide-react';
-import { SaveStatus } from '../build-grid/SaveStatus';
-import type { SaveStatus as SaveStatusType } from '../build-grid/useGridState';
+import { SaveStatus } from '../build-shared/SaveStatus';
+import type { SaveStatus as SaveStatusType } from '../build-shared/useGridState';
 
 type EditingRailProps = {
   fieldCount: number;

@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { useGridState, type GridField, type GridRow } from '../build-grid/useGridState';
-import { useReorderable } from '../build-grid/useReorderable';
+import { useGridState, type GridField, type GridRow } from '../build-shared/useGridState';
+import { useReorderable } from '../build-shared/useReorderable';
 import { Editable } from './Editable';
 import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';

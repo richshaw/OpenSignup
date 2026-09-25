@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { InlineFieldForm } from './InlineFieldForm';
-import type { GridField } from '../build-grid/useGridState';
+import type { GridField } from '../build-shared/useGridState';
 
 function makeField(overrides: Partial<GridField> = {}): GridField {
   return {
