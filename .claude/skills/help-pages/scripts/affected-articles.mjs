@@ -14,16 +14,49 @@
 // articles it names, and the diff, before deciding.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import path from 'node:path';
 
-const git = (...args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 256 << 20 });
+const git = (...args) =>
+  execFileSync('git', args, {
+    encoding: 'utf8',
+    maxBuffer: 256 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+const fail = (message) => {
+  console.error(message);
+  process.exit(1);
+};
 process.chdir(git('rev-parse', '--show-toplevel').trim());
 
-const base = process.argv[2] ?? git('merge-base', 'HEAD', 'origin/main').trim();
+function resolveBase(arg) {
+  if (arg) {
+    try {
+      git('rev-parse', '--verify', `${arg}^{commit}`);
+      return arg;
+    } catch {
+      fail(`"${arg}" isn't a commit git knows. Pass a branch, tag or commit, such as HEAD~1.`);
+    }
+  }
+  for (const ref of ['origin/main', 'main']) {
+    try {
+      return git('merge-base', 'HEAD', ref).trim();
+    } catch {
+      // Not fetched here (a single-branch or shallow clone); try the next.
+    }
+  }
+  fail(
+    'Found neither origin/main nor main to compare with. Run `git fetch origin main`,' +
+      ' or pass a base: affected-articles.mjs <base-ref>',
+  );
+}
+
+const base = resolveBase(process.argv[2]);
 const HELP_DIRS = ['src/help/', 'tests/e2e/help/', 'public/help/', 'docs/writing-help.md'];
 const isHelpFile = (f) => HELP_DIRS.some((d) => f.startsWith(d));
+// Pages and components organizers see. API routes and route handlers aren't screens.
 const isScreenFile = (f) =>
   /^src\/(app|components)\//.test(f) &&
+  !/^src\/app\/(api|\.well-known)\//.test(f) &&
+  !/\/route\.tsx?$/.test(f) &&
   /\.tsx?$/.test(f) &&
   !/\.test\.tsx?$/.test(f) &&
   !isHelpFile(f);
@@ -33,17 +66,30 @@ for (const f of git('ls-files', '--others', '--exclude-standard').split('\n').fi
   changed.add(f);
 }
 
-// Removed and added lines per file, outside the help code itself.
+// Removed and added lines per file, outside the help code itself. A deleted
+// file's diff ends its header with "+++ /dev/null", so it is filed under its
+// old name: deleting a component removes every name it showed.
 const lines = new Map(); // file -> { removed: string[], added: string[] }
 let file = null;
+let oldFile = null;
+let inHeader = false;
 for (const l of git('diff', '--unified=0', '--no-color', base).split('\n')) {
-  if (l.startsWith('+++ ')) {
-    file = l.slice(4).replace(/^b\//, '');
-    if (file === '/dev/null' || isHelpFile(file)) file = null;
-    else if (!lines.has(file)) lines.set(file, { removed: [], added: [] });
+  if (l.startsWith('diff --git ')) {
+    inHeader = true;
+    file = null;
     continue;
   }
-  if (!file || l.startsWith('--- ')) continue;
+  if (inHeader) {
+    if (l.startsWith('--- ')) oldFile = l.slice(4).replace(/^a\//, '');
+    if (l.startsWith('+++ ')) {
+      inHeader = false;
+      const name = l.slice(4) === '/dev/null' ? oldFile : l.slice(4).replace(/^b\//, '');
+      file = name && name !== '/dev/null' && !isHelpFile(name) ? name : null;
+      if (file && !lines.has(file)) lines.set(file, { removed: [], added: [] });
+    }
+    continue;
+  }
+  if (!file) continue;
   if (l.startsWith('-')) lines.get(file).removed.push(l.slice(1));
   else if (l.startsWith('+')) lines.get(file).added.push(l.slice(1));
 }

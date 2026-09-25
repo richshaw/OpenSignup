@@ -34,7 +34,11 @@ const component = slug.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase()
 const uiAlias = `${component[0].toLowerCase()}${component.slice(1)}Ui`;
 const quote = (s) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 
-writeFileSync(
+// Every edit is worked out and checked first, then all are written together,
+// so a registry this script can't find leaves the tree as it was.
+const writes = new Map(); // path -> new contents
+
+writes.set(
   files.ui,
   `/**
  * Every on-screen name "${title}" relies on. The article prints them and its
@@ -49,7 +53,7 @@ export const UI = {
 `,
 );
 
-writeFileSync(
+writes.set(
   files.body,
   `import { Step, Steps, Ui } from '../components';
 import { UI } from './${slug}.ui';
@@ -77,7 +81,7 @@ export function ${component}() {
 `,
 );
 
-writeFileSync(
+writes.set(
   files.spec,
   `/**
  * Walkthrough for the help article "${title}"
@@ -123,7 +127,7 @@ const articles = readFileSync(articlesPath, 'utf8');
 const close = '] as const satisfies readonly HelpArticleMeta[];';
 if (!articles.includes(close))
   throw new Error(`can't find the end of HELP_ARTICLES in ${articlesPath}`);
-writeFileSync(
+writes.set(
   articlesPath,
   articles.replace(
     close,
@@ -144,7 +148,7 @@ bodies = bodies.replace(
 const mapStart = bodies.indexOf(map);
 const mapEnd = bodies.indexOf('\n};', mapStart);
 bodies = `${bodies.slice(0, mapEnd)}\n  ${quote(slug)}: { Body: ${component}, ui: ${uiAlias} },${bodies.slice(mapEnd)}`;
-writeFileSync(bodiesPath, bodies);
+writes.set(bodiesPath, bodies);
 
 // The sitemap test lists every indexable address, help articles included.
 const seoTestPath = 'src/lib/seo.test.ts';
@@ -152,10 +156,12 @@ const seoTest = readFileSync(seoTestPath, 'utf8');
 const lastHelp = seoTest.lastIndexOf("'https://example.test/help/");
 if (lastHelp === -1) throw new Error(`can't find the help addresses in ${seoTestPath}`);
 const lineEnd = seoTest.indexOf('\n', lastHelp);
-writeFileSync(
+writes.set(
   seoTestPath,
   `${seoTest.slice(0, lineEnd)}\n      'https://example.test/help/${slug}',${seoTest.slice(lineEnd)}`,
 );
+
+for (const [f, contents] of writes) writeFileSync(f, contents);
 
 execFileSync(
   'pnpm',
