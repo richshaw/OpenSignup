@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseEnv } from '@/lib/env';
+import { getEmailTransport, resetEmailTransportCache } from './index';
 
 const createTransport = vi.hoisted(() => vi.fn(() => ({ sendMail: vi.fn() })));
 vi.mock('nodemailer', () => ({ default: { createTransport } }));
@@ -10,41 +11,35 @@ vi.mock('@/lib/env', async (importOriginal) => ({
   getEnv: () => env.current,
 }));
 
-const base = {
+const smtpEnv = {
   DATABASE_URL: 'postgres://x',
   AUTH_SECRET: 'x'.repeat(32),
   AUTH_URL: 'http://localhost:3000',
   EMAIL_FROM: 'test@example.com',
   EMAIL_TRANSPORT: 'smtp',
   SMTP_HOST: 'smtp.example.com',
+  SMTP_PORT: '465',
 };
 
 describe('getEmailTransport with EMAIL_TRANSPORT=smtp', () => {
   beforeEach(() => {
-    vi.resetModules();
+    resetEmailTransportCache();
     createTransport.mockClear();
   });
 
+  // The port rule itself is in smtp.test.ts. This checks SMTP_SECURE reaches
+  // it: an unset or blank value used to arrive as false, so port 465 spoke
+  // plain text to a TLS port and every send timed out.
   it.each([
-    // Port 465 expects TLS from the first byte. Before this was passed through,
-    // an unset or blank SMTP_SECURE became false and every send timed out.
-    ['465', undefined, true],
-    ['465', '', true],
-    ['587', undefined, false],
-    ['587', '', false],
-    ['465', 'false', false],
-    ['587', 'true', true],
-  ])('SMTP_PORT=%s SMTP_SECURE=%j connects with secure=%s', async (port, secure, expected) => {
-    env.current = parseEnv({
-      ...base,
-      SMTP_PORT: port,
-      ...(secure === undefined ? {} : { SMTP_SECURE: secure }),
-    });
-    const { getEmailTransport } = await import('./index');
+    [undefined, true],
+    ['', true],
+    ['false', false],
+  ])('SMTP_PORT=465 SMTP_SECURE=%j connects with secure=%s', (secure, expected) => {
+    env.current = parseEnv(secure === undefined ? smtpEnv : { ...smtpEnv, SMTP_SECURE: secure });
     getEmailTransport();
     expect(createTransport).toHaveBeenCalledOnce();
     expect(createTransport).toHaveBeenCalledWith(
-      expect.objectContaining({ port: Number(port), secure: expected }),
+      expect.objectContaining({ port: 465, secure: expected }),
     );
   });
 });

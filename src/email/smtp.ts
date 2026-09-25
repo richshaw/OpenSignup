@@ -7,17 +7,18 @@ export interface SmtpConfig {
   port: number;
   user?: string;
   password?: string;
-  /** Unset picks from the port: TLS from the start on 465, STARTTLS elsewhere. */
+  /** Unset picks from the port: TLS from the start on 465, otherwise STARTTLS if offered. */
   secure?: boolean;
   from: string;
 }
 
-// The magic-link send is awaited inside the sign-in request, so a mail server
-// that never answers has to fail in seconds. nodemailer's defaults are 2 min
-// to connect, 30 s for the greeting and 10 min of silence mid-send.
-export const SMTP_CONNECTION_TIMEOUT_MS = 10_000;
-export const SMTP_GREETING_TIMEOUT_MS = 10_000;
-export const SMTP_SOCKET_TIMEOUT_MS = 30_000;
+// A mail host that is down or firewalled has to fail in seconds, not
+// nodemailer's 30 s for DNS and 2 min for the connect. Once a server answers,
+// its pace is left to nodemailer's defaults (30 s for the greeting, 10 min
+// idle): a reminder that times out after the relay took it is retried, and the
+// participant gets it twice. The sign-in request sets its own overall limit.
+const SMTP_DNS_TIMEOUT_MS = 10_000;
+const SMTP_CONNECTION_TIMEOUT_MS = 10_000;
 
 export function smtpTransportOptions(cfg: SmtpConfig): SMTPTransport.Options {
   return {
@@ -25,9 +26,8 @@ export function smtpTransportOptions(cfg: SmtpConfig): SMTPTransport.Options {
     port: cfg.port,
     secure: cfg.secure ?? cfg.port === 465,
     auth: cfg.user && cfg.password ? { user: cfg.user, pass: cfg.password } : undefined,
+    dnsTimeout: SMTP_DNS_TIMEOUT_MS,
     connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
-    greetingTimeout: SMTP_GREETING_TIMEOUT_MS,
-    socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
     // Every message is a string we rendered. Refusing file paths and URLs as
     // content means nothing built from organizer or participant input can make
     // nodemailer read a local file or fetch an internal address into an email.

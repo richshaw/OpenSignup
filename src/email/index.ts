@@ -32,4 +32,9 @@ export function getEmailTransport(): EmailTransport {
   return cached;
 }
 
+/** Tests only: forget the cached transport so the next call reads env again. */
+export function resetEmailTransportCache(): void {
+  cached = null;
+}
+
 export * from './transport';
