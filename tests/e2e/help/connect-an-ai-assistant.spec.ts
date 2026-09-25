@@ -96,10 +96,15 @@ test.describe('help: connect an AI assistant', () => {
       'OAUTH_STATIC_CLIENTS has no "e2e-client": set it as in .env.example to run this walkthrough',
     );
 
-    // Approve the connection
+    // Approve the connection. A request that has run out (or never
+    // existed) says so, and the article says to start again.
+    await page.goto('/oauth/consent/a-request-that-ran-out');
+    await expect(page.getByRole('heading', { name: UI.expired })).toBeVisible();
+
     await page.goto(authorizeUrl(challenge, address));
     await expect(page).toHaveURL(/\/oauth\/consent\//);
-    // A client set up by the site has no website to check; the page says so.
+    // The page calls the assistant an app. One set up by the site has no
+    // website to check; the page says so.
     await expect(page.getByText('was set up by the people who run this site')).toBeVisible();
     const permissions = page.getByRole('region', { name: UI.willBeAbleTo });
     await expect(permissions.getByText(UI.seeSignups, { exact: true })).toBeVisible();
@@ -112,7 +117,10 @@ test.describe('help: connect an AI assistant', () => {
     if (CAPTURE) {
       // From the list down to the two buttons: the part the step is about,
       // and the same whichever app is asking.
-      const [list, buttons] = await Promise.all([permissions.boundingBox(), dontAllow.boundingBox()]);
+      const [list, buttons] = await Promise.all([
+        permissions.boundingBox(),
+        dontAllow.boundingBox(),
+      ]);
       if (!list || !buttons) throw new Error('permissions or buttons not on screen');
       const pad = 16;
       await page.waitForTimeout(300);
@@ -181,7 +189,11 @@ test.describe('help: connect an AI assistant', () => {
 
     // "Stops an assistant from working": it can't renew its access...
     const renew = await request.post(`${BASE_URL}/api/oauth/token`, {
-      form: { grant_type: 'refresh_token', client_id: CLIENT_ID, refresh_token: tokens.refresh_token },
+      form: {
+        grant_type: 'refresh_token',
+        client_id: CLIENT_ID,
+        refresh_token: tokens.refresh_token,
+      },
     });
     expect(renew.status()).toBe(400);
     // ...though what it already holds keeps working until it runs out.

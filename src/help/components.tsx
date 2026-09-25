@@ -41,7 +41,7 @@ export function CopyText({ children }: { children: string }) {
   return (
     <pre
       data-help-copy=""
-      className="rounded-lg bg-surface-raised px-4 py-3 text-sm break-all whitespace-pre-wrap"
+      className="whitespace-pre-wrap break-all rounded-lg bg-surface-raised px-4 py-3 text-sm"
     >
       <code className="select-all">{children}</code>
     </pre>

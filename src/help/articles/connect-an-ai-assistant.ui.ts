@@ -13,6 +13,8 @@ export const UI = {
   settings: 'Settings',
   connectedApps: 'Connected apps',
   disconnect: 'Disconnect',
+  // What the approval page says instead, once its request has run out.
+  expired: 'This connection request has expired',
   // The approval page.
   willBeAbleTo: 'It will be able to',
   allow: 'Allow',
