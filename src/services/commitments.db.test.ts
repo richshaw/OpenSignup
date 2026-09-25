@@ -7,6 +7,7 @@ import { participants } from '@/db/schema/participants';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
+import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -17,7 +18,8 @@ import {
   updateOwnCommitment,
 } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
-import { addSlot } from '@/services/slots';
+import { addSlot, deleteSlot } from '@/services/slots';
+import { settle, untilServiceBlockedOn } from '@/services/testing/locks';
 
 interface Fixture {
   db: Db;
@@ -245,6 +247,169 @@ describe('updateOwnCommitment swap (db)', () => {
       .limit(1);
     expect(originalRow[0]?.status).toBe('confirmed');
     expect(originalRow[0]?.slotId).toBe(a.slotId);
+  });
+
+  it('refuses to edit a cancelled commitment', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Signup E');
+    const committed = await commitToSlot(fx.db, a.slotId, {
+      name: 'Eli',
+      email: 'eli@example.test',
+      notes: 'original',
+      quantity: 1,
+    });
+    if (!committed.ok) throw new Error(`commitToSlot failed: ${committed.error.message}`);
+    const { commitment, editToken } = committed.value;
+
+    const cancelled = await cancelOwnCommitment(fx.db, commitment.id, editToken);
+    expect(cancelled.ok).toBe(true);
+
+    // The edit token still verifies, so only the status guard stops this.
+    const r = await updateOwnCommitment(fx.db, commitment.id, editToken, { notes: 'changed' });
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('expected a conflict');
+    expect(r.error.code).toBe('conflict');
+
+    const row = await fx.db
+      .select({ notes: commitments.notes })
+      .from(commitments)
+      .where(eq(commitments.id, commitment.id))
+      .limit(1);
+    expect(row[0]?.notes).toBe('original');
+  });
+
+  it('reports conflict, not capacity_full, when a cancelled commitment asks for more', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Signup F');
+    const slot = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 2 });
+    if (!slot.ok) throw new Error(`addSlot failed: ${slot.error.message}`);
+
+    const mine = await commitToSlot(fx.db, slot.value.id, {
+      name: 'Fay',
+      email: 'fay@example.test',
+      quantity: 1,
+    });
+    if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
+
+    const cancelled = await cancelOwnCommitment(
+      fx.db,
+      mine.value.commitment.id,
+      mine.value.editToken,
+    );
+    expect(cancelled.ok).toBe(true);
+
+    // Someone else takes the whole slot, so a quantity increase would trip the
+    // capacity guard if it ran before the status check.
+    const filler = await commitToSlot(fx.db, slot.value.id, {
+      name: 'Filler',
+      email: 'filler-f@example.test',
+      quantity: 2,
+    });
+    if (!filler.ok) throw new Error(`commitToSlot failed: ${filler.error.message}`);
+
+    const r = await updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
+      quantity: 2,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('expected a conflict');
+    expect(r.error.code).toBe('conflict');
+
+    // A terminal commitment must not leave an attempt_failed row behind.
+    const events = await fx.db
+      .select()
+      .from(activity)
+      .where(
+        and(eq(activity.signupId, a.signupId), eq(activity.eventType, 'commitment.attempt_failed')),
+      );
+    expect(events.length).toBe(0);
+  });
+});
+
+describe('updateOwnCommitment quantity edit under concurrency (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  it('does not deadlock with the slot being deleted while it raises the quantity', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Edit during slot delete');
+    const mine = await commitToSlot(fx.db, a.slotId, {
+      name: 'Gus',
+      email: 'gus@example.test',
+      quantity: 1,
+    });
+    if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
+
+    let editing: ReturnType<typeof updateOwnCommitment> | undefined;
+    // What deleteSlot does, held open between its two steps: it locks the slot,
+    // and only then deletes it, which cascades to the commitment. An edit that
+    // locked the commitment first and then queued for the slot would close the
+    // cycle, and Postgres would fail one of the two.
+    const held = fx.db.transaction(async (tx) => {
+      await tx.select().from(slots).where(eq(slots.id, a.slotId)).for('update');
+      editing = updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
+        quantity: 3,
+      });
+      await untilServiceBlockedOn(fx.db, tx, editing);
+      const deleted = await deleteSlot(tx as unknown as Db, fx.actor, a.slotId);
+      expect(deleted.ok, JSON.stringify(deleted)).toBe(true);
+    });
+    await held.finally(() => settle(editing));
+
+    const r = await editing!;
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('not_found');
+  });
+
+  it('checks capacity against the quantity as it is now, not as the pre-flight read saw it', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Edit after a stale read');
+    const slot = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 4 });
+    if (!slot.ok) throw new Error(`addSlot failed: ${slot.error.message}`);
+    const mine = await commitToSlot(fx.db, slot.value.id, {
+      name: 'Hana',
+      email: 'hana@example.test',
+      quantity: 3,
+    });
+    if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
+    const other = await commitToSlot(fx.db, slot.value.id, {
+      name: 'Ivo',
+      email: 'ivo@example.test',
+      quantity: 1,
+    });
+    if (!other.ok) throw new Error(`commitToSlot failed: ${other.error.message}`);
+
+    let editing: ReturnType<typeof updateOwnCommitment> | undefined;
+    // Hana drops to 1 in another tab and Ivo takes the two places that frees,
+    // landing after this edit's pre-flight read saw 3. Asking for 2 is then an
+    // increase on a full slot, though it looked like a decrease from 3.
+    const held = fx.db.transaction(async (tx) => {
+      await tx
+        .update(commitments)
+        .set({ quantity: 1 })
+        .where(eq(commitments.id, mine.value.commitment.id));
+      await tx
+        .update(commitments)
+        .set({ quantity: 3 })
+        .where(eq(commitments.id, other.value.commitment.id));
+      editing = updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
+        quantity: 2,
+      });
+      await untilServiceBlockedOn(fx.db, tx, editing);
+    });
+    await held.finally(() => settle(editing));
+
+    const r = await editing!;
+    expect(r.ok, JSON.stringify(r)).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('capacity_full');
+
+    const [booked] = await fx.db
+      .select({ places: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
+      .from(commitments)
+      .where(and(eq(commitments.slotId, slot.value.id), eq(commitments.status, 'confirmed')));
+    expect(booked?.places).toBe(4);
   });
 });
 
