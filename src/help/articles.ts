@@ -19,6 +19,12 @@ export const HELP_ARTICLES = [
     title: 'Create and publish your first signup',
     summary: 'Create a signup, add the slots people can take, then publish it and share the link.',
   },
+  {
+    slug: 'connect-an-ai-assistant',
+    title: 'Connect an AI assistant',
+    summary:
+      'Let Claude, ChatGPT or another AI assistant make and change signups for you, and disconnect it when you want.',
+  },
 ] as const satisfies readonly HelpArticleMeta[];
 
 export type HelpSlug = (typeof HELP_ARTICLES)[number]['slug'];

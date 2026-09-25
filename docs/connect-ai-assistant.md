@@ -5,6 +5,9 @@ ChatGPT, or something you wrote yourself — can ask for access to your
 organizer account. You approve the request in your browser, and you can take
 the access away again at any time.
 
+The same steps, for organizers, are in the app's help at
+`/help/connect-an-ai-assistant`.
+
 The address of the MCP endpoint is always your instance's URL with
 `/api/mcp` on the end:
 

@@ -46,6 +46,9 @@ learn the product.
   on a phone **Publish** is behind the three dots, as **Publish signup**.
 - Don't write "click" or "tap". Write "choose": it works for a mouse and a
   finger.
+- Steps inside another company's app, like an AI assistant, name its menus in
+  plain text, not bold: the walkthrough can't check them. Say before those
+  steps that the names can change.
 
 ## Words
 
@@ -86,6 +89,9 @@ opensignup.org.
 
 - Never write a site address or a contact email into the text. Use
   `INSTANCE_NAME` and `SUPPORT_EMAIL` from `src/lib/site-config.ts`.
+- When the reader has to copy an address on your site, like the one an AI
+  assistant needs, put it in a `CopyText` block and build it from
+  `APP_ORIGIN`, so each site shows its own.
 - Some features are switched on by the person who runs the site (for example,
   drafting a signup from a description). Write "if your site offers…" and
   cover the path that always works.
@@ -124,7 +130,9 @@ sees it and fails on:
 - a title or heading in Title Case. Words inside an on-screen name keep their
   capitals, and so do short acronyms like CSV.
 - a site address, or any email other than the site's support email, in the
-  text, alt text or a link
+  text, alt text or a link. Text in a `CopyText` block isn't prose, so the
+  other checks skip it, but any web address in it must start with the site's
+  own address (`APP_ORIGIN`)
 - bold text that isn't an on-screen name in `<Ui>`, or a `<Ui>` name that isn't
   in the page's `UI` list
 - a screenshot with no alt text, alt text that starts with "Screenshot",
