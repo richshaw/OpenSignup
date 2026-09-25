@@ -46,6 +46,9 @@ learn the product.
   on a phone **Publish** is behind the three dots, as **Publish signup**.
 - Don't write "click" or "tap". Write "choose": it works for a mouse and a
   finger.
+- Steps inside another company's app, like an AI assistant, name its menus in
+  plain text, not bold: the walkthrough can't check them. Say before those
+  steps that the names can change.
 
 ## Words
 
@@ -86,6 +89,9 @@ opensignup.org.
 
 - Never write a site address or a contact email into the text. Use
   `INSTANCE_NAME` and `SUPPORT_EMAIL` from `src/lib/site-config.ts`.
+- When the reader has to copy an address on your site, like the one an AI
+  assistant needs, put it in a `CopyText` block and build it from
+  `APP_ORIGIN`, so each site shows its own.
 - Some features are switched on by the person who runs the site (for example,
   drafting a signup from a description). Write "if your site offers…" and
   cover the path that always works.
@@ -124,7 +130,9 @@ sees it and fails on:
 - a title or heading in Title Case. Words inside an on-screen name keep their
   capitals, and so do short acronyms like CSV.
 - a site address, or any email other than the site's support email, in the
-  text, alt text or a link
+  text, alt text or a link. Text in a `CopyText` block isn't prose, so the
+  other checks skip it, but any web address in it must start with the site's
+  own address (`APP_ORIGIN`)
 - bold text that isn't an on-screen name in `<Ui>`, or a `<Ui>` name that isn't
   in the page's `UI` list
 - a screenshot with no alt text, alt text that starts with "Screenshot",
@@ -139,11 +147,17 @@ follow it once on a real screen, before you open the pull request.
 
 ## Adding a page
 
+`node .claude/skills/help-pages/scripts/new-article.mjs <slug> "<Title>" "<Summary>"`
+starts the files for steps 1, 2 and 4 and does step 3 for you. The files
+contain TODOs, which fail the checks until the page is finished. AI agents: the `help-pages` skill in `.claude/skills/` covers the
+whole process, reviews included.
+
 1. Put the page's on-screen names in `src/help/articles/<slug>.ui.ts`.
 2. Write the page in `src/help/articles/<slug>.tsx`, following the existing
    one.
 3. Add it to `HELP_ARTICLES` in `src/help/articles.ts` and to `HELP_BODIES` in
-   `src/help/bodies.tsx`.
+   `src/help/bodies.tsx`, and add its address to the sitemap test in
+   `src/lib/seo.test.ts`.
 4. Write its walkthrough in `tests/e2e/help/`, clicking through the same steps
    by the names in the `UI` list.
 5. If the page has pictures, run `pnpm help:screenshots` (it needs the same
@@ -153,3 +167,5 @@ follow it once on a real screen, before you open the pull request.
 
 When a pull request changes a screen that a help page describes, update the
 page, its walkthrough and its screenshots in the same pull request.
+`node .claude/skills/help-pages/scripts/affected-articles.mjs` lists the pages
+your branch's changes might touch.

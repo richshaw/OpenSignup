@@ -24,6 +24,13 @@ export default async function ResponsesTab({ params }: PageParams) {
     }),
   );
   const commitments = await listCommitmentsForSignup(getDb(), id);
+  // Most signups are one spot per person, and a column of 1s is noise. Show
+  // Spots only when someone holds more than one, as the confirmation email
+  // does. Cancelled rows keep their quantity but no longer hold anything, so
+  // they don't count, the same rule the public page's "2/4" follows.
+  const showSpots = commitments.some(
+    (c) => c.quantity > 1 && (c.status === 'confirmed' || c.status === 'tentative'),
+  );
 
   return (
     <section className="space-y-4">
@@ -35,13 +42,17 @@ export default async function ResponsesTab({ params }: PageParams) {
           No signups yet. Share the public link to start collecting.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-surface-sunk bg-white">
+        // Scrolls sideways instead of clipping: an email address can't wrap,
+        // so on a phone the table is wider than the screen, and Status was
+        // cut off with no way to reach it.
+        <div className="overflow-x-auto rounded-xl border border-surface-sunk bg-white">
           <table className="w-full text-sm">
             <thead className="bg-surface-raised text-ink-muted">
               <tr>
                 <th className="px-4 py-3 text-left">Name</th>
                 <th className="px-4 py-3 text-left">Email</th>
                 <th className="px-4 py-3 text-left">Slot</th>
+                {showSpots ? <th className="px-4 py-3 text-right">Spots</th> : null}
                 <th className="px-4 py-3 text-left">Status</th>
               </tr>
             </thead>
@@ -56,6 +67,9 @@ export default async function ResponsesTab({ params }: PageParams) {
                     <td className="px-4 py-3 font-medium">{c.participantName}</td>
                     <td className="text-ink-muted px-4 py-3">{c.participantEmail}</td>
                     <td className="px-4 py-3">{summary || slot?.ref || '—'}</td>
+                    {showSpots ? (
+                      <td className="px-4 py-3 text-right tabular-nums">{c.quantity}</td>
+                    ) : null}
                     <td className="px-4 py-3">{c.status}</td>
                   </tr>
                 );
