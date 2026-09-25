@@ -28,7 +28,7 @@ export const addSlotsTool = defineTool({
   title: 'Add slots',
   description:
     'Add one or more slots (up to 500) to a signup. They go at the end, unless you pass beforeSlotId: then they go in front of that slot, in the order given, and that slot and everything after it move down. To put a slot first, pass the id of the slot that is first now. Each row has values keyed by field ref (dates as ISO dates like 2026-10-03, times as HH:MM, numbers as numbers, enums as one of the choices) and a capacity: a number, null for unlimited, or omitted for 1. Call get_signup first to see the field refs and the slot ids.',
-  annotations: {},
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: z.object({
     signupId: z.string(),
     rows: z.array(SlotRowSchema).min(1).max(500),
@@ -59,7 +59,7 @@ export const updateSlotTool = defineTool({
   title: 'Update slot',
   description:
     "Change a slot's values, capacity (a number, or null for unlimited) or status (open or closed). Pass only what changes. If you pass values, they replace all of the slot's values, so include every field. To change the order slots are shown in, call reorder_slots.",
-  annotations: {},
+  annotations: { readOnlyHint: false, destructiveHint: true },
   inputSchema: SlotUpdateSchema,
   handler: async (ctx, input) => {
     const { slotId, ...rest } = input;
@@ -73,8 +73,9 @@ export const deleteSlotTool = defineTool({
   scope: 'signups:write',
   title: 'Delete slot',
   description:
-    'Remove a slot. If anyone has signed up for it the call fails with conflict and says how many; tell the organizer, and only if they agree call again with force: true, which removes the slot and their places.',
-  annotations: { destructiveHint: true },
+    "Remove a slot. If anyone has signed up for it the call fails with conflict and says how many; force: true removes the slot and those people's places.",
+  annotations: { readOnlyHint: false, destructiveHint: true },
+  askFirst: true,
   inputSchema: z.object({
     slotId: z.string(),
     force: z.boolean().default(false).describe('Remove the slot even if people have signed up for it.'),
@@ -88,7 +89,7 @@ export const reorderSlotsTool = defineTool({
   title: 'Reorder slots',
   description:
     "Put a signup's slots in a new order in one call. Pass every slot id of the signup exactly once, in the order the organizer wants them shown. Get the ids from get_signup, or from the result of create_signup or add_slots. A list that leaves a slot out or names one twice is refused and nothing changes.",
-  annotations: {},
+  annotations: { readOnlyHint: false, destructiveHint: true },
   inputSchema: SlotReorderInputSchema.extend({ signupId: z.string() }),
   handler: async (ctx, input) => {
     const { signupId, ...rest } = input;

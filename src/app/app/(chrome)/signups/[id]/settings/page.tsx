@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { getOrganizerSession, toActor } from '@/auth/session';
+import { requireOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { DeleteSignupForm } from './delete-signup-form';
@@ -13,8 +12,7 @@ type PageParams = {
 export default async function SettingsTab({ params, searchParams }: PageParams) {
   const { id } = await params;
   const { error } = await searchParams;
-  const session = await getOrganizerSession();
-  if (!session) redirect(`/login?callbackUrl=/app/signups/${id}/settings`);
+  const session = await requireOrganizerSession();
   const result = await loadSignupForOrganizer(toActor(session), id);
   if (!result.ok) return null;
   const sig = result.value;

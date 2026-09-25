@@ -13,6 +13,17 @@ type BottomSheetProps = {
    * it labels it on screen — an `sr-only` span joined to an `aria-hidden` one.
    */
   title?: ReactNode;
+  /**
+   * A short line beside the title, such as "2 of 4 spots left". It sits
+   * outside the heading, so the dialog's name stays the title's, and it
+   * becomes the dialog's accessible description, read out when it opens.
+   */
+  description?: ReactNode;
+  /**
+   * An id for the description's text, so a field inside the sheet can be
+   * described by it too. The dialog's own link to it is Radix's.
+   */
+  descriptionId?: string;
   /** When true, omit the bottom border under the title (matches design's `compact` sheet). */
   compact?: boolean;
   /**
@@ -43,6 +54,8 @@ export function BottomSheet({
   open,
   onClose,
   title,
+  description,
+  descriptionId,
   compact = false,
   busy = false,
   onOpenAutoFocus,
@@ -53,7 +66,8 @@ export function BottomSheet({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[rgb(11_18_32/0.35)] backdrop-blur-sm" />
         <Dialog.Content
-          aria-describedby={undefined}
+          // With no description, say so; with one, Radix links it.
+          {...(description ? {} : { 'aria-describedby': undefined })}
           {...(onOpenAutoFocus ? { onOpenAutoFocus } : {})}
           className={[
             'fixed z-50 bg-white flex flex-col overflow-hidden',
@@ -66,24 +80,29 @@ export function BottomSheet({
             'md:shadow-[0_12px_48px_rgb(11_18_32/0.18)]',
           ].join(' ')}
         >
-          {/* Drag handle (mobile only) */}
-          <div className="flex justify-center pt-2 pb-1 md:hidden">
-            <div className="h-1 w-9 rounded-full bg-surface-sunk" />
-          </div>
-
           {title ? (
             <div
               className={[
-                'flex items-center justify-between px-4 pt-1 pb-2.5 md:px-5 md:pt-5 md:pb-3',
+                'flex items-center justify-between px-4 pt-5 pb-2.5 md:px-5 md:pb-3',
                 compact ? '' : 'border-b border-surface-sunk',
               ].join(' ')}
             >
-              {/* Wraps to two lines rather than truncating: this heading is
-                  often the only place the sheet names what it is acting on,
-                  and one clipped line at 390px loses the end of it. */}
-              <Dialog.Title className="line-clamp-2 text-base font-semibold text-ink md:text-lg">
-                {title}
-              </Dialog.Title>
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                {/* Wraps to two lines rather than truncating: this heading is
+                    often the only place the sheet names what it is acting on,
+                    and one clipped line at 390px loses the end of it. */}
+                <Dialog.Title className="line-clamp-2 min-w-0 text-base font-semibold text-ink md:text-lg">
+                  {title}
+                </Dialog.Title>
+                {/* Kept whole, beside a short title; a long one keeps the
+                    full width for its two lines and this drops below it,
+                    rather than splitting or being clamped away. */}
+                {description ? (
+                  <Dialog.Description className="shrink-0 whitespace-nowrap text-sm text-ink-muted">
+                    <span id={descriptionId}>{description}</span>
+                  </Dialog.Description>
+                ) : null}
+              </div>
               <Dialog.Close
                 aria-label="Close"
                 disabled={busy}

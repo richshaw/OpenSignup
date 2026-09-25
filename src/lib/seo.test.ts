@@ -17,6 +17,8 @@ describe('buildSitemap', () => {
       'https://example.test/privacy',
       'https://example.test/terms',
       'https://example.test/cookies',
+      'https://example.test/help',
+      'https://example.test/help/create-and-publish-a-signup',
     ]);
     expect(urls.length).toBe(INDEXABLE_ROUTES.length);
   });

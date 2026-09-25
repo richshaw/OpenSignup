@@ -47,6 +47,8 @@ RUN addgroup --system --gid 1001 signup && adduser --system --uid 1001 signup
 
 COPY --from=builder --chown=signup:signup /app/.next/standalone ./
 COPY --from=builder --chown=signup:signup /app/.next/static ./.next/static
+# Standalone output leaves `public/` out; the help pages' screenshots live there.
+COPY --from=builder --chown=signup:signup /app/public ./public
 COPY --from=builder --chown=signup:signup /app/src ./src
 COPY --from=builder --chown=signup:signup /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder --chown=signup:signup /app/tsconfig.json ./tsconfig.json

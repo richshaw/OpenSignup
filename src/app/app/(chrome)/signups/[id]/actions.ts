@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
-import { getOrganizerSession, toActor } from '@/auth/session';
+import { requireOrganizerSession, toActor } from '@/auth/session';
 import { closeSignup, deleteSignup, publishSignup } from '@/services/signups';
 
 function revalidateSignup(id: string) {
@@ -11,9 +11,7 @@ function revalidateSignup(id: string) {
 }
 
 async function requireActor() {
-  const s = await getOrganizerSession();
-  if (!s) redirect('/login');
-  return toActor(s);
+  return toActor(await requireOrganizerSession());
 }
 
 export async function publishAction(signupId: string) {

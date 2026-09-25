@@ -16,7 +16,9 @@ tests/e2e/.seed.json
 *.tsbuildinfo
 next-env.d.ts
 .remember
-.claude
+# Local Claude Code settings stay private; shared project skills are committed.
+.claude/*
+!.claude/skills/
 .worktrees
 
 # Non-deterministic LLM eval outputs — local dev artifacts only

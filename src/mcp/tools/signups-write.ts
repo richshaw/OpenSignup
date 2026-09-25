@@ -24,8 +24,8 @@ export const createSignupTool = defineTool({
   name: 'create_signup',
   scope: 'signups:write',
   title: 'Create signup',
-  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see; call publish_signup when the organizer is ready. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. If the result has a note instead of fields and slots, the signup was still created: call get_signup with its id, and do not create it again. Afterwards show the organizer the slots as a table, with links.edit to change them and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field makes the whole call fail with invalid_input and nothing is created, so fix the value and call again.`,
-  annotations: {},
+  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see until publish_signup. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. If the result has a note instead of fields and slots, the signup was still created, and get_signup with its id returns it. The result includes links.edit to change the signup and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field makes the whole call fail with invalid_input and nothing is created, so fix the value and call again.`,
+  annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: FullDraftSchema.extend({
     workspaceId: z.string().min(1).optional().describe('Defaults to the account default workspace.'),
   }),
@@ -79,7 +79,7 @@ export const updateSignupTool = defineTool({
   title: 'Update signup',
   description:
     'Change a signup title, description, tags, closing time (ISO datetime, or null to remove it), visibility (public or unlisted) or settings. Only the settings you pass change; pass null to clear maxCommitmentsPerParticipant or confirmationMessage. Use the field and slot tools to change what participants sign up for.',
-  annotations: {},
+  annotations: { readOnlyHint: false, destructiveHint: true },
   // organizerDisplayName is omitted on purpose: no column stores it, so
   // accepting it would report a change that never happened.
   inputSchema: SignupUpdateInputSchema.omit({ settings: true, visibility: true, organizerDisplayName: true }).extend({
@@ -98,7 +98,7 @@ function statusTool(
   name: string,
   title: string,
   description: string,
-  annotations: { destructiveHint?: boolean },
+  askFirst: boolean,
   fn: typeof publishSignup,
   shape: (row: Parameters<typeof signupDetail>[0]) => Record<string, unknown> = signupWithLinks,
 ) {
@@ -107,7 +107,10 @@ function statusTool(
     scope: 'signups:write',
     title,
     description,
-    annotations,
+    // Every status change is destructive: publishing puts a draft in front
+    // of participants, and the rest end or hide it.
+    annotations: { readOnlyHint: false, destructiveHint: true },
+    ...(askFirst ? { askFirst: true as const } : {}),
     inputSchema: z.object({ signupId: z.string() }),
     handler: async (ctx, input) => {
       const r = await fn(ctx.db, ctx.actor, input.signupId);
@@ -119,30 +122,38 @@ function statusTool(
 export const publishSignupTool = statusTool(
   'publish_signup',
   'Publish signup',
-  'Make a draft signup live so participants can sign up at the public link. Only a draft can be published. Confirm with the organizer first. Once it is published, links.public is the link to share with participants.',
-  {},
+  'Make a draft signup live so participants can sign up at the public link. Only a draft can be published. Once it is published, links.public is the link to share with participants.',
+  // Not in the ask-first line: the instructions give publishing a sentence of its own.
+  false,
   publishSignup,
 );
 export const closeSignupTool = statusTool(
   'close_signup',
   'Close signup',
   'Stop taking signups. Existing commitments stay. This cannot be undone from here.',
-  { destructiveHint: true },
+  true,
   closeSignup,
 );
 export const archiveSignupTool = statusTool(
   'archive_signup',
   'Archive signup',
   "Take a signup out of use. Anyone opening the public link is told it is archived, and reminders stop. It stays in the organizer's list marked archived, with its data. This cannot be undone.",
-  { destructiveHint: true },
+  true,
   archiveSignup,
 );
 export const deleteSignupTool = statusTool(
   'delete_signup',
   'Delete signup',
-  'Remove a signup from the account: it stops appearing in lists and its public link stops working. The record is marked deleted rather than erased, so erasing it for good is a separate request to the site owner. Ask the organizer before calling this.',
-  { destructiveHint: true },
+  'Remove a signup from the account: it stops appearing in lists and its public link stops working. The record is marked deleted rather than erased, so erasing it for good is a separate request to the site owner. A delete leaves the signup status as it was, so deleted and deletedAt in the result show that it worked, not status.',
+  true,
   deleteSignup,
-  // No links: nothing to open after a delete.
-  (row) => ({ signup: signupDetail(row) }),
+  // No links: nothing to open after a delete. `deleted` makes the outcome explicit
+  // even though status stays as it was (e.g. draft). deleteSignup sets deletedAt on
+  // every ok() path, the idempotent re-delete included, so the fallback is only here
+  // because the column is nullable in the schema.
+  (row) => ({
+    signup: signupDetail(row),
+    deleted: true,
+    deletedAt: row.deletedAt?.toISOString() ?? null,
+  }),
 );

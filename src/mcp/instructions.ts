@@ -15,13 +15,17 @@ import type { ToolDefinition } from './registry';
  * signup and how to work with the organizer, in one place instead of spread
  * over tool descriptions. The design rules are the sentences the Magic Compose
  * prompt uses (`src/lib/signup-rules.ts`), so the two cannot disagree. Tool
- * descriptions still stand on their own, because some clients ignore this.
+ * descriptions still stand on their own, because some clients ignore this,
+ * but they only say what a tool does: the Claude connectors directory refuses
+ * descriptions that tell the model how to behave, so the "Working with the
+ * organizer" lines exist here and nowhere else.
  *
  * Takes the tool list rather than importing `./tools`, which would pull every
  * service into any unit test that loads this file. The tools line is derived
- * from it and cannot drift; the ask-first line lists only the tools that set
- * `destructiveHint: true`, so a tool that leaves the hint out is not on it,
- * even though the MCP spec reads a missing hint as destructive.
+ * from it and cannot drift; the ask-first line lists the tools that set
+ * `askFirst`. That is narrower than `destructiveHint`, which every update
+ * carries too: asking before each edit the organizer just requested would
+ * be noise.
  *
  * Some clients cut the text off at 2048 bytes. Everything before the tools
  * line must fit in that (a test checks), so no rule is ever lost. The tools
@@ -29,10 +33,10 @@ import type { ToolDefinition } from './registry';
  * repeats it, and so a new tool name never forces a reword of the rules.
  */
 export function buildInstructions(
-  tools: readonly Pick<ToolDefinition, 'name' | 'annotations'>[],
+  tools: readonly Pick<ToolDefinition, 'name' | 'askFirst'>[],
 ): string {
   const names = tools.map((t) => t.name);
-  const destructive = tools.filter((t) => t.annotations.destructiveHint).map((t) => t.name);
+  const askFirst = tools.filter((t) => t.askFirst).map((t) => t.name);
   const lines = [
     `An OpenSignup signup is a list of slots that people sign up for without an account.`,
     ``,
@@ -48,8 +52,8 @@ export function buildInstructions(
     `Working with the organizer`,
     `- A new signup is a draft that participants cannot see. Give the organizer links.preview (what participants will see) and links.edit (to change it). Ask before you call publish_signup. Share links.public only after that: until then it only says the signup is not ready yet.`,
     `- After you create or change slots, show them as a table.`,
-    ...(destructive.length > 0
-      ? [`- Ask the organizer before you call: ${destructive.join(', ')}.`]
+    ...(askFirst.length > 0
+      ? [`- Ask the organizer before you call: ${askFirst.join(', ')}.`]
       : []),
     ``,
     `Tools: ${names.join(', ')}.`,

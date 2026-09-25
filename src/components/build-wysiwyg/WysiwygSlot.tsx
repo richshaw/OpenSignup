@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Copy, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { SlotEditor } from './SlotEditor';
 import { emptyHeaderCopy } from './prettyHeader';
+import { renderFieldValue } from '@/lib/slot-label';
 import type { UseReorderableResult } from '../build-grid/useReorderable';
 import type { GridField, GridRow } from '../build-grid/useGridState';
 
@@ -77,12 +78,19 @@ export function WysiwygSlot({
 
   // Anchor = first field in the organizer's chosen order. No type-based
   // promotion: a time field later in the list must not win over field 0.
+  // Values render as the public page renders them, so the organizer sees
+  // "Wed, Sep 30 · 6:30 PM" here too, not the stored "2026-09-30 · 18:30".
+  const display = (f: GridField): string =>
+    renderFieldValue(
+      { ref: f.ref, label: f.name, fieldType: f.config.fieldType },
+      row.values[f.ref],
+    ) ?? '';
   const anchorField = displayFields[0] ?? null;
-  const anchorValue = anchorField ? row.values[anchorField.ref] : '';
+  const anchorValue = anchorField ? display(anchorField) : '';
   const summary = displayFields
     .slice(1)
-    .map((f) => row.values[f.ref])
-    .filter((v) => v && v.length > 0)
+    .map(display)
+    .filter((v) => v.length > 0)
     .join(' \u00b7 ');
 
   // Anchor placeholder shares one source of truth with the group header
@@ -103,6 +111,8 @@ export function WysiwygSlot({
   } else if (placeholder) {
     ariaLabel = `Edit slot \u2014 ${placeholder}`;
   }
+
+  const anchorSizing = summary ? 'max-w-[60%] shrink-0' : 'min-w-0';
 
   const isDragging = reorder?.dragId === row.id;
   const isDropTarget = reorder?.overId === row.id && reorder?.dragId && reorder?.dragId !== row.id;
@@ -144,20 +154,26 @@ export function WysiwygSlot({
         aria-label={ariaLabel}
         className="flex w-full items-center justify-between gap-2.5 border-none bg-transparent px-3.5 py-2.5 text-left"
       >
+        {/* The anchor keeps its natural width (capped, so a long first value
+            still leaves room) and the summary absorbs the truncation. Left to
+            shrink together, a short anchor like a date lost to the longer
+            summary on a phone: "Wed, S…" beside a mostly visible location.
+            With no summary beside it the cap would only waste the space, so
+            the anchor then simply truncates at the row's edge. */}
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {anchorValue ? (
-            <span className="min-w-0 truncate text-sm font-semibold text-ink">
+            <span className={`${anchorSizing} truncate text-sm font-semibold text-ink`}>
               {anchorValue}
             </span>
           ) : placeholder ? (
-            <span className="text-sm italic font-normal text-ink-soft">
+            <span className={`${anchorSizing} truncate text-sm italic font-normal text-ink-soft`}>
               {placeholder}
             </span>
           ) : (
-            <span className="text-sm font-semibold text-ink">Slot</span>
+            <span className="shrink-0 text-sm font-semibold text-ink">Slot</span>
           )}
           {summary && (
-            <span className="truncate text-xs text-ink-muted">{summary}</span>
+            <span className="min-w-0 truncate text-xs text-ink-muted">{summary}</span>
           )}
         </div>
         <span className="shrink-0 font-mono text-[11px] text-ink-soft">

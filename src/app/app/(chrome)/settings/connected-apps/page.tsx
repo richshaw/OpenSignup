@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { getOrganizerSession, toActor } from '@/auth/session';
+import { requireOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
 import { ServiceException } from '@/lib/errors';
 import { log } from '@/lib/log';
@@ -25,8 +25,7 @@ export default async function ConnectedAppsPage({
   searchParams: Promise<{ error?: string; disconnected?: string }>;
 }) {
   const { error, disconnected } = await searchParams;
-  const session = await getOrganizerSession();
-  if (!session) redirect(`/login?callbackUrl=${PATH}`);
+  const session = await requireOrganizerSession();
   const actor = toActor(session);
   const apps = await listConnectedApps(getDb(), actor);
   const residualMinutes = Math.round(OAUTH_TTL.ACCESS_TOKEN / 60);
@@ -34,8 +33,7 @@ export default async function ConnectedAppsPage({
   async function disconnect(formData: FormData) {
     'use server';
     const grantId = String(formData.get('grantId') ?? '');
-    const current = await getOrganizerSession();
-    if (!current) redirect('/login');
+    const current = await requireOrganizerSession();
     try {
       await revokeConnectedApp(getDb(), await getProvider(), toActor(current), grantId);
     } catch (err) {

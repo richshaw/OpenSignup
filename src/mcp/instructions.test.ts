@@ -10,10 +10,10 @@ import { buildInstructions } from './instructions';
 // A stand-in list: the builder takes its tools as an argument, so this file
 // loads no tool module and needs no service mocks.
 const tools = [
-  { name: 'list_things', annotations: { readOnlyHint: true } },
-  { name: 'make_thing', annotations: {} },
-  { name: 'drop_thing', annotations: { destructiveHint: true } },
-  { name: 'wipe_things', annotations: { destructiveHint: true } },
+  { name: 'list_things' },
+  { name: 'make_thing' },
+  { name: 'drop_thing', askFirst: true as const },
+  { name: 'wipe_things', askFirst: true as const },
 ];
 const text = buildInstructions(tools);
 const lines = text.split('\n');
@@ -50,13 +50,13 @@ describe('buildInstructions', () => {
     expect(lines.at(-1)).toBe('Tools: list_things, make_thing, drop_thing, wipe_things.');
   });
 
-  it('lists exactly the destructive tools as ones to ask about first', () => {
+  it('lists exactly the ask-first tools as ones to ask about first', () => {
     const ask = lines.filter((l) => l.startsWith('- Ask the organizer before'));
     expect(ask).toEqual(['- Ask the organizer before you call: drop_thing, wipe_things.']);
   });
 
-  it('drops that line when no tool is destructive', () => {
-    const safe = buildInstructions(tools.filter((t) => !t.annotations.destructiveHint));
+  it('drops that line when no tool is ask-first', () => {
+    const safe = buildInstructions(tools.filter((t) => !t.askFirst));
     expect(safe).not.toContain('Ask the organizer before you call:');
   });
 

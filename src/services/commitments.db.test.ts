@@ -13,6 +13,7 @@ import type { Actor } from '@/lib/policy';
 import {
   cancelOwnCommitment,
   commitToSlot,
+  maxQuantityForCommitment,
   updateOwnCommitment,
 } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
@@ -523,5 +524,101 @@ describe('commitToSlot participant dedup (db)', () => {
       .where(eq(participants.id, r1.value.commitment.participantId));
     expect(stored[0]?.email).toBe('Alice@Example.test');
     expect(stored[0]?.emailLower).toBe('alice@example.test');
+  });
+});
+
+describe('maxQuantityForCommitment (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  it('is the capacity less what everyone else holds, not counting cancelled places', async () => {
+    const { slotId } = await makeOpenSignupWithSlot(fx, 'Max quantity signup');
+    const mine = await commitToSlot(fx.db, slotId, {
+      name: 'Pat',
+      email: 'pat@example.test',
+      quantity: 2,
+    });
+    if (!mine.ok) throw new Error(`commit failed: ${mine.error.message}`);
+    const theirs = await commitToSlot(fx.db, slotId, {
+      name: 'Sam',
+      email: 'sam@example.test',
+      quantity: 1,
+    });
+    if (!theirs.ok) throw new Error(`commit failed: ${theirs.error.message}`);
+
+    // Capacity 5: Sam's 1 is the only place that isn't Pat's own.
+    expect(await maxQuantityForCommitment(fx.db, mine.value.commitment)).toBe(4);
+
+    const cancelled = await cancelOwnCommitment(
+      fx.db,
+      theirs.value.commitment.id,
+      theirs.value.editToken,
+    );
+    if (!cancelled.ok) throw new Error(`cancel failed: ${cancelled.error.message}`);
+    expect(await maxQuantityForCommitment(fx.db, mine.value.commitment)).toBe(5);
+  });
+
+  // The edit page caps its field with this read and the edit guard enforces
+  // its own sum; if the two ever disagree, the field offers a value the save
+  // refuses, or hides one it would accept.
+  it('agrees with the edit guard: the max is accepted and one more is refused', async () => {
+    const { slotId } = await makeOpenSignupWithSlot(fx, 'Max quantity guard');
+    const mine = await commitToSlot(fx.db, slotId, {
+      name: 'Pat',
+      email: 'pat@example.test',
+      quantity: 1,
+    });
+    if (!mine.ok) throw new Error(`commit failed: ${mine.error.message}`);
+    const theirs = await commitToSlot(fx.db, slotId, {
+      name: 'Sam',
+      email: 'sam@example.test',
+      quantity: 2,
+    });
+    if (!theirs.ok) throw new Error(`commit failed: ${theirs.error.message}`);
+
+    const max = await maxQuantityForCommitment(fx.db, mine.value.commitment);
+    expect(max).toBe(3);
+
+    const over = await updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
+      quantity: max! + 1,
+    });
+    expect(over.ok).toBe(false);
+    if (!over.ok) expect(over.error.code).toBe('capacity_full');
+
+    const atMax = await updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
+      quantity: max!,
+    });
+    expect(atMax.ok).toBe(true);
+  });
+
+  it('is 1 for the holder of a one-place slot, and null on an unlimited slot', async () => {
+    const { signupId } = await makeOpenSignupWithSlot(fx, 'Max quantity edges');
+    const single = await addSlot(fx.db, fx.actor, signupId, { values: {}, capacity: 1 });
+    if (!single.ok) throw new Error(`addSlot failed: ${single.error.message}`);
+    const unlimited = await addSlot(fx.db, fx.actor, signupId, { values: {}, capacity: null });
+    if (!unlimited.ok) throw new Error(`addSlot failed: ${unlimited.error.message}`);
+
+    const onSingle = await commitToSlot(fx.db, single.value.id, {
+      name: 'Pat',
+      email: 'pat@example.test',
+      quantity: 1,
+    });
+    if (!onSingle.ok) throw new Error(`commit failed: ${onSingle.error.message}`);
+    const onUnlimited = await commitToSlot(fx.db, unlimited.value.id, {
+      name: 'Pat',
+      email: 'pat@example.test',
+      quantity: 3,
+    });
+    if (!onUnlimited.ok) throw new Error(`commit failed: ${onUnlimited.error.message}`);
+
+    expect(await maxQuantityForCommitment(fx.db, onSingle.value.commitment)).toBe(1);
+    expect(await maxQuantityForCommitment(fx.db, onUnlimited.value.commitment)).toBeNull();
   });
 });

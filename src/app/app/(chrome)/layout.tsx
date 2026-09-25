@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { signOut } from '@/auth/config';
-import { getOrganizerSession } from '@/auth/session';
+import { requireOrganizerSession } from '@/auth/session';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { OAUTH_COOKIES, OAUTH_SESSION_COOKIE_PATH } from '@/oauth/config';
 
@@ -17,8 +16,7 @@ export default async function OrganizerLayout({
   children: React.ReactNode;
   crumbs: React.ReactNode;
 }) {
-  const session = await getOrganizerSession();
-  if (!session) redirect('/login?callbackUrl=/app');
+  const session = await requireOrganizerSession();
 
   async function handleSignOut() {
     'use server';
@@ -46,6 +44,9 @@ export default async function OrganizerLayout({
             {crumbs}
           </nav>
           <nav className="flex shrink-0 items-center gap-4">
+            <Link href="/help" className="text-ink-muted hover:text-ink text-sm transition">
+              Help
+            </Link>
             {/* The account itself is the way into settings; on narrow screens the
                 address would not fit, so the link reads "Settings" there. */}
             <Link
