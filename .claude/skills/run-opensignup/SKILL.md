@@ -15,12 +15,14 @@ service postgresql start
 su postgres -c "psql -p 5433 -v ON_ERROR_STOP=1" <<'SQL'
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'signup') THEN
-    CREATE ROLE signup LOGIN SUPERUSER PASSWORD 'signup';
+    CREATE ROLE signup LOGIN PASSWORD 'signup';
   END IF;
 END $$;
 SQL
 su postgres -c "createdb -p 5433 -O signup signup" 2>/dev/null || echo "database signup already exists"
 ```
+
+The `signup` role owns its database and nothing else. That is enough for the migrations, `pnpm test:db` and the worker, so don't make it a superuser.
 
 ## Setup
 
