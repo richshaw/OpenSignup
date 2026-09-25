@@ -25,7 +25,12 @@ type CommitmentRow = typeof commitments.$inferSelect;
  * `orphaned` are terminal — organizer- or participant-applied end states that
  * no participant action reopens.
  */
-const isActiveCommitment = inArray(commitments.status, ['confirmed', 'tentative', 'waitlist']);
+const ACTIVE_COMMITMENT_STATUSES: readonly CommitmentRow['status'][] = [
+  'confirmed',
+  'tentative',
+  'waitlist',
+];
+const isActiveCommitment = inArray(commitments.status, [...ACTIVE_COMMITMENT_STATUSES]);
 
 // Telemetry write inside an outer tx where a raw INSERT would otherwise abort
 // the surrounding transaction on failure. Uses a SAVEPOINT (Drizzle's nested
@@ -429,32 +434,46 @@ export async function updateOwnCommitment(
   }
 
   return db.transaction(async (tx) => {
-    // Status first, under a row lock, before any edit-specific work. Two
-    // reasons it cannot wait until the UPDATE below: `getOwnCommitment` read
-    // outside this transaction, so a cancellation may have landed since; and
-    // the capacity guard would otherwise answer `capacity_full` — and write an
-    // attempt_failed row — for a commitment that is already terminal. A
-    // terminal commitment always takes the conflict path, whatever else the
-    // edit asks for. The lock is held for the rest of the transaction, so the
-    // status cannot change underneath the work that follows.
-    const live = await tx
-      .select({ id: commitments.id })
+    // A quantity change may need the capacity guard, which locks the slot. Take
+    // that lock before the commitment's, the order commitToSlot and deleteSlot
+    // use (deleteSlot reaches the commitment through its cascade): locking the
+    // commitment first and then queueing for the slot is a deadlock with a
+    // slot delete. A commitment never changes slot, so the pre-flight slotId is
+    // safe to lock by.
+    const slotRows =
+      data.quantity !== undefined
+        ? await tx
+            .select({ capacity: slots.capacity })
+            .from(slots)
+            .where(eq(slots.id, current.slotId))
+            .for('update')
+            .limit(1)
+        : [];
+
+    // Then the commitment, re-read whole under a row lock, before any
+    // edit-specific work. `getOwnCommitment` read outside this transaction, so
+    // its status and quantity may both be stale: a cancellation may have landed
+    // since, and a quantity lowered in another tab would let an increase pass
+    // for a decrease and skip the capacity guard. Everything below reads
+    // `locked`, and the lock holds it still for the rest of the transaction.
+    const [locked] = await tx
+      .select()
       .from(commitments)
-      .where(and(eq(commitments.id, commitmentId), isActiveCommitment))
+      .where(eq(commitments.id, commitmentId))
       .for('update')
       .limit(1);
-    if (!live[0]) return err(serviceError('conflict', 'commitment is not active'));
+    if (!locked) return err(serviceError('not_found', 'commitment not found'));
+    // A terminal commitment always takes the conflict path, whatever else the
+    // edit asks for: the capacity guard would otherwise answer `capacity_full`,
+    // and write an attempt_failed row, for a commitment nobody can act on.
+    if (!ACTIVE_COMMITMENT_STATUSES.includes(locked.status)) {
+      return err(serviceError('conflict', 'commitment is not active'));
+    }
 
     // Capacity guard: only fires when quantity *increases* on the same slot.
     // The swap path (slotId change) returns earlier and re-runs the full
     // capacity check via commitToSlot, so a slot move never reaches here.
-    if (data.quantity !== undefined && data.quantity > current.quantity) {
-      const slotRows = await tx
-        .select({ capacity: slots.capacity })
-        .from(slots)
-        .where(eq(slots.id, current.slotId))
-        .for('update')
-        .limit(1);
+    if (data.quantity !== undefined && data.quantity > locked.quantity) {
       const cap = slotRows[0]?.capacity ?? null;
       if (cap !== null) {
         const sumRows = await tx
