@@ -8,7 +8,7 @@ import { resolveAnchorRef } from '@/lib/reminder-fields';
 // State types
 // ---------------------------------------------------------------------------
 
-export type GridField = {
+export type BuildField = {
   id: string;
   ref: string;
   name: string; // field label
@@ -22,7 +22,7 @@ export type GridField = {
   width?: number; // session-only resize override; not sent to API
 };
 
-export type GridRow = {
+export type BuildRow = {
   id: string;
   capacity: number | null;
   sortOrder: number;
@@ -56,11 +56,11 @@ async function parseErrorEnvelope(res: Response): Promise<{ code: ErrorCode; mes
   }
 }
 
-export type GridState = {
+export type BuildState = {
   title: string;
   description: string;
-  fields: GridField[];
-  rows: GridRow[];
+  fields: BuildField[];
+  rows: BuildRow[];
   groupByFieldRef: string | null;
   /**
    * The date field reminders are sent the day before, or null when reminders
@@ -78,29 +78,29 @@ export type GridState = {
 // Actions
 // ---------------------------------------------------------------------------
 
-export type GridAction =
-  | { type: 'SET_FIELDS'; fields: GridField[] }
-  | { type: 'SET_ROWS'; rows: GridRow[] }
+export type BuildAction =
+  | { type: 'SET_FIELDS'; fields: BuildField[] }
+  | { type: 'SET_ROWS'; rows: BuildRow[] }
   | { type: 'SET_FIELD_WIDTH'; fieldId: string; width: number | undefined }
   | { type: 'SET_PREVIEW_ROW'; idx: number }
   | { type: 'SET_SHOW_PREVIEW'; show: boolean }
   | { type: 'SET_GROUP_BY'; ref: string | null }
   | { type: 'SET_REMINDER_FIELD'; ref: string | null }
   | { type: 'SET_SAVE_STATUS'; status: SaveStatus }
-  | { type: 'OPTIMISTIC_ADD_ROW'; row: GridRow }
+  | { type: 'OPTIMISTIC_ADD_ROW'; row: BuildRow }
   | { type: 'OPTIMISTIC_REMOVE_ROW'; rowId: string }
   | { type: 'OPTIMISTIC_EDIT_CELL'; rowId: string; fieldRef: string; value: string }
   | { type: 'OPTIMISTIC_SET_CAPACITY'; rowId: string; capacity: number | null }
   | { type: 'OPTIMISTIC_UPDATE_META'; patch: { title?: string; description?: string } }
-  | { type: 'APPEND_FIELD'; field: GridField }
-  | { type: 'REPLACE_FIELD'; field: GridField }
+  | { type: 'APPEND_FIELD'; field: BuildField }
+  | { type: 'REPLACE_FIELD'; field: BuildField }
   | { type: 'DELETE_FIELD'; fieldId: string; fieldRef: string };
 
 // ---------------------------------------------------------------------------
 // Reducer (exported for testing)
 // ---------------------------------------------------------------------------
 
-export function gridReducer(state: GridState, action: GridAction): GridState {
+export function buildReducer(state: BuildState, action: BuildAction): BuildState {
   switch (action.type) {
     case 'SET_FIELDS':
       return { ...state, fields: action.fields };
@@ -204,7 +204,7 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 // Helpers
 // ---------------------------------------------------------------------------
 
-function toGridFields(fields: SlotFieldDefinition[]): GridField[] {
+function toBuildFields(fields: SlotFieldDefinition[]): BuildField[] {
   return fields.map((f) => ({
     id: f.id,
     ref: f.ref,
@@ -248,17 +248,17 @@ function reminderFieldFrom(settings: SignupSettings): string | null {
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useGridState(
+export function useBuildState(
   signupId: string,
   initialFields: SlotFieldDefinition[],
   initialRows: Array<{ id: string; capacity: number | null; sortOrder?: number; values: Record<string, unknown> }>,
   initialSettings: SignupSettings,
   initialMeta: { title: string; description: string | null } = { title: '', description: '' },
 ) {
-  const [state, dispatch] = useReducer(gridReducer, undefined, () => ({
+  const [state, dispatch] = useReducer(buildReducer, undefined, () => ({
     title: initialMeta.title,
     description: initialMeta.description ?? '',
-    fields: toGridFields(initialFields),
+    fields: toBuildFields(initialFields),
     rows: initialRows.map((r, i) => ({
       id: r.id,
       capacity: r.capacity,
@@ -304,7 +304,7 @@ export function useGridState(
    * the copy here never drifts. Without it the next settings save would send
    * the server a ref it has already dropped — which it refuses.
    */
-  function mirrorFieldChange(fields: GridField[]) {
+  function mirrorFieldChange(fields: BuildField[]) {
     const current = settingsRef.current;
     const anchor = resolveAnchorRef(
       current,
@@ -397,7 +397,7 @@ export function useGridState(
         });
         await expectOk(res);
         const envelope = (await res.json()) as { data: SlotFieldDefinition };
-        const field = toGridFields([envelope.data])[0]!;
+        const field = toBuildFields([envelope.data])[0]!;
         dispatch({ type: 'APPEND_FIELD', field });
         mirrorFieldChange([...stateRef.current.fields, field]);
         markSaved();
@@ -429,7 +429,7 @@ export function useGridState(
         });
         await expectOk(res);
         const envelope = (await res.json()) as { data: SlotFieldDefinition };
-        const updated = toGridFields([envelope.data])[0]!;
+        const updated = toBuildFields([envelope.data])[0]!;
         dispatch({ type: 'REPLACE_FIELD', field: updated });
         mirrorFieldChange(stateRef.current.fields.map((f) => (f.id === updated.id ? updated : f)));
         markSaved();
@@ -500,13 +500,13 @@ export function useGridState(
       if (failure !== null) {
         // Server may hold a partial reorder; converge on server truth via refetch.
         // `previous` already carries session-only column widths — preserve them on
-        // refresh by id, since `toGridFields` cannot populate `width`.
+        // refresh by id, since `toBuildFields` cannot populate `width`.
         const widthById = new Map(previous.map((f) => [f.id, f.width]));
         try {
           const res = await fetch(`/api/signups/${signupId}/fields`);
           if (res.ok) {
             const envelope = (await res.json()) as { data: SlotFieldDefinition[] };
-            const refreshed = toGridFields(envelope.data).map((f) => ({
+            const refreshed = toBuildFields(envelope.data).map((f) => ({
               ...f,
               width: widthById.get(f.id),
             }));

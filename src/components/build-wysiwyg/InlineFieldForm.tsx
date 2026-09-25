@@ -4,10 +4,10 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeft, Info } from 'lucide-react';
 import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
 import { FIELD_TYPES, type FieldType, type SlotFieldConfig } from '@/schemas/slot-fields';
-import type { GridField } from '../build-shared/useGridState';
+import type { BuildField } from '../build-shared/useBuildState';
 
 export type InlineFieldFormMode =
-  | { mode: 'edit'; field: GridField }
+  | { mode: 'edit'; field: BuildField }
   | { mode: 'create' };
 
 type InlineFieldFormProps = {

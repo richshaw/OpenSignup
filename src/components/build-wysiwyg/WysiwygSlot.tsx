@@ -6,17 +6,17 @@ import { SlotEditor } from './SlotEditor';
 import { emptyHeaderCopy } from './prettyHeader';
 import { renderFieldValue } from '@/lib/slot-label';
 import type { UseReorderableResult } from '../build-shared/useReorderable';
-import type { GridField, GridRow } from '../build-shared/useGridState';
+import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
 type WysiwygSlotProps = {
-  row: GridRow;
-  fields: GridField[];
+  row: BuildRow;
+  fields: BuildField[];
   /**
    * All non-group fields in organizer-chosen order. `displayFields[0]` becomes
    * the collapsed row's primary anchor (large, bold). The rest form the summary
    * shown next to it.
    */
-  displayFields: GridField[];
+  displayFields: BuildField[];
   expanded: boolean;
   onExpand: () => void;
   onCollapse: () => void;
@@ -80,7 +80,7 @@ export function WysiwygSlot({
   // promotion: a time field later in the list must not win over field 0.
   // Values render as the public page renders them, so the organizer sees
   // "Wed, Sep 30 · 6:30 PM" here too, not the stored "2026-09-30 · 18:30".
-  const display = (f: GridField): string =>
+  const display = (f: BuildField): string =>
     renderFieldValue(
       { ref: f.ref, label: f.name, fieldType: f.config.fieldType },
       row.values[f.ref],

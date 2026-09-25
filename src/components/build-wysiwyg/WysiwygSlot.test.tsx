@@ -2,9 +2,9 @@
 import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WysiwygSlot } from './WysiwygSlot';
-import type { GridField, GridRow } from '../build-shared/useGridState';
+import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
-function makeField(overrides: Partial<GridField> = {}): GridField {
+function makeField(overrides: Partial<BuildField> = {}): BuildField {
   return {
     id: 'f1',
     ref: 'shift',
@@ -15,7 +15,7 @@ function makeField(overrides: Partial<GridField> = {}): GridField {
   };
 }
 
-function makeRow(overrides: Partial<GridRow> = {}): GridRow {
+function makeRow(overrides: Partial<BuildRow> = {}): BuildRow {
   return {
     id: 'r1',
     capacity: 2,
@@ -27,8 +27,8 @@ function makeRow(overrides: Partial<GridRow> = {}): GridRow {
 
 type RenderProps = {
   expanded?: boolean;
-  row?: GridRow;
-  displayFields?: GridField[];
+  row?: BuildRow;
+  displayFields?: BuildField[];
   onExpand?: Mock<() => void>;
   onCollapse?: Mock<() => void>;
   onEditCell?: Mock<(fieldRef: string, value: string) => void>;
@@ -46,7 +46,7 @@ function renderSlot(overrides: RenderProps = {}) {
   const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
   const onDuplicate = overrides.onDuplicate ?? vi.fn<() => void>();
   const onDelete = overrides.onDelete ?? vi.fn<() => void>();
-  const defaultDisplayFields: GridField[] = [
+  const defaultDisplayFields: BuildField[] = [
     makeField({ ref: 'shift', name: 'Shift' }),
     makeField({
       id: 'f2',

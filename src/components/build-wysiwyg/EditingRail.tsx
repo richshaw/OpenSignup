@@ -2,7 +2,7 @@
 
 import { Pencil, Settings } from 'lucide-react';
 import { SaveStatus } from '../build-shared/SaveStatus';
-import type { SaveStatus as SaveStatusType } from '../build-shared/useGridState';
+import type { SaveStatus as SaveStatusType } from '../build-shared/useBuildState';
 
 type EditingRailProps = {
   fieldCount: number;

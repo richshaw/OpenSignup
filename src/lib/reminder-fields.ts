@@ -9,7 +9,7 @@ import type { SlotFieldDefinition } from '@/schemas/slot-fields';
  * src/services/slot-fields.ts.
  */
 
-/** The three things anchor resolution reads; both SlotFieldDefinition and the build page's GridField have them. */
+/** The three things anchor resolution reads; both SlotFieldDefinition and the build page's BuildField have them. */
 export type AnchorCandidate = Pick<SlotFieldDefinition, 'ref' | 'fieldType' | 'sortOrder'>;
 
 export interface ReminderFields {

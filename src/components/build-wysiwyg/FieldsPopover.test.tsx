@@ -2,10 +2,10 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FieldsPopover } from './FieldsPopover';
-import type { GridField } from '../build-shared/useGridState';
+import type { BuildField } from '../build-shared/useBuildState';
 import type { SlotFieldConfig } from '@/schemas/slot-fields';
 
-function makeField(overrides: Partial<GridField> = {}): GridField {
+function makeField(overrides: Partial<BuildField> = {}): BuildField {
   return {
     id: 'f1',
     ref: 'date',
@@ -22,7 +22,7 @@ type UpdateFieldFn = (
 ) => Promise<void>;
 
 type RenderProps = {
-  fields?: GridField[];
+  fields?: BuildField[];
   groupByFieldRef?: string | null;
   reminderFieldRef?: string | null;
   open?: boolean;

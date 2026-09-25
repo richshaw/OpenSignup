@@ -3,11 +3,11 @@
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
 import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
 import { EnumPicker } from './EnumPicker';
-import type { GridField, GridRow } from '../build-shared/useGridState';
+import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
 type SlotEditorProps = {
-  row: GridRow;
-  fields: GridField[];
+  row: BuildRow;
+  fields: BuildField[];
   onCellChange: (fieldRef: string, value: string) => void;
   onCapacity: (capacity: number | null) => void;
   /**

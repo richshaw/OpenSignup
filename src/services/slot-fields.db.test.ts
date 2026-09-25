@@ -191,7 +191,7 @@ describe('slot-fields service (db)', () => {
       });
       if (!first.ok) throw new Error('first field setup failed');
 
-      // No sortOrder, exactly as useGridState.addField sends it.
+      // No sortOrder, exactly as useBuildState.addField sends it.
       const added = await addField(fx.db, fx.actor, sigId, {
         ref: 'added',
         label: 'Added',

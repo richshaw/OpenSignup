@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { useGridState, type GridField, type GridRow } from '../build-shared/useGridState';
+import { useBuildState, type BuildField, type BuildRow } from '../build-shared/useBuildState';
 import { useReorderable } from '../build-shared/useReorderable';
 import { Editable } from './Editable';
 import { EditingRail } from './EditingRail';
@@ -46,12 +46,12 @@ function sheetMaxWidthClass(fieldCount: number): string {
 }
 
 /** Bucket rows by the group field's value. Empty / missing values go into `__empty__`. */
-function partitionRows(rows: GridRow[], groupField: GridField | null): SlotGroup[] {
+function partitionRows(rows: BuildRow[], groupField: BuildField | null): SlotGroup[] {
   if (!groupField) {
     return [{ key: '__flat__', rawValue: '', rows }];
   }
   const ref = groupField.ref;
-  const buckets = new Map<string, GridRow[]>();
+  const buckets = new Map<string, BuildRow[]>();
   for (const r of rows) {
     const raw = r.values[ref] ?? '';
     const key = raw === '' ? EMPTY_GROUP_KEY : raw;
@@ -96,7 +96,7 @@ export function BuildWysiwyg({
     editCell,
     setCapacity,
     moveRow,
-  } = useGridState(
+  } = useBuildState(
     signupId,
     initialFields,
     initialSlots.map((s) => ({
@@ -121,7 +121,7 @@ export function BuildWysiwyg({
 
   const groups = useMemo(() => partitionRows(state.rows, groupField), [state.rows, groupField]);
 
-  const slotReorder = useReorderable<GridRow>({
+  const slotReorder = useReorderable<BuildRow>({
     items: state.rows,
     onReorder: (fromIdx, toIdx) => { void moveRow(fromIdx, toIdx); },
     ...(groupField
