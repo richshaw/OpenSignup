@@ -19,6 +19,9 @@ import { addSlot } from '@/services/slots';
 
 const E2E_ORGANIZER_EMAIL = 'e2e@example.test';
 const E2E_WORKSPACE_SLUG = 'e2e-workspace';
+// See createSoloOrganizer. The address shows in a help screenshot.
+const SOLO_ORGANIZER_EMAIL = 'you@example.test';
+const SOLO_WORKSPACE_SLUG = 'e2e-solo-workspace';
 
 export const SEED_FILE = path.join(process.cwd(), 'tests', 'e2e', '.seed.json');
 
@@ -41,16 +44,50 @@ export interface SeedData {
   editToken: string;
 }
 
-/** Removes any prior e2e data. Workspace delete cascades signups → slots →
- *  participants → commitments; organizer delete cascades sessions. */
-async function cleanup(db: Db): Promise<void> {
+/** Removes an e2e organizer and its data. Workspace delete cascades signups →
+ *  slots → participants → commitments; organizer delete cascades sessions. */
+async function removeOrganizer(db: Db, email: string, workspaceSlug: string): Promise<void> {
   const [org] = await db
     .select({ id: organizers.id })
     .from(organizers)
-    .where(eq(organizers.email, E2E_ORGANIZER_EMAIL))
+    .where(eq(organizers.email, email))
     .limit(1);
-  await db.delete(workspaces).where(eq(workspaces.slug, E2E_WORKSPACE_SLUG));
+  await db.delete(workspaces).where(eq(workspaces.slug, workspaceSlug));
   if (org) await db.delete(organizers).where(eq(organizers.id, org.id));
+}
+
+/** An organizer with a personal workspace they own, as first sign-in makes. */
+async function insertOrganizer(
+  db: Db,
+  email: string,
+  workspaceSlug: string,
+  names: { organizer: string; workspace: string },
+): Promise<{ organizerId: string; workspaceId: string }> {
+  const organizerId = makeId('org');
+  const workspaceId = makeId('ws');
+  await db.transaction(async (tx) => {
+    await tx.insert(organizers).values({
+      id: organizerId,
+      email,
+      name: names.organizer,
+      defaultWorkspaceId: workspaceId,
+    });
+    await tx.insert(workspaces).values({
+      id: workspaceId,
+      slug: workspaceSlug,
+      name: names.workspace,
+      type: 'personal',
+      plan: 'free',
+    });
+    await tx.insert(workspaceMembers).values({
+      id: makeId('mem'),
+      workspaceId,
+      organizerId,
+      role: 'owner',
+      status: 'active',
+    });
+  });
+  return { organizerId, workspaceId };
 }
 
 function unwrap<T>(
@@ -96,32 +133,14 @@ async function makePublishedSignup(
 
 export async function seedE2E(): Promise<SeedData> {
   const db = getDb();
-  await cleanup(db);
+  await removeOrganizer(db, E2E_ORGANIZER_EMAIL, E2E_WORKSPACE_SLUG);
 
-  const organizerId = makeId('org');
-  const workspaceId = makeId('ws');
-  await db.transaction(async (tx) => {
-    await tx.insert(organizers).values({
-      id: organizerId,
-      email: E2E_ORGANIZER_EMAIL,
-      name: 'E2E Organizer',
-      defaultWorkspaceId: workspaceId,
-    });
-    await tx.insert(workspaces).values({
-      id: workspaceId,
-      slug: E2E_WORKSPACE_SLUG,
-      name: 'E2E Workspace',
-      type: 'personal',
-      plan: 'free',
-    });
-    await tx.insert(workspaceMembers).values({
-      id: makeId('mem'),
-      workspaceId,
-      organizerId,
-      role: 'owner',
-      status: 'active',
-    });
-  });
+  const { organizerId, workspaceId } = await insertOrganizer(
+    db,
+    E2E_ORGANIZER_EMAIL,
+    E2E_WORKSPACE_SLUG,
+    { organizer: 'E2E Organizer', workspace: 'E2E Workspace' },
+  );
 
   const sessionToken = randomBytes(32).toString('hex');
   await db.insert(sessions).values({
@@ -210,6 +229,31 @@ export async function createDisposableSession(organizerId: string): Promise<stri
     expires: new Date(Date.now() + 60 * 60 * 1000),
   });
   return token;
+}
+
+/**
+ * A fresh organizer of their own, with nothing in their account, signed in
+ * through a new session. For a test that changes something account-wide,
+ * like connecting an app, which tests sharing the seeded organizer would trip
+ * over. Each call replaces the last one's organizer and data, so a single
+ * test may use it at a time.
+ */
+export async function createSoloOrganizer(): Promise<{
+  organizerId: string;
+  email: string;
+  sessionToken: string;
+}> {
+  const db = getDb();
+  await removeOrganizer(db, SOLO_ORGANIZER_EMAIL, SOLO_WORKSPACE_SLUG);
+  const { organizerId } = await insertOrganizer(db, SOLO_ORGANIZER_EMAIL, SOLO_WORKSPACE_SLUG, {
+    organizer: 'Solo Organizer',
+    workspace: 'Solo Workspace',
+  });
+  return {
+    organizerId,
+    email: SOLO_ORGANIZER_EMAIL,
+    sessionToken: await createDisposableSession(organizerId),
+  };
 }
 
 /**

@@ -33,6 +33,22 @@ export function Note({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * Text the reader copies exactly, like the address an AI assistant needs. The
+ * style checks skip it, since it isn't prose, but any web address in it must
+ * start with this site's own (`APP_ORIGIN`): build it from that, never type one.
+ */
+export function CopyText({ children }: { children: string }) {
+  return (
+    <pre
+      data-help-copy=""
+      className="rounded-lg bg-surface-raised px-4 py-3 text-sm break-all whitespace-pre-wrap"
+    >
+      <code className="select-all">{children}</code>
+    </pre>
+  );
+}
+
+/**
  * A screenshot taken by the article's walkthrough test (`pnpm help:screenshots`),
  * served from `public/help/<slug>/`. Files are captured at 2x, so `width` and
  * `height` are half the file's size; the unit checks say so when they aren't.

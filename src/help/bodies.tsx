@@ -4,6 +4,10 @@ import {
   CreateAndPublishASignup,
   UI as createAndPublishUi,
 } from './articles/create-and-publish-a-signup';
+import {
+  ConnectAnAiAssistant,
+  UI as connectAnAiAssistantUi,
+} from './articles/connect-an-ai-assistant';
 
 export interface HelpBody {
   Body: ComponentType;
@@ -13,4 +17,5 @@ export interface HelpBody {
 
 export const HELP_BODIES: Record<HelpSlug, HelpBody> = {
   'create-and-publish-a-signup': { Body: CreateAndPublishASignup, ui: createAndPublishUi },
+  'connect-an-ai-assistant': { Body: ConnectAnAiAssistant, ui: connectAnAiAssistantUi },
 };

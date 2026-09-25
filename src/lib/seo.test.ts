@@ -19,6 +19,7 @@ describe('buildSitemap', () => {
       'https://example.test/cookies',
       'https://example.test/help',
       'https://example.test/help/create-and-publish-a-signup',
+      'https://example.test/help/connect-an-ai-assistant',
     ]);
     expect(urls.length).toBe(INDEXABLE_ROUTES.length);
   });

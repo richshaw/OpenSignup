@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { INSTANCE_NAME, SUPPORT_EMAIL } from '@/lib/site-config';
+import { APP_ORIGIN, INSTANCE_NAME, SUPPORT_EMAIL } from '@/lib/site-config';
 import { HELP_ARTICLES } from './articles';
 import { HELP_BODIES } from './bodies';
 
@@ -86,12 +86,17 @@ const BLOCK_TAGS = new Set([
   'TH',
 ]);
 
+/** Text to copy (`CopyText`): not prose, so the style checks leave it alone. */
+function isCopyText(el: Element): boolean {
+  return el.closest('[data-help-copy]') !== null;
+}
+
 /** A block's own text: its text and inline children, not the blocks inside it. */
 function ownText(el: Element): string {
   let text = '';
   for (const node of el.childNodes) {
     if (node.nodeType === Node.TEXT_NODE) text += node.textContent ?? '';
-    else if (node instanceof Element && !BLOCK_TAGS.has(node.tagName)) {
+    else if (node instanceof Element && !BLOCK_TAGS.has(node.tagName) && !isCopyText(node)) {
       text += node.textContent ?? '';
     }
   }
@@ -104,7 +109,7 @@ function ownText(el: Element): string {
  */
 function blocks(root: Element): string[] {
   return [root, ...root.querySelectorAll('*')]
-    .filter((el) => BLOCK_TAGS.has(el.tagName) || el === root)
+    .filter((el) => (BLOCK_TAGS.has(el.tagName) || el === root) && !isCopyText(el))
     .map(ownText)
     .filter(Boolean);
 }
@@ -191,6 +196,17 @@ describe.each(HELP_ARTICLES.map((a) => [a.slug, a] as const))(
         emails.filter((e) => e !== SUPPORT_EMAIL),
         'use SUPPORT_EMAIL from site-config',
       ).toEqual([]);
+    });
+
+    it("puts only this site's own address in text to copy", () => {
+      const copied = [...renderBody().querySelectorAll('[data-help-copy]')].map(
+        (el) => el.textContent ?? '',
+      );
+      // Once this site's own address is taken out, no other may be left.
+      const foreign = copied.filter((text) =>
+        /https?:\/\/|opensignup\.org/i.test(text.split(APP_ORIGIN).join('')),
+      );
+      expect(foreign, 'build addresses from APP_ORIGIN in site-config').toEqual([]);
     });
 
     it('bolds only on-screen names, and only ones the walkthrough knows', () => {
