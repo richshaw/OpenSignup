@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { gridReducer, useGridState } from './useGridState';
-import type { GridState, GridField, GridRow } from './useGridState';
+import { buildReducer, useBuildState } from './useBuildState';
+import type { BuildState, BuildField, BuildRow } from './useBuildState';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
 
@@ -10,7 +10,7 @@ import type { SignupSettings } from '@/schemas/signups';
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const makeField = (overrides: Partial<GridField> = {}): GridField => ({
+const makeField = (overrides: Partial<BuildField> = {}): BuildField => ({
   id: 'field-1',
   ref: 'name',
   name: 'Name',
@@ -19,7 +19,7 @@ const makeField = (overrides: Partial<GridField> = {}): GridField => ({
   ...overrides,
 });
 
-const makeRow = (overrides: Partial<GridRow> = {}): GridRow => ({
+const makeRow = (overrides: Partial<BuildRow> = {}): BuildRow => ({
   id: 'row-1',
   capacity: null,
   sortOrder: 0,
@@ -27,7 +27,7 @@ const makeRow = (overrides: Partial<GridRow> = {}): GridRow => ({
   ...overrides,
 });
 
-const makeState = (overrides: Partial<GridState> = {}): GridState => ({
+const makeState = (overrides: Partial<BuildState> = {}): BuildState => ({
   title: '',
   description: '',
   fields: [],
@@ -44,13 +44,13 @@ const makeState = (overrides: Partial<GridState> = {}): GridState => ({
 // SET_FIELD_WIDTH
 // ---------------------------------------------------------------------------
 
-describe('gridReducer SET_FIELD_WIDTH', () => {
+describe('buildReducer SET_FIELD_WIDTH', () => {
   it('sets width on the correct field', () => {
     const field1 = makeField({ id: 'f1', ref: 'alpha' });
     const field2 = makeField({ id: 'f2', ref: 'beta' });
     const state = makeState({ fields: [field1, field2] });
 
-    const next = gridReducer(state, { type: 'SET_FIELD_WIDTH', fieldId: 'f1', width: 300 });
+    const next = buildReducer(state, { type: 'SET_FIELD_WIDTH', fieldId: 'f1', width: 300 });
 
     expect(next.fields[0]?.width).toBe(300);
     expect(next.fields[1]?.width).toBeUndefined();
@@ -61,7 +61,7 @@ describe('gridReducer SET_FIELD_WIDTH', () => {
     const field2 = makeField({ id: 'f2', name: 'Other', ref: 'other' });
     const state = makeState({ fields: [field1, field2] });
 
-    const next = gridReducer(state, { type: 'SET_FIELD_WIDTH', fieldId: 'f1', width: 200 });
+    const next = buildReducer(state, { type: 'SET_FIELD_WIDTH', fieldId: 'f1', width: 200 });
 
     expect(next.fields[1]).toEqual(field2);
   });
@@ -70,7 +70,7 @@ describe('gridReducer SET_FIELD_WIDTH', () => {
     const field = makeField({ id: 'f1', width: 300 });
     const state = makeState({ fields: [field] });
 
-    const next = gridReducer(state, { type: 'SET_FIELD_WIDTH', fieldId: 'f1', width: undefined });
+    const next = buildReducer(state, { type: 'SET_FIELD_WIDTH', fieldId: 'f1', width: undefined });
 
     expect(next.fields[0]?.width).toBeUndefined();
   });
@@ -80,13 +80,13 @@ describe('gridReducer SET_FIELD_WIDTH', () => {
 // OPTIMISTIC_ADD_ROW
 // ---------------------------------------------------------------------------
 
-describe('gridReducer OPTIMISTIC_ADD_ROW', () => {
+describe('buildReducer OPTIMISTIC_ADD_ROW', () => {
   it('appends the new row to the end of rows', () => {
     const row1 = makeRow({ id: 'r1' });
     const row2 = makeRow({ id: 'r2' });
     const state = makeState({ rows: [row1] });
 
-    const next = gridReducer(state, { type: 'OPTIMISTIC_ADD_ROW', row: row2 });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_ADD_ROW', row: row2 });
 
     expect(next.rows).toHaveLength(2);
     expect(next.rows[1]).toEqual(row2);
@@ -96,7 +96,7 @@ describe('gridReducer OPTIMISTIC_ADD_ROW', () => {
     const row1 = makeRow({ id: 'r1' });
     const state = makeState({ rows: [row1] });
 
-    const next = gridReducer(state, {
+    const next = buildReducer(state, {
       type: 'OPTIMISTIC_ADD_ROW',
       row: makeRow({ id: 'r2' }),
     });
@@ -109,13 +109,13 @@ describe('gridReducer OPTIMISTIC_ADD_ROW', () => {
 // OPTIMISTIC_REMOVE_ROW
 // ---------------------------------------------------------------------------
 
-describe('gridReducer OPTIMISTIC_REMOVE_ROW', () => {
+describe('buildReducer OPTIMISTIC_REMOVE_ROW', () => {
   it('removes the correct row', () => {
     const row1 = makeRow({ id: 'r1' });
     const row2 = makeRow({ id: 'r2' });
     const state = makeState({ rows: [row1, row2] });
 
-    const next = gridReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
 
     expect(next.rows).toHaveLength(1);
     expect(next.rows[0]?.id).toBe('r2');
@@ -126,7 +126,7 @@ describe('gridReducer OPTIMISTIC_REMOVE_ROW', () => {
     const row2 = makeRow({ id: 'r2', capacity: 10 });
     const state = makeState({ rows: [row1, row2] });
 
-    const next = gridReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
 
     expect(next.rows[0]).toEqual(row2);
   });
@@ -135,7 +135,7 @@ describe('gridReducer OPTIMISTIC_REMOVE_ROW', () => {
     const row1 = makeRow({ id: 'r1' });
     const state = makeState({ rows: [row1] });
 
-    const next = gridReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
 
     expect(next.rows).toHaveLength(0);
   });
@@ -145,7 +145,7 @@ describe('gridReducer OPTIMISTIC_REMOVE_ROW', () => {
     const row2 = makeRow({ id: 'r2' });
     const state = makeState({ rows: [row1, row2], previewRowIdx: 1 });
 
-    const next = gridReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r2' });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r2' });
 
     expect(next.rows).toHaveLength(1);
     expect(next.previewRowIdx).toBe(0);
@@ -155,7 +155,7 @@ describe('gridReducer OPTIMISTIC_REMOVE_ROW', () => {
     const row1 = makeRow({ id: 'r1' });
     const state = makeState({ rows: [row1], previewRowIdx: 0 });
 
-    const next = gridReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
 
     expect(next.rows).toHaveLength(0);
     expect(next.previewRowIdx).toBe(0);
@@ -167,7 +167,7 @@ describe('gridReducer OPTIMISTIC_REMOVE_ROW', () => {
     const row3 = makeRow({ id: 'r3' });
     const state = makeState({ rows: [row1, row2, row3], previewRowIdx: 2 });
 
-    const next = gridReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
 
     expect(next.rows).toHaveLength(2);
     expect(next.previewRowIdx).toBe(1);
@@ -178,12 +178,12 @@ describe('gridReducer OPTIMISTIC_REMOVE_ROW', () => {
 // OPTIMISTIC_EDIT_CELL
 // ---------------------------------------------------------------------------
 
-describe('gridReducer OPTIMISTIC_EDIT_CELL', () => {
+describe('buildReducer OPTIMISTIC_EDIT_CELL', () => {
   it('updates the correct cell value', () => {
     const row = makeRow({ id: 'r1', values: { name: 'Alice', date: '2026-01-01' } });
     const state = makeState({ rows: [row] });
 
-    const next = gridReducer(state, {
+    const next = buildReducer(state, {
       type: 'OPTIMISTIC_EDIT_CELL',
       rowId: 'r1',
       fieldRef: 'name',
@@ -199,7 +199,7 @@ describe('gridReducer OPTIMISTIC_EDIT_CELL', () => {
     const row2 = makeRow({ id: 'r2', values: { name: 'Carol' } });
     const state = makeState({ rows: [row1, row2] });
 
-    const next = gridReducer(state, {
+    const next = buildReducer(state, {
       type: 'OPTIMISTIC_EDIT_CELL',
       rowId: 'r1',
       fieldRef: 'name',
@@ -213,7 +213,7 @@ describe('gridReducer OPTIMISTIC_EDIT_CELL', () => {
     const row = makeRow({ id: 'r1', values: { name: 'Alice' } });
     const state = makeState({ rows: [row] });
 
-    const next = gridReducer(state, {
+    const next = buildReducer(state, {
       type: 'OPTIMISTIC_EDIT_CELL',
       rowId: 'r1',
       fieldRef: 'role',
@@ -229,13 +229,13 @@ describe('gridReducer OPTIMISTIC_EDIT_CELL', () => {
 // OPTIMISTIC_SET_CAPACITY
 // ---------------------------------------------------------------------------
 
-describe('gridReducer OPTIMISTIC_SET_CAPACITY', () => {
+describe('buildReducer OPTIMISTIC_SET_CAPACITY', () => {
   it('updates capacity for the correct row', () => {
     const row1 = makeRow({ id: 'r1', capacity: null });
     const row2 = makeRow({ id: 'r2', capacity: 5 });
     const state = makeState({ rows: [row1, row2] });
 
-    const next = gridReducer(state, { type: 'OPTIMISTIC_SET_CAPACITY', rowId: 'r1', capacity: 10 });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_SET_CAPACITY', rowId: 'r1', capacity: 10 });
 
     expect(next.rows[0]?.capacity).toBe(10);
     expect(next.rows[1]?.capacity).toBe(5);
@@ -245,7 +245,7 @@ describe('gridReducer OPTIMISTIC_SET_CAPACITY', () => {
     const row = makeRow({ id: 'r1', capacity: 10 });
     const state = makeState({ rows: [row] });
 
-    const next = gridReducer(state, { type: 'OPTIMISTIC_SET_CAPACITY', rowId: 'r1', capacity: null });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_SET_CAPACITY', rowId: 'r1', capacity: null });
 
     expect(next.rows[0]?.capacity).toBeNull();
   });
@@ -255,22 +255,22 @@ describe('gridReducer OPTIMISTIC_SET_CAPACITY', () => {
 // SET_SAVE_STATUS
 // ---------------------------------------------------------------------------
 
-describe('gridReducer SET_SAVE_STATUS', () => {
+describe('buildReducer SET_SAVE_STATUS', () => {
   it('updates saveStatus to saving', () => {
     const state = makeState({ saveStatus: { kind: 'idle' } });
-    const next = gridReducer(state, { type: 'SET_SAVE_STATUS', status: { kind: 'saving' } });
+    const next = buildReducer(state, { type: 'SET_SAVE_STATUS', status: { kind: 'saving' } });
     expect(next.saveStatus).toEqual({ kind: 'saving' });
   });
 
   it('updates saveStatus to saved', () => {
     const state = makeState({ saveStatus: { kind: 'saving' } });
-    const next = gridReducer(state, { type: 'SET_SAVE_STATUS', status: { kind: 'saved' } });
+    const next = buildReducer(state, { type: 'SET_SAVE_STATUS', status: { kind: 'saved' } });
     expect(next.saveStatus).toEqual({ kind: 'saved' });
   });
 
   it('updates saveStatus to error with code + message', () => {
     const state = makeState({ saveStatus: { kind: 'saving' } });
-    const next = gridReducer(state, {
+    const next = buildReducer(state, {
       type: 'SET_SAVE_STATUS',
       status: { kind: 'error', code: 'conflict', message: 'Reload to see latest.' },
     });
@@ -279,7 +279,7 @@ describe('gridReducer SET_SAVE_STATUS', () => {
 
   it('updates saveStatus back to idle', () => {
     const state = makeState({ saveStatus: { kind: 'saved' } });
-    const next = gridReducer(state, { type: 'SET_SAVE_STATUS', status: { kind: 'idle' } });
+    const next = buildReducer(state, { type: 'SET_SAVE_STATUS', status: { kind: 'idle' } });
     expect(next.saveStatus).toEqual({ kind: 'idle' });
   });
 });
@@ -288,16 +288,16 @@ describe('gridReducer SET_SAVE_STATUS', () => {
 // SET_SHOW_PREVIEW
 // ---------------------------------------------------------------------------
 
-describe('gridReducer SET_SHOW_PREVIEW', () => {
+describe('buildReducer SET_SHOW_PREVIEW', () => {
   it('sets showPreview to true', () => {
     const state = makeState({ showPreview: false });
-    const next = gridReducer(state, { type: 'SET_SHOW_PREVIEW', show: true });
+    const next = buildReducer(state, { type: 'SET_SHOW_PREVIEW', show: true });
     expect(next.showPreview).toBe(true);
   });
 
   it('sets showPreview to false', () => {
     const state = makeState({ showPreview: true });
-    const next = gridReducer(state, { type: 'SET_SHOW_PREVIEW', show: false });
+    const next = buildReducer(state, { type: 'SET_SHOW_PREVIEW', show: false });
     expect(next.showPreview).toBe(false);
   });
 });
@@ -306,16 +306,16 @@ describe('gridReducer SET_SHOW_PREVIEW', () => {
 // SET_GROUP_BY
 // ---------------------------------------------------------------------------
 
-describe('gridReducer SET_GROUP_BY', () => {
+describe('buildReducer SET_GROUP_BY', () => {
   it('sets groupByFieldRef to a ref string', () => {
     const state = makeState({ groupByFieldRef: null });
-    const next = gridReducer(state, { type: 'SET_GROUP_BY', ref: 'date' });
+    const next = buildReducer(state, { type: 'SET_GROUP_BY', ref: 'date' });
     expect(next.groupByFieldRef).toBe('date');
   });
 
   it('clears groupByFieldRef to null', () => {
     const state = makeState({ groupByFieldRef: 'date' });
-    const next = gridReducer(state, { type: 'SET_GROUP_BY', ref: null });
+    const next = buildReducer(state, { type: 'SET_GROUP_BY', ref: null });
     expect(next.groupByFieldRef).toBeNull();
   });
 });
@@ -324,14 +324,14 @@ describe('gridReducer SET_GROUP_BY', () => {
 // SET_FIELDS (used by moveField to apply a re-sequenced order)
 // ---------------------------------------------------------------------------
 
-describe('gridReducer SET_FIELDS', () => {
+describe('buildReducer SET_FIELDS', () => {
   it('replaces the fields array in order', () => {
     const a = makeField({ id: 'a', ref: 'a', sortOrder: 0 });
     const b = makeField({ id: 'b', ref: 'b', sortOrder: 1 });
     const c = makeField({ id: 'c', ref: 'c', sortOrder: 2 });
     const state = makeState({ fields: [a, b, c] });
 
-    const next = gridReducer(state, {
+    const next = buildReducer(state, {
       type: 'SET_FIELDS',
       fields: [
         { ...c, sortOrder: 0 },
@@ -350,7 +350,7 @@ describe('gridReducer SET_FIELDS', () => {
     const row = makeRow({ id: 'r1', values: { a: '1', b: '2' } });
     const state = makeState({ fields: [a, b], rows: [row] });
 
-    const next = gridReducer(state, { type: 'SET_FIELDS', fields: [b, a] });
+    const next = buildReducer(state, { type: 'SET_FIELDS', fields: [b, a] });
 
     expect(next.rows).toEqual([row]);
   });
@@ -360,13 +360,13 @@ describe('gridReducer SET_FIELDS', () => {
 // APPEND_FIELD
 // ---------------------------------------------------------------------------
 
-describe('gridReducer APPEND_FIELD', () => {
+describe('buildReducer APPEND_FIELD', () => {
   it('appends the new field to the end of fields', () => {
     const field1 = makeField({ id: 'f1', ref: 'alpha' });
     const field2 = makeField({ id: 'f2', ref: 'beta' });
     const state = makeState({ fields: [field1] });
 
-    const next = gridReducer(state, { type: 'APPEND_FIELD', field: field2 });
+    const next = buildReducer(state, { type: 'APPEND_FIELD', field: field2 });
 
     expect(next.fields).toHaveLength(2);
     expect(next.fields[1]).toEqual(field2);
@@ -377,7 +377,7 @@ describe('gridReducer APPEND_FIELD', () => {
     const field2 = makeField({ id: 'f2', ref: 'beta' });
     const state = makeState({ fields: [field1] });
 
-    const next = gridReducer(state, { type: 'APPEND_FIELD', field: field2 });
+    const next = buildReducer(state, { type: 'APPEND_FIELD', field: field2 });
 
     expect(next.fields[0]).toEqual(field1);
   });
@@ -386,7 +386,7 @@ describe('gridReducer APPEND_FIELD', () => {
     const field = makeField({ id: 'f1', ref: 'alpha' });
     const state = makeState({ fields: [] });
 
-    const next = gridReducer(state, { type: 'APPEND_FIELD', field });
+    const next = buildReducer(state, { type: 'APPEND_FIELD', field });
 
     expect(next.fields).toHaveLength(1);
     expect(next.fields[0]).toEqual(field);
@@ -397,14 +397,14 @@ describe('gridReducer APPEND_FIELD', () => {
 // REPLACE_FIELD
 // ---------------------------------------------------------------------------
 
-describe('gridReducer REPLACE_FIELD', () => {
+describe('buildReducer REPLACE_FIELD', () => {
   it('replaces the matching field by id', () => {
     const field1 = makeField({ id: 'f1', ref: 'alpha', name: 'Alpha' });
     const field2 = makeField({ id: 'f2', ref: 'beta', name: 'Beta' });
     const updatedField1 = makeField({ id: 'f1', ref: 'alpha', name: 'Alpha Updated' });
     const state = makeState({ fields: [field1, field2] });
 
-    const next = gridReducer(state, { type: 'REPLACE_FIELD', field: updatedField1 });
+    const next = buildReducer(state, { type: 'REPLACE_FIELD', field: updatedField1 });
 
     expect(next.fields[0]?.name).toBe('Alpha Updated');
     expect(next.fields[1]).toEqual(field2);
@@ -415,7 +415,7 @@ describe('gridReducer REPLACE_FIELD', () => {
     const ghost = makeField({ id: 'f99', ref: 'ghost', name: 'Ghost' });
     const state = makeState({ fields: [field1] });
 
-    const next = gridReducer(state, { type: 'REPLACE_FIELD', field: ghost });
+    const next = buildReducer(state, { type: 'REPLACE_FIELD', field: ghost });
 
     expect(next.fields).toHaveLength(1);
     expect(next.fields[0]).toEqual(field1);
@@ -427,7 +427,7 @@ describe('gridReducer REPLACE_FIELD', () => {
     const updatedField1 = makeField({ id: 'f1', ref: 'alpha', name: 'Alpha Updated' });
     const state = makeState({ fields: [field1, field2] });
 
-    const next = gridReducer(state, { type: 'REPLACE_FIELD', field: updatedField1 });
+    const next = buildReducer(state, { type: 'REPLACE_FIELD', field: updatedField1 });
 
     expect(next.fields[1]).toEqual(field2);
   });
@@ -437,13 +437,13 @@ describe('gridReducer REPLACE_FIELD', () => {
 // DELETE_FIELD
 // ---------------------------------------------------------------------------
 
-describe('gridReducer DELETE_FIELD', () => {
+describe('buildReducer DELETE_FIELD', () => {
   it('removes the field with the given id from fields', () => {
     const field1 = makeField({ id: 'f1', ref: 'alpha' });
     const field2 = makeField({ id: 'f2', ref: 'beta' });
     const state = makeState({ fields: [field1, field2] });
 
-    const next = gridReducer(state, { type: 'DELETE_FIELD', fieldId: 'f1', fieldRef: 'alpha' });
+    const next = buildReducer(state, { type: 'DELETE_FIELD', fieldId: 'f1', fieldRef: 'alpha' });
 
     expect(next.fields).toHaveLength(1);
     expect(next.fields[0]?.id).toBe('f2');
@@ -455,7 +455,7 @@ describe('gridReducer DELETE_FIELD', () => {
     const row2 = makeRow({ id: 'r2', values: { alpha: 'foo', beta: 'bar' } });
     const state = makeState({ fields: [field1], rows: [row1, row2] });
 
-    const next = gridReducer(state, { type: 'DELETE_FIELD', fieldId: 'f1', fieldRef: 'alpha' });
+    const next = buildReducer(state, { type: 'DELETE_FIELD', fieldId: 'f1', fieldRef: 'alpha' });
 
     expect(next.rows[0]?.values).toEqual({ beta: 'world' });
     expect(next.rows[1]?.values).toEqual({ beta: 'bar' });
@@ -466,7 +466,7 @@ describe('gridReducer DELETE_FIELD', () => {
     const row1 = makeRow({ id: 'r1', values: { beta: 'world' } });
     const state = makeState({ fields: [field1], rows: [row1] });
 
-    const next = gridReducer(state, { type: 'DELETE_FIELD', fieldId: 'f1', fieldRef: 'alpha' });
+    const next = buildReducer(state, { type: 'DELETE_FIELD', fieldId: 'f1', fieldRef: 'alpha' });
 
     expect(next.rows[0]?.values).toEqual({ beta: 'world' });
   });
@@ -477,7 +477,7 @@ describe('gridReducer DELETE_FIELD', () => {
     const row1 = makeRow({ id: 'r1', values: { alpha: 'a', beta: 'b' } });
     const state = makeState({ fields: [field1, field2], rows: [row1] });
 
-    const next = gridReducer(state, { type: 'DELETE_FIELD', fieldId: 'f1', fieldRef: 'alpha' });
+    const next = buildReducer(state, { type: 'DELETE_FIELD', fieldId: 'f1', fieldRef: 'alpha' });
 
     expect(next.fields).toHaveLength(1);
     expect(next.fields[0]?.id).toBe('f2');
@@ -486,7 +486,7 @@ describe('gridReducer DELETE_FIELD', () => {
 });
 
 // ---------------------------------------------------------------------------
-// useGridState moveField (renderHook + mocked fetch)
+// useBuildState moveField (renderHook + mocked fetch)
 // ---------------------------------------------------------------------------
 
 const makeApiField = (overrides: Partial<SlotFieldDefinition> = {}): SlotFieldDefinition => ({
@@ -520,11 +520,11 @@ function fieldIdFromUrl(url: string): string | undefined {
   return url.match(/\/fields\/([^/]+)$/)?.[1];
 }
 
-function renderGrid(initialFields: SlotFieldDefinition[]) {
-  return renderHook(() => useGridState('sig_test', initialFields, [], defaultSettings));
+function renderBuild(initialFields: SlotFieldDefinition[]) {
+  return renderHook(() => useBuildState('sig_test', initialFields, [], defaultSettings));
 }
 
-describe('useGridState moveField', () => {
+describe('useBuildState moveField', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -537,7 +537,7 @@ describe('useGridState moveField', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderGrid([a, b, c]);
+    const { result } = renderBuild([a, b, c]);
     await act(async () => {
       await result.current.moveField('c', 0);
     });
@@ -583,7 +583,7 @@ describe('useGridState moveField', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderGrid([a, b, c]);
+    const { result } = renderBuild([a, b, c]);
 
     // Set a session-only width on field "a" before the failing reorder so we can
     // verify it survives the refetch.
@@ -618,7 +618,7 @@ describe('useGridState moveField', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderGrid([a, b]);
+    const { result } = renderBuild([a, b]);
     await act(async () => {
       await result.current.moveField('b', 0);
     });
@@ -652,7 +652,7 @@ describe('useGridState moveField', () => {
       });
       vi.stubGlobal('fetch', fetchMock);
 
-      const { result } = renderGrid([a, b]);
+      const { result } = renderBuild([a, b]);
 
       // First move completes synchronously (relative to fake time) and arms
       // the 3000ms "saved → idle" timer.
@@ -695,7 +695,7 @@ describe('useGridState moveField', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderGrid([a, b]);
+    const { result } = renderBuild([a, b]);
 
     // toIdx -1 clamps to 0; fromIdx of 'a' is 0 — no-op.
     await act(async () => {
@@ -712,7 +712,7 @@ describe('useGridState moveField', () => {
 });
 
 // ---------------------------------------------------------------------------
-// useGridState moveRow (renderHook + mocked fetch)
+// useBuildState moveRow (renderHook + mocked fetch)
 // ---------------------------------------------------------------------------
 
 interface InitialRowInput {
@@ -726,13 +726,13 @@ function rowIdFromUrl(url: string): string | undefined {
   return url.match(/\/api\/slots\/([^/]+)$/)?.[1];
 }
 
-function renderGridWith(initialRows: InitialRowInput[]) {
+function renderBuildWith(initialRows: InitialRowInput[]) {
   return renderHook(() =>
-    useGridState('sig_test', [], initialRows, defaultSettings),
+    useBuildState('sig_test', [], initialRows, defaultSettings),
   );
 }
 
-describe('useGridState moveRow', () => {
+describe('useBuildState moveRow', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -745,7 +745,7 @@ describe('useGridState moveRow', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderGridWith([r1, r2, r3]);
+    const { result } = renderBuildWith([r1, r2, r3]);
     await act(async () => {
       await result.current.moveRow(2, 0);
     });
@@ -789,7 +789,7 @@ describe('useGridState moveRow', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderGridWith([r1, r2]);
+    const { result } = renderBuildWith([r1, r2]);
     await act(async () => {
       await result.current.moveRow(0, 1);
     });
@@ -809,7 +809,7 @@ describe('useGridState moveRow', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, { ok: false }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderGridWith([r1, r2]);
+    const { result } = renderBuildWith([r1, r2]);
     await act(async () => {
       await result.current.moveRow(0, 1);
     });
@@ -825,7 +825,7 @@ describe('useGridState moveRow', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderGridWith([r1, r2]);
+    const { result } = renderBuildWith([r1, r2]);
 
     await act(async () => {
       await result.current.moveRow(0, -1); // clamps to 0 — same as fromIdx
@@ -843,7 +843,7 @@ describe('useGridState moveRow', () => {
 });
 
 // ---------------------------------------------------------------------------
-// useGridState mount-time showPreview default (viewport-aware)
+// useBuildState mount-time showPreview default (viewport-aware)
 // ---------------------------------------------------------------------------
 
 function stubMatchMedia(matches: boolean) {
@@ -860,29 +860,29 @@ function stubMatchMedia(matches: boolean) {
   vi.stubGlobal('matchMedia', vi.fn(() => mql));
 }
 
-describe('useGridState mount-time showPreview default', () => {
+describe('useBuildState mount-time showPreview default', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
   it('defaults showPreview to true when viewport is ≥1280px', () => {
     stubMatchMedia(true);
-    const { result } = renderGrid([]);
+    const { result } = renderBuild([]);
     expect(result.current.state.showPreview).toBe(true);
   });
 
   it('leaves showPreview false when viewport is <1280px', () => {
     stubMatchMedia(false);
-    const { result } = renderGrid([]);
+    const { result } = renderBuild([]);
     expect(result.current.state.showPreview).toBe(false);
   });
 });
 
 // ---------------------------------------------------------------------------
-// useGridState duplicateRow
+// useBuildState duplicateRow
 // ---------------------------------------------------------------------------
 
-describe('useGridState duplicateRow', () => {
+describe('useBuildState duplicateRow', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -894,7 +894,7 @@ describe('useGridState duplicateRow', () => {
     vi.stubGlobal('fetch', fetchMock);
     // Inject an initial row by seeding via the hook.
     const { result } = renderHook(() =>
-      useGridState(
+      useBuildState(
         'sig_test',
         [],
         [{ id: 'src', capacity: 3, sortOrder: 0, values: { name: 'Jane' } }],
@@ -919,7 +919,7 @@ describe('useGridState duplicateRow', () => {
   it('is a no-op when the source row is missing', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderHook(() => useGridState('sig_test', [], [], defaultSettings));
+    const { result } = renderHook(() => useBuildState('sig_test', [], [], defaultSettings));
     await act(async () => {
       await result.current.duplicateRow('does-not-exist');
     });
@@ -932,7 +932,7 @@ describe('useGridState duplicateRow', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() =>
-      useGridState(
+      useBuildState(
         'sig_test',
         [],
         [{ id: 'src', capacity: null, sortOrder: 0, values: {} }],
@@ -950,48 +950,48 @@ describe('useGridState duplicateRow', () => {
 });
 
 // ---------------------------------------------------------------------------
-// gridReducer OPTIMISTIC_UPDATE_META
+// buildReducer OPTIMISTIC_UPDATE_META
 // ---------------------------------------------------------------------------
 
-describe('gridReducer OPTIMISTIC_UPDATE_META', () => {
+describe('buildReducer OPTIMISTIC_UPDATE_META', () => {
   it('updates title when patch carries a title', () => {
     const state = makeState({ title: 'Old', description: 'desc' });
-    const next = gridReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { title: 'New' } });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { title: 'New' } });
     expect(next.title).toBe('New');
     expect(next.description).toBe('desc');
   });
 
   it('updates description when patch carries a description', () => {
     const state = makeState({ title: 'T', description: 'old' });
-    const next = gridReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: 'new' } });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: 'new' } });
     expect(next.title).toBe('T');
     expect(next.description).toBe('new');
   });
 
   it('preserves the other field when only one is patched', () => {
     const state = makeState({ title: 'keep me', description: 'replace me' });
-    const next = gridReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: 'replaced' } });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: 'replaced' } });
     expect(next.title).toBe('keep me');
   });
 
   it('allows clearing description to empty string', () => {
     const state = makeState({ title: 'T', description: 'present' });
-    const next = gridReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: '' } });
+    const next = buildReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: '' } });
     expect(next.description).toBe('');
   });
 });
 
 // ---------------------------------------------------------------------------
-// useGridState updateSignupMeta (renderHook + mocked fetch, debounced)
+// useBuildState updateSignupMeta (renderHook + mocked fetch, debounced)
 // ---------------------------------------------------------------------------
 
-function renderGridWithMeta(meta: { title: string; description: string | null }) {
+function renderBuildWithMeta(meta: { title: string; description: string | null }) {
   return renderHook(() =>
-    useGridState('sig_test', [], [], defaultSettings, meta),
+    useBuildState('sig_test', [], [], defaultSettings, meta),
   );
 }
 
-describe('useGridState updateSignupMeta', () => {
+describe('useBuildState updateSignupMeta', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
@@ -1000,7 +1000,7 @@ describe('useGridState updateSignupMeta', () => {
   it('updates optimistic state immediately', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderGridWithMeta({ title: 'Old', description: 'desc' });
+    const { result } = renderBuildWithMeta({ title: 'Old', description: 'desc' });
     act(() => {
       result.current.updateSignupMeta({ title: 'New title' });
     });
@@ -1012,7 +1012,7 @@ describe('useGridState updateSignupMeta', () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderGridWithMeta({ title: 'Old', description: 'desc' });
+    const { result } = renderBuildWithMeta({ title: 'Old', description: 'desc' });
     act(() => {
       result.current.updateSignupMeta({ title: 'New' });
     });
@@ -1032,7 +1032,7 @@ describe('useGridState updateSignupMeta', () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderGridWithMeta({ title: '', description: '' });
+    const { result } = renderBuildWithMeta({ title: '', description: '' });
     act(() => {
       result.current.updateSignupMeta({ title: 'A' });
       result.current.updateSignupMeta({ title: 'AB' });
@@ -1050,7 +1050,7 @@ describe('useGridState updateSignupMeta', () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderGridWithMeta({ title: 'A', description: '1' });
+    const { result } = renderBuildWithMeta({ title: 'A', description: '1' });
     act(() => {
       result.current.updateSignupMeta({ title: 'A2' });
       result.current.updateSignupMeta({ description: '2' });
@@ -1071,7 +1071,7 @@ describe('useGridState updateSignupMeta', () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderGridWithMeta({ title: 'Original', description: 'desc' });
+    const { result } = renderBuildWithMeta({ title: 'Original', description: 'desc' });
     act(() => {
       result.current.updateSignupMeta({ title: '' });
     });
@@ -1094,7 +1094,7 @@ describe('useGridState updateSignupMeta', () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderGridWithMeta({ title: 'Original', description: '' });
+    const { result } = renderBuildWithMeta({ title: 'Original', description: '' });
     act(() => {
       result.current.updateSignupMeta({ title: ' A ' });
     });
@@ -1115,7 +1115,7 @@ describe('useGridState updateSignupMeta', () => {
       ),
     );
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderGridWithMeta({ title: 'Old', description: '' });
+    const { result } = renderBuildWithMeta({ title: 'Old', description: '' });
     act(() => {
       result.current.updateSignupMeta({ title: 'New' });
     });
@@ -1134,7 +1134,7 @@ describe('useGridState updateSignupMeta', () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, { ok: false }));
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderGridWithMeta({ title: 'Old', description: '' });
+    const { result } = renderBuildWithMeta({ title: 'Old', description: '' });
     act(() => {
       result.current.updateSignupMeta({ title: 'New' });
     });
@@ -1149,10 +1149,10 @@ describe('useGridState updateSignupMeta', () => {
 });
 
 // ---------------------------------------------------------------------------
-// useGridState unmount-flush: pending debounced saves fire on unmount
+// useBuildState unmount-flush: pending debounced saves fire on unmount
 // ---------------------------------------------------------------------------
 
-describe('useGridState unmount flush', () => {
+describe('useBuildState unmount flush', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
@@ -1164,7 +1164,7 @@ describe('useGridState unmount flush', () => {
     vi.stubGlobal('fetch', fetchMock);
     const field = makeApiField({ id: 'f1', ref: 'name', label: 'Name', fieldType: 'text' });
     const { result, unmount } = renderHook(() =>
-      useGridState(
+      useBuildState(
         'sig_test',
         [field],
         [{ id: 'r1', capacity: 1, sortOrder: 0, values: { name: '' } }],
@@ -1195,7 +1195,7 @@ describe('useGridState unmount flush', () => {
 // setReminderField + reminder state mirroring
 // ---------------------------------------------------------------------------
 
-describe('useGridState setReminderField', () => {
+describe('useBuildState setReminderField', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -1221,7 +1221,7 @@ describe('useGridState setReminderField', () => {
 
   it('starts from settings: the anchor while reminders are on, null once they are off', () => {
     const on = renderHook(() =>
-      useGridState('sig_test', [textField, dateField], [], {
+      useBuildState('sig_test', [textField, dateField], [], {
         ...defaultSettings,
         sendReminders: true,
         reminderFromFieldRef: 'date',
@@ -1230,7 +1230,7 @@ describe('useGridState setReminderField', () => {
     expect(on.result.current.state.reminderFieldRef).toBe('date');
 
     const off = renderHook(() =>
-      useGridState('sig_test', [textField, dateField], [], {
+      useBuildState('sig_test', [textField, dateField], [], {
         ...defaultSettings,
         sendReminders: false,
         reminderFromFieldRef: 'date',
@@ -1243,7 +1243,7 @@ describe('useGridState setReminderField', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() =>
-      useGridState('sig_test', [textField, dateField], [], {
+      useBuildState('sig_test', [textField, dateField], [], {
         ...defaultSettings,
         sendReminders: false,
         reminderFromFieldRef: 'date',
@@ -1268,7 +1268,7 @@ describe('useGridState setReminderField', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() =>
-      useGridState('sig_test', [textField, dateField], [], {
+      useBuildState('sig_test', [textField, dateField], [], {
         ...defaultSettings,
         sendReminders: true,
         reminderFromFieldRef: 'date',
@@ -1294,7 +1294,7 @@ describe('useGridState setReminderField', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() =>
-      useGridState('sig_test', [textField, dateField], [], {
+      useBuildState('sig_test', [textField, dateField], [], {
         ...defaultSettings,
         sendReminders: false,
         reminderFromFieldRef: 'date',
@@ -1325,7 +1325,7 @@ describe('useGridState setReminderField', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() =>
-      useGridState('sig_test', [textField, dateField, setupDay], [], {
+      useBuildState('sig_test', [textField, dateField, setupDay], [], {
         ...defaultSettings,
         sendReminders: true,
         reminderFromFieldRef: 'date',
@@ -1356,7 +1356,7 @@ describe('useGridState setReminderField', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() =>
-      useGridState('sig_test', [textField, dateField, setupDay], [], {
+      useBuildState('sig_test', [textField, dateField, setupDay], [], {
         ...defaultSettings,
         sendReminders: false,
         reminderFromFieldRef: 'date',
