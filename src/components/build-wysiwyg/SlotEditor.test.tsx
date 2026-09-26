@@ -2,9 +2,9 @@
 import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SlotEditor } from './SlotEditor';
-import type { GridField, GridRow } from '../build-grid/useGridState';
+import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
-function makeField(overrides: Partial<GridField> = {}): GridField {
+function makeField(overrides: Partial<BuildField> = {}): BuildField {
   return {
     id: 'f1',
     ref: 'name',
@@ -15,7 +15,7 @@ function makeField(overrides: Partial<GridField> = {}): GridField {
   };
 }
 
-function makeRow(overrides: Partial<GridRow> = {}): GridRow {
+function makeRow(overrides: Partial<BuildRow> = {}): BuildRow {
   return {
     id: 'r1',
     capacity: 2,
@@ -26,8 +26,8 @@ function makeRow(overrides: Partial<GridRow> = {}): GridRow {
 }
 
 function renderEditor(overrides: {
-  row?: GridRow;
-  fields?: GridField[];
+  row?: BuildRow;
+  fields?: BuildField[];
   onCellChange?: Mock<(fieldRef: string, value: string) => void>;
   onCapacity?: Mock<(capacity: number | null) => void>;
   onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;

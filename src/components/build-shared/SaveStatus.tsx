@@ -3,7 +3,7 @@
 import { Check, AlertCircle } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import type { ErrorCode } from '@/lib/errors';
-import type { SaveStatus } from './useGridState';
+import type { SaveStatus } from './useBuildState';
 
 type SaveStatusProps = {
   status: SaveStatus;

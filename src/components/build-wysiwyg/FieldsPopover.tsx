@@ -3,16 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Bell, ChevronDown, GripVertical, List, Plus, X } from 'lucide-react';
-import { FIELD_TYPE_META } from '../build-grid/fieldTypes';
-import { useReorderable } from '../build-grid/useReorderable';
-import type { GridField } from '../build-grid/useGridState';
+import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
+import { useReorderable } from '../build-shared/useReorderable';
+import type { BuildField } from '../build-shared/useBuildState';
 import type { SlotFieldConfig } from '@/schemas/slot-fields';
 import { InlineFieldForm, type InlineFieldFormMode } from './InlineFieldForm';
 
 type FieldsPopoverProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  fields: GridField[];
+  fields: BuildField[];
   groupByFieldRef: string | null;
   /** Ref of the date field reminders are sent for, or null when they are off. */
   reminderFieldRef: string | null;
@@ -147,13 +147,13 @@ function FieldsPopoverHeader({ title }: { title: string }) {
 }
 
 type FieldsListViewProps = {
-  fields: GridField[];
+  fields: BuildField[];
   groupByFieldRef: string | null;
   reminderFieldRef: string | null;
   onDelete: (fieldId: string) => void;
   onMoveField: (fieldId: string, toIdx: number) => void;
   onGroupByChange: (ref: string | null) => void;
-  onEdit: (field: GridField) => void;
+  onEdit: (field: BuildField) => void;
   onStartCreate: () => void;
 };
 
@@ -277,7 +277,7 @@ function FieldsListView({
 }
 
 type GroupByInlinePickerProps = {
-  fields: GridField[];
+  fields: BuildField[];
   value: string | null;
   onChange: (ref: string | null) => void;
 };
@@ -288,7 +288,7 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Time fields are intentionally excluded — every unique HH:MM would become
-  // its own group, which defeats the purpose. Mirrors the grid's Toolbar.
+  // its own group, which defeats the purpose.
   const groupable = useMemo(
     () =>
       fields.filter(

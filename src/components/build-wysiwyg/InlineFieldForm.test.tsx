@@ -2,9 +2,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { InlineFieldForm } from './InlineFieldForm';
-import type { GridField } from '../build-grid/useGridState';
+import type { BuildField } from '../build-shared/useBuildState';
 
-function makeField(overrides: Partial<GridField> = {}): GridField {
+function makeField(overrides: Partial<BuildField> = {}): BuildField {
   return {
     id: 'f1',
     ref: 'name',
@@ -233,7 +233,7 @@ describe('InlineFieldForm — reminder checkbox', () => {
   const dateField = makeField({ id: 'f-date', ref: 'date', name: 'Date', config: { fieldType: 'date' } });
 
   function renderEdit(
-    field: GridField,
+    field: BuildField,
     reminder: { ref: string | null; label: string | null },
     onSave = vi.fn(),
   ) {
