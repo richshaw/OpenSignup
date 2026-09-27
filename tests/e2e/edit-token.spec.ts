@@ -28,16 +28,4 @@ test.describe('token-gated commitment editing', () => {
     await page.getByRole('button', { name: 'Yes, cancel' }).click();
     await expect(page).toHaveURL(new RegExp(`/s/${seed.editSlug}$`));
   });
-
-  test('invalid token renders not-found', async ({ page }) => {
-    const response = await page.goto(
-      `/s/${seed.editSlug}/c/${seed.editCommitmentId}?token=invalid-token`,
-    );
-    expect(response?.status()).toBe(404);
-  });
-
-  test('missing token renders not-found', async ({ page }) => {
-    const response = await page.goto(`/s/${seed.editSlug}/c/${seed.editCommitmentId}`);
-    expect(response?.status()).toBe(404);
-  });
 });

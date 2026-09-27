@@ -16,6 +16,8 @@ type PageParams = {
 export default async function CommitmentEditPage({ params, searchParams }: PageParams) {
   const { slug, id } = await params;
   const { token } = await searchParams;
+  // A missing token, a wrong one and a deleted sign-up all get the same page
+  // (./not-found.tsx), so a guessed id can't confirm a sign-up exists.
   if (!token) notFound();
   const result = await getOwnCommitment(getDb(), id, token);
   if (!result.ok) notFound();
