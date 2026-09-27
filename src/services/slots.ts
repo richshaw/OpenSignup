@@ -17,7 +17,7 @@ import {
   SlotReorderInputSchema,
   SlotUpdateInputSchema,
 } from '@/schemas/slots';
-import { lockSignupForWrite, lockSlotsForSignup } from './locks';
+import { lockSignupForWrite, lockSlot, lockSlotsForSignup } from './locks';
 import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
 
 type SlotRow = typeof slots.$inferSelect;
@@ -65,6 +65,14 @@ export async function addSlot(
     const settings = (locked.settings as SignupSettingsLike) ?? {};
     const slotAt = extractSlotAt(settings, fields, data.values);
 
+    // An omitted sortOrder appends (`nextSlotSortOrder`), read under the
+    // signup lock so two adds cannot land on the same number. It was epoch
+    // seconds, from before this held the lock: two slots added in the same
+    // second tied, and their order fell to the slot_at tiebreak, so filling
+    // the second with an earlier date moved it above the first. Epoch seconds
+    // also overflow the int column in 2038.
+    const sortOrder = data.sortOrder ?? (await nextSlotSortOrder(tx, signupId));
+
     const ref = await pickAvailableRef(tx, signupId, summarizeValues(data.values));
     const [inserted] = await tx
       .insert(slots)
@@ -75,7 +83,7 @@ export async function addSlot(
         ref,
         values: data.values,
         capacity: data.capacity ?? null,
-        sortOrder: data.sortOrder ?? Math.floor(Date.now() / 1000),
+        sortOrder,
         slotAt,
         status: 'open',
       })
@@ -146,11 +154,10 @@ export async function addSlotsBulk(
     let base: number;
     let shown: SlotRow[] | undefined;
     if (beforeSlotId !== undefined) {
-      // The signup lock keeps every other add and reorder out. `updateSlot` and
-      // `deleteSlot` do not take it, so the slot rows are locked too: a delete
-      // or a browser `sortOrder` PATCH in flight finishes first, and the
-      // target's position found here is still its position when the
-      // renumbering runs.
+      // The signup lock keeps every other add, edit and reorder out.
+      // `deleteSlot` does not take it, so the slot rows are locked too: a
+      // delete in flight finishes first, and the target's position found here
+      // is still its position when the renumbering runs.
       shown = await lockSlotsForSignup(tx, signupId, signupRow.workspaceId);
       base = shown.findIndex((s) => s.id === beforeSlotId);
       if (base < 0) {
@@ -167,11 +174,7 @@ export async function addSlotsBulk(
       // has, in the order given, so a bulk add appends instead of interleaving
       // with the template's 0..n-1 (which is what defaulting to the array
       // index did, and what `addField` had to fix for fields).
-      const [top] = await tx
-        .select({ max: sql<number | null>`max(${slots.sortOrder})` })
-        .from(slots)
-        .where(eq(slots.signupId, signupId));
-      base = (top?.max ?? -1) + 1;
+      base = await nextSlotSortOrder(tx, signupId);
     }
     const out: SlotRow[] = [];
     for (const [index, row] of data.rows.entries()) {
@@ -186,7 +189,7 @@ export async function addSlotsBulk(
           ref,
           values: row.values,
           capacity: row.capacity ?? null,
-          sortOrder: row.sortOrder ?? base + index,
+          sortOrder: row.sortOrder ?? Math.min(base + index, MAX_SORT_ORDER),
           slotAt,
           status: 'open',
         })
@@ -198,7 +201,7 @@ export async function addSlotsBulk(
       // The new rows already sit at the position they were given, base onwards.
       // Everything else is renumbered around them rather than shifted up by
       // the number of new rows: existing orders can be tied (a template's
-      // slots, or several sent as 0) or sparse (`addSlot` uses epoch seconds),
+      // slots, or several sent as 0) or sparse (`addSlot` used epoch seconds),
       // and a shift would keep a tie and leave the new rows on the wrong side
       // of it.
       const ids = shown.map((s) => s.id);
@@ -220,6 +223,33 @@ export async function addSlotsBulk(
     });
     return ok(out);
   });
+}
+
+/** The top of the int `sort_order` column. */
+const MAX_SORT_ORDER = 2_147_483_647;
+
+/**
+ * The order a slot appended to a signup takes: past every slot it has, and
+ * never below how many it has. The caller holds the signup lock.
+ *
+ * Not max + 1 alone: the builder's drag reorder renumbers the slots 0..n-1 one
+ * PATCH at a time, and an add landing between two of them reads a max from
+ * half-renumbered rows that a later PATCH then writes too. At least the count
+ * keeps it clear of 0..n-1. Worked out as a bigint and held at the column's
+ * top, where a slot sent there would otherwise make every later add fail the
+ * insert; past it, appends tie instead.
+ */
+async function nextSlotSortOrder(tx: Queryable, signupId: string): Promise<number> {
+  const [row] = await tx
+    .select({
+      next: sql<number>`least(
+        greatest(coalesce(max(${slots.sortOrder}), -1)::bigint + 1, count(*)),
+        ${MAX_SORT_ORDER}
+      )::int`,
+    })
+    .from(slots)
+    .where(eq(slots.signupId, signupId));
+  return row?.next ?? 0;
 }
 
 /**
@@ -278,9 +308,9 @@ export async function reorderSlots(
 
   return db.transaction(async (tx) => {
     // The same two locks as inserting before a slot, for the same reasons: the
-    // signup row keeps adds and other reorders out, and the slot rows make a
-    // delete or a browser `sortOrder` PATCH in flight finish first, so the
-    // list is checked against the slots the signup really has.
+    // signup row keeps adds, edits and other reorders out, and the slot rows
+    // make a delete in flight finish first, so the list is checked against the
+    // slots the signup really has.
     const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
     if (!locked) return err(serviceError('not_found', 'signup not found'));
     const current = await lockSlotsForSignup(tx, signupId, signupRow.workspaceId);
@@ -340,49 +370,59 @@ export async function updateSlot(
   if (!slotRow) return err(serviceError('not_found', 'slot not found'));
   requireWorkspaceWrite(actor, slotRow.workspaceId);
 
-  if (data.capacity !== undefined && data.capacity !== null) {
-    const sumRows = await db
-      .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
-      .from(commitments)
-      .where(
-        and(
-          eq(commitments.slotId, slotId),
-          or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-        ),
-      );
-    const usedQty = sumRows[0]?.sum ?? 0;
-    if (usedQty > data.capacity) {
-      return err(
-        serviceError(
-          'conflict',
-          `capacity (${data.capacity}) is less than active quantity (${usedQty})`,
-          {
-            field: 'capacity',
-            received: data.capacity,
-            suggestion: 'cancel some commitments before lowering capacity',
-          },
-        ),
-      );
+  return db.transaction(async (tx) => {
+    // Every check below reads under two locks, taken signup first, then the
+    // slot (see src/services/locks.ts). The signup lock makes a field change
+    // or an anchor move in flight finish first, so the values are checked
+    // against the fields as it left them and slot_at comes from the anchor as
+    // it now stands; read before the transaction, a field deleted meanwhile
+    // got its value written back, and the instant came from the old anchor.
+    // The slot lock is the one `commitToSlot` takes, so the count of places
+    // taken cannot go up between the capacity check and the write.
+    const signupRow = await lockSignupForWrite(tx, slotRow.signupId, slotRow.workspaceId);
+    // A soft delete that committed while this waited, as `addSlot` checks.
+    if (!signupRow || signupRow.deletedAt) {
+      return err(serviceError('not_found', 'signup not found'));
     }
-  }
+    const locked = await lockSlot(tx, slotId, slotRow.workspaceId);
+    // Deleted while this waited.
+    if (!locked) return err(serviceError('not_found', 'slot not found'));
 
-  let nextSlotAt: Date | null | undefined;
-  if (data.values !== undefined) {
-    const signupRow = await db
-      .select()
-      .from(signups)
-      .where(eq(signups.id, slotRow.signupId))
-      .limit(1)
-      .then((r) => r[0]);
-    if (!signupRow) return err(serviceError('not_found', 'signup not found'));
-    const fields = await listFieldsForSignup(db, slotRow.signupId);
-    const valid = validateSlotValues(fields, data.values);
-    if (!valid.ok) return valid;
-    const settings = (signupRow.settings as SignupSettingsLike) ?? {};
-    nextSlotAt = extractSlotAt(settings, fields, data.values);
-  }
+    if (data.capacity !== undefined && data.capacity !== null) {
+      const sumRows = await tx
+        .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
+        .from(commitments)
+        .where(
+          and(
+            eq(commitments.slotId, slotId),
+            or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
+          ),
+        );
+      const usedQty = sumRows[0]?.sum ?? 0;
+      if (usedQty > data.capacity) {
+        return err(
+          serviceError(
+            'conflict',
+            `capacity (${data.capacity}) is less than active quantity (${usedQty})`,
+            {
+              field: 'capacity',
+              received: data.capacity,
+              suggestion: 'cancel some commitments before lowering capacity',
+            },
+          ),
+        );
+      }
+    }
 
-  const updated = await db.transaction(async (tx) => {
+    let nextSlotAt: Date | null | undefined;
+    if (data.values !== undefined) {
+      const fields = await listFieldsForSignup(tx, locked.signupId);
+      const valid = validateSlotValues(fields, data.values);
+      if (!valid.ok) return valid;
+      const settings = (signupRow.settings as SignupSettingsLike) ?? {};
+      nextSlotAt = extractSlotAt(settings, fields, data.values);
+    }
+
     const [row] = await tx
       .update(slots)
       .set({
@@ -398,14 +438,13 @@ export async function updateSlot(
 
     await recordActivity(tx, {
       signupId: row.signupId,
-      workspaceId: slotRow.workspaceId,
+      workspaceId: locked.workspaceId,
       actor: activityActor(actor),
       eventType: 'slot.updated',
       payload: { slotId, changed: Object.keys(data) },
     });
-    return row;
+    return ok(row);
   });
-  return ok(updated);
 }
 
 /**
@@ -431,12 +470,7 @@ export async function deleteSlot(
     // outside the transaction left a window where someone could take the last
     // place after the count came back empty, and lose it without the organizer
     // ever being asked.
-    const [locked] = await tx
-      .select()
-      .from(slots)
-      .where(eq(slots.id, slotId))
-      .for('update')
-      .limit(1);
+    const locked = await lockSlot(tx, slotId, slotRow.workspaceId);
     if (!locked) return err(serviceError('not_found', 'slot not found'));
 
     const [booked] = await tx

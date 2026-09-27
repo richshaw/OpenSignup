@@ -107,7 +107,7 @@ export function extractSlotAt(
   const at = new Date(`${dateVal}T${timeOfDay ? `${timeOfDay}:00` : '12:00:00'}.000Z`);
   // An unparseable instant is null, never an Invalid Date. A NaN date is not
   // equal to itself, so recomputeSlotAtForSignup's change check never matches
-  // and it would rewrite that row on every single pass, forever.
+  // and it would send that row back to the database on every single pass.
   return Number.isNaN(at.getTime()) ? null : at;
 }
 
@@ -129,13 +129,15 @@ export async function recomputeSlotAtForSignup(
   if (!signupRow) throw new Error('slot_at rebuild: signup not found under the lock');
   const settings = (signupRow.settings as ReminderSettingsLike) ?? {};
   const fields = await listFieldsForSignup(tx, signupId);
-  // Locked, not just read: a slot edit in flight finishes first, so the instant
-  // written below comes from the values the slot ends up with. Read unlocked,
-  // the edit's new date was invisible here and its slot_at was overwritten
-  // with the old date's.
+  // Locked, not just read. A slot edit takes the signup lock the caller holds,
+  // so none is in flight here; the rows are locked all the same, in the shared
+  // order, before any is written, and a slot held without the signup lock
+  // (someone signing up, a delete) finishes first and comes back as it was
+  // left. Read unlocked, a slot edit that took no signup lock once had its new
+  // date overwritten here with the old date's.
   const slotRows = await lockSlotsForSignup(tx, signupId, workspaceId);
 
-  let updated = 0;
+  const changed: { id: string; at: Date | null }[] = [];
   for (const row of slotRows) {
     const next = extractSlotAt(settings, fields, (row.values as Record<string, unknown>) ?? {});
     const cur = row.slotAt;
@@ -143,10 +145,32 @@ export async function recomputeSlotAtForSignup(
       (next === null && cur === null) ||
       (next instanceof Date && cur instanceof Date && next.getTime() === cur.getTime());
     if (same) continue;
-    await tx.update(slots).set({ slotAt: next }).where(eq(slots.id, row.id));
-    updated++;
+    changed.push({ id: row.id, at: next });
   }
-  return { updated };
+  if (changed.length === 0) return { updated: 0 };
+
+  // One statement for every row that moves, not one per row: the signup lock
+  // and every slot row stay held until this transaction ends, and a slot add
+  // or edit queued behind them waits with a pooled connection in hand. The
+  // rows travel as one JSON parameter (a Date as its ISO string), as in
+  // `writeSlotOrder`. Postgres has the last word on what changed: the check
+  // above compares with the instant as the driver read it back, which for a
+  // year below 100 comes back a century out, so a row sent can still be equal.
+  const wanted = sql`jsonb_to_recordset(${JSON.stringify(changed)}::jsonb)
+    as wanted(id text, at timestamptz)`;
+  const written = await tx
+    .update(slots)
+    .set({ slotAt: sql`wanted.at` })
+    .from(wanted)
+    .where(
+      and(
+        eq(slots.signupId, signupId),
+        sql`${slots.id} = wanted.id`,
+        sql`${slots.slotAt} is distinct from wanted.at`,
+      ),
+    )
+    .returning({ id: slots.id });
+  return { updated: written.length };
 }
 
 export async function addField(
@@ -167,20 +191,6 @@ export async function addField(
     .then((r) => r[0]);
   if (!signupRow) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, signupRow.workspaceId);
-
-  const existing = await db
-    .select({ id: slotFields.id })
-    .from(slotFields)
-    .where(and(eq(slotFields.signupId, signupId), eq(slotFields.ref, data.ref)))
-    .limit(1);
-  if (existing.length > 0) {
-    return err(
-      serviceError('conflict', `field ref "${data.ref}" already exists`, {
-        field: 'ref',
-        received: data.ref,
-      }),
-    );
-  }
 
   const id = makeId('fld');
   return db.transaction(async (tx) => {
@@ -218,8 +228,21 @@ export async function addField(
         sortOrder,
         config: data.config,
       })
+      // The unique index on (signup_id, ref) decides a taken ref, not a read
+      // made first. Two adds of one ref at once (a double click, an MCP
+      // retry) both passed a read made before the transaction, and the second
+      // hit the index as a 500. Now the second waits for the first, on the
+      // signup lock or on the index itself, and inserts nothing.
+      .onConflictDoNothing({ target: [slotFields.signupId, slotFields.ref] })
       .returning();
-    if (!row) throw new Error('field insert failed');
+    if (!row) {
+      return err(
+        serviceError('conflict', `field ref "${data.ref}" already exists`, {
+          field: 'ref',
+          received: data.ref,
+        }),
+      );
+    }
 
     // A signup that just gained its first date field now has something to
     // anchor on, and a new time field may pair with the existing date, so the
@@ -269,39 +292,6 @@ export async function updateField(
   const mismatch = configMismatch(data, existing.fieldType);
   if (mismatch) return err(mismatch);
 
-  // Only a new type or config can make a stored value invalid. A rename or a
-  // reorder cannot, so neither reads every slot of the signup to find that out.
-  const canInvalidate = data.fieldType !== undefined || data.config !== undefined;
-  const slotRows = canInvalidate
-    ? await db
-        .select({ id: slots.id, values: slots.values })
-        .from(slots)
-        .where(eq(slots.signupId, existing.signupId))
-    : [];
-
-  const nextDef: SlotFieldDefinition = {
-    id: existing.id,
-    ref: existing.ref,
-    label: data.label ?? existing.label,
-    fieldType: (data.fieldType ?? existing.fieldType) as SlotFieldDefinition['fieldType'],
-    sortOrder: data.sortOrder ?? existing.sortOrder,
-    config: (data.config ?? (existing.config as SlotFieldConfig)) as SlotFieldConfig,
-  };
-
-  const offending: string[] = [];
-  for (const row of slotRows) {
-    const values = (row.values as Record<string, unknown>) ?? {};
-    const r = validateOneValue(nextDef, values[existing.ref]);
-    if (!r.ok) offending.push(row.id);
-  }
-  if (offending.length > 0) {
-    return err(
-      serviceError('conflict', 'change would invalidate existing slot values', {
-        details: { slotIds: offending.slice(0, 20), count: offending.length },
-      }),
-    );
-  }
-
   return db.transaction(async (tx) => {
     // The re-anchor below reads settings and writes them back, and the rebuild
     // writes slot rows: both need the signup lock, as in `addField`. Taken even
@@ -321,6 +311,43 @@ export async function updateField(
     if (!current) return err(serviceError('not_found', 'field not found'));
     const stale = configMismatch(data, current.fieldType);
     if (stale) return err(stale);
+
+    // Only a new type or config can make a stored value invalid. A rename or a
+    // reorder cannot, so neither reads every slot of the signup to find that
+    // out. The check runs here, not before the transaction: every service that
+    // writes slot values (adding, editing, the delete of a field) takes the
+    // signup lock this holds, so a write that got in first has committed and
+    // this read sees it, and none can start until this ends. Read before the
+    // transaction, a value saved in between went unchecked and was left
+    // invalid, and a date the new type refused silently stopped that slot's
+    // reminders. The rows are read, not locked: the signup lock is what keeps
+    // writers out, and a slot row lock would only make this wait for, and hold
+    // up, people signing up (the builder sends the type and config with every
+    // field save, a rename included).
+    if (data.fieldType !== undefined || data.config !== undefined) {
+      const slotRows = await tx
+        .select({ id: slots.id, values: slots.values })
+        .from(slots)
+        .where(eq(slots.signupId, current.signupId));
+      const nextDef: SlotFieldDefinition = {
+        ...rowToDefinition(current),
+        ...(data.fieldType !== undefined ? { fieldType: data.fieldType } : {}),
+        ...(data.config !== undefined ? { config: data.config } : {}),
+      };
+      const offending: string[] = [];
+      for (const row of slotRows) {
+        const values = (row.values as Record<string, unknown>) ?? {};
+        const r = validateOneValue(nextDef, values[current.ref]);
+        if (!r.ok) offending.push(row.id);
+      }
+      if (offending.length > 0) {
+        return err(
+          serviceError('conflict', 'change would invalidate existing slot values', {
+            details: { slotIds: offending.slice(0, 20), count: offending.length },
+          }),
+        );
+      }
+    }
 
     const [row] = await tx
       .update(slotFields)
