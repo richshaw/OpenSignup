@@ -259,7 +259,10 @@ describe('slot-fields service (db)', () => {
 
       let adding: ReturnType<typeof addField> | undefined;
       const held = fx.db.transaction(async (tx) => {
-        // What `updateSlot` does, held open: move the slot to July.
+        // What `updateSlot` does, held open: lock the signup, then the slot,
+        // and move the slot to July.
+        await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
+        await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
         await tx
           .update(slots)
           .set({

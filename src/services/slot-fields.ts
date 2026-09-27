@@ -129,10 +129,12 @@ export async function recomputeSlotAtForSignup(
   if (!signupRow) throw new Error('slot_at rebuild: signup not found under the lock');
   const settings = (signupRow.settings as ReminderSettingsLike) ?? {};
   const fields = await listFieldsForSignup(tx, signupId);
-  // Locked, not just read: a slot edit in flight finishes first, so the instant
-  // written below comes from the values the slot ends up with. Read unlocked,
-  // the edit's new date was invisible here and its slot_at was overwritten
-  // with the old date's.
+  // Locked, not just read. A slot edit takes the signup lock the caller holds,
+  // so none is in flight here; the rows are locked all the same, in the shared
+  // order, before any is written, and a slot held without the signup lock
+  // (someone signing up, a delete) finishes first and comes back as it was
+  // left. Read unlocked, a slot edit that took no signup lock once had its new
+  // date overwritten here with the old date's.
   const slotRows = await lockSlotsForSignup(tx, signupId, workspaceId);
 
   let updated = 0;
