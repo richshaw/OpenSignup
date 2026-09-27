@@ -21,19 +21,29 @@ const SENTINEL_ORIGIN = 'https://callback.invalid';
  * starts with a single slash here and arrives as the protocol-relative
  * `//evil.example` there. Node passes a tab through in a `Location` header
  * verbatim, so `redirect()` on such a path was an open redirect, and
- * `router.replace()` on one is the same. Parsing against an origin nothing can
- * be on catches that by construction, along with the `//` and backslash forms
- * and whatever else the parser folds — the same shape `/login/confirm` already
- * uses to vet its `next`.
+ * `router.replace()` on one is the same.
+ *
+ * The origin check only says the input stayed put; what the browser gets is
+ * the path the parser wrote back, and the parse rewrites it (dot segments go,
+ * `\` becomes `/`, an authority naming the sentinel host is absorbed). So
+ * `/.//evil.example` and `//callback.invalid//evil.example` both resolve on
+ * the sentinel origin with a pathname of `//evil.example`, which the browser
+ * reads as another host. The returned path is checked too: an `https:`
+ * pathname always starts with `/` and never holds a backslash, tab, LF or CR,
+ * so a leading `//` is the one way it can leave the site.
+ *
+ * A repeated query key reaches a page as an array, so a non-string falls back.
  */
-export function safeCallbackUrl(raw: string | undefined | null): string {
-  if (!raw || !raw.startsWith('/')) return DEFAULT_CALLBACK;
+export function safeCallbackUrl(raw: string | string[] | undefined | null): string {
+  if (typeof raw !== 'string' || !raw.startsWith('/')) return DEFAULT_CALLBACK;
   let resolved: URL;
   try {
     resolved = new URL(raw, SENTINEL_ORIGIN);
   } catch {
     return DEFAULT_CALLBACK;
   }
-  if (resolved.origin !== SENTINEL_ORIGIN) return DEFAULT_CALLBACK;
+  if (resolved.origin !== SENTINEL_ORIGIN || resolved.pathname.startsWith('//')) {
+    return DEFAULT_CALLBACK;
+  }
   return `${resolved.pathname}${resolved.search}${resolved.hash}`;
 }

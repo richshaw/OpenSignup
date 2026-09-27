@@ -31,10 +31,55 @@ describe('safeCallbackUrl', () => {
   });
 
   it('rejects an absolute URL even on our own sentinel origin', () => {
-    expect(safeCallbackUrl('https://callback.invalid/app')).toBe('/app');
+    expect(safeCallbackUrl('https://callback.invalid/oauth/consent/abc')).toBe('/app');
   });
 
-  it('normalises traversal rather than passing it through', () => {
+  it('rejects input the parse rewrites into a path starting with //', () => {
+    // Each of these resolves on the sentinel origin, but dot-segment removal,
+    // backslash folding or an authority naming the sentinel host leaves a
+    // pathname of `//evil.example`, which the browser reads as another host.
+    for (const raw of [
+      '/.//evil.example',
+      '/..//evil.example',
+      '/app/..//evil.example',
+      '/%2e//evil.example',
+      '/%2E%2E//evil.example',
+      '/./\\evil.example',
+      '/.\\/evil.example',
+      '/\t.//evil.example',
+      '//callback.invalid//evil.example',
+      '////callback.invalid//evil.example',
+      '//CALLBACK.INVALID:443//evil.example',
+      '/\t/callback.invalid//evil.example',
+      '/\\callback.invalid\\/evil.example',
+    ]) {
+      expect(safeCallbackUrl(raw), JSON.stringify(raw)).toBe('/app');
+    }
+  });
+
+  it('returns a path that stays on the site and is unchanged by a second pass', () => {
+    const site = 'https://opensignup.example';
+    for (const raw of [
+      '/oauth/consent/abc',
+      '/app/signups/sig_abc?tab=responses#row-3',
+      '/app/../../etc/passwd',
+      '/app/./signups//sig_abc',
+      '/.//evil.example',
+      '//callback.invalid//evil.example',
+      '/\t/evil.example',
+      '/app\\..\\..\\/evil.example',
+    ]) {
+      const out = safeCallbackUrl(raw);
+      expect(new URL(out, site).origin, JSON.stringify(raw)).toBe(site);
+      expect(safeCallbackUrl(out), JSON.stringify(raw)).toBe(out);
+    }
+  });
+
+  it('resolves dot segments within the site', () => {
     expect(safeCallbackUrl('/app/../../etc/passwd')).toBe('/etc/passwd');
+  });
+
+  it('falls back when a repeated query key arrives as an array', () => {
+    expect(safeCallbackUrl(['/app/signups', '/oauth/consent/abc'])).toBe('/app');
   });
 });
