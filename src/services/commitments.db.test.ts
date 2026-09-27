@@ -17,7 +17,13 @@ import {
   maxQuantityForCommitment,
   updateOwnCommitment,
 } from '@/services/commitments';
-import { createSignup, publishSignup } from '@/services/signups';
+import {
+  archiveSignup,
+  closeSignup,
+  createSignup,
+  publishSignup,
+  updateSignup,
+} from '@/services/signups';
 import { addSlot, deleteSlot } from '@/services/slots';
 import { settle, untilServiceBlockedOn } from '@/services/testing/locks';
 
@@ -410,6 +416,192 @@ describe('updateOwnCommitment quantity edit under concurrency (db)', () => {
       .from(commitments)
       .where(and(eq(commitments.slotId, slot.value.id), eq(commitments.status, 'confirmed')));
     expect(booked?.places).toBe(4);
+  });
+});
+
+// A signup takes no more places once the organizer closes or archives it, or
+// its closesAt passes. Signing up already checked that; raising a quantity
+// through an edit link did not. Lowering it, fixing a name or notes, and
+// cancelling only give places back or correct details, so they still work.
+describe('updateOwnCommitment on a signup that takes no more places (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  const SHUT: Array<
+    [
+      string,
+      (fx: Fixture, signupId: string) => Promise<unknown>,
+      { reason: string; detail: string },
+    ]
+  > = [
+    [
+      'closed',
+      (fx, id) => closeSignup(fx.db, fx.actor, id),
+      { reason: 'closed', detail: 'signup_closed' },
+    ],
+    [
+      'archived',
+      (fx, id) => archiveSignup(fx.db, fx.actor, id),
+      { reason: 'closed', detail: 'signup_archived' },
+    ],
+    [
+      'past its closesAt',
+      (fx, id) =>
+        updateSignup(fx.db, fx.actor, id, {
+          closesAt: new Date(Date.now() - 60_000).toISOString(),
+        }),
+      { reason: 'over_window', detail: 'closes_at_elapsed' },
+    ],
+  ];
+
+  /** An open signup (one slot, capacity 5) where Pat holds 2 places. */
+  async function holdingTwo(title: string) {
+    const a = await makeOpenSignupWithSlot(fx, title);
+    const mine = await commitToSlot(fx.db, a.slotId, {
+      name: 'Pat Example',
+      email: 'pat@example.com',
+      notes: 'original',
+      quantity: 2,
+    });
+    if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
+    return { ...a, commitment: mine.value.commitment, editToken: mine.value.editToken };
+  }
+
+  async function shut(
+    shutDown: (fx: Fixture, signupId: string) => Promise<unknown>,
+    signupId: string,
+  ) {
+    const r = (await shutDown(fx, signupId)) as { ok: boolean };
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+  }
+
+  async function activityOf(
+    signupId: string,
+    eventType: 'commitment.attempt_failed' | 'commitment.updated',
+  ) {
+    return fx.db
+      .select()
+      .from(activity)
+      .where(and(eq(activity.signupId, signupId), eq(activity.eventType, eventType)));
+  }
+
+  it.each(SHUT)('refuses an increase on a signup %s', async (name, shutDown, logged) => {
+    const s = await holdingTwo(`Increase, ${name}`);
+    await shut(shutDown, s.signupId);
+
+    const r = await updateOwnCommitment(fx.db, s.commitment.id, s.editToken, {
+      quantity: 3,
+      notes: 'changed',
+    });
+    expect(r.ok, JSON.stringify(r)).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('closed');
+
+    // Nothing in the request was written, the notes included.
+    const [row] = await fx.db
+      .select({ quantity: commitments.quantity, notes: commitments.notes })
+      .from(commitments)
+      .where(eq(commitments.id, s.commitment.id));
+    expect(row).toEqual({ quantity: 2, notes: 'original' });
+    expect(await activityOf(s.signupId, 'commitment.updated')).toHaveLength(0);
+
+    // The refusal is logged the way a refused sign-up is.
+    const failed = await activityOf(s.signupId, 'commitment.attempt_failed');
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.actorType).toBe('participant');
+    expect(failed[0]?.payload).toEqual({
+      slotId: s.slotId,
+      ...logged,
+      source: 'update',
+      requested: 3,
+    });
+  });
+
+  it.each(SHUT)('lets a decrease through on a signup %s', async (name, shutDown) => {
+    const s = await holdingTwo(`Decrease, ${name}`);
+    await shut(shutDown, s.signupId);
+
+    const r = await updateOwnCommitment(fx.db, s.commitment.id, s.editToken, { quantity: 1 });
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    if (r.ok) expect(r.value.quantity).toBe(1);
+    expect(await activityOf(s.signupId, 'commitment.attempt_failed')).toHaveLength(0);
+  });
+
+  // The edit page sends the quantity it shows with every save, so a name or
+  // notes change arrives with the quantity unchanged.
+  it.each(SHUT)('lets a name and notes change through on a signup %s', async (name, shutDown) => {
+    const s = await holdingTwo(`Details, ${name}`);
+    await shut(shutDown, s.signupId);
+
+    const r = await updateOwnCommitment(fx.db, s.commitment.id, s.editToken, {
+      name: 'Pat Q. Example',
+      notes: 'changed',
+      quantity: 2,
+    });
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    if (r.ok)
+      expect({ quantity: r.value.quantity, notes: r.value.notes }).toEqual({
+        quantity: 2,
+        notes: 'changed',
+      });
+    const [p] = await fx.db
+      .select({ name: participants.name })
+      .from(participants)
+      .where(eq(participants.id, s.commitment.participantId));
+    expect(p?.name).toBe('Pat Q. Example');
+  });
+
+  it.each(SHUT)('lets a cancel through on a signup %s', async (name, shutDown) => {
+    const s = await holdingTwo(`Cancel, ${name}`);
+    await shut(shutDown, s.signupId);
+
+    const r = await cancelOwnCommitment(fx.db, s.commitment.id, s.editToken);
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    const [row] = await fx.db
+      .select({ status: commitments.status })
+      .from(commitments)
+      .where(eq(commitments.id, s.commitment.id));
+    expect(row?.status).toBe('cancelled');
+  });
+
+  // The edit page caps its field with this; offering more than the save
+  // accepts would only lead to the error.
+  it.each(SHUT)('caps the edit page at what is held on a signup %s', async (name, shutDown) => {
+    const s = await holdingTwo(`Max, ${name}`);
+    expect(await maxQuantityForCommitment(fx.db, s.commitment)).toBe(5);
+    await shut(shutDown, s.signupId);
+    expect(await maxQuantityForCommitment(fx.db, s.commitment)).toBe(2);
+  });
+
+  // The signup is read after the commitment lock, so a close that commits
+  // while the edit waits on it is seen, not the open signup the edit link's
+  // pre-flight read found.
+  it('refuses an increase when the signup closes while it waits on the commitment', async () => {
+    const s = await holdingTwo('Closed while queued');
+
+    let editing: ReturnType<typeof updateOwnCommitment> | undefined;
+    const held = fx.db.transaction(async (tx) => {
+      await tx.select().from(commitments).where(eq(commitments.id, s.commitment.id)).for('update');
+      editing = updateOwnCommitment(fx.db, s.commitment.id, s.editToken, { quantity: 3 });
+      await untilServiceBlockedOn(fx.db, tx, editing);
+      await shut((fx, id) => closeSignup(fx.db, fx.actor, id), s.signupId);
+    });
+    await held.finally(() => settle(editing));
+
+    const r = await editing!;
+    expect(r.ok, JSON.stringify(r)).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('closed');
+    const [row] = await fx.db
+      .select({ quantity: commitments.quantity })
+      .from(commitments)
+      .where(eq(commitments.id, s.commitment.id));
+    expect(row?.quantity).toBe(2);
   });
 });
 

@@ -64,6 +64,38 @@ async function safeRecordAttemptFailed(
   }
 }
 
+/**
+ * Why a signup takes no more places, or null while it still does: its status
+ * is anything but `open` (a draft, closed or archived signup), or its
+ * `closesAt` has passed. Signing up (`commitToSlot`, and so a move to another
+ * slot) and raising a quantity (`updateOwnCommitment`) both ask this, so a
+ * place refused one way cannot be had the other. `reason` and `detail` are
+ * for the attempt_failed row.
+ */
+function whyNotTakingPlaces(
+  signup: typeof signups.$inferSelect,
+): { reason: 'closed' | 'over_window'; detail: string; error: ServiceError } | null {
+  if (signup.status !== 'open') {
+    return {
+      reason: 'closed',
+      detail: `signup_${signup.status}`,
+      error: serviceError('closed', 'signup is not accepting commitments', {
+        field: 'status',
+        received: signup.status,
+        expected: 'open',
+      }),
+    };
+  }
+  if (signup.closesAt && signup.closesAt.getTime() < Date.now()) {
+    return {
+      reason: 'over_window',
+      detail: 'closes_at_elapsed',
+      error: serviceError('closed', 'signup has closed'),
+    };
+  }
+  return null;
+}
+
 export interface CommitResult {
   commitment: CommitmentRow;
   editToken: string;
@@ -107,31 +139,16 @@ export async function commitToSlot(
       });
       return err(serviceError('closed', 'that slot is closed'));
     }
-    if (signupRow.status !== 'open') {
+    const shut = whyNotTakingPlaces(signupRow);
+    if (shut) {
       await safeRecordAttemptFailed(tx, {
         signupId: signupRow.id,
         workspaceId: signupRow.workspaceId,
         actorId: null,
         actorType: 'system',
-        payload: { slotId, reason: 'closed', detail: `signup_${signupRow.status}` },
+        payload: { slotId, reason: shut.reason, detail: shut.detail },
       });
-      return err(
-        serviceError('closed', 'signup is not accepting commitments', {
-          field: 'status',
-          received: signupRow.status,
-          expected: 'open',
-        }),
-      );
-    }
-    if (signupRow.closesAt && signupRow.closesAt.getTime() < Date.now()) {
-      await safeRecordAttemptFailed(tx, {
-        signupId: signupRow.id,
-        workspaceId: signupRow.workspaceId,
-        actorId: null,
-        actorType: 'system',
-        payload: { slotId, reason: 'over_window', detail: 'closes_at_elapsed' },
-      });
-      return err(serviceError('closed', 'signup has closed'));
+      return err(shut.error);
     }
 
     // Lockout before slot if configured. Counted back from slot_at, so for a
@@ -470,22 +487,53 @@ export async function updateOwnCommitment(
       .limit(1);
     if (!locked) return err(serviceError('not_found', 'commitment not found'));
     // `getOwnCommitment` found the signup live, but this may have queued on
-    // the locks above while it was deleted. Read after them, as `commitToSlot`
-    // does, and before anything is written.
-    if (!(await readLiveSignup(tx, locked.signupId))) {
-      return err(serviceError('not_found', 'commitment not found'));
-    }
+    // the locks above while it was deleted, or closed. Read after them, as
+    // `commitToSlot` does, and before anything is written. Read, not locked:
+    // the signup lock never comes after a slot's (src/services/locks.ts).
+    const signupRow = await readLiveSignup(tx, locked.signupId);
+    if (!signupRow) return err(serviceError('not_found', 'commitment not found'));
     // A terminal commitment always takes the conflict path, whatever else the
-    // edit asks for: the capacity guard would otherwise answer `capacity_full`,
-    // and write an attempt_failed row, for a commitment nobody can act on.
+    // edit asks for: the checks below would otherwise answer `closed` or
+    // `capacity_full`, and write an attempt_failed row, for a commitment
+    // nobody can act on.
     if (!ACTIVE_COMMITMENT_STATUSES.includes(locked.status)) {
       return err(serviceError('conflict', 'commitment is not active'));
     }
 
-    // Capacity guard: only fires when quantity *increases* on the same slot.
-    // The swap path (slotId change) returns earlier and re-runs the full
-    // capacity check via commitToSlot, so a slot move never reaches here.
+    // Guards that only fire when quantity *increases* on the same slot. The
+    // swap path (slotId change) returns earlier and re-runs both through
+    // commitToSlot, so a slot move never reaches here.
     if (data.quantity !== undefined && data.quantity > locked.quantity) {
+      // Taking more places needs the signup to be taking them, by the same
+      // rule as signing up: open, and not past `closesAt`. Without this, a
+      // participant could add places after the organizer closed or archived
+      // the signup by raising a quantity instead of signing up again.
+      //
+      // Everything else an edit link does stays allowed on a signup that is
+      // not taking places: lowering the quantity and cancelling give places
+      // back, and a name or notes change only corrects a place already held.
+      // Closing stops new places being taken; it does not hold anyone to a
+      // place they can no longer fill, and refusing would leave the organizer
+      // a no-show rather than a gap they can see. `cancelOwnCommitment` makes
+      // no check for the same reason.
+      const shut = whyNotTakingPlaces(signupRow);
+      if (shut) {
+        await safeRecordAttemptFailed(tx, {
+          signupId: signupRow.id,
+          workspaceId: signupRow.workspaceId,
+          actorId: current.participantId,
+          actorType: 'participant',
+          payload: {
+            slotId: current.slotId,
+            reason: shut.reason,
+            detail: shut.detail,
+            source: 'update',
+            requested: data.quantity,
+          },
+        });
+        return err({ ...shut.error, suggestion: 'keep the quantity as it is, or lower it' });
+      }
+
       const cap = slotRows[0]?.capacity ?? null;
       if (cap !== null) {
         const sumRows = await tx
@@ -576,7 +624,9 @@ export async function cancelOwnCommitment(
   return db.transaction(async (tx) => {
     // Lock the row, then check the signup is still there, as `updateOwnCommitment`
     // does: `getOwnCommitment` read before this, and a cancel queued on the row
-    // while the signup was deleted must not write to it.
+    // while the signup was deleted must not write to it. Its status and
+    // `closesAt` go unchecked on purpose: a cancel only gives a place back,
+    // which a closed or archived signup still takes (see `updateOwnCommitment`).
     await tx
       .select({ id: commitments.id })
       .from(commitments)
@@ -676,16 +726,22 @@ export async function committedBySlot(db: Db, signupId: string): Promise<Record<
  * less what every *other* confirmed or tentative commitment holds, which is
  * the sum the quantity guard in `updateOwnCommitment` checks an increase
  * against (waitlisted places don't count against capacity). `null`
- * when the slot is unlimited. The edit page uses it to leave the quantity
- * field out when the answer is 1, since 1 is then the only value it accepts.
+ * when the slot is unlimited. On a signup that takes no more places (closed,
+ * archived, or past `closesAt`) it is what the commitment holds now, since the
+ * guard refuses any increase there. The edit page uses it to leave the
+ * quantity field out when the answer is 1, since 1 is then the only value it
+ * accepts.
  *
  * Guard-free, like `committedBySlot`: call it only with a commitment that
  * `getOwnCommitment` has already verified against its edit token.
  */
 export async function maxQuantityForCommitment(
   db: Db,
-  commitment: { id: string; slotId: string },
+  commitment: { id: string; slotId: string; signupId: string; quantity: number },
 ): Promise<number | null> {
+  const signup = await readLiveSignup(db, commitment.signupId);
+  if (signup && whyNotTakingPlaces(signup)) return commitment.quantity;
+
   const slotRows = await db
     .select({ capacity: slots.capacity })
     .from(slots)
