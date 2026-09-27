@@ -20,6 +20,7 @@ import {
   deleteSignup,
   getPublicSignup,
   getSignupForOrganizer,
+  getSignupRowForOrganizer,
   listSignupsForWorkspace,
   publishSignup,
   updateSignup,
@@ -414,6 +415,46 @@ describe('signups service (db)', () => {
       try {
         await expect(
           getSignupForOrganizer(otherFx.db, otherFx.actor, created.value.id),
+        ).rejects.toThrow(/not a member/);
+      } finally {
+        await teardownWorkspace(otherFx.db, otherFx.workspaceId, otherFx.organizerId);
+      }
+    });
+  });
+
+  describe('getSignupRowForOrganizer', () => {
+    it('returns the row for an authorized actor', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Row'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const r = await getSignupRowForOrganizer(fx.db, fx.actor, created.value.id);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.id).toBe(created.value.id);
+    });
+
+    it('returns not_found once soft-deleted, so the routes hanging off it stop serving', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Gone'));
+      if (!created.ok) throw new Error('setup failed');
+      await fx.db
+        .update(signups)
+        .set({ deletedAt: new Date() })
+        .where(eq(signups.id, created.value.id));
+
+      const r = await getSignupRowForOrganizer(fx.db, fx.actor, created.value.id);
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('not_found');
+    });
+
+    it('rejects access from a different workspace', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Theirs'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const otherFx = await setupWorkspace();
+      try {
+        await expect(
+          getSignupRowForOrganizer(otherFx.db, otherFx.actor, created.value.id),
         ).rejects.toThrow(/not a member/);
       } finally {
         await teardownWorkspace(otherFx.db, otherFx.workspaceId, otherFx.organizerId);
