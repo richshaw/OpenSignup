@@ -292,17 +292,22 @@ export async function updateField(
     if (stale) return err(stale);
 
     // Only a new type or config can make a stored value invalid. A rename or a
-    // reorder cannot, so neither locks every slot of the signup to find that
-    // out. The check runs here, not before the transaction: a slot add or edit
-    // takes the signup lock this holds, so one that got in first has committed
-    // and is checked, and none can start until this ends. Read unlocked before
-    // the transaction, a value saved in between went unchecked and was left
+    // reorder cannot, so neither reads every slot of the signup to find that
+    // out. The check runs here, not before the transaction: every service that
+    // writes slot values (adding, editing, the delete of a field) takes the
+    // signup lock this holds, so a write that got in first has committed and
+    // this read sees it, and none can start until this ends. Read before the
+    // transaction, a value saved in between went unchecked and was left
     // invalid, and a date the new type refused silently stopped that slot's
-    // reminders. The rows are locked, not just read, in the shared order, so
-    // the check does not rest on every writer of slot values taking the
-    // signup lock.
+    // reminders. The rows are read, not locked: the signup lock is what keeps
+    // writers out, and a slot row lock would only make this wait for, and hold
+    // up, people signing up (the builder sends the type and config with every
+    // field save, a rename included).
     if (data.fieldType !== undefined || data.config !== undefined) {
-      const slotRows = await lockSlotsForSignup(tx, current.signupId, current.workspaceId);
+      const slotRows = await tx
+        .select({ id: slots.id, values: slots.values })
+        .from(slots)
+        .where(eq(slots.signupId, current.signupId));
       const nextDef: SlotFieldDefinition = {
         ...rowToDefinition(current),
         ...(data.fieldType !== undefined ? { fieldType: data.fieldType } : {}),

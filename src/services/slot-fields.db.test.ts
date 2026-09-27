@@ -654,26 +654,49 @@ describe('slot-fields service (db)', () => {
       expect(field?.fieldType).toBe('text');
     });
 
-    it('does not deadlock with someone signing up when a config change checks stored values', async () => {
-      const sigId = await createTestSignup(fx, 'Loosen enum during sign-up');
+    it('checks stored values without waiting for someone part-way through signing up', async () => {
+      const sigId = await createTestSignup(fx, 'Field saves while committing');
+      const config = { fieldType: 'enum', choices: ['Math', 'Science'] } as const;
       const created = await addField(fx.db, fx.actor, sigId, {
         ref: 'subject',
         label: 'Subject',
         fieldType: 'enum',
-        config: { fieldType: 'enum', choices: ['Math', 'Science'] },
+        config,
       });
       if (!created.ok) throw new Error('setup failed');
       const slot = await addSlot(fx.db, fx.actor, sigId, { values: { subject: 'Science' } });
       if (!slot.ok) throw new Error('slot setup failed');
 
-      const at = { signupId: sigId, workspaceId: fx.workspaceId, slotId: slot.value.id };
-      const r = await whileSigningUp(fx.db, at, () =>
-        updateField(fx.db, fx.actor, created.value.id, {
-          fieldType: 'enum',
-          config: { fieldType: 'enum', choices: ['Math', 'Science', 'Music'] },
-        }),
-      );
-      expect(r.ok, JSON.stringify(r)).toBe(true);
+      // What the builder's Fields dialog sends for a rename (the type and
+      // config come along unchanged), and a choice added from a slot's cell.
+      const saves = [
+        { label: 'Class', fieldType: 'enum', config },
+        { fieldType: 'enum', config: { ...config, choices: [...config.choices, 'Music'] } },
+      ];
+      const outcomes: string[] = [];
+      const pending: Promise<unknown>[] = [];
+      await fx.db.transaction(async (tx) => {
+        // What `commitToSlot` does, held open: lock the slot row.
+        await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
+        for (const save of saves) {
+          const saving = updateField(fx.db, fx.actor, created.value.id, save);
+          pending.push(saving.catch(() => undefined));
+          // Neither can make the stored value invalid, and the check only
+          // reads the slot rows, so both finish while this one is still held.
+          outcomes.push(
+            await Promise.race([
+              saving.then((r) => (r.ok ? 'saved' : JSON.stringify(r))),
+              untilBlockedOn(fx.db, tx, 5_000).then(
+                () => 'blocked behind the slot row',
+                () => 'neither finished nor blocked',
+              ),
+            ]),
+          );
+        }
+      });
+      // Let a blocked save finish before the next test or the teardown runs.
+      await Promise.all(pending);
+      expect(outcomes).toEqual(['saved', 'saved']);
     });
 
     it('does not check stored values for a rename or a reorder', async () => {
