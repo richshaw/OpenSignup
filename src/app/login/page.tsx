@@ -19,7 +19,7 @@ export const metadata = { title: 'Sign in', robots: { index: false } };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; callbackUrl?: string }>;
+  searchParams: Promise<{ error?: string; callbackUrl?: string | string[] }>;
 }) {
   const params = await searchParams;
   const session = await getOrganizerSession();
