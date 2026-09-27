@@ -1,0 +1,121 @@
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { SlotFieldUpdateInputSchema } from '@/schemas/slot-fields';
+import { SlotBulkInputSchema } from '@/schemas/slots';
+import { RESOURCE_SCOPES } from '@/oauth/scopes';
+import { toJsonSchema } from './registry';
+import { COMPILED_TOOLS, TOOLS, toolScope } from './tools';
+
+describe('toJsonSchema', () => {
+  it('emits an object-rooted schema with no $schema and no $ref', () => {
+    const json = toJsonSchema(
+      z.object({ signupId: z.string(), status: z.enum(['open', 'closed']).optional() }),
+    ) as Record<string, unknown>;
+    expect(json.type).toBe('object');
+    expect(json).not.toHaveProperty('$schema');
+    expect(JSON.stringify(json)).not.toContain('$ref');
+    expect(json.required as string[]).toEqual(['signupId']);
+  });
+
+  it('inlines a sub-schema that is reused, instead of a $ref pointer clients cannot follow', () => {
+    const Values = z.object({ a: z.string() });
+    const json = toJsonSchema(z.object({ first: Values, second: Values, rows: SlotBulkInputSchema.shape.rows }));
+    const text = JSON.stringify(json);
+    expect(text).not.toContain('$ref');
+    expect((json as { properties: Record<string, { type?: string }> }).properties.second?.type).toBe('object');
+  });
+
+  it('keeps strict objects closed when extended with an id', () => {
+    const json = toJsonSchema(SlotFieldUpdateInputSchema.extend({ fieldId: z.string() })) as Record<string, unknown>;
+    expect(json.additionalProperties).toBe(false);
+    expect(Object.keys(json.properties as object)).toContain('fieldId');
+  });
+});
+
+describe('the tool registry', () => {
+  it('gives every tool a resource scope and an object-rooted, reference-free schema', () => {
+    expect(TOOLS.length).toBeGreaterThan(0);
+    const names = new Set<string>();
+    for (const tool of TOOLS) {
+      expect(names.has(tool.name), `duplicate tool name ${tool.name}`).toBe(false);
+      names.add(tool.name);
+      expect(RESOURCE_SCOPES).toContain(tool.scope);
+      const json = toJsonSchema(tool.inputSchema) as Record<string, unknown>;
+      expect(json.type, tool.name).toBe('object');
+      expect(JSON.stringify(json), tool.name).not.toContain('$ref');
+      expect(tool.description.length, tool.name).toBeGreaterThan(40);
+    }
+  });
+
+  it('gives every tool a title and both hints, as the Claude connectors directory requires', () => {
+    for (const { def, config } of COMPILED_TOOLS) {
+      expect(def.title.trim(), def.name).not.toBe('');
+      expect(config.annotations.title, def.name).toBe(def.title);
+      expect(config.annotations.openWorldHint, def.name).toBe(false);
+      // Read-scoped tools only read; write-scoped tools say whether they destroy.
+      if (def.scope.endsWith(':read')) {
+        expect(config.annotations.readOnlyHint, def.name).toBe(true);
+      } else {
+        expect(config.annotations.readOnlyHint, def.name).toBe(false);
+        expect(typeof config.annotations.destructiveHint, def.name).toBe('boolean');
+      }
+    }
+  });
+
+  it('marks destructive every tool it asks the organizer about first', () => {
+    for (const tool of TOOLS.filter((t) => t.askFirst)) {
+      expect(tool.annotations.destructiveHint, tool.name).toBe(true);
+    }
+  });
+
+  it('describes what each tool does without telling the model how to behave', () => {
+    // The Claude connectors directory refuses descriptions that steer the
+    // model or hide text. Ask-first, publish and show-as-a-table guidance
+    // belongs in the server instructions, which build theirs from askFirst.
+    const directive = /\bask the organizer\b|\bconfirm with\b|\b(show|tell) the organizer\b|\bonly if they agree\b/i;
+    const hidden = /[\p{Cc}\p{Cf}]/u;
+    const descriptions = (node: unknown): string[] =>
+      node && typeof node === 'object'
+        ? Object.entries(node).flatMap(([key, value]) =>
+            key === 'description' && typeof value === 'string' ? [value] : descriptions(value),
+          )
+        : [];
+    for (const tool of TOOLS) {
+      for (const text of [tool.title, tool.description, ...descriptions(toJsonSchema(tool.inputSchema))]) {
+        expect(text, tool.name).not.toMatch(directive);
+        expect(text, tool.name).not.toMatch(hidden);
+      }
+    }
+  });
+
+  it('toolScope answers for known tools and null for unknown ones', () => {
+    expect(toolScope('list_signups')).toBe('signups:read');
+    expect(toolScope('create_signup')).toBe('signups:write');
+    expect(toolScope('nope')).toBeNull();
+  });
+
+  it('exposes exactly this roster', () => {
+    // Spelled out rather than derived from TOOLS: the flow test compares the
+    // endpoint against TOOLS, so if a tool went missing from TOOLS both would
+    // still agree with each other. This is the list that has to change on
+    // purpose.
+    expect([...TOOLS].map((t) => t.name).sort()).toEqual([
+      'add_field',
+      'add_slots',
+      'archive_signup',
+      'close_signup',
+      'create_signup',
+      'delete_field',
+      'delete_signup',
+      'delete_slot',
+      'get_signup',
+      'list_signups',
+      'list_workspaces',
+      'publish_signup',
+      'reorder_slots',
+      'update_field',
+      'update_signup',
+      'update_slot',
+    ]);
+  });
+});

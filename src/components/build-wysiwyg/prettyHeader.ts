@@ -1,3 +1,4 @@
+import { formatSlotTime } from '@/lib/slot-label';
 import type { FieldType } from '@/schemas/slot-fields';
 
 const dateFmt = new Intl.DateTimeFormat('en-US', {
@@ -9,6 +10,7 @@ const dateFmt = new Intl.DateTimeFormat('en-US', {
 /**
  * Prettify a group key for display in a WysiwygGroup header.
  * - ISO dates (YYYY-MM-DD) -> "THU, MAY 21" (uppercase per the design).
+ * - Times (HH:MM) -> "6:30 PM", the 12-hour clock the public page uses.
  * - Empty / no-value sentinel -> type/label-aware prompt (see emptyHeaderCopy).
  * - Anything else -> pass through.
  */
@@ -20,6 +22,7 @@ export function prettyHeader(
   if (!rawKey) {
     return emptyHeaderCopy(fieldType, fieldLabel);
   }
+  if (fieldType === 'time') return formatSlotTime(rawKey) ?? rawKey;
   if (fieldType !== 'date') return rawKey;
 
   const iso = rawKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);

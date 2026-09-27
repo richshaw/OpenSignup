@@ -1,87 +1,38 @@
-import { and, eq } from 'drizzle-orm';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { getDb } from '@/db/client';
-import { workspaceMembers } from '@/db/schema/members';
-import { organizers } from '@/db/schema/organizers';
-import { workspaces } from '@/db/schema/workspaces';
-import type { Actor, WorkspaceRole } from '@/lib/policy';
+import type { Actor } from '@/lib/policy';
+import { ORGANIZER_CALLBACK_HEADER, safeCallbackUrl } from './callback-url';
 import { auth } from './config';
+import { loadOrganizerSessionById, toActor, type OrganizerSession } from './organizer-session';
 
-export interface OrganizerSession {
-  organizerId: string;
-  email: string;
-  name: string | null;
-  defaultWorkspaceId: string | null;
-  memberships: {
-    workspaceId: string;
-    workspaceSlug: string;
-    workspaceName: string;
-    role: WorkspaceRole;
-  }[];
-}
+export { loadOrganizerSessionById, toActor, type OrganizerSession };
 
 export const getOrganizerSession = cache(async (): Promise<OrganizerSession | null> => {
   const session = await auth();
   if (!session?.user?.id) return null;
-  const db = getDb();
-
-  const rows = await db
-    .select({
-      orgId: organizers.id,
-      orgEmail: organizers.email,
-      orgName: organizers.name,
-      orgDefaultWs: organizers.defaultWorkspaceId,
-      wsId: workspaces.id,
-      wsSlug: workspaces.slug,
-      wsName: workspaces.name,
-      memberRole: workspaceMembers.role,
-    })
-    .from(organizers)
-    .leftJoin(
-      workspaceMembers,
-      and(
-        eq(workspaceMembers.organizerId, organizers.id),
-        eq(workspaceMembers.status, 'active'),
-      ),
-    )
-    .leftJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
-    .where(eq(organizers.id, session.user.id));
-
-  const first = rows[0];
-  if (!first) return null;
-
-  const memberships = rows
-    .filter((r) => r.wsId && r.memberRole)
-    .map((r) => ({
-      workspaceId: r.wsId!,
-      workspaceSlug: r.wsSlug!,
-      workspaceName: r.wsName!,
-      role: r.memberRole as WorkspaceRole,
-    }));
-
-  return {
-    organizerId: first.orgId,
-    email: first.orgEmail,
-    name: first.orgName,
-    defaultWorkspaceId: first.orgDefaultWs,
-    memberships,
-  };
-});
-
-export const toActor = cache((session: OrganizerSession | null): Actor => {
-  if (!session) return { kind: 'anonymous' };
-  const workspaceIds = session.memberships.map((m) => m.workspaceId);
-  const workspaceRoles = Object.fromEntries(session.memberships.map((m) => [m.workspaceId, m.role]));
-  return {
-    kind: 'organizer',
-    id: session.organizerId,
-    email: session.email,
-    workspaceIds,
-    workspaceRoles,
-  };
+  return loadOrganizerSessionById(getDb(), session.user.id);
 });
 
 export async function requireActor(): Promise<Actor> {
   const session = await getOrganizerSession();
   return toActor(session);
+}
+
+/**
+ * The organizer session, or a redirect to sign-in that comes back to the page
+ * that was asked for (`src/middleware.ts` puts its path and query in
+ * `ORGANIZER_CALLBACK_HEADER`). Every organizer page and server action calls
+ * this itself: a client-side navigation re-renders only the segments that
+ * changed, so the `(chrome)` layout's check does not run again when a session
+ * ends mid-visit.
+ */
+export async function requireOrganizerSession(): Promise<OrganizerSession> {
+  const session = await getOrganizerSession();
+  if (!session) {
+    const callbackUrl = safeCallbackUrl((await headers()).get(ORGANIZER_CALLBACK_HEADER));
+    redirect(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+  }
+  return session;
 }

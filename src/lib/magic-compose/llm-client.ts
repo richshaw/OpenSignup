@@ -251,9 +251,12 @@ export function parseRetryAfter(value: string | null): number | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (trimmed.length === 0) return undefined;
-  const asInt = Number(trimmed);
-  if (Number.isFinite(asInt) && asInt >= 0) {
-    return Math.min(3600, Math.floor(asInt));
+  // delta-seconds is a bare run of digits (RFC 9110 §10.2.3). Match it exactly
+  // rather than via Number(), which would misread hex/exponent/signed/decimal
+  // forms — Number('0x1e') is 30 — and turn a malformed header into a real
+  // delay. Anything else falls through to the HTTP-date branch.
+  if (/^\d+$/.test(trimmed)) {
+    return Math.min(3600, Number(trimmed));
   }
   const asDate = Date.parse(trimmed);
   if (!Number.isFinite(asDate)) return undefined;

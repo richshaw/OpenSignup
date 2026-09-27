@@ -48,7 +48,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -86,12 +86,15 @@ jobs:
       NEXT_PUBLIC_SUPPORT_EMAIL: ci@signup.local
       NEXT_PUBLIC_SOURCE_URL: https://github.com/richshaw/OpenSignup
       NEXT_PUBLIC_GOVERNING_LAW: the State of Washington, United States
+      # A pre-registered OAuth client for the consent-flow smoke; matches the
+      # entry the e2e spec expects (tests/e2e/oauth-consent.spec.ts).
+      OAUTH_STATIC_CLIENTS: '[{"client_id":"e2e-client","client_name":"E2E test client","redirect_uris":["http://localhost:3000/e2e/oauth-callback"]}]'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium

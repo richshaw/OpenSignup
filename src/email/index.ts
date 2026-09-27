@@ -24,12 +24,17 @@ export function getEmailTransport(): EmailTransport {
         port: env.SMTP_PORT,
         user: env.SMTP_USER,
         password: env.SMTP_PASSWORD,
-        secure: env.SMTP_SECURE ?? false,
+        secure: env.SMTP_SECURE,
         from: env.EMAIL_FROM,
       });
       break;
   }
   return cached;
+}
+
+/** Tests only: forget the cached transport so the next call reads env again. */
+export function resetEmailTransportCache(): void {
+  cached = null;
 }
 
 export * from './transport';

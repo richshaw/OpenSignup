@@ -2,21 +2,25 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { Spinner } from '@/components/ui/spinner';
+import { SessionWatcher } from './session-watcher';
 
 export type LoginErrorReason = 'invalid_email' | 'send_failed';
 export type LoginActionResult =
   | { ok: true; email: string }
   | { ok: false; reason: LoginErrorReason };
+export type CodeActionResult = { ok: true; url: string } | { ok: false; message: string };
 
 type Props = {
   action: (formData: FormData) => Promise<LoginActionResult>;
+  redeem: (formData: FormData) => Promise<CodeActionResult>;
+  callbackUrl: string;
 };
 
 type View = 'idle' | 'success' | 'error';
 
 const MIN_LOADING_MS = 500;
 
-export function LoginForm({ action }: Props) {
+export function LoginForm({ action, redeem, callbackUrl }: Props) {
   const [view, setView] = useState<View>('idle');
   const [pending, startTransition] = useTransition();
   const [confirmedEmail, setConfirmedEmail] = useState('');
@@ -61,6 +65,7 @@ export function LoginForm({ action }: Props) {
   const buttonLoading = state === 'loading' ? 'brightness-90' : '';
 
   return (
+    <>
     <form action={handleSubmit} className="space-y-4" noValidate>
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Email</span>
@@ -86,6 +91,82 @@ export function LoginForm({ action }: Props) {
         <ButtonLabel state={state} />
       </button>
       <HelperText state={state} email={confirmedEmail} errorReason={errorReason} onReset={reset} />
+    </form>
+    {state === 'success' ? (
+      <>
+        <CodeForm email={confirmedEmail} redeem={redeem} />
+        <SessionWatcher callbackUrl={callbackUrl} />
+      </>
+    ) : null}
+    </>
+  );
+}
+
+/**
+ * The way out when the email was opened somewhere else: type the code from
+ * it here and this window signs in. Also the way out when the email arrives
+ * on the same device but the link is awkward to click (a webview, an OAuth
+ * popup with no address bar).
+ */
+function CodeForm({
+  email,
+  redeem,
+}: {
+  email: string;
+  redeem: (formData: FormData) => Promise<CodeActionResult>;
+}) {
+  const [message, setMessage] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const submit = (formData: FormData) => {
+    setMessage(null);
+    startTransition(async () => {
+      let result: CodeActionResult;
+      try {
+        result = await redeem(formData);
+      } catch {
+        result = { ok: false, message: 'Something went wrong. Try again.' };
+      }
+      if (result.ok) {
+        // A full navigation, so the sign-in cookie set on the way lands here.
+        window.location.assign(result.url);
+        return;
+      }
+      setMessage(result.message);
+    });
+  };
+  return (
+    <form action={submit} className="space-y-3 rounded-xl border border-surface-sunk bg-surface-raised p-4">
+      <input type="hidden" name="email" value={email} />
+      <label className="block">
+        <span className="mb-1 block text-sm font-medium">Opened the email on another device?</span>
+        <span className="text-ink-muted mb-2 block text-sm">
+          Type the six-digit code from the email to sign in here instead.
+        </span>
+        <input
+          name="code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={8}
+          required
+          aria-invalid={message ? true : undefined}
+          aria-describedby={message ? 'code-error' : undefined}
+          className="w-full rounded-lg border border-surface-sunk bg-white px-4 py-2.5 font-mono text-lg tracking-[0.3em] outline-none focus:border-brand"
+          placeholder="123456"
+        />
+      </label>
+      {message ? (
+        <p id="code-error" role="alert" className="text-sm text-danger">
+          {message}
+        </p>
+      ) : null}
+      <button
+        type="submit"
+        disabled={pending}
+        aria-busy={pending}
+        className="w-full rounded-lg border border-surface-sunk bg-white px-5 py-2.5 font-medium text-ink transition-colors hover:bg-surface-raised disabled:opacity-60"
+      >
+        {pending ? 'Checking…' : 'Sign in with code'}
+      </button>
     </form>
   );
 }

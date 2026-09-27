@@ -27,7 +27,8 @@ export async function DELETE(
     const { id } = await ctx.params;
     const actor = await requireActor();
     if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in required'));
-    const result = await deleteSlot(getDb(), actor, id);
+    // The organizer is at the keyboard; the browser already asked them.
+    const result = await deleteSlot(getDb(), actor, id, { force: true });
     return respond(result);
   });
 }

@@ -29,17 +29,24 @@ change — no migration required.
 Every entry maps to a fired event in the codebase. If you change a payload
 shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 
+Rows written by the signup, slot, and field services (`signup.*`, `slot.*`,
+`field.*`) may also carry `viaClientId`: the connected app's client id
+(usually a URL) when the change came through the MCP server rather than the
+browser. It is added by `recordActivity` whenever the actor came through
+`activityActor` with a bearer-token actor, and is not listed per event. The
+`oauth.*` events identify the app by `clientDomain` instead.
+
 ### Signup lifecycle
 
 | event | actor | payload | fired from |
 |---|---|---|---|
-| `signup.created` | organizer | `{ templateId, fieldsAdded, slotsAdded }` | `services/signups.ts` |
-| `signup.updated` | organizer | `{ changes }` | `services/signups.ts` |
-| `signup.published` | organizer | `{}` | `services/signups.ts` |
-| `signup.closed` | organizer | `{}` | `services/signups.ts` |
-| `signup.archived` | organizer | `{}` | `services/signups.ts` |
+| `signup.created` | organizer | `{ templateId, fieldsAdded, slotsAdded }` — `templateId` is `default`, `empty`, `magic-compose`, or `mcp` (created by a connected assistant) | `services/signups.ts` |
+| `signup.updated` | organizer | `{ changed }` (the input keys that changed) | `services/signups.ts` |
+| `signup.published` | organizer | `{ from, to }` | `services/signups.ts` |
+| `signup.closed` | organizer | `{ from, to }` | `services/signups.ts` |
+| `signup.archived` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.duplicated` | organizer | `{ sourceSignupId }` | `services/signups.ts` |
-| `signup.deleted` | organizer | `{}` | `services/signups.ts` |
+| `signup.deleted` | organizer | `{ status }` (the status it had when deleted) | `services/signups.ts` |
 | `signup.draft_started` | organizer | `{}` | RSC at `/app/signups/new` |
 | `signup.editor_opened` | organizer | `{ section: 'fields' \| 'slots' \| 'settings' \| 'responses' }` | RSC under `/app/signups/[id]/...` |
 | `signup.previewed` | organizer | `{}` | RSC at `/app/signups/[id]/preview` |
@@ -100,6 +107,26 @@ headers server-side — no client-supplied data is trusted.
 > `NULL` because magic-link delivery happens before the workspace is known
 > (and after, in the case of the response). Filter by `event_type` alone
 > when computing auth funnels.
+
+### Connected apps (OAuth)
+
+| event | actor | payload | fired from |
+|---|---|---|---|
+| `oauth.consent_granted` | organizer | `{ clientDomain, scopes, extended }` | `oauth/consent.ts` |
+| `oauth.consent_denied` | organizer | `{ clientDomain, scopes }` | `oauth/consent.ts` |
+| `oauth.grant_revoked` | organizer | `{ clientDomain }` | `oauth/grants.ts` |
+
+These fire when an organizer approves, declines, or disconnects a third-party
+app (an AI assistant over MCP, in practice). `signup_id` and `workspace_id`
+are `NULL`: a grant belongs to the organizer and spans every workspace they
+belong to, so it is not tenant-scoped. `clientDomain` is the host the client
+id was served from — the part a client cannot forge — never its self-reported
+name; for a client the operator pre-registered in `OAUTH_STATIC_CLIENTS` it is
+the configured client id instead, since there is no fetched document.
+`scopes` lists the resource scopes only, for granted and denied events alike. `extended` is `true` when the
+approval extended an existing grant rather than creating a new one (the
+organizer re-approving the same app). No event carries a token, an
+authorization code, or an email address.
 
 ## Privacy guarantees
 

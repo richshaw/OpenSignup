@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
-import { summarizeSlot } from './slot-summary';
+import { summarizeSlot, summarizeSlotValues } from './slot-summary';
 
 function field(ref: string, label: string): SlotFieldDefinition {
   return {
@@ -45,7 +45,9 @@ describe('summarizeSlot', () => {
 
   it('joins multiple present values with ·', () => {
     const fields = [field('name', 'Name'), field('role', 'Role')];
-    expect(summarizeSlot(fields, { name: 'Alice', role: 'Driver' })).toBe('Name: Alice · Role: Driver');
+    expect(summarizeSlot(fields, { name: 'Alice', role: 'Driver' })).toBe(
+      'Name: Alice · Role: Driver',
+    );
   });
 
   it('omits absent fields from the join', () => {
@@ -68,5 +70,25 @@ describe('summarizeSlot', () => {
   it('respects field order from the fields array', () => {
     const fields = [field('b', 'B'), field('a', 'A')];
     expect(summarizeSlot(fields, { a: '1', b: '2' })).toBe('B: 2 · A: 1');
+  });
+
+  it('renders a date value the way the participant page does', () => {
+    // Shared with the public page and the emails via slotDetails, so the
+    // organizer never sees a raw ISO date where a participant sees a weekday.
+    const fields = [{ ...field('day', 'Day'), fieldType: 'date' as const }];
+    expect(summarizeSlot(fields, { day: '2026-08-30' })).toBe('Day: Sun, Aug 30');
+  });
+});
+
+describe('summarizeSlotValues', () => {
+  it('joins the values without their labels, for a subject line', () => {
+    const fields = [{ ...field('day', 'Day'), fieldType: 'date' as const }, field('role', 'Role')];
+    expect(summarizeSlotValues(fields, { day: '2026-08-30', role: 'Front desk' })).toBe(
+      'Sun, Aug 30 · Front desk',
+    );
+  });
+
+  it('is empty rather than falling back to the slug-shaped ref', () => {
+    expect(summarizeSlotValues([field('role', 'Role')], {})).toBe('');
   });
 });

@@ -73,6 +73,50 @@ describe('parseSiteConfig', () => {
     },
   );
 
+  describe('under pnpm dev', () => {
+    const dev = { NODE_ENV: 'development' };
+
+    it('fills missing and blank required values with placeholders', () => {
+      // The README Quickstart copies .env.example, which leaves these blank.
+      const config = parseSiteConfig({
+        ...dev,
+        NEXT_PUBLIC_SUPPORT_EMAIL: '',
+        NEXT_PUBLIC_GOVERNING_LAW: '   ',
+      });
+      expect(config).toMatchObject({
+        INSTANCE_NAME: 'OpenSignup (dev)',
+        SUPPORT_EMAIL: 'dev@example.com',
+        SOURCE_URL: 'https://github.com/richshaw/OpenSignup',
+        GOVERNING_LAW: 'your jurisdiction (dev placeholder)',
+        OPERATOR_NAME: null,
+      });
+    });
+
+    it('keeps values that are set', () => {
+      expect(parseSiteConfig({ ...dev, ...base })).toMatchObject({
+        INSTANCE_NAME: 'Acme Signups',
+        SUPPORT_EMAIL: 'hello@acme.example',
+        SOURCE_URL: 'https://github.com/acme/signup',
+        GOVERNING_LAW: 'the State of California, United States',
+      });
+    });
+
+    it('still rejects a value that is set but invalid', () => {
+      expect(() =>
+        parseSiteConfig({ ...dev, ...base, NEXT_PUBLIC_SUPPORT_EMAIL: 'not-an-email' }),
+      ).toThrow(/NEXT_PUBLIC_SUPPORT_EMAIL/);
+    });
+
+    it.each(['production', 'test', undefined])(
+      'uses no placeholders when NODE_ENV is %s',
+      (NODE_ENV) => {
+        expect(() => parseSiteConfig({ NODE_ENV })).toThrow(
+          /NEXT_PUBLIC_INSTANCE_NAME is required/,
+        );
+      },
+    );
+  });
+
   it('reports every failing field in a single error', () => {
     expect(() =>
       parseSiteConfig({

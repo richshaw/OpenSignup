@@ -10,12 +10,7 @@ import { log } from '@/lib/log';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { defaultLlmClient } from '@/lib/magic-compose/llm-client';
 import { buildMessages, MagicComposeDraftSchema } from '@/lib/magic-compose/prompt';
-import {
-  buildWarnings,
-  hasDropped,
-  magicComposeToTemplate,
-} from '@/lib/magic-compose/to-template';
-import { createSignup } from '@/services/signups';
+import { persistDraft } from '@/lib/magic-compose/persist';
 import { mapMagicComposeError } from './errors';
 import { buildDraftPreview } from './preview';
 
@@ -118,15 +113,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const conversion = magicComposeToTemplate(draft.data);
-    const { template, groupByFieldRefs, dropped } = conversion;
-    if (hasDropped(dropped)) {
-      log.warn(
-        { dropped, promptLength: userPrompt.length },
-        'magic-compose adjusted or dropped values during conversion',
-      );
-    }
-    const warnings = buildWarnings(dropped);
 
     // Client closed the connection between the LLM call and persistence —
     // skip the write so we don't strand a signup the user never sees. This
@@ -140,24 +126,16 @@ export async function POST(req: NextRequest) {
       return fail(serviceError('internal', 'request cancelled'));
     }
 
-    const created = await createSignup(
-      db,
-      actor,
-      session.defaultWorkspaceId,
-      {
-        title: draft.data.title,
-        description: draft.data.description,
-        visibility: 'unlisted',
-        settings: groupByFieldRefs.length > 0 ? { groupByFieldRefs } : {},
-      },
-      { template },
-    );
-    if (!created.ok) return fail(created.error);
+    const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, draft.data, {
+      logContext: { promptLength: userPrompt.length },
+    });
+    if (!persisted.ok) return fail(persisted.error);
+    const { signup: created, template, groupByFieldRefs, warnings } = persisted.value;
 
     return ok(
       {
-        id: created.value.id,
-        slug: created.value.slug,
+        id: created.id,
+        slug: created.slug,
         summary: {
           fieldsAdded: template.fields.length,
           slotsAdded: template.slots.length,
@@ -169,9 +147,9 @@ export async function POST(req: NextRequest) {
       },
       {
         links: {
-          build: link(`/app/signups/${created.value.id}/build`),
-          self: link(`/api/signups/${created.value.id}`),
-          public: link(publicSignupUrl(created.value.slug)),
+          build: link(`/app/signups/${created.id}/build`),
+          self: link(`/api/signups/${created.id}`),
+          public: link(publicSignupUrl(created.slug)),
         },
       },
     );

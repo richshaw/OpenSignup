@@ -34,6 +34,15 @@ describe('prettyHeader', () => {
     expect(prettyHeader('Auditorium', 'text')).toBe('Auditorium');
   });
 
+  it('formats an HH:MM time on a 12-hour clock', () => {
+    expect(prettyHeader('18:30', 'time')).toBe('6:30\u00a0PM');
+    expect(prettyHeader('00:00', 'time')).toBe('12:00\u00a0AM');
+  });
+
+  it('passes through unparseable time values unchanged', () => {
+    expect(prettyHeader('after the game', 'time')).toBe('after the game');
+  });
+
   it('passes through non-ISO date strings unchanged', () => {
     expect(prettyHeader('05/21/2026', 'date')).toBe('05/21/2026');
     expect(prettyHeader('next Tuesday', 'date')).toBe('next Tuesday');

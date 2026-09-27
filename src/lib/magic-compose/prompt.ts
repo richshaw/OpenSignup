@@ -1,5 +1,14 @@
 import { z } from 'zod';
 import { FIELD_TYPES } from '@/schemas/slot-fields';
+import {
+  FIELD_TYPE_GUIDE,
+  GROUP_BY_SCAN_AXIS,
+  NO_INTAKE_FORMS,
+  NO_PERSONAL_DATA,
+  ONE_SLOT_PER_COMBINATION,
+  SLOTS_ARE_THE_ATOM,
+  neverInventRule,
+} from '@/lib/signup-rules';
 
 export type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -15,7 +24,7 @@ const RefSchema = z
   .max(40)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'ref must be lowercase kebab');
 
-const DraftFieldSchema = z.object({
+export const DraftFieldSchema = z.object({
   ref: RefSchema,
   label: z.string().min(1).max(80),
   fieldType: z.enum(FIELD_TYPES),
@@ -76,19 +85,13 @@ Output schema (return ONLY this JSON object, no prose, no fences):
   "groupBy": "<field-ref to group slots by, or null>"
 }
 
-FIELD TYPE GUIDE — pick the most specific type, not enum:
-
-- date  → calendar dates. Values are "YYYY-MM-DD". Use when slots are dated games, shifts, meetings.
-- time  → times of day. Values are "HH:MM" 24-hour. Use for appointment slots, shift starts. NEVER use enum to fake a time column.
-- number → quantities. Use for counts (e.g. cookies needed = 80).
-- enum  → CLOSED set of named labels with no natural type. Examples: a teacher's name, a station name, a class section ("Maple", "Cedar"). NEVER use enum for times, dates, or numbers.
-- text  → free-form short labels (game name "Game 1", opponent "Hawks", item "Snack + drinks").
+${FIELD_TYPE_GUIDE}
 
 CROSS-PRODUCT EXPANSION — most important rule:
 
-When the user describes a grid of dimensions (e.g. "3 classes × 12 time slots", "6 games × 2 family roles", "2 days × 3 shifts"), produce ONE slot per combination, not one slot per dimension. That means N×M slots total. Every slot's "values" object MUST contain a value for every declared field's "ref" — never emit an empty values object.
+When the user describes a grid of dimensions (e.g. "3 classes × 12 time slots", "6 games × 2 family roles", "2 days × 3 shifts"), ${ONE_SLOT_PER_COMBINATION} Every slot's "values" object MUST contain a value for every declared field's "ref" — never emit an empty values object.
 
-GROUPING — set "groupBy" to the field ref the participant will visually scan by:
+GROUPING — ${GROUP_BY_SCAN_AXIS}:
 - Cross-product with a small named dimension (classes, teachers, stations): groupBy that dimension's ref.
 - Pure date list (weekly games, shift dates): groupBy = null.
 - Single dimension with many text labels: groupBy = null.
@@ -165,13 +168,13 @@ OUTPUT:
 
 LOAD-BEARING RULES:
 
-1. Slots are the atom, not questions. Per-slot context fields are fine and expected ("class" enum, "game" text, "time" value) — they describe the slot the participant signs up FOR. What is not fine is turning the signup into a participant intake / application form that captures personal data per participant. If the prompt asks for an intake or application form (essay questions, child profile, multi-question application, contact rosters, broad medical/emergency-info collection), refuse using the rule 3 refusal pattern — OpenSignup coordinates participation, not per-participant data capture. Individual field names are not inherently bad; the prompt's *shape* (coordination vs intake) is what determines refusal.
+1. ${SLOTS_ARE_THE_ATOM} Per-slot context fields are fine and expected ("class" enum, "game" text, "time" value) — they describe the slot the participant signs up FOR. ${NO_INTAKE_FORMS} If the prompt asks for an intake or application form (essay questions, child profile, multi-question application, contact rosters, broad medical/emergency-info collection), refuse using the rule 3 refusal pattern — OpenSignup coordinates participation, not per-participant data capture. Individual field names are not inherently bad; the prompt's *shape* (coordination vs intake) is what determines refusal.
 
 2. fieldType is exactly one of: text, date, time, number, enum. No other values.
 
-3. Never produce slot fields that capture personal data like social security numbers, dates of birth, government IDs, home addresses, or financial information, even if asked. To refuse, return ONLY this object — no title, fields, or slots: {"refusalReason":"<short sentence explaining why this is not something OpenSignup will draft>"}. The server short-circuits on this shape and surfaces the reason to the user without persisting anything.
+3. ${NO_PERSONAL_DATA} To refuse, return ONLY this object — no title, fields, or slots: {"refusalReason":"<short sentence explaining why this is not something OpenSignup will draft>"}. The server short-circuits on this shape and surfaces the reason to the user without persisting anything.
 
-4. Never invent dates, locations, opponents, schedules, or capacities that aren't in the user's prompt. If the prompt is vague (no dates, no specific count, no specifics — e.g. "make a signup for my kid's soccer team"), produce 1-3 placeholder slots with labels like "TBD: game 1", "TBD: shift 1" and call out the gap in description ("Add specific dates/details here"). Do not fabricate a season's worth of games, opponents, or shifts just to fill the signup.
+4. ${neverInventRule('drafter')}
 
 5. ref must be lowercase-kebab-case, max 40 chars. One ref per field, unique.
 
@@ -190,7 +193,7 @@ function todayIso(now: Date = new Date()): string {
 }
 
 function renderSystemPrompt(today: string): string {
-  return SYSTEM_PROMPT.replace('{{TODAY}}', today);
+  return SYSTEM_PROMPT.replaceAll('{{TODAY}}', today);
 }
 
 export function buildMessages(userPrompt: string, now: Date = new Date()): ChatMessage[] {

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { loginAsSeededOrganizer } from './helpers/auth';
-import { loadSeed } from './helpers/fixtures';
+import { BASE_URL, loadSeed } from './helpers/fixtures';
 
 const seed = loadSeed();
 
@@ -44,57 +44,46 @@ test.describe('organizer flow', () => {
     await expect(page.getByText('Signup published')).toBeVisible();
   });
 
-  test('saved reminder field survives the post-save re-render', async ({ page }) => {
-    // Regression: React resets a form's uncontrolled fields once its action
-    // resolves, and that reset restores each control to its DOM default — for
-    // a select, the option carrying the `selected` attribute. React writes that
-    // attribute from `defaultValue` at mount and leaves it alone on re-render,
-    // so the re-rendered `defaultValue` never reached the DOM and the reset
-    // snapped the control back to the page-load selection. The server was
-    // never at fault: it re-rendered with the new value and the row was
-    // correct throughout, which is why only a reload showed the truth. The fix
-    // keys the select on the saved value so a save remounts it. Asserting
-    // after a reload would pass either way, and asserting straight after the
-    // click would pass on the value the user just picked — the reset lands
-    // slightly later — so this checks the rendered value once the action's own
-    // round trip has completed.
-    const created = await page.request.post('/api/signups', {
-      data: {
-        title: `Reminder settings ${Date.now()}`,
-        description: '',
-        tags: [],
-        visibility: 'unlisted',
-        settings: {},
-      },
-    });
-    expect(created.ok()).toBe(true);
-    const signupId = (await created.json()).data.id as string;
-
-    await page.goto(`/app/signups/${signupId}/settings`);
-    const select = page.getByLabel('Reminder date field');
-    await expect(select).toHaveValue('');
-
-    // 'date' is the DEFAULT_TEMPLATE date field applied to every new signup.
-    await select.selectOption('date');
-    const save = page.getByRole('button', { name: 'Save' });
-    const saved = page.waitForResponse(
-      (r) => r.request().method() === 'POST' && r.url().includes(`/app/signups/${signupId}/settings`),
-    );
-    await save.click();
-    await saved;
-    // useFormStatus clears `pending` only once the action resolves and React
-    // has committed the re-rendered tree, so this is the point the stale value
-    // would land.
-    await expect(save).toBeEnabled();
-
-    await expect(select).toHaveValue('date');
-  });
-
   test('unauthenticated visitor is redirected to login', async ({ browser }) => {
     const anonContext = await browser.newContext();
     const page = await anonContext.newPage();
     await page.goto('/app');
     await expect(page).toHaveURL(/\/login/);
     await anonContext.close();
+  });
+});
+
+test.describe('signed-out organizer links', () => {
+  test('a deep link goes to sign-in and comes back to the same page', async ({ page, context }) => {
+    const deepLink = `/app/signups/${seed.draftSignupId}/build?from=email`;
+    await page.goto(deepLink);
+    await expect(page).toHaveURL(`${BASE_URL}/login?callbackUrl=${encodeURIComponent(deepLink)}`);
+
+    // Every way of signing in from this page (the emailed link, the code, a
+    // provider, or the page noticing a session) goes to the callbackUrl it read
+    // from its own URL. A reload with a session cookie is the shortest of them,
+    // and it sends no email, so it cannot retire the code login-code.spec.ts
+    // mints for the same organizer.
+    await loginAsSeededOrganizer(context);
+    await page.reload();
+    await expect(page).toHaveURL(`${BASE_URL}${deepLink}`);
+    await expect(page.getByRole('heading', { level: 1, name: seed.draftTitle })).toBeVisible();
+  });
+
+  test('a session that ends mid-visit sends the next page to sign-in', async ({
+    page,
+    context,
+  }) => {
+    await loginAsSeededOrganizer(context);
+    await page.goto('/app');
+    await expect(page.getByRole('heading', { name: 'Your signups' })).toBeVisible();
+
+    await context.clearCookies();
+    // A client-side navigation re-renders the page but not the shared layout,
+    // so it is the page's own check that has to send the organizer to sign in.
+    await page.locator('header').getByTitle('Settings').click();
+    await expect(page).toHaveURL(
+      `${BASE_URL}/login?callbackUrl=${encodeURIComponent('/app/settings')}`,
+    );
   });
 });

@@ -1,62 +1,47 @@
 import { Button, Heading, Text } from '@react-email/components';
+import { confirmationSubject } from '../subjects';
+import type { SlotDetail } from '@/lib/slot-label';
 import { EmailLayout } from './layout';
+import { SlotDetailsText } from './slot-details';
 
 export interface CommitmentConfirmationEmailProps {
   participantName: string;
   signupTitle: string;
   /** The participant's own token-bearing link to view, change, or cancel. */
   manageUrl: string;
-  slotLabel: string;
-  /** Rendered slot date, or null for an undated slot. */
-  slotDateLabel?: string | null;
+  /** Every field value for the slot, from `slotDetails()`. */
+  slotDetails: readonly SlotDetail[];
+  /** The same values on one line, from `summarizeSlotValues()`, for the preview text. */
+  slotSummary: string;
   notes?: string | null;
   quantity?: number;
-  /** Set when this signup will also send a reminder before the slot. */
-  reminderLeadHours?: number | null;
-}
-
-function reminderSentence(hours: number): string {
-  if (hours % 24 === 0) {
-    const days = hours / 24;
-    return days === 1 ? 'the day before' : `${days} days before`;
-  }
-  return hours === 1 ? 'an hour before' : `${hours} hours before`;
+  /**
+   * True when this signup will also send a reminder the day before the slot.
+   * Decide it with `willSendReminder` so the receipt never promises a reminder
+   * the dispatcher will not send.
+   */
+  promisesReminder?: boolean;
 }
 
 export function CommitmentConfirmationEmail({
   participantName,
   signupTitle,
   manageUrl,
-  slotLabel,
-  slotDateLabel,
+  slotDetails,
+  slotSummary,
   notes,
   quantity,
-  reminderLeadHours,
+  promisesReminder,
 }: CommitmentConfirmationEmailProps) {
-  const preview = `You're signed up: ${slotLabel} · ${signupTitle}`;
   return (
-    <EmailLayout preview={preview}>
+    <EmailLayout preview={confirmationSubject(signupTitle, slotSummary)}>
       <Heading as="h1" className="m-0 text-xl font-semibold">
         You&apos;re signed up
       </Heading>
       <Text className="mt-2 text-[#5b6474]">
-        Thanks {participantName}, you&apos;re down for <strong>{signupTitle}</strong>.
+        Thanks {participantName}, you signed up for <strong>{signupTitle}</strong>.
       </Text>
-      <Text className="mt-4 text-[#0b1220]">
-        <strong>What:</strong> {slotLabel}
-        {slotDateLabel ? (
-          <>
-            <br />
-            <strong>When:</strong> {slotDateLabel}
-          </>
-        ) : null}
-        {quantity && quantity > 1 ? (
-          <>
-            <br />
-            <strong>Spots:</strong> {quantity}
-          </>
-        ) : null}
-      </Text>
+      <SlotDetailsText details={slotDetails} spots={quantity} />
       {notes ? (
         <Text className="mt-4 rounded-lg bg-[#f7f8fa] p-3 text-[#0b1220]">
           <strong>Your notes:</strong> {notes}
@@ -71,9 +56,7 @@ export function CommitmentConfirmationEmail({
       <Text className="mt-6 text-xs text-[#8a93a4]">
         Keep this email. The button above is how you change or cancel later, with no password to
         remember. Anyone with that link can change your slot, so don&apos;t forward it.
-        {reminderLeadHours ? (
-          <> We&apos;ll also send you a reminder {reminderSentence(reminderLeadHours)}.</>
-        ) : null}
+        {promisesReminder ? <> We&apos;ll also send you a reminder the day before.</> : null}
       </Text>
     </EmailLayout>
   );

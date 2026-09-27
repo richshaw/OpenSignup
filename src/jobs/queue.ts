@@ -8,6 +8,8 @@ declare global {
 export const QUEUES = {
   reminderDispatch: 'reminders.dispatch',
   reminderSend: 'reminders.send',
+  /** Hourly deletion of expired OAuth records and closed rate-limit windows. */
+  housekeeping: 'housekeeping.sweep',
 } as const;
 
 export async function getBoss(): Promise<PgBoss> {

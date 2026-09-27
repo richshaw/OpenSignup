@@ -12,6 +12,22 @@ x-instance-build: &instance-build
       NEXT_PUBLIC_SOURCE_URL: ${NEXT_PUBLIC_SOURCE_URL:?NEXT_PUBLIC_SOURCE_URL required for build}
       NEXT_PUBLIC_GOVERNING_LAW: ${NEXT_PUBLIC_GOVERNING_LAW:?NEXT_PUBLIC_GOVERNING_LAW required for build}
       NEXT_PUBLIC_OPERATOR_NAME: ${NEXT_PUBLIC_OPERATOR_NAME:-}
+      # Canonical URLs, sitemap, robots and Open Graph images are baked from
+      # this; left out, every one of them says http://localhost:3000.
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?NEXT_PUBLIC_APP_URL required for build}
+
+# The app containers reach Postgres by its service name, `db`: `localhost`
+# inside a container is that container. Built here, and set under
+# `environment` so it wins over `.env`, which usually still holds the
+# local-dev `localhost:5433` URL copied from `.env.example`.
+#
+# The password travels as PGPASSWORD, which both drivers (postgres.js and pg,
+# under pg-boss) read when the URL has none, so it needs no URL-encoding.
+# EXTERNAL_DATABASE_URL replaces the whole URL for operators who run their
+# own Postgres; a password in that URL takes precedence over PGPASSWORD.
+x-app-env: &app-env
+  DATABASE_URL: ${EXTERNAL_DATABASE_URL:-postgres://${POSTGRES_USER:-signup}@db:5432/${POSTGRES_DB:-signup}}
+  PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
 
 services:
   db:
@@ -35,6 +51,7 @@ services:
       db:
         condition: service_healthy
     env_file: .env
+    environment: *app-env
     command: ['pnpm', 'exec', 'tsx', 'src/db/migrate.ts']
     restart: 'no'
 
@@ -44,6 +61,14 @@ services:
       migrate:
         condition: service_completed_successfully
     env_file: .env
+    environment:
+      <<: *app-env
+      # The Next.js server binds to $HOSTNAME:$PORT. Docker sets HOSTNAME to
+      # the container id, which leaves 127.0.0.1 unbound and fails the
+      # healthcheck; and `PORT` in `.env` is the host port for the mapping
+      # below, so without this pin it would also move the server off 3000.
+      HOSTNAME: 0.0.0.0
+      PORT: '3000'
     ports:
       - '${PORT:-3000}:3000'
     restart: unless-stopped
@@ -59,6 +84,7 @@ services:
       migrate:
         condition: service_completed_successfully
     env_file: .env
+    environment: *app-env
     # Go through the `worker` script rather than invoking tsx directly, so the
     # worker's JSX tsconfig stays defined in exactly one place.
     command: ['pnpm', 'worker']

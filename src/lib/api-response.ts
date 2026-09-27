@@ -35,8 +35,9 @@ export function ok<T>(
   return NextResponse.json(body, { status: init.status ?? 200, headers: init.headers });
 }
 
-export function fail(error: ServiceError, headers?: HeadersInit): NextResponse {
-  const body: ErrorEnvelope = {
+/** The error body every surface sends: REST via `fail`, MCP via `toolFailure`. */
+export function errorEnvelope(error: ServiceError): ErrorEnvelope {
+  return {
     error: {
       code: error.code,
       message: error.message,
@@ -47,7 +48,10 @@ export function fail(error: ServiceError, headers?: HeadersInit): NextResponse {
       ...(error.details !== undefined ? { details: error.details } : {}),
     },
   };
-  return NextResponse.json(body, { status: httpStatusFor(error.code), headers });
+}
+
+export function fail(error: ServiceError, headers?: HeadersInit): NextResponse {
+  return NextResponse.json(errorEnvelope(error), { status: httpStatusFor(error.code), headers });
 }
 
 export function respond<T>(

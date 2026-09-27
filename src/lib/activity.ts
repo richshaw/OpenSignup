@@ -3,10 +3,27 @@ import { activity, type ActivityEvent } from '@/db/schema/activity';
 import { organizers } from '@/db/schema/organizers';
 import type { Db, Queryable } from '@/db/client';
 import { makeId } from './ids';
+import { requireOrganizer, type Actor } from './policy';
 
 export interface ActivityActor {
   actorId: string | null;
   actorType: 'organizer' | 'participant' | 'system';
+  /** The connected app that made the change on the organizer's behalf, if any. */
+  clientId?: string;
+}
+
+/**
+ * The activity-log identity of an organizer actor. A browser session gives
+ * a plain organizer row; a bearer-token session also names the connected
+ * app, which `recordActivity` writes into the row's payload as
+ * `viaClientId`. Throws `unauthorized` for participants and anonymous
+ * actors, exactly like `requireOrganizerId`.
+ */
+export function activityActor(actor: Actor): ActivityActor {
+  requireOrganizer(actor);
+  return actor.via
+    ? { actorId: actor.id, actorType: 'organizer', clientId: actor.via.clientId }
+    : { actorId: actor.id, actorType: 'organizer' };
 }
 
 export async function recordActivity(
@@ -19,6 +36,8 @@ export async function recordActivity(
     payload?: Record<string, unknown>;
   },
 ) {
+  const given = args.payload ?? {};
+  const payload = args.actor.clientId ? { ...given, viaClientId: args.actor.clientId } : given;
   await db.insert(activity).values({
     id: makeId('act'),
     signupId: args.signupId ?? null,
@@ -26,7 +45,7 @@ export async function recordActivity(
     actorId: args.actor.actorId,
     actorType: args.actor.actorType,
     eventType: args.eventType,
-    payload: args.payload ?? {},
+    payload,
   });
 
   if (args.actor.actorType === 'organizer' && args.actor.actorId !== null) {

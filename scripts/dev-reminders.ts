@@ -15,7 +15,6 @@ config({ path: '.env.local' });
 config({ path: '.env' });
 
 import { getDb } from '@/db/client';
-import { formatSlotWhen } from '@/lib/slot-time';
 import { dispatchReminders, selectDueReminders } from '@/jobs/reminders';
 
 async function main(): Promise<void> {
@@ -25,17 +24,20 @@ async function main(): Promise<void> {
   if (due.length === 0) {
     console.log('No reminders are due right now.');
     console.log(
-      'A reminder is due when the slot is still ahead and within the signup\'s\n' +
-        'reminderLeadHours (default 24), the participant signed up more than an\n' +
-        'hour ago and has not opted out, sendReminders is on for the signup, and\n' +
-        'no reminder.sent was recorded for the commitment yet.',
+      'A reminder is due when the slot is still ahead and within the next 24\n' +
+        'hours, the participant signed up more than an hour ago and has not opted\n' +
+        'out, sendReminders is on for the signup, and no reminder.sent was\n' +
+        'recorded for the commitment yet.',
     );
   } else {
     console.log(`${due.length} reminder(s) due:\n`);
     for (const r of due) {
       console.log(`  ${r.participantEmail}`);
       console.log(`    ${r.signupTitle} · ${r.slotRef}`);
-      console.log(`    ${formatSlotWhen(r.slotAt) ?? 'no date'}  [${r.commitmentId}]`);
+      // The raw instant rather than formatSlotWhen: the dispatcher row carries
+      // no field definitions to say whether the slot has a time, and the ISO
+      // form is what the database holds (a date-only slot sits at 12:00Z).
+      console.log(`    ${r.slotAt?.toISOString() ?? 'no date'}  [${r.commitmentId}]`);
     }
     console.log('');
   }

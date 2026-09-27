@@ -4,13 +4,21 @@
  * pass `APP_ORIGIN` in). No `process.env` reads here — origin is a parameter.
  */
 import type { MetadataRoute } from 'next';
+import { HELP_ARTICLES } from '@/help/articles';
 
 /**
  * Public, indexable routes that belong in `sitemap.xml`. `''` is the landing
  * page. Authed (`/app`), API (`/api`) and private participant (`/s/*`) routes
  * are deliberately excluded — `/s/*` carries a `noindex` meta tag instead.
  */
-export const INDEXABLE_ROUTES = ['', '/privacy', '/terms', '/cookies'] as const;
+export const INDEXABLE_ROUTES: readonly string[] = [
+  '',
+  '/privacy',
+  '/terms',
+  '/cookies',
+  '/help',
+  ...HELP_ARTICLES.map((a) => `/help/${a.slug}`),
+];
 
 export function buildSitemap(
   origin: string,

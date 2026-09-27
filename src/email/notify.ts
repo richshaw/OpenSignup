@@ -20,9 +20,9 @@ import { recordActivity } from '@/lib/activity';
 import { commitmentEditUrl } from '@/lib/links';
 import { log } from '@/lib/log';
 import { willSendReminder } from '@/lib/reminder-eligibility';
-import { formatSlotWhen } from '@/lib/slot-time';
+import { slotDetails } from '@/lib/slot-label';
+import { summarizeSlotValues } from '@/lib/slot-summary';
 import { SignupSettingsSchema } from '@/schemas/signups';
-import { slotDisplayLabel } from '@/lib/slot-label';
 import { listFieldsForSignup } from '@/services/slot-fields';
 import { sendCommitmentConfirmation } from './send';
 
@@ -91,35 +91,26 @@ export async function notifyCommitmentCreated(
     // paraphrase of it: reminders on and a slot date are not enough, because a
     // slot less than an hour out is one the created_at guard can never reach.
     const remindersOn = settings.success ? settings.data.sendReminders : true;
-    const reminderLeadHours = willSendReminder({
+    const promisesReminder = willSendReminder({
       sendReminders: remindersOn,
       slotAt: row.slot.slotAt,
       createdAt: row.commitment.createdAt,
-    })
-      ? settings.success
-        ? settings.data.reminderLeadHours
-        : null
-      : null;
+    });
 
-    // `slots.ref` is a slug, not a display name — use the label the
-    // participant page shows, so the receipt names what they picked.
+    // Every field the organizer defined, rendered the way the participant page
+    // renders it. `slots.ref` is a slug and never appears here.
     const fields = await listFieldsForSignup(db, row.signup.id);
-    const slotLabel = slotDisplayLabel(
-      fields,
-      (row.slot.values as Record<string, unknown>) ?? {},
-      row.slot.ref,
-      settings.success ? settings.data.groupByFieldRefs[0] : undefined,
-    );
+    const slotValues = (row.slot.values as Record<string, unknown>) ?? {};
 
     await sendCommitmentConfirmation(row.participant.email, {
       participantName: row.participant.name,
       signupTitle: row.signup.title,
       manageUrl: commitmentEditUrl(row.signup.slug, row.commitment.id, editToken),
-      slotLabel,
-      slotDateLabel: formatSlotWhen(row.slot.slotAt),
+      slotDetails: slotDetails(fields, slotValues),
+      slotSummary: summarizeSlotValues(fields, slotValues),
       notes: row.commitment.notes,
       quantity: row.commitment.quantity,
-      reminderLeadHours,
+      promisesReminder,
     });
 
     await recordActivity(db, {

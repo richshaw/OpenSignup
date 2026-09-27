@@ -25,8 +25,20 @@ export const SlotBulkInputSchema = z.object({
     )
     .min(1)
     .max(500),
+  // Put the rows in front of this slot instead of at the end. Not allowed
+  // together with a row `sortOrder`; `addSlotsBulk` checks that, because a
+  // refinement here would hide `.shape` from the MCP tool that builds on it.
+  beforeSlotId: z.string().optional(),
 });
 export type SlotBulkInput = z.infer<typeof SlotBulkInputSchema>;
+
+// Every slot id of the signup, in the order they should be shown. No maximum:
+// nothing caps slots per signup, so any ceiling here would make a signup above
+// it impossible to reorder. The MCP route's body cap is what bounds a request.
+export const SlotReorderInputSchema = z.object({
+  slotIds: z.array(z.string()).min(1),
+});
+export type SlotReorderInput = z.infer<typeof SlotReorderInputSchema>;
 
 export const SlotUpdateInputSchema = z
   .object({

@@ -4,26 +4,26 @@ import { Plus } from 'lucide-react';
 import { Editable } from './Editable';
 import { WysiwygSlot } from './WysiwygSlot';
 import { prettyHeader, emptyHeaderCopy } from './prettyHeader';
-import type { UseReorderableResult } from '../build-grid/useReorderable';
-import type { GridField, GridRow } from '../build-grid/useGridState';
+import type { UseReorderableResult } from '../build-shared/useReorderable';
+import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
 export type SlotGroup = {
   /** Stable key — group field value, or `'__empty__'` for the no-value bucket. */
   key: string;
   /** Raw group-field value at the time of partitioning ('' for empty bucket). */
   rawValue: string;
-  rows: GridRow[];
+  rows: BuildRow[];
 };
 
 type WysiwygGroupProps = {
   group: SlotGroup;
-  groupField: GridField | null;
+  groupField: BuildField | null;
   /**
    * All non-group fields in organizer-chosen order. The first becomes the
    * collapsed row's primary anchor; the rest form the summary.
    */
-  displayFields: GridField[];
-  fields: GridField[];
+  displayFields: BuildField[];
+  fields: BuildField[];
   expandedRowId: string | null;
   onExpandRow: (rowId: string | null) => void;
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;

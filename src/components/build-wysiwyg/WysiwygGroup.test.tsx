@@ -2,9 +2,9 @@
 import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
-import type { GridField, GridRow } from '../build-grid/useGridState';
+import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
-function makeRow(overrides: Partial<GridRow> = {}): GridRow {
+function makeRow(overrides: Partial<BuildRow> = {}): BuildRow {
   return {
     id: 'r1',
     capacity: 2,
@@ -14,7 +14,7 @@ function makeRow(overrides: Partial<GridRow> = {}): GridRow {
   };
 }
 
-function makeField(overrides: Partial<GridField> = {}): GridField {
+function makeField(overrides: Partial<BuildField> = {}): BuildField {
   return {
     id: 'f1',
     ref: 'date',
@@ -27,9 +27,9 @@ function makeField(overrides: Partial<GridField> = {}): GridField {
 
 function renderGroup(overrides: {
   group?: Partial<SlotGroup>;
-  groupField?: GridField | null;
-  displayFields?: GridField[];
-  fields?: GridField[];
+  groupField?: BuildField | null;
+  displayFields?: BuildField[];
+  fields?: BuildField[];
   expandedRowId?: string | null;
   onExpandRow?: Mock<(rowId: string | null) => void>;
   onEditCell?: Mock<(rowId: string, fieldRef: string, value: string) => void>;

@@ -1,14 +1,36 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { capacityMessage } from './capacity-message';
+import { ACTION_SIZING } from './slot-format';
 
 interface CommitDialogProps {
   slotId: string;
   slotTitle: string;
+  /** Full disambiguating name for the button; see slotAccessibleName. */
+  actionName: string;
   slotAt: string | null;
+  /**
+   * Whether the slot carries a time of its own. A date-only slot's `slotAt` is
+   * a noon-UTC anchor (see `extractSlotAt`), not a time anyone typed, so its
+   * calendar export is an all-day event.
+   */
+  slotHasTime: boolean;
+  /**
+   * Places still open on the slot when the page rendered, or `null` when it is
+   * unlimited. At 1 the only quantity the server can accept is 1, so the
+   * quantity field is left out and the form sends the default; above 1 it is
+   * the field's `max`. The server's capacity check stays the authority; this
+   * only decides what to ask.
+   */
+  spotsLeft: number | null;
+  /** The slot's capacity, or `null` when unlimited; the sheet's header says
+   *  "2 of 4 spots left" from this and `spotsLeft`. */
+  capacity: number | null;
   signupTitle: string;
   slug: string;
 }
@@ -20,6 +42,7 @@ interface ApiError {
   details?: {
     alternatives?: { id: string; title: string }[];
     remaining?: number;
+    capacity?: number;
   };
 }
 
@@ -55,7 +78,11 @@ function writePrefill(value: PrefillState): void {
 export default function CommitDialog({
   slotId,
   slotTitle,
+  actionName,
   slotAt,
+  slotHasTime,
+  spotsLeft,
+  capacity,
   signupTitle,
   slug,
 }: CommitDialogProps) {
@@ -68,26 +95,56 @@ export default function CommitDialog({
   const [emailValue, setEmailValue] = useState('');
   const [shareCopied, setShareCopied] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const stored = readPrefill();
     setPrefill(stored);
     setEmailValue(stored?.email ?? '');
-    // autofocus name on open (or email if name already filled)
-    queueMicrotask(() => {
-      if (stored?.name) {
-        const emailEl = document.querySelector<HTMLInputElement>(
-          'input[name="email"]:not([disabled])',
-        );
-        emailEl?.focus();
-      } else {
-        nameRef.current?.focus();
-      }
-    });
   }, [open]);
 
+  // The sheet's body scrolls under an 85vh cap, and the alert renders below the
+  // fields. A screen reader announces it either way, but on a short viewport a
+  // sighted participant would see only the buttons re-enable and no reason why.
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [error]);
+
+  /**
+   * Autofocus the first field still to be filled, rather than the sheet's close
+   * button. Scoped to this dialog's own refs: the document-wide query this
+   * replaced would focus whichever `input[name="email"]` came first in the DOM,
+   * not necessarily the one on screen.
+   */
+  function handleOpenAutoFocus(event: Event) {
+    const target = readPrefill()?.name ? emailRef.current : nameRef.current;
+    // Only take the focus away from Radix if we actually have somewhere to put
+    // it. Pre-empting it with nothing to focus would strand the caret on the
+    // trigger, which is outside the sheet's focus trap and aria-hidden by then.
+    if (!target) return;
+    event.preventDefault();
+    target.focus();
+  }
+
   const emailHint = useMemo(() => suggestEmail(emailValue), [emailValue]);
+  const askQuantity = spotsLeft === null || spotsLeft > 1;
+  // The row's own count ("2/4" signed up) is behind the sheet, and hidden from
+  // assistive tech while it is open, so the header says how many are left.
+  // Only on a slot with more than one spot, as the row only counts those:
+  // "1 of 1 spots left" would say nothing.
+  //
+  // After a capacity error the server's numbers are newer than the page's, so
+  // the header and the field's max use them; otherwise the header kept saying
+  // "2 of 4 spots left" beside an error saying only 1 was. They last until the
+  // sheet closes. Not a router.refresh(): a slot that just filled would turn
+  // its row to "Full" and take this sheet, error and all, off the page.
+  const [reported, setReported] = useState<{ left: number; capacity: number | null } | null>(null);
+  const left = reported ? reported.left : spotsLeft;
+  const slotCapacity = reported ? reported.capacity : capacity;
+  const showSpotsLeft = left !== null && slotCapacity !== null && slotCapacity > 1;
+  const spotsLeftId = useId();
 
   function handleAcceptSuggestion() {
     if (emailHint) setEmailValue(emailHint);
@@ -104,6 +161,7 @@ export default function CommitDialog({
       name,
       email,
       notes: String(data.get('notes') ?? '') || undefined,
+      // No Spots field when only one place is open (see `spotsLeft`), so 1.
       quantity: Number(data.get('quantity') ?? 1),
     };
     try {
@@ -115,6 +173,14 @@ export default function CommitDialog({
       const payload = await res.json();
       if (!res.ok) {
         setError(payload.error ?? { code: 'internal', message: 'something went wrong' });
+        const remaining = payload.error?.details?.remaining;
+        if (payload.error?.code === 'capacity_full' && typeof remaining === 'number') {
+          const reportedCapacity = payload.error.details?.capacity;
+          setReported({
+            left: remaining,
+            capacity: typeof reportedCapacity === 'number' ? reportedCapacity : capacity,
+          });
+        }
         setSubmitting(false);
         return;
       }
@@ -139,6 +205,7 @@ export default function CommitDialog({
     setOpen(false);
     setSuccess(null);
     setError(null);
+    setReported(null);
     setShareCopied(false);
     if (wasSuccess) router.refresh();
   }
@@ -152,6 +219,7 @@ export default function CommitDialog({
       description: `Edit or cancel: ${success.editUrl}`,
       url: success.editUrl,
       start,
+      allDay: !slotHasTime,
     });
     const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -189,180 +257,209 @@ export default function CommitDialog({
     }
   }
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="bg-brand rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
-      >
-        Sign up
-      </button>
-    );
-  }
+  // A capacity error gets participant-facing copy built from its numbers; any
+  // other error keeps the server's own message and suggestion.
+  const errorText = error ? (capacityMessage(error, 'join') ?? error) : null;
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="bg-brand rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
+        // Every row's button reads "Sign up", so without this a screen-reader
+        // user swiping the list hears the same name N times with no way to tell
+        // which slot they are committing to.
+        aria-label={`Sign up for ${actionName}`}
+        className={`${ACTION_SIZING} bg-brand font-medium text-white transition hover:brightness-110`}
       >
         Sign up
       </button>
-      <div
-        className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center"
-        onClick={(e) => {
-          if (e.target === e.currentTarget && !submitting) handleClose();
+      {/* The shared sheet, not a hand-rolled overlay: it locks body scroll, so
+          the list no longer scrolls away under the sheet on a phone, and it
+          brings Escape, a focus trap and hiding the rest of the page from
+          assistive tech with it. The slot name is the sheet's title, so
+          neither branch below repeats it as a heading. */}
+      <BottomSheet
+        open={open}
+        // Backdrop tap and Escape arrive here too, so an in-flight submit is
+        // the one thing that holds the sheet open: dismissing mid-POST would
+        // leave the participant unsure whether they got the spot.
+        onClose={() => {
+          if (!submitting) handleClose();
         }}
+        busy={submitting}
+        onOpenAutoFocus={handleOpenAutoFocus}
+        // On screen the heading is the slot's own name, which is what the
+        // participant just tapped. The name the dialog is *announced* by is the
+        // disambiguated one the trigger uses, because "Cookies" alone repeats
+        // across every date of a grouped signup, and says nothing about what
+        // the sheet is for.
+        title={
+          success ? (
+            "You're in."
+          ) : (
+            <>
+              <span className="sr-only">Sign up for {actionName}</span>
+              <span aria-hidden="true">{slotTitle}</span>
+            </>
+          )
+        }
+        description={
+          !success && showSpotsLeft ? `${left} of ${slotCapacity} spots left` : undefined
+        }
+        descriptionId={spotsLeftId}
       >
-        <div className="w-full max-w-md rounded-t-xl bg-white p-6 shadow-card sm:rounded-xl">
-          {success ? (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold">You&apos;re in.</h2>
-              <p className="text-ink-muted text-sm">
-                We&apos;ve saved your spot for <strong className="text-ink">{slotTitle}</strong>.
-                Bookmark this link to edit or cancel later:
-              </p>
-              <a
-                href={success.editUrl}
-                className="block break-all rounded-lg bg-surface-raised px-3 py-2 font-mono text-xs"
-              >
-                {success.editUrl}
-              </a>
-              <div className="flex flex-wrap gap-2">
-                {slotAt ? (
-                  <button
-                    type="button"
-                    onClick={handleDownloadIcs}
-                    className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
-                  >
-                    Add to calendar
-                  </button>
-                ) : null}
+        {success ? (
+          <div className="space-y-4">
+            <p className="text-ink-muted text-sm">
+              We&apos;ve saved your spot for <strong className="text-ink">{slotTitle}</strong>.
+              Bookmark this link to edit or cancel later:
+            </p>
+            <a
+              href={success.editUrl}
+              className="block break-all rounded-lg bg-surface-raised px-3 py-2 font-mono text-xs"
+            >
+              {success.editUrl}
+            </a>
+            <div className="flex flex-wrap gap-2">
+              {slotAt ? (
                 <button
                   type="button"
-                  onClick={handleShare}
+                  onClick={handleDownloadIcs}
                   className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
                 >
-                  {shareCopied ? 'Link copied' : 'Share link'}
+                  Add to calendar
                 </button>
-              </div>
+              ) : null}
               <button
                 type="button"
-                onClick={handleClose}
-                className="bg-brand w-full rounded-lg px-4 py-3 text-sm font-medium text-white"
+                onClick={handleShare}
+                className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
               >
-                Done
+                {shareCopied ? 'Link copied' : 'Share link'}
               </button>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <div className="mb-1 text-xs font-medium uppercase tracking-wider text-ink-soft">
-                  Sign up for
-                </div>
-                <h2 className="text-xl font-semibold tracking-tight">{slotTitle}</h2>
-              </div>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="bg-brand w-full rounded-lg px-4 py-3 text-sm font-medium text-white"
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">Your name</span>
+              <input
+                ref={nameRef}
+                type="text"
+                name="name"
+                required
+                minLength={1}
+                autoComplete="name"
+                defaultValue={prefill?.name ?? ''}
+                className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">Email</span>
+              <input
+                ref={emailRef}
+                type="email"
+                name="email"
+                required
+                autoComplete="email"
+                inputMode="email"
+                value={emailValue}
+                onChange={(e) => setEmailValue(e.target.value)}
+                className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
+              />
+              {emailHint ? (
+                <p className="text-ink-muted mt-1 text-xs">
+                  Did you mean{' '}
+                  <button
+                    type="button"
+                    onClick={handleAcceptSuggestion}
+                    className="text-brand font-medium underline"
+                  >
+                    {emailHint}
+                  </button>
+                  ?
+                </p>
+              ) : null}
+            </label>
+            <div className={askQuantity ? 'grid grid-cols-[1fr_auto] gap-3' : undefined}>
               <label className="block">
-                <span className="mb-1 block text-sm font-medium">Your name</span>
+                <span className="mb-1 block text-sm font-medium">Notes (optional)</span>
                 <input
-                  ref={nameRef}
                   type="text"
-                  name="name"
-                  required
-                  minLength={1}
-                  autoComplete="name"
-                  defaultValue={prefill?.name ?? ''}
+                  name="notes"
+                  maxLength={500}
+                  placeholder="Allergies, preferences, etc."
                   className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
                 />
               </label>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">Email</span>
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  autoComplete="email"
-                  inputMode="email"
-                  value={emailValue}
-                  onChange={(e) => setEmailValue(e.target.value)}
-                  className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-                />
-                {emailHint ? (
-                  <p className="text-ink-muted mt-1 text-xs">
-                    Did you mean{' '}
-                    <button
-                      type="button"
-                      onClick={handleAcceptSuggestion}
-                      className="text-brand font-medium underline"
-                    >
-                      {emailHint}
-                    </button>
-                    ?
-                  </p>
-                ) : null}
-              </label>
-              <div className="grid grid-cols-[1fr_auto] gap-3">
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium">Notes (optional)</span>
-                  <input
-                    type="text"
-                    name="notes"
-                    maxLength={500}
-                    placeholder="Allergies, preferences, etc."
-                    className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-                  />
-                </label>
+              {askQuantity ? (
                 <label className="block w-20">
-                  <span className="mb-1 block text-sm font-medium">Qty</span>
+                  <span className="mb-1 block text-sm font-medium">Spots</span>
                   <input
                     type="number"
                     name="quantity"
+                    required
                     min={1}
+                    // Stops an over-ask before it reaches the server. The count
+                    // can be stale, so the server's check still decides.
+                    // At least 1: once the slot has filled, a max of 0 would
+                    // only add a browser bubble to the error already shown.
+                    max={left === null ? undefined : Math.max(left, 1)}
                     defaultValue={1}
+                    aria-describedby={showSpotsLeft ? spotsLeftId : undefined}
                     className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
                   />
                 </label>
-              </div>
-              {error ? (
-                <div role="alert" className="rounded-lg bg-danger/10 p-3 text-sm text-danger">
-                  <p className="font-medium">{error.message}</p>
-                  {error.suggestion ? <p className="text-xs">{error.suggestion}</p> : null}
-                  {error.details?.alternatives?.length && error.details.remaining === 0 ? (
-                    <div className="mt-2 space-y-1 text-xs">
-                      <p>Try another slot:</p>
-                      <a
-                        href={`/s/${slug}`}
-                        className="inline-block rounded bg-white px-2 py-1 underline"
-                      >
-                        See alternatives
-                      </a>
-                    </div>
-                  ) : null}
-                </div>
               ) : null}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  disabled={submitting}
-                  className="flex-1 rounded-lg border border-surface-sunk px-4 py-3 text-sm font-medium transition disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="bg-brand flex-1 rounded-lg px-4 py-3 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
-                >
-                  {submitting ? 'Signing up…' : 'Confirm'}
-                </button>
+            </div>
+            {error ? (
+              <div
+                ref={errorRef}
+                role="alert"
+                className="rounded-lg bg-danger/10 p-3 text-sm text-danger"
+              >
+                <p className="font-medium">{errorText?.message}</p>
+                {errorText?.suggestion ? <p className="text-xs">{errorText.suggestion}</p> : null}
+                {error.details?.alternatives?.length && error.details.remaining === 0 ? (
+                  <div className="mt-2 space-y-1 text-xs">
+                    <a
+                      href={`/s/${slug}`}
+                      className="inline-block rounded bg-white px-2 py-1 underline"
+                    >
+                      See alternatives
+                    </a>
+                  </div>
+                ) : null}
               </div>
-            </form>
-          )}
-        </div>
-      </div>
+            ) : null}
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                disabled={submitting}
+                className="flex-1 rounded-lg border border-surface-sunk px-4 py-3 text-sm font-medium transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="bg-brand flex-1 rounded-lg px-4 py-3 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
+              >
+                {submitting ? 'Signing up…' : 'Confirm'}
+              </button>
+            </div>
+          </form>
+        )}
+      </BottomSheet>
     </>
   );
 }

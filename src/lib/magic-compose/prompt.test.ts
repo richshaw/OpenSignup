@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { RULES_IN_BOTH } from '@/lib/signup-rules';
 import {
   MagicComposeDraftSchema,
   MAX_FIELDS,
@@ -45,6 +48,9 @@ describe('system prompt', () => {
     expect(sys).toContain('refusalReason');
   });
 
+  it('carries every rule it shares with the MCP server instructions, word for word', () => {
+    for (const rule of RULES_IN_BOTH) expect(sys).toContain(rule);
+  });
 });
 
 describe('buildMessages', () => {
@@ -58,6 +64,17 @@ describe('buildMessages', () => {
   it("injects today's date into the system prompt", () => {
     const out = buildMessages('hello', new Date('2026-05-15T12:00:00Z'));
     expect(out[0]?.content).toContain("Today's date is 2026-05-15");
+  });
+
+  // Characterization: the prompt is tuned against evals, so any refactor of
+  // how it is assembled must leave the bytes the model reads unchanged.
+  // A plain read, not a file snapshot: `vitest -u` cannot rewrite it and a missing file fails.
+  // Changing the prompt on purpose: write the new render over the golden yourself, and only
+  // after an eval run (`pnpm eval:magic-compose`) says the new wording is no worse.
+  it('renders the system prompt byte for byte as the golden file has it', () => {
+    const out = buildMessages('x', new Date('2026-05-15T00:00:00Z'));
+    const golden = readFileSync(path.join(__dirname, '__golden__/system-prompt.txt'), 'utf8');
+    expect(out[0]?.content).toBe(golden);
   });
 });
 

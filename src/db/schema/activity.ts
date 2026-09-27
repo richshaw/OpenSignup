@@ -45,6 +45,7 @@ export const ACTIVITY_EVENTS = [
   'slot.created',
   'slot.updated',
   'slot.deleted',
+  'slot.reordered',
   'field.created',
   'field.updated',
   'field.deleted',
@@ -65,6 +66,9 @@ export const ACTIVITY_EVENTS = [
   'auth.magic_link_sent',
   'auth.signed_in',
   'workspace.created',
+  'oauth.consent_granted',
+  'oauth.consent_denied',
+  'oauth.grant_revoked',
   'landing.viewed',
   'landing.cta_clicked',
 ] as const;

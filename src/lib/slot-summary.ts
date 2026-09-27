@@ -1,18 +1,37 @@
-import type { SlotFieldDefinition } from '@/schemas/slot-fields';
+import { slotDetails, type LabelledField } from '@/lib/slot-label';
 
 /**
- * Produces a human-readable summary string for a slot's field values.
- * Skips null/undefined/empty values; joins present ones with " · ".
+ * A slot's field values joined into one string, in field order.
+ *
+ * Both forms share `slotDetails()`, so the organizer's responses table, the
+ * participant page and the emails always agree on which fields a slot has and
+ * how each value is rendered.
  */
+
+/** `Name: Alice · Role: Driver`. Labelled, for the organizer's responses table. */
 export function summarizeSlot(
-  fields: SlotFieldDefinition[],
+  fields: readonly LabelledField[],
   values: Record<string, unknown>,
 ): string {
-  const parts: string[] = [];
-  for (const f of fields) {
-    const v = values[f.ref];
-    if (v === undefined || v === null || v === '') continue;
-    parts.push(`${f.label}: ${String(v)}`);
-  }
-  return parts.join(' · ');
+  return slotDetails(fields, values)
+    .map((d) => `${d.label}: ${d.value}`)
+    .join(' · ');
+}
+
+/**
+ * `Sun, Aug 30 · 13:00 · Front desk`. Unlabelled, for an email subject line or
+ * preview text, where there is no room for labels and the values carry the
+ * meaning.
+ *
+ * Empty when the slot has no values worth showing. Callers fall back to the
+ * signup title, never to `slots.ref` — that is a slugified, collision-suffixed
+ * key and has no business in front of a participant.
+ */
+export function summarizeSlotValues(
+  fields: readonly LabelledField[],
+  values: Record<string, unknown>,
+): string {
+  return slotDetails(fields, values)
+    .map((d) => d.value)
+    .join(' · ');
 }
