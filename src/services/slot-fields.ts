@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 import type { Db, Queryable, Tx } from '@/db/client';
 import { signups } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
@@ -178,23 +178,6 @@ export async function addField(
     const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
     if (!locked) return err(serviceError('not_found', 'signup not found'));
 
-    // Under the lock, so a second add of the same ref (a double click, an MCP
-    // retry) waits for the first and then finds it. Checked before the
-    // transaction, both passed, and the second hit the unique index as a 500.
-    const taken = await tx
-      .select({ id: slotFields.id })
-      .from(slotFields)
-      .where(and(eq(slotFields.signupId, signupId), eq(slotFields.ref, data.ref)))
-      .limit(1);
-    if (taken.length > 0) {
-      return err(
-        serviceError('conflict', `field ref "${data.ref}" already exists`, {
-          field: 'ref',
-          received: data.ref,
-        }),
-      );
-    }
-
     // An omitted sortOrder appends. The build page never sends one, and
     // defaulting it to 0 put every field it added ahead of the template's
     // date column (DEFAULT_TEMPLATE pins it at 1), so a new column
@@ -223,8 +206,21 @@ export async function addField(
         sortOrder,
         config: data.config,
       })
+      // The unique index on (signup_id, ref) decides a taken ref, not a read
+      // made first. Two adds of one ref at once (a double click, an MCP
+      // retry) both passed a read made before the transaction, and the second
+      // hit the index as a 500. Now the second waits for the first, on the
+      // signup lock or on the index itself, and inserts nothing.
+      .onConflictDoNothing({ target: [slotFields.signupId, slotFields.ref] })
       .returning();
-    if (!row) throw new Error('field insert failed');
+    if (!row) {
+      return err(
+        serviceError('conflict', `field ref "${data.ref}" already exists`, {
+          field: 'ref',
+          received: data.ref,
+        }),
+      );
+    }
 
     // A signup that just gained its first date field now has something to
     // anchor on, and a new time field may pair with the existing date, so the
