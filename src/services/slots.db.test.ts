@@ -217,18 +217,65 @@ describe('addSlot order (db)', () => {
     const first = await addSlot(fx.db, fx.actor, signupId, { values: { day: '2026-05-02' } });
     const second = await addSlot(fx.db, fx.actor, signupId, { values: { day: '2026-05-01' } });
     if (!first.ok || !second.ok) throw new Error('slot setup failed');
+    // Exact orders, so a time-based default fails this whether or not the two
+    // adds fall in the same second.
+    expect([first.value.sortOrder, second.value.sortOrder]).toEqual([0, 1]);
     const rows = await listSlotsForSignup(fx.db, signupId);
     expect(rows.map((r) => r.id)).toEqual([first.value.id, second.value.id]);
   });
 
-  it('gives two adds at once different orders', async () => {
+  it('an add queued behind another reads the order it left', async () => {
     const { signupId } = await makeSignup(fx, 'Concurrent appends', [0]);
-    const added = await Promise.all(
-      ['b', 'c'].map((name) => addSlot(fx.db, fx.actor, signupId, { values: { what: name } })),
-    );
-    for (const r of added) expect(r.ok, JSON.stringify(r)).toBe(true);
-    const { sortOrders } = await shown(fx, signupId);
-    expect(sortOrders).toEqual([0, 1, 2]);
+    let second: ReturnType<typeof addSlot> | undefined;
+    const held = fx.db.transaction(async (tx) => {
+      const first = await addSlot(tx as unknown as Db, fx.actor, signupId, {
+        values: { what: 'b' },
+      });
+      expect(first.ok, JSON.stringify(first)).toBe(true);
+      // Cannot see `b`, since the first add has not committed.
+      second = addSlot(fx.db, fx.actor, signupId, { values: { what: 'c' } });
+      await untilServiceBlockedOn(fx.db, tx, second);
+    });
+    await held.finally(() => settle(second));
+    const r = await second!;
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    expect(await shown(fx, signupId)).toEqual({ names: ['a', 'b', 'c'], sortOrders: [0, 1, 2] });
+  });
+
+  it('does not tie with a drag reorder saved one slot at a time', async () => {
+    const { signupId, idOf } = await makeSignup(fx, 'Add during drag', [0, 1, 2]);
+    // What the builder's moveRow sends for dragging c to the top, one PATCH
+    // per slot, with an add landing after the first of them.
+    const move = (name: string, sortOrder: number) =>
+      updateSlot(fx.db, fx.actor, idOf(name), { sortOrder });
+    expect((await move('c', 0)).ok).toBe(true);
+    const added = await addSlot(fx.db, fx.actor, signupId, { values: { what: 'new' } });
+    expect(added.ok, JSON.stringify(added)).toBe(true);
+    expect((await move('a', 1)).ok).toBe(true);
+    expect((await move('b', 2)).ok).toBe(true);
+    // max + 1 read a:0, b:1, c:0 and gave the new slot 2, which b then took.
+    expect(await shown(fx, signupId)).toEqual({
+      names: ['c', 'a', 'b', 'new'],
+      sortOrders: [0, 1, 2, 3],
+    });
+  });
+
+  it('a slot at the top of the order column does not stop the next add', async () => {
+    const { signupId } = await makeSignup(fx, 'Order at the top', [0]);
+    const top = 2_147_483_647;
+    const pinned = await addSlot(fx.db, fx.actor, signupId, {
+      values: { what: 'last' },
+      sortOrder: top,
+    });
+    expect(pinned.ok, JSON.stringify(pinned)).toBe(true);
+    // One past it is out of range for the column; the add ties there instead.
+    const r = await addSlot(fx.db, fx.actor, signupId, { values: { what: 'after' } });
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    if (r.ok) expect(r.value.sortOrder).toBe(top);
+    const bulk = await addSlotsBulk(fx.db, fx.actor, signupId, {
+      rows: [{ values: { what: 'bulk 1' } }, { values: { what: 'bulk 2' } }],
+    });
+    expect(bulk.ok, JSON.stringify(bulk)).toBe(true);
   });
 });
 

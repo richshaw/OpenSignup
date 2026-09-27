@@ -65,20 +65,13 @@ export async function addSlot(
     const settings = (locked.settings as SignupSettingsLike) ?? {};
     const slotAt = extractSlotAt(settings, fields, data.values);
 
-    // An omitted sortOrder appends: one past the highest the signup has, as in
-    // `addSlotsBulk`, read under the signup lock so two adds cannot land on
-    // the same number. It was epoch seconds, from before this held the lock:
-    // two slots added in the same second tied, and their order fell to the
-    // slot_at tiebreak, so filling the second with an earlier date moved it
-    // above the first. Epoch seconds also overflow the int column in 2038.
-    let sortOrder = data.sortOrder;
-    if (sortOrder === undefined) {
-      const [top] = await tx
-        .select({ max: sql<number | null>`max(${slots.sortOrder})` })
-        .from(slots)
-        .where(eq(slots.signupId, signupId));
-      sortOrder = (top?.max ?? -1) + 1;
-    }
+    // An omitted sortOrder appends (`nextSlotSortOrder`), read under the
+    // signup lock so two adds cannot land on the same number. It was epoch
+    // seconds, from before this held the lock: two slots added in the same
+    // second tied, and their order fell to the slot_at tiebreak, so filling
+    // the second with an earlier date moved it above the first. Epoch seconds
+    // also overflow the int column in 2038.
+    const sortOrder = data.sortOrder ?? (await nextSlotSortOrder(tx, signupId));
 
     const ref = await pickAvailableRef(tx, signupId, summarizeValues(data.values));
     const [inserted] = await tx
@@ -181,11 +174,7 @@ export async function addSlotsBulk(
       // has, in the order given, so a bulk add appends instead of interleaving
       // with the template's 0..n-1 (which is what defaulting to the array
       // index did, and what `addField` had to fix for fields).
-      const [top] = await tx
-        .select({ max: sql<number | null>`max(${slots.sortOrder})` })
-        .from(slots)
-        .where(eq(slots.signupId, signupId));
-      base = (top?.max ?? -1) + 1;
+      base = await nextSlotSortOrder(tx, signupId);
     }
     const out: SlotRow[] = [];
     for (const [index, row] of data.rows.entries()) {
@@ -200,7 +189,7 @@ export async function addSlotsBulk(
           ref,
           values: row.values,
           capacity: row.capacity ?? null,
-          sortOrder: row.sortOrder ?? base + index,
+          sortOrder: row.sortOrder ?? Math.min(base + index, MAX_SORT_ORDER),
           slotAt,
           status: 'open',
         })
@@ -234,6 +223,33 @@ export async function addSlotsBulk(
     });
     return ok(out);
   });
+}
+
+/** The top of the int `sort_order` column. */
+const MAX_SORT_ORDER = 2_147_483_647;
+
+/**
+ * The order a slot appended to a signup takes: past every slot it has, and
+ * never below how many it has. The caller holds the signup lock.
+ *
+ * Not max + 1 alone: the builder's drag reorder renumbers the slots 0..n-1 one
+ * PATCH at a time, and an add landing between two of them reads a max from
+ * half-renumbered rows that a later PATCH then writes too. At least the count
+ * keeps it clear of 0..n-1. Worked out as a bigint and held at the column's
+ * top, where a slot sent there would otherwise make every later add fail the
+ * insert; past it, appends tie instead.
+ */
+async function nextSlotSortOrder(tx: Queryable, signupId: string): Promise<number> {
+  const [row] = await tx
+    .select({
+      next: sql<number>`least(
+        greatest(coalesce(max(${slots.sortOrder}), -1)::bigint + 1, count(*)),
+        ${MAX_SORT_ORDER}
+      )::int`,
+    })
+    .from(slots)
+    .where(eq(slots.signupId, signupId));
+  return row?.next ?? 0;
 }
 
 /**
