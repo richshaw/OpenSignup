@@ -204,7 +204,7 @@ describe('update_signup', () => {
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const r = await client.callTool({
       name: 'update_signup',
-      arguments: { signupId: 'sig_1', settings: { sendReminders: false, maxCommitmentsPerParticipant: null } },
+      arguments: { signupId: 'sig_1', settings: { sendReminders: false, confirmationMessage: null } },
     });
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
     expect(svc.getSignupForOrganizer).not.toHaveBeenCalled();
@@ -212,9 +212,29 @@ describe('update_signup', () => {
       ctx.db,
       ctx.actor,
       'sig_1',
-      { settings: { sendReminders: false, maxCommitmentsPerParticipant: null } },
+      { settings: { sendReminders: false, confirmationMessage: null } },
       { mergeSettings: true },
     );
+  });
+
+  it('does not offer a per-person limit, which nothing enforces', async () => {
+    const client = await connectTestClient(ctx, WRITE_TOOLS);
+    const { tools } = await client.listTools();
+    const settings = tools.find((t) => t.name === 'update_signup')?.inputSchema.properties?.settings as
+      | { properties?: Record<string, unknown> }
+      | undefined;
+    expect(settings?.properties).toHaveProperty('sendReminders');
+    expect(settings?.properties).not.toHaveProperty('maxCommitmentsPerParticipant');
+
+    const r = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: 'sig_1', settings: { maxCommitmentsPerParticipant: 2 } },
+    });
+    expect((r.structuredContent as { error: { code: string; field?: string } }).error).toMatchObject({
+      code: 'invalid_input',
+      field: 'settings',
+    });
+    expect(svc.updateSignup).not.toHaveBeenCalled();
   });
 
   it('passes plain fields through and lets closesAt be cleared with null', async () => {
