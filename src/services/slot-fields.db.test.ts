@@ -582,6 +582,123 @@ describe('slot-fields service (db)', () => {
       expect(r.error.code).toBe('conflict');
     });
 
+    it('checks stored values against a slot add in flight', async () => {
+      const sigId = await createTestSignup(fx, 'Tighten enum during add');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'subject',
+        label: 'Subject',
+        fieldType: 'enum',
+        config: { fieldType: 'enum', choices: ['Math', 'Science'] },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      let tightening: ReturnType<typeof updateField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        const added = await addSlot(tx as unknown as Db, fx.actor, sigId, {
+          values: { subject: 'Science' },
+        });
+        expect(added.ok, JSON.stringify(added)).toBe(true);
+        // Cannot see the new slot, since the add has not committed.
+        tightening = updateField(fx.db, fx.actor, created.value.id, {
+          fieldType: 'enum',
+          config: { fieldType: 'enum', choices: ['Math'] },
+        });
+        await untilServiceBlockedOn(fx.db, tx, tightening);
+      });
+      await held.finally(() => settle(tightening));
+      const r = await tightening!;
+      expect(r.ok, JSON.stringify(r)).toBe(false);
+      if (!r.ok) expect(r.error).toMatchObject({ code: 'conflict', details: { count: 1 } });
+      const [field] = await fx.db
+        .select()
+        .from(slotFields)
+        .where(eq(slotFields.id, created.value.id));
+      expect(field?.config).toEqual({ fieldType: 'enum', choices: ['Math', 'Science'] });
+    });
+
+    it('checks stored values against a slot edit in flight', async () => {
+      const sigId = await createTestSignup(fx, 'Retype during edit');
+      const when = await addField(fx.db, fx.actor, sigId, {
+        ref: 'when',
+        label: 'When',
+        fieldType: 'text',
+        config: { fieldType: 'text', maxLength: 200 },
+      });
+      if (!when.ok) throw new Error('setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { when: '2026-05-10' } });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      let retyping: ReturnType<typeof updateField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        const edited = await updateSlot(tx as unknown as Db, fx.actor, slot.value.id, {
+          values: { when: 'Sat 9am' },
+        });
+        expect(edited.ok, JSON.stringify(edited)).toBe(true);
+        // Still sees a date in every slot, since the edit has not committed.
+        retyping = updateField(fx.db, fx.actor, when.value.id, {
+          fieldType: 'date',
+          config: { fieldType: 'date' },
+        });
+        await untilServiceBlockedOn(fx.db, tx, retyping);
+      });
+      await held.finally(() => settle(retyping));
+      const r = await retyping!;
+      // Let through, the field became the reminder anchor with "Sat 9am" in
+      // it: slot_at went null and this slot's reminders stopped, unannounced.
+      expect(r.ok, JSON.stringify(r)).toBe(false);
+      if (!r.ok) {
+        expect(r.error).toMatchObject({ code: 'conflict' });
+        expect(r.error.details).toMatchObject({ slotIds: [slot.value.id] });
+      }
+      const [field] = await fx.db.select().from(slotFields).where(eq(slotFields.id, when.value.id));
+      expect(field?.fieldType).toBe('text');
+    });
+
+    it('checks stored values without waiting for someone part-way through signing up', async () => {
+      const sigId = await createTestSignup(fx, 'Field saves while committing');
+      const config = { fieldType: 'enum', choices: ['Math', 'Science'] } as const;
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'subject',
+        label: 'Subject',
+        fieldType: 'enum',
+        config,
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { subject: 'Science' } });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      // What the builder's Fields dialog sends for a rename (the type and
+      // config come along unchanged), and a choice added from a slot's cell.
+      const saves = [
+        { label: 'Class', fieldType: 'enum', config },
+        { fieldType: 'enum', config: { ...config, choices: [...config.choices, 'Music'] } },
+      ];
+      const outcomes: string[] = [];
+      const pending: Promise<unknown>[] = [];
+      await fx.db.transaction(async (tx) => {
+        // What `commitToSlot` does, held open: lock the slot row.
+        await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
+        for (const save of saves) {
+          const saving = updateField(fx.db, fx.actor, created.value.id, save);
+          pending.push(saving.catch(() => undefined));
+          // Neither can make the stored value invalid, and the check only
+          // reads the slot rows, so both finish while this one is still held.
+          outcomes.push(
+            await Promise.race([
+              saving.then((r) => (r.ok ? 'saved' : JSON.stringify(r))),
+              untilBlockedOn(fx.db, tx, 5_000).then(
+                () => 'blocked behind the slot row',
+                () => 'neither finished nor blocked',
+              ),
+            ]),
+          );
+        }
+      });
+      // Let a blocked save finish before the next test or the teardown runs.
+      await Promise.all(pending);
+      expect(outcomes).toEqual(['saved', 'saved']);
+    });
+
     it('does not check stored values for a rename or a reorder', async () => {
       const sigId = await createTestSignup(fx, 'Rename skips the scan');
       const created = await addField(fx.db, fx.actor, sigId, {

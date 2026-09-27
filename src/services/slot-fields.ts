@@ -271,39 +271,6 @@ export async function updateField(
   const mismatch = configMismatch(data, existing.fieldType);
   if (mismatch) return err(mismatch);
 
-  // Only a new type or config can make a stored value invalid. A rename or a
-  // reorder cannot, so neither reads every slot of the signup to find that out.
-  const canInvalidate = data.fieldType !== undefined || data.config !== undefined;
-  const slotRows = canInvalidate
-    ? await db
-        .select({ id: slots.id, values: slots.values })
-        .from(slots)
-        .where(eq(slots.signupId, existing.signupId))
-    : [];
-
-  const nextDef: SlotFieldDefinition = {
-    id: existing.id,
-    ref: existing.ref,
-    label: data.label ?? existing.label,
-    fieldType: (data.fieldType ?? existing.fieldType) as SlotFieldDefinition['fieldType'],
-    sortOrder: data.sortOrder ?? existing.sortOrder,
-    config: (data.config ?? (existing.config as SlotFieldConfig)) as SlotFieldConfig,
-  };
-
-  const offending: string[] = [];
-  for (const row of slotRows) {
-    const values = (row.values as Record<string, unknown>) ?? {};
-    const r = validateOneValue(nextDef, values[existing.ref]);
-    if (!r.ok) offending.push(row.id);
-  }
-  if (offending.length > 0) {
-    return err(
-      serviceError('conflict', 'change would invalidate existing slot values', {
-        details: { slotIds: offending.slice(0, 20), count: offending.length },
-      }),
-    );
-  }
-
   return db.transaction(async (tx) => {
     // The re-anchor below reads settings and writes them back, and the rebuild
     // writes slot rows: both need the signup lock, as in `addField`. Taken even
@@ -323,6 +290,43 @@ export async function updateField(
     if (!current) return err(serviceError('not_found', 'field not found'));
     const stale = configMismatch(data, current.fieldType);
     if (stale) return err(stale);
+
+    // Only a new type or config can make a stored value invalid. A rename or a
+    // reorder cannot, so neither reads every slot of the signup to find that
+    // out. The check runs here, not before the transaction: every service that
+    // writes slot values (adding, editing, the delete of a field) takes the
+    // signup lock this holds, so a write that got in first has committed and
+    // this read sees it, and none can start until this ends. Read before the
+    // transaction, a value saved in between went unchecked and was left
+    // invalid, and a date the new type refused silently stopped that slot's
+    // reminders. The rows are read, not locked: the signup lock is what keeps
+    // writers out, and a slot row lock would only make this wait for, and hold
+    // up, people signing up (the builder sends the type and config with every
+    // field save, a rename included).
+    if (data.fieldType !== undefined || data.config !== undefined) {
+      const slotRows = await tx
+        .select({ id: slots.id, values: slots.values })
+        .from(slots)
+        .where(eq(slots.signupId, current.signupId));
+      const nextDef: SlotFieldDefinition = {
+        ...rowToDefinition(current),
+        ...(data.fieldType !== undefined ? { fieldType: data.fieldType } : {}),
+        ...(data.config !== undefined ? { config: data.config } : {}),
+      };
+      const offending: string[] = [];
+      for (const row of slotRows) {
+        const values = (row.values as Record<string, unknown>) ?? {};
+        const r = validateOneValue(nextDef, values[current.ref]);
+        if (!r.ok) offending.push(row.id);
+      }
+      if (offending.length > 0) {
+        return err(
+          serviceError('conflict', 'change would invalidate existing slot values', {
+            details: { slotIds: offending.slice(0, 20), count: offending.length },
+          }),
+        );
+      }
+    }
 
     const [row] = await tx
       .update(slotFields)
