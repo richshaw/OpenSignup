@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
@@ -16,6 +16,7 @@ import {
   deleteField,
   listFields,
   listFieldsForSignup,
+  recomputeSlotAtForSignup,
   updateField,
 } from '@/services/slot-fields';
 import { lockSignupForWrite, lockSlotsForSignup } from '@/services/locks';
@@ -96,6 +97,14 @@ async function createTestSignup(fx: Fixture, title = 'Field Test'): Promise<stri
   );
   if (!r.ok) throw new Error('signup setup failed');
   return r.value.id;
+}
+
+/** The row's xmin: any UPDATE changes it, one that writes the same values included. */
+async function rowVersion(slotId: string): Promise<string | undefined> {
+  const [row] = await getDb().execute<{ xmin: string }>(
+    sql`select xmin::text as xmin from slots where id = ${slotId}`,
+  );
+  return row?.xmin;
 }
 
 describe('slot-fields service (db)', () => {
@@ -926,6 +935,77 @@ describe('slot-fields service (db)', () => {
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
       expect((after?.values ?? {}) as Record<string, unknown>).toEqual({});
+    });
+  });
+
+  describe('recomputeSlotAtForSignup', () => {
+    it('writes only the slots that move, to a new instant or to none, in one pass', async () => {
+      const sigId = await createTestSignup(fx, 'Rebuild in one statement');
+      for (const [ref, fieldType] of [
+        ['day', 'date'],
+        ['day2', 'date'],
+        ['start', 'time'],
+      ] as const) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType,
+          config: { fieldType },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+      }
+      const add = async (values: Record<string, string>) => {
+        const r = await addSlot(fx.db, fx.actor, sigId, { values });
+        if (!r.ok) throw new Error('slot setup failed');
+        return r.value.id;
+      };
+      const moves = await add({ day: '2026-05-10', day2: '2026-07-04', start: '09:30' });
+      const clears = await add({ day: '2026-05-11' });
+      const stays = await add({ day: '2026-05-12', day2: '2026-05-12', start: '18:00' });
+      const at = async (id: string) =>
+        (await fx.db.select().from(slots).where(eq(slots.id, id)))[0]?.slotAt?.toISOString() ??
+        null;
+      expect(await at(clears)).toBe('2026-05-11T12:00:00.000Z');
+      const untouched = await rowVersion(stays);
+
+      const r = await fx.db.transaction(async (tx) => {
+        // Move the anchor underneath the rebuild, as updateSignup does.
+        await tx
+          .update(signups)
+          .set({ settings: { reminderFromFieldRef: 'day2' } })
+          .where(eq(signups.id, sigId));
+        return recomputeSlotAtForSignup(tx, sigId, fx.workspaceId);
+      });
+      expect(r).toEqual({ updated: 2 });
+      expect(await at(moves)).toBe('2026-07-04T09:30:00.000Z');
+      expect(await at(clears)).toBeNull();
+      expect(await at(stays)).toBe('2026-05-12T18:00:00.000Z');
+      expect(await rowVersion(stays)).toBe(untouched);
+    });
+
+    it('writes nothing when no slot moves, a year below 100 included', async () => {
+      const sigId = await createTestSignup(fx, 'Rebuild with nothing to do');
+      const day = await addField(fx.db, fx.actor, sigId, {
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      if (!day.ok) throw new Error('setup failed');
+      const ids: string[] = [];
+      // The driver reads 0099-12-31 back as 1999-12-31, so the check in JS
+      // sees that slot move on every rebuild; Postgres sees that it has not.
+      for (const date of ['2026-05-10', '0099-12-31']) {
+        const slot = await addSlot(fx.db, fx.actor, sigId, { values: { day: date } });
+        if (!slot.ok) throw new Error('slot setup failed');
+        ids.push(slot.value.id);
+      }
+      const before = await Promise.all(ids.map(rowVersion));
+      const r = await fx.db.transaction((tx) =>
+        recomputeSlotAtForSignup(tx, sigId, fx.workspaceId),
+      );
+      expect(r).toEqual({ updated: 0 });
+      expect(await Promise.all(ids.map(rowVersion))).toEqual(before);
     });
   });
 
