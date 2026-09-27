@@ -1,4 +1,4 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { Db, Queryable, Tx } from '@/db/client';
 import { signups } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
@@ -137,7 +137,7 @@ export async function recomputeSlotAtForSignup(
   // date overwritten here with the old date's.
   const slotRows = await lockSlotsForSignup(tx, signupId, workspaceId);
 
-  let updated = 0;
+  const changed: { id: string; at: string | null }[] = [];
   for (const row of slotRows) {
     const next = extractSlotAt(settings, fields, (row.values as Record<string, unknown>) ?? {});
     const cur = row.slotAt;
@@ -145,10 +145,22 @@ export async function recomputeSlotAtForSignup(
       (next === null && cur === null) ||
       (next instanceof Date && cur instanceof Date && next.getTime() === cur.getTime());
     if (same) continue;
-    await tx.update(slots).set({ slotAt: next }).where(eq(slots.id, row.id));
-    updated++;
+    changed.push({ id: row.id, at: next === null ? null : next.toISOString() });
   }
-  return { updated };
+  if (changed.length === 0) return { updated: 0 };
+
+  // One statement for every row that moves, not one per row: the signup lock
+  // and every slot row stay held until this transaction ends, and a slot add
+  // or edit queued behind them waits with a pooled connection in hand. The
+  // rows travel as one JSON parameter, as in `writeSlotOrder`.
+  const wanted = sql`jsonb_to_recordset(${JSON.stringify(changed)}::jsonb)
+    as wanted(id text, at timestamptz)`;
+  await tx
+    .update(slots)
+    .set({ slotAt: sql`wanted.at` })
+    .from(wanted)
+    .where(and(eq(slots.signupId, signupId), sql`${slots.id} = wanted.id`));
+  return { updated: changed.length };
 }
 
 export async function addField(

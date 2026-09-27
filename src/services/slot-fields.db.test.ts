@@ -16,6 +16,7 @@ import {
   deleteField,
   listFields,
   listFieldsForSignup,
+  recomputeSlotAtForSignup,
   updateField,
 } from '@/services/slot-fields';
 import { lockSignupForWrite, lockSlotsForSignup } from '@/services/locks';
@@ -926,6 +927,67 @@ describe('slot-fields service (db)', () => {
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
       expect((after?.values ?? {}) as Record<string, unknown>).toEqual({});
+    });
+  });
+
+  describe('recomputeSlotAtForSignup', () => {
+    it('writes only the slots that move, to a new instant or to none, in one pass', async () => {
+      const sigId = await createTestSignup(fx, 'Rebuild in one statement');
+      for (const [ref, fieldType] of [
+        ['day', 'date'],
+        ['day2', 'date'],
+        ['start', 'time'],
+      ] as const) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType,
+          config: { fieldType },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+      }
+      const add = async (values: Record<string, string>) => {
+        const r = await addSlot(fx.db, fx.actor, sigId, { values });
+        if (!r.ok) throw new Error('slot setup failed');
+        return r.value.id;
+      };
+      const moves = await add({ day: '2026-05-10', day2: '2026-07-04', start: '09:30' });
+      const clears = await add({ day: '2026-05-11' });
+      const stays = await add({ day: '2026-05-12', day2: '2026-05-12', start: '18:00' });
+      const at = async (id: string) =>
+        (await fx.db.select().from(slots).where(eq(slots.id, id)))[0]?.slotAt?.toISOString() ??
+        null;
+      expect(await at(clears)).toBe('2026-05-11T12:00:00.000Z');
+
+      const r = await fx.db.transaction(async (tx) => {
+        // Move the anchor underneath the rebuild, as updateSignup does.
+        await tx
+          .update(signups)
+          .set({ settings: { reminderFromFieldRef: 'day2' } })
+          .where(eq(signups.id, sigId));
+        return recomputeSlotAtForSignup(tx, sigId, fx.workspaceId);
+      });
+      expect(r).toEqual({ updated: 2 });
+      expect(await at(moves)).toBe('2026-07-04T09:30:00.000Z');
+      expect(await at(clears)).toBeNull();
+      expect(await at(stays)).toBe('2026-05-12T18:00:00.000Z');
+    });
+
+    it('writes nothing when no slot moves', async () => {
+      const sigId = await createTestSignup(fx, 'Rebuild with nothing to do');
+      const day = await addField(fx.db, fx.actor, sigId, {
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      if (!day.ok) throw new Error('setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { day: '2026-05-10' } });
+      if (!slot.ok) throw new Error('slot setup failed');
+      const r = await fx.db.transaction((tx) =>
+        recomputeSlotAtForSignup(tx, sigId, fx.workspaceId),
+      );
+      expect(r).toEqual({ updated: 0 });
     });
   });
 
