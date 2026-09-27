@@ -15,11 +15,23 @@ export function goneMessage(error: { code?: string } | null | undefined): typeof
 }
 
 /**
- * `GONE` for a whole page: `/s/[slug]`, or an edit link under it, whose
- * signup was deleted or never existed (`./not-found.tsx`). It reads the same
- * either way, so the page never tells a visitor a signup was there.
+ * `GONE` for a whole page (`./not-found.tsx`, `./c/[id]/not-found.tsx`).
+ * Each reads the same whatever the cause, so it never tells a visitor
+ * whether a signup, or a sign-up on it, was ever there.
  */
 export const GONE_PAGE = {
-  title: 'Sorry, this signup is no longer available',
-  body: 'Contact the organizer to find out what has changed, or to ask them for a new link.',
+  /** `/s/[slug]`: the signup was deleted, or never existed. */
+  signup: {
+    title: 'Sorry, this signup is no longer available',
+    body: 'Contact the organizer to find out what has changed, or to ask them for a new link.',
+  },
+  /**
+   * An edit link: the signup or the slot was deleted, or the token is missing
+   * or wrong. A mail client that cuts the token off is the likeliest of these,
+   * so it can't say the sign-up is gone.
+   */
+  editLink: {
+    title: 'Sorry, this link isn’t working',
+    body: 'Your sign-up may no longer be available, or the link may be incomplete. Try the link in your confirmation email again, or contact the organizer to find out what has changed.',
+  },
 } as const;

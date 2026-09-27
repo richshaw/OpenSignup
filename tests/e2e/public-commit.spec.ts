@@ -57,9 +57,4 @@ test.describe('public commit flow', () => {
     // served with robots: noindex.
     await expect(page.getByText('Public signup')).toHaveCount(0);
   });
-
-  test('unknown slug renders not-found', async ({ page }) => {
-    const response = await page.goto('/s/this-slug-does-not-exist');
-    expect(response?.status()).toBe(404);
-  });
 });

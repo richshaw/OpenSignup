@@ -1,7 +1,7 @@
 /**
- * The whole-page message a participant sees in place of a signup: not
- * published yet, archived, or not found (`./not-found.tsx`, which also
- * covers edit links under `c/[id]`). One card, so the states can't drift.
+ * The whole-page message a participant sees in place of a signup or their
+ * sign-up: not published yet, archived, or not found (`./not-found.tsx`,
+ * `./c/[id]/not-found.tsx`). One card, so the states can't drift.
  */
 export function SignupStateMessage({ title, body }: { title: string; body: string }) {
   return (

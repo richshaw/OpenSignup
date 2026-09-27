@@ -16,15 +16,21 @@ describe('goneMessage', () => {
 });
 
 describe('GONE_PAGE', () => {
-  // A participant can meet both: the sheet's inline error, then this page
-  // on reload. Change one and this fails until the other matches.
-  it('says what GONE says, naming the signup', () => {
-    expect(GONE_PAGE.title).toBe(GONE.message.replace('this', 'this signup').replace(/\.$/, ''));
+  const pages = Object.entries(GONE_PAGE);
+
+  // A participant can meet both: the sheet's or edit form's inline error, then
+  // one of these pages on reload. They say it with the same words.
+  it.each(pages)('%s reads like GONE', (_, copy) => {
+    const text = `${copy.title} ${copy.body}`;
+    expect(GONE.message).toMatch(/no longer available/);
+    expect(text).toMatch(/no longer (be )?available/);
+    expect(GONE.suggestion).toMatch(/what has changed/);
+    expect(text).toMatch(/what has changed/);
   });
 
-  it('points to the organizer without saying whether the signup ever existed', () => {
-    const text = `${GONE_PAGE.title} ${GONE_PAGE.body}`;
+  it.each(pages)('%s points to the organizer without saying what happened', (_, copy) => {
+    const text = `${copy.title} ${copy.body}`;
     expect(text).toMatch(/organizer/);
-    expect(text).not.toMatch(/delet|remov|never|exist|typo|wrong/i);
+    expect(text).not.toMatch(/delet|remov|never|exist|typo|wrong|token/i);
   });
 });
