@@ -4,13 +4,22 @@ export interface IcsEventInput {
   description?: string;
   location?: string;
   url?: string;
+  /**
+   * The organizer's wall-clock time pinned to UTC, which is what
+   * `extractSlotAt` stores: a signup has no time zone, so a 3:15 PM slot is
+   * 15:15Z. A timed event writes those UTC fields back out with no zone (RFC
+   * 5545's floating time), which a calendar shows at 3:15 PM wherever the
+   * viewer is, as the signup page does. A real instant from anywhere else
+   * would come out at its UTC hour, not its local one.
+   */
   start: Date;
+  /** Read the same way as `start`. Defaults to an hour after it. */
   end?: Date;
   /**
    * Export as an all-day event on `start`'s UTC calendar day (RFC 5545
    * `VALUE=DATE`), ignoring `end` and `start`'s time of day. A date-only slot
    * is stored at noon UTC (see `extractSlotAt`); exported as a timed event it
-   * would land at 5am in Los Angeles and 10pm in Sydney.
+   * would become a noon appointment nobody asked for.
    */
   allDay?: boolean;
   now?: Date;
@@ -26,11 +35,20 @@ function formatUtcDate(d: Date): string {
   return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
 }
 
-function formatUtc(d: Date): string {
+/**
+ * `d`'s UTC fields as a date-time with no zone: RFC 5545 §3.3.5's floating
+ * form, which a calendar reads as local time wherever it is opened.
+ */
+function formatFloating(d: Date): string {
   return (
     formatUtcDate(d) +
-    `T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`
+    `T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}`
   );
+}
+
+/** `d` as a UTC date-time. DTSTAMP must take this form (RFC 5545 §3.8.7.2). */
+function formatUtc(d: Date): string {
+  return `${formatFloating(d)}Z`;
 }
 
 /** The calendar day after `d`, in UTC. An all-day event's DTEND is exclusive. */
@@ -91,8 +109,12 @@ export function buildIcs(input: IcsEventInput): string {
         `DTEND;VALUE=DATE:${formatUtcDate(nextUtcDay(start))}`,
       ]
     : [
-        `DTSTART:${formatUtc(start)}`,
-        `DTEND:${formatUtc(input.end ?? new Date(start.getTime() + 60 * 60 * 1000))}`,
+        // Floating, not UTC (see IcsEventInput.start). With a trailing Z every
+        // calendar outside UTC moved the slot by the viewer's offset: a 3:15 PM
+        // slot in November showed at 7:15 AM in Los Angeles and 2:15 AM the
+        // next day in Sydney.
+        `DTSTART:${formatFloating(start)}`,
+        `DTEND:${formatFloating(input.end ?? new Date(start.getTime() + 60 * 60 * 1000))}`,
       ];
 
   const rawLines = [
