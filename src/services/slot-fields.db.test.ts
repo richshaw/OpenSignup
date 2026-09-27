@@ -15,6 +15,7 @@ import {
   addField,
   deleteField,
   listFields,
+  listFieldsForSignup,
   updateField,
 } from '@/services/slot-fields';
 import { lockSignupForWrite, lockSlotsForSignup } from '@/services/locks';
@@ -143,6 +144,62 @@ describe('slot-fields service (db)', () => {
       expect(second.ok).toBe(false);
       if (second.ok) return;
       expect(second.error.code).toBe('conflict');
+    });
+
+    it('a second add of the same ref waits for the first, and is a conflict', async () => {
+      const sigId = await createTestSignup(fx, 'Dup ref in flight');
+      const input = {
+        ref: 'teacher',
+        label: 'Teacher',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      } as const;
+      let second: ReturnType<typeof addField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        const first = await addField(tx as unknown as Db, fx.actor, sigId, input);
+        expect(first.ok, JSON.stringify(first)).toBe(true);
+        // A double click, or an MCP retry: the first has not committed, so
+        // nothing named `teacher` is there to see yet.
+        second = addField(fx.db, fx.actor, sigId, input);
+        await untilServiceBlockedOn(fx.db, tx, second);
+      });
+      await held.finally(() => settle(second));
+      // Checked before the lock, this was the unique index's error, a 500.
+      const r = await second!;
+      expect(r.ok, JSON.stringify(r)).toBe(false);
+      if (!r.ok) expect(r.error).toMatchObject({ code: 'conflict', field: 'ref' });
+      const fields = await listFieldsForSignup(fx.db, sigId);
+      expect(fields.map((f) => f.ref)).toEqual(['teacher']);
+    });
+
+    it('an add waiting behind the delete of a field with the same ref goes ahead', async () => {
+      const sigId = await createTestSignup(fx, 'Re-add a deleted ref');
+      const old = await addField(fx.db, fx.actor, sigId, {
+        ref: 'teacher',
+        label: 'Teacher',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!old.ok) throw new Error('setup failed');
+      let adding: ReturnType<typeof addField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        const gone = await deleteField(tx as unknown as Db, fx.actor, old.value.id);
+        expect(gone.ok, JSON.stringify(gone)).toBe(true);
+        // Still sees the old `teacher`, since the delete has not committed.
+        adding = addField(fx.db, fx.actor, sigId, {
+          ref: 'teacher',
+          label: 'Teacher (new)',
+          fieldType: 'text',
+          config: { fieldType: 'text' },
+        });
+        await untilServiceBlockedOn(fx.db, tx, adding);
+      });
+      await held.finally(() => settle(adding));
+      // Checked before the lock, the old field was still there: a conflict.
+      const r = await adding!;
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      const fields = await listFieldsForSignup(fx.db, sigId);
+      expect(fields.map((f) => f.label)).toEqual(['Teacher (new)']);
     });
 
     it('rejects invalid input via Zod', async () => {
