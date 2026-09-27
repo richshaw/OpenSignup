@@ -65,6 +65,21 @@ export async function addSlot(
     const settings = (locked.settings as SignupSettingsLike) ?? {};
     const slotAt = extractSlotAt(settings, fields, data.values);
 
+    // An omitted sortOrder appends: one past the highest the signup has, as in
+    // `addSlotsBulk`, read under the signup lock so two adds cannot land on
+    // the same number. It was epoch seconds, from before this held the lock:
+    // two slots added in the same second tied, and their order fell to the
+    // slot_at tiebreak, so filling the second with an earlier date moved it
+    // above the first. Epoch seconds also overflow the int column in 2038.
+    let sortOrder = data.sortOrder;
+    if (sortOrder === undefined) {
+      const [top] = await tx
+        .select({ max: sql<number | null>`max(${slots.sortOrder})` })
+        .from(slots)
+        .where(eq(slots.signupId, signupId));
+      sortOrder = (top?.max ?? -1) + 1;
+    }
+
     const ref = await pickAvailableRef(tx, signupId, summarizeValues(data.values));
     const [inserted] = await tx
       .insert(slots)
@@ -75,7 +90,7 @@ export async function addSlot(
         ref,
         values: data.values,
         capacity: data.capacity ?? null,
-        sortOrder: data.sortOrder ?? Math.floor(Date.now() / 1000),
+        sortOrder,
         slotAt,
         status: 'open',
       })
@@ -197,7 +212,7 @@ export async function addSlotsBulk(
       // The new rows already sit at the position they were given, base onwards.
       // Everything else is renumbered around them rather than shifted up by
       // the number of new rows: existing orders can be tied (a template's
-      // slots, or several sent as 0) or sparse (`addSlot` uses epoch seconds),
+      // slots, or several sent as 0) or sparse (`addSlot` used epoch seconds),
       // and a shift would keep a tie and leave the new rows on the wrong side
       // of it.
       const ids = shown.map((s) => s.id);

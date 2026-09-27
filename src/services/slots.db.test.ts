@@ -187,6 +187,51 @@ describe('updateSlot capacity validation (db)', () => {
   });
 });
 
+describe('addSlot order (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  it('appends one past the highest order when none is given', async () => {
+    const { signupId } = await makeSignup(fx, 'Append order', [0, 1, 2]);
+    for (const name of ['d', 'e']) {
+      const r = await addSlot(fx.db, fx.actor, signupId, { values: { what: name } });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+    }
+    expect(await shown(fx, signupId)).toEqual({
+      names: ['a', 'b', 'c', 'd', 'e'],
+      sortOrders: [0, 1, 2, 3, 4],
+    });
+  });
+
+  it('keeps slots in the order they were added, whatever dates they are given', async () => {
+    const { signupId } = await makeDatedSignup(fx, 'Same-second adds');
+    // Added within the same second. With epoch seconds for an order the two
+    // tied, and the later, earlier-dated slot sorted first on slot_at.
+    const first = await addSlot(fx.db, fx.actor, signupId, { values: { day: '2026-05-02' } });
+    const second = await addSlot(fx.db, fx.actor, signupId, { values: { day: '2026-05-01' } });
+    if (!first.ok || !second.ok) throw new Error('slot setup failed');
+    const rows = await listSlotsForSignup(fx.db, signupId);
+    expect(rows.map((r) => r.id)).toEqual([first.value.id, second.value.id]);
+  });
+
+  it('gives two adds at once different orders', async () => {
+    const { signupId } = await makeSignup(fx, 'Concurrent appends', [0]);
+    const added = await Promise.all(
+      ['b', 'c'].map((name) => addSlot(fx.db, fx.actor, signupId, { values: { what: name } })),
+    );
+    for (const r of added) expect(r.ok, JSON.stringify(r)).toBe(true);
+    const { sortOrders } = await shown(fx, signupId);
+    expect(sortOrders).toEqual([0, 1, 2]);
+  });
+});
+
 describe('addSlotsBulk beforeSlotId (db)', () => {
   let fx: Fixture;
 
