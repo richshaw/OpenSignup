@@ -21,7 +21,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 15 September 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 27 September 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -213,8 +213,11 @@ export default function PrivacyPage() {
             {SUPPORT_EMAIL}
           </a>
           . Today this is a manual process — self-service export and deletion endpoints are on the
-          roadmap. Organizers can already delete individual signups from their workspace settings,
-          which removes the associated commitments.
+          roadmap. Organizers can already delete a signup from its settings. That takes the signup
+          and everyone&apos;s commitments to it off the site at once: its page and everyone&apos;s
+          edit links stop working, lists and exports stop showing them, and nobody can sign up to
+          it. The records themselves stay in our database until someone asks us to erase them, as
+          above.
         </p>
       </section>
 

@@ -31,7 +31,7 @@ import {
   validateSlotValues,
 } from './slot-fields';
 import { committedBySlot } from './commitments';
-import { lockSignupForWrite } from './locks';
+import { lockSignupForWrite, readLiveSignup } from './locks';
 import { pickAvailableRef, summarizeValues } from './slots';
 
 interface ReminderSettingsLike {
@@ -221,18 +221,17 @@ export async function createSignup(
 /**
  * Loads one signup for reading and judges access to it, for callers that then
  * read something hanging off the row (its slots, its activity log, its CSV
- * export). A soft-deleted signup is not found, as it is to the organizer's
- * list and the public page, so nothing reached through this serves a deleted
- * signup's participants.
+ * export). A soft-deleted signup is not found (`readLiveSignup`), as it is to
+ * the organizer's list and the public page, so nothing reached through this
+ * serves a deleted signup's participants.
  */
 export async function getSignupRowForOrganizer(
   db: Db,
   actor: Actor,
   signupId: string,
 ): Promise<Result<SignupRow, ServiceError>> {
-  const found = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
-  const row = found[0];
-  if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
+  const row = await readLiveSignup(db, signupId);
+  if (!row) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceAccess(actor, row.workspaceId);
   return ok(row);
 }
@@ -276,9 +275,8 @@ export async function updateSignup(
     mergeSettings?: boolean;
   } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
-  const existing = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
-  const found = existing[0];
-  if (!found || found.deletedAt) return err(serviceError('not_found', 'signup not found'));
+  const found = await readLiveSignup(db, signupId);
+  if (!found) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, found.workspaceId);
 
   return db.transaction(async (tx) => {
@@ -288,7 +286,7 @@ export async function updateSignup(
     // from the same settings and the second write drop the first one's key,
     // which is the one thing "only the settings you pass change" promises.
     const row = await lockSignupForWrite(tx, signupId, found.workspaceId);
-    if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
+    if (!row) return err(serviceError('not_found', 'signup not found'));
 
     if (opts.mergeSettings && isObject(rawInput) && isObject(rawInput.settings)) {
       const merged: Record<string, unknown> = {
@@ -444,9 +442,8 @@ async function transitionStatus(
   to: SignupStatus,
   eventType: 'signup.published' | 'signup.closed' | 'signup.archived',
 ): Promise<Result<SignupRow, ServiceError>> {
-  const existing = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
-  const row = existing[0];
-  if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
+  const row = await readLiveSignup(db, signupId);
+  if (!row) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, row.workspaceId);
 
   if (from !== null && row.status !== from) {
@@ -479,9 +476,10 @@ async function transitionStatus(
         opensAt: to === 'open' && !row.opensAt ? new Date() : row.opensAt,
         updatedAt: new Date(),
       })
-      .where(eq(signups.id, signupId))
+      // A delete that committed since the read above leaves nothing to change.
+      .where(and(eq(signups.id, signupId), isNull(signups.deletedAt)))
       .returning();
-    if (!next) throw new Error('update returned nothing');
+    if (!next) return undefined;
 
     await recordActivity(tx, {
       signupId,
@@ -493,6 +491,7 @@ async function transitionStatus(
     return next;
   });
 
+  if (!updated) return err(serviceError('not_found', 'signup not found'));
   return ok(updated);
 }
 
@@ -546,6 +545,8 @@ export async function getPublicSignup(
 async function pickAvailableSlug(db: Db, title: string): Promise<string> {
   for (let i = 0; i < 6; i++) {
     const candidate = toSlug(title, { suffix: true });
+    // Deleted signups included: the unique index on slug covers them, so
+    // skipping them here would turn a clash into a failed insert.
     const collision = await db
       .select({ id: signups.id })
       .from(signups)

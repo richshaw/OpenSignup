@@ -8,7 +8,7 @@ import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
-import { createSignup, publishSignup } from '@/services/signups';
+import { createSignup, deleteSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
 import { commitments } from '@/db/schema/commitments';
 import { slots } from '@/db/schema/slots';
@@ -81,7 +81,11 @@ async function commitOnce(fx: Fixture, title: string) {
     quantity: 1,
   });
   if (!commit.ok) throw new Error(commit.error.message);
-  return { commitmentId: commit.value.commitment.id, editToken: commit.value.editToken };
+  return {
+    signupId: created.value.id,
+    commitmentId: commit.value.commitment.id,
+    editToken: commit.value.editToken,
+  };
 }
 
 async function confirmationRows(db: Db, commitmentId: string): Promise<number> {
@@ -120,6 +124,16 @@ describe('notifyCommitmentCreated (db)', () => {
     await notifyCommitmentCreated(fx.db, commitmentId, editToken);
     await notifyCommitmentCreated(fx.db, commitmentId, editToken);
     expect(await confirmationRows(fx.db, commitmentId)).toBe(1);
+  });
+
+  // A delete landing between the commit and the email: `commitToSlot` reads
+  // the signup without a lock, so it can.
+  it('sends nothing once the signup is deleted', async () => {
+    const { signupId, commitmentId, editToken } = await commitOnce(fx, 'Deleted before email');
+    const gone = await deleteSignup(fx.db, fx.actor, signupId);
+    expect(gone.ok).toBe(true);
+    await notifyCommitmentCreated(fx.db, commitmentId, editToken);
+    expect(await confirmationRows(fx.db, commitmentId)).toBe(0);
   });
 
   it('swallows an unknown commitment instead of throwing', async () => {

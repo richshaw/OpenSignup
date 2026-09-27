@@ -1,7 +1,6 @@
 import { and, asc, eq, or, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
-import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, type ServiceError } from '@/lib/errors';
@@ -17,7 +16,7 @@ import {
   SlotReorderInputSchema,
   SlotUpdateInputSchema,
 } from '@/schemas/slots';
-import { lockSignupForWrite, lockSlot, lockSlotsForSignup } from './locks';
+import { lockSignupForWrite, lockSlot, lockSlotsForSignup, readLiveSignup } from './locks';
 import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
 
 type SlotRow = typeof slots.$inferSelect;
@@ -38,12 +37,7 @@ export async function addSlot(
   if (!input.ok) return input;
   const data = input.value;
 
-  const signupRow = await db
-    .select()
-    .from(signups)
-    .where(eq(signups.id, signupId))
-    .limit(1)
-    .then((r) => r[0]);
+  const signupRow = await readLiveSignup(db, signupId);
   if (!signupRow) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, signupRow.workspaceId);
 
@@ -54,9 +48,9 @@ export async function addSlot(
     // and the anchor are read under the lock: a value for a field that has just
     // gone is refused, and slot_at comes from the anchor as it now stands.
     // No slot row is held yet, so signup-then-slots holds.
+    // Undefined for a soft delete that committed while this waited, too.
     const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
-    // A soft delete that committed while this waited, as `updateSignup` checks.
-    if (!locked || locked.deletedAt) return err(serviceError('not_found', 'signup not found'));
+    if (!locked) return err(serviceError('not_found', 'signup not found'));
 
     const fields = await listFieldsForSignup(tx, signupId);
     const valid = validateSlotValues(fields, data.values);
@@ -111,12 +105,7 @@ export async function addSlotsBulk(
   if (!input.ok) return input;
   const data = input.value;
 
-  const signupRow = await db
-    .select()
-    .from(signups)
-    .where(eq(signups.id, signupId))
-    .limit(1)
-    .then((r) => r[0]);
+  const signupRow = await readLiveSignup(db, signupId);
   if (!signupRow) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, signupRow.workspaceId);
 
@@ -139,7 +128,7 @@ export async function addSlotsBulk(
     // running at once would otherwise read the same max and land on the same
     // sortOrder, leaving their order to the createdAt tiebreak.
     const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
-    if (!locked || locked.deletedAt) return err(serviceError('not_found', 'signup not found'));
+    if (!locked) return err(serviceError('not_found', 'signup not found'));
 
     // Read under the lock, as in `addSlot`: a field delete or an anchor move
     // that this waited for has committed, and the rows are checked against the
@@ -297,12 +286,7 @@ export async function reorderSlots(
   if (!input.ok) return input;
   const { slotIds } = input.value;
 
-  const signupRow = await db
-    .select()
-    .from(signups)
-    .where(eq(signups.id, signupId))
-    .limit(1)
-    .then((r) => r[0]);
+  const signupRow = await readLiveSignup(db, signupId);
   if (!signupRow) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, signupRow.workspaceId);
 
@@ -379,11 +363,9 @@ export async function updateSlot(
     // got its value written back, and the instant came from the old anchor.
     // The slot lock is the one `commitToSlot` takes, so the count of places
     // taken cannot go up between the capacity check and the write.
+    // Undefined for a soft delete that committed while this waited, too.
     const signupRow = await lockSignupForWrite(tx, slotRow.signupId, slotRow.workspaceId);
-    // A soft delete that committed while this waited, as `addSlot` checks.
-    if (!signupRow || signupRow.deletedAt) {
-      return err(serviceError('not_found', 'signup not found'));
-    }
+    if (!signupRow) return err(serviceError('not_found', 'signup not found'));
     const locked = await lockSlot(tx, slotId, slotRow.workspaceId);
     // Deleted while this waited.
     if (!locked) return err(serviceError('not_found', 'slot not found'));
@@ -472,6 +454,12 @@ export async function deleteSlot(
     // ever being asked.
     const locked = await lockSlot(tx, slotId, slotRow.workspaceId);
     if (!locked) return err(serviceError('not_found', 'slot not found'));
+    // A deleted signup's slots are gone with it, as they are to every other
+    // write. Read, not locked: this holds a slot row and must not take the
+    // signup lock after it (src/services/locks.ts).
+    if (!(await readLiveSignup(tx, locked.signupId))) {
+      return err(serviceError('not_found', 'signup not found'));
+    }
 
     const [booked] = await tx
       .select({

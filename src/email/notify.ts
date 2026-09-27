@@ -58,6 +58,14 @@ export async function notifyCommitmentCreated(
       log.warn({ commitmentId }, 'commitment not found for confirmation email');
       return;
     }
+    // Deleted since the sign-up: this runs after the response, and
+    // `commitToSlot` reads the signup without locking it, so a delete can land
+    // before either. The signup is gone, and so is the edit link the email
+    // would carry. A delete landing after this read is not caught.
+    if (row.signup.deletedAt) {
+      log.info({ commitmentId }, 'signup deleted; no confirmation email');
+      return;
+    }
 
     // Belt and braces, not the primary defence. This is a read-then-write with
     // no lock, so it would not survive two concurrent calls for the same
