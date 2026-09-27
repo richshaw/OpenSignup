@@ -112,6 +112,7 @@ describe('/api/signups/[id] reads of a deleted signup (db)', () => {
   });
 
   afterAll(async () => {
+    if (!fx) return; // setup failed: let its own error show
     await fx.db.delete(workspaces).where(eq(workspaces.id, fx.workspaceId));
     await fx.db.delete(organizers).where(eq(organizers.id, fx.organizerId));
   });

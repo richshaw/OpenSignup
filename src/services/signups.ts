@@ -222,9 +222,8 @@ export async function createSignup(
  * Loads one signup for reading and judges access to it, for callers that then
  * read something hanging off the row (its slots, its activity log, its CSV
  * export). A soft-deleted signup is not found, as it is to the organizer's
- * list, the public page and `listFields`: a route that skipped this kept
- * serving a deleted signup's participant names and emails to members of its
- * workspace.
+ * list and the public page, so nothing reached through this serves a deleted
+ * signup's participants.
  */
 export async function getSignupRowForOrganizer(
   db: Db,
