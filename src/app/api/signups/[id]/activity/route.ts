@@ -21,7 +21,10 @@ export async function GET(
 
     const url = new URL(req.url);
     const limitRaw = Number(url.searchParams.get('limit') ?? '100');
-    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 500) : 100;
+    // Whole numbers only: a fractional limit reaches SQL LIMIT as a bigint and fails.
+    const limit = Number.isFinite(limitRaw)
+      ? Math.min(Math.max(Math.trunc(limitRaw), 1), 500)
+      : 100;
     const events = await listActivityForSignup(db, id, limit);
     return respond({ ok: true, value: events });
   });

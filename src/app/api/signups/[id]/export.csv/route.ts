@@ -1,12 +1,11 @@
 import type { NextRequest } from 'next/server';
-import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { slots } from '@/db/schema/slots';
 import { requireActor } from '@/auth/session';
 import { fail, handle } from '@/lib/api-response';
 import { serviceError } from '@/lib/errors';
 import { listCommitmentsForSignup } from '@/services/commitments';
 import { getSignupRowForOrganizer } from '@/services/signups';
+import { listSlotsForSignup } from '@/services/slots';
 
 function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -31,9 +30,11 @@ export async function GET(
     if (!loaded.ok) return fail(loaded.error);
     const row = loaded.value;
 
-    const slotRows = await db.select().from(slots).where(eq(slots.signupId, id));
+    const [slotRows, commitments] = await Promise.all([
+      listSlotsForSignup(db, id),
+      listCommitmentsForSignup(db, id),
+    ]);
     const slotsById = new Map(slotRows.map((s) => [s.id, s]));
-    const commitments = await listCommitmentsForSignup(db, id);
 
     const header = [
       'slot_ref',

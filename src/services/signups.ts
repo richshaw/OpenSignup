@@ -39,7 +39,7 @@ interface ReminderSettingsLike {
   [k: string]: unknown;
 }
 
-export type SignupRow = typeof signups.$inferSelect;
+type SignupRow = typeof signups.$inferSelect;
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -221,9 +221,10 @@ export async function createSignup(
 /**
  * Loads one signup for reading and judges access to it, for callers that then
  * read something hanging off the row (its slots, its activity log, its CSV
- * export). A soft-deleted signup is not found — that is the rule every other
- * read applies, and a route that skipped it would keep serving a deleted
- * signup's participant emails to anyone holding its id.
+ * export). A soft-deleted signup is not found, as it is to the organizer's
+ * list, the public page and `listFields`: a route that skipped this kept
+ * serving a deleted signup's participant names and emails to members of its
+ * workspace.
  */
 export async function getSignupRowForOrganizer(
   db: Db,

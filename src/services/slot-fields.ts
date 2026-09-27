@@ -505,7 +505,8 @@ export async function listFields(
     .where(eq(signups.id, signupId))
     .limit(1)
     .then((r) => r[0]);
-  if (!signupRow) return err(serviceError('not_found', 'signup not found'));
+  // Soft-deleted is not found, as in `getSignupRowForOrganizer`.
+  if (!signupRow || signupRow.deletedAt) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceAccess(actor, signupRow.workspaceId);
   return ok(await listFieldsForSignup(db, signupId));
 }
