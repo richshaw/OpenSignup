@@ -65,20 +65,26 @@ export const createSignupTool = defineTool({
 /**
  * Settings arrive sparse: only the keys the model wants to change, with
  * `null` clearing an optional one. The service merges them over the row.
+ *
+ * maxCommitmentsPerParticipant is left out until a sign-up checks it. Nothing
+ * reads it yet, so accepting it told the organizer a limit was in place when
+ * anyone could still take every spot. Strict, so a client that sends it anyway
+ * is refused rather than told the change went through.
  */
 const SparseSettingsSchema = SignupSettingsSchema.removeDefault()
+  .omit({ maxCommitmentsPerParticipant: true })
   .partial()
   .extend({
-    maxCommitmentsPerParticipant: z.number().int().positive().nullable().optional(),
     confirmationMessage: z.string().max(500).nullable().optional(),
-  });
+  })
+  .strict();
 
 export const updateSignupTool = defineTool({
   name: 'update_signup',
   scope: 'signups:write',
   title: 'Update signup',
   description:
-    'Change a signup title, description, tags, closing time (ISO datetime, or null to remove it), visibility (public or unlisted) or settings. Only the settings you pass change; pass null to clear maxCommitmentsPerParticipant or confirmationMessage. Use the field and slot tools to change what participants sign up for.',
+    'Change a signup title, description, tags, closing time (ISO datetime, or null to remove it), visibility (public or unlisted) or settings. Only the settings you pass change; pass null to clear confirmationMessage. There is no setting that limits how many spots one person can take. Use the field and slot tools to change what participants sign up for.',
   annotations: { readOnlyHint: false, destructiveHint: true },
   // organizerDisplayName is omitted on purpose: no column stores it, so
   // accepting it would report a change that never happened.
