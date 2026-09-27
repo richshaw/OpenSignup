@@ -14,8 +14,8 @@ function inWorkspace(
 /**
  * Locks the signup row until the transaction ends and returns it, read under
  * the lock (undefined when there is no such signup). Every service that
- * rewrites a signup's settings, or writes more than one of its slots, takes
- * this first, so they run one at a time per signup.
+ * rewrites a signup's settings, changes its fields, or adds, edits or reorders
+ * its slots takes this first, so they run one at a time per signup.
  *
  * `for no key update`, not `for update`: someone signing up (`commitToSlot`)
  * holds their slot row and then inserts a commitment whose signup_id foreign
@@ -28,7 +28,8 @@ function inWorkspace(
  * `lockSlot` below). A single-slot edit (`updateSlot`) takes this lock before
  * its slot, so it validates, and works out slot_at, from the fields and the
  * anchor as they stand. The services that hold one slot row without it
- * (`commitToSlot`, `deleteSlot`) never take it afterwards.
+ * (`commitToSlot`, a participant's quantity change in
+ * `updateOwnCommitment`, and `deleteSlot`) never take it afterwards.
  *
  * `tx` is a transaction, not `Queryable`: on the pool handle the lock would be
  * gone as soon as the select's own autocommit ended. `workspaceId` is the one

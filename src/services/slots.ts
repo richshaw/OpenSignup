@@ -349,7 +349,10 @@ export async function updateSlot(
     // The slot lock is the one `commitToSlot` takes, so the count of places
     // taken cannot go up between the capacity check and the write.
     const signupRow = await lockSignupForWrite(tx, slotRow.signupId, slotRow.workspaceId);
-    if (!signupRow) return err(serviceError('not_found', 'signup not found'));
+    // A soft delete that committed while this waited, as `addSlot` checks.
+    if (!signupRow || signupRow.deletedAt) {
+      return err(serviceError('not_found', 'signup not found'));
+    }
     const locked = await lockSlot(tx, slotId, slotRow.workspaceId);
     // Deleted while this waited.
     if (!locked) return err(serviceError('not_found', 'slot not found'));
@@ -382,7 +385,7 @@ export async function updateSlot(
 
     let nextSlotAt: Date | null | undefined;
     if (data.values !== undefined) {
-      const fields = await listFieldsForSignup(tx, slotRow.signupId);
+      const fields = await listFieldsForSignup(tx, locked.signupId);
       const valid = validateSlotValues(fields, data.values);
       if (!valid.ok) return valid;
       const settings = (signupRow.settings as SignupSettingsLike) ?? {};
@@ -404,7 +407,7 @@ export async function updateSlot(
 
     await recordActivity(tx, {
       signupId: row.signupId,
-      workspaceId: slotRow.workspaceId,
+      workspaceId: locked.workspaceId,
       actor: activityActor(actor),
       eventType: 'slot.updated',
       payload: { slotId, changed: Object.keys(data) },
@@ -436,12 +439,7 @@ export async function deleteSlot(
     // outside the transaction left a window where someone could take the last
     // place after the count came back empty, and lose it without the organizer
     // ever being asked.
-    const [locked] = await tx
-      .select()
-      .from(slots)
-      .where(eq(slots.id, slotId))
-      .for('update')
-      .limit(1);
+    const locked = await lockSlot(tx, slotId, slotRow.workspaceId);
     if (!locked) return err(serviceError('not_found', 'slot not found'));
 
     const [booked] = await tx

@@ -894,6 +894,25 @@ describe('slot writes and the signup lock (db)', () => {
     if (!r.ok) expect(r.error).toMatchObject({ code: 'not_found' });
   });
 
+  it('updateSlot queued behind a signup delete is not_found, and writes nothing', async () => {
+    const { signupId } = await makeDatedSignup(fx, 'Edit during signup delete');
+    const slot = await addSlot(fx.db, fx.actor, signupId, { values: { day: '2026-05-10' } });
+    if (!slot.ok) throw new Error('slot setup failed');
+    let editing: ReturnType<typeof updateSlot> | undefined;
+    const held = fx.db.transaction(async (tx) => {
+      const gone = await deleteSignup(tx as unknown as Db, colleague, signupId);
+      expect(gone.ok, JSON.stringify(gone)).toBe(true);
+      editing = updateSlot(fx.db, fx.actor, slot.value.id, { values: { day: '2026-05-11' } });
+      await untilServiceBlockedOn(fx.db, tx, editing);
+    });
+    await held.finally(() => settle(editing));
+    const r = await editing!;
+    expect(r.ok, JSON.stringify(r)).toBe(false);
+    if (!r.ok) expect(r.error).toMatchObject({ code: 'not_found' });
+    const [row] = await listSlotsForSignup(fx.db, signupId);
+    expect(row?.values).toEqual({ day: '2026-05-10' });
+  });
+
   it('updateSlot does not deadlock with someone signing up for the same slot', async () => {
     const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Edit during sign-up', 5);
     const r = await whileSigningUp(fx.db, { signupId, workspaceId: fx.workspaceId, slotId }, () =>
