@@ -6,6 +6,7 @@ import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { capacityMessage } from './capacity-message';
+import { goneMessage } from './gone-message';
 import { ACTION_SIZING } from './slot-format';
 
 interface CommitDialogProps {
@@ -257,9 +258,10 @@ export default function CommitDialog({
     }
   }
 
-  // A capacity error gets participant-facing copy built from its numbers; any
-  // other error keeps the server's own message and suggestion.
-  const errorText = error ? (capacityMessage(error, 'join') ?? error) : null;
+  // A capacity error gets participant-facing copy built from its numbers, and
+  // a slot or signup removed while this page was open gets its own; any other
+  // error keeps the server's own message and suggestion.
+  const errorText = error ? (capacityMessage(error, 'join') ?? goneMessage(error) ?? error) : null;
 
   return (
     <>

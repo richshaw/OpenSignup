@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { capacityMessage } from '../../capacity-message';
+import { goneMessage } from '../../gone-message';
 
 interface EditFormProps {
   commitmentId: string;
@@ -70,10 +71,11 @@ export default function EditForm({
       // `remaining` here is the most this commitment can hold, not the spots
       // still free, so the copy is the edit page's own.
       const capacity = capacityMessage(payload?.error, 'change');
+      const copy = capacity ?? goneMessage(payload?.error);
       setMessage({
         kind: 'err',
-        text: capacity
-          ? [capacity.message, capacity.suggestion].filter(Boolean).join(' ')
+        text: copy
+          ? [copy.message, copy.suggestion].filter(Boolean).join(' ')
           : (payload?.error?.message ?? 'save failed'),
       });
       // Someone else took spots since this page loaded, so the line at the
@@ -100,7 +102,13 @@ export default function EditForm({
       router.push(`/s/${slug}`);
     } else {
       const payload = await res.json().catch(() => null);
-      setMessage({ kind: 'err', text: payload?.error?.message ?? 'cancel failed' });
+      const gone = goneMessage(payload?.error);
+      setMessage({
+        kind: 'err',
+        text: gone
+          ? `${gone.message} ${gone.suggestion}`
+          : (payload?.error?.message ?? 'cancel failed'),
+      });
       setConfirmingCancel(false);
     }
     setSaving(false);

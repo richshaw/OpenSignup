@@ -11,7 +11,12 @@ import type { ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import type { Result } from '@/lib/result';
-import { commitToSlot } from '@/services/commitments';
+import {
+  cancelOwnCommitment,
+  commitToSlot,
+  getOwnCommitment,
+  updateOwnCommitment,
+} from '@/services/commitments';
 import { lockSignupForWrite, readLiveSignup } from '@/services/locks';
 import {
   archiveSignup,
@@ -104,7 +109,10 @@ async function teardownWorkspace(fx: Fixture): Promise<void> {
   await fx.db.delete(organizers).where(eq(organizers.id, fx.colleagueId));
 }
 
-/** An open signup with a date and a text field, two slots and one person signed up. */
+/**
+ * An open signup with a date and a text field, two open slots and a closed
+ * one, and one person signed up to the first.
+ */
 async function makeOpenSignup(fx: Fixture, title: string) {
   const created = await createSignup(
     fx.db,
@@ -144,7 +152,13 @@ async function makeOpenSignup(fx: Fixture, title: string) {
     values: { day: '2030-05-02' },
     capacity: 5,
   });
-  if (!a.ok || !b.ok) throw new Error('slot setup failed');
+  const closed = await addSlot(fx.db, fx.actor, signupId, {
+    values: { day: '2030-05-03' },
+    capacity: 5,
+  });
+  if (!a.ok || !b.ok || !closed.ok) throw new Error('slot setup failed');
+  const shut = await updateSlot(fx.db, fx.actor, closed.value.id, { status: 'closed' });
+  if (!shut.ok) throw new Error(shut.error.message);
   const pub = await publishSignup(fx.db, fx.actor, signupId);
   if (!pub.ok) throw new Error(pub.error.message);
   const commit = await commitToSlot(fx.db, a.value.id, {
@@ -155,7 +169,15 @@ async function makeOpenSignup(fx: Fixture, title: string) {
   if (!commit.ok) throw new Error(commit.error.message);
   const fields = await listFieldsForSignup(fx.db, signupId);
   const noteFieldId = fields.find((f) => f.ref === 'note')!.id;
-  return { signupId, slotA: a.value.id, slotB: b.value.id, noteFieldId };
+  return {
+    signupId,
+    slotA: a.value.id,
+    slotB: b.value.id,
+    slotClosed: closed.value.id,
+    noteFieldId,
+    commitmentId: commit.value.commitment.id,
+    editToken: commit.value.editToken,
+  };
 }
 
 /** Everything a refused write could have changed, to compare before and after. */
@@ -183,6 +205,24 @@ const CALLS: Array<[string, Call]> = [
     (fx, s) =>
       commitToSlot(fx.db, s.slotB, { name: 'Sam Example', email: 'sam@example.com', quantity: 1 }),
   ],
+  // A closed slot too: the deleted signup is found out first, so it is not
+  // found rather than closed, and no attempt_failed row lands in its log.
+  [
+    'commitToSlot on a closed slot',
+    (fx, s) =>
+      commitToSlot(fx.db, s.slotClosed, {
+        name: 'Sam Example',
+        email: 'sam@example.com',
+        quantity: 1,
+      }),
+  ],
+  // The person already signed up, through their edit link.
+  ['getOwnCommitment', (fx, s) => getOwnCommitment(fx.db, s.commitmentId, s.editToken)],
+  [
+    'updateOwnCommitment',
+    (fx, s) => updateOwnCommitment(fx.db, s.commitmentId, s.editToken, { quantity: 4 }),
+  ],
+  ['cancelOwnCommitment', (fx, s) => cancelOwnCommitment(fx.db, s.commitmentId, s.editToken)],
   ['addSlot', (fx, s) => addSlot(fx.db, fx.actor, s.signupId, { values: { day: '2030-05-03' } })],
   [
     'addSlotsBulk',
@@ -231,7 +271,7 @@ describe('a deleted signup is gone to every service (db)', () => {
   });
 
   afterAll(async () => {
-    await teardownWorkspace(fx);
+    if (fx) await teardownWorkspace(fx); // else setup failed: let its own error show
   });
 
   it.each(CALLS)('%s is not_found', async (_name, call) => {
@@ -264,7 +304,7 @@ describe('a service queued behind a signup delete (db)', () => {
   });
 
   afterAll(async () => {
-    await teardownWorkspace(fx);
+    if (fx) await teardownWorkspace(fx); // else setup failed: let its own error show
   });
 
   const QUEUED: Array<[string, Call]> = [
@@ -279,10 +319,21 @@ describe('a service queued behind a signup delete (db)', () => {
         }),
     ],
     ['updateField', (fx, s) => updateField(fx.db, fx.actor, s.noteFieldId, { label: 'Renamed' })],
+    ['deleteField', (fx, s) => deleteField(fx.db, fx.actor, s.noteFieldId)],
     [
       'reorderSlots',
       (fx, s) => reorderSlots(fx.db, fx.actor, s.signupId, { slotIds: [s.slotB, s.slotA] }),
     ],
+    [
+      'addSlotsBulk',
+      (fx, s) =>
+        addSlotsBulk(fx.db, fx.actor, s.signupId, { rows: [{ values: { day: '2030-05-04' } }] }),
+    ],
+    ['updateSignup', (fx, s) => updateSignup(fx.db, fx.actor, s.signupId, { title: 'Renamed' })],
+    // These two read the signup unlocked and pass their status check, then
+    // queue on the delete's row lock in their UPDATE, which skips a deleted row.
+    ['closeSignup', (fx, s) => closeSignup(fx.db, fx.actor, s.signupId)],
+    ['archiveSignup', (fx, s) => archiveSignup(fx.db, fx.actor, s.signupId)],
   ];
 
   it.each(QUEUED)('%s is not_found and writes nothing', async (name, call) => {

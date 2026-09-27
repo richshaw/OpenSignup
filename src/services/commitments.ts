@@ -1,7 +1,8 @@
-import { and, asc, eq, inArray, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Db, Queryable, Tx } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
+import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
@@ -87,6 +88,15 @@ export async function commitToSlot(
       .limit(1);
     const slot = slotRows[0];
     if (!slot) return err(serviceError('not_found', 'slot not found'));
+
+    // A deleted signup takes no one, though its status can still read open:
+    // its page is gone, and a slot id or a page left open must not get round
+    // that. Checked before anything else, so a deleted signup's activity log
+    // gets no attempt_failed rows either. Read, not locked, like the status
+    // below (src/services/locks.ts).
+    const signupRow = await readLiveSignup(tx, slot.signupId);
+    if (!signupRow) return err(serviceError('not_found', 'signup not found'));
+
     if (slot.status !== 'open') {
       await safeRecordAttemptFailed(tx, {
         signupId: slot.signupId,
@@ -97,12 +107,6 @@ export async function commitToSlot(
       });
       return err(serviceError('closed', 'that slot is closed'));
     }
-
-    // A deleted signup takes no one, though its status can still read open:
-    // its page is gone, and a slot id or a page left open must not get round
-    // that. Read, not locked, like the status below (src/services/locks.ts).
-    const signupRow = await readLiveSignup(tx, slot.signupId);
-    if (!signupRow) return err(serviceError('not_found', 'signup not found'));
     if (signupRow.status !== 'open') {
       await safeRecordAttemptFailed(tx, {
         signupId: signupRow.id,
@@ -314,6 +318,13 @@ export async function getOwnCommitment(
     })
     .from(commitments)
     .innerJoin(participants, eq(participants.id, commitments.participantId))
+    // A deleted signup takes its commitments with it, as far as their edit
+    // links go: the page, the edit and the cancel are not found, as the
+    // signup's own page is.
+    .innerJoin(
+      signups,
+      and(eq(signups.id, commitments.signupId), isNull(signups.deletedAt)),
+    )
     .where(eq(commitments.id, commitmentId))
     .limit(1);
   const found = row[0];

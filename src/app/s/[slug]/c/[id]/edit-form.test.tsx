@@ -107,6 +107,24 @@ describe('<EditForm /> quantity', () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  // The organizer deleted the signup, or the slot, while this page was open.
+  it('says the signup is no longer available rather than "not found"', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({ error: { code: 'not_found', message: 'commitment not found' } }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(4, 2);
+
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      'Sorry, this is no longer available. Reload the page to see what has changed.',
+    );
+    expect(alert).not.toHaveTextContent('commitment not found');
+  });
+
   // The page's refresh after a successful save re-reads the limit, but the form
   // stays mounted; the error's number must not keep overriding the fresh one.
   it("drops an error's limit once a later save succeeds", async () => {

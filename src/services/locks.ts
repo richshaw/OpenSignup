@@ -13,12 +13,17 @@ function inWorkspace(
 
 /**
  * One signup that has not been deleted (undefined when there is no such
- * signup, or it is soft-deleted), read without a lock. A deleted signup is gone
- * to every service but `deleteSignup` itself: reads of it are not found and
- * writes to it are refused, the public commit included. The services load the
- * row through this, or through `lockSignupForWrite` below, which applies the
- * same rule, rather than each checking `deleted_at` by hand: that is how the
- * fields route, the slot and field writes and signing up all came to miss it.
+ * signup, or it is soft-deleted), read without a lock. A deleted signup is
+ * gone: reading it is not found, and so is writing to it, whether an
+ * organizer's change, someone signing up, or a participant's edit or cancel.
+ * The services load a signup by id through this, or through
+ * `lockSignupForWrite` below, which applies the same rule, rather than each
+ * checking `deleted_at` by hand: that is how the fields route, the slot and
+ * field writes and signing up all came to miss it. Queries that reach a signup
+ * through a join (a participant's own commitment, reminders, the opt-out page)
+ * filter `deleted_at is null` in the join instead. Two reads must still see a
+ * deleted row: `deleteSignup`, which is idempotent, and the slug check in
+ * `pickAvailableSlug`, since the unique index on slug covers deleted rows too.
  *
  * Unscoped by workspace, unlike the locks: callers use it to find which
  * workspace to judge the actor against, and pass the policy guard next.

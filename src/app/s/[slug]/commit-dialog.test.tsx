@@ -241,6 +241,32 @@ describe('<CommitDialog /> sheet', () => {
     }
   });
 
+  // The organizer deleted the slot or the whole signup after this page loaded.
+  it('says a removed slot or signup is no longer available, not "not found"', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({ error: { code: 'not_found', message: 'signup not found' } }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    // jsdom leaves scrollIntoView out, and the dialog calls it on the alert.
+    Element.prototype.scrollIntoView = vi.fn();
+    try {
+      openSheet();
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Fields' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'jordan@example.test' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent('Sorry, this is no longer available.');
+      expect(alert).toHaveTextContent('Reload the page to see what has changed.');
+      expect(alert).not.toHaveTextContent('signup not found');
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('commits one place when it does not ask', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,

@@ -545,6 +545,8 @@ export async function getPublicSignup(
 async function pickAvailableSlug(db: Db, title: string): Promise<string> {
   for (let i = 0; i < 6; i++) {
     const candidate = toSlug(title, { suffix: true });
+    // Deleted signups included: the unique index on slug covers them, so
+    // skipping them here would turn a clash into a failed insert.
     const collision = await db
       .select({ id: signups.id })
       .from(signups)
