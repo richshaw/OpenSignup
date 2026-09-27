@@ -11,36 +11,32 @@ export function link(href: string, method: Method = 'GET'): LinkObject {
   return { href, method };
 }
 
+/** `path` (starting with `/`) on this site, whether or not the configured origin ends in a slash. */
+function absoluteUrl(path: string): string {
+  return `${getEnv().NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}${path}`;
+}
+
 export function publicSignupUrl(slug: string): string {
-  const env = getEnv();
-  return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/s/${slug}`;
+  return absoluteUrl(`/s/${slug}`);
 }
 
 /** The organizer's build page for a signup, absolute so an assistant can hand it to a person. */
 export function buildPageUrl(signupId: string): string {
-  const env = getEnv();
-  return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/app/signups/${signupId}/build`;
+  return absoluteUrl(`/app/signups/${signupId}/build`);
 }
 
 /** The organizer's preview of the public page, which works while the signup is still a draft. */
 export function previewPageUrl(signupId: string): string {
-  const env = getEnv();
-  return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/app/signups/${signupId}/preview`;
+  return absoluteUrl(`/app/signups/${signupId}/preview`);
 }
 
 export function commitmentEditUrl(slug: string, commitmentId: string, token: string): string {
-  const env = getEnv();
-  return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/s/${slug}/c/${commitmentId}?token=${token}`;
+  return absoluteUrl(`/s/${slug}/c/${commitmentId}?token=${token}`);
 }
 
 /** Human-visible link: lands on a confirm page, opts out only on submit. */
-export function reminderUnsubscribeUrl(
-  slug: string,
-  participantId: string,
-  token: string,
-): string {
-  const env = getEnv();
-  return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/s/${slug}/unsubscribe?p=${participantId}&token=${token}`;
+export function reminderUnsubscribeUrl(slug: string, participantId: string, token: string): string {
+  return absoluteUrl(`/s/${slug}/unsubscribe?p=${participantId}&token=${token}`);
 }
 
 /**
@@ -53,6 +49,5 @@ export function reminderUnsubscribeUrl(
  * reputation at exactly the providers that offer the button.
  */
 export function reminderUnsubscribePostUrl(participantId: string, token: string): string {
-  const env = getEnv();
-  return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/api/public/reminder-optout?p=${participantId}&token=${token}`;
+  return absoluteUrl(`/api/public/reminder-optout?p=${participantId}&token=${token}`);
 }
