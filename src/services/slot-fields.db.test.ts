@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
@@ -97,6 +97,14 @@ async function createTestSignup(fx: Fixture, title = 'Field Test'): Promise<stri
   );
   if (!r.ok) throw new Error('signup setup failed');
   return r.value.id;
+}
+
+/** The row's xmin: any UPDATE changes it, one that writes the same values included. */
+async function rowVersion(slotId: string): Promise<string | undefined> {
+  const [row] = await getDb().execute<{ xmin: string }>(
+    sql`select xmin::text as xmin from slots where id = ${slotId}`,
+  );
+  return row?.xmin;
 }
 
 describe('slot-fields service (db)', () => {
@@ -958,6 +966,7 @@ describe('slot-fields service (db)', () => {
         (await fx.db.select().from(slots).where(eq(slots.id, id)))[0]?.slotAt?.toISOString() ??
         null;
       expect(await at(clears)).toBe('2026-05-11T12:00:00.000Z');
+      const untouched = await rowVersion(stays);
 
       const r = await fx.db.transaction(async (tx) => {
         // Move the anchor underneath the rebuild, as updateSignup does.
@@ -971,9 +980,10 @@ describe('slot-fields service (db)', () => {
       expect(await at(moves)).toBe('2026-07-04T09:30:00.000Z');
       expect(await at(clears)).toBeNull();
       expect(await at(stays)).toBe('2026-05-12T18:00:00.000Z');
+      expect(await rowVersion(stays)).toBe(untouched);
     });
 
-    it('writes nothing when no slot moves', async () => {
+    it('writes nothing when no slot moves, a year below 100 included', async () => {
       const sigId = await createTestSignup(fx, 'Rebuild with nothing to do');
       const day = await addField(fx.db, fx.actor, sigId, {
         ref: 'day',
@@ -982,12 +992,20 @@ describe('slot-fields service (db)', () => {
         config: { fieldType: 'date' },
       });
       if (!day.ok) throw new Error('setup failed');
-      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { day: '2026-05-10' } });
-      if (!slot.ok) throw new Error('slot setup failed');
+      const ids: string[] = [];
+      // The driver reads 0099-12-31 back as 1999-12-31, so the check in JS
+      // sees that slot move on every rebuild; Postgres sees that it has not.
+      for (const date of ['2026-05-10', '0099-12-31']) {
+        const slot = await addSlot(fx.db, fx.actor, sigId, { values: { day: date } });
+        if (!slot.ok) throw new Error('slot setup failed');
+        ids.push(slot.value.id);
+      }
+      const before = await Promise.all(ids.map(rowVersion));
       const r = await fx.db.transaction((tx) =>
         recomputeSlotAtForSignup(tx, sigId, fx.workspaceId),
       );
       expect(r).toEqual({ updated: 0 });
+      expect(await Promise.all(ids.map(rowVersion))).toEqual(before);
     });
   });
 

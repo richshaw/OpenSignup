@@ -107,7 +107,7 @@ export function extractSlotAt(
   const at = new Date(`${dateVal}T${timeOfDay ? `${timeOfDay}:00` : '12:00:00'}.000Z`);
   // An unparseable instant is null, never an Invalid Date. A NaN date is not
   // equal to itself, so recomputeSlotAtForSignup's change check never matches
-  // and it would rewrite that row on every single pass, forever.
+  // and it would send that row back to the database on every single pass.
   return Number.isNaN(at.getTime()) ? null : at;
 }
 
@@ -137,7 +137,7 @@ export async function recomputeSlotAtForSignup(
   // date overwritten here with the old date's.
   const slotRows = await lockSlotsForSignup(tx, signupId, workspaceId);
 
-  const changed: { id: string; at: string | null }[] = [];
+  const changed: { id: string; at: Date | null }[] = [];
   for (const row of slotRows) {
     const next = extractSlotAt(settings, fields, (row.values as Record<string, unknown>) ?? {});
     const cur = row.slotAt;
@@ -145,22 +145,32 @@ export async function recomputeSlotAtForSignup(
       (next === null && cur === null) ||
       (next instanceof Date && cur instanceof Date && next.getTime() === cur.getTime());
     if (same) continue;
-    changed.push({ id: row.id, at: next === null ? null : next.toISOString() });
+    changed.push({ id: row.id, at: next });
   }
   if (changed.length === 0) return { updated: 0 };
 
   // One statement for every row that moves, not one per row: the signup lock
   // and every slot row stay held until this transaction ends, and a slot add
   // or edit queued behind them waits with a pooled connection in hand. The
-  // rows travel as one JSON parameter, as in `writeSlotOrder`.
+  // rows travel as one JSON parameter (a Date as its ISO string), as in
+  // `writeSlotOrder`. Postgres has the last word on what changed: the check
+  // above compares with the instant as the driver read it back, which for a
+  // year below 100 comes back a century out, so a row sent can still be equal.
   const wanted = sql`jsonb_to_recordset(${JSON.stringify(changed)}::jsonb)
     as wanted(id text, at timestamptz)`;
-  await tx
+  const written = await tx
     .update(slots)
     .set({ slotAt: sql`wanted.at` })
     .from(wanted)
-    .where(and(eq(slots.signupId, signupId), sql`${slots.id} = wanted.id`));
-  return { updated: changed.length };
+    .where(
+      and(
+        eq(slots.signupId, signupId),
+        sql`${slots.id} = wanted.id`,
+        sql`${slots.slotAt} is distinct from wanted.at`,
+      ),
+    )
+    .returning({ id: slots.id });
+  return { updated: written.length };
 }
 
 export async function addField(
