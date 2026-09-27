@@ -143,6 +143,22 @@ describe('read tools', () => {
     });
   });
 
+  it('get_signup hides a stored per-person limit, which nothing enforces', async () => {
+    getSignupForOrganizer.mockResolvedValueOnce(
+      ok({
+        ...row,
+        settings: { groupByFieldRefs: [], sendReminders: true, maxCommitmentsPerParticipant: 2 },
+        fields: [],
+        slots: [],
+        committedBySlot: {},
+      }),
+    );
+    const client = await connectTestClient(ctx, READ_TOOLS);
+    const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 'sig_1' } });
+    const body = r.structuredContent as { signup: { settings: Record<string, unknown> } };
+    expect(body.signup.settings).toEqual({ groupByFieldRefs: [], sendReminders: true });
+  });
+
   it('get_signup names the links it returns', () => {
     expect(getSignup.description).toContain('links.edit');
     expect(getSignup.description).toContain('links.preview');
