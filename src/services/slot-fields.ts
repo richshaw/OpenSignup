@@ -170,20 +170,6 @@ export async function addField(
   if (!signupRow) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, signupRow.workspaceId);
 
-  const existing = await db
-    .select({ id: slotFields.id })
-    .from(slotFields)
-    .where(and(eq(slotFields.signupId, signupId), eq(slotFields.ref, data.ref)))
-    .limit(1);
-  if (existing.length > 0) {
-    return err(
-      serviceError('conflict', `field ref "${data.ref}" already exists`, {
-        field: 'ref',
-        received: data.ref,
-      }),
-    );
-  }
-
   const id = makeId('fld');
   return db.transaction(async (tx) => {
     // Taken whatever the input: the re-anchor below reads settings and writes
@@ -191,6 +177,23 @@ export async function addField(
     // means no lock was taken, so nothing below may run.
     const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
     if (!locked) return err(serviceError('not_found', 'signup not found'));
+
+    // Under the lock, so a second add of the same ref (a double click, an MCP
+    // retry) waits for the first and then finds it. Checked before the
+    // transaction, both passed, and the second hit the unique index as a 500.
+    const taken = await tx
+      .select({ id: slotFields.id })
+      .from(slotFields)
+      .where(and(eq(slotFields.signupId, signupId), eq(slotFields.ref, data.ref)))
+      .limit(1);
+    if (taken.length > 0) {
+      return err(
+        serviceError('conflict', `field ref "${data.ref}" already exists`, {
+          field: 'ref',
+          received: data.ref,
+        }),
+      );
+    }
 
     // An omitted sortOrder appends. The build page never sends one, and
     // defaulting it to 0 put every field it added ahead of the template's
