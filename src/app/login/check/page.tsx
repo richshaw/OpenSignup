@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export default async function CheckEmailPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string }>;
+  searchParams: Promise<{ callbackUrl?: string | string[] }>;
 }) {
   const { callbackUrl } = await searchParams;
   return (
