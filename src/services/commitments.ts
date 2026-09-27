@@ -65,16 +65,27 @@ async function safeRecordAttemptFailed(
 }
 
 /**
- * Why a signup takes no more places, or null while it still does: its status
- * is anything but `open` (a draft, closed or archived signup), or its
- * `closesAt` has passed. Signing up (`commitToSlot`, and so a move to another
- * slot) and raising a quantity (`updateOwnCommitment`) both ask this, so a
- * place refused one way cannot be had the other. `reason` and `detail` are
- * for the attempt_failed row.
+ * Why a slot takes no more places, or null while it still does. The rules, in
+ * the order `commitToSlot` has always checked them: the slot is closed; the
+ * signup's status is anything but `open` (a draft, closed or archived signup);
+ * its `closesAt` has passed; or the slot starts within the signup's
+ * `lockoutHoursBeforeSlot`. Signing up (`commitToSlot`, and so a move to
+ * another slot), raising a quantity (`updateOwnCommitment`) and the edit
+ * page's limit (`editLimitsForCommitment`) all ask this, so a place refused one
+ * way cannot be had another. `reason` and `detail` are for the attempt_failed
+ * row.
  */
 function whyNotTakingPlaces(
-  signup: typeof signups.$inferSelect,
+  signup: Pick<typeof signups.$inferSelect, 'status' | 'closesAt' | 'settings'>,
+  slot: Pick<typeof slots.$inferSelect, 'status' | 'slotAt'>,
 ): { reason: 'closed' | 'over_window'; detail: string; error: ServiceError } | null {
+  if (slot.status !== 'open') {
+    return {
+      reason: 'closed',
+      detail: 'slot_closed',
+      error: serviceError('closed', 'that slot is closed'),
+    };
+  }
   if (signup.status !== 'open') {
     return {
       reason: 'closed',
@@ -92,6 +103,20 @@ function whyNotTakingPlaces(
       detail: 'closes_at_elapsed',
       error: serviceError('closed', 'signup has closed'),
     };
+  }
+  // Counted back from slot_at, so for a date-only slot it is measured from the
+  // noon-UTC anchor rather than from midnight (see extractSlotAt). No UI sets
+  // lockoutHoursBeforeSlot today.
+  const settings = (signup.settings ?? {}) as { lockoutHoursBeforeSlot?: number };
+  const lockoutHours = settings.lockoutHoursBeforeSlot ?? 0;
+  if (slot.slotAt && lockoutHours > 0) {
+    if (Date.now() > slot.slotAt.getTime() - lockoutHours * 3600 * 1000) {
+      return {
+        reason: 'over_window',
+        detail: 'slot_lockout',
+        error: serviceError('closed', 'too close to the slot time to sign up'),
+      };
+    }
   }
   return null;
 }
@@ -129,17 +154,7 @@ export async function commitToSlot(
     const signupRow = await readLiveSignup(tx, slot.signupId);
     if (!signupRow) return err(serviceError('not_found', 'signup not found'));
 
-    if (slot.status !== 'open') {
-      await safeRecordAttemptFailed(tx, {
-        signupId: slot.signupId,
-        workspaceId: slot.workspaceId,
-        actorId: null,
-        actorType: 'system',
-        payload: { slotId, reason: 'closed', detail: 'slot_closed' },
-      });
-      return err(serviceError('closed', 'that slot is closed'));
-    }
-    const shut = whyNotTakingPlaces(signupRow);
+    const shut = whyNotTakingPlaces(signupRow, slot);
     if (shut) {
       await safeRecordAttemptFailed(tx, {
         signupId: signupRow.id,
@@ -149,24 +164,6 @@ export async function commitToSlot(
         payload: { slotId, reason: shut.reason, detail: shut.detail },
       });
       return err(shut.error);
-    }
-
-    // Lockout before slot if configured. Counted back from slot_at, so for a
-    // date-only slot it is measured from the noon-UTC anchor rather than from
-    // midnight (see extractSlotAt). No UI sets lockoutHoursBeforeSlot today.
-    const settings = (signupRow.settings ?? {}) as { lockoutHoursBeforeSlot?: number };
-    if (slot.slotAt && settings.lockoutHoursBeforeSlot && settings.lockoutHoursBeforeSlot > 0) {
-      const lockoutMs = settings.lockoutHoursBeforeSlot * 3600 * 1000;
-      if (Date.now() > slot.slotAt.getTime() - lockoutMs) {
-        await safeRecordAttemptFailed(tx, {
-          signupId: signupRow.id,
-          workspaceId: signupRow.workspaceId,
-          actorId: null,
-          actorType: 'system',
-          payload: { slotId, reason: 'over_window', detail: 'slot_lockout' },
-        });
-        return err(serviceError('closed', 'too close to the slot time to sign up'));
-      }
     }
 
     // Preserve user-entered casing in participants.email; dedup on emailLower.
@@ -466,7 +463,7 @@ export async function updateOwnCommitment(
     const slotRows =
       data.quantity !== undefined
         ? await tx
-            .select({ capacity: slots.capacity })
+            .select({ capacity: slots.capacity, status: slots.status, slotAt: slots.slotAt })
             .from(slots)
             .where(eq(slots.id, current.slotId))
             .for('update')
@@ -488,8 +485,7 @@ export async function updateOwnCommitment(
     if (!locked) return err(serviceError('not_found', 'commitment not found'));
     // `getOwnCommitment` found the signup live, but this may have queued on
     // the locks above while it was deleted, or closed. Read after them, as
-    // `commitToSlot` does, and before anything is written. Read, not locked:
-    // the signup lock never comes after a slot's (src/services/locks.ts).
+    // `commitToSlot` does, and before anything is written.
     const signupRow = await readLiveSignup(tx, locked.signupId);
     if (!signupRow) return err(serviceError('not_found', 'commitment not found'));
     // A terminal commitment always takes the conflict path, whatever else the
@@ -504,19 +500,32 @@ export async function updateOwnCommitment(
     // swap path (slotId change) returns earlier and re-runs both through
     // commitToSlot, so a slot move never reaches here.
     if (data.quantity !== undefined && data.quantity > locked.quantity) {
-      // Taking more places needs the signup to be taking them, by the same
-      // rule as signing up: open, and not past `closesAt`. Without this, a
-      // participant could add places after the organizer closed or archived
-      // the signup by raising a quantity instead of signing up again.
+      // The slot row goes with its commitments (the delete cascades), so with
+      // the commitment found above this is only for the type.
+      const slotRow = slotRows[0];
+      if (!slotRow) return err(serviceError('not_found', 'commitment not found'));
+
+      // Taking more places needs the slot to be taking them, by the same rule
+      // as signing up (`whyNotTakingPlaces`): the slot and the signup open, not
+      // past `closesAt`, and not inside the lockout before the slot. Without
+      // this, a participant could add places after the organizer closed the
+      // signup or the slot by raising a quantity instead of signing up again.
       //
-      // Everything else an edit link does stays allowed on a signup that is
-      // not taking places: lowering the quantity and cancelling give places
+      // Everything else an edit link does stays allowed when no more places
+      // are being taken: lowering the quantity and cancelling give places
       // back, and a name or notes change only corrects a place already held.
       // Closing stops new places being taken; it does not hold anyone to a
       // place they can no longer fill, and refusing would leave the organizer
       // a no-show rather than a gap they can see. `cancelOwnCommitment` makes
       // no check for the same reason.
-      const shut = whyNotTakingPlaces(signupRow);
+      //
+      // As in `commitToSlot`, the signup was read, not locked, so a close that
+      // commits after that read, in the moment before this transaction does,
+      // still lets this one increase through, as it would a sign-up. Locking
+      // the signup here would take its lock after the slot's, the order that
+      // deadlocks (src/services/locks.ts). A close that commits while this
+      // waits on the locks above is seen.
+      const shut = whyNotTakingPlaces(signupRow, slotRow);
       if (shut) {
         await safeRecordAttemptFailed(tx, {
           signupId: signupRow.id,
@@ -534,7 +543,7 @@ export async function updateOwnCommitment(
         return err({ ...shut.error, suggestion: 'keep the quantity as it is, or lower it' });
       }
 
-      const cap = slotRows[0]?.capacity ?? null;
+      const cap = slotRow.capacity;
       if (cap !== null) {
         const sumRows = await tx
           .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
@@ -625,8 +634,9 @@ export async function cancelOwnCommitment(
     // Lock the row, then check the signup is still there, as `updateOwnCommitment`
     // does: `getOwnCommitment` read before this, and a cancel queued on the row
     // while the signup was deleted must not write to it. Its status and
-    // `closesAt` go unchecked on purpose: a cancel only gives a place back,
-    // which a closed or archived signup still takes (see `updateOwnCommitment`).
+    // `closesAt`, and the slot's, go unchecked on purpose: a cancel only gives
+    // a place back, which a closed signup or slot still takes (see
+    // `updateOwnCommitment`).
     await tx
       .select({ id: commitments.id })
       .from(commitments)
@@ -722,33 +732,50 @@ export async function committedBySlot(db: Db, signupId: string): Promise<Record<
 }
 
 /**
- * The most places a commitment could hold on its slot: the slot's capacity
- * less what every *other* confirmed or tentative commitment holds, which is
- * the sum the quantity guard in `updateOwnCommitment` checks an increase
- * against (waitlisted places don't count against capacity). `null`
- * when the slot is unlimited. On a signup that takes no more places (closed,
- * archived, or past `closesAt`) it is what the commitment holds now, since the
- * guard refuses any increase there. The edit page uses it to leave the
- * quantity field out when the answer is 1, since 1 is then the only value it
- * accepts.
+ * What the edit page may offer a commitment. `closed` is true when its slot
+ * takes no more places (`whyNotTakingPlaces`: the signup or the slot is
+ * closed, the signup is archived or past `closesAt`, or the slot is inside its
+ * lockout), and `maxQuantity` is then what the commitment holds now, since the
+ * quantity guard in `updateOwnCommitment` refuses any increase. Otherwise
+ * `maxQuantity` is the slot's capacity less what every *other* confirmed or
+ * tentative commitment holds, the sum that guard checks an increase against
+ * (waitlisted places don't count against capacity), or `null` when the slot is
+ * unlimited. The edit page leaves the quantity field out when it is 1, since 1
+ * is then the only value it accepts, and says so when `closed`.
  *
  * Guard-free, like `committedBySlot`: call it only with a commitment that
  * `getOwnCommitment` has already verified against its edit token.
  */
-export async function maxQuantityForCommitment(
+export async function editLimitsForCommitment(
   db: Db,
-  commitment: { id: string; slotId: string; signupId: string; quantity: number },
-): Promise<number | null> {
-  const signup = await readLiveSignup(db, commitment.signupId);
-  if (signup && whyNotTakingPlaces(signup)) return commitment.quantity;
-
-  const slotRows = await db
-    .select({ capacity: slots.capacity })
+  commitment: { id: string; slotId: string },
+): Promise<{ maxQuantity: number | null; closed: boolean }> {
+  // The slot and its signup in one read. A join rather than `readLiveSignup`,
+  // so it checks deleted_at itself.
+  const [row] = await db
+    .select({
+      capacity: slots.capacity,
+      status: slots.status,
+      slotAt: slots.slotAt,
+      signup: { status: signups.status, closesAt: signups.closesAt, settings: signups.settings },
+    })
     .from(slots)
+    .innerJoin(signups, and(eq(signups.id, slots.signupId), isNull(signups.deletedAt)))
     .where(eq(slots.id, commitment.slotId))
     .limit(1);
-  const cap = slotRows[0]?.capacity ?? null;
-  if (cap === null) return null;
+  if (!row) return { maxQuantity: null, closed: false };
+
+  if (whyNotTakingPlaces(row.signup, row)) {
+    // Read here rather than taken from the caller, whose copy may be older.
+    const [own] = await db
+      .select({ quantity: commitments.quantity })
+      .from(commitments)
+      .where(eq(commitments.id, commitment.id))
+      .limit(1);
+    return { maxQuantity: own?.quantity ?? 0, closed: true };
+  }
+
+  if (row.capacity === null) return { maxQuantity: null, closed: false };
   const sumRows = await db
     .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
     .from(commitments)
@@ -759,5 +786,5 @@ export async function maxQuantityForCommitment(
         or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
       ),
     );
-  return Math.max(0, cap - (sumRows[0]?.sum ?? 0));
+  return { maxQuantity: Math.max(0, row.capacity - (sumRows[0]?.sum ?? 0)), closed: false };
 }

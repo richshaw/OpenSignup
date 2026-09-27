@@ -14,7 +14,7 @@ interface EditFormProps {
   initialQuantity: number;
   /**
    * The most places this commitment could hold, or `null` on an unlimited
-   * slot (see `maxQuantityForCommitment`). At 1 there is nothing to change, so
+   * slot (see `editLimitsForCommitment`). At 1 there is nothing to change, so
    * the quantity field is left out; above 1 it is the field's `max`.
    */
   maxQuantity: number | null;
@@ -37,10 +37,9 @@ export default function EditForm({
   // Holding more than the slot now allows can't happen (capacity can't drop
   // below what is taken), but if it did, keep the field so it can be lowered.
   const askQuantity = maxQuantity === null || maxQuantity > 1 || initialQuantity > 1;
-  // After a capacity or closed error, the server's limit is newer than the
-  // page's. Kept here rather than re-read with router.refresh(), which would
-  // re-run the page and log another edit-link visit for what was only a failed
-  // save.
+  // After a capacity error, the server's limit is newer than the page's. Kept
+  // here rather than re-read with router.refresh(), which would re-run the
+  // page and log another edit-link visit for what was only a failed save.
   const [reportedMax, setReportedMax] = useState<number | null>(null);
   const currentMax = reportedMax ?? maxQuantity;
   // Never below what is already held, or the form could not be saved at all.
@@ -73,8 +72,7 @@ export default function EditForm({
       // `remaining` here is the most this commitment can hold, not the spots
       // still free, so the copy is the edit page's own.
       const capacity = capacityMessage(payload?.error, 'change');
-      const closed = closedMessage(payload?.error);
-      const copy = capacity ?? closed ?? goneMessage(payload?.error);
+      const copy = capacity ?? closedMessage(payload?.error) ?? goneMessage(payload?.error);
       setMessage({
         kind: 'err',
         text: copy
@@ -85,9 +83,6 @@ export default function EditForm({
       // top and the field's max take the error's number.
       const remaining = payload?.error?.details?.remaining;
       if (capacity && typeof remaining === 'number') setReportedMax(remaining);
-      // The signup closed since this page loaded, so what is held now is the
-      // most there can be.
-      if (closed) setReportedMax(initialQuantity);
     } else {
       setMessage({ kind: 'ok', text: 'Saved.' });
       // The refresh brings a fresh maxQuantity, but this form stays mounted,

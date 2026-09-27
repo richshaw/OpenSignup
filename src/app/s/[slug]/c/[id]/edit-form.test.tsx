@@ -126,9 +126,8 @@ describe('<EditForm /> quantity', () => {
   });
 
   // The organizer closed the signup while this page was open, and the save
-  // asked for more spots. Lowering still works, so the field stays, capped at
-  // what is held.
-  it('says the signup has closed when more spots are refused', async () => {
+  // asked for more spots.
+  it('says sign-ups have closed when more spots are refused', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,
       json: async () => ({
@@ -143,11 +142,9 @@ describe('<EditForm /> quantity', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(
-      "This signup has closed, so you can't add more spots. Keep the number you have, or lower it.",
+      "Sign-ups have closed, so you can't add more spots. Keep the number you have.",
     );
     expect(alert).not.toHaveTextContent('not accepting commitments');
-    expect(screen.getByText('You can have up to 2 spots on this slot.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Spots')).toHaveAttribute('max', '2');
     expect(router.refresh).not.toHaveBeenCalled();
   });
 

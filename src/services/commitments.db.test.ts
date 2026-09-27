@@ -14,7 +14,7 @@ import type { Actor } from '@/lib/policy';
 import {
   cancelOwnCommitment,
   commitToSlot,
-  maxQuantityForCommitment,
+  editLimitsForCommitment,
   updateOwnCommitment,
 } from '@/services/commitments';
 import {
@@ -24,7 +24,7 @@ import {
   publishSignup,
   updateSignup,
 } from '@/services/signups';
-import { addSlot, deleteSlot } from '@/services/slots';
+import { addSlot, deleteSlot, updateSlot } from '@/services/slots';
 import { settle, untilServiceBlockedOn } from '@/services/testing/locks';
 
 interface Fixture {
@@ -419,11 +419,12 @@ describe('updateOwnCommitment quantity edit under concurrency (db)', () => {
   });
 });
 
-// A signup takes no more places once the organizer closes or archives it, or
-// its closesAt passes. Signing up already checked that; raising a quantity
+// A slot takes no more places once the organizer closes or archives its
+// signup or closes the slot, or the signup's closesAt or the lockout before the
+// slot comes. Signing up already checked all of that; raising a quantity
 // through an edit link did not. Lowering it, fixing a name or notes, and
 // cancelling only give places back or correct details, so they still work.
-describe('updateOwnCommitment on a signup that takes no more places (db)', () => {
+describe('updateOwnCommitment on a slot that takes no more places (db)', () => {
   let fx: Fixture;
 
   beforeAll(async () => {
@@ -434,30 +435,49 @@ describe('updateOwnCommitment on a signup that takes no more places (db)', () =>
     await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
   });
 
-  const SHUT: Array<
-    [
-      string,
-      (fx: Fixture, signupId: string) => Promise<unknown>,
-      { reason: string; detail: string },
-    ]
-  > = [
+  async function succeeds(r: Promise<{ ok: boolean }>) {
+    const done = await r;
+    expect(done.ok, JSON.stringify(done)).toBe(true);
+  }
+
+  type Shut = (fx: Fixture, s: { signupId: string; slotId: string }) => Promise<void>;
+  const SHUT: Array<[string, Shut, { reason: string; detail: string }]> = [
     [
       'closed',
-      (fx, id) => closeSignup(fx.db, fx.actor, id),
+      (fx, s) => succeeds(closeSignup(fx.db, fx.actor, s.signupId)),
       { reason: 'closed', detail: 'signup_closed' },
     ],
     [
       'archived',
-      (fx, id) => archiveSignup(fx.db, fx.actor, id),
+      (fx, s) => succeeds(archiveSignup(fx.db, fx.actor, s.signupId)),
       { reason: 'closed', detail: 'signup_archived' },
     ],
     [
       'past its closesAt',
-      (fx, id) =>
-        updateSignup(fx.db, fx.actor, id, {
-          closesAt: new Date(Date.now() - 60_000).toISOString(),
-        }),
+      (fx, s) =>
+        succeeds(
+          updateSignup(fx.db, fx.actor, s.signupId, {
+            closesAt: new Date(Date.now() - 60_000).toISOString(),
+          }),
+        ),
       { reason: 'over_window', detail: 'closes_at_elapsed' },
+    ],
+    [
+      'whose slot is closed',
+      (fx, s) => succeeds(updateSlot(fx.db, fx.actor, s.slotId, { status: 'closed' })),
+      { reason: 'closed', detail: 'slot_closed' },
+    ],
+    // Tomorrow's date anchors at noon UTC, well inside a 72-hour lockout.
+    [
+      'inside the lockout before its slot',
+      async (fx, s) => {
+        const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+        await succeeds(updateSlot(fx.db, fx.actor, s.slotId, { values: { date: tomorrow } }));
+        await succeeds(
+          updateSignup(fx.db, fx.actor, s.signupId, { settings: { lockoutHoursBeforeSlot: 72 } }),
+        );
+      },
+      { reason: 'over_window', detail: 'slot_lockout' },
     ],
   ];
 
@@ -474,14 +494,6 @@ describe('updateOwnCommitment on a signup that takes no more places (db)', () =>
     return { ...a, commitment: mine.value.commitment, editToken: mine.value.editToken };
   }
 
-  async function shut(
-    shutDown: (fx: Fixture, signupId: string) => Promise<unknown>,
-    signupId: string,
-  ) {
-    const r = (await shutDown(fx, signupId)) as { ok: boolean };
-    expect(r.ok, JSON.stringify(r)).toBe(true);
-  }
-
   async function activityOf(
     signupId: string,
     eventType: 'commitment.attempt_failed' | 'commitment.updated',
@@ -494,7 +506,7 @@ describe('updateOwnCommitment on a signup that takes no more places (db)', () =>
 
   it.each(SHUT)('refuses an increase on a signup %s', async (name, shutDown, logged) => {
     const s = await holdingTwo(`Increase, ${name}`);
-    await shut(shutDown, s.signupId);
+    await shutDown(fx, s);
 
     const r = await updateOwnCommitment(fx.db, s.commitment.id, s.editToken, {
       quantity: 3,
@@ -523,9 +535,29 @@ describe('updateOwnCommitment on a signup that takes no more places (db)', () =>
     });
   });
 
+  // The rules moved out of commitToSlot into the helper both share; signing up
+  // must still be refused, and logged, exactly as before.
+  it.each(SHUT)('refuses a sign-up on a signup %s, as before', async (name, shutDown, logged) => {
+    const s = await holdingTwo(`Sign-up, ${name}`);
+    await shutDown(fx, s);
+
+    const r = await commitToSlot(fx.db, s.slotId, {
+      name: 'Sam Example',
+      email: 'sam@example.com',
+      quantity: 1,
+    });
+    expect(r.ok, JSON.stringify(r)).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('closed');
+
+    const failed = await activityOf(s.signupId, 'commitment.attempt_failed');
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.actorType).toBe('system');
+    expect(failed[0]?.payload).toEqual({ slotId: s.slotId, ...logged });
+  });
+
   it.each(SHUT)('lets a decrease through on a signup %s', async (name, shutDown) => {
     const s = await holdingTwo(`Decrease, ${name}`);
-    await shut(shutDown, s.signupId);
+    await shutDown(fx, s);
 
     const r = await updateOwnCommitment(fx.db, s.commitment.id, s.editToken, { quantity: 1 });
     expect(r.ok, JSON.stringify(r)).toBe(true);
@@ -537,7 +569,7 @@ describe('updateOwnCommitment on a signup that takes no more places (db)', () =>
   // notes change arrives with the quantity unchanged.
   it.each(SHUT)('lets a name and notes change through on a signup %s', async (name, shutDown) => {
     const s = await holdingTwo(`Details, ${name}`);
-    await shut(shutDown, s.signupId);
+    await shutDown(fx, s);
 
     const r = await updateOwnCommitment(fx.db, s.commitment.id, s.editToken, {
       name: 'Pat Q. Example',
@@ -559,7 +591,7 @@ describe('updateOwnCommitment on a signup that takes no more places (db)', () =>
 
   it.each(SHUT)('lets a cancel through on a signup %s', async (name, shutDown) => {
     const s = await holdingTwo(`Cancel, ${name}`);
-    await shut(shutDown, s.signupId);
+    await shutDown(fx, s);
 
     const r = await cancelOwnCommitment(fx.db, s.commitment.id, s.editToken);
     expect(r.ok, JSON.stringify(r)).toBe(true);
@@ -574,9 +606,15 @@ describe('updateOwnCommitment on a signup that takes no more places (db)', () =>
   // accepts would only lead to the error.
   it.each(SHUT)('caps the edit page at what is held on a signup %s', async (name, shutDown) => {
     const s = await holdingTwo(`Max, ${name}`);
-    expect(await maxQuantityForCommitment(fx.db, s.commitment)).toBe(5);
-    await shut(shutDown, s.signupId);
-    expect(await maxQuantityForCommitment(fx.db, s.commitment)).toBe(2);
+    expect(await editLimitsForCommitment(fx.db, s.commitment)).toEqual({
+      maxQuantity: 5,
+      closed: false,
+    });
+    await shutDown(fx, s);
+    expect(await editLimitsForCommitment(fx.db, s.commitment)).toEqual({
+      maxQuantity: 2,
+      closed: true,
+    });
   });
 
   // The signup is read after the commitment lock, so a close that commits
@@ -590,7 +628,7 @@ describe('updateOwnCommitment on a signup that takes no more places (db)', () =>
       await tx.select().from(commitments).where(eq(commitments.id, s.commitment.id)).for('update');
       editing = updateOwnCommitment(fx.db, s.commitment.id, s.editToken, { quantity: 3 });
       await untilServiceBlockedOn(fx.db, tx, editing);
-      await shut((fx, id) => closeSignup(fx.db, fx.actor, id), s.signupId);
+      await succeeds(closeSignup(fx.db, fx.actor, s.signupId));
     });
     await held.finally(() => settle(editing));
 
@@ -811,7 +849,7 @@ describe('commitToSlot participant dedup (db)', () => {
   });
 });
 
-describe('maxQuantityForCommitment (db)', () => {
+describe('editLimitsForCommitment (db)', () => {
   let fx: Fixture;
 
   beforeAll(async () => {
@@ -838,7 +876,10 @@ describe('maxQuantityForCommitment (db)', () => {
     if (!theirs.ok) throw new Error(`commit failed: ${theirs.error.message}`);
 
     // Capacity 5: Sam's 1 is the only place that isn't Pat's own.
-    expect(await maxQuantityForCommitment(fx.db, mine.value.commitment)).toBe(4);
+    expect(await editLimitsForCommitment(fx.db, mine.value.commitment)).toEqual({
+      maxQuantity: 4,
+      closed: false,
+    });
 
     const cancelled = await cancelOwnCommitment(
       fx.db,
@@ -846,7 +887,10 @@ describe('maxQuantityForCommitment (db)', () => {
       theirs.value.editToken,
     );
     if (!cancelled.ok) throw new Error(`cancel failed: ${cancelled.error.message}`);
-    expect(await maxQuantityForCommitment(fx.db, mine.value.commitment)).toBe(5);
+    expect(await editLimitsForCommitment(fx.db, mine.value.commitment)).toEqual({
+      maxQuantity: 5,
+      closed: false,
+    });
   });
 
   // The edit page caps its field with this read and the edit guard enforces
@@ -867,7 +911,7 @@ describe('maxQuantityForCommitment (db)', () => {
     });
     if (!theirs.ok) throw new Error(`commit failed: ${theirs.error.message}`);
 
-    const max = await maxQuantityForCommitment(fx.db, mine.value.commitment);
+    const { maxQuantity: max } = await editLimitsForCommitment(fx.db, mine.value.commitment);
     expect(max).toBe(3);
 
     const over = await updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
@@ -902,7 +946,13 @@ describe('maxQuantityForCommitment (db)', () => {
     });
     if (!onUnlimited.ok) throw new Error(`commit failed: ${onUnlimited.error.message}`);
 
-    expect(await maxQuantityForCommitment(fx.db, onSingle.value.commitment)).toBe(1);
-    expect(await maxQuantityForCommitment(fx.db, onUnlimited.value.commitment)).toBeNull();
+    expect(await editLimitsForCommitment(fx.db, onSingle.value.commitment)).toEqual({
+      maxQuantity: 1,
+      closed: false,
+    });
+    expect(await editLimitsForCommitment(fx.db, onUnlimited.value.commitment)).toEqual({
+      maxQuantity: null,
+      closed: false,
+    });
   });
 });
