@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
-import type { Tx } from '@/db/client';
+import type { Queryable, Tx } from '@/db/client';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 
@@ -12,8 +12,31 @@ function inWorkspace(
 }
 
 /**
+ * One signup that has not been deleted (undefined when there is no such
+ * signup, or it is soft-deleted), read without a lock. A deleted signup is gone
+ * to every service but `deleteSignup` itself: reads of it are not found and
+ * writes to it are refused, the public commit included. The services load the
+ * row through this, or through `lockSignupForWrite` below, which applies the
+ * same rule, rather than each checking `deleted_at` by hand: that is how the
+ * fields route, the slot and field writes and signing up all came to miss it.
+ *
+ * Unscoped by workspace, unlike the locks: callers use it to find which
+ * workspace to judge the actor against, and pass the policy guard next.
+ */
+export async function readLiveSignup(db: Queryable, signupId: string) {
+  const [row] = await db
+    .select()
+    .from(signups)
+    .where(and(eq(signups.id, signupId), isNull(signups.deletedAt)))
+    .limit(1);
+  return row;
+}
+
+/**
  * Locks the signup row until the transaction ends and returns it, read under
- * the lock (undefined when there is no such signup). Every service that
+ * the lock (undefined when there is no such signup, or it is soft-deleted,
+ * including by a delete that committed while this waited: Postgres checks the
+ * row again once the delete's lock is released). Every service that
  * rewrites a signup's settings, changes its fields, or adds, edits or reorders
  * its slots takes this first, so they run one at a time per signup.
  *
@@ -42,7 +65,13 @@ export async function lockSignupForWrite(tx: Tx, signupId: string, workspaceId: 
   const [row] = await tx
     .select()
     .from(signups)
-    .where(and(eq(signups.id, signupId), inWorkspace(signups.workspaceId, workspaceId)))
+    .where(
+      and(
+        eq(signups.id, signupId),
+        inWorkspace(signups.workspaceId, workspaceId),
+        isNull(signups.deletedAt),
+      ),
+    )
     .for('no key update')
     .limit(1);
   return row;

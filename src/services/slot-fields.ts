@@ -26,7 +26,7 @@ import {
   type SlotFieldUpdateInput,
   SlotFieldUpdateInputSchema,
 } from '@/schemas/slot-fields';
-import { lockSignupForWrite, lockSlotsForSignup } from './locks';
+import { lockSignupForWrite, lockSlotsForSignup, readLiveSignup } from './locks';
 
 type FieldRow = typeof slotFields.$inferSelect;
 
@@ -183,12 +183,7 @@ export async function addField(
   if (!input.ok) return input;
   const data = input.value;
 
-  const signupRow = await db
-    .select()
-    .from(signups)
-    .where(eq(signups.id, signupId))
-    .limit(1)
-    .then((r) => r[0]);
+  const signupRow = await readLiveSignup(db, signupId);
   if (!signupRow) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, signupRow.workspaceId);
 
@@ -499,14 +494,8 @@ export async function listFields(
   actor: Actor,
   signupId: string,
 ): Promise<Result<SlotFieldDefinition[], ServiceError>> {
-  const signupRow = await db
-    .select()
-    .from(signups)
-    .where(eq(signups.id, signupId))
-    .limit(1)
-    .then((r) => r[0]);
-  // Soft-deleted is not found, as in `getSignupRowForOrganizer`.
-  if (!signupRow || signupRow.deletedAt) return err(serviceError('not_found', 'signup not found'));
+  const signupRow = await readLiveSignup(db, signupId);
+  if (!signupRow) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceAccess(actor, signupRow.workspaceId);
   return ok(await listFieldsForSignup(db, signupId));
 }

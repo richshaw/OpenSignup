@@ -161,6 +161,7 @@ From `CONTRIBUTING.md` and the v1 plan:
 ## Recurring mistakes to avoid
 
 - **No speculative schema.** Every column in `src/db/schema/*.ts` must be read or written by a service in the same change that introduces it. The lone exception is `commitments.customFieldValues`, which predates this rule and is grandfathered in — don't add new columns of that shape.
+- **A deleted signup is gone to every service.** Load a signup by id through `readLiveSignup` or `lockSignupForWrite` (`src/services/locks.ts`), which both skip soft-deleted rows, rather than selecting from `signups` and checking `deleted_at` by hand: the hand-written check is the one that kept going missing (the fields route, the field and slot writes, signing up). `deleteSignup` is the only service that reads a deleted row.
 - **Public routes must handle every signup state.** `/s/[slug]` and any participant-facing route must render a real message for each of `draft`, `open`, `closed`, `archived`, and "not found". Never let a non-`open` state fall through to a generic 404.
 - **Reuse banners and state-message components.** Before adding a new banner / notice / empty-state, grep for an existing one (preview banner, closed banner, etc.) and either reuse it or extract a shared component. Tailwind makes drift cheap to introduce and expensive to spot.
 - **Verify before claiming done.** Before saying "tests pass" or proposing a commit, actually run `pnpm lint && pnpm typecheck && pnpm test` in the current turn and use that output as evidence. Past success doesn't count.

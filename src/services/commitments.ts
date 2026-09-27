@@ -2,7 +2,6 @@ import { and, asc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import type { Db, Queryable, Tx } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
-import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
@@ -17,6 +16,7 @@ import {
   CommitmentCreateInputSchema,
   CommitmentUpdateInputSchema,
 } from '@/schemas/commitments';
+import { readLiveSignup } from './locks';
 
 type CommitmentRow = typeof commitments.$inferSelect;
 
@@ -98,13 +98,11 @@ export async function commitToSlot(
       return err(serviceError('closed', 'that slot is closed'));
     }
 
-    const signupRows = await tx
-      .select()
-      .from(signups)
-      .where(eq(signups.id, slot.signupId))
-      .limit(1);
-    const signupRow = signupRows[0];
-    if (!signupRow) return err(serviceError('not_found', 'signup missing'));
+    // A deleted signup takes no one, though its status can still read open:
+    // its page is gone, and a slot id or a page left open must not get round
+    // that. Read, not locked, like the status below (src/services/locks.ts).
+    const signupRow = await readLiveSignup(tx, slot.signupId);
+    if (!signupRow) return err(serviceError('not_found', 'signup not found'));
     if (signupRow.status !== 'open') {
       await safeRecordAttemptFailed(tx, {
         signupId: signupRow.id,
