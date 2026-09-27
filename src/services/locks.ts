@@ -19,11 +19,13 @@ function inWorkspace(
  * The services load a signup by id through this, or through
  * `lockSignupForWrite` below, which applies the same rule, rather than each
  * checking `deleted_at` by hand: that is how the fields route, the slot and
- * field writes and signing up all came to miss it. Queries that reach a signup
- * through a join (a participant's own commitment, reminders, the opt-out page)
- * filter `deleted_at is null` in the join instead. Two reads must still see a
- * deleted row: `deleteSignup`, which is idempotent, and the slug check in
- * `pickAvailableSlug`, since the unique index on slug covers deleted rows too.
+ * field writes and signing up all came to miss it. Code that reaches a signup
+ * another way, by slug or through a join, checks `deleted_at` itself: the
+ * public page (`getPublicSignup`), a participant's own commitment
+ * (`getOwnCommitment`), the reminder jobs, the confirmation email and the
+ * opt-out page. Two reads use a deleted row on purpose: `deleteSignup`, which
+ * is idempotent, and the slug check in `pickAvailableSlug`, since the unique
+ * index on slug covers deleted rows too.
  *
  * Unscoped by workspace, unlike the locks: callers use it to find which
  * workspace to judge the actor against, and pass the policy guard next.

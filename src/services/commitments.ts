@@ -321,10 +321,7 @@ export async function getOwnCommitment(
     // A deleted signup takes its commitments with it, as far as their edit
     // links go: the page, the edit and the cancel are not found, as the
     // signup's own page is.
-    .innerJoin(
-      signups,
-      and(eq(signups.id, commitments.signupId), isNull(signups.deletedAt)),
-    )
+    .innerJoin(signups, and(eq(signups.id, commitments.signupId), isNull(signups.deletedAt)))
     .where(eq(commitments.id, commitmentId))
     .limit(1);
   const found = row[0];
@@ -472,6 +469,12 @@ export async function updateOwnCommitment(
       .for('update')
       .limit(1);
     if (!locked) return err(serviceError('not_found', 'commitment not found'));
+    // `getOwnCommitment` found the signup live, but this may have queued on
+    // the locks above while it was deleted. Read after them, as `commitToSlot`
+    // does, and before anything is written.
+    if (!(await readLiveSignup(tx, locked.signupId))) {
+      return err(serviceError('not_found', 'commitment not found'));
+    }
     // A terminal commitment always takes the conflict path, whatever else the
     // edit asks for: the capacity guard would otherwise answer `capacity_full`,
     // and write an attempt_failed row, for a commitment nobody can act on.
@@ -571,6 +574,17 @@ export async function cancelOwnCommitment(
   const current = gotten.value;
 
   return db.transaction(async (tx) => {
+    // Lock the row, then check the signup is still there, as `updateOwnCommitment`
+    // does: `getOwnCommitment` read before this, and a cancel queued on the row
+    // while the signup was deleted must not write to it.
+    await tx
+      .select({ id: commitments.id })
+      .from(commitments)
+      .where(eq(commitments.id, commitmentId))
+      .for('update');
+    if (!(await readLiveSignup(tx, current.signupId))) {
+      return err(serviceError('not_found', 'commitment not found'));
+    }
     const cancelled = await tx
       .update(commitments)
       .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() })

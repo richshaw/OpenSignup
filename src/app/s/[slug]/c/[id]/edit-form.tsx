@@ -106,7 +106,7 @@ export default function EditForm({
       setMessage({
         kind: 'err',
         text: gone
-          ? `${gone.message} ${gone.suggestion}`
+          ? [gone.message, gone.suggestion].join(' ')
           : (payload?.error?.message ?? 'cancel failed'),
       });
       setConfirmingCancel(false);

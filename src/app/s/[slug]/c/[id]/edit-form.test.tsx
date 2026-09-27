@@ -125,6 +125,24 @@ describe('<EditForm /> quantity', () => {
     expect(alert).not.toHaveTextContent('commitment not found');
   });
 
+  it('says the same when a cancel finds the signup gone', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({ error: { code: 'not_found', message: 'commitment not found' } }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(4, 2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel signup' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      'Sorry, this is no longer available. Reload the page to see what has changed.',
+    );
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
   // The page's refresh after a successful save re-reads the limit, but the form
   // stays mounted; the error's number must not keep overriding the fresh one.
   it("drops an error's limit once a later save succeeds", async () => {

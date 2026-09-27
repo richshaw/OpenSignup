@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { getDb, type Db } from '@/db/client';
+import { getDb, type Db, type Tx } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { workspaceMembers } from '@/db/schema/members';
@@ -337,29 +337,62 @@ describe('a service queued behind a signup delete (db)', () => {
   ];
 
   it.each(QUEUED)('%s is not_found and writes nothing', async (name, call) => {
-    const s = await makeOpenSignup(fx, `Queued ${name}`);
-    const before = await snapshot(fx.db, s.signupId);
-    let running: Promise<Result<unknown, ServiceError>> | undefined;
-    const held = fx.db.transaction(async (tx) => {
-      // The soft delete's update holds the signup row the way the lock does.
-      const gone = await deleteSignup(tx as unknown as Db, fx.colleague, s.signupId);
-      expect(gone.ok, JSON.stringify(gone)).toBe(true);
-      // Still sees a live signup, since the delete has not committed.
-      running = call(fx, s);
-      await untilServiceBlockedOn(fx.db, tx, running);
-    });
-    await held.finally(() => settle(running));
+    await expectRefusedBehindDelete(fx, name, call);
+  });
 
-    const r = await running!;
-    expect(r.ok, JSON.stringify(r)).toBe(false);
-    if (!r.ok) expect(r.error.code).toBe('not_found');
-    // Only the delete itself changed anything: its deleted_at and its one
-    // activity row.
-    const after = await snapshot(fx.db, s.signupId);
-    expect(after.signup?.deletedAt).toBeInstanceOf(Date);
-    expect({ ...after, signup: undefined, activity: after.activity - 1 }).toEqual({
-      ...before,
-      signup: undefined,
-    });
+  // A participant's edit or cancel through their link, queued on their
+  // commitment's row while the delete commits. `getOwnCommitment` found the
+  // signup live before either got that far.
+  const QUEUED_ON_COMMITMENT: Array<[string, Call]> = [
+    [
+      'updateOwnCommitment',
+      (fx, s) => updateOwnCommitment(fx.db, s.commitmentId, s.editToken, { quantity: 3 }),
+    ],
+    ['cancelOwnCommitment', (fx, s) => cancelOwnCommitment(fx.db, s.commitmentId, s.editToken)],
+  ];
+
+  it.each(QUEUED_ON_COMMITMENT)('%s is not_found and writes nothing', async (name, call) => {
+    await expectRefusedBehindDelete(fx, name, call, (tx, s) =>
+      tx.select().from(commitments).where(eq(commitments.id, s.commitmentId)).for('update'),
+    );
   });
 });
+
+/**
+ * Runs `call` while a delete of a fresh signup is held open, then lets the
+ * delete commit, and expects `call` to come back not_found having written
+ * nothing. `hold` takes whatever other lock `call` should queue on; without
+ * it, the delete's own hold on the signup row is the one.
+ */
+async function expectRefusedBehindDelete(
+  fx: Fixture,
+  name: string,
+  call: Call,
+  hold?: (tx: Tx, s: Made) => Promise<unknown>,
+) {
+  const s = await makeOpenSignup(fx, `Queued ${name}`);
+  const before = await snapshot(fx.db, s.signupId);
+  let running: Promise<Result<unknown, ServiceError>> | undefined;
+  const held = fx.db.transaction(async (tx) => {
+    await hold?.(tx, s);
+    // The soft delete's update holds the signup row the way the lock does.
+    const gone = await deleteSignup(tx as unknown as Db, fx.colleague, s.signupId);
+    expect(gone.ok, JSON.stringify(gone)).toBe(true);
+    // Still sees a live signup, since the delete has not committed.
+    running = call(fx, s);
+    await untilServiceBlockedOn(fx.db, tx, running);
+  });
+  await held.finally(() => settle(running));
+
+  const r = await running!;
+  expect(r.ok, JSON.stringify(r)).toBe(false);
+  if (!r.ok) expect(r.error.code).toBe('not_found');
+  // Only the delete itself changed anything: its deleted_at and its one
+  // activity row.
+  const after = await snapshot(fx.db, s.signupId);
+  expect(after.signup?.deletedAt).toBeInstanceOf(Date);
+  expect({ ...after, signup: undefined, activity: after.activity - 1 }).toEqual({
+    ...before,
+    signup: undefined,
+  });
+}
