@@ -13,3 +13,13 @@ export const GONE = {
 export function goneMessage(error: { code?: string } | null | undefined): typeof GONE | null {
   return error?.code === 'not_found' ? GONE : null;
 }
+
+/**
+ * `GONE` for a whole page: `/s/[slug]`, or an edit link under it, whose
+ * signup was deleted or never existed (`./not-found.tsx`). It reads the same
+ * either way, so the page never tells a visitor a signup was there.
+ */
+export const GONE_PAGE = {
+  title: 'Sorry, this signup is no longer available',
+  body: 'Contact the organizer to find out what has changed, or to ask them for a new link.',
+} as const;
