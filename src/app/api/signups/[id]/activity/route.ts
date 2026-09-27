@@ -1,12 +1,10 @@
 import type { NextRequest } from 'next/server';
-import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { signups } from '@/db/schema/signups';
 import { requireActor } from '@/auth/session';
 import { fail, handle, respond } from '@/lib/api-response';
 import { serviceError } from '@/lib/errors';
 import { listActivityForSignup } from '@/lib/activity';
-import { requireWorkspaceAccess } from '@/lib/policy';
+import { getSignupRowForOrganizer } from '@/services/signups';
 
 export async function GET(
   req: NextRequest,
@@ -18,10 +16,8 @@ export async function GET(
     if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in required'));
 
     const db = getDb();
-    const rows = await db.select().from(signups).where(eq(signups.id, id)).limit(1);
-    const row = rows[0];
-    if (!row) return fail(serviceError('not_found', 'signup not found'));
-    requireWorkspaceAccess(actor, row.workspaceId);
+    const loaded = await getSignupRowForOrganizer(db, actor, id);
+    if (!loaded.ok) return fail(loaded.error);
 
     const url = new URL(req.url);
     const limitRaw = Number(url.searchParams.get('limit') ?? '100');

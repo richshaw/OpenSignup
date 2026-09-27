@@ -39,7 +39,7 @@ interface ReminderSettingsLike {
   [k: string]: unknown;
 }
 
-type SignupRow = typeof signups.$inferSelect;
+export type SignupRow = typeof signups.$inferSelect;
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -218,16 +218,34 @@ export async function createSignup(
   return ok(row);
 }
 
+/**
+ * Loads one signup for reading and judges access to it, for callers that then
+ * read something hanging off the row (its slots, its activity log, its CSV
+ * export). A soft-deleted signup is not found — that is the rule every other
+ * read applies, and a route that skipped it would keep serving a deleted
+ * signup's participant emails to anyone holding its id.
+ */
+export async function getSignupRowForOrganizer(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+): Promise<Result<SignupRow, ServiceError>> {
+  const found = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
+  const row = found[0];
+  if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
+  requireWorkspaceAccess(actor, row.workspaceId);
+  return ok(row);
+}
+
 export async function getSignupForOrganizer(
   db: Db,
   actor: Actor,
   signupId: string,
   opts: { includeFilled?: boolean } = {},
 ): Promise<Result<SignupWithSlots & { committedBySlot?: Record<string, number> }, ServiceError>> {
-  const found = await db.select().from(signups).where(eq(signups.id, signupId)).limit(1);
-  const row = found[0];
-  if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
-  requireWorkspaceAccess(actor, row.workspaceId);
+  const loaded = await getSignupRowForOrganizer(db, actor, signupId);
+  if (!loaded.ok) return loaded;
+  const row = loaded.value;
   const [signupSlots, fields, filled] = await Promise.all([
     db
       .select()
