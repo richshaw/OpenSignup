@@ -5,6 +5,7 @@ import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
+import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import { commitToSlot } from '@/services/commitments';
@@ -226,22 +227,32 @@ describe('signup write tools on Postgres', () => {
     const u = updated.structuredContent as { signup: { settings: Record<string, unknown> } };
     expect(u.signup.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['day'] });
 
-    // A cap can be set, then cleared with null; the closing time likewise.
-    const capped = await client.callTool({
+    // A confirmation message can be set, then cleared with null; the closing time likewise.
+    const messaged = await client.callTool({
       name: 'update_signup',
-      arguments: { signupId: c.signup.id, settings: { maxCommitmentsPerParticipant: 2 }, closesAt: '2026-12-01T00:00:00.000Z' },
+      arguments: { signupId: c.signup.id, settings: { confirmationMessage: 'See you there' }, closesAt: '2026-12-01T00:00:00.000Z' },
     });
-    const cs = capped.structuredContent as { signup: { settings: Record<string, unknown>; closesAt: string | null } };
-    expect(cs.signup.settings.maxCommitmentsPerParticipant).toBe(2);
-    expect(cs.signup.closesAt).toBe('2026-12-01T00:00:00.000Z');
+    const ms = messaged.structuredContent as { signup: { settings: Record<string, unknown>; closesAt: string | null } };
+    expect(ms.signup.settings.confirmationMessage).toBe('See you there');
+    expect(ms.signup.closesAt).toBe('2026-12-01T00:00:00.000Z');
     const cleared = await client.callTool({
       name: 'update_signup',
-      arguments: { signupId: c.signup.id, settings: { maxCommitmentsPerParticipant: null }, closesAt: null },
+      arguments: { signupId: c.signup.id, settings: { confirmationMessage: null }, closesAt: null },
     });
     const cl = cleared.structuredContent as { signup: { settings: Record<string, unknown>; closesAt: string | null } };
-    expect(cl.signup.settings).not.toHaveProperty('maxCommitmentsPerParticipant');
+    expect(cl.signup.settings).not.toHaveProperty('confirmationMessage');
     expect(cl.signup.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['day'] });
     expect(cl.signup.closesAt).toBeNull();
+
+    // A per-person limit is refused, and nothing is stored: no sign-up checks it yet.
+    const capped = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: c.signup.id, settings: { maxCommitmentsPerParticipant: 2 } },
+    });
+    expect(capped.isError).toBe(true);
+    expect((capped.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
+    const [stored] = await db.select({ settings: signups.settings }).from(signups).where(eq(signups.id, c.signup.id));
+    expect(stored?.settings).not.toHaveProperty('maxCommitmentsPerParticipant');
   });
 });
 

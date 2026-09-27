@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
@@ -15,6 +15,8 @@ import {
   addField,
   deleteField,
   listFields,
+  listFieldsForSignup,
+  recomputeSlotAtForSignup,
   updateField,
 } from '@/services/slot-fields';
 import { lockSignupForWrite, lockSlotsForSignup } from '@/services/locks';
@@ -97,6 +99,14 @@ async function createTestSignup(fx: Fixture, title = 'Field Test'): Promise<stri
   return r.value.id;
 }
 
+/** The row's xmin: any UPDATE changes it, one that writes the same values included. */
+async function rowVersion(slotId: string): Promise<string | undefined> {
+  const [row] = await getDb().execute<{ xmin: string }>(
+    sql`select xmin::text as xmin from slots where id = ${slotId}`,
+  );
+  return row?.xmin;
+}
+
 describe('slot-fields service (db)', () => {
   let fx: Fixture;
 
@@ -143,6 +153,62 @@ describe('slot-fields service (db)', () => {
       expect(second.ok).toBe(false);
       if (second.ok) return;
       expect(second.error.code).toBe('conflict');
+    });
+
+    it('a second add of the same ref waits for the first, and is a conflict', async () => {
+      const sigId = await createTestSignup(fx, 'Dup ref in flight');
+      const input = {
+        ref: 'teacher',
+        label: 'Teacher',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      } as const;
+      let second: ReturnType<typeof addField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        const first = await addField(tx as unknown as Db, fx.actor, sigId, input);
+        expect(first.ok, JSON.stringify(first)).toBe(true);
+        // A double click, or an MCP retry: the first has not committed, so
+        // nothing named `teacher` is there to see yet.
+        second = addField(fx.db, fx.actor, sigId, input);
+        await untilServiceBlockedOn(fx.db, tx, second);
+      });
+      await held.finally(() => settle(second));
+      // Checked before the lock, this was the unique index's error, a 500.
+      const r = await second!;
+      expect(r.ok, JSON.stringify(r)).toBe(false);
+      if (!r.ok) expect(r.error).toMatchObject({ code: 'conflict', field: 'ref' });
+      const fields = await listFieldsForSignup(fx.db, sigId);
+      expect(fields.map((f) => f.ref)).toEqual(['teacher']);
+    });
+
+    it('an add waiting behind the delete of a field with the same ref goes ahead', async () => {
+      const sigId = await createTestSignup(fx, 'Re-add a deleted ref');
+      const old = await addField(fx.db, fx.actor, sigId, {
+        ref: 'teacher',
+        label: 'Teacher',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!old.ok) throw new Error('setup failed');
+      let adding: ReturnType<typeof addField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        const gone = await deleteField(tx as unknown as Db, fx.actor, old.value.id);
+        expect(gone.ok, JSON.stringify(gone)).toBe(true);
+        // Still sees the old `teacher`, since the delete has not committed.
+        adding = addField(fx.db, fx.actor, sigId, {
+          ref: 'teacher',
+          label: 'Teacher (new)',
+          fieldType: 'text',
+          config: { fieldType: 'text' },
+        });
+        await untilServiceBlockedOn(fx.db, tx, adding);
+      });
+      await held.finally(() => settle(adding));
+      // Checked before the lock, the old field was still there: a conflict.
+      const r = await adding!;
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      const fields = await listFieldsForSignup(fx.db, sigId);
+      expect(fields.map((f) => f.label)).toEqual(['Teacher (new)']);
     });
 
     it('rejects invalid input via Zod', async () => {
@@ -259,7 +325,10 @@ describe('slot-fields service (db)', () => {
 
       let adding: ReturnType<typeof addField> | undefined;
       const held = fx.db.transaction(async (tx) => {
-        // What `updateSlot` does, held open: move the slot to July.
+        // What `updateSlot` does, held open: lock the signup, then the slot,
+        // and move the slot to July.
+        await tx.select().from(signups).where(eq(signups.id, sigId)).for('no key update');
+        await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
         await tx
           .update(slots)
           .set({
@@ -579,6 +648,123 @@ describe('slot-fields service (db)', () => {
       expect(r.error.code).toBe('conflict');
     });
 
+    it('checks stored values against a slot add in flight', async () => {
+      const sigId = await createTestSignup(fx, 'Tighten enum during add');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'subject',
+        label: 'Subject',
+        fieldType: 'enum',
+        config: { fieldType: 'enum', choices: ['Math', 'Science'] },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      let tightening: ReturnType<typeof updateField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        const added = await addSlot(tx as unknown as Db, fx.actor, sigId, {
+          values: { subject: 'Science' },
+        });
+        expect(added.ok, JSON.stringify(added)).toBe(true);
+        // Cannot see the new slot, since the add has not committed.
+        tightening = updateField(fx.db, fx.actor, created.value.id, {
+          fieldType: 'enum',
+          config: { fieldType: 'enum', choices: ['Math'] },
+        });
+        await untilServiceBlockedOn(fx.db, tx, tightening);
+      });
+      await held.finally(() => settle(tightening));
+      const r = await tightening!;
+      expect(r.ok, JSON.stringify(r)).toBe(false);
+      if (!r.ok) expect(r.error).toMatchObject({ code: 'conflict', details: { count: 1 } });
+      const [field] = await fx.db
+        .select()
+        .from(slotFields)
+        .where(eq(slotFields.id, created.value.id));
+      expect(field?.config).toEqual({ fieldType: 'enum', choices: ['Math', 'Science'] });
+    });
+
+    it('checks stored values against a slot edit in flight', async () => {
+      const sigId = await createTestSignup(fx, 'Retype during edit');
+      const when = await addField(fx.db, fx.actor, sigId, {
+        ref: 'when',
+        label: 'When',
+        fieldType: 'text',
+        config: { fieldType: 'text', maxLength: 200 },
+      });
+      if (!when.ok) throw new Error('setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { when: '2026-05-10' } });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      let retyping: ReturnType<typeof updateField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        const edited = await updateSlot(tx as unknown as Db, fx.actor, slot.value.id, {
+          values: { when: 'Sat 9am' },
+        });
+        expect(edited.ok, JSON.stringify(edited)).toBe(true);
+        // Still sees a date in every slot, since the edit has not committed.
+        retyping = updateField(fx.db, fx.actor, when.value.id, {
+          fieldType: 'date',
+          config: { fieldType: 'date' },
+        });
+        await untilServiceBlockedOn(fx.db, tx, retyping);
+      });
+      await held.finally(() => settle(retyping));
+      const r = await retyping!;
+      // Let through, the field became the reminder anchor with "Sat 9am" in
+      // it: slot_at went null and this slot's reminders stopped, unannounced.
+      expect(r.ok, JSON.stringify(r)).toBe(false);
+      if (!r.ok) {
+        expect(r.error).toMatchObject({ code: 'conflict' });
+        expect(r.error.details).toMatchObject({ slotIds: [slot.value.id] });
+      }
+      const [field] = await fx.db.select().from(slotFields).where(eq(slotFields.id, when.value.id));
+      expect(field?.fieldType).toBe('text');
+    });
+
+    it('checks stored values without waiting for someone part-way through signing up', async () => {
+      const sigId = await createTestSignup(fx, 'Field saves while committing');
+      const config = { fieldType: 'enum', choices: ['Math', 'Science'] } as const;
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'subject',
+        label: 'Subject',
+        fieldType: 'enum',
+        config,
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { subject: 'Science' } });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      // What the builder's Fields dialog sends for a rename (the type and
+      // config come along unchanged), and a choice added from a slot's cell.
+      const saves = [
+        { label: 'Class', fieldType: 'enum', config },
+        { fieldType: 'enum', config: { ...config, choices: [...config.choices, 'Music'] } },
+      ];
+      const outcomes: string[] = [];
+      const pending: Promise<unknown>[] = [];
+      await fx.db.transaction(async (tx) => {
+        // What `commitToSlot` does, held open: lock the slot row.
+        await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
+        for (const save of saves) {
+          const saving = updateField(fx.db, fx.actor, created.value.id, save);
+          pending.push(saving.catch(() => undefined));
+          // Neither can make the stored value invalid, and the check only
+          // reads the slot rows, so both finish while this one is still held.
+          outcomes.push(
+            await Promise.race([
+              saving.then((r) => (r.ok ? 'saved' : JSON.stringify(r))),
+              untilBlockedOn(fx.db, tx, 5_000).then(
+                () => 'blocked behind the slot row',
+                () => 'neither finished nor blocked',
+              ),
+            ]),
+          );
+        }
+      });
+      // Let a blocked save finish before the next test or the teardown runs.
+      await Promise.all(pending);
+      expect(outcomes).toEqual(['saved', 'saved']);
+    });
+
     it('does not check stored values for a rename or a reorder', async () => {
       const sigId = await createTestSignup(fx, 'Rename skips the scan');
       const created = await addField(fx.db, fx.actor, sigId, {
@@ -749,6 +935,77 @@ describe('slot-fields service (db)', () => {
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
       expect((after?.values ?? {}) as Record<string, unknown>).toEqual({});
+    });
+  });
+
+  describe('recomputeSlotAtForSignup', () => {
+    it('writes only the slots that move, to a new instant or to none, in one pass', async () => {
+      const sigId = await createTestSignup(fx, 'Rebuild in one statement');
+      for (const [ref, fieldType] of [
+        ['day', 'date'],
+        ['day2', 'date'],
+        ['start', 'time'],
+      ] as const) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType,
+          config: { fieldType },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+      }
+      const add = async (values: Record<string, string>) => {
+        const r = await addSlot(fx.db, fx.actor, sigId, { values });
+        if (!r.ok) throw new Error('slot setup failed');
+        return r.value.id;
+      };
+      const moves = await add({ day: '2026-05-10', day2: '2026-07-04', start: '09:30' });
+      const clears = await add({ day: '2026-05-11' });
+      const stays = await add({ day: '2026-05-12', day2: '2026-05-12', start: '18:00' });
+      const at = async (id: string) =>
+        (await fx.db.select().from(slots).where(eq(slots.id, id)))[0]?.slotAt?.toISOString() ??
+        null;
+      expect(await at(clears)).toBe('2026-05-11T12:00:00.000Z');
+      const untouched = await rowVersion(stays);
+
+      const r = await fx.db.transaction(async (tx) => {
+        // Move the anchor underneath the rebuild, as updateSignup does.
+        await tx
+          .update(signups)
+          .set({ settings: { reminderFromFieldRef: 'day2' } })
+          .where(eq(signups.id, sigId));
+        return recomputeSlotAtForSignup(tx, sigId, fx.workspaceId);
+      });
+      expect(r).toEqual({ updated: 2 });
+      expect(await at(moves)).toBe('2026-07-04T09:30:00.000Z');
+      expect(await at(clears)).toBeNull();
+      expect(await at(stays)).toBe('2026-05-12T18:00:00.000Z');
+      expect(await rowVersion(stays)).toBe(untouched);
+    });
+
+    it('writes nothing when no slot moves, a year below 100 included', async () => {
+      const sigId = await createTestSignup(fx, 'Rebuild with nothing to do');
+      const day = await addField(fx.db, fx.actor, sigId, {
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      if (!day.ok) throw new Error('setup failed');
+      const ids: string[] = [];
+      // The driver reads 0099-12-31 back as 1999-12-31, so the check in JS
+      // sees that slot move on every rebuild; Postgres sees that it has not.
+      for (const date of ['2026-05-10', '0099-12-31']) {
+        const slot = await addSlot(fx.db, fx.actor, sigId, { values: { day: date } });
+        if (!slot.ok) throw new Error('slot setup failed');
+        ids.push(slot.value.id);
+      }
+      const before = await Promise.all(ids.map(rowVersion));
+      const r = await fx.db.transaction((tx) =>
+        recomputeSlotAtForSignup(tx, sigId, fx.workspaceId),
+      );
+      expect(r).toEqual({ updated: 0 });
+      expect(await Promise.all(ids.map(rowVersion))).toEqual(before);
     });
   });
 

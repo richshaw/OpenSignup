@@ -14,8 +14,8 @@ function inWorkspace(
 /**
  * Locks the signup row until the transaction ends and returns it, read under
  * the lock (undefined when there is no such signup). Every service that
- * rewrites a signup's settings, or writes more than one of its slots, takes
- * this first, so they run one at a time per signup.
+ * rewrites a signup's settings, changes its fields, or adds, edits or reorders
+ * its slots takes this first, so they run one at a time per signup.
  *
  * `for no key update`, not `for update`: someone signing up (`commitToSlot`)
  * holds their slot row and then inserts a commitment whose signup_id foreign
@@ -24,10 +24,12 @@ function inWorkspace(
  * callers changes the signup's key, so the weaker lock is enough: it still
  * conflicts with itself and lets the key-share through.
  *
- * Lock order: signup row first, then slot rows (`lockSlotsForSignup` below).
- * The single-slot services hold one slot row and never take this lock
- * afterwards. That leaves a single-slot edit (`updateSlot`) uncovered: it still
- * validates, and works out slot_at, from reads made before its transaction.
+ * Lock order: signup row first, then slot rows (`lockSlotsForSignup` and
+ * `lockSlot` below). A single-slot edit (`updateSlot`) takes this lock before
+ * its slot, so it validates, and works out slot_at, from the fields and the
+ * anchor as they stand. The services that hold one slot row without it
+ * (`commitToSlot`, a participant's quantity change in
+ * `updateOwnCommitment`, and `deleteSlot`) never take it afterwards.
  *
  * `tx` is a transaction, not `Queryable`: on the pool handle the lock would be
  * gone as soon as the select's own autocommit ended. `workspaceId` is the one
@@ -62,4 +64,22 @@ export async function lockSlotsForSignup(tx: Tx, signupId: string, workspaceId: 
     .where(and(eq(slots.signupId, signupId), inWorkspace(slots.workspaceId, workspaceId)))
     .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt))
     .for('update');
+}
+
+/**
+ * One slot row, locked until the transaction ends and read under the lock
+ * (undefined when there is no such slot, or it was deleted while this waited).
+ * The row `commitToSlot` locks, so counting its commitments after this sees
+ * every sign-up that got in first and none can start until the transaction
+ * ends. A caller that takes the signup lock takes it first, as above. `tx` and
+ * `workspaceId` as above.
+ */
+export async function lockSlot(tx: Tx, slotId: string, workspaceId: string | null) {
+  const [row] = await tx
+    .select()
+    .from(slots)
+    .where(and(eq(slots.id, slotId), inWorkspace(slots.workspaceId, workspaceId)))
+    .for('update')
+    .limit(1);
+  return row;
 }

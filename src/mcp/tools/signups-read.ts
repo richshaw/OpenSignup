@@ -43,13 +43,24 @@ export function signupWithLinks(row: SignupRow) {
   return { signup: signupDetail(row), links: signupLinks(row) };
 }
 
+/**
+ * The settings a tool shows. maxCommitmentsPerParticipant is hidden because
+ * nothing enforces it yet (update_signup no longer takes it): a value stored
+ * before then would read as a limit participants never meet.
+ */
+function settingsOut(settings: SignupRow['settings']) {
+  if (!settings || typeof settings !== 'object') return settings;
+  const { maxCommitmentsPerParticipant: _unenforced, ...shown } = settings as Record<string, unknown>;
+  return shown;
+}
+
 /** The detail shape: everything the organizer can edit. */
 export function signupDetail(row: SignupRow) {
   return {
     ...signupCore(row),
     description: row.description,
     tags: row.tags,
-    settings: row.settings,
+    settings: settingsOut(row.settings),
     workspaceId: row.workspaceId,
   };
 }
