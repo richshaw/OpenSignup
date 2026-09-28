@@ -4,15 +4,17 @@ import { verificationTokens } from '@/db/schema/auth';
 import { getEnv } from '@/lib/env';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { sessions } from '@/db/schema/auth';
+import { rateLimits } from '@/db/schema/idempotency';
 import { workspaceMembers } from '@/db/schema/members';
 import { oauthRecords } from '@/db/schema/oauth';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
+import { RateLimits } from '@/lib/rate-limit';
 import { slots } from '@/db/schema/slots';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, deleteSignup, publishSignup } from '@/services/signups';
@@ -241,6 +243,23 @@ export async function seedE2E(): Promise<SeedData> {
   };
   writeFileSync(SEED_FILE, JSON.stringify(data, null, 2));
   return data;
+}
+
+/**
+ * Empties the sign-in rate limits, for every address and IP. Their counts
+ * outlive a run, and login-code.spec.ts sends a link to the seeded organizer
+ * and redeems a code for it every time, so from the sixth local run in an
+ * hour (5 links per address) the send would be refused and the page would
+ * say it couldn't send.
+ */
+export async function clearSignInRateLimits(): Promise<void> {
+  const buckets = [
+    RateLimits.magicLinkPerEmail,
+    RateLimits.magicLinkPerIp,
+    RateLimits.loginCodePerEmail,
+    RateLimits.loginCodePerIp,
+  ].map((policy) => policy.bucket);
+  await getDb().delete(rateLimits).where(inArray(rateLimits.bucket, buckets));
 }
 
 /**

@@ -117,7 +117,7 @@ describe('requestMagicLink', () => {
     expect(result).toEqual({ ok: false, reason: 'send_failed' });
   });
 
-  it('never logs the email address', async () => {
+  it('does not put the email address in its failure log line', async () => {
     await requestMagicLink(async () => 'http://localhost:3000/login?error=Configuration', {
       email,
       callbackUrl,
