@@ -8,14 +8,13 @@ import { MagicLinkEmail } from '@/email/templates/magic-link';
 import { recordActivity } from '@/lib/activity';
 import { getEnv } from '@/lib/env';
 import { log } from '@/lib/log';
-import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
-import { ServiceException } from '@/lib/errors';
 import { withTimeout } from '@/lib/with-timeout';
 import { SignupAdapter } from './adapter';
 import { buildOAuthProviders } from './oauth-providers';
 import { canonicalizeMagicLinkUrl, buildConfirmationUrl } from './magic-link-url';
 import { extractEmailDomain } from './email-domain';
 import { getMagicLinkMaxAgeSeconds } from './magic-link-expiry';
+import { consumeMagicLinkRateLimits } from './magic-link-rate-limit';
 import { getCurrentRequestIp } from './request-context';
 import { issueLoginCode } from './login-code';
 
@@ -43,23 +42,12 @@ function buildConfig(): NextAuthConfig {
         maxAge: getMagicLinkMaxAgeSeconds(),
         async sendVerificationRequest({ identifier, url, expires }) {
           const subject = identifier.trim().toLowerCase();
-          const ip = await getCurrentRequestIp();
-          try {
-            // IP bucket first: a misbehaving IP exhausts its own quota
-            // before it can degrade any victim's per-email quota. Null IPs
-            // share an "unknown" bucket so deployments missing
-            // x-forwarded-for / x-real-ip don't silently no-op.
-            await consumeRateLimit(getDb(), RateLimits.magicLinkPerIp, ip ?? 'unknown');
-            await consumeRateLimit(getDb(), RateLimits.magicLinkPerEmail, subject);
-          } catch (err) {
-            if (err instanceof ServiceException && err.serviceError.code === 'rate_limited') {
-              log.warn(
-                { email: subject, ip, bucket: err.serviceError.details?.bucket },
-                'magic link rate-limited',
-              );
-            }
-            throw err;
-          }
+          // Throws MagicLinkRateLimited, which the login form tells apart
+          // from a send that failed.
+          await consumeMagicLinkRateLimits(getDb(), {
+            email: subject,
+            ip: await getCurrentRequestIp(),
+          });
           const expiresInMinutes = Math.max(
             1,
             Math.round((expires.getTime() - Date.now()) / 60_000),
