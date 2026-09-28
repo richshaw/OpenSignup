@@ -15,7 +15,7 @@ import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { slots } from '@/db/schema/slots';
 import { commitToSlot } from '@/services/commitments';
-import { createSignup, publishSignup } from '@/services/signups';
+import { createSignup, deleteSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
 
 const E2E_ORGANIZER_EMAIL = 'e2e@example.test';
@@ -43,6 +43,10 @@ export interface SeedData {
   editSlotId: string;
   editCommitmentId: string;
   editToken: string;
+  /** Deleted signup, and an edit link to a commitment that was on it. */
+  deletedSlug: string;
+  deletedCommitmentId: string;
+  deletedToken: string;
 }
 
 /** Removes an e2e organizer and its data. Workspace delete cascades signups →
@@ -190,6 +194,21 @@ export async function seedE2E(): Promise<SeedData> {
     'commitToSlot(Saturday drive)',
   );
 
+  // Deleted signup: its page and its edit links must read exactly as an
+  // unknown slug does.
+  const deletedSignup = await makePublishedSignup(db, actor, workspaceId, 'Removed Potluck', [
+    { label: 'Salad', capacity: 3 },
+  ]);
+  const deletedCommit = unwrap(
+    await commitToSlot(db, deletedSignup.slotIds[0]!, {
+      name: 'Jordan Gone',
+      email: 'jordan@example.test',
+      quantity: 1,
+    }),
+    'commitToSlot(Salad)',
+  );
+  unwrap(await deleteSignup(db, actor, deletedSignup.id), 'deleteSignup(Removed Potluck)');
+
   // Draft signup for the organizer publish flow.
   const draft = unwrap(
     await createSignup(db, actor, workspaceId, {
@@ -216,6 +235,9 @@ export async function seedE2E(): Promise<SeedData> {
     editSlotId: editSignup.slotIds[0]!,
     editCommitmentId: editCommit.commitment.id,
     editToken: editCommit.editToken,
+    deletedSlug: deletedSignup.slug,
+    deletedCommitmentId: deletedCommit.commitment.id,
+    deletedToken: deletedCommit.editToken,
   };
   writeFileSync(SEED_FILE, JSON.stringify(data, null, 2));
   return data;

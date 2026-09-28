@@ -15,6 +15,7 @@ import type { SignupStatus } from '@/schemas/signups';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { loadPublicSignup } from '@/services/signups.cached';
 import SignupView, { toSignupViewFields, toSignupViewSlots } from './signup-view';
+import { SignupStateMessage } from './state-message';
 
 type PageParams = { params: Promise<{ slug: string }> };
 
@@ -58,24 +59,24 @@ export default async function PublicSignupPage({ params }: PageParams) {
   const result = await loadPublicSignup(slug);
   if (!result.ok) {
     const received = result.error.received;
-    if (received === 'draft' || received === 'archived') {
+    if (received === 'draft') {
       return (
-        <main className="flex min-h-[100svh] flex-col items-center justify-center px-6 py-12">
-          <div className="container-tight w-full space-y-3 rounded-xl border border-surface-sunk bg-white p-8 text-center">
-            <h1 className="text-xl font-semibold tracking-tight">
-              {received === 'draft'
-                ? 'This signup isn’t ready yet'
-                : 'This signup is no longer available'}
-            </h1>
-            <p className="text-ink-muted text-sm">
-              {received === 'draft'
-                ? 'The organizer hasn’t published this signup yet. Check back soon or ask them for an updated link.'
-                : 'The organizer has archived this signup. If you need to reach them, ask for a new link.'}
-            </p>
-          </div>
-        </main>
+        <SignupStateMessage
+          title="This signup isn’t ready yet"
+          body="The organizer hasn’t published this signup yet. Check back soon or ask them for an updated link."
+        />
       );
     }
+    if (received === 'archived') {
+      return (
+        <SignupStateMessage
+          title="This signup is no longer available"
+          body="The organizer has archived this signup. If you need to reach them, ask for a new link."
+        />
+      );
+    }
+    // Deleted and never-existed both land here, and ./not-found.tsx words
+    // them the same, so the page never says which.
     notFound();
   }
   const sig = result.value;
