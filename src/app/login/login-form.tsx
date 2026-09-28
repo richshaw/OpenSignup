@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { Spinner } from '@/components/ui/spinner';
 import { SessionWatcher } from './session-watcher';
 
-export type LoginErrorReason = 'invalid_email' | 'send_failed';
+export type LoginErrorReason = 'invalid_email' | 'send_failed' | 'rate_limited';
 export type LoginActionResult =
   | { ok: true; email: string }
   | { ok: false; reason: LoginErrorReason };
@@ -222,12 +222,23 @@ type HelperProps = {
   onReset: () => void;
 };
 
+const ERROR_MESSAGES: Record<LoginErrorReason, string> = {
+  invalid_email: 'That doesn’t look like a valid email address.',
+  send_failed: 'Couldn’t send. Please try again.',
+  // Both limits count in fixed windows of an hour (src/lib/rate-limit.ts),
+  // and the one per IP can trip before any link went to this address.
+  rate_limited:
+    'Too many sign-in requests. Wait up to an hour. If we already emailed you a link, you can use that.',
+};
+
 function HelperText({ state, email, errorReason, onReset }: HelperProps) {
   return (
     <p
       role={state === 'error' ? 'alert' : undefined}
       aria-live={state === 'error' ? undefined : 'polite'}
-      className={`text-ink-soft min-h-[1.2em] text-xs ${state === 'error' ? 'text-danger' : ''}`}
+      // One colour class at a time: given both, an error rendered in
+      // text-ink-soft's grey.
+      className={`min-h-[1.2em] text-xs ${state === 'error' ? 'text-danger' : 'text-ink-soft'}`}
     >
       {state === 'success' && (
         <>
@@ -243,16 +254,21 @@ function HelperText({ state, email, errorReason, onReset }: HelperProps) {
       )}
       {state === 'error' && (
         <>
-          {errorReason === 'invalid_email'
-            ? 'That doesn’t look like a valid email address.'
-            : 'Couldn’t send. Please try again.'}{' '}
-          <button
-            type="button"
-            onClick={onReset}
-            className="underline-offset-2 hover:underline"
-          >
-            Try again
-          </button>
+          {ERROR_MESSAGES[errorReason]}
+          {/* No quick retry once rate-limited: each request is charged to
+              the IP first, and on a shared IP that allowance is everyone's. */}
+          {errorReason !== 'rate_limited' && (
+            <>
+              {' '}
+              <button
+                type="button"
+                onClick={onReset}
+                className="underline-offset-2 hover:underline"
+              >
+                Try again
+              </button>
+            </>
+          )}
         </>
       )}
     </p>
