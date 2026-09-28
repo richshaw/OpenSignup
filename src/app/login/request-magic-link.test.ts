@@ -84,7 +84,7 @@ describe('requestMagicLink', () => {
     expect(logError).toHaveBeenCalledWith({ err: boom }, 'login: signIn failed');
   });
 
-  it('never logs the email address', async () => {
+  it('does not put the email address in its failure log line', async () => {
     await requestMagicLink(async () => 'http://localhost:3000/login?error=Configuration', {
       email,
       callbackUrl,
