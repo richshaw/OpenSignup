@@ -1,8 +1,9 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
+import { Banner } from '@/components/banner';
 import { getDb } from '@/db/client';
-import { getOwnCommitment, maxQuantityForCommitment } from '@/services/commitments';
+import { editLimitsForCommitment, getOwnCommitment } from '@/services/commitments';
 import { readRequestSignals, recordEditLinkFollowed } from '@/lib/view-tracker';
 import EditForm from './edit-form';
 
@@ -22,7 +23,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   const result = await getOwnCommitment(getDb(), id, token);
   if (!result.ok) notFound();
   const c = result.value;
-  const maxQuantity = await maxQuantityForCommitment(getDb(), c);
+  const { maxQuantity, closed } = await editLimitsForCommitment(getDb(), c);
 
   // Read headers in the request context — `after(...)` runs outside it and
   // Next.js 15 forbids dynamic APIs (headers/cookies) inside the callback.
@@ -48,6 +49,15 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
           You&apos;re editing this as {c.participantName} ({c.participantEmail}).
         </p>
       </header>
+      {/* The organizer closed the signup or the slot, or its time has come.
+          The form still works for everything but taking more spots. */}
+      {closed ? (
+        <Banner
+          kind="closed"
+          title="Sign-ups have closed"
+          body="You can't add more spots now, but you can still change your details, give spots back, or cancel."
+        />
+      ) : null}
       <EditForm
         commitmentId={c.id}
         token={token}

@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { capacityMessage } from '../../capacity-message';
+import { closedMessage } from '../../closed-message';
 import { goneMessage } from '../../gone-message';
 
 interface EditFormProps {
@@ -13,7 +14,7 @@ interface EditFormProps {
   initialQuantity: number;
   /**
    * The most places this commitment could hold, or `null` on an unlimited
-   * slot (see `maxQuantityForCommitment`). At 1 there is nothing to change, so
+   * slot (see `editLimitsForCommitment`). At 1 there is nothing to change, so
    * the quantity field is left out; above 1 it is the field's `max`.
    */
   maxQuantity: number | null;
@@ -71,7 +72,7 @@ export default function EditForm({
       // `remaining` here is the most this commitment can hold, not the spots
       // still free, so the copy is the edit page's own.
       const capacity = capacityMessage(payload?.error, 'change');
-      const copy = capacity ?? goneMessage(payload?.error);
+      const copy = capacity ?? closedMessage(payload?.error) ?? goneMessage(payload?.error);
       setMessage({
         kind: 'err',
         text: copy

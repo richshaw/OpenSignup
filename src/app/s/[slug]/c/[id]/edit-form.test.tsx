@@ -125,6 +125,29 @@ describe('<EditForm /> quantity', () => {
     expect(alert).not.toHaveTextContent('commitment not found');
   });
 
+  // The organizer closed the signup while this page was open, and the save
+  // asked for more spots.
+  it('says sign-ups have closed when more spots are refused', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({
+        error: { code: 'closed', message: 'signup is not accepting commitments' },
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(4, 2);
+
+    fireEvent.change(screen.getByLabelText('Spots'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      "Sign-ups have closed, so you can't add more spots. Keep the number you have.",
+    );
+    expect(alert).not.toHaveTextContent('not accepting commitments');
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
   it('says the same when a cancel finds the signup gone', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,
