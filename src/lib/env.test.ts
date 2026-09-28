@@ -32,6 +32,13 @@ const base = {
   EMAIL_FROM: 'test@example.com',
 };
 
+const smtpBase = {
+  ...base,
+  EMAIL_TRANSPORT: 'smtp',
+  SMTP_HOST: 'smtp.example.com',
+  SMTP_PORT: '587',
+};
+
 describe('parseEnv', () => {
   it('accepts a minimum valid config', () => {
     const env = parseEnv(base);
@@ -67,14 +74,32 @@ describe('parseEnv', () => {
   });
 
   it('accepts smtp with host and port', () => {
-    const env = parseEnv({
-      ...base,
-      EMAIL_TRANSPORT: 'smtp',
-      SMTP_HOST: 'smtp.example.com',
-      SMTP_PORT: '587',
-    });
+    const env = parseEnv(smtpBase);
     expect(env.EMAIL_TRANSPORT).toBe('smtp');
     expect(env.SMTP_PORT).toBe(587);
+  });
+
+  it.each([
+    ['SMTP_USER', 'SMTP_PASSWORD'],
+    ['SMTP_PASSWORD', 'SMTP_USER'],
+  ] as const)('rejects smtp with %s but no %s', (provided, missing) => {
+    expect(() => parseEnv({ ...smtpBase, [provided]: 'credential' })).toThrow(missing);
+  });
+
+  it('treats an empty SMTP_PASSWORD as unset', () => {
+    expect(() => parseEnv({ ...smtpBase, SMTP_USER: 'user', SMTP_PASSWORD: '' })).toThrow(
+      'SMTP_PASSWORD',
+    );
+  });
+
+  it('accepts a complete SMTP credential pair', () => {
+    const env = parseEnv({ ...smtpBase, SMTP_USER: 'user', SMTP_PASSWORD: 'password' });
+    expect(env.SMTP_USER).toBe('user');
+    expect(env.SMTP_PASSWORD).toBe('password');
+  });
+
+  it('does not require an SMTP credential pair for another transport', () => {
+    expect(() => parseEnv({ ...base, SMTP_USER: 'user' })).not.toThrow();
   });
 
   it('defaults AUTH_MAGIC_LINK_MAX_AGE_MINUTES to 60', () => {

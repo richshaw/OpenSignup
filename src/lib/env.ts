@@ -62,6 +62,14 @@ const conditional = baseSchema.superRefine((env, ctx) => {
         });
       }
     }
+    if (Boolean(env.SMTP_USER) !== Boolean(env.SMTP_PASSWORD)) {
+      const missingKey = env.SMTP_USER ? 'SMTP_PASSWORD' : 'SMTP_USER';
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [missingKey],
+        message: `SMTP_USER and SMTP_PASSWORD must be set together (missing ${missingKey})`,
+      });
+    }
   }
   if (Boolean(env.LLM_BASE_URL) !== Boolean(env.LLM_MODEL)) {
     ctx.addIssue({
