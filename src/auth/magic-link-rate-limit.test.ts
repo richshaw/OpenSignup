@@ -5,7 +5,6 @@ vi.mock('@/lib/rate-limit', async (importOriginal) => ({
   consumeRateLimit: vi.fn(),
 }));
 
-import { AuthError } from 'next-auth';
 import type { Db } from '@/db/client';
 import { ServiceException, serviceError } from '@/lib/errors';
 import { log } from '@/lib/log';
@@ -78,13 +77,6 @@ describe('consumeMagicLinkRateLimits', () => {
   });
 });
 
-describe('MagicLinkRateLimited', () => {
-  it('is an AuthError of a type Auth.js keeps from the browser, on its default error page', () => {
-    const err = new MagicLinkRateLimited(overLimit(RateLimits.magicLinkPerIp.bucket));
-    expect(err).toBeInstanceOf(AuthError);
-    // Not one of Auth.js's client-safe types, so over HTTP it answers
-    // ?error=Configuration (see request-magic-link.test.ts).
-    expect(err.type).toBe('EmailSignInError');
-    expect((err as AuthError & { kind?: string }).kind).toBe('error');
-  });
-});
+// What Auth.js does with MagicLinkRateLimited (rethrows it to signIn, and
+// answers the HTTP route as before) is pinned against the real next-auth in
+// src/app/login/request-magic-link.test.ts.

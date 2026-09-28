@@ -254,14 +254,21 @@ function HelperText({ state, email, errorReason, onReset }: HelperProps) {
       )}
       {state === 'error' && (
         <>
-          {ERROR_MESSAGES[errorReason]}{' '}
-          <button
-            type="button"
-            onClick={onReset}
-            className="underline-offset-2 hover:underline"
-          >
-            Try again
-          </button>
+          {ERROR_MESSAGES[errorReason]}
+          {/* No quick retry once rate-limited: each request is charged to
+              the IP first, and on a shared IP that allowance is everyone's. */}
+          {errorReason !== 'rate_limited' && (
+            <>
+              {' '}
+              <button
+                type="button"
+                onClick={onReset}
+                className="underline-offset-2 hover:underline"
+              >
+                Try again
+              </button>
+            </>
+          )}
         </>
       )}
     </p>
