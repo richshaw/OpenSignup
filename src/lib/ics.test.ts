@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildIcs } from './ics';
 
 describe('buildIcs', () => {
@@ -201,11 +201,8 @@ describe('buildIcs', () => {
   });
 
   describe('floating times', () => {
-    const originalTZ = process.env.TZ;
     afterEach(() => {
-      // Assigning undefined would leave TZ set to the string "undefined".
-      if (originalTZ === undefined) delete process.env.TZ;
-      else process.env.TZ = originalTZ;
+      vi.unstubAllEnvs();
     });
 
     it('writes a timed slot with no zone, and an all-day one as dates, in any zone', () => {
@@ -219,9 +216,10 @@ describe('buildIcs', () => {
         ['UTC', 15],
         ['America/Los_Angeles', 7],
         ['Australia/Sydney', 2],
+        ['Pacific/Auckland', 4],
       ] as const;
       for (const [tz, localHour] of zones) {
-        process.env.TZ = tz;
+        vi.stubEnv('TZ', tz);
         const start = new Date('2026-11-18T15:15:00Z');
         // The switch took effect: a local getter really would give this hour.
         expect(start.getHours()).toBe(localHour);

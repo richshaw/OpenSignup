@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildMetaSegments,
   capacityLabel,
@@ -22,9 +22,8 @@ const fields: SignupViewField[] = [
 ];
 
 describe('formatSlotDate', () => {
-  const originalTZ = process.env.TZ;
   afterEach(() => {
-    process.env.TZ = originalTZ;
+    vi.unstubAllEnvs();
   });
 
   it('returns null for null/empty/invalid', () => {
@@ -46,9 +45,12 @@ describe('formatSlotDate', () => {
     // as UTC midnight, then `toLocaleDateString` shifts to the host TZ — so in
     // negative offsets it would render as Fri, Apr 24. Verify both sides of
     // UTC return the intended calendar day.
-    process.env.TZ = 'America/Los_Angeles';
+    const instant = new Date('2026-04-25T12:00:00Z');
+    vi.stubEnv('TZ', 'America/Los_Angeles');
+    expect(instant.getHours()).toBe(5);
     expect(formatSlotDate('2026-04-25')).toBe('Sat, Apr 25');
-    process.env.TZ = 'Pacific/Auckland';
+    vi.stubEnv('TZ', 'Pacific/Auckland');
+    expect(instant.getHours()).toBe(0);
     expect(formatSlotDate('2026-04-25')).toBe('Sat, Apr 25');
   });
 });
