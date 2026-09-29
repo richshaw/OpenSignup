@@ -83,12 +83,14 @@ describe('parseEnv', () => {
     ['SMTP_USER', 'SMTP_PASSWORD'],
     ['SMTP_PASSWORD', 'SMTP_USER'],
   ] as const)('rejects smtp with %s but no %s', (provided, missing) => {
-    expect(() => parseEnv({ ...smtpBase, [provided]: 'credential' })).toThrow(missing);
+    expect(() => parseEnv({ ...smtpBase, [provided]: 'credential' })).toThrow(
+      new RegExp(`- ${missing}: `),
+    );
   });
 
-  it('treats an empty SMTP_PASSWORD as unset', () => {
-    expect(() => parseEnv({ ...smtpBase, SMTP_USER: 'user', SMTP_PASSWORD: '' })).toThrow(
-      'SMTP_PASSWORD',
+  it.each(['', '   ', '\t\n'])('treats a blank SMTP_PASSWORD (%j) as unset', (password) => {
+    expect(() => parseEnv({ ...smtpBase, SMTP_USER: 'user', SMTP_PASSWORD: password })).toThrow(
+      /- SMTP_PASSWORD: /,
     );
   });
 
@@ -96,6 +98,11 @@ describe('parseEnv', () => {
     const env = parseEnv({ ...smtpBase, SMTP_USER: 'user', SMTP_PASSWORD: 'password' });
     expect(env.SMTP_USER).toBe('user');
     expect(env.SMTP_PASSWORD).toBe('password');
+  });
+
+  it('preserves whitespace around a nonblank SMTP password', () => {
+    const env = parseEnv({ ...smtpBase, SMTP_USER: 'user', SMTP_PASSWORD: ' password ' });
+    expect(env.SMTP_PASSWORD).toBe(' password ');
   });
 
   it('does not require an SMTP credential pair for another transport', () => {
