@@ -5,7 +5,7 @@ const transportEnum = z.enum(['console', 'smtp', 'resend']);
 
 // Required vars use `requiredString` so they report the same tailored message
 // whether the var was never provided or explicitly emptied — the latter reaches
-// the schema as absent, because `withoutEmptyValues` strips it.
+// the schema as absent, because `withoutBlankValues` strips it.
 const baseSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: requiredString('DATABASE_URL').min(1, 'DATABASE_URL is required'),
@@ -22,7 +22,9 @@ const baseSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
-  SMTP_USER: z.string().optional(),
+  // Trimmed because a stray space or newline from a secret store is never part
+  // of a login name. The password is kept exactly: spaces can be part of it.
+  SMTP_USER: z.string().trim().optional(),
   SMTP_PASSWORD: z.string().optional(),
   SMTP_SECURE: z
     .enum(['true', 'false'])
@@ -62,12 +64,10 @@ const conditional = baseSchema.superRefine((env, ctx) => {
         });
       }
     }
-    const hasPassword = /\S/.test(env.SMTP_PASSWORD ?? '');
-    if (Boolean(env.SMTP_USER) !== hasPassword) {
-      const missingKey = env.SMTP_USER ? 'SMTP_PASSWORD' : 'SMTP_USER';
+    if (Boolean(env.SMTP_USER) !== Boolean(env.SMTP_PASSWORD)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: [missingKey],
+        path: [env.SMTP_USER ? 'SMTP_PASSWORD' : 'SMTP_USER'],
         message: 'SMTP_USER and SMTP_PASSWORD must be set together (or both unset)',
       });
     }
@@ -91,8 +91,8 @@ const conditional = baseSchema.superRefine((env, ctx) => {
 export type Env = z.infer<typeof baseSchema>;
 
 /**
- * The `.default()` fields exempt from the rule below, for which `FOO=` still
- * means "unset".
+ * The `.default()` fields exempt from the rule below, for which a blank `FOO=`
+ * still means "unset".
  *
  * `.env.example` ships `LLM_TIMEOUT_MS=` bare, so the documented first-time
  * setup (`cp .env.example .env.local`) would otherwise fail on it. Unlike the
@@ -107,7 +107,7 @@ export type Env = z.infer<typeof baseSchema>;
 const EMPTY_AS_UNSET_DEFAULTS: ReadonlySet<string> = new Set(['LLM_TIMEOUT_MS']);
 
 /**
- * Whether `FOO=` should be read as "unset" rather than as the empty string.
+ * Whether a blank `FOO=` should be read as "unset" rather than as its value.
  *
  * True for everything except `.default()`-backed vars. A default is what an
  * *absent* var means, and for several of these that default is a development
@@ -128,7 +128,18 @@ function emptyMeansUnset(key: string): boolean {
 }
 
 /**
- * Treat `FOO=` as unset, for the keys where that is the honest reading.
+ * Empty, or nothing but whitespace and zero-width characters: a value that looks
+ * empty in an env file or a secrets dashboard. `\s` covers the Unicode spaces
+ * and U+FEFF but not U+200B–U+200D or U+2060, which paste in just as invisibly.
+ */
+const BLANK = /^[\s\u200B-\u200D\u2060]*$/;
+
+function blankMeansUnset(key: string, value: string | undefined): boolean {
+  return value !== undefined && BLANK.test(value) && emptyMeansUnset(key);
+}
+
+/**
+ * Treat a blank `FOO=` as unset, for the keys where that is the honest reading.
  *
  * `.env.example` ships most optional vars as a bare `FOO=` placeholder, and
  * dotenv loads those as `''`. Without this, the documented first-time setup
@@ -137,20 +148,38 @@ function emptyMeansUnset(key: string): boolean {
  * Stripping those empties makes an unfilled placeholder mean what it looks like
  * it means, without extending the same courtesy to vars where an empty value
  * would quietly select a different behaviour.
+ *
+ * Whitespace-only values go the same way, so every presence check in
+ * `conditional` sees one answer: `SMTP_HOST="  "` is missing, not a host, and a
+ * pair such as `GOOGLE_CLIENT_ID="  "` with a real secret fails at boot rather
+ * than at every sign-in.
  */
-function withoutEmptyValues(
+function withoutBlankValues(
   raw: NodeJS.ProcessEnv | Record<string, string | undefined>,
 ): Record<string, string | undefined> {
   return Object.fromEntries(
-    Object.entries(raw).filter(([key, value]) => !(value === '' && emptyMeansUnset(key))),
+    Object.entries(raw).filter(([key, value]) => !blankMeansUnset(key, value)),
   );
 }
 
+/**
+ * Whitespace is invisible where operators look, so an error about a var that is
+ * there but blank says why it counts as unset. `FOO=` needs no hint.
+ */
+function blankHint(key: string, value: string | undefined): string {
+  return value !== '' && blankMeansUnset(key, value)
+    ? '. Its value is only whitespace, which counts as unset.'
+    : '';
+}
+
 export function parseEnv(raw: NodeJS.ProcessEnv | Record<string, string | undefined>): Env {
-  const result = conditional.safeParse(withoutEmptyValues(raw));
+  const result = conditional.safeParse(withoutBlankValues(raw));
   if (!result.success) {
     const issues = result.error.issues
-      .map((i) => `  - ${i.path.join('.') || '(root)'}: ${i.message}`)
+      .map((i) => {
+        const key = i.path.join('.');
+        return `  - ${key || '(root)'}: ${i.message}${blankHint(key, raw[key])}`;
+      })
       .join('\n');
     throw new Error(`Invalid environment:\n${issues}`);
   }

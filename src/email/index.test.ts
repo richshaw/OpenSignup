@@ -42,4 +42,18 @@ describe('getEmailTransport with EMAIL_TRANSPORT=smtp', () => {
       expect.objectContaining({ port: 465, secure: expected }),
     );
   });
+
+  // The pair rule itself is in env.test.ts. This checks what it decides is what
+  // nodemailer gets: a login when both are set, none when both are blank.
+  it.each([
+    [
+      { SMTP_USER: 'user', SMTP_PASSWORD: ' pw ' },
+      { user: 'user', pass: ' pw ' },
+    ],
+    [{ SMTP_USER: '  ', SMTP_PASSWORD: '\n' }, undefined],
+  ])('SMTP credentials %j log in with auth=%j', (credentials, expected) => {
+    env.current = parseEnv({ ...smtpEnv, ...credentials });
+    getEmailTransport();
+    expect(createTransport).toHaveBeenCalledWith(expect.objectContaining({ auth: expected }));
+  });
 });
