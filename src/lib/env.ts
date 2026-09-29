@@ -3,6 +3,14 @@ import { requiredString } from './zod-env';
 
 const transportEnum = z.enum(['console', 'smtp', 'resend']);
 
+// An optional credential where a value of only whitespace counts as unset, so
+// `SMTP_USER="  "` fails the pair check instead of logging in as a blank name.
+// A nonblank value is kept exactly: spaces can be part of a password.
+const credential = z
+  .string()
+  .optional()
+  .transform((v) => (v !== undefined && /\S/.test(v) ? v : undefined));
+
 // Required vars use `requiredString` so they report the same tailored message
 // whether the var was never provided or explicitly emptied — the latter reaches
 // the schema as absent, because `withoutEmptyValues` strips it.
@@ -22,8 +30,8 @@ const baseSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASSWORD: z.string().optional(),
+  SMTP_USER: credential,
+  SMTP_PASSWORD: credential,
   SMTP_SECURE: z
     .enum(['true', 'false'])
     .transform((v) => v === 'true')
@@ -62,12 +70,10 @@ const conditional = baseSchema.superRefine((env, ctx) => {
         });
       }
     }
-    const hasPassword = /\S/.test(env.SMTP_PASSWORD ?? '');
-    if (Boolean(env.SMTP_USER) !== hasPassword) {
-      const missingKey = env.SMTP_USER ? 'SMTP_PASSWORD' : 'SMTP_USER';
+    if (Boolean(env.SMTP_USER) !== Boolean(env.SMTP_PASSWORD)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: [missingKey],
+        path: [env.SMTP_USER ? 'SMTP_PASSWORD' : 'SMTP_USER'],
         message: 'SMTP_USER and SMTP_PASSWORD must be set together (or both unset)',
       });
     }

@@ -94,6 +94,22 @@ describe('parseEnv', () => {
     );
   });
 
+  it.each(['', '   ', '\t\n'])('treats a blank SMTP_USER (%j) as unset', (user) => {
+    expect(() => parseEnv({ ...smtpBase, SMTP_USER: user, SMTP_PASSWORD: 'password' })).toThrow(
+      /- SMTP_USER: /,
+    );
+  });
+
+  it.each([
+    ['a blank SMTP_PASSWORD with no SMTP_USER', { SMTP_PASSWORD: '   ' }],
+    ['a blank SMTP_USER with no SMTP_PASSWORD', { SMTP_USER: '   ' }],
+    ['both SMTP credentials blank', { SMTP_USER: '   ', SMTP_PASSWORD: '\t' }],
+  ])('accepts %s as both unset', (_, credentials) => {
+    const env = parseEnv({ ...smtpBase, ...credentials });
+    expect(env.SMTP_USER).toBeUndefined();
+    expect(env.SMTP_PASSWORD).toBeUndefined();
+  });
+
   it('accepts a complete SMTP credential pair', () => {
     const env = parseEnv({ ...smtpBase, SMTP_USER: 'user', SMTP_PASSWORD: 'password' });
     expect(env.SMTP_USER).toBe('user');
