@@ -139,4 +139,28 @@ describe('SlotEditor', () => {
     expect(qty.type).toBe('number');
     expect(qty.inputMode).toBe('numeric');
   });
+
+  // A label around the picker passes each click inside the menu on to the
+  // trigger, which reopened the menu after a pick and closed "Add to list".
+  // jsdom can't show that (its React updates land after the label has checked
+  // the click), so this pins the structure; tests/e2e/enum-picker.spec.ts
+  // clicks through it in a browser.
+  it('does not wrap a list picker in a label', () => {
+    renderEditor({
+      fields: [
+        makeField({ id: 'f1', ref: 'name', name: 'Name' }),
+        makeField({
+          id: 'f2',
+          ref: 'kind',
+          name: 'Kind',
+          config: { fieldType: 'enum', choices: ['Option 1'] },
+        }),
+      ],
+      row: makeRow({ values: {} }),
+    });
+    expect(screen.getByTestId('enum-picker').closest('label')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Kind value' })).toBeTruthy();
+    // Other cells keep their label.
+    expect(screen.getByLabelText('Name value').closest('label')).not.toBeNull();
+  });
 });
