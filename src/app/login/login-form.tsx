@@ -22,6 +22,7 @@ const MIN_LOADING_MS = 500;
 
 export function LoginForm({ action, redeem, callbackUrl }: Props) {
   const [view, setView] = useState<View>('idle');
+  const [email, setEmail] = useState('');
   const [pending, startTransition] = useTransition();
   const [confirmedEmail, setConfirmedEmail] = useState('');
   const [errorReason, setErrorReason] = useState<LoginErrorReason>('send_failed');
@@ -45,6 +46,7 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
         await new Promise((r) => setTimeout(r, MIN_LOADING_MS - elapsed));
       }
       if (result.ok) {
+        setEmail('');
         setConfirmedEmail(result.email);
         setView('success');
       } else {
@@ -73,6 +75,8 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
           ref={inputRef}
           type="email"
           name="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
           required
           autoComplete="email"
           inputMode="email"
