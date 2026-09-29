@@ -8,11 +8,11 @@ import { getCurrentRequestIp } from '@/auth/request-context';
 import { SiteFooter } from '@/components/site-footer';
 import { getDb } from '@/db/client';
 import { ServiceException } from '@/lib/errors';
-import { log } from '@/lib/log';
 import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
 import { EmailSchema } from '@/schemas/common';
 import { LoginForm, type CodeActionResult, type LoginActionResult } from './login-form';
 import { OAuthButtons } from './oauth-buttons';
+import { requestMagicLink } from './request-magic-link';
 
 export const metadata = { title: 'Sign in', robots: { index: false } };
 
@@ -33,14 +33,7 @@ export default async function LoginPage({
     const raw = String(formData.get('email') ?? '').trim();
     const parsed = EmailSchema.safeParse(raw);
     if (!parsed.success) return { ok: false, reason: 'invalid_email' };
-    const email = parsed.data;
-    try {
-      await signIn('nodemailer', { email, redirect: false, redirectTo: callbackUrl });
-      return { ok: true, email };
-    } catch (error) {
-      log.error({ err: error }, 'login: signIn failed');
-      return { ok: false, reason: 'send_failed' };
-    }
+    return requestMagicLink(signIn, { email: parsed.data, callbackUrl });
   }
 
   async function redeem(formData: FormData): Promise<CodeActionResult> {

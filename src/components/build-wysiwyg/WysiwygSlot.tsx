@@ -60,7 +60,7 @@ export function WysiwygSlot({
     return (
       <div
         data-testid={`wysiwyg-slot-${row.id}`}
-        className="border-t border-b border-surface-sunk bg-surface-raised first:border-t-0"
+        className="border-t border-b border-surface-sunk bg-surface-raised first:rounded-t-[11px] first:border-t-0"
       >
         <SlotEditor
           row={row}
@@ -131,7 +131,7 @@ export function WysiwygSlot({
         }
       }}
       className={
-        'group relative border-t first:border-t-0 transition-colors duration-180 ' +
+        'group relative border-t first:rounded-t-[11px] first:border-t-0 transition-colors duration-180 ' +
         (isDragging
           ? 'border-transparent bg-brand-soft opacity-50'
           : isDropTarget
