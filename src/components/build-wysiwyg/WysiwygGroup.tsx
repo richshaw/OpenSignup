@@ -76,7 +76,10 @@ export function WysiwygGroup({
           />
         </div>
       )}
-      <div className="flex flex-col gap-0 overflow-hidden rounded-xl border border-surface-sunk bg-white">
+      {/* No overflow-hidden: it cut off a List field's menu at the group's
+          bottom edge, hiding "Add to list". The rows and the button below round
+          their own corners instead, at 11px: rounded-xl less the 1px border. */}
+      <div className="flex flex-col gap-0 rounded-xl border border-surface-sunk bg-white">
         {group.rows.map((row) => (
           <WysiwygSlot
             key={row.id}
@@ -98,7 +101,7 @@ export function WysiwygGroup({
           type="button"
           onClick={() => onAddSlot(group.key)}
           className={
-            'inline-flex w-full items-center gap-1.5 px-3.5 py-2.5 text-left text-xs font-medium text-ink-muted ' +
+            'inline-flex w-full items-center gap-1.5 rounded-b-[11px] first:rounded-t-[11px] px-3.5 py-2.5 text-left text-xs font-medium text-ink-muted ' +
             'transition-colors duration-180 hover:bg-brand-soft hover:text-brand ' +
             (group.rows.length > 0 ? 'border-t border-dashed border-surface-sunk' : '')
           }

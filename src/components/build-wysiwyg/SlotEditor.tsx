@@ -88,8 +88,15 @@ export function SlotEditor({
         {fields.map((f) => {
           const fieldType = f.config.fieldType;
           const TypeIcon = FIELD_TYPE_META[fieldType].icon;
+          // A list cell is a div, not a label. A label passes every click inside
+          // it on to its first control, the picker's trigger. Picking an option
+          // or "Add to list" removes the clicked button before the browser checks
+          // where the click came from, so the click reached the trigger too:
+          // picking reopened the menu, and "Add to list" closed its input as
+          // soon as it appeared. The trigger has its own aria-label.
+          const Cell = fieldType === 'enum' ? 'div' : 'label';
           return (
-            <label
+            <Cell
               key={f.id}
               className="flex flex-col gap-1 text-[11px] text-ink-muted"
             >
@@ -115,7 +122,7 @@ export function SlotEditor({
                   aria-label={`${f.name} value`}
                 />
               )}
-            </label>
+            </Cell>
           );
         })}
         <label className="flex flex-col gap-1 text-[11px] text-ink-muted">
