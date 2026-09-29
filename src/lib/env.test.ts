@@ -88,13 +88,15 @@ describe('parseEnv', () => {
     );
   });
 
-  it.each(['', '   ', '\t\n'])('treats a blank SMTP_PASSWORD (%j) as unset', (password) => {
+  const blanks = ['', '   ', '\t\n', '\u00a0', '\u200b', '\ufeff'];
+
+  it.each(blanks)('treats a blank SMTP_PASSWORD (%j) as unset', (password) => {
     expect(() => parseEnv({ ...smtpBase, SMTP_USER: 'user', SMTP_PASSWORD: password })).toThrow(
       /- SMTP_PASSWORD: /,
     );
   });
 
-  it.each(['', '   ', '\t\n'])('treats a blank SMTP_USER (%j) as unset', (user) => {
+  it.each(blanks)('treats a blank SMTP_USER (%j) as unset', (user) => {
     expect(() => parseEnv({ ...smtpBase, SMTP_USER: user, SMTP_PASSWORD: 'password' })).toThrow(
       /- SMTP_USER: /,
     );
@@ -116,9 +118,21 @@ describe('parseEnv', () => {
     expect(env.SMTP_PASSWORD).toBe('password');
   });
 
+  it('says when the credential it reports missing is only whitespace', () => {
+    expect(() => parseEnv({ ...smtpBase, SMTP_USER: '   ', SMTP_PASSWORD: 'password' })).toThrow(
+      '- SMTP_USER: SMTP_USER and SMTP_PASSWORD must be set together (or both unset). ' +
+        'Its value is only whitespace, which counts as unset.',
+    );
+  });
+
   it('preserves whitespace around a nonblank SMTP password', () => {
     const env = parseEnv({ ...smtpBase, SMTP_USER: 'user', SMTP_PASSWORD: ' password ' });
     expect(env.SMTP_PASSWORD).toBe(' password ');
+  });
+
+  it('trims whitespace around a nonblank SMTP user', () => {
+    const env = parseEnv({ ...smtpBase, SMTP_USER: ' user@example.com\n', SMTP_PASSWORD: 'pw' });
+    expect(env.SMTP_USER).toBe('user@example.com');
   });
 
   it('does not require an SMTP credential pair for another transport', () => {
@@ -151,6 +165,17 @@ describe('parseEnv', () => {
   });
 
   it.each([
+    ['SMTP_HOST', { ...smtpBase, SMTP_HOST: '  ' }],
+    ['RESEND_API_KEY', { ...base, EMAIL_TRANSPORT: 'resend', RESEND_API_KEY: '  ' }],
+    ['GOOGLE_CLIENT_ID', { ...base, GOOGLE_CLIENT_ID: '  ', GOOGLE_CLIENT_SECRET: 'secret' }],
+    ['LLM_MODEL', { ...base, LLM_BASE_URL: 'https://llm.example.com/v1', LLM_MODEL: '\n' }],
+  ])('treats a whitespace-only %s as unset', (key, raw) => {
+    expect(() => parseEnv(raw)).toThrow(
+      new RegExp(`- ${key}: .*Its value is only whitespace, which counts as unset\\.`),
+    );
+  });
+
+  it.each([
     ['EMAIL_TRANSPORT', /EMAIL_TRANSPORT/],
     ['NEXT_PUBLIC_APP_URL', /NEXT_PUBLIC_APP_URL/],
     ['NODE_ENV', /NODE_ENV/],
@@ -162,6 +187,8 @@ describe('parseEnv', () => {
     // and magic-link tokens written to the log (NODE_ENV). Each has to stay a
     // loud boot failure, not a quiet fallback.
     expect(() => parseEnv({ ...base, [key]: '' })).toThrow(matcher);
+    expect(() => parseEnv({ ...base, [key]: '  ' })).toThrow(matcher);
+    expect(() => parseEnv({ ...base, [key]: '  ' })).not.toThrow(/only whitespace/);
   });
 
   it('still applies the default for an emptied var on the exemption list', () => {
@@ -188,6 +215,7 @@ describe('parseEnv', () => {
     // an unhelpful "DATABASE_URL: Required".
     for (const key of ['DATABASE_URL', 'AUTH_SECRET', 'AUTH_URL', 'EMAIL_FROM'] as const) {
       expect(() => parseEnv({ ...base, [key]: '' })).toThrow(`${key} is required`);
+      expect(() => parseEnv({ ...base, [key]: ' '.repeat(40) })).toThrow(`${key} is required`);
       const { [key]: _omitted, ...without } = base;
       expect(() => parseEnv(without)).toThrow(`${key} is required`);
     }
