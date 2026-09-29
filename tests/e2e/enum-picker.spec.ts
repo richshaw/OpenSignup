@@ -75,6 +75,13 @@ test.describe('list field picker', () => {
       // clips it, which an organizer cannot do.
       await trigger.click();
       await expect(menu).toBeVisible();
+      // Without the overhang there is nothing to clip, and the check below
+      // would pass whatever the group's overflow. "Add a slot" ends the group.
+      const menuBox = await menu.boundingBox();
+      const groupEnd = await page.getByRole('button', { name: 'Add a slot' }).boundingBox();
+      expect(menuBox!.y + menuBox!.height, 'the menu reaches past the group').toBeGreaterThan(
+        groupEnd!.y + groupEnd!.height,
+      );
       const clippedBy = await menu.evaluate((el) => {
         const box = el.getBoundingClientRect();
         for (let a = el.parentElement; a; a = a.parentElement) {
