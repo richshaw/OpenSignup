@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'node',
+    // TZ changes in the time-zone tests take effect only in a child process.
+    pool: 'forks',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     exclude: ['**/*.e2e.test.ts', 'src/**/*.db.test.ts', 'node_modules', '.next'],
     globals: false,
