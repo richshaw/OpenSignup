@@ -7,7 +7,7 @@ test('a failed sign-in keeps the email available to correct', async ({ page }) =
   await email.fill('not-an-email');
   await page.getByRole('button', { name: 'Send magic link' }).click();
 
-  await expect(page.getByRole('alert')).toContainText('valid email address');
+  await expect(page.getByRole('alert').filter({ hasText: 'valid email address' })).toBeVisible();
   await expect(email).toHaveValue('not-an-email');
   await expect(email).toBeEnabled();
   await page.getByRole('button', { name: 'Try again' }).click();
@@ -16,6 +16,6 @@ test('a failed sign-in keeps the email available to correct', async ({ page }) =
 
   await email.fill('still-invalid');
   await email.press('Enter');
-  await expect(page.getByRole('alert')).toContainText('valid email address');
+  await expect(page.getByRole('alert').filter({ hasText: 'valid email address' })).toBeVisible();
   await expect(email).toHaveValue('still-invalid');
 });
