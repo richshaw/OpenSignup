@@ -29,12 +29,11 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
 
   const state: 'idle' | 'loading' | 'success' | 'error' = pending ? 'loading' : view;
   const inert = state === 'loading' || state === 'success';
-  const rateLimited = view === 'error' && errorReason === 'rate_limited';
 
   const handleSubmit = (formData: FormData) => {
     // React resets action forms after submission; retain DOM-owned input on failure.
     if (inputRef.current) inputRef.current.defaultValue = inputRef.current.value;
-    if (inert || rateLimited) return;
+    if (inert) return;
     startTransition(async () => {
       const start = Date.now();
       let result: LoginActionResult;
@@ -90,8 +89,7 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
       </label>
       <button
         type="submit"
-        disabled={inert || rateLimited}
-        aria-disabled={inert || rateLimited}
+        aria-disabled={inert}
         aria-busy={state === 'loading'}
         data-state={state}
         className={`relative w-full rounded-lg px-5 py-3 font-medium text-white transition-colors duration-180 ease-emphasized ${buttonBg} ${buttonHover} ${buttonLoading}`}

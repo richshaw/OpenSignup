@@ -77,21 +77,25 @@ describe('LoginForm email', () => {
     expect(email).toHaveValue('filled-before-hydration@example.com');
   });
 
-  it('blocks further submits after a rate-limited response', async () => {
-    const action = vi.fn(async (_formData: FormData) => ({ ok: false, reason: 'rate_limited' } as const));
-    const email = renderForm(action);
-    fireEvent.change(email, { target: { value: 'person@example.com' } });
+  it('sends a corrected address after a rate-limited response', async () => {
+    const submitted: FormDataEntryValue[] = [];
+    const email = renderForm(async (formData) => {
+      submitted.push(formData.get('email')!);
+      return { ok: false, reason: 'rate_limited' };
+    });
+    fireEvent.change(email, { target: { value: 'person@example.con' } });
     fireEvent.submit(email.form!);
     await screen.findByRole('alert');
+    expect(screen.getByRole('button', { name: 'Send magic link' })).not.toBeDisabled();
 
-    const send = screen.getByRole('button', { name: 'Send magic link' });
-    expect(send).toBeDisabled();
-    fireEvent.click(send);
-    fireEvent.change(email, { target: { value: 'corrected@example.com' } });
+    fireEvent.change(email, { target: { value: 'person@example.com' } });
     fireEvent.submit(email.form!);
-    await waitFor(() => expect(send).toBeDisabled());
-    expect(action).toHaveBeenCalledTimes(1);
-    expect(email).toHaveValue('corrected@example.com');
+    // aria-disabled only, so the button keeps keyboard focus while sending.
+    const sending = screen.getByRole('button', { name: 'Sending…' });
+    expect(sending).not.toBeDisabled();
+    expect(sending).toHaveAttribute('aria-disabled', 'true');
+    await screen.findByRole('alert');
+    expect(submitted).toEqual(['person@example.con', 'person@example.com']);
   });
 
   it('retains code edits made during a pending request and blocks duplicate submits', async () => {
