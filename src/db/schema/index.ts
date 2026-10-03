@@ -9,5 +9,5 @@ export * from './commitments';
 export * from './activity';
 export * from './magic-links';
 export * from './auth';
-export * from './idempotency';
+export * from './rate-limits';
 export * from './oauth';

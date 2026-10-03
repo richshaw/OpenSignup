@@ -112,6 +112,39 @@ describe('recordActivity → organizers.last_active_at', () => {
     expect(rows.find((r) => r.eventType === 'signup.published')?.payload).toEqual({ from: 'draft', to: 'open' });
   });
 
+  it('never stores a viaClientId the caller put in the payload', async () => {
+    const forged = { changed: ['label'], viaClientId: 'https://forged.example/meta.json' };
+    await recordActivity(fx.db, {
+      signupId: null,
+      workspaceId: fx.workspaceId,
+      actor: { actorId: fx.organizerId, actorType: 'organizer' },
+      eventType: 'field.updated',
+      payload: forged,
+    });
+    await recordActivity(fx.db, {
+      signupId: null,
+      workspaceId: fx.workspaceId,
+      actor: {
+        actorId: fx.organizerId,
+        actorType: 'organizer',
+        clientId: 'https://client.example/meta.json',
+      },
+      eventType: 'slot.updated',
+      payload: forged,
+    });
+    const rows = await fx.db
+      .select({ eventType: activity.eventType, payload: activity.payload })
+      .from(activity)
+      .where(eq(activity.workspaceId, fx.workspaceId));
+    expect(rows.find((r) => r.eventType === 'field.updated')?.payload).toEqual({
+      changed: ['label'],
+    });
+    expect(rows.find((r) => r.eventType === 'slot.updated')?.payload).toEqual({
+      changed: ['label'],
+      viaClientId: 'https://client.example/meta.json',
+    });
+  });
+
   it('does not advance last_active_at when actorType is system', async () => {
     const before = await readLastActiveAt(fx.db, fx.organizerId);
     await new Promise((resolve) => setTimeout(resolve, 5));

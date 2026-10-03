@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityActor } from './activity';
+import { activityActor, activityPayload } from './activity';
 import { ServiceException } from './errors';
 import type { Actor } from './policy';
 
@@ -33,5 +33,31 @@ describe('activityActor', () => {
     }
     expect(thrown).toBeInstanceOf(ServiceException);
     expect((thrown as ServiceException).serviceError.code).toBe('unauthorized');
+  });
+});
+
+describe('activityPayload', () => {
+  const CLIENT = 'https://client.example/meta.json';
+  const FORGED = 'https://forged.example/meta.json';
+
+  it('drops a forged viaClientId when the actor has no connected app', () => {
+    const payload = activityPayload(
+      { actorId: 'org_1', actorType: 'organizer' },
+      { changed: ['title'], viaClientId: FORGED },
+    );
+    expect(payload).toEqual({ changed: ['title'] });
+  });
+
+  it("stamps the actor's own client id over a forged one", () => {
+    const payload = activityPayload(
+      { actorId: 'org_1', actorType: 'organizer', clientId: CLIENT },
+      { changed: ['title'], viaClientId: FORGED },
+    );
+    expect(payload).toEqual({ changed: ['title'], viaClientId: CLIENT });
+  });
+
+  it('treats a missing or null payload as empty', () => {
+    expect(activityPayload({ actorId: null, actorType: 'system' })).toEqual({});
+    expect(activityPayload({ actorId: null, actorType: 'system' }, null)).toEqual({});
   });
 });

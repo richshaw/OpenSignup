@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { rateLimits } from '@/db/schema/idempotency';
+import { rateLimits } from '@/db/schema/rate-limits';
 import { ServiceException } from './errors';
 import { RateLimits, consumeRateLimit } from './rate-limit';
 
@@ -80,7 +80,7 @@ describe('consumeRateLimit (db)', () => {
 describe('sweepExpiredRateLimits', () => {
   it('removes only windows that closed long ago', async () => {
     const { sweepExpiredRateLimits } = await import('./rate-limit');
-    const { rateLimits } = await import('@/db/schema/idempotency');
+    const { rateLimits } = await import('@/db/schema/rate-limits');
     const { eq } = await import('drizzle-orm');
     const db = getDb();
     await db.insert(rateLimits).values([
