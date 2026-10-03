@@ -55,7 +55,11 @@ import {
 const ISSUER = 'https://signup.example.org';
 const RESOURCE = `${ISSUER}/api/mcp`;
 const CLIENT = 'https://client.example/oauth/metadata.json';
+/** Serves CLIENT's document, so the `client_id` inside it does not match. */
+const MISMATCHED_CLIENT = 'https://client.example/other.json';
 const REDIRECT = 'http://localhost/callback';
+/** The `dispatcher` oidc-provider handed the fetch stub, by URL. */
+const fetchDispatchers = new Map<string, unknown>();
 
 const db = getDb();
 let d: Driver;
@@ -94,9 +98,12 @@ beforeAll(async () => {
     findGrantId: (a, c) => findGrantIdFor(db, a, c),
     allowCimdFetch: async () => true,
     onGrantUsed: (g) => touchGrantUsed(db, g),
-    // Serve the CIMD document without a network.
-    fetch: async (url) => {
-      if (String(url) === CLIENT) {
+    // Serve the CIMD document without a network. MISMATCHED_CLIENT gets the
+    // same document, whose `client_id` is CLIENT, so its test reaches the
+    // provider's id check instead of stopping at a 404.
+    fetch: async (url, init) => {
+      fetchDispatchers.set(String(url), (init as { dispatcher?: unknown } | undefined)?.dispatcher);
+      if (String(url) === CLIENT || String(url) === MISMATCHED_CLIENT) {
         return new Response(JSON.stringify(cimdDocument), { status: 200, headers: { 'content-type': 'application/json' } });
       }
       return new Response('not found', { status: 404 });
@@ -330,26 +337,44 @@ describe('authorization code flow on Postgres', () => {
 
   it('rejects a CIMD client whose document does not match its id', async () => {
     const { challenge } = pkcePair();
-    const badId = 'https://client.example/other.json';
-    const r = await startAuthorization(d, { clientId: badId, redirectUri: REDIRECT, scope: 'signups:read', challenge });
+    const r = await startAuthorization(d, {
+      clientId: MISMATCHED_CLIENT,
+      redirectUri: REDIRECT,
+      scope: 'signups:read',
+      challenge,
+    });
+    const body = await r.response.text();
     expect(r.response.status).toBe(400);
-    expect(await r.response.text()).toContain('invalid_client');
+    expect(body).toContain('invalid_client_metadata');
+    expect(body).toContain(
+      'client_id metadata document client_id does not match the expected value',
+    );
   });
 
   // What rejects this client is the 404 from this file's `fetch` stub, not
   // anything about loopback. The defence against fetching a special-use
-  // address (localhost, private ranges) is oidc-provider's own: its fetch
-  // helper (lib/helpers/fetch_request.js) hands `configuration.fetch` a
-  // dispatcher that destroys any socket to such an address. Production passes
-  // no `fetch` (src/oauth/instance.ts), so the library's default fetch uses
-  // that dispatcher. The stub here ignores it and never opens a socket, so this
-  // test would still pass with that protection gone; nothing in this repo
-  // guards a loopback id before the fetch either.
+  // address (localhost, private ranges) is oidc-provider's own: in 9.12.2 its
+  // fetch helper (lib/helpers/fetch_request.js) hands `configuration.fetch` a
+  // dispatcher that destroys any socket to such an address, when it can set
+  // one up (it only warns otherwise). Production passes no `fetch`
+  // (src/oauth/instance.ts), so the library's default fetch uses that
+  // dispatcher. The stub here never opens a socket, so this test only checks
+  // that the dispatcher was handed over, not that it blocks anything; nothing
+  // in this repo guards a loopback id before the fetch either.
   it('rejects a client id whose metadata document cannot be fetched', async () => {
     const { challenge } = pkcePair();
-    const r = await startAuthorization(d, { clientId: 'https://localhost/metadata.json', redirectUri: REDIRECT, scope: 'signups:read', challenge });
+    const loopbackId = 'https://localhost/metadata.json';
+    const r = await startAuthorization(d, {
+      clientId: loopbackId,
+      redirectUri: REDIRECT,
+      scope: 'signups:read',
+      challenge,
+    });
+    const body = await r.response.text();
     expect(r.response.status).toBe(400);
-    expect(await r.response.text()).toContain('invalid_client');
+    expect(body).toContain('invalid_client');
+    expect(body).toContain('client_id metadata document fetch failed');
+    expect(fetchDispatchers.get(loopbackId)).toBeDefined();
   });
 });
 
