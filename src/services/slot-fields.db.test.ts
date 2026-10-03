@@ -107,6 +107,14 @@ async function rowVersion(slotId: string): Promise<string | undefined> {
   return row?.xmin;
 }
 
+/** `rowVersion` for a field row. */
+async function fieldVersion(fieldId: string): Promise<string | undefined> {
+  const [row] = await getDb().execute<{ xmin: string }>(
+    sql`select xmin::text as xmin from slot_fields where id = ${fieldId}`,
+  );
+  return row?.xmin;
+}
+
 describe('slot-fields service (db)', () => {
   let fx: Fixture;
 
@@ -297,7 +305,7 @@ describe('slot-fields service (db)', () => {
       ];
       const outcomes: string[] = [];
       const pending: Promise<unknown>[] = [];
-      await fx.db.transaction(async (tx) => {
+      const held = fx.db.transaction(async (tx) => {
         // What `commitToSlot` does, held open: lock the slot row.
         await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
         for (const input of adds) {
@@ -317,8 +325,9 @@ describe('slot-fields service (db)', () => {
           );
         }
       });
-      // Let a blocked add finish before the next test or the teardown runs.
-      await Promise.all(pending);
+      // Let a blocked add finish before the next test or the teardown runs,
+      // even when something above threw.
+      await held.finally(() => Promise.all(pending));
       expect(outcomes).toEqual(['added', 'added', 'added']);
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
@@ -554,7 +563,7 @@ describe('slot-fields service (db)', () => {
       }));
       const outcomes: string[] = [];
       const pending: Promise<unknown>[] = [];
-      await fx.db.transaction(async (tx) => {
+      const held = fx.db.transaction(async (tx) => {
         // What `commitToSlot` does, held open: lock the slot row.
         await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
         for (const save of saves) {
@@ -574,8 +583,9 @@ describe('slot-fields service (db)', () => {
           );
         }
       });
-      // Let a blocked rename finish before the next test or the teardown runs.
-      await Promise.all(pending);
+      // Let a blocked rename finish before the next test or the teardown runs,
+      // even when something above threw.
+      await held.finally(() => Promise.all(pending));
       expect(outcomes).toEqual(['renamed', 'renamed']);
 
       const after = await listFieldsForSignup(fx.db, sigId);
@@ -607,18 +617,46 @@ describe('slot-fields service (db)', () => {
         config: { fieldType: 'date' },
       });
       if (!day.ok) throw new Error('setup failed');
+      const before = await fieldVersion(day.value.id);
+      expect(before).toBeDefined();
 
-      for (const save of [
-        { fieldType: 'date', config: { fieldType: 'date' }, sortOrder: day.value.sortOrder },
-        {},
-      ]) {
-        // An empty update was drizzle's "No values to set", a 500.
+      // What the builder's Fields dialog sends when it is opened and saved
+      // without an edit: the label, type and config as the server listed them.
+      const [listed] = await listFieldsForSignup(fx.db, sigId);
+      if (!listed) throw new Error('field not listed');
+      const asListed = {
+        label: listed.label,
+        fieldType: listed.config.fieldType,
+        config: listed.config,
+      };
+      for (const save of [asListed, { ...asListed, sortOrder: listed.sortOrder }]) {
         const r = await updateField(fx.db, fx.actor, day.value.id, save);
         expect(r.ok, JSON.stringify(r)).toBe(true);
         if (r.ok) expect(r.value).toEqual(day.value);
       }
+      // No UPDATE ran: one writing the same values would still change xmin.
+      expect(await fieldVersion(day.value.id)).toBe(before);
       const acts = await fx.db.select().from(activity).where(eq(activity.signupId, sigId));
       expect(acts.some((a) => a.eventType === 'field.updated')).toBe(false);
+    });
+
+    it('refuses an update with nothing in it', async () => {
+      const sigId = await createTestSignup(fx, 'Empty save');
+      const day = await addField(fx.db, fx.actor, sigId, {
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      if (!day.ok) throw new Error('setup failed');
+      const before = await fieldVersion(day.value.id);
+
+      // What the PATCH route passes on for a body that is not JSON, and what
+      // an MCP update_field call with only the field id comes down to.
+      const r = await updateField(fx.db, fx.actor, day.value.id, {});
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe('invalid_input');
+      expect(await fieldVersion(day.value.id)).toBe(before);
     });
 
     it('writes a config that only differs by a default the row was saved without', async () => {
@@ -919,7 +957,7 @@ describe('slot-fields service (db)', () => {
       ];
       const outcomes: string[] = [];
       const pending: Promise<unknown>[] = [];
-      await fx.db.transaction(async (tx) => {
+      const held = fx.db.transaction(async (tx) => {
         // What `commitToSlot` does, held open: lock the slot row.
         await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
         for (const save of saves) {
@@ -938,8 +976,9 @@ describe('slot-fields service (db)', () => {
           );
         }
       });
-      // Let a blocked save finish before the next test or the teardown runs.
-      await Promise.all(pending);
+      // Let a blocked save finish before the next test or the teardown runs,
+      // even when something above threw.
+      await held.finally(() => Promise.all(pending));
       expect(outcomes).toEqual(['saved', 'saved']);
     });
 

@@ -268,6 +268,10 @@ export async function updateField(
   const input = parseInputSafe(SlotFieldUpdateInputSchema, rawInput);
   if (!input.ok) return input;
   const data = input.value;
+  // An update has to ask for something. The PATCH route reads a body that is
+  // not JSON as `{}`, and an MCP call can send the field id alone: answering
+  // either with the field unchanged would pass off a mistake as a save.
+  if (asksForNothing(data)) return err(serviceError('invalid_input', 'nothing to update'));
 
   const existing = await db
     .select()
@@ -304,16 +308,18 @@ export async function updateField(
     const stale = configMismatch(data, current.fieldType);
     if (stale) return err(stale);
 
-    // A type, config or position equal to the field's own counts as not sent.
-    // The builder's Fields dialog sends the type and config with every save, a
-    // rename included, so whether they were sent says nothing about whether
-    // they changed. The value check, the re-anchor and the slot_at rebuild
-    // below all go by `sent`. Compared with the row read under the lock: a
-    // save that got in first may have changed it.
+    // A value equal to the field's own counts as not sent. The builder's
+    // Fields dialog sends the label, type and config with every save, a rename
+    // included, so whether they were sent says nothing about whether they
+    // changed. The value check, the re-anchor, the slot_at rebuild, the write
+    // and the log below all go by `sent`. Compared with the row read under the
+    // lock: a save that got in first may have changed it.
     const sent = withoutUnchanged(data, current);
-    // Nothing is left when every value sent is one the field already has.
-    // Drizzle refuses an empty update, and there is no change to log.
-    if (Object.values(sent).every((v) => v === undefined)) return ok(rowToDefinition(current));
+    // Nothing is left when every value sent is one the field already has, as
+    // when the dialog is opened and saved without an edit. That is still a
+    // save, so it succeeds, but Drizzle refuses an empty update and there is
+    // no change to log.
+    if (asksForNothing(sent)) return ok(rowToDefinition(current));
 
     // Only a new type or config can make a stored value invalid. A rename or a
     // reorder cannot, so neither reads every slot of the signup to find that
@@ -420,14 +426,20 @@ function configMismatch(data: SlotFieldUpdateInput, currentType: string): Servic
   return serviceError('invalid_input', 'config.fieldType must match the field type');
 }
 
+/** Whether an update has nothing in it: no key, or only keys left undefined. */
+function asksForNothing(data: SlotFieldUpdateInput): boolean {
+  return Object.values(data).every((v) => v === undefined);
+}
+
 /**
- * `data` less any type, config or position the field already has. A label is
- * kept whatever it is: it moves and checks nothing, so it costs nothing.
+ * `data` less any label, type, config or position the field already has.
+ * Anything else is kept as sent.
  */
 function withoutUnchanged(data: SlotFieldUpdateInput, row: FieldRow): SlotFieldUpdateInput {
-  const { fieldType, config, sortOrder, ...rest } = data;
+  const { label, fieldType, config, sortOrder, ...rest } = data;
   return {
     ...rest,
+    ...(label !== undefined && label !== row.label ? { label } : {}),
     ...(fieldType !== undefined && fieldType !== row.fieldType ? { fieldType } : {}),
     ...(config !== undefined && !sameJson(config, row.config) ? { config } : {}),
     ...(sortOrder !== undefined && sortOrder !== row.sortOrder ? { sortOrder } : {}),
