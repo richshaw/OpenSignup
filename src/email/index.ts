@@ -25,6 +25,7 @@ export function getEmailTransport(): EmailTransport {
         user: env.SMTP_USER,
         password: env.SMTP_PASSWORD,
         secure: env.SMTP_SECURE,
+        requireTls: env.SMTP_REQUIRE_TLS,
         from: env.EMAIL_FROM,
       });
       break;

@@ -139,6 +139,22 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...base, SMTP_USER: 'user' })).not.toThrow();
   });
 
+  it.each([
+    ['true', true],
+    ['false', false],
+    [undefined, undefined],
+    ['', undefined],
+    ['  ', undefined],
+  ])('reads SMTP_REQUIRE_TLS=%j as %s', (value, expected) => {
+    const env = parseEnv(value === undefined ? smtpBase : { ...smtpBase, SMTP_REQUIRE_TLS: value });
+    expect(env.SMTP_REQUIRE_TLS).toBe(expected);
+  });
+
+  it('rejects an SMTP_REQUIRE_TLS that is neither true nor false', () => {
+    // A typo such as "no" must not quietly mean "require it" or "don't".
+    expect(() => parseEnv({ ...smtpBase, SMTP_REQUIRE_TLS: 'no' })).toThrow(/- SMTP_REQUIRE_TLS: /);
+  });
+
   it('defaults AUTH_MAGIC_LINK_MAX_AGE_MINUTES to 60', () => {
     const env = parseEnv(base);
     expect(env.AUTH_MAGIC_LINK_MAX_AGE_MINUTES).toBe(60);

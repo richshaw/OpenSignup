@@ -9,6 +9,12 @@ export interface SmtpConfig {
   password?: string;
   /** Unset picks from the port: TLS from the start on 465, otherwise STARTTLS if offered. */
   secure?: boolean;
+  /**
+   * Whether a connection that doesn't start with TLS must switch to it with
+   * STARTTLS before going on. Unset requires it only when a login is set; true
+   * requires it even without one; false never does.
+   */
+  requireTls?: boolean;
   from: string;
 }
 
@@ -21,11 +27,19 @@ const SMTP_DNS_TIMEOUT_MS = 10_000;
 const SMTP_CONNECTION_TIMEOUT_MS = 10_000;
 
 export function smtpTransportOptions(cfg: SmtpConfig): SMTPTransport.Options {
+  const secure = cfg.secure ?? cfg.port === 465;
+  const auth = cfg.user && cfg.password ? { user: cfg.user, pass: cfg.password } : undefined;
   return {
     host: cfg.host,
     port: cfg.port,
-    secure: cfg.secure ?? cfg.port === 465,
-    auth: cfg.user && cfg.password ? { user: cfg.user, pass: cfg.password } : undefined,
+    secure,
+    auth,
+    // Without TLS from the start, nodemailer encrypts only if the server offers
+    // STARTTLS. A server without it, or anyone on the network who strips the
+    // offer, would get the login in plain text, then the sign-in link and code;
+    // requireTLS fails the send instead. Without a login it stays off unless
+    // asked for, deliberately: a local test mail server usually has no TLS.
+    requireTLS: !secure && (cfg.requireTls ?? auth !== undefined),
     dnsTimeout: SMTP_DNS_TIMEOUT_MS,
     connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
     // Every message is a string we rendered. Refusing file paths and URLs as
