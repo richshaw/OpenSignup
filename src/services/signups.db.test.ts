@@ -582,6 +582,11 @@ describe('signups service (db)', () => {
         settings: { groupByFieldRefs: ['date'] },
       });
       expect(grouped.ok, JSON.stringify(grouped)).toBe(true);
+      if (!grouped.ok) return;
+      expect(grouped.value.settings).toMatchObject({
+        groupByFieldRefs: ['date'],
+        sendReminders: false,
+      });
       const turnedOn = await updateSignup(fx.db, fx.actor, created.value.id, {
         settings: { sendReminders: true, reminderFromFieldRef: 'date' },
       });

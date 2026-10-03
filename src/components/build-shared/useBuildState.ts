@@ -244,6 +244,26 @@ function reminderFieldFrom(settings: SignupSettings): string | null {
     : null;
 }
 
+/**
+ * The settings a `PATCH /api/signups/[id]` saved, from its `{ data: signup }`
+ * body. The server merges what was sent over the stored settings, so these
+ * carry any change made in another tab or by an AI assistant since the page
+ * opened. Null when the body has none to read.
+ */
+async function savedSettings(res: Response): Promise<SignupSettings | null> {
+  try {
+    const body = (await res.json()) as { data?: { settings?: unknown } };
+    const settings = body.data?.settings;
+    return settings !== null &&
+      typeof settings === 'object' &&
+      Array.isArray((settings as { groupByFieldRefs?: unknown }).groupByFieldRefs)
+      ? (settings as SignupSettings)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -278,10 +298,10 @@ export function useBuildState(
   const stateRef = useRef(state);
   stateRef.current = state;
   // This tab's view of the settings, which the group-by and reminder controls
-  // are derived from. Saves send only the keys they change and the server
-  // merges them, so this copy is never sent back whole: it goes stale as soon
-  // as another tab or an AI assistant changes a setting, and sending it would
-  // undo that change (#314).
+  // are derived from. It falls behind when another tab or an AI assistant
+  // changes a setting, so it is never sent back whole, which would undo that
+  // change (#314): saves send only the keys they change, the server merges
+  // them, and the settings it returns replace this copy.
   const settingsRef = useRef<SignupSettings>(initialSettings);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -306,7 +326,9 @@ export function useBuildState(
    * reminder anchor moves to the first date field once its own is gone (or
    * appears with the first date field), and a deleted field leaves the
    * group-by. Same pure rule as the server (src/lib/reminder-fields.ts), so
-   * the copy here never drifts. Without it the controls would go on showing a
+   * the copy here moves the way the server's did. A field response carries no
+   * settings, though, so a change made elsewhere since the last settings save
+   * is not picked up here. Without it the controls would go on showing a
    * group-by or reminder field the server has already dropped or moved.
    */
   function mirrorFieldChange(fields: BuildField[]) {
@@ -329,6 +351,16 @@ export function useBuildState(
     if (reminderRef !== stateRef.current.reminderFieldRef) {
       dispatch({ type: 'SET_REMINDER_FIELD', ref: reminderRef });
     }
+  }
+
+  /**
+   * Makes `next`, the settings a save returned, this tab's settings, and
+   * points the group-by and reminder controls at them.
+   */
+  function showSettings(next: SignupSettings) {
+    settingsRef.current = next;
+    dispatch({ type: 'SET_GROUP_BY', ref: next.groupByFieldRefs[0] ?? null });
+    dispatch({ type: 'SET_REMINDER_FIELD', ref: reminderFieldFrom(next) });
   }
 
   // ---------------------------------------------------------------------------
@@ -926,8 +958,7 @@ export function useBuildState(
           body: JSON.stringify({ settings: changed }),
         });
         await expectOk(res);
-        settingsRef.current = { ...settingsRef.current, ...changed };
-        dispatch({ type: 'SET_GROUP_BY', ref });
+        showSettings((await savedSettings(res)) ?? { ...settingsRef.current, ...changed });
         markSaved();
       } catch (e) {
         markError(asErr(e));
@@ -955,8 +986,7 @@ export function useBuildState(
           body: JSON.stringify({ settings: changed }),
         });
         await expectOk(res);
-        settingsRef.current = { ...settingsRef.current, ...changed };
-        dispatch({ type: 'SET_REMINDER_FIELD', ref });
+        showSettings((await savedSettings(res)) ?? { ...settingsRef.current, ...changed });
         markSaved();
       } catch (e) {
         markError(asErr(e));

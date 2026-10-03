@@ -1374,6 +1374,34 @@ describe('useBuildState setReminderField', () => {
     expect(settingsPatchBody(fetchMock)).toEqual({ sendReminders: true, reminderFromFieldRef: 'setup-day' });
     expect(result.current.state.reminderFieldRef).toBe('setup-day');
   });
+
+  it('shows the group-by the server saved after a reminder save, not the one the page opened with', async () => {
+    const saved: SignupSettings = {
+      ...defaultSettings,
+      sendReminders: true,
+      reminderFromFieldRef: 'date',
+      groupByFieldRefs: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ data: { id: 'sig_test', settings: saved } })),
+    );
+    const { result } = renderHook(() =>
+      useBuildState('sig_test', [textField, dateField], [], {
+        ...defaultSettings,
+        sendReminders: false,
+        reminderFromFieldRef: 'date',
+        groupByFieldRefs: ['what'],
+      }),
+    );
+
+    await act(async () => {
+      await result.current.setReminderField('date');
+    });
+
+    expect(result.current.state.reminderFieldRef).toBe('date');
+    expect(result.current.state.groupByFieldRef).toBeNull();
+  });
 });
 
 describe('useBuildState setGroupBy', () => {
@@ -1382,6 +1410,14 @@ describe('useBuildState setGroupBy', () => {
   });
 
   const whatField = makeApiField({ id: 'f-what', ref: 'what', label: 'What', sortOrder: 0 });
+  const dateField = makeApiField({
+    id: 'f-date',
+    ref: 'date',
+    label: 'Date',
+    fieldType: 'date',
+    sortOrder: 1,
+    config: { fieldType: 'date' },
+  });
 
   function settingsPatchBodies(fetchMock: ReturnType<typeof vi.fn>): Array<Partial<SignupSettings>> {
     return fetchMock.mock.calls
@@ -1406,6 +1442,38 @@ describe('useBuildState setGroupBy', () => {
 
     expect(settingsPatchBodies(fetchMock)).toEqual([{ groupByFieldRefs: ['what'] }, { groupByFieldRefs: [] }]);
     expect(result.current.state.groupByFieldRef).toBeNull();
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('shows the settings the server saved, so reminders turned off elsewhere do not still look on', async () => {
+    // An assistant turned reminders off after this tab opened; the merged
+    // settings the PATCH returns say so.
+    const saved: SignupSettings = {
+      ...defaultSettings,
+      sendReminders: false,
+      reminderFromFieldRef: 'date',
+      groupByFieldRefs: ['what'],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ data: { id: 'sig_test', settings: saved } })),
+    );
+    const { result } = renderHook(() =>
+      useBuildState('sig_test', [whatField, dateField], [], {
+        ...defaultSettings,
+        sendReminders: true,
+        reminderFromFieldRef: 'date',
+      }),
+    );
+    expect(result.current.state.reminderFieldRef).toBe('date');
+
+    await act(async () => {
+      await result.current.setGroupBy('what');
+    });
+
+    expect(result.current.state.groupByFieldRef).toBe('what');
+    // Off, so ticking the Date field's reminder box sends a save again.
+    expect(result.current.state.reminderFieldRef).toBeNull();
     expect(result.current.state.saveStatus.kind).toBe('saved');
   });
 });

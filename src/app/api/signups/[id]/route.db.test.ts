@@ -113,6 +113,9 @@ describe('PATCH /api/signups/[id] settings (db)', () => {
     expect(res.status).toBe(200);
 
     expect(await settingsOf(fx, id)).toEqual({ ...before, groupByFieldRefs: ['what'] });
+    // The Build tab shows these, so its controls catch up with the assistant's change.
+    const body = (await res.json()) as { data: { settings: unknown } };
+    expect(body.data.settings).toEqual({ ...before, groupByFieldRefs: ['what'] });
   });
 
   it('a reminder field save leaves the grouping set in another tab', async () => {
