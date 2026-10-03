@@ -20,7 +20,7 @@ import type {
   SignupViewSlot,
 } from './signup-view-types';
 
-export type { OwnCommitment, SignupViewField, SignupViewSlot };
+export type { SignupViewField, SignupViewSlot };
 
 interface SourceSlot {
   id: string;

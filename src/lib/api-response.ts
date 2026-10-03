@@ -5,7 +5,7 @@ import { fromZodError, httpStatusFor, type ServiceError } from './errors';
 import { log } from './log';
 import type { Result } from './result';
 
-export interface SuccessEnvelope<T> {
+interface SuccessEnvelope<T> {
   data: T;
   _links?: Record<string, LinkObject | string>;
 }

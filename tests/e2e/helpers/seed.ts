@@ -26,7 +26,7 @@ const E2E_WORKSPACE_SLUG = 'e2e-workspace';
 const SOLO_ORGANIZER_EMAIL = 'you@example.test';
 const SOLO_WORKSPACE_SLUG = 'e2e-solo-workspace';
 
-export const SEED_FILE = path.join(process.cwd(), 'tests', 'e2e', '.seed.json');
+const SEED_FILE = path.join(process.cwd(), 'tests', 'e2e', '.seed.json');
 
 export interface SeedData {
   sessionToken: string;

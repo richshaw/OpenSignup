@@ -3,9 +3,9 @@ import { z } from 'zod';
 export const FIELD_TYPES = ['text', 'date', 'time', 'number', 'enum'] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
-export const LABEL_MAX_LENGTH = 80;
-export const CHOICE_MAX_LENGTH = 60;
-export const MAX_CHOICES = 20;
+const LABEL_MAX_LENGTH = 80;
+const CHOICE_MAX_LENGTH = 60;
+const MAX_CHOICES = 20;
 
 const RefSchema = z
   .string()
@@ -80,14 +80,12 @@ export const SlotFieldPublicSchema = z.object({
   value: z.unknown().nullable(),
   config: SlotFieldConfigSchema,
 });
-export type SlotFieldPublic = z.infer<typeof SlotFieldPublicSchema>;
 
-export const SlotFieldDefinitionSchema = z.object({
-  id: z.string(),
-  ref: RefSchema,
-  label: z.string(),
-  fieldType: z.enum(FIELD_TYPES),
-  sortOrder: z.number().int(),
-  config: SlotFieldConfigSchema,
-});
-export type SlotFieldDefinition = z.infer<typeof SlotFieldDefinitionSchema>;
+export type SlotFieldDefinition = {
+  id: string;
+  ref: string;
+  label: string;
+  fieldType: FieldType;
+  sortOrder: number;
+  config: SlotFieldConfig;
+};

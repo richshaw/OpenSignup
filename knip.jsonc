@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // Run by hand or by agents, never imported.
+  "entry": [
+    "scripts/*.{ts,mjs}",
+    ".claude/skills/*/scripts/*.mjs",
+    ".claude/skills/run-opensignup/driver.mjs",
+    ".claude/skills/run-opensignup/playwright.container.config.ts",
+  ],
+  // A design reference kit, not part of the app.
+  "ignore": ["design-system/**"],
+  "ignoreDependencies": [
+    // Loaded by name: eslint.config.mjs extends next/core-web-vitals, and
+    // src/lib/log.ts names pino-pretty as a transport target.
+    "eslint-config-next",
+    "pino-pretty",
+    // knip assumes `email dev` needs it; react-email 3 ships its own.
+    "@react-email/preview-server",
+  ],
+}

@@ -1,11 +1,10 @@
 import { z } from 'zod';
-import { idOf, NameSchema, SlugSchema, TagsSchema } from './common';
+import { NameSchema, TagsSchema } from './common';
 
 export const SIGNUP_STATUSES = ['draft', 'open', 'closed', 'archived'] as const;
 export type SignupStatus = (typeof SIGNUP_STATUSES)[number];
 
-export const SIGNUP_VISIBILITIES = ['public', 'unlisted', 'password'] as const;
-export type SignupVisibility = (typeof SIGNUP_VISIBILITIES)[number];
+const SIGNUP_VISIBILITIES = ['public', 'unlisted', 'password'] as const;
 
 /**
  * Hours before a slot that its reminder goes out: the day before.
@@ -57,32 +56,9 @@ export const SignupCreateInputSchema = z.object({
   visibility: z.enum(SIGNUP_VISIBILITIES).default('unlisted'),
   settings: SignupSettingsSchema,
 });
-export type SignupCreateInput = z.infer<typeof SignupCreateInputSchema>;
 
 export const SignupUpdateInputSchema = SignupCreateInputSchema.partial().extend({
   title: z.string().min(2).max(120).optional(),
   /** `null` clears the closing time; omitted leaves it alone. */
   closesAt: z.string().datetime().nullable().optional(),
-});
-export type SignupUpdateInput = z.infer<typeof SignupUpdateInputSchema>;
-
-export const SignupPublicSchema = z.object({
-  id: idOf('sig'),
-  slug: SlugSchema,
-  title: z.string(),
-  description: z.string(),
-  organizerDisplayName: z.string().optional(),
-  status: z.enum(SIGNUP_STATUSES),
-  closesAt: z.string().datetime().nullable(),
-  settings: SignupSettingsSchema,
-  slots: z.array(z.unknown()), // filled in by the signup service
-  updatedAt: z.string().datetime(),
-});
-
-export const SignupOrganizerSchema = SignupPublicSchema.extend({
-  organizerId: idOf('org'),
-  workspaceId: idOf('ws').nullable(),
-  visibility: z.enum(SIGNUP_VISIBILITIES),
-  tags: z.array(z.string()),
-  createdAt: z.string().datetime(),
 });

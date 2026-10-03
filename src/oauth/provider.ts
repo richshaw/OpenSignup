@@ -10,7 +10,6 @@ import Provider, {
 import type { JWK } from 'jose';
 import { log } from '@/lib/log';
 import {
-  CONSENT_PATH_PREFIX,
   OAUTH_COOKIES,
   OAUTH_ROUTES,
   OAUTH_SESSION_COOKIE_PATH,
@@ -271,4 +270,3 @@ export function renderErrorPage(out: OidcError): string {
 </html>`;
 }
 
-export { CONSENT_PATH_PREFIX };

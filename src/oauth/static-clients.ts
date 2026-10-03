@@ -7,7 +7,7 @@ import { z } from 'zod';
  * PKCE is mandatory, and redirect URIs are matched exactly (loopback ports
  * excepted, per RFC 8252).
  */
-export const StaticClientSchema = z.object({
+const StaticClientSchema = z.object({
   client_id: z.string().min(1).max(200),
   client_name: z.string().min(1).max(100),
   redirect_uris: z.array(z.string().url()).min(1).max(20),

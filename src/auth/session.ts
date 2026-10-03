@@ -7,7 +7,7 @@ import { ORGANIZER_CALLBACK_HEADER, safeCallbackUrl } from './callback-url';
 import { auth } from './config';
 import { loadOrganizerSessionById, toActor, type OrganizerSession } from './organizer-session';
 
-export { loadOrganizerSessionById, toActor, type OrganizerSession };
+export { toActor, type OrganizerSession };
 
 export const getOrganizerSession = cache(async (): Promise<OrganizerSession | null> => {
   const session = await auth();

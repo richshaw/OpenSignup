@@ -45,6 +45,10 @@ jobs:
       NEXT_PUBLIC_GOVERNING_LAW: the State of Washington, United States
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The merge commit and its base, so `pnpm budgets` can report what a
+          # pull request adds and removes.
+          fetch-depth: 2
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -53,10 +57,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
+      - run: pnpm knip
       - run: pnpm db:migrate
       - run: pnpm test
       - run: pnpm test:db
       - run: pnpm build
+      - run: pnpm budgets
 
   e2e:
     runs-on: ubuntu-latest

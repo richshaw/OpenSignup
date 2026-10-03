@@ -30,7 +30,6 @@ export const SlotBulkInputSchema = z.object({
   // refinement here would hide `.shape` from the MCP tool that builds on it.
   beforeSlotId: z.string().optional(),
 });
-export type SlotBulkInput = z.infer<typeof SlotBulkInputSchema>;
 
 // Every slot id of the signup, in the order they should be shown. No maximum:
 // nothing caps slots per signup, so any ceiling here would make a signup above
@@ -38,7 +37,6 @@ export type SlotBulkInput = z.infer<typeof SlotBulkInputSchema>;
 export const SlotReorderInputSchema = z.object({
   slotIds: z.array(z.string()).min(1),
 });
-export type SlotReorderInput = z.infer<typeof SlotReorderInputSchema>;
 
 export const SlotUpdateInputSchema = z
   .object({

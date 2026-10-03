@@ -60,7 +60,7 @@ export type SiteConfig = {
  * loudly instead of shipping them. Each one reads as a placeholder wherever it
  * appears (footer, privacy, terms).
  */
-export const DEV_PLACEHOLDERS = {
+const DEV_PLACEHOLDERS = {
   NEXT_PUBLIC_INSTANCE_NAME: 'OpenSignup (dev)',
   NEXT_PUBLIC_SUPPORT_EMAIL: 'dev@example.com',
   NEXT_PUBLIC_SOURCE_URL: 'https://github.com/richshaw/OpenSignup',
@@ -123,7 +123,7 @@ export const INSTANCE_NAME = config.INSTANCE_NAME;
 export const SUPPORT_EMAIL = config.SUPPORT_EMAIL;
 export const SOURCE_URL = config.SOURCE_URL;
 export const GOVERNING_LAW = config.GOVERNING_LAW;
-export const OPERATOR_NAME = config.OPERATOR_NAME;
+const OPERATOR_NAME = config.OPERATOR_NAME;
 
 // Pre-built derivations so consumers don't hand-prefix `mailto:` or
 // hand-strip the URL scheme — keeps that parsing concern in one place.

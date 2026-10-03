@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { useTypewriter } from '@/hooks/useTypewriter';
 
-export interface DraftStep {
+interface DraftStep {
   id: string;
   label: string;
   duration: number;
 }
 
-export const DRAFT_STEPS: DraftStep[] = [
+const DRAFT_STEPS: DraftStep[] = [
   { id: 'read', label: 'Reading your description', duration: 700 },
   { id: 'title', label: 'Drafting a title', duration: 700 },
   { id: 'desc', label: 'Writing a short blurb', duration: 900 },

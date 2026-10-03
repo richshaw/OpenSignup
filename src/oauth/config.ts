@@ -46,7 +46,7 @@ export const OAUTH_ROUTES = {
 } as const;
 
 /** Where the provider sends the browser to log in and consent. */
-export const CONSENT_PATH_PREFIX = '/oauth/consent';
+const CONSENT_PATH_PREFIX = '/oauth/consent';
 export function consentPath(uid: string): string {
   return `${CONSENT_PATH_PREFIX}/${uid}`;
 }

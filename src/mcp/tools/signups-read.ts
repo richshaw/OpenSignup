@@ -34,7 +34,7 @@ function signupCore(row: SignupRow) {
 }
 
 /** The list shape: enough to pick a signup, small enough for 200 rows. */
-export function signupSummary(row: SignupRow) {
+function signupSummary(row: SignupRow) {
   return { ...signupCore(row), links: signupLinks(row) };
 }
 
