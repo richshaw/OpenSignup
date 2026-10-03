@@ -12,7 +12,6 @@ export const ID_PREFIXES = [
   'act', // Activity
   'ml', // MagicLink
   'cla', // SignupClaim
-  'idm', // Idempotency record
   'rl', // Rate limit bucket
   'job', // pg-boss helper (our own, not pg-boss internal)
 ] as const;
