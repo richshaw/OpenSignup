@@ -90,6 +90,28 @@ describe('withTimeout onLateSettle', () => {
     expect(onLateSettle).toHaveBeenCalledExactlyOnceWith({ status: 'rejected', reason: error });
   });
 
+  it('swallows a callback that throws, so nothing goes unhandled', async () => {
+    const succeeds = controllable<string>();
+    const fails = controllable<string>();
+    const onLateSettle = vi.fn(() => {
+      throw new Error('log stream closed');
+    });
+    const onUnhandled = vi.fn();
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      await timeOut(succeeds.promise, onLateSettle);
+      await timeOut(fails.promise, onLateSettle);
+      succeeds.resolve('sent');
+      fails.reject(new Error('Greeting never received'));
+      vi.useRealTimers();
+      await new Promise((r) => setImmediate(r));
+      expect(onLateSettle).toHaveBeenCalledTimes(2);
+      expect(onUnhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
   it('is not called for work that settles in time', async () => {
     const onLateSettle = vi.fn();
     await withTimeout(Promise.resolve('sent'), 1_000, 'too slow', { onLateSettle });

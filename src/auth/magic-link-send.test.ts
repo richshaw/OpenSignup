@@ -3,12 +3,14 @@ import type { EmailResult } from '@/email/transport';
 import { log } from '@/lib/log';
 import { MAGIC_LINK_SEND_TIMEOUT_MS, sendMagicLinkEmail } from './magic-link-send';
 
-const link = 'http://localhost:3000/login/confirm?not-a-real-link';
+const token = 'not-a-real-token';
+const link = `http://localhost:3000/login/confirm?next=${token}`;
+const code = '482916';
 const message = {
   to: 'pat@example.com',
   subject: 'Sign in to OpenSignup',
-  html: `<a href="${link}">Sign in</a> or enter 000000`,
-  text: `Sign in: ${link} or enter 000000`,
+  html: `<a href="${link}">Sign in</a> or enter ${code}`,
+  text: `Sign in: ${link} or enter ${code}`,
 };
 
 /** A transport whose one send ends when the test says so. */
@@ -79,6 +81,7 @@ describe('sendMagicLinkEmail', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(error).toHaveBeenCalledExactlyOnceWith(
       {
+        email: 'pat@example.com',
         sendError: {
           message: 'Invalid login: 535 5.7.8 Authentication failed',
           code: 'EAUTH',
@@ -91,6 +94,30 @@ describe('sendMagicLinkEmail', () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it('logs the cause a failed fetch keeps the real reason in', async () => {
+    const { transport, fail } = slowTransport();
+    await timeOut(transport);
+
+    const refused = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:443'), {
+      code: 'ECONNREFUSED',
+      errno: -111,
+      syscall: 'connect',
+    });
+    fail(new TypeError('fetch failed', { cause: refused }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(error).toHaveBeenCalledExactlyOnceWith(
+      {
+        email: 'pat@example.com',
+        sendError: {
+          message: 'fetch failed',
+          cause: { message: 'connect ECONNREFUSED 127.0.0.1:443', code: 'ECONNREFUSED' },
+        },
+        elapsedMs: MAGIC_LINK_SEND_TIMEOUT_MS,
+      },
+      'magic link send failed after it timed out',
+    );
+  });
+
   it('logs a late failure that is not an Error', async () => {
     const { transport, fail } = slowTransport();
     await timeOut(transport);
@@ -98,23 +125,37 @@ describe('sendMagicLinkEmail', () => {
     fail('connection reset');
     await vi.advanceTimersByTimeAsync(0);
     expect(error).toHaveBeenCalledExactlyOnceWith(
-      { sendError: { message: 'connection reset' }, elapsedMs: MAGIC_LINK_SEND_TIMEOUT_MS },
+      {
+        email: 'pat@example.com',
+        sendError: { message: 'connection reset' },
+        elapsedMs: MAGIC_LINK_SEND_TIMEOUT_MS,
+      },
       'magic link send failed after it timed out',
     );
   });
 
-  it('logs neither the sign-in link nor its code', async () => {
+  it('logs neither the sign-in link nor its code, even when the error quotes them', async () => {
     const late = slowTransport();
     await timeOut(late.transport);
     late.succeed({ id: 'msg-1', transport: 'smtp' });
     const failing = slowTransport();
     await timeOut(failing.transport);
-    failing.fail(new Error('Message failed: 554 rejected'));
+    failing.fail(
+      new Error(`Message failed: 554 5.7.1 blocked URL ${link}, code ${code}`, {
+        cause: new Error(`policy rejected: ${message.text}`),
+      }),
+    );
+    const failingOddly = slowTransport();
+    await timeOut(failingOddly.transport);
+    failingOddly.fail(`resend send failed (422): ${message.html}`);
     await vi.advanceTimersByTimeAsync(0);
 
+    expect(warn).toHaveBeenCalledOnce();
+    expect(error).toHaveBeenCalledTimes(2);
     const logged = JSON.stringify([...warn.mock.calls, ...error.mock.calls]);
-    expect(logged).not.toContain(link);
-    expect(logged).not.toContain('000000');
+    expect(logged).toContain('http://localhost:3000/login/confirm?[redacted]');
+    expect(logged).not.toContain(token);
+    expect(logged).not.toContain(code);
   });
 
   it('logs nothing more when the send ends in time', async () => {
