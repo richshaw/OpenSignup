@@ -26,6 +26,21 @@ export function activityActor(actor: Actor): ActivityActor {
     : { actorId: actor.id, actorType: 'organizer' };
 }
 
+/**
+ * The payload an activity row stores. `viaClientId` means a connected app
+ * really made the change, so it comes only from the actor: a `viaClientId`
+ * in the caller's payload is dropped, not trusted. Dropped rather than
+ * thrown, because this runs inside the mutation's transaction and a bad
+ * payload key should not cancel the organizer's actual change.
+ */
+export function activityPayload(
+  actor: ActivityActor,
+  payload?: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const { viaClientId: _ignored, ...given } = payload ?? {};
+  return actor.clientId ? { ...given, viaClientId: actor.clientId } : given;
+}
+
 export async function recordActivity(
   db: Queryable,
   args: {
@@ -36,8 +51,7 @@ export async function recordActivity(
     payload?: Record<string, unknown>;
   },
 ) {
-  const given = args.payload ?? {};
-  const payload = args.actor.clientId ? { ...given, viaClientId: args.actor.clientId } : given;
+  const payload = activityPayload(args.actor, args.payload);
   await db.insert(activity).values({
     id: makeId('act'),
     signupId: args.signupId ?? null,
