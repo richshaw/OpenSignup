@@ -336,7 +336,16 @@ describe('authorization code flow on Postgres', () => {
     expect(await r.response.text()).toContain('invalid_client');
   });
 
-  it('rejects a loopback client id outright, before any fetch', async () => {
+  // What rejects this client is the 404 from this file's `fetch` stub, not
+  // anything about loopback. The defence against fetching a special-use
+  // address (localhost, private ranges) is oidc-provider's own: its fetch
+  // helper (lib/helpers/fetch_request.js) hands `configuration.fetch` a
+  // dispatcher that destroys any socket to such an address. Production passes
+  // no `fetch` (src/oauth/instance.ts), so the library's default fetch uses
+  // that dispatcher. The stub here ignores it and never opens a socket, so this
+  // test would still pass with that protection gone; nothing in this repo
+  // guards a loopback id before the fetch either.
+  it('rejects a client id whose metadata document cannot be fetched', async () => {
     const { challenge } = pkcePair();
     const r = await startAuthorization(d, { clientId: 'https://localhost/metadata.json', redirectUri: REDIRECT, scope: 'signups:read', challenge });
     expect(r.response.status).toBe(400);
