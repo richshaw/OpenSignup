@@ -3,9 +3,12 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { ACTION_SIZING } from './slot-format';
 import {
   SignupViewBody,
+  toSignupViewFields,
+  toSignupViewSlots,
   type SignupViewField,
   type SignupViewSlot,
 } from './signup-view';
@@ -24,6 +27,7 @@ const SLOTS: SignupViewSlot[] = [
     ref: 's1',
     values: { date: '2026-05-17', team: 'Hawks' },
     slotAt: null,
+    hasTime: false,
     capacity: 2,
     status: 'open',
     committed: 0,
@@ -323,5 +327,131 @@ describe('<SignupViewBody mode="live" /> quantity', () => {
   it('asks for a quantity when more than one place is left', async () => {
     openRow(/^Sign up for .*Owls/);
     expect(await screen.findByLabelText('Spots', {}, { timeout: 5000 })).toBeInTheDocument();
+  });
+});
+
+describe('"Add to calendar" on a signup with several time fields', () => {
+  // A trip whose reminders come from the departure date, so the departure time
+  // is the one paired with it. The return time says nothing about when the
+  // slot starts.
+  const field = (
+    ref: string,
+    fieldType: 'date' | 'time',
+    sortOrder: number,
+  ): SlotFieldDefinition => ({
+    id: `fld_${ref}`,
+    ref,
+    label: ref,
+    fieldType,
+    sortOrder,
+    config: { fieldType },
+  });
+  const slot = (id: string, values: Record<string, string>, slotAt: string) => ({
+    id,
+    ref: id,
+    values,
+    slotAt: new Date(slotAt),
+    capacity: null,
+    status: 'open',
+  });
+  const TRIP = {
+    settings: { reminderFromFieldRef: 'depart-date' },
+    fields: [
+      field('depart-date', 'date', 0),
+      field('depart-time', 'time', 1),
+      field('return-date', 'date', 2),
+      field('return-time', 'time', 3),
+    ],
+    slots: [
+      // No departure time, so the server stored the date-only noon anchor.
+      slot(
+        'no-depart-time',
+        { 'depart-date': '2026-11-18', 'return-time': '17:00' },
+        '2026-11-18T12:00:00.000Z',
+      ),
+      slot(
+        'depart-time',
+        { 'depart-date': '2026-11-18', 'depart-time': '09:30', 'return-time': '17:00' },
+        '2026-11-18T09:30:00.000Z',
+      ),
+    ],
+  };
+
+  it('says a slot has a time only when its paired time is filled in', () => {
+    const bySlot = new Map(toSignupViewSlots(TRIP).map((s) => [s.id, s.hasTime]));
+    expect(bySlot.get('no-depart-time')).toBe(false);
+    expect(bySlot.get('depart-time')).toBe(true);
+  });
+
+  // jsdom's Blob has no text().
+  function readBlob(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(blob);
+    });
+  }
+
+  /** Signs up for one slot and returns the calendar file it offers. */
+  async function downloadIcs(slotId: string): Promise<string> {
+    const settle = { timeout: 5000 };
+    const blobs: Blob[] = [];
+    const { createObjectURL, revokeObjectURL } = URL;
+    URL.createObjectURL = (blob: Blob) => {
+      blobs.push(blob);
+      return 'blob:ics';
+    };
+    URL.revokeObjectURL = () => {};
+    // jsdom does not implement navigation, which a download link's click is.
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          data: { commitment: { id: 'com_1' }, editUrl: 'https://example.test/s/trip/c/com_1' },
+        }),
+      })),
+    );
+    try {
+      render(
+        <SignupViewBody
+          signup={{ title: 'Trip', description: null, status: 'open' }}
+          fields={toSignupViewFields(TRIP.fields)}
+          groupByRef={null}
+          slots={toSignupViewSlots(TRIP).filter((s) => s.id === slotId)}
+          slug="trip"
+          mode="live"
+          showStateBanner={false}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Pat Example' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pat@example.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Add to calendar' }, settle));
+      expect(blobs).toHaveLength(1);
+      return await readBlob(blobs[0]!);
+    } finally {
+      URL.createObjectURL = createObjectURL;
+      URL.revokeObjectURL = revokeObjectURL;
+      click.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  }
+
+  it('exports an all-day event when the paired time is blank, whatever other time is filled in', async () => {
+    const ics = await downloadIcs('no-depart-time');
+    expect(ics).toContain('DTSTART;VALUE=DATE:20261118');
+    expect(ics).toContain('DTEND;VALUE=DATE:20261119');
+    expect(ics).not.toContain('T120000');
+  });
+
+  it('exports a timed event when the paired time is filled in', async () => {
+    const ics = await downloadIcs('depart-time');
+    expect(ics).toContain('DTSTART:20261118T093000');
+    expect(ics).toContain('DTEND:20261118T103000');
   });
 });

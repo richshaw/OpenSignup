@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { slotTimeOfDay } from '@/lib/reminder-fields';
 import type { SignupStatus } from '@/schemas/signups';
 import type { SlotStatus } from '@/schemas/slots';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
@@ -36,19 +37,36 @@ interface SourceField {
   fieldType: SlotFieldDefinition['fieldType'];
 }
 
+interface SourceSignup {
+  settings: unknown;
+  fields: SlotFieldDefinition[];
+  slots: readonly SourceSlot[];
+}
+
+/**
+ * The signup's slots as the page renders them. Needs the signup's settings
+ * and full field definitions, not just its slots: whether a slot has a time
+ * (`hasTime`) depends on which time field pairs with the reminder date field,
+ * and the view's own fields carry neither the reminder ref nor sort orders.
+ */
 export function toSignupViewSlots(
-  slots: readonly SourceSlot[],
+  signup: SourceSignup,
   committedBySlot?: Record<string, number>,
 ): SignupViewSlot[] {
-  return slots.map((slot) => ({
-    id: slot.id,
-    ref: slot.ref,
-    values: (slot.values as Record<string, unknown>) ?? {},
-    slotAt: slot.slotAt ? slot.slotAt.toISOString() : null,
-    capacity: slot.capacity,
-    status: slot.status as SlotStatus,
-    committed: committedBySlot?.[slot.id] ?? 0,
-  }));
+  const settings = (signup.settings ?? {}) as { reminderFromFieldRef?: string };
+  return signup.slots.map((slot) => {
+    const values = (slot.values as Record<string, unknown>) ?? {};
+    return {
+      id: slot.id,
+      ref: slot.ref,
+      values,
+      slotAt: slot.slotAt ? slot.slotAt.toISOString() : null,
+      hasTime: slotTimeOfDay(settings, signup.fields, values) !== null,
+      capacity: slot.capacity,
+      status: slot.status as SlotStatus,
+      committed: committedBySlot?.[slot.id] ?? 0,
+    };
+  });
 }
 
 export function toSignupViewFields(fields: readonly SourceField[]): SignupViewField[] {
@@ -123,28 +141,6 @@ function titleFor(
 ): string {
   const value = primary ? renderFieldValue(primary, slot.values[primary.ref]) : null;
   return value || 'Untitled slot';
-}
-
-/**
- * Whether the slot carries a time of its own, which decides whether "Add to
- * calendar" exports a timed or an all-day event. A date-only slot's `slotAt`
- * is a noon-UTC anchor (see `extractSlotAt`), not a time anyone typed.
- *
- * Any time field holding a real HH:MM counts — the same test `slotTimeOfDay`
- * applies on the server, so a blank or malformed legacy value does not turn an
- * all-day export into a timed one. The view carries neither sort orders nor
- * the anchor ref, so it cannot replay the server's pairing rule; the two only
- * disagree on a signup with several time fields of which only some are filled
- * in.
- */
-const REAL_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-function slotHasTime(slot: SignupViewSlot, fields: readonly SignupViewField[]): boolean {
-  return fields.some((f) => {
-    if (f.fieldType !== 'time') return false;
-    const value = slot.values[f.ref];
-    return typeof value === 'string' && REAL_TIME.test(value);
-  });
 }
 
 export function SignupViewBody({
@@ -314,7 +310,7 @@ export function SignupViewBody({
                             slotTitle={title}
                             actionName={actionName}
                             slotAt={slot.slotAt}
-                            slotHasTime={slotHasTime(slot, fields)}
+                            slotHasTime={slot.hasTime}
                             spotsLeft={
                               slot.capacity === null
                                 ? null

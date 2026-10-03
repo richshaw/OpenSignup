@@ -12,6 +12,12 @@ export interface SignupViewSlot {
   ref: string;
   values: Record<string, unknown>;
   slotAt: string | null;
+  /**
+   * Whether `slotAt` carries a time someone entered. A date-only slot's
+   * `slotAt` is the noon-UTC anchor (see `extractSlotAt`), not a time of day.
+   * Decided on the server by `slotTimeOfDay`, the rule that built `slotAt`.
+   */
+  hasTime: boolean;
   capacity: number | null;
   status: SlotStatus;
   committed: number;

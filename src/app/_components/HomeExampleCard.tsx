@@ -26,6 +26,7 @@ const SLOTS: SignupViewSlot[] = ROWS.map((row, i) => ({
   ref: `example-${i + 1}`,
   values: { date: row.date, team: row.team },
   slotAt: null,
+  hasTime: false,
   capacity: 2,
   status: 'open',
   committed: 0,

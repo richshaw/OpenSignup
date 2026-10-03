@@ -16,9 +16,10 @@ interface CommitDialogProps {
   actionName: string;
   slotAt: string | null;
   /**
-   * Whether the slot carries a time of its own. A date-only slot's `slotAt` is
-   * a noon-UTC anchor (see `extractSlotAt`), not a time anyone typed, so its
-   * calendar export is an all-day event.
+   * Whether the slot carries a time of its own: the row's `hasTime`, which the
+   * server decides. A date-only slot's `slotAt` is a noon-UTC anchor (see
+   * `extractSlotAt`), not a time anyone typed, so its calendar export is an
+   * all-day event.
    */
   slotHasTime: boolean;
   /**

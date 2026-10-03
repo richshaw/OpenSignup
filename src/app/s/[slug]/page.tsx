@@ -110,7 +110,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
     }),
   );
 
-  const slots = toSignupViewSlots(sig.slots, sig.committedBySlot);
+  const slots = toSignupViewSlots(sig, sig.committedBySlot);
   const fields = toSignupViewFields(sig.fields);
   const settings = (sig.settings ?? {}) as { groupByFieldRefs?: string[] };
   const groupByRef = settings.groupByFieldRefs?.[0] ?? null;
