@@ -33,9 +33,9 @@ import { lockSignupForWrite, lockSlotsForSignup, readLiveSignup } from './locks'
 type FieldRow = typeof slotFields.$inferSelect;
 
 // The pure resolution rules live in src/lib/reminder-fields.ts so the build
-// page and the signup page can share them; re-exported here for the callers
-// that already import them alongside the field services.
-export { findReminderFields, pickAnchorRef, slotTimeOfDay, type ReminderFields };
+// page can share them; re-exported here for the callers that already import
+// them alongside the field services.
+export { findReminderFields, pickAnchorRef, type ReminderFields };
 
 function rowToDefinition(row: FieldRow): SlotFieldDefinition {
   return {

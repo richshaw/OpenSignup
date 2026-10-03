@@ -346,11 +346,11 @@ describe('"Add to calendar" on a signup with several time fields', () => {
     sortOrder,
     config: { fieldType },
   });
-  const slot = (id: string, values: Record<string, string>, slotAt: string) => ({
+  const slot = (id: string, values: Record<string, string>, slotAt: string | null) => ({
     id,
     ref: id,
     values,
-    slotAt: new Date(slotAt),
+    slotAt: slotAt === null ? null : new Date(slotAt),
     capacity: null,
     status: 'open',
   });
@@ -374,6 +374,8 @@ describe('"Add to calendar" on a signup with several time fields', () => {
         { 'depart-date': '2026-11-18', 'depart-time': '09:30', 'return-time': '17:00' },
         '2026-11-18T09:30:00.000Z',
       ),
+      // No departure date, so the server stored no instant at all.
+      slot('no-depart-date', { 'depart-time': '09:30' }, null),
     ],
   };
 
@@ -381,6 +383,7 @@ describe('"Add to calendar" on a signup with several time fields', () => {
     const bySlot = new Map(toSignupViewSlots(TRIP).map((s) => [s.id, s.hasTime]));
     expect(bySlot.get('no-depart-time')).toBe(false);
     expect(bySlot.get('depart-time')).toBe(true);
+    expect(bySlot.get('no-depart-date')).toBe(false);
   });
 
   // jsdom's Blob has no text().
@@ -446,7 +449,9 @@ describe('"Add to calendar" on a signup with several time fields', () => {
     const ics = await downloadIcs('no-depart-time');
     expect(ics).toContain('DTSTART;VALUE=DATE:20261118');
     expect(ics).toContain('DTEND;VALUE=DATE:20261119');
-    expect(ics).not.toContain('T120000');
+    // No timed start or end. Not a search for "T120000": DTSTAMP carries the
+    // current time, so that would fail a run at 12:00:00 UTC.
+    expect(ics).not.toMatch(/^DT(START|END):/m);
   });
 
   it('exports a timed event when the paired time is filled in', async () => {

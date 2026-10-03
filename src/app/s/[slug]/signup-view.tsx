@@ -61,7 +61,7 @@ export function toSignupViewSlots(
       ref: slot.ref,
       values,
       slotAt: slot.slotAt ? slot.slotAt.toISOString() : null,
-      hasTime: slotTimeOfDay(settings, signup.fields, values) !== null,
+      hasTime: slot.slotAt !== null && slotTimeOfDay(settings, signup.fields, values) !== null,
       capacity: slot.capacity,
       status: slot.status as SlotStatus,
       committed: committedBySlot?.[slot.id] ?? 0,
