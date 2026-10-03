@@ -227,32 +227,42 @@ describe('signup write tools on Postgres', () => {
     const u = updated.structuredContent as { signup: { settings: Record<string, unknown> } };
     expect(u.signup.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['day'] });
 
-    // A confirmation message can be set, then cleared with null; the closing time likewise.
-    const messaged = await client.callTool({
+    // A closing time can be set, then cleared with null, leaving the settings alone.
+    const closing = await client.callTool({
       name: 'update_signup',
-      arguments: { signupId: c.signup.id, settings: { confirmationMessage: 'See you there' }, closesAt: '2026-12-01T00:00:00.000Z' },
+      arguments: { signupId: c.signup.id, closesAt: '2026-12-01T00:00:00.000Z' },
     });
-    const ms = messaged.structuredContent as { signup: { settings: Record<string, unknown>; closesAt: string | null } };
-    expect(ms.signup.settings.confirmationMessage).toBe('See you there');
-    expect(ms.signup.closesAt).toBe('2026-12-01T00:00:00.000Z');
-    const cleared = await client.callTool({
-      name: 'update_signup',
-      arguments: { signupId: c.signup.id, settings: { confirmationMessage: null }, closesAt: null },
-    });
+    expect((closing.structuredContent as { signup: { closesAt: string | null } }).signup.closesAt).toBe(
+      '2026-12-01T00:00:00.000Z',
+    );
+    const cleared = await client.callTool({ name: 'update_signup', arguments: { signupId: c.signup.id, closesAt: null } });
     const cl = cleared.structuredContent as { signup: { settings: Record<string, unknown>; closesAt: string | null } };
-    expect(cl.signup.settings).not.toHaveProperty('confirmationMessage');
     expect(cl.signup.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['day'] });
     expect(cl.signup.closesAt).toBeNull();
 
-    // A per-person limit is refused, and nothing is stored: no sign-up checks it yet.
-    const capped = await client.callTool({
-      name: 'update_signup',
-      arguments: { signupId: c.signup.id, settings: { maxCommitmentsPerParticipant: 2 } },
-    });
-    expect(capped.isError).toBe(true);
-    expect((capped.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
-    const [stored] = await db.select({ settings: signups.settings }).from(signups).where(eq(signups.id, c.signup.id));
-    expect(stored?.settings).not.toHaveProperty('maxCommitmentsPerParticipant');
+    // Settings nothing reads are refused and nothing is stored, and the stored
+    // defaults createSignup filled in for them are not shown.
+    const [before] = await db.select({ settings: signups.settings }).from(signups).where(eq(signups.id, c.signup.id));
+    expect(before?.settings).toMatchObject({ requireEmail: true, allowNotes: true, showWhoSignedUp: true });
+    for (const key of ['maxCommitmentsPerParticipant', 'requireEmail', 'allowNotes', 'showWhoSignedUp', 'confirmationMessage']) {
+      expect(cl.signup.settings, key).not.toHaveProperty(key);
+    }
+    for (const unread of [
+      { maxCommitmentsPerParticipant: 2 },
+      { requireEmail: false },
+      { allowNotes: false },
+      { showWhoSignedUp: false },
+      { confirmationMessage: 'See you there' },
+    ]) {
+      const refused = await client.callTool({
+        name: 'update_signup',
+        arguments: { signupId: c.signup.id, settings: { sendReminders: true, ...unread } },
+      });
+      expect(refused.isError, JSON.stringify(unread)).toBe(true);
+      expect((refused.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
+    }
+    const [after] = await db.select({ settings: signups.settings }).from(signups).where(eq(signups.id, c.signup.id));
+    expect(after?.settings).toEqual(before?.settings);
   });
 });
 
