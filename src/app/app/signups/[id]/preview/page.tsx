@@ -42,7 +42,7 @@ export default async function SignupPreviewPage({ params }: PageParams) {
     }),
   );
 
-  const slots = toSignupViewSlots(sig.slots);
+  const slots = toSignupViewSlots(sig);
   const fields = toSignupViewFields(sig.fields);
   const settings = (sig.settings ?? {}) as { groupByFieldRefs?: string[] };
   const groupByRef = settings.groupByFieldRefs?.[0] ?? null;
