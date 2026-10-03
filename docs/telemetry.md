@@ -34,7 +34,9 @@ Rows written by the signup, slot, and field services (`signup.*`, `slot.*`,
 (usually a URL) when the change came through the MCP server rather than the
 browser. It is added by `recordActivity` whenever the actor came through
 `activityActor` with a bearer-token actor, and is not listed per event. The
-`oauth.*` events identify the app by `clientDomain` instead.
+key is reserved: `recordActivity` drops a `viaClientId` passed in a caller's
+payload, so the only way to set it is through the actor. The `oauth.*` events
+identify the app by `clientDomain` instead.
 
 ### Signup lifecycle
 

@@ -35,9 +35,9 @@ export function activityActor(actor: Actor): ActivityActor {
  */
 export function activityPayload(
   actor: ActivityActor,
-  payload: Record<string, unknown> = {},
+  payload?: Record<string, unknown> | null,
 ): Record<string, unknown> {
-  const { viaClientId: _ignored, ...given } = payload;
+  const { viaClientId: _ignored, ...given } = payload ?? {};
   return actor.clientId ? { ...given, viaClientId: actor.clientId } : given;
 }
 

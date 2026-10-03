@@ -56,7 +56,8 @@ describe('activityPayload', () => {
     expect(payload).toEqual({ changed: ['title'], viaClientId: CLIENT });
   });
 
-  it('defaults to an empty payload', () => {
+  it('treats a missing or null payload as empty', () => {
     expect(activityPayload({ actorId: null, actorType: 'system' })).toEqual({});
+    expect(activityPayload({ actorId: null, actorType: 'system' }, null)).toEqual({});
   });
 });
