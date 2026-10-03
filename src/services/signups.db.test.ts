@@ -551,9 +551,8 @@ describe('signups service (db)', () => {
     });
 
     it('keeps reminderFromFieldRef when a settings update omits it', async () => {
-      // Replace-not-merge applies to every other key; the anchor must keep
-      // naming a date field for as long as the signup has one, so omitting it
-      // cannot clear it.
+      // The anchor must keep naming a date field for as long as the signup has
+      // one, so omitting it cannot clear it.
       const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Reminder'));
       if (!created.ok) throw new Error('setup failed');
 
@@ -567,6 +566,64 @@ describe('signups service (db)', () => {
       expect(s.sendReminders).toBe(false);
     });
 
+    it('leaves every setting a save does not send as it was (#314)', async () => {
+      // An assistant turns reminders off; then a Build tab opened before that
+      // saves "Group slots by". Its save names only the key it changed, and
+      // must not bring reminders back on or reset anything else.
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Sparse save'),
+        settings: { lockoutHoursBeforeSlot: 6, maxCommitmentsPerParticipant: 2 },
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const off = await updateSignup(fx.db, fx.actor, created.value.id, { settings: { sendReminders: false } });
+      if (!off.ok) throw new Error('reminders off failed');
+
+      const grouped = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { groupByFieldRefs: ['date'] },
+      });
+      expect(grouped.ok, JSON.stringify(grouped)).toBe(true);
+      const turnedOn = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { sendReminders: true, reminderFromFieldRef: 'date' },
+      });
+      expect(turnedOn.ok, JSON.stringify(turnedOn)).toBe(true);
+
+      const [row] = await fx.db.select().from(signups).where(eq(signups.id, created.value.id));
+      expect(row?.settings).toEqual({
+        ...(created.value.settings as Record<string, unknown>),
+        groupByFieldRefs: ['date'],
+        sendReminders: true,
+      });
+      expect(row?.settings).toMatchObject({ lockoutHoursBeforeSlot: 6, maxCommitmentsPerParticipant: 2 });
+    });
+
+    it('clears a setting sent as null, and refills a defaulted one', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Null clears'),
+        settings: { lockoutHoursBeforeSlot: 6, maxCommitmentsPerParticipant: 2 },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { maxCommitmentsPerParticipant: null, lockoutHoursBeforeSlot: null },
+      });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.settings).not.toHaveProperty('maxCommitmentsPerParticipant');
+      expect(r.value.settings).toMatchObject({ lockoutHoursBeforeSlot: 0, reminderFromFieldRef: 'date' });
+    });
+
+    it('keeps the anchor when a settings update sends it as null', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Null anchor'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { reminderFromFieldRef: null },
+      });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.settings).toMatchObject({ reminderFromFieldRef: 'date' });
+    });
+
     it('does not lose a key when two sparse settings updates run at once', async () => {
       // Each call merges over the row it locks, so the second sees the first
       // one's key. Merging from a snapshot read before the transaction let the
@@ -575,8 +632,8 @@ describe('signups service (db)', () => {
       if (!created.ok) throw new Error('setup failed');
 
       const [a, b] = await Promise.all([
-        updateSignup(fx.db, fx.actor, created.value.id, { settings: { sendReminders: false } }, { mergeSettings: true }),
-        updateSignup(fx.db, fx.actor, created.value.id, { settings: { groupByFieldRefs: ['date'] } }, { mergeSettings: true }),
+        updateSignup(fx.db, fx.actor, created.value.id, { settings: { sendReminders: false } }),
+        updateSignup(fx.db, fx.actor, created.value.id, { settings: { groupByFieldRefs: ['date'] } }),
       ]);
       expect(a.ok && b.ok).toBe(true);
 

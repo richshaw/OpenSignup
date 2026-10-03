@@ -277,6 +277,11 @@ export function useBuildState(
   const timersRef = useRef<Map<string, DebounceEntry>>(new Map());
   const stateRef = useRef(state);
   stateRef.current = state;
+  // This tab's view of the settings, which the group-by and reminder controls
+  // are derived from. Saves send only the keys they change and the server
+  // merges them, so this copy is never sent back whole: it goes stale as soon
+  // as another tab or an AI assistant changes a setting, and sending it would
+  // undo that change (#314).
   const settingsRef = useRef<SignupSettings>(initialSettings);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -301,8 +306,8 @@ export function useBuildState(
    * reminder anchor moves to the first date field once its own is gone (or
    * appears with the first date field), and a deleted field leaves the
    * group-by. Same pure rule as the server (src/lib/reminder-fields.ts), so
-   * the copy here never drifts. Without it the next settings save would send
-   * the server a ref it has already dropped — which it refuses.
+   * the copy here never drifts. Without it the controls would go on showing a
+   * group-by or reminder field the server has already dropped or moved.
    */
   function mirrorFieldChange(fields: BuildField[]) {
     const current = settingsRef.current;
@@ -913,15 +918,15 @@ export function useBuildState(
   const setGroupBy = useCallback(
     async (ref: string | null): Promise<void> => {
       markSaving();
-      const nextSettings: SignupSettings = { ...settingsRef.current, groupByFieldRefs: ref ? [ref] : [] };
+      const changed = { groupByFieldRefs: ref ? [ref] : [] };
       try {
         const res = await fetch(`/api/signups/${signupId}`, {
           method: 'PATCH',
           headers: JSON_HEADERS,
-          body: JSON.stringify({ settings: nextSettings }),
+          body: JSON.stringify({ settings: changed }),
         });
         await expectOk(res);
-        settingsRef.current = nextSettings;
+        settingsRef.current = { ...settingsRef.current, ...changed };
         dispatch({ type: 'SET_GROUP_BY', ref });
         markSaved();
       } catch (e) {
@@ -933,25 +938,24 @@ export function useBuildState(
 
   /**
    * Makes `ref` the reminder field, or switches reminders off with null.
-   * Off keeps the current `reminderFromFieldRef`: it still anchors every
-   * slot's instant (calendar links, date order), only the switch flips.
+   * Off sends only the switch, so the server keeps the current
+   * `reminderFromFieldRef`: it still anchors every slot's instant (calendar
+   * links, date order), only the switch flips.
    */
   const setReminderField = useCallback(
     async (ref: string | null): Promise<void> => {
       markSaving();
-      const nextSettings: SignupSettings = {
-        ...settingsRef.current,
-        sendReminders: ref !== null,
-        ...(ref ? { reminderFromFieldRef: ref } : {}),
-      };
+      const changed: Partial<SignupSettings> = ref
+        ? { sendReminders: true, reminderFromFieldRef: ref }
+        : { sendReminders: false };
       try {
         const res = await fetch(`/api/signups/${signupId}`, {
           method: 'PATCH',
           headers: JSON_HEADERS,
-          body: JSON.stringify({ settings: nextSettings }),
+          body: JSON.stringify({ settings: changed }),
         });
         await expectOk(res);
-        settingsRef.current = nextSettings;
+        settingsRef.current = { ...settingsRef.current, ...changed };
         dispatch({ type: 'SET_REMINDER_FIELD', ref });
         markSaved();
       } catch (e) {

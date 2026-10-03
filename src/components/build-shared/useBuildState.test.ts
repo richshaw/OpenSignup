@@ -1210,12 +1210,12 @@ describe('useBuildState setReminderField', () => {
   });
   const textField = makeApiField({ id: 'f-what', ref: 'what', label: 'What', sortOrder: 0 });
 
-  function settingsPatchBody(fetchMock: ReturnType<typeof vi.fn>): SignupSettings {
+  function settingsPatchBody(fetchMock: ReturnType<typeof vi.fn>): Partial<SignupSettings> {
     const patches = fetchMock.mock.calls.filter(
       (c) => String(c[0]) === '/api/signups/sig_test' && (c[1] as RequestInit).method === 'PATCH',
     );
     expect(patches).toHaveLength(1);
-    const body = JSON.parse(String((patches[0]![1] as RequestInit).body)) as { settings: SignupSettings };
+    const body = JSON.parse(String((patches[0]![1] as RequestInit).body)) as { settings: Partial<SignupSettings> };
     return body.settings;
   }
 
@@ -1255,12 +1255,11 @@ describe('useBuildState setReminderField', () => {
       await result.current.setReminderField('date');
     });
 
-    const settings = settingsPatchBody(fetchMock);
-    expect(settings.sendReminders).toBe(true);
-    expect(settings.reminderFromFieldRef).toBe('date');
-    // The rest of settings rides along untouched — the service replaces, not merges.
-    expect(settings.groupByFieldRefs).toEqual(['what']);
+    // Only what changed: the service merges it, so a setting changed in
+    // another tab or by an assistant since the page opened is left alone.
+    expect(settingsPatchBody(fetchMock)).toEqual({ sendReminders: true, reminderFromFieldRef: 'date' });
     expect(result.current.state.reminderFieldRef).toBe('date');
+    expect(result.current.state.groupByFieldRef).toBe('what');
     expect(result.current.state.saveStatus.kind).toBe('saved');
   });
 
@@ -1280,9 +1279,8 @@ describe('useBuildState setReminderField', () => {
       await result.current.setReminderField(null);
     });
 
-    const settings = settingsPatchBody(fetchMock);
-    expect(settings.sendReminders).toBe(false);
-    expect(settings.reminderFromFieldRef).toBe('date');
+    // The anchor is not sent, so the server keeps it where it is.
+    expect(settingsPatchBody(fetchMock)).toEqual({ sendReminders: false });
     expect(result.current.state.reminderFieldRef).toBeNull();
   });
 
@@ -1373,8 +1371,41 @@ describe('useBuildState setReminderField', () => {
     await act(async () => {
       await result.current.setReminderField('setup-day');
     });
-    const settings = settingsPatchBody(fetchMock);
-    expect(settings).toMatchObject({ sendReminders: true, reminderFromFieldRef: 'setup-day' });
+    expect(settingsPatchBody(fetchMock)).toEqual({ sendReminders: true, reminderFromFieldRef: 'setup-day' });
     expect(result.current.state.reminderFieldRef).toBe('setup-day');
+  });
+});
+
+describe('useBuildState setGroupBy', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const whatField = makeApiField({ id: 'f-what', ref: 'what', label: 'What', sortOrder: 0 });
+
+  function settingsPatchBodies(fetchMock: ReturnType<typeof vi.fn>): Array<Partial<SignupSettings>> {
+    return fetchMock.mock.calls
+      .filter((c) => String(c[0]) === '/api/signups/sig_test' && (c[1] as RequestInit).method === 'PATCH')
+      .map((c) => (JSON.parse(String((c[1] as RequestInit).body)) as { settings: Partial<SignupSettings> }).settings);
+  }
+
+  it('PATCHes only groupByFieldRefs, so settings changed elsewhere since the page opened survive', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    // Opened with reminders on; an assistant may have turned them off since.
+    const { result } = renderHook(() =>
+      useBuildState('sig_test', [whatField], [], { ...defaultSettings, sendReminders: true }),
+    );
+
+    await act(async () => {
+      await result.current.setGroupBy('what');
+    });
+    await act(async () => {
+      await result.current.setGroupBy(null);
+    });
+
+    expect(settingsPatchBodies(fetchMock)).toEqual([{ groupByFieldRefs: ['what'] }, { groupByFieldRefs: [] }]);
+    expect(result.current.state.groupByFieldRef).toBeNull();
+    expect(result.current.state.saveStatus.kind).toBe('saved');
   });
 });
