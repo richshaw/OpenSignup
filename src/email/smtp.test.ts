@@ -50,16 +50,21 @@ describe('smtpTransportOptions', () => {
   });
 });
 
+const EHLO_WITHOUT_STARTTLS = '250-mail.example.com\r\n250 AUTH PLAIN\r\n';
+
 /**
- * A mail server that takes a login but offers no STARTTLS, and refuses it when
- * asked. Records every command it is sent.
+ * A mail server that answers EHLO with `ehloReply`, by default a login offer
+ * without STARTTLS, and refuses every other command but QUIT: STARTTLS and the
+ * login included. Records every command it is sent.
  */
-async function startServerWithoutStarttls() {
+async function startServerWithoutStarttls(ehloReply = EHLO_WITHOUT_STARTTLS) {
   const commands: string[] = [];
   const sockets = new Set<Socket>();
   const server: Server = createServer((socket) => {
     sockets.add(socket);
     socket.on('close', () => sockets.delete(socket));
+    // A client that resets the connection must not crash the test run.
+    socket.on('error', () => {});
     socket.write('220 mail.example.com ESMTP\r\n');
     let buffered = '';
     socket.on('data', (chunk) => {
@@ -68,7 +73,7 @@ async function startServerWithoutStarttls() {
         const command = buffered.slice(0, end);
         buffered = buffered.slice(end + 2);
         commands.push(command);
-        if (/^EHLO /i.test(command)) socket.write('250-mail.example.com\r\n250 AUTH PLAIN\r\n');
+        if (/^EHLO /i.test(command)) socket.write(ehloReply);
         else if (/^QUIT/i.test(command)) socket.end('221 Bye\r\n');
         else socket.write('502 Command not implemented\r\n');
       }
@@ -96,17 +101,59 @@ describe('SmtpTransport against a server without STARTTLS', () => {
   });
 
   const message = { to: 'pat@example.com', subject: 'Sign in', html: '<p>Hi</p>', text: 'Hi' };
+  const hint =
+    'The mail server did not accept STARTTLS. If it takes a login without encryption on a network you trust, set SMTP_REQUIRE_TLS=false.';
 
-  it('fails the send rather than logging in unencrypted', async () => {
-    server = await startServerWithoutStarttls();
-    const transport = new SmtpTransport({ ...cfg, ...login, host: '127.0.0.1', port: server.port });
+  async function sendError(transport: SmtpTransport) {
+    const error: unknown = await transport.send(message).then(
+      () => expect.fail('the send went through'),
+      (err: unknown) => err,
+    );
+    expect(error).toBeInstanceOf(Error);
+    return error as Error & { code?: string };
+  }
 
-    await expect(transport.send(message)).rejects.toMatchObject({
-      code: 'ETLS',
-      message: expect.stringContaining('STARTTLS'),
+  it.each([
+    ['refuses STARTTLS', 'STARTTLS', EHLO_WITHOUT_STARTTLS, 'ETLS'],
+    ['refuses EHLO', 'EHLO', '502 Command not implemented\r\n', 'ECONNECTION'],
+  ])(
+    'fails the send rather than logging in unencrypted when the server %s',
+    async (_case, lastCommand, ehloReply, code) => {
+      server = await startServerWithoutStarttls(ehloReply);
+      const transport = new SmtpTransport({
+        ...cfg,
+        ...login,
+        host: '127.0.0.1',
+        port: server.port,
+      });
+
+      const error = await sendError(transport);
+      // nodemailer's error, then what to do about it.
+      expect(error).toMatchObject({ code, cause: { code } });
+      expect(error.message).toBe(`${(error.cause as Error).message}. ${hint}`);
+      expect(server.commands.at(-1)).toMatch(new RegExp(`^${lastCommand}\\b`, 'i'));
+      expect(server.commands.some((c) => /^AUTH/i.test(c))).toBe(false);
+    },
+  );
+
+  it('adds no hint when STARTTLS was not required', async () => {
+    // Offered, then refused. nodemailer tries STARTTLS whenever it is offered,
+    // so SMTP_REQUIRE_TLS=false would not help here.
+    server = await startServerWithoutStarttls(
+      '250-mail.example.com\r\n250-STARTTLS\r\n250 AUTH PLAIN\r\n',
+    );
+    const transport = new SmtpTransport({
+      ...cfg,
+      ...login,
+      requireTls: false,
+      host: '127.0.0.1',
+      port: server.port,
     });
-    expect(server.commands.some((c) => /^STARTTLS$/i.test(c))).toBe(true);
-    expect(server.commands.some((c) => /^AUTH/i.test(c))).toBe(false);
+
+    const error = await sendError(transport);
+    expect(error.code).toBe('ETLS');
+    expect(error.cause).toBeUndefined();
+    expect(error.message).not.toContain('SMTP_REQUIRE_TLS');
   });
 
   it('logs in unencrypted when SMTP_REQUIRE_TLS=false allows it', async () => {
@@ -119,8 +166,10 @@ describe('SmtpTransport against a server without STARTTLS', () => {
       port: server.port,
     });
 
-    // This server refuses the login too; reaching AUTH is the point.
+    // This server refuses the login too; reaching AUTH is the point, and
+    // nothing goes out after the refusal.
     await expect(transport.send(message)).rejects.toMatchObject({ code: 'EAUTH' });
     expect(server.commands.some((c) => /^AUTH/i.test(c))).toBe(true);
+    expect(server.commands.some((c) => /^MAIL FROM/i.test(c))).toBe(false);
   });
 });

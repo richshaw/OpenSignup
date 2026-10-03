@@ -7,7 +7,10 @@ export interface SmtpConfig {
   port: number;
   user?: string;
   password?: string;
-  /** Unset picks from the port: TLS from the start on 465, otherwise STARTTLS if offered. */
+  /**
+   * Unset picks from the port: TLS from the start on 465, otherwise STARTTLS,
+   * which `requireTls` decides whether to insist on or only use if offered.
+   */
   secure?: boolean;
   /**
    * Whether a connection that doesn't start with TLS must switch to it with
@@ -50,23 +53,59 @@ export function smtpTransportOptions(cfg: SmtpConfig): SMTPTransport.Options {
   };
 }
 
+/**
+ * What nodemailer says when requireTLS is on and the server won't switch to
+ * TLS: it refused STARTTLS, or it refused EHLO, without which STARTTLS can't be
+ * asked for. Not "Error initiating TLS", also ETLS: there the server agreed and
+ * the handshake failed, which SMTP_REQUIRE_TLS=false would not fix.
+ */
+const STARTTLS_REFUSED = [
+  { code: 'ETLS', prefix: 'Error upgrading connection with STARTTLS' },
+  { code: 'ECONNECTION', prefix: 'EHLO failed but HELO does not support required STARTTLS' },
+] as const;
+
+const STARTTLS_HINT =
+  'The mail server did not accept STARTTLS. If it takes a login without encryption on a network you trust, set SMTP_REQUIRE_TLS=false.';
+
+/**
+ * With a login set, a server that has no STARTTLS fails every send, and
+ * nodemailer's error doesn't name the setting that allows it. The hint goes in
+ * the message, which is what the sign-in and reminder logs print; the original
+ * error stays as `cause`, and its `code` is kept.
+ */
+function withStartTlsHint(err: unknown): unknown {
+  if (!(err instanceof Error)) return err;
+  const code = (err as Error & { code?: unknown }).code;
+  const refused = STARTTLS_REFUSED.some((r) => r.code === code && err.message.startsWith(r.prefix));
+  if (!refused) return err;
+  const original = err.message.trimEnd().replace(/\.$/, '');
+  return Object.assign(new Error(`${original}. ${STARTTLS_HINT}`, { cause: err }), { code });
+}
+
 export class SmtpTransport implements EmailTransport {
   private readonly transporter: nodemailer.Transporter;
+  private readonly requireTls: boolean;
 
   constructor(private readonly cfg: SmtpConfig) {
-    this.transporter = nodemailer.createTransport(smtpTransportOptions(cfg));
+    const options = smtpTransportOptions(cfg);
+    this.requireTls = options.requireTLS === true;
+    this.transporter = nodemailer.createTransport(options);
   }
 
   async send(msg: EmailMessage): Promise<EmailResult> {
-    const info = await this.transporter.sendMail({
-      from: msg.from ?? this.cfg.from,
-      to: msg.to,
-      subject: msg.subject,
-      html: msg.html,
-      text: msg.text,
-      headers: msg.headers,
-      replyTo: msg.replyTo,
-    });
-    return { id: info.messageId, transport: 'smtp' };
+    try {
+      const info = await this.transporter.sendMail({
+        from: msg.from ?? this.cfg.from,
+        to: msg.to,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        headers: msg.headers,
+        replyTo: msg.replyTo,
+      });
+      return { id: info.messageId, transport: 'smtp' };
+    } catch (err) {
+      throw this.requireTls ? withStartTlsHint(err) : err;
+    }
   }
 }

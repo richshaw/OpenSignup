@@ -1,5 +1,5 @@
 /**
- * Zod helpers shared by the two env-parsing modules: `src/lib/env.ts` (server
+ * Zod helpers for the two env-parsing modules: `src/lib/env.ts` (server
  * env) and `src/lib/site-config.ts` (build-time `NEXT_PUBLIC_*`).
  *
  * They stay in their own module rather than one importing the other because
@@ -23,3 +23,14 @@ export const requiredString = (name: string) =>
     required_error: `${name} is required`,
     invalid_type_error: `${name} is required`,
   });
+
+/**
+ * `true` or `false`, read as a boolean, and optional. Anything else, a typo such
+ * as `no` included, fails startup rather than quietly picking either behaviour.
+ * `parseEnv` strips a blank or whitespace-only value first, so that is unset.
+ */
+export const booleanFlag = () =>
+  z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .optional();
