@@ -42,23 +42,32 @@ identify the app by `clientDomain` instead.
 
 | event | actor | payload | fired from |
 |---|---|---|---|
-| `signup.created` | organizer | `{ templateId, fieldsAdded, slotsAdded }` — `templateId` is `default`, `empty`, `magic-compose`, or `mcp` (created by a connected assistant) | `services/signups.ts` |
-| `signup.updated` | organizer | `{ changed }` (the input keys that changed) | `services/signups.ts` |
+| `signup.created` | organizer | `{ templateId, fieldsAdded, slotsAdded }` — `templateId` is `default`, `magic-compose`, or `mcp` (created by a connected assistant) | `services/signups.ts` |
+| `signup.updated` | organizer | `{ changed }` (the keys the update sent, changed or not) | `services/signups.ts` |
 | `signup.published` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.closed` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.archived` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.deleted` | organizer | `{ status }` (the status it had when deleted) | `services/signups.ts` |
 | `signup.draft_started` | organizer | `{}` | RSC at `/app/signups/new` |
-| `signup.editor_opened` | organizer | `{ section: 'fields' \| 'slots' \| 'settings' \| 'responses' }` | RSC under `/app/signups/[id]/...` |
+| `signup.editor_opened` | organizer | `{ section: 'settings' \| 'responses' }` | RSC at `/app/signups/[id]/settings` and `/app/signups/[id]/responses` |
 | `signup.previewed` | organizer | `{}` | RSC at `/app/signups/[id]/preview` |
 | `signup.viewed` | system | `{ uaClass, refererHost, isReturning, signupStatus }` | RSC at `/s/[slug]` |
+| `signup.viewed` | organizer | `{}` (the organizer opening the Build tab, not a participant view; filter on `actor_type = 'system'` to leave these out) | RSC at `/app/signups/[id]/build` |
 
 ### Slot / field lifecycle
 
 | event | actor | payload | fired from |
 |---|---|---|---|
-| `slot.created` / `slot.updated` / `slot.deleted` | organizer | `{ ref }` | `services/slots.ts` |
-| `field.created` / `field.updated` / `field.deleted` | organizer | `{ ref, fieldType }` | `services/slot-fields.ts` |
+| `slot.created` | organizer | `{ slotId }` from `addSlot`; `{ count, bulk: true, slotIds, beforeSlotId? }` from `addSlotsBulk` (the bulk endpoint and the `add_slots` tool), one row per call | `services/slots.ts` |
+| `slot.updated` | organizer | `{ slotId, changed }` (the keys the update sent) | `services/slots.ts` |
+| `slot.reordered` | organizer | `{ slotIds }` (every slot, in the new order; written even when the order did not change) | `services/slots.ts` (`reorderSlots`, from the `reorder_slots` tool; a drag in the Build tab writes a `slot.updated` per moved slot instead) |
+| `slot.deleted` | organizer | `{ slotId, commitmentsRemoved, places }` (the sign-ups deleted with it, as commitments and as places) | `services/slots.ts` |
+| `field.created` | organizer | `{ fieldId, ref, fieldType, reminderFromFieldRef? }` | `services/slot-fields.ts` |
+| `field.updated` | organizer | `{ fieldId, ref, changes, reminderFromFieldRef? }` (`changes` maps each key the update sent to its new value) | `services/slot-fields.ts` |
+| `field.deleted` | organizer | `{ fieldId, ref, reminderFromFieldRef?, removedFromGroupByFieldRefs? }` | `services/slot-fields.ts` |
+
+`reminderFromFieldRef` is present only when the change moved the date field
+reminders are timed from (`null` when none is left).
 
 ### Participant funnel
 
@@ -66,17 +75,27 @@ identify the app by `clientDomain` instead.
 |---|---|---|---|
 | `participant.created` | participant | `{ participantId }` | `services/commitments.ts` |
 | `commitment.created` | participant | `{ commitmentId, slotId }` | `services/commitments.ts` |
-| `commitment.updated` | participant | `{ changes }` | `services/commitments.ts` |
-| `commitment.cancelled` | participant | `{ slotId }` | `services/commitments.ts` |
-| `commitment.swapped` | participant | `{ from, to }` | `services/commitments.ts` |
-| `commitment.attempt_failed` | system or participant | `{ slotId, reason: 'closed' \| 'over_window' \| 'capacity_full', detail?, requested?, remaining? }` | `services/commitments.ts` (each rejection site) |
+| `commitment.confirmation_sent` | participant | `{ commitmentId, participantId, channel: 'email' }` | `email/notify.ts`, after the response to a sign-up or a move to another slot |
+| `commitment.updated` | participant | `{ commitmentId, changed }` (the keys the edit sent) | `services/commitments.ts` |
+| `commitment.cancelled` | participant | `{ commitmentId }` | `services/commitments.ts` |
+| `commitment.swapped` | participant | `{ from, to }` (the old and new commitment ids) | `services/commitments.ts` |
+| `commitment.attempt_failed` | system when signing up; participant when raising a quantity from the edit link | `{ slotId, reason: 'closed' \| 'over_window' \| 'capacity_full', detail?, requested?, remaining?, source? }` (`source: 'update'` marks a quantity raise) | `services/commitments.ts` (each rejection site) |
 | `commitment.edit_link_followed` | participant | `{ commitmentId }` | RSC at `/s/[slug]/c/[id]` |
+
+A move to another slot writes `commitment.swapped` and a `commitment.created`
+for the new commitment. The old one is cancelled without a
+`commitment.cancelled` row.
 
 ### Reminder pipeline
 
 | event | actor | payload | fired from |
 |---|---|---|---|
-| `reminder.sent` | system | `{ commitmentId, channel }` | `jobs/reminders.ts` |
+| `reminder.sent` | system | `{ commitmentId, participantId, channel: 'email' }` | `jobs/reminders.ts` |
+| `reminder.opted_out` | participant | `{ participantId }` | `services/reminder-optout.ts`, from a reminder's unsubscribe link or the mail provider's one-click unsubscribe |
+| `reminder.opted_in` | participant | `{ participantId }` | `services/reminder-optout.ts`, from the unsubscribe page, turning reminders back on |
+
+The opt-out rows are written only when the setting changes, so a repeated
+unsubscribe adds nothing.
 
 ### Marketing / acquisition
 
@@ -128,7 +147,7 @@ authorization code, or an email address.
 
 ## Privacy guarantees
 
-The `landing.viewed`, `landing.cta_clicked`, `signup.viewed`, and
+The `landing.viewed`, `landing.cta_clicked`, public-page `signup.viewed`, and
 `commitment.edit_link_followed` events are deliberately minimal:
 
 - **No IP address.** Postgres receives no client IP for view events.
@@ -177,7 +196,7 @@ ORDER BY 1;
 ```sql
 SELECT
   s.id, s.title,
-  count(*) FILTER (WHERE a.event_type = 'signup.viewed')                                       AS views,
+  count(*) FILTER (WHERE a.event_type = 'signup.viewed' AND a.actor_type = 'system')           AS views,
   count(*) FILTER (WHERE a.event_type = 'signup.viewed' AND a.payload->>'isReturning' = 'true') AS views_returning,
   count(*) FILTER (WHERE a.event_type = 'signup.viewed' AND a.payload->>'uaClass'    = 'bot')   AS views_bot,
   count(*) FILTER (WHERE a.event_type = 'commitment.created')                                  AS commits,
@@ -227,13 +246,34 @@ WHERE workspace_id = $1
   AND occurred_at >= now() - interval '7 days';
 ```
 
-Only sends are in the activity log. Nothing schedules a reminder in advance
-(the dispatch scan finds the due ones every 10 minutes), and a failed send is
-retried by pg-boss rather than recorded here. To find failures, look for
-`reminder send failed` in the worker's log, or for `reminders.send` jobs with
-`state = 'failed'` in pg-boss's own tables (`pgboss.job`, then
-`pgboss.archive` once pg-boss archives them). Those tables are not scoped to
-a workspace.
+Besides sends, the activity log records only opt-outs and opt-ins
+(`reminder.opted_out`, `reminder.opted_in`): no schedule and no failures.
+Nothing schedules a reminder in advance (the dispatch scan finds the due ones
+every 10 minutes), and a failed send is retried by pg-boss rather than
+recorded here. To find failures, look for `reminder send failed` in the
+worker's log, or count failed `reminders.send` jobs in pg-boss's own tables
+(`pgboss.job`, then `pgboss.archive` once pg-boss archives them). Those tables
+are not scoped to a workspace; to filter by one, join `commitments` on
+`commitments.id = j.data->>'commitmentId'`.
+
+```sql
+SELECT count(DISTINCT data->>'commitmentId') AS commitments_with_failed_sends
+FROM (
+  SELECT name, data, state, created_on FROM pgboss.job
+  UNION ALL
+  SELECT name, data, state, created_on FROM pgboss.archive
+) AS j
+WHERE name = 'reminders.send'
+  AND state = 'failed'
+  AND created_on >= now() - interval '7 days';
+```
+
+Count commitments, not jobs. The queue does not deduplicate sends: while a
+commitment's reminder keeps failing, the dispatch scan enqueues a new job for
+it every 10 minutes, and each of those fails on its own, so a two-hour mail
+outage leaves about a dozen failed jobs for one commitment. A commitment
+counted here may still have had its reminder on a later attempt; its
+`reminder.sent` row says so.
 
 ### Organizer engagement: editor pageviews per section
 
@@ -256,6 +296,7 @@ ORDER BY 2 DESC;
 SELECT payload->>'uaClass' AS ua_class, count(*)
 FROM activity
 WHERE event_type = 'signup.viewed'
+  AND actor_type = 'system'
 GROUP BY 1;
 -- expected: 'browser' >> 'unknown' > 0; 'bot' should be 0 (filtered upstream).
 ```
@@ -299,9 +340,10 @@ WHERE last_active_at >= now() - interval '7 days';
 without a `SELECT DISTINCT actor_id` scan of `activity`. The definition of
 "active" is "any organizer-actor activity write" — signup mutations, slot
 edits, `auth.signed_in`, **and** the organizer-side RSC pageview events
-(`signup.editor_opened`, `signup.previewed`, `signup.draft_started`) which
-are written with the organizer as actor. `signup.viewed` is system-actor
-and does not advance `last_active_at`.
+(`signup.editor_opened`, `signup.previewed`, `signup.draft_started`, and the
+Build tab's `signup.viewed`) which are written with the organizer as actor.
+The public page's `signup.viewed` is system-actor and does not advance
+`last_active_at`.
 
 ### What's not captured
 
@@ -310,8 +352,10 @@ and does not advance `last_active_at`.
   privacy-friendly.
 - Share-link copy on the organizer side — would require client JS.
 - Email delivery, bounce, or complaint events — would require a Resend
-  webhook handler. Not implemented; magic-link / reminder delivery success
-  is currently observable only via `reminder.sent` and pino logs.
+  webhook handler. Not implemented. What is recorded is that the mail
+  transport accepted a message: `auth.magic_link_sent`,
+  `commitment.confirmation_sent` and `reminder.sent`. A send that fails
+  writes no row and shows up only in the server or worker log.
 - HTTP errors and Web Vitals — these belong in pino + Sentry, not the
   activity log. Sentry env stubs (`SENTRY_DSN`) exist in `src/lib/env.ts`
   but are not yet wired up; see Task 2.8 in the internal v1 build plan

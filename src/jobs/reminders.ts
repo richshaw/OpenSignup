@@ -105,9 +105,12 @@ export async function dispatchReminders(): Promise<{ enqueued: number }> {
   let enqueued = 0;
   for (const r of rows) {
     const payload: ReminderSendPayload = { commitmentId: r.commitmentId };
-    // singletonKey collapses concurrent enqueues per commitment while a job is
-    // active or retrying. Once the job completes, the NOT EXISTS reminder.sent
-    // check above excludes the commitment on subsequent scans.
+    // The singletonKey dedupes nothing here. pg-boss enforces it only on
+    // short, singleton and stately queues, or with singletonSeconds, and this
+    // queue is standard, so a commitment still due at the next scan gets
+    // another job even while one is waiting or retrying. What stops a second
+    // email is the reminder.sent check in sendReminderJob; once a send is
+    // recorded, the NOT EXISTS above drops the commitment from later scans.
     const jobId = await boss.send(QUEUES.reminderSend, payload, {
       singletonKey: r.commitmentId,
     });
@@ -143,15 +146,20 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   if (row.signup.deletedAt) return;
   // Re-checked here, not just in the dispatcher scan: a participant can
   // unsubscribe in the gap between being enqueued and the job running, which
-  // pg-boss retries can stretch to hours. The unsubscribe link is in the
-  // previous reminder, so acting on it lands squarely in that window.
+  // a backed-up queue or a stopped worker can stretch to hours. The
+  // unsubscribe link is in the previous reminder, so acting on it lands
+  // squarely in that window.
   if (row.participant.remindersOptedOutAt) {
     log.info({ commitmentId: payload.commitmentId }, 'participant opted out; skipping reminder');
     return;
   }
 
-  // Idempotency guard: if a prior attempt sent the email but failed to record
-  // activity (causing a pg-boss retry), skip re-sending.
+  // Idempotency guard, and the only one: the queue does not dedupe (see
+  // dispatchReminders), so a commitment can have several jobs, and the first
+  // to send records reminder.sent for the rest to find here. A check, not a
+  // lock: it holds because the worker runs send jobs one at a time. It cannot
+  // catch an email that went out when recording it then failed; that job's
+  // retry sends it again.
   const [alreadySent] = await db
     .select({ id: activity.id })
     .from(activity)

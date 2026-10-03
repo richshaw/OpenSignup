@@ -23,8 +23,9 @@ type CommitmentRow = typeof commitments.$inferSelect;
 
 /**
  * A commitment the participant can still act on. `cancelled` and `no_show`
- * are terminal — organizer- or participant-applied end states that no
- * participant action reopens.
+ * are terminal end states that no participant action reopens. Only the
+ * participant's own cancel or move writes `cancelled`; nothing writes
+ * `no_show` yet.
  */
 const ACTIVE_COMMITMENT_STATUSES: readonly CommitmentRow['status'][] = [
   'confirmed',
@@ -652,8 +653,8 @@ export async function cancelOwnCommitment(
       .returning({ id: commitments.id });
     if (cancelled.length === 0) {
       // Idempotent: cancelling an already-cancelled commitment (retry or lost race)
-      // is a no-op success. The other terminal state (no_show) is organizer-
-      // applied; reject it. Re-read inside the tx so we don't trust the stale
+      // is a no-op success. Reject the other terminal state, no_show, which
+      // nothing writes yet. Re-read inside the tx so we don't trust the stale
       // pre-flight read in the concurrent case.
       const [row] = await tx
         .select({ status: commitments.status })
