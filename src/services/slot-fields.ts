@@ -172,9 +172,11 @@ export async function addField(
 
   const id = makeId('fld');
   return db.transaction(async (tx) => {
-    // Taken whatever the input: the re-anchor below reads settings and writes
-    // them back, and a settings save landing in between would be lost. No row
-    // means no lock was taken, so nothing below may run.
+    // Taken whatever the input: a date or time field re-anchors below, which
+    // reads settings and writes them back, and a settings save landing in
+    // between would be lost; an append reads the top sortOrder under it. It is
+    // cheap, and the order stays the same for all. No row means no lock was
+    // taken, so nothing below may run.
     const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
     if (!locked) return err(serviceError('not_found', 'signup not found'));
 
@@ -223,11 +225,23 @@ export async function addField(
     }
 
     // A signup that just gained its first date field now has something to
-    // anchor on, and a new time field may pair with the existing date, so the
-    // slot_at cache is rebuilt after every add. No-op when nothing resolves
-    // differently.
-    const anchor = await reanchor(tx, signupId, await listFieldsForSignup(tx, signupId));
-    await recomputeSlotAtForSignup(tx, signupId, signupRow.workspaceId);
+    // anchor on, and a new time field may pair with the existing date, so
+    // adding either re-anchors and rebuilds the slot_at cache. No-op when
+    // nothing resolves differently.
+    //
+    // Any other type is skipped. The anchor and slot_at read only the type and
+    // order of date and time fields (src/lib/reminder-fields.ts), and no slot
+    // has a value for a field that did not exist, so a text, number or enum
+    // field cannot move either. The rebuild locks every slot row: run for one
+    // of those, the add would queue behind everyone part-way through signing
+    // up and then hold up everyone after them. Gated on the type, not on "is
+    // this the anchor": a time field is never the anchor and still moves
+    // slot_at (see `deleteField`).
+    let anchor: string | null | undefined;
+    if (isDateOrTime(row.fieldType)) {
+      anchor = await reanchor(tx, signupId, await listFieldsForSignup(tx, signupId));
+      await recomputeSlotAtForSignup(tx, signupId, signupRow.workspaceId);
+    }
 
     await recordActivity(tx, {
       signupId,
@@ -290,6 +304,17 @@ export async function updateField(
     const stale = configMismatch(data, current.fieldType);
     if (stale) return err(stale);
 
+    // A type, config or position equal to the field's own counts as not sent.
+    // The builder's Fields dialog sends the type and config with every save, a
+    // rename included, so whether they were sent says nothing about whether
+    // they changed. The value check, the re-anchor and the slot_at rebuild
+    // below all go by `sent`. Compared with the row read under the lock: a
+    // save that got in first may have changed it.
+    const sent = withoutUnchanged(data, current);
+    // Nothing is left when every value sent is one the field already has.
+    // Drizzle refuses an empty update, and there is no change to log.
+    if (Object.values(sent).every((v) => v === undefined)) return ok(rowToDefinition(current));
+
     // Only a new type or config can make a stored value invalid. A rename or a
     // reorder cannot, so neither reads every slot of the signup to find that
     // out. The check runs here, not before the transaction: every service that
@@ -300,17 +325,16 @@ export async function updateField(
     // invalid, and a date the new type refused silently stopped that slot's
     // reminders. The rows are read, not locked: the signup lock is what keeps
     // writers out, and a slot row lock would only make this wait for, and hold
-    // up, people signing up (the builder sends the type and config with every
-    // field save, a rename included).
-    if (data.fieldType !== undefined || data.config !== undefined) {
+    // up, people signing up.
+    if (sent.fieldType !== undefined || sent.config !== undefined) {
       const slotRows = await tx
         .select({ id: slots.id, values: slots.values })
         .from(slots)
         .where(eq(slots.signupId, current.signupId));
       const nextDef: SlotFieldDefinition = {
         ...rowToDefinition(current),
-        ...(data.fieldType !== undefined ? { fieldType: data.fieldType } : {}),
-        ...(data.config !== undefined ? { config: data.config } : {}),
+        ...(sent.fieldType !== undefined ? { fieldType: sent.fieldType } : {}),
+        ...(sent.config !== undefined ? { config: sent.config } : {}),
       };
       const offending: string[] = [];
       for (const row of slotRows) {
@@ -330,10 +354,10 @@ export async function updateField(
     const [row] = await tx
       .update(slotFields)
       .set({
-        ...(data.label !== undefined ? { label: data.label } : {}),
-        ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
-        ...(data.fieldType !== undefined ? { fieldType: data.fieldType } : {}),
-        ...(data.config !== undefined ? { config: data.config } : {}),
+        ...(sent.label !== undefined ? { label: sent.label } : {}),
+        ...(sent.sortOrder !== undefined ? { sortOrder: sent.sortOrder } : {}),
+        ...(sent.fieldType !== undefined ? { fieldType: sent.fieldType } : {}),
+        ...(sent.config !== undefined ? { config: sent.config } : {}),
       })
       .where(eq(slotFields.id, fieldId))
       .returning();
@@ -350,13 +374,15 @@ export async function updateField(
     // a rename on a live signup would queue behind everyone part-way through
     // signing up and then hold up everyone after them. The anchor and slot_at
     // read only the type and order of date and time fields
-    // (src/lib/reminder-fields.ts), never a label, so a change that names
+    // (src/lib/reminder-fields.ts), never a label, so a change that moves
     // neither, or a field that is not one of those before or after, is safe.
-    // A config sent for a date or time field rebuilds too: neither has options
-    // today, and one that arrives may well move the instant.
+    // Asked of `sent`, so a type, config or position sent unchanged (every
+    // builder rename) moves nothing. A changed config for a date or time field
+    // rebuilds too: neither has options today, and one that arrives may well
+    // move the instant.
     const feedsSlotAt = isDateOrTime(current.fieldType) || isDateOrTime(row.fieldType);
     const mayMoveSlotAt =
-      data.fieldType !== undefined || data.sortOrder !== undefined || data.config !== undefined;
+      sent.fieldType !== undefined || sent.sortOrder !== undefined || sent.config !== undefined;
     let anchor: string | null | undefined;
     if (feedsSlotAt && mayMoveSlotAt) {
       anchor = await reanchor(
@@ -368,8 +394,8 @@ export async function updateField(
     }
 
     const changes: Record<string, unknown> = {};
-    for (const key of Object.keys(data) as (keyof typeof data)[]) {
-      changes[key] = data[key];
+    for (const key of Object.keys(sent) as (keyof typeof sent)[]) {
+      changes[key] = sent[key];
     }
     await recordActivity(tx, {
       signupId: existing.signupId,
@@ -392,6 +418,38 @@ function configMismatch(data: SlotFieldUpdateInput, currentType: string): Servic
   if (data.config === undefined) return null;
   if (data.config.fieldType === (data.fieldType ?? currentType)) return null;
   return serviceError('invalid_input', 'config.fieldType must match the field type');
+}
+
+/**
+ * `data` less any type, config or position the field already has. A label is
+ * kept whatever it is: it moves and checks nothing, so it costs nothing.
+ */
+function withoutUnchanged(data: SlotFieldUpdateInput, row: FieldRow): SlotFieldUpdateInput {
+  const { fieldType, config, sortOrder, ...rest } = data;
+  return {
+    ...rest,
+    ...(fieldType !== undefined && fieldType !== row.fieldType ? { fieldType } : {}),
+    ...(config !== undefined && !sameJson(config, row.config) ? { config } : {}),
+    ...(sortOrder !== undefined && sortOrder !== row.sortOrder ? { sortOrder } : {}),
+  };
+}
+
+/**
+ * Whether two JSON values say the same thing, compared by value. A config
+ * sent is zod's output (keys in the schema's order, defaults filled in,
+ * unknown keys dropped) and the row's is what jsonb hands back (keys in its
+ * own storage order), so key order is ignored, and so is a key whose value is
+ * undefined, which jsonb cannot hold. Array order counts: it is the order an
+ * enum shows its choices in. Nothing is filled in on the row's side. A text
+ * config saved without `maxLength` has no limit (`validateOneValue`), so the
+ * same config with zod's default of 200 is a change, and is written.
+ */
+function sameJson(a: unknown, b: unknown): boolean {
+  const sortedKeys = (_key: string, v: unknown): unknown =>
+    v !== null && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)))
+      : v;
+  return JSON.stringify(a, sortedKeys) === JSON.stringify(b, sortedKeys);
 }
 
 export async function deleteField(
