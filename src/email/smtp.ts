@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import nodemailer, { type Transporter } from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 import type { EmailMessage, EmailResult, EmailTransport } from './transport';
 
@@ -37,7 +37,7 @@ export function smtpTransportOptions(cfg: SmtpConfig): SMTPTransport.Options {
 }
 
 export class SmtpTransport implements EmailTransport {
-  private readonly transporter: nodemailer.Transporter;
+  private readonly transporter: Transporter;
 
   constructor(private readonly cfg: SmtpConfig) {
     this.transporter = nodemailer.createTransport(smtpTransportOptions(cfg));

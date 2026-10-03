@@ -37,6 +37,8 @@ function buildConfig(): NextAuthConfig {
         // `server` and `from` are required by the Nodemailer provider but unused —
         // `sendVerificationRequest` below is overridden to use our own email transport,
         // which reads EMAIL_FROM lazily at request time.
+        // Because of that override Auth.js never sends mail through nodemailer, so
+        // its nodemailer peer range (^7 || ^8) is waived for 10 in package.json.
         server: 'smtp://user:pass@localhost:2525',
         from: 'noreply@opensignup.invalid',
         maxAge: getMagicLinkMaxAgeSeconds(),
