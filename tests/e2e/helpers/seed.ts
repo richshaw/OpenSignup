@@ -7,7 +7,7 @@ import path from 'node:path';
 import { eq, inArray } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { sessions } from '@/db/schema/auth';
-import { rateLimits } from '@/db/schema/idempotency';
+import { rateLimits } from '@/db/schema/rate-limits';
 import { workspaceMembers } from '@/db/schema/members';
 import { oauthRecords } from '@/db/schema/oauth';
 import { organizers } from '@/db/schema/organizers';
