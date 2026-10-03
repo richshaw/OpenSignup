@@ -5,8 +5,9 @@ import type { SlotFieldDefinition } from '@/schemas/slot-fields';
  * export, its position in date order and its reminder timing.
  *
  * Pure so the build page can apply the same rule the services do when it
- * mirrors a field change locally. Anything that touches the database stays in
- * src/services/slot-fields.ts.
+ * mirrors a field change locally, and so the signup page's view module can ask
+ * `slotTimeOfDay` without importing a service. Anything that touches the
+ * database stays in src/services/slot-fields.ts.
  */
 
 /** The three things anchor resolution reads; both SlotFieldDefinition and the build page's BuildField have them. */
@@ -92,4 +93,29 @@ export function findReminderFields(
     ? (fields.find((f) => f.fieldType === 'date' && f.ref === ref) ?? null)
     : null;
   return { dateField, timeField: pairedTimeField(dateField, fields) };
+}
+
+/** An HH:MM string naming a time that exists. The shape regex accepts 99:99. */
+export function isRealTime(value: string): boolean {
+  const m = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!m) return false;
+  return Number(m[1]) <= 23 && Number(m[2]) <= 59;
+}
+
+/**
+ * The slot's own time-of-day, or null when the signup has no time field or the
+ * slot leaves it blank.
+ *
+ * Split out so callers can tell a date-only slot from one with a real time.
+ * The stored instant cannot: `extractSlotAt` anchors a date-only slot at
+ * `12:00:00`, which is byte-for-byte what a genuine `12:00` produces.
+ */
+export function slotTimeOfDay(
+  settings: { reminderFromFieldRef?: string | undefined; [k: string]: unknown },
+  fields: SlotFieldDefinition[],
+  values: Record<string, unknown>,
+): string | null {
+  const { timeField } = findReminderFields(settings, fields);
+  const timeVal = timeField ? values[timeField.ref] : undefined;
+  return typeof timeVal === 'string' && isRealTime(timeVal) ? timeVal : null;
 }

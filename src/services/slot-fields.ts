@@ -14,8 +14,10 @@ import {
 } from '@/lib/policy';
 import {
   findReminderFields,
+  isRealTime,
   pickAnchorRef,
   resolveAnchorRef,
+  slotTimeOfDay,
 } from '@/lib/reminder-fields';
 import { err, ok, type Result } from '@/lib/result';
 import {
@@ -60,24 +62,6 @@ export async function listFieldsForSignup(
 interface ReminderSettingsLike {
   reminderFromFieldRef?: string | undefined;
   [k: string]: unknown;
-}
-
-/**
- * The slot's own time-of-day, or null when the signup has no time field or the
- * slot leaves it blank.
- *
- * Split out so callers can tell a date-only slot from one with a real time.
- * The stored instant cannot: `extractSlotAt` anchors a date-only slot at
- * `12:00:00`, which is byte-for-byte what a genuine `12:00` produces.
- */
-function slotTimeOfDay(
-  settings: ReminderSettingsLike,
-  fields: SlotFieldDefinition[],
-  values: Record<string, unknown>,
-): string | null {
-  const { timeField } = findReminderFields(settings, fields);
-  const timeVal = timeField ? values[timeField.ref] : undefined;
-  return typeof timeVal === 'string' && isRealTime(timeVal) ? timeVal : null;
 }
 
 /**
@@ -546,13 +530,6 @@ function isRealDate(value: string): boolean {
   const at = new Date(0);
   at.setUTCFullYear(y, mo - 1, d);
   return at.getUTCFullYear() === y && at.getUTCMonth() === mo - 1 && at.getUTCDate() === d;
-}
-
-/** An HH:MM string naming a time that exists. The shape regex accepts 99:99. */
-function isRealTime(value: string): boolean {
-  const m = /^(\d{2}):(\d{2})$/.exec(value);
-  if (!m) return false;
-  return Number(m[1]) <= 23 && Number(m[2]) <= 59;
 }
 
 function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<void, ServiceError> {
