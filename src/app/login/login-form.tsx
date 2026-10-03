@@ -29,9 +29,12 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
 
   const state: 'idle' | 'loading' | 'success' | 'error' = pending ? 'loading' : view;
   const inert = state === 'loading' || state === 'success';
+  const rateLimited = view === 'error' && errorReason === 'rate_limited';
 
   const handleSubmit = (formData: FormData) => {
-    if (inert) return;
+    // React resets action forms after submission; retain DOM-owned input on failure.
+    if (inputRef.current) inputRef.current.defaultValue = inputRef.current.value;
+    if (inert || rateLimited) return;
     startTransition(async () => {
       const start = Date.now();
       let result: LoginActionResult;
@@ -45,6 +48,10 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
         await new Promise((r) => setTimeout(r, MIN_LOADING_MS - elapsed));
       }
       if (result.ok) {
+        if (inputRef.current) {
+          inputRef.current.value = '';
+          inputRef.current.defaultValue = '';
+        }
         setConfirmedEmail(result.email);
         setView('success');
       } else {
@@ -83,7 +90,8 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
       </label>
       <button
         type="submit"
-        aria-disabled={inert}
+        disabled={inert || rateLimited}
+        aria-disabled={inert || rateLimited}
         aria-busy={state === 'loading'}
         data-state={state}
         className={`relative w-full rounded-lg px-5 py-3 font-medium text-white transition-colors duration-180 ease-emphasized ${buttonBg} ${buttonHover} ${buttonLoading}`}
@@ -116,8 +124,11 @@ function CodeForm({
   redeem: (formData: FormData) => Promise<CodeActionResult>;
 }) {
   const [message, setMessage] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const submit = (formData: FormData) => {
+    if (inputRef.current) inputRef.current.defaultValue = inputRef.current.value;
+    if (pending) return;
     setMessage(null);
     startTransition(async () => {
       let result: CodeActionResult;
@@ -131,6 +142,7 @@ function CodeForm({
         window.location.assign(result.url);
         return;
       }
+      if (inputRef.current) inputRef.current.defaultValue = inputRef.current.value;
       setMessage(result.message);
     });
   };
@@ -143,6 +155,7 @@ function CodeForm({
           Type the six-digit code from the email to sign in here instead.
         </span>
         <input
+          ref={inputRef}
           name="code"
           inputMode="numeric"
           autoComplete="one-time-code"
