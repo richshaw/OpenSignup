@@ -1,12 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  // Run by hand or by agents, never imported.
-  "entry": [
-    "scripts/*.{ts,mjs}",
-    ".claude/skills/*/scripts/*.mjs",
-    ".claude/skills/run-opensignup/driver.mjs",
-    ".claude/skills/run-opensignup/playwright.container.config.ts",
-  ],
+  // Run by hand or by agents, never imported. Globbed rather than listed, so
+  // a repo that merges this one can add scripts and skills of its own without
+  // editing this file.
+  "entry": ["scripts/**/*.{ts,mjs}", ".claude/skills/**/*.{js,mjs,ts}"],
   // A design reference kit, not part of the app.
   "ignore": ["design-system/**"],
   "ignoreDependencies": [
