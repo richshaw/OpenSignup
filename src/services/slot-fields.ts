@@ -514,7 +514,17 @@ function isMissing(value: unknown): boolean {
 }
 
 /**
- * A YYYY-MM-DD string naming a day that exists.
+ * The earliest year a date field takes. No signup is for a day before it, and
+ * earlier years break things downstream: Postgres has no year 0 and refuses
+ * it as a timestamptz, so a slot dated 0000 failed its save or a later
+ * `slot_at` rebuild; the driver reads a stored year below 100 back a century
+ * late (0099 as 1999); and the calendar export writes a year below 1000 with
+ * fewer than four digits, which RFC 5545 does not allow.
+ */
+const MIN_DATE_YEAR = 1900;
+
+/**
+ * A YYYY-MM-DD string naming a day that exists, in `MIN_DATE_YEAR` or later.
  *
  * The shape regex alone accepts 2026-13-45 and 2026-02-30, which reach
  * `new Date()` as an Invalid Date (or, for 02-30, silently roll into March).
@@ -524,9 +534,7 @@ function isRealDate(value: string): boolean {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!m) return false;
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  // Not `Date.UTC(y, …)`: it reads years 0–99 as 1900–1999, so a genuine
-  // 0099-12-31 would fail the round trip below. setUTCFullYear takes the year
-  // as written.
+  if (y < MIN_DATE_YEAR) return false;
   const at = new Date(0);
   at.setUTCFullYear(y, mo - 1, d);
   return at.getUTCFullYear() === y && at.getUTCMonth() === mo - 1 && at.getUTCDate() === d;
@@ -559,10 +567,11 @@ function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<vo
     case 'date': {
       if (typeof value !== 'string' || !isRealDate(value)) {
         return err(
-          serviceError('invalid_input', `"${field.ref}" must be a real date as YYYY-MM-DD`, {
-            field: field.ref,
-            received: value,
-          }),
+          serviceError(
+            'invalid_input',
+            `"${field.ref}" must be a real date as YYYY-MM-DD, in ${MIN_DATE_YEAR} or later`,
+            { field: field.ref, received: value },
+          ),
         );
       }
       return ok(undefined);

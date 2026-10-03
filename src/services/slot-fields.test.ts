@@ -35,11 +35,19 @@ describe('validateSlotValues', () => {
     },
   );
 
-  it('takes a two-digit year as written rather than as 19xx', () => {
-    // Date.UTC(99, 11, 31) is 1999-12-31, which would fail the round trip and
-    // reject a well-formed date. Odd input, but the check must not lie about it.
-    expect(validateSlotValues([def({})], { date: '0099-12-31' }).ok).toBe(true);
-    expect(validateSlotValues([def({})], { date: '0099-02-29' }).ok).toBe(false);
+  // Postgres has no year 0, the driver reads years below 100 back a century
+  // late, and the calendar export can't write a year below 1000.
+  it.each(['0000-01-01', '0099-12-31', '0202-05-10', '1899-12-31'])(
+    'rejects %s, a year before 1900',
+    (date) => {
+      const r = validateSlotValues([def({})], { date });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.message).toContain('1900 or later');
+    },
+  );
+
+  it('accepts the first day of 1900', () => {
+    expect(validateSlotValues([def({})], { date: '1900-01-01' }).ok).toBe(true);
   });
 
   it('accepts a real leap day and rejects one in a common year', () => {
