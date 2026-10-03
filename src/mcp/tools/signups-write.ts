@@ -17,7 +17,7 @@ import {
 import { resolveWorkspaceId } from '../context';
 import { defineTool } from '../registry';
 import { FIELD_GUIDE } from './guides';
-import { signupDetail, signupWithContents, signupWithLinks } from './signups-read';
+import { UNREAD_SETTINGS, signupDetail, signupWithContents, signupWithLinks } from './signups-read';
 
 
 export const createSignupTool = defineTool({
@@ -63,28 +63,24 @@ export const createSignupTool = defineTool({
 });
 
 /**
- * Settings arrive sparse: only the keys the model wants to change, with
- * `null` clearing an optional one. The service merges them over the row.
+ * Settings arrive sparse: only the keys the model wants to change. The service
+ * merges them over the row.
  *
- * maxCommitmentsPerParticipant is left out until a sign-up checks it. Nothing
- * reads it yet, so accepting it told the organizer a limit was in place when
- * anyone could still take every spot. Strict, so a client that sends it anyway
- * is refused rather than told the change went through.
+ * Every setting in UNREAD_SETTINGS is left out until something reads it.
+ * Accepting maxCommitmentsPerParticipant told the organizer a limit was in
+ * place when anyone could still take every spot. The others would do the same
+ * for an optional email, a hidden notes box, names on the public page or a
+ * confirmation message. Strict, so a client that sends one anyway is refused
+ * rather than told the change went through.
  */
-const SparseSettingsSchema = SignupSettingsSchema.removeDefault()
-  .omit({ maxCommitmentsPerParticipant: true })
-  .partial()
-  .extend({
-    confirmationMessage: z.string().max(500).nullable().optional(),
-  })
-  .strict();
+const SparseSettingsSchema = SignupSettingsSchema.removeDefault().omit(UNREAD_SETTINGS).partial().strict();
 
 export const updateSignupTool = defineTool({
   name: 'update_signup',
   scope: 'signups:write',
   title: 'Update signup',
   description:
-    'Change a signup title, description, tags, closing time (ISO datetime, or null to remove it), visibility (public or unlisted) or settings. Only the settings you pass change; pass null to clear confirmationMessage. There is no setting that limits how many spots one person can take. Use the field and slot tools to change what participants sign up for.',
+    'Change a signup title, description, tags, closing time (ISO datetime, or null to remove it), visibility (public or unlisted) or settings. Only the settings you pass change. There is no setting to limit how many spots one person can take, make the email address optional, turn off notes, list who signed up on the public page (it shows only how full each slot is) or add a confirmation message. Use the field and slot tools to change what participants sign up for.',
   annotations: { readOnlyHint: false, destructiveHint: true },
   // organizerDisplayName is omitted on purpose: no column stores it, so
   // accepting it would report a change that never happened.

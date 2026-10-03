@@ -143,11 +143,19 @@ describe('read tools', () => {
     });
   });
 
-  it('get_signup hides a stored per-person limit, which nothing enforces', async () => {
+  it('get_signup hides stored settings that nothing reads', async () => {
     getSignupForOrganizer.mockResolvedValueOnce(
       ok({
         ...row,
-        settings: { groupByFieldRefs: [], sendReminders: true, maxCommitmentsPerParticipant: 2 },
+        settings: {
+          groupByFieldRefs: [],
+          sendReminders: true,
+          maxCommitmentsPerParticipant: 2,
+          requireEmail: false,
+          allowNotes: false,
+          showWhoSignedUp: false,
+          confirmationMessage: 'See you there',
+        },
         fields: [],
         slots: [],
         committedBySlot: {},

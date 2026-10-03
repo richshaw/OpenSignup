@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ok } from '@/lib/result';
-import { SIGNUP_STATUSES } from '@/schemas/signups';
+import { SIGNUP_STATUSES, type SignupSettings } from '@/schemas/signups';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { getSignupForOrganizer, listSignupsForWorkspace, type SignupWithSlots } from '@/services/signups';
 import { resolveWorkspaceId } from '../context';
@@ -44,14 +44,30 @@ export function signupWithLinks(row: SignupRow) {
 }
 
 /**
- * The settings a tool shows. maxCommitmentsPerParticipant is hidden because
- * nothing enforces it yet (update_signup no longer takes it): a value stored
- * before then would read as a limit participants never meet.
+ * Settings nothing reads yet, so changing one changes nothing anyone sees. No
+ * sign-up checks maxCommitmentsPerParticipant. Every sign-up asks for an email
+ * whatever requireEmail says, and the notes box shows whatever allowNotes says.
+ * The public page shows how full each slot is but never who signed up,
+ * whatever showWhoSignedUp says. Nothing prints confirmationMessage.
+ *
+ * update_signup refuses them and every tool hides them, so an assistant can
+ * neither report a change that never happened nor read back a value that
+ * participants never meet. Stored rows still carry them, because createSignup
+ * fills in the schema defaults. Take a key out of here in the change that
+ * makes something read it.
  */
+export const UNREAD_SETTINGS = {
+  maxCommitmentsPerParticipant: true,
+  requireEmail: true,
+  allowNotes: true,
+  showWhoSignedUp: true,
+  confirmationMessage: true,
+} as const satisfies Partial<Record<keyof SignupSettings, true>>;
+
+/** The settings a tool shows: everything but UNREAD_SETTINGS. */
 function settingsOut(settings: SignupRow['settings']) {
   if (!settings || typeof settings !== 'object') return settings;
-  const { maxCommitmentsPerParticipant: _unenforced, ...shown } = settings as Record<string, unknown>;
-  return shown;
+  return Object.fromEntries(Object.entries(settings).filter(([key]) => !Object.hasOwn(UNREAD_SETTINGS, key)));
 }
 
 /** The detail shape: everything the organizer can edit. */
