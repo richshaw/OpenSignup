@@ -24,6 +24,9 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
   const [view, setView] = useState<View>('idle');
   const [pending, startTransition] = useTransition();
   const [confirmedEmail, setConfirmedEmail] = useState('');
+  // Controlled, because React resets an uncontrolled field once a form action
+  // runs, which made someone retype their whole address to fix one typo.
+  const [email, setEmail] = useState('');
   const [errorReason, setErrorReason] = useState<LoginErrorReason>('send_failed');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -46,6 +49,8 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
       }
       if (result.ok) {
         setConfirmedEmail(result.email);
+        // Empty, ready for "Send again" with a different address.
+        setEmail('');
         setView('success');
       } else {
         setErrorReason(result.reason);
@@ -73,6 +78,8 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
           ref={inputRef}
           type="email"
           name="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           required
           autoComplete="email"
           inputMode="email"
