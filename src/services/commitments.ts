@@ -22,9 +22,9 @@ import { readLiveSignup } from './locks';
 type CommitmentRow = typeof commitments.$inferSelect;
 
 /**
- * A commitment the participant can still act on. `cancelled`, `no_show` and
- * `orphaned` are terminal — organizer- or participant-applied end states that
- * no participant action reopens.
+ * A commitment the participant can still act on. `cancelled` and `no_show`
+ * are terminal — organizer- or participant-applied end states that no
+ * participant action reopens.
  */
 const ACTIVE_COMMITMENT_STATUSES: readonly CommitmentRow['status'][] = [
   'confirmed',
@@ -652,8 +652,8 @@ export async function cancelOwnCommitment(
       .returning({ id: commitments.id });
     if (cancelled.length === 0) {
       // Idempotent: cancelling an already-cancelled commitment (retry or lost race)
-      // is a no-op success. Other terminal states (no_show, orphaned) are organizer-
-      // applied; reject those. Re-read inside the tx so we don't trust the stale
+      // is a no-op success. The other terminal state (no_show) is organizer-
+      // applied; reject it. Re-read inside the tx so we don't trust the stale
       // pre-flight read in the concurrent case.
       const [row] = await tx
         .select({ status: commitments.status })
@@ -703,7 +703,7 @@ export async function countCommitmentsForSignup(db: Db, signupId: string): Promi
 
 /**
  * How many places each slot has taken, keyed by slot id. Confirmed and
- * tentative commitments count; cancelled and orphaned do not — the same
+ * tentative commitments count; cancelled ones do not — the same
  * rule `commitToSlot` applies when it checks capacity. Slots with no
  * commitments are absent from the map.
  *

@@ -47,7 +47,6 @@ identify the app by `clientDomain` instead.
 | `signup.published` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.closed` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.archived` | organizer | `{ from, to }` | `services/signups.ts` |
-| `signup.duplicated` | organizer | `{ sourceSignupId }` | `services/signups.ts` |
 | `signup.deleted` | organizer | `{ status }` (the status it had when deleted) | `services/signups.ts` |
 | `signup.draft_started` | organizer | `{}` | RSC at `/app/signups/new` |
 | `signup.editor_opened` | organizer | `{ section: 'fields' \| 'slots' \| 'settings' \| 'responses' }` | RSC under `/app/signups/[id]/...` |
@@ -70,7 +69,6 @@ identify the app by `clientDomain` instead.
 | `commitment.updated` | participant | `{ changes }` | `services/commitments.ts` |
 | `commitment.cancelled` | participant | `{ slotId }` | `services/commitments.ts` |
 | `commitment.swapped` | participant | `{ from, to }` | `services/commitments.ts` |
-| `commitment.orphaned` | system | `{ slotId }` | `services/commitments.ts` |
 | `commitment.attempt_failed` | system or participant | `{ slotId, reason: 'closed' \| 'over_window' \| 'capacity_full', detail?, requested?, remaining? }` | `services/commitments.ts` (each rejection site) |
 | `commitment.edit_link_followed` | participant | `{ commitmentId }` | RSC at `/s/[slug]/c/[id]` |
 
@@ -78,9 +76,7 @@ identify the app by `clientDomain` instead.
 
 | event | actor | payload | fired from |
 |---|---|---|---|
-| `reminder.scheduled` | system | `{ commitmentId, sendAt }` | `services/commitments.ts` |
 | `reminder.sent` | system | `{ commitmentId, channel }` | `jobs/reminders.ts` |
-| `reminder.failed` | system | `{ commitmentId, error }` | `jobs/reminders.ts` |
 
 ### Marketing / acquisition
 
@@ -221,17 +217,23 @@ GROUP BY 1
 ORDER BY 2 DESC;
 ```
 
-### Reminder pipeline health (last 7 days)
+### Reminders sent (last 7 days)
 
 ```sql
-SELECT
-  count(*) FILTER (WHERE event_type = 'reminder.scheduled') AS scheduled,
-  count(*) FILTER (WHERE event_type = 'reminder.sent')      AS sent,
-  count(*) FILTER (WHERE event_type = 'reminder.failed')    AS failed
+SELECT count(*) AS sent
 FROM activity
 WHERE workspace_id = $1
+  AND event_type = 'reminder.sent'
   AND occurred_at >= now() - interval '7 days';
 ```
+
+Only sends are in the activity log. Nothing schedules a reminder in advance
+(the dispatch scan finds the due ones every 10 minutes), and a failed send is
+retried by pg-boss rather than recorded here. To find failures, look for
+`reminder send failed` in the worker's log, or for `reminders.send` jobs with
+`state = 'failed'` in pg-boss's own tables (`pgboss.job`, then
+`pgboss.archive` once pg-boss archives them). Those tables are not scoped to
+a workspace.
 
 ### Organizer engagement: editor pageviews per section
 
@@ -309,8 +311,7 @@ and does not advance `last_active_at`.
 - Share-link copy on the organizer side — would require client JS.
 - Email delivery, bounce, or complaint events — would require a Resend
   webhook handler. Not implemented; magic-link / reminder delivery success
-  is currently observable only via `reminder.sent` / `reminder.failed` and
-  pino logs.
+  is currently observable only via `reminder.sent` and pino logs.
 - HTTP errors and Web Vitals — these belong in pino + Sentry, not the
   activity log. Sentry env stubs (`SENTRY_DSN`) exist in `src/lib/env.ts`
   but are not yet wired up; see Task 2.8 in the internal v1 build plan
