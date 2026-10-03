@@ -31,7 +31,7 @@ if (!existsSync(manifestPath)) {
 const entries = JSON.parse(readFileSync(manifestPath, 'utf8')).pages;
 const INSTANCE_BUDGETS = 'budgets.instance.json';
 const instanceBudgets = existsSync(INSTANCE_BUDGETS)
-  ? JSON.parse(readFileSync(INSTANCE_BUDGETS, 'utf8')).firstLoadJsKb
+  ? (JSON.parse(readFileSync(INSTANCE_BUDGETS, 'utf8')).firstLoadJsKb ?? {})
   : {};
 const budgets = {
   ...JSON.parse(readFileSync('budgets.json', 'utf8')).firstLoadJsKb,
@@ -39,6 +39,14 @@ const budgets = {
 };
 // The file a route's budget comes from, for messages that say where to change it.
 const fileFor = (route) => (route in instanceBudgets ? INSTANCE_BUDGETS : 'budgets.json');
+// Where to change the budget a page is held to. A page without its own line is
+// held to "*"; when budgets.json sets that, a page only the site has gets its
+// own line in the instance file rather than in budgets.json.
+const whereFor = (r) => {
+  if (r.named) return fileFor(r.route);
+  if (fileFor('*') === INSTANCE_BUDGETS) return INSTANCE_BUDGETS;
+  return `budgets.json (${INSTANCE_BUDGETS} for a page only your site has)`;
+};
 
 // A manifest entry is a folder path plus /page or /layout. Route groups like
 // (chrome) decide which layouts wrap a page, so ancestry is matched on the
@@ -106,12 +114,9 @@ const table = [
 
 console.log(table.join('\n'));
 for (const r of over) {
-  const where = r.named
-    ? fileFor(r.route)
-    : `budgets.json (${INSTANCE_BUDGETS} for a page only your site has)`;
   console.error(
     `${r.route} loads ${fmt(r.kb)} of JavaScript, over its ${r.budget} kB budget. ` +
-      `Make it smaller, or raise the budget in ${where} and say why in the PR.`,
+      `Make it smaller, or raise the budget in ${whereFor(r)} and say why in the PR.`,
   );
 }
 for (const r of roomy) {
