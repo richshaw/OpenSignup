@@ -8,7 +8,7 @@ import { invokeNodeHandler, withNodePair } from '../node-shim';
  * an MCP client would, for tests. Not imported by application code.
  */
 
-export class CookieJar {
+class CookieJar {
   private readonly cookies = new Map<string, string>();
   absorb(response: Response): void {
     for (const raw of response.headers.getSetCookie()) {

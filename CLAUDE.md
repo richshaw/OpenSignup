@@ -27,8 +27,10 @@ Authoritative build plan: `docs/plans/2026-04-19-signup-v1.md` (local-only — `
 pnpm dev                # Next.js on :3000
 pnpm worker             # pg-boss reminder worker (separate process; required for jobs)
 pnpm build / pnpm start
+pnpm budgets            # page JavaScript against budgets.json (after pnpm build)
 pnpm lint               # eslint (flat config, next/core-web-vitals + TS strict)
 pnpm typecheck          # tsc --noEmit
+pnpm knip               # files, exports and dependencies nothing uses
 pnpm test               # vitest unit tests (excludes *.db.test.ts and *.e2e.test.ts)
 pnpm test:watch
 pnpm test:db            # vitest against real Postgres (vitest.db.config.ts, fileParallelism:false)
@@ -80,7 +82,7 @@ Helpers used by every service:
 
 ### Capacity safety (the hot path)
 
-`POST /api/slots/{id}/commitments` is the most safety-critical endpoint. The pattern: open a transaction, `SELECT ... FOR UPDATE` on the slot row, count current commitments, insert with a `position` integer, and rely on a unique constraint on `(slot_id, position)` as a final race-safety net. Cancelled commitments do not count toward capacity. Tests in `src/services/*.db.test.ts` exercise concurrent commit races — when changing this code, run `pnpm test:db`.
+`POST /api/slots/{id}/commitments` is the most safety-critical endpoint, and with `/s/[slug]` one of the two whose statement count `budgets.json` caps. The pattern: open a transaction, `SELECT ... FOR UPDATE` on the slot row, count current commitments, insert with a `position` integer, and rely on a unique constraint on `(slot_id, position)` as a final race-safety net. Cancelled commitments do not count toward capacity. Tests in `src/services/*.db.test.ts` exercise concurrent commit races — when changing this code, run `pnpm test:db`.
 
 ### Auth
 
@@ -150,7 +152,8 @@ From `CONTRIBUTING.md` and the v1 plan:
 - **TDD for pure logic** (capacity, slugs, IDs, email-typo suggestion, policy, env). UI is not TDD'd; covered by Playwright smokes.
 - **No vendor lock-in.** Anything requiring an external account (Resend, Sentry, PostHog) must be opt-in via env var with a console/noop default.
 - **Activity log is append-only and writes inside the same transaction as the mutation.** Telemetry-only events that don't describe a mutation (page views, auth funnel, attempt-failed) are an exception: write them outside the tx (or via a SAVEPOINT helper if the only entry point is inside one) so a transient activity-insert failure never aborts the user's actual operation. See `safeRecordAttemptFailed` in `src/services/commitments.ts` and the `workspace.created` write in `src/auth/adapter.ts` for the patterns.
-- **`pnpm lint && pnpm typecheck && pnpm test` must pass before any PR.**
+- **Fast, and no bigger than it needs to be.** `budgets.json` caps each page's first-load JavaScript (`scripts/check-budgets.mjs`, run by `pnpm budgets` after a build) and the statements the public signup page and the sign-up request send to Postgres (`src/app/query-budget.db.test.ts`). Both run in CI and fail when a number goes over. Raise a budget only with a reason in the PR; when a change comes in under, lower it to match. `pnpm knip` fails on unused files, exports and dependencies: delete them, and give anything added to `knip.jsonc` a comment saying why.
+- **`pnpm lint && pnpm typecheck && pnpm knip && pnpm test` must pass before any PR.**
 
 ## Test layout
 
@@ -164,7 +167,7 @@ From `CONTRIBUTING.md` and the v1 plan:
 - **A deleted signup is gone to every service.** Load a signup by id through `readLiveSignup` or `lockSignupForWrite` (`src/services/locks.ts`), which both skip soft-deleted rows, rather than selecting from `signups` and checking `deleted_at` by hand: the hand-written check is the one that kept going missing (the fields route, the field and slot writes, signing up). Code that reaches a signup another way (by slug, or through a join) checks `deleted_at` itself, as `getPublicSignup`, `getOwnCommitment`, the reminder jobs and the confirmation email do; a write that takes locks checks again after them, since the delete can land while it waits. Only `deleteSignup` and the slug check in `pickAvailableSlug` (the slug index covers deleted rows) use a deleted row on purpose.
 - **Public routes must handle every signup state.** `/s/[slug]` and any participant-facing route must render a real message for each of `draft`, `open`, `closed`, `archived`, and "not found". Never let a non-`open` state fall through to a generic 404.
 - **Reuse banners and state-message components.** Before adding a new banner / notice / empty-state, grep for an existing one (preview banner, closed banner, etc.) and either reuse it or extract a shared component. Tailwind makes drift cheap to introduce and expensive to spot.
-- **Verify before claiming done.** Before saying "tests pass" or proposing a commit, actually run `pnpm lint && pnpm typecheck && pnpm test` in the current turn and use that output as evidence. Past success doesn't count.
+- **Verify before claiming done.** Before saying "tests pass" or proposing a commit, actually run `pnpm lint && pnpm typecheck && pnpm knip && pnpm test` in the current turn and use that output as evidence. Past success doesn't count.
 - **No `getEnv()` in statically prerendered pages.** Any module reachable from a static App Router page (anything without `dynamic`, `revalidate = 0`, `cookies()`, etc.) runs during `next build`. The Fly build image has no server env, so `getEnv()` will throw on `DATABASE_URL`/`AUTH_SECRET`/etc. and abort prerender. For values needed on static pages, expose them as `NEXT_PUBLIC_*` and read `process.env` directly; for server-only values, force the page dynamic.
 - **`NEXT_PUBLIC_*` values used by static pages must be set at BUILD time, not just runtime.** Fly secrets are runtime-only — they won't satisfy a build-time Zod parse in `src/lib/site-config.ts`. Wire new required `NEXT_PUBLIC_*` vars through `fly.toml` `[build.args]`, the `x-instance-build` args in `docker-compose.prod.yml`, *and* a matching `ARG`/`ENV` pair in `Dockerfile` (above the `RUN pnpm build` line), or the deploy build will fail (or, for a var with a fallback like `NEXT_PUBLIC_APP_URL`, silently bake in `localhost`).
 - **The OAuth query string must reach the provider.** `handleOAuthRequest` forwards the public path *with* its search params unless a route passes an explicit `path` override (only the well-known routes do). Drop the query and the authorization endpoint sees a request with no `client_id`.

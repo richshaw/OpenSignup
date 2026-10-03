@@ -1,22 +1,19 @@
 import { uuidv7 } from 'uuidv7';
 
-export const ID_PREFIXES = [
-  'ws', // Workspace
-  'org', // Organizer
-  'mem', // WorkspaceMember
-  'sig', // Signup
-  'fld', // SlotField
-  'slot', // Slot
-  'par', // Participant
-  'com', // Commitment
-  'act', // Activity
-  'ml', // MagicLink
-  'cla', // SignupClaim
-  'rl', // Rate limit bucket
-  'job', // pg-boss helper (our own, not pg-boss internal)
-] as const;
-
-export type IdPrefix = (typeof ID_PREFIXES)[number];
+export type IdPrefix =
+  | 'ws' // Workspace
+  | 'org' // Organizer
+  | 'mem' // WorkspaceMember
+  | 'sig' // Signup
+  | 'fld' // SlotField
+  | 'slot' // Slot
+  | 'par' // Participant
+  | 'com' // Commitment
+  | 'act' // Activity
+  | 'ml' // MagicLink
+  | 'cla' // SignupClaim
+  | 'rl' // Rate limit bucket
+  | 'job'; // pg-boss helper (our own, not pg-boss internal)
 
 // ASCII-sorted so lexicographic comparison matches numeric order (required for UUIDv7 sortability).
 const BASE62_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';

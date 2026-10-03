@@ -18,7 +18,7 @@ export function attachContext(authInfo: AuthInfo, ctx: ToolContext): AuthInfo {
   return { ...authInfo, extra: { ...(authInfo.extra ?? {}), [CONTEXT_KEY]: ctx } };
 }
 
-export function contextFrom(authInfo?: AuthInfo): ToolContext {
+function contextFrom(authInfo?: AuthInfo): ToolContext {
   const ctx = authInfo?.extra?.[CONTEXT_KEY];
   if (!ctx) throw new Error('mcp: request reached the handler without a tool context');
   return ctx as ToolContext;

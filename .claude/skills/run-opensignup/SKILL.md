@@ -165,8 +165,8 @@ kill -- -"$(cat /tmp/opensignup-web.pid)" -"$(cat /tmp/opensignup-worker.pid)"
 ## Test
 
 ```bash
-pnpm lint && pnpm typecheck && pnpm test   # 862 unit tests
-pnpm test:db                               # 250 tests against Postgres, ~35s
+pnpm lint && pnpm typecheck && pnpm knip && pnpm test   # 968 unit tests
+pnpm test:db                                            # 351 tests against Postgres, ~45s
 ```
 
 E2E runs against a production build. Stop the dev server first (**Stop** above; the e2e config would otherwise reuse it), then use the container config, which points Playwright at the installed Chromium:

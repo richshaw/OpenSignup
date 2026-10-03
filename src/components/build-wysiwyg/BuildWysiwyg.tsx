@@ -12,7 +12,7 @@ import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SignupSettings, SignupStatus } from '@/schemas/signups';
 
 /** Server-loaded chrome snapshot. Title + description are then edited in-place via updateSignupMeta. */
-export type SignupMeta = {
+type SignupMeta = {
   title: string;
   description: string | null;
   status: SignupStatus;

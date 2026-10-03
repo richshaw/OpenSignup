@@ -124,7 +124,7 @@ export async function listConnectedApps(db: Queryable, actor: Actor): Promise<Co
 }
 
 /** Union of every resource scope in the grant payload. */
-export function scopesOfGrant(payload: unknown): Scope[] {
+function scopesOfGrant(payload: unknown): Scope[] {
   const resources = (payload as { resources?: Record<string, string> } | null)?.resources ?? {};
   const out: Scope[] = [];
   for (const scopeString of Object.values(resources)) {

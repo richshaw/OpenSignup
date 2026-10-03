@@ -5,12 +5,6 @@ export function idOf<P extends string>(prefix: P) {
   return z.string().regex(re, `expected ${prefix} id`);
 }
 
-export const SlugSchema = z
-  .string()
-  .min(1)
-  .max(80)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'slug must be lowercase kebab');
-
 export function normalizeEmail(v: string): string {
   return v.trim().toLowerCase();
 }

@@ -60,7 +60,7 @@ export const FullDraftSchema = z.object({
  * (PII harvesting, intake/application forms). The route short-circuits on this
  * shape before createSignup so no DB row is created.
  */
-export const RefusalSchema = z.object({
+const RefusalSchema = z.object({
   refusalReason: z.string().min(1).max(500),
 });
 

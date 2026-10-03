@@ -102,7 +102,7 @@ export function toNodeRequest(request: Request, body: Buffer, opts: ShimOptions)
  * Just enough `ServerResponse` for Koa: status, a header map, `end()`, and
  * the `finish` event `on-finished` listens for.
  */
-export class ShimResponse extends EventEmitter {
+class ShimResponse extends EventEmitter {
   statusCode = 200;
   statusMessage = '';
   headersSent = false;
@@ -212,8 +212,6 @@ export class ShimResponse extends EventEmitter {
  */
 export const MAX_BODY_BYTES = 64 * 1024;
 
-
-export { BodyTooLarge, readRequestBody };
 
 function tooLarge(): Response {
   return Response.json(

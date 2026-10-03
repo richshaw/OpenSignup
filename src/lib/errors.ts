@@ -1,19 +1,16 @@
 import { ZodError } from 'zod';
 
-export const ERROR_CODES = [
-  'not_found',
-  'conflict',
-  'capacity_full',
-  'closed',
-  'forbidden',
-  'unauthorized',
-  'invalid_input',
-  'rate_limited',
-  'already_consumed',
-  'internal',
-] as const;
-
-export type ErrorCode = (typeof ERROR_CODES)[number];
+export type ErrorCode =
+  | 'not_found'
+  | 'conflict'
+  | 'capacity_full'
+  | 'closed'
+  | 'forbidden'
+  | 'unauthorized'
+  | 'invalid_input'
+  | 'rate_limited'
+  | 'already_consumed'
+  | 'internal';
 
 const HTTP_STATUS: Record<ErrorCode, number> = {
   not_found: 404,

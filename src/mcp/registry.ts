@@ -25,7 +25,7 @@ import { runTool } from './results';
  * from the tool's own `title`. Nor is `openWorldHint`: `compileTools` sets it
  * false for every tool.
  */
-export type ToolHints = Omit<ToolAnnotations, 'title' | 'readOnlyHint' | 'destructiveHint' | 'openWorldHint'> &
+type ToolHints = Omit<ToolAnnotations, 'title' | 'readOnlyHint' | 'destructiveHint' | 'openWorldHint'> &
   ({ readOnlyHint: true; destructiveHint?: never } | { readOnlyHint: false; destructiveHint: boolean });
 
 export interface ToolDefinition<S extends z.ZodTypeAny = z.ZodTypeAny> {

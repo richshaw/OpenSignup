@@ -4,9 +4,9 @@ import type { Actor, WorkspaceRole } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import type { Scope } from '@/oauth/scopes';
 
-export type OrganizerActor = Extract<Actor, { kind: 'organizer' }>;
+type OrganizerActor = Extract<Actor, { kind: 'organizer' }>;
 
-export interface ToolWorkspace {
+interface ToolWorkspace {
   id: string;
   slug: string;
   name: string;
