@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
+import { MIN_DATE_YEAR } from '@/schemas/slot-fields';
 import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
 import { EnumPicker } from './EnumPicker';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
@@ -29,9 +30,13 @@ const TYPE_PLACEHOLDERS: Record<string, string> = {
   enum: 'Pick from list',
 };
 
-const TYPE_INPUT_ATTRS: Record<string, { type?: string; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'] }> = {
+const TYPE_INPUT_ATTRS: Record<
+  string,
+  { type?: string; min?: string; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'] }
+> = {
   text: { type: 'text' },
-  date: { type: 'date' },
+  // The picker starts where the services do; they refuse an earlier date.
+  date: { type: 'date', min: `${MIN_DATE_YEAR}-01-01` },
   time: { type: 'time' },
   number: { type: 'number', inputMode: 'numeric' },
 };

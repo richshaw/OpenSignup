@@ -27,11 +27,14 @@ describe('validateSlotValues', () => {
   // The shape regex alone accepted all of these. They reached new Date() as an
   // Invalid Date, which recomputeSlotAtForSignup then rewrote on every pass
   // because NaN is never equal to itself.
-  it.each(['2026-13-45', '2026-02-30', '2026-00-10', '2026-01-32'])(
+  // 0099-02-29 is impossible too (0099 is no leap year), and says so rather
+  // than that it is too early.
+  it.each(['2026-13-45', '2026-02-30', '2026-00-10', '2026-01-32', '0099-02-29'])(
     'rejects the impossible date %s',
     (date) => {
       const r = validateSlotValues([def({})], { date });
       expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.message).toBe('"date" must be a real date as YYYY-MM-DD');
     },
   );
 
@@ -42,7 +45,7 @@ describe('validateSlotValues', () => {
     (date) => {
       const r = validateSlotValues([def({})], { date });
       expect(r.ok).toBe(false);
-      if (!r.ok) expect(r.error.message).toContain('1900 or later');
+      if (!r.ok) expect(r.error.message).toBe('"date" must be a date in 1900 or later');
     },
   );
 

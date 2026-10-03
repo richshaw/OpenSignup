@@ -1,8 +1,8 @@
 import type { SignupTemplate, SignupTemplateSlot } from '@/lib/signup-templates';
 import type { SlotFieldConfig, SlotFieldInput } from '@/schemas/slot-fields';
+import { isRealDate } from '@/services/slot-fields';
 import type { MagicComposeDraft } from './prompt';
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HHMM_24H = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function sanitizeEnumChoices(choices: string[] | undefined): string[] {
@@ -44,8 +44,10 @@ function coerceValue(
       return s.length === 0 ? undefined : s.slice(0, 200);
     }
     case 'date': {
+      // The services' own check, not just the shape: createSignup refuses the
+      // whole draft over a day that doesn't exist or is before `MIN_DATE_YEAR`.
       const s = String(raw).trim();
-      return ISO_DATE.test(s) ? s : undefined;
+      return isRealDate(s) ? s : undefined;
     }
     case 'time': {
       const s = String(raw).trim();

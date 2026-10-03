@@ -983,7 +983,7 @@ describe('slot-fields service (db)', () => {
       expect(await rowVersion(stays)).toBe(untouched);
     });
 
-    it('writes nothing when no slot moves', async () => {
+    it('writes nothing when no slot moves, one the driver misreads included', async () => {
       const sigId = await createTestSignup(fx, 'Rebuild with nothing to do');
       const day = await addField(fx.db, fx.actor, sigId, {
         ref: 'day',
@@ -993,15 +993,19 @@ describe('slot-fields service (db)', () => {
       });
       if (!day.ok) throw new Error('setup failed');
       const ids: string[] = [];
-      for (const date of ['2026-05-10', '2026-05-11']) {
+      for (const date of ['2026-05-10', '1920-06-01']) {
         const slot = await addSlot(fx.db, fx.actor, sigId, { values: { day: date } });
         if (!slot.ok) throw new Error('slot setup failed');
         ids.push(slot.value.id);
       }
       const before = await Promise.all(ids.map(rowVersion));
-      const r = await fx.db.transaction((tx) =>
-        recomputeSlotAtForSignup(tx, sigId, fx.workspaceId),
-      );
+      const r = await fx.db.transaction(async (tx) => {
+        // On Amsterdam time Postgres prints the 1920 instant with an offset of
+        // +01:19:32, which the driver reads as an Invalid Date, so the check in
+        // JS sees that slot move on every rebuild; Postgres sees it has not.
+        await tx.execute(sql`set local time zone 'Europe/Amsterdam'`);
+        return recomputeSlotAtForSignup(tx, sigId, fx.workspaceId);
+      });
       expect(r).toEqual({ updated: 0 });
       expect(await Promise.all(ids.map(rowVersion))).toEqual(before);
     });

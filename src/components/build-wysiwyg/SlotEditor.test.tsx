@@ -133,7 +133,10 @@ describe('SlotEditor', () => {
       ],
       row: makeRow({ values: {} }),
     });
-    expect((screen.getByLabelText('Date value') as HTMLInputElement).type).toBe('date');
+    const date = screen.getByLabelText('Date value') as HTMLInputElement;
+    expect(date.type).toBe('date');
+    // The services refuse a date before 1900.
+    expect(date.min).toBe('1900-01-01');
     expect((screen.getByLabelText('Time value') as HTMLInputElement).type).toBe('time');
     const qty = screen.getByLabelText('Quantity value') as HTMLInputElement;
     expect(qty.type).toBe('number');

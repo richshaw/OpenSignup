@@ -282,6 +282,30 @@ describe('magicComposeToTemplate', () => {
       ]);
     });
 
+    it('blanks a date that does not exist or comes before 1900, keeping the rest', () => {
+      const r = parseFull({
+        title: 'My signup',
+        fields: [
+          { ref: 'date', label: 'Date', fieldType: 'date' },
+          { ref: 'game', label: 'Game', fieldType: 'text' },
+        ],
+        slots: [
+          { values: { date: '2026-02-30', game: 'Game 1' } },
+          { values: { date: '1899-12-31', game: 'Game 2' } },
+          { values: { date: '2026-04-25', game: 'Game 3' } },
+        ],
+      });
+      expect(r.template.slots.map((s) => s.values)).toEqual([
+        { game: 'Game 1' },
+        { game: 'Game 2' },
+        { date: '2026-04-25', game: 'Game 3' },
+      ]);
+      expect(r.dropped.coercionFailures).toEqual([
+        { slot: 0, ref: 'date', reason: 'date' },
+        { slot: 1, ref: 'date', reason: 'date' },
+      ]);
+    });
+
     it('returns empty dropped summary for a clean draft', () => {
       const r = parseFull({
         title: 'My signup',
