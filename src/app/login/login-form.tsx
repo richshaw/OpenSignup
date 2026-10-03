@@ -32,9 +32,19 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
 
   const state: 'idle' | 'loading' | 'success' | 'error' = pending ? 'loading' : view;
   const inert = state === 'loading' || state === 'success';
+  // Each request is charged to the IP's allowance first, which everyone on a
+  // shared network shares, so once rate-limited the button does nothing until
+  // the address is edited (which clears the error, below).
+  const locked = state === 'error' && errorReason === 'rate_limited';
 
   const handleSubmit = (formData: FormData) => {
+    // The box is disabled while inert, so formData has no address in it.
     if (inert) return;
+    // Text React never saw (typed before the page hydrated, or put back by the
+    // browser) is in the box but not in `email`, and the re-render after this
+    // submit would write '' over it.
+    setEmail(String(formData.get('email') ?? ''));
+    if (locked) return;
     startTransition(async () => {
       const start = Date.now();
       let result: LoginActionResult;
@@ -68,6 +78,7 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
     state === 'success' ? 'bg-success' : state === 'error' ? 'bg-danger' : 'bg-brand';
   const buttonHover = state === 'idle' ? 'hover:brightness-110' : '';
   const buttonLoading = state === 'loading' ? 'brightness-90' : '';
+  const buttonLocked = locked ? 'cursor-not-allowed opacity-60' : '';
 
   return (
     <>
@@ -79,7 +90,12 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
           type="email"
           name="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            // A changed address is a new request: drop the error, and with it
+            // the rate-limit lock.
+            if (view === 'error') setView('idle');
+          }}
           required
           autoComplete="email"
           inputMode="email"
@@ -90,10 +106,10 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
       </label>
       <button
         type="submit"
-        aria-disabled={inert}
+        aria-disabled={inert || locked}
         aria-busy={state === 'loading'}
         data-state={state}
-        className={`relative w-full rounded-lg px-5 py-3 font-medium text-white transition-colors duration-180 ease-emphasized ${buttonBg} ${buttonHover} ${buttonLoading}`}
+        className={`relative w-full rounded-lg px-5 py-3 font-medium text-white transition-colors duration-180 ease-emphasized ${buttonBg} ${buttonHover} ${buttonLoading} ${buttonLocked}`}
       >
         <ButtonLabel state={state} />
       </button>
@@ -123,6 +139,9 @@ function CodeForm({
   redeem: (formData: FormData) => Promise<CodeActionResult>;
 }) {
   const [message, setMessage] = useState<string | null>(null);
+  // Controlled for the same reason as the email box: left to React's reset, a
+  // wrong code vanished and one mistyped digit meant typing all six again.
+  const [code, setCode] = useState('');
   const [pending, startTransition] = useTransition();
   const submit = (formData: FormData) => {
     setMessage(null);
@@ -151,6 +170,8 @@ function CodeForm({
         </span>
         <input
           name="code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
           inputMode="numeric"
           autoComplete="one-time-code"
           maxLength={8}
