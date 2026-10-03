@@ -1,15 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import postgres from 'postgres';
 import budgets from '../../budgets.json';
 import { getDb } from '@/db/client';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
+import { rateLimits } from '@/db/schema/rate-limits';
 import { workspaces } from '@/db/schema/workspaces';
 import { getEnv } from '@/lib/env';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
+import { RateLimits } from '@/lib/rate-limit';
 import { COMMIT_COOKIE_NAME, serializeReturningCommits } from '@/lib/returning-participant';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
@@ -70,6 +72,11 @@ describe('query budgets for the participant hot path (db)', () => {
   let organizerId: string;
   let slug: string;
   let slotId: string;
+  // The sign-up request charges both commit limits. A fresh documentation
+  // address each run keeps reruns clear of the per-IP limit, and afterAll
+  // deletes both rows, since rate_limits has no tie to the workspace.
+  const ip = `2001:db8::${Math.floor(Math.random() * 0xffff).toString(16)}`;
+  const email = `sam-${makeId('par').slice(-8).toLowerCase()}@example.test`;
 
   beforeAll(async () => {
     globalThis.__signup_pg__ = countingClient;
@@ -119,6 +126,14 @@ describe('query budgets for the participant hot path (db)', () => {
     const db = getDb();
     await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
     await db.delete(organizers).where(eq(organizers.id, organizerId));
+    for (const [policy, subject] of [
+      [RateLimits.commitmentPerIp, ip],
+      [RateLimits.commitmentPerEmail, email],
+    ] as const) {
+      await db
+        .delete(rateLimits)
+        .where(and(eq(rateLimits.bucket, policy.bucket), eq(rateLimits.subject, subject)));
+    }
     globalThis.__signup_pg__ = previousClient;
     await countingClient.end();
   });
@@ -147,16 +162,8 @@ describe('query budgets for the participant hot path (db)', () => {
   it('POST /api/slots/[id]/commitments, for a new participant', async () => {
     const req = new NextRequest(`http://localhost/api/slots/${slotId}/commitments`, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        // A fresh documentation address each run, so reruns never meet the per-IP limit.
-        'x-forwarded-for': `2001:db8::${Math.floor(Math.random() * 0xffff).toString(16)}`,
-      },
-      body: JSON.stringify({
-        name: 'Sam Example',
-        email: `sam-${makeId('par').slice(-8).toLowerCase()}@example.test`,
-        quantity: 1,
-      }),
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': ip },
+      body: JSON.stringify({ name: 'Sam Example', email, quantity: 1 }),
     });
     let status = 0;
     const count = await countStatements(async () => {

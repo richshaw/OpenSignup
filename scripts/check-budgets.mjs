@@ -2,8 +2,9 @@
  * Checks each page's first-load JavaScript against budgets.json.
  *
  * Run after `pnpm build`. A page's size is the gzipped JavaScript a browser
- * downloads on a first visit: the page's own chunks plus those of every layout
- * above it. Next's build table counts the page's chunks only, so it reads a
+ * downloads on a first visit: the page's own chunks, those of every layout
+ * above it, and those of any parallel-route slot rendered beside it (such as
+ * @crumbs). Next's build table counts the page's chunks only, so it reads a
  * little lower. A route listed in budgets.json is held to its own number;
  * every other page to "*". Over budget fails; well under prints a note to
  * lower the budget, so a saving stays saved.
@@ -25,8 +26,11 @@ if (!existsSync(manifestPath)) {
 const entries = JSON.parse(readFileSync(manifestPath, 'utf8')).pages;
 const budgets = JSON.parse(readFileSync('budgets.json', 'utf8')).firstLoadJsKb;
 
-// Route groups like (chrome) don't appear in the URL.
-const urlOf = (entry, suffix) => entry.replace(/\/\([^)]+\)/g, '').slice(0, -suffix.length) || '/';
+// A manifest entry is a folder path plus /page or /layout. Route groups like
+// (chrome) decide which layouts wrap a page, so ancestry is matched on the
+// folder path; neither they nor slots like @crumbs appear in the URL.
+const dirOf = (entry) => entry.slice(0, entry.lastIndexOf('/'));
+const urlOf = (dir) => dir.replace(/\/[(@][^/]*/g, '') || '/';
 
 const gzipped = new Map();
 function gzippedSize(file) {
@@ -36,18 +40,22 @@ function gzippedSize(file) {
 
 const layouts = Object.keys(entries)
   .filter((e) => e.endsWith('/layout'))
-  .map((e) => ({ dir: urlOf(e, '/layout'), files: entries[e] }));
+  .map((e) => ({ dir: dirOf(e), files: entries[e] }));
+const pages = Object.keys(entries).filter((e) => e.endsWith('/page'));
+const slots = pages.filter((e) => e.includes('/@'));
 
-const rows = Object.keys(entries)
-  // Parallel-route slots (@crumbs) render inside a page; they aren't one.
-  .filter((e) => e.endsWith('/page') && !e.includes('/@'))
+const rows = pages
+  .filter((e) => !e.includes('/@'))
   .map((e) => {
-    const route = urlOf(e, '/page');
+    const dir = dirOf(e);
+    const route = urlOf(dir);
     const files = new Set(entries[e]);
-    for (const { dir, files: layoutFiles } of layouts) {
-      if (dir === '/' || route === dir || route.startsWith(`${dir}/`)) {
-        layoutFiles.forEach((f) => files.add(f));
-      }
+    const add = (list) => list.forEach((f) => files.add(f));
+    for (const layout of layouts) {
+      if (dir === layout.dir || dir.startsWith(`${layout.dir}/`)) add(layout.files);
+    }
+    for (const slot of slots) {
+      if (urlOf(dirOf(slot)) === route) add(entries[slot]);
     }
     const bytes = [...files]
       .filter((f) => f.endsWith('.js'))
@@ -65,8 +73,11 @@ for (const route of Object.keys(budgets)) {
 }
 
 const over = rows.filter((r) => r.kb > r.budget);
-const roomy = rows.filter((r) => r.named && r.budget - r.kb > LOWER_NOTE_KB);
 const largestOther = rows.find((r) => !r.named);
+// The largest unnamed page stands for the "*" budget.
+const roomy = rows.filter(
+  (r) => (r.named || r === largestOther) && r.budget - r.kb > LOWER_NOTE_KB,
+);
 const shown = rows.filter((r) => r.named || r.kb > r.budget || r === largestOther);
 
 const fmt = (kb) => `${kb.toFixed(1)} kB`;
@@ -87,8 +98,10 @@ for (const r of over) {
   );
 }
 for (const r of roomy) {
+  const what = r.named ? `${r.route} loads` : 'The largest page without its own budget loads';
+  const which = r.named ? 'its' : 'the "*"';
   console.log(
-    `${r.route} loads ${fmt(r.kb)}, well under its ${r.budget} kB budget. ` +
+    `${what} ${fmt(r.kb)}, well under ${which} ${r.budget} kB budget. ` +
       `Lower it to ${Math.ceil(r.kb) + 1} in budgets.json so it stays there.`,
   );
 }

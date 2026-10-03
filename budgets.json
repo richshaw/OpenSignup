@@ -4,16 +4,16 @@
     "POST /api/slots/[id]/commitments": 14
   },
   "firstLoadJsKb": {
-    "/s/[slug]": 132,
+    "/s/[slug]": 131,
     "/s/[slug]/c/[id]": 110,
-    "/": 133,
+    "/": 132,
     "/login": 110,
     "/help/[slug]": 113,
     "/app/signups/new": 114,
     "/app/signups/[id]": 124,
     "/app/signups/[id]/build": 151,
     "/app/signups/[id]/edit": 124,
-    "/app/signups/[id]/preview": 136,
+    "/app/signups/[id]/preview": 131,
     "/app/signups/[id]/responses": 124,
     "/app/signups/[id]/settings": 125,
     "*": 108
