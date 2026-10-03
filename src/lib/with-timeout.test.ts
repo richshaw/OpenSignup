@@ -45,3 +45,58 @@ describe('withTimeout', () => {
     }
   });
 });
+
+describe('withTimeout onLateSettle', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  function controllable<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  async function timeOut(work: Promise<unknown>, onLateSettle: () => void) {
+    const settled = expect(withTimeout(work, 1_000, 'too slow', { onLateSettle })).rejects.toThrow(
+      'too slow',
+    );
+    await vi.advanceTimersByTimeAsync(1_000);
+    await settled;
+  }
+
+  it('hears that abandoned work succeeded', async () => {
+    const work = controllable<string>();
+    const onLateSettle = vi.fn();
+    await timeOut(work.promise, onLateSettle);
+    expect(onLateSettle).not.toHaveBeenCalled();
+
+    work.resolve('sent');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onLateSettle).toHaveBeenCalledExactlyOnceWith({ status: 'fulfilled', value: 'sent' });
+  });
+
+  it('hears the real error when abandoned work fails', async () => {
+    const work = controllable<string>();
+    const onLateSettle = vi.fn();
+    await timeOut(work.promise, onLateSettle);
+
+    const error = new Error('535 Authentication failed');
+    work.reject(error);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onLateSettle).toHaveBeenCalledExactlyOnceWith({ status: 'rejected', reason: error });
+  });
+
+  it('is not called for work that settles in time', async () => {
+    const onLateSettle = vi.fn();
+    await withTimeout(Promise.resolve('sent'), 1_000, 'too slow', { onLateSettle });
+    await expect(
+      withTimeout(Promise.reject(new Error('550 rejected')), 1_000, 'too slow', { onLateSettle }),
+    ).rejects.toThrow('550 rejected');
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(onLateSettle).not.toHaveBeenCalled();
+  });
+});
