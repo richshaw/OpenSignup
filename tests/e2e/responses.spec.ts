@@ -41,11 +41,12 @@ async function createSignupWithSlot(page: Page) {
  */
 const SIGN_UP_HEADERS = { 'x-forwarded-for': '203.0.113.77' };
 
-/** Signs Sam Example up for the slot, and returns their edit link. */
-async function signUp(request: APIRequestContext, slotId: string) {
+/** Signs Sam Example, or someone else, up for the slot, and returns their edit link. */
+async function signUp(request: APIRequestContext, slotId: string, name = 'Sam Example') {
+  const email = `${name.split(' ')[0]?.toLowerCase()}+${Date.now()}@example.test`;
   const committed = await request.post(`/api/slots/${slotId}/commitments`, {
     headers: SIGN_UP_HEADERS,
-    data: { name: 'Sam Example', email: `sam+${Date.now()}@example.test`, quantity: 1 },
+    data: { name, email, quantity: 1 },
   });
   expect(committed.ok()).toBe(true);
   return (await committed.json()).data.editUrl as string;
@@ -62,6 +63,16 @@ async function expectOnScreen(page: Page, target: Locator) {
   if (!box || !frame) throw new Error('not on the page');
   expect(box.x).toBeGreaterThanOrEqual(Math.max(0, frame.x));
   expect(box.x + box.width).toBeLessThanOrEqual(Math.min(width, frame.x + frame.width));
+}
+
+/** Nothing sits on top of it: the point at its centre hits it, or something in it. */
+async function expectUncovered(target: Locator) {
+  const hit = await target.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    return top !== null && el.contains(top);
+  });
+  expect(hit).toBe(true);
 }
 
 test.describe('Responses tab', () => {
@@ -252,23 +263,77 @@ test.describe('Responses tab', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     const { signupId, slotId } = await createSignupWithSlot(page);
     await signUp(page.request, slotId);
+    // Someone to take off, on a slot whose name is too long for one line on a
+    // phone.
+    const added = await page.request.post(`/api/signups/${signupId}/slots`, {
+      data: { capacity: 1, values: { what: 'Orange slices and water' } },
+    });
+    expect(added.ok()).toBe(true);
+    await signUp(page.request, (await added.json()).data.id as string, 'Alex Example');
 
     await page.goto(`/app/signups/${signupId}/responses`);
-    const row = page.getByRole('row').filter({ hasText: 'Sam Example' });
-    await expect(row).toBeVisible();
+    const sam = page.getByRole('row').filter({ hasText: 'Sam Example' });
+    const alex = page.getByRole('row').filter({ hasText: 'Alex Example' });
+    await expect(sam).toBeVisible();
     const pageFits = () =>
       page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
     expect(await pageFits()).toBe(true);
+    const scrollBox = page.locator('table').locator('..');
+    const scrollTable = (end: boolean) =>
+      scrollBox.evaluate((el, end) => (el.scrollLeft = end ? el.scrollWidth : 0), end);
 
     // Remove is in view without scrolling the table, and so is everything the
     // confirmation says and offers.
-    const remove = row.getByRole('button', { name: REMOVE_SAM, exact: true });
+    await expectOnScreen(page, sam.getByRole('button', { name: REMOVE_SAM, exact: true }));
+    const remove = alex.getByRole('button', {
+      name: 'Remove Alex Example from Orange slices and water',
+      exact: true,
+    });
     await expectOnScreen(page, remove);
     await remove.click();
     const confirm = page.getByRole('alertdialog', { name: 'Confirm removal' });
     await expectOnScreen(page, confirm);
     await expectOnScreen(page, confirm.getByRole('button', { name: 'Keep' }));
     await expectOnScreen(page, confirm.getByRole('button', { name: 'Yes, remove' }));
+    expect(await pageFits()).toBe(true);
+    await confirm.getByRole('button', { name: 'Yes, remove' }).click();
+    const removed = alex.getByRole('cell', { name: 'removed', exact: true });
+    await expect(removed).toBeVisible();
+
+    // Rows stay at most two lines of text high: cells keep their width and the
+    // table scrolls, rather than squeezing to a word per line.
+    await scrollTable(false);
+    for (const row of [sam, alex]) {
+      expect((await row.boundingBox())?.height).toBeLessThanOrEqual(72);
+    }
+    expect(await scrollBox.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    // Nothing is held over a row without Remove: at the box's right edge,
+    // Alex's row shows its own cells, not an empty Actions cell.
+    const frame = await scrollBox.boundingBox();
+    const alexBox = await alex.boundingBox();
+    if (!frame || !alexBox) throw new Error('not on the page');
+    const atEdge = await alex.evaluate(
+      (tr, [x, y]) => {
+        const top = document.elementFromPoint(x!, y!);
+        return top !== null && tr.contains(top) && !tr.lastElementChild?.contains(top);
+      },
+      [frame.x + frame.width - 8, alexBox.y + alexBox.height / 2],
+    );
+    expect(atEdge).toBe(true);
+
+    // Scrolled to the end, every row's Slot and Status can be read, removed
+    // or not, and Remove is still in view.
+    await scrollTable(true);
+    for (const [row, status] of [
+      [sam, 'confirmed'],
+      [alex, 'removed'],
+    ] as const) {
+      await expectUncovered(row.getByRole('cell', { name: /^What: / }));
+      const statusCell = row.getByRole('cell', { name: status, exact: true });
+      await expectUncovered(statusCell);
+      await expectOnScreen(page, statusCell);
+    }
+    await expectOnScreen(page, sam.getByRole('button', { name: REMOVE_SAM, exact: true }));
     expect(await pageFits()).toBe(true);
   });
 });

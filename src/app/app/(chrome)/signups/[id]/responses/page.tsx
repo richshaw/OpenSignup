@@ -14,7 +14,9 @@ import { RemoveCommitmentForm } from './remove-commitment-form';
 type PageParams = { params: Promise<{ id: string }> };
 
 // The Actions column, held at the scroll box's right edge. The shadow marks
-// that edge on a phone, where the rest of the table scrolls under it.
+// that edge on a phone, where the rest of the table scrolls under it. Only a
+// cell with Remove in it is held there: an empty one would hide the row
+// beneath it.
 const STICKY_END = 'sticky right-0 max-sm:shadow-[-6px_0_6px_-6px_rgb(11_18_32/0.2)]';
 
 export default async function ResponsesTab({ params }: PageParams) {
@@ -43,6 +45,8 @@ export default async function ResponsesTab({ params }: PageParams) {
   const showSpots = commitments.some(
     (c) => c.quantity > 1 && (c.status === 'confirmed' || c.status === 'tentative'),
   );
+  const canRemove = (c: (typeof commitments)[number]) =>
+    ACTIVE_COMMITMENT_STATUSES.includes(c.status);
 
   return (
     <section className="space-y-4">
@@ -61,17 +65,23 @@ export default async function ResponsesTab({ params }: PageParams) {
         // scroll box; without it the text sat past the table's right edge and
         // made the whole page pan sideways. The Actions column sticks to the
         // right edge, so Remove, and the confirmation it opens, are in view
-        // without scrolling; the rest of the row slides under it.
+        // without scrolling; the rest of the row slides under it. On a phone
+        // the cells keep to one line, rather than squeezing to a word per line
+        // and making every row tall, and the table scrolls sideways. Slot is
+        // the exception: it wraps at a width that fits beside Remove, so a
+        // long slot can still be read whole.
         <div className="relative overflow-x-auto rounded-xl border border-surface-sunk bg-white">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm max-sm:whitespace-nowrap">
             <thead className="bg-surface-raised text-ink-muted">
               <tr>
                 <th className="px-4 py-3 text-left">Name</th>
                 <th className="px-4 py-3 text-left">Email</th>
-                <th className="px-4 py-3 text-left">Slot</th>
+                <th className="px-4 py-3 text-left max-sm:min-w-48">Slot</th>
                 {showSpots ? <th className="px-4 py-3 text-right">Spots</th> : null}
                 <th className="px-4 py-3 text-left">Status</th>
-                <th className={`${STICKY_END} bg-surface-raised px-4 py-3`}>
+                <th
+                  className={`${commitments.some(canRemove) ? STICKY_END : ''} bg-surface-raised px-4 py-3`}
+                >
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
@@ -98,15 +108,19 @@ export default async function ResponsesTab({ params }: PageParams) {
                   <tr key={c.id}>
                     <td className="px-4 py-3 font-medium">{c.participantName}</td>
                     <td className="text-ink-muted px-4 py-3">{c.participantEmail}</td>
-                    <td className="px-4 py-3">{summary || slot?.ref || '—'}</td>
+                    <td className="px-4 py-3 max-sm:whitespace-normal">
+                      {summary || slot?.ref || '—'}
+                    </td>
                     {showSpots ? (
                       <td className="px-4 py-3 text-right tabular-nums">{c.quantity}</td>
                     ) : null}
                     <td id={statusId} tabIndex={-1} className="px-4 py-3">
                       {status}
                     </td>
-                    <td className={`${STICKY_END} bg-white px-4 py-3 text-right`}>
-                      {ACTIVE_COMMITMENT_STATUSES.includes(c.status) ? (
+                    <td
+                      className={`${canRemove(c) ? `${STICKY_END} bg-white` : ''} px-4 py-3 text-right max-sm:whitespace-normal`}
+                    >
+                      {canRemove(c) ? (
                         <RemoveCommitmentForm
                           signupId={sig.id}
                           commitmentId={c.id}
