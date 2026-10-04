@@ -460,3 +460,47 @@ describe('"Add to calendar" on a signup with several time fields', () => {
     expect(ics).toContain('DTEND:20261118T103000');
   });
 });
+
+describe('the optional email box on the live page', () => {
+  const inHours = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString();
+
+  /** Opens the one slot's form and returns the email box's description. */
+  async function emailHelp(sendReminders: boolean | undefined, slotAt: string | null) {
+    render(
+      <SignupViewBody
+        signup={{
+          ...SIGNUP,
+          requireEmail: false,
+          ...(sendReminders === undefined ? {} : { sendReminders }),
+        }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={[{ ...SLOTS[0]!, slotAt }]}
+        slug="example"
+        mode="live"
+        showStateBanner={false}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
+    const email = await screen.findByLabelText('Email (optional)', {}, { timeout: 5000 });
+    return document.getElementById(email.getAttribute('aria-describedby') ?? '')?.textContent;
+  }
+
+  it('promises a reminder where reminders are on and the slot is dated ahead', async () => {
+    expect(await emailHelp(true, inHours(72))).toContain(', and a reminder before your slot.');
+  });
+
+  // The rule the confirmation email follows: src/lib/reminder-eligibility.ts.
+  for (const [why, sendReminders, slotAt] of [
+    ['reminders are off', false, inHours(72)],
+    ['nothing says whether reminders are on', undefined, inHours(72)],
+    ['the slot has no date', true, null],
+    ['the slot is less than an hour away', true, inHours(0.5)],
+  ] as const) {
+    it(`promises none where ${why}`, async () => {
+      const help = await emailHelp(sendReminders, slotAt);
+      expect(help).toContain("We'll email you your link to change or cancel.");
+      expect(help).not.toContain('reminder');
+    });
+  }
+});

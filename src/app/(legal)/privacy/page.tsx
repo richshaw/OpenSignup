@@ -86,8 +86,8 @@ export default function PrivacyPage() {
             Email address, if you give one. The organizer decides whether a signup requires it. We
             use it to send you a confirmation with your link to change or cancel, and reminders if
             the organizer has them on. If you leave it blank where that is allowed, we send you no
-            emails. Your link is then shown only once, on screen, and kept in a cookie in that
-            browser.
+            emails. Your link is then shown on screen after you sign up, and only that browser
+            remembers it: for 60 days, or until a week after your slot if that is later.
           </li>
           <li>Your slot selection, quantity, and any optional notes.</li>
           <li>

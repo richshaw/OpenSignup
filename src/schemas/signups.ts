@@ -58,6 +58,15 @@ export function requiresEmail(settings: unknown): boolean {
   return parsed.success ? parsed.data.requireEmail : true;
 }
 
+/**
+ * Whether a signup sends reminder emails: its `sendReminders` setting, true
+ * when the key is missing, as the default and the reminder dispatcher say.
+ */
+export function sendsReminders(settings: unknown): boolean {
+  const parsed = SignupSettingsSchema.safeParse(settings ?? {});
+  return parsed.success ? parsed.data.sendReminders : true;
+}
+
 export const SignupCreateInputSchema = z.object({
   title: z.string().min(2).max(120).transform((s) => s.trim()),
   description: z.string().max(2000).default(''),

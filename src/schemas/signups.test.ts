@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { requiresEmail } from './signups';
+import { requiresEmail, sendsReminders } from './signups';
 
 describe('requiresEmail', () => {
   it.each([
@@ -10,5 +10,16 @@ describe('requiresEmail', () => {
     ['settings that do not parse', { requireEmail: 'no' }, true],
   ])('%s', (_label, settings, expected) => {
     expect(requiresEmail(settings)).toBe(expected);
+  });
+});
+
+describe('sendsReminders', () => {
+  it.each([
+    ['no settings', null, true],
+    ['no sendReminders key', { requireEmail: false }, true],
+    ['sendReminders true', { sendReminders: true }, true],
+    ['sendReminders false', { sendReminders: false }, false],
+  ])('%s', (_label, settings, expected) => {
+    expect(sendsReminders(settings)).toBe(expected);
   });
 });

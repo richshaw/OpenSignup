@@ -129,6 +129,9 @@ export interface CommitResult {
   commitment: CommitmentRow;
   editToken: string;
   signupSlug: string;
+  /** The slot's instant, read under its lock, so the route can keep the
+   *  returning-participant cookie until after it without another query. */
+  slotAt: Date | null;
 }
 
 export async function commitToSlot(
@@ -377,7 +380,7 @@ async function commitParticipantToSlot(
       payload: { commitmentId, slotId },
     });
 
-    return ok({ commitment: row, editToken, signupSlug: signupRow.slug });
+    return ok({ commitment: row, editToken, signupSlug: signupRow.slug, slotAt: slot.slotAt });
   });
 }
 
@@ -456,7 +459,7 @@ const MoveNameSchema = CommitmentCreateInputSchema.pick({ name: true });
  * edit link needs.
  */
 type EditedCommitment = CommitmentRow & {
-  moved?: Pick<CommitResult, 'editToken' | 'signupSlug'>;
+  moved?: Pick<CommitResult, 'editToken' | 'signupSlug' | 'slotAt'>;
 };
 
 export async function updateOwnCommitment(
@@ -543,8 +546,8 @@ export async function updateOwnCommitment(
         eventType: 'commitment.swapped',
         payload: { from: current.id, to: newCommit.value.commitment.id },
       });
-      const { commitment, editToken, signupSlug } = newCommit.value;
-      return ok({ ...commitment, moved: { editToken, signupSlug } });
+      const { commitment, editToken, signupSlug, slotAt } = newCommit.value;
+      return ok({ ...commitment, moved: { editToken, signupSlug, slotAt } });
     });
   }
 
