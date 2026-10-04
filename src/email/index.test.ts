@@ -56,4 +56,21 @@ describe('getEmailTransport with EMAIL_TRANSPORT=smtp', () => {
     getEmailTransport();
     expect(createTransport).toHaveBeenCalledWith(expect.objectContaining({ auth: expected }));
   });
+
+  // The rule itself is in smtp.test.ts. This checks SMTP_REQUIRE_TLS reaches it,
+  // and that a blank value leaves the default: required with a login.
+  it.each([
+    [undefined, true],
+    ['', true],
+    ['false', false],
+  ])('SMTP_PORT=587 with a login and SMTP_REQUIRE_TLS=%j requires TLS: %s', (value, expected) => {
+    const withLogin = { ...smtpEnv, SMTP_PORT: '587', SMTP_USER: 'user', SMTP_PASSWORD: 'pw' };
+    env.current = parseEnv(
+      value === undefined ? withLogin : { ...withLogin, SMTP_REQUIRE_TLS: value },
+    );
+    getEmailTransport();
+    expect(createTransport).toHaveBeenCalledWith(
+      expect.objectContaining({ port: 587, secure: false, requireTLS: expected }),
+    );
+  });
 });

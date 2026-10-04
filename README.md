@@ -91,7 +91,7 @@ You can run the image from the `Dockerfile` on any container host, or run the ap
 
 - `pnpm db:migrate`, before the first start and after each update. It prepares the database.
 - The web app: `node server.js` in the image, or `pnpm build` and then `pnpm start` from the source code.
-- `pnpm worker`, which sends reminder emails. It runs next to the web app, as a second process.
+- `pnpm worker`, which sends reminder emails. It runs next to the web app, as a second process. Run exactly one: two workers can send the same reminder twice.
 
 All settings are environment variables, listed in `.env.example`. For Fly.io, start from `fly.example.toml`.
 

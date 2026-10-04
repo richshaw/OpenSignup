@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { requiredString } from './zod-env';
+import { booleanFlag, requiredString } from './zod-env';
 
 const transportEnum = z.enum(['console', 'smtp', 'resend']);
 
@@ -26,10 +26,9 @@ const baseSchema = z.object({
   // of a login name. The password is kept exactly: spaces can be part of it.
   SMTP_USER: z.string().trim().optional(),
   SMTP_PASSWORD: z.string().optional(),
-  SMTP_SECURE: z
-    .enum(['true', 'false'])
-    .transform((v) => v === 'true')
-    .optional(),
+  SMTP_SECURE: booleanFlag(),
+  // Unset requires STARTTLS whenever a login is set (see src/email/smtp.ts).
+  SMTP_REQUIRE_TLS: booleanFlag(),
   SENTRY_DSN: z.string().optional(),
   POSTHOG_KEY: z.string().optional(),
   POSTHOG_HOST: z.string().url().optional(),

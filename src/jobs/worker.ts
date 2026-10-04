@@ -16,7 +16,7 @@ async function main() {
         await sendReminderJob(job.data);
       } catch (err) {
         log.error({ err, commitmentId: job.data.commitmentId }, 'reminder send failed');
-        throw err; // triggers pg-boss retry with backoff
+        throw err; // pg-boss retries it: twice, at once, with no backoff configured
       }
     }
   });
