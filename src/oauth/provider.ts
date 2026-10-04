@@ -44,7 +44,12 @@ export interface ProviderDeps {
   allowCimdFetch(clientId: string): Promise<boolean>;
   /** Called after any successful token-endpoint use of a grant. */
   onGrantUsed(grantId: string): Promise<void>;
-  /** Override outbound HTTP (CIMD documents) — tests only. */
+  /**
+   * Override outbound HTTP (CIMD documents) — tests only. oidc-provider passes
+   * `init.dispatcher`, the agent that refuses loopback and private addresses;
+   * a `fetch` that opens real sockets must forward it, or that protection is
+   * silently off.
+   */
   fetch?: Configuration['fetch'];
 }
 

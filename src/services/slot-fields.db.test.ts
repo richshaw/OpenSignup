@@ -107,6 +107,14 @@ async function rowVersion(slotId: string): Promise<string | undefined> {
   return row?.xmin;
 }
 
+/** `rowVersion` for a field row. */
+async function fieldVersion(fieldId: string): Promise<string | undefined> {
+  const [row] = await getDb().execute<{ xmin: string }>(
+    sql`select xmin::text as xmin from slot_fields where id = ${fieldId}`,
+  );
+  return row?.xmin;
+}
+
 describe('slot-fields service (db)', () => {
   let fx: Fixture;
 
@@ -271,6 +279,59 @@ describe('slot-fields service (db)', () => {
       const listed = await listFields(fx.db, fx.actor, sigId);
       if (!listed.ok) throw new Error('list failed');
       expect(listed.value.map((f) => f.ref)).toEqual(['first', 'added']);
+    });
+
+    it('adds a text, number or enum field without waiting for someone part-way through signing up', async () => {
+      const sigId = await createTestSignup(fx, 'Add while committing');
+      const day = await addField(fx.db, fx.actor, sigId, {
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      if (!day.ok) throw new Error('setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { day: '2026-05-10' } });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      const adds = [
+        { ref: 'task', label: 'Task', fieldType: 'text', config: { fieldType: 'text' } },
+        { ref: 'hours', label: 'Hours', fieldType: 'number', config: { fieldType: 'number' } },
+        {
+          ref: 'room',
+          label: 'Room',
+          fieldType: 'enum',
+          config: { fieldType: 'enum', choices: ['Gym', 'Hall'] },
+        },
+      ];
+      const outcomes: string[] = [];
+      const pending: Promise<unknown>[] = [];
+      const held = fx.db.transaction(async (tx) => {
+        // What `commitToSlot` does, held open: lock the slot row.
+        await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
+        for (const input of adds) {
+          const adding = addField(fx.db, fx.actor, sigId, input);
+          pending.push(adding.catch(() => undefined));
+          // Only a date or time field can move the anchor or slot_at, so none
+          // of these has any business with the slot rows, and each must finish
+          // while this one is still held.
+          outcomes.push(
+            await Promise.race([
+              adding.then((r) => (r.ok ? 'added' : JSON.stringify(r))),
+              untilBlockedOn(fx.db, tx, 5_000).then(
+                () => 'blocked behind the slot row',
+                () => 'neither finished nor blocked',
+              ),
+            ]),
+          );
+        }
+      });
+      // Let a blocked add finish before the next test or the teardown runs,
+      // even when something above threw.
+      await held.finally(() => Promise.all(pending));
+      expect(outcomes).toEqual(['added', 'added', 'added']);
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
+      expect(after?.slotAt?.toISOString()).toBe('2026-05-10T12:00:00.000Z');
     });
 
     it('does not deadlock with someone signing up for a slot whose slot_at changes', async () => {
@@ -471,6 +532,161 @@ describe('slot-fields service (db)', () => {
       // Let a blocked rename finish before the next test or the teardown runs.
       await renaming;
       expect(outcome).toBe('renamed');
+    });
+
+    it('renames a date or time field from the builder without waiting for someone part-way through signing up', async () => {
+      const sigId = await createTestSignup(fx, 'Builder rename while committing');
+      for (const [ref, fieldType] of [
+        ['day', 'date'],
+        ['start', 'time'],
+      ] as const) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType,
+          config: { fieldType },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+      }
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { day: '2026-05-10', start: '09:30' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      expect(slot.value.slotAt?.toISOString()).toBe('2026-05-10T09:30:00.000Z');
+
+      // What the builder's Fields dialog sends for a rename: the new label,
+      // with the type and config just as the server listed them.
+      const listed = await listFieldsForSignup(fx.db, sigId);
+      const saves = listed.map((f) => ({
+        id: f.id,
+        body: { label: `${f.label} (renamed)`, fieldType: f.config.fieldType, config: f.config },
+      }));
+      const outcomes: string[] = [];
+      const pending: Promise<unknown>[] = [];
+      const held = fx.db.transaction(async (tx) => {
+        // What `commitToSlot` does, held open: lock the slot row.
+        await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
+        for (const save of saves) {
+          const renaming = updateField(fx.db, fx.actor, save.id, save.body);
+          pending.push(renaming.catch(() => undefined));
+          // The type and config are the ones the field has, so neither the
+          // anchor nor slot_at can move, and the rename must finish while this
+          // one is still held.
+          outcomes.push(
+            await Promise.race([
+              renaming.then((r) => (r.ok ? 'renamed' : JSON.stringify(r))),
+              untilBlockedOn(fx.db, tx, 5_000).then(
+                () => 'blocked behind the slot row',
+                () => 'neither finished nor blocked',
+              ),
+            ]),
+          );
+        }
+      });
+      // Let a blocked rename finish before the next test or the teardown runs,
+      // even when something above threw.
+      await held.finally(() => Promise.all(pending));
+      expect(outcomes).toEqual(['renamed', 'renamed']);
+
+      const after = await listFieldsForSignup(fx.db, sigId);
+      expect(after.map((f) => [f.label, f.fieldType])).toEqual([
+        ['day (renamed)', 'date'],
+        ['start (renamed)', 'time'],
+      ]);
+      // The log says what changed, not what the dialog happened to send.
+      const acts = await fx.db.select().from(activity).where(eq(activity.signupId, sigId));
+      const logged = acts.filter((a) => a.eventType === 'field.updated').map((a) => a.payload);
+      expect(logged).toHaveLength(listed.length);
+      expect(logged).toEqual(
+        expect.arrayContaining(
+          listed.map((f) => ({
+            fieldId: f.id,
+            ref: f.ref,
+            changes: { label: `${f.label} (renamed)` },
+          })),
+        ),
+      );
+    });
+
+    it('writes and logs nothing for a save of what the field already has', async () => {
+      const sigId = await createTestSignup(fx, 'Save without a change');
+      const day = await addField(fx.db, fx.actor, sigId, {
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      if (!day.ok) throw new Error('setup failed');
+      const before = await fieldVersion(day.value.id);
+      expect(before).toBeDefined();
+
+      // What the builder's Fields dialog sends when it is opened and saved
+      // without an edit: the label, type and config as the server listed them.
+      const [listed] = await listFieldsForSignup(fx.db, sigId);
+      if (!listed) throw new Error('field not listed');
+      const asListed = {
+        label: listed.label,
+        fieldType: listed.config.fieldType,
+        config: listed.config,
+      };
+      for (const save of [asListed, { ...asListed, sortOrder: listed.sortOrder }]) {
+        const r = await updateField(fx.db, fx.actor, day.value.id, save);
+        expect(r.ok, JSON.stringify(r)).toBe(true);
+        if (r.ok) expect(r.value).toEqual(day.value);
+      }
+      // No UPDATE ran: one writing the same values would still change xmin.
+      expect(await fieldVersion(day.value.id)).toBe(before);
+      const acts = await fx.db.select().from(activity).where(eq(activity.signupId, sigId));
+      expect(acts.some((a) => a.eventType === 'field.updated')).toBe(false);
+    });
+
+    it('refuses an update with nothing in it', async () => {
+      const sigId = await createTestSignup(fx, 'Empty save');
+      const day = await addField(fx.db, fx.actor, sigId, {
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'date',
+        config: { fieldType: 'date' },
+      });
+      if (!day.ok) throw new Error('setup failed');
+      const before = await fieldVersion(day.value.id);
+
+      // What the PATCH route passes on for a body that is not JSON, and what
+      // an MCP update_field call with only the field id comes down to.
+      const r = await updateField(fx.db, fx.actor, day.value.id, {});
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe('invalid_input');
+      expect(await fieldVersion(day.value.id)).toBe(before);
+    });
+
+    it('writes a config that only differs by a default the row was saved without', async () => {
+      const sigId = await createTestSignup(fx, 'Default filled in');
+      const note = await addField(fx.db, fx.actor, sigId, {
+        ref: 'note',
+        label: 'Note',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!note.ok) throw new Error('setup failed');
+      // As an older write could have left it: no maxLength, so no limit.
+      await fx.db
+        .update(slotFields)
+        .set({ config: { fieldType: 'text' } })
+        .where(eq(slotFields.id, note.value.id));
+
+      // Parsing fills in maxLength: 200, which is a limit the row did not
+      // have, so this is a change and is saved, not skipped as a resend.
+      const r = await updateField(fx.db, fx.actor, note.value.id, {
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      const [after] = await fx.db
+        .select()
+        .from(slotFields)
+        .where(eq(slotFields.id, note.value.id))
+        .limit(1);
+      expect(after?.config).toEqual({ fieldType: 'text', maxLength: 200 });
     });
 
     it('does not deadlock with someone signing up for a slot whose slot_at changes', async () => {
@@ -741,7 +957,7 @@ describe('slot-fields service (db)', () => {
       ];
       const outcomes: string[] = [];
       const pending: Promise<unknown>[] = [];
-      await fx.db.transaction(async (tx) => {
+      const held = fx.db.transaction(async (tx) => {
         // What `commitToSlot` does, held open: lock the slot row.
         await tx.select().from(slots).where(eq(slots.id, slot.value.id)).for('update');
         for (const save of saves) {
@@ -760,8 +976,9 @@ describe('slot-fields service (db)', () => {
           );
         }
       });
-      // Let a blocked save finish before the next test or the teardown runs.
-      await Promise.all(pending);
+      // Let a blocked save finish before the next test or the teardown runs,
+      // even when something above threw.
+      await held.finally(() => Promise.all(pending));
       expect(outcomes).toEqual(['saved', 'saved']);
     });
 
@@ -787,6 +1004,19 @@ describe('slot-fields service (db)', () => {
       expect(renamed.ok, JSON.stringify(renamed)).toBe(true);
       const moved = await updateField(fx.db, fx.actor, created.value.id, { sortOrder: 5 });
       expect(moved.ok, JSON.stringify(moved)).toBe(true);
+
+      // A rename from the builder's Fields dialog, which sends the config back
+      // as the server listed it: in jsonb's key order, not the schema's. Still
+      // the config the field has, so still nothing to check.
+      const [asListed] = await listFieldsForSignup(fx.db, sigId);
+      if (!asListed) throw new Error('field not listed');
+      expect(Object.keys(asListed.config)).toEqual(['choices', 'fieldType']);
+      const builderRename = await updateField(fx.db, fx.actor, created.value.id, {
+        label: 'Lesson',
+        fieldType: asListed.config.fieldType,
+        config: asListed.config,
+      });
+      expect(builderRename.ok, JSON.stringify(builderRename)).toBe(true);
 
       const retyped = await updateField(fx.db, fx.actor, created.value.id, {
         fieldType: 'enum',
