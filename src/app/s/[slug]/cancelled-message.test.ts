@@ -25,6 +25,24 @@ describe('wasCancelled', () => {
 });
 
 describe('CANCELLED_PAGE', () => {
+  // One for each `CancelledSlotState`: the reason the slot would refuse them.
+  it.each([
+    ['open', 'Go back to the signup if you want to sign up again.'],
+    ['full', 'All its places have been taken since.'],
+    ['slotClosed', 'This slot is no longer taking sign-ups.'],
+    ['signupClosed', 'Sign-ups have closed.'],
+  ] as const)('says why for a slot that is %s', (state, body) => {
+    expect(CANCELLED_PAGE[state]).toEqual({ title: 'This sign-up was cancelled', body });
+  });
+
+  // Anywhere else, signing up again would be refused.
+  it('suggests signing up again only while the slot takes places', () => {
+    const suggesting = Object.entries(CANCELLED_PAGE)
+      .filter(([, copy]) => /sign up again/i.test(copy.body))
+      .map(([state]) => state);
+    expect(suggesting).toEqual(['open']);
+  });
+
   // An organizer may one day remove someone; the same words have to fit.
   it.each(Object.entries(CANCELLED_PAGE))('%s does not say who cancelled', (_, copy) => {
     expect(`${copy.title} ${copy.body}`).not.toMatch(/you cancelled|organizer|removed/i);

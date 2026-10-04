@@ -76,7 +76,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
     }
     return (
       <SignupStateMessage
-        {...(state.takingPlaces ? CANCELLED_PAGE.open : CANCELLED_PAGE.closed)}
+        {...CANCELLED_PAGE[state.slot]}
         action={{ label: 'Back to the signup', href: `/s/${slug}` }}
       />
     );

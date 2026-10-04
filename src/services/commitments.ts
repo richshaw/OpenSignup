@@ -907,9 +907,10 @@ const MAX_MOVES_FOLLOWED = 10;
  * again as a new one, with its own edit link, writing a `commitment.swapped`
  * row `{ from, to }`. So `movedTo` is the commitment this one moved to,
  * followed through any later moves (up to `MAX_MOVES_FOLLOWED`), while that
- * one is still active. Otherwise `movedTo` is null, and `takingPlaces` says
- * whether the slot last held still takes places (`whyNotTakingPlaces`), so the
- * page suggests signing up again only when that would not be refused.
+ * one is still active. Otherwise `movedTo` is null, and `slot` says whether
+ * the slot last held would take a sign-up again (`CancelledSlotState`), so the
+ * page suggests signing up again only when that would not be refused, and
+ * otherwise says why.
  *
  * Guard-free, like `editLimitsForCommitment`: call it only with a commitment
  * that `getOwnCommitment` has already verified against its edit token. Each
@@ -918,7 +919,7 @@ const MAX_MOVES_FOLLOWED = 10;
 export async function cancelledCommitmentState(
   db: Db,
   commitment: { id: string; signupId: string; slotId: string },
-): Promise<{ movedTo: string } | { movedTo: null; takingPlaces: boolean }> {
+): Promise<{ movedTo: string } | { movedTo: null; slot: CancelledSlotState }> {
   let lastId = commitment.id;
   for (let moves = 0; moves < MAX_MOVES_FOLLOWED; moves++) {
     const [move] = await db
@@ -947,6 +948,38 @@ export async function cancelledCommitmentState(
     // Moved, then cancelled too: it reads as a cancel, of the slot moved to.
     if (last) slotId = last.slotId;
   }
+  return { movedTo: null, slot: await slotStateAfterCancel(db, slotId) };
+}
+
+/**
+ * Whether a slot would take a cancelled sign-up back, and if not, why:
+ * `signupClosed` when the signup takes no more places (closed, archived or
+ * past `closesAt`), `slotClosed` when only the slot does not (it is closed, or
+ * inside its lockout), `full` when every place in it is taken. `open` when a
+ * sign-up for 1 would not be refused.
+ */
+export type CancelledSlotState = 'open' | 'full' | 'slotClosed' | 'signupClosed';
+
+async function slotStateAfterCancel(db: Db, slotId: string): Promise<CancelledSlotState> {
   const row = await readSlotAndSignup(db, slotId);
-  return { movedTo: null, takingPlaces: !!row && !whyNotTakingPlaces(row.signup, row) };
+  // Its signup was deleted since the edit link was checked.
+  if (!row) return 'signupClosed';
+  if (whyNotTakingPlaces(row.signup, row)) {
+    // A slot closed in a signup that is closed too reads as the signup
+    // closed, which says more: the same rules, with the slot's own left out.
+    const signupShut = whyNotTakingPlaces(row.signup, { status: 'open', slotAt: null });
+    return signupShut ? 'signupClosed' : 'slotClosed';
+  }
+  if (row.capacity === null) return 'open';
+  // What `commitToSlot` checks a sign-up against.
+  const [taken] = await db
+    .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
+    .from(commitments)
+    .where(
+      and(
+        eq(commitments.slotId, slotId),
+        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
+      ),
+    );
+  return (taken?.sum ?? 0) >= row.capacity ? 'full' : 'open';
 }

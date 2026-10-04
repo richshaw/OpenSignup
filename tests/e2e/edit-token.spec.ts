@@ -143,17 +143,31 @@ test.describe('token-gated commitment editing', () => {
     await expect(page.getByText(CANCELLED_PAGE.open.body)).toBeVisible();
   });
 
-  test('a cancelled sign-up’s link does not suggest signing up again once closed', async ({
+  test('a cancelled sign-up’s link says why it can’t be taken again once closed', async ({
     page,
   }) => {
-    const signup = await freshSignup(page, 'Closed after cancel', ['Morning']);
+    const signup = await freshSignup(page, 'Closed after cancel', ['Morning', 'Afternoon']);
     const mine = await signUp(page, signup.slotIds[0]!);
     expect((await page.request.delete(mine.api)).ok()).toBe(true);
-    expect((await page.request.post(`/api/signups/${signup.id}/close`)).ok()).toBe(true);
 
+    // Only its slot closed: the signup's other slots still take sign-ups.
+    const slotClosed = await page.request.patch(`/api/slots/${signup.slotIds[0]}`, {
+      data: { status: 'closed' },
+    });
+    expect(slotClosed.ok()).toBe(true);
     await page.goto(mine.editUrl);
-    await expect(page.getByRole('heading', { name: CANCELLED_PAGE.closed.title })).toBeVisible();
-    await expect(page.getByText(CANCELLED_PAGE.closed.body)).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: CANCELLED_PAGE.slotClosed.title }),
+    ).toBeVisible();
+    await expect(page.getByText(CANCELLED_PAGE.slotClosed.body)).toBeVisible();
+    await expect(page.getByText(/sign up again/)).toHaveCount(0);
+
+    expect((await page.request.post(`/api/signups/${signup.id}/close`)).ok()).toBe(true);
+    await page.goto(mine.editUrl);
+    await expect(
+      page.getByRole('heading', { name: CANCELLED_PAGE.signupClosed.title }),
+    ).toBeVisible();
+    await expect(page.getByText(CANCELLED_PAGE.signupClosed.body)).toBeVisible();
     await expect(page.getByText(/sign up again/)).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Back to the signup' })).toHaveAttribute(
       'href',

@@ -48,11 +48,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const body = await req.json().catch(() => ({}));
     const result = await updateOwnCommitment(db, id, token, body);
     // A swap cancels this commitment and creates a new one with a new id and a
-    // new edit token, so the confirmation already in the participant's inbox
-    // now points at a cancelled row — while telling them to keep it because it
-    // is how they change their slot. Send a receipt for the replacement. Edit
-    // tokens are HMAC(secret, commitment_id), so the new one is re-derivable
-    // without threading it back out of the service.
+    // new edit token. The link in the confirmation already in the
+    // participant's inbox then opens a page saying the sign-up moved, which
+    // links on to the new one; send a receipt for the replacement too, so the
+    // link they are told to keep is the new one. Edit tokens are
+    // HMAC(secret, commitment_id), so the new one is re-derivable without
+    // threading it back out of the service.
     if (result.ok && result.value.id !== id) {
       const swapped = result.value;
       after(() => notifyCommitmentCreated(db, swapped.id, editTokenFor(swapped.id)));
