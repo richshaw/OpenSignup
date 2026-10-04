@@ -1,3 +1,4 @@
+import nodemailer from 'nodemailer';
 import { describe, expect, it } from 'vitest';
 import { smtpTransportOptions } from './smtp';
 
@@ -32,5 +33,25 @@ describe('smtpTransportOptions', () => {
     const options = smtpTransportOptions(cfg);
     expect(options.disableFileAccess).toBe(true);
     expect(options.disableUrlAccess).toBe(true);
+  });
+});
+
+// The other email tests mock nodemailer, so a major version bump could not fail
+// them. These build a real transport from our options; jsonTransport composes
+// the message without opening a connection.
+describe('smtpTransportOptions with the real nodemailer', () => {
+  const transport = () =>
+    nodemailer.createTransport({ ...smtpTransportOptions(cfg), jsonTransport: true });
+  const message = { from: cfg.from, to: 'pat@example.com', subject: 'Hello' };
+
+  it('sends a message and reports its id', async () => {
+    const info = await transport().sendMail({ ...message, text: 'Hi', html: '<p>Hi</p>' });
+    expect(info.messageId).toMatch(/^<.+@.+>$/);
+  });
+
+  it('refuses a file path as message content', async () => {
+    await expect(
+      transport().sendMail({ ...message, text: { path: 'package.json' } }),
+    ).rejects.toMatchObject({ code: 'EFILEACCESS' });
   });
 });

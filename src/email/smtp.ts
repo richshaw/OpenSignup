@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import nodemailer, { type Transporter } from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 import type { EmailMessage, EmailResult, EmailTransport } from './transport';
 
@@ -13,10 +13,13 @@ export interface SmtpConfig {
 }
 
 // A mail host that is down or firewalled has to fail in seconds, not
-// nodemailer's 30 s for DNS and 2 min for the connect. Once a server answers,
-// its pace is left to nodemailer's defaults (30 s for the greeting, 10 min
-// idle): a reminder that times out after the relay took it is retried, and the
-// participant gets it twice. The sign-in request sets its own overall limit.
+// nodemailer's 30 s for DNS and 2 min for the connect. The connect limit is
+// per address: nodemailer tries each address the host's name resolves to in
+// turn and starts the limit again for each, so with three addresses down the
+// sign-in request's own 30 s limit (src/auth/magic-link-send.ts) runs out
+// first. Once a server answers, its pace is left to nodemailer's defaults
+// (30 s for the greeting, 10 min idle): a reminder that times out after the
+// relay took it is retried, and the participant gets it twice.
 const SMTP_DNS_TIMEOUT_MS = 10_000;
 const SMTP_CONNECTION_TIMEOUT_MS = 10_000;
 
@@ -37,7 +40,7 @@ export function smtpTransportOptions(cfg: SmtpConfig): SMTPTransport.Options {
 }
 
 export class SmtpTransport implements EmailTransport {
-  private readonly transporter: nodemailer.Transporter;
+  private readonly transporter: Transporter;
 
   constructor(private readonly cfg: SmtpConfig) {
     this.transporter = nodemailer.createTransport(smtpTransportOptions(cfg));
