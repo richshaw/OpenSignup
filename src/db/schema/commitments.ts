@@ -37,7 +37,7 @@ export const commitments = pgTable(
      */
     position: integer('position').notNull(),
     status: text('status').notNull().default('confirmed'),
-    // confirmed | tentative | waitlist | cancelled | no_show | orphaned
+    // confirmed | tentative | waitlist | cancelled | no_show
     quantity: integer('quantity').notNull().default(1),
     notes: text('notes').notNull().default(''),
     notesVisibility: text('notes_visibility').notNull().default('public'), // public | organizer_only
