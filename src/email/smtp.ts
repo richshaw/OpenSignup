@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import nodemailer, { type Transporter } from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 import type { EmailMessage, EmailResult, EmailTransport } from './transport';
 
@@ -86,7 +86,7 @@ function withStartTlsHint(err: unknown): unknown {
 }
 
 export class SmtpTransport implements EmailTransport {
-  private readonly transporter: nodemailer.Transporter;
+  private readonly transporter: Transporter;
   private readonly requireTls: boolean;
 
   constructor(private readonly cfg: SmtpConfig) {
