@@ -220,7 +220,7 @@ test.describe('help: create and publish your first signup', () => {
     // Sam's sign-up is on the Responses tab, where a lost link's old sign-up
     // is removed.
     await page.getByRole('tab', { name: UI.responses }).click();
-    await expect(page.getByRole('cell', { name: 'Sam Example' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Sam Example', exact: true })).toBeVisible();
 
     // Back to Required: new sign-ups are asked, and Sam keeps the spot.
     await page.goto(`/app/signups/${signup.id}/settings`);
