@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
@@ -14,6 +14,8 @@ import { commitments } from '@/db/schema/commitments';
 import { slots } from '@/db/schema/slots';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { selectDueReminders } from '@/jobs/reminders';
+import { removeParticipantEmail } from '@/services/testing/participants';
+import { getEmailTransport } from './index';
 import { notifyCommitmentCreated } from './notify';
 
 interface Fixture {
@@ -84,6 +86,7 @@ async function commitOnce(fx: Fixture, title: string) {
   return {
     signupId: created.value.id,
     commitmentId: commit.value.commitment.id,
+    participantId: commit.value.commitment.participantId,
     editToken: commit.value.editToken,
   };
 }
@@ -133,6 +136,19 @@ describe('notifyCommitmentCreated (db)', () => {
     const gone = await deleteSignup(fx.db, fx.actor, signupId);
     expect(gone.ok).toBe(true);
     await notifyCommitmentCreated(fx.db, commitmentId, editToken);
+    expect(await confirmationRows(fx.db, commitmentId)).toBe(0);
+  });
+
+  it('sends nothing to a participant without an email', async () => {
+    const { commitmentId, participantId, editToken } = await commitOnce(fx, 'No email given');
+    await removeParticipantEmail(fx.db, participantId);
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      await notifyCommitmentCreated(fx.db, commitmentId, editToken);
+      expect(send).not.toHaveBeenCalled();
+    } finally {
+      send.mockRestore();
+    }
     expect(await confirmationRows(fx.db, commitmentId)).toBe(0);
   });
 

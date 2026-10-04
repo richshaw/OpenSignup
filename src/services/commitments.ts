@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Db, Queryable, Tx } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
-import { participants } from '@/db/schema/participants';
+import { participantEmailColumns, participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { recordActivity } from '@/lib/activity';
@@ -20,6 +20,8 @@ import {
 import { inWorkspace, readLiveSignup } from './locks';
 
 type CommitmentRow = typeof commitments.$inferSelect;
+/** A commitment with who made it. `participantEmail` is null when they gave none. */
+type OwnCommitment = CommitmentRow & { participantName: string; participantEmail: string | null };
 
 /**
  * A commitment the participant can still act on. `cancelled` and `no_show`
@@ -226,8 +228,7 @@ async function commitParticipantToSlot(
         id: participantId,
         signupId: slot.signupId,
         workspaceId: slot.workspaceId,
-        email: who.email,
-        emailLower: who.email.toLowerCase(),
+        ...participantEmailColumns(who.email),
         name: data.name,
       });
       await recordActivity(tx, {
@@ -366,7 +367,7 @@ export async function getOwnCommitment(
   db: Db,
   commitmentId: string,
   token: string,
-): Promise<Result<CommitmentRow & { participantName: string; participantEmail: string }, ServiceError>> {
+): Promise<Result<OwnCommitment, ServiceError>> {
   const row = await db
     .select({
       c: commitments,
@@ -399,7 +400,7 @@ export async function getOwnCommitmentsForSignup(
   db: Db,
   signupId: string,
   items: { commitmentId: string; token: string }[],
-): Promise<Array<CommitmentRow & { participantName: string; participantEmail: string }>> {
+): Promise<OwnCommitment[]> {
   if (items.length === 0) return [];
   const tokenById = new Map(items.map((i) => [i.commitmentId, i.token]));
   const rows = await db
@@ -417,7 +418,7 @@ export async function getOwnCommitmentsForSignup(
         or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
       ),
     );
-  const out: Array<CommitmentRow & { participantName: string; participantEmail: string }> = [];
+  const out: OwnCommitment[] = [];
   for (const row of rows) {
     const token = tokenById.get(row.c.id);
     if (!token) continue;
@@ -431,12 +432,21 @@ export async function getOwnCommitmentsForSignup(
 // name, which the edit schema alone does not apply: blank is refused.
 const MoveNameSchema = CommitmentCreateInputSchema.pick({ name: true });
 
+/**
+ * The commitment as an edit left it. A move to another slot gives the new
+ * commitment, whose id and edit token are new, with `moved` holding what its
+ * edit link needs.
+ */
+type EditedCommitment = CommitmentRow & {
+  moved?: Pick<CommitResult, 'editToken' | 'signupSlug'>;
+};
+
 export async function updateOwnCommitment(
   db: Db,
   commitmentId: string,
   token: string,
   rawInput: unknown,
-): Promise<Result<CommitmentRow, ServiceError>> {
+): Promise<Result<EditedCommitment, ServiceError>> {
   const input = parseInputSafe(CommitmentUpdateInputSchema, rawInput);
   if (!input.ok) return input;
   const data: CommitmentUpdateInput = input.value;
@@ -515,7 +525,8 @@ export async function updateOwnCommitment(
         eventType: 'commitment.swapped',
         payload: { from: current.id, to: newCommit.value.commitment.id },
       });
-      return ok(newCommit.value.commitment);
+      const { commitment, editToken, signupSlug } = newCommit.value;
+      return ok({ ...commitment, moved: { editToken, signupSlug } });
     });
   }
 

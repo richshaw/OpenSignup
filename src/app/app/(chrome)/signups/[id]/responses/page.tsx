@@ -65,7 +65,14 @@ export default async function ResponsesTab({ params }: PageParams) {
                 return (
                   <tr key={c.id}>
                     <td className="px-4 py-3 font-medium">{c.participantName}</td>
-                    <td className="text-ink-muted px-4 py-3">{c.participantEmail}</td>
+                    <td className="text-ink-muted px-4 py-3">
+                      {c.participantEmail ?? (
+                        <>
+                          <span aria-hidden="true">—</span>
+                          <span className="sr-only">No email</span>
+                        </>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{summary || slot?.ref || '—'}</td>
                     {showSpots ? (
                       <td className="px-4 py-3 text-right tabular-nums">{c.quantity}</td>

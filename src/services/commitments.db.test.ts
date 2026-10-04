@@ -15,6 +15,8 @@ import {
   cancelOwnCommitment,
   commitToSlot,
   editLimitsForCommitment,
+  getOwnCommitment,
+  getOwnCommitmentsForSignup,
   updateOwnCommitment,
 } from '@/services/commitments';
 import {
@@ -26,6 +28,7 @@ import {
 } from '@/services/signups';
 import { addSlot, deleteSlot, updateSlot } from '@/services/slots';
 import { settle, untilServiceBlockedOn } from '@/services/testing/locks';
+import { removeParticipantEmail } from '@/services/testing/participants';
 
 interface Fixture {
   db: Db;
@@ -1192,6 +1195,103 @@ describe('commitToSlot participant dedup (db)', () => {
       .where(eq(participants.id, r1.value.commitment.participantId));
     expect(stored[0]?.email).toBe('Alice@Example.test');
     expect(stored[0]?.emailLower).toBe('alice@example.test');
+  });
+});
+
+describe('participants without an email (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  it('reads back through the edit link with a null email', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'No email edit link');
+    const r = await commitToSlot(fx.db, slotId, {
+      name: 'Sam',
+      email: 'sam@example.test',
+      quantity: 1,
+    });
+    if (!r.ok) throw new Error(`commit failed: ${r.error.message}`);
+    await removeParticipantEmail(fx.db, r.value.commitment.participantId);
+
+    const own = await getOwnCommitment(fx.db, r.value.commitment.id, r.value.editToken);
+    if (!own.ok) throw new Error(`getOwnCommitment failed: ${own.error.message}`);
+    expect(own.value.participantName).toBe('Sam');
+    expect(own.value.participantEmail).toBeNull();
+
+    const returning = await getOwnCommitmentsForSignup(fx.db, signupId, [
+      { commitmentId: r.value.commitment.id, token: r.value.editToken },
+    ]);
+    expect(returning.map((c) => c.participantEmail)).toEqual([null]);
+  });
+
+  it('can move to another slot', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'No email move');
+    const second = await addSlot(fx.db, fx.actor, signupId, { values: {}, capacity: 5 });
+    if (!second.ok) throw new Error(`addSlot failed: ${second.error.message}`);
+    const r = await commitToSlot(fx.db, slotId, {
+      name: 'Sam',
+      email: 'sam@example.test',
+      quantity: 1,
+    });
+    if (!r.ok) throw new Error(`commit failed: ${r.error.message}`);
+    const { participantId } = r.value.commitment;
+    await removeParticipantEmail(fx.db, participantId);
+
+    const moved = await updateOwnCommitment(fx.db, r.value.commitment.id, r.value.editToken, {
+      swapToSlotId: second.value.id,
+    });
+    expect(moved.ok, JSON.stringify(moved)).toBe(true);
+    if (!moved.ok) return;
+    expect(moved.value.participantId).toBe(participantId);
+  });
+
+  it('can be more than one on the same signup', async () => {
+    // The unique index on (signup_id, email_lower) treats NULLs as distinct.
+    const { signupId } = await makeOpenSignupWithSlot(fx, 'Two without email');
+    for (const name of ['Sam', 'Robin']) {
+      await fx.db.insert(participants).values({
+        id: makeId('par'),
+        signupId,
+        workspaceId: fx.workspaceId,
+        email: null,
+        emailLower: null,
+        name,
+      });
+    }
+    const [row] = await fx.db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(participants)
+      .where(eq(participants.signupId, signupId));
+    expect(row?.n).toBe(2);
+  });
+
+  // No email is exactly null in both columns, never blank.
+  it.each([
+    { email: 'sam@example.test', emailLower: null },
+    { email: null, emailLower: 'sam@example.test' },
+    { email: '', emailLower: '' },
+    { email: 'sam@example.test', emailLower: '' },
+    { email: '', emailLower: null },
+  ])('refuses email $email with email_lower $emailLower', async ({ email, emailLower }) => {
+    const { signupId } = await makeOpenSignupWithSlot(fx, 'Half an email');
+    await expect(
+      fx.db.insert(participants).values({
+        id: makeId('par'),
+        signupId,
+        workspaceId: fx.workspaceId,
+        email,
+        emailLower,
+        name: 'Sam',
+      }),
+    ).rejects.toMatchObject({
+      cause: { code: '23514', constraint_name: 'participants_email_lower_with_email' },
+    });
   });
 });
 

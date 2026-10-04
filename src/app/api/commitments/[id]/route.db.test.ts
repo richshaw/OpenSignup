@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import { getDb, type Db } from '@/db/client';
@@ -6,19 +6,35 @@ import { commitments } from '@/db/schema/commitments';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
+import { getEmailTransport } from '@/email';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { RateLimits } from '@/lib/rate-limit';
+import {
+  appendReturningCommit,
+  COMMIT_COOKIE_NAME,
+  parseReturningCommits,
+} from '@/lib/returning-participant';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
+import { removeParticipantEmail } from '@/services/testing/participants';
 import { DELETE, GET, PATCH } from './route';
+
+// Work handed to after() runs once the response has gone. Kept here so a test
+// can run it and see what it did.
+const afterResponse: Array<() => unknown> = [];
+vi.mock('next/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/server')>()),
+  after: (task: () => unknown) => void afterResponse.push(task),
+}));
 
 interface Fixture {
   db: Db;
   workspaceId: string;
   organizerId: string;
   actor: Actor;
+  signupId: string;
   slotId: string;
 }
 
@@ -38,12 +54,14 @@ function makeRequest(
     tokenVia?: 'query' | 'header';
     body?: unknown;
     ip?: string;
+    cookie?: string;
   } = {},
 ): { req: NextRequest; ctx: { params: Promise<{ id: string }> } } {
-  const { method = 'GET', token, tokenVia = 'query', body, ip } = opts;
+  const { method = 'GET', token, tokenVia = 'query', body, ip, cookie } = opts;
   const query = token && tokenVia === 'query' ? `?token=${encodeURIComponent(token)}` : '';
   const headers: Record<string, string> = { 'x-forwarded-for': ip ?? nextIp() };
   if (token && tokenVia === 'header') headers['x-edit-token'] = token;
+  if (cookie !== undefined) headers.cookie = cookie;
   if (body !== undefined) headers['content-type'] = 'application/json';
   const req = new NextRequest(`http://localhost/api/commitments/${commitmentId}${query}`, {
     method,
@@ -98,17 +116,23 @@ async function setupFixture(): Promise<Fixture> {
   const pub = await publishSignup(db, actor, signup.value.id);
   if (!pub.ok) throw new Error(pub.error.message);
 
-  return { db, workspaceId, organizerId, actor, slotId: slot.value.id };
+  return { db, workspaceId, organizerId, actor, signupId: signup.value.id, slotId: slot.value.id };
 }
 
-async function makeCommitment(fx: Fixture): Promise<{ id: string; token: string }> {
+async function makeCommitment(
+  fx: Fixture,
+): Promise<{ id: string; token: string; participantId: string }> {
   const result = await commitToSlot(fx.db, fx.slotId, {
     name: 'Route Tester',
     email: `route-${makeId('com').slice(-8).toLowerCase()}@example.test`,
     quantity: 1,
   });
   if (!result.ok) throw new Error(result.error.message);
-  return { id: result.value.commitment.id, token: result.value.editToken };
+  return {
+    id: result.value.commitment.id,
+    token: result.value.editToken,
+    participantId: result.value.commitment.participantId,
+  };
 }
 
 describe('/api/commitments/[id] (db)', () => {
@@ -171,6 +195,65 @@ describe('/api/commitments/[id] (db)', () => {
       .where(eq(commitments.id, c.id))
       .limit(1);
     expect(row?.notes).toBe('updated by route test');
+  });
+
+  // Someone without an email gets no confirmation of the move, so the
+  // response and the cookie are the only places they get the new edit link.
+  it('PATCH that moves the commitment returns its new edit link and swaps it into the cookie', async () => {
+    const c = await makeCommitment(fx);
+    await removeParticipantEmail(fx.db, c.participantId);
+    const target = await addSlot(fx.db, fx.actor, fx.signupId, { values: {}, capacity: 5 });
+    if (!target.ok) throw new Error(target.error.message);
+    const kept = makeId('com');
+    const cookie = appendReturningCommit(
+      appendReturningCommit(null, kept, 'another-token', fx.signupId),
+      c.id,
+      c.token,
+      fx.signupId,
+    );
+
+    afterResponse.length = 0;
+    const { req, ctx } = makeRequest(c.id, {
+      method: 'PATCH',
+      token: c.token,
+      body: { swapToSlotId: target.value.id },
+      cookie: `${COMMIT_COOKIE_NAME}=${encodeURIComponent(cookie)}`,
+    });
+    const res = await PATCH(req, ctx);
+    expect(res.status).toBe(200);
+    const payload = await res.json();
+    const moved = payload.data;
+    expect(moved.id).not.toBe(c.id);
+    expect(moved.slotId).toBe(target.value.id);
+    expect(moved.moved).toBeUndefined();
+    expect(moved.editUrl).toMatch(new RegExp(`/s/[^/]+/c/${moved.id}\\?token=${moved.editToken}$`));
+    expect(payload._links).toEqual({
+      edit: { href: moved.editUrl, method: 'GET' },
+      self: { href: `/api/commitments/${moved.id}?token=${moved.editToken}`, method: 'GET' },
+      cancel: { href: `/api/commitments/${moved.id}?token=${moved.editToken}`, method: 'DELETE' },
+    });
+
+    // The new link works.
+    const read = makeRequest(moved.id, { token: moved.editToken });
+    expect((await GET(read.req, read.ctx)).status).toBe(200);
+
+    const setCookie = res.headers.get('set-cookie') ?? '';
+    const value = /os_commit=([^;]*)/.exec(setCookie)?.[1];
+    expect(value).toBeDefined();
+    expect(parseReturningCommits(decodeURIComponent(value!))).toEqual([
+      { commitmentId: moved.id, token: moved.editToken, signupId: fx.signupId },
+      { commitmentId: kept, token: 'another-token', signupId: fx.signupId },
+    ]);
+
+    // The confirmation still runs after the response, and sends nothing.
+    expect(afterResponse).toHaveLength(1);
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      await afterResponse[0]!();
+      expect(send).not.toHaveBeenCalled();
+    } finally {
+      send.mockRestore();
+    }
   });
 
   it('DELETE cancels the commitment and rewrites the returning cookie', async () => {

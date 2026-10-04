@@ -46,7 +46,8 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
         </a>
         <h1 className="text-2xl font-semibold tracking-tight">Your signup</h1>
         <p className="text-ink-muted text-sm">
-          You&apos;re editing this as {c.participantName} ({c.participantEmail}).
+          You&apos;re editing this as {c.participantName}
+          {c.participantEmail ? ` (${c.participantEmail})` : null}.
         </p>
       </header>
       {/* The organizer closed the signup or the slot, or its time has come.

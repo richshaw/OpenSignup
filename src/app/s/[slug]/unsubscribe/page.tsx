@@ -58,6 +58,9 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
     );
   }
 
+  // `participantEmail` is null only for a participant who gave no email. They
+  // never get a reminder, so never this link, and the copy below just leaves
+  // the address out.
   const target = result.value;
 
   // The slug is decoration — the token alone identifies the participant — so a
@@ -98,15 +101,16 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
             </>
           ) : (
             <>
-              Reminders for <strong>{target.signupTitle}</strong> are off for{' '}
-              {target.participantEmail}. You won&apos;t get any reminder emails about it.
+              Reminders for <strong>{target.signupTitle}</strong> are off
+              {target.participantEmail ? ` for ${target.participantEmail}` : null}. You won&apos;t
+              get any reminder emails about it.
             </>
           )}
         </p>
         {/*
-          Reminders are per-participant and the row is reused, so without a way
-          back someone who unsubscribes from this signup in September and signs
-          up again in November silently gets nothing.
+          Reminders are per-participant and the row is reused for the same
+          email, so without a way back someone who unsubscribes from this signup
+          in September and signs up again in November silently gets nothing.
         */}
         <form
           action="/api/public/reminder-optout"
@@ -136,14 +140,15 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
       <p className="text-sm text-ink-muted">
         {done === 'on' ? (
           <>
-            You&apos;ll get reminders for <strong>{target.signupTitle}</strong> again at{' '}
-            {target.participantEmail}. You can stop them any time from the link in one.
+            You&apos;ll get reminders for <strong>{target.signupTitle}</strong> again
+            {target.participantEmail ? ` at ${target.participantEmail}` : null}. You can stop them
+            any time from the link in one.
           </>
         ) : (
           <>
-            We&apos;ll stop sending {target.participantEmail} reminders for{' '}
-            <strong>{target.signupTitle}</strong>. This only affects this signup, and your slot
-            stays as it is.
+            We&apos;ll stop sending{target.participantEmail ? ` ${target.participantEmail}` : null}{' '}
+            reminders for <strong>{target.signupTitle}</strong>. This only affects this signup, and
+            your slot stays as it is.
           </>
         )}
       </p>
