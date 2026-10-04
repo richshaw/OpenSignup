@@ -135,8 +135,22 @@ export async function commitToSlot(
 ): Promise<Result<CommitResult, ServiceError>> {
   const input = parseInputSafe(CommitmentCreateInputSchema, rawInput);
   if (!input.ok) return input;
-  const data: CommitmentCreateInput = input.value;
+  const { email, ...data } = input.value;
+  return commitParticipantToSlot(db, slotId, { email }, data);
+}
 
+/**
+ * Takes a place on the slot. Someone signing up (`commitToSlot`) is found or
+ * added by `email`. Someone moving from another slot (`updateOwnCommitment`)
+ * passes their `participantId`, so the move keeps the participant it had and
+ * never depends on the email. Every other check is the same for both.
+ */
+async function commitParticipantToSlot(
+  db: Queryable,
+  slotId: string,
+  who: { email: string } | { participantId: string },
+  data: Pick<CommitmentCreateInput, 'name' | 'notes' | 'quantity'>,
+): Promise<Result<CommitResult, ServiceError>> {
   return db.transaction(async (tx) => {
     const slotRows = await tx
       .select()
@@ -167,38 +181,48 @@ export async function commitToSlot(
       return err(shut.error);
     }
 
-    // Preserve user-entered casing in participants.email; dedup on emailLower.
-    const emailLower = data.email.toLowerCase();
-    const existingPart = await tx
-      .select()
-      .from(participants)
-      .where(and(eq(participants.signupId, slot.signupId), eq(participants.emailLower, emailLower)))
-      .limit(1);
-
     let participantId: string;
-    if (existingPart[0]) {
-      participantId = existingPart[0].id;
+    if ('participantId' in who) {
+      participantId = who.participantId;
       await tx
         .update(participants)
         .set({ name: data.name, lastSeenAt: new Date() })
         .where(eq(participants.id, participantId));
     } else {
-      participantId = makeId('par');
-      await tx.insert(participants).values({
-        id: participantId,
-        signupId: slot.signupId,
-        workspaceId: slot.workspaceId,
-        email: data.email,
-        emailLower,
-        name: data.name,
-      });
-      await recordActivity(tx, {
-        signupId: slot.signupId,
-        workspaceId: slot.workspaceId,
-        actor: { actorId: participantId, actorType: 'participant' },
-        eventType: 'participant.created',
-        payload: { participantId },
-      });
+      // Preserve user-entered casing in participants.email; dedup on emailLower.
+      const emailLower = who.email.toLowerCase();
+      const existingPart = await tx
+        .select()
+        .from(participants)
+        .where(
+          and(eq(participants.signupId, slot.signupId), eq(participants.emailLower, emailLower)),
+        )
+        .limit(1);
+
+      if (existingPart[0]) {
+        participantId = existingPart[0].id;
+        await tx
+          .update(participants)
+          .set({ name: data.name, lastSeenAt: new Date() })
+          .where(eq(participants.id, participantId));
+      } else {
+        participantId = makeId('par');
+        await tx.insert(participants).values({
+          id: participantId,
+          signupId: slot.signupId,
+          workspaceId: slot.workspaceId,
+          email: who.email,
+          emailLower,
+          name: data.name,
+        });
+        await recordActivity(tx, {
+          signupId: slot.signupId,
+          workspaceId: slot.workspaceId,
+          actor: { actorId: participantId, actorType: 'participant' },
+          eventType: 'participant.created',
+          payload: { participantId },
+        });
+      }
     }
 
     // Conflict: same participant already holds an active commitment on this slot.
@@ -385,6 +409,14 @@ export async function getOwnCommitmentsForSignup(
   return out;
 }
 
+// What a move to another slot carries to its new commitment, checked by the
+// same rules as signing up: a name left blank by trimming is refused.
+const MoveDetailsSchema = CommitmentCreateInputSchema.pick({
+  name: true,
+  notes: true,
+  quantity: true,
+});
+
 export async function updateOwnCommitment(
   db: Db,
   commitmentId: string,
@@ -430,12 +462,20 @@ export async function updateOwnCommitment(
         return err(serviceError('conflict', 'commitment is not active'));
       }
 
-      const newCommit = await commitToSlot(tx, swapToSlotId, {
+      const details = parseInputSafe(MoveDetailsSchema, {
         name: data.name ?? current.participantName,
-        email: current.participantEmail,
         notes: data.notes ?? current.notes,
         quantity: data.quantity ?? current.quantity,
       });
+      // Thrown, not returned, so the cancel above is rolled back.
+      if (!details.ok) throw new ServiceException(details.error);
+
+      const newCommit = await commitParticipantToSlot(
+        tx,
+        swapToSlotId,
+        { participantId: current.participantId },
+        details.value,
+      );
       if (!newCommit.ok) {
         // Rolls back the transaction while preserving the structured error
         // (capacity_full / closed / conflict, with its details & suggestion)
@@ -499,7 +539,7 @@ export async function updateOwnCommitment(
 
     // Guards that only fire when quantity *increases* on the same slot. The
     // swap path (slotId change) returns earlier and re-runs both through
-    // commitToSlot, so a slot move never reaches here.
+    // commitParticipantToSlot, so a slot move never reaches here.
     if (data.quantity !== undefined && data.quantity > locked.quantity) {
       // The slot row goes with its commitments (the delete cascades), so with
       // the commitment found above this is only for the type.
