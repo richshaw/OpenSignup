@@ -1,32 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { CANCELLED, CANCELLED_PAGE, cancelledMessage } from './cancelled-message';
+import { CANCELLED_PAGE, wasCancelled } from './cancelled-message';
 
-describe('cancelledMessage', () => {
-  it('rephrases a conflict for participants', () => {
-    expect(cancelledMessage({ code: 'conflict' })).toBe(CANCELLED);
+describe('wasCancelled', () => {
+  it('is true for a conflict over a cancelled sign-up', () => {
+    expect(wasCancelled({ code: 'conflict', details: { status: 'cancelled' } })).toBe(true);
   });
 
-  it('leaves every other error, and none, to the caller', () => {
-    expect(cancelledMessage({ code: 'not_found' })).toBeNull();
-    expect(cancelledMessage({ code: 'closed' })).toBeNull();
-    expect(cancelledMessage({ code: 'capacity_full' })).toBeNull();
-    expect(cancelledMessage({})).toBeNull();
-    expect(cancelledMessage(null)).toBeNull();
-    expect(cancelledMessage(undefined)).toBeNull();
+  // `conflict` alone is not enough: it also means the other end state, or
+  // something else entirely.
+  it('is false for any other conflict', () => {
+    expect(wasCancelled({ code: 'conflict', details: { status: 'no_show' } })).toBe(false);
+    expect(wasCancelled({ code: 'conflict', details: { commitmentId: 'com_1' } })).toBe(false);
+    expect(wasCancelled({ code: 'conflict' })).toBe(false);
+  });
+
+  it('is false for every other error, and none', () => {
+    expect(wasCancelled({ code: 'not_found', details: { status: 'cancelled' } })).toBe(false);
+    expect(wasCancelled({ code: 'closed' })).toBe(false);
+    expect(wasCancelled({ code: 'capacity_full' })).toBe(false);
+    expect(wasCancelled({})).toBe(false);
+    expect(wasCancelled(null)).toBe(false);
+    expect(wasCancelled(undefined)).toBe(false);
   });
 });
 
 describe('CANCELLED_PAGE', () => {
-  // A participant can meet both: the edit form's inline error, then this page
-  // on reload. They say it with the same words.
-  it('reads like CANCELLED', () => {
-    expect(`${CANCELLED_PAGE.title}.`).toBe(CANCELLED.message);
-    expect(CANCELLED_PAGE.body).toBe(CANCELLED.suggestion);
-  });
-
   // An organizer may one day remove someone; the same words have to fit.
-  it('does not say who cancelled', () => {
-    const text = `${CANCELLED_PAGE.title} ${CANCELLED_PAGE.body}`;
-    expect(text).not.toMatch(/you cancelled|organizer|removed/i);
+  it.each(Object.entries(CANCELLED_PAGE))('%s does not say who cancelled', (_, copy) => {
+    expect(`${copy.title} ${copy.body}`).not.toMatch(/you cancelled|organizer|removed/i);
   });
 });
