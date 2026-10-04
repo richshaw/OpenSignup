@@ -8,6 +8,10 @@ import {
   ConnectAnAiAssistant,
   UI as connectAnAiAssistantUi,
 } from './articles/connect-an-ai-assistant';
+import {
+  TakeSomeoneOffASlot,
+  UI as takeSomeoneOffASlotUi,
+} from './articles/take-someone-off-a-slot';
 
 export interface HelpBody {
   Body: ComponentType;
@@ -18,4 +22,5 @@ export interface HelpBody {
 export const HELP_BODIES: Record<HelpSlug, HelpBody> = {
   'create-and-publish-a-signup': { Body: CreateAndPublishASignup, ui: createAndPublishUi },
   'connect-an-ai-assistant': { Body: ConnectAnAiAssistant, ui: connectAnAiAssistantUi },
+  'take-someone-off-a-slot': { Body: TakeSomeoneOffASlot, ui: takeSomeoneOffASlotUi },
 };

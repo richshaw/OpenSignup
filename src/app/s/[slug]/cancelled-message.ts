@@ -3,9 +3,11 @@ const CANCELLED_TITLE = 'This sign-up was cancelled';
 /**
  * What the edit page (`./c/[id]/page.tsx`) shows in place of the form for a
  * sign-up whose status is `cancelled` (see `cancelledCommitmentState`, whose
- * `CancelledSlotState` names the first four). None of it says who cancelled,
- * so it stays true if someone other than the participant ever can. `no_show`,
- * the other end state, gets the edit link's not-found page instead.
+ * `CancelledSlotState` names the first four). Only `removed` says who
+ * cancelled: the participant knows when they cancelled or moved, but not when
+ * an organizer took them off, and inviting them to sign up again then would
+ * only undo the organizer's choice. `no_show`, the other end state, gets the
+ * edit link's not-found page instead.
  */
 export const CANCELLED_PAGE = {
   /**
@@ -33,6 +35,11 @@ export const CANCELLED_PAGE = {
   signupClosed: {
     title: CANCELLED_TITLE,
     body: 'Sign-ups have closed.',
+  },
+  /** An organizer took them off the slot (`removeCommitment`). */
+  removed: {
+    title: 'The organizer took you off this slot',
+    body: 'If you think this is a mistake, contact the organizer.',
   },
   /** Moved to another slot, where it is still active; the page links to it. */
   moved: {

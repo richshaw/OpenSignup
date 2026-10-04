@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
-import { countCommitmentsForSignup } from '@/services/commitments';
+import { countActiveCommitmentsForSignup } from '@/services/commitments';
 import { publicSignupUrl } from '@/lib/links';
 import { SignupHeader } from '@/components/signup/SignupHeader';
 import { TabsNav } from '@/components/signup/TabsNav';
@@ -41,7 +41,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
     );
   }
   const sig = result.value;
-  const responsesCount = await countCommitmentsForSignup(getDb(), id);
+  const responsesCount = await countActiveCommitmentsForSignup(getDb(), id);
 
   return (
     <div className="space-y-6">

@@ -2,12 +2,20 @@ import { after } from 'next/server';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
-import { ACTIVE_COMMITMENT_STATUSES, listCommitmentsForSignup } from '@/services/commitments';
+import {
+  ACTIVE_COMMITMENT_STATUSES,
+  howCommitmentsEnded,
+  listCommitmentsForSignup,
+} from '@/services/commitments';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { summarizeSlot, summarizeSlotValues } from '@/lib/slot-summary';
 import { RemoveCommitmentForm } from './remove-commitment-form';
 
 type PageParams = { params: Promise<{ id: string }> };
+
+// The Actions column, held at the scroll box's right edge. The shadow marks
+// that edge on a phone, where the rest of the table scrolls under it.
+const STICKY_END = 'sticky right-0 max-sm:shadow-[-6px_0_6px_-6px_rgb(11_18_32/0.2)]';
 
 export default async function ResponsesTab({ params }: PageParams) {
   const { id } = await params;
@@ -24,7 +32,10 @@ export default async function ResponsesTab({ params }: PageParams) {
       payload: { section: 'responses' },
     }),
   );
-  const commitments = await listCommitmentsForSignup(getDb(), id);
+  const [commitments, ended] = await Promise.all([
+    listCommitmentsForSignup(getDb(), id),
+    howCommitmentsEnded(getDb(), sig),
+  ]);
   // Most signups are one spot per person, and a column of 1s is noise. Show
   // Spots only when someone holds more than one, as the confirmation email
   // does. Cancelled rows keep their quantity but no longer hold anything, so
@@ -48,7 +59,9 @@ export default async function ResponsesTab({ params }: PageParams) {
         // cut off with no way to reach it. `relative` keeps the Actions
         // header's sr-only text, which is absolutely positioned, inside this
         // scroll box; without it the text sat past the table's right edge and
-        // made the whole page pan sideways.
+        // made the whole page pan sideways. The Actions column sticks to the
+        // right edge, so Remove, and the confirmation it opens, are in view
+        // without scrolling; the rest of the row slides under it.
         <div className="relative overflow-x-auto rounded-xl border border-surface-sunk bg-white">
           <table className="w-full text-sm">
             <thead className="bg-surface-raised text-ink-muted">
@@ -58,7 +71,7 @@ export default async function ResponsesTab({ params }: PageParams) {
                 <th className="px-4 py-3 text-left">Slot</th>
                 {showSpots ? <th className="px-4 py-3 text-right">Spots</th> : null}
                 <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3">
+                <th className={`${STICKY_END} bg-surface-raised px-4 py-3`}>
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
@@ -69,9 +82,18 @@ export default async function ResponsesTab({ params }: PageParams) {
                 const values = (slot?.values as Record<string, unknown>) ?? {};
                 const summary = slot ? summarizeSlot(sig.fields, values) : '';
                 // A removal takes the Remove button away, so focus goes to
-                // this cell, which then reads "cancelled". Every row has it,
-                // so it outlasts that re-render.
+                // this cell, which then reads "removed". Every row has it, so
+                // it outlasts that re-render.
                 const statusId = `status-${c.id}`;
+                // "cancelled" is the participant's own cancel. An organizer's
+                // removal and the old sign-up of a move say so instead. The
+                // CSV export keeps the stored status.
+                const status = c.status === 'cancelled' ? (ended.get(c.id) ?? c.status) : c.status;
+                // Remove's name, and the start of its question. The slot is
+                // unlabelled, to read as part of a sentence.
+                const removeLabel = `Remove ${c.participantName} from ${
+                  summarizeSlotValues(sig.fields, values) || slot?.ref || 'this slot'
+                }`;
                 return (
                   <tr key={c.id}>
                     <td className="px-4 py-3 font-medium">{c.participantName}</td>
@@ -81,19 +103,20 @@ export default async function ResponsesTab({ params }: PageParams) {
                       <td className="px-4 py-3 text-right tabular-nums">{c.quantity}</td>
                     ) : null}
                     <td id={statusId} tabIndex={-1} className="px-4 py-3">
-                      {c.status}
+                      {status}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className={`${STICKY_END} bg-white px-4 py-3 text-right`}>
                       {ACTIVE_COMMITMENT_STATUSES.includes(c.status) ? (
                         <RemoveCommitmentForm
                           signupId={sig.id}
                           commitmentId={c.id}
                           statusCellId={statusId}
-                          name={c.participantName}
-                          // Unlabelled, to read as part of a sentence.
-                          slot={summarizeSlotValues(sig.fields, values) || slot?.ref || 'this slot'}
-                          quantity={c.quantity}
-                        />
+                          label={removeLabel}
+                        >
+                          {removeLabel}?{' '}
+                          {c.quantity > 1 ? `Their ${c.quantity} spots open` : 'Their spot opens'}{' '}
+                          up for someone else. They won&rsquo;t get an email about it.
+                        </RemoveCommitmentForm>
                       ) : null}
                     </td>
                   </tr>

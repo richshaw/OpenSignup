@@ -1,5 +1,13 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { removeRefusal } from '@/app/app/(chrome)/signups/[id]/responses/remove-refusal';
+import { CANCELLED_PAGE } from '@/app/s/[slug]/cancelled-message';
 import { loginAsSeededOrganizer } from './helpers/auth';
+
+/** Each row's Remove is named for its person and slot. */
+const REMOVE_SAM = 'Remove Sam Example from Fruit and water';
+const QUESTION =
+  'Remove Sam Example from Fruit and water? Their spot opens up for someone else. ' +
+  'They won’t get an email about it.';
 
 /**
  * A fresh published signup per test, with one single-spot slot: the test owns
@@ -26,13 +34,34 @@ async function createSignupWithSlot(page: Page) {
   return { signupId, slug, slotId };
 }
 
+/**
+ * The sign-ups here come from an address of their own, from the range kept for
+ * documentation (RFC 5737). The per-IP limit on signing up allows 10 a minute,
+ * and every other spec's sign-ups share one bucket, so together they ran over.
+ */
+const SIGN_UP_HEADERS = { 'x-forwarded-for': '203.0.113.77' };
+
 /** Signs Sam Example up for the slot, and returns their edit link. */
 async function signUp(request: APIRequestContext, slotId: string) {
   const committed = await request.post(`/api/slots/${slotId}/commitments`, {
+    headers: SIGN_UP_HEADERS,
     data: { name: 'Sam Example', email: `sam+${Date.now()}@example.test`, quantity: 1 },
   });
   expect(committed.ok()).toBe(true);
   return (await committed.json()).data.editUrl as string;
+}
+
+/**
+ * Wholly inside the window and inside the table's scroll box, which clips
+ * whatever it has scrolled out of sight.
+ */
+async function expectOnScreen(page: Page, target: Locator) {
+  const box = await target.boundingBox();
+  const frame = await page.locator('table').locator('..').boundingBox();
+  const width = page.viewportSize()?.width ?? 0;
+  if (!box || !frame) throw new Error('not on the page');
+  expect(box.x).toBeGreaterThanOrEqual(Math.max(0, frame.x));
+  expect(box.x + box.width).toBeLessThanOrEqual(Math.min(width, frame.x + frame.width));
 }
 
 test.describe('Responses tab', () => {
@@ -57,16 +86,19 @@ test.describe('Responses tab', () => {
       await expect(slotRow.getByRole('link', { name: 'Edit' })).toBeVisible();
       await expect(slotRow.getByRole('button', { name: 'Sign up' })).toHaveCount(0);
       await expect(visitor.getByText("You're signed up")).toBeVisible();
+      // Their edit page stays open in another tab while they are removed.
+      const form = await participant.newPage();
+      await form.goto(editUrl);
+      await expect(form.getByRole('heading', { name: 'Your signup' })).toBeVisible();
 
       await page.goto(`/app/signups/${signupId}/responses`);
+      await expect(page.getByRole('tab', { name: 'Responses 1' })).toBeVisible();
       const row = page.getByRole('row').filter({ hasText: 'Sam Example' });
-      const remove = row.getByRole('button', { name: 'Remove' });
+      const remove = row.getByRole('button', { name: REMOVE_SAM, exact: true });
       await remove.click();
       const confirm = page.getByRole('alertdialog', { name: 'Confirm removal' });
-      await expect(confirm).toContainText(
-        'Remove Sam Example from Fruit and water? Their spot opens up for someone else. ' +
-          'They won’t get an email about it.',
-      );
+      await expect(confirm).toContainText(QUESTION);
+      await expect(confirm).toHaveAccessibleDescription(QUESTION);
       await expect(confirm.getByRole('button', { name: 'Keep' })).toBeFocused();
       // Keep changes nothing, and hands focus back to Remove.
       await confirm.getByRole('button', { name: 'Keep' }).click();
@@ -82,11 +114,14 @@ test.describe('Responses tab', () => {
 
       await remove.click();
       await confirm.getByRole('button', { name: 'Yes, remove' }).click();
-      const status = row.getByRole('cell', { name: 'cancelled' });
+      // Removed, not "cancelled", which is what they would do themselves.
+      const status = row.getByRole('cell', { name: 'removed', exact: true });
       await expect(status).toBeVisible();
       await expect(remove).toHaveCount(0);
       // The button is gone; focus stays in the row, on what happened.
       await expect(status).toBeFocused();
+      // The tab counts only the people still signed up.
+      await expect(page.getByRole('tab', { name: 'Responses 0' })).toBeVisible();
 
       // The spot is free again, and their page no longer says it is theirs.
       await visitor.reload();
@@ -94,14 +129,60 @@ test.describe('Responses tab', () => {
       await expect(slotRow.getByRole('link', { name: 'Edit' })).toHaveCount(0);
       await expect(visitor.getByText("You're signed up")).toHaveCount(0);
 
-      // Their edit link says the sign-up was cancelled, not by whom.
+      // Their edit link says the organizer took them off, and does not invite
+      // them to sign up again.
       await visitor.goto(editUrl);
       await expect(
-        visitor.getByRole('heading', { name: 'This sign-up was cancelled' }),
+        visitor.getByRole('heading', { name: CANCELLED_PAGE.removed.title }),
       ).toBeVisible();
+      await expect(visitor.getByText(CANCELLED_PAGE.removed.body)).toBeVisible();
+      await expect(visitor.getByText(/sign up again/)).toHaveCount(0);
+      await expect(visitor.getByRole('link', { name: 'Back to the signup' })).toBeVisible();
+
+      // A save from the page left open is refused, and it reloads to say so.
+      await form.getByLabel('Notes').fill('Bringing cups');
+      await form.getByRole('button', { name: 'Save' }).click();
+      await expect(form.getByRole('heading', { name: CANCELLED_PAGE.removed.title })).toBeVisible();
+      await expect(form.getByLabel('Notes')).toHaveCount(0);
     } finally {
       await participant.close();
     }
+  });
+
+  test('Status says moved for the sign-up a move left behind', async ({ page, context }) => {
+    await loginAsSeededOrganizer(context);
+    const { signupId, slotId } = await createSignupWithSlot(page);
+    const added = await page.request.post(`/api/signups/${signupId}/slots`, {
+      data: { capacity: 1, values: { what: 'Orange slices' } },
+    });
+    expect(added.ok()).toBe(true);
+    const otherSlotId = (await added.json()).data.id as string;
+    const committed = await page.request.post(`/api/slots/${slotId}/commitments`, {
+      headers: SIGN_UP_HEADERS,
+      data: { name: 'Sam Example', email: `sam+${Date.now()}@example.test`, quantity: 1 },
+    });
+    expect(committed.ok()).toBe(true);
+    const { commitment, editToken } = (await committed.json()).data as {
+      commitment: { id: string };
+      editToken: string;
+    };
+    const moved = await page.request.patch(
+      `/api/commitments/${commitment.id}?token=${editToken}`,
+      { data: { swapToSlotId: otherSlotId } },
+    );
+    expect(moved.ok()).toBe(true);
+
+    await page.goto(`/app/signups/${signupId}/responses`);
+    const rows = page.getByRole('row').filter({ hasText: 'Sam Example' });
+    await expect(
+      rows.filter({ hasText: 'Fruit and water' }).getByRole('cell', { name: 'moved', exact: true }),
+    ).toBeVisible();
+    await expect(
+      rows
+        .filter({ hasText: 'Orange slices' })
+        .getByRole('cell', { name: 'confirmed', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Responses 1' })).toBeVisible();
   });
 
   test('Keep and Escape wait while a removal is in flight', async ({ page, context }) => {
@@ -119,7 +200,7 @@ test.describe('Responses tab', () => {
 
     await page.goto(`/app/signups/${signupId}/responses`);
     const row = page.getByRole('row').filter({ hasText: 'Sam Example' });
-    await row.getByRole('button', { name: 'Remove' }).click();
+    await row.getByRole('button', { name: REMOVE_SAM, exact: true }).click();
     const confirm = page.getByRole('alertdialog', { name: 'Confirm removal' });
     await confirm.getByRole('button', { name: 'Yes, remove' }).click();
     await expect(confirm.getByRole('button', { name: 'Removing…' })).toBeDisabled();
@@ -128,7 +209,7 @@ test.describe('Responses tab', () => {
     await expect(confirm).toBeVisible();
 
     release();
-    await expect(row.getByRole('cell', { name: 'cancelled' })).toBeFocused();
+    await expect(row.getByRole('cell', { name: 'removed', exact: true })).toBeFocused();
   });
 
   test('a refusal shows in the confirmation, and is gone when it opens again', async ({
@@ -141,7 +222,7 @@ test.describe('Responses tab', () => {
 
     await page.goto(`/app/signups/${signupId}/responses`);
     const row = page.getByRole('row').filter({ hasText: 'Sam Example' });
-    await row.getByRole('button', { name: 'Remove' }).click();
+    await row.getByRole('button', { name: REMOVE_SAM, exact: true }).click();
     const confirm = page.getByRole('alertdialog', { name: 'Confirm removal' });
 
     // The signup is deleted in another tab while the confirmation is open.
@@ -153,12 +234,13 @@ test.describe('Responses tab', () => {
     await other.close();
 
     await confirm.getByRole('button', { name: 'Yes, remove' }).click();
-    await expect(confirm.getByRole('alert')).toHaveText('commitment not found');
+    // In plain words, not the service's "commitment not found".
+    await expect(confirm.getByRole('alert')).toHaveText(removeRefusal('not_found'));
     // Focus left the button while it was disabled; it comes back to Keep, so
     // Escape still closes the confirmation.
     await expect(confirm.getByRole('button', { name: 'Keep' })).toBeFocused();
     await page.keyboard.press('Escape');
-    const remove = row.getByRole('button', { name: 'Remove' });
+    const remove = row.getByRole('button', { name: REMOVE_SAM, exact: true });
     await expect(remove).toBeFocused();
     await remove.click();
     await expect(confirm).toBeVisible();
@@ -172,9 +254,21 @@ test.describe('Responses tab', () => {
     await signUp(page.request, slotId);
 
     await page.goto(`/app/signups/${signupId}/responses`);
-    await expect(page.getByRole('row').filter({ hasText: 'Sam Example' })).toBeVisible();
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-    ).toBe(true);
+    const row = page.getByRole('row').filter({ hasText: 'Sam Example' });
+    await expect(row).toBeVisible();
+    const pageFits = () =>
+      page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+    expect(await pageFits()).toBe(true);
+
+    // Remove is in view without scrolling the table, and so is everything the
+    // confirmation says and offers.
+    const remove = row.getByRole('button', { name: REMOVE_SAM, exact: true });
+    await expectOnScreen(page, remove);
+    await remove.click();
+    const confirm = page.getByRole('alertdialog', { name: 'Confirm removal' });
+    await expectOnScreen(page, confirm);
+    await expectOnScreen(page, confirm.getByRole('button', { name: 'Keep' }));
+    await expectOnScreen(page, confirm.getByRole('button', { name: 'Yes, remove' }));
+    expect(await pageFits()).toBe(true);
   });
 });

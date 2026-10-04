@@ -1,12 +1,17 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Queryable, Tx } from '@/db/client';
+import type { activity } from '@/db/schema/activity';
 import type { commitments } from '@/db/schema/commitments';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 
 /** `workspace_id = ?`, where null (guest scope) matches only rows with no workspace. */
 export function inWorkspace(
-  column: typeof signups.workspaceId | typeof slots.workspaceId | typeof commitments.workspaceId,
+  column:
+    | typeof signups.workspaceId
+    | typeof slots.workspaceId
+    | typeof commitments.workspaceId
+    | typeof activity.workspaceId,
   workspaceId: string | null,
 ) {
   return workspaceId === null ? isNull(column) : eq(column, workspaceId);

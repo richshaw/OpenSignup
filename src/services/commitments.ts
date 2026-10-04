@@ -28,8 +28,8 @@ type CommitmentRow = typeof commitments.$inferSelect;
  * are terminal end states that no participant action reopens. The
  * participant's own cancel or move writes `cancelled`, and so does an
  * organizer removing them (`removeCommitment`); nothing writes `no_show` yet.
- * The edit page says a `cancelled` one was cancelled or moved, and gives
- * `no_show` its not-found page.
+ * The edit page says a `cancelled` one was cancelled, moved or removed, and
+ * gives `no_show` its not-found page.
  */
 export const ACTIVE_COMMITMENT_STATUSES: readonly CommitmentRow['status'][] = [
   'confirmed',
@@ -795,11 +795,50 @@ export async function listCommitmentsForSignup(db: Db, signupId: string) {
     .orderBy(asc(commitments.createdAt));
 }
 
-export async function countCommitmentsForSignup(db: Db, signupId: string): Promise<number> {
+/**
+ * How each of a signup's cancelled commitments came to be cancelled, when it
+ * was not the participant's own cancel: `removed` by an organizer
+ * (`removeCommitment`'s `commitment.removed` row), or `moved`, the old one of a
+ * move to another slot (the `from` of a `commitment.swapped` row). Keyed by
+ * commitment id, from one read of the signup's activity, for the Responses
+ * tab's Status. Guard-free, like `listCommitmentsForSignup`: call it only for
+ * a signup already checked.
+ */
+export async function howCommitmentsEnded(
+  db: Db,
+  signup: { id: string; workspaceId: string | null },
+): Promise<Map<string, 'removed' | 'moved'>> {
+  const commitmentId = sql<string | null>`case when ${activity.eventType} = 'commitment.removed'
+    then ${activity.payload}->>'commitmentId' else ${activity.payload}->>'from' end`;
+  const rows = await db
+    .select({ eventType: activity.eventType, commitmentId })
+    .from(activity)
+    .where(
+      and(
+        eq(activity.signupId, signup.id),
+        inWorkspace(activity.workspaceId, signup.workspaceId),
+        inArray(activity.eventType, ['commitment.removed', 'commitment.swapped']),
+      ),
+    );
+  const out = new Map<string, 'removed' | 'moved'>();
+  for (const r of rows) {
+    if (!r.commitmentId) continue;
+    out.set(r.commitmentId, r.eventType === 'commitment.removed' ? 'removed' : 'moved');
+  }
+  return out;
+}
+
+/**
+ * How many sign-ups a signup has that are still active, for the count on its
+ * Responses tab. A cancelled one, whether the participant cancelled, moved or
+ * was removed, stays in the tab's table but no longer counts. Guard-free, like
+ * `listCommitmentsForSignup`: call it only for a signup already checked.
+ */
+export async function countActiveCommitmentsForSignup(db: Db, signupId: string): Promise<number> {
   const rows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(commitments)
-    .where(eq(commitments.signupId, signupId));
+    .where(and(eq(commitments.signupId, signupId), isActiveCommitment));
   return rows[0]?.count ?? 0;
 }
 
@@ -907,10 +946,12 @@ const MAX_MOVES_FOLLOWED = 10;
  * again as a new one, with its own edit link, writing a `commitment.swapped`
  * row `{ from, to }`. So `movedTo` is the commitment this one moved to,
  * followed through any later moves (up to `MAX_MOVES_FOLLOWED`), while that
- * one is still active. Otherwise `movedTo` is null, and `slot` says whether
- * the slot last held would take a sign-up again (`CancelledSlotState`), so the
- * page suggests signing up again only when that would not be refused, and
- * otherwise says why.
+ * one is still active. Otherwise `movedTo` is null, and `removed` says whether
+ * an organizer took the last one off its slot (`removeCommitment`, which
+ * writes a `commitment.removed` row `{ commitmentId }`), so the page says who
+ * did it. When they did not, `slot` says whether the slot last held would take
+ * a sign-up again (`CancelledSlotState`), so the page suggests signing up
+ * again only when that would not be refused, and otherwise says why.
  *
  * Guard-free, like `editLimitsForCommitment`: call it only with a commitment
  * that `getOwnCommitment` has already verified against its edit token. Each
@@ -919,7 +960,11 @@ const MAX_MOVES_FOLLOWED = 10;
 export async function cancelledCommitmentState(
   db: Db,
   commitment: { id: string; signupId: string; slotId: string },
-): Promise<{ movedTo: string } | { movedTo: null; slot: CancelledSlotState }> {
+): Promise<
+  | { movedTo: string }
+  | { movedTo: null; removed: true }
+  | { movedTo: null; removed: false; slot: CancelledSlotState }
+> {
   let lastId = commitment.id;
   for (let moves = 0; moves < MAX_MOVES_FOLLOWED; moves++) {
     const [move] = await db
@@ -948,7 +993,22 @@ export async function cancelledCommitmentState(
     // Moved, then cancelled too: it reads as a cancel, of the slot moved to.
     if (last) slotId = last.slotId;
   }
-  return { movedTo: null, slot: await slotStateAfterCancel(db, slotId) };
+
+  // Only an active commitment can be removed, so after any moves only the
+  // last one can have been.
+  const [removed] = await db
+    .select({ id: activity.id })
+    .from(activity)
+    .where(
+      and(
+        eq(activity.eventType, 'commitment.removed'),
+        eq(activity.signupId, commitment.signupId),
+        sql`(${activity.payload}->>'commitmentId') = ${lastId}`,
+      ),
+    )
+    .limit(1);
+  if (removed) return { movedTo: null, removed: true };
+  return { movedTo: null, removed: false, slot: await slotStateAfterCancel(db, slotId) };
 }
 
 /**

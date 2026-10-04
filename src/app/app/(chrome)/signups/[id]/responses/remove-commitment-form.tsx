@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { flushSync, useFormStatus } from 'react-dom';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { FormError } from '@/components/ui/form-error';
@@ -11,23 +11,30 @@ interface Props {
   commitmentId: string;
   /** The row's status cell, which takes focus once the person is removed. */
   statusCellId: string;
-  /** Who and which slot, as the confirmation names them. */
-  name: string;
-  slot: string;
-  quantity: number;
+  /**
+   * Remove's accessible name, "Remove Sam Example from Fruit and water", since
+   * every row's button reads Remove.
+   */
+  label: string;
+  /**
+   * The confirmation's question, which names them and the slot as `label`
+   * does. Rendered by the page, so its words add no script here.
+   */
+  children: ReactNode;
 }
 
 export function RemoveCommitmentForm({
   signupId,
   commitmentId,
   statusCellId,
-  name,
-  slot,
-  quantity,
+  label,
+  children,
 }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const removeButton = useRef<HTMLButtonElement>(null);
+  // For the confirmation's description; unique, as the commitment is.
+  const questionId = `remove-${commitmentId}`;
 
   // Keep, or Escape: back to the Remove button that opened the confirmation.
   function keep() {
@@ -40,6 +47,7 @@ export function RemoveCommitmentForm({
       <button
         ref={removeButton}
         type="button"
+        aria-label={label}
         onClick={() => {
           setError(null);
           setConfirming(true);
@@ -57,7 +65,7 @@ export function RemoveCommitmentForm({
       setError(result.error);
       return;
     }
-    // The row re-renders as cancelled, without this form or the Remove
+    // The row re-renders as removed, without this form or the Remove
     // button. Its status cell stays, and says what happened.
     document.getElementById(statusCellId)?.focus();
   }
@@ -67,12 +75,11 @@ export function RemoveCommitmentForm({
       action={remove}
       role="alertdialog"
       aria-label="Confirm removal"
+      aria-describedby={questionId}
       className="w-64 space-y-3 text-left"
     >
-      <p className="text-sm">
-        Remove {name} from {slot}?{' '}
-        {quantity > 1 ? `Their ${quantity} spots open` : 'Their spot opens'} up for someone else.
-        They won&rsquo;t get an email about it.
+      <p id={questionId} className="text-sm">
+        {children}
       </p>
       {error ? <FormError>{error}</FormError> : null}
       <ConfirmButtons onKeep={keep} />
