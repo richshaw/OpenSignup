@@ -41,6 +41,12 @@ interface CommitDialogProps {
    * the success screen tells them to save the link it shows.
    */
   requireEmail: boolean;
+  /**
+   * Whether someone who gives an email gets a reminder before this slot
+   * (`willSendReminder`, decided when the page rendered). The optional email
+   * box's help text mentions one only then.
+   */
+  sendsReminder: boolean;
 }
 
 interface ApiError {
@@ -95,6 +101,7 @@ export default function CommitDialog({
   signupTitle,
   slug,
   requireEmail,
+  sendsReminder,
 }: CommitDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -113,6 +120,8 @@ export default function CommitDialog({
   const [emailNowRequired, setEmailNowRequired] = useState(false);
   const emailRequired = requireEmail || emailNowRequired;
   const [shareCopied, setShareCopied] = useState(false);
+  // What happened to the last Copy link, said in a live region.
+  const [copyResult, setCopyResult] = useState<'copied' | 'failed' | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -236,6 +245,7 @@ export default function CommitDialog({
     setError(null);
     setReported(null);
     setShareCopied(false);
+    setCopyResult(null);
     if (wasSuccess) router.refresh();
   }
 
@@ -283,6 +293,19 @@ export default function CommitDialog({
       setTimeout(() => setShareCopied(false), 2000);
     } catch {
       // last resort: do nothing — link is already on screen
+    }
+  }
+
+  // Someone without an email gets Copy link, not Share link: the link is how
+  // they change or cancel, and a share sheet invites them to post it.
+  async function handleCopy() {
+    if (!success) return;
+    try {
+      await navigator.clipboard.writeText(success.editUrl);
+      setCopyResult('copied');
+    } catch {
+      // No clipboard over plain HTTP, or the browser refused.
+      setCopyResult('failed');
     }
   }
 
@@ -361,23 +384,36 @@ export default function CommitDialog({
             >
               {success.editUrl}
             </a>
-            <div className="flex flex-wrap gap-2">
-              {slotAt ? (
+            <div>
+              <div className="flex flex-wrap gap-2">
+                {slotAt ? (
+                  <button
+                    type="button"
+                    onClick={handleDownloadIcs}
+                    className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
+                  >
+                    Add to calendar
+                  </button>
+                ) : null}
                 <button
                   type="button"
-                  onClick={handleDownloadIcs}
+                  onClick={success.emailed ? handleShare : handleCopy}
                   className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
                 >
-                  Add to calendar
+                  {success.emailed ? (shareCopied ? 'Link copied' : 'Share link') : 'Copy link'}
                 </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={handleShare}
-                className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
-              >
-                {shareCopied ? 'Link copied' : 'Share link'}
-              </button>
+              </div>
+              {success.emailed ? null : (
+                // In the page from the start, so a screen reader hears it
+                // change. Not display:none while empty, which would stop that.
+                <p role="status" className="mt-2 text-sm text-ink-muted empty:mt-0">
+                  {copyResult === 'copied'
+                    ? 'Link copied.'
+                    : copyResult === 'failed'
+                      ? "Couldn't copy it. Select the link above and copy it yourself."
+                      : null}
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -437,7 +473,9 @@ export default function CommitDialog({
               </label>
               {emailRequired ? null : (
                 <p id={emailHelpId} className="text-ink-muted mt-1 text-xs">
-                  Optional. If you give one, we&apos;ll email you your link to change or cancel.
+                  We&apos;ll email you your link to change or cancel
+                  {sendsReminder ? ', and a reminder before your slot' : null}. Without an email,
+                  save the link we show you after you sign up.
                 </p>
               )}
             </div>

@@ -68,9 +68,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     );
     const nextCookie = appendReturningCommit(
       removeReturningCommit(req.cookies.get(COMMIT_COOKIE_NAME)?.value, id),
-      commitment.id,
-      moved.editToken,
-      commitment.signupId,
+      {
+        commitmentId: commitment.id,
+        token: moved.editToken,
+        signupId: commitment.signupId,
+        slotAt: moved.slotAt,
+      },
     );
     setReturningCommitCookie(response, nextCookie);
     after(() => notifyCommitmentCreated(db, commitment.id, moved.editToken));

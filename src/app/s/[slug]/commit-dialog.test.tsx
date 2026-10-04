@@ -25,6 +25,7 @@ describe('<CommitDialog /> trigger', () => {
         signupTitle="Snack duty"
         slug="example"
         requireEmail
+        sendsReminder={false}
       />,
     );
   }
@@ -58,11 +59,13 @@ describe('<CommitDialog /> sheet', () => {
     capacity = null,
     requireEmail = true,
     slotAt = null,
+    sendsReminder = false,
   }: {
     spotsLeft?: number | null;
     capacity?: number | null;
     requireEmail?: boolean;
     slotAt?: string | null;
+    sendsReminder?: boolean;
   } = {}) {
     render(
       <CommitDialog
@@ -76,6 +79,7 @@ describe('<CommitDialog /> sheet', () => {
         signupTitle="Snack duty"
         slug="example"
         requireEmail={requireEmail}
+        sendsReminder={sendsReminder}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
@@ -302,14 +306,24 @@ describe('<CommitDialog /> sheet', () => {
   it('requires the email unless the signup makes it optional', async () => {
     openSheet();
     expect(await screen.findByLabelText('Email', {}, settle)).toBeRequired();
-    expect(screen.queryByText(/If you give one/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/We'll email you your link/)).not.toBeInTheDocument();
     cleanup();
 
     openSheet({ requireEmail: false });
     const email = await screen.findByLabelText('Email (optional)', {}, settle);
     expect(email).not.toBeRequired();
+    // The label already says it is optional; the help says what it is for.
     expect(email).toHaveAccessibleDescription(
-      "Optional. If you give one, we'll email you your link to change or cancel.",
+      "We'll email you your link to change or cancel. Without an email, save the link we show you after you sign up.",
+    );
+  });
+
+  it('promises a reminder only where the slot will get one', async () => {
+    openSheet({ requireEmail: false, sendsReminder: true });
+    expect(
+      await screen.findByLabelText('Email (optional)', {}, settle),
+    ).toHaveAccessibleDescription(
+      "We'll email you your link to change or cancel, and a reminder before your slot. Without an email, save the link we show you after you sign up.",
     );
   });
 
@@ -340,8 +354,14 @@ describe('<CommitDialog /> sheet', () => {
       return JSON.parse(String(init.body)) as Record<string, unknown>;
     }
 
+    // jsdom has no clipboard.
+    function stubClipboard(writeText: (text: string) => Promise<void>) {
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    }
+
     afterEach(() => {
       vi.unstubAllGlobals();
+      delete (navigator as { clipboard?: unknown }).clipboard;
     });
 
     it('sends no email when the box is blank, and says the link will not be emailed', async () => {
@@ -363,11 +383,44 @@ describe('<CommitDialog /> sheet', () => {
       expect(screen.getByRole('button', { name: 'Add to calendar' })).toBeInTheDocument();
     });
 
+    // The link is how they change or cancel, so nothing offers to post it.
+    it('offers Copy link, not Share link, and says when it copied', async () => {
+      const writeText = vi.fn(async () => {});
+      stubClipboard(writeText);
+      await signUpWithEmail('', { slotAt: '2030-04-06T12:00:00.000Z' });
+      expect(screen.queryByRole('button', { name: 'Share link' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Add to calendar' })).toBeInTheDocument();
+      const status = screen.getByRole('status');
+      expect(status).toBeEmptyDOMElement();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+      await waitFor(() => expect(status).toHaveTextContent('Link copied.'), settle);
+      expect(writeText).toHaveBeenCalledWith(editUrl);
+    });
+
+    it('says to copy the link by hand when the browser will not', async () => {
+      const writeText = vi.fn(async () => {
+        throw new Error('not allowed');
+      });
+      stubClipboard(writeText);
+      await signUpWithEmail('');
+      fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+      await waitFor(
+        () =>
+          expect(screen.getByRole('status')).toHaveTextContent(
+            "Couldn't copy it. Select the link above and copy it yourself.",
+          ),
+        settle,
+      );
+    });
+
     it('reads as usual when they give an email after all', async () => {
       const body = await signUpWithEmail('jordan@example.test');
       expect(body).toMatchObject({ email: 'jordan@example.test' });
       expect(screen.getByText(/Bookmark this link to edit or cancel later/)).toBeInTheDocument();
       expect(screen.queryByText(/we won't email it/)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Share link' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Copy link' })).not.toBeInTheDocument();
     });
 
     // Someone who chose to leave it out once should not send it by accident.
@@ -426,7 +479,7 @@ describe('<CommitDialog /> sheet', () => {
         expect(email).toBeRequired();
         expect(email).not.toHaveAccessibleDescription();
         expect(screen.queryByLabelText('Email (optional)')).not.toBeInTheDocument();
-        expect(screen.queryByText(/If you give one/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/We'll email you your link/)).not.toBeInTheDocument();
       } finally {
         delete (Element.prototype as Partial<Element>).scrollIntoView;
       }

@@ -73,7 +73,10 @@ export default function CookiesPage() {
                   finding the link again, whether or not they gave an email.{' '}
                   <code>httpOnly</code>; not readable from JavaScript.
                 </td>
-                <td className="px-4 py-3">60 days</td>
+                <td className="px-4 py-3">
+                  60 days, or until a week after the latest slot it holds if that is later (at
+                  most 400 days)
+                </td>
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">os_oauth_session</td>
