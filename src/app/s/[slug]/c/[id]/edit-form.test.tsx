@@ -25,7 +25,7 @@ function renderForm(maxQuantity: number | null, initialQuantity = 1) {
 describe('<EditForm /> quantity', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
-    router.refresh.mockClear();
+    vi.clearAllMocks();
   });
 
   it('asks for a quantity only when the slot has room for more than one', () => {
@@ -164,6 +164,52 @@ describe('<EditForm /> quantity', () => {
       'Sorry, this is no longer available. Reload the page to see what has changed.',
     );
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  // The sign-up was cancelled, or moved, in another tab while this page was
+  // open. The page says which once reloaded, in place of this form.
+  it('reloads the page when a save finds the sign-up cancelled', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({
+        error: {
+          code: 'conflict',
+          message: 'commitment is not active',
+          details: { status: 'cancelled' },
+        },
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(4, 2);
+
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(router.refresh).toHaveBeenCalledOnce());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    // Nothing to press again, each press spending the rate limit, meanwhile.
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel signup' })).toBeDisabled();
+  });
+
+  // A conflict alone is not a cancelled sign-up.
+  it('shows any other conflict without reloading', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({
+        error: {
+          code: 'conflict',
+          message: 'commitment is not active',
+          details: { status: 'no_show' },
+        },
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(4, 2);
+
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('commitment is not active');
+    expect(router.refresh).not.toHaveBeenCalled();
   });
 
   // The page's refresh after a successful save re-reads the limit, but the form

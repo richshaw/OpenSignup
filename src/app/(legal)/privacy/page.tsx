@@ -21,7 +21,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 27 September 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 4 October 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -127,10 +127,11 @@ export default function PrivacyPage() {
         <p>
           {INSTANCE_NAME} sends three kinds of email: organizer magic-link sign-in emails, a
           confirmation to a participant when they commit to a slot, and a reminder before a dated
-          slot. Moving to a different slot sends a fresh confirmation, because the private link in
-          the old one stops working. Confirmations and reminders each contain a private link that
-          lets you change or cancel that commitment without signing in, so treat them as you would a
-          password and don&apos;t forward them. Reminders go out the day before the slot;
+          slot. Moving to a different slot gives your sign-up a new private link, and sends a fresh
+          confirmation with it. The old link then leads to the new one. Confirmations and reminders
+          each contain a private link that lets you change or cancel that commitment without
+          signing in, so treat them as you would a password and don&apos;t forward them. Reminders
+          go out the day before the slot;
           organizers can turn them off for a signup entirely. Every reminder carries a link that stops
           reminders for that signup; we record only the time you opted out, and it does not affect
           any other signup or your slot itself. Delivery uses whichever transport the operator has
