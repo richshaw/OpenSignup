@@ -37,12 +37,28 @@ export const participants = pgTable(
     // without an email can share a signup.
     uniqueEmailPerSignup: uniqueIndex('participants_signup_email').on(t.signupId, t.emailLower),
     bySignup: index('participants_by_signup').on(t.signupId),
+    // No email is both columns null; an email sets both, and neither blank.
+    // `participantEmailColumns` below gives an insert the pair.
     emailLowerMatchesEmail: check(
       'participants_email_lower_with_email',
-      sql`(${t.email} IS NULL) = (${t.emailLower} IS NULL)`,
+      sql`(${t.email} IS NULL AND ${t.emailLower} IS NULL) OR (${t.email} IS NOT NULL AND ${t.emailLower} IS NOT NULL AND ${t.email} <> '' AND ${t.emailLower} <> '')`,
     ),
   }),
 );
 
 export type Participant = typeof participants.$inferSelect;
 export type NewParticipant = typeof participants.$inferInsert;
+
+/**
+ * The email columns for a new participant, which the check above keeps
+ * together: both from the email as typed, or both null for no email. Typed so
+ * an insert cannot set one without the other. Preserves the email's casing for
+ * display; `emailLower` is what sign-ups are matched on.
+ */
+export function participantEmailColumns(
+  email: string | null,
+): { email: string; emailLower: string } | { email: null; emailLower: null } {
+  return email === null
+    ? { email: null, emailLower: null }
+    : { email, emailLower: email.toLowerCase() };
+}

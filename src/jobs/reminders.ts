@@ -28,7 +28,7 @@ const leadInterval = sql`make_interval(hours => ${REMINDER_LEAD_HOURS})`;
 
 export interface DueReminder {
   commitmentId: string;
-  participantEmail: string;
+  participantEmail: string | null;
   signupTitle: string;
   slotRef: string;
   slotAt: Date | null;
@@ -56,8 +56,7 @@ export async function selectDueReminders(db: Db): Promise<DueReminder[]> {
   return db
     .select({
       commitmentId: commitments.id,
-      // Never null: the WHERE below drops participants without an email.
-      participantEmail: sql<string>`${participants.email}`,
+      participantEmail: participants.email,
       signupTitle: signups.title,
       slotRef: slots.ref,
       slotAt: slots.slotAt,
@@ -159,7 +158,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   // The scan drops participants without an email, but this job reads the row
   // afresh from the commitment id alone, so it checks again.
   const to = row.participant.email;
-  if (!to) {
+  if (to === null) {
     log.info({ commitmentId: payload.commitmentId }, 'participant has no email; skipping reminder');
     return;
   }

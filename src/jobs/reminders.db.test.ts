@@ -125,6 +125,19 @@ async function makeScenario(
   };
 }
 
+async function reminderSentRows(db: Db, commitmentId: string): Promise<number> {
+  const rows = await db
+    .select({ id: activity.id })
+    .from(activity)
+    .where(
+      and(
+        eq(activity.eventType, 'reminder.sent'),
+        sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
+      ),
+    );
+  return rows.length;
+}
+
 describe('selectDueReminders (db)', () => {
   let fx: Fixture;
 
@@ -261,16 +274,7 @@ describe('selectDueReminders (db)', () => {
 
     await sendReminderJob({ commitmentId });
 
-    const sent = await fx.db
-      .select({ id: activity.id })
-      .from(activity)
-      .where(
-        and(
-          eq(activity.eventType, 'reminder.sent'),
-          sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
-        ),
-      );
-    expect(sent).toHaveLength(0);
+    expect(await reminderSentRows(fx.db, commitmentId)).toBe(0);
   });
 
   it('does not select a participant without an email', async () => {
@@ -298,16 +302,7 @@ describe('selectDueReminders (db)', () => {
       send.mockRestore();
     }
 
-    const sent = await fx.db
-      .select({ id: activity.id })
-      .from(activity)
-      .where(
-        and(
-          eq(activity.eventType, 'reminder.sent'),
-          sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
-        ),
-      );
-    expect(sent).toHaveLength(0);
+    expect(await reminderSentRows(fx.db, commitmentId)).toBe(0);
   });
 
   it('does not select a slot with no slot_at', async () => {

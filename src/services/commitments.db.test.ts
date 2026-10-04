@@ -1275,9 +1275,13 @@ describe('participants without an email (db)', () => {
     expect(row?.n).toBe(2);
   });
 
+  // No email is exactly null in both columns, never blank.
   it.each([
     { email: 'sam@example.test', emailLower: null },
     { email: null, emailLower: 'sam@example.test' },
+    { email: '', emailLower: '' },
+    { email: 'sam@example.test', emailLower: '' },
+    { email: '', emailLower: null },
   ])('refuses email $email with email_lower $emailLower', async ({ email, emailLower }) => {
     const { signupId } = await makeOpenSignupWithSlot(fx, 'Half an email');
     await expect(
