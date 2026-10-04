@@ -85,14 +85,6 @@ export const SlotFieldUpdateInputSchema = z
   .strict();
 export type SlotFieldUpdateInput = z.infer<typeof SlotFieldUpdateInputSchema>;
 
-export const SlotFieldPublicSchema = z.object({
-  ref: RefSchema,
-  label: z.string(),
-  fieldType: z.enum(FIELD_TYPES),
-  value: z.unknown().nullable(),
-  config: SlotFieldConfigSchema,
-});
-
 export type SlotFieldDefinition = {
   id: string;
   ref: string;
