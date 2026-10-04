@@ -2,22 +2,35 @@ const CANCELLED_TITLE = 'This sign-up was cancelled';
 
 /**
  * What the edit page (`./c/[id]/page.tsx`) shows in place of the form for a
- * sign-up whose status is `cancelled` (see `cancelledCommitmentState`). None
- * of it says who cancelled, so it stays true if someone other than the
- * participant ever can. `no_show`, the other end state, gets the edit link's
- * not-found page instead.
+ * sign-up whose status is `cancelled` (see `cancelledCommitmentState`, whose
+ * `CancelledSlotState` names the first four). None of it says who cancelled,
+ * so it stays true if someone other than the participant ever can. `no_show`,
+ * the other end state, gets the edit link's not-found page instead.
  */
 export const CANCELLED_PAGE = {
-  /** Its slot still takes places, so signing up again would work. */
+  /**
+   * Its slot still takes places, so signing up again would work. The only one
+   * that suggests it; the next three say why it would be refused.
+   */
   open: {
     title: CANCELLED_TITLE,
     body: 'Go back to the signup if you want to sign up again.',
   },
+  /** Every place in its slot is taken. */
+  full: {
+    title: CANCELLED_TITLE,
+    body: 'All its places have been taken since.',
+  },
+  /** Its slot is closed, or too close to its time, while others may be open. */
+  slotClosed: {
+    title: CANCELLED_TITLE,
+    body: 'This slot is no longer taking sign-ups.',
+  },
   /**
-   * Its slot takes no more places (`whyNotTakingPlaces`), so signing up again
-   * would be refused. Worded as the live edit page's banner for the same thing.
+   * The signup takes no more places at all. Worded as the live edit page's
+   * banner for the same thing.
    */
-  closed: {
+  signupClosed: {
     title: CANCELLED_TITLE,
     body: 'Sign-ups have closed.',
   },
