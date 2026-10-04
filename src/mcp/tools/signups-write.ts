@@ -91,7 +91,7 @@ export const updateSignupTool = defineTool({
   }),
   handler: async (ctx, input) => {
     const { signupId, ...rest } = input;
-    const updated = await updateSignup(ctx.db, ctx.actor, signupId, rest, { mergeSettings: true });
+    const updated = await updateSignup(ctx.db, ctx.actor, signupId, rest);
     return updated.ok ? ok(signupWithLinks(updated.value)) : updated;
   },
 });

@@ -213,7 +213,6 @@ describe('update_signup', () => {
       ctx.actor,
       'sig_1',
       { settings: { sendReminders: false, lockoutHoursBeforeSlot: 2 } },
-      { mergeSettings: true },
     );
     // The stored row carries requireEmail, which nothing reads, so it is not shown.
     expect((r.structuredContent as { signup: { settings: unknown } }).signup.settings).toEqual({
@@ -263,7 +262,6 @@ describe('update_signup', () => {
       ctx.actor,
       'sig_1',
       { title: 'New', description: 'Desc', closesAt: null },
-      { mergeSettings: true },
     );
   });
 

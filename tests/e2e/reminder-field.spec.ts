@@ -21,20 +21,24 @@ test.describe('reminder field', () => {
     const res = await page.request.get(`/api/signups/${signupId}`);
     expect(res.ok()).toBe(true);
     const body = (await res.json()) as {
-      data: { settings: { sendReminders: boolean; reminderFromFieldRef?: string } };
+      data: {
+        settings: {
+          sendReminders: boolean;
+          reminderFromFieldRef?: string;
+          groupByFieldRefs: string[];
+        };
+      };
     };
     return body.data.settings;
   }
 
-  test('the date field editor switches reminders off and on; a second date field is blocked', async ({
-    page,
-  }) => {
-    // A fresh signup per run so retries and projects never compete over one row.
-    // createSignup applies DEFAULT_TEMPLATE — fields `what` (text) and `date`
-    // (date) — and anchors reminders on `date` from the start.
+  // A fresh signup per test so retries and projects never compete over one row.
+  // createSignup applies DEFAULT_TEMPLATE — fields `what` (text) and `date`
+  // (date) — and anchors reminders on `date` from the start.
+  async function createSignup(page: Page, title: string): Promise<string> {
     const created = await page.request.post('/api/signups', {
       data: {
-        title: `Reminder field ${Date.now()}`,
+        title: `${title} ${Date.now()}`,
         description: '',
         tags: [],
         visibility: 'unlisted',
@@ -42,7 +46,13 @@ test.describe('reminder field', () => {
       },
     });
     expect(created.ok()).toBe(true);
-    const signupId = (await created.json()).data.id as string;
+    return (await created.json()).data.id as string;
+  }
+
+  test('the date field editor switches reminders off and on; a second date field is blocked', async ({
+    page,
+  }) => {
+    const signupId = await createSignup(page, 'Reminder field');
     expect(await settingsOf(page, signupId)).toMatchObject({
       sendReminders: true,
       reminderFromFieldRef: 'date',
@@ -113,6 +123,52 @@ test.describe('reminder field', () => {
     expect(await settingsOf(page, signupId)).toMatchObject({
       sendReminders: true,
       reminderFromFieldRef: 'date',
+    });
+  });
+
+  test('a group-by save keeps reminders switched off elsewhere off, and shows them off', async ({
+    page,
+  }) => {
+    const signupId = await createSignup(page, 'Settings merge');
+
+    await page.goto(`/app/signups/${signupId}/build`);
+    await page.getByRole('button', { name: 'Fields (2)' }).click();
+    const dialog = page.getByRole('dialog');
+    const bell = dialog.getByLabel(BELL);
+    await expect(bell).toBeVisible();
+
+    // Reminders go off somewhere else (another tab, an AI assistant) while
+    // this Build tab stays open. It has not heard, so its bell stays.
+    const elsewhere = await page.request.patch(`/api/signups/${signupId}`, {
+      data: { settings: { sendReminders: false } },
+    });
+    expect(elsewhere.ok()).toBe(true);
+    await expect(bell).toBeVisible();
+
+    // Save the other control on this tab.
+    const saved = page.waitForResponse(
+      (r) => r.request().method() === 'PATCH' && r.url().endsWith(`/api/signups/${signupId}`),
+    );
+    await dialog.getByRole('button', { name: 'Don’t group' }).click();
+    await dialog
+      .getByRole('listbox', { name: 'Group slots by' })
+      .getByRole('option', { name: 'Date' })
+      .click();
+    expect((await saved).ok()).toBe(true);
+
+    // The save sent only the group-by, so reminders stay off, and the tab
+    // now shows what the server holds: no bell, an unticked box.
+    await expect(bell).toHaveCount(0);
+    // In the fields list: the group-by picker is now a "Date" button too.
+    await dialog
+      .getByTestId(/^fields-row-/)
+      .getByRole('button', { name: 'Date', exact: true })
+      .click();
+    await expect(dialog.getByRole('checkbox', { name: CHECKBOX })).not.toBeChecked();
+    expect(await settingsOf(page, signupId)).toMatchObject({
+      sendReminders: false,
+      reminderFromFieldRef: 'date',
+      groupByFieldRefs: ['date'],
     });
   });
 });

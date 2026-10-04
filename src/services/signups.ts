@@ -261,19 +261,20 @@ export async function getSignupForOrganizer(
   );
 }
 
+/**
+ * `settings` is sparse: the keys sent are merged over the row's current
+ * settings, a `null` value clears its key, and every key not sent is left as
+ * it is. Every caller sends only what it changes (the MCP tool what the model
+ * passed, the Build tab the one control the organizer used), so a setting
+ * changed since, in another tab or by an AI assistant, survives. Replacing the
+ * column with the copy the Build tab took when it opened undid those changes
+ * (#314).
+ */
 export async function updateSignup(
   db: Db,
   actor: Actor,
   signupId: string,
   rawInput: unknown,
-  opts: {
-    /**
-     * Merge `settings` over the row's current settings instead of replacing
-     * them, with a `null` value clearing a key. For callers that send one
-     * setting at a time (the MCP tool); the browser sends the whole object.
-     */
-    mergeSettings?: boolean;
-  } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
   const found = await readLiveSignup(db, signupId);
   if (!found) return err(serviceError('not_found', 'signup not found'));
@@ -288,11 +289,12 @@ export async function updateSignup(
     const row = await lockSignupForWrite(tx, signupId, found.workspaceId);
     if (!row) return err(serviceError('not_found', 'signup not found'));
 
-    if (opts.mergeSettings && isObject(rawInput) && isObject(rawInput.settings)) {
-      const merged: Record<string, unknown> = {
-        ...(row.settings as Record<string, unknown>),
-        ...rawInput.settings,
-      };
+    const prevSettings = (row.settings as ReminderSettingsLike) ?? {};
+    if (isObject(rawInput) && isObject(rawInput.settings)) {
+      // The anchor stays out of the merge, so below it is only ever what the
+      // caller sent.
+      const { reminderFromFieldRef: _anchor, ...kept } = prevSettings;
+      const merged: Record<string, unknown> = { ...kept, ...rawInput.settings };
       for (const key of Object.keys(merged)) if (merged[key] === null) delete merged[key];
       rawInput = { ...rawInput, settings: merged };
     }
@@ -301,14 +303,13 @@ export async function updateSignup(
     if (!input.ok) return input;
     const data = input.value;
 
-    const prevSettings = (row.settings as ReminderSettingsLike) ?? {};
-    // Replacement (not merge): callers pass the complete settings object, and
-    // omitting a key clears it — except reminderFromFieldRef. That key names the
-    // date field every slot takes its instant from, and must keep doing so for
-    // as long as the signup has one, so an omission keeps the current anchor
-    // rather than clearing it, and a value naming anything else is refused. Only
-    // the field services move it (when its field is deleted or retyped); a stale
-    // client must not be able to strand every slot_at on a column that is gone.
+    // reminderFromFieldRef names the date field every slot takes its instant
+    // from, and must keep doing so for as long as the signup has one, so
+    // leaving it out (or sending null) keeps the current anchor rather than
+    // clearing it, and a value naming anything else is refused. Only the field
+    // services move it otherwise (when its field is deleted or retyped); a
+    // stale client must not be able to strand every slot_at on a column that
+    // is gone.
     let mergedSettings: ReminderSettingsLike = prevSettings;
     if (data.settings !== undefined) {
       const fields = await listFieldsForSignup(tx, signupId);
