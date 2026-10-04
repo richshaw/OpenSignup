@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { cancelledMessage } from '../../cancelled-message';
 import { capacityMessage } from '../../capacity-message';
 import { closedMessage } from '../../closed-message';
 import { goneMessage } from '../../gone-message';
@@ -72,7 +73,11 @@ export default function EditForm({
       // `remaining` here is the most this commitment can hold, not the spots
       // still free, so the copy is the edit page's own.
       const capacity = capacityMessage(payload?.error, 'change');
-      const copy = capacity ?? closedMessage(payload?.error) ?? goneMessage(payload?.error);
+      const copy =
+        capacity ??
+        closedMessage(payload?.error) ??
+        goneMessage(payload?.error) ??
+        cancelledMessage(payload?.error);
       setMessage({
         kind: 'err',
         text: copy
@@ -103,11 +108,11 @@ export default function EditForm({
       router.push(`/s/${slug}`);
     } else {
       const payload = await res.json().catch(() => null);
-      const gone = goneMessage(payload?.error);
+      const copy = goneMessage(payload?.error) ?? cancelledMessage(payload?.error);
       setMessage({
         kind: 'err',
-        text: gone
-          ? [gone.message, gone.suggestion].join(' ')
+        text: copy
+          ? [copy.message, copy.suggestion].join(' ')
           : (payload?.error?.message ?? 'cancel failed'),
       });
       setConfirmingCancel(false);

@@ -25,9 +25,10 @@ type CommitmentRow = typeof commitments.$inferSelect;
  * A commitment the participant can still act on. `cancelled` and `no_show`
  * are terminal end states that no participant action reopens. Only the
  * participant's own cancel or move writes `cancelled`; nothing writes
- * `no_show` yet.
+ * `no_show` yet. The edit page shows its cancelled message for any status
+ * not listed here.
  */
-const ACTIVE_COMMITMENT_STATUSES: readonly CommitmentRow['status'][] = [
+export const ACTIVE_COMMITMENT_STATUSES: readonly CommitmentRow['status'][] = [
   'confirmed',
   'tentative',
   'waitlist',

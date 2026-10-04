@@ -166,6 +166,44 @@ describe('<EditForm /> quantity', () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
+  // The sign-up was cancelled in another tab while this page was open.
+  it('says the sign-up was cancelled rather than "not active"', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({ error: { code: 'conflict', message: 'commitment is not active' } }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(4, 2);
+
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      'This sign-up was cancelled. Go back to the signup if you want to sign up again.',
+    );
+    expect(alert).not.toHaveTextContent('not active');
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it('says the same when a cancel finds the sign-up no longer active', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({ error: { code: 'conflict', message: 'commitment is not active' } }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(4, 2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel signup' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      'This sign-up was cancelled. Go back to the signup if you want to sign up again.',
+    );
+    expect(alert).not.toHaveTextContent('not active');
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
   // The page's refresh after a successful save re-reads the limit, but the form
   // stays mounted; the error's number must not keep overriding the fresh one.
   it("drops an error's limit once a later save succeeds", async () => {

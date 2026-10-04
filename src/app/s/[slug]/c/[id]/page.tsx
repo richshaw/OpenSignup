@@ -3,8 +3,14 @@ import { notFound } from 'next/navigation';
 import { after } from 'next/server';
 import { Banner } from '@/components/banner';
 import { getDb } from '@/db/client';
-import { editLimitsForCommitment, getOwnCommitment } from '@/services/commitments';
+import {
+  ACTIVE_COMMITMENT_STATUSES,
+  editLimitsForCommitment,
+  getOwnCommitment,
+} from '@/services/commitments';
 import { readRequestSignals, recordEditLinkFollowed } from '@/lib/view-tracker';
+import { CANCELLED_PAGE } from '../../cancelled-message';
+import { SignupStateMessage } from '../../state-message';
 import EditForm from './edit-form';
 
 export const metadata = { title: 'Your signup', robots: { index: false, follow: false } };
@@ -23,10 +29,10 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   const result = await getOwnCommitment(getDb(), id, token);
   if (!result.ok) notFound();
   const c = result.value;
-  const { maxQuantity, closed } = await editLimitsForCommitment(getDb(), c);
 
   // Read headers in the request context — `after(...)` runs outside it and
   // Next.js 15 forbids dynamic APIs (headers/cookies) inside the callback.
+  // Recorded for a cancelled sign-up too: the link was still followed.
   const signals = readRequestSignals(await headers());
   after(() =>
     recordEditLinkFollowed({
@@ -37,6 +43,21 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
       signals,
     }),
   );
+
+  // The link in the confirmation email never changes, so people follow it
+  // after a cancel too. The token shows the sign-up is theirs, so there is
+  // nothing to hide, and the form would only fail: a save is refused and a
+  // cancel changes nothing.
+  if (!ACTIVE_COMMITMENT_STATUSES.includes(c.status)) {
+    return (
+      <SignupStateMessage
+        {...CANCELLED_PAGE}
+        action={{ label: 'Back to the signup', href: `/s/${slug}` }}
+      />
+    );
+  }
+
+  const { maxQuantity, closed } = await editLimitsForCommitment(getDb(), c);
 
   return (
     <main className="container-tight flex min-h-[100svh] flex-col gap-6 py-8">
