@@ -11,7 +11,7 @@ import {
 } from '@/lib/returning-participant';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { readRequestSignals, recordPublicView } from '@/lib/view-tracker';
-import type { SignupStatus } from '@/schemas/signups';
+import { requiresEmail, type SignupStatus } from '@/schemas/signups';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { loadPublicSignup } from '@/services/signups.cached';
 import SignupView, { toSignupViewFields, toSignupViewSlots } from './signup-view';
@@ -145,6 +145,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
           title: sig.title,
           description: sig.description,
           status: sig.status as SignupStatus,
+          requireEmail: requiresEmail(sig.settings),
         }}
         fields={fields}
         groupByRef={groupByRef}

@@ -45,10 +45,9 @@ export function signupWithLinks(row: SignupRow) {
 
 /**
  * Settings nothing reads yet, so changing one changes nothing anyone sees. No
- * sign-up checks maxCommitmentsPerParticipant. Every sign-up asks for an email
- * whatever requireEmail says, and the notes box shows whatever allowNotes says.
- * The public page shows how full each slot is but never who signed up,
- * whatever showWhoSignedUp says. Nothing prints confirmationMessage.
+ * sign-up checks maxCommitmentsPerParticipant, and the notes box shows whatever
+ * allowNotes says. The public page shows how full each slot is but never who
+ * signed up, whatever showWhoSignedUp says. Nothing prints confirmationMessage.
  *
  * update_signup refuses them and every tool hides them, so an assistant can
  * neither report a change that never happened nor read back a value that
@@ -58,7 +57,6 @@ export function signupWithLinks(row: SignupRow) {
  */
 export const UNREAD_SETTINGS = {
   maxCommitmentsPerParticipant: true,
-  requireEmail: true,
   allowNotes: true,
   showWhoSignedUp: true,
   confirmationMessage: true,

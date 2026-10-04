@@ -82,6 +82,9 @@ interface SignupViewProps {
     title: string;
     description: string | null;
     status: SignupStatus;
+    /** Whether the sign-up form asks for the email; true when left out. Only
+     *  the live page's form reads it. */
+    requireEmail?: boolean;
   };
   fields: SignupViewField[];
   groupByRef: string | null;
@@ -319,6 +322,7 @@ export function SignupViewBody({
                             capacity={slot.capacity}
                             signupTitle={signup.title}
                             slug={slug}
+                            requireEmail={signup.requireEmail ?? true}
                           />
                         )}
                       </div>

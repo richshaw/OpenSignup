@@ -35,6 +35,12 @@ interface CommitDialogProps {
   capacity: number | null;
   signupTitle: string;
   slug: string;
+  /**
+   * The signup's `requireEmail` setting. When false the email box is optional,
+   * and someone who leaves it blank gets no email, so the success screen tells
+   * them to save the link it shows.
+   */
+  requireEmail: boolean;
 }
 
 interface ApiError {
@@ -87,12 +93,18 @@ export default function CommitDialog({
   capacity,
   signupTitle,
   slug,
+  requireEmail,
 }: CommitDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
-  const [success, setSuccess] = useState<{ commitmentId: string; editUrl: string } | null>(null);
+  const [success, setSuccess] = useState<{
+    commitmentId: string;
+    editUrl: string;
+    /** False when they left the email blank, so nothing will send them the link. */
+    emailed: boolean;
+  } | null>(null);
   const [prefill, setPrefill] = useState<PrefillState | null>(null);
   const [emailValue, setEmailValue] = useState('');
   const [shareCopied, setShareCopied] = useState(false);
@@ -147,6 +159,7 @@ export default function CommitDialog({
   const slotCapacity = reported ? reported.capacity : capacity;
   const showSpotsLeft = left !== null && slotCapacity !== null && slotCapacity > 1;
   const spotsLeftId = useId();
+  const emailHelpId = useId();
 
   function handleAcceptSuggestion() {
     if (emailHint) setEmailValue(emailHint);
@@ -161,7 +174,8 @@ export default function CommitDialog({
     const email = String(data.get('email') ?? '').trim();
     const body = {
       name,
-      email,
+      // Left out when blank, which only a signup with the email optional takes.
+      email: email || undefined,
       notes: String(data.get('notes') ?? '') || undefined,
       // No Spots field when only one place is open (see `spotsLeft`), so 1.
       quantity: Number(data.get('quantity') ?? 1),
@@ -190,6 +204,7 @@ export default function CommitDialog({
       setSuccess({
         commitmentId: payload.data.commitment.id,
         editUrl: payload.data.editUrl,
+        emailed: email !== '',
       });
       // Don't refresh server state yet — that would re-render the parent and
       // replace this dialog (slot row swaps to "Edit" once cookie is read),
@@ -314,10 +329,22 @@ export default function CommitDialog({
       >
         {success ? (
           <div className="space-y-4">
-            <p className="text-ink-muted text-sm">
-              We&apos;ve saved your spot for <strong className="text-ink">{slotTitle}</strong>.
-              Bookmark this link to edit or cancel later:
-            </p>
+            {success.emailed ? (
+              <p className="text-ink-muted text-sm">
+                We&apos;ve saved your spot for <strong className="text-ink">{slotTitle}</strong>.
+                Bookmark this link to edit or cancel later:
+              </p>
+            ) : (
+              <p className="text-ink-muted text-sm">
+                We&apos;ve saved your spot for <strong className="text-ink">{slotTitle}</strong>.{' '}
+                <strong className="text-ink">
+                  We won&apos;t email you this link. Save it now: it&apos;s the only way to change
+                  or cancel.
+                </strong>
+                {/* The calendar event carries the link: see handleDownloadIcs. */}
+                {slotAt ? ' Add to calendar saves the link too.' : null}
+              </p>
+            )}
             <a
               href={success.editUrl}
               className="block break-all rounded-lg bg-surface-raised px-3 py-2 font-mono text-xs"
@@ -365,33 +392,45 @@ export default function CommitDialog({
                 className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
               />
             </label>
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium">Email</span>
-              <input
-                ref={emailRef}
-                type="email"
-                name="email"
-                required
-                autoComplete="email"
-                inputMode="email"
-                value={emailValue}
-                onChange={(e) => setEmailValue(e.target.value)}
-                className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-              />
-              {emailHint ? (
-                <p className="text-ink-muted mt-1 text-xs">
-                  Did you mean{' '}
-                  <button
-                    type="button"
-                    onClick={handleAcceptSuggestion}
-                    className="text-brand font-medium underline"
-                  >
-                    {emailHint}
-                  </button>
-                  ?
+            {/* The help text sits outside the label so that it describes the
+                box rather than becoming part of its name. */}
+            <div>
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">
+                  {requireEmail ? 'Email' : 'Email (optional)'}
+                </span>
+                <input
+                  ref={emailRef}
+                  type="email"
+                  name="email"
+                  required={requireEmail}
+                  aria-describedby={requireEmail ? undefined : emailHelpId}
+                  autoComplete="email"
+                  inputMode="email"
+                  value={emailValue}
+                  onChange={(e) => setEmailValue(e.target.value)}
+                  className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
+                />
+                {emailHint ? (
+                  <p className="text-ink-muted mt-1 text-xs">
+                    Did you mean{' '}
+                    <button
+                      type="button"
+                      onClick={handleAcceptSuggestion}
+                      className="text-brand font-medium underline"
+                    >
+                      {emailHint}
+                    </button>
+                    ?
+                  </p>
+                ) : null}
+              </label>
+              {requireEmail ? null : (
+                <p id={emailHelpId} className="text-ink-muted mt-1 text-xs">
+                  Optional. If you give one, we&apos;ll email you your link to change or cancel.
                 </p>
-              ) : null}
-            </label>
+              )}
+            </div>
             <div className={askQuantity ? 'grid grid-cols-[1fr_auto] gap-3' : undefined}>
               <label className="block">
                 <span className="mb-1 block text-sm font-medium">Notes (optional)</span>

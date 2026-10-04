@@ -23,7 +23,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // rejected request never reaches the send. The address is unverified and
     // this endpoint now produces outbound mail, so the IP bucket alone would
     // let one caller spray a stranger's inbox across a signup's slots. Shape is
-    // only checked here; commitToSlot's Zod parse remains the authority.
+    // only checked here; commitToSlot's Zod parse remains the authority. A
+    // blank or missing email, which a signup can make optional, skips it:
+    // without an address nothing is mailed.
     const claimedEmail =
       typeof body === 'object' && body !== null ? (body as { email?: unknown }).email : undefined;
     if (typeof claimedEmail === 'string' && claimedEmail.includes('@')) {

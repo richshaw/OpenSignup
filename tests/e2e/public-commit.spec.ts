@@ -29,6 +29,45 @@ test.describe('public commit flow', () => {
     await expect(row.getByRole('link', { name: 'Edit' })).toBeVisible();
   });
 
+  test('the Email box is required where the signup asks for it', async ({ page }) => {
+    await page.goto(`/s/${seed.publicSlug}`);
+    const row = page.locator('li').filter({ hasText: seed.openSlotLabel });
+    await row.getByRole('button', { name: 'Sign up' }).click();
+
+    await expect(page.getByLabel('Email', { exact: true })).toHaveJSProperty('required', true);
+    await expect(page.getByLabel('Email (optional)')).toHaveCount(0);
+  });
+
+  test('participant signs up with the Email box left blank where it is optional', async ({
+    page,
+  }) => {
+    await page.goto(`/s/${seed.optionalEmailSlug}`);
+    const row = page.locator('li').filter({ hasText: seed.optionalEmailSlotLabel });
+    await row.getByRole('button', { name: 'Sign up' }).click();
+
+    // Without an email nobody is found again, so a retry is simply another
+    // participant and needs no unique detail.
+    await page.getByLabel('Your name').fill('Sam Example');
+    await expect(page.getByLabel('Email (optional)')).toHaveJSProperty('required', false);
+    await page.getByRole('button', { name: 'Confirm' }).click();
+
+    await expect(page.getByRole('heading', { name: "You're in." })).toBeVisible();
+    await expect(
+      page.getByText(
+        "We won't email you this link. Save it now: it's the only way to change or cancel.",
+      ),
+    ).toBeVisible();
+    const editLink = page.getByRole('link', {
+      name: new RegExp(`/s/${seed.optionalEmailSlug}/c/`),
+    });
+    const editUrl = await editLink.getAttribute('href');
+    expect(editUrl).toBeTruthy();
+
+    await page.goto(editUrl!);
+    await expect(page.getByRole('heading', { name: 'Your signup' })).toBeVisible();
+    await expect(page.getByText("You're editing this as Sam Example.")).toBeVisible();
+  });
+
   test('full slot shows Full and no sign-up affordance', async ({ page }) => {
     await page.goto(`/s/${seed.publicSlug}`);
     const row = page.locator('li').filter({ hasText: seed.fullSlotLabel });

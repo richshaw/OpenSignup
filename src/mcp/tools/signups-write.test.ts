@@ -55,7 +55,7 @@ const row = signupRow({
   slug: 'snack-rota',
   title: 'Snack rota',
   description: '',
-  settings: { groupByFieldRefs: ['date'], sendReminders: true, requireEmail: true },
+  settings: { groupByFieldRefs: ['date'], sendReminders: true, allowNotes: true },
 });
 
 /** What the read service hands back for the signup `create_signup` just made. */
@@ -214,17 +214,39 @@ describe('update_signup', () => {
       'sig_1',
       { settings: { sendReminders: false, lockoutHoursBeforeSlot: 2 } },
     );
-    // The stored row carries requireEmail, which nothing reads, so it is not shown.
+    // The stored row carries allowNotes, which nothing reads, so it is not shown.
     expect((r.structuredContent as { signup: { settings: unknown } }).signup.settings).toEqual({
       groupByFieldRefs: ['date'],
       sendReminders: false,
     });
   });
 
+  it('offers requireEmail, passes it through and shows it back', async () => {
+    svc.updateSignup.mockResolvedValueOnce(ok({ ...row, settings: { ...row.settings, requireEmail: false } }));
+    const client = await connectTestClient(ctx, WRITE_TOOLS);
+    const { tools } = await client.listTools();
+    const tool = tools.find((t) => t.name === 'update_signup');
+    const settings = tool?.inputSchema.properties?.settings as { properties?: Record<string, unknown> } | undefined;
+    expect(settings?.properties).toHaveProperty('requireEmail');
+    expect(tool?.description).toContain('settings.requireEmail');
+    expect(tool?.description).not.toContain('make the email address optional');
+
+    const r = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: 'sig_1', settings: { requireEmail: false } },
+    });
+    expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    expect(svc.updateSignup).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', { settings: { requireEmail: false } });
+    expect((r.structuredContent as { signup: { settings: unknown } }).signup.settings).toEqual({
+      groupByFieldRefs: ['date'],
+      sendReminders: true,
+      requireEmail: false,
+    });
+  });
+
   // Nothing reads these, so accepting one would report a change participants never see.
   it.each([
     ['maxCommitmentsPerParticipant', 2],
-    ['requireEmail', false],
     ['allowNotes', false],
     ['showWhoSignedUp', false],
     ['confirmationMessage', 'See you there'],

@@ -6,6 +6,7 @@ import budgets from '../../budgets.json';
 import { getDb, SESSION_SETTINGS } from '@/db/client';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
+import { participants } from '@/db/schema/participants';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { workspaces } from '@/db/schema/workspaces';
 import { getEnv } from '@/lib/env';
@@ -73,6 +74,7 @@ describe('query budgets for the participant hot path (db)', () => {
   let organizerId: string;
   let slug: string;
   let slotId: string;
+  let optionalEmailSlotId: string;
   // The sign-up request charges both commit limits. A fresh documentation
   // address each run keeps reruns clear of the per-IP limit, and afterAll
   // deletes both rows, since rate_limits has no tie to the workspace.
@@ -107,20 +109,23 @@ describe('query budgets for the participant hot path (db)', () => {
       workspaceIds: [workspaceId],
       workspaceRoles: { [workspaceId]: 'owner' },
     };
-    const signup = await createSignup(db, actor, workspaceId, {
-      title: 'Query budget test',
-      description: '',
-      tags: [],
-      visibility: 'unlisted' as const,
-      settings: {},
-    });
-    if (!signup.ok) throw new Error(signup.error.message);
-    const slot = await addSlot(db, actor, signup.value.id, { values: {}, capacity: 50 });
-    if (!slot.ok) throw new Error(slot.error.message);
-    const published = await publishSignup(db, actor, signup.value.id);
-    if (!published.ok) throw new Error(published.error.message);
-    slug = signup.value.slug;
-    slotId = slot.value.id;
+    async function publishedWithSlot(settings: { requireEmail?: boolean }) {
+      const signup = await createSignup(db, actor, workspaceId, {
+        title: 'Query budget test',
+        description: '',
+        tags: [],
+        visibility: 'unlisted' as const,
+        settings,
+      });
+      if (!signup.ok) throw new Error(signup.error.message);
+      const slot = await addSlot(db, actor, signup.value.id, { values: {}, capacity: 50 });
+      if (!slot.ok) throw new Error(slot.error.message);
+      const published = await publishSignup(db, actor, signup.value.id);
+      if (!published.ok) throw new Error(published.error.message);
+      return { slug: signup.value.slug, slotId: slot.value.id };
+    }
+    ({ slug, slotId } = await publishedWithSlot({}));
+    optionalEmailSlotId = (await publishedWithSlot({ requireEmail: false })).slotId;
   });
 
   afterAll(async () => {
@@ -173,5 +178,29 @@ describe('query budgets for the participant hot path (db)', () => {
     });
     expect(status).toBe(200);
     expectWithinBudget('POST /api/slots/[id]/commitments', count);
+  });
+
+  // No per-address limit to charge and no one to look up by email, on a
+  // signup that makes the email optional.
+  it('POST /api/slots/[id]/commitments, without an email', async () => {
+    const req = new NextRequest(`http://localhost/api/slots/${optionalEmailSlotId}/commitments`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': ip },
+      body: JSON.stringify({ name: 'Robin Example', email: '', quantity: 1 }),
+    });
+    let status = 0;
+    let participantId = '';
+    const count = await countStatements(async () => {
+      const res = await commitPost(req, { params: Promise.resolve({ id: optionalEmailSlotId }) });
+      status = res.status;
+      participantId = (await res.json()).data.commitment.participantId;
+    });
+    expect(status).toBe(200);
+    const [person] = await getDb()
+      .select({ email: participants.email })
+      .from(participants)
+      .where(eq(participants.id, participantId));
+    expect(person).toEqual({ email: null });
+    expectWithinBudget('POST /api/slots/[id]/commitments, without an email', count);
   });
 });

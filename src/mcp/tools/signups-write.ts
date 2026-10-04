@@ -69,9 +69,9 @@ export const createSignupTool = defineTool({
  * Every setting in UNREAD_SETTINGS is left out until something reads it.
  * Accepting maxCommitmentsPerParticipant told the organizer a limit was in
  * place when anyone could still take every spot. The others would do the same
- * for an optional email, a hidden notes box, names on the public page or a
- * confirmation message. Strict, so a client that sends one anyway is refused
- * rather than told the change went through.
+ * for a hidden notes box, names on the public page or a confirmation message.
+ * Strict, so a client that sends one anyway is refused rather than told the
+ * change went through.
  */
 const SparseSettingsSchema = SignupSettingsSchema.removeDefault().omit(UNREAD_SETTINGS).partial().strict();
 
@@ -80,7 +80,7 @@ export const updateSignupTool = defineTool({
   scope: 'signups:write',
   title: 'Update signup',
   description:
-    'Change a signup title, description, tags, closing time (ISO datetime, or null to remove it), visibility (public or unlisted) or settings. Only the settings you pass change. There is no setting to limit how many spots one person can take, make the email address optional, turn off notes, list who signed up on the public page (it shows only how full each slot is) or add a confirmation message. Use the field and slot tools to change what participants sign up for.',
+    'Change a signup title, description, tags, closing time (ISO datetime, or null to remove it), visibility (public or unlisted) or settings. Only the settings you pass change. settings.requireEmail is true by default, and every participant must give an email address. Set to false, the email is optional: someone who leaves it blank gets no confirmation or reminder emails, and their link to change or cancel their spot is shown to them once, on screen. Setting it back to true asks only new sign-ups; anyone who already signed up without an email keeps their spot. There is no setting to limit how many spots one person can take, turn off notes, list who signed up on the public page (it shows only how full each slot is) or add a confirmation message. Use the field and slot tools to change what participants sign up for.',
   annotations: { readOnlyHint: false, destructiveHint: true },
   // organizerDisplayName is omitted on purpose: no column stores it, so
   // accepting it would report a change that never happened.

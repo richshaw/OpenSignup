@@ -164,7 +164,11 @@ describe('read tools', () => {
     const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 'sig_1' } });
     const body = r.structuredContent as { signup: { settings: Record<string, unknown> } };
-    expect(body.signup.settings).toEqual({ groupByFieldRefs: [], sendReminders: true });
+    expect(body.signup.settings).toEqual({
+      groupByFieldRefs: [],
+      sendReminders: true,
+      requireEmail: false,
+    });
   });
 
   it('get_signup names the links it returns', () => {

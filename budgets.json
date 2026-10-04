@@ -1,7 +1,8 @@
 {
   "queries": {
     "GET /s/[slug]": 5,
-    "POST /api/slots/[id]/commitments": 14
+    "POST /api/slots/[id]/commitments": 14,
+    "POST /api/slots/[id]/commitments, without an email": 12
   },
   "firstLoadJsKb": {
     "/s/[slug]": 131,

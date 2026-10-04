@@ -79,13 +79,17 @@ async function teardownWorkspace(db: Db, workspaceId: string, organizerId: strin
   await db.delete(organizers).where(eq(organizers.id, organizerId));
 }
 
-async function makeOpenSignupWithSlot(fx: Fixture, title: string) {
+async function makeOpenSignupWithSlot(
+  fx: Fixture,
+  title: string,
+  settings: { requireEmail?: boolean } = {},
+) {
   const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
     title,
     description: '',
     tags: [],
     visibility: 'unlisted' as const,
-    settings: {},
+    settings,
   });
   if (!created.ok) throw new Error(`createSignup failed: ${created.error.message}`);
 
@@ -1288,6 +1292,133 @@ describe('participants without an email (db)', () => {
     ).rejects.toMatchObject({
       cause: { code: '23514', constraint_name: 'participants_email_lower_with_email' },
     });
+  });
+});
+
+describe('signing up without an email (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  const optional = { requireEmail: false };
+
+  async function peopleOn(signupId: string) {
+    return fx.db
+      .select({
+        id: participants.id,
+        email: participants.email,
+        emailLower: participants.emailLower,
+      })
+      .from(participants)
+      .where(eq(participants.signupId, signupId));
+  }
+
+  async function eventsOn(signupId: string) {
+    return fx.db
+      .select({ eventType: activity.eventType, actorId: activity.actorId })
+      .from(activity)
+      .where(eq(activity.signupId, signupId));
+  }
+
+  it('adds a participant with no email where the signup makes it optional', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Optional email', optional);
+    const r = await commitToSlot(fx.db, slotId, { name: 'Sam', email: '', quantity: 1 });
+    if (!r.ok) throw new Error(`commit failed: ${r.error.message}`);
+    const { participantId } = r.value.commitment;
+
+    expect(await peopleOn(signupId)).toEqual([
+      { id: participantId, email: null, emailLower: null },
+    ]);
+    const created = (await eventsOn(signupId)).filter((e) => e.eventType === 'participant.created');
+    expect(created).toEqual([{ eventType: 'participant.created', actorId: participantId }]);
+  });
+
+  it('gives each person without an email a participant of their own', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Two optional', optional);
+    const sam = await commitToSlot(fx.db, slotId, { name: 'Sam', quantity: 1 });
+    const robin = await commitToSlot(fx.db, slotId, { name: 'Robin', email: '   ', quantity: 1 });
+    if (!sam.ok || !robin.ok) throw new Error('commit failed');
+
+    expect(sam.value.commitment.participantId).not.toBe(robin.value.commitment.participantId);
+    expect(await peopleOn(signupId)).toHaveLength(2);
+  });
+
+  it('still finds someone again by the email they gave', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Optional, given', optional);
+    const second = await addSlot(fx.db, fx.actor, signupId, { values: {}, capacity: 5 });
+    if (!second.ok) throw new Error(`addSlot failed: ${second.error.message}`);
+
+    const first = await commitToSlot(fx.db, slotId, {
+      name: 'Sam',
+      email: 'Sam@Example.test',
+      quantity: 1,
+    });
+    const again = await commitToSlot(fx.db, second.value.id, {
+      name: 'Sam',
+      email: 'sam@example.test',
+      quantity: 1,
+    });
+    if (!first.ok || !again.ok) throw new Error('commit failed');
+
+    expect(again.value.commitment.participantId).toBe(first.value.commitment.participantId);
+    expect(await peopleOn(signupId)).toEqual([
+      {
+        id: first.value.commitment.participantId,
+        email: 'Sam@Example.test',
+        emailLower: 'sam@example.test',
+      },
+    ]);
+  });
+
+  it('refuses a blank email where the signup requires one, and writes nothing', async () => {
+    // Default settings: the email is required.
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Required email');
+    const eventsBefore = await eventsOn(signupId);
+    const r = await commitToSlot(fx.db, slotId, { name: 'Sam', email: ' ', quantity: 1 });
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toMatchObject({
+      code: 'invalid_input',
+      field: 'email',
+      message: 'Email is required for this signup.',
+    });
+    expect(await peopleOn(signupId)).toEqual([]);
+    const held = await fx.db
+      .select({ id: commitments.id })
+      .from(commitments)
+      .where(eq(commitments.signupId, signupId));
+    expect(held).toEqual([]);
+    expect(await eventsOn(signupId)).toEqual(eventsBefore);
+  });
+
+  it('lets someone without an email move after the signup requires one again', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Required again', optional);
+    const second = await addSlot(fx.db, fx.actor, signupId, { values: {}, capacity: 5 });
+    if (!second.ok) throw new Error(`addSlot failed: ${second.error.message}`);
+    const r = await commitToSlot(fx.db, slotId, { name: 'Sam', quantity: 1 });
+    if (!r.ok) throw new Error(`commit failed: ${r.error.message}`);
+
+    const required = await updateSignup(fx.db, fx.actor, signupId, {
+      settings: { requireEmail: true },
+    });
+    if (!required.ok) throw new Error(`updateSignup failed: ${required.error.message}`);
+    const refused = await commitToSlot(fx.db, slotId, { name: 'Robin', quantity: 1 });
+    expect(refused.ok).toBe(false);
+
+    const moved = await updateOwnCommitment(fx.db, r.value.commitment.id, r.value.editToken, {
+      swapToSlotId: second.value.id,
+    });
+    expect(moved.ok, JSON.stringify(moved)).toBe(true);
+    if (!moved.ok) return;
+    expect(moved.value.participantId).toBe(r.value.commitment.participantId);
+    expect(moved.value.slotId).toBe(second.value.id);
   });
 });
 
