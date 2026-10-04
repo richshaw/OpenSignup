@@ -1476,4 +1476,99 @@ describe('useBuildState setGroupBy', () => {
     expect(result.current.state.reminderFieldRef).toBeNull();
     expect(result.current.state.saveStatus.kind).toBe('saved');
   });
+
+  it('sends settings saves one at a time and shows their answers in click order', async () => {
+    // Each PATCH gets the answer the test hands it, when the test hands it.
+    const answer: Array<(res: Response) => void> = [];
+    const answers = [0, 1].map(() => new Promise<Response>((resolve) => answer.push(resolve)));
+    let sent = 0;
+    const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => {
+      const next = answers[sent++];
+      if (next === undefined) throw new Error('unexpected third PATCH');
+      return next;
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const opened: SignupSettings = {
+      ...defaultSettings,
+      sendReminders: true,
+      reminderFromFieldRef: 'date',
+    };
+    const { result } = renderHook(() =>
+      useBuildState('sig_test', [whatField, dateField], [], opened),
+    );
+
+    let groupBySave!: Promise<void>;
+    let reminderSave!: Promise<void>;
+    await act(async () => {
+      groupBySave = result.current.setGroupBy('date');
+      reminderSave = result.current.setReminderField(null);
+    });
+    // The reminder save waits until the group-by save has its answer.
+    expect(settingsPatchBodies(fetchMock)).toEqual([{ groupByFieldRefs: ['date'] }]);
+
+    // Hand over the second save's answer first, as if the two had finished
+    // out of order. Nothing moves until the first save has its own.
+    await act(async () => {
+      answer[1]!(
+        jsonResponse({
+          data: { settings: { ...opened, groupByFieldRefs: ['date'], sendReminders: false } },
+        }),
+      );
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.state.groupByFieldRef).toBeNull();
+    expect(result.current.state.saveStatus.kind).toBe('saving');
+
+    await act(async () => {
+      answer[0]!(jsonResponse({ data: { settings: { ...opened, groupByFieldRefs: ['date'] } } }));
+      await groupBySave;
+      await reminderSave;
+    });
+
+    expect(settingsPatchBodies(fetchMock)).toEqual([
+      { groupByFieldRefs: ['date'] },
+      { sendReminders: false },
+    ]);
+    // The later save's answer is the one shown, not the earlier save's
+    // snapshot from before reminders went off.
+    expect(result.current.state.groupByFieldRef).toBe('date');
+    expect(result.current.state.reminderFieldRef).toBeNull();
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('still sends the next settings save after one fails', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ error: { code: 'invalid_input', message: 'Nope.' } }, { status: 400 }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            settings: { ...defaultSettings, sendReminders: false, reminderFromFieldRef: 'date' },
+          },
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useBuildState('sig_test', [whatField, dateField], [], {
+        ...defaultSettings,
+        sendReminders: true,
+        reminderFromFieldRef: 'date',
+      }),
+    );
+
+    await act(async () => {
+      void result.current.setGroupBy('what');
+      await result.current.setReminderField(null);
+    });
+
+    expect(settingsPatchBodies(fetchMock)).toEqual([
+      { groupByFieldRefs: ['what'] },
+      { sendReminders: false },
+    ]);
+    expect(result.current.state.groupByFieldRef).toBeNull();
+    expect(result.current.state.reminderFieldRef).toBeNull();
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
 });

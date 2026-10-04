@@ -303,6 +303,10 @@ export function useBuildState(
   // change (#314): saves send only the keys they change, the server merges
   // them, and the settings it returns replace this copy.
   const settingsRef = useRef<SignupSettings>(initialSettings);
+  // The last settings save queued, which the next one waits for (see
+  // saveSettings). Each save settles whether it failed or not, so one failure
+  // never holds up the saves behind it.
+  const settingsSaveRef = useRef<Promise<void>>(Promise.resolve());
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -947,24 +951,41 @@ export function useBuildState(
     [signupId, flushTimer],
   );
 
-  const setGroupBy = useCallback(
-    async (ref: string | null): Promise<void> => {
+  /**
+   * PATCHes `changed`, only the settings a control changed, and shows the
+   * settings the server returns. Saves run one at a time, in the order they
+   * were made: each response replaces both the group-by and the reminder
+   * control, so with two in flight a slow earlier one could land last and put
+   * its older snapshot back, and the server could apply them in either order.
+   */
+  const saveSettings = useCallback(
+    (changed: Partial<SignupSettings>): Promise<void> => {
       markSaving();
-      const changed = { groupByFieldRefs: ref ? [ref] : [] };
-      try {
-        const res = await fetch(`/api/signups/${signupId}`, {
-          method: 'PATCH',
-          headers: JSON_HEADERS,
-          body: JSON.stringify({ settings: changed }),
-        });
-        await expectOk(res);
-        showSettings((await savedSettings(res)) ?? { ...settingsRef.current, ...changed });
-        markSaved();
-      } catch (e) {
-        markError(asErr(e));
-      }
+      const save = settingsSaveRef.current.then(async () => {
+        // The save this one waited for may have marked the rail saved already.
+        markSaving();
+        try {
+          const res = await fetch(`/api/signups/${signupId}`, {
+            method: 'PATCH',
+            headers: JSON_HEADERS,
+            body: JSON.stringify({ settings: changed }),
+          });
+          await expectOk(res);
+          showSettings((await savedSettings(res)) ?? { ...settingsRef.current, ...changed });
+          markSaved();
+        } catch (e) {
+          markError(asErr(e));
+        }
+      });
+      settingsSaveRef.current = save;
+      return save;
     },
     [signupId],
+  );
+
+  const setGroupBy = useCallback(
+    (ref: string | null): Promise<void> => saveSettings({ groupByFieldRefs: ref ? [ref] : [] }),
+    [saveSettings],
   );
 
   /**
@@ -974,25 +995,11 @@ export function useBuildState(
    * links, date order), only the switch flips.
    */
   const setReminderField = useCallback(
-    async (ref: string | null): Promise<void> => {
-      markSaving();
-      const changed: Partial<SignupSettings> = ref
-        ? { sendReminders: true, reminderFromFieldRef: ref }
-        : { sendReminders: false };
-      try {
-        const res = await fetch(`/api/signups/${signupId}`, {
-          method: 'PATCH',
-          headers: JSON_HEADERS,
-          body: JSON.stringify({ settings: changed }),
-        });
-        await expectOk(res);
-        showSettings((await savedSettings(res)) ?? { ...settingsRef.current, ...changed });
-        markSaved();
-      } catch (e) {
-        markError(asErr(e));
-      }
-    },
-    [signupId],
+    (ref: string | null): Promise<void> =>
+      saveSettings(
+        ref ? { sendReminders: true, reminderFromFieldRef: ref } : { sendReminders: false },
+      ),
+    [saveSettings],
   );
 
   return {
