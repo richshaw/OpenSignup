@@ -19,6 +19,8 @@ test('after sending a magic link, a code can be entered and a wrong code is reje
   await code.fill('000000');
   await page.getByRole('button', { name: 'Sign in with code' }).click();
   await expect(page.locator('#code-error')).toContainText('not right');
+  // Kept, so a mistyped digit can be fixed without typing all six again.
+  await expect(code).toHaveValue('000000');
   // Still not signed in.
   await page.goto(`${BASE_URL}/app`);
   await expect(page).toHaveURL(/\/login/);
