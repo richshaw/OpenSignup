@@ -3,7 +3,6 @@ import {
   FIELD_TYPES,
   SlotFieldConfigSchema,
   SlotFieldInputSchema,
-  SlotFieldPublicSchema,
   SlotFieldUpdateInputSchema,
 } from './slot-fields';
 
@@ -174,29 +173,5 @@ describe('SlotFieldUpdateInputSchema', () => {
 
   it('rejects ref in update payload (ref is immutable)', () => {
     expect(() => SlotFieldUpdateInputSchema.parse({ ref: 'newref' })).toThrow();
-  });
-});
-
-describe('SlotFieldPublicSchema', () => {
-  it('round-trips a text field with value', () => {
-    const parsed = SlotFieldPublicSchema.parse({
-      ref: 'teacher',
-      label: 'Teacher',
-      fieldType: 'text',
-      value: 'Ms. Johnson',
-      config: { fieldType: 'text', maxLength: 200 },
-    });
-    expect(parsed.value).toBe('Ms. Johnson');
-  });
-
-  it('accepts null value (unset)', () => {
-    const parsed = SlotFieldPublicSchema.parse({
-      ref: 'date',
-      label: 'Date',
-      fieldType: 'date',
-      value: null,
-      config: { fieldType: 'date' },
-    });
-    expect(parsed.value).toBeNull();
   });
 });

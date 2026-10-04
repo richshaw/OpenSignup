@@ -29,6 +29,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  // Turn off the image optimizer. With it on, `/_next/image` is a public
+  // endpoint that decodes and resizes images with sharp (libvips) for anyone
+  // who asks, and nothing here uses it: the help screenshots are already
+  // sized and pass `unoptimized`. Off, Next answers that path with a 404
+  // before sharp loads, so a libvips decoder bug has no way in.
+  images: {
+    unoptimized: true,
+  },
   serverExternalPackages: ['pg-boss', 'postgres', 'nodemailer', 'pino', 'pino-pretty', 'oidc-provider'],
   async headers() {
     return [
