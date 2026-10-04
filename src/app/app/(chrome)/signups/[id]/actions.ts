@@ -62,9 +62,10 @@ export async function deleteSignupAction(signupId: string) {
   const actor = await requireActor();
   const result = await deleteSignup(getDb(), actor, signupId);
   if (!result.ok) {
-    redirect(
-      `/app/signups/${signupId}/settings?error=${encodeURIComponent(result.error.message)}`,
-    );
+    // In plain words by its code, as Save on the same tab is. A viewer's
+    // refusal is thrown, not returned, and is not caught here.
+    const message = SAVE_ERROR_MESSAGE[result.error.code];
+    redirect(`/app/signups/${signupId}/settings?error=${encodeURIComponent(message)}`);
   }
   // Bust any open tab on the deleted signup so the next interaction shows the
   // organizer "signup not found" state instead of a stale cached layout.

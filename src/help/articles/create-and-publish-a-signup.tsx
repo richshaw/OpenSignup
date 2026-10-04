@@ -246,12 +246,17 @@ export function CreateAndPublishASignup() {
               src="/help/create-and-publish-a-signup/email-setting.png"
               alt="The Sign-up form settings, with Optional chosen for Ask for an email address, and Saved next to the Save button."
               width={672}
-              height={230}
+              height={250}
             />
           </Step>
         </Steps>
         <p>
           On your signup, the email box now says <Ui>{UI.emailBoxOptional}</Ui>.
+        </p>
+        <p>
+          If someone who left it blank loses their link, ask them to sign up again. Then remove
+          their old sign-up on the <Ui>{UI.responses}</Ui> tab. If their slot is full, remove the
+          old one first, so there is room.
         </p>
         <p>
           You can switch back to <Ui>{UI.emailRequired}</Ui> later. Only people who sign up after

@@ -50,4 +50,6 @@ export const UI = {
   saved: 'Saved',
   // The email box on the signup page once it is optional.
   emailBoxOptional: 'Email (optional)',
+  // The tab that lists who signed up.
+  responses: 'Responses',
 } as const;

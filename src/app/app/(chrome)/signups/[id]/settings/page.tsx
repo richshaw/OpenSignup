@@ -83,8 +83,9 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
               </label>
             </div>
             <p id="require-email-help" className="mt-2 text-sm text-ink-muted">
-              Someone who leaves it blank gets no emails and sees their link to change or cancel
-              only once. If they lose it, you can remove them on the Responses tab.
+              People who leave it blank get no emails, not even reminders. They see their link on
+              screen, and only the browser they used remembers it. If they lose it, they can sign up
+              again, and you can remove their old sign-up on the Responses tab.
             </p>
           </fieldset>
           <div className="flex flex-wrap items-center gap-3">

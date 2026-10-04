@@ -199,7 +199,7 @@ test.describe('help: create and publish your first signup', () => {
     await expect(ask.getByRole('radio', { name: UI.emailOptional })).toBeChecked();
     await shot(page, form, 'email-setting');
 
-    // Someone who leaves it blank gets their link once, and no email.
+    // Someone who leaves it blank sees their link on screen, and no email.
     const blank = await browser.newPage();
     await blank.goto(`/s/${signup.slug}`);
     await blank.getByRole('button', { name: signUp }).click();
@@ -216,6 +216,11 @@ test.describe('help: create and publish your first signup', () => {
       blank.getByRole('link', { name: /^Edit your signup for Fruit and water/ }),
     ).toBeVisible();
     await blank.close();
+
+    // Sam's sign-up is on the Responses tab, where a lost link's old sign-up
+    // is removed.
+    await page.getByRole('tab', { name: UI.responses }).click();
+    await expect(page.getByRole('cell', { name: 'Sam Example' })).toBeVisible();
 
     // Back to Required: new sign-ups are asked, and Sam keeps the spot.
     await page.goto(`/app/signups/${signup.id}/settings`);

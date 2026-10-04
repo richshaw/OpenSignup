@@ -9,7 +9,7 @@ import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { createSignup } from '@/services/signups';
-import { setRequireEmailAction } from './actions';
+import { deleteSignupAction, setRequireEmailAction } from './actions';
 
 // The action reads the organizer from the session cookie. Tests hand it one
 // directly instead of going through Auth.js.
@@ -33,16 +33,21 @@ vi.mock('next/navigation', () => ({
 const revalidatePath = vi.hoisted(() => vi.fn());
 vi.mock('next/cache', () => ({ revalidatePath }));
 
-async function submit(signupId: string, choice: 'required' | 'optional'): Promise<string> {
-  const form = new FormData();
-  form.set('requireEmail', choice);
+/** Where an action sends the organizer when it ends. */
+async function redirectOf(action: () => Promise<unknown>): Promise<string> {
   try {
-    await setRequireEmailAction(signupId, form);
+    await action();
   } catch (e) {
     if (e instanceof Redirected) return e.url;
     throw e;
   }
   throw new Error('the action did not redirect');
+}
+
+async function submit(signupId: string, choice: 'required' | 'optional'): Promise<string> {
+  const form = new FormData();
+  form.set('requireEmail', choice);
+  return redirectOf(() => setRequireEmailAction(signupId, form));
 }
 
 describe('setRequireEmailAction (db)', () => {
@@ -140,7 +145,7 @@ describe('setRequireEmailAction (db)', () => {
     session.actor = viewer;
     const url = await submit(signupId, 'required');
     expect(url).toBe(
-      `/app/signups/${signupId}/settings?error=${encodeURIComponent('You no longer have edit access.')}`,
+      `/app/signups/${signupId}/settings?error=${encodeURIComponent('You don’t have edit access.')}`,
     );
     expect(url).not.toMatch(/saved|cannot%20modify/);
     expect(await stored()).toEqual(before);
@@ -154,5 +159,23 @@ describe('setRequireEmailAction (db)', () => {
       `/app/signups/sig_nope/settings?error=${encodeURIComponent('No longer available.')}`,
     );
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+// The same tab's Delete, whose refusal reads like Save's.
+describe('deleteSignupAction (db)', () => {
+  it('says a signup that is gone is no longer available, not the service text', async () => {
+    session.actor = {
+      kind: 'organizer',
+      id: makeId('org'),
+      email: 'pat@example.test',
+      workspaceIds: [],
+      workspaceRoles: {},
+    };
+    const url = await redirectOf(() => deleteSignupAction('sig_nope'));
+    expect(url).toBe(
+      `/app/signups/sig_nope/settings?error=${encodeURIComponent('No longer available.')}`,
+    );
+    expect(url).not.toMatch(/signup%20not%20found/);
   });
 });

@@ -4,10 +4,11 @@ import type { ErrorCode } from '@/lib/errors';
 /**
  * What an organizer reads when a save is refused, by error code. The service's
  * own message is written for developers ("your role cannot modify this
- * workspace"), so the Build tab and the Settings tab both show these instead.
+ * workspace"), so the Build tab and the Settings tab, Delete included, show
+ * these instead.
  */
 export const SAVE_ERROR_MESSAGE: Record<ErrorCode, string> = {
-  forbidden: 'You no longer have edit access.',
+  forbidden: 'You don’t have edit access.',
   unauthorized: 'Sign in again to save.',
   conflict: 'Reload to see the latest changes.',
   capacity_full: 'Slot is full.',
