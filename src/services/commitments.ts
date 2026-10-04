@@ -17,7 +17,7 @@ import {
   CommitmentCreateInputSchema,
   CommitmentUpdateInputSchema,
 } from '@/schemas/commitments';
-import { readLiveSignup } from './locks';
+import { inWorkspace, readLiveSignup } from './locks';
 
 type CommitmentRow = typeof commitments.$inferSelect;
 
@@ -67,14 +67,14 @@ async function safeRecordAttemptFailed(
 
 /**
  * Why a slot takes no more places, or null while it still does. The rules, in
- * the order `commitToSlot` has always checked them: the slot is closed; the
+ * the order signing up has always checked them: the slot is closed; the
  * signup's status is anything but `open` (a draft, closed or archived signup);
  * its `closesAt` has passed; or the slot starts within the signup's
- * `lockoutHoursBeforeSlot`. Signing up (`commitToSlot`, and so a move to
- * another slot), raising a quantity (`updateOwnCommitment`) and the edit
- * page's limit (`editLimitsForCommitment`) all ask this, so a place refused one
- * way cannot be had another. `reason` and `detail` are for the attempt_failed
- * row.
+ * `lockoutHoursBeforeSlot`. Taking a place (`commitParticipantToSlot`, for
+ * someone signing up and for a move to another slot), raising a quantity
+ * (`updateOwnCommitment`) and the edit page's limit (`editLimitsForCommitment`)
+ * all ask this, so a place refused one way cannot be had another. `reason`
+ * and `detail` are for the attempt_failed row.
  */
 function whyNotTakingPlaces(
   signup: Pick<typeof signups.$inferSelect, 'status' | 'closesAt' | 'settings'>,
@@ -135,8 +135,24 @@ export async function commitToSlot(
 ): Promise<Result<CommitResult, ServiceError>> {
   const input = parseInputSafe(CommitmentCreateInputSchema, rawInput);
   if (!input.ok) return input;
-  const data: CommitmentCreateInput = input.value;
+  const { email, ...data } = input.value;
+  return commitParticipantToSlot(db, slotId, { email }, data);
+}
 
+/**
+ * Takes a place on the slot. Someone signing up (`commitToSlot`) is found or
+ * added by `email`, and their participant takes the `name` they typed.
+ * Someone moving from another slot (`updateOwnCommitment`) passes their
+ * `participantId`, so the move keeps the participant it had and never depends
+ * on the email; their name changes only when the move sends one. Every other
+ * check is the same for both.
+ */
+async function commitParticipantToSlot(
+  db: Queryable,
+  slotId: string,
+  who: { email: string; participantId?: never } | { participantId: string; email?: never },
+  data: Pick<CommitmentCreateInput, 'notes' | 'quantity'> & { name?: string },
+): Promise<Result<CommitResult, ServiceError>> {
   return db.transaction(async (tx) => {
     const slotRows = await tx
       .select()
@@ -167,29 +183,51 @@ export async function commitToSlot(
       return err(shut.error);
     }
 
-    // Preserve user-entered casing in participants.email; dedup on emailLower.
-    const emailLower = data.email.toLowerCase();
-    const existingPart = await tx
-      .select()
-      .from(participants)
-      .where(and(eq(participants.signupId, slot.signupId), eq(participants.emailLower, emailLower)))
-      .limit(1);
+    // The participant a move brings, or the one this signup already has under
+    // the email someone signs up with. Preserve user-entered casing in
+    // participants.email; dedup on emailLower.
+    let participantId = who.participantId;
+    if (who.email !== undefined) {
+      const [found] = await tx
+        .select({ id: participants.id })
+        .from(participants)
+        .where(
+          and(
+            eq(participants.signupId, slot.signupId),
+            eq(participants.emailLower, who.email.toLowerCase()),
+          ),
+        )
+        .limit(1);
+      participantId = found?.id;
+    }
 
-    let participantId: string;
-    if (existingPart[0]) {
-      participantId = existingPart[0].id;
-      await tx
+    if (participantId !== undefined) {
+      // Scoped to the slot's signup and workspace, so a participant from
+      // anywhere else is neither written to nor given the place. A move's
+      // participant comes from its own commitment, in the same signup as the
+      // target slot, so this refuses only rows that should never exist.
+      const seen = await tx
         .update(participants)
-        .set({ name: data.name, lastSeenAt: new Date() })
-        .where(eq(participants.id, participantId));
-    } else {
+        .set({ ...(data.name !== undefined ? { name: data.name } : {}), lastSeenAt: new Date() })
+        .where(
+          and(
+            eq(participants.id, participantId),
+            eq(participants.signupId, slot.signupId),
+            inWorkspace(participants.workspaceId, slot.workspaceId),
+          ),
+        )
+        .returning({ id: participants.id });
+      if (seen.length === 0) {
+        return err(serviceError('forbidden', 'participant belongs to a different signup'));
+      }
+    } else if (who.email !== undefined && data.name !== undefined) {
       participantId = makeId('par');
       await tx.insert(participants).values({
         id: participantId,
         signupId: slot.signupId,
         workspaceId: slot.workspaceId,
-        email: data.email,
-        emailLower,
+        email: who.email,
+        emailLower: who.email.toLowerCase(),
         name: data.name,
       });
       await recordActivity(tx, {
@@ -199,6 +237,10 @@ export async function commitToSlot(
         eventType: 'participant.created',
         payload: { participantId },
       });
+    } else {
+      // Unreachable: a move brings its participant, and signing up always
+      // brings an email and a name.
+      return err(serviceError('internal', 'no participant to commit'));
     }
 
     // Conflict: same participant already holds an active commitment on this slot.
@@ -385,6 +427,10 @@ export async function getOwnCommitmentsForSignup(
   return out;
 }
 
+// A name a move sends, checked by the rule signing up uses on the trimmed
+// name, which the edit schema alone does not apply: blank is refused.
+const MoveNameSchema = CommitmentCreateInputSchema.pick({ name: true });
+
 export async function updateOwnCommitment(
   db: Db,
   commitmentId: string,
@@ -401,6 +447,14 @@ export async function updateOwnCommitment(
 
   if (data.swapToSlotId && data.swapToSlotId !== current.slotId) {
     const swapToSlotId = data.swapToSlotId;
+    // Checked before anything is written, and only a name the move sends: one
+    // it leaves out stays as it is, whatever it is. Quantity and notes need no
+    // more checking. Each either passed the edit schema, which bounds it as
+    // signing up does, or comes from the commitment itself (below).
+    if (data.name !== undefined) {
+      const name = parseInputSafe(MoveNameSchema, { name: data.name });
+      if (!name.ok) return name;
+    }
     return db.transaction(async (tx) => {
       const target = await tx
         .select({ signupId: slots.signupId })
@@ -413,7 +467,10 @@ export async function updateOwnCommitment(
         return err(serviceError('forbidden', 'cannot swap to a slot in a different signup'));
       }
 
-      const cancelled = await tx
+      // The cancel locks the row, and what it returns is the commitment as it
+      // stands now: `getOwnCommitment` read before this transaction, and a
+      // quantity or notes change in another tab may have landed since.
+      const [cancelled] = await tx
         .update(commitments)
         .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() })
         .where(
@@ -422,24 +479,32 @@ export async function updateOwnCommitment(
             or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
           ),
         )
-        .returning({ id: commitments.id });
-      if (cancelled.length === 0) {
+        .returning({
+          id: commitments.id,
+          quantity: commitments.quantity,
+          notes: commitments.notes,
+        });
+      if (!cancelled) {
         // Nothing was mutated (the UPDATE matched no active row), so there is
         // no work to roll back. Return the error like the guards above, matching
         // cancelOwnCommitment's handling of the same condition.
         return err(serviceError('conflict', 'commitment is not active'));
       }
 
-      const newCommit = await commitToSlot(tx, swapToSlotId, {
-        name: data.name ?? current.participantName,
-        email: current.participantEmail,
-        notes: data.notes ?? current.notes,
-        quantity: data.quantity ?? current.quantity,
-      });
+      const newCommit = await commitParticipantToSlot(
+        tx,
+        swapToSlotId,
+        { participantId: current.participantId },
+        {
+          name: data.name,
+          notes: data.notes ?? cancelled.notes,
+          quantity: data.quantity ?? cancelled.quantity,
+        },
+      );
       if (!newCommit.ok) {
         // Rolls back the transaction while preserving the structured error
-        // (capacity_full / closed / conflict, with its details & suggestion)
-        // rather than degrading to a generic 500.
+        // (capacity_full / closed / conflict / forbidden, with its details and
+        // suggestion) rather than degrading to a generic 500.
         throw new ServiceException(newCommit.error);
       }
 
@@ -499,7 +564,7 @@ export async function updateOwnCommitment(
 
     // Guards that only fire when quantity *increases* on the same slot. The
     // swap path (slotId change) returns earlier and re-runs both through
-    // commitToSlot, so a slot move never reaches here.
+    // commitParticipantToSlot, so a slot move never reaches here.
     if (data.quantity !== undefined && data.quantity > locked.quantity) {
       // The slot row goes with its commitments (the delete cascades), so with
       // the commitment found above this is only for the type.
