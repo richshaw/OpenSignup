@@ -5,6 +5,7 @@ All notable changes to OpenSignup are documented here. Format follows [Keep a Ch
 ## [Unreleased]
 
 ### Added
+- Organizers can take one person off a slot (#377). Each active row on the Responses tab has a **Remove** button, which asks first ("Remove Sam Example from Fruit and water? Their spot opens up for someone else. They won't get an email about it.") and then cancels that one sign-up, so its spots open up again. Until now the only way was to delete the whole slot, taking everyone on it. The person gets no email; their edit link says "This sign-up was cancelled", and the public page no longer shows them as signed up. Owners, admins and editors can remove someone; a viewer is refused. Removing someone already cancelled changes nothing. Each removal writes a `commitment.removed` activity row (`{ commitmentId, participantId, slotId }`) by the organizer, in the same transaction as the cancel; `event_type` is plain text, so no migration is needed.
 - Landing-page CTA click telemetry (`landing.cta_clicked` activity event).
 - Initial v1 scaffolding: Next.js 15 + TypeScript + Drizzle + Auth.js v5 + pg-boss.
 - Full entity schema (workspaces, organizers, members, signups, slot groups, slots, participants, commitments, activity, magic links, claims).

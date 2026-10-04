@@ -13,8 +13,10 @@ import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import {
   cancelOwnCommitment,
+  committedBySlot,
   commitToSlot,
   editLimitsForCommitment,
+  removeCommitment,
   updateOwnCommitment,
 } from '@/services/commitments';
 import {
@@ -799,6 +801,166 @@ describe('cancelOwnCommitment (db)', () => {
         ),
       );
     expect(events.length).toBe(1);
+  });
+});
+
+describe('removeCommitment (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  async function signedUp(title: string, quantity = 1) {
+    const s = await makeOpenSignupWithSlot(fx, title);
+    const committed = await commitToSlot(fx.db, s.slotId, {
+      name: 'Sam Example',
+      email: 'sam@example.com',
+      quantity,
+    });
+    if (!committed.ok) throw new Error(`commitToSlot failed: ${committed.error.message}`);
+    return { ...s, commitment: committed.value.commitment, editToken: committed.value.editToken };
+  }
+
+  async function commitmentRow(id: string) {
+    const [row] = await fx.db.select().from(commitments).where(eq(commitments.id, id));
+    return row;
+  }
+
+  async function removedRows(signupId: string) {
+    return fx.db
+      .select()
+      .from(activity)
+      .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'commitment.removed')));
+  }
+
+  it('cancels the commitment, frees its places, and logs who removed it', async () => {
+    const s = await signedUp('Remove', 2);
+    expect((await committedBySlot(fx.db, s.signupId))[s.slotId]).toBe(2);
+
+    const r = await removeCommitment(fx.db, fx.actor, s.commitment.id);
+    expect(r).toEqual({ ok: true, value: { cancelled: true } });
+
+    const row = await commitmentRow(s.commitment.id);
+    expect(row?.status).toBe('cancelled');
+    expect(row?.cancelledAt).toBeInstanceOf(Date);
+    expect(await committedBySlot(fx.db, s.signupId)).toEqual({});
+
+    const events = await removedRows(s.signupId);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      workspaceId: fx.workspaceId,
+      actorId: fx.organizerId,
+      actorType: 'organizer',
+      payload: {
+        commitmentId: s.commitment.id,
+        participantId: s.commitment.participantId,
+        slotId: s.slotId,
+      },
+    });
+    // Not the participant's own cancel.
+    const cancels = await fx.db
+      .select()
+      .from(activity)
+      .where(
+        and(eq(activity.signupId, s.signupId), eq(activity.eventType, 'commitment.cancelled')),
+      );
+    expect(cancels).toHaveLength(0);
+  });
+
+  it('changes nothing when the commitment is already cancelled', async () => {
+    const s = await signedUp('Remove twice');
+    expect((await removeCommitment(fx.db, fx.actor, s.commitment.id)).ok).toBe(true);
+    const first = await commitmentRow(s.commitment.id);
+
+    const again = await removeCommitment(fx.db, fx.actor, s.commitment.id);
+    expect(again).toEqual({ ok: true, value: { cancelled: true } });
+    expect(await commitmentRow(s.commitment.id)).toEqual(first);
+    expect(await removedRows(s.signupId)).toHaveLength(1);
+
+    // Someone who cancelled themselves first: no removal is logged.
+    const t = await signedUp('Cancelled first');
+    expect((await cancelOwnCommitment(fx.db, t.commitment.id, t.editToken)).ok).toBe(true);
+    expect((await removeCommitment(fx.db, fx.actor, t.commitment.id)).ok).toBe(true);
+    expect(await removedRows(t.signupId)).toHaveLength(0);
+  });
+
+  it('refuses a no_show as a conflict', async () => {
+    const s = await signedUp('Remove no_show');
+    await fx.db
+      .update(commitments)
+      .set({ status: 'no_show' })
+      .where(eq(commitments.id, s.commitment.id));
+
+    const r = await removeCommitment(fx.db, fx.actor, s.commitment.id);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('conflict');
+    expect((await commitmentRow(s.commitment.id))?.status).toBe('no_show');
+    expect(await removedRows(s.signupId)).toHaveLength(0);
+  });
+
+  it('refuses a viewer', async () => {
+    const s = await signedUp('Remove as viewer');
+    const viewer: Actor = {
+      kind: 'organizer',
+      id: fx.organizerId,
+      email: 'viewer@example.test',
+      workspaceIds: [fx.workspaceId],
+      workspaceRoles: { [fx.workspaceId]: 'viewer' },
+    };
+
+    await expect(removeCommitment(fx.db, viewer, s.commitment.id)).rejects.toThrow(
+      /your role cannot modify this workspace/,
+    );
+    expect((await commitmentRow(s.commitment.id))?.status).toBe('confirmed');
+    expect(await removedRows(s.signupId)).toHaveLength(0);
+  });
+
+  // Refused by the policy guard, as every organizer service refuses a signup,
+  // slot or field in a workspace the actor is not a member of.
+  it('refuses an organizer from another workspace', async () => {
+    const s = await signedUp('Remove from elsewhere');
+    const other = await setupWorkspace();
+    try {
+      await expect(removeCommitment(other.db, other.actor, s.commitment.id)).rejects.toThrow(
+        /not a member/,
+      );
+    } finally {
+      await teardownWorkspace(other.db, other.workspaceId, other.organizerId);
+    }
+    expect((await commitmentRow(s.commitment.id))?.status).toBe('confirmed');
+    expect(await removedRows(s.signupId)).toHaveLength(0);
+  });
+
+  it('is not_found for an unknown commitment', async () => {
+    const r = await removeCommitment(fx.db, fx.actor, makeId('com'));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('not_found');
+  });
+
+  // `recordActivity` stamps the organizer's lastActiveAt after inserting the
+  // row, so holding that organizer row stops the removal after both its
+  // update and its activity insert, before it commits.
+  it('cancels and logs in one transaction', async () => {
+    const s = await signedUp('Remove atomically');
+    let running: ReturnType<typeof removeCommitment> | undefined;
+    const held = fx.db.transaction(async (tx) => {
+      await tx.select().from(organizers).where(eq(organizers.id, fx.organizerId)).for('update');
+      running = removeCommitment(fx.db, fx.actor, s.commitment.id);
+      await untilServiceBlockedOn(fx.db, tx, running);
+      // Read from outside both transactions: neither change shows yet.
+      expect((await commitmentRow(s.commitment.id))?.status).toBe('confirmed');
+      expect(await removedRows(s.signupId)).toHaveLength(0);
+    });
+    await held.finally(() => settle(running));
+
+    expect((await running!).ok).toBe(true);
+    expect((await commitmentRow(s.commitment.id))?.status).toBe('cancelled');
+    expect(await removedRows(s.signupId)).toHaveLength(1);
   });
 });
 

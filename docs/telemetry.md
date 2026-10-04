@@ -78,13 +78,16 @@ reminders are timed from (`null` when none is left).
 | `commitment.confirmation_sent` | participant | `{ commitmentId, participantId, channel: 'email' }` | `email/notify.ts`, after the response to a sign-up or a move to another slot |
 | `commitment.updated` | participant | `{ commitmentId, changed }` (the keys the edit sent) | `services/commitments.ts` |
 | `commitment.cancelled` | participant | `{ commitmentId }` | `services/commitments.ts` |
+| `commitment.removed` | organizer | `{ commitmentId, participantId, slotId }` (an organizer took the person off their slot on the Responses tab; nobody is emailed) | `services/commitments.ts` (`removeCommitment`) |
 | `commitment.swapped` | participant | `{ from, to }` (the old and new commitment ids) | `services/commitments.ts` |
 | `commitment.attempt_failed` | system when signing up; participant when raising a quantity from the edit link | `{ slotId, reason: 'closed' \| 'over_window' \| 'capacity_full', detail?, requested?, remaining?, source? }` (`source: 'update'` marks a quantity raise) | `services/commitments.ts` (each rejection site) |
 | `commitment.edit_link_followed` | participant | `{ commitmentId }` | RSC at `/s/[slug]/c/[id]` |
 
 A move to another slot writes `commitment.swapped` and a `commitment.created`
 for the new commitment. The old one is cancelled without a
-`commitment.cancelled` row.
+`commitment.cancelled` row. An organizer's removal cancels the commitment too,
+and writes `commitment.removed` instead, so `commitment.cancelled` counts only
+the participants' own cancels.
 
 ### Reminder pipeline
 

@@ -2,9 +2,10 @@ import { after } from 'next/server';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
-import { listCommitmentsForSignup } from '@/services/commitments';
+import { ACTIVE_COMMITMENT_STATUSES, listCommitmentsForSignup } from '@/services/commitments';
 import { recordOrganizerView } from '@/lib/view-tracker';
-import { summarizeSlot } from '@/lib/slot-summary';
+import { summarizeSlot, summarizeSlotValues } from '@/lib/slot-summary';
+import { RemoveCommitmentForm } from './remove-commitment-form';
 
 type PageParams = { params: Promise<{ id: string }> };
 
@@ -54,14 +55,16 @@ export default async function ResponsesTab({ params }: PageParams) {
                 <th className="px-4 py-3 text-left">Slot</th>
                 {showSpots ? <th className="px-4 py-3 text-right">Spots</th> : null}
                 <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-sunk">
               {commitments.map((c) => {
                 const slot = sig.slots.find((s) => s.id === c.slotId);
-                const summary = slot
-                  ? summarizeSlot(sig.fields, (slot.values as Record<string, unknown>) ?? {})
-                  : '';
+                const values = (slot?.values as Record<string, unknown>) ?? {};
+                const summary = slot ? summarizeSlot(sig.fields, values) : '';
                 return (
                   <tr key={c.id}>
                     <td className="px-4 py-3 font-medium">{c.participantName}</td>
@@ -71,6 +74,18 @@ export default async function ResponsesTab({ params }: PageParams) {
                       <td className="px-4 py-3 text-right tabular-nums">{c.quantity}</td>
                     ) : null}
                     <td className="px-4 py-3">{c.status}</td>
+                    <td className="px-4 py-3 text-right">
+                      {ACTIVE_COMMITMENT_STATUSES.includes(c.status) ? (
+                        <RemoveCommitmentForm
+                          signupId={sig.id}
+                          commitmentId={c.id}
+                          name={c.participantName}
+                          // Unlabelled, to read as part of a sentence.
+                          slot={summarizeSlotValues(sig.fields, values) || slot?.ref || 'this slot'}
+                          quantity={c.quantity}
+                        />
+                      ) : null}
+                    </td>
                   </tr>
                 );
               })}

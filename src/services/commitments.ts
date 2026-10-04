@@ -4,11 +4,12 @@ import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
-import { recordActivity } from '@/lib/activity';
+import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
 import { parseInputSafe } from '@/lib/parse';
+import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { editTokenFor, hashToken, verifyHash } from '@/lib/token';
 import {
@@ -17,16 +18,16 @@ import {
   CommitmentCreateInputSchema,
   CommitmentUpdateInputSchema,
 } from '@/schemas/commitments';
-import { readLiveSignup } from './locks';
+import { inWorkspace, readLiveSignup } from './locks';
 
 type CommitmentRow = typeof commitments.$inferSelect;
 
 /**
  * A commitment the participant can still act on. `cancelled` and `no_show`
- * are terminal end states that no participant action reopens. Only the
- * participant's own cancel or move writes `cancelled`; nothing writes
- * `no_show` yet. The edit page shows its cancelled message for any status
- * not listed here.
+ * are terminal end states that no participant action reopens. The
+ * participant's own cancel or move writes `cancelled`, and so does an
+ * organizer removing them (`removeCommitment`); nothing writes `no_show` yet.
+ * The edit page shows its cancelled message for any status not listed here.
  */
 export const ACTIVE_COMMITMENT_STATUSES: readonly CommitmentRow['status'][] = [
   'confirmed',
@@ -671,6 +672,86 @@ export async function cancelOwnCommitment(
       actor: { actorId: current.participantId, actorType: 'participant' },
       eventType: 'commitment.cancelled',
       payload: { commitmentId },
+    });
+    return ok({ cancelled: true });
+  });
+}
+
+/**
+ * An organizer takes one person off a slot (the Responses tab's Remove): the
+ * commitment is cancelled, as the participant's own cancel would, and its
+ * places go back to the slot. Editors and above; a viewer is refused by the
+ * guard. Nobody is emailed. Removing a commitment that is already cancelled
+ * succeeds and changes nothing; `no_show` is a conflict, as in
+ * `cancelOwnCommitment`.
+ */
+export async function removeCommitment(
+  db: Db,
+  actor: Actor,
+  commitmentId: string,
+): Promise<Result<{ cancelled: true }, ServiceError>> {
+  // Which signup, and so which workspace, to judge the actor against. Read
+  // unscoped, as `deleteSlot` reads its slot, and judged straight after.
+  const [found] = await db
+    .select({ signupId: commitments.signupId })
+    .from(commitments)
+    .where(eq(commitments.id, commitmentId))
+    .limit(1);
+  if (!found) return err(serviceError('not_found', 'commitment not found'));
+  const signup = await readLiveSignup(db, found.signupId);
+  if (!signup) return err(serviceError('not_found', 'commitment not found'));
+  requireWorkspaceWrite(actor, signup.workspaceId);
+
+  return db.transaction(async (tx) => {
+    // The commitment row only, as `cancelOwnCommitment` locks it: a cancel
+    // gives places back, so it needs no slot lock to guard capacity, and no
+    // signup or slot lock may come after this one (src/services/locks.ts).
+    // Undefined when the slot was deleted, taking the commitment with it,
+    // while this waited.
+    const [locked] = await tx
+      .select({
+        participantId: commitments.participantId,
+        slotId: commitments.slotId,
+        status: commitments.status,
+      })
+      .from(commitments)
+      .where(
+        and(
+          eq(commitments.id, commitmentId),
+          inWorkspace(commitments.workspaceId, signup.workspaceId),
+        ),
+      )
+      .for('update')
+      .limit(1);
+    if (!locked) return err(serviceError('not_found', 'commitment not found'));
+    // The signup may have been deleted since the read above.
+    if (!(await readLiveSignup(tx, found.signupId))) {
+      return err(serviceError('not_found', 'commitment not found'));
+    }
+    const cancelled = await tx
+      .update(commitments)
+      .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() })
+      .where(
+        and(
+          eq(commitments.id, commitmentId),
+          inWorkspace(commitments.workspaceId, signup.workspaceId),
+          isActiveCommitment,
+        ),
+      )
+      .returning({ id: commitments.id });
+    if (cancelled.length === 0) {
+      // The lock holds the row still, so `locked.status` is current. Someone
+      // already cancelled (themselves, or by another organizer) is the outcome
+      // asked for.
+      if (locked.status === 'cancelled') return ok({ cancelled: true });
+      return err(serviceError('conflict', 'commitment is not active'));
+    }
+    await recordActivity(tx, {
+      signupId: found.signupId,
+      workspaceId: signup.workspaceId,
+      actor: activityActor(actor),
+      eventType: 'commitment.removed',
+      payload: { commitmentId, participantId: locked.participantId, slotId: locked.slotId },
     });
     return ok({ cancelled: true });
   });
