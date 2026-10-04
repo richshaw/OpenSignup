@@ -45,8 +45,11 @@ export default async function ResponsesTab({ params }: PageParams) {
       ) : (
         // Scrolls sideways instead of clipping: an email address can't wrap,
         // so on a phone the table is wider than the screen, and Status was
-        // cut off with no way to reach it.
-        <div className="overflow-x-auto rounded-xl border border-surface-sunk bg-white">
+        // cut off with no way to reach it. `relative` keeps the Actions
+        // header's sr-only text, which is absolutely positioned, inside this
+        // scroll box; without it the text sat past the table's right edge and
+        // made the whole page pan sideways.
+        <div className="relative overflow-x-auto rounded-xl border border-surface-sunk bg-white">
           <table className="w-full text-sm">
             <thead className="bg-surface-raised text-ink-muted">
               <tr>
@@ -65,6 +68,10 @@ export default async function ResponsesTab({ params }: PageParams) {
                 const slot = sig.slots.find((s) => s.id === c.slotId);
                 const values = (slot?.values as Record<string, unknown>) ?? {};
                 const summary = slot ? summarizeSlot(sig.fields, values) : '';
+                // A removal takes the Remove button away, so focus goes to
+                // this cell, which then reads "cancelled". Every row has it,
+                // so it outlasts that re-render.
+                const statusId = `status-${c.id}`;
                 return (
                   <tr key={c.id}>
                     <td className="px-4 py-3 font-medium">{c.participantName}</td>
@@ -73,12 +80,15 @@ export default async function ResponsesTab({ params }: PageParams) {
                     {showSpots ? (
                       <td className="px-4 py-3 text-right tabular-nums">{c.quantity}</td>
                     ) : null}
-                    <td className="px-4 py-3">{c.status}</td>
+                    <td id={statusId} tabIndex={-1} className="px-4 py-3">
+                      {c.status}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       {ACTIVE_COMMITMENT_STATUSES.includes(c.status) ? (
                         <RemoveCommitmentForm
                           signupId={sig.id}
                           commitmentId={c.id}
+                          statusCellId={statusId}
                           name={c.participantName}
                           // Unlabelled, to read as part of a sentence.
                           slot={summarizeSlotValues(sig.fields, values) || slot?.ref || 'this slot'}

@@ -915,6 +915,8 @@ describe('removeCommitment (db)', () => {
     const r = await removeCommitment(fx.db, fx.actor, s.commitment.id);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.code).toBe('conflict');
+    // The same conflict as the participant's own cancel, status and all.
+    if (!r.ok) expect(r.error.details).toEqual({ status: 'no_show' });
     expect((await commitmentRow(s.commitment.id))?.status).toBe('no_show');
     expect(await removedRows(s.signupId)).toHaveLength(0);
   });

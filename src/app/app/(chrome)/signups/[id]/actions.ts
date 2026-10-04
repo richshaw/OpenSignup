@@ -32,9 +32,12 @@ export async function closeAction(signupId: string) {
 }
 
 /**
- * The Responses tab's Remove. Returns the refusal's message for the
- * confirmation to show (a viewer's role, a signup deleted meanwhile), or null
- * once the person is off the slot.
+ * The Responses tab's Remove. Once the person is off the slot, revalidates the
+ * signup's pages, so the row re-renders as cancelled, and returns null. A
+ * refusal (a viewer's role, a signup deleted meanwhile) returns its message
+ * and revalidates nothing: the page stays as it is, so the confirmation stays
+ * open to show it. After a delete, a revalidate would swap the page for
+ * "signup not found" and the message would never be seen.
  */
 export async function removeCommitmentAction(
   signupId: string,
@@ -49,10 +52,11 @@ export async function removeCommitmentAction(
     if (e instanceof ServiceException) return { error: e.serviceError.message };
     throw e;
   }
-  // The table's row, and its status, re-render. The public page and the edit
-  // link are dynamic, so they read the change on their next request.
+  if (!result.ok) return { error: result.error.message };
+  // The public page and the edit link are dynamic, so they read the change on
+  // their next request.
   revalidateSignup(signupId);
-  return result.ok ? null : { error: result.error.message };
+  return null;
 }
 
 export async function deleteSignupAction(signupId: string) {
