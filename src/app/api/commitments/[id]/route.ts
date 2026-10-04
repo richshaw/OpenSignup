@@ -2,8 +2,8 @@ import { after, type NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
 import type { Db } from '@/db/client';
 import { extractClientIp } from '@/auth/request-context';
-import { fail, handle, respond } from '@/lib/api-response';
-import { serviceError } from '@/lib/errors';
+import { handle, respond } from '@/lib/api-response';
+import { serviceError, ServiceException } from '@/lib/errors';
 import { editTokenFor } from '@/lib/token';
 import { notifyCommitmentCreated } from '@/email/notify';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
@@ -15,27 +15,26 @@ import {
 import { cancelOwnCommitment, getOwnCommitment, updateOwnCommitment } from '@/services/commitments';
 
 function readToken(req: NextRequest): string | null {
-  const url = new URL(req.url);
-  const fromQuery = url.searchParams.get('token');
-  if (fromQuery) return fromQuery;
-  const header = req.headers.get('x-edit-token');
-  return header ?? null;
+  return new URL(req.url).searchParams.get('token') || req.headers.get('x-edit-token');
 }
 
 /** Anonymous, token-authenticated endpoint: meter per IP before any token
- *  verification or DB lookup happens. */
-async function limitTokenOps(db: Db, req: NextRequest): Promise<void> {
+ *  verification or DB lookup happens, then return the edit token or refuse. */
+async function authorizeTokenOp(db: Db, req: NextRequest): Promise<string> {
   const clientIp = extractClientIp(req.headers);
   await consumeRateLimit(db, RateLimits.commitmentTokenOpsPerIp, clientIp ?? 'unknown');
+  const token = readToken(req);
+  if (!token) {
+    throw new ServiceException(serviceError('forbidden', 'edit token required', { field: 'token' }));
+  }
+  return token;
 }
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   return handle(async () => {
     const { id } = await ctx.params;
     const db = getDb();
-    await limitTokenOps(db, req);
-    const token = readToken(req);
-    if (!token) return fail(serviceError('forbidden', 'edit token required', { field: 'token' }));
+    const token = await authorizeTokenOp(db, req);
     const result = await getOwnCommitment(db, id, token);
     return respond(result);
   });
@@ -45,9 +44,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   return handle(async () => {
     const { id } = await ctx.params;
     const db = getDb();
-    await limitTokenOps(db, req);
-    const token = readToken(req);
-    if (!token) return fail(serviceError('forbidden', 'edit token required', { field: 'token' }));
+    const token = await authorizeTokenOp(db, req);
     const body = await req.json().catch(() => ({}));
     const result = await updateOwnCommitment(db, id, token, body);
     // A swap cancels this commitment and creates a new one with a new id and a
@@ -68,9 +65,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   return handle(async () => {
     const { id } = await ctx.params;
     const db = getDb();
-    await limitTokenOps(db, req);
-    const token = readToken(req);
-    if (!token) return fail(serviceError('forbidden', 'edit token required', { field: 'token' }));
+    const token = await authorizeTokenOp(db, req);
     const result = await cancelOwnCommitment(db, id, token);
     const response = respond(result);
     if (result.ok) {
