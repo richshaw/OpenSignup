@@ -806,7 +806,6 @@ describe('slot writes and the signup lock (db)', () => {
         colleague,
         signupId,
         { settings: { reminderFromFieldRef: 'day2' } },
-        { mergeSettings: true },
       );
       expect(moved.ok, JSON.stringify(moved)).toBe(true);
       // Its rebuild of slot_at has run, and cannot see a row inserted from here.
@@ -831,7 +830,6 @@ describe('slot writes and the signup lock (db)', () => {
         colleague,
         signupId,
         { settings: { reminderFromFieldRef: 'day2' } },
-        { mergeSettings: true },
       );
       expect(moved.ok, JSON.stringify(moved)).toBe(true);
       adding = addSlotsBulk(fx.db, fx.actor, signupId, {
@@ -927,7 +925,6 @@ describe('slot writes and the signup lock (db)', () => {
         colleague,
         signupId,
         { settings: { reminderFromFieldRef: 'day2' } },
-        { mergeSettings: true },
       );
       expect(moved.ok, JSON.stringify(moved)).toBe(true);
       editing = updateSlot(fx.db, fx.actor, slot.value.id, {
