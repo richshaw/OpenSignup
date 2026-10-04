@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { BASE_URL, loadSeed } from './helpers/fixtures';
+import { createPublishedSignup } from './helpers/signups';
 
 const seed = loadSeed();
 
@@ -102,25 +103,10 @@ test.describe('organizer flow', () => {
     page,
     browser,
   }) => {
-    // A fresh published signup with a Juice slot (besides the empty one a new
-    // signup starts with), so retries never share a row.
-    const post = async (url: string, data?: unknown) => {
-      const res = await page.request.post(url, data === undefined ? {} : { data });
-      expect(res.ok(), `${url}: ${await res.text()}`).toBe(true);
-      return (await res.json()).data;
-    };
-    const signup = await post('/api/signups', {
+    const signup = await createPublishedSignup(page.request, {
       title: `Email setting ${Date.now()}`,
-      description: '',
-      tags: [],
-      visibility: 'unlisted',
-      settings: {},
+      slot: { values: { what: 'Juice', date: '2030-04-06' }, capacity: 5 },
     });
-    await post(`/api/signups/${signup.id}/slots`, {
-      values: { what: 'Juice', date: '2030-04-06' },
-      capacity: 5,
-    });
-    await post(`/api/signups/${signup.id}/publish`);
     const storedRequireEmail = async () => {
       const res = await page.request.get(`/api/signups/${signup.id}`);
       return (await res.json()).data.settings.requireEmail as boolean;

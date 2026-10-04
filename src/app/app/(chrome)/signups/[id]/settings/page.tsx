@@ -1,6 +1,7 @@
 import { after } from 'next/server';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
+import { SavedNotice } from '@/components/ui/save-notice';
 import { requiresEmail } from '@/schemas/signups';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { recordOrganizerView } from '@/lib/view-tracker';
@@ -48,11 +49,14 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
           Sign-up form
         </h2>
         {/* A plain form, so this tab adds no script of its own. Keyed on the
-            stored value, so after a save the choice shown is the saved one. */}
+            stored value, so after a save the choice shown is the saved one.
+            Gap, not space-y: the server's render starts the form with React's
+            hidden action inputs and a client render doesn't, so sibling margins
+            moved the fieldset 4px after a save. */}
         <form
           key={String(requireEmail)}
           action={setRequireEmailAction.bind(null, id)}
-          className="space-y-4"
+          className="flex flex-col gap-4"
         >
           <fieldset aria-describedby="require-email-help">
             <legend className="text-sm font-medium">Ask for an email address</legend>
@@ -90,11 +94,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
             >
               Save
             </AsyncSubmitButton>
-            {saved ? (
-              <p role="status" className="text-sm font-medium text-success">
-                Saved
-              </p>
-            ) : null}
+            {saved ? <SavedNotice role="status" /> : null}
           </div>
         </form>
       </section>

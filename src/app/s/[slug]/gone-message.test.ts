@@ -34,8 +34,10 @@ describe('GONE_PAGE', () => {
     expect(text).not.toMatch(/delet|remov|never|exist|typo|wrong|token/i);
   });
 
-  // Someone who signed up without an email has no confirmation email to try.
-  it('sends people back to a confirmation email only if they got one', () => {
-    expect(GONE_PAGE.editLink.body).toMatch(/If you got a confirmation email, try its link/);
+  // Someone who signed up without an email has no confirmation email to try,
+  // but can still contact the organizer.
+  it('sends everyone to the organizer, and to a confirmation email only if they got one', () => {
+    expect(GONE_PAGE.editLink.body).toMatch(/\. Contact the organizer/);
+    expect(GONE_PAGE.editLink.body).toMatch(/If you got a confirmation email, you can also try/);
   });
 });

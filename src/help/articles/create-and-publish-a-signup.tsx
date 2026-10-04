@@ -220,14 +220,16 @@ export function CreateAndPublishASignup() {
         </h2>
         <p>
           A signup asks people for their email unless you make it optional. Someone who leaves it
-          blank gets no emails at all, not even reminders. They need to save the link they see
-          after signing up. Only the browser they used remembers it.
+          blank gets no emails at all, not even reminders. They need to save the link they see after
+          signing up. Only the browser they used remembers it.
         </p>
         <p>To make the email optional:</p>
         <Steps>
           <Step>
             <p>
-              Choose <Ui>{UI.settings}</Ui> at the top of your signup.
+              Under your signup&apos;s title, choose the <Ui>{UI.settings}</Ui> tab. On a phone,
+              there is also a <Ui>{UI.settings}</Ui> link at the very top of the page. That one is
+              for your account, not this signup.
             </p>
           </Step>
           <Step>

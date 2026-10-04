@@ -8,6 +8,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { UI } from '@/help/articles/create-and-publish-a-signup.ui';
 import { loginAsSeededOrganizer } from '../helpers/auth';
+import { createPublishedSignup } from '../helpers/signups';
 
 const SLUG = 'create-and-publish-a-signup';
 const CAPTURE = process.env.HELP_SCREENSHOTS === '1';
@@ -179,25 +180,11 @@ test.describe('help: create and publish your first signup', () => {
   test('people can sign up without an email', async ({ page, context, browser, isMobile }) => {
     test.skip(isMobile, 'the same steps on a phone; the desktop run takes the picture');
     await loginAsSeededOrganizer(context);
-    // A published signup with a slot of two spots. A new signup also has an
-    // empty slot, which the steps leave alone.
-    const post = async (url: string, data?: unknown) => {
-      const res = await page.request.post(url, data === undefined ? {} : { data });
-      expect(res.ok(), `${url}: ${await res.text()}`).toBe(true);
-      return (await res.json()).data;
-    };
-    const signup = await post('/api/signups', {
+    // A published signup with a slot of two spots.
+    const signup = await createPublishedSignup(page.request, {
       title: `No email ${Date.now()}`,
-      description: '',
-      tags: [],
-      visibility: 'unlisted',
-      settings: {},
+      slot: { values: { what: 'Fruit and water', date: '2030-04-06' }, capacity: 2 },
     });
-    await post(`/api/signups/${signup.id}/slots`, {
-      values: { what: 'Fruit and water', date: '2030-04-06' },
-      capacity: 2,
-    });
-    await post(`/api/signups/${signup.id}/publish`);
     const signUp = new RegExp(`^${UI.signUp} for Fruit and water`);
 
     await page.goto(`/app/signups/${signup.id}/build`);
