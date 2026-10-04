@@ -47,6 +47,26 @@ export const SignupSettingsSchema = z
 
 export type SignupSettings = z.infer<typeof SignupSettingsSchema>;
 
+/**
+ * Whether a signup asks each new participant for an email: its `requireEmail`
+ * setting, true when the key is missing, as the default says. Settings that
+ * fail to parse also mean true, so a bad row never stops the address being
+ * asked for.
+ */
+export function requiresEmail(settings: unknown): boolean {
+  const parsed = SignupSettingsSchema.safeParse(settings ?? {});
+  return parsed.success ? parsed.data.requireEmail : true;
+}
+
+/**
+ * Whether a signup sends reminder emails: its `sendReminders` setting, true
+ * when the key is missing, as the default and the reminder dispatcher say.
+ */
+export function sendsReminders(settings: unknown): boolean {
+  const parsed = SignupSettingsSchema.safeParse(settings ?? {});
+  return parsed.success ? parsed.data.sendReminders : true;
+}
+
 export const SignupCreateInputSchema = z.object({
   title: z.string().min(2).max(120).transform((s) => s.trim()),
   description: z.string().max(2000).default(''),

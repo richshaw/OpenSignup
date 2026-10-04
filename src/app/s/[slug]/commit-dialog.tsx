@@ -35,11 +35,24 @@ interface CommitDialogProps {
   capacity: number | null;
   signupTitle: string;
   slug: string;
+  /**
+   * The signup's `requireEmail` setting when the page rendered. When false the
+   * email box is optional, and someone who leaves it blank gets no email, so
+   * the success screen tells them to save the link it shows.
+   */
+  requireEmail: boolean;
+  /**
+   * Whether someone who gives an email gets a reminder before this slot
+   * (`willSendReminder`, decided when the page rendered). The optional email
+   * box's help text mentions one only then.
+   */
+  sendsReminder: boolean;
 }
 
 interface ApiError {
   code: string;
   message: string;
+  field?: string;
   suggestion?: string;
   details?: {
     alternatives?: { id: string; title: string }[];
@@ -87,15 +100,28 @@ export default function CommitDialog({
   capacity,
   signupTitle,
   slug,
+  requireEmail,
+  sendsReminder,
 }: CommitDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
-  const [success, setSuccess] = useState<{ commitmentId: string; editUrl: string } | null>(null);
+  const [success, setSuccess] = useState<{
+    commitmentId: string;
+    editUrl: string;
+    /** False when they left the email blank, so nothing will send them the link. */
+    emailed: boolean;
+  } | null>(null);
   const [prefill, setPrefill] = useState<PrefillState | null>(null);
   const [emailValue, setEmailValue] = useState('');
+  // The organizer can make the email required again after this page rendered.
+  // The server then refuses a blank one, and the box says so from then on.
+  const [emailNowRequired, setEmailNowRequired] = useState(false);
+  const emailRequired = requireEmail || emailNowRequired;
   const [shareCopied, setShareCopied] = useState(false);
+  // What happened to the last Copy link, said in a live region.
+  const [copyResult, setCopyResult] = useState<'copied' | 'failed' | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -104,8 +130,10 @@ export default function CommitDialog({
     if (!open) return;
     const stored = readPrefill();
     setPrefill(stored);
-    setEmailValue(stored?.email ?? '');
-  }, [open]);
+    // Where the email is optional the box starts blank, so someone who chose
+    // to leave it out does not send a remembered one by accident.
+    setEmailValue(requireEmail ? (stored?.email ?? '') : '');
+  }, [open, requireEmail]);
 
   // The sheet's body scrolls under an 85vh cap, and the alert renders below the
   // fields. A screen reader announces it either way, but on a short viewport a
@@ -147,6 +175,7 @@ export default function CommitDialog({
   const slotCapacity = reported ? reported.capacity : capacity;
   const showSpotsLeft = left !== null && slotCapacity !== null && slotCapacity > 1;
   const spotsLeftId = useId();
+  const emailHelpId = useId();
 
   function handleAcceptSuggestion() {
     if (emailHint) setEmailValue(emailHint);
@@ -161,7 +190,8 @@ export default function CommitDialog({
     const email = String(data.get('email') ?? '').trim();
     const body = {
       name,
-      email,
+      // Left out when blank, which only a signup with the email optional takes.
+      email: email || undefined,
       notes: String(data.get('notes') ?? '') || undefined,
       // No Spots field when only one place is open (see `spotsLeft`), so 1.
       quantity: Number(data.get('quantity') ?? 1),
@@ -175,6 +205,10 @@ export default function CommitDialog({
       const payload = await res.json();
       if (!res.ok) {
         setError(payload.error ?? { code: 'internal', message: 'something went wrong' });
+        // A blank email is refused only because the signup now requires one.
+        if (!email && payload.error?.code === 'invalid_input' && payload.error.field === 'email') {
+          setEmailNowRequired(true);
+        }
         const remaining = payload.error?.details?.remaining;
         if (payload.error?.code === 'capacity_full' && typeof remaining === 'number') {
           const reportedCapacity = payload.error.details?.capacity;
@@ -186,10 +220,12 @@ export default function CommitDialog({
         setSubmitting(false);
         return;
       }
-      writePrefill({ name, email });
+      // A blank email keeps the one remembered from an earlier sign-up.
+      writePrefill({ name, email: email || (readPrefill()?.email ?? '') });
       setSuccess({
         commitmentId: payload.data.commitment.id,
         editUrl: payload.data.editUrl,
+        emailed: email !== '',
       });
       // Don't refresh server state yet — that would re-render the parent and
       // replace this dialog (slot row swaps to "Edit" once cookie is read),
@@ -209,6 +245,7 @@ export default function CommitDialog({
     setError(null);
     setReported(null);
     setShareCopied(false);
+    setCopyResult(null);
     if (wasSuccess) router.refresh();
   }
 
@@ -256,6 +293,19 @@ export default function CommitDialog({
       setTimeout(() => setShareCopied(false), 2000);
     } catch {
       // last resort: do nothing — link is already on screen
+    }
+  }
+
+  // Someone without an email gets Copy link, not Share link: the link is how
+  // they change or cancel, and a share sheet invites them to post it.
+  async function handleCopy() {
+    if (!success) return;
+    try {
+      await navigator.clipboard.writeText(success.editUrl);
+      setCopyResult('copied');
+    } catch {
+      // No clipboard over plain HTTP, or the browser refused.
+      setCopyResult('failed');
     }
   }
 
@@ -315,8 +365,18 @@ export default function CommitDialog({
         {success ? (
           <div className="space-y-4">
             <p className="text-ink-muted text-sm">
-              We&apos;ve saved your spot for <strong className="text-ink">{slotTitle}</strong>.
-              Bookmark this link to edit or cancel later:
+              We&apos;ve saved your spot for <strong className="text-ink">{slotTitle}</strong>.{' '}
+              {success.emailed ? (
+                'Bookmark this link to edit or cancel later:'
+              ) : (
+                <>
+                  <strong className="text-ink">
+                    Save this link now: we won&apos;t email it, and only this browser remembers it.
+                  </strong>
+                  {/* The calendar event carries the link: see handleDownloadIcs. */}
+                  {slotAt ? ' Add to calendar saves the link too.' : null}
+                </>
+              )}
             </p>
             <a
               href={success.editUrl}
@@ -324,23 +384,36 @@ export default function CommitDialog({
             >
               {success.editUrl}
             </a>
-            <div className="flex flex-wrap gap-2">
-              {slotAt ? (
+            <div>
+              <div className="flex flex-wrap gap-2">
+                {slotAt ? (
+                  <button
+                    type="button"
+                    onClick={handleDownloadIcs}
+                    className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
+                  >
+                    Add to calendar
+                  </button>
+                ) : null}
                 <button
                   type="button"
-                  onClick={handleDownloadIcs}
+                  onClick={success.emailed ? handleShare : handleCopy}
                   className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
                 >
-                  Add to calendar
+                  {success.emailed ? (shareCopied ? 'Link copied' : 'Share link') : 'Copy link'}
                 </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={handleShare}
-                className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
-              >
-                {shareCopied ? 'Link copied' : 'Share link'}
-              </button>
+              </div>
+              {success.emailed ? null : (
+                // In the page from the start, so a screen reader hears it
+                // change. Not display:none while empty, which would stop that.
+                <p role="status" className="mt-2 text-sm text-ink-muted empty:mt-0">
+                  {copyResult === 'copied'
+                    ? 'Link copied.'
+                    : copyResult === 'failed'
+                      ? "Couldn't copy it. Select the link above and copy it yourself."
+                      : null}
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -365,33 +438,47 @@ export default function CommitDialog({
                 className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
               />
             </label>
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium">Email</span>
-              <input
-                ref={emailRef}
-                type="email"
-                name="email"
-                required
-                autoComplete="email"
-                inputMode="email"
-                value={emailValue}
-                onChange={(e) => setEmailValue(e.target.value)}
-                className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-              />
-              {emailHint ? (
-                <p className="text-ink-muted mt-1 text-xs">
-                  Did you mean{' '}
-                  <button
-                    type="button"
-                    onClick={handleAcceptSuggestion}
-                    className="text-brand font-medium underline"
-                  >
-                    {emailHint}
-                  </button>
-                  ?
+            {/* The help text sits outside the label so that it describes the
+                box rather than becoming part of its name. */}
+            <div>
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">
+                  {emailRequired ? 'Email' : 'Email (optional)'}
+                </span>
+                <input
+                  ref={emailRef}
+                  type="email"
+                  name="email"
+                  required={emailRequired}
+                  aria-describedby={emailRequired ? undefined : emailHelpId}
+                  autoComplete="email"
+                  inputMode="email"
+                  value={emailValue}
+                  onChange={(e) => setEmailValue(e.target.value)}
+                  className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
+                />
+                {emailHint ? (
+                  <p className="text-ink-muted mt-1 text-xs">
+                    Did you mean{' '}
+                    <button
+                      type="button"
+                      onClick={handleAcceptSuggestion}
+                      className="text-brand font-medium underline"
+                    >
+                      {emailHint}
+                    </button>
+                    ?
+                  </p>
+                ) : null}
+              </label>
+              {emailRequired ? null : (
+                <p id={emailHelpId} className="text-ink-muted mt-1 text-xs">
+                  We&apos;ll email you your link to change or cancel
+                  {sendsReminder ? ', and a reminder before your slot' : null}. Without an email,
+                  save the link we show you after you sign up.
                 </p>
-              ) : null}
-            </label>
+              )}
+            </div>
             <div className={askQuantity ? 'grid grid-cols-[1fr_auto] gap-3' : undefined}>
               <label className="block">
                 <span className="mb-1 block text-sm font-medium">Notes (optional)</span>

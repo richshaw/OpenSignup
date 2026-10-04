@@ -240,16 +240,30 @@ describe('signup write tools on Postgres', () => {
     expect(cl.signup.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['day'] });
     expect(cl.signup.closesAt).toBeNull();
 
+    // requireEmail is shown with the default createSignup stored, and can be
+    // turned off and on again.
+    expect(cl.signup.settings).toMatchObject({ requireEmail: true });
+    for (const requireEmail of [false, true]) {
+      const set = await client.callTool({
+        name: 'update_signup',
+        arguments: { signupId: c.signup.id, settings: { requireEmail } },
+      });
+      expect(set.isError, JSON.stringify(set.structuredContent)).toBeFalsy();
+      const s = set.structuredContent as { signup: { settings: Record<string, unknown> } };
+      expect(s.signup.settings).toMatchObject({ requireEmail, sendReminders: false, groupByFieldRefs: ['day'] });
+      const [stored] = await db.select({ settings: signups.settings }).from(signups).where(eq(signups.id, c.signup.id));
+      expect(stored?.settings).toMatchObject({ requireEmail });
+    }
+
     // Settings nothing reads are refused and nothing is stored, and the stored
     // defaults createSignup filled in for them are not shown.
     const [before] = await db.select({ settings: signups.settings }).from(signups).where(eq(signups.id, c.signup.id));
-    expect(before?.settings).toMatchObject({ requireEmail: true, allowNotes: true, showWhoSignedUp: true });
-    for (const key of ['maxCommitmentsPerParticipant', 'requireEmail', 'allowNotes', 'showWhoSignedUp', 'confirmationMessage']) {
+    expect(before?.settings).toMatchObject({ allowNotes: true, showWhoSignedUp: true });
+    for (const key of ['maxCommitmentsPerParticipant', 'allowNotes', 'showWhoSignedUp', 'confirmationMessage']) {
       expect(cl.signup.settings, key).not.toHaveProperty(key);
     }
     for (const unread of [
       { maxCommitmentsPerParticipant: 2 },
-      { requireEmail: false },
       { allowNotes: false },
       { showWhoSignedUp: false },
       { confirmationMessage: 'See you there' },

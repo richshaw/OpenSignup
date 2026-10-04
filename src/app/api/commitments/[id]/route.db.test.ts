@@ -5,6 +5,7 @@ import { getDb, type Db } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
+import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { getEmailTransport } from '@/email';
 import { makeId } from '@/lib/ids';
@@ -36,6 +37,15 @@ interface Fixture {
   actor: Actor;
   signupId: string;
   slotId: string;
+}
+
+const DAY = 24 * 60 * 60;
+
+/** The cookie's Max-Age is within a minute of `seconds`, allowing for the test's own run time. */
+function expectMaxAgeNear(setCookie: string, seconds: number): void {
+  expect(setCookie).toContain('os_commit=');
+  const maxAge = Number(/Max-Age=(\d+)/i.exec(setCookie)?.[1]);
+  expect(Math.abs(maxAge - seconds)).toBeLessThan(60);
 }
 
 // Each request gets a unique source IP so the per-IP limiter never throttles
@@ -199,17 +209,24 @@ describe('/api/commitments/[id] (db)', () => {
 
   // Someone without an email gets no confirmation of the move, so the
   // response and the cookie are the only places they get the new edit link.
+  // The slot they move to is 200 days away, so the cookie has to outlast the
+  // 60 days it used to stop at.
   it('PATCH that moves the commitment returns its new edit link and swaps it into the cookie', async () => {
     const c = await makeCommitment(fx);
     await removeParticipantEmail(fx.db, c.participantId);
     const target = await addSlot(fx.db, fx.actor, fx.signupId, { values: {}, capacity: 5 });
     if (!target.ok) throw new Error(target.error.message);
+    const slotAt = new Date(Date.now() + 200 * DAY * 1000);
+    await fx.db.update(slots).set({ slotAt }).where(eq(slots.id, target.value.id));
     const kept = makeId('com');
     const cookie = appendReturningCommit(
-      appendReturningCommit(null, kept, 'another-token', fx.signupId),
-      c.id,
-      c.token,
-      fx.signupId,
+      appendReturningCommit(null, {
+        commitmentId: kept,
+        token: 'another-token',
+        signupId: fx.signupId,
+        slotAt: null,
+      }),
+      { commitmentId: c.id, token: c.token, signupId: fx.signupId, slotAt: null },
     );
 
     afterResponse.length = 0;
@@ -240,10 +257,22 @@ describe('/api/commitments/[id] (db)', () => {
     const setCookie = res.headers.get('set-cookie') ?? '';
     const value = /os_commit=([^;]*)/.exec(setCookie)?.[1];
     expect(value).toBeDefined();
+    const weekAfterSlot = Math.floor(slotAt.getTime() / 1000) + 7 * DAY;
     expect(parseReturningCommits(decodeURIComponent(value!))).toEqual([
-      { commitmentId: moved.id, token: moved.editToken, signupId: fx.signupId },
-      { commitmentId: kept, token: 'another-token', signupId: fx.signupId },
+      {
+        commitmentId: moved.id,
+        token: moved.editToken,
+        signupId: fx.signupId,
+        expiresAt: weekAfterSlot,
+      },
+      {
+        commitmentId: kept,
+        token: 'another-token',
+        signupId: fx.signupId,
+        expiresAt: expect.any(Number),
+      },
     ]);
+    expectMaxAgeNear(setCookie, weekAfterSlot - Date.now() / 1000);
 
     // The confirmation still runs after the response, and sends nothing.
     expect(afterResponse).toHaveLength(1);
@@ -262,6 +291,8 @@ describe('/api/commitments/[id] (db)', () => {
     const res = await DELETE(req, ctx);
     expect(res.status).toBe(200);
     expect(res.headers.get('set-cookie')).toContain('os_commit=');
+    // Nothing left in it, so the 60 days it always lasted.
+    expectMaxAgeNear(res.headers.get('set-cookie') ?? '', 60 * DAY);
     const [row] = await fx.db
       .select({ status: commitments.status })
       .from(commitments)

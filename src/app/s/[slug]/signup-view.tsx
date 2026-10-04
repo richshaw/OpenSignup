@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { willSendReminder } from '@/lib/reminder-eligibility';
 import { slotTimeOfDay } from '@/lib/reminder-fields';
 import type { SignupStatus } from '@/schemas/signups';
 import type { SlotStatus } from '@/schemas/slots';
@@ -82,6 +83,12 @@ interface SignupViewProps {
     title: string;
     description: string | null;
     status: SignupStatus;
+    /** Whether the sign-up form asks for the email; true when left out. Only
+     *  the live page's form reads it. */
+    requireEmail?: boolean;
+    /** The signup's `sendReminders` setting; false when left out, so nothing
+     *  promises a reminder. Only the live page's form reads it. */
+    sendReminders?: boolean;
   };
   fields: SignupViewField[];
   groupByRef: string | null;
@@ -319,6 +326,11 @@ export function SignupViewBody({
                             capacity={slot.capacity}
                             signupTitle={signup.title}
                             slug={slug}
+                            requireEmail={signup.requireEmail ?? true}
+                            sendsReminder={willSendReminder({
+                              sendReminders: signup.sendReminders ?? false,
+                              slotAt: slot.slotAt ? new Date(slot.slotAt) : null,
+                            })}
                           />
                         )}
                       </div>

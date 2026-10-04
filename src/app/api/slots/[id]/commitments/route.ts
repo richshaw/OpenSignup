@@ -23,7 +23,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // rejected request never reaches the send. The address is unverified and
     // this endpoint now produces outbound mail, so the IP bucket alone would
     // let one caller spray a stranger's inbox across a signup's slots. Shape is
-    // only checked here; commitToSlot's Zod parse remains the authority.
+    // only checked here; commitToSlot's Zod parse remains the authority. A
+    // blank or missing email, which a signup can make optional, skips it:
+    // without an address nothing is mailed.
     const claimedEmail =
       typeof body === 'object' && body !== null ? (body as { email?: unknown }).email : undefined;
     if (typeof claimedEmail === 'string' && claimedEmail.includes('@')) {
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const result = await commitToSlot(db, slotId, body);
     if (!result.ok) return fail(result.error);
 
-    const { signupSlug, ...responseValue } = result.value;
+    const { signupSlug, slotAt, ...responseValue } = result.value;
     const editUrl = commitmentEditUrl(
       signupSlug,
       responseValue.commitment.id,
@@ -51,12 +53,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         ),
       },
     );
-    const nextCookie = appendReturningCommit(
-      req.cookies.get(COMMIT_COOKIE_NAME)?.value ?? null,
-      responseValue.commitment.id,
-      responseValue.editToken,
-      responseValue.commitment.signupId,
-    );
+    // Remembered until a week after the slot, so someone who signs up far
+    // ahead, perhaps without an email, can still find their way back.
+    const nextCookie = appendReturningCommit(req.cookies.get(COMMIT_COOKIE_NAME)?.value ?? null, {
+      commitmentId: responseValue.commitment.id,
+      token: responseValue.editToken,
+      signupId: responseValue.commitment.signupId,
+      slotAt,
+    });
     setReturningCommitCookie(response, nextCookie);
 
     // After the response, so a slow mail server never holds up a participant

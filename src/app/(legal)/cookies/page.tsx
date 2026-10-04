@@ -13,7 +13,7 @@ export default function CookiesPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Cookies</h1>
-        <p className="text-ink-muted text-sm">Last updated: 13 September 2026</p>
+        <p className="text-ink-muted text-sm">Last updated: 4 October 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -68,11 +68,15 @@ export default function CookiesPage() {
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">os_commit</td>
                 <td className="px-4 py-3">
-                  Lets participants who already committed to a slot return and edit or
-                  cancel without re-entering their email. <code>httpOnly</code>; not
-                  readable from JavaScript.
+                  Keeps the private link to change or cancel each slot a participant
+                  signed up for, so they can come back from the same browser without
+                  finding the link again, whether or not they gave an email.{' '}
+                  <code>httpOnly</code>; not readable from JavaScript.
                 </td>
-                <td className="px-4 py-3">60 days</td>
+                <td className="px-4 py-3">
+                  60 days, or until a week after the latest slot it holds if that is later (at
+                  most 400 days)
+                </td>
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">os_oauth_session</td>

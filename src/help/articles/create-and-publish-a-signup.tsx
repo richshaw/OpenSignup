@@ -167,16 +167,17 @@ export function CreateAndPublishASignup() {
         <h2 className="text-xl font-semibold tracking-tight">What happens next</h2>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            People open the link and choose <Ui>{UI.signUp}</Ui> on a slot. They type their name and
-            email, and can add a note.
+            People open the link and choose <Ui>{UI.signUp}</Ui> on a slot. They type their name
+            and, unless you&apos;ve made it optional, their email. They can also add a note.
           </li>
           <li>
             A slot with more than one spot shows how many are taken, like 1/2. People can take more
             than one spot at a time. When a slot is full, nobody else can choose it.
           </li>
           <li>
-            Each person gets an email saying they&apos;re signed up. It has a link they can use to
-            change or cancel.
+            Each person who gives an email gets one saying they&apos;re signed up. It has a link
+            they can use to change or cancel. People who leave it out see the link on screen
+            instead.
           </li>
           <li>
             Search engines are asked not to list signup pages. Anyone with the link can open yours,
@@ -188,9 +189,10 @@ export function CreateAndPublishASignup() {
       <section className="space-y-4">
         <h2 className="text-xl font-semibold tracking-tight">Reminders</h2>
         <p>
-          If a slot has a date, people who take it get a reminder email {REMINDER_WHEN}. Someone who
-          signs up later than that gets one about {SETTLE} after signing up, unless the slot is less
-          than {SETTLE} away. Each reminder has a link to stop them.
+          If a slot has a date, people who take it and gave an email get a reminder email{' '}
+          {REMINDER_WHEN}. Someone who signs up later than that gets one about {SETTLE} after
+          signing up, unless the slot is less than {SETTLE} away. Each reminder has a link to stop
+          them.
         </p>
         <p>Reminders are on for every new signup. To turn them off:</p>
         <Steps>

@@ -49,6 +49,9 @@ export interface SeedData {
   deletedSlug: string;
   deletedCommitmentId: string;
   deletedToken: string;
+  /** Published signup whose settings make the email optional, with an open slot. */
+  optionalEmailSlug: string;
+  optionalEmailSlotLabel: string;
 }
 
 /** Removes an e2e organizer and its data. Workspace delete cascades signups →
@@ -116,6 +119,7 @@ async function makePublishedSignup(
   workspaceId: string,
   title: string,
   slotLabels: { label: string; capacity: number }[],
+  settings: { requireEmail?: boolean } = {},
 ): Promise<{ id: string; slug: string; slotIds: string[] }> {
   const signup = unwrap(
     await createSignup(db, actor, workspaceId, {
@@ -123,7 +127,7 @@ async function makePublishedSignup(
       description: 'Seeded by tests/e2e/helpers/seed.ts',
       tags: [],
       visibility: 'unlisted' as const,
-      settings: {},
+      settings,
     }),
     `createSignup(${title})`,
   );
@@ -211,6 +215,16 @@ export async function seedE2E(): Promise<SeedData> {
   );
   unwrap(await deleteSignup(db, actor, deletedSignup.id), 'deleteSignup(Removed Potluck)');
 
+  // A signup that lets participants leave the email blank.
+  const optionalEmailSignup = await makePublishedSignup(
+    db,
+    actor,
+    workspaceId,
+    'Litter Pick',
+    [{ label: 'Park gate', capacity: 20 }],
+    { requireEmail: false },
+  );
+
   // Draft signup for the organizer publish flow.
   const draft = unwrap(
     await createSignup(db, actor, workspaceId, {
@@ -240,6 +254,8 @@ export async function seedE2E(): Promise<SeedData> {
     deletedSlug: deletedSignup.slug,
     deletedCommitmentId: deletedCommit.commitment.id,
     deletedToken: deletedCommit.editToken,
+    optionalEmailSlug: optionalEmailSignup.slug,
+    optionalEmailSlotLabel: 'Park gate',
   };
   writeFileSync(SEED_FILE, JSON.stringify(data, null, 2));
   return data;

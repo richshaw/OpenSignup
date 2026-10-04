@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
@@ -24,6 +24,8 @@ describe('<CommitDialog /> trigger', () => {
         capacity={null}
         signupTitle="Snack duty"
         slug="example"
+        requireEmail
+        sendsReminder={false}
       />,
     );
   }
@@ -55,18 +57,29 @@ describe('<CommitDialog /> sheet', () => {
   function openSheet({
     spotsLeft = null,
     capacity = null,
-  }: { spotsLeft?: number | null; capacity?: number | null } = {}) {
+    requireEmail = true,
+    slotAt = null,
+    sendsReminder = false,
+  }: {
+    spotsLeft?: number | null;
+    capacity?: number | null;
+    requireEmail?: boolean;
+    slotAt?: string | null;
+    sendsReminder?: boolean;
+  } = {}) {
     render(
       <CommitDialog
         slotId="slot_1"
         slotTitle="Cookies"
         actionName="Sat, May 16, Cookies, Vinland Elementary"
-        slotAt={null}
+        slotAt={slotAt}
         slotHasTime={false}
         spotsLeft={spotsLeft}
         capacity={capacity}
         signupTitle="Snack duty"
         slug="example"
+        requireEmail={requireEmail}
+        sendsReminder={sendsReminder}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
@@ -125,6 +138,7 @@ describe('<CommitDialog /> sheet', () => {
 
     await waitFor(() => expect(screen.getByLabelText('Email')).toHaveFocus(), settle);
     expect(screen.getByLabelText('Your name')).toHaveValue('Jordan Fields');
+    expect(screen.getByLabelText('Email')).toHaveValue('jordan@example.test');
   });
 
   // Backdrop tap, Escape and the close X all route through one `onClose`, so
@@ -287,6 +301,189 @@ describe('<CommitDialog /> sheet', () => {
     expect(JSON.parse(String(init.body))).toMatchObject({ quantity: 1 });
 
     vi.unstubAllGlobals();
+  });
+
+  it('requires the email unless the signup makes it optional', async () => {
+    openSheet();
+    expect(await screen.findByLabelText('Email', {}, settle)).toBeRequired();
+    expect(screen.queryByText(/We'll email you your link/)).not.toBeInTheDocument();
+    cleanup();
+
+    openSheet({ requireEmail: false });
+    const email = await screen.findByLabelText('Email (optional)', {}, settle);
+    expect(email).not.toBeRequired();
+    // The label already says it is optional; the help says what it is for.
+    expect(email).toHaveAccessibleDescription(
+      "We'll email you your link to change or cancel. Without an email, save the link we show you after you sign up.",
+    );
+  });
+
+  it('promises a reminder only where the slot will get one', async () => {
+    openSheet({ requireEmail: false, sendsReminder: true });
+    expect(
+      await screen.findByLabelText('Email (optional)', {}, settle),
+    ).toHaveAccessibleDescription(
+      "We'll email you your link to change or cancel, and a reminder before your slot. Without an email, save the link we show you after you sign up.",
+    );
+  });
+
+  it('still suggests a fix for a mistyped email when it is optional', async () => {
+    openSheet({ requireEmail: false });
+    const email = await screen.findByLabelText('Email (optional)', {}, settle);
+    fireEvent.change(email, { target: { value: 'pat@gmial.com' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'pat@gmail.com' }, settle));
+    expect(email).toHaveValue('pat@gmail.com');
+  });
+
+  describe('where the email is optional', () => {
+    const editUrl = 'https://example.test/s/example/c/com_1';
+
+    async function signUpWithEmail(email: string, opts: { slotAt?: string | null } = {}) {
+      const fetchMock = vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
+      }));
+      vi.stubGlobal('fetch', fetchMock);
+      openSheet({ requireEmail: false, ...opts });
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Fields' } });
+      fireEvent.change(screen.getByLabelText('Email (optional)'), { target: { value: email } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      await screen.findByRole('heading', { name: "You're in." }, settle);
+      const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      return JSON.parse(String(init.body)) as Record<string, unknown>;
+    }
+
+    // jsdom has no clipboard.
+    function stubClipboard(writeText: (text: string) => Promise<void>) {
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    });
+
+    it('sends no email when the box is blank, and says the link will not be emailed', async () => {
+      const body = await signUpWithEmail('  ');
+      expect(body).not.toHaveProperty('email');
+      expect(
+        screen.getByText(
+          "Save this link now: we won't email it, and only this browser remembers it.",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: editUrl })).toBeInTheDocument();
+      // No slot date, so no calendar button to mention.
+      expect(screen.queryByText(/Add to calendar/)).not.toBeInTheDocument();
+    });
+
+    it('says Add to calendar saves the link when that button is there', async () => {
+      await signUpWithEmail('', { slotAt: '2030-04-06T12:00:00.000Z' });
+      expect(screen.getByText(/Add to calendar saves the link too\./)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Add to calendar' })).toBeInTheDocument();
+    });
+
+    // The link is how they change or cancel, so nothing offers to post it.
+    it('offers Copy link, not Share link, and says when it copied', async () => {
+      const writeText = vi.fn(async () => {});
+      stubClipboard(writeText);
+      await signUpWithEmail('', { slotAt: '2030-04-06T12:00:00.000Z' });
+      expect(screen.queryByRole('button', { name: 'Share link' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Add to calendar' })).toBeInTheDocument();
+      const status = screen.getByRole('status');
+      expect(status).toBeEmptyDOMElement();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+      await waitFor(() => expect(status).toHaveTextContent('Link copied.'), settle);
+      expect(writeText).toHaveBeenCalledWith(editUrl);
+    });
+
+    it('says to copy the link by hand when the browser will not', async () => {
+      const writeText = vi.fn(async () => {
+        throw new Error('not allowed');
+      });
+      stubClipboard(writeText);
+      await signUpWithEmail('');
+      fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+      await waitFor(
+        () =>
+          expect(screen.getByRole('status')).toHaveTextContent(
+            "Couldn't copy it. Select the link above and copy it yourself.",
+          ),
+        settle,
+      );
+    });
+
+    it('reads as usual when they give an email after all', async () => {
+      const body = await signUpWithEmail('jordan@example.test');
+      expect(body).toMatchObject({ email: 'jordan@example.test' });
+      expect(screen.getByText(/Bookmark this link to edit or cancel later/)).toBeInTheDocument();
+      expect(screen.queryByText(/we won't email it/)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Share link' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Copy link' })).not.toBeInTheDocument();
+    });
+
+    // Someone who chose to leave it out once should not send it by accident.
+    it('fills in a remembered name but not a remembered email', async () => {
+      window.localStorage.setItem(
+        'opensignup:lastCommit',
+        JSON.stringify({ name: 'Jordan Fields', email: 'jordan@example.test' }),
+      );
+      openSheet({ requireEmail: false });
+      expect(await screen.findByLabelText('Your name', {}, settle)).toHaveValue('Jordan Fields');
+      expect(screen.getByLabelText('Email (optional)')).toHaveValue('');
+    });
+
+    it('keeps the remembered email after a sign-up without one', async () => {
+      window.localStorage.setItem(
+        'opensignup:lastCommit',
+        JSON.stringify({ name: 'Jordan', email: 'jordan@example.test' }),
+      );
+      await signUpWithEmail('');
+      expect(JSON.parse(window.localStorage.getItem('opensignup:lastCommit') ?? 'null')).toEqual({
+        name: 'Jordan Fields',
+        email: 'jordan@example.test',
+      });
+    });
+
+    // The organizer made it required again after the page rendered.
+    it('makes the box required when the server refuses a blank email', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: {
+              code: 'invalid_input',
+              message: 'Email is required for this signup.',
+              field: 'email',
+              suggestion: 'Add your email and try again.',
+            },
+          }),
+        })),
+      );
+      // jsdom leaves scrollIntoView out, and the dialog calls it on the alert.
+      Element.prototype.scrollIntoView = vi.fn();
+      try {
+        openSheet({ requireEmail: false });
+        await screen.findByLabelText('Your name', {}, settle);
+        fireEvent.change(screen.getByLabelText('Your name'), {
+          target: { value: 'Jordan Fields' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+        const alert = await screen.findByRole('alert', {}, settle);
+        expect(alert).toHaveTextContent('Email is required for this signup.');
+        const email = screen.getByLabelText('Email');
+        expect(email).toBeRequired();
+        expect(email).not.toHaveAccessibleDescription();
+        expect(screen.queryByLabelText('Email (optional)')).not.toBeInTheDocument();
+        expect(screen.queryByText(/We'll email you your link/)).not.toBeInTheDocument();
+      } finally {
+        delete (Element.prototype as Partial<Element>).scrollIntoView;
+      }
+    });
   });
 
   // The service's own text for this is developer shorthand; the participant

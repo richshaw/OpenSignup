@@ -17,6 +17,7 @@ import {
   CommitmentCreateInputSchema,
   CommitmentUpdateInputSchema,
 } from '@/schemas/commitments';
+import { requiresEmail } from '@/schemas/signups';
 import { inWorkspace, readLiveSignup } from './locks';
 
 type CommitmentRow = typeof commitments.$inferSelect;
@@ -128,6 +129,9 @@ export interface CommitResult {
   commitment: CommitmentRow;
   editToken: string;
   signupSlug: string;
+  /** The slot's instant, read under its lock, so the route can keep the
+   *  returning-participant cookie until after it without another query. */
+  slotAt: Date | null;
 }
 
 export async function commitToSlot(
@@ -138,21 +142,25 @@ export async function commitToSlot(
   const input = parseInputSafe(CommitmentCreateInputSchema, rawInput);
   if (!input.ok) return input;
   const { email, ...data } = input.value;
-  return commitParticipantToSlot(db, slotId, { email }, data);
+  return commitParticipantToSlot(db, slotId, { email: email ?? null }, data);
 }
 
 /**
  * Takes a place on the slot. Someone signing up (`commitToSlot`) is found or
- * added by `email`, and their participant takes the `name` they typed.
- * Someone moving from another slot (`updateOwnCommitment`) passes their
- * `participantId`, so the move keeps the participant it had and never depends
- * on the email; their name changes only when the move sends one. Every other
- * check is the same for both.
+ * added by `email`, and their participant takes the `name` they typed. One who
+ * gave no email (`email: null`), which only a signup with `requireEmail` off
+ * accepts, is always added. Someone moving from another slot
+ * (`updateOwnCommitment`) passes their `participantId`, so the move keeps the
+ * participant it had and never depends on the email or on `requireEmail`;
+ * their name changes only when the move sends one. Every other check is the
+ * same for both.
  */
 async function commitParticipantToSlot(
   db: Queryable,
   slotId: string,
-  who: { email: string; participantId?: never } | { participantId: string; email?: never },
+  who:
+    | { email: string | null; participantId?: never }
+    | { participantId: string; email?: never },
   data: Pick<CommitmentCreateInput, 'notes' | 'quantity'> & { name?: string },
 ): Promise<Result<CommitResult, ServiceError>> {
   return db.transaction(async (tx) => {
@@ -185,11 +193,24 @@ async function commitParticipantToSlot(
       return err(shut.error);
     }
 
+    // Asked of new sign-ups only, never of a move: someone who signed up
+    // without an email while it was optional keeps their place, and can still
+    // move it, after the organizer makes it required again.
+    if (who.email === null && requiresEmail(signupRow.settings)) {
+      return err(
+        serviceError('invalid_input', 'Email is required for this signup.', {
+          field: 'email',
+          suggestion: 'Add your email and try again.',
+        }),
+      );
+    }
+
     // The participant a move brings, or the one this signup already has under
     // the email someone signs up with. Preserve user-entered casing in
-    // participants.email; dedup on emailLower.
+    // participants.email; dedup on emailLower. Someone who gave no email has
+    // nothing to be found by, so is always a new participant.
     let participantId = who.participantId;
-    if (who.email !== undefined) {
+    if (typeof who.email === 'string') {
       const [found] = await tx
         .select({ id: participants.id })
         .from(participants)
@@ -240,7 +261,7 @@ async function commitParticipantToSlot(
       });
     } else {
       // Unreachable: a move brings its participant, and signing up always
-      // brings an email and a name.
+      // brings an email (null when none was given) and a name.
       return err(serviceError('internal', 'no participant to commit'));
     }
 
@@ -359,7 +380,7 @@ async function commitParticipantToSlot(
       payload: { commitmentId, slotId },
     });
 
-    return ok({ commitment: row, editToken, signupSlug: signupRow.slug });
+    return ok({ commitment: row, editToken, signupSlug: signupRow.slug, slotAt: slot.slotAt });
   });
 }
 
@@ -438,7 +459,7 @@ const MoveNameSchema = CommitmentCreateInputSchema.pick({ name: true });
  * edit link needs.
  */
 type EditedCommitment = CommitmentRow & {
-  moved?: Pick<CommitResult, 'editToken' | 'signupSlug'>;
+  moved?: Pick<CommitResult, 'editToken' | 'signupSlug' | 'slotAt'>;
 };
 
 export async function updateOwnCommitment(
@@ -525,8 +546,8 @@ export async function updateOwnCommitment(
         eventType: 'commitment.swapped',
         payload: { from: current.id, to: newCommit.value.commitment.id },
       });
-      const { commitment, editToken, signupSlug } = newCommit.value;
-      return ok({ ...commitment, moved: { editToken, signupSlug } });
+      const { commitment, editToken, signupSlug, slotAt } = newCommit.value;
+      return ok({ ...commitment, moved: { editToken, signupSlug, slotAt } });
     });
   }
 
