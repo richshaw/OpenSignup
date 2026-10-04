@@ -71,6 +71,13 @@
       "when": 1790986301471,
       "tag": "0009_drop_idempotency_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791071285775,
+      "tag": "0010_clear_pre_1900_slot_times",
+      "breakpoints": true
     }
   ]
 }

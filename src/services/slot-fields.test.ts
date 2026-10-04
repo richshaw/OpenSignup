@@ -27,19 +27,30 @@ describe('validateSlotValues', () => {
   // The shape regex alone accepted all of these. They reached new Date() as an
   // Invalid Date, which recomputeSlotAtForSignup then rewrote on every pass
   // because NaN is never equal to itself.
-  it.each(['2026-13-45', '2026-02-30', '2026-00-10', '2026-01-32'])(
+  // 0099-02-29 is impossible too (0099 is no leap year), and says so rather
+  // than that it is too early.
+  it.each(['2026-13-45', '2026-02-30', '2026-00-10', '2026-01-32', '0099-02-29'])(
     'rejects the impossible date %s',
     (date) => {
       const r = validateSlotValues([def({})], { date });
       expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.message).toBe('"date" must be a real date as YYYY-MM-DD');
     },
   );
 
-  it('takes a two-digit year as written rather than as 19xx', () => {
-    // Date.UTC(99, 11, 31) is 1999-12-31, which would fail the round trip and
-    // reject a well-formed date. Odd input, but the check must not lie about it.
-    expect(validateSlotValues([def({})], { date: '0099-12-31' }).ok).toBe(true);
-    expect(validateSlotValues([def({})], { date: '0099-02-29' }).ok).toBe(false);
+  // Postgres has no year 0, the driver reads years below 100 back a century
+  // late, and the calendar export can't write a year below 1000.
+  it.each(['0000-01-01', '0099-12-31', '0202-05-10', '1899-12-31'])(
+    'rejects %s, a year before 1900',
+    (date) => {
+      const r = validateSlotValues([def({})], { date });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.message).toBe('"date" must be a date in 1900 or later');
+    },
+  );
+
+  it('accepts the first day of 1900', () => {
+    expect(validateSlotValues([def({})], { date: '1900-01-01' }).ok).toBe(true);
   });
 
   it('accepts a real leap day and rejects one in a common year', () => {

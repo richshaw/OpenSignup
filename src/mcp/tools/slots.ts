@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ok } from '@/lib/result';
+import { MIN_DATE_YEAR } from '@/schemas/slot-fields';
 import {
   SlotBulkInputSchema,
   SlotReorderInputSchema,
@@ -26,8 +27,7 @@ export const addSlotsTool = defineTool({
   name: 'add_slots',
   scope: 'signups:write',
   title: 'Add slots',
-  description:
-    'Add one or more slots (up to 500) to a signup. They go at the end, unless you pass beforeSlotId: then they go in front of that slot, in the order given, and that slot and everything after it move down. To put a slot first, pass the id of the slot that is first now. Each row has values keyed by field ref (dates as ISO dates like 2026-10-03, times as HH:MM, numbers as numbers, enums as one of the choices) and a capacity: a number, null for unlimited, or omitted for 1. Call get_signup first to see the field refs and the slot ids.',
+  description: `Add one or more slots (up to 500) to a signup. They go at the end, unless you pass beforeSlotId: then they go in front of that slot, in the order given, and that slot and everything after it move down. To put a slot first, pass the id of the slot that is first now. Each row has values keyed by field ref (dates as ISO dates like 2026-10-03, in ${MIN_DATE_YEAR} or later, times as HH:MM, numbers as numbers, enums as one of the choices) and a capacity: a number, null for unlimited, or omitted for 1. Call get_signup first to see the field refs and the slot ids.`,
   annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: z.object({
     signupId: z.string(),

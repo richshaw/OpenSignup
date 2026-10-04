@@ -20,6 +20,18 @@ const TextConfigSchema = z.object({
   maxLength: z.number().int().positive().max(2000).default(200),
 });
 
+/**
+ * The earliest year a date field's values take (`isRealDate` in
+ * src/services/slot-fields.ts). No signup is for a day before it, and earlier
+ * years break things downstream: Postgres has no year 0 and refuses it as a
+ * timestamptz, so a slot dated 0000 failed its save or a later `slot_at`
+ * rebuild; the driver reads a stored year below 100 back a century late (0099
+ * as 1999); and the calendar export writes a year below 1000 with fewer than
+ * four digits, which RFC 5545 does not allow. Kept here, not beside the check,
+ * so the builder's date input and the MCP field guide can name it too.
+ */
+export const MIN_DATE_YEAR = 1900;
+
 const DateConfigSchema = z.object({
   fieldType: z.literal('date'),
 });

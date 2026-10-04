@@ -1213,7 +1213,7 @@ describe('slot-fields service (db)', () => {
       expect(await rowVersion(stays)).toBe(untouched);
     });
 
-    it('writes nothing when no slot moves, a year below 100 included', async () => {
+    it('writes nothing when no slot moves, one the driver misreads included', async () => {
       const sigId = await createTestSignup(fx, 'Rebuild with nothing to do');
       const day = await addField(fx.db, fx.actor, sigId, {
         ref: 'day',
@@ -1223,19 +1223,56 @@ describe('slot-fields service (db)', () => {
       });
       if (!day.ok) throw new Error('setup failed');
       const ids: string[] = [];
-      // The driver reads 0099-12-31 back as 1999-12-31, so the check in JS
-      // sees that slot move on every rebuild; Postgres sees that it has not.
-      for (const date of ['2026-05-10', '0099-12-31']) {
+      for (const date of ['2026-05-10', '1920-06-01']) {
         const slot = await addSlot(fx.db, fx.actor, sigId, { values: { day: date } });
         if (!slot.ok) throw new Error('slot setup failed');
         ids.push(slot.value.id);
       }
       const before = await Promise.all(ids.map(rowVersion));
-      const r = await fx.db.transaction((tx) =>
-        recomputeSlotAtForSignup(tx, sigId, fx.workspaceId),
-      );
+      const r = await fx.db.transaction(async (tx) => {
+        // The app's connections start on UTC, but a session can set another
+        // zone. On Amsterdam time Postgres prints the 1920 instant with an
+        // offset of +01:19:32, which the driver reads as an Invalid Date, so the
+        // check in JS sees that slot move on every rebuild; Postgres sees it
+        // has not.
+        await tx.execute(sql`set local time zone 'Europe/Amsterdam'`);
+        return recomputeSlotAtForSignup(tx, sigId, fx.workspaceId);
+      });
       expect(r).toEqual({ updated: 0 });
       expect(await Promise.all(ids.map(rowVersion))).toEqual(before);
+    });
+
+    it('gives a stored date before 1900 no instant rather than failing', async () => {
+      const sigId = await createTestSignup(fx, 'Rebuild over a year-zero date');
+      for (const ref of ['day', 'day2']) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType: 'date',
+          config: { fieldType: 'date' },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+      }
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { day: '2026-05-10' } });
+      if (!slot.ok) throw new Error('slot setup failed');
+      // Written straight to the row, as a slot saved before the services
+      // refused these years would be. Postgres has no year 0, so turning this
+      // into a timestamptz used to fail the whole rebuild.
+      await fx.db
+        .update(slots)
+        .set({ values: { day: '2026-05-10', day2: '0000-01-01' } })
+        .where(eq(slots.id, slot.value.id));
+
+      const r = await fx.db.transaction(async (tx) => {
+        await tx
+          .update(signups)
+          .set({ settings: { reminderFromFieldRef: 'day2' } })
+          .where(eq(signups.id, sigId));
+        return recomputeSlotAtForSignup(tx, sigId, fx.workspaceId);
+      });
+      expect(r).toEqual({ updated: 1 });
+      const [row] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id));
+      expect(row?.slotAt).toBeNull();
     });
   });
 

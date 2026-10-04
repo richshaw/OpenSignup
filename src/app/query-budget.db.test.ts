@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import postgres from 'postgres';
 import budgets from '../../budgets.json';
-import { getDb } from '@/db/client';
+import { getDb, SESSION_SETTINGS } from '@/db/client';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
@@ -45,6 +45,7 @@ const previousClient = globalThis.__signup_pg__;
 const countingClient = postgres(getEnv().DATABASE_URL, {
   max: 4,
   prepare: false,
+  connection: SESSION_SETTINGS,
   debug: (_connection, query) => {
     if (!query.includes('pg_catalog.pg_type')) statements += 1;
   },

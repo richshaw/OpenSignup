@@ -21,6 +21,7 @@ import {
 } from '@/lib/reminder-fields';
 import { err, ok, type Result } from '@/lib/result';
 import {
+  MIN_DATE_YEAR,
   type SlotFieldConfig,
   type SlotFieldDefinition,
   SlotFieldInputSchema,
@@ -137,8 +138,14 @@ export async function recomputeSlotAtForSignup(
   // or edit queued behind them waits with a pooled connection in hand. The
   // rows travel as one JSON parameter (a Date as its ISO string), as in
   // `writeSlotOrder`. Postgres has the last word on what changed: the check
-  // above compares with the instant as the driver read it back, which for a
-  // year below 100 comes back a century out, so a row sent can still be equal.
+  // above compares with the instant as the driver read it back, and the driver
+  // cannot read every instant. Postgres prints one in the session's time zone,
+  // and where that zone's offset then had seconds in it (Amsterdam's +00:19:32
+  // until 1937, Dublin's until 1916) the driver makes an Invalid Date of it.
+  // Every connection the app opens is pinned to UTC (`SESSION_SETTINGS` in
+  // src/db/client.ts), but a session can still `SET` another zone, and there
+  // the check sees that slot move on every rebuild. A row sent can still be
+  // equal.
   const wanted = sql`jsonb_to_recordset(${JSON.stringify(changed)}::jsonb)
     as wanted(id text, at timestamptz)`;
   const written = await tx
@@ -584,22 +591,31 @@ function isMissing(value: unknown): boolean {
 }
 
 /**
- * A YYYY-MM-DD string naming a day that exists.
+ * A YYYY-MM-DD string naming a day that exists, in any year.
  *
  * The shape regex alone accepts 2026-13-45 and 2026-02-30, which reach
  * `new Date()` as an Invalid Date (or, for 02-30, silently roll into March).
  * Checking the parts round-trip rejects both.
  */
-function isRealDate(value: string): boolean {
+function isCalendarDate(value: string): boolean {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!m) return false;
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  // Not `Date.UTC(y, …)`: it reads years 0–99 as 1900–1999, so a genuine
-  // 0099-12-31 would fail the round trip below. setUTCFullYear takes the year
-  // as written.
+  // Not `Date.UTC(y, …)`: it reads years 0–99 as 1900–1999, so 0099-12-31
+  // would fail the round trip and be called impossible rather than too early.
+  // setUTCFullYear takes the year as written.
   const at = new Date(0);
   at.setUTCFullYear(y, mo - 1, d);
   return at.getUTCFullYear() === y && at.getUTCMonth() === mo - 1 && at.getUTCDate() === d;
+}
+
+/**
+ * A value a date field takes: a YYYY-MM-DD day that exists, in
+ * `MIN_DATE_YEAR` or later. Magic Compose blanks a drafted date that fails it,
+ * since `createSignup` would otherwise refuse the whole draft over one cell.
+ */
+export function isRealDate(value: string): boolean {
+  return isCalendarDate(value) && Number(value.slice(0, 4)) >= MIN_DATE_YEAR;
 }
 
 function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<void, ServiceError> {
@@ -627,12 +643,21 @@ function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<vo
       return ok(undefined);
     }
     case 'date': {
-      if (typeof value !== 'string' || !isRealDate(value)) {
+      if (typeof value !== 'string' || !isCalendarDate(value)) {
         return err(
           serviceError('invalid_input', `"${field.ref}" must be a real date as YYYY-MM-DD`, {
             field: field.ref,
             received: value,
           }),
+        );
+      }
+      if (!isRealDate(value)) {
+        return err(
+          serviceError(
+            'invalid_input',
+            `"${field.ref}" must be a date in ${MIN_DATE_YEAR} or later`,
+            { field: field.ref, received: value },
+          ),
         );
       }
       return ok(undefined);
