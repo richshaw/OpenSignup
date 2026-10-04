@@ -2,13 +2,14 @@ import { after, type NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
 import type { Db } from '@/db/client';
 import { extractClientIp } from '@/auth/request-context';
-import { fail, handle, respond } from '@/lib/api-response';
+import { fail, handle, ok, respond } from '@/lib/api-response';
 import { serviceError } from '@/lib/errors';
-import { editTokenFor } from '@/lib/token';
+import { commitmentEditUrl, link } from '@/lib/links';
 import { notifyCommitmentCreated } from '@/email/notify';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 import {
   COMMIT_COOKIE_NAME,
+  appendReturningCommit,
   removeReturningCommit,
   setReturningCommitCookie,
 } from '@/lib/returning-participant';
@@ -50,17 +51,33 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (!token) return fail(serviceError('forbidden', 'edit token required', { field: 'token' }));
     const body = await req.json().catch(() => ({}));
     const result = await updateOwnCommitment(db, id, token, body);
+    if (!result.ok) return fail(result.error);
+    const { moved, ...commitment } = result.value;
+    if (!moved) return ok(commitment);
+
     // A swap cancels this commitment and creates a new one with a new id and a
     // new edit token, so the confirmation already in the participant's inbox
     // now points at a cancelled row — while telling them to keep it because it
-    // is how they change their slot. Send a receipt for the replacement. Edit
-    // tokens are HMAC(secret, commitment_id), so the new one is re-derivable
-    // without threading it back out of the service.
-    if (result.ok && result.value.id !== id) {
-      const swapped = result.value;
-      after(() => notifyCommitmentCreated(db, swapped.id, editTokenFor(swapped.id)));
-    }
-    return respond(result);
+    // is how they change their slot. Send a receipt for the replacement.
+    //
+    // A participant without an email gets no receipt. So, as signing up does,
+    // the response carries the new edit link, and the returning-participant
+    // cookie takes the new commitment in place of the old one.
+    const editUrl = commitmentEditUrl(moved.signupSlug, commitment.id, moved.editToken);
+    const self = `/api/commitments/${commitment.id}?token=${moved.editToken}`;
+    const response = ok(
+      { ...commitment, editToken: moved.editToken, editUrl },
+      { links: { edit: link(editUrl), self: link(self), cancel: link(self, 'DELETE') } },
+    );
+    const nextCookie = appendReturningCommit(
+      removeReturningCommit(req.cookies.get(COMMIT_COOKIE_NAME)?.value, id),
+      commitment.id,
+      moved.editToken,
+      commitment.signupId,
+    );
+    setReturningCommitCookie(response, nextCookie);
+    after(() => notifyCommitmentCreated(db, commitment.id, moved.editToken));
+    return response;
   });
 }
 

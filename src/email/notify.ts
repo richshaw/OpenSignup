@@ -66,10 +66,11 @@ export async function notifyCommitmentCreated(
       log.info({ commitmentId }, 'signup deleted; no confirmation email');
       return;
     }
-    // Signed up without an email: there is nowhere to send one. Their edit
-    // link is on screen and in the returning-participant cookie.
+    // Signed up without an email: there is nowhere to send one. The response
+    // that made the commitment, a sign-up or a move, carries its edit link
+    // and puts it in the returning-participant cookie.
     const to = row.participant.email;
-    if (!to) {
+    if (to === null) {
       log.info({ commitmentId }, 'participant has no email; no confirmation email');
       return;
     }

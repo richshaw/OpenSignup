@@ -999,7 +999,7 @@
       "checkConstraints": {
         "participants_email_lower_with_email": {
           "name": "participants_email_lower_with_email",
-          "value": "(\"participants\".\"email\" IS NULL) = (\"participants\".\"email_lower\" IS NULL)"
+          "value": "(\"participants\".\"email\" IS NULL AND \"participants\".\"email_lower\" IS NULL) OR (\"participants\".\"email\" IS NOT NULL AND \"participants\".\"email_lower\" IS NOT NULL AND \"participants\".\"email\" <> '' AND \"participants\".\"email_lower\" <> '')"
         }
       },
       "isRLSEnabled": false
