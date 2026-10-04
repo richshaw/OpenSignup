@@ -53,9 +53,7 @@ test.describe('public commit flow', () => {
 
     await expect(page.getByRole('heading', { name: "You're in." })).toBeVisible();
     await expect(
-      page.getByText(
-        "We won't email you this link. Save it now: it's the only way to change or cancel.",
-      ),
+      page.getByText("Save this link now: we won't email it, and only this browser remembers it."),
     ).toBeVisible();
     const editLink = page.getByRole('link', {
       name: new RegExp(`/s/${seed.optionalEmailSlug}/c/`),

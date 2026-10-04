@@ -44,6 +44,10 @@ export function ConnectAnAiAssistant() {
             slots. A field is a detail every slot has, like its date.
           </li>
           <li>
+            Make the email address optional for people who sign up, or required again. Anyone who
+            leaves it out gets no emails.
+          </li>
+          <li>
             Publish, close, archive or delete a signup. Closing, archiving or deleting can&apos;t be
             undone.
           </li>

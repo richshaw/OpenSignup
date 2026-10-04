@@ -244,6 +244,21 @@ describe('update_signup', () => {
     });
   });
 
+  // A client that fills in advertised defaults would otherwise send
+  // requireEmail: true with any settings change, and make the email required again.
+  it('advertises no default for any setting', async () => {
+    const client = await connectTestClient(ctx, WRITE_TOOLS);
+    const { tools } = await client.listTools();
+    const tool = tools.find((t) => t.name === 'update_signup');
+    const settings = tool?.inputSchema.properties?.settings as
+      | { properties?: Record<string, Record<string, unknown>> }
+      | undefined;
+    expect(Object.keys(settings?.properties ?? {})).toContain('requireEmail');
+    for (const [key, schema] of Object.entries(settings?.properties ?? {})) {
+      expect(schema, key).not.toHaveProperty('default');
+    }
+  });
+
   // Nothing reads these, so accepting one would report a change participants never see.
   it.each([
     ['maxCommitmentsPerParticipant', 2],

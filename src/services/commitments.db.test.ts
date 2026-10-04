@@ -1423,6 +1423,9 @@ describe('signing up without an email (db)', () => {
     if (!moved.ok) return;
     expect(moved.value.participantId).toBe(r.value.commitment.participantId);
     expect(moved.value.slotId).toBe(second.value.id);
+    // Without an email nothing sends them the new link, so the move hands it back.
+    expect(moved.value.moved?.editToken).toEqual(expect.any(String));
+    expect(moved.value.moved?.editToken).not.toBe(r.value.editToken);
   });
 });
 
