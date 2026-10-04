@@ -168,15 +168,15 @@ export function CreateAndPublishASignup() {
         <ul className="list-disc space-y-2 pl-6">
           <li>
             People open the link and choose <Ui>{UI.signUp}</Ui> on a slot. They type their name and
-            email, and can add a note.
+            email, and can add a note. You can make the email optional, as explained below.
           </li>
           <li>
             A slot with more than one spot shows how many are taken, like 1/2. People can take more
             than one spot at a time. When a slot is full, nobody else can choose it.
           </li>
           <li>
-            Each person gets an email saying they&apos;re signed up. It has a link they can use to
-            change or cancel.
+            Each person who gives an email gets one saying they&apos;re signed up. It has a link
+            they can use to change or cancel.
           </li>
           <li>
             Search engines are asked not to list signup pages. Anyone with the link can open yours,
@@ -210,6 +210,56 @@ export function CreateAndPublishASignup() {
             </p>
           </Step>
         </Steps>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold tracking-tight">
+          Let people sign up without an email
+        </h2>
+        <p>
+          A signup asks people for their email unless you make it optional. Someone who leaves it
+          blank:
+        </p>
+        <ul className="list-disc space-y-2 pl-6">
+          <li>gets no emails, so no confirmation and no reminder.</li>
+          <li>
+            sees their link to change or cancel only once, right after they sign up. They need to
+            save it.
+          </li>
+          <li>can also change or cancel from the same browser for a while.</li>
+        </ul>
+        <p>To make the email optional:</p>
+        <Steps>
+          <Step>
+            <p>
+              Choose <Ui>{UI.settings}</Ui> at the top of your signup.
+            </p>
+          </Step>
+          <Step>
+            <p>
+              In <Ui>{UI.signupForm}</Ui>, under <Ui>{UI.askForEmail}</Ui>, choose{' '}
+              <Ui>{UI.emailOptional}</Ui>.
+            </p>
+          </Step>
+          <Step>
+            <p>
+              Choose <Ui>{UI.save}</Ui>. You&apos;ll see <Ui>{UI.saved}</Ui>.
+            </p>
+            <Screenshot
+              src="/help/create-and-publish-a-signup/email-setting.png"
+              alt="The Sign-up form settings, with Optional chosen for Ask for an email address, and Saved next to the Save button."
+              width={672}
+              height={230}
+            />
+          </Step>
+        </Steps>
+        <p>
+          On your signup, the email box now says <Ui>{UI.emailBoxOptional}</Ui>.
+        </p>
+        <p>
+          You can switch back to <Ui>{UI.emailRequired}</Ui> later. Only people who sign up after
+          that are asked for an email. Anyone who signed up without one keeps their spot.
+        </p>
       </section>
     </>
   );

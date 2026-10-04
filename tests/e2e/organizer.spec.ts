@@ -98,6 +98,75 @@ test.describe('organizer flow', () => {
     expect(await storedDate()).toBe('1900-01-01');
   });
 
+  test('the Settings tab makes the email optional, and required again', async ({
+    page,
+    browser,
+  }) => {
+    // A fresh published signup with a Juice slot (besides the empty one a new
+    // signup starts with), so retries never share a row.
+    const post = async (url: string, data?: unknown) => {
+      const res = await page.request.post(url, data === undefined ? {} : { data });
+      expect(res.ok(), `${url}: ${await res.text()}`).toBe(true);
+      return (await res.json()).data;
+    };
+    const signup = await post('/api/signups', {
+      title: `Email setting ${Date.now()}`,
+      description: '',
+      tags: [],
+      visibility: 'unlisted',
+      settings: {},
+    });
+    await post(`/api/signups/${signup.id}/slots`, {
+      values: { what: 'Juice', date: '2030-04-06' },
+      capacity: 5,
+    });
+    await post(`/api/signups/${signup.id}/publish`);
+    const storedRequireEmail = async () => {
+      const res = await page.request.get(`/api/signups/${signup.id}`);
+      return (await res.json()).data.settings.requireEmail as boolean;
+    };
+    // The public form in a fresh browser each time, as a participant sees it.
+    const openForm = async () => {
+      const visitor = await browser.newPage();
+      await visitor.goto(`/s/${signup.slug}`);
+      await visitor.getByRole('button', { name: /^Sign up for Juice/ }).click();
+      await expect(visitor.getByLabel('Your name')).toBeVisible();
+      return visitor;
+    };
+
+    const settings = `/app/signups/${signup.id}/settings`;
+    await page.goto(settings);
+    const required = page.getByRole('radio', { name: 'Required' });
+    const optional = page.getByRole('radio', { name: 'Optional' });
+    await expect(required).toBeChecked();
+
+    await optional.check();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText('Saved');
+    expect(await storedRequireEmail()).toBe(false);
+    await page.reload();
+    await expect(optional).toBeChecked();
+
+    let visitor = await openForm();
+    await expect(visitor.getByLabel('Email (optional)')).toHaveJSProperty('required', false);
+    await visitor.getByLabel('Your name').fill('Sam Example');
+    await visitor.getByRole('button', { name: 'Confirm' }).click();
+    await expect(visitor.getByRole('heading', { name: "You're in." })).toBeVisible();
+    await visitor.close();
+
+    await page.goto(settings);
+    await required.check();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText('Saved');
+    expect(await storedRequireEmail()).toBe(true);
+    await expect(required).toBeChecked();
+
+    visitor = await openForm();
+    await expect(visitor.getByLabel('Email', { exact: true })).toHaveJSProperty('required', true);
+    await expect(visitor.getByLabel('Email (optional)')).toHaveCount(0);
+    await visitor.close();
+  });
+
   test('unauthenticated visitor is redirected to login', async ({ browser }) => {
     const anonContext = await browser.newContext();
     const page = await anonContext.newPage();

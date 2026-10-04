@@ -176,6 +176,75 @@ test.describe('help: create and publish your first signup', () => {
     await expect(signUp.first()).toHaveText(UI.signUp);
   });
 
+  test('people can sign up without an email', async ({ page, context, browser, isMobile }) => {
+    test.skip(isMobile, 'the same steps on a phone; the desktop run takes the picture');
+    await loginAsSeededOrganizer(context);
+    // A published signup with a slot of two spots. A new signup also has an
+    // empty slot, which the steps leave alone.
+    const post = async (url: string, data?: unknown) => {
+      const res = await page.request.post(url, data === undefined ? {} : { data });
+      expect(res.ok(), `${url}: ${await res.text()}`).toBe(true);
+      return (await res.json()).data;
+    };
+    const signup = await post('/api/signups', {
+      title: `No email ${Date.now()}`,
+      description: '',
+      tags: [],
+      visibility: 'unlisted',
+      settings: {},
+    });
+    await post(`/api/signups/${signup.id}/slots`, {
+      values: { what: 'Fruit and water', date: '2030-04-06' },
+      capacity: 2,
+    });
+    await post(`/api/signups/${signup.id}/publish`);
+    const signUp = new RegExp(`^${UI.signUp} for Fruit and water`);
+
+    await page.goto(`/app/signups/${signup.id}/build`);
+    await page.getByRole('tab', { name: UI.settings }).click();
+    const form = page.getByRole('region', { name: UI.signupForm });
+    const ask = form.getByRole('group', { name: UI.askForEmail });
+    // "A signup asks people for their email unless you make it optional."
+    await expect(ask.getByRole('radio', { name: UI.emailRequired })).toBeChecked();
+    await ask.getByRole('radio', { name: UI.emailOptional }).check();
+    await form.getByRole('button', { name: UI.save }).click();
+    await expect(form.getByRole('status')).toHaveText(UI.saved);
+    await expect(ask.getByRole('radio', { name: UI.emailOptional })).toBeChecked();
+    await shot(page, form, 'email-setting');
+
+    // Someone who leaves it blank gets their link once, and no email.
+    const blank = await browser.newPage();
+    await blank.goto(`/s/${signup.slug}`);
+    await blank.getByRole('button', { name: signUp }).click();
+    await expect(blank.getByLabel(UI.emailBoxOptional)).toHaveJSProperty('required', false);
+    await blank.getByLabel('Your name').fill('Sam Example');
+    await blank.getByRole('button', { name: 'Confirm' }).click();
+    await expect(blank.getByText(/won.t email/)).toBeVisible();
+    await expect(
+      blank.getByRole('link', { name: new RegExp(`/s/${signup.slug}/c/`) }),
+    ).toBeVisible();
+    // The same browser can still change or cancel.
+    await blank.getByRole('button', { name: 'Done' }).click();
+    await expect(
+      blank.getByRole('link', { name: /^Edit your signup for Fruit and water/ }),
+    ).toBeVisible();
+    await blank.close();
+
+    // Back to Required: new sign-ups are asked, and Sam keeps the spot.
+    await page.goto(`/app/signups/${signup.id}/settings`);
+    await ask.getByRole('radio', { name: UI.emailRequired }).check();
+    await form.getByRole('button', { name: UI.save }).click();
+    await expect(form.getByRole('status')).toHaveText(UI.saved);
+    await expect(ask.getByRole('radio', { name: UI.emailRequired })).toBeChecked();
+    const next = await browser.newPage();
+    await next.goto(`/s/${signup.slug}`);
+    await expect(next.getByText('1 of 2 signed up')).toBeVisible();
+    await next.getByRole('button', { name: signUp }).click();
+    await expect(next.getByLabel('Email', { exact: true })).toHaveJSProperty('required', true);
+    await expect(next.getByLabel(UI.emailBoxOptional)).toHaveCount(0);
+    await next.close();
+  });
+
   test.describe('on a phone', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
