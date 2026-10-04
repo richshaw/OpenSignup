@@ -134,6 +134,7 @@ describe('<CommitDialog /> sheet', () => {
 
     await waitFor(() => expect(screen.getByLabelText('Email')).toHaveFocus(), settle);
     expect(screen.getByLabelText('Your name')).toHaveValue('Jordan Fields');
+    expect(screen.getByLabelText('Email')).toHaveValue('jordan@example.test');
   });
 
   // Backdrop tap, Escape and the close X all route through one `onClose`, so
@@ -348,7 +349,7 @@ describe('<CommitDialog /> sheet', () => {
       expect(body).not.toHaveProperty('email');
       expect(
         screen.getByText(
-          "We won't email you this link. Save it now: it's the only way to change or cancel.",
+          "Save this link now: we won't email it, and only this browser remembers it.",
         ),
       ).toBeInTheDocument();
       expect(screen.getByRole('link', { name: editUrl })).toBeInTheDocument();
@@ -366,7 +367,69 @@ describe('<CommitDialog /> sheet', () => {
       const body = await signUpWithEmail('jordan@example.test');
       expect(body).toMatchObject({ email: 'jordan@example.test' });
       expect(screen.getByText(/Bookmark this link to edit or cancel later/)).toBeInTheDocument();
-      expect(screen.queryByText(/We won't email you/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/we won't email it/)).not.toBeInTheDocument();
+    });
+
+    // Someone who chose to leave it out once should not send it by accident.
+    it('fills in a remembered name but not a remembered email', async () => {
+      window.localStorage.setItem(
+        'opensignup:lastCommit',
+        JSON.stringify({ name: 'Jordan Fields', email: 'jordan@example.test' }),
+      );
+      openSheet({ requireEmail: false });
+      expect(await screen.findByLabelText('Your name', {}, settle)).toHaveValue('Jordan Fields');
+      expect(screen.getByLabelText('Email (optional)')).toHaveValue('');
+    });
+
+    it('keeps the remembered email after a sign-up without one', async () => {
+      window.localStorage.setItem(
+        'opensignup:lastCommit',
+        JSON.stringify({ name: 'Jordan', email: 'jordan@example.test' }),
+      );
+      await signUpWithEmail('');
+      expect(JSON.parse(window.localStorage.getItem('opensignup:lastCommit') ?? 'null')).toEqual({
+        name: 'Jordan Fields',
+        email: 'jordan@example.test',
+      });
+    });
+
+    // The organizer made it required again after the page rendered.
+    it('makes the box required when the server refuses a blank email', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: {
+              code: 'invalid_input',
+              message: 'Email is required for this signup.',
+              field: 'email',
+              suggestion: 'Add your email and try again.',
+            },
+          }),
+        })),
+      );
+      // jsdom leaves scrollIntoView out, and the dialog calls it on the alert.
+      Element.prototype.scrollIntoView = vi.fn();
+      try {
+        openSheet({ requireEmail: false });
+        await screen.findByLabelText('Your name', {}, settle);
+        fireEvent.change(screen.getByLabelText('Your name'), {
+          target: { value: 'Jordan Fields' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+        const alert = await screen.findByRole('alert', {}, settle);
+        expect(alert).toHaveTextContent('Email is required for this signup.');
+        const email = screen.getByLabelText('Email');
+        expect(email).toBeRequired();
+        expect(email).not.toHaveAccessibleDescription();
+        expect(screen.queryByLabelText('Email (optional)')).not.toBeInTheDocument();
+        expect(screen.queryByText(/If you give one/)).not.toBeInTheDocument();
+      } finally {
+        delete (Element.prototype as Partial<Element>).scrollIntoView;
+      }
     });
   });
 

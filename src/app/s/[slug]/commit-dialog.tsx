@@ -36,9 +36,9 @@ interface CommitDialogProps {
   signupTitle: string;
   slug: string;
   /**
-   * The signup's `requireEmail` setting. When false the email box is optional,
-   * and someone who leaves it blank gets no email, so the success screen tells
-   * them to save the link it shows.
+   * The signup's `requireEmail` setting when the page rendered. When false the
+   * email box is optional, and someone who leaves it blank gets no email, so
+   * the success screen tells them to save the link it shows.
    */
   requireEmail: boolean;
 }
@@ -46,6 +46,7 @@ interface CommitDialogProps {
 interface ApiError {
   code: string;
   message: string;
+  field?: string;
   suggestion?: string;
   details?: {
     alternatives?: { id: string; title: string }[];
@@ -107,6 +108,10 @@ export default function CommitDialog({
   } | null>(null);
   const [prefill, setPrefill] = useState<PrefillState | null>(null);
   const [emailValue, setEmailValue] = useState('');
+  // The organizer can make the email required again after this page rendered.
+  // The server then refuses a blank one, and the box says so from then on.
+  const [emailNowRequired, setEmailNowRequired] = useState(false);
+  const emailRequired = requireEmail || emailNowRequired;
   const [shareCopied, setShareCopied] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -116,8 +121,10 @@ export default function CommitDialog({
     if (!open) return;
     const stored = readPrefill();
     setPrefill(stored);
-    setEmailValue(stored?.email ?? '');
-  }, [open]);
+    // Where the email is optional the box starts blank, so someone who chose
+    // to leave it out does not send a remembered one by accident.
+    setEmailValue(requireEmail ? (stored?.email ?? '') : '');
+  }, [open, requireEmail]);
 
   // The sheet's body scrolls under an 85vh cap, and the alert renders below the
   // fields. A screen reader announces it either way, but on a short viewport a
@@ -189,6 +196,10 @@ export default function CommitDialog({
       const payload = await res.json();
       if (!res.ok) {
         setError(payload.error ?? { code: 'internal', message: 'something went wrong' });
+        // A blank email is refused only because the signup now requires one.
+        if (!email && payload.error?.code === 'invalid_input' && payload.error.field === 'email') {
+          setEmailNowRequired(true);
+        }
         const remaining = payload.error?.details?.remaining;
         if (payload.error?.code === 'capacity_full' && typeof remaining === 'number') {
           const reportedCapacity = payload.error.details?.capacity;
@@ -200,7 +211,8 @@ export default function CommitDialog({
         setSubmitting(false);
         return;
       }
-      writePrefill({ name, email });
+      // A blank email keeps the one remembered from an earlier sign-up.
+      writePrefill({ name, email: email || (readPrefill()?.email ?? '') });
       setSuccess({
         commitmentId: payload.data.commitment.id,
         editUrl: payload.data.editUrl,
@@ -329,22 +341,20 @@ export default function CommitDialog({
       >
         {success ? (
           <div className="space-y-4">
-            {success.emailed ? (
-              <p className="text-ink-muted text-sm">
-                We&apos;ve saved your spot for <strong className="text-ink">{slotTitle}</strong>.
-                Bookmark this link to edit or cancel later:
-              </p>
-            ) : (
-              <p className="text-ink-muted text-sm">
-                We&apos;ve saved your spot for <strong className="text-ink">{slotTitle}</strong>.{' '}
-                <strong className="text-ink">
-                  We won&apos;t email you this link. Save it now: it&apos;s the only way to change
-                  or cancel.
-                </strong>
-                {/* The calendar event carries the link: see handleDownloadIcs. */}
-                {slotAt ? ' Add to calendar saves the link too.' : null}
-              </p>
-            )}
+            <p className="text-ink-muted text-sm">
+              We&apos;ve saved your spot for <strong className="text-ink">{slotTitle}</strong>.{' '}
+              {success.emailed ? (
+                'Bookmark this link to edit or cancel later:'
+              ) : (
+                <>
+                  <strong className="text-ink">
+                    Save this link now: we won&apos;t email it, and only this browser remembers it.
+                  </strong>
+                  {/* The calendar event carries the link: see handleDownloadIcs. */}
+                  {slotAt ? ' Add to calendar saves the link too.' : null}
+                </>
+              )}
+            </p>
             <a
               href={success.editUrl}
               className="block break-all rounded-lg bg-surface-raised px-3 py-2 font-mono text-xs"
@@ -397,14 +407,14 @@ export default function CommitDialog({
             <div>
               <label className="block">
                 <span className="mb-1 block text-sm font-medium">
-                  {requireEmail ? 'Email' : 'Email (optional)'}
+                  {emailRequired ? 'Email' : 'Email (optional)'}
                 </span>
                 <input
                   ref={emailRef}
                   type="email"
                   name="email"
-                  required={requireEmail}
-                  aria-describedby={requireEmail ? undefined : emailHelpId}
+                  required={emailRequired}
+                  aria-describedby={emailRequired ? undefined : emailHelpId}
                   autoComplete="email"
                   inputMode="email"
                   value={emailValue}
@@ -425,7 +435,7 @@ export default function CommitDialog({
                   </p>
                 ) : null}
               </label>
-              {requireEmail ? null : (
+              {emailRequired ? null : (
                 <p id={emailHelpId} className="text-ink-muted mt-1 text-xs">
                   Optional. If you give one, we&apos;ll email you your link to change or cancel.
                 </p>

@@ -72,15 +72,34 @@ export const createSignupTool = defineTool({
  * for a hidden notes box, names on the public page or a confirmation message.
  * Strict, so a client that sends one anyway is refused rather than told the
  * change went through.
+ *
+ * No defaults either: `.partial()` keeps each setting's `.default()`, which the
+ * JSON Schema advertises, and a client that fills in defaults would send
+ * `requireEmail: true` with an unrelated change and quietly undo the
+ * organizer's choice.
  */
-const SparseSettingsSchema = SignupSettingsSchema.removeDefault().omit(UNREAD_SETTINGS).partial().strict();
+const settingsShape = SignupSettingsSchema.removeDefault().omit(UNREAD_SETTINGS).shape;
+type WithoutDefaults<T extends z.ZodRawShape> = {
+  [K in keyof T]: T[K] extends z.ZodDefault<infer Inner> ? Inner : T[K];
+};
+const SparseSettingsSchema = z
+  .object(
+    Object.fromEntries(
+      Object.entries(settingsShape).map(([key, field]) => [
+        key,
+        field instanceof z.ZodDefault ? field.removeDefault() : field,
+      ]),
+    ) as WithoutDefaults<typeof settingsShape>,
+  )
+  .partial()
+  .strict();
 
 export const updateSignupTool = defineTool({
   name: 'update_signup',
   scope: 'signups:write',
   title: 'Update signup',
   description:
-    'Change a signup title, description, tags, closing time (ISO datetime, or null to remove it), visibility (public or unlisted) or settings. Only the settings you pass change. settings.requireEmail is true by default, and every participant must give an email address. Set to false, the email is optional: someone who leaves it blank gets no confirmation or reminder emails, and their link to change or cancel their spot is shown to them once, on screen. Setting it back to true asks only new sign-ups; anyone who already signed up without an email keeps their spot. There is no setting to limit how many spots one person can take, turn off notes, list who signed up on the public page (it shows only how full each slot is) or add a confirmation message. Use the field and slot tools to change what participants sign up for.',
+    'Change a signup title, description, tags, closing time (ISO datetime, or null to remove it), visibility (public or unlisted) or settings. Only the settings you pass change. settings.requireEmail is true by default, and every participant must give an email address. Set to false, the email is optional: someone who leaves it blank gets no confirmation or reminder emails. Their link to change or cancel their spot is shown on screen, and only the browser they signed up in remembers it. Setting it back to true asks only new sign-ups; anyone who already signed up without an email keeps their spot. There is no setting to limit how many spots one person can take, turn off notes, list who signed up on the public page (it shows only how full each slot is) or add a confirmation message. Use the field and slot tools to change what participants sign up for.',
   annotations: { readOnlyHint: false, destructiveHint: true },
   // organizerDisplayName is omitted on purpose: no column stores it, so
   // accepting it would report a change that never happened.

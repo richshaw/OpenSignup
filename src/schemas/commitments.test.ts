@@ -6,6 +6,7 @@ describe('CommitmentCreateInputSchema email', () => {
 
   it.each([
     ['missing', {}],
+    ['null', { email: null }],
     ['empty', { email: '' }],
     ['only spaces', { email: '   ' }],
   ])('reads a %s email as no email', (_label, extra) => {

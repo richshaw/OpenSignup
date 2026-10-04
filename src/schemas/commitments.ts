@@ -3,13 +3,13 @@ import { idOf, NameSchema } from './common';
 
 // Participants keep their user-entered casing in `participants.email` for
 // display; the service derives `emailLower` for dedup. So this schema
-// validates and trims but does NOT lowercase. Missing, empty or only spaces
-// all mean the participant gave no email, and parse to undefined; whether the
-// signup lets them leave it out is the service's check.
+// validates and trims but does NOT lowercase. Missing, null, empty or only
+// spaces all mean the participant gave no email, and parse to undefined;
+// whether the signup lets them leave it out is the service's check.
 const ParticipantEmailSchema = z
   .string()
   .max(254)
-  .optional()
+  .nullish()
   .transform((v) => v?.trim() || undefined)
   .pipe(z.string().email().optional());
 

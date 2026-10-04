@@ -83,7 +83,7 @@ export default function PrivacyPage() {
         <ul className="list-disc space-y-1 pl-6">
           <li>Display name.</li>
           <li>
-            Email address, if you give one. The organizer decides whether a signup asks for it. We
+            Email address, if you give one. The organizer decides whether a signup requires it. We
             use it to send you a confirmation with your link to change or cancel, and reminders if
             the organizer has them on. If you leave it blank where that is allowed, we send you no
             emails. Your link is then shown only once, on screen, and kept in a cookie in that
