@@ -157,9 +157,12 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   // Idempotency guard, and the only one: the queue does not dedupe (see
   // dispatchReminders), so a commitment can have several jobs, and the first
   // to send records reminder.sent for the rest to find here. A check, not a
-  // lock: it holds because the worker runs send jobs one at a time. It cannot
-  // catch an email that went out when recording it then failed; that job's
-  // retry sends it again.
+  // lock: it holds only while a single worker process runs send jobs one at
+  // a time. Two worker processes could each take a job for the same
+  // commitment, both find no row here, and both send, which is why an
+  // instance runs exactly one `pnpm worker`. It also cannot catch an email
+  // that went out when recording it then failed; that job's retry sends it
+  // again.
   const [alreadySent] = await db
     .select({ id: activity.id })
     .from(activity)

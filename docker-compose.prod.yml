@@ -87,6 +87,8 @@ services:
     environment: *app-env
     # Go through the `worker` script rather than invoking tsx directly, so the
     # worker's JSX tsconfig stays defined in exactly one place.
+    # Exactly one replica: the check that stops a reminder being sent twice
+    # is not a lock (see sendReminderJob in src/jobs/reminders.ts).
     command: ['pnpm', 'worker']
     restart: unless-stopped
 

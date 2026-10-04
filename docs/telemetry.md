@@ -259,16 +259,16 @@ are not scoped to a workspace; to filter by one, join `commitments` on
 ```sql
 SELECT count(DISTINCT data->>'commitmentId') AS commitments_with_failed_sends
 FROM (
-  SELECT name, data, state, created_on FROM pgboss.job
+  SELECT name, data, state, completed_on FROM pgboss.job
   UNION ALL
-  SELECT name, data, state, created_on FROM pgboss.archive
+  SELECT name, data, state, completed_on FROM pgboss.archive
 ) AS j
 WHERE name = 'reminders.send'
   AND state = 'failed'
-  AND created_on >= now() - interval '7 days';
+  AND completed_on >= now() - interval '7 days';
 ```
 
-Count commitments, not jobs. The queue does not deduplicate sends: while a
+The window is on `completed_on`, which pg-boss sets when a job finally fails, so it counts when sends failed rather than when they were queued. Count commitments, not jobs. The queue does not deduplicate sends: while a
 commitment's reminder keeps failing, the dispatch scan enqueues a new job for
 it every 10 minutes, and each of those fails on its own, so a two-hour mail
 outage leaves about a dozen failed jobs for one commitment. A commitment
