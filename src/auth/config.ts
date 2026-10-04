@@ -8,7 +8,6 @@ import { MagicLinkEmail } from '@/email/templates/magic-link';
 import { recordActivity } from '@/lib/activity';
 import { getEnv } from '@/lib/env';
 import { log } from '@/lib/log';
-import { withTimeout } from '@/lib/with-timeout';
 import { SignupAdapter } from './adapter';
 import { buildOAuthProviders } from './oauth-providers';
 import { canonicalizeMagicLinkUrl, buildConfirmationUrl } from './magic-link-url';
@@ -17,10 +16,7 @@ import { getMagicLinkMaxAgeSeconds } from './magic-link-expiry';
 import { consumeMagicLinkRateLimits } from './magic-link-rate-limit';
 import { getCurrentRequestIp } from './request-context';
 import { issueLoginCode } from './login-code';
-
-// Long enough for a relay that is merely slow. A host that is down fails
-// sooner, in the transport (see src/email/smtp.ts).
-const MAGIC_LINK_SEND_TIMEOUT_MS = 30_000;
+import { sendMagicLinkEmail } from './magic-link-send';
 
 // Built lazily on first request: SignupAdapter() touches getDb() → getEnv(),
 // which would otherwise fire at module-load and break `next build`'s page-data
@@ -70,19 +66,12 @@ function buildConfig(): NextAuthConfig {
             code,
           });
           const { html, text } = await renderEmail(node);
-          // The person is watching a spinner, so a slow mail server gets an
-          // overall limit here rather than in the transport, which the
-          // reminder worker shares.
-          await withTimeout(
-            getEmailTransport().send({
-              to: identifier,
-              subject: 'Sign in to OpenSignup',
-              html,
-              text,
-            }),
-            MAGIC_LINK_SEND_TIMEOUT_MS,
-            `magic link send timed out after ${MAGIC_LINK_SEND_TIMEOUT_MS / 1000} s`,
-          );
+          await sendMagicLinkEmail(getEmailTransport(), {
+            to: identifier,
+            subject: 'Sign in to OpenSignup',
+            html,
+            text,
+          });
           log.info({ email: identifier }, 'magic link dispatched');
           try {
             await recordActivity(getDb(), {

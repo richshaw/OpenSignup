@@ -199,12 +199,12 @@ describe('create_signup', () => {
 });
 
 describe('update_signup', () => {
-  it('hands sparse settings to the service to merge, including nulls that clear a key', async () => {
+  it('hands sparse settings to the service to merge', async () => {
     svc.updateSignup.mockResolvedValueOnce(ok({ ...row, settings: { ...row.settings, sendReminders: false } }));
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const r = await client.callTool({
       name: 'update_signup',
-      arguments: { signupId: 'sig_1', settings: { sendReminders: false, confirmationMessage: null } },
+      arguments: { signupId: 'sig_1', settings: { sendReminders: false, lockoutHoursBeforeSlot: 2 } },
     });
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
     expect(svc.getSignupForOrganizer).not.toHaveBeenCalled();
@@ -212,24 +212,38 @@ describe('update_signup', () => {
       ctx.db,
       ctx.actor,
       'sig_1',
-      { settings: { sendReminders: false, confirmationMessage: null } },
+      { settings: { sendReminders: false, lockoutHoursBeforeSlot: 2 } },
       { mergeSettings: true },
     );
+    // The stored row carries requireEmail, which nothing reads, so it is not shown.
+    expect((r.structuredContent as { signup: { settings: unknown } }).signup.settings).toEqual({
+      groupByFieldRefs: ['date'],
+      sendReminders: false,
+    });
   });
 
-  it('does not offer a per-person limit, which nothing enforces', async () => {
+  // Nothing reads these, so accepting one would report a change participants never see.
+  it.each([
+    ['maxCommitmentsPerParticipant', 2],
+    ['requireEmail', false],
+    ['allowNotes', false],
+    ['showWhoSignedUp', false],
+    ['confirmationMessage', 'See you there'],
+    ['confirmationMessage', null],
+  ] as const)('refuses %s: %j, which nothing reads', async (key, value) => {
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const { tools } = await client.listTools();
-    const settings = tools.find((t) => t.name === 'update_signup')?.inputSchema.properties?.settings as
-      | { properties?: Record<string, unknown> }
-      | undefined;
+    const tool = tools.find((t) => t.name === 'update_signup');
+    const settings = tool?.inputSchema.properties?.settings as { properties?: Record<string, unknown> } | undefined;
     expect(settings?.properties).toHaveProperty('sendReminders');
-    expect(settings?.properties).not.toHaveProperty('maxCommitmentsPerParticipant');
+    expect(settings?.properties).not.toHaveProperty(key);
+    expect(tool?.description).not.toContain(key);
 
     const r = await client.callTool({
       name: 'update_signup',
-      arguments: { signupId: 'sig_1', settings: { maxCommitmentsPerParticipant: 2 } },
+      arguments: { signupId: 'sig_1', settings: { sendReminders: false, [key]: value } },
     });
+    expect(r.isError).toBe(true);
     expect((r.structuredContent as { error: { code: string; field?: string } }).error).toMatchObject({
       code: 'invalid_input',
       field: 'settings',

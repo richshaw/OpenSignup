@@ -9,6 +9,11 @@
  * every other page to "*". Over budget fails; well under prints a note to
  * lower the budget, so a saving stays saved.
  *
+ * A site that adds pages of its own, in a repo that merges this one, budgets
+ * them in budgets.instance.json, which this repo never ships. Its routes then
+ * stay out of budgets.json, and merges from here don't conflict with them. A
+ * route in both files is held to the instance's number.
+ *
  * In CI it also writes the table, and on a pull request what the change adds
  * and removes, to the job summary.
  */
@@ -24,7 +29,24 @@ if (!existsSync(manifestPath)) {
   process.exit(1);
 }
 const entries = JSON.parse(readFileSync(manifestPath, 'utf8')).pages;
-const budgets = JSON.parse(readFileSync('budgets.json', 'utf8')).firstLoadJsKb;
+const INSTANCE_BUDGETS = 'budgets.instance.json';
+const instanceBudgets = existsSync(INSTANCE_BUDGETS)
+  ? (JSON.parse(readFileSync(INSTANCE_BUDGETS, 'utf8')).firstLoadJsKb ?? {})
+  : {};
+const budgets = {
+  ...JSON.parse(readFileSync('budgets.json', 'utf8')).firstLoadJsKb,
+  ...instanceBudgets,
+};
+// The file a route's budget comes from, for messages that say where to change it.
+const fileFor = (route) => (route in instanceBudgets ? INSTANCE_BUDGETS : 'budgets.json');
+// Where to change the budget a page is held to. A page without its own line is
+// held to "*"; when budgets.json sets that, a page only the site has gets its
+// own line in the instance file rather than in budgets.json.
+const whereFor = (r) => {
+  if (r.named) return fileFor(r.route);
+  if (fileFor('*') === INSTANCE_BUDGETS) return INSTANCE_BUDGETS;
+  return `budgets.json (${INSTANCE_BUDGETS} for a page only your site has)`;
+};
 
 // A manifest entry is a folder path plus /page or /layout. Route groups like
 // (chrome) decide which layouts wrap a page, so ancestry is matched on the
@@ -67,7 +89,7 @@ const rows = pages
 
 for (const route of Object.keys(budgets)) {
   if (route !== '*' && !rows.some((r) => r.route === route)) {
-    console.error(`budgets.json lists ${route}, but the build has no such page.`);
+    console.error(`${fileFor(route)} lists ${route}, but the build has no such page.`);
     process.exit(1);
   }
 }
@@ -94,7 +116,7 @@ console.log(table.join('\n'));
 for (const r of over) {
   console.error(
     `${r.route} loads ${fmt(r.kb)} of JavaScript, over its ${r.budget} kB budget. ` +
-      'Make it smaller, or raise the budget in budgets.json and say why in the PR.',
+      `Make it smaller, or raise the budget in ${whereFor(r)} and say why in the PR.`,
   );
 }
 for (const r of roomy) {
@@ -102,7 +124,7 @@ for (const r of roomy) {
   const which = r.named ? 'its' : 'the "*"';
   console.log(
     `${what} ${fmt(r.kb)}, well under ${which} ${r.budget} kB budget. ` +
-      `Lower it to ${Math.ceil(r.kb) + 1} in budgets.json so it stays there.`,
+      `Lower it to ${Math.ceil(r.kb) + 1} in ${fileFor(r.named ? r.route : '*')} so it stays there.`,
   );
 }
 
