@@ -141,8 +141,10 @@ export async function recomputeSlotAtForSignup(
   // above compares with the instant as the driver read it back, and the driver
   // cannot read every instant. Postgres prints one in the session's time zone,
   // and where that zone's offset then had seconds in it (Amsterdam's +00:19:32
-  // until 1937, Dublin's until 1916) the driver makes an Invalid Date of it,
-  // so the check sees that slot move on every rebuild. A row sent can still be
+  // until 1937, Dublin's until 1916) the driver makes an Invalid Date of it.
+  // Every connection the app opens is pinned to UTC (`SESSION_SETTINGS` in
+  // src/db/client.ts), but a session can still `SET` another zone, and there
+  // the check sees that slot move on every rebuild. A row sent can still be
   // equal.
   const wanted = sql`jsonb_to_recordset(${JSON.stringify(changed)}::jsonb)
     as wanted(id text, at timestamptz)`;

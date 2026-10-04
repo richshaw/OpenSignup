@@ -44,6 +44,60 @@ test.describe('organizer flow', () => {
     await expect(page.getByText('Signup published')).toBeVisible();
   });
 
+  test('the slot editor takes no date before 1900', async ({ page }) => {
+    // A fresh signup per run. createSignup applies DEFAULT_TEMPLATE: fields
+    // `what` (text) and `date`.
+    const created = await page.request.post('/api/signups', {
+      data: {
+        title: `Date floor ${Date.now()}`,
+        description: '',
+        tags: [],
+        visibility: 'unlisted',
+        settings: {},
+      },
+    });
+    expect(created.ok()).toBe(true);
+    const signupId = (await created.json()).data.id as string;
+    const added = await page.request.post(`/api/signups/${signupId}/slots`, {
+      data: { capacity: 1, values: { what: 'Juice', date: '2030-04-06' } },
+    });
+    expect(added.ok()).toBe(true);
+    const slotId = (await added.json()).data.id as string;
+
+    async function storedDate() {
+      const res = await page.request.get(`/api/signups/${signupId}/slots`);
+      expect(res.ok()).toBe(true);
+      const rows = (await res.json()).data as { id: string; values: { date?: string } }[];
+      return rows.find((r) => r.id === slotId)?.values.date;
+    }
+    const slotSaved = () =>
+      page.waitForResponse(
+        (r) => r.request().method() === 'PATCH' && r.url().endsWith(`/api/slots/${slotId}`),
+      );
+
+    await page.goto(`/app/signups/${signupId}/build`);
+    await page.getByRole('button', { name: /Edit slot .*Juice/ }).click();
+    const date = page.getByLabel('Date value');
+    // The picker starts where the services do.
+    await expect(date).toHaveAttribute('min', '1900-01-01');
+
+    // An earlier date is out of the picker's range, and the save says why it
+    // was refused.
+    let saved = slotSaved();
+    await date.fill('1899-12-31');
+    expect(await date.evaluate((el: HTMLInputElement) => el.validity.rangeUnderflow)).toBe(true);
+    expect((await saved).status()).toBe(400);
+    await expect(page.getByText('"date" must be a date in 1900 or later')).toBeVisible();
+    expect(await storedDate()).toBe('2030-04-06');
+
+    // The first day of 1900 is in range and saves.
+    saved = slotSaved();
+    await date.fill('1900-01-01');
+    expect(await date.evaluate((el: HTMLInputElement) => el.validity.valid)).toBe(true);
+    expect((await saved).ok()).toBe(true);
+    expect(await storedDate()).toBe('1900-01-01');
+  });
+
   test('unauthenticated visitor is redirected to login', async ({ browser }) => {
     const anonContext = await browser.newContext();
     const page = await anonContext.newPage();

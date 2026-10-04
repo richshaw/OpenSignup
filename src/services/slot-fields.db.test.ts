@@ -1000,9 +1000,11 @@ describe('slot-fields service (db)', () => {
       }
       const before = await Promise.all(ids.map(rowVersion));
       const r = await fx.db.transaction(async (tx) => {
-        // On Amsterdam time Postgres prints the 1920 instant with an offset of
-        // +01:19:32, which the driver reads as an Invalid Date, so the check in
-        // JS sees that slot move on every rebuild; Postgres sees it has not.
+        // The app's connections start on UTC, but a session can set another
+        // zone. On Amsterdam time Postgres prints the 1920 instant with an
+        // offset of +01:19:32, which the driver reads as an Invalid Date, so the
+        // check in JS sees that slot move on every rebuild; Postgres sees it
+        // has not.
         await tx.execute(sql`set local time zone 'Europe/Amsterdam'`);
         return recomputeSlotAtForSignup(tx, sigId, fx.workspaceId);
       });

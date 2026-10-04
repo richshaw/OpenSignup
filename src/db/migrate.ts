@@ -2,6 +2,7 @@ import { config } from 'dotenv';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
+import { SESSION_SETTINGS } from './client';
 import { applyConcurrentIndexes } from './concurrent-indexes';
 
 // Load env from .env.local first (Next.js convention), then .env as fallback.
@@ -15,7 +16,8 @@ async function main() {
     process.exit(1);
   }
 
-  const sql = postgres(url, { max: 1, prepare: false });
+  // On UTC, like every connection the app opens (see SESSION_SETTINGS).
+  const sql = postgres(url, { max: 1, prepare: false, connection: SESSION_SETTINGS });
   const db = drizzle(sql);
 
   console.log('Running migrations…');
