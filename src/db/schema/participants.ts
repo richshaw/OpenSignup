@@ -1,4 +1,5 @@
-import { index, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { check, index, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { signups } from './signups';
 import { workspaces } from './workspaces';
 
@@ -12,8 +13,12 @@ export const participants = pgTable(
     workspaceId: text('workspace_id').references(() => workspaces.id, {
       onDelete: 'cascade',
     }),
-    email: text('email').notNull(),
-    emailLower: text('email_lower').notNull(), // normalized for dedup
+    /**
+     * Null when the participant gave no email. Such a participant gets no
+     * confirmation or reminder emails.
+     */
+    email: text('email'),
+    emailLower: text('email_lower'), // normalized for dedup; null exactly when email is
     name: text('name').notNull(),
     phone: text('phone'),
     sessionTokenHash: text('session_token_hash'), // for same-device UX (hashed)
@@ -28,8 +33,14 @@ export const participants = pgTable(
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
+    // Postgres treats NULLs as distinct here, so any number of participants
+    // without an email can share a signup.
     uniqueEmailPerSignup: uniqueIndex('participants_signup_email').on(t.signupId, t.emailLower),
     bySignup: index('participants_by_signup').on(t.signupId),
+    emailLowerMatchesEmail: check(
+      'participants_email_lower_with_email',
+      sql`(${t.email} IS NULL) = (${t.emailLower} IS NULL)`,
+    ),
   }),
 );
 

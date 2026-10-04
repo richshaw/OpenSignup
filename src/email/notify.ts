@@ -66,6 +66,13 @@ export async function notifyCommitmentCreated(
       log.info({ commitmentId }, 'signup deleted; no confirmation email');
       return;
     }
+    // Signed up without an email: there is nowhere to send one. Their edit
+    // link is on screen and in the returning-participant cookie.
+    const to = row.participant.email;
+    if (!to) {
+      log.info({ commitmentId }, 'participant has no email; no confirmation email');
+      return;
+    }
 
     // Belt and braces, not the primary defence. This is a read-then-write with
     // no lock, so it would not survive two concurrent calls for the same
@@ -110,7 +117,7 @@ export async function notifyCommitmentCreated(
     const fields = await listFieldsForSignup(db, row.signup.id);
     const slotValues = (row.slot.values as Record<string, unknown>) ?? {};
 
-    await sendCommitmentConfirmation(row.participant.email, {
+    await sendCommitmentConfirmation(to, {
       participantName: row.participant.name,
       signupTitle: row.signup.title,
       manageUrl: commitmentEditUrl(row.signup.slug, row.commitment.id, editToken),

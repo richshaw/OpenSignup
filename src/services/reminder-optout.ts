@@ -27,7 +27,8 @@ export function reminderOptOutTokenFor(participantId: string): string {
 
 export interface OptOutTarget {
   participantId: string;
-  participantEmail: string;
+  /** Null for a participant who gave no email, who is never sent this link. */
+  participantEmail: string | null;
   signupTitle: string;
   signupSlug: string;
   optedOut: boolean;
@@ -148,9 +149,10 @@ export async function optOutOfReminders(
 /**
  * Turns reminders back on.
  *
- * Without this an opt-out is permanent and invisible: `participants` rows are
- * unique on (signupId, emailLower) and reused, so someone who unsubscribed from
- * the September rota and then signs up again in November for the *same* signup
+ * Without this an opt-out is permanent and invisible: a participant with an
+ * email has one `participants` row per signup, unique on (signupId, emailLower)
+ * and reused, so someone who unsubscribed from the September rota and then
+ * signs up again in November for the *same* signup with the same email
  * silently gets no reminder, with no signal to them or the organizer. The same
  * token authorises both directions — it proves the same thing either way, and
  * the only page offering this is the one reached by that token.

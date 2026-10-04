@@ -56,7 +56,8 @@ export async function selectDueReminders(db: Db): Promise<DueReminder[]> {
   return db
     .select({
       commitmentId: commitments.id,
-      participantEmail: participants.email,
+      // Never null: the WHERE below drops participants without an email.
+      participantEmail: sql<string>`${participants.email}`,
       signupTitle: signups.title,
       slotRef: slots.ref,
       slotAt: slots.slotAt,
@@ -86,6 +87,8 @@ export async function selectDueReminders(db: Db): Promise<DueReminder[]> {
         sql`COALESCE((${signups.settings}->>'sendReminders')::boolean, true) = true`,
         // Participants who unsubscribed from this signup's reminders.
         isNull(participants.remindersOptedOutAt),
+        // Participants who gave no email: there is nowhere to send one.
+        isNotNull(participants.email),
         // skip if a reminder was already recorded for this commitment
         sql`NOT EXISTS (
           SELECT 1 FROM activity a
@@ -153,6 +156,13 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     log.info({ commitmentId: payload.commitmentId }, 'participant opted out; skipping reminder');
     return;
   }
+  // The scan drops participants without an email, but this job reads the row
+  // afresh from the commitment id alone, so it checks again.
+  const to = row.participant.email;
+  if (!to) {
+    log.info({ commitmentId: payload.commitmentId }, 'participant has no email; skipping reminder');
+    return;
+  }
 
   // Idempotency guard, and the only one: the queue does not dedupe (see
   // dispatchReminders), so a commitment can have several jobs, and the first
@@ -186,7 +196,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   const optOutToken = reminderOptOutTokenFor(row.participant.id);
 
   await sendReminder(
-    row.participant.email,
+    to,
     {
       participantName: row.participant.name,
       signupTitle: row.signup.title,

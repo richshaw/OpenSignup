@@ -20,6 +20,8 @@ import {
 import { readLiveSignup } from './locks';
 
 type CommitmentRow = typeof commitments.$inferSelect;
+/** A commitment with who made it. `participantEmail` is null when they gave none. */
+type OwnCommitment = CommitmentRow & { participantName: string; participantEmail: string | null };
 
 /**
  * A commitment the participant can still act on. `cancelled` and `no_show`
@@ -348,7 +350,7 @@ export async function getOwnCommitment(
   db: Db,
   commitmentId: string,
   token: string,
-): Promise<Result<CommitmentRow & { participantName: string; participantEmail: string }, ServiceError>> {
+): Promise<Result<OwnCommitment, ServiceError>> {
   const row = await db
     .select({
       c: commitments,
@@ -381,7 +383,7 @@ export async function getOwnCommitmentsForSignup(
   db: Db,
   signupId: string,
   items: { commitmentId: string; token: string }[],
-): Promise<Array<CommitmentRow & { participantName: string; participantEmail: string }>> {
+): Promise<OwnCommitment[]> {
   if (items.length === 0) return [];
   const tokenById = new Map(items.map((i) => [i.commitmentId, i.token]));
   const rows = await db
@@ -399,7 +401,7 @@ export async function getOwnCommitmentsForSignup(
         or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
       ),
     );
-  const out: Array<CommitmentRow & { participantName: string; participantEmail: string }> = [];
+  const out: OwnCommitment[] = [];
   for (const row of rows) {
     const token = tokenById.get(row.c.id);
     if (!token) continue;

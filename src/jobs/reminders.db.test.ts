@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
@@ -9,11 +9,13 @@ import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { getEmailTransport } from '@/email';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
+import { removeParticipantEmail } from '@/services/testing/participants';
 import { selectDueReminders, sendReminderJob } from './reminders';
 
 interface Fixture {
@@ -80,7 +82,7 @@ async function makeScenario(
   fx: Fixture,
   title: string,
   opts: ScenarioOptions,
-): Promise<{ signupId: string; slotId: string; commitmentId: string }> {
+): Promise<{ signupId: string; slotId: string; commitmentId: string; participantId: string }> {
   const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
     title,
     description: '',
@@ -119,6 +121,7 @@ async function makeScenario(
     signupId: created.value.id,
     slotId: slot.value.id,
     commitmentId: commit.value.commitment.id,
+    participantId: commit.value.commitment.participantId,
   };
 }
 
@@ -257,6 +260,43 @@ describe('selectDueReminders (db)', () => {
       .where(eq(participants.signupId, signupId));
 
     await sendReminderJob({ commitmentId });
+
+    const sent = await fx.db
+      .select({ id: activity.id })
+      .from(activity)
+      .where(
+        and(
+          eq(activity.eventType, 'reminder.sent'),
+          sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
+        ),
+      );
+    expect(sent).toHaveLength(0);
+  });
+
+  it('does not select a participant without an email', async () => {
+    const { commitmentId, participantId } = await makeScenario(fx, 'No email given', {
+      slotInHours: 20,
+    });
+    expect(await dueIds()).toContain(commitmentId);
+    await removeParticipantEmail(fx.db, participantId);
+    expect(await dueIds()).not.toContain(commitmentId);
+  });
+
+  it('skips the send for a participant without an email', async () => {
+    // The scan leaves them out; this is the job's own check, for a row read
+    // after the scan.
+    const { commitmentId, participantId } = await makeScenario(fx, 'No email at send time', {
+      slotInHours: 20,
+    });
+    await removeParticipantEmail(fx.db, participantId);
+
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      await sendReminderJob({ commitmentId });
+      expect(send).not.toHaveBeenCalled();
+    } finally {
+      send.mockRestore();
+    }
 
     const sent = await fx.db
       .select({ id: activity.id })
