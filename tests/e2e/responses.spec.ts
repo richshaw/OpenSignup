@@ -65,6 +65,22 @@ async function expectOnScreen(page: Page, target: Locator) {
   expect(box.x + box.width).toBeLessThanOrEqual(Math.min(width, frame.x + frame.width));
 }
 
+/** Wholly inside the window, with at least `margin` pixels clear on each side. */
+async function expectInWindow(page: Page, target: Locator, margin: number) {
+  const box = await target.boundingBox();
+  const { width, height } = page.viewportSize() ?? { width: 0, height: 0 };
+  if (!box) throw new Error('not on the page');
+  expect(box.x).toBeGreaterThanOrEqual(margin);
+  expect(box.y).toBeGreaterThanOrEqual(margin);
+  expect(box.x + box.width).toBeLessThanOrEqual(width - margin);
+  expect(box.y + box.height).toBeLessThanOrEqual(height - margin);
+}
+
+/** Tall enough for a thumb: 44px, the usual smallest touch target. */
+async function expectTouchSize(target: Locator) {
+  expect((await target.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+}
+
 /** Nothing sits on top of it: the point at its centre hits it, or something in it. */
 async function expectUncovered(target: Locator) {
   const hit = await target.evaluate((el) => {
@@ -158,6 +174,56 @@ test.describe('Responses tab', () => {
     } finally {
       await participant.close();
     }
+  });
+
+  test('the confirmation opens over the table, which keeps its size and place', async ({
+    page,
+    context,
+  }) => {
+    await loginAsSeededOrganizer(context);
+    const { signupId, slotId } = await createSignupWithSlot(page);
+    await signUp(page.request, slotId);
+    const added = await page.request.post(`/api/signups/${signupId}/slots`, {
+      data: { capacity: 1, values: { what: 'Orange slices' } },
+    });
+    expect(added.ok()).toBe(true);
+    await signUp(page.request, (await added.json()).data.id as string, 'Alex Example');
+
+    await page.goto(`/app/signups/${signupId}/responses`);
+    const remove = page.getByRole('button', { name: REMOVE_SAM, exact: true });
+    const alexRemove = page.getByRole('button', {
+      name: 'Remove Alex Example from Orange slices',
+      exact: true,
+    });
+    await expect(alexRemove).toBeVisible();
+    const layout = () =>
+      Promise.all([
+        page.locator('table').boundingBox(),
+        ...['Email', 'Slot', 'Status'].map((name) =>
+          page.getByRole('columnheader', { name }).boundingBox(),
+        ),
+      ]);
+    const before = await layout();
+
+    await remove.click();
+    const confirm = page.getByRole('alertdialog', { name: 'Confirm removal' });
+    await expect(confirm).toContainText(QUESTION);
+    await expect(confirm).toHaveAccessibleDescription(QUESTION);
+    await expect(confirm.getByRole('button', { name: 'Keep' })).toBeFocused();
+    // The table and its columns stay where they were.
+    expect(await layout()).toEqual(before);
+    // The rest of the page is out of reach: the point over Alex's Remove hits
+    // the dialog's backdrop, not the button.
+    const hit = await alexRemove.evaluate((button) => {
+      const r = button.getBoundingClientRect();
+      const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      return { onButton: button.contains(top), inDialog: top?.closest('dialog')?.open === true };
+    });
+    expect(hit).toEqual({ onButton: false, inDialog: true });
+
+    await page.keyboard.press('Escape');
+    await expect(confirm).toHaveCount(0);
+    await expect(remove).toBeFocused();
   });
 
   test('Status says moved for the sign-up a move left behind', async ({ page, context }) => {
@@ -282,19 +348,25 @@ test.describe('Responses tab', () => {
     const scrollTable = (end: boolean) =>
       scrollBox.evaluate((el, end) => (el.scrollLeft = end ? el.scrollWidth : 0), end);
 
-    // Remove is in view without scrolling the table, and so is everything the
-    // confirmation says and offers.
+    // Remove is in view without scrolling the table, and big enough for a
+    // thumb.
     await expectOnScreen(page, sam.getByRole('button', { name: REMOVE_SAM, exact: true }));
+    await expectTouchSize(sam.getByRole('button', { name: REMOVE_SAM, exact: true }));
     const remove = alex.getByRole('button', {
       name: 'Remove Alex Example from Orange slices and water',
       exact: true,
     });
     await expectOnScreen(page, remove);
+    await expectTouchSize(remove);
+    // The confirmation fits the screen with room to spare on each side, and
+    // its buttons are as easy to hit.
     await remove.click();
     const confirm = page.getByRole('alertdialog', { name: 'Confirm removal' });
-    await expectOnScreen(page, confirm);
-    await expectOnScreen(page, confirm.getByRole('button', { name: 'Keep' }));
-    await expectOnScreen(page, confirm.getByRole('button', { name: 'Yes, remove' }));
+    await expectInWindow(page, confirm, 16);
+    for (const name of ['Keep', 'Yes, remove']) {
+      await expectInWindow(page, confirm.getByRole('button', { name }), 16);
+      await expectTouchSize(confirm.getByRole('button', { name }));
+    }
     expect(await pageFits()).toBe(true);
     await confirm.getByRole('button', { name: 'Yes, remove' }).click();
     const removed = alex.getByRole('cell', { name: 'removed', exact: true });

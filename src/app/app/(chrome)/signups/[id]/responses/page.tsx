@@ -64,12 +64,11 @@ export default async function ResponsesTab({ params }: PageParams) {
         // header's sr-only text, which is absolutely positioned, inside this
         // scroll box; without it the text sat past the table's right edge and
         // made the whole page pan sideways. The Actions column sticks to the
-        // right edge, so Remove, and the confirmation it opens, are in view
-        // without scrolling; the rest of the row slides under it. On a phone
-        // the cells keep to one line, rather than squeezing to a word per line
-        // and making every row tall, and the table scrolls sideways. Slot is
-        // the exception: it wraps at a width that fits beside Remove, so a
-        // long slot can still be read whole.
+        // right edge, so Remove is in view without scrolling; the rest of the
+        // row slides under it. On a phone the cells keep to one line, rather
+        // than squeezing to a word per line and making every row tall, and the
+        // table scrolls sideways. Slot is the exception: it wraps at a width
+        // that fits beside Remove, so a long slot can still be read whole.
         <div className="relative overflow-x-auto rounded-xl border border-surface-sunk bg-white">
           <table className="w-full text-sm max-sm:whitespace-nowrap">
             <thead className="bg-surface-raised text-ink-muted">
@@ -118,7 +117,7 @@ export default async function ResponsesTab({ params }: PageParams) {
                       {status}
                     </td>
                     <td
-                      className={`${canRemove(c) ? `${STICKY_END} bg-white` : ''} px-4 py-3 text-right max-sm:whitespace-normal`}
+                      className={`${canRemove(c) ? `${STICKY_END} bg-white` : ''} px-4 py-3 text-right`}
                     >
                       {canRemove(c) ? (
                         <RemoveCommitmentForm

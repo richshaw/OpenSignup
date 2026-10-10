@@ -13,11 +13,31 @@ const SLUG = 'take-someone-off-a-slot';
 const CAPTURE = process.env.HELP_SCREENSHOTS === '1';
 const SHOT_DIR = `public/help/${SLUG}`;
 
+/**
+ * The target with a margin of the page around it: the dialog's rounded corners
+ * then sit on its dimmed backdrop, rather than showing scraps of it at the
+ * corners of the picture.
+ */
 async function shot(page: Page, target: Locator, name: string): Promise<void> {
   if (!CAPTURE) return;
   // Fonts and focus rings settle after the last action.
   await page.waitForTimeout(300);
-  await target.screenshot({ path: `${SHOT_DIR}/${name}.png`, animations: 'disabled' });
+  const box = await target.boundingBox();
+  if (!box) throw new Error(`${name}: not on the page`);
+  // Whole pixels, so the file is exactly twice the size the article gives.
+  const pad = 16;
+  const x = Math.floor(box.x) - pad;
+  const y = Math.floor(box.y) - pad;
+  await page.screenshot({
+    path: `${SHOT_DIR}/${name}.png`,
+    clip: {
+      x,
+      y,
+      width: Math.ceil(box.x + box.width) + pad - x,
+      height: Math.ceil(box.y + box.height) + pad - y,
+    },
+    animations: 'disabled',
+  });
 }
 
 test.describe('help: take someone off a slot', () => {
@@ -79,8 +99,7 @@ test.describe('help: take someone off a slot', () => {
       await expect(row.getByRole('cell', { name: 'confirmed', exact: true })).toBeVisible();
 
       await remove.click();
-      // The cell around the question, for its padding.
-      await shot(page, confirm.locator('..'), 'confirm');
+      await shot(page, confirm, 'confirm');
       await confirm.getByRole('button', { name: UI.yesRemove }).click();
 
       // What happens next

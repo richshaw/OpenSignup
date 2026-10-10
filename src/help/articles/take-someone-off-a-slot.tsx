@@ -38,8 +38,8 @@ export function TakeSomeoneOffASlot() {
             <Screenshot
               src="/help/take-someone-off-a-slot/confirm.png"
               alt="The question Remove Sam Example from Fruit and water, with Keep and Yes, remove buttons under it."
-              width={318}
-              height={146}
+              width={416}
+              height={184}
             />
           </Step>
         </Steps>
