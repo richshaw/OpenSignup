@@ -6,9 +6,12 @@
  * too.
  */
 export const UI = {
+  // The organizer's home page, which lists their signups.
+  yourSignups: 'Your signups',
   // The tab reads "Responses 2"; the count changes, so the test matches the start.
   responses: 'Responses',
-  // Each row's button shows Remove; its full name adds the person and the slot.
+  // Each row's button (on a phone, each card's) shows Remove; its full name
+  // adds the person and the slot.
   remove: 'Remove',
   // The confirmation's buttons.
   keep: 'Keep',

@@ -47,9 +47,10 @@ test.describe('help: take someone off a slot', () => {
   test('the steps work as written', async ({ page, context, browser, isMobile }) => {
     test.skip(isMobile, 'the steps are the same on a phone; responses.spec.ts checks it fits');
     await loginAsSeededOrganizer(context);
+    const title = `Snack duty ${Date.now()}`;
     const created = await page.request.post('/api/signups', {
       data: {
-        title: `Snack duty ${Date.now()}`,
+        title,
         description: '',
         tags: [],
         visibility: 'unlisted',
@@ -59,7 +60,8 @@ test.describe('help: take someone off a slot', () => {
     expect(created.ok()).toBe(true);
     const { id, slug } = (await created.json()).data as { id: string; slug: string };
     const added = await page.request.post(`/api/signups/${id}/slots`, {
-      data: { capacity: 1, values: { what: 'Fruit and water' } },
+      // The slot "Create and publish your first signup" makes, on its date.
+      data: { capacity: 1, values: { what: 'Fruit and water', date: '2030-04-06' } },
     });
     expect(added.ok()).toBe(true);
     const slotId = (await added.json()).data.id as string;
@@ -80,7 +82,10 @@ test.describe('help: take someone off a slot', () => {
       const editUrl = (await committed.json()).data.editUrl as string;
 
       // Remove someone from a slot
-      await page.goto(`/app/signups/${id}/build`);
+      await page.goto('/app');
+      await expect(page.getByRole('heading', { name: UI.yourSignups })).toBeVisible();
+      await page.getByRole('link').filter({ hasText: title }).click();
+      await page.waitForURL(new RegExp(`/app/signups/${id}`));
       await page.getByRole('tab', { name: new RegExp(`^${UI.responses}`) }).click();
       await page.waitForURL(/\/responses$/);
       const row = page.getByRole('row').filter({ hasText: 'Sam Example' });
@@ -91,7 +96,7 @@ test.describe('help: take someone off a slot', () => {
       await expect(remove).toHaveText(UI.remove);
       await remove.click();
       const confirm = page.getByRole('alertdialog');
-      await expect(confirm).toContainText('Remove Sam Example from Fruit and water?');
+      await expect(confirm).toContainText('Remove Sam Example from Fruit and water · Sat, Apr 6?');
       await expect(confirm).toContainText('won’t get an email');
       // Keep leaves them on the slot.
       await confirm.getByRole('button', { name: UI.keep }).click();
@@ -114,6 +119,7 @@ test.describe('help: take someone off a slot', () => {
 
       await visitor.goto(editUrl);
       await expect(visitor.getByRole('heading', { name: UI.removedPage })).toBeVisible();
+      await expect(visitor.getByText('Fruit and water · Sat, Apr 6', { exact: true })).toBeVisible();
     } finally {
       await participant.close();
     }
