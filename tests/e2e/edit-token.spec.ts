@@ -130,16 +130,18 @@ test.describe('token-gated commitment editing', () => {
     await expect(page.getByRole('heading', { name: CANCELLED_PAGE.moved.title })).toBeVisible();
     await expect(page.getByText(CANCELLED_PAGE.moved.body)).toBeVisible();
     await expect(page.getByText(CANCELLED_PAGE.open.title)).toHaveCount(0);
-    await page.getByRole('link', { name: 'See your sign-up' }).click();
+    await page.getByRole('link', { name: 'See your new spot' }).click();
     await expect(page).toHaveURL(new RegExp(`/s/${signup.slug}/c/${movedTo}\\?token=`));
     await expect(page.getByRole('heading', { name: 'Your signup' })).toBeVisible();
 
-    // Once the sign-up it moved to is cancelled too, the old link says so.
+    // Once the sign-up it moved to is cancelled too, the old link says so,
+    // and names the slot it moved to.
     await page.getByRole('button', { name: 'Cancel signup' }).click();
     await page.getByRole('button', { name: 'Yes, cancel' }).click();
     await expect(page).toHaveURL(new RegExp(`/s/${signup.slug}$`));
     await page.goto(first.editUrl);
     await expect(page.getByRole('heading', { name: CANCELLED_PAGE.open.title })).toBeVisible();
+    await expect(page.getByText('Afternoon', { exact: true })).toBeVisible();
     await expect(page.getByText(CANCELLED_PAGE.open.body)).toBeVisible();
   });
 
@@ -159,6 +161,7 @@ test.describe('token-gated commitment editing', () => {
     await expect(
       page.getByRole('heading', { name: CANCELLED_PAGE.slotClosed.title }),
     ).toBeVisible();
+    await expect(page.getByText('Morning', { exact: true })).toBeVisible();
     await expect(page.getByText(CANCELLED_PAGE.slotClosed.body)).toBeVisible();
     await expect(page.getByText(/sign up again/)).toHaveCount(0);
 

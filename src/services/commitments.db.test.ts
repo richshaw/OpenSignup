@@ -1154,7 +1154,10 @@ describe('cancelledCommitmentState (db)', () => {
   /** An open signup with two slots, and Pat on the first. */
   async function signedUp(title: string) {
     const a = await makeOpenSignupWithSlot(fx, title);
-    const other = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 5 });
+    const other = await addSlot(fx.db, fx.actor, a.signupId, {
+      values: { what: 'Juice' },
+      capacity: 5,
+    });
     if (!other.ok) throw new Error(`addSlot failed: ${other.error.message}`);
     const mine = await commitToSlot(fx.db, a.slotId, {
       name: 'Pat Example',
@@ -1183,6 +1186,7 @@ describe('cancelledCommitmentState (db)', () => {
       movedTo: null,
       removed: false,
       slot: 'open',
+      slotName: '',
     });
 
     expect((await closeSignup(fx.db, fx.actor, s.signupId)).ok).toBe(true);
@@ -1190,6 +1194,7 @@ describe('cancelledCommitmentState (db)', () => {
       movedTo: null,
       removed: false,
       slot: 'signupClosed',
+      slotName: '',
     });
   });
 
@@ -1201,6 +1206,7 @@ describe('cancelledCommitmentState (db)', () => {
       movedTo: null,
       removed: false,
       slot: 'slotClosed',
+      slotName: '',
     });
 
     // The whole signup closed says more, so it wins.
@@ -1209,6 +1215,7 @@ describe('cancelledCommitmentState (db)', () => {
       movedTo: null,
       removed: false,
       slot: 'signupClosed',
+      slotName: '',
     });
   });
 
@@ -1226,6 +1233,7 @@ describe('cancelledCommitmentState (db)', () => {
       movedTo: null,
       removed: false,
       slot: 'open',
+      slotName: '',
     });
 
     const last = await commitToSlot(fx.db, s.slotId, {
@@ -1238,6 +1246,7 @@ describe('cancelledCommitmentState (db)', () => {
       movedTo: null,
       removed: false,
       slot: 'full',
+      slotName: '',
     });
   });
 
@@ -1258,6 +1267,7 @@ describe('cancelledCommitmentState (db)', () => {
     expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
       movedTo: null,
       removed: true,
+      slotName: '',
     });
   });
 
@@ -1265,13 +1275,16 @@ describe('cancelledCommitmentState (db)', () => {
     const s = await signedUp('Moved, then removed');
     const first = await moved(s.commitment.id, s.editToken, s.otherSlotId);
     expect((await removeCommitment(fx.db, fx.actor, first.id)).ok).toBe(true);
+    // Named for the slot it was taken off, the one it moved to.
     expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
       movedTo: null,
       removed: true,
+      slotName: 'Juice',
     });
     expect(await cancelledCommitmentState(fx.db, first)).toEqual({
       movedTo: null,
       removed: true,
+      slotName: 'Juice',
     });
   });
 
@@ -1284,6 +1297,7 @@ describe('cancelledCommitmentState (db)', () => {
       movedTo: null,
       removed: false,
       slot: 'open',
+      slotName: '',
     });
   });
 
@@ -1295,14 +1309,16 @@ describe('cancelledCommitmentState (db)', () => {
       movedTo: null,
       removed: false,
       slot: 'open',
+      slotName: 'Juice',
     });
 
-    // Judged by the slot it moved to, the one last held.
+    // Named and judged by the slot it moved to, the one last held.
     expect((await updateSlot(fx.db, fx.actor, s.otherSlotId, { status: 'closed' })).ok).toBe(true);
     expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
       movedTo: null,
       removed: false,
       slot: 'slotClosed',
+      slotName: 'Juice',
     });
   });
 });

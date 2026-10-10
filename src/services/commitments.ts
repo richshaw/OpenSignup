@@ -9,6 +9,7 @@ import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
+import { summarizeSlotValues } from '@/lib/slot-summary';
 import { parseInputSafe } from '@/lib/parse';
 import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
@@ -20,6 +21,7 @@ import {
   CommitmentUpdateInputSchema,
 } from '@/schemas/commitments';
 import { inWorkspace, readLiveSignup } from './locks';
+import { listFieldsForSignup } from './slot-fields';
 
 type CommitmentRow = typeof commitments.$inferSelect;
 
@@ -951,7 +953,9 @@ const MAX_MOVES_FOLLOWED = 10;
  * writes a `commitment.removed` row `{ commitmentId }`), so the page says who
  * did it. When they did not, `slot` says whether the slot last held would take
  * a sign-up again (`CancelledSlotState`), so the page suggests signing up
- * again only when that would not be refused, and otherwise says why.
+ * again only when that would not be refused, and otherwise says why. Either
+ * way, `slotName` is the slot last held's values in a line, as the
+ * confirmation email's subject names it, or '' when it has none to show.
  *
  * Guard-free, like `editLimitsForCommitment`: call it only with a commitment
  * that `getOwnCommitment` has already verified against its edit token. Each
@@ -962,8 +966,8 @@ export async function cancelledCommitmentState(
   commitment: { id: string; signupId: string; slotId: string },
 ): Promise<
   | { movedTo: string }
-  | { movedTo: null; removed: true }
-  | { movedTo: null; removed: false; slot: CancelledSlotState }
+  | { movedTo: null; removed: true; slotName: string }
+  | { movedTo: null; removed: false; slot: CancelledSlotState; slotName: string }
 > {
   let lastId = commitment.id;
   for (let moves = 0; moves < MAX_MOVES_FOLLOWED; moves++) {
@@ -1007,8 +1011,26 @@ export async function cancelledCommitmentState(
       ),
     )
     .limit(1);
-  if (removed) return { movedTo: null, removed: true };
-  return { movedTo: null, removed: false, slot: await slotStateAfterCancel(db, slotId) };
+  const name = await slotName(db, commitment.signupId, slotId);
+  if (removed) return { movedTo: null, removed: true, slotName: name };
+  return {
+    movedTo: null,
+    removed: false,
+    slot: await slotStateAfterCancel(db, slotId),
+    slotName: name,
+  };
+}
+
+/** `Pack away · Sat, Nov 14`: the slot's values in field order, or ''. */
+async function slotName(db: Db, signupId: string, slotId: string): Promise<string> {
+  const [slot] = await db
+    .select({ values: slots.values })
+    .from(slots)
+    .where(and(eq(slots.id, slotId), eq(slots.signupId, signupId)))
+    .limit(1);
+  if (!slot) return '';
+  const fields = await listFieldsForSignup(db, signupId);
+  return summarizeSlotValues(fields, (slot.values as Record<string, unknown>) ?? {});
 }
 
 /**
