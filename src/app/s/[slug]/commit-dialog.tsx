@@ -138,7 +138,9 @@ export default function CommitDialog({
   // Confirm again with the same details, say after a network error, sends the
   // same key, so if the first press did get the place the server hands that
   // sign-up back rather than making a second. Changed details are a new
-  // sign-up, with a new key.
+  // sign-up, with a new key. Kept when the sheet closes without a sign-up,
+  // since the row still says Sign up and it may be opened again for a retry;
+  // forgotten once one goes through.
   const lastAttempt = useRef<{ body: string; key: string } | null>(null);
 
   useEffect(() => {
@@ -264,7 +266,7 @@ export default function CommitDialog({
     setSuccess(null);
     setError(null);
     setReported(null);
-    lastAttempt.current = null;
+    if (wasSuccess) lastAttempt.current = null;
     setShareCopied(false);
     setCopyResult(null);
     if (wasSuccess) router.refresh();

@@ -638,7 +638,9 @@ describe('<CommitDialog /> sheet', () => {
       expect(second?.idempotencyKey).not.toBe(first?.idempotencyKey);
     });
 
-    it('sends a new key once the sheet has been closed and opened again', async () => {
+    // The row still says Sign up after an error, so opening the sheet again
+    // is another way of trying again.
+    it('keeps the key when the sheet is closed after a network error and opened again', async () => {
       const fetchMock = vi
         .fn()
         .mockRejectedValueOnce(new TypeError('Failed to fetch'))
@@ -651,7 +653,27 @@ describe('<CommitDialog /> sheet', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), settle);
 
-      // Word for word what the first try sent: only the close tells them apart.
+      fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
+      await fillAndConfirm();
+      await screen.findByRole('heading', { name: "You're in." }, settle);
+
+      const [first, second] = sentBodies(fetchMock);
+      expect(first?.idempotencyKey).toEqual(expect.any(String));
+      expect(second).toEqual(first);
+    });
+
+    it('sends a new key for the next sign-up once one has gone through', async () => {
+      const fetchMock = vi.fn(async () => success);
+      vi.stubGlobal('fetch', fetchMock);
+
+      openSheet();
+      await fillAndConfirm();
+      await screen.findByRole('heading', { name: "You're in." }, settle);
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), settle);
+
+      // Word for word what the first sent: only the sign-up in between tells
+      // them apart.
       fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
       await fillAndConfirm();
       await screen.findByRole('heading', { name: "You're in." }, settle);

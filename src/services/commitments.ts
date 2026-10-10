@@ -13,7 +13,7 @@ import { summarizeSlotValues } from '@/lib/slot-summary';
 import { parseInputSafe } from '@/lib/parse';
 import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
-import { editTokenFor, hashToken, verifyHash } from '@/lib/token';
+import { editTokenFor, hashToken, idempotencyKeyHash, verifyHash } from '@/lib/token';
 import {
   type CommitmentCreateInput,
   type CommitmentUpdateInput,
@@ -164,8 +164,19 @@ export async function commitToSlot(
 ): Promise<Result<CommitResult, ServiceError>> {
   const input = parseInputSafe(CommitmentCreateInputSchema, rawInput);
   if (!input.ok) return input;
-  const { email, ...data } = input.value;
-  return commitParticipantToSlot(db, slotId, { email: email ?? null }, data);
+  const { email, idempotencyKey, ...data } = input.value;
+  // The key together with the request as parsed, so it finds an earlier
+  // sign-up only when sent again with the same details.
+  const keyHash =
+    idempotencyKey === undefined
+      ? undefined
+      : idempotencyKeyHash(idempotencyKey, { ...data, email: email ?? null });
+  return commitParticipantToSlot(
+    db,
+    slotId,
+    { email: email ?? null },
+    { ...data, idempotencyKeyHash: keyHash },
+  );
 }
 
 /**
@@ -178,9 +189,9 @@ export async function commitToSlot(
  * their name changes only when the move sends one. Every other check is the
  * same for both.
  *
- * A sign-up sent with an `idempotencyKey` that an earlier one on this slot
- * was sent with gets that earlier commitment back, while it is still active,
- * and nothing is written. That is a retry whose first try got through but
+ * A sign-up sent with an `idempotencyKey` and details that an earlier one on
+ * this slot was sent with (`idempotencyKeyHash`) gets that earlier commitment
+ * back, while it is still active, and nothing is written. That is a retry whose first try got through but
  * whose response never arrived, such as a phone losing its connection. With
  * an email the participant would be found again and refused as a duplicate,
  * which loses their link; without one they would get a second place.
@@ -191,9 +202,12 @@ async function commitParticipantToSlot(
   who:
     | { email: string | null; participantId?: never }
     | { participantId: string; email?: never },
-  data: Pick<CommitmentCreateInput, 'notes' | 'quantity' | 'idempotencyKey'> & { name?: string },
+  data: Pick<CommitmentCreateInput, 'notes' | 'quantity'> & {
+    name?: string;
+    idempotencyKeyHash?: string;
+  },
 ): Promise<Result<CommitResult, ServiceError>> {
-  const keyHash = data.idempotencyKey === undefined ? null : hashToken(data.idempotencyKey);
+  const keyHash = data.idempotencyKeyHash ?? null;
   return db.transaction(async (tx) => {
     const slotRows = await tx
       .select()
@@ -226,6 +240,7 @@ async function commitParticipantToSlot(
         .where(
           and(
             eq(commitments.slotId, slotId),
+            inWorkspace(commitments.workspaceId, slot.workspaceId),
             eq(commitments.idempotencyKeyHash, keyHash),
             isActiveCommitment,
           ),

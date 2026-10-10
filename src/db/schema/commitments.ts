@@ -47,11 +47,12 @@ export const commitments = pgTable(
     /** HMAC hash of the edit-token the participant uses to edit/cancel. */
     editTokenHash: text('edit_token_hash').notNull(),
     /**
-     * SHA-256 of the idempotency key sent with the sign-up that made this
-     * commitment, so the same request sent again gets this commitment back
-     * rather than a second one (`commitParticipantToSlot`). Null for a move,
-     * or a sign-up sent without a key. Stored hashed: the key brings back the
-     * edit link. No index: it is looked up within one slot's commitments,
+     * The idempotency key sent with the sign-up that made this commitment, as
+     * `idempotencyKeyHash` keeps it: an HMAC of the key and the rest of that
+     * request. The same request sent again gets this commitment back rather
+     * than a second one (`commitParticipantToSlot`). Null for a move, or a
+     * sign-up sent without a key. Never the key itself: the key brings back
+     * the edit link. No index: it is looked up within one slot's commitments,
      * under the slot's lock, which every sign-up to that slot takes first.
      */
     idempotencyKeyHash: text('idempotency_key_hash'),

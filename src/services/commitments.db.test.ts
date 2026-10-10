@@ -1722,6 +1722,21 @@ describe('signing up again with the same idempotency key (db)', () => {
     expect(await writtenOn(signupId)).toMatchObject({ participants: 4, commitments: 4 });
   });
 
+  // So a client that picks a guessable key can't hand one person's edit link
+  // to someone else who sends the same key.
+  it('makes a new sign-up, not the earlier one, for the same key with other details', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Same key, new details', optional);
+    const key = newKey();
+
+    const sam = await mustSignUp(slotId, key);
+    const robin = await mustSignUp(slotId, key, { name: 'Robin Example' });
+
+    expect(robin.repeated).toBe(false);
+    expect(robin.commitment.id).not.toBe(sam.commitment.id);
+    expect(robin.editToken).not.toBe(sam.editToken);
+    expect(await writtenOn(signupId)).toMatchObject({ participants: 2, commitments: 2 });
+  });
+
   it('gives the sign-up back to someone who gave an email, rather than refusing it as a duplicate', async () => {
     const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Same key, with email');
     const key = newKey();
