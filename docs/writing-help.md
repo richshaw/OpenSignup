@@ -59,12 +59,16 @@ Explain each one the first time a page uses it.
 | ------------------ | --------------------------------------------------------- | --------------------------------------- |
 | signup             | the page people sign up on                                | sheet, form, event, list                |
 | slot               | one thing people can sign up for                          | row, item, entry, question              |
-| spot               | one place in a slot; a person can take more than one      | place, seat, space                      |
+| spot               | one place in a slot; a person can take more than one      | place, seat, space, sign-up             |
 | field              | a detail every slot has, like its date                    | column, attribute                       |
 | draft              | a signup that isn't published yet; nobody else can see it | (don't use it for an AI's first go)     |
 | publish            | make the signup open to anyone with the link              | go live, launch, activate               |
 | people who sign up | anyone taking a slot                                      | users, customers, members, participants |
 | your site          | the OpenSignup site the reader is on                      | the instance, the server                |
+
+Don't call what one person holds a "sign-up": beside "signup" it reads as the
+same word spelt two ways. Say their spot, or say what they did ("they signed
+up"). **Sign-up form**, a heading on screen, is fine as a name.
 
 The box for spots is called **Capacity** on screen. Bold that name when you mean
 the box, and say "spots" everywhere else. The design system allows

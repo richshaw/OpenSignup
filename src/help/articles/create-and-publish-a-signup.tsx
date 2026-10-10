@@ -168,16 +168,17 @@ export function CreateAndPublishASignup() {
         <ul className="list-disc space-y-2 pl-6">
           <li>
             People open the link and choose <Ui>{UI.signUp}</Ui> on a slot. They type their name
-            and, unless you&apos;ve made it optional, their email. They can also add a note.
+            and email address, and can add a note. You can make the email address optional, as
+            shown below.
           </li>
           <li>
             A slot with more than one spot shows how many are taken, like 1/2. People can take more
             than one spot at a time. When a slot is full, nobody else can choose it.
           </li>
           <li>
-            Each person who gives an email gets one saying they&apos;re signed up. It has a link
-            they can use to change or cancel. People who leave it out see the link on screen
-            instead.
+            Each person who gives an email address gets an email saying they&apos;re signed up. It
+            has a link they can use to change or cancel. Everyone sees the link on screen after
+            signing up, and people who gave no email address need to save it.
           </li>
           <li>
             Search engines are asked not to list signup pages. Anyone with the link can open yours,
@@ -189,7 +190,8 @@ export function CreateAndPublishASignup() {
       <section className="space-y-4">
         <h2 className="text-xl font-semibold tracking-tight">Reminders</h2>
         <p>
-          If a slot has a date, people who take it and gave an email get a reminder email{' '}
+          If a slot has a date, people who take it and gave an email address get a reminder
+          email{' '}
           {REMINDER_WHEN}. Someone who signs up later than that gets one about {SETTLE} after
           signing up, unless the slot is less than {SETTLE} away. Each reminder has a link to stop
           them.
@@ -219,23 +221,24 @@ export function CreateAndPublishASignup() {
           Let people sign up without an email
         </h2>
         <p>
-          A signup asks people for their email unless you make it optional. Someone who leaves it
-          blank gets no emails at all, not even reminders. They need to save the link they see after
+          A signup asks people for their email address unless you make it optional. Someone who
+          leaves it blank gets no emails at all, not even reminders. They need to save the link they see after
           signing up. Only the browser they used remembers it.
         </p>
-        <p>To make the email optional:</p>
+        <p>To make the email address optional:</p>
         <Steps>
           <Step>
             <p>
-              Under your signup&apos;s title, choose the <Ui>{UI.settings}</Ui> tab. On a phone,
-              there is also a <Ui>{UI.settings}</Ui> link at the very top of the page. That one is
-              for your account, not this signup.
+              On a phone, the <Ui>{UI.settings}</Ui> link at the very top of the page is for your
+              account, so skip it. Under your signup&apos;s title, choose the{' '}
+              <Ui>{UI.settings}</Ui> tab.
             </p>
           </Step>
           <Step>
             <p>
               In <Ui>{UI.signupForm}</Ui>, under <Ui>{UI.askForEmail}</Ui>, choose{' '}
-              <Ui>{UI.emailOptional}</Ui>.
+              <Ui>{UI.emailOptional}</Ui>. Once you save, the email box on your signup says{' '}
+              <Ui>{UI.emailBoxOptional}</Ui>.
             </p>
           </Step>
           <Step>
@@ -251,16 +254,14 @@ export function CreateAndPublishASignup() {
           </Step>
         </Steps>
         <p>
-          On your signup, the email box now says <Ui>{UI.emailBoxOptional}</Ui>.
-        </p>
-        <p>
-          If someone who left it blank loses their link, ask them to sign up again. Then remove
-          their old sign-up on the <Ui>{UI.responses}</Ui> tab. If their slot is full, remove the
-          old one first, so there is room.
+          If someone who left it blank loses their link, ask them to sign up again. If their slot is
+          full, remove them on the <Ui>{UI.responses}</Ui> tab first, so there&apos;s room.
+          Otherwise they show up there twice, and the old one is higher up the list. Remove that
+          one.
         </p>
         <p>
           You can switch back to <Ui>{UI.emailRequired}</Ui> later. Only people who sign up after
-          that are asked for an email. Anyone who signed up without one keeps their spot.
+          that are asked for an email address. Anyone who signed up without one keeps their spot.
         </p>
       </section>
     </>
