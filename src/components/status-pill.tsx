@@ -1,8 +1,9 @@
+// A signup's status, or a sign-up's on the Responses tab. Anything not
+// listed here is grey: closed, archived, cancelled, removed, moved.
 const STYLES: Record<string, string> = {
   open: 'bg-success/10 text-success',
+  confirmed: 'bg-success/10 text-success',
   draft: 'bg-warn/10 text-warn',
-  closed: 'bg-ink-soft/10 text-ink-muted',
-  archived: 'bg-ink-soft/10 text-ink-muted',
 };
 
 const FALLBACK = 'bg-ink-soft/10 text-ink-muted';

@@ -324,15 +324,18 @@ test.describe('Responses tab', () => {
     await expect(confirm.getByRole('alert')).toHaveCount(0);
   });
 
-  test('fits a phone screen: the table scrolls, the page does not', async ({ page, context }) => {
+  test('fits a phone screen: each person is a card, and nothing scrolls sideways', async ({
+    page,
+    context,
+  }) => {
     await loginAsSeededOrganizer(context);
     await page.setViewportSize({ width: 390, height: 844 });
     const { signupId, slotId } = await createSignupWithSlot(page);
     await signUp(page.request, slotId);
-    // Someone to take off, on a slot whose name is too long for one line on a
-    // phone.
+    // Someone to take off, on a slot whose name is too long for one line
+    // beside the Remove button.
     const added = await page.request.post(`/api/signups/${signupId}/slots`, {
-      data: { capacity: 1, values: { what: 'Orange slices and water' } },
+      data: { capacity: 1, values: { what: 'Orange slices, water and a first aid kit' } },
     });
     expect(added.ok()).toBe(true);
     await signUp(page.request, (await added.json()).data.id as string, 'Alex Example');
@@ -341,71 +344,64 @@ test.describe('Responses tab', () => {
     const sam = page.getByRole('row').filter({ hasText: 'Sam Example' });
     const alex = page.getByRole('row').filter({ hasText: 'Alex Example' });
     await expect(sam).toBeVisible();
-    const pageFits = () =>
-      page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
-    expect(await pageFits()).toBe(true);
-    const scrollBox = page.locator('table').locator('..');
-    const scrollTable = (end: boolean) =>
-      scrollBox.evaluate((el, end) => (el.scrollLeft = end ? el.scrollWidth : 0), end);
+    const fits = () =>
+      page.evaluate(() => {
+        const box = document.querySelector('table')?.parentElement;
+        return (
+          document.documentElement.scrollWidth <= window.innerWidth &&
+          box !== null &&
+          box !== undefined &&
+          box.scrollWidth <= box.clientWidth
+        );
+      });
+    expect(await fits()).toBe(true);
 
-    // Remove is in view without scrolling the table, and big enough for a
-    // thumb.
-    await expectOnScreen(page, sam.getByRole('button', { name: REMOVE_SAM, exact: true }));
-    await expectTouchSize(sam.getByRole('button', { name: REMOVE_SAM, exact: true }));
-    const remove = alex.getByRole('button', {
-      name: 'Remove Alex Example from Orange slices and water',
+    // Each card shows the name with the status beside it, then the whole
+    // slot, then Remove: all in view, none on top of another, Remove big
+    // enough for a thumb.
+    const removeAlex = alex.getByRole('button', {
+      name: 'Remove Alex Example from Orange slices, water and a first aid kit',
       exact: true,
     });
-    await expectOnScreen(page, remove);
-    await expectTouchSize(remove);
+    const cards = [
+      [sam, 'Sam Example', sam.getByRole('button', { name: REMOVE_SAM, exact: true })],
+      [alex, 'Alex Example', removeAlex],
+    ] as const;
+    for (const [row, name, remove] of cards) {
+      const nameCell = row.getByRole('cell', { name, exact: true });
+      const status = row.getByRole('cell', { name: 'confirmed', exact: true });
+      const slot = row.getByRole('cell', { name: /^What: / });
+      for (const part of [nameCell, status, slot, remove]) {
+        await expectOnScreen(page, part);
+        await expectUncovered(part);
+      }
+      await expectTouchSize(remove);
+      const [n, st, sl, r] = await Promise.all(
+        [nameCell, status, slot, remove].map((l) => l.boundingBox()),
+      );
+      if (!n || !st || !sl || !r) throw new Error('not on the page');
+      expect(st.x).toBeGreaterThan(n.x + n.width);
+      expect(st.y).toBeLessThan(sl.y);
+      expect(sl.y + sl.height).toBeLessThanOrEqual(r.y);
+    }
+
     // The confirmation fits the screen with room to spare on each side, and
     // its buttons are as easy to hit.
-    await remove.click();
+    await removeAlex.click();
     const confirm = page.getByRole('alertdialog', { name: 'Confirm removal' });
     await expectInWindow(page, confirm, 16);
     for (const name of ['Keep', 'Yes, remove']) {
       await expectInWindow(page, confirm.getByRole('button', { name }), 16);
       await expectTouchSize(confirm.getByRole('button', { name }));
     }
-    expect(await pageFits()).toBe(true);
     await confirm.getByRole('button', { name: 'Yes, remove' }).click();
+
+    // A card without Remove still says why: its status is in view.
     const removed = alex.getByRole('cell', { name: 'removed', exact: true });
     await expect(removed).toBeVisible();
-
-    // Rows stay at most two lines of text high: cells keep their width and the
-    // table scrolls, rather than squeezing to a word per line.
-    await scrollTable(false);
-    for (const row of [sam, alex]) {
-      expect((await row.boundingBox())?.height).toBeLessThanOrEqual(72);
-    }
-    expect(await scrollBox.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
-    // Nothing is held over a row without Remove: at the box's right edge,
-    // Alex's row shows its own cells, not an empty Actions cell.
-    const frame = await scrollBox.boundingBox();
-    const alexBox = await alex.boundingBox();
-    if (!frame || !alexBox) throw new Error('not on the page');
-    const atEdge = await alex.evaluate(
-      (tr, [x, y]) => {
-        const top = document.elementFromPoint(x!, y!);
-        return top !== null && tr.contains(top) && !tr.lastElementChild?.contains(top);
-      },
-      [frame.x + frame.width - 8, alexBox.y + alexBox.height / 2],
-    );
-    expect(atEdge).toBe(true);
-
-    // Scrolled to the end, every row's Slot and Status can be read, removed
-    // or not, and Remove is still in view.
-    await scrollTable(true);
-    for (const [row, status] of [
-      [sam, 'confirmed'],
-      [alex, 'removed'],
-    ] as const) {
-      await expectUncovered(row.getByRole('cell', { name: /^What: / }));
-      const statusCell = row.getByRole('cell', { name: status, exact: true });
-      await expectUncovered(statusCell);
-      await expectOnScreen(page, statusCell);
-    }
-    await expectOnScreen(page, sam.getByRole('button', { name: REMOVE_SAM, exact: true }));
-    expect(await pageFits()).toBe(true);
+    await expect(removeAlex).toHaveCount(0);
+    await expectOnScreen(page, removed);
+    await expectUncovered(removed);
+    expect(await fits()).toBe(true);
   });
 });

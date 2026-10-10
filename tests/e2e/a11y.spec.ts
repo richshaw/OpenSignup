@@ -75,7 +75,8 @@ test.describe('accessibility', () => {
 
     await page.goto(`/app/signups/${signupId}/responses`);
     await page.getByRole('button', { name: 'Remove Sam Example from Fruit and water' }).click();
-    await expect(page.getByRole('alertdialog', { name: 'Confirm removal' })).toBeVisible();
+    const confirm = page.getByRole('alertdialog', { name: 'Confirm removal' });
+    await expect(confirm).toBeVisible();
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -83,6 +84,22 @@ test.describe('accessibility', () => {
 
     expect(
       results.violations.map((v) => ({
+        id: v.id,
+        impact: v.impact,
+        nodes: v.nodes.map((n) => n.target),
+      })),
+    ).toEqual([]);
+
+    // On a phone too, where each person is a card rather than a table row.
+    await page.keyboard.press('Escape');
+    await expect(confirm).toBeHidden();
+    await page.setViewportSize({ width: 390, height: 844 });
+    const phone = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    expect(
+      phone.violations.map((v) => ({
         id: v.id,
         impact: v.impact,
         nodes: v.nodes.map((n) => n.target),

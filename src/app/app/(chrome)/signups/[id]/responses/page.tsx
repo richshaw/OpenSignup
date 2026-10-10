@@ -8,16 +8,11 @@ import {
   listCommitmentsForSignup,
 } from '@/services/commitments';
 import { recordOrganizerView } from '@/lib/view-tracker';
+import { StatusPill } from '@/components/status-pill';
 import { summarizeSlot, summarizeSlotValues } from '@/lib/slot-summary';
 import { RemoveCommitmentForm } from './remove-commitment-form';
 
 type PageParams = { params: Promise<{ id: string }> };
-
-// The Actions column, held at the scroll box's right edge. The shadow marks
-// that edge on a phone, where the rest of the table scrolls under it. Only a
-// cell with Remove in it is held there: an empty one would hide the row
-// beneath it.
-const STICKY_END = 'sticky right-0 max-sm:shadow-[-6px_0_6px_-6px_rgb(11_18_32/0.2)]';
 
 export default async function ResponsesTab({ params }: PageParams) {
   const { id } = await params;
@@ -58,34 +53,41 @@ export default async function ResponsesTab({ params }: PageParams) {
           No signups yet. Share the public link to start collecting.
         </p>
       ) : (
-        // Scrolls sideways instead of clipping: an email address can't wrap,
-        // so on a phone the table is wider than the screen, and Status was
-        // cut off with no way to reach it. `relative` keeps the Actions
-        // header's sr-only text, which is absolutely positioned, inside this
-        // scroll box; without it the text sat past the table's right edge and
-        // made the whole page pan sideways. The Actions column sticks to the
-        // right edge, so Remove is in view without scrolling; the rest of the
-        // row slides under it. On a phone the cells keep to one line, rather
-        // than squeezing to a word per line and making every row tall, and the
-        // table scrolls sideways. Slot is the exception: it wraps at a width
-        // that fits beside Remove, so a long slot can still be read whole.
+        // A table from md up. Narrower, it would be wider than the screen (an
+        // email address can't wrap), so each row is laid out as a card: name
+        // and status, then the slot, then the email and Remove. The headings
+        // stay for screen readers. The roles are the elements' own, written
+        // out because VoiceOver on Safari drops a row's cells once the row is a
+        // grid. `relative` keeps the hidden headings inside this box; without
+        // it they sat past its right edge and made the whole page pan
+        // sideways. It still scrolls sideways if a long email needs it.
         <div className="relative overflow-x-auto rounded-xl border border-surface-sunk bg-white">
-          <table className="w-full text-sm max-sm:whitespace-nowrap">
-            <thead className="bg-surface-raised text-ink-muted">
-              <tr>
-                <th className="px-4 py-3 text-left">Name</th>
-                <th className="px-4 py-3 text-left">Email</th>
-                <th className="px-4 py-3 text-left max-sm:min-w-48">Slot</th>
-                {showSpots ? <th className="px-4 py-3 text-right">Spots</th> : null}
-                <th className="px-4 py-3 text-left">Status</th>
-                <th
-                  className={`${commitments.some(canRemove) ? STICKY_END : ''} bg-surface-raised px-4 py-3`}
-                >
+          <table role="table" className="w-full text-sm max-md:block">
+            <thead role="rowgroup" className="bg-surface-raised text-ink-muted max-md:sr-only">
+              <tr role="row">
+                <th role="columnheader" className="px-4 py-3 text-left">
+                  Name
+                </th>
+                <th role="columnheader" className="px-4 py-3 text-left">
+                  Email
+                </th>
+                <th role="columnheader" className="px-4 py-3 text-left">
+                  Slot
+                </th>
+                {showSpots ? (
+                  <th role="columnheader" className="px-4 py-3 text-right">
+                    Spots
+                  </th>
+                ) : null}
+                <th role="columnheader" className="px-4 py-3 text-left">
+                  Status
+                </th>
+                <th role="columnheader" className="px-4 py-3">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-sunk">
+            <tbody role="rowgroup" className="divide-y divide-surface-sunk max-md:block">
               {commitments.map((c) => {
                 const slot = sig.slots.find((s) => s.id === c.slotId);
                 const values = (slot?.values as Record<string, unknown>) ?? {};
@@ -104,20 +106,49 @@ export default async function ResponsesTab({ params }: PageParams) {
                   summarizeSlotValues(sig.fields, values) || slot?.ref || 'this slot'
                 }`;
                 return (
-                  <tr key={c.id}>
-                    <td className="px-4 py-3 font-medium">{c.participantName}</td>
-                    <td className="text-ink-muted px-4 py-3">{c.participantEmail}</td>
-                    <td className="px-4 py-3 max-sm:whitespace-normal">
+                  <tr
+                    key={c.id}
+                    role="row"
+                    className="max-md:grid max-md:grid-cols-[minmax(0,1fr)_auto] max-md:items-center max-md:gap-x-3 max-md:gap-y-1 max-md:p-4"
+                  >
+                    <td
+                      role="cell"
+                      className="font-medium max-md:col-start-1 max-md:row-start-1 md:px-4 md:py-3"
+                    >
+                      {c.participantName}
+                    </td>
+                    <td
+                      role="cell"
+                      className="text-ink-muted max-md:col-start-1 max-md:row-start-3 max-md:break-words md:px-4 md:py-3"
+                    >
+                      {c.participantEmail}
+                    </td>
+                    <td
+                      role="cell"
+                      className="max-md:col-span-2 max-md:row-start-2 md:px-4 md:py-3"
+                    >
                       {summary || slot?.ref || '—'}
                     </td>
                     {showSpots ? (
-                      <td className="px-4 py-3 text-right tabular-nums">{c.quantity}</td>
+                      <td
+                        role="cell"
+                        className="tabular-nums max-md:col-start-1 max-md:row-start-4 md:px-4 md:py-3 md:text-right"
+                      >
+                        {c.quantity}
+                        <span className="md:hidden"> {c.quantity === 1 ? 'spot' : 'spots'}</span>
+                      </td>
                     ) : null}
-                    <td id={statusId} tabIndex={-1} className="px-4 py-3">
-                      {status}
+                    <td
+                      id={statusId}
+                      role="cell"
+                      tabIndex={-1}
+                      className="max-md:col-start-2 max-md:row-start-1 max-md:text-right md:px-4 md:py-3"
+                    >
+                      <StatusPill status={status} />
                     </td>
                     <td
-                      className={`${canRemove(c) ? `${STICKY_END} bg-white` : ''} px-4 py-3 text-right`}
+                      role="cell"
+                      className="text-right max-md:col-start-2 max-md:row-start-3 max-md:empty:hidden md:px-4 md:py-3"
                     >
                       {canRemove(c) ? (
                         <RemoveCommitmentForm
