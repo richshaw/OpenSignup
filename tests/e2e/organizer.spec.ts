@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { BASE_URL, loadSeed } from './helpers/fixtures';
+import { createPublishedSignup } from './helpers/signups';
 
 const seed = loadSeed();
 
@@ -96,6 +97,70 @@ test.describe('organizer flow', () => {
     expect(await date.evaluate((el: HTMLInputElement) => el.validity.valid)).toBe(true);
     expect((await saved).ok()).toBe(true);
     expect(await storedDate()).toBe('1900-01-01');
+  });
+
+  test('the Settings tab makes the email optional, and required again', async ({
+    page,
+    browser,
+  }) => {
+    const signup = await createPublishedSignup(page.request, {
+      title: `Email setting ${Date.now()}`,
+      slot: { values: { what: 'Juice', date: '2030-04-06' }, capacity: 5 },
+    });
+    const storedRequireEmail = async () => {
+      const res = await page.request.get(`/api/signups/${signup.id}`);
+      return (await res.json()).data.settings.requireEmail as boolean;
+    };
+    // The public form in a fresh browser each time, as a participant sees it.
+    const openForm = async () => {
+      const visitor = await browser.newPage();
+      await visitor.goto(`/s/${signup.slug}`);
+      await visitor.getByRole('button', { name: /^Sign up for Juice/ }).click();
+      await expect(visitor.getByLabel('Your name')).toBeVisible();
+      return visitor;
+    };
+
+    const settings = `/app/signups/${signup.id}/settings`;
+    await page.goto(settings);
+    const required = page.getByRole('radio', { name: 'Required' });
+    const optional = page.getByRole('radio', { name: 'Optional' });
+    await expect(required).toBeChecked();
+    // Only the line for the choice picked shows, and it follows the radio
+    // before a save. Each radio is described by its own line.
+    const requiredHelp = page.getByText('We email everyone their link');
+    const optionalHelp = page.getByText('People can leave it blank.');
+    await expect(requiredHelp).toBeVisible();
+    await expect(optionalHelp).toBeHidden();
+    await expect(required).toHaveAccessibleDescription(/We email everyone their link/);
+    await expect(optional).toHaveAccessibleDescription(/People can leave it blank\./);
+
+    await optional.check();
+    await expect(optionalHelp).toBeVisible();
+    await expect(requiredHelp).toBeHidden();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText('Saved');
+    expect(await storedRequireEmail()).toBe(false);
+    await page.reload();
+    await expect(optional).toBeChecked();
+
+    let visitor = await openForm();
+    await expect(visitor.getByLabel('Email (optional)')).toHaveJSProperty('required', false);
+    await visitor.getByLabel('Your name').fill('Sam Example');
+    await visitor.getByRole('button', { name: 'Confirm' }).click();
+    await expect(visitor.getByRole('heading', { name: "You're in." })).toBeVisible();
+    await visitor.close();
+
+    await page.goto(settings);
+    await required.check();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText('Saved');
+    expect(await storedRequireEmail()).toBe(true);
+    await expect(required).toBeChecked();
+
+    visitor = await openForm();
+    await expect(visitor.getByLabel('Email', { exact: true })).toHaveJSProperty('required', true);
+    await expect(visitor.getByLabel('Email (optional)')).toHaveCount(0);
+    await visitor.close();
   });
 
   test('unauthenticated visitor is redirected to login', async ({ browser }) => {

@@ -39,5 +39,17 @@ export const UI = {
   // The button reads "Fields (2)"; the count changes, so the test matches the start.
   fields: 'Fields',
   reminderToggle: 'Send a reminder email before this date',
+  // The Fields dialog's button, and the Settings tab's.
   save: 'Save',
+  // The Settings tab, and its choice of whether people must give an email.
+  settings: 'Settings',
+  signupForm: 'Sign-up form',
+  askForEmail: 'Ask for an email address',
+  emailRequired: 'Required',
+  emailOptional: 'Optional',
+  saved: 'Saved',
+  // The email box on the signup page once it is optional.
+  emailBoxOptional: 'Email (optional)',
+  // The tab that lists who signed up.
+  responses: 'Responses',
 } as const;

@@ -28,10 +28,12 @@ export const GONE_PAGE = {
   /**
    * An edit link: the signup or the slot was deleted, or the token is missing
    * or wrong. A mail client that cuts the token off is the likeliest of these,
-   * so it can't say the sign-up is gone.
+   * so it can't say the sign-up is gone. Everyone can contact the organizer,
+   * but someone who signed up without an email has no confirmation email to
+   * go back to, so that step is only for those who got one.
    */
   editLink: {
     title: 'Sorry, this link isn’t working',
-    body: 'Your sign-up may no longer be available, or the link may be incomplete. Try the link in your confirmation email again, or contact the organizer to find out what has changed.',
+    body: 'Your sign-up may no longer be available, or the link may be incomplete. Contact the organizer to find out what has changed. If you got a confirmation email, you can also try its link again.',
   },
 } as const;

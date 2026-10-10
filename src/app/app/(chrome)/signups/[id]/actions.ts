@@ -4,7 +4,9 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { closeSignup, deleteSignup, publishSignup } from '@/services/signups';
+import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
+import { ServiceException, type ErrorCode } from '@/lib/errors';
+import { closeSignup, deleteSignup, publishSignup, updateSignup } from '@/services/signups';
 
 function revalidateSignup(id: string) {
   revalidatePath(`/app/signups/${id}`, 'layout');
@@ -29,13 +31,41 @@ export async function closeAction(signupId: string) {
   revalidateSignup(signupId);
 }
 
+/**
+ * The Settings tab's "Ask for an email address". Sends only `requireEmail`,
+ * which `updateSignup` merges over the stored settings. Anything but Optional
+ * saves Required, the default. A refusal shows in plain words, by its code.
+ */
+export async function setRequireEmailAction(signupId: string, formData: FormData) {
+  const actor = await requireActor();
+  const requireEmail = formData.get('requireEmail') !== 'optional';
+  const settingsPath = `/app/signups/${signupId}/settings`;
+  let refused: ErrorCode | null = null;
+  try {
+    const result = await updateSignup(getDb(), actor, signupId, { settings: { requireEmail } });
+    if (!result.ok) refused = result.error.code;
+  } catch (e) {
+    // The policy guard throws rather than returning: a viewer's role.
+    if (!(e instanceof ServiceException)) throw e;
+    refused = e.serviceError.code;
+  }
+  if (refused !== null) {
+    redirect(`${settingsPath}?error=${encodeURIComponent(SAVE_ERROR_MESSAGE[refused])}`);
+  }
+  // This tab re-renders with the saved choice. The public page is dynamic, so
+  // its form reads the change on its next request.
+  revalidateSignup(signupId);
+  redirect(`${settingsPath}?saved=1`);
+}
+
 export async function deleteSignupAction(signupId: string) {
   const actor = await requireActor();
   const result = await deleteSignup(getDb(), actor, signupId);
   if (!result.ok) {
-    redirect(
-      `/app/signups/${signupId}/settings?error=${encodeURIComponent(result.error.message)}`,
-    );
+    // In plain words by its code, as Save on the same tab is. A viewer's
+    // refusal is thrown, not returned, and is not caught here.
+    const message = SAVE_ERROR_MESSAGE[result.error.code];
+    redirect(`/app/signups/${signupId}/settings?error=${encodeURIComponent(message)}`);
   }
   // Bust any open tab on the deleted signup so the next interaction shows the
   // organizer "signup not found" state instead of a stale cached layout.

@@ -213,6 +213,56 @@ export function CreateAndPublishASignup() {
           </Step>
         </Steps>
       </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold tracking-tight">
+          Let people sign up without an email
+        </h2>
+        <p>
+          A signup asks people for their email unless you make it optional. Someone who leaves it
+          blank gets no emails at all, not even reminders. They need to save the link they see after
+          signing up. Only the browser they used remembers it.
+        </p>
+        <p>To make the email optional:</p>
+        <Steps>
+          <Step>
+            <p>
+              Under your signup&apos;s title, choose the <Ui>{UI.settings}</Ui> tab. On a phone,
+              there is also a <Ui>{UI.settings}</Ui> link at the very top of the page. That one is
+              for your account, not this signup.
+            </p>
+          </Step>
+          <Step>
+            <p>
+              In <Ui>{UI.signupForm}</Ui>, under <Ui>{UI.askForEmail}</Ui>, choose{' '}
+              <Ui>{UI.emailOptional}</Ui>.
+            </p>
+          </Step>
+          <Step>
+            <p>
+              Choose <Ui>{UI.save}</Ui>. You&apos;ll see <Ui>{UI.saved}</Ui>.
+            </p>
+            <Screenshot
+              src="/help/create-and-publish-a-signup/email-setting.png"
+              alt="The Sign-up form settings, with Optional chosen for Ask for an email address, and Saved next to the Save button."
+              width={672}
+              height={250}
+            />
+          </Step>
+        </Steps>
+        <p>
+          On your signup, the email box now says <Ui>{UI.emailBoxOptional}</Ui>.
+        </p>
+        <p>
+          If someone who left it blank loses their link, ask them to sign up again. Then remove
+          their old sign-up on the <Ui>{UI.responses}</Ui> tab. If their slot is full, remove the
+          old one first, so there is room.
+        </p>
+        <p>
+          You can switch back to <Ui>{UI.emailRequired}</Ui> later. Only people who sign up after
+          that are asked for an email. Anyone who signed up without one keeps their spot.
+        </p>
+      </section>
     </>
   );
 }
