@@ -125,8 +125,18 @@ test.describe('organizer flow', () => {
     const required = page.getByRole('radio', { name: 'Required' });
     const optional = page.getByRole('radio', { name: 'Optional' });
     await expect(required).toBeChecked();
+    // Only the line for the choice picked shows, and it follows the radio
+    // before a save. Each radio is described by its own line.
+    const requiredHelp = page.getByText('We email everyone their link');
+    const optionalHelp = page.getByText('People can leave it blank.');
+    await expect(requiredHelp).toBeVisible();
+    await expect(optionalHelp).toBeHidden();
+    await expect(required).toHaveAccessibleDescription(/We email everyone their link/);
+    await expect(optional).toHaveAccessibleDescription(/People can leave it blank\./);
 
     await optional.check();
+    await expect(optionalHelp).toBeVisible();
+    await expect(requiredHelp).toBeHidden();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('status')).toHaveText('Saved');
     expect(await storedRequireEmail()).toBe(false);

@@ -58,7 +58,10 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
           action={setRequireEmailAction.bind(null, id)}
           className="flex flex-col gap-4"
         >
-          <fieldset aria-describedby="require-email-help">
+          {/* Each choice has its own line, and CSS shows the one picked, so it
+              follows the radio before a save with no script. A screen reader
+              hears each line with its own radio. */}
+          <fieldset className="group">
             <legend className="text-sm font-medium">Ask for an email address</legend>
             <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
               <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -67,25 +70,37 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
                   name="requireEmail"
                   value="required"
                   defaultChecked={requireEmail}
+                  aria-describedby="require-email-required-help"
                   className="h-4 w-4 accent-brand"
                 />
                 Required
               </label>
               <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <input
+                  id="require-email-optional"
                   type="radio"
                   name="requireEmail"
                   value="optional"
                   defaultChecked={!requireEmail}
+                  aria-describedby="require-email-optional-help"
                   className="h-4 w-4 accent-brand"
                 />
                 Optional
               </label>
             </div>
-            <p id="require-email-help" className="mt-2 text-sm text-ink-muted">
-              People who leave it blank get no emails, not even reminders. They see their link on
-              screen, and only the browser they used remembers it. If they lose it, they can sign up
-              again, and you can remove their old sign-up on the Responses tab.
+            <p
+              id="require-email-required-help"
+              className="mt-2 text-sm text-ink-muted group-has-[#require-email-optional:checked]:hidden"
+            >
+              We email everyone their link to change or cancel.
+            </p>
+            <p
+              id="require-email-optional-help"
+              className="mt-2 hidden text-sm text-ink-muted group-has-[#require-email-optional:checked]:block"
+            >
+              People can leave it blank. They get no emails, not even reminders, so they need to
+              save their link. If they lose it, they can sign up again and you can remove the old
+              one on the Responses tab.
             </p>
           </fieldset>
           <div className="flex flex-wrap items-center gap-3">
