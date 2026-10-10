@@ -156,12 +156,13 @@ test.describe('Responses tab', () => {
       await expect(slotRow.getByRole('link', { name: 'Edit' })).toHaveCount(0);
       await expect(visitor.getByText("You're signed up")).toHaveCount(0);
 
-      // Their edit link says the organizer took them off, and does not invite
-      // them to sign up again.
+      // Their edit link says the organizer took them off which slot, and does
+      // not invite them to sign up again.
       await visitor.goto(editUrl);
       await expect(
         visitor.getByRole('heading', { name: CANCELLED_PAGE.removed.title }),
       ).toBeVisible();
+      await expect(visitor.getByText('Fruit and water', { exact: true })).toBeVisible();
       await expect(visitor.getByText(CANCELLED_PAGE.removed.body)).toBeVisible();
       await expect(visitor.getByText(/sign up again/)).toHaveCount(0);
       await expect(visitor.getByRole('link', { name: 'Back to the signup' })).toBeVisible();
