@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { wasCancelled } from '../../cancelled-message';
 import { capacityMessage } from '../../capacity-message';
 import { closedMessage } from '../../closed-message';
 import { goneMessage } from '../../gone-message';
@@ -69,6 +70,14 @@ export default function EditForm({
     });
     const payload = await res.json();
     if (!res.ok) {
+      // Cancelled, or moved to another slot, since this page loaded, most
+      // likely in another tab. Every save would be refused, so reload: the
+      // page then says which in place of this form. `saving` stays on, so
+      // nothing here can be pressed again meanwhile.
+      if (wasCancelled(payload?.error)) {
+        router.refresh();
+        return;
+      }
       // `remaining` here is the most this commitment can hold, not the spots
       // still free, so the copy is the edit page's own.
       const capacity = capacityMessage(payload?.error, 'change');

@@ -2,6 +2,7 @@ import { after } from 'next/server';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { recordOrganizerView } from '@/lib/view-tracker';
+import { FormError } from '@/components/ui/form-error';
 import { DeleteSignupForm } from './delete-signup-form';
 
 type PageParams = {
@@ -30,11 +31,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
   // field editor. This tab keeps only what has no better home: deletion.
   return (
     <section className="max-w-2xl space-y-6">
-      {error ? (
-        <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
+      {error ? <FormError>{error}</FormError> : null}
       <section
         aria-labelledby="danger-zone-heading"
         className="space-y-3 rounded-xl border border-danger/30 bg-danger/5 p-6"

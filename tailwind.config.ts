@@ -27,8 +27,10 @@ export default {
           raised: '#f7f8fa',
           sunk: '#eef1f5',
         },
-        success: '#1a7f4a',
-        warn: '#b45309',
+        // Dark enough for 4.5:1 as small text on their own 10% tint, as in
+        // StatusPill, over `surface.raised` as well as white.
+        success: '#187544',
+        warn: '#a64c08',
         danger: '#be123c',
       },
       fontFamily: {

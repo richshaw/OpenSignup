@@ -53,6 +53,7 @@ export const ACTIVITY_EVENTS = [
   'commitment.confirmation_sent',
   'commitment.updated',
   'commitment.cancelled',
+  'commitment.removed',
   'commitment.swapped',
   'commitment.attempt_failed',
   'commitment.edit_link_followed',
