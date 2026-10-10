@@ -149,6 +149,12 @@ export interface CommitResult {
   /** The slot's instant, read under its lock, so the route can keep the
    *  returning-participant cookie until after it without another query. */
   slotAt: Date | null;
+  /**
+   * True when this was a sign-up sent again with the same idempotency key, so
+   * `commitment` is the one the first made and nothing was written. Its
+   * confirmation email, if it has one, went after the first.
+   */
+  repeated: boolean;
 }
 
 export async function commitToSlot(
@@ -171,6 +177,13 @@ export async function commitToSlot(
  * participant it had and never depends on the email or on `requireEmail`;
  * their name changes only when the move sends one. Every other check is the
  * same for both.
+ *
+ * A sign-up sent with an `idempotencyKey` that an earlier one on this slot
+ * was sent with gets that earlier commitment back, while it is still active,
+ * and nothing is written. That is a retry whose first try got through but
+ * whose response never arrived, such as a phone losing its connection. With
+ * an email the participant would be found again and refused as a duplicate,
+ * which loses their link; without one they would get a second place.
  */
 async function commitParticipantToSlot(
   db: Queryable,
@@ -178,17 +191,31 @@ async function commitParticipantToSlot(
   who:
     | { email: string | null; participantId?: never }
     | { participantId: string; email?: never },
-  data: Pick<CommitmentCreateInput, 'notes' | 'quantity'> & { name?: string },
+  data: Pick<CommitmentCreateInput, 'notes' | 'quantity' | 'idempotencyKey'> & { name?: string },
 ): Promise<Result<CommitResult, ServiceError>> {
+  const keyHash = data.idempotencyKey === undefined ? null : hashToken(data.idempotencyKey);
   return db.transaction(async (tx) => {
-    const slotRows = await tx
-      .select()
+    // The slot, locked, and the active commitment on it that an earlier
+    // sign-up with the same key made, if any. In the lock's statement, so a
+    // retry costs no extra round trip. Every sign-up to the slot waits for
+    // this lock, so a retry that arrives while the first is still running
+    // sees its commitment once that one is done.
+    const [locked] = await tx
+      .select({ slot: slots, earlier: commitments })
       .from(slots)
+      .leftJoin(
+        commitments,
+        and(
+          eq(commitments.slotId, slots.id),
+          keyHash === null ? sql`false` : eq(commitments.idempotencyKeyHash, keyHash),
+          isActiveCommitment,
+        ),
+      )
       .where(eq(slots.id, slotId))
-      .for('update')
+      .for('update', { of: slots })
       .limit(1);
-    const slot = slotRows[0];
-    if (!slot) return err(serviceError('not_found', 'slot not found'));
+    if (!locked) return err(serviceError('not_found', 'slot not found'));
+    const { slot } = locked;
 
     // A deleted signup takes no one, though its status can still read open:
     // its page is gone, and a slot id or a page left open must not get round
@@ -197,6 +224,19 @@ async function commitParticipantToSlot(
     // below (src/services/locks.ts).
     const signupRow = await readLiveSignup(tx, slot.signupId);
     if (!signupRow) return err(serviceError('not_found', 'signup not found'));
+
+    // Before the checks below: the place was taken when the first try got
+    // through, so a signup or slot that has closed or filled since then, or
+    // an email made required since then, does not undo it.
+    if (locked.earlier) {
+      return ok({
+        commitment: locked.earlier,
+        editToken: editTokenFor(locked.earlier.id),
+        signupSlug: signupRow.slug,
+        slotAt: slot.slotAt,
+        repeated: true,
+      });
+    }
 
     const shut = whyNotTakingPlaces(signupRow, slot);
     if (shut) {
@@ -385,6 +425,7 @@ async function commitParticipantToSlot(
         notes: data.notes ?? '',
         notesVisibility: 'public',
         editTokenHash: hashToken(editToken),
+        idempotencyKeyHash: keyHash,
       })
       .returning();
     if (!row) return err(serviceError('internal', 'commit insert failed'));
@@ -397,7 +438,13 @@ async function commitParticipantToSlot(
       payload: { commitmentId, slotId },
     });
 
-    return ok({ commitment: row, editToken, signupSlug: signupRow.slug, slotAt: slot.slotAt });
+    return ok({
+      commitment: row,
+      editToken,
+      signupSlug: signupRow.slug,
+      slotAt: slot.slotAt,
+      repeated: false,
+    });
   });
 }
 

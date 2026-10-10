@@ -34,7 +34,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const result = await commitToSlot(db, slotId, body);
     if (!result.ok) return fail(result.error);
 
-    const { signupSlug, slotAt, ...responseValue } = result.value;
+    const { signupSlug, slotAt, repeated, ...responseValue } = result.value;
     const editUrl = commitmentEditUrl(
       signupSlug,
       responseValue.commitment.id,
@@ -64,8 +64,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     setReturningCommitCookie(response, nextCookie);
 
     // After the response, so a slow mail server never holds up a participant
-    // who has already got their slot. Failures are logged, never surfaced.
-    after(() => notifyCommitmentCreated(db, responseValue.commitment.id, responseValue.editToken));
+    // who has already got their slot. Failures are logged, never surfaced. A
+    // repeat of a sign-up already made sends nothing: the first one's
+    // confirmation went, or the participant gave no email. Its response is
+    // the first one's again, cookie and all, since that is what never arrived.
+    if (!repeated) {
+      after(() =>
+        notifyCommitmentCreated(db, responseValue.commitment.id, responseValue.editToken),
+      );
+    }
 
     return response;
   });

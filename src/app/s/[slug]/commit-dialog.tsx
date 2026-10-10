@@ -68,6 +68,15 @@ interface PrefillState {
 
 const PREFILL_KEY = 'opensignup:lastCommit';
 
+/**
+ * 128 random bits, URL-safe. `getRandomValues` rather than `randomUUID`,
+ * which a self-hosted site served over plain HTTP does not have.
+ */
+function newIdempotencyKey(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 function readPrefill(): PrefillState | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -125,6 +134,12 @@ export default function CommitDialog({
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
+  // What the last Confirm sent, and the idempotency key it went with. Pressing
+  // Confirm again with the same details, say after a network error, sends the
+  // same key, so if the first press did get the place the server hands that
+  // sign-up back rather than making a second. Changed details are a new
+  // sign-up, with a new key.
+  const lastAttempt = useRef<{ body: string; key: string } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -196,11 +211,16 @@ export default function CommitDialog({
       // No Spots field when only one place is open (see `spotsLeft`), so 1.
       quantity: Number(data.get('quantity') ?? 1),
     };
+    const sent = JSON.stringify(body);
+    if (lastAttempt.current?.body !== sent) {
+      lastAttempt.current = { body: sent, key: newIdempotencyKey() };
+    }
+    const idempotencyKey = lastAttempt.current.key;
     try {
       const res = await fetch(`/api/slots/${slotId}/commitments`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, idempotencyKey }),
       });
       const payload = await res.json();
       if (!res.ok) {
@@ -244,6 +264,7 @@ export default function CommitDialog({
     setSuccess(null);
     setError(null);
     setReported(null);
+    lastAttempt.current = null;
     setShareCopied(false);
     setCopyResult(null);
     if (wasSuccess) router.refresh();

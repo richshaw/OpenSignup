@@ -46,6 +46,15 @@ export const commitments = pgTable(
     paymentId: text('payment_id'),
     /** HMAC hash of the edit-token the participant uses to edit/cancel. */
     editTokenHash: text('edit_token_hash').notNull(),
+    /**
+     * SHA-256 of the idempotency key sent with the sign-up that made this
+     * commitment, so the same request sent again gets this commitment back
+     * rather than a second one (`commitParticipantToSlot`). Null for a move,
+     * or a sign-up sent without a key. Stored hashed: the key brings back the
+     * edit link. No index: it is looked up within one slot's commitments,
+     * under the slot's lock, which every sign-up to that slot takes first.
+     */
+    idempotencyKeyHash: text('idempotency_key_hash'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
