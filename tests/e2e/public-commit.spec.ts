@@ -85,6 +85,43 @@ test.describe('public commit flow', () => {
     await expect(page.getByText("You're editing this as Sam Example.")).toBeVisible();
   });
 
+  // The connection drops after the sign-up got through but before its answer
+  // arrived. Pressing Confirm again must give back that sign-up, not make a
+  // second one whose link nobody has (#387).
+  test('a sign-up sent again after its answer was lost gets the same spot back', async ({
+    page,
+  }) => {
+    await page.goto(`/s/${seed.optionalEmailSlug}`);
+    const row = page.locator('li').filter({ hasText: seed.optionalEmailSlotLabel });
+    await row.getByRole('button', { name: 'Sign up' }).click();
+    await page.getByLabel('Your name').fill('Robin Example');
+
+    // The first request reaches the server, which saves the sign-up, and the
+    // browser is then told the connection failed.
+    let firstId: string | undefined;
+    await page.route(
+      '**/api/slots/*/commitments',
+      async (route) => {
+        const response = await route.fetch();
+        firstId = (await response.json()).data.commitment.id;
+        await route.abort('failed');
+      },
+      { times: 1 },
+    );
+    await page.getByRole('button', { name: 'Confirm' }).click();
+    await expect(page.getByRole('dialog').getByRole('alert')).toContainText('network error');
+    expect(firstId).toBeTruthy();
+
+    await page.getByRole('button', { name: 'Confirm' }).click();
+    await expect(page.getByRole('heading', { name: "You're in." })).toBeVisible();
+    const editUrl = await page
+      .getByRole('link', { name: new RegExp(`/s/${seed.optionalEmailSlug}/c/`) })
+      .getAttribute('href');
+    expect(new URL(editUrl!, page.url()).pathname).toBe(
+      `/s/${seed.optionalEmailSlug}/c/${firstId}`,
+    );
+  });
+
   test('full slot shows Full and no sign-up affordance', async ({ page }) => {
     await page.goto(`/s/${seed.publicSlug}`);
     const row = page.locator('li').filter({ hasText: seed.fullSlotLabel });
