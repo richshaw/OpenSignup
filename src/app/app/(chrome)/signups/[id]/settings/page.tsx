@@ -5,6 +5,7 @@ import { SavedNotice } from '@/components/ui/save-notice';
 import { requiresEmail } from '@/schemas/signups';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { recordOrganizerView } from '@/lib/view-tracker';
+import { FormError } from '@/components/ui/form-error';
 import { setRequireEmailAction } from '../actions';
 import { DeleteSignupForm } from './delete-signup-form';
 
@@ -36,11 +37,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
   // form asks for an email, and deletion.
   return (
     <section className="max-w-2xl space-y-6">
-      {error ? (
-        <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
+      {error ? <FormError>{error}</FormError> : null}
       <section
         aria-labelledby="signup-form-heading"
         className="space-y-3 rounded-xl border border-surface-sunk bg-white p-6"

@@ -131,10 +131,10 @@ export default function PrivacyPage() {
           {INSTANCE_NAME} sends three kinds of email: organizer magic-link sign-in emails, a
           confirmation to a participant when they commit to a slot, and a reminder before a dated
           slot. A participant gets these only if they gave an email address. Moving to a different
-          slot sends a fresh confirmation, because the private link in the old one stops working.
-          Confirmations and reminders each contain a private link that lets you change or cancel
-          that commitment without signing in, so treat them as you would a password and don&apos;t
-          forward them. Reminders go out the day before the slot;
+          slot gives your sign-up a new private link, and sends a fresh confirmation with it. The
+          old link then leads to the new one. Confirmations and reminders each contain a private
+          link that lets you change or cancel that commitment without signing in, so treat them as
+          you would a password and don&apos;t forward them. Reminders go out the day before the slot;
           organizers can turn them off for a signup entirely. Every reminder carries a link that stops
           reminders for that signup; we record only the time you opted out, and it does not affect
           any other signup or your slot itself. Delivery uses whichever transport the operator has
