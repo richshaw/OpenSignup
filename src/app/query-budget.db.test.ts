@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
@@ -56,6 +57,11 @@ async function countStatements(run: () => Promise<unknown>): Promise<number> {
   statements = 0;
   await run();
   return statements;
+}
+
+/** The idempotency key the sign-up form sends with every request: 128 random bits, as hex. */
+function newKey(): string {
+  return randomBytes(16).toString('hex');
 }
 
 function expectWithinBudget(name: keyof typeof budgets.queries, actual: number) {
@@ -169,7 +175,7 @@ describe('query budgets for the participant hot path (db)', () => {
     const req = new NextRequest(`http://localhost/api/slots/${slotId}/commitments`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-forwarded-for': ip },
-      body: JSON.stringify({ name: 'Sam Example', email, quantity: 1 }),
+      body: JSON.stringify({ name: 'Sam Example', email, quantity: 1, idempotencyKey: newKey() }),
     });
     let status = 0;
     const count = await countStatements(async () => {
@@ -186,7 +192,12 @@ describe('query budgets for the participant hot path (db)', () => {
     const req = new NextRequest(`http://localhost/api/slots/${optionalEmailSlotId}/commitments`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-forwarded-for': ip },
-      body: JSON.stringify({ name: 'Robin Example', email: '', quantity: 1 }),
+      body: JSON.stringify({
+        name: 'Robin Example',
+        email: '',
+        quantity: 1,
+        idempotencyKey: newKey(),
+      }),
     });
     let status = 0;
     let participantId = '';

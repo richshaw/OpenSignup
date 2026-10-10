@@ -195,27 +195,14 @@ async function commitParticipantToSlot(
 ): Promise<Result<CommitResult, ServiceError>> {
   const keyHash = data.idempotencyKey === undefined ? null : hashToken(data.idempotencyKey);
   return db.transaction(async (tx) => {
-    // The slot, locked, and the active commitment on it that an earlier
-    // sign-up with the same key made, if any. In the lock's statement, so a
-    // retry costs no extra round trip. Every sign-up to the slot waits for
-    // this lock, so a retry that arrives while the first is still running
-    // sees its commitment once that one is done.
-    const [locked] = await tx
-      .select({ slot: slots, earlier: commitments })
+    const slotRows = await tx
+      .select()
       .from(slots)
-      .leftJoin(
-        commitments,
-        and(
-          eq(commitments.slotId, slots.id),
-          keyHash === null ? sql`false` : eq(commitments.idempotencyKeyHash, keyHash),
-          isActiveCommitment,
-        ),
-      )
       .where(eq(slots.id, slotId))
-      .for('update', { of: slots })
+      .for('update')
       .limit(1);
-    if (!locked) return err(serviceError('not_found', 'slot not found'));
-    const { slot } = locked;
+    const slot = slotRows[0];
+    if (!slot) return err(serviceError('not_found', 'slot not found'));
 
     // A deleted signup takes no one, though its status can still read open:
     // its page is gone, and a slot id or a page left open must not get round
@@ -225,17 +212,34 @@ async function commitParticipantToSlot(
     const signupRow = await readLiveSignup(tx, slot.signupId);
     if (!signupRow) return err(serviceError('not_found', 'signup not found'));
 
-    // Before the checks below: the place was taken when the first try got
-    // through, so a signup or slot that has closed or filled since then, or
-    // an email made required since then, does not undo it.
-    if (locked.earlier) {
-      return ok({
-        commitment: locked.earlier,
-        editToken: editTokenFor(locked.earlier.id),
-        signupSlug: signupRow.slug,
-        slotAt: slot.slotAt,
-        repeated: true,
-      });
+    // The active commitment an earlier sign-up with the same key made here.
+    // Its own statement, after the lock: a statement sees only what had
+    // committed when it started, so one that waited for the lock, such as
+    // the lock's own, would miss a first try that held the lock meanwhile.
+    // Before the checks below, since the place was taken when the first try
+    // got through: a signup or slot that has closed or filled since, or an
+    // email made required since, does not undo it.
+    if (keyHash !== null) {
+      const [earlier] = await tx
+        .select()
+        .from(commitments)
+        .where(
+          and(
+            eq(commitments.slotId, slotId),
+            eq(commitments.idempotencyKeyHash, keyHash),
+            isActiveCommitment,
+          ),
+        )
+        .limit(1);
+      if (earlier) {
+        return ok({
+          commitment: earlier,
+          editToken: editTokenFor(earlier.id),
+          signupSlug: signupRow.slug,
+          slotAt: slot.slotAt,
+          repeated: true,
+        });
+      }
     }
 
     const shut = whyNotTakingPlaces(signupRow, slot);

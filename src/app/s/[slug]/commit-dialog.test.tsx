@@ -537,4 +537,131 @@ describe('<CommitDialog /> sheet', () => {
       vi.unstubAllGlobals();
     }
   });
+
+  // A phone that loses its connection after the POST got through shows
+  // "network error" for a sign-up the server did make. Pressing Confirm again
+  // must be recognisably the same sign-up, so the server hands that one back
+  // rather than booking a second place (#387).
+  describe('the idempotency key', () => {
+    const success = {
+      ok: true,
+      json: async () => ({
+        data: { commitment: { id: 'com_1' }, editUrl: 'https://example.test/s/example/c/com_1' },
+      }),
+    };
+
+    beforeEach(() => {
+      // jsdom leaves scrollIntoView out, and the dialog calls it on the alert.
+      Element.prototype.scrollIntoView = vi.fn();
+    });
+
+    afterEach(() => {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    });
+
+    function sentBodies(fetchMock: ReturnType<typeof vi.fn>) {
+      return fetchMock.mock.calls.map(
+        ([, init]) => JSON.parse(String((init as RequestInit).body)) as Record<string, unknown>,
+      );
+    }
+
+    async function fillAndConfirm(details: { notes?: string } = {}) {
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Sam Example' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'sam@example.test' } });
+      if (details.notes !== undefined) {
+        fireEvent.change(screen.getByLabelText('Notes (optional)'), {
+          target: { value: details.notes },
+        });
+      }
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    }
+
+    async function seeNetworkError() {
+      expect(await screen.findByRole('alert', {}, settle)).toHaveTextContent('network error');
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
+    }
+
+    it('sends an unguessable, URL-safe key with the sign-up', async () => {
+      const fetchMock = vi.fn(async () => success);
+      vi.stubGlobal('fetch', fetchMock);
+
+      openSheet();
+      await fillAndConfirm();
+      await screen.findByRole('heading', { name: "You're in." }, settle);
+
+      const [body] = sentBodies(fetchMock);
+      // What CommitmentCreateInputSchema accepts: 16 to 128 of [A-Za-z0-9_-].
+      expect(body?.idempotencyKey).toMatch(/^[A-Za-z0-9_-]{16,128}$/);
+    });
+
+    it('sends the same key when Confirm is pressed again after a network error', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(success);
+      vi.stubGlobal('fetch', fetchMock);
+
+      openSheet();
+      await fillAndConfirm();
+      await seeNetworkError();
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      await screen.findByRole('heading', { name: "You're in." }, settle);
+
+      const [first, second] = sentBodies(fetchMock);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(first?.idempotencyKey).toEqual(expect.any(String));
+      // The same sign-up, key and all.
+      expect(second).toEqual(first);
+    });
+
+    it('sends a new key when the details change before Confirm is pressed again', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(success);
+      vi.stubGlobal('fetch', fetchMock);
+
+      openSheet();
+      await fillAndConfirm();
+      await seeNetworkError();
+      fireEvent.change(screen.getByLabelText('Notes (optional)'), {
+        target: { value: 'Bringing a ladder' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      await screen.findByRole('heading', { name: "You're in." }, settle);
+
+      const [first, second] = sentBodies(fetchMock);
+      expect(second).toMatchObject({ notes: 'Bringing a ladder' });
+      expect(second?.idempotencyKey).toMatch(/^[A-Za-z0-9_-]{16,128}$/);
+      expect(second?.idempotencyKey).not.toBe(first?.idempotencyKey);
+    });
+
+    it('sends a new key once the sheet has been closed and opened again', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(success);
+      vi.stubGlobal('fetch', fetchMock);
+
+      openSheet();
+      await fillAndConfirm();
+      await seeNetworkError();
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), settle);
+
+      // Word for word what the first try sent: only the close tells them apart.
+      fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
+      await fillAndConfirm();
+      await screen.findByRole('heading', { name: "You're in." }, settle);
+
+      const [first, second] = sentBodies(fetchMock);
+      const { idempotencyKey: firstKey, ...firstRest } = first ?? {};
+      const { idempotencyKey: secondKey, ...secondRest } = second ?? {};
+      expect(secondRest).toEqual(firstRest);
+      expect(secondKey).toMatch(/^[A-Za-z0-9_-]{16,128}$/);
+      expect(secondKey).not.toBe(firstKey);
+    });
+  });
 });

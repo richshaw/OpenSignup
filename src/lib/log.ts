@@ -12,6 +12,8 @@ export const log = pino({
       '*.password',
       '*.token',
       '*.editToken',
+      // A sign-up's idempotency key brings back its edit link.
+      '*.idempotencyKey',
       '*.apiKey',
       '*.RESEND_API_KEY',
       '*.SMTP_PASSWORD',
