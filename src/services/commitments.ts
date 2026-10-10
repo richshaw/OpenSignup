@@ -9,6 +9,7 @@ import { recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
+import { summarizeSlotValues } from '@/lib/slot-summary';
 import { parseInputSafe } from '@/lib/parse';
 import { err, ok, type Result } from '@/lib/result';
 import { editTokenFor, hashToken, verifyHash } from '@/lib/token';
@@ -19,6 +20,7 @@ import {
   CommitmentUpdateInputSchema,
 } from '@/schemas/commitments';
 import { readLiveSignup } from './locks';
+import { listFieldsForSignup } from './slot-fields';
 
 type CommitmentRow = typeof commitments.$inferSelect;
 
@@ -846,7 +848,8 @@ const MAX_MOVES_FOLLOWED = 10;
  * one is still active. Otherwise `movedTo` is null, and `slot` says whether
  * the slot last held would take a sign-up again (`CancelledSlotState`), so the
  * page suggests signing up again only when that would not be refused, and
- * otherwise says why.
+ * otherwise says why. `slotName` is that slot's values in a line, as the
+ * confirmation email's subject names it, or '' when it has none to show.
  *
  * Guard-free, like `editLimitsForCommitment`: call it only with a commitment
  * that `getOwnCommitment` has already verified against its edit token. Each
@@ -855,7 +858,9 @@ const MAX_MOVES_FOLLOWED = 10;
 export async function cancelledCommitmentState(
   db: Db,
   commitment: { id: string; signupId: string; slotId: string },
-): Promise<{ movedTo: string } | { movedTo: null; slot: CancelledSlotState }> {
+): Promise<
+  { movedTo: string } | { movedTo: null; slot: CancelledSlotState; slotName: string }
+> {
   let lastId = commitment.id;
   for (let moves = 0; moves < MAX_MOVES_FOLLOWED; moves++) {
     const [move] = await db
@@ -884,7 +889,23 @@ export async function cancelledCommitmentState(
     // Moved, then cancelled too: it reads as a cancel, of the slot moved to.
     if (last) slotId = last.slotId;
   }
-  return { movedTo: null, slot: await slotStateAfterCancel(db, slotId) };
+  return {
+    movedTo: null,
+    slot: await slotStateAfterCancel(db, slotId),
+    slotName: await slotName(db, commitment.signupId, slotId),
+  };
+}
+
+/** `Pack away · Sat, Nov 14`: the slot's values in field order, or ''. */
+async function slotName(db: Db, signupId: string, slotId: string): Promise<string> {
+  const [slot] = await db
+    .select({ values: slots.values })
+    .from(slots)
+    .where(and(eq(slots.id, slotId), eq(slots.signupId, signupId)))
+    .limit(1);
+  if (!slot) return '';
+  const fields = await listFieldsForSignup(db, signupId);
+  return summarizeSlotValues(fields, (slot.values as Record<string, unknown>) ?? {});
 }
 
 /**

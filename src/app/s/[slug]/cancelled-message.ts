@@ -1,4 +1,6 @@
-const CANCELLED_TITLE = 'This sign-up was cancelled';
+// "Spot", the help pages' word for one person's place in a slot. "Sign-up"
+// beside "the signup", the page, read as one word spelt two ways.
+const CANCELLED_TITLE = 'Your spot was cancelled';
 
 /**
  * What the edit page (`./c/[id]/page.tsx`) shows in place of the form for a
@@ -14,29 +16,26 @@ export const CANCELLED_PAGE = {
    */
   open: {
     title: CANCELLED_TITLE,
-    body: 'Go back to the signup if you want to sign up again.',
+    body: 'There’s still room if you want to sign up again.',
   },
   /** Every place in its slot is taken. */
   full: {
     title: CANCELLED_TITLE,
-    body: 'All its places have been taken since.',
+    body: 'The slot has filled up since.',
   },
   /** Its slot is closed, or too close to its time, while others may be open. */
   slotClosed: {
     title: CANCELLED_TITLE,
-    body: 'This slot is no longer taking sign-ups.',
+    body: 'The slot has closed.',
   },
-  /**
-   * The signup takes no more places at all. Worded as the live edit page's
-   * banner for the same thing.
-   */
+  /** The signup takes no more places at all. */
   signupClosed: {
     title: CANCELLED_TITLE,
-    body: 'Sign-ups have closed.',
+    body: 'The signup has closed.',
   },
   /** Moved to another slot, where it is still active; the page links to it. */
   moved: {
-    title: 'This sign-up moved to another slot',
+    title: 'Your spot moved to another slot',
     body: 'You’re still signed up. Use the link below to see or change it.',
   },
 } as const;

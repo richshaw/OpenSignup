@@ -27,12 +27,18 @@ describe('wasCancelled', () => {
 describe('CANCELLED_PAGE', () => {
   // One for each `CancelledSlotState`: the reason the slot would refuse them.
   it.each([
-    ['open', 'Go back to the signup if you want to sign up again.'],
-    ['full', 'All its places have been taken since.'],
-    ['slotClosed', 'This slot is no longer taking sign-ups.'],
-    ['signupClosed', 'Sign-ups have closed.'],
+    ['open', 'There’s still room if you want to sign up again.'],
+    ['full', 'The slot has filled up since.'],
+    ['slotClosed', 'The slot has closed.'],
+    ['signupClosed', 'The signup has closed.'],
   ] as const)('says why for a slot that is %s', (state, body) => {
-    expect(CANCELLED_PAGE[state]).toEqual({ title: 'This sign-up was cancelled', body });
+    expect(CANCELLED_PAGE[state]).toEqual({ title: 'Your spot was cancelled', body });
+  });
+
+  // One person's place is a "spot", as in the help pages. "Sign-up" beside
+  // "the signup" (the page) read as one word spelt two ways.
+  it.each(Object.entries(CANCELLED_PAGE))('%s never calls it a sign-up', (_, copy) => {
+    expect(`${copy.title} ${copy.body}`).not.toMatch(/sign-ups?\b/i);
   });
 
   // Anywhere else, signing up again would be refused.
