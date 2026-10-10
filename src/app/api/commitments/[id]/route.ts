@@ -53,9 +53,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (!moved) return ok(commitment);
 
     // A swap cancels this commitment and creates a new one with a new id and a
-    // new edit token, so the confirmation already in the participant's inbox
-    // now points at a cancelled row — while telling them to keep it because it
-    // is how they change their slot. Send a receipt for the replacement.
+    // new edit token. The link in the confirmation already in the
+    // participant's inbox then opens a page saying the sign-up moved, which
+    // links on to the new one; send a receipt for the replacement too, so the
+    // link they are told to keep is the new one.
     //
     // A participant without an email gets no receipt. So, as signing up does,
     // the response carries the new edit link, and the returning-participant
