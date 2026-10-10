@@ -1,11 +1,17 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Queryable, Tx } from '@/db/client';
+import type { activity } from '@/db/schema/activity';
+import type { commitments } from '@/db/schema/commitments';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 
 /** `workspace_id = ?`, where null (guest scope) matches only rows with no workspace. */
-function inWorkspace(
-  column: typeof signups.workspaceId | typeof slots.workspaceId,
+export function inWorkspace(
+  column:
+    | typeof signups.workspaceId
+    | typeof slots.workspaceId
+    | typeof commitments.workspaceId
+    | typeof activity.workspaceId,
   workspaceId: string | null,
 ) {
   return workspaceId === null ? isNull(column) : eq(column, workspaceId);
@@ -60,6 +66,9 @@ export async function readLiveSignup(db: Queryable, signupId: string) {
  * anchor as they stand. The services that hold one slot row without it
  * (`commitToSlot`, a participant's quantity change in
  * `updateOwnCommitment`, and `deleteSlot`) never take it afterwards.
+ * Commitment rows come after the slot's (see `updateOwnCommitment`); a
+ * service that locks only a commitment (`cancelOwnCommitment`,
+ * `removeCommitment`) takes neither lock after it.
  *
  * `tx` is a transaction, not `Queryable`: on the pool handle the lock would be
  * gone as soon as the select's own autocommit ended. `workspaceId` is the one

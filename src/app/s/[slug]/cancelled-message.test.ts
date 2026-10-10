@@ -43,8 +43,19 @@ describe('CANCELLED_PAGE', () => {
     expect(suggesting).toEqual(['open']);
   });
 
-  // An organizer may one day remove someone; the same words have to fit.
-  it.each(Object.entries(CANCELLED_PAGE))('%s does not say who cancelled', (_, copy) => {
-    expect(`${copy.title} ${copy.body}`).not.toMatch(/you cancelled|organizer|removed/i);
+  // The participant knows when they cancelled or moved, so only an
+  // organizer's removal names who did it.
+  it.each(Object.entries(CANCELLED_PAGE).filter(([state]) => state !== 'removed'))(
+    '%s does not say who cancelled',
+    (_, copy) => {
+      expect(`${copy.title} ${copy.body}`).not.toMatch(/you cancelled|organizer|removed/i);
+    },
+  );
+
+  it('says the organizer took them off, and does not invite them back', () => {
+    expect(CANCELLED_PAGE.removed).toEqual({
+      title: 'The organizer took you off this slot',
+      body: 'If you think this is a mistake, contact the organizer.',
+    });
   });
 });

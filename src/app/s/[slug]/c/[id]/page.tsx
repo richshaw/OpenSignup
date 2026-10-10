@@ -76,7 +76,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
     }
     return (
       <SignupStateMessage
-        {...CANCELLED_PAGE[state.slot]}
+        {...(state.removed ? CANCELLED_PAGE.removed : CANCELLED_PAGE[state.slot])}
         action={{ label: 'Back to the signup', href: `/s/${slug}` }}
       />
     );

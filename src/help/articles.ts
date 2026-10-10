@@ -20,6 +20,11 @@ export const HELP_ARTICLES = [
     summary: 'Create a signup, add the slots people can take, then publish it and share the link.',
   },
   {
+    slug: 'take-someone-off-a-slot',
+    title: 'Take someone off a slot',
+    summary: 'Remove one person from a slot, so their spot opens up for someone else.',
+  },
+  {
     slug: 'connect-an-ai-assistant',
     title: 'Connect an AI assistant',
     summary:

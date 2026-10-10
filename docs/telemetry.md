@@ -29,14 +29,15 @@ change — no migration required.
 Every entry maps to a fired event in the codebase. If you change a payload
 shape or add an event, update both the `ACTIVITY_EVENTS` tuple and this table.
 
-Rows written by the signup, slot, and field services (`signup.*`, `slot.*`,
-`field.*`) may also carry `viaClientId`: the connected app's client id
-(usually a URL) when the change came through the MCP server rather than the
-browser. It is added by `recordActivity` whenever the actor came through
-`activityActor` with a bearer-token actor, and is not listed per event. The
-key is reserved: `recordActivity` drops a `viaClientId` passed in a caller's
-payload, so the only way to set it is through the actor. The `oauth.*` events
-identify the app by `clientDomain` instead.
+Rows that an organizer's change writes through `activityActor` may also carry
+`viaClientId`: those from the signup, slot, and field services (`signup.*`,
+`slot.*`, `field.*`), and `commitment.removed`. It is the connected app's
+client id (usually a URL) when the change came through the MCP server rather
+than the browser. `recordActivity` adds it whenever that actor is a
+bearer-token actor, and it is not listed per event. The key is reserved:
+`recordActivity` drops a `viaClientId` passed in a caller's payload, so the
+only way to set it is through the actor. The `oauth.*` events identify the app
+by `clientDomain` instead.
 
 ### Signup lifecycle
 
@@ -62,6 +63,7 @@ identify the app by `clientDomain` instead.
 | `slot.updated` | organizer | `{ slotId, changed }` (the keys the update sent) | `services/slots.ts` |
 | `slot.reordered` | organizer | `{ slotIds }` (every slot, in the new order; written even when the order did not change) | `services/slots.ts` (`reorderSlots`, from the `reorder_slots` tool; a drag in the Build tab writes a `slot.updated` per moved slot instead) |
 | `slot.deleted` | organizer | `{ slotId, commitmentsRemoved, places }` (the sign-ups deleted with it, as commitments and as places) | `services/slots.ts` |
+| `commitment.removed` | organizer | `{ commitmentId, participantId, slotId }` (an organizer took the person off their slot on the Responses tab; nobody is emailed) | `services/commitments.ts` (`removeCommitment`) |
 | `field.created` | organizer | `{ fieldId, ref, fieldType, reminderFromFieldRef? }` | `services/slot-fields.ts` |
 | `field.updated` | organizer | `{ fieldId, ref, changes, reminderFromFieldRef? }` (`changes` maps each key the update sent to its new value) | `services/slot-fields.ts` |
 | `field.deleted` | organizer | `{ fieldId, ref, reminderFromFieldRef?, removedFromGroupByFieldRefs? }` | `services/slot-fields.ts` |
@@ -84,7 +86,9 @@ reminders are timed from (`null` when none is left).
 
 A move to another slot writes `commitment.swapped` and a `commitment.created`
 for the new commitment. The old one is cancelled without a
-`commitment.cancelled` row.
+`commitment.cancelled` row. An organizer's removal cancels a commitment without
+one too, writing `commitment.removed` (under Slot / field lifecycle) instead, so
+`commitment.cancelled` counts only the participants' own cancels.
 
 ### Reminder pipeline
 

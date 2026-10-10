@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { FormError } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
 import { previewReminderOptOut } from '@/services/reminder-optout';
 
@@ -129,9 +130,7 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
   return (
     <Shell title={done === 'on' ? 'Reminders turned back on' : 'Stop reminder emails?'}>
       {error ? (
-        <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
-          That didn&apos;t work — nothing has changed. Try again below.
-        </p>
+        <FormError>That didn&apos;t work — nothing has changed. Try again below.</FormError>
       ) : null}
       <p className="text-sm text-ink-muted">
         {done === 'on' ? (
