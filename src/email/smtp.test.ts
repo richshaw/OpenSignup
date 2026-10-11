@@ -53,8 +53,8 @@ describe('smtpTransportOptions', () => {
   it('keeps a small pool of connections open between emails', () => {
     const options = smtpTransportOptions(cfg);
     expect(options.pool).toBe(true);
-    expect(options.maxConnections).toBeLessThanOrEqual(3);
-    expect(options.maxMessages).toBeLessThanOrEqual(100);
+    expect(options.maxConnections).toBe(3);
+    expect(options.maxMessages).toBe(100);
   });
 
   it('retries an email at most once when its connection closes mid-send', () => {
