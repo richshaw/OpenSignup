@@ -15,7 +15,7 @@
     "/app/signups/[id]/build": 151,
     "/app/signups/[id]/edit": 124,
     "/app/signups/[id]/preview": 131,
-    "/app/signups/[id]/responses": 124,
+    "/app/signups/[id]/responses": 125,
     "/app/signups/[id]/settings": 125,
     "*": 108
   }
