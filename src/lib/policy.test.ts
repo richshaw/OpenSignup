@@ -61,6 +61,7 @@ describe('policy', () => {
   it('workspaceRole returns null for anon and unknown ws', () => {
     const a = organizer({ ws_one: 'owner' });
     expect(workspaceRole(a, 'ws_unknown')).toBeNull();
+    expect(workspaceRole({ kind: 'anonymous' }, 'ws_one')).toBeNull();
   });
 
   it('requireOrganizerId returns the organizer id', () => {
