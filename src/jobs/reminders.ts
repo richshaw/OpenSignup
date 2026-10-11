@@ -13,11 +13,11 @@ import {
   reminderUnsubscribePostUrl,
   reminderUnsubscribeUrl,
 } from '@/lib/links';
-import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
+import { REMINDER_SETTLE_HOURS, reminderSkipReason } from '@/lib/reminder-eligibility';
 import { slotDetails } from '@/lib/slot-label';
 import { summarizeSlotValues } from '@/lib/slot-summary';
 import { editTokenFor } from '@/lib/token';
-import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
+import { REMINDER_LEAD_HOURS, sendsReminders } from '@/schemas/signups';
 import { listFieldsForSignup } from '@/services/slot-fields';
 import { reminderOptOutTokenFor } from '@/services/reminder-optout';
 import { sendReminder } from '@/email/send';
@@ -130,6 +130,8 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
       slot: slots,
       signup: signups,
       participant: participants,
+      // The scan's own test, on the database's clock (see reminderSkipReason).
+      slotAhead: sql<boolean>`coalesce(${slots.slotAt} > now(), false)`,
     })
     .from(commitments)
     .innerJoin(slots, eq(slots.id, commitments.slotId))
@@ -146,6 +148,18 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     return;
   }
   if (row.signup.deletedAt) return;
+  const skip = reminderSkipReason({
+    signupStatus: row.signup.status,
+    sendReminders: sendsReminders(row.signup.settings),
+    slotAhead: row.slotAhead,
+  });
+  if (skip) {
+    log.info(
+      { commitmentId: payload.commitmentId, reason: skip },
+      'reminder no longer due; skipping',
+    );
+    return;
+  }
   // Re-checked here, not just in the dispatcher scan: a participant can
   // unsubscribe in the gap between being enqueued and the job running, which
   // a backed-up queue or a stopped worker can stretch to hours. The

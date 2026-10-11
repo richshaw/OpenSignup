@@ -277,6 +277,66 @@ describe('selectDueReminders (db)', () => {
     expect(await reminderSentRows(fx.db, commitmentId)).toBe(0);
   });
 
+  // The scan's other conditions, changed while the job waits in the queue. A
+  // backed-up queue or a stopped worker can stretch that wait to hours.
+  async function expectNoSend(commitmentId: string) {
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      await sendReminderJob({ commitmentId });
+      expect(send).not.toHaveBeenCalled();
+    } finally {
+      send.mockRestore();
+    }
+    expect(await reminderSentRows(fx.db, commitmentId)).toBe(0);
+  }
+
+  it('skips the send when the signup was archived after being enqueued', async () => {
+    const { commitmentId, signupId } = await makeScenario(fx, 'Archived mid-flight', {
+      slotInHours: 20,
+    });
+    expect(await dueIds()).toContain(commitmentId);
+    await fx.db.update(signups).set({ status: 'archived' }).where(eq(signups.id, signupId));
+
+    await expectNoSend(commitmentId);
+  });
+
+  it('skips the send when reminders were turned off after being enqueued', async () => {
+    const { commitmentId, signupId } = await makeScenario(fx, 'Reminders off mid-flight', {
+      slotInHours: 20,
+    });
+    expect(await dueIds()).toContain(commitmentId);
+    await fx.db
+      .update(signups)
+      .set({ settings: { sendReminders: false } })
+      .where(eq(signups.id, signupId));
+
+    await expectNoSend(commitmentId);
+  });
+
+  it('skips the send when the slot has passed since being enqueued', async () => {
+    const { commitmentId, slotId } = await makeScenario(fx, 'Slot passed mid-flight', {
+      slotInHours: 20,
+    });
+    expect(await dueIds()).toContain(commitmentId);
+    await fx.db
+      .update(slots)
+      .set({ slotAt: sql`now() - make_interval(hours => 2)` })
+      .where(eq(slots.id, slotId));
+
+    await expectNoSend(commitmentId);
+  });
+
+  it('still sends to a closed signup with reminders on and the slot ahead', async () => {
+    const { commitmentId, signupId } = await makeScenario(fx, 'Closed, still sends', {
+      slotInHours: 20,
+    });
+    await fx.db.update(signups).set({ status: 'closed' }).where(eq(signups.id, signupId));
+
+    await sendReminderJob({ commitmentId });
+
+    expect(await reminderSentRows(fx.db, commitmentId)).toBe(1);
+  });
+
   it('does not select a participant without an email', async () => {
     const { commitmentId, participantId } = await makeScenario(fx, 'No email given', {
       slotInHours: 20,
