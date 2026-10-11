@@ -50,6 +50,14 @@ export type Participant = typeof participants.$inferSelect;
 export type NewParticipant = typeof participants.$inferInsert;
 
 /**
+ * The key a participant's email is matched on: `emailLower`. Sign-up lookups
+ * and inserts both derive it here, so a lookup finds the row an insert made.
+ */
+export function participantEmailKey(email: string): string {
+  return email.toLowerCase();
+}
+
+/**
  * The email columns for a new participant, which the check above keeps
  * together: both from the email as typed, or both null for no email. Typed so
  * an insert cannot set one without the other. Preserves the email's casing for
@@ -60,5 +68,5 @@ export function participantEmailColumns(
 ): { email: string; emailLower: string } | { email: null; emailLower: null } {
   return email === null
     ? { email: null, emailLower: null }
-    : { email, emailLower: email.toLowerCase() };
+    : { email, emailLower: participantEmailKey(email) };
 }

@@ -22,7 +22,7 @@ import { log } from '@/lib/log';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { slotDetails } from '@/lib/slot-label';
 import { summarizeSlotValues } from '@/lib/slot-summary';
-import { SignupSettingsSchema } from '@/schemas/signups';
+import { sendsReminders } from '@/schemas/signups';
 import { listFieldsForSignup } from '@/services/slot-fields';
 import { sendCommitmentConfirmation } from './send';
 
@@ -103,14 +103,12 @@ export async function notifyCommitmentCreated(
       .limit(1);
     if (alreadySent) return;
 
-    const settings = SignupSettingsSchema.safeParse(row.signup.settings ?? {});
     // Only promise a reminder the dispatcher would actually send. The gate is
     // the dispatcher's own rule (src/lib/reminder-eligibility.ts), not a
     // paraphrase of it: reminders on and a slot date are not enough, because a
     // slot less than an hour out is one the created_at guard can never reach.
-    const remindersOn = settings.success ? settings.data.sendReminders : true;
     const promisesReminder = willSendReminder({
-      sendReminders: remindersOn,
+      sendReminders: sendsReminders(row.signup.settings),
       slotAt: row.slot.slotAt,
       createdAt: row.commitment.createdAt,
     });

@@ -2,7 +2,11 @@ import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Db, Queryable, Tx } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
-import { participantEmailColumns, participants } from '@/db/schema/participants';
+import {
+  participantEmailColumns,
+  participantEmailKey,
+  participants,
+} from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { activityActor, recordActivity } from '@/lib/activity';
@@ -293,7 +297,7 @@ async function commitParticipantToSlot(
         .where(
           and(
             eq(participants.signupId, slot.signupId),
-            eq(participants.emailLower, who.email.toLowerCase()),
+            eq(participants.emailLower, participantEmailKey(who.email)),
           ),
         )
         .limit(1);
@@ -349,7 +353,7 @@ async function commitParticipantToSlot(
         and(
           eq(commitments.slotId, slotId),
           eq(commitments.participantId, participantId),
-          or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
+          isActiveCommitment,
         ),
       )
       .limit(1);
@@ -530,7 +534,7 @@ export async function getOwnCommitmentsForSignup(
       and(
         eq(commitments.signupId, signupId),
         inArray(commitments.id, [...tokenById.keys()]),
-        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
+        isActiveCommitment,
       ),
     );
   const out: OwnCommitment[] = [];
@@ -598,12 +602,7 @@ export async function updateOwnCommitment(
       const [cancelled] = await tx
         .update(commitments)
         .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() })
-        .where(
-          and(
-            eq(commitments.id, commitmentId),
-            or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-          ),
-        )
+        .where(and(eq(commitments.id, commitmentId), isActiveCommitment))
         .returning({
           id: commitments.id,
           quantity: commitments.quantity,
