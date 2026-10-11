@@ -233,7 +233,7 @@ export function SignupViewBody({
         {groups.map((group) => (
           <section key={group.key} className="flex flex-col gap-2.5">
             {groupField ? (
-              <h2 className="px-1 text-xs font-semibold uppercase tracking-wider text-ink-muted">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
                 {group.label}
               </h2>
             ) : null}
