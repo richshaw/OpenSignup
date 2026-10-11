@@ -1,5 +1,5 @@
 import nodemailer, { type Transporter } from 'nodemailer';
-import type SMTPTransport from 'nodemailer/lib/smtp-transport';
+import type SMTPPool from 'nodemailer/lib/smtp-pool';
 import type { EmailMessage, EmailResult, EmailTransport } from './transport';
 
 export interface SmtpConfig {
@@ -32,7 +32,16 @@ export interface SmtpConfig {
 const SMTP_DNS_TIMEOUT_MS = 10_000;
 const SMTP_CONNECTION_TIMEOUT_MS = 10_000;
 
-export function smtpTransportOptions(cfg: SmtpConfig): SMTPTransport.Options {
+// Without a pool, nodemailer connects, sets up TLS and logs in for every email,
+// and a busy reminder run hits the connections-per-minute limits many mail
+// providers set. The web server and the worker each keep their own pool. The
+// worker sends one reminder at a time, so it seldom needs a second connection;
+// sign-in emails in the web server can overlap. A connection the server closes
+// while idle is dropped from the pool, and the next email opens a fresh one.
+const SMTP_MAX_CONNECTIONS = 3;
+const SMTP_MAX_MESSAGES_PER_CONNECTION = 100;
+
+export function smtpTransportOptions(cfg: SmtpConfig): SMTPPool.Options {
   const secure = cfg.secure ?? cfg.port === 465;
   const auth = cfg.user && cfg.password ? { user: cfg.user, pass: cfg.password } : undefined;
   return {
@@ -53,6 +62,14 @@ export function smtpTransportOptions(cfg: SmtpConfig): SMTPTransport.Options {
     // nodemailer read a local file or fetch an internal address into an email.
     disableFileAccess: true,
     disableUrlAccess: true,
+    pool: true,
+    maxConnections: SMTP_MAX_CONNECTIONS,
+    maxMessages: SMTP_MAX_MESSAGES_PER_CONNECTION,
+    // An email whose connection closes mid-send goes back in the queue once,
+    // for the server that hung up on an idle connection just as it was picked.
+    // nodemailer's default retries forever, and the send would never settle;
+    // after that it fails, and the caller's own retry or error takes over.
+    maxRequeues: 1,
   };
 }
 

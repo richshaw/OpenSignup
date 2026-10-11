@@ -49,6 +49,18 @@ describe('smtpTransportOptions', () => {
     expect(options.disableFileAccess).toBe(true);
     expect(options.disableUrlAccess).toBe(true);
   });
+
+  it('keeps a small pool of connections open between emails', () => {
+    const options = smtpTransportOptions(cfg);
+    expect(options.pool).toBe(true);
+    expect(options.maxConnections).toBe(3);
+    expect(options.maxMessages).toBe(100);
+  });
+
+  it('retries an email at most once when its connection closes mid-send', () => {
+    // nodemailer's default is to put it back in the queue forever.
+    expect(smtpTransportOptions(cfg).maxRequeues).toBe(1);
+  });
 });
 
 const EHLO_WITHOUT_STARTTLS = '250-mail.example.com\r\n250 AUTH PLAIN\r\n';
@@ -175,22 +187,131 @@ describe('SmtpTransport against a server without STARTTLS', () => {
   });
 });
 
+/**
+ * A mail server that takes every message without a login or TLS, as a local
+ * test mail server does. Counts the connections made to it and the messages
+ * it took. `closeAfterEach` hangs up after each message, the way a server
+ * drops a connection that has sat idle.
+ */
+async function startAcceptingServer({ closeAfterEach = false } = {}) {
+  let connections = 0;
+  const delivered: string[] = [];
+  const sockets = new Set<Socket>();
+  const server: Server = createServer((socket) => {
+    connections += 1;
+    sockets.add(socket);
+    socket.on('close', () => sockets.delete(socket));
+    socket.on('error', () => {});
+    socket.write('220 mail.example.com ESMTP\r\n');
+    let buffered = '';
+    let inData = false;
+    let to = '';
+    socket.on('data', (chunk) => {
+      buffered += chunk.toString('latin1');
+      for (let end = buffered.indexOf('\r\n'); end >= 0; end = buffered.indexOf('\r\n')) {
+        const line = buffered.slice(0, end);
+        buffered = buffered.slice(end + 2);
+        if (inData) {
+          if (line !== '.') continue;
+          inData = false;
+          delivered.push(to);
+          socket.write('250 Queued\r\n');
+          if (closeAfterEach) socket.end();
+        } else if (/^EHLO /i.test(line)) socket.write('250-mail.example.com\r\n250 8BITMIME\r\n');
+        else if (/^RCPT TO:/i.test(line)) {
+          to = line.replace(/^RCPT TO:\s*<?([^>]*)>?.*$/i, '$1');
+          socket.write('250 OK\r\n');
+        } else if (/^(MAIL FROM:|RSET)/i.test(line)) socket.write('250 OK\r\n');
+        else if (/^DATA/i.test(line)) {
+          inData = true;
+          socket.write('354 Go ahead\r\n');
+        } else if (/^QUIT/i.test(line)) socket.end('221 Bye\r\n');
+        else socket.write('502 Command not implemented\r\n');
+      }
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('no port');
+  return {
+    port: address.port,
+    connections: () => connections,
+    delivered,
+    close: () =>
+      new Promise<void>((resolve) => {
+        for (const socket of sockets) socket.destroy();
+        server.close(() => resolve());
+      }),
+  };
+}
+
+describe('SmtpTransport sending several emails', () => {
+  let server: Awaited<ReturnType<typeof startAcceptingServer>> | undefined;
+  afterEach(async () => {
+    await server?.close();
+    server = undefined;
+  });
+
+  const send = (transport: SmtpTransport, to: string) =>
+    transport.send({ to, subject: 'Reminder', html: '<p>Hi</p>', text: 'Hi' });
+  const recipients = ['pat@example.com', 'sam@example.com', 'alex@example.com'];
+
+  it('sends one after another over a single connection', async () => {
+    server = await startAcceptingServer();
+    const transport = new SmtpTransport({ ...cfg, host: '127.0.0.1', port: server.port });
+
+    // The reminder worker sends one job at a time, like this.
+    for (const to of recipients) await send(transport, to);
+
+    expect(server.delivered).toEqual(recipients);
+    expect(server.connections()).toBe(1);
+  });
+
+  it('opens a new connection when the server has closed the last one', async () => {
+    server = await startAcceptingServer({ closeAfterEach: true });
+    const transport = new SmtpTransport({ ...cfg, host: '127.0.0.1', port: server.port });
+
+    for (const to of recipients) {
+      await send(transport, to);
+      // Give the pool time to see the hang-up, as it would between reminders.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    expect(server.delivered).toEqual(recipients);
+    expect(server.connections()).toBe(3);
+  });
+});
+
 // The other email tests mock nodemailer, so a major version bump could not fail
-// them. These build a real transport from our options; jsonTransport composes
-// the message without opening a connection.
+// them. These build a real transport from our options, the pooled one we send
+// with, against a local server.
 describe('smtpTransportOptions with the real nodemailer', () => {
-  const transport = () =>
-    nodemailer.createTransport({ ...smtpTransportOptions(cfg), jsonTransport: true });
+  let server: Awaited<ReturnType<typeof startAcceptingServer>> | undefined;
+  afterEach(async () => {
+    await server?.close();
+    server = undefined;
+  });
+
+  async function transport() {
+    server = await startAcceptingServer();
+    return nodemailer.createTransport(
+      smtpTransportOptions({ ...cfg, host: '127.0.0.1', port: server.port }),
+    );
+  }
   const message = { from: cfg.from, to: 'pat@example.com', subject: 'Hello' };
 
   it('sends a message and reports its id', async () => {
-    const info = await transport().sendMail({ ...message, text: 'Hi', html: '<p>Hi</p>' });
+    const info = await (await transport()).sendMail({ ...message, text: 'Hi', html: '<p>Hi</p>' });
     expect(info.messageId).toMatch(/^<.+@.+>$/);
+    expect(server?.delivered).toEqual(['pat@example.com']);
   });
 
   it('refuses a file path as message content', async () => {
-    await expect(
-      transport().sendMail({ ...message, text: { path: 'package.json' } }),
-    ).rejects.toMatchObject({ code: 'EFILEACCESS' });
+    const mailer = await transport();
+    // Over SMTP nodemailer reports EFILEACCESS as a stream error, keeping its message.
+    await expect(mailer.sendMail({ ...message, text: { path: 'package.json' } })).rejects.toThrow(
+      /^File access rejected for package\.json/,
+    );
+    expect(server?.delivered).toEqual([]);
   });
 });
