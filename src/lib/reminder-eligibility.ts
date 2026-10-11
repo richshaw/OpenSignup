@@ -43,26 +43,3 @@ export function willSendReminder(input: {
   const createdAt = input.createdAt ?? new Date();
   return slotAt.getTime() > createdAt.getTime() + REMINDER_SETTLE_HOURS * MS_PER_HOUR;
 }
-
-/**
- * Why a queued reminder should no longer go out, or null if it still should.
- *
- * The dispatch scan checks these in SQL when it queues the job, but the job
- * runs later: seconds normally, hours when the worker is stopped or backed up.
- * In that gap the organizer can archive the signup or turn reminders off, and
- * the slot can pass, so the send job asks again with the row it reads.
- * `slotAhead` is the scan's own `slot_at > now()`, evaluated by the database,
- * so the job and the scan agree on what "ahead" means.
- */
-export function reminderSkipReason(input: {
-  signupStatus: string;
-  sendReminders: boolean;
-  slotAhead: boolean;
-}): 'signup not open or closed' | 'reminders off' | 'slot not ahead' | null {
-  if (input.signupStatus !== 'open' && input.signupStatus !== 'closed') {
-    return 'signup not open or closed';
-  }
-  if (!input.sendReminders) return 'reminders off';
-  if (!input.slotAhead) return 'slot not ahead';
-  return null;
-}

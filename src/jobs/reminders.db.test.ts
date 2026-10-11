@@ -326,6 +326,22 @@ describe('selectDueReminders (db)', () => {
     await expectNoSend(commitmentId);
   });
 
+  it('skips the send when the slot moved beyond the lead time since being enqueued', async () => {
+    // Editing a slot's values, or changing the reminder field, recomputes
+    // slot_at. A job queued for the old time must not send days early; a later
+    // scan picks the commitment up when it is truly due.
+    const { commitmentId, slotId } = await makeScenario(fx, 'Slot moved later mid-flight', {
+      slotInHours: 20,
+    });
+    expect(await dueIds()).toContain(commitmentId);
+    await fx.db
+      .update(slots)
+      .set({ slotAt: sql`now() + make_interval(hours => 72)` })
+      .where(eq(slots.id, slotId));
+
+    await expectNoSend(commitmentId);
+  });
+
   it('still sends to a closed signup with reminders on and the slot ahead', async () => {
     const { commitmentId, signupId } = await makeScenario(fx, 'Closed, still sends', {
       slotInHours: 20,
@@ -347,8 +363,8 @@ describe('selectDueReminders (db)', () => {
   });
 
   it('skips the send for a participant without an email', async () => {
-    // The scan leaves them out; this is the job's own check, for a row read
-    // after the scan.
+    // The scan leaves them out; the job asks the same condition again of the
+    // row it reads after the scan.
     const { commitmentId, participantId } = await makeScenario(fx, 'No email at send time', {
       slotInHours: 20,
     });
