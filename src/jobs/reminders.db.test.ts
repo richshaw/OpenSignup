@@ -10,6 +10,7 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { getEmailTransport } from '@/email';
+import { log } from '@/lib/log';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
@@ -272,23 +273,42 @@ describe('selectDueReminders (db)', () => {
       .set({ remindersOptedOutAt: new Date() })
       .where(eq(participants.signupId, signupId));
 
-    await sendReminderJob({ commitmentId });
-
-    expect(await reminderSentRows(fx.db, commitmentId)).toBe(0);
+    await expectNoSend(commitmentId, 'participant opted out');
   });
 
   // The scan's other conditions, changed while the job waits in the queue. A
-  // backed-up queue or a stopped worker can stretch that wait to hours.
-  async function expectNoSend(commitmentId: string) {
+  // backed-up queue or a stopped worker can stretch that wait to hours. The
+  // job logs the rule the commitment failed, so a missing reminder can be
+  // explained from the worker's log.
+  async function expectNoSend(commitmentId: string, reason: string) {
     const send = vi.spyOn(getEmailTransport(), 'send');
+    const info = vi.spyOn(log, 'info');
     try {
       await sendReminderJob({ commitmentId });
       expect(send).not.toHaveBeenCalled();
+      expect(info).toHaveBeenCalledWith(
+        { commitmentId, reasons: [reason] },
+        'reminder no longer due; skipping',
+      );
     } finally {
       send.mockRestore();
+      info.mockRestore();
     }
     expect(await reminderSentRows(fx.db, commitmentId)).toBe(0);
   }
+
+  it('warns when the commitment does not exist', async () => {
+    const warn = vi.spyOn(log, 'warn');
+    try {
+      await sendReminderJob({ commitmentId: makeId('com') });
+      expect(warn).toHaveBeenCalledWith(
+        { commitmentId: expect.any(String) },
+        'commitment not found for reminder',
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
 
   it('skips the send when the signup was archived after being enqueued', async () => {
     const { commitmentId, signupId } = await makeScenario(fx, 'Archived mid-flight', {
@@ -297,7 +317,7 @@ describe('selectDueReminders (db)', () => {
     expect(await dueIds()).toContain(commitmentId);
     await fx.db.update(signups).set({ status: 'archived' }).where(eq(signups.id, signupId));
 
-    await expectNoSend(commitmentId);
+    await expectNoSend(commitmentId, 'signup not open or closed');
   });
 
   it('skips the send when reminders were turned off after being enqueued', async () => {
@@ -310,7 +330,7 @@ describe('selectDueReminders (db)', () => {
       .set({ settings: { sendReminders: false } })
       .where(eq(signups.id, signupId));
 
-    await expectNoSend(commitmentId);
+    await expectNoSend(commitmentId, 'reminders off');
   });
 
   it('skips the send when the slot has passed since being enqueued', async () => {
@@ -323,7 +343,23 @@ describe('selectDueReminders (db)', () => {
       .set({ slotAt: sql`now() - make_interval(hours => 2)` })
       .where(eq(slots.id, slotId));
 
-    await expectNoSend(commitmentId);
+    await expectNoSend(commitmentId, 'slot passed');
+  });
+
+  it('skips the send when the slot moved beyond the lead time since being enqueued', async () => {
+    // Editing a slot's values, or changing the reminder field, recomputes
+    // slot_at. A job queued for the old time must not send days early; a later
+    // scan picks the commitment up when it is truly due.
+    const { commitmentId, slotId } = await makeScenario(fx, 'Slot moved later mid-flight', {
+      slotInHours: 20,
+    });
+    expect(await dueIds()).toContain(commitmentId);
+    await fx.db
+      .update(slots)
+      .set({ slotAt: sql`now() + make_interval(hours => 72)` })
+      .where(eq(slots.id, slotId));
+
+    await expectNoSend(commitmentId, 'slot beyond the lead time');
   });
 
   it('still sends to a closed signup with reminders on and the slot ahead', async () => {
@@ -347,22 +383,14 @@ describe('selectDueReminders (db)', () => {
   });
 
   it('skips the send for a participant without an email', async () => {
-    // The scan leaves them out; this is the job's own check, for a row read
-    // after the scan.
+    // The scan leaves them out; the job asks the same condition again of the
+    // row it reads after the scan.
     const { commitmentId, participantId } = await makeScenario(fx, 'No email at send time', {
       slotInHours: 20,
     });
     await removeParticipantEmail(fx.db, participantId);
 
-    const send = vi.spyOn(getEmailTransport(), 'send');
-    try {
-      await sendReminderJob({ commitmentId });
-      expect(send).not.toHaveBeenCalled();
-    } finally {
-      send.mockRestore();
-    }
-
-    expect(await reminderSentRows(fx.db, commitmentId)).toBe(0);
+    await expectNoSend(commitmentId, 'participant has no email');
   });
 
   it('does not select a slot with no slot_at', async () => {
