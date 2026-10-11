@@ -27,3 +27,16 @@ export function editTokenFor(commitmentId: string, extraSecret?: string): string
   if (extraSecret) h.update(extraSecret);
   return h.digest('base64url');
 }
+
+/**
+ * What a sign-up's idempotency key is stored and looked up as:
+ * HMAC(secret, [key, request]). With the request in it, a key finds an
+ * earlier sign-up only when sent with the same details, so a client that
+ * picks a guessable key hands no one else's edit link to a stranger. With the
+ * secret, a copy of the database can't be checked against guessed keys.
+ */
+export function idempotencyKeyHash(key: string, request: unknown): string {
+  return createHmac('sha256', secret())
+    .update(JSON.stringify([key, request]))
+    .digest('hex');
+}

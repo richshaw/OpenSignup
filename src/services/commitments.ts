@@ -13,7 +13,7 @@ import { summarizeSlotValues } from '@/lib/slot-summary';
 import { parseInputSafe } from '@/lib/parse';
 import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
-import { editTokenFor, hashToken, verifyHash } from '@/lib/token';
+import { editTokenFor, hashToken, idempotencyKeyHash, verifyHash } from '@/lib/token';
 import {
   type CommitmentCreateInput,
   type CommitmentUpdateInput,
@@ -149,6 +149,12 @@ export interface CommitResult {
   /** The slot's instant, read under its lock, so the route can keep the
    *  returning-participant cookie until after it without another query. */
   slotAt: Date | null;
+  /**
+   * True when this was a sign-up sent again with the same idempotency key, so
+   * `commitment` is the one the first made and nothing was written. Its
+   * confirmation email, if it has one, went after the first.
+   */
+  repeated: boolean;
 }
 
 export async function commitToSlot(
@@ -158,8 +164,19 @@ export async function commitToSlot(
 ): Promise<Result<CommitResult, ServiceError>> {
   const input = parseInputSafe(CommitmentCreateInputSchema, rawInput);
   if (!input.ok) return input;
-  const { email, ...data } = input.value;
-  return commitParticipantToSlot(db, slotId, { email: email ?? null }, data);
+  const { email, idempotencyKey, ...data } = input.value;
+  // The key together with the request as parsed, so it finds an earlier
+  // sign-up only when sent again with the same details.
+  const keyHash =
+    idempotencyKey === undefined
+      ? undefined
+      : idempotencyKeyHash(idempotencyKey, { ...data, email: email ?? null });
+  return commitParticipantToSlot(
+    db,
+    slotId,
+    { email: email ?? null },
+    { ...data, idempotencyKeyHash: keyHash },
+  );
 }
 
 /**
@@ -171,6 +188,13 @@ export async function commitToSlot(
  * participant it had and never depends on the email or on `requireEmail`;
  * their name changes only when the move sends one. Every other check is the
  * same for both.
+ *
+ * A sign-up sent with an `idempotencyKey` and details that an earlier one on
+ * this slot was sent with (`idempotencyKeyHash`) gets that earlier commitment
+ * back, while it is still active, and nothing is written. That is a retry whose first try got through but
+ * whose response never arrived, such as a phone losing its connection. With
+ * an email the participant would be found again and refused as a duplicate,
+ * which loses their link; without one they would get a second place.
  */
 async function commitParticipantToSlot(
   db: Queryable,
@@ -178,8 +202,12 @@ async function commitParticipantToSlot(
   who:
     | { email: string | null; participantId?: never }
     | { participantId: string; email?: never },
-  data: Pick<CommitmentCreateInput, 'notes' | 'quantity'> & { name?: string },
+  data: Pick<CommitmentCreateInput, 'notes' | 'quantity'> & {
+    name?: string;
+    idempotencyKeyHash?: string;
+  },
 ): Promise<Result<CommitResult, ServiceError>> {
+  const keyHash = data.idempotencyKeyHash ?? null;
   return db.transaction(async (tx) => {
     const slotRows = await tx
       .select()
@@ -197,6 +225,37 @@ async function commitParticipantToSlot(
     // below (src/services/locks.ts).
     const signupRow = await readLiveSignup(tx, slot.signupId);
     if (!signupRow) return err(serviceError('not_found', 'signup not found'));
+
+    // The active commitment an earlier sign-up with the same key made here.
+    // Its own statement, after the lock: a statement sees only what had
+    // committed when it started, so one that waited for the lock, such as
+    // the lock's own, would miss a first try that held the lock meanwhile.
+    // Before the checks below, since the place was taken when the first try
+    // got through: a signup or slot that has closed or filled since, or an
+    // email made required since, does not undo it.
+    if (keyHash !== null) {
+      const [earlier] = await tx
+        .select()
+        .from(commitments)
+        .where(
+          and(
+            eq(commitments.slotId, slotId),
+            inWorkspace(commitments.workspaceId, slot.workspaceId),
+            eq(commitments.idempotencyKeyHash, keyHash),
+            isActiveCommitment,
+          ),
+        )
+        .limit(1);
+      if (earlier) {
+        return ok({
+          commitment: earlier,
+          editToken: editTokenFor(earlier.id),
+          signupSlug: signupRow.slug,
+          slotAt: slot.slotAt,
+          repeated: true,
+        });
+      }
+    }
 
     const shut = whyNotTakingPlaces(signupRow, slot);
     if (shut) {
@@ -385,6 +444,7 @@ async function commitParticipantToSlot(
         notes: data.notes ?? '',
         notesVisibility: 'public',
         editTokenHash: hashToken(editToken),
+        idempotencyKeyHash: keyHash,
       })
       .returning();
     if (!row) return err(serviceError('internal', 'commit insert failed'));
@@ -397,7 +457,13 @@ async function commitParticipantToSlot(
       payload: { commitmentId, slotId },
     });
 
-    return ok({ commitment: row, editToken, signupSlug: signupRow.slug, slotAt: slot.slotAt });
+    return ok({
+      commitment: row,
+      editToken,
+      signupSlug: signupRow.slug,
+      slotAt: slot.slotAt,
+      repeated: false,
+    });
   });
 }
 

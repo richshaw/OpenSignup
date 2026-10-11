@@ -79,9 +79,11 @@ export async function notifyCommitmentCreated(
     // no lock, so it would not survive two concurrent calls for the same
     // commitment — but there is no path that produces them. This runs once per
     // successful POST (from `after()`), each successful POST inserts exactly
-    // one commitment with a fresh UUIDv7 id, and a racing duplicate commit by
+    // one commitment with a fresh UUIDv7 id, a racing duplicate commit by
     // the same participant is rejected as `conflict` under the slot's
-    // SELECT ... FOR UPDATE (src/services/commitments.ts). The check earns its
+    // SELECT ... FOR UPDATE (src/services/commitments.ts), and a retry with
+    // the same idempotency key gets the first commitment back and is not
+    // sent from (`repeated`, in the POST route). The check earns its
     // place only against a future caller that retries; if one is ever added,
     // the claim has to move before the send, not after it — an atomic guard
     // here would still leave the email already sent.

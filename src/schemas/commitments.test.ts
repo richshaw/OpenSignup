@@ -40,3 +40,26 @@ describe('CommitmentCreateInputSchema email', () => {
     expect(CommitmentCreateInputSchema.safeParse({ ...base, email: 5 }).success).toBe(false);
   });
 });
+
+describe('CommitmentCreateInputSchema idempotencyKey', () => {
+  const base = { name: 'Pat Example' };
+
+  it('takes a key of 16 to 128 URL-safe characters, and none', () => {
+    for (const key of ['a'.repeat(16), 'Ab0_-'.repeat(25) + 'xyz', undefined]) {
+      const r = CommitmentCreateInputSchema.safeParse({ ...base, idempotencyKey: key });
+      expect(r.success, String(key)).toBe(true);
+    }
+  });
+
+  it.each([
+    ['too short to be unguessable', 'a'.repeat(15)],
+    ['too long', 'a'.repeat(129)],
+    ['with other characters', `${'a'.repeat(16)} =`],
+    ['blank', ''],
+  ])('refuses a key %s, on its own field', (_label, key) => {
+    const r = CommitmentCreateInputSchema.safeParse({ ...base, idempotencyKey: key });
+    expect(r.success).toBe(false);
+    if (r.success) return;
+    expect(r.error.issues[0]?.path).toEqual(['idempotencyKey']);
+  });
+});

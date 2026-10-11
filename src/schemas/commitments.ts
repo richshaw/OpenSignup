@@ -19,6 +19,16 @@ export const CommitmentCreateInputSchema = z.object({
   phone: z.string().min(4).max(40).optional(),
   notes: z.string().max(500).optional(),
   quantity: z.number().int().positive().max(999).default(1),
+  /**
+   * Random, made by the client for one sign-up and sent again with any retry
+   * of it. A sign-up sent with the key and details of one already made on the
+   * slot gets that one back, edit link and all, so the key has to be
+   * unguessable: at least 16 characters.
+   */
+  idempotencyKey: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{16,128}$/, 'must be 16 to 128 letters, digits, - or _')
+    .optional(),
 });
 export type CommitmentCreateInput = z.infer<typeof CommitmentCreateInputSchema>;
 

@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
@@ -15,10 +16,12 @@ import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
 import { POST } from './route';
 
-// The confirmation runs after the response, and these sign-ups give no email.
+// The confirmation runs after the response, and these sign-ups give no email,
+// so nothing is run; the calls are kept to see which requests queued one.
+const after = vi.hoisted(() => vi.fn());
 vi.mock('next/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/server')>()),
-  after: () => {},
+  after,
 }));
 
 const DAY = 24 * 60 * 60;
@@ -47,11 +50,11 @@ describe('POST /api/slots/[id]/commitments (db)', () => {
     return slot.value.id;
   }
 
-  async function signUp(slotId: string) {
+  async function signUp(slotId: string, extra: { idempotencyKey?: string } = {}) {
     const req = new NextRequest(`http://localhost/api/slots/${slotId}/commitments`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-forwarded-for': ip },
-      body: JSON.stringify({ name: 'Robin Example', quantity: 1 }),
+      body: JSON.stringify({ name: 'Robin Example', quantity: 1, ...extra }),
     });
     const res = await POST(req, { params: Promise.resolve({ id: slotId }) });
     expect(res.status).toBe(200);
@@ -126,5 +129,30 @@ describe('POST /api/slots/[id]/commitments (db)', () => {
     const { maxAge, entries } = await signUp(await newSlot(null));
     expect(entries).toHaveLength(1);
     expect(Math.abs(maxAge - 60 * DAY)).toBeLessThan(60);
+  });
+
+  // The first response never arrived, so the form sends the same request again.
+  it('answers a retry with the same idempotency key as it did the first, and mails nothing', async () => {
+    const slotId = await newSlot(null);
+    const idempotencyKey = randomBytes(16).toString('hex');
+
+    after.mockClear();
+    const first = await signUp(slotId, { idempotencyKey });
+    expect(after).toHaveBeenCalledTimes(1);
+    const again = await signUp(slotId, { idempotencyKey });
+    expect(after).toHaveBeenCalledTimes(1);
+
+    const { id } = first.payload.data.commitment;
+    expect(again.payload.data.commitment.id).toBe(id);
+    expect(again.payload.data.editToken).toBe(first.payload.data.editToken);
+    expect(again.payload.data.editUrl).toBe(first.payload.data.editUrl);
+    expect(Object.keys(again.payload.data).sort()).toEqual(Object.keys(first.payload.data).sort());
+    expect(again.payload.data).not.toHaveProperty('repeated');
+    // The cookie the lost response carried comes with the retry instead.
+    for (const { entries } of [first, again]) {
+      expect(entries).toEqual([
+        expect.objectContaining({ commitmentId: id, token: first.payload.data.editToken }),
+      ]);
+    }
   });
 });

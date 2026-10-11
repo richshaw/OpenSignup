@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
@@ -1609,6 +1610,278 @@ describe('signing up without an email (db)', () => {
     // Without an email nothing sends them the new link, so the move hands it back.
     expect(moved.value.moved?.editToken).toEqual(expect.any(String));
     expect(moved.value.moved?.editToken).not.toBe(r.value.editToken);
+  });
+});
+
+// A sign-up whose response never arrived, sent again by the form with the same
+// key, gets the first one back rather than a second place (#387).
+describe('signing up again with the same idempotency key (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  const optional = { requireEmail: false };
+
+  /** What the sign-up form sends: 128 random bits, as hex. */
+  function newKey(): string {
+    return randomBytes(16).toString('hex');
+  }
+
+  function signUp(
+    slotId: string,
+    idempotencyKey: string | undefined,
+    who: { name?: string; email?: string } = {},
+  ) {
+    return commitToSlot(fx.db, slotId, {
+      name: 'Sam Example',
+      quantity: 1,
+      idempotencyKey,
+      ...who,
+    });
+  }
+
+  async function mustSignUp(...args: Parameters<typeof signUp>): Promise<CommitResult> {
+    const r = await signUp(...args);
+    if (!r.ok) throw new Error(`commitToSlot failed: ${r.error.code} ${r.error.message}`);
+    return r.value;
+  }
+
+  /** How many of each row a sign-up writes there are on the signup. */
+  async function writtenOn(signupId: string) {
+    const count = sql<number>`count(*)::int`;
+    const [people] = await fx.db
+      .select({ n: count })
+      .from(participants)
+      .where(eq(participants.signupId, signupId));
+    const [held] = await fx.db
+      .select({ n: count })
+      .from(commitments)
+      .where(eq(commitments.signupId, signupId));
+    const [events] = await fx.db
+      .select({ n: count })
+      .from(activity)
+      .where(eq(activity.signupId, signupId));
+    return { participants: people?.n, commitments: held?.n, activity: events?.n };
+  }
+
+  async function statusOf(commitmentId: string) {
+    const [row] = await fx.db
+      .select({ status: commitments.status })
+      .from(commitments)
+      .where(eq(commitments.id, commitmentId));
+    return row?.status;
+  }
+
+  it('gives the first sign-up back, and writes nothing, when the same request comes again', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Same key twice', optional);
+    const key = newKey();
+
+    const first = await mustSignUp(slotId, key);
+    expect(first.repeated).toBe(false);
+    const afterFirst = await writtenOn(signupId);
+    expect(afterFirst).toMatchObject({ participants: 1, commitments: 1 });
+
+    const again = await mustSignUp(slotId, key);
+    expect(again.repeated).toBe(true);
+    expect(again.commitment).toEqual(first.commitment);
+    expect(again.editToken).toBe(first.editToken);
+    expect(again.signupSlug).toBe(first.signupSlug);
+    expect(await writtenOn(signupId)).toEqual(afterFirst);
+  });
+
+  it('keeps only a hash of the key, since the key brings back the edit link', async () => {
+    const { slotId } = await makeOpenSignupWithSlot(fx, 'Key stored hashed', optional);
+    const key = newKey();
+    const { commitment } = await mustSignUp(slotId, key);
+
+    const [row] = await fx.db
+      .select({ hash: commitments.idempotencyKeyHash })
+      .from(commitments)
+      .where(eq(commitments.id, commitment.id));
+    expect(row?.hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(row?.hash).not.toContain(key);
+  });
+
+  it('makes a second sign-up for a different key, or for no key at all', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Different keys', optional);
+
+    const sam = await mustSignUp(slotId, newKey());
+    const robin = await mustSignUp(slotId, newKey(), { name: 'Robin Example' });
+    const kim = await mustSignUp(slotId, undefined, { name: 'Kim Example' });
+    const lee = await mustSignUp(slotId, undefined, { name: 'Lee Example' });
+
+    const all = [sam, robin, kim, lee];
+    expect(all.map((r) => r.repeated)).toEqual([false, false, false, false]);
+    expect(new Set(all.map((r) => r.commitment.id)).size).toBe(4);
+    expect(await writtenOn(signupId)).toMatchObject({ participants: 4, commitments: 4 });
+  });
+
+  // So a client that picks a guessable key can't hand one person's edit link
+  // to someone else who sends the same key.
+  it('makes a new sign-up, not the earlier one, for the same key with other details', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Same key, new details', optional);
+    const key = newKey();
+
+    const sam = await mustSignUp(slotId, key);
+    const robin = await mustSignUp(slotId, key, { name: 'Robin Example' });
+
+    expect(robin.repeated).toBe(false);
+    expect(robin.commitment.id).not.toBe(sam.commitment.id);
+    expect(robin.editToken).not.toBe(sam.editToken);
+    expect(await writtenOn(signupId)).toMatchObject({ participants: 2, commitments: 2 });
+  });
+
+  it('gives the sign-up back to someone who gave an email, rather than refusing it as a duplicate', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Same key, with email');
+    const key = newKey();
+    const email = { email: 'sam@example.test' };
+
+    const first = await mustSignUp(slotId, key, email);
+    const afterFirst = await writtenOn(signupId);
+    const again = await mustSignUp(slotId, key, email);
+
+    expect(again.repeated).toBe(true);
+    expect(again.commitment.id).toBe(first.commitment.id);
+    expect(again.editToken).toBe(first.editToken);
+    expect(await writtenOn(signupId)).toEqual(afterFirst);
+  });
+
+  it('still refuses the same email sent with a different key as a duplicate', async () => {
+    const { slotId } = await makeOpenSignupWithSlot(fx, 'New key, same email');
+    const email = { email: 'sam@example.test' };
+
+    const first = await mustSignUp(slotId, newKey(), email);
+    const other = await signUp(slotId, newKey(), email);
+
+    expect(other.ok).toBe(false);
+    if (other.ok) return;
+    expect(other.error.code).toBe('conflict');
+    expect(other.error.details).toEqual({ commitmentId: first.commitment.id });
+  });
+
+  it('gives the sign-up back after its place filled the slot', async () => {
+    const { signupId } = await makeOpenSignupWithSlot(fx, 'Filled since', optional);
+    const onePlace = await addSlot(fx.db, fx.actor, signupId, { values: {}, capacity: 1 });
+    if (!onePlace.ok) throw new Error(`addSlot failed: ${onePlace.error.message}`);
+    const slotId = onePlace.value.id;
+    const key = newKey();
+
+    const first = await mustSignUp(slotId, key);
+    const robin = await signUp(slotId, newKey(), { name: 'Robin Example' });
+    expect(robin.ok ? 'ok' : robin.error.code).toBe('capacity_full');
+
+    const before = await writtenOn(signupId);
+    const again = await mustSignUp(slotId, key);
+    expect(again.repeated).toBe(true);
+    expect(again.commitment.id).toBe(first.commitment.id);
+    // Not even an attempt_failed row: the place is taken, by this sign-up.
+    expect(await writtenOn(signupId)).toEqual(before);
+  });
+
+  it('gives the sign-up back after the signup was closed', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Closed since', optional);
+    const key = newKey();
+    const first = await mustSignUp(slotId, key);
+
+    const closed = await closeSignup(fx.db, fx.actor, signupId);
+    if (!closed.ok) throw new Error(`closeSignup failed: ${closed.error.message}`);
+    const robin = await signUp(slotId, newKey(), { name: 'Robin Example' });
+    expect(robin.ok ? 'ok' : robin.error.code).toBe('closed');
+
+    const before = await writtenOn(signupId);
+    const again = await mustSignUp(slotId, key);
+    expect(again.repeated).toBe(true);
+    expect(again.commitment.id).toBe(first.commitment.id);
+    expect(again.editToken).toBe(first.editToken);
+    expect(await writtenOn(signupId)).toEqual(before);
+  });
+
+  it('gives the sign-up back after the organizer made the email required', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Required since', optional);
+    const key = newKey();
+    const first = await mustSignUp(slotId, key);
+
+    const required = await updateSignup(fx.db, fx.actor, signupId, {
+      settings: { requireEmail: true },
+    });
+    if (!required.ok) throw new Error(`updateSignup failed: ${required.error.message}`);
+    const robin = await signUp(slotId, newKey(), { name: 'Robin Example' });
+    expect(robin.ok ? 'ok' : robin.error.code).toBe('invalid_input');
+
+    const again = await mustSignUp(slotId, key);
+    expect(again.repeated).toBe(true);
+    expect(again.commitment.id).toBe(first.commitment.id);
+  });
+
+  it('signs up anew when the sign-up made with that key was cancelled', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Cancelled since', optional);
+    const key = newKey();
+    const first = await mustSignUp(slotId, key);
+    const cancelled = await cancelOwnCommitment(fx.db, first.commitment.id, first.editToken);
+    expect(cancelled.ok).toBe(true);
+
+    const again = await mustSignUp(slotId, key);
+    expect(again.repeated).toBe(false);
+    expect(again.commitment.id).not.toBe(first.commitment.id);
+    expect(again.editToken).not.toBe(first.editToken);
+    expect(await statusOf(first.commitment.id)).toBe('cancelled');
+    expect(await statusOf(again.commitment.id)).toBe('confirmed');
+    expect(await writtenOn(signupId)).toMatchObject({ participants: 2, commitments: 2 });
+  });
+
+  it('treats the same key on another slot of the signup as a separate sign-up', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Key on two slots', optional);
+    const second = await addSlot(fx.db, fx.actor, signupId, { values: {}, capacity: 5 });
+    if (!second.ok) throw new Error(`addSlot failed: ${second.error.message}`);
+    const key = newKey();
+
+    const onFirst = await mustSignUp(slotId, key);
+    const onSecond = await mustSignUp(second.value.id, key);
+    expect(onSecond.repeated).toBe(false);
+    expect(onSecond.commitment.id).not.toBe(onFirst.commitment.id);
+    expect(onSecond.commitment.slotId).toBe(second.value.id);
+
+    // And each slot then hands back its own.
+    const againOnSecond = await mustSignUp(second.value.id, key);
+    expect(againOnSecond.repeated).toBe(true);
+    expect(againOnSecond.commitment.id).toBe(onSecond.commitment.id);
+    expect(await writtenOn(signupId)).toMatchObject({ participants: 2, commitments: 2 });
+  });
+
+  it('gives the first sign-up back to a retry that queued behind it', async () => {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Retry while it runs', optional);
+    const key = newKey();
+
+    // The first try held open once it has taken the place, so the retry
+    // queues behind its lock on the slot and goes on when it commits. A
+    // lookup made by the statement that waited for the lock would miss it.
+    let first: CommitResult | undefined;
+    let retry: ReturnType<typeof signUp> | undefined;
+    const held = fx.db.transaction(async (tx) => {
+      const r = await commitToSlot(tx, slotId, {
+        name: 'Sam Example',
+        quantity: 1,
+        idempotencyKey: key,
+      });
+      if (!r.ok) throw new Error(`commitToSlot failed: ${r.error.message}`);
+      first = r.value;
+      retry = signUp(slotId, key);
+      await untilServiceBlockedOn(fx.db, tx, retry);
+    });
+    await held.finally(() => settle(retry));
+
+    const again = await retry!;
+    if (!again.ok) throw new Error(`retry failed: ${again.error.message}`);
+    expect(again.value.repeated).toBe(true);
+    expect(again.value.commitment.id).toBe(first?.commitment.id);
+    expect(again.value.editToken).toBe(first?.editToken);
+    expect(await writtenOn(signupId)).toMatchObject({ participants: 1, commitments: 1 });
   });
 });
 
