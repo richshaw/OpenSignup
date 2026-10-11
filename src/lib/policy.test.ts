@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   type Actor,
-  isInWorkspace,
   requireOrganizerId,
   requireWorkspaceAccess,
   requireWorkspaceWrite,
@@ -19,10 +18,9 @@ function organizer(workspaces: Record<string, 'owner' | 'admin' | 'editor' | 'vi
 }
 
 describe('policy', () => {
-  it('isInWorkspace returns true for member', () => {
-    const a = organizer({ ws_one: 'owner' });
-    expect(isInWorkspace(a, 'ws_one')).toBe(true);
-    expect(isInWorkspace(a, 'ws_two')).toBe(false);
+  it('workspaceRole returns the role for a member', () => {
+    const a = organizer({ ws_one: 'editor' });
+    expect(workspaceRole(a, 'ws_one')).toBe('editor');
   });
 
   it('requireWorkspaceAccess allows owner', () => {
