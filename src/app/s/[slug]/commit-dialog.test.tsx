@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
+import { urlBreakSegments } from './url-breaks';
 
 // The row-level tests all run in `mode="preview"`, which renders a *disabled*
 // stand-in button. This file covers the real trigger — the only button a
@@ -377,7 +378,13 @@ describe('<CommitDialog /> sheet', () => {
           "Save this link now: we won't email it, and only this browser remembers it.",
         ),
       ).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: editUrl })).toBeInTheDocument();
+      // Wraps only at <wbr> points, not mid-word, and still reads as the URL.
+      // Found by href: jsdom's name computation pads each <wbr> with a space.
+      const link = screen.getAllByRole('link').find((a) => a.getAttribute('href') === editUrl);
+      expect(link?.textContent).toBe(editUrl);
+      expect(link).toHaveClass('break-words');
+      expect(link).not.toHaveClass('break-all');
+      expect(link!.querySelectorAll('wbr')).toHaveLength(urlBreakSegments(editUrl).length - 1);
       // No slot date, so no calendar button to mention.
       expect(screen.queryByText(/Add to calendar/)).not.toBeInTheDocument();
     });

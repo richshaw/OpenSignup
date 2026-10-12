@@ -166,15 +166,16 @@ describe('capacityLabel', () => {
     expect(capacityLabel(1, 1)).toEqual({ text: '', sr: null });
   });
 
-  it('counts the places left, as the sign-up sheet does', () => {
-    expect(capacityLabel(0, 2)).toEqual({ text: '2 of 2 left', sr: '2 of 2 places left' });
-    expect(capacityLabel(1, 2)).toEqual({ text: '1 of 2 left', sr: '1 of 2 places left' });
-    expect(capacityLabel(4, 4)).toEqual({ text: '0 of 4 left', sr: '0 of 4 places left' });
+  it('counts the spots left, as the sign-up sheet does', () => {
+    expect(capacityLabel(0, 2)).toEqual({ text: '2 left', sr: '2 of 2 spots left' });
+    expect(capacityLabel(1, 2)).toEqual({ text: '1 left', sr: '1 of 2 spots left' });
+    expect(capacityLabel(10, 12)).toEqual({ text: '2 left', sr: '2 of 12 spots left' });
   });
 
-  it('never counts below zero left when more are signed up than the slot holds', () => {
+  it('shows nothing for a full slot, where the action column says "Full"', () => {
+    expect(capacityLabel(4, 4)).toEqual({ text: '', sr: null });
     // The organizer can lower a slot's capacity under its sign-ups.
-    expect(capacityLabel(5, 3)).toEqual({ text: '0 of 3 left', sr: '0 of 3 places left' });
+    expect(capacityLabel(5, 3)).toEqual({ text: '', sr: null });
   });
 
   it('shows nothing for a non-positive capacity rather than a meaningless "0/0"', () => {
