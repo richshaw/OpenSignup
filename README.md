@@ -114,6 +114,8 @@ These values are built into the app, so they must be set when you build it. Sett
 - **Fly.io**: copy the template (`cp fly.example.toml fly.toml`) and set your values under `[build.args]`. Git ignores `fly.toml`, so your settings stay out of the repository. `fly secrets` only apply when the app starts, so they do not work here.
 - **Local development** (`pnpm dev`): put them in `.env.local`. Next.js reads it each time it starts.
 
+To link pages of your own from the footer of every page, list them in `src/lib/footer-links.ts`. This one is a code change, not an environment variable. The file holds only that list, so your copy merges cleanly when you update.
+
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md). To report a security issue, see [`SECURITY.md`](SECURITY.md).
