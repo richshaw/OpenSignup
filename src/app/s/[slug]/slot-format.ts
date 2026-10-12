@@ -34,14 +34,16 @@ export function buildMetaSegments({
 /**
  * What the count column shows for a slot, and what a screen reader hears.
  *
- * A capped slot counts the places left ("1 of 2 left"), the same direction as
- * the sign-up sheet's "1 of 2 spots left". It used to count places taken
- * ("1/2"), which read easily as "1 left" and disagreed with the sheet.
+ * A capped slot counts the spots left ("1 left"), the same direction as the
+ * sign-up sheet's "1 of 2 spots left". It used to count spots taken ("1/2"),
+ * which read easily as "1 left" and disagreed with the sheet. The total stays
+ * out of the visible text: "1 of 2 left" took about twice the width of "1/2"
+ * from a text column of about 160px at 390px, and the sheet shows the total
+ * once the slot is tapped. Screen readers still hear it.
  *
- * The visible string is deliberately empty for the common capacity-1 slot:
- * "1 of 1 left" says nothing the Sign-up button (or "Full") doesn't already,
- * and it would take room from a narrow text column at 390px. Capacity-1 state
- * lives entirely in the action column.
+ * The visible string is deliberately empty for the common capacity-1 slot and
+ * for a full one: "1 left" or "0 left" says nothing the Sign-up button (or
+ * "Full") doesn't already. That state lives entirely in the action column.
  *
  * A `null` capacity means unlimited, where a bare "3" has no denominator to
  * anchor it — so it appears only once someone has signed up, and the
@@ -65,10 +67,11 @@ export function capacityLabel(committed: number, capacity: number | null): Capac
   // Without this it fell through to the fraction branch as a meaningless
   // "0/0"; the expression this replaced rendered a bare "0" for the same row.
   if (capacity <= 1) return { text: '', sr: null };
-  // The organizer can lower a slot's capacity below its sign-ups, so floor at 0
-  // as the sign-up sheet's `spotsLeft` does.
-  const left = Math.max(0, capacity - committed);
-  return { text: `${left} of ${capacity} left`, sr: `${left} of ${capacity} places left` };
+  // `<=`, not `===`: the organizer can lower a slot's capacity below its
+  // sign-ups, and that slot is full too.
+  const left = capacity - committed;
+  if (left <= 0) return { text: '', sr: null };
+  return { text: `${left} left`, sr: `${left} of ${capacity} spots left` };
 }
 
 /**

@@ -155,6 +155,13 @@ describe('<SignupViewBody /> slot row', () => {
       capacity: null,
       committed: 0,
     },
+    {
+      ...SLOTS[0]!,
+      id: 'full4',
+      values: { date: '2026-05-20', team: 'Hawks' },
+      capacity: 4,
+      committed: 4,
+    },
   ];
 
   function renderRows() {
@@ -171,10 +178,16 @@ describe('<SignupViewBody /> slot row', () => {
     );
   }
 
-  it('drops the count on a one-place slot but counts places left on a bigger one', () => {
+  it('drops the count on a one-spot slot but counts spots left on a bigger one', () => {
     renderRows();
-    expect(screen.queryByText(/of 1 left/)).toBeNull();
-    expect(screen.getByText('2 of 12 left')).toBeInTheDocument();
+    expect(screen.queryByText(/of 1 spots left/)).toBeNull();
+    expect(screen.getByText('2 left', { exact: true })).toBeInTheDocument();
+  });
+
+  it('leaves a full slot to say "Full" rather than "0 left"', () => {
+    renderRows();
+    expect(screen.getByText('Full')).toBeInTheDocument();
+    expect(screen.queryByText(/^0 left$|of 4 spots left/)).toBeNull();
   });
 
   it('does not render a bare "0" for an uncapped slot', () => {
@@ -184,7 +197,7 @@ describe('<SignupViewBody /> slot row', () => {
 
   it('gives a counter a screen-reader sentence', () => {
     renderRows();
-    expect(screen.getByText('2 of 12 places left')).toHaveClass('sr-only');
+    expect(screen.getByText('2 of 12 spots left')).toHaveClass('sr-only');
   });
 
   it('lets the meta line wrap instead of clamping the last segment away', () => {
