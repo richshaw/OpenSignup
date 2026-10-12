@@ -166,12 +166,15 @@ describe('capacityLabel', () => {
     expect(capacityLabel(1, 1)).toEqual({ text: '', sr: null });
   });
 
-  it('shows the fraction once there is a denominator worth reading', () => {
-    expect(capacityLabel(2, 4)).toEqual({ text: '2/4', sr: '2 of 4 signed up' });
+  it('counts the places left, as the sign-up sheet does', () => {
+    expect(capacityLabel(0, 2)).toEqual({ text: '2 of 2 left', sr: '2 of 2 places left' });
+    expect(capacityLabel(1, 2)).toEqual({ text: '1 of 2 left', sr: '1 of 2 places left' });
+    expect(capacityLabel(4, 4)).toEqual({ text: '0 of 4 left', sr: '0 of 4 places left' });
   });
 
-  it('announces a full count to screen readers rather than "ten slash twelve"', () => {
-    expect(capacityLabel(10, 12).sr).toBe('10 of 12 signed up');
+  it('never counts below zero left when more are signed up than the slot holds', () => {
+    // The organizer can lower a slot's capacity under its sign-ups.
+    expect(capacityLabel(5, 3)).toEqual({ text: '0 of 3 left', sr: '0 of 3 places left' });
   });
 
   it('shows nothing for a non-positive capacity rather than a meaningless "0/0"', () => {

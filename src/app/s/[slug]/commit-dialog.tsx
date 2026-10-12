@@ -177,7 +177,7 @@ export default function CommitDialog({
 
   const emailHint = useMemo(() => suggestEmail(emailValue), [emailValue]);
   const askQuantity = spotsLeft === null || spotsLeft > 1;
-  // The row's own count ("2/4" signed up) is behind the sheet, and hidden from
+  // The row's own count ("2 of 4 left") is behind the sheet, and hidden from
   // assistive tech while it is open, so the header says how many are left.
   // Only on a slot with more than one spot, as the row only counts those:
   // "1 of 1 spots left" would say nothing.

@@ -171,10 +171,10 @@ describe('<SignupViewBody /> slot row', () => {
     );
   }
 
-  it('drops the "0/1" counter but keeps a real fraction', () => {
+  it('drops the count on a one-place slot but counts places left on a bigger one', () => {
     renderRows();
-    expect(screen.queryByText('0/1')).toBeNull();
-    expect(screen.getByText('10/12')).toBeInTheDocument();
+    expect(screen.queryByText(/of 1 left/)).toBeNull();
+    expect(screen.getByText('2 of 12 left')).toBeInTheDocument();
   });
 
   it('does not render a bare "0" for an uncapped slot', () => {
@@ -182,9 +182,9 @@ describe('<SignupViewBody /> slot row', () => {
     expect(screen.queryByText('0')).toBeNull();
   });
 
-  it('gives a counter a screen-reader sentence, not a slash', () => {
+  it('gives a counter a screen-reader sentence', () => {
     renderRows();
-    expect(screen.getByText('10 of 12 signed up')).toHaveClass('sr-only');
+    expect(screen.getByText('2 of 12 places left')).toHaveClass('sr-only');
   });
 
   it('lets the meta line wrap instead of clamping the last segment away', () => {

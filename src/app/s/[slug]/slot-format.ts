@@ -34,10 +34,14 @@ export function buildMetaSegments({
 /**
  * What the count column shows for a slot, and what a screen reader hears.
  *
+ * A capped slot counts the places left ("1 of 2 left"), the same direction as
+ * the sign-up sheet's "1 of 2 spots left". It used to count places taken
+ * ("1/2"), which read easily as "1 left" and disagreed with the sheet.
+ *
  * The visible string is deliberately empty for the common capacity-1 slot:
- * "0/1" makes a reader decode a fraction to learn "nobody yet", which the
- * Sign-up button (or "Full") already says, and it cost 36px of a 160px-wide
- * text column at 390px. Capacity-1 state lives entirely in the action column.
+ * "1 of 1 left" says nothing the Sign-up button (or "Full") doesn't already,
+ * and it would take room from a narrow text column at 390px. Capacity-1 state
+ * lives entirely in the action column.
  *
  * A `null` capacity means unlimited, where a bare "3" has no denominator to
  * anchor it — so it appears only once someone has signed up, and the
@@ -61,7 +65,10 @@ export function capacityLabel(committed: number, capacity: number | null): Capac
   // Without this it fell through to the fraction branch as a meaningless
   // "0/0"; the expression this replaced rendered a bare "0" for the same row.
   if (capacity <= 1) return { text: '', sr: null };
-  return { text: `${committed}/${capacity}`, sr: `${committed} of ${capacity} signed up` };
+  // The organizer can lower a slot's capacity below its sign-ups, so floor at 0
+  // as the sign-up sheet's `spotsLeft` does.
+  const left = Math.max(0, capacity - committed);
+  return { text: `${left} of ${capacity} left`, sr: `${left} of ${capacity} places left` };
 }
 
 /**
