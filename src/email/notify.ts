@@ -17,8 +17,10 @@ import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { recordActivity } from '@/lib/activity';
+import { ServiceException } from '@/lib/errors';
 import { commitmentEditUrl } from '@/lib/links';
 import { log } from '@/lib/log';
+import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { slotDetails } from '@/lib/slot-label';
 import { summarizeSlotValues } from '@/lib/slot-summary';
@@ -33,11 +35,19 @@ import { sendCommitmentConfirmation } from './send';
  * Unlike reminders this is transactional — it acknowledges an action the
  * participant took seconds ago — so it is not gated on the signup's reminder
  * settings.
+ *
+ * `meterRecipient` charges the recipient's address against the same
+ * per-address limit signing up uses. Signing up charges it before the commit,
+ * from the address in the request; a move has no address in its request, so
+ * the move route asks for it here, where the address is known. Over the limit,
+ * the email is skipped and the move stands. If the limit can't be checked at
+ * all, the email is skipped too, like any other failure here.
  */
 export async function notifyCommitmentCreated(
   db: Db,
   commitmentId: string,
   editToken: string,
+  opts: { meterRecipient?: boolean } = {},
 ): Promise<void> {
   try {
     const [row] = await db
@@ -102,6 +112,18 @@ export async function notifyCommitmentCreated(
       )
       .limit(1);
     if (alreadySent) return;
+
+    if (opts.meterRecipient) {
+      try {
+        await consumeRateLimit(db, RateLimits.commitmentPerEmail, to.trim().toLowerCase());
+      } catch (err) {
+        if (err instanceof ServiceException && err.serviceError.code === 'rate_limited') {
+          log.info({ commitmentId }, 'recipient over the per-address limit; no confirmation email');
+          return;
+        }
+        throw err;
+      }
+    }
 
     // Only promise a reminder the dispatcher would actually send. The gate is
     // the dispatcher's own rule (src/lib/reminder-eligibility.ts), not a
