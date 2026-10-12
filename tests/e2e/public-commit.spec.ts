@@ -67,6 +67,8 @@ test.describe('public commit flow', () => {
     });
     const editUrl = await editLink.getAttribute('href');
     expect(editUrl).toBeTruthy();
+    // The <wbr> break points add nothing to what a screen reader hears.
+    await expect(editLink).toHaveAccessibleName(editUrl!);
 
     // The link is how they change or cancel, so the screen offers to copy it
     // rather than to share it. Only Chromium lets a test grant the clipboard.

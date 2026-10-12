@@ -372,7 +372,13 @@ describe('<CommitDialog /> sheet', () => {
           "Save this link now: we won't email it, and only this browser remembers it.",
         ),
       ).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: editUrl })).toBeInTheDocument();
+      // Wraps only at <wbr> points, not mid-word, and still reads as the URL.
+      // Found by href: jsdom's name computation pads each <wbr> with a space.
+      const link = screen.getAllByRole('link').find((a) => a.getAttribute('href') === editUrl);
+      expect(link?.textContent).toBe(editUrl);
+      expect(link).toHaveClass('break-words');
+      expect(link).not.toHaveClass('break-all');
+      expect(link!.querySelectorAll('wbr')).toHaveLength(editUrl.match(/[/]+/g)!.length);
       // No slot date, so no calendar button to mention.
       expect(screen.queryByText(/Add to calendar/)).not.toBeInTheDocument();
     });
