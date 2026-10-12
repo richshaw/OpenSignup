@@ -17,7 +17,7 @@ export function SiteFooter() {
         className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2"
       >
         {FOOTER_LINKS.map((link) => (
-          <Link key={link.href} href={link.href} className="hover:underline">
+          <Link key={`${link.href} ${link.label}`} href={link.href} className="hover:underline">
             {link.label}
           </Link>
         ))}
