@@ -61,6 +61,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     // A participant without an email gets no receipt. So, as signing up does,
     // the response carries the new edit link, and the returning-participant
     // cookie takes the new commitment in place of the old one.
+    //
+    // Each move is a new commitment, so the once-per-commitment check in
+    // notifyCommitmentCreated never stops these receipts. Moving back and forth
+    // would otherwise mail the address as often as the per-IP limit allows, so
+    // the receipt is charged to the address, as signing up is.
     const { editUrl, links } = commitmentLinks(moved.signupSlug, commitment.id, moved.editToken);
     const response = ok({ ...commitment, editToken: moved.editToken, editUrl }, { links });
     const nextCookie = appendReturningCommit(
@@ -73,7 +78,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       },
     );
     setReturningCommitCookie(response, nextCookie);
-    after(() => notifyCommitmentCreated(db, commitment.id, moved.editToken));
+    after(() =>
+      notifyCommitmentCreated(db, commitment.id, moved.editToken, { meterRecipient: true }),
+    );
     return response;
   });
 }

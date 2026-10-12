@@ -285,6 +285,43 @@ describe('/api/commitments/[id] (db)', () => {
     }
   });
 
+  // Each move is a new commitment and so a new receipt. Without charging the
+  // address, moving back and forth would mail it as often as the per-IP limit
+  // allows. Past the per-address limit the move still goes through.
+  it('PATCH moves stop emailing an address past its per-address limit', async () => {
+    const c = await makeCommitment(fx);
+    const other = await addSlot(fx.db, fx.actor, fx.signupId, { values: {}, capacity: 5 });
+    if (!other.ok) throw new Error(other.error.message);
+    const max = RateLimits.commitmentPerEmail.max;
+    // 2*max+2 moves guarantee one hourly window sees more than max of them,
+    // even if the loop straddles a window boundary.
+    const moves = 2 * max + 2;
+
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      let current = { id: c.id, token: c.token };
+      for (let i = 0; i < moves; i += 1) {
+        const swapToSlotId = i % 2 === 0 ? other.value.id : fx.slotId;
+        afterResponse.length = 0;
+        const { req, ctx } = makeRequest(current.id, {
+          method: 'PATCH',
+          token: current.token,
+          body: { swapToSlotId },
+        });
+        const res = await PATCH(req, ctx);
+        expect(res.status).toBe(200);
+        const moved = (await res.json()).data;
+        current = { id: moved.id, token: moved.editToken };
+        for (const task of afterResponse) await task();
+      }
+      expect(send.mock.calls.length).toBeGreaterThan(0);
+      expect(send.mock.calls.length).toBeLessThanOrEqual(2 * max);
+      expect(send.mock.calls.length).toBeLessThan(moves);
+    } finally {
+      send.mockRestore();
+    }
+  });
+
   it('DELETE cancels the commitment and rewrites the returning cookie', async () => {
     const c = await makeCommitment(fx);
     const { req, ctx } = makeRequest(c.id, { method: 'DELETE', token: c.token });
