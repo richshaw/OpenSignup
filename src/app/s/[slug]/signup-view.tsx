@@ -239,7 +239,11 @@ export function SignupViewBody({
             ) : null}
             <ul className="overflow-hidden rounded-2xl border border-surface-sunk bg-white">
               {group.slots.map((slot, idx) => {
-                const full = slot.capacity !== null && slot.committed >= slot.capacity;
+                // Floored at 0: the organizer can lower a slot's capacity below
+                // its sign-ups.
+                const spotsLeft =
+                  slot.capacity === null ? null : Math.max(0, slot.capacity - slot.committed);
+                const full = spotsLeft === 0;
                 const closed = slot.status !== 'open' || effectiveStatus !== 'open' || full;
                 const title = titleFor(slot, primary);
                 const meta = buildMetaSegments({ fields, slot, primaryRef, groupRef });
@@ -322,11 +326,7 @@ export function SignupViewBody({
                             actionName={actionName}
                             slotAt={slot.slotAt}
                             slotHasTime={slot.hasTime}
-                            spotsLeft={
-                              slot.capacity === null
-                                ? null
-                                : Math.max(0, slot.capacity - slot.committed)
-                            }
+                            spotsLeft={spotsLeft}
                             capacity={slot.capacity}
                             signupTitle={signup.title}
                             slug={slug}
