@@ -326,6 +326,8 @@ export default function CommitDialog({
     try {
       await navigator.clipboard.writeText(success.editUrl);
       setCopyResult('copied');
+      // Back to Copy link, as Share link does, unless a failure replaced it.
+      setTimeout(() => setCopyResult((r) => (r === 'copied' ? null : r)), 2000);
     } catch {
       // No clipboard over plain HTTP, or the browser refused.
       setCopyResult('failed');
@@ -423,13 +425,22 @@ export default function CommitDialog({
                   onClick={success.emailed ? handleShare : handleCopy}
                   className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
                 >
-                  {success.emailed ? (shareCopied ? 'Link copied' : 'Share link') : 'Copy link'}
+                  {(success.emailed ? shareCopied : copyResult === 'copied')
+                    ? 'Link copied'
+                    : success.emailed
+                      ? 'Share link'
+                      : 'Copy link'}
                 </button>
               </div>
               {success.emailed ? null : (
                 // In the page from the start, so a screen reader hears it
                 // change. Not display:none while empty, which would stop that.
-                <p role="status" className="mt-2 text-sm text-ink-muted empty:mt-0">
+                // A copy shows on the button itself, so only the failure, which
+                // says what to do next, shows here on screen.
+                <p
+                  role="status"
+                  className={copyResult === 'failed' ? 'mt-2 text-sm text-ink-muted' : 'sr-only'}
+                >
                   {copyResult === 'copied'
                     ? 'Link copied.'
                     : copyResult === 'failed'

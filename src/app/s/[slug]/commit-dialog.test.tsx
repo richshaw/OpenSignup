@@ -160,7 +160,10 @@ describe('<CommitDialog /> sheet', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce(), settle);
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Signing up…' })).toBeDisabled(), settle);
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: 'Signing up…' })).toBeDisabled(),
+      settle,
+    );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
 
     release({
@@ -268,7 +271,9 @@ describe('<CommitDialog /> sheet', () => {
       openSheet();
       await screen.findByLabelText('Your name', {}, settle);
       fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Fields' } });
-      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'jordan@example.test' } });
+      fireEvent.change(screen.getByLabelText('Email'), {
+        target: { value: 'jordan@example.test' },
+      });
       fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
       const alert = await screen.findByRole('alert', {}, settle);
@@ -396,6 +401,10 @@ describe('<CommitDialog /> sheet', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
       await waitFor(() => expect(status).toHaveTextContent('Link copied.'), settle);
       expect(writeText).toHaveBeenCalledWith(editUrl);
+      // Said on the button that did it, not on a line under Add to calendar.
+      // The status stays for screen readers but is hidden on screen.
+      expect(screen.getByRole('button', { name: 'Link copied' })).toBeInTheDocument();
+      expect(status).toHaveClass('sr-only');
     });
 
     it('says to copy the link by hand when the browser will not', async () => {
@@ -412,6 +421,9 @@ describe('<CommitDialog /> sheet', () => {
           ),
         settle,
       );
+      // This one says what to do next, so it shows on screen.
+      expect(screen.getByRole('status')).not.toHaveClass('sr-only');
+      expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument();
     });
 
     it('reads as usual when they give an email after all', async () => {

@@ -77,6 +77,10 @@ test.describe('public commit flow', () => {
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       await copy.click();
       await expect(page.getByRole('dialog').getByRole('status')).toHaveText('Link copied.');
+      // Said on the button that did it, not under Add to calendar (#408).
+      await expect(
+        page.getByRole('dialog').getByRole('button', { name: 'Link copied' }),
+      ).toBeVisible();
       expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(editUrl);
     }
 
