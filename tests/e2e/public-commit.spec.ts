@@ -127,9 +127,10 @@ test.describe('public commit flow', () => {
     const row = page.locator('li').filter({ hasText: seed.fullSlotLabel });
     await expect(row.getByText('Full')).toBeVisible();
     await expect(row.getByRole('button', { name: 'Sign up' })).toHaveCount(0);
-    // A full slot shows no counter: "0 left" would say only what "Full" beside
-    // it already says. The two assertions above are what the state actually
-    // means.
+    // A capacity-1 slot shows no counter: "0 left" would say only what "Full"
+    // beside it already says. The two assertions above are what the state
+    // actually means. A full slot with more spots is covered by
+    // signup-view.test.tsx.
     await expect(row.getByText(/\d+ left|spots left/)).toHaveCount(0);
   });
 

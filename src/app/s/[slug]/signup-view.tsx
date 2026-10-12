@@ -245,7 +245,11 @@ export function SignupViewBody({
                 const meta = buildMetaSegments({ fields, slot, primaryRef, groupRef });
                 const own = ownBySlot.get(slot.id) ?? null;
                 const isOwn = own !== null;
-                const count = capacityLabel(slot.committed, slot.capacity);
+                // A closed row says "Closed" (or "Full"), and "2 left" beside it
+                // would offer spots nobody can take.
+                const count = closed
+                  ? { text: '', sr: null }
+                  : capacityLabel(slot.committed, slot.capacity);
                 const actionName = slotAccessibleName(group.label || null, title, meta);
                 return (
                   <li

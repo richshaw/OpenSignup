@@ -190,6 +190,22 @@ describe('<SignupViewBody /> slot row', () => {
     expect(screen.queryByText(/^0 left$|of 4 spots left/)).toBeNull();
   });
 
+  it('counts nothing on a closed signup, where every row says "Closed"', () => {
+    render(
+      <SignupViewBody
+        signup={{ ...SIGNUP, status: 'closed' }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={MULTI}
+        slug="example"
+        mode="live"
+        showStateBanner={false}
+      />,
+    );
+    expect(screen.getAllByText('Closed')).toHaveLength(3);
+    expect(screen.queryByText(/\d+ left|spots left|signed up/)).toBeNull();
+  });
+
   it('does not render a bare "0" for an uncapped slot', () => {
     renderRows();
     expect(screen.queryByText('0')).toBeNull();
