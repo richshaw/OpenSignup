@@ -65,7 +65,7 @@ describe('<EditForm /> quantity', () => {
     vi.stubGlobal('fetch', fetchMock);
     renderForm(1);
 
-    fireEvent.change(screen.getByLabelText('Notes'), { target: { value: 'Bringing oranges' } });
+    fireEvent.change(screen.getByLabelText('Notes (optional)'), { target: { value: 'Bringing oranges' } });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
