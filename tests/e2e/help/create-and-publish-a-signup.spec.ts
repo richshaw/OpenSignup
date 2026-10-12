@@ -171,7 +171,7 @@ test.describe('help: create and publish your first signup', () => {
     await page.goto(copied);
     await expect(page.getByRole('heading', { name: 'Snack duty — Spring season' })).toBeVisible();
     await expect(page.getByText('Fruit and water')).toHaveCount(2);
-    await expect(page.getByText('0 of 2 signed up')).toHaveCount(2);
+    await expect(page.getByText('2 of 2 left', { exact: true })).toHaveCount(2);
     const signUp = page.getByRole('button', { name: new RegExp(`^${UI.signUp} for`) });
     await expect(signUp).toHaveCount(2);
     await expect(signUp.first()).toHaveText(UI.signUp);
@@ -230,7 +230,7 @@ test.describe('help: create and publish your first signup', () => {
     await expect(ask.getByRole('radio', { name: UI.emailRequired })).toBeChecked();
     const next = await browser.newPage();
     await next.goto(`/s/${signup.slug}`);
-    await expect(next.getByText('1 of 2 signed up')).toBeVisible();
+    await expect(next.getByText('1 of 2 left', { exact: true })).toBeVisible();
     await next.getByRole('button', { name: signUp }).click();
     await expect(next.getByLabel('Email', { exact: true })).toHaveJSProperty('required', true);
     await expect(next.getByLabel(UI.emailBoxOptional)).toHaveCount(0);
