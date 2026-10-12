@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
+import { urlBreakSegments } from './url-breaks';
 
 // The row-level tests all run in `mode="preview"`, which renders a *disabled*
 // stand-in button. This file covers the real trigger — the only button a
@@ -378,7 +379,7 @@ describe('<CommitDialog /> sheet', () => {
       expect(link?.textContent).toBe(editUrl);
       expect(link).toHaveClass('break-words');
       expect(link).not.toHaveClass('break-all');
-      expect(link!.querySelectorAll('wbr')).toHaveLength(editUrl.match(/[/]+/g)!.length);
+      expect(link!.querySelectorAll('wbr')).toHaveLength(urlBreakSegments(editUrl).length - 1);
       // No slot date, so no calendar button to mention.
       expect(screen.queryByText(/Add to calendar/)).not.toBeInTheDocument();
     });

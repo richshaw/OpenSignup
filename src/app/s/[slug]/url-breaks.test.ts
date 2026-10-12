@@ -26,6 +26,7 @@ describe('urlBreakSegments', () => {
 
   it('keeps a run of break characters together, so :// stays whole', () => {
     expect(urlBreakSegments('https://a//b')).toEqual(['https://', 'a//', 'b']);
+    expect(urlBreakSegments('//a-')).toEqual(['//', 'a-']);
   });
 
   it('joins back to exactly the URL, so a copy by hand still works', () => {
