@@ -40,7 +40,8 @@ import { sendCommitmentConfirmation } from './send';
  * per-address limit signing up uses. Signing up charges it before the commit,
  * from the address in the request; a move has no address in its request, so
  * the move route asks for it here, where the address is known. Over the limit,
- * the email is skipped and the move stands.
+ * the email is skipped and the move stands. If the limit can't be checked at
+ * all, the email is skipped too, like any other failure here.
  */
 export async function notifyCommitmentCreated(
   db: Db,

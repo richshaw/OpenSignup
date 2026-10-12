@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import { getDb, type Db } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
+import { participants } from '@/db/schema/participants';
+import { rateLimits } from '@/db/schema/rate-limits';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { getEmailTransport } from '@/email';
@@ -297,6 +299,12 @@ describe('/api/commitments/[id] (db)', () => {
     // even if the loop straddles a window boundary.
     const moves = 2 * max + 2;
 
+    const [participant] = await fx.db
+      .select({ emailLower: participants.emailLower })
+      .from(participants)
+      .where(eq(participants.id, c.participantId))
+      .limit(1);
+
     const send = vi.spyOn(getEmailTransport(), 'send');
     try {
       let current = { id: c.id, token: c.token };
@@ -316,9 +324,17 @@ describe('/api/commitments/[id] (db)', () => {
       }
       expect(send.mock.calls.length).toBeGreaterThan(0);
       expect(send.mock.calls.length).toBeLessThanOrEqual(2 * max);
-      expect(send.mock.calls.length).toBeLessThan(moves);
     } finally {
       send.mockRestore();
+      // rate_limits has no tie to the workspace, so the fixture's cleanup misses it.
+      await fx.db
+        .delete(rateLimits)
+        .where(
+          and(
+            eq(rateLimits.bucket, RateLimits.commitmentPerEmail.bucket),
+            eq(rateLimits.subject, participant?.emailLower ?? ''),
+          ),
+        );
     }
   });
 
