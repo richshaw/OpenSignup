@@ -132,7 +132,7 @@ export default function EditForm({
         </p>
       ) : null}
       <label className="block">
-        <span className="mb-1 block text-sm font-medium">Name</span>
+        <span className="mb-1 block text-sm font-medium">Your name</span>
         <input
           type="text"
           name="name"
@@ -143,7 +143,7 @@ export default function EditForm({
       </label>
       <div className={askQuantity ? 'grid grid-cols-[1fr_auto] gap-3' : undefined}>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium">Notes</span>
+          <span className="mb-1 block text-sm font-medium">Notes (optional)</span>
           <input
             type="text"
             name="notes"

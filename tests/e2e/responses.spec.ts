@@ -168,10 +168,10 @@ test.describe('Responses tab', () => {
       await expect(visitor.getByRole('link', { name: 'Back to the signup' })).toBeVisible();
 
       // A save from the page left open is refused, and it reloads to say so.
-      await form.getByLabel('Notes').fill('Bringing cups');
+      await form.getByLabel('Notes (optional)').fill('Bringing cups');
       await form.getByRole('button', { name: 'Save' }).click();
       await expect(form.getByRole('heading', { name: CANCELLED_PAGE.removed.title })).toBeVisible();
-      await expect(form.getByLabel('Notes')).toHaveCount(0);
+      await expect(form.getByLabel('Notes (optional)')).toHaveCount(0);
     } finally {
       await participant.close();
     }
