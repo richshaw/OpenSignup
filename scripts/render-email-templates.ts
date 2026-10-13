@@ -46,7 +46,8 @@ const cases: Array<[string, ReactElement]> = [
     createElement(ReminderEmail, {
       participantName: 'Dana',
       signupTitle: 'Saturday Snack Rotation',
-      signupUrl: 'https://example.test/s/snacks',
+      manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
+      unsubscribeUrl: 'https://example.test/s/snacks/unsubscribe?p=par_1&token=abc',
       slotDetails: [
         { label: 'Date', value: 'Sat, Sep 5' },
         { label: 'Snack', value: 'Fruit' },

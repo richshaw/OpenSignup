@@ -1,7 +1,7 @@
-import { Button, Heading, Text } from '@react-email/components';
+import { Text } from '@react-email/components';
 import { confirmationSubject } from '../subjects';
 import type { SlotDetail } from '@/lib/slot-label';
-import { EmailLayout } from './layout';
+import { EmailButton, EmailHeading, EmailIntro, EmailLayout, NotesText } from './layout';
 import { SlotDetailsText } from './slot-details';
 
 export interface CommitmentConfirmationEmailProps {
@@ -35,24 +35,13 @@ export function CommitmentConfirmationEmail({
 }: CommitmentConfirmationEmailProps) {
   return (
     <EmailLayout preview={confirmationSubject(signupTitle, slotSummary)}>
-      <Heading as="h1" className="m-0 text-xl font-semibold">
-        You&apos;re signed up
-      </Heading>
-      <Text className="mt-2 text-[#5b6474]">
+      <EmailHeading>You&apos;re signed up</EmailHeading>
+      <EmailIntro>
         Thanks {participantName}, you signed up for <strong>{signupTitle}</strong>.
-      </Text>
+      </EmailIntro>
       <SlotDetailsText details={slotDetails} spots={quantity} />
-      {notes ? (
-        <Text className="mt-4 rounded-lg bg-[#f7f8fa] p-3 text-[#0b1220]">
-          <strong>Your notes:</strong> {notes}
-        </Text>
-      ) : null}
-      <Button
-        href={manageUrl}
-        className="mt-6 inline-block rounded-lg bg-[#1f6feb] px-5 py-3 text-sm font-medium text-white no-underline"
-      >
-        View or change your slot
-      </Button>
+      <NotesText notes={notes} />
+      <EmailButton href={manageUrl}>View or change your slot</EmailButton>
       <Text className="mt-6 text-xs text-[#8a93a4]">
         Keep this email. The button above is how you change or cancel later, with no password to
         remember. Anyone with that link can change your slot, so don&apos;t forward it.
