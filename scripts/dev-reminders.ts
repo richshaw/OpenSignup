@@ -31,14 +31,9 @@ async function main(): Promise<void> {
     );
   } else {
     console.log(`${due.length} reminder(s) due:\n`);
-    for (const r of due) {
-      console.log(`  ${r.participantEmail}`);
-      console.log(`    ${r.signupTitle} · ${r.slotRef}`);
-      // The raw instant rather than formatSlotWhen: the dispatcher row carries
-      // no field definitions to say whether the slot has a time, and the ISO
-      // form is what the database holds (a date-only slot sits at 12:00Z).
-      console.log(`    ${r.slotAt?.toISOString() ?? 'no date'}  [${r.commitmentId}]`);
-    }
+    // The scan selects only the commitment id; look one up in `pnpm db:studio`
+    // for its participant, signup and slot.
+    for (const r of due) console.log(`  ${r.commitmentId}`);
     console.log('');
   }
 

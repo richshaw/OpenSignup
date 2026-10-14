@@ -14,13 +14,12 @@ export class ResendTransport implements EmailTransport {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: msg.from ?? this.from,
+        from: this.from,
         to: [msg.to],
         subject: msg.subject,
         html: msg.html,
         text: msg.text,
         headers: msg.headers,
-        reply_to: msg.replyTo,
       }),
     });
     if (!res.ok) {

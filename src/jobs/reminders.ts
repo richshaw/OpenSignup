@@ -1,25 +1,17 @@
 import { and, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
-import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { recordActivity } from '@/lib/activity';
 import { log } from '@/lib/log';
-import {
-  commitmentEditUrl,
-  publicSignupUrl,
-  reminderUnsubscribePostUrl,
-  reminderUnsubscribeUrl,
-} from '@/lib/links';
+import { commitmentEditUrl, reminderUnsubscribePostUrl, reminderUnsubscribeUrl } from '@/lib/links';
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
-import { slotDetails } from '@/lib/slot-label';
-import { summarizeSlotValues } from '@/lib/slot-summary';
 import { editTokenFor } from '@/lib/token';
 import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
-import { listFieldsForSignup } from '@/services/slot-fields';
 import { reminderOptOutTokenFor } from '@/services/reminder-optout';
+import { alreadyRecorded, loadCommitmentRow, slotText } from '@/email/commitment-row';
 import { sendReminder } from '@/email/send';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
 
@@ -93,14 +85,6 @@ async function reminderSkipReasons(db: Db, commitmentId: string): Promise<string
   return row ? row.reasons : null;
 }
 
-export interface DueReminder {
-  commitmentId: string;
-  participantEmail: string | null;
-  signupTitle: string;
-  slotRef: string;
-  slotAt: Date | null;
-}
-
 /**
  * Selects the commitments whose reminder is *due* — slot still in the future,
  * but now within the signup's reminder lead time — and that have no
@@ -119,15 +103,9 @@ export interface DueReminder {
  * lead window, so at a 72h lead every participant who signed up two days ahead
  * would get nothing at all.
  */
-export async function selectDueReminders(db: Db): Promise<DueReminder[]> {
+export async function selectDueReminders(db: Db): Promise<{ commitmentId: string }[]> {
   return db
-    .select({
-      commitmentId: commitments.id,
-      participantEmail: participants.email,
-      signupTitle: signups.title,
-      slotRef: slots.ref,
-      slotAt: slots.slotAt,
-    })
+    .select({ commitmentId: commitments.id })
     .from(commitments)
     .innerJoin(participants, eq(participants.id, commitments.participantId))
     .innerJoin(slots, eq(slots.id, commitments.slotId))
@@ -171,19 +149,7 @@ export async function dispatchReminders(): Promise<{ enqueued: number }> {
 
 export async function sendReminderJob(payload: ReminderSendPayload): Promise<void> {
   const db = getDb();
-  const [row] = await db
-    .select({
-      commitment: commitments,
-      slot: slots,
-      signup: signups,
-      participant: participants,
-    })
-    .from(commitments)
-    .innerJoin(slots, eq(slots.id, commitments.slotId))
-    .innerJoin(signups, eq(signups.id, commitments.signupId))
-    .innerJoin(participants, eq(participants.id, commitments.participantId))
-    .where(and(eq(commitments.id, payload.commitmentId), reminderDueCondition))
-    .limit(1);
+  const row = await loadCommitmentRow(db, payload.commitmentId, reminderDueCondition);
 
   // The scan's own rules, asked again of the row as it is now (see
   // reminderDueRules): anything that changed while the job waited, from an
@@ -211,26 +177,11 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   // instance runs exactly one `pnpm worker`. It also cannot catch an email
   // that went out when recording it then failed; that job's retry sends it
   // again.
-  const [alreadySent] = await db
-    .select({ id: activity.id })
-    .from(activity)
-    .where(
-      and(
-        eq(activity.eventType, 'reminder.sent'),
-        sql`(${activity.payload}->>'commitmentId') = ${payload.commitmentId}`,
-      ),
-    )
-    .limit(1);
-  if (alreadySent) {
+  if (await alreadyRecorded(db, 'reminder.sent', row.signup.id, payload.commitmentId)) {
     log.info({ commitmentId: payload.commitmentId }, 'reminder already sent; skipping');
     return;
   }
 
-  // Every field the organizer defined, rendered the way the participant page
-  // renders it, so the email agrees with the page. `slots.ref` is a slug and
-  // never appears here.
-  const fields = await listFieldsForSignup(db, row.signup.id);
-  const slotValues = (row.slot.values as Record<string, unknown>) ?? {};
   const optOutToken = reminderOptOutTokenFor(row.participant.id);
 
   await sendReminder(
@@ -238,7 +189,6 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     {
       participantName: row.participant.name,
       signupTitle: row.signup.title,
-      signupUrl: publicSignupUrl(row.signup.slug),
       // Edit tokens are HMAC(secret, commitment_id), so the job can re-derive the
       // participant's own link without storing anything recoverable.
       manageUrl: commitmentEditUrl(
@@ -247,8 +197,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
         editTokenFor(row.commitment.id),
       ),
       unsubscribeUrl: reminderUnsubscribeUrl(row.signup.slug, row.participant.id, optOutToken),
-      slotDetails: slotDetails(fields, slotValues),
-      slotSummary: summarizeSlotValues(fields, slotValues),
+      ...(await slotText(db, row.signup.id, row.slot.values)),
       notes: row.commitment.notes,
     },
     { unsubscribePostUrl: reminderUnsubscribePostUrl(row.participant.id, optOutToken) },

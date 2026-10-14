@@ -34,3 +34,16 @@ export const booleanFlag = () =>
     .enum(['true', 'false'])
     .transform((v) => v === 'true')
     .optional();
+
+/**
+ * A failed parse as one `  - KEY: message` line per issue, for the error that
+ * stops startup. `hint` adds to the end of a key's line.
+ */
+export function formatIssues(error: z.ZodError, hint: (key: string) => string = () => ''): string {
+  return error.issues
+    .map((i) => {
+      const key = i.path.join('.');
+      return `  - ${key || '(root)'}: ${i.message}${hint(key)}`;
+    })
+    .join('\n');
+}

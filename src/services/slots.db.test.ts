@@ -244,8 +244,9 @@ describe('addSlot order (db)', () => {
 
   it('does not tie with a drag reorder saved one slot at a time', async () => {
     const { signupId, idOf } = await makeSignup(fx, 'Add during drag', [0, 1, 2]);
-    // What the builder's moveRow sends for dragging c to the top, one PATCH
-    // per slot, with an add landing after the first of them.
+    // A client renumbering one slot at a time (as the builder's drag did
+    // before #326) moves c to the top, with an add landing after the first
+    // of them.
     const move = (name: string, sortOrder: number) =>
       updateSlot(fx.db, fx.actor, idOf(name), { sortOrder });
     expect((await move('c', 0)).ok).toBe(true);

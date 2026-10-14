@@ -199,6 +199,9 @@ export function buildReducer(state: BuildState, action: BuildAction): BuildState
 const DEBOUNCE_MS = 800;
 const SAVED_CLEAR_MS = 3000;
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
+// The reorder route refuses a list that isn't every slot exactly once, which from
+// the builder means another window changed the slots. Its own message is for API callers.
+const STALE_REORDER_MESSAGE = "The slots changed in another window, so your move wasn't saved. Drag it again.";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -632,51 +635,10 @@ export function useBuildState(
     // markSaving/Saved/Error are stable (inline fns, not deps); rowId is a param
   }, []);
 
-  const moveRowUp = useCallback(
-    async (rowId: string): Promise<void> => {
-      const idx = state.rows.findIndex((r) => r.id === rowId);
-      if (idx <= 0) return;
-      const above = state.rows[idx - 1]!;
-      const current = state.rows[idx]!;
-      const newAboveSortOrder = current.sortOrder;
-      const newCurrentSortOrder = above.sortOrder;
-
-      markSaving();
-      try {
-        const [r1, r2] = await Promise.all([
-          fetch(`/api/slots/${above.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: newAboveSortOrder }),
-          }),
-          fetch(`/api/slots/${current.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: newCurrentSortOrder }),
-          }),
-        ]);
-        // Surface whichever side failed; if both, the first non-OK wins.
-        if (!r1.ok) await expectOk(r1);
-        if (!r2.ok) await expectOk(r2);
-        const updatedRows = state.rows.map((r) => {
-          if (r.id === above.id) return { ...r, sortOrder: newAboveSortOrder };
-          if (r.id === current.id) return { ...r, sortOrder: newCurrentSortOrder };
-          return r;
-        });
-        dispatch({
-          type: 'SET_ROWS',
-          rows: [...updatedRows].sort((a, b) => a.sortOrder - b.sortOrder),
-        });
-        markSaved();
-      } catch (e) {
-        markError(asErr(e));
-      }
-    },
-    [state.rows],
-  );
-
-  // Concurrent reorders by other organizers can race; this client converges via
-  // refetch on error. Mirrors moveField — fine for v1 slot counts (<30 typical).
+  // Sends the whole new order in one request, which the server applies in one
+  // transaction or not at all. If another tab or an AI assistant added or
+  // removed a slot meanwhile, the list is refused as stale; the refetch then
+  // shows the slots as they are, and the organizer can drag again.
   const moveRow = useCallback(
     async (fromIdx: number, toIdx: number): Promise<void> => {
       const previous = state.rows;
@@ -694,20 +656,16 @@ export function useBuildState(
       markSaving();
       let failure: { code: ErrorCode; message?: string } | null = null;
       try {
-        const changed = resequenced.filter(
-          (r, i) => previous[i]?.id !== r.id || previous[i]?.sortOrder !== r.sortOrder,
-        );
-        for (const r of changed) {
-          const res = await fetch(`/api/slots/${r.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: r.sortOrder }),
-          });
-          await expectOk(res);
-        }
+        const res = await fetch(`/api/signups/${signupId}/slots/order`, {
+          method: 'PUT',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ slotIds: resequenced.map((r) => r.id) }),
+        });
+        await expectOk(res);
         markSaved();
       } catch (e) {
         failure = asErr(e);
+        if (failure.code === 'invalid_input') failure = { code: 'invalid_input', message: STALE_REORDER_MESSAGE };
       }
       if (failure !== null) {
         try {
@@ -733,48 +691,6 @@ export function useBuildState(
       }
     },
     [signupId, state.rows],
-  );
-
-  const moveRowDown = useCallback(
-    async (rowId: string): Promise<void> => {
-      const idx = state.rows.findIndex((r) => r.id === rowId);
-      if (idx < 0 || idx >= state.rows.length - 1) return;
-      const current = state.rows[idx]!;
-      const below = state.rows[idx + 1]!;
-      const newCurrentSortOrder = below.sortOrder;
-      const newBelowSortOrder = current.sortOrder;
-
-      markSaving();
-      try {
-        const [r1, r2] = await Promise.all([
-          fetch(`/api/slots/${current.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: newCurrentSortOrder }),
-          }),
-          fetch(`/api/slots/${below.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: newBelowSortOrder }),
-          }),
-        ]);
-        if (!r1.ok) await expectOk(r1);
-        if (!r2.ok) await expectOk(r2);
-        const updatedRows = state.rows.map((r) => {
-          if (r.id === current.id) return { ...r, sortOrder: newCurrentSortOrder };
-          if (r.id === below.id) return { ...r, sortOrder: newBelowSortOrder };
-          return r;
-        });
-        dispatch({
-          type: 'SET_ROWS',
-          rows: [...updatedRows].sort((a, b) => a.sortOrder - b.sortOrder),
-        });
-        markSaved();
-      } catch (e) {
-        markError(asErr(e));
-      }
-    },
-    [state.rows],
   );
 
   // ---------------------------------------------------------------------------
@@ -1012,8 +928,6 @@ export function useBuildState(
     addRow,
     duplicateRow,
     deleteRow,
-    moveRowUp,
-    moveRowDown,
     moveRow,
     editCell,
     setCapacity,

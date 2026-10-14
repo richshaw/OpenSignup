@@ -4,8 +4,6 @@ export interface EmailMessage {
   html: string;
   text: string;
   headers?: Record<string, string>;
-  replyTo?: string;
-  from?: string;
 }
 
 export interface EmailResult {

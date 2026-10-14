@@ -7,6 +7,12 @@ import { capacityMessage } from '../../capacity-message';
 import { closedMessage } from '../../closed-message';
 import { goneMessage } from '../../gone-message';
 
+// The request never reached the server (offline, or a dropped connection).
+const SAVE_UNREACHABLE = "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.";
+const CANCEL_UNREACHABLE = "Couldn't reach the server, so your sign-up wasn't cancelled. Check your connection and try again.";
+// A refusal whose answer isn't ours to read, such as an error page from a proxy.
+const SAVE_UNREADABLE = "Something went wrong, so your changes weren't saved. Try again.";
+
 interface EditFormProps {
   commitmentId: string;
   token: string;
@@ -63,13 +69,22 @@ export default function EditForm({
       // leaves the quantity exactly as it is.
       ...(quantity === null ? {} : { quantity: Number(quantity) }),
     };
-    const res = await fetch(`/api/commitments/${commitmentId}?token=${encodeURIComponent(token)}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const payload = await res.json();
-    if (!res.ok) {
+    let res: Response;
+    try {
+      res = await fetch(`/api/commitments/${commitmentId}?token=${encodeURIComponent(token)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      setMessage({ kind: 'err', text: SAVE_UNREACHABLE });
+      setSaving(false);
+      return;
+    }
+    const payload = await res.json().catch(() => null);
+    if (!res.ok && payload === null) {
+      setMessage({ kind: 'err', text: SAVE_UNREADABLE });
+    } else if (!res.ok) {
       // Cancelled, or moved to another slot, since this page loaded, most
       // likely in another tab. Every save would be refused, so reload: the
       // page then says which in place of this form. `saving` stays on, so
@@ -105,9 +120,17 @@ export default function EditForm({
   async function handleConfirmCancel() {
     setSaving(true);
     setMessage(null);
-    const res = await fetch(`/api/commitments/${commitmentId}?token=${encodeURIComponent(token)}`, {
-      method: 'DELETE',
-    });
+    let res: Response;
+    try {
+      res = await fetch(`/api/commitments/${commitmentId}?token=${encodeURIComponent(token)}`, {
+        method: 'DELETE',
+      });
+    } catch {
+      setMessage({ kind: 'err', text: CANCEL_UNREACHABLE });
+      setConfirmingCancel(false);
+      setSaving(false);
+      return;
+    }
     if (res.ok) {
       router.push(`/s/${slug}`);
     } else {
