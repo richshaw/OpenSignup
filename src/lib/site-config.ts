@@ -14,7 +14,7 @@
  * Quickstart runs straight from `.env.example`.
  */
 import { z } from 'zod';
-import { requiredString } from './zod-env';
+import { formatIssues, requiredString } from './zod-env';
 
 const schema = z.object({
   NEXT_PUBLIC_INSTANCE_NAME: requiredString('NEXT_PUBLIC_INSTANCE_NAME').min(
@@ -94,10 +94,7 @@ export function parseSiteConfig(
     NEXT_PUBLIC_OPERATOR_NAME: raw.NEXT_PUBLIC_OPERATOR_NAME,
   });
   if (!parsed.success) {
-    const issues = parsed.error.issues
-      .map((i) => `  - ${i.path.join('.') || '(root)'}: ${i.message}`)
-      .join('\n');
-    throw new Error(`Invalid site config:\n${issues}`);
+    throw new Error(`Invalid site config:\n${formatIssues(parsed.error)}`);
   }
   return {
     INSTANCE_NAME: parsed.data.NEXT_PUBLIC_INSTANCE_NAME,

@@ -373,6 +373,21 @@ describe('selectDueReminders (db)', () => {
     expect(await reminderSentRows(fx.db, commitmentId)).toBe(1);
   });
 
+  it('sends once when a second job for the same commitment runs after the first', async () => {
+    // The queue does not dedupe, so a commitment still due at the next scan
+    // gets another job; the reminder.sent row the first one records stops it.
+    const { commitmentId } = await makeScenario(fx, 'Two jobs, one email', { slotInHours: 20 });
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      await sendReminderJob({ commitmentId });
+      await sendReminderJob({ commitmentId });
+      expect(send).toHaveBeenCalledTimes(1);
+    } finally {
+      send.mockRestore();
+    }
+    expect(await reminderSentRows(fx.db, commitmentId)).toBe(1);
+  });
+
   it('does not select a participant without an email', async () => {
     const { commitmentId, participantId } = await makeScenario(fx, 'No email given', {
       slotInHours: 20,

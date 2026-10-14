@@ -1,6 +1,6 @@
-import { Button, Heading, Text } from '@react-email/components';
+import { Text } from '@react-email/components';
 import { formatDuration } from '@/lib/format-duration';
-import { EmailLayout } from './layout';
+import { EmailButton, EmailHeading, EmailIntro, EmailLayout } from './layout';
 
 export interface MagicLinkEmailProps {
   url: string;
@@ -13,24 +13,17 @@ export interface MagicLinkEmailProps {
 export function MagicLinkEmail({ url, email, expiresInMinutes = 60, code }: MagicLinkEmailProps) {
   return (
     <EmailLayout preview={`Sign in to OpenSignup as ${email}`}>
-      <Heading as="h1" className="m-0 text-xl font-semibold">
-        Sign in to OpenSignup
-      </Heading>
-      <Text className="mt-2 text-[#5b6474]">
+      <EmailHeading>Sign in to OpenSignup</EmailHeading>
+      <EmailIntro>
         Click the button below to sign in as <strong>{email}</strong>. This link will expire in{' '}
         {formatDuration(expiresInMinutes)}.
-      </Text>
-      <Button
-        href={url}
-        className="mt-6 inline-block rounded-lg bg-[#1f6feb] px-5 py-3 text-sm font-medium text-white no-underline"
-      >
-        Sign in
-      </Button>
+      </EmailIntro>
+      <EmailButton href={url}>Sign in</EmailButton>
       {code ? (
         <>
           <Text className="mt-6 text-[#5b6474]">
-            Reading this on a different device? Type this code into the window where you
-            started signing in instead. It works for 15 minutes:
+            Reading this on a different device? Type this code into the window where you started
+            signing in instead. It works for 15 minutes:
           </Text>
           <Text className="m-0 font-mono text-2xl font-semibold tracking-[0.3em] text-[#0b1220]">
             {code}

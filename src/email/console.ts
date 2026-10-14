@@ -30,7 +30,6 @@ export class ConsoleTransport implements EmailTransport {
 
   async send(msg: EmailMessage): Promise<EmailResult> {
     const id = randomUUID();
-    const from = msg.from ?? this.from;
     const matched = msg.text.match(/https?:\/\/\S+/g) ?? [];
     // Tokens live in the query string; only emit them in dev so they don't land
     // in prod log aggregation if EMAIL_TRANSPORT defaults to console. The body
@@ -43,7 +42,7 @@ export class ConsoleTransport implements EmailTransport {
       {
         emailId: id,
         to: msg.to,
-        from,
+        from: this.from,
         subject: msg.subject,
         urls,
         textPreview: text.slice(0, 600),
