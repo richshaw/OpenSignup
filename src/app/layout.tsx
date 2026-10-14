@@ -16,11 +16,12 @@ export const metadata: Metadata = {
   },
   description: DESCRIPTION,
   applicationName: INSTANCE_NAME,
+  // No `url`: a page that sets no openGraph of its own then gives no og:url,
+  // rather than the home page's. Public pages set theirs (`pageMetadata`).
   openGraph: {
     type: 'website',
     siteName: INSTANCE_NAME,
     locale: 'en_US',
-    url: '/',
     title: INSTANCE_NAME,
     description: DESCRIPTION,
   },
