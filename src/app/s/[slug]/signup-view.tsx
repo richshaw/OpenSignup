@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { slotTimeOfDay } from '@/lib/reminder-fields';
-import type { SignupStatus } from '@/schemas/signups';
+import { shownSignupStatus } from '@/lib/signup-closing';
+import { requiresEmail, sendsReminders, type SignupStatus } from '@/schemas/signups';
 import type { SlotStatus } from '@/schemas/slots';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { Banner } from '@/components/banner';
@@ -68,6 +69,30 @@ export function toSignupViewSlots(
       committed: committedBySlot?.[slot.id] ?? 0,
     };
   });
+}
+
+/**
+ * The live page's view of the signup itself. Past its closing time an open
+ * signup takes no sign-ups (`signupShutReason`), so it shows as closed: the
+ * Closed banner, and Closed on every slot.
+ */
+export function toSignupViewSignup(
+  signup: {
+    title: string;
+    description: string | null;
+    status: string;
+    closesAt: Date | null;
+    settings: unknown;
+  },
+  now: number = Date.now(),
+): SignupViewProps['signup'] {
+  return {
+    title: signup.title,
+    description: signup.description,
+    status: shownSignupStatus(signup, now) as SignupStatus,
+    requireEmail: requiresEmail(signup.settings),
+    sendReminders: sendsReminders(signup.settings),
+  };
 }
 
 export function toSignupViewFields(fields: readonly SourceField[]): SignupViewField[] {

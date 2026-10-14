@@ -96,7 +96,7 @@ export default function EditForm({
       // `remaining` here is the most this commitment can hold, not the spots
       // still free, so the copy is the edit page's own.
       const capacity = capacityMessage(payload?.error, 'change');
-      const copy = capacity ?? closedMessage(payload?.error) ?? goneMessage(payload?.error);
+      const copy = capacity ?? closedMessage(payload?.error, 'change') ?? goneMessage(payload?.error);
       setMessage({
         kind: 'err',
         text: copy

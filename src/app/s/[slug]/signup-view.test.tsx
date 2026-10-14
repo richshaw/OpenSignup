@@ -8,6 +8,7 @@ import { ACTION_SIZING } from './slot-format';
 import {
   SignupViewBody,
   toSignupViewFields,
+  toSignupViewSignup,
   toSignupViewSlots,
   type SignupViewField,
   type SignupViewSlot,
@@ -532,4 +533,35 @@ describe('the optional email box on the live page', () => {
       expect(help).not.toContain('reminder');
     });
   }
+});
+
+describe('the live page past its closing time', () => {
+  const NOW = Date.parse('2030-04-06T12:00:00Z');
+  const ROW = { title: 'Snack duty', description: null, settings: {}, status: 'open' };
+
+  function renderLive(closesAt: Date | null) {
+    render(
+      <SignupViewBody
+        signup={toSignupViewSignup({ ...ROW, closesAt }, NOW)}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="live"
+      />,
+    );
+  }
+
+  it('shows an open signup whose closing time has passed as closed, with no Sign up button', () => {
+    renderLive(new Date(NOW - 60_000));
+    expect(screen.getByText('This signup is no longer collecting responses.')).toBeInTheDocument();
+    expect(screen.getByText('Closed', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Sign up/ })).toBeNull();
+  });
+
+  it('still offers Sign up before the closing time', () => {
+    renderLive(new Date(NOW + 60_000));
+    expect(screen.queryByText('This signup is no longer collecting responses.')).toBeNull();
+    expect(screen.getByRole('button', { name: /^Sign up for / })).toBeInTheDocument();
+  });
 });

@@ -287,6 +287,36 @@ describe('<CommitDialog /> sheet', () => {
     }
   });
 
+  // The signup's closing time passed, or the organizer closed it, after this
+  // page loaded.
+  it('says sign-ups have closed in plain words, not the server text', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 409,
+      json: async () => ({ error: { code: 'closed', message: 'signup has closed' } }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    // jsdom leaves scrollIntoView out, and the dialog calls it on the alert.
+    Element.prototype.scrollIntoView = vi.fn();
+    try {
+      openSheet();
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Fields' } });
+      fireEvent.change(screen.getByLabelText('Email'), {
+        target: { value: 'jordan@example.test' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent('Sign-ups for this slot have closed.');
+      expect(alert).toHaveTextContent('Reload the page to see what’s still open.');
+      expect(alert).not.toHaveTextContent('signup has closed');
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('commits one place when it does not ask', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,

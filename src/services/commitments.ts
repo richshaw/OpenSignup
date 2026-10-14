@@ -14,6 +14,7 @@ import { serviceError, ServiceException, type ServiceError } from '@/lib/errors'
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
 import { summarizeSlotValues } from '@/lib/slot-summary';
+import { signupShutReason } from '@/lib/signup-closing';
 import { parseInputSafe } from '@/lib/parse';
 import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
@@ -93,7 +94,8 @@ async function safeRecordAttemptFailed(
  * the order signing up has always checked them: the slot is closed; the
  * signup's status is anything but `open` (a draft, closed or archived signup);
  * its `closesAt` has passed; or the slot starts within the signup's
- * `lockoutHoursBeforeSlot`. Taking a place (`commitParticipantToSlot`, for
+ * `lockoutHoursBeforeSlot`. The two signup rules are `signupShutReason`, which
+ * the public page reads too. Taking a place (`commitParticipantToSlot`, for
  * someone signing up and for a move to another slot), raising a quantity
  * (`updateOwnCommitment`) and the edit page's limit (`editLimitsForCommitment`)
  * all ask this, so a place refused one way cannot be had another; so does the
@@ -112,7 +114,8 @@ function whyNotTakingPlaces(
       error: serviceError('closed', 'that slot is closed'),
     };
   }
-  if (signup.status !== 'open') {
+  const signupShut = signupShutReason(signup);
+  if (signupShut === 'status') {
     return {
       reason: 'closed',
       detail: `signup_${signup.status}`,
@@ -123,7 +126,7 @@ function whyNotTakingPlaces(
       }),
     };
   }
-  if (signup.closesAt && signup.closesAt.getTime() < Date.now()) {
+  if (signupShut === 'closes_at') {
     return {
       reason: 'over_window',
       detail: 'closes_at_elapsed',
