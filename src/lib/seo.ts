@@ -20,16 +20,6 @@ export const INDEXABLE_ROUTES: readonly string[] = [
   ...HELP_ARTICLES.map((a) => `/help/${a.slug}`),
 ];
 
-/**
- * Metadata for a public page: its title, description and canonical URL, with
- * `openGraph` and `twitter` objects that say the same. Next merges metadata
- * shallowly, so a page that sets neither inherits the root layout's whole,
- * home page's URL, title and description included, and every link preview of
- * it reads as the home page. Re-states type, siteName, locale and card for the
- * same reason, and the share image: Next adds the root `opengraph-image.png`
- * and `twitter-image.png` only to pages that leave `openGraph` and `twitter`
- * unset, so a page that sets them names the image itself.
- */
 // The root share image files (`src/app/opengraph-image.png`, the same picture
 // as `twitter-image.png`, made by `scripts/generate-og-image.mjs`) and their
 // `.alt.txt`. `seo.test.ts` checks these against the files.
@@ -40,6 +30,16 @@ export const SHARE_IMAGE = {
   alt: 'OpenSignup — sign-up sheets, redone. Ad-free, with no accounts for participants.',
 } as const;
 
+/**
+ * Metadata for a public page: its title, description and canonical URL, with
+ * `openGraph` and `twitter` objects that say the same. Next merges metadata
+ * shallowly, so a page that sets neither inherits the root layout's whole,
+ * home page's URL, title and description included, and every link preview of
+ * it reads as the home page. Re-states type, siteName, locale and card for the
+ * same reason, and the share image: Next adds the root `opengraph-image.png`
+ * and `twitter-image.png` only to pages that leave `openGraph` and `twitter`
+ * unset, so a page that sets them names the image itself.
+ */
 export function pageMetadata(page: {
   path: string;
   title: string;
