@@ -62,6 +62,7 @@ function renderGroup(overrides: {
       groupField={groupField}
       displayFields={overrides.displayFields ?? []}
       fields={overrides.fields ?? (groupField ? [groupField] : [])}
+      takenBySlot={{}}
       expandedRowId={overrides.expandedRowId ?? null}
       onExpandRow={onExpandRow}
       onEditCell={onEditCell}

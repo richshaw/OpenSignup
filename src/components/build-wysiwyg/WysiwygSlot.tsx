@@ -10,6 +10,11 @@ import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
 type WysiwygSlotProps = {
   row: BuildRow;
+  /**
+   * Spots people have taken on this slot, counted as the public page counts
+   * them (`committedBySlot`). A snapshot from when the page loaded.
+   */
+  taken: number;
   fields: BuildField[];
   /**
    * All non-group fields in organizer-chosen order. `displayFields[0]` becomes
@@ -38,6 +43,7 @@ type WysiwygSlotProps = {
  */
 export function WysiwygSlot({
   row,
+  taken,
   fields,
   displayFields,
   expanded,
@@ -177,7 +183,7 @@ export function WysiwygSlot({
           )}
         </div>
         <span className="shrink-0 font-mono text-[11px] text-ink-soft">
-          0/{row.capacity ?? '\u221e'}
+          {taken}/{row.capacity ?? '\u221e'}
         </span>
       </button>
       <div

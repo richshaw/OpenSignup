@@ -24,6 +24,8 @@ type WysiwygGroupProps = {
    */
   displayFields: BuildField[];
   fields: BuildField[];
+  /** Spots taken per slot id; a slot with none is absent. */
+  takenBySlot: Record<string, number>;
   expandedRowId: string | null;
   onExpandRow: (rowId: string | null) => void;
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;
@@ -43,6 +45,7 @@ export function WysiwygGroup({
   groupField,
   displayFields,
   fields,
+  takenBySlot,
   expandedRowId,
   onExpandRow,
   onEditCell,
@@ -84,6 +87,7 @@ export function WysiwygGroup({
           <WysiwygSlot
             key={row.id}
             row={row}
+            taken={takenBySlot[row.id] ?? 0}
             fields={fields}
             displayFields={displayFields}
             expanded={expandedRowId === row.id}
