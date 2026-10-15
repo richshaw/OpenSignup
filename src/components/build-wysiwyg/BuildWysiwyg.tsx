@@ -30,6 +30,11 @@ type BuildWysiwygProps = {
     values: Record<string, unknown>;
   }>;
   initialSettings: SignupSettings;
+  /**
+   * Spots taken per slot id when the page loaded; a slot with none is absent.
+   * Slots added in this session start empty, so they read 0 without an entry.
+   */
+  committedBySlot: Record<string, number>;
 };
 
 const EMPTY_GROUP_KEY = '__empty__';
@@ -80,6 +85,7 @@ export function BuildWysiwyg({
   initialFields,
   initialSlots,
   initialSettings,
+  committedBySlot,
 }: BuildWysiwygProps) {
   const {
     state,
@@ -210,6 +216,7 @@ export function BuildWysiwyg({
                 groupField={groupField}
                 displayFields={displayFields}
                 fields={state.fields}
+                takenBySlot={committedBySlot}
                 expandedRowId={expandedRowId}
                 onExpandRow={setExpandedRowId}
                 onEditCell={editCell}

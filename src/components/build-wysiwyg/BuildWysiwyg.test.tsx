@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { BuildWysiwyg } from './BuildWysiwyg';
 import type { SignupSettings } from '@/schemas/signups';
 
@@ -24,6 +24,7 @@ const baseProps = {
   initialFields: [],
   initialSlots: [],
   initialSettings: settings,
+  committedBySlot: {},
 };
 
 function findSheet(container: HTMLElement): HTMLElement | null {
@@ -62,5 +63,22 @@ describe('BuildWysiwyg — responsive sheet layout', () => {
 
     const six = render(<BuildWysiwyg {...baseProps} initialFields={make(6)} />);
     expect(findSheet(six.container)!.className).toMatch(/md:max-w-\[960px\]/);
+  });
+});
+
+describe('BuildWysiwyg — spots taken', () => {
+  it('shows each slot its own count, and 0 on a slot nobody has taken', () => {
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        initialSlots={[
+          { id: 'slot_full', capacity: 3, sortOrder: 0, values: {} },
+          { id: 'slot_empty', capacity: 2, sortOrder: 1, values: {} },
+        ]}
+        committedBySlot={{ slot_full: 3 }}
+      />,
+    );
+    expect(screen.getByText('3/3')).toBeTruthy();
+    expect(screen.getByText('0/2')).toBeTruthy();
   });
 });

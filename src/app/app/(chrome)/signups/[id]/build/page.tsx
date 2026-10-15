@@ -1,6 +1,6 @@
 import { after } from 'next/server';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { loadSignupForOrganizer } from '@/services/signups.cached';
+import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { BuildWysiwyg } from '@/components/build-wysiwyg/BuildWysiwyg';
 import { SignupSettingsSchema, type SignupStatus } from '@/schemas/signups';
@@ -10,8 +10,11 @@ type PageParams = { params: Promise<{ id: string }> };
 export default async function BuildTab({ params }: PageParams) {
   const { id } = await params;
   const session = await requireOrganizerSession();
-  const result = await loadSignupForOrganizer(toActor(session), id);
+  const actor = toActor(session);
+  const result = await loadSignupForOrganizer(actor, id);
   if (!result.ok) return null;
+  const filled = await loadCommittedBySlotForOrganizer(actor, id);
+  if (!filled.ok) return null;
   const sig = result.value;
   after(() =>
     recordOrganizerView({
@@ -39,6 +42,7 @@ export default async function BuildTab({ params }: PageParams) {
           values: (s.values ?? {}) as Record<string, unknown>,
         }))}
         initialSettings={SignupSettingsSchema.parse(sig.settings ?? {})}
+        committedBySlot={filled.value}
       />
     </>
   );
