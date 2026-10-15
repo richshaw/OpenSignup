@@ -136,7 +136,7 @@ function scopesOfGrant(payload: unknown): Scope[] {
  * revoke it.
  */
 export async function revokeConnectedApp(
-  db: Queryable,
+  db: Db,
   provider: Provider,
   actor: Actor,
   grantId: string,

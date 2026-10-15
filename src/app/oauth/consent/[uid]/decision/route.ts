@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { requireActor } from '@/auth/session';
 import { getDb } from '@/db/client';
 import { log } from '@/lib/log';
-import { RateLimits, checkRateLimit } from '@/lib/rate-limit';
+import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
 import { consentPath, isInteractionUid, oauthIssuer } from '@/oauth/config';
 import { ConsentUnavailable, decideConsent, type Decision } from '@/oauth/consent';
 import { renderErrorPage } from '@/oauth/provider';
@@ -36,7 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
   const decision: Decision = raw === 'approve' ? 'approve' : 'deny';
 
   try {
-    if ((await checkRateLimit(getDb(), RateLimits.oauthConsentPerOrganizer, actor.id)) !== null) {
+    if ((await chargeRateLimit(getDb(), RateLimits.oauthConsentPerOrganizer, actor.id)) !== null) {
       return html(429, 'too_many_requests', 'Too many connection attempts. Wait a while and try again.');
     }
     return await decideConsent(uid, actor, decision);

@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { ServiceException } from './errors';
-import { RateLimits, checkRateLimit, consumeRateLimit } from './rate-limit';
+import { RateLimits, chargeRateLimit, consumeRateLimit } from './rate-limit';
 
 const TEST_BUCKETS = [
   RateLimits.magicLinkPerEmail.bucket,
@@ -77,7 +77,7 @@ describe('consumeRateLimit (db)', () => {
   });
 });
 
-describe('checkRateLimit (db)', () => {
+describe('chargeRateLimit (db)', () => {
   afterEach(async () => {
     await getDb().delete(rateLimits).where(eq(rateLimits.bucket, RateLimits.magicLinkPerEmail.bucket));
   });
@@ -87,10 +87,10 @@ describe('checkRateLimit (db)', () => {
     const subject = `check-${Date.now()}@example.test`;
 
     for (let i = 0; i < RateLimits.magicLinkPerEmail.max; i += 1) {
-      expect(await checkRateLimit(db, RateLimits.magicLinkPerEmail, subject)).toBeNull();
+      expect(await chargeRateLimit(db, RateLimits.magicLinkPerEmail, subject)).toBeNull();
     }
 
-    const retry = await checkRateLimit(db, RateLimits.magicLinkPerEmail, subject);
+    const retry = await chargeRateLimit(db, RateLimits.magicLinkPerEmail, subject);
     expect(retry).toBeGreaterThan(0);
     expect(retry).toBeLessThanOrEqual(RateLimits.magicLinkPerEmail.windowSeconds);
   });
@@ -100,8 +100,8 @@ describe('checkRateLimit (db)', () => {
     const subject = `cost-${Date.now()}@example.test`;
     const { max } = RateLimits.magicLinkPerEmail;
 
-    expect(await checkRateLimit(db, RateLimits.magicLinkPerEmail, subject, max)).toBeNull();
-    expect(await checkRateLimit(db, RateLimits.magicLinkPerEmail, subject)).not.toBeNull();
+    expect(await chargeRateLimit(db, RateLimits.magicLinkPerEmail, subject, max)).toBeNull();
+    expect(await chargeRateLimit(db, RateLimits.magicLinkPerEmail, subject)).not.toBeNull();
   });
 });
 

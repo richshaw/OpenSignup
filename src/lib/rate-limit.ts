@@ -15,9 +15,10 @@ export interface RateLimitPolicy {
  * edge/CDN layer in production as well.
  *
  * Charges `cost` units to `subject` and returns null while it is still within
- * the limit, or the seconds until its window resets once it is over.
+ * the limit, or the seconds until its window resets once it is over. Every
+ * call spends quota, so never call it just to see how much is left.
  */
-export async function checkRateLimit(
+export async function chargeRateLimit(
   db: Db,
   policy: RateLimitPolicy,
   subject: string,
@@ -55,14 +56,19 @@ export async function checkRateLimit(
   return Math.ceil((windowStart.getTime() + policy.windowSeconds * 1000 - now.getTime()) / 1000);
 }
 
-/** `checkRateLimit`, throwing a `rate_limited` ServiceException when over the limit. */
+/**
+ * `chargeRateLimit`, throwing a `rate_limited` ServiceException when over the
+ * limit, for route handlers and tools that turn it into the API's 429. Code
+ * that answers a rate limit its own way calls `chargeRateLimit` and reads the
+ * result instead of catching this.
+ */
 export async function consumeRateLimit(
   db: Db,
   policy: RateLimitPolicy,
   subject: string,
   cost = 1,
 ): Promise<void> {
-  const retryAfter = await checkRateLimit(db, policy, subject, cost);
+  const retryAfter = await chargeRateLimit(db, policy, subject, cost);
   if (retryAfter === null) return;
   throw new ServiceException(
     serviceError('rate_limited', 'too many requests', {

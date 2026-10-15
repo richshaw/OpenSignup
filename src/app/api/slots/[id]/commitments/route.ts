@@ -9,6 +9,7 @@ import {
 import { commitmentLinks } from '@/lib/links';
 import { notifyCommitmentCreated } from '@/email/notify';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
+import { normalizeEmail } from '@/schemas/common';
 import { commitToSlot } from '@/services/commitments';
 import { extractClientIp } from '@/auth/request-context';
 
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const claimedEmail =
       typeof body === 'object' && body !== null ? (body as { email?: unknown }).email : undefined;
     if (typeof claimedEmail === 'string' && claimedEmail.includes('@')) {
-      await consumeRateLimit(db, RateLimits.commitmentPerEmail, claimedEmail.trim().toLowerCase());
+      await consumeRateLimit(db, RateLimits.commitmentPerEmail, normalizeEmail(claimedEmail));
     }
     const result = await commitToSlot(db, slotId, body);
     if (!result.ok) return fail(result.error);

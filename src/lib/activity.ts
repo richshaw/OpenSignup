@@ -74,8 +74,14 @@ export async function recordActivity(db: Queryable, args: RecordActivityArgs) {
  * For telemetry-only events written outside any transaction: a failed
  * insert is logged and swallowed, so it never fails the operation the event
  * describes (a sign-in, a disconnect) after that operation has happened.
+ *
+ * Takes a `Db`, not a `Tx`, on purpose. Inside a transaction a failed insert
+ * aborts the whole transaction even though the error is swallowed here, and
+ * the caller's next statement fails somewhere unrelated. Telemetry that has
+ * to be written from inside one needs a savepoint, as
+ * `safeRecordAttemptFailed` in src/services/commitments.ts does.
  */
-export async function recordActivityBestEffort(db: Queryable, args: RecordActivityArgs): Promise<void> {
+export async function recordActivityBestEffort(db: Db, args: RecordActivityArgs): Promise<void> {
   try {
     await recordActivity(db, args);
   } catch (err) {

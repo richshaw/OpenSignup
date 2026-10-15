@@ -85,6 +85,8 @@ export async function resolveBearerActor(
   const actor = session ? toActor(session) : null;
   if (!session || actor?.kind !== 'organizer') {
     // The organizer behind the token is gone; treat the token as invalid.
+    // `toActor` gives an organizer for every session, so the kind check only
+    // narrows the type for the return below.
     return {
       ok: false,
       response: bearerAuthChallengeResponse(new OAuthError(OAuthErrorCode.InvalidToken, 'unknown account'), {

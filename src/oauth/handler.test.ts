@@ -15,7 +15,7 @@ vi.mock('@/lib/env', () => ({ getEnv: () => ({ AUTH_URL: 'https://signup.example
 const consume = vi.fn(async (): Promise<number | null> => null);
 vi.mock('@/lib/rate-limit', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/rate-limit')>();
-  return { ...actual, checkRateLimit: (...args: unknown[]) => consume(...(args as [])) };
+  return { ...actual, chargeRateLimit: (...args: unknown[]) => consume(...(args as [])) };
 });
 
 describe('handleOAuthRequest', () => {

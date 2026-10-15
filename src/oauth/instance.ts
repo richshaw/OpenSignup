@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { organizers } from '@/db/schema/organizers';
 import { getEnv } from '@/lib/env';
 import { log } from '@/lib/log';
-import { RateLimits, checkRateLimit } from '@/lib/rate-limit';
+import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
 import { DrizzleOidcAdapter } from './adapter';
 import { mcpResourceUrl, oauthIssuer } from './config';
 import { findGrantIdFor, touchGrantUsed } from './grants';
@@ -67,7 +67,7 @@ export async function allowCimdFetch(db: Db, clientId: string): Promise<boolean>
   } catch {
     return false;
   }
-  if ((await checkRateLimit(db, RateLimits.oauthCimdPerOrigin, origin)) === null) return true;
+  if ((await chargeRateLimit(db, RateLimits.oauthCimdPerOrigin, origin)) === null) return true;
   log.warn({ origin }, 'oauth: CIMD fetch rate-limited');
   return false;
 }

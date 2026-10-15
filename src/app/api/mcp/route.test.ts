@@ -7,7 +7,7 @@ vi.mock('@/db/client', () => ({ getDb: () => ({}) as unknown }));
 const consume = vi.fn(async (..._args: unknown[]): Promise<number | null> => null);
 vi.mock('@/lib/rate-limit', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/rate-limit')>();
-  return { ...actual, checkRateLimit: (...args: unknown[]) => consume(...args) };
+  return { ...actual, chargeRateLimit: (...args: unknown[]) => consume(...args) };
 });
 
 const okResolution = {

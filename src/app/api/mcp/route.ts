@@ -1,7 +1,7 @@
 import { resolveBearerActor } from '@/auth/bearer';
 import { extractClientIp } from '@/auth/request-context';
 import { getDb } from '@/db/client';
-import { RateLimits, checkRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
+import { RateLimits, chargeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
 import { BodyTooLarge, readRequestBody } from '@/lib/request-body';
 import type { ToolContext } from '@/mcp/context';
 import { attachContext, getMcpHandler } from '@/mcp/handler';
@@ -40,7 +40,7 @@ function tooLarge(): Response {
 
 /** Consume `cost` units, or answer 429 when over the limit. */
 async function meter(policy: RateLimitPolicy, subject: string, cost = 1): Promise<Response | null> {
-  const retryAfter = await checkRateLimit(getDb(), policy, subject, cost);
+  const retryAfter = await chargeRateLimit(getDb(), policy, subject, cost);
   if (retryAfter === null) return null;
   return Response.json(
     { error: 'too_many_requests', error_description: 'too many requests' },
