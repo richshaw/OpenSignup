@@ -65,7 +65,7 @@ describe('<EditForm /> quantity', () => {
     vi.stubGlobal('fetch', fetchMock);
     renderForm(1);
 
-    fireEvent.change(screen.getByLabelText('Notes'), { target: { value: 'Bringing oranges' } });
+    fireEvent.change(screen.getByLabelText('Notes (optional)'), { target: { value: 'Bringing oranges' } });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
@@ -240,5 +240,51 @@ describe('<EditForm /> quantity', () => {
     await screen.findByText('Saved.');
     expect(screen.getByText('You can have up to 4 spots on this slot.')).toBeInTheDocument();
     expect(screen.getByLabelText('Spots')).toHaveAttribute('max', '4');
+  });
+  // Offline, or a dropped connection: fetch itself rejects.
+  it('says nothing was saved, and lets the participant try again, when the save never reaches the server', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))));
+    renderForm(4, 2);
+
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.",
+    );
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Cancel signup' })).toBeEnabled();
+  });
+
+  // An error page from a proxy, say, rather than the API's JSON.
+  it('says nothing was saved when a refused save has no JSON body', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => {
+        throw new SyntaxError('Unexpected token < in JSON');
+      },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(4, 2);
+
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Something went wrong, so your changes weren't saved. Try again.",
+    );
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
+  it('says the sign-up was not cancelled when the cancel never reaches the server', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))));
+    renderForm(4, 2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel signup' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't reach the server, so your sign-up wasn't cancelled. Check your connection and try again.",
+    );
+    expect(screen.getByRole('button', { name: 'Cancel signup' })).toBeEnabled();
+    expect(router.push).not.toHaveBeenCalled();
   });
 });

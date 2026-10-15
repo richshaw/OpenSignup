@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
+import { urlBreakSegments } from './url-breaks';
 
 // The row-level tests all run in `mode="preview"`, which renders a *disabled*
 // stand-in button. This file covers the real trigger — the only button a
@@ -160,7 +161,10 @@ describe('<CommitDialog /> sheet', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce(), settle);
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Signing up…' })).toBeDisabled(), settle);
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: 'Signing up…' })).toBeDisabled(),
+      settle,
+    );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
 
     release({
@@ -268,7 +272,9 @@ describe('<CommitDialog /> sheet', () => {
       openSheet();
       await screen.findByLabelText('Your name', {}, settle);
       fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Fields' } });
-      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'jordan@example.test' } });
+      fireEvent.change(screen.getByLabelText('Email'), {
+        target: { value: 'jordan@example.test' },
+      });
       fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
       const alert = await screen.findByRole('alert', {}, settle);
@@ -372,7 +378,13 @@ describe('<CommitDialog /> sheet', () => {
           "Save this link now: we won't email it, and only this browser remembers it.",
         ),
       ).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: editUrl })).toBeInTheDocument();
+      // Wraps only at <wbr> points, not mid-word, and still reads as the URL.
+      // Found by href: jsdom's name computation pads each <wbr> with a space.
+      const link = screen.getAllByRole('link').find((a) => a.getAttribute('href') === editUrl);
+      expect(link?.textContent).toBe(editUrl);
+      expect(link).toHaveClass('break-words');
+      expect(link).not.toHaveClass('break-all');
+      expect(link!.querySelectorAll('wbr')).toHaveLength(urlBreakSegments(editUrl).length - 1);
       // No slot date, so no calendar button to mention.
       expect(screen.queryByText(/Add to calendar/)).not.toBeInTheDocument();
     });
@@ -396,6 +408,10 @@ describe('<CommitDialog /> sheet', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
       await waitFor(() => expect(status).toHaveTextContent('Link copied.'), settle);
       expect(writeText).toHaveBeenCalledWith(editUrl);
+      // Said on the button that did it, not on a line under Add to calendar.
+      // The status stays for screen readers but is hidden on screen.
+      expect(screen.getByRole('button', { name: 'Link copied' })).toBeInTheDocument();
+      expect(status).toHaveClass('sr-only');
     });
 
     it('says to copy the link by hand when the browser will not', async () => {
@@ -412,6 +428,9 @@ describe('<CommitDialog /> sheet', () => {
           ),
         settle,
       );
+      // This one says what to do next, so it shows on screen.
+      expect(screen.getByRole('status')).not.toHaveClass('sr-only');
+      expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument();
     });
 
     it('reads as usual when they give an email after all', async () => {

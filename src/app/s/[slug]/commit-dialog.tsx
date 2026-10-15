@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
@@ -8,6 +8,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { capacityMessage } from './capacity-message';
 import { goneMessage } from './gone-message';
 import { ACTION_SIZING } from './slot-format';
+import { urlBreakSegments } from './url-breaks';
 
 interface CommitDialogProps {
   slotId: string;
@@ -177,7 +178,7 @@ export default function CommitDialog({
 
   const emailHint = useMemo(() => suggestEmail(emailValue), [emailValue]);
   const askQuantity = spotsLeft === null || spotsLeft > 1;
-  // The row's own count ("2/4" signed up) is behind the sheet, and hidden from
+  // The row's own count ("2 left") is behind the sheet, and hidden from
   // assistive tech while it is open, so the header says how many are left.
   // Only on a slot with more than one spot, as the row only counts those:
   // "1 of 1 spots left" would say nothing.
@@ -326,6 +327,8 @@ export default function CommitDialog({
     try {
       await navigator.clipboard.writeText(success.editUrl);
       setCopyResult('copied');
+      // Back to Copy link, as Share link does, unless a failure replaced it.
+      setTimeout(() => setCopyResult((r) => (r === 'copied' ? null : r)), 2000);
     } catch {
       // No clipboard over plain HTTP, or the browser refused.
       setCopyResult('failed');
@@ -336,6 +339,8 @@ export default function CommitDialog({
   // a slot or signup removed while this page was open gets its own; any other
   // error keeps the server's own message and suggestion.
   const errorText = error ? (capacityMessage(error, 'join') ?? goneMessage(error) ?? error) : null;
+  // Share link and Copy link each say "Link copied" on themselves after a copy.
+  const linkCopied = success?.emailed ? shareCopied : copyResult === 'copied';
 
   return (
     <>
@@ -403,9 +408,16 @@ export default function CommitDialog({
             </p>
             <a
               href={success.editUrl}
-              className="block break-all rounded-lg bg-surface-raised px-3 py-2 font-mono text-xs"
+              className="block break-words rounded-lg bg-surface-raised px-3 py-2 font-mono text-xs"
             >
-              {success.editUrl}
+              {/* Breaks only between these pieces, except inside a token too
+                  long for one line, which break-words still wraps. */}
+              {urlBreakSegments(success.editUrl).map((piece, i) => (
+                <Fragment key={i}>
+                  {i > 0 ? <wbr /> : null}
+                  {piece}
+                </Fragment>
+              ))}
             </a>
             <div>
               <div className="flex flex-wrap gap-2">
@@ -423,13 +435,18 @@ export default function CommitDialog({
                   onClick={success.emailed ? handleShare : handleCopy}
                   className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
                 >
-                  {success.emailed ? (shareCopied ? 'Link copied' : 'Share link') : 'Copy link'}
+                  {linkCopied ? 'Link copied' : success.emailed ? 'Share link' : 'Copy link'}
                 </button>
               </div>
               {success.emailed ? null : (
                 // In the page from the start, so a screen reader hears it
                 // change. Not display:none while empty, which would stop that.
-                <p role="status" className="mt-2 text-sm text-ink-muted empty:mt-0">
+                // A copy shows on the button itself, so only the failure, which
+                // says what to do next, shows here on screen.
+                <p
+                  role="status"
+                  className={copyResult === 'failed' ? 'mt-2 text-sm text-ink-muted' : 'sr-only'}
+                >
                   {copyResult === 'copied'
                     ? 'Link copied.'
                     : copyResult === 'failed'

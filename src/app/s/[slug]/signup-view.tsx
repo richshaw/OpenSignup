@@ -233,19 +233,27 @@ export function SignupViewBody({
         {groups.map((group) => (
           <section key={group.key} className="flex flex-col gap-2.5">
             {groupField ? (
-              <h2 className="px-1 text-xs font-semibold uppercase tracking-wider text-ink-muted">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
                 {group.label}
               </h2>
             ) : null}
             <ul className="overflow-hidden rounded-2xl border border-surface-sunk bg-white">
               {group.slots.map((slot, idx) => {
-                const full = slot.capacity !== null && slot.committed >= slot.capacity;
+                // Floored at 0: the organizer can lower a slot's capacity below
+                // its sign-ups.
+                const spotsLeft =
+                  slot.capacity === null ? null : Math.max(0, slot.capacity - slot.committed);
+                const full = spotsLeft === 0;
                 const closed = slot.status !== 'open' || effectiveStatus !== 'open' || full;
                 const title = titleFor(slot, primary);
                 const meta = buildMetaSegments({ fields, slot, primaryRef, groupRef });
                 const own = ownBySlot.get(slot.id) ?? null;
                 const isOwn = own !== null;
-                const count = capacityLabel(slot.committed, slot.capacity);
+                // A closed row says "Closed" (or "Full"), and "2 left" beside it
+                // would offer spots nobody can take.
+                const count = closed
+                  ? { text: '', sr: null }
+                  : capacityLabel(slot.committed, slot.capacity);
                 const actionName = slotAccessibleName(group.label || null, title, meta);
                 return (
                   <li
@@ -318,11 +326,7 @@ export function SignupViewBody({
                             actionName={actionName}
                             slotAt={slot.slotAt}
                             slotHasTime={slot.hasTime}
-                            spotsLeft={
-                              slot.capacity === null
-                                ? null
-                                : Math.max(0, slot.capacity - slot.committed)
-                            }
+                            spotsLeft={spotsLeft}
                             capacity={slot.capacity}
                             signupTitle={signup.title}
                             slug={slug}

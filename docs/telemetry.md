@@ -81,7 +81,7 @@ reminders are timed from (`null` when none is left).
 | `commitment.updated` | participant | `{ commitmentId, changed }` (the keys the edit sent) | `services/commitments.ts` |
 | `commitment.cancelled` | participant | `{ commitmentId }` | `services/commitments.ts` |
 | `commitment.swapped` | participant | `{ from, to }` (the old and new commitment ids) | `services/commitments.ts` |
-| `commitment.attempt_failed` | system when signing up; participant when raising a quantity from the edit link | `{ slotId, reason: 'closed' \| 'over_window' \| 'capacity_full', detail?, requested?, remaining?, source? }` (`source: 'update'` marks a quantity raise) | `services/commitments.ts` (each rejection site) |
+| `commitment.attempt_failed` | system when signing up; participant when raising a quantity or moving to another slot from the edit link | `{ slotId, reason: 'closed' \| 'over_window' \| 'capacity_full', detail?, requested?, remaining?, source? }` (`source: 'update'` marks a quantity raise, `source: 'move'` a move; `slotId` is the slot asked for) | `services/commitments.ts` (each rejection site) |
 | `commitment.edit_link_followed` | participant | `{ commitmentId }` | RSC at `/s/[slug]/c/[id]` |
 
 A move to another slot writes `commitment.swapped` and a `commitment.created`

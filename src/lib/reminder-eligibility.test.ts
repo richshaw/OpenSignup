@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  REMINDER_SETTLE_HOURS,
-  reminderSkipReason,
-  willSendReminder,
-} from './reminder-eligibility';
+import { REMINDER_SETTLE_HOURS, willSendReminder } from './reminder-eligibility';
 
 const createdAt = new Date('2026-09-05T09:00:00.000Z');
 const hoursOut = (h: number) => new Date(createdAt.getTime() + h * 3_600_000);
@@ -54,26 +50,5 @@ describe('willSendReminder', () => {
     expect(willSendReminder({ sendReminders: true, slotAt: new Date(Date.now() + 60_000) })).toBe(
       false,
     );
-  });
-});
-
-describe('reminderSkipReason', () => {
-  const due = { signupStatus: 'open', sendReminders: true, slotAhead: true };
-
-  it('is null for an open or closed signup with reminders on and the slot ahead', () => {
-    expect(reminderSkipReason(due)).toBeNull();
-    expect(reminderSkipReason({ ...due, signupStatus: 'closed' })).toBeNull();
-  });
-
-  it.each(['draft', 'archived'])('skips a %s signup', (signupStatus) => {
-    expect(reminderSkipReason({ ...due, signupStatus })).toBe('signup not open or closed');
-  });
-
-  it('skips when reminders are off', () => {
-    expect(reminderSkipReason({ ...due, sendReminders: false })).toBe('reminders off');
-  });
-
-  it('skips when the slot is no longer ahead', () => {
-    expect(reminderSkipReason({ ...due, slotAhead: false })).toBe('slot not ahead');
   });
 });

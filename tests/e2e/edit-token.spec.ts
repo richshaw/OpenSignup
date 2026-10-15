@@ -66,9 +66,9 @@ test.describe('token-gated commitment editing', () => {
 
     await page.goto(editUrl);
     await expect(page.getByRole('heading', { name: 'Your signup' })).toBeVisible();
-    await expect(page.getByLabel('Name')).toHaveValue(name);
+    await expect(page.getByLabel('Your name')).toHaveValue(name);
 
-    await page.getByLabel('Notes').fill('Bringing plates');
+    await page.getByLabel('Notes (optional)').fill('Bringing plates');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('status')).toHaveText('Saved.');
 
@@ -87,7 +87,7 @@ test.describe('token-gated commitment editing', () => {
       'href',
       `/s/${seed.editSlug}`,
     );
-    await expect(page.getByLabel('Name')).toHaveCount(0);
+    await expect(page.getByLabel('Your name')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Save' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Cancel signup' })).toHaveCount(0);
 
@@ -109,10 +109,10 @@ test.describe('token-gated commitment editing', () => {
     await expect(page.getByRole('heading', { name: 'Your signup' })).toBeVisible();
     expect((await page.request.delete(mine.api)).ok()).toBe(true);
 
-    await page.getByLabel('Notes').fill('Bringing cups');
+    await page.getByLabel('Notes (optional)').fill('Bringing cups');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('heading', { name: CANCELLED_PAGE.open.title })).toBeVisible();
-    await expect(page.getByLabel('Notes')).toHaveCount(0);
+    await expect(page.getByLabel('Notes (optional)')).toHaveCount(0);
     await expect(page.getByText('not active')).toHaveCount(0);
   });
 

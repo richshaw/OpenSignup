@@ -6,7 +6,7 @@ import {
   appendReturningCommit,
   setReturningCommitCookie,
 } from '@/lib/returning-participant';
-import { commitmentEditUrl, link } from '@/lib/links';
+import { commitmentLinks } from '@/lib/links';
 import { notifyCommitmentCreated } from '@/email/notify';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { commitToSlot } from '@/services/commitments';
@@ -35,24 +35,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!result.ok) return fail(result.error);
 
     const { signupSlug, slotAt, repeated, ...responseValue } = result.value;
-    const editUrl = commitmentEditUrl(
+    const { editUrl, links } = commitmentLinks(
       signupSlug,
       responseValue.commitment.id,
       responseValue.editToken,
     );
-    const response = respond(
-      { ok: true, value: { ...responseValue, editUrl } },
-      {
-        edit: link(editUrl),
-        self: link(
-          `/api/commitments/${responseValue.commitment.id}?token=${responseValue.editToken}`,
-        ),
-        cancel: link(
-          `/api/commitments/${responseValue.commitment.id}?token=${responseValue.editToken}`,
-          'DELETE',
-        ),
-      },
-    );
+    const response = respond({ ok: true, value: { ...responseValue, editUrl } }, links);
     // Remembered until a week after the slot, so someone who signs up far
     // ahead, perhaps without an email, can still find their way back.
     const nextCookie = appendReturningCommit(req.cookies.get(COMMIT_COOKIE_NAME)?.value ?? null, {

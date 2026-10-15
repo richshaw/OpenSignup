@@ -67,6 +67,8 @@ test.describe('public commit flow', () => {
     });
     const editUrl = await editLink.getAttribute('href');
     expect(editUrl).toBeTruthy();
+    // The <wbr> break points add nothing to what a screen reader hears.
+    await expect(editLink).toHaveAccessibleName(editUrl!);
 
     // The link is how they change or cancel, so the screen offers to copy it
     // rather than to share it. Only Chromium lets a test grant the clipboard.
@@ -77,6 +79,10 @@ test.describe('public commit flow', () => {
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       await copy.click();
       await expect(page.getByRole('dialog').getByRole('status')).toHaveText('Link copied.');
+      // Said on the button that did it, not under Add to calendar (#408).
+      await expect(
+        page.getByRole('dialog').getByRole('button', { name: 'Link copied' }),
+      ).toBeVisible();
       expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(editUrl);
     }
 
@@ -127,10 +133,11 @@ test.describe('public commit flow', () => {
     const row = page.locator('li').filter({ hasText: seed.fullSlotLabel });
     await expect(row.getByText('Full')).toBeVisible();
     await expect(row.getByRole('button', { name: 'Sign up' })).toHaveCount(0);
-    // A capacity-1 slot shows no counter: "1/1" made a reader decode a
-    // fraction to learn what "Full" beside it already said. The two
-    // assertions above are what the state actually means.
-    await expect(row.getByText('1/1')).toHaveCount(0);
+    // A capacity-1 slot shows no counter: "0 left" would say only what "Full"
+    // beside it already says. The two assertions above are what the state
+    // actually means. A full slot with more spots is covered by
+    // signup-view.test.tsx.
+    await expect(row.getByText(/\d+ left|spots left/)).toHaveCount(0);
   });
 
   test('header links the instance name home and no longer says "Public signup"', async ({

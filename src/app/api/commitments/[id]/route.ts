@@ -4,7 +4,7 @@ import type { Db } from '@/db/client';
 import { extractClientIp } from '@/auth/request-context';
 import { fail, handle, ok, respond } from '@/lib/api-response';
 import { serviceError, ServiceException } from '@/lib/errors';
-import { commitmentEditUrl, link } from '@/lib/links';
+import { commitmentLinks } from '@/lib/links';
 import { notifyCommitmentCreated } from '@/email/notify';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 import {
@@ -61,12 +61,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     // A participant without an email gets no receipt. So, as signing up does,
     // the response carries the new edit link, and the returning-participant
     // cookie takes the new commitment in place of the old one.
-    const editUrl = commitmentEditUrl(moved.signupSlug, commitment.id, moved.editToken);
-    const self = `/api/commitments/${commitment.id}?token=${moved.editToken}`;
-    const response = ok(
-      { ...commitment, editToken: moved.editToken, editUrl },
-      { links: { edit: link(editUrl), self: link(self), cancel: link(self, 'DELETE') } },
-    );
+    //
+    // Each move is a new commitment, so the once-per-commitment check in
+    // notifyCommitmentCreated never stops these receipts. Moving back and forth
+    // would otherwise mail the address as often as the per-IP limit allows, so
+    // the receipt is charged to the address, as signing up is.
+    const { editUrl, links } = commitmentLinks(moved.signupSlug, commitment.id, moved.editToken);
+    const response = ok({ ...commitment, editToken: moved.editToken, editUrl }, { links });
     const nextCookie = appendReturningCommit(
       removeReturningCommit(req.cookies.get(COMMIT_COOKIE_NAME)?.value, id),
       {
@@ -77,7 +78,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       },
     );
     setReturningCommitCookie(response, nextCookie);
-    after(() => notifyCommitmentCreated(db, commitment.id, moved.editToken));
+    after(() =>
+      notifyCommitmentCreated(db, commitment.id, moved.editToken, { meterRecipient: true }),
+    );
     return response;
   });
 }

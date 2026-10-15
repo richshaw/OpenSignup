@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { booleanFlag, requiredString } from './zod-env';
+import { booleanFlag, formatIssues, requiredString } from './zod-env';
 
 const transportEnum = z.enum(['console', 'smtp', 'resend']);
 
@@ -46,6 +46,16 @@ const baseSchema = z.object({
 });
 
 const conditional = baseSchema.superRefine((env, ctx) => {
+  // Two settings that only work as a pair. The issue goes on the one missing.
+  const together = (a: keyof typeof env, b: keyof typeof env) => {
+    if (Boolean(env[a]) !== Boolean(env[b])) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [env[a] ? b : a],
+        message: `${a} and ${b} must be set together (or both unset)`,
+      });
+    }
+  };
   if (env.EMAIL_TRANSPORT === 'resend' && !env.RESEND_API_KEY) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -63,28 +73,10 @@ const conditional = baseSchema.superRefine((env, ctx) => {
         });
       }
     }
-    if (Boolean(env.SMTP_USER) !== Boolean(env.SMTP_PASSWORD)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: [env.SMTP_USER ? 'SMTP_PASSWORD' : 'SMTP_USER'],
-        message: 'SMTP_USER and SMTP_PASSWORD must be set together (or both unset)',
-      });
-    }
+    together('SMTP_USER', 'SMTP_PASSWORD');
   }
-  if (Boolean(env.LLM_BASE_URL) !== Boolean(env.LLM_MODEL)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: [env.LLM_BASE_URL ? 'LLM_MODEL' : 'LLM_BASE_URL'],
-      message: 'LLM_BASE_URL and LLM_MODEL must be set together (or both unset)',
-    });
-  }
-  if (Boolean(env.GOOGLE_CLIENT_ID) !== Boolean(env.GOOGLE_CLIENT_SECRET)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: [env.GOOGLE_CLIENT_ID ? 'GOOGLE_CLIENT_SECRET' : 'GOOGLE_CLIENT_ID'],
-      message: 'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together (or both unset)',
-    });
-  }
+  together('LLM_BASE_URL', 'LLM_MODEL');
+  together('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET');
 });
 
 export type Env = z.infer<typeof baseSchema>;
@@ -174,12 +166,7 @@ function blankHint(key: string, value: string | undefined): string {
 export function parseEnv(raw: NodeJS.ProcessEnv | Record<string, string | undefined>): Env {
   const result = conditional.safeParse(withoutBlankValues(raw));
   if (!result.success) {
-    const issues = result.error.issues
-      .map((i) => {
-        const key = i.path.join('.');
-        return `  - ${key || '(root)'}: ${i.message}${blankHint(key, raw[key])}`;
-      })
-      .join('\n');
+    const issues = formatIssues(result.error, (key) => blankHint(key, raw[key]));
     throw new Error(`Invalid environment:\n${issues}`);
   }
   return result.data;

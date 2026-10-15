@@ -172,8 +172,8 @@ export function CreateAndPublishASignup() {
             shown below.
           </li>
           <li>
-            A slot with more than one spot shows how many are taken, like 1/2. People can take more
-            than one spot at a time. When a slot is full, nobody else can choose it.
+            A slot with more than one spot shows how many are left, like 1 left. People can take
+            more than one spot at a time. When a slot is full, nobody else can choose it.
           </li>
           <li>
             Each person who gives an email address gets an email saying they&apos;re signed up. It

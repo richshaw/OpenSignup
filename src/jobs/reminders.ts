@@ -1,37 +1,88 @@
-import { and, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
-import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { recordActivity } from '@/lib/activity';
 import { log } from '@/lib/log';
-import {
-  commitmentEditUrl,
-  publicSignupUrl,
-  reminderUnsubscribePostUrl,
-  reminderUnsubscribeUrl,
-} from '@/lib/links';
-import { REMINDER_SETTLE_HOURS, reminderSkipReason } from '@/lib/reminder-eligibility';
-import { slotDetails } from '@/lib/slot-label';
-import { summarizeSlotValues } from '@/lib/slot-summary';
+import { commitmentEditUrl, reminderUnsubscribePostUrl, reminderUnsubscribeUrl } from '@/lib/links';
+import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { editTokenFor } from '@/lib/token';
-import { REMINDER_LEAD_HOURS, sendsReminders } from '@/schemas/signups';
-import { listFieldsForSignup } from '@/services/slot-fields';
+import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
 import { reminderOptOutTokenFor } from '@/services/reminder-optout';
+import { alreadyRecorded, loadCommitmentRow, slotText } from '@/email/commitment-row';
 import { sendReminder } from '@/email/send';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
 
 /** The reminder lead time as a SQL interval. Fixed for every signup. */
 const leadInterval = sql`make_interval(hours => ${REMINDER_LEAD_HOURS})`;
 
-export interface DueReminder {
-  commitmentId: string;
-  participantEmail: string | null;
-  signupTitle: string;
-  slotRef: string;
-  slotAt: Date | null;
+/**
+ * When a commitment's reminder is due, as named SQL rules over a query joining
+ * commitments, participants, slots and signups. Each rule holds when the
+ * reminder may go out, and its name says why it can't when it doesn't. All
+ * but the reminder.sent check, which the scan and the send job each make on
+ * their own terms.
+ *
+ * The scan queues jobs with them and the send job re-reads its row through
+ * them, because the job runs later: seconds normally, hours when the worker is
+ * stopped or backed up. In that gap the organizer can archive the signup, turn
+ * reminders off or move the slot, the participant can unsubscribe, and the
+ * slot can pass. One set of rules means the two cannot disagree on any of it,
+ * and the names let the job log which rule a skipped reminder failed.
+ */
+const reminderDueRules = {
+  'commitment not active': or(
+    eq(commitments.status, 'confirmed'),
+    eq(commitments.status, 'tentative'),
+  )!,
+  // 'closed' too, not just 'open'. Closing a signup means "no longer
+  // collecting responses" — the commitments already made stay valid and
+  // their participants still need the reminder. Excluding it silently
+  // cancelled reminders whenever an organizer tidied up after sign-ups
+  // ended, which the shorter default lead makes far more likely: at 24h,
+  // closing the evening before the event now lands inside the window.
+  // 'draft' and 'archived' stay excluded — never public, and put away.
+  'signup not open or closed': or(eq(signups.status, 'open'), eq(signups.status, 'closed'))!,
+  'signup deleted': isNull(signups.deletedAt),
+  'slot has no date': isNotNull(slots.slotAt),
+  // Still ahead of the participant, and inside the reminder lead time.
+  'slot passed': sql`${slots.slotAt} > now()`,
+  'slot beyond the lead time': sql`${slots.slotAt} <= now() + ${leadInterval}`,
+  // Not still in the afterglow of their own confirmation (see selectDueReminders).
+  'signed up too recently': sql`${commitments.createdAt} < now() - make_interval(hours => ${REMINDER_SETTLE_HOURS})`,
+  'reminders off': sql`COALESCE((${signups.settings}->>'sendReminders')::boolean, true) = true`,
+  // Participants who unsubscribed from this signup's reminders.
+  'participant opted out': isNull(participants.remindersOptedOutAt),
+  // Participants who gave no email: there is nowhere to send one.
+  'participant has no email': isNotNull(participants.email),
+} satisfies Record<string, SQL>;
+
+/** Every rule in `reminderDueRules`: the reminder is due now. */
+const reminderDueCondition = and(...Object.values(reminderDueRules))!;
+
+/**
+ * The names of the rules in `reminderDueRules` a commitment's reminder fails
+ * right now, or null when there is no such commitment. Only for logging a
+ * skipped send: it reads the same rules the condition is built from, so the
+ * reasons cannot drift from what the scan and the job decide.
+ */
+async function reminderSkipReasons(db: Db, commitmentId: string): Promise<string[] | null> {
+  const failed = Object.entries(reminderDueRules).map(
+    ([reason, rule]) => sql`CASE WHEN coalesce(${rule}, false) THEN NULL ELSE ${reason}::text END`,
+  );
+  const [row] = await db
+    .select({
+      reasons: sql<string[]>`array_remove(ARRAY[${sql.join(failed, sql`, `)}], NULL)`,
+    })
+    .from(commitments)
+    .innerJoin(slots, eq(slots.id, commitments.slotId))
+    .innerJoin(signups, eq(signups.id, commitments.signupId))
+    .innerJoin(participants, eq(participants.id, commitments.participantId))
+    .where(eq(commitments.id, commitmentId))
+    .limit(1);
+  return row ? row.reasons : null;
 }
 
 /**
@@ -52,42 +103,16 @@ export interface DueReminder {
  * lead window, so at a 72h lead every participant who signed up two days ahead
  * would get nothing at all.
  */
-export async function selectDueReminders(db: Db): Promise<DueReminder[]> {
+export async function selectDueReminders(db: Db): Promise<{ commitmentId: string }[]> {
   return db
-    .select({
-      commitmentId: commitments.id,
-      participantEmail: participants.email,
-      signupTitle: signups.title,
-      slotRef: slots.ref,
-      slotAt: slots.slotAt,
-    })
+    .select({ commitmentId: commitments.id })
     .from(commitments)
     .innerJoin(participants, eq(participants.id, commitments.participantId))
     .innerJoin(slots, eq(slots.id, commitments.slotId))
     .innerJoin(signups, eq(signups.id, commitments.signupId))
     .where(
       and(
-        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-        // 'closed' too, not just 'open'. Closing a signup means "no longer
-        // collecting responses" — the commitments already made stay valid and
-        // their participants still need the reminder. Excluding it silently
-        // cancelled reminders whenever an organizer tidied up after sign-ups
-        // ended, which the shorter default lead makes far more likely: at 24h,
-        // closing the evening before the event now lands inside the window.
-        // 'draft' and 'archived' stay excluded — never public, and put away.
-        or(eq(signups.status, 'open'), eq(signups.status, 'closed')),
-        isNull(signups.deletedAt),
-        isNotNull(slots.slotAt),
-        // Still ahead of the participant, and inside the reminder lead time.
-        sql`${slots.slotAt} > now()`,
-        sql`${slots.slotAt} <= now() + ${leadInterval}`,
-        // Not still in the afterglow of their own confirmation (see doc comment).
-        sql`${commitments.createdAt} < now() - make_interval(hours => ${REMINDER_SETTLE_HOURS})`,
-        sql`COALESCE((${signups.settings}->>'sendReminders')::boolean, true) = true`,
-        // Participants who unsubscribed from this signup's reminders.
-        isNull(participants.remindersOptedOutAt),
-        // Participants who gave no email: there is nowhere to send one.
-        isNotNull(participants.email),
+        reminderDueCondition,
         // skip if a reminder was already recorded for this commitment
         sql`NOT EXISTS (
           SELECT 1 FROM activity a
@@ -124,58 +149,24 @@ export async function dispatchReminders(): Promise<{ enqueued: number }> {
 
 export async function sendReminderJob(payload: ReminderSendPayload): Promise<void> {
   const db = getDb();
-  const [row] = await db
-    .select({
-      commitment: commitments,
-      slot: slots,
-      signup: signups,
-      participant: participants,
-      // The scan's own test, on the database's clock (see reminderSkipReason).
-      slotAhead: sql<boolean>`coalesce(${slots.slotAt} > now(), false)`,
-    })
-    .from(commitments)
-    .innerJoin(slots, eq(slots.id, commitments.slotId))
-    .innerJoin(signups, eq(signups.id, commitments.signupId))
-    .innerJoin(participants, eq(participants.id, commitments.participantId))
-    .where(eq(commitments.id, payload.commitmentId))
-    .limit(1);
+  const row = await loadCommitmentRow(db, payload.commitmentId, reminderDueCondition);
 
+  // The scan's own rules, asked again of the row as it is now (see
+  // reminderDueRules): anything that changed while the job waited, from an
+  // archived signup to an unsubscribe to a slot moved later, shows up here as
+  // no row. A second query then names the rules it failed, for the log.
   if (!row) {
-    log.warn({ commitmentId: payload.commitmentId }, 'commitment not found for reminder');
+    const reasons = await reminderSkipReasons(db, payload.commitmentId);
+    if (reasons === null) {
+      log.warn({ commitmentId: payload.commitmentId }, 'commitment not found for reminder');
+    } else {
+      log.info({ commitmentId: payload.commitmentId, reasons }, 'reminder no longer due; skipping');
+    }
     return;
   }
-  if (row.commitment.status !== 'confirmed' && row.commitment.status !== 'tentative') {
-    return;
-  }
-  if (row.signup.deletedAt) return;
-  const skip = reminderSkipReason({
-    signupStatus: row.signup.status,
-    sendReminders: sendsReminders(row.signup.settings),
-    slotAhead: row.slotAhead,
-  });
-  if (skip) {
-    log.info(
-      { commitmentId: payload.commitmentId, reason: skip },
-      'reminder no longer due; skipping',
-    );
-    return;
-  }
-  // Re-checked here, not just in the dispatcher scan: a participant can
-  // unsubscribe in the gap between being enqueued and the job running, which
-  // a backed-up queue or a stopped worker can stretch to hours. The
-  // unsubscribe link is in the previous reminder, so acting on it lands
-  // squarely in that window.
-  if (row.participant.remindersOptedOutAt) {
-    log.info({ commitmentId: payload.commitmentId }, 'participant opted out; skipping reminder');
-    return;
-  }
-  // The scan drops participants without an email, but this job reads the row
-  // afresh from the commitment id alone, so it checks again.
+  // reminderDueRules requires an email, so this only narrows the type.
   const to = row.participant.email;
-  if (to === null) {
-    log.info({ commitmentId: payload.commitmentId }, 'participant has no email; skipping reminder');
-    return;
-  }
+  if (to === null) return;
 
   // Idempotency guard, and the only one: the queue does not dedupe (see
   // dispatchReminders), so a commitment can have several jobs, and the first
@@ -186,26 +177,11 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   // instance runs exactly one `pnpm worker`. It also cannot catch an email
   // that went out when recording it then failed; that job's retry sends it
   // again.
-  const [alreadySent] = await db
-    .select({ id: activity.id })
-    .from(activity)
-    .where(
-      and(
-        eq(activity.eventType, 'reminder.sent'),
-        sql`(${activity.payload}->>'commitmentId') = ${payload.commitmentId}`,
-      ),
-    )
-    .limit(1);
-  if (alreadySent) {
+  if (await alreadyRecorded(db, 'reminder.sent', row.signup.id, payload.commitmentId)) {
     log.info({ commitmentId: payload.commitmentId }, 'reminder already sent; skipping');
     return;
   }
 
-  // Every field the organizer defined, rendered the way the participant page
-  // renders it, so the email agrees with the page. `slots.ref` is a slug and
-  // never appears here.
-  const fields = await listFieldsForSignup(db, row.signup.id);
-  const slotValues = (row.slot.values as Record<string, unknown>) ?? {};
   const optOutToken = reminderOptOutTokenFor(row.participant.id);
 
   await sendReminder(
@@ -213,7 +189,6 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     {
       participantName: row.participant.name,
       signupTitle: row.signup.title,
-      signupUrl: publicSignupUrl(row.signup.slug),
       // Edit tokens are HMAC(secret, commitment_id), so the job can re-derive the
       // participant's own link without storing anything recoverable.
       manageUrl: commitmentEditUrl(
@@ -222,8 +197,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
         editTokenFor(row.commitment.id),
       ),
       unsubscribeUrl: reminderUnsubscribeUrl(row.signup.slug, row.participant.id, optOutToken),
-      slotDetails: slotDetails(fields, slotValues),
-      slotSummary: summarizeSlotValues(fields, slotValues),
+      ...(await slotText(db, row.signup.id, row.slot.values)),
       notes: row.commitment.notes,
     },
     { unsubscribePostUrl: reminderUnsubscribePostUrl(row.participant.id, optOutToken) },

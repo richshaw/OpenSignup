@@ -155,6 +155,13 @@ describe('<SignupViewBody /> slot row', () => {
       capacity: null,
       committed: 0,
     },
+    {
+      ...SLOTS[0]!,
+      id: 'full4',
+      values: { date: '2026-05-20', team: 'Hawks' },
+      capacity: 4,
+      committed: 4,
+    },
   ];
 
   function renderRows() {
@@ -171,10 +178,32 @@ describe('<SignupViewBody /> slot row', () => {
     );
   }
 
-  it('drops the "0/1" counter but keeps a real fraction', () => {
+  it('drops the count on a one-spot slot but counts spots left on a bigger one', () => {
     renderRows();
-    expect(screen.queryByText('0/1')).toBeNull();
-    expect(screen.getByText('10/12')).toBeInTheDocument();
+    expect(screen.queryByText(/of 1 spots left/)).toBeNull();
+    expect(screen.getByText('2 left', { exact: true })).toBeInTheDocument();
+  });
+
+  it('leaves a full slot to say "Full" rather than "0 left"', () => {
+    renderRows();
+    expect(screen.getByText('Full')).toBeInTheDocument();
+    expect(screen.queryByText(/^0 left$|of 4 spots left/)).toBeNull();
+  });
+
+  it('counts nothing on a closed signup, where every row says "Closed"', () => {
+    render(
+      <SignupViewBody
+        signup={{ ...SIGNUP, status: 'closed' }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={MULTI}
+        slug="example"
+        mode="live"
+        showStateBanner={false}
+      />,
+    );
+    expect(screen.getAllByText('Closed')).toHaveLength(3);
+    expect(screen.queryByText(/\d+ left|spots left|signed up/)).toBeNull();
   });
 
   it('does not render a bare "0" for an uncapped slot', () => {
@@ -182,9 +211,9 @@ describe('<SignupViewBody /> slot row', () => {
     expect(screen.queryByText('0')).toBeNull();
   });
 
-  it('gives a counter a screen-reader sentence, not a slash', () => {
+  it('gives a counter a screen-reader sentence', () => {
     renderRows();
-    expect(screen.getByText('10 of 12 signed up')).toHaveClass('sr-only');
+    expect(screen.getByText('2 of 12 spots left')).toHaveClass('sr-only');
   });
 
   it('lets the meta line wrap instead of clamping the last segment away', () => {

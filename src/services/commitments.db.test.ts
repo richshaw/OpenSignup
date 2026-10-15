@@ -2237,3 +2237,182 @@ describe('the Responses tab: its count and its Status (db)', () => {
     expect(elsewhere.size).toBe(0);
   });
 });
+
+describe('a refused sign-up or move leaves no trace but its attempt_failed row (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  async function participantsOf(signupId: string) {
+    return fx.db
+      .select({ name: participants.name, emailLower: participants.emailLower })
+      .from(participants)
+      .where(eq(participants.signupId, signupId));
+  }
+
+  async function eventsOf(signupId: string, eventType: string) {
+    return fx.db
+      .select({
+        actorId: activity.actorId,
+        actorType: activity.actorType,
+        payload: activity.payload,
+      })
+      .from(activity)
+      .where(and(eq(activity.signupId, signupId), eq(activity.eventType, eventType)));
+  }
+
+  it('keeps the name of someone refused for signing up twice', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Refused twice');
+    const first = await commitToSlot(fx.db, a.slotId, {
+      name: 'Alice Example',
+      email: 'alice@example.com',
+      quantity: 1,
+    });
+    if (!first.ok) throw new Error(`commitToSlot failed: ${first.error.message}`);
+
+    const again = await commitToSlot(fx.db, a.slotId, {
+      name: 'Bob Example',
+      email: 'alice@example.com',
+      quantity: 1,
+    });
+    expect(again.ok).toBe(false);
+    if (!again.ok) expect(again.error.code).toBe('conflict');
+
+    expect(await participantsOf(a.signupId)).toEqual([
+      { name: 'Alice Example', emailLower: 'alice@example.com' },
+    ]);
+  });
+
+  it('keeps the name of someone refused because the slot is full', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Refused full, renamed');
+    const full = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 1 });
+    if (!full.ok) throw new Error(`addSlot failed: ${full.error.message}`);
+    const mine = await commitToSlot(fx.db, a.slotId, {
+      name: 'Alice Example',
+      email: 'alice@example.com',
+      quantity: 1,
+    });
+    if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
+    const filler = await commitToSlot(fx.db, full.value.id, {
+      name: 'Filler Example',
+      email: 'filler@example.com',
+      quantity: 1,
+    });
+    if (!filler.ok) throw new Error(`commitToSlot failed: ${filler.error.message}`);
+
+    const r = await commitToSlot(fx.db, full.value.id, {
+      name: 'Bob Example',
+      email: 'alice@example.com',
+      quantity: 1,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('capacity_full');
+
+    const people = await participantsOf(a.signupId);
+    expect(people.find((p) => p.emailLower === 'alice@example.com')?.name).toBe('Alice Example');
+  });
+
+  it.each([
+    ['an email', 'new@example.com'],
+    ['no email', undefined],
+  ])('adds no participant for a refused sign-up with %s', async (_, email) => {
+    const a = await makeOpenSignupWithSlot(fx, `Refused full, ${_}`, { requireEmail: false });
+    const full = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 1 });
+    if (!full.ok) throw new Error(`addSlot failed: ${full.error.message}`);
+    const filler = await commitToSlot(fx.db, full.value.id, {
+      name: 'Filler Example',
+      email: 'filler@example.com',
+      quantity: 1,
+    });
+    if (!filler.ok) throw new Error(`commitToSlot failed: ${filler.error.message}`);
+
+    const r = await commitToSlot(fx.db, full.value.id, {
+      name: 'Nobody Example',
+      ...(email !== undefined ? { email } : {}),
+      quantity: 1,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('capacity_full');
+
+    expect(await participantsOf(a.signupId)).toEqual([
+      { name: 'Filler Example', emailLower: 'filler@example.com' },
+    ]);
+    expect(await eventsOf(a.signupId, 'participant.created')).toHaveLength(1);
+    expect(await eventsOf(a.signupId, 'commitment.attempt_failed')).toHaveLength(1);
+  });
+
+  it('logs a move refused because the target is full, by the participant', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Move refused, full');
+    const full = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 1 });
+    if (!full.ok) throw new Error(`addSlot failed: ${full.error.message}`);
+    const filler = await commitToSlot(fx.db, full.value.id, {
+      name: 'Filler Example',
+      email: 'filler@example.com',
+      quantity: 1,
+    });
+    if (!filler.ok) throw new Error(`commitToSlot failed: ${filler.error.message}`);
+    const mine = await commitToSlot(fx.db, a.slotId, {
+      name: 'Pat Example',
+      email: 'pat@example.com',
+      quantity: 1,
+    });
+    if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
+
+    await expect(
+      updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
+        swapToSlotId: full.value.id,
+        name: 'Renamed Example',
+      }),
+    ).rejects.toMatchObject({ serviceError: { code: 'capacity_full' } });
+
+    expect(await eventsOf(a.signupId, 'commitment.attempt_failed')).toEqual([
+      {
+        actorId: mine.value.commitment.participantId,
+        actorType: 'participant',
+        payload: {
+          slotId: full.value.id,
+          reason: 'capacity_full',
+          requested: 1,
+          remaining: 0,
+          source: 'move',
+        },
+      },
+    ]);
+    const people = await participantsOf(a.signupId);
+    expect(people.find((p) => p.emailLower === 'pat@example.com')?.name).toBe('Pat Example');
+  });
+
+  it('logs a move refused because the target is closed, by the participant', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Move refused, closed');
+    const shut = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 5 });
+    if (!shut.ok) throw new Error(`addSlot failed: ${shut.error.message}`);
+    const closed = await updateSlot(fx.db, fx.actor, shut.value.id, { status: 'closed' });
+    if (!closed.ok) throw new Error(`updateSlot failed: ${closed.error.message}`);
+    const mine = await commitToSlot(fx.db, a.slotId, {
+      name: 'Pat Example',
+      email: 'pat@example.com',
+      quantity: 1,
+    });
+    if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
+
+    await expect(
+      updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
+        swapToSlotId: shut.value.id,
+      }),
+    ).rejects.toMatchObject({ serviceError: { code: 'closed' } });
+
+    expect(await eventsOf(a.signupId, 'commitment.attempt_failed')).toEqual([
+      {
+        actorId: mine.value.commitment.participantId,
+        actorType: 'participant',
+        payload: { slotId: shut.value.id, reason: 'closed', detail: 'slot_closed', source: 'move' },
+      },
+    ]);
+  });
+});

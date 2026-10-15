@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { FOOTER_LINKS } from '@/lib/footer-links';
 import { INSTANCE_NAME, SOURCE_URL, SUPPORT_MAILTO } from '@/lib/site-config';
 
 export function SiteFooter() {
@@ -15,6 +16,11 @@ export function SiteFooter() {
         aria-label="Footer"
         className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2"
       >
+        {FOOTER_LINKS.map((link) => (
+          <Link key={`${link.href} ${link.label}`} href={link.href} className="hover:underline">
+            {link.label}
+          </Link>
+        ))}
         <Link href="/help" className="hover:underline">
           Help
         </Link>

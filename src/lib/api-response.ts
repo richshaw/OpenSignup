@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import type { LinkObject } from './links';
-import { fromZodError, httpStatusFor, type ServiceError } from './errors';
+import { fromZodError, httpStatusFor, ServiceException, type ServiceError } from './errors';
 import { log } from './log';
 import type { Result } from './result';
 
@@ -50,7 +50,10 @@ export function errorEnvelope(error: ServiceError): ErrorEnvelope {
   };
 }
 
-export function fail(error: ServiceError, headers?: HeadersInit): NextResponse {
+/** A rate-limited error that knows its wait also tells the client in `Retry-After`. */
+export function fail(error: ServiceError): NextResponse {
+  const retryAfter = error.code === 'rate_limited' ? error.details?.retryAfterSeconds : undefined;
+  const headers = typeof retryAfter === 'number' ? { 'Retry-After': String(retryAfter) } : undefined;
   return NextResponse.json(errorEnvelope(error), { status: httpStatusFor(error.code), headers });
 }
 
@@ -67,14 +70,7 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
     return await fn();
   } catch (e) {
     if (e instanceof ZodError) return fail(fromZodError(e));
-    if (e && typeof e === 'object' && 'serviceError' in e) {
-      const se = (e as { serviceError: ServiceError }).serviceError;
-      const headers: HeadersInit | undefined =
-        se.code === 'rate_limited' && typeof se.details?.retryAfterSeconds === 'number'
-          ? { 'Retry-After': String(se.details.retryAfterSeconds) }
-          : undefined;
-      return fail(se, headers);
-    }
+    if (e instanceof ServiceException) return fail(e.serviceError);
     log.error({ err: e }, 'unhandled route error');
     return fail({ code: 'internal', message: 'something went wrong' });
   }

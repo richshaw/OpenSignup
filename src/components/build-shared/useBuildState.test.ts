@@ -722,10 +722,6 @@ interface InitialRowInput {
   values: Record<string, unknown>;
 }
 
-function rowIdFromUrl(url: string): string | undefined {
-  return url.match(/\/api\/slots\/([^/]+)$/)?.[1];
-}
-
 function renderBuildWith(initialRows: InitialRowInput[]) {
   return renderHook(() =>
     useBuildState('sig_test', [], initialRows, defaultSettings),
@@ -737,12 +733,12 @@ describe('useBuildState moveRow', () => {
     vi.unstubAllGlobals();
   });
 
-  it('reorders rows and PATCHes each changed row with its new sortOrder', async () => {
+  it('sends the whole new order in one request', async () => {
     const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
     const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
     const r3: InitialRowInput = { id: 'r3', capacity: null, sortOrder: 2, values: {} };
 
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: [] }));
     vi.stubGlobal('fetch', fetchMock);
 
     const { result } = renderBuildWith([r1, r2, r3]);
@@ -753,35 +749,33 @@ describe('useBuildState moveRow', () => {
     expect(result.current.state.rows.map((r) => r.id)).toEqual(['r3', 'r1', 'r2']);
     expect(result.current.state.rows.map((r) => r.sortOrder)).toEqual([0, 1, 2]);
 
-    const sentPatches = new Map<string, number>();
-    for (const call of fetchMock.mock.calls) {
-      const url = String(call[0]);
-      const init = call[1] as RequestInit | undefined;
-      if (init?.method !== 'PATCH') continue;
-      const id = rowIdFromUrl(url);
-      const body = JSON.parse(String(init.body)) as { sortOrder: number };
-      if (id !== undefined) sentPatches.set(id, body.sortOrder);
-    }
-    expect(sentPatches.get('r3')).toBe(0);
-    expect(sentPatches.get('r1')).toBe(1);
-    expect(sentPatches.get('r2')).toBe(2);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/signups/sig_test/slots/order');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(String(init.body))).toEqual({ slotIds: ['r3', 'r1', 'r2'] });
     expect(result.current.state.saveStatus.kind).toBe('saved');
   });
 
-  it('refetches server truth on PATCH failure', async () => {
+  it('refetches server truth when the reorder is refused', async () => {
     const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: { notes: 'one' } };
     const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: { notes: 'two' } };
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (init?.method === 'PATCH') {
-        return jsonResponse({}, { ok: false });
+      if (init?.method === 'PUT') {
+        // Another tab added a slot, so this tab's list is missing one.
+        return jsonResponse(
+          { error: { code: 'invalid_input', message: 'slotIds must list every slot of the signup exactly once' } },
+          { ok: false },
+        );
       }
       if (url.endsWith('/slots')) {
         return jsonResponse({
           data: [
             { id: 'r1', capacity: null, sortOrder: 0, values: { notes: 'one' } },
             { id: 'r2', capacity: null, sortOrder: 1, values: { notes: 'two' } },
+            { id: 'r3', capacity: null, sortOrder: 2, values: { notes: 'three' } },
           ],
         });
       }
@@ -794,12 +788,13 @@ describe('useBuildState moveRow', () => {
       await result.current.moveRow(0, 1);
     });
 
-    const getCalls = fetchMock.mock.calls.filter(
-      (c) => (c[1] as RequestInit | undefined)?.method !== 'PATCH',
-    );
-    expect(getCalls.length).toBe(1);
-    expect(result.current.state.rows.map((r) => r.id)).toEqual(['r1', 'r2']);
-    expect(result.current.state.saveStatus.kind).toBe('error');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['r1', 'r2', 'r3']);
+    expect(result.current.state.saveStatus).toEqual({
+      kind: 'error',
+      code: 'invalid_input',
+      message: "The slots changed in another window, so your move wasn't saved. Drag it again.",
+    });
   });
 
   it('falls back to snapshot when refetch also fails', async () => {
