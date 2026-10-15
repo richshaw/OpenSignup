@@ -210,38 +210,52 @@ export function SignupViewBody({
           ? 'This signup is archived and is not visible to participants.'
           : 'This signup is live. The page below shows what visitors see.';
 
+  // Closing only stops new sign-ups: everyone keeps their place and can still
+  // change or cancel it, so a returning participant sees this bar under the
+  // Closed banner too.
+  const signedUpBar = firstOwn ? (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-surface-sunk bg-success/5 px-4 py-3 text-sm">
+      <span>
+        <span className="font-medium">You&apos;re signed up</span>
+        {ownCount === 1 ? (
+          <>
+            {' '}for <span className="font-medium text-ink">{firstOwnTitle}</span>.
+          </>
+        ) : (
+          <>
+            {' '}for <span className="font-medium text-ink">{ownCount} slots</span>.
+          </>
+        )}
+      </span>
+      <Link
+        href={firstOwn.editUrl}
+        className="shrink-0 font-medium text-brand hover:underline"
+      >
+        {ownCount === 1 ? 'Edit or cancel' : 'Manage'}
+      </Link>
+    </div>
+  ) : null;
+
   return (
     <>
       {!showStateBanner ? null : isPreview ? (
         <Banner kind="preview" title="Preview" body={previewCopy} />
       ) : effectiveStatus === 'closed' ? (
-        <Banner
-          kind="closed"
-          title="Closed"
-          body="This signup is no longer collecting responses."
-        />
-      ) : firstOwn ? (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-surface-sunk bg-success/5 px-4 py-3 text-sm">
-          <span>
-            <span className="font-medium">You&apos;re signed up</span>
-            {ownCount === 1 ? (
-              <>
-                {' '}for <span className="font-medium text-ink">{firstOwnTitle}</span>.
-              </>
-            ) : (
-              <>
-                {' '}for <span className="font-medium text-ink">{ownCount} slots</span>.
-              </>
-            )}
-          </span>
-          <Link
-            href={firstOwn.editUrl}
-            className="shrink-0 font-medium text-brand hover:underline"
-          >
-            {ownCount === 1 ? 'Edit or cancel' : 'Manage'}
-          </Link>
-        </div>
-      ) : null}
+        <>
+          <Banner
+            kind="closed"
+            title="Closed"
+            body={
+              firstOwn
+                ? `Sign-ups have closed. Your ${ownCount === 1 ? 'place still stands' : 'places still stand'}.`
+                : 'This signup is no longer collecting responses.'
+            }
+          />
+          {signedUpBar}
+        </>
+      ) : (
+        signedUpBar
+      )}
 
       <header className="space-y-2">
         {/* On /s/[slug] this title *is* the page heading, so it's an h1. In
