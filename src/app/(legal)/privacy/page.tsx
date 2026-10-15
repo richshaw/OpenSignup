@@ -8,12 +8,14 @@ import {
   SUPPORT_MAILTO,
   operatorLabel,
 } from '@/lib/site-config';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: '/privacy',
   title: 'Privacy policy',
   description: `How ${INSTANCE_NAME} collects, uses, and stores your data — what we keep for organizers and participants, the cookies we set, and how long we retain it.`,
-  alternates: { canonical: '/privacy' },
-};
+  siteName: INSTANCE_NAME,
+});
 
 export default function PrivacyPage() {
   const operator = operatorLabel();

@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation';
 import { HELP_ARTICLES, findHelpArticle } from '@/help/articles';
 import { HELP_BODIES } from '@/help/bodies';
 import { HelpContact } from '@/help/contact';
+import { pageMetadata } from '@/lib/seo';
+import { INSTANCE_NAME } from '@/lib/site-config';
 
 type PageParams = { params: Promise<{ slug: string }> };
 
@@ -17,11 +19,12 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
   const article = findHelpArticle((await params).slug);
   if (!article) return {};
-  return {
+  return pageMetadata({
+    path: `/help/${article.slug}`,
     title: article.title,
     description: article.summary,
-    alternates: { canonical: `/help/${article.slug}` },
-  };
+    siteName: INSTANCE_NAME,
+  });
 }
 
 export default async function HelpArticlePage({ params }: PageParams) {

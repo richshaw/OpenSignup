@@ -1,10 +1,14 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   buildLandingJsonLd,
   buildRobots,
   buildSitemap,
   INDEXABLE_ROUTES,
+  pageMetadata,
   serializeJsonLd,
+  SHARE_IMAGE,
 } from './seo';
 
 const ORIGIN = 'https://example.test';
@@ -95,5 +99,42 @@ describe('serializeJsonLd', () => {
     const out = serializeJsonLd({ name: '</script><script>alert(1)' });
     expect(out).not.toContain('</script>');
     expect(out).toContain('\\u003c/script');
+  });
+});
+
+describe('pageMetadata', () => {
+  const meta = pageMetadata({
+    path: '/help',
+    title: 'Help',
+    description: 'Short guides.',
+    siteName: 'Acme Signups',
+  });
+
+  it('gives the page its own URL, title and description in every preview', () => {
+    expect(meta.alternates?.canonical).toBe('/help');
+    expect(meta.openGraph).toMatchObject({
+      url: '/help',
+      title: 'Help · Acme Signups',
+      description: 'Short guides.',
+      siteName: 'Acme Signups',
+    });
+    expect(meta.twitter).toMatchObject({
+      title: 'Help · Acme Signups',
+      description: 'Short guides.',
+    });
+  });
+
+  it('keeps the share image, which a page-level openGraph would drop', () => {
+    expect(meta.openGraph?.images).toEqual([{ url: '/opengraph-image.png', ...SHARE_IMAGE }]);
+    expect(meta.twitter?.images).toEqual([{ url: '/twitter-image.png', ...SHARE_IMAGE }]);
+  });
+
+  it.each(['opengraph-image', 'twitter-image'])('describes %s.png as it is on disk', (name) => {
+    const dir = path.resolve(__dirname, '../app');
+    const png = readFileSync(path.join(dir, `${name}.png`));
+    // A PNG's IHDR chunk holds its width and height at bytes 16 and 20.
+    expect(png.readUInt32BE(16)).toBe(SHARE_IMAGE.width);
+    expect(png.readUInt32BE(20)).toBe(SHARE_IMAGE.height);
+    expect(readFileSync(path.join(dir, `${name}.alt.txt`), 'utf8').trim()).toBe(SHARE_IMAGE.alt);
   });
 });

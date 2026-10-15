@@ -2,13 +2,15 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { HELP_ARTICLES } from '@/help/articles';
 import { HelpContact } from '@/help/contact';
+import { pageMetadata } from '@/lib/seo';
 import { INSTANCE_NAME } from '@/lib/site-config';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: '/help',
   title: 'Help',
   description: `Short guides to making signups on ${INSTANCE_NAME}.`,
-  alternates: { canonical: '/help' },
-};
+  siteName: INSTANCE_NAME,
+});
 
 export default function HelpIndexPage() {
   return (
