@@ -142,6 +142,11 @@ describe('POST /api/slots/[id]/commitments (db)', () => {
     const again = await signUp(slotId, { idempotencyKey });
     expect(after).toHaveBeenCalledTimes(1);
 
+    for (const res of [first, again]) {
+      expect(res.payload.data.commitment).not.toHaveProperty('editTokenHash');
+      expect(res.payload.data.commitment).not.toHaveProperty('idempotencyKeyHash');
+    }
+
     const { id } = first.payload.data.commitment;
     expect(again.payload.data.commitment.id).toBe(id);
     expect(again.payload.data.editToken).toBe(first.payload.data.editToken);
