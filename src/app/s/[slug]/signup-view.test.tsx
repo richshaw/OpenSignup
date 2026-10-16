@@ -593,10 +593,10 @@ describe('<SignupViewBody /> for a returning participant', () => {
     expect(screen.queryByText('Closed', { selector: 'p' })).toBeNull();
   });
 
-  it('keeps the signed-up bar under the Closed banner, and says their place stands', () => {
+  it('keeps the signed-up bar under the Closed banner, and says their spot is still theirs', () => {
     renderOwn('closed');
     expect(screen.getByText('Closed', { selector: 'p' })).toBeInTheDocument();
-    expect(screen.getByText('Sign-ups have closed. Your place still stands.')).toBeInTheDocument();
+    expect(screen.getByText('No one new can sign up, but your spot is still yours.')).toBeInTheDocument();
     expect(screen.queryByText('This signup is no longer collecting responses.')).toBeNull();
     expect(screen.getByText("You're signed up")).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Edit or cancel' })).toHaveAttribute(
@@ -605,7 +605,7 @@ describe('<SignupViewBody /> for a returning participant', () => {
     );
   });
 
-  it('says "places" for someone with more than one slot on a closed signup', () => {
+  it('says "spots" for someone with more than one slot on a closed signup', () => {
     render(
       <SignupViewBody
         signup={{ ...SIGNUP, status: 'closed' }}
@@ -617,7 +617,7 @@ describe('<SignupViewBody /> for a returning participant', () => {
         ownCommitments={[...OWN, { ...OWN[0]!, slotId: 's2' }]}
       />,
     );
-    expect(screen.getByText('Sign-ups have closed. Your places still stand.')).toBeInTheDocument();
+    expect(screen.getByText('No one new can sign up, but your spots are still yours.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Manage' })).toBeInTheDocument();
   });
 

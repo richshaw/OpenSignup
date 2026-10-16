@@ -247,7 +247,7 @@ export function SignupViewBody({
             title="Closed"
             body={
               firstOwn
-                ? `Sign-ups have closed. Your ${ownCount === 1 ? 'place still stands' : 'places still stand'}.`
+                ? `No one new can sign up, but your ${ownCount === 1 ? 'spot is' : 'spots are'} still yours.`
                 : 'This signup is no longer collecting responses.'
             }
           />
