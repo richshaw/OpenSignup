@@ -980,12 +980,12 @@ describe('updateOwnCommitment on a slot that takes no more places (db)', () => {
   // accepts would only lead to the error.
   it.each(SHUT)('caps the edit page at what is held on a signup %s', async (name, shutDown) => {
     const s = await holdingTwo(`Max, ${name}`);
-    expect(await editLimitsForCommitment(fx.db, s.commitment)).toEqual({
+    expect(await editLimitsForCommitment(fx.db, s.commitment)).toMatchObject({
       maxQuantity: 5,
       closed: false,
     });
     await shutDown(fx, s);
-    expect(await editLimitsForCommitment(fx.db, s.commitment)).toEqual({
+    expect(await editLimitsForCommitment(fx.db, s.commitment)).toMatchObject({
       maxQuantity: 2,
       closed: true,
     });
@@ -1915,6 +1915,7 @@ describe('editLimitsForCommitment (db)', () => {
     expect(await editLimitsForCommitment(fx.db, mine.value.commitment)).toEqual({
       maxQuantity: 4,
       closed: false,
+      slotName: '',
     });
 
     const cancelled = await cancelOwnCommitment(
@@ -1926,6 +1927,7 @@ describe('editLimitsForCommitment (db)', () => {
     expect(await editLimitsForCommitment(fx.db, mine.value.commitment)).toEqual({
       maxQuantity: 5,
       closed: false,
+      slotName: '',
     });
   });
 
@@ -1985,10 +1987,45 @@ describe('editLimitsForCommitment (db)', () => {
     expect(await editLimitsForCommitment(fx.db, onSingle.value.commitment)).toEqual({
       maxQuantity: 1,
       closed: false,
+      slotName: '',
     });
     expect(await editLimitsForCommitment(fx.db, onUnlimited.value.commitment)).toEqual({
       maxQuantity: null,
       closed: false,
+      slotName: '',
+    });
+  });
+
+  it("names the slot by its values, or '' when it has none to show", async () => {
+    const { signupId, slotId: blankSlotId } = await makeOpenSignupWithSlot(fx, 'Slot name');
+    const named = await addSlot(fx.db, fx.actor, signupId, {
+      values: { what: 'Juice' },
+      capacity: 5,
+    });
+    if (!named.ok) throw new Error(`addSlot failed: ${named.error.message}`);
+
+    const onNamed = await commitToSlot(fx.db, named.value.id, {
+      name: 'Pat',
+      email: 'pat@example.test',
+      quantity: 1,
+    });
+    if (!onNamed.ok) throw new Error(`commit failed: ${onNamed.error.message}`);
+    const onBlank = await commitToSlot(fx.db, blankSlotId, {
+      name: 'Pat',
+      email: 'pat@example.test',
+      quantity: 1,
+    });
+    if (!onBlank.ok) throw new Error(`commit failed: ${onBlank.error.message}`);
+
+    expect((await editLimitsForCommitment(fx.db, onNamed.value.commitment)).slotName).toBe('Juice');
+    expect((await editLimitsForCommitment(fx.db, onBlank.value.commitment)).slotName).toBe('');
+
+    // Closed, the limits take the other branch and still name the slot.
+    expect((await closeSignup(fx.db, fx.actor, signupId)).ok).toBe(true);
+    expect(await editLimitsForCommitment(fx.db, onNamed.value.commitment)).toEqual({
+      maxQuantity: 1,
+      closed: true,
+      slotName: 'Juice',
     });
   });
 });

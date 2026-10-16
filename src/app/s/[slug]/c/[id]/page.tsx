@@ -86,7 +86,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   // message here fits, so it gets the not-found page.
   if (!ACTIVE_COMMITMENT_STATUSES.includes(c.status)) notFound();
 
-  const { maxQuantity, closed } = await editLimitsForCommitment(getDb(), c);
+  const { maxQuantity, closed, slotName } = await editLimitsForCommitment(getDb(), c);
 
   return (
     <main className="container-tight flex min-h-[100svh] flex-col gap-6 py-8">
@@ -95,6 +95,9 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
           ← Back to signup
         </a>
         <h1 className="text-2xl font-semibold tracking-tight">Your signup</h1>
+        {/* Which slot this is, as the cancelled page and the emails name it,
+            for someone with more than one sign-up or no email to check. */}
+        {slotName ? <p className="text-balance text-sm font-medium">{slotName}</p> : null}
         <p className="text-ink-muted text-sm">
           You&apos;re editing this as {c.participantName}
           {c.participantEmail ? ` (${c.participantEmail})` : null}.
