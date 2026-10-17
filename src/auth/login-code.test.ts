@@ -45,7 +45,12 @@ describe('callback url encryption', () => {
     expect(blob).not.toContain('token=abc');
     expect(decryptCallbackUrl(blob)).toBe(url);
     const [iv, tag, body] = blob.split('.');
-    expect(decryptCallbackUrl(`${iv}.${tag}.${body!.slice(0, -2)}AA`)).toBeNull();
+    // Flip a bit in the decoded ciphertext. Rewriting base64url characters
+    // can leave the bytes unchanged (the last character carries unused bits),
+    // which made this check fail at random.
+    const tampered = Buffer.from(body!, 'base64url');
+    tampered[0]! ^= 1;
+    expect(decryptCallbackUrl(`${iv}.${tag}.${tampered.toString('base64url')}`)).toBeNull();
     expect(decryptCallbackUrl('garbage')).toBeNull();
     expect(decryptCallbackUrl(blob, 'x'.repeat(32))).toBeNull();
   });

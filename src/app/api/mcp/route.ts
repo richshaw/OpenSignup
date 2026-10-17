@@ -1,8 +1,7 @@
 import { resolveBearerActor } from '@/auth/bearer';
 import { extractClientIp } from '@/auth/request-context';
 import { getDb } from '@/db/client';
-import { ServiceException } from '@/lib/errors';
-import { RateLimits, consumeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
+import { RateLimits, chargeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
 import { BodyTooLarge, readRequestBody } from '@/lib/request-body';
 import type { ToolContext } from '@/mcp/context';
 import { attachContext, getMcpHandler } from '@/mcp/handler';
@@ -39,21 +38,14 @@ function tooLarge(): Response {
   );
 }
 
-/** Consume `cost` units or answer 429; anything but a rate limit is rethrown. */
+/** Consume `cost` units, or answer 429 when over the limit. */
 async function meter(policy: RateLimitPolicy, subject: string, cost = 1): Promise<Response | null> {
-  try {
-    await consumeRateLimit(getDb(), policy, subject, cost);
-    return null;
-  } catch (err) {
-    if (err instanceof ServiceException && err.serviceError.code === 'rate_limited') {
-      const retry = err.serviceError.details?.retryAfterSeconds;
-      return Response.json(
-        { error: 'too_many_requests', error_description: 'too many requests' },
-        { status: 429, headers: { 'Retry-After': String(typeof retry === 'number' ? retry : 60) } },
-      );
-    }
-    throw err;
-  }
+  const retryAfter = await chargeRateLimit(getDb(), policy, subject, cost);
+  if (retryAfter === null) return null;
+  return Response.json(
+    { error: 'too_many_requests', error_description: 'too many requests' },
+    { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+  );
 }
 
 /**

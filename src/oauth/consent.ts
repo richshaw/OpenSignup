@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import Provider, { errors as oidcErrors } from 'oidc-provider';
 import { getDb } from '@/db/client';
-import { recordActivity } from '@/lib/activity';
+import { recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException } from '@/lib/errors';
 import { log } from '@/lib/log';
 import { requireOrganizerId, type Actor } from '@/lib/policy';
@@ -62,16 +62,34 @@ async function details(provider: Provider, request: Request) {
   }
 }
 
-/** What the consent page shows. Throws `ConsentUnavailable` if the request is gone. */
-export async function loadConsentContext(uid: string): Promise<ConsentContext> {
+/**
+ * The parked authorization request behind `uid`, as this browser sees it,
+ * with the client that made it and the scopes it asked for. Throws
+ * `ConsentUnavailable` if the request is gone.
+ */
+async function openInteraction(uid: string, suffix?: string, method?: string) {
   const provider = await getProvider();
-  const interaction = await details(provider, await browserRequest(uid));
+  const request = await browserRequest(uid, suffix, method);
+  const interaction = await details(provider, request);
   const clientId = String(interaction.params.client_id ?? '');
   const client = await provider.Client.find(clientId).catch(() => undefined);
-  const requestedScopes = parseScopeString(String(interaction.params.scope ?? ''));
+  const scope = String(interaction.params.scope ?? '');
+  return {
+    provider,
+    request,
+    clientId,
+    client: describeClient(clientId, client?.clientName ?? null),
+    scope,
+    requestedScopes: parseScopeString(scope),
+  };
+}
+
+/** What the consent page shows. Throws `ConsentUnavailable` if the request is gone. */
+export async function loadConsentContext(uid: string): Promise<ConsentContext> {
+  const { client, requestedScopes } = await openInteraction(uid);
   return {
     uid,
-    client: describeClient(clientId, client?.clientName ?? null),
+    client,
     permissions: describeScopes(requestedScopes),
     requestedScopes,
     includesParticipantData: requestedScopes.includes('commitments:read'),
@@ -87,20 +105,22 @@ export type Decision = 'approve' | 'deny';
  */
 export async function decideConsent(uid: string, actor: Actor, decision: Decision): Promise<Response> {
   const organizerId = requireOrganizerId(actor);
-  const provider = await getProvider();
   const db = getDb();
-  const request = await browserRequest(uid, '/decision', 'POST');
-  const interaction = await details(provider, request);
-  const clientId = String(interaction.params.client_id ?? '');
-  const client = await provider.Client.find(clientId).catch(() => undefined);
-  const display = describeClient(clientId, client?.clientName ?? null);
-  const requested = parseScopeString(String(interaction.params.scope ?? ''));
+  const { provider, request, clientId, client: display, scope, requestedScopes: requested } = await openInteraction(
+    uid,
+    '/decision',
+    'POST',
+  );
   const resourceScopes = requested.filter((s) => (RESOURCE_SCOPES as readonly string[]).includes(s));
 
   let result: Record<string, unknown>;
   if (decision === 'deny') {
     result = { error: 'access_denied', error_description: 'The organizer declined the connection' };
-    await safeActivity(db, organizerId, 'oauth.consent_denied', { clientDomain: display.domain, scopes: resourceScopes });
+    await recordActivityBestEffort(db, {
+      actor: { actorId: organizerId, actorType: 'organizer' },
+      eventType: 'oauth.consent_denied',
+      payload: { clientDomain: display.domain, scopes: resourceScopes },
+    });
   } else if (resourceScopes.length === 0) {
     result = { error: 'invalid_scope', error_description: 'No usable permission was requested' };
   } else {
@@ -109,7 +129,7 @@ export async function decideConsent(uid: string, actor: Actor, decision: Decisio
     // it bounces the browser back here forever. Any OIDC scope the request
     // named (offline_access, openid) is granted at that level; resource
     // scopes are the ones that actually reach a token.
-    const oidcScopes = String(interaction.params.scope ?? '')
+    const oidcScopes = scope
       .split(/\s+/)
       .filter((s) => (PROVIDER_SCOPES as readonly string[]).includes(s) || s === 'openid');
     const { grantId, extended } = await ensureGrant(db, provider, {
@@ -121,10 +141,10 @@ export async function decideConsent(uid: string, actor: Actor, decision: Decisio
       resourceScopes,
     });
     result = { login: { accountId: organizerId }, consent: { grantId } };
-    await safeActivity(db, organizerId, 'oauth.consent_granted', {
-      clientDomain: display.domain,
-      scopes: resourceScopes,
-      extended,
+    await recordActivityBestEffort(db, {
+      actor: { actorId: organizerId, actorType: 'organizer' },
+      eventType: 'oauth.consent_granted',
+      payload: { clientDomain: display.domain, scopes: resourceScopes, extended },
     });
   }
 
@@ -133,23 +153,4 @@ export async function decideConsent(uid: string, actor: Actor, decision: Decisio
   );
   if (!ended) throw new ServiceException(serviceError('internal', 'consent could not be recorded'));
   return response;
-}
-
-async function safeActivity(
-  db: ReturnType<typeof getDb>,
-  organizerId: string,
-  eventType: 'oauth.consent_granted' | 'oauth.consent_denied',
-  payload: Record<string, unknown>,
-) {
-  try {
-    await recordActivity(db, {
-      signupId: null,
-      workspaceId: null,
-      actor: { actorId: organizerId, actorType: 'organizer' },
-      eventType,
-      payload,
-    });
-  } catch (err) {
-    log.warn({ err, eventType }, 'recordActivity failed');
-  }
 }

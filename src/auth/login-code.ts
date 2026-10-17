@@ -6,6 +6,7 @@ import { getEnv } from '@/lib/env';
 import { serviceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { err, ok, type Result } from '@/lib/result';
+import { normalizeEmail } from '@/schemas/common';
 import type { ServiceError } from '@/lib/errors';
 
 /**
@@ -43,7 +44,7 @@ export function normalizeLoginCode(raw: string): string | null {
 }
 
 export function hashLoginCode(email: string, code: string, secret = getEnv().AUTH_SECRET): string {
-  return createHmac('sha256', secret).update(`${email.trim().toLowerCase()}:${code}`).digest('hex');
+  return createHmac('sha256', secret).update(`${normalizeEmail(email)}:${code}`).digest('hex');
 }
 
 function encryptionKey(secret: string): Buffer {
@@ -84,7 +85,7 @@ export async function issueLoginCode(
   db: Db,
   input: { email: string; callbackUrl: string; expiresAt: Date },
 ): Promise<string> {
-  const email = input.email.trim().toLowerCase();
+  const email = normalizeEmail(input.email);
   const expiresAt = new Date(Math.min(input.expiresAt.getTime(), Date.now() + LOGIN_CODE_MAX_AGE_MS));
   const payloadEncrypted = encryptCallbackUrl(input.callbackUrl);
   return db.transaction(async (tx) => {
@@ -136,7 +137,7 @@ export async function redeemLoginCode(
   db: Queryable,
   input: { email: string; code: string },
 ): Promise<Result<string, ServiceError>> {
-  const email = input.email.trim().toLowerCase();
+  const email = normalizeEmail(input.email);
   const code = normalizeLoginCode(input.code);
   if (!code) return err(serviceError('invalid_input', 'enter the six-digit code from the email', { field: 'code' }));
   const [row] = await db

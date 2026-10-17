@@ -1,8 +1,7 @@
 import { AuthError } from 'next-auth';
 import type { Db } from '@/db/client';
-import { ServiceException } from '@/lib/errors';
 import { log } from '@/lib/log';
-import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
+import { RateLimits, chargeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
 
 /**
  * Thrown from `sendVerificationRequest` when a magic-link request is over a
@@ -14,15 +13,14 @@ import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
  * (the one `requestMagicLink` calls). Over HTTP, at
  * `POST /api/auth/signin/nodemailer`, it still answers with its error page:
  * `EmailSignInError` is not a type it passes on to the browser, so the page
- * gets `?error=Configuration`, as it did for the `ServiceException`. `kind` is
- * left at its default, `error`, so it is the same page, too.
+ * gets `?error=Configuration`, as it did for the `ServiceException` this
+ * replaced. `kind` is left at its default, `error`, so it is the same page, too.
  */
 export class MagicLinkRateLimited extends AuthError {
   static type = 'EmailSignInError';
 
-  constructor(err: ServiceException) {
-    // `{ err }` is the cause shape Auth.js's logger prints.
-    super('magic link rate-limited', { cause: { err } });
+  constructor(bucket: string, retryAfterSeconds: number) {
+    super('magic link rate-limited', { cause: { bucket, retryAfterSeconds } });
   }
 }
 
@@ -34,18 +32,19 @@ export async function consumeMagicLinkRateLimits(
   db: Db,
   { email, ip }: { email: string; ip: string | null },
 ): Promise<void> {
-  try {
-    // IP bucket first: a misbehaving IP exhausts its own quota
-    // before it can degrade any victim's per-email quota. Null IPs
-    // share an "unknown" bucket so deployments missing
-    // x-forwarded-for / x-real-ip don't silently no-op.
-    await consumeRateLimit(db, RateLimits.magicLinkPerIp, ip ?? 'unknown');
-    await consumeRateLimit(db, RateLimits.magicLinkPerEmail, email);
-  } catch (err) {
-    if (err instanceof ServiceException && err.serviceError.code === 'rate_limited') {
-      log.warn({ email, ip, bucket: err.serviceError.details?.bucket }, 'magic link rate-limited');
-      throw new MagicLinkRateLimited(err);
+  // IP bucket first: a misbehaving IP exhausts its own quota
+  // before it can degrade any victim's per-email quota. Null IPs
+  // share an "unknown" bucket so deployments missing
+  // x-forwarded-for / x-real-ip don't silently no-op.
+  const charges: [RateLimitPolicy, string][] = [
+    [RateLimits.magicLinkPerIp, ip ?? 'unknown'],
+    [RateLimits.magicLinkPerEmail, email],
+  ];
+  for (const [policy, subject] of charges) {
+    const retryAfter = await chargeRateLimit(db, policy, subject);
+    if (retryAfter !== null) {
+      log.warn({ email, ip, bucket: policy.bucket }, 'magic link rate-limited');
+      throw new MagicLinkRateLimited(policy.bucket, retryAfter);
     }
-    throw err;
   }
 }

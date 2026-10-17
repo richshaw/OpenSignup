@@ -3,6 +3,7 @@ import { activity, type ActivityEvent } from '@/db/schema/activity';
 import { organizers } from '@/db/schema/organizers';
 import type { Db, Queryable } from '@/db/client';
 import { makeId } from './ids';
+import { log } from './log';
 import { requireOrganizer, type Actor } from './policy';
 
 export interface ActivityActor {
@@ -41,16 +42,15 @@ export function activityPayload(
   return actor.clientId ? { ...given, viaClientId: actor.clientId } : given;
 }
 
-export async function recordActivity(
-  db: Queryable,
-  args: {
-    signupId?: string | null;
-    workspaceId?: string | null;
-    actor: ActivityActor;
-    eventType: ActivityEvent;
-    payload?: Record<string, unknown>;
-  },
-) {
+interface RecordActivityArgs {
+  signupId?: string | null;
+  workspaceId?: string | null;
+  actor: ActivityActor;
+  eventType: ActivityEvent;
+  payload?: Record<string, unknown>;
+}
+
+export async function recordActivity(db: Queryable, args: RecordActivityArgs) {
   const payload = activityPayload(args.actor, args.payload);
   await db.insert(activity).values({
     id: makeId('act'),
@@ -67,6 +67,25 @@ export async function recordActivity(
       .update(organizers)
       .set({ lastActiveAt: sql`now()` })
       .where(eq(organizers.id, args.actor.actorId));
+  }
+}
+
+/**
+ * For telemetry-only events written outside any transaction: a failed
+ * insert is logged and swallowed, so it never fails the operation the event
+ * describes (a sign-in, a disconnect) after that operation has happened.
+ *
+ * Takes a `Db`, not a `Tx`, on purpose. Inside a transaction a failed insert
+ * aborts the whole transaction even though the error is swallowed here, and
+ * the caller's next statement fails somewhere unrelated. Telemetry that has
+ * to be written from inside one needs a savepoint, as
+ * `safeRecordAttemptFailed` in src/services/commitments.ts does.
+ */
+export async function recordActivityBestEffort(db: Db, args: RecordActivityArgs): Promise<void> {
+  try {
+    await recordActivity(db, args);
+  } catch (err) {
+    log.warn({ err, eventType: args.eventType }, 'recordActivity failed');
   }
 }
 
