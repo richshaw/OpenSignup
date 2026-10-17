@@ -46,7 +46,7 @@ const DraftSlotSchema = z.object({
 });
 
 export const FullDraftSchema = z.object({
-  title: z.string().min(2).max(120),
+  title: z.string().trim().min(2).max(120),
   description: z.string().max(2000).default(''),
   fields: z.array(DraftFieldSchema).min(1).max(MAX_FIELDS),
   slots: z.array(DraftSlotSchema).min(1).max(MAX_SLOTS),

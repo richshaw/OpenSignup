@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { requiresEmail, sendsReminders } from './signups';
+import { requiresEmail, sendsReminders, SignupCreateInputSchema, SignupUpdateInputSchema } from './signups';
 
 describe('requiresEmail', () => {
   it.each([
@@ -21,5 +21,32 @@ describe('sendsReminders', () => {
     ['sendReminders false', { sendReminders: false }, false],
   ])('%s', (_label, settings, expected) => {
     expect(sendsReminders(settings)).toBe(expected);
+  });
+});
+
+describe('signup title validation', () => {
+  const createTitleSchema = SignupCreateInputSchema.shape.title;
+  const updateTitleSchema = SignupUpdateInputSchema.shape.title;
+
+  it.each([' ', ' a '])(
+    'rejects invalid create title %j',
+    (title) => {
+      expect(createTitleSchema.safeParse(title).success).toBe(false);
+    },
+  );
+
+  it.each([' ', ' a '])(
+    'rejects invalid update title %j',
+    (title) => {
+      expect(updateTitleSchema.safeParse(title).success).toBe(false);
+    },
+  );
+
+  it('trims a valid create title', () => {
+    expect(createTitleSchema.parse(' Bake sale ')).toBe('Bake sale');
+  });
+
+  it('trims a valid update title', () => {
+    expect(updateTitleSchema.parse(' Bake sale ')).toBe('Bake sale');
   });
 });

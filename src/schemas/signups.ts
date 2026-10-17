@@ -5,7 +5,7 @@ export const SIGNUP_STATUSES = ['draft', 'open', 'closed', 'archived'] as const;
 export type SignupStatus = (typeof SIGNUP_STATUSES)[number];
 
 const SIGNUP_VISIBILITIES = ['public', 'unlisted', 'password'] as const;
-
+const TitleSchema = z.string().trim().min(2).max(120);
 /**
  * Hours before a slot that its reminder goes out: the day before.
  *
@@ -68,7 +68,7 @@ export function sendsReminders(settings: unknown): boolean {
 }
 
 export const SignupCreateInputSchema = z.object({
-  title: z.string().min(2).max(120).transform((s) => s.trim()),
+  title: TitleSchema,
   description: z.string().max(2000).default(''),
   organizerDisplayName: NameSchema.optional(),
   tags: TagsSchema,
@@ -78,7 +78,7 @@ export const SignupCreateInputSchema = z.object({
 });
 
 export const SignupUpdateInputSchema = SignupCreateInputSchema.partial().extend({
-  title: z.string().min(2).max(120).optional(),
+  title: TitleSchema.optional(),
   /** `null` clears the closing time; omitted leaves it alone. */
   closesAt: z.string().datetime().nullable().optional(),
 });

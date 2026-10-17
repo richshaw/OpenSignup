@@ -27,7 +27,7 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
     );
   }
 
-  const { manual } = await searchParams;
+  const { manual, error } = await searchParams;
   const useMagic = magicComposeEnabled() && manual !== '1';
 
   if (useMagic) {
@@ -45,7 +45,11 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
       visibility: 'unlisted',
     });
     if (!result.ok) {
-      redirect(`/app/signups/new?manual=1&error=${encodeURIComponent(result.error.message)}`);
+      const message = result.error.message.includes('String must contain at least 2')
+        ? 'Title must be at least 2 characters long.'
+        : result.error.message;
+
+      redirect(`/app/signups/new?manual=1&error=${encodeURIComponent(message)}`);
     }
     redirect(`/app/signups/${result.value.id}`);
   }
@@ -59,6 +63,11 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
         </p>
       </div>
       <form action={createAction} className="space-y-5 rounded-xl border border-surface-sunk bg-white p-6">
+        {error && (
+          <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Title</span>
           <input
