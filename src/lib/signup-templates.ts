@@ -1,4 +1,4 @@
-import type { SlotFieldInput } from '@/schemas/slot-fields';
+import { TEXT_DEFAULT_MAX_LENGTH, type SlotFieldInput } from '@/schemas/slot-fields';
 
 export interface SignupTemplateSlot {
   capacity: number | null;
@@ -20,7 +20,7 @@ export const DEFAULT_TEMPLATE: SignupTemplate = {
       label: 'What',
       fieldType: 'text',
       sortOrder: 0,
-      config: { fieldType: 'text', maxLength: 200 },
+      config: { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH },
     },
     {
       ref: 'date',

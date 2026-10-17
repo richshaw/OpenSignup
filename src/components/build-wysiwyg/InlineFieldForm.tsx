@@ -3,7 +3,12 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeft, Info } from 'lucide-react';
 import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
-import { FIELD_TYPES, type FieldType, type SlotFieldConfig } from '@/schemas/slot-fields';
+import {
+  FIELD_TYPES,
+  TEXT_DEFAULT_MAX_LENGTH,
+  type FieldType,
+  type SlotFieldConfig,
+} from '@/schemas/slot-fields';
 import type { BuildField } from '../build-shared/useBuildState';
 
 export type InlineFieldFormMode =
@@ -28,7 +33,7 @@ type InlineFieldFormProps = {
 function defaultConfigFor(type: FieldType): SlotFieldConfig {
   switch (type) {
     case 'text':
-      return { fieldType: 'text', maxLength: 200 };
+      return { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH };
     case 'date':
       return { fieldType: 'date' };
     case 'time':
