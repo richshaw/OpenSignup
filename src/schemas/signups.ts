@@ -67,9 +67,17 @@ export function sendsReminders(settings: unknown): boolean {
   return parsed.success ? parsed.data.sendReminders : true;
 }
 
+export const TITLE_MIN_LENGTH = 2;
+export const TITLE_MAX_LENGTH = 120;
+export const DESCRIPTION_MAX_LENGTH = 2000;
+
 export const SignupCreateInputSchema = z.object({
-  title: z.string().min(2).max(120).transform((s) => s.trim()),
-  description: z.string().max(2000).default(''),
+  title: z
+    .string()
+    .min(TITLE_MIN_LENGTH)
+    .max(TITLE_MAX_LENGTH)
+    .transform((s) => s.trim()),
+  description: z.string().max(DESCRIPTION_MAX_LENGTH).default(''),
   organizerDisplayName: NameSchema.optional(),
   tags: TagsSchema,
   closesAt: z.string().datetime().optional(),
@@ -78,7 +86,7 @@ export const SignupCreateInputSchema = z.object({
 });
 
 export const SignupUpdateInputSchema = SignupCreateInputSchema.partial().extend({
-  title: z.string().min(2).max(120).optional(),
+  title: z.string().min(TITLE_MIN_LENGTH).max(TITLE_MAX_LENGTH).optional(),
   /** `null` clears the closing time; omitted leaves it alone. */
   closesAt: z.string().datetime().nullable().optional(),
 });
