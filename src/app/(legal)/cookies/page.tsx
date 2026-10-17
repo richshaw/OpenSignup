@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { SESSION_MAX_AGE_DAYS } from '@/auth/session-lifetime';
 import { pageMetadata } from '@/lib/seo';
 import { INSTANCE_NAME } from '@/lib/site-config';
 
@@ -15,7 +16,7 @@ export default function CookiesPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Cookies</h1>
-        <p className="text-ink-muted text-sm">Last updated: 4 October 2026</p>
+        <p className="text-ink-muted text-sm">Last updated: 17 October 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -47,7 +48,9 @@ export default function CookiesPage() {
                 <td className="px-4 py-3">
                   Keeps organizers signed in after they sign in.
                 </td>
-                <td className="px-4 py-3">Session</td>
+                <td className="px-4 py-3">
+                  {SESSION_MAX_AGE_DAYS} days, renewed while you use the site
+                </td>
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">
@@ -66,6 +69,17 @@ export default function CookiesPage() {
                   Remembers where to return you after a successful magic-link sign-in.
                 </td>
                 <td className="px-4 py-3">Short-lived</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs">
+                  authjs.pkce.code_verifier (__Secure-authjs.pkce.code_verifier over HTTPS)
+                </td>
+                <td className="px-4 py-3">
+                  Checks that a Google sign-in finishing here is the one this browser
+                  started. Set only if this site has Google sign-in turned on and you use
+                  it.
+                </td>
+                <td className="px-4 py-3">15 minutes</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">os_commit</td>
