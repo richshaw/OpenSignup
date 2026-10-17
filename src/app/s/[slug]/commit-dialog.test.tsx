@@ -2,7 +2,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
 import { urlBreakSegments } from './url-breaks';
@@ -311,6 +311,83 @@ describe('<CommitDialog /> sheet', () => {
       expect(alert).toHaveTextContent('Sign-ups for this slot have closed.');
       expect(alert).toHaveTextContent('Reload the page to see what’s still open.');
       expect(alert).not.toHaveTextContent('signup has closed');
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  // The same email signed up for this slot before, on another device or with
+  // other details.
+  it('says they are already signed up, without a link to that sign-up', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: {
+          code: 'conflict',
+          message: 'you already committed to this slot',
+          suggestion: 'edit or cancel your existing commitment',
+          details: { commitmentId: 'com_existing' },
+        },
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    // jsdom leaves scrollIntoView out, and the dialog calls it on the alert.
+    Element.prototype.scrollIntoView = vi.fn();
+    try {
+      openSheet();
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Fields' } });
+      fireEvent.change(screen.getByLabelText('Email'), {
+        target: { value: 'jordan@example.test' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent("You're already signed up for this slot.");
+      expect(alert).toHaveTextContent(
+        'Use the link in your confirmation email to change or cancel.',
+      );
+      expect(alert).not.toHaveTextContent('you already committed');
+      expect(within(alert).queryByRole('link')).toBeNull();
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  // A busy shared network, or the same address trying again and again.
+  it('says how long to wait in minutes when rate limited, not seconds', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 429,
+      json: async () => ({
+        error: {
+          code: 'rate_limited',
+          message: 'too many requests',
+          suggestion: 'wait 3412s and retry',
+          details: { retryAfterSeconds: 3412, bucket: 'commit.email' },
+        },
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    // jsdom leaves scrollIntoView out, and the dialog calls it on the alert.
+    Element.prototype.scrollIntoView = vi.fn();
+    try {
+      openSheet();
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Fields' } });
+      fireEvent.change(screen.getByLabelText('Email'), {
+        target: { value: 'jordan@example.test' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent('Too many tries just now.');
+      expect(alert).toHaveTextContent('Try again in about 57 minutes.');
+      expect(alert).not.toHaveTextContent('too many requests');
+      expect(alert).not.toHaveTextContent('3412');
     } finally {
       delete (Element.prototype as Partial<Element>).scrollIntoView;
       vi.unstubAllGlobals();
