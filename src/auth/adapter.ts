@@ -6,11 +6,14 @@ import { organizers } from '@/db/schema/organizers';
 import { workspaceMembers } from '@/db/schema/members';
 import { workspaces } from '@/db/schema/workspaces';
 import { accounts, sessions, verificationTokens } from '@/db/schema/auth';
-import { recordActivity } from '@/lib/activity';
+import { recordActivityBestEffort } from '@/lib/activity';
 import { makeId } from '@/lib/ids';
-import { log } from '@/lib/log';
 import { normalizeEmail } from '@/schemas/common';
 import { toSlug } from '@/lib/slug';
+
+function toAdapterUser(row: typeof organizers.$inferSelect): AdapterUser {
+  return { id: row.id, email: row.email, emailVerified: row.emailVerified, name: row.name, image: row.image };
+}
 
 /**
  * Wraps the standard Drizzle adapter so that when a new organizer is created
@@ -34,11 +37,9 @@ export function SignupAdapter() {
         .from(organizers)
         .where(eq(organizers.email, normalizeEmail(email)))
         .limit(1);
-      if (!row) return null;
-      return { id: row.id, email: row.email, emailVerified: row.emailVerified, name: row.name, image: row.image };
+      return row ? toAdapterUser(row) : null;
     },
     async createUser(user: AdapterUser): Promise<AdapterUser> {
-      if (!base.createUser) throw new Error('adapter missing createUser');
       const { row, workspaceId } = await db.transaction(async (tx) => {
         const organizerId = makeId('org');
         const [orgRow] = await tx
@@ -84,26 +85,15 @@ export function SignupAdapter() {
       // Best-effort telemetry, written outside the onboarding transaction.
       // A failed activity insert here would have aborted the whole tx (a
       // failed statement inside a Postgres tx poisons subsequent queries),
-      // so it lives outside and is wrapped in try/catch.
-      try {
-        await recordActivity(db, {
-          signupId: null,
-          workspaceId,
-          actor: { actorId: row.id, actorType: 'organizer' },
-          eventType: 'workspace.created',
-          payload: { kind: 'personal' },
-        });
-      } catch (err) {
-        log.warn({ err }, 'recordActivity workspace.created failed');
-      }
+      // so it lives outside and is best-effort.
+      await recordActivityBestEffort(db, {
+        workspaceId,
+        actor: { actorId: row.id, actorType: 'organizer' },
+        eventType: 'workspace.created',
+        payload: { kind: 'personal' },
+      });
 
-      return {
-        id: row.id,
-        email: row.email,
-        emailVerified: row.emailVerified,
-        name: row.name,
-        image: row.image,
-      };
+      return toAdapterUser(row);
     },
   };
 }

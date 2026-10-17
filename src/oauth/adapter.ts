@@ -1,4 +1,4 @@
-import { and, eq, lt, sql } from 'drizzle-orm';
+import { and, eq, lt, sql, type SQL } from 'drizzle-orm';
 import type { Adapter, AdapterPayload } from 'oidc-provider';
 import { getDb, type Queryable } from '@/db/client';
 import { oauthRecords } from '@/db/schema/oauth';
@@ -60,29 +60,24 @@ export class DrizzleOidcAdapter implements Adapter {
       });
   }
 
-  async find(id: string): Promise<AdapterPayload | undefined> {
-    const [row] = await this.db
-      .select({ payload: oauthRecords.payload, expiresAt: oauthRecords.expiresAt })
-      .from(oauthRecords)
-      .where(and(eq(oauthRecords.model, this.model), eq(oauthRecords.id, id)))
-      .limit(1);
-    return live(row);
+  find(id: string): Promise<AdapterPayload | undefined> {
+    return this.findWhere(eq(oauthRecords.id, id));
   }
 
-  async findByUid(uid: string): Promise<AdapterPayload | undefined> {
-    const [row] = await this.db
-      .select({ payload: oauthRecords.payload, expiresAt: oauthRecords.expiresAt })
-      .from(oauthRecords)
-      .where(and(eq(oauthRecords.model, this.model), eq(oauthRecords.uid, uid)))
-      .limit(1);
-    return live(row);
+  findByUid(uid: string): Promise<AdapterPayload | undefined> {
+    return this.findWhere(eq(oauthRecords.uid, uid));
   }
 
-  async findByUserCode(userCode: string): Promise<AdapterPayload | undefined> {
+  findByUserCode(userCode: string): Promise<AdapterPayload | undefined> {
+    return this.findWhere(eq(oauthRecords.userCode, userCode));
+  }
+
+  /** The one live record of this model matching `cond`. */
+  private async findWhere(cond: SQL): Promise<AdapterPayload | undefined> {
     const [row] = await this.db
       .select({ payload: oauthRecords.payload, expiresAt: oauthRecords.expiresAt })
       .from(oauthRecords)
-      .where(and(eq(oauthRecords.model, this.model), eq(oauthRecords.userCode, userCode)))
+      .where(and(eq(oauthRecords.model, this.model), cond))
       .limit(1);
     return live(row);
   }

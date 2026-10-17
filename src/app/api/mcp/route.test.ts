@@ -4,10 +4,10 @@ import { readRpc } from '@/mcp/testing/rpc';
 const resolve = vi.fn();
 vi.mock('@/auth/bearer', () => ({ resolveBearerActor: (...a: unknown[]) => resolve(...a) }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) as unknown }));
-const consume = vi.fn(async (..._args: unknown[]) => {});
+const consume = vi.fn(async (..._args: unknown[]): Promise<number | null> => null);
 vi.mock('@/lib/rate-limit', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/rate-limit')>();
-  return { ...actual, consumeRateLimit: (...args: unknown[]) => consume(...args) };
+  return { ...actual, chargeRateLimit: (...args: unknown[]) => consume(...args) };
 });
 
 const okResolution = {
@@ -195,10 +195,7 @@ describe('/api/mcp', () => {
 
   it('answers 429 with Retry-After when the bucket is exhausted', async () => {
     const { POST } = await import('./route');
-    const { ServiceException, serviceError } = await import('@/lib/errors');
-    consume.mockImplementationOnce(async () => {
-      throw new ServiceException(serviceError('rate_limited', 'x', { details: { retryAfterSeconds: 12 } }));
-    });
+    consume.mockResolvedValueOnce(12);
     const r = await POST(post(rpc('tools/list')));
     expect(r.status).toBe(429);
     expect(r.headers.get('retry-after')).toBe('12');
