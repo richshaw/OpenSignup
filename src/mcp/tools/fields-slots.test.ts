@@ -92,6 +92,14 @@ describe('field tools', () => {
     });
   });
 
+  it('add_field refuses a position past the top of the order column', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const r = await client.callTool({ name: 'add_field', arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'text', sortOrder: 3_000_000_000 } });
+    expect(r.isError).toBe(true);
+    expect((r.structuredContent as { error: { code: string; field: string } }).error).toMatchObject({ code: 'invalid_input', field: 'sortOrder' });
+    expect(fields.addField).not.toHaveBeenCalled();
+  });
+
   it('update_field keeps the strict schema closed', async () => {
     const client = await connectTestClient(ctx, TOOLS);
     const r = await client.callTool({ name: 'update_field', arguments: { fieldId: 'fld_1', label: 'When', bogus: 1 } });

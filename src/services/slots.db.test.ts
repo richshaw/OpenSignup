@@ -278,6 +278,22 @@ describe('addSlot order (db)', () => {
     });
     expect(bulk.ok, JSON.stringify(bulk)).toBe(true);
   });
+
+  it('refuses a sortOrder past the top of the order column as invalid_input', async () => {
+    const { signupId, idOf } = await makeSignup(fx, 'Order out of range', [0]);
+    const added = await addSlot(fx.db, fx.actor, signupId, {
+      values: { what: 'far' },
+      sortOrder: 3_000_000_000,
+    });
+    const updated = await updateSlot(fx.db, fx.actor, idOf('a'), { sortOrder: 3_000_000_000 });
+    for (const r of [added, updated]) {
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.error.code).toBe('invalid_input');
+        expect(r.error.field).toBe('sortOrder');
+      }
+    }
+  });
 });
 
 describe('addSlotsBulk beforeSlotId (db)', () => {
