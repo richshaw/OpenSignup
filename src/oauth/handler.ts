@@ -1,8 +1,7 @@
 import { extractClientIp } from '@/auth/request-context';
 import { getDb } from '@/db/client';
-import { ServiceException } from '@/lib/errors';
 import { log } from '@/lib/log';
-import { RateLimits, consumeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
+import { RateLimits, chargeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
 import { OAUTH_ROUTES, oauthIssuer } from './config';
 import { getProvider } from './instance';
 import { invokeNodeHandler } from './node-shim';
@@ -23,17 +22,13 @@ export async function handleOAuthRequest(request: Request, opts: { path?: string
   // the authorization endpoint depends on.
   const providerPath = opts.path;
 
-  try {
-    // Null and unknown IPs share one bucket rather than skipping the limit,
-    // so a deployment missing x-forwarded-for degrades to a shared cap.
-    await consumeRateLimit(getDb(), policyFor(path), ip ?? 'unknown');
-  } catch (err) {
-    if (err instanceof ServiceException && err.serviceError.code === 'rate_limited') {
-      const retry = err.serviceError.details?.retryAfterSeconds;
-      log.warn({ path, ip, bucket: err.serviceError.details?.bucket }, 'oauth: rate-limited');
-      return rateLimited(request, typeof retry === 'number' ? retry : 60);
-    }
-    throw err;
+  // Null and unknown IPs share one bucket rather than skipping the limit,
+  // so a deployment missing x-forwarded-for degrades to a shared cap.
+  const policy = policyFor(path);
+  const retryAfter = await chargeRateLimit(getDb(), policy, ip ?? 'unknown');
+  if (retryAfter !== null) {
+    log.warn({ path, ip, bucket: policy.bucket }, 'oauth: rate-limited');
+    return rateLimited(request, retryAfter);
   }
 
   const provider = await getProvider();

@@ -13,8 +13,12 @@ export interface RateLimitPolicy {
  * Sliding-ish fixed-window rate limit backed by Postgres.
  * Cheap and sufficient for v1. For per-IP hot paths we rely on HTTP
  * edge/CDN layer in production as well.
+ *
+ * Charges `cost` units to `subject` and returns null while it is still within
+ * the limit, or the seconds until its window resets once it is over. Every
+ * call spends quota, so never call it just to see how much is left.
  */
-export async function consumeRateLimit(
+export async function chargeRateLimit(
   db: Db,
   policy: RateLimitPolicy,
   subject: string,
@@ -24,7 +28,7 @@ export async function consumeRateLimit(
    * limit bounds the work rather than the request count.
    */
   cost = 1,
-): Promise<void> {
+): Promise<number | null> {
   const now = new Date();
   const windowStart = new Date(
     Math.floor(now.getTime() / (policy.windowSeconds * 1000)) * (policy.windowSeconds * 1000),
@@ -48,17 +52,30 @@ export async function consumeRateLimit(
     throw new ServiceException(serviceError('internal', 'rate limit check failed'));
   }
 
-  if (bumped.count > policy.max) {
-    const retryAfter = Math.ceil(
-      (windowStart.getTime() + policy.windowSeconds * 1000 - now.getTime()) / 1000,
-    );
-    throw new ServiceException(
-      serviceError('rate_limited', 'too many requests', {
-        details: { retryAfterSeconds: retryAfter, bucket: policy.bucket },
-        suggestion: `wait ${retryAfter}s and retry`,
-      }),
-    );
-  }
+  if (bumped.count <= policy.max) return null;
+  return Math.ceil((windowStart.getTime() + policy.windowSeconds * 1000 - now.getTime()) / 1000);
+}
+
+/**
+ * `chargeRateLimit`, throwing a `rate_limited` ServiceException when over the
+ * limit, for route handlers and tools that turn it into the API's 429. Code
+ * that answers a rate limit its own way calls `chargeRateLimit` and reads the
+ * result instead of catching this.
+ */
+export async function consumeRateLimit(
+  db: Db,
+  policy: RateLimitPolicy,
+  subject: string,
+  cost = 1,
+): Promise<void> {
+  const retryAfter = await chargeRateLimit(db, policy, subject, cost);
+  if (retryAfter === null) return;
+  throw new ServiceException(
+    serviceError('rate_limited', 'too many requests', {
+      details: { retryAfterSeconds: retryAfter, bucket: policy.bucket },
+      suggestion: `wait ${retryAfter}s and retry`,
+    }),
+  );
 }
 
 export const RateLimits = {

@@ -25,7 +25,7 @@ const callbackUrl = '/app/signups';
 const VERIFY_REQUEST_URL =
   'http://localhost:3000/api/auth/verify-request?provider=nodemailer&type=email';
 
-/** What consumeRateLimit throws for a request over its limit. */
+/** A rate limit thrown as a plain error, which Auth.js does not pass on. */
 function overLimit() {
   return new ServiceException(
     serviceError('rate_limited', 'too many requests', {
@@ -98,7 +98,7 @@ describe('requestMagicLink', () => {
   it('reports rate_limited when signIn throws MagicLinkRateLimited', async () => {
     const result = await requestMagicLink(
       async () => {
-        throw new MagicLinkRateLimited(overLimit());
+        throw new MagicLinkRateLimited('auth.magic.email', 600);
       },
       { email, callbackUrl },
     );
@@ -238,7 +238,7 @@ describe('requestMagicLink with the real next-auth signIn', () => {
 
   it('throws MagicLinkRateLimited when the send throws it, which reads as rate_limited', async () => {
     const { signIn } = authWith(async () => {
-      throw new MagicLinkRateLimited(overLimit());
+      throw new MagicLinkRateLimited('auth.magic.email', 600);
     });
     await expect(signIn('nodemailer', options)).rejects.toBeInstanceOf(MagicLinkRateLimited);
     expect(await requestMagicLink(signIn, { email, callbackUrl })).toEqual({
@@ -249,7 +249,7 @@ describe('requestMagicLink with the real next-auth signIn', () => {
 
   it('answers the HTTP sign-in route with MagicLinkRateLimited as it did with the rate limit unwrapped', async () => {
     const wrapped = authWith(async () => {
-      throw new MagicLinkRateLimited(overLimit());
+      throw new MagicLinkRateLimited('auth.magic.email', 600);
     }).handlers;
     const unwrapped = authWith(async () => {
       throw overLimit();

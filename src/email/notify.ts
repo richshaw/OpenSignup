@@ -11,11 +11,11 @@
  */
 import type { Db } from '@/db/client';
 import { recordActivity } from '@/lib/activity';
-import { ServiceException } from '@/lib/errors';
 import { commitmentEditUrl } from '@/lib/links';
 import { log } from '@/lib/log';
-import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
+import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { willSendReminder } from '@/lib/reminder-eligibility';
+import { normalizeEmail } from '@/schemas/common';
 import { sendsReminders } from '@/schemas/signups';
 import { alreadyRecorded, loadCommitmentRow, slotText } from './commitment-row';
 import { sendCommitmentConfirmation } from './send';
@@ -82,14 +82,9 @@ export async function notifyCommitmentCreated(
     }
 
     if (opts.meterRecipient) {
-      try {
-        await consumeRateLimit(db, RateLimits.commitmentPerEmail, to.trim().toLowerCase());
-      } catch (err) {
-        if (err instanceof ServiceException && err.serviceError.code === 'rate_limited') {
-          log.info({ commitmentId }, 'recipient over the per-address limit; no confirmation email');
-          return;
-        }
-        throw err;
+      if ((await chargeRateLimit(db, RateLimits.commitmentPerEmail, normalizeEmail(to))) !== null) {
+        log.info({ commitmentId }, 'recipient over the per-address limit; no confirmation email');
+        return;
       }
     }
 

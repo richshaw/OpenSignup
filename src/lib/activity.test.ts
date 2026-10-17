@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { activityActor, activityPayload } from './activity';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('./log', () => ({ log: { warn: vi.fn() } }));
+
+import type { Db, Tx } from '@/db/client';
+import { activityActor, activityPayload, recordActivityBestEffort } from './activity';
+import { log } from './log';
 import { ServiceException } from './errors';
 import type { Actor } from './policy';
 
@@ -59,5 +64,36 @@ describe('activityPayload', () => {
   it('treats a missing or null payload as empty', () => {
     expect(activityPayload({ actorId: null, actorType: 'system' })).toEqual({});
     expect(activityPayload({ actorId: null, actorType: 'system' }, null)).toEqual({});
+  });
+});
+
+describe('recordActivityBestEffort', () => {
+  it('logs a failed insert and resolves, so the caller carries on', async () => {
+    const failure = new Error('connection reset');
+    const db = {
+      insert: () => ({
+        values: () => Promise.reject(failure),
+      }),
+    } as unknown as Db;
+
+    await expect(
+      recordActivityBestEffort(db, {
+        actor: { actorId: null, actorType: 'system' },
+        eventType: 'auth.magic_link_sent',
+      }),
+    ).resolves.toBeUndefined();
+    expect(log.warn).toHaveBeenCalledWith(
+      { err: failure, eventType: 'auth.magic_link_sent' },
+      'recordActivity failed',
+    );
+  });
+
+  it('does not accept a transaction', () => {
+    // A swallowed failure inside a transaction still aborts it, so the type
+    // rules a Tx out. Checked by `pnpm typecheck`, not at run time.
+    const insideTx = (tx: Tx) =>
+      // @ts-expect-error a transaction is not a Db
+      recordActivityBestEffort(tx, { actor: { actorId: null, actorType: 'system' }, eventType: 'auth.magic_link_sent' });
+    expect(insideTx).toBeTypeOf('function');
   });
 });
