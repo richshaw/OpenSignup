@@ -25,19 +25,23 @@ const MS_PER_HOUR = 3_600_000;
 /**
  * Whether a reminder will actually be sent for a commitment created now.
  *
- * Deliberately not the dispatcher's full predicate: signup status, opt-outs and
- * `slot_at <= now() + lead` are all either true at commit time or can only
+ * Deliberately not the dispatcher's full predicate: signup status and
+ * `slot_at <= now() + lead` are either true at commit time or can only
  * change later, and a receipt cannot see the future. This covers what is
- * knowable and wrong to promise — reminders switched off, a slot with no date,
- * and a slot too close to the sign-up for any scan to reach it.
+ * knowable and wrong to promise — reminders switched off, the participant
+ * opted out, a slot with no date, and a slot too close to the sign-up for
+ * any scan to reach it.
  */
 export function willSendReminder(input: {
   sendReminders: boolean;
   slotAt: Date | null | undefined;
   /** Commitment creation time; defaults to now. */
   createdAt?: Date;
+  /** Participant-level opt-out; a set timestamp means no reminder. */
+  remindersOptedOutAt?: Date | null;
 }): boolean {
   if (!input.sendReminders) return false;
+  if (input.remindersOptedOutAt) return false;
   const { slotAt } = input;
   if (!slotAt || Number.isNaN(slotAt.getTime())) return false;
   const createdAt = input.createdAt ?? new Date();

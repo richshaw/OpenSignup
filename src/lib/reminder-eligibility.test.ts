@@ -13,6 +13,30 @@ describe('willSendReminder', () => {
     expect(willSendReminder({ sendReminders: false, slotAt: hoursOut(20), createdAt })).toBe(false);
   });
 
+  it('is false when the participant opted out of reminders', () => {
+    // Same email re-signs after "Stop reminders": the participant row keeps
+    // remindersOptedOutAt, so the receipt must not promise one (#423).
+    expect(
+      willSendReminder({
+        sendReminders: true,
+        slotAt: hoursOut(20),
+        createdAt,
+        remindersOptedOutAt: new Date('2026-09-04T10:00:00.000Z'),
+      }),
+    ).toBe(false);
+  });
+
+  it('is true when the participant never opted out', () => {
+    expect(
+      willSendReminder({
+        sendReminders: true,
+        slotAt: hoursOut(20),
+        createdAt,
+        remindersOptedOutAt: null,
+      }),
+    ).toBe(true);
+  });
+
   it('is false for a slot with no date to count back from', () => {
     expect(willSendReminder({ sendReminders: true, slotAt: null, createdAt })).toBe(false);
     expect(willSendReminder({ sendReminders: true, slotAt: undefined, createdAt })).toBe(false);
