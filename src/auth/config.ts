@@ -5,9 +5,10 @@ import { getDb } from '@/db/client';
 import { renderEmail } from '@/email/render';
 import { getEmailTransport } from '@/email';
 import { MagicLinkEmail } from '@/email/templates/magic-link';
-import { recordActivity } from '@/lib/activity';
+import { recordActivityBestEffort } from '@/lib/activity';
 import { getEnv } from '@/lib/env';
 import { log } from '@/lib/log';
+import { normalizeEmail } from '@/schemas/common';
 import { SignupAdapter } from './adapter';
 import { buildOAuthProviders } from './oauth-providers';
 import { canonicalizeMagicLinkUrl, buildConfirmationUrl } from './magic-link-url';
@@ -40,7 +41,7 @@ function buildConfig(): NextAuthConfig {
         from: 'noreply@opensignup.invalid',
         maxAge: getMagicLinkMaxAgeSeconds(),
         async sendVerificationRequest({ identifier, url, expires }) {
-          const subject = identifier.trim().toLowerCase();
+          const subject = normalizeEmail(identifier);
           // Throws MagicLinkRateLimited, which the login form tells apart
           // from a send that failed.
           await consumeMagicLinkRateLimits(getDb(), {
@@ -74,17 +75,11 @@ function buildConfig(): NextAuthConfig {
             text,
           });
           log.info({ email: identifier }, 'magic link dispatched');
-          try {
-            await recordActivity(getDb(), {
-              signupId: null,
-              workspaceId: null,
-              actor: { actorId: null, actorType: 'system' },
-              eventType: 'auth.magic_link_sent',
-              payload: { emailDomain: extractEmailDomain(identifier), expiresInMinutes },
-            });
-          } catch (err) {
-            log.warn({ err }, 'recordActivity auth.magic_link_sent failed');
-          }
+          await recordActivityBestEffort(getDb(), {
+            actor: { actorId: null, actorType: 'system' },
+            eventType: 'auth.magic_link_sent',
+            payload: { emailDomain: extractEmailDomain(identifier), expiresInMinutes },
+          });
         },
       }),
       // Optional, env-gated OAuth providers (e.g. Google). Empty when none are
@@ -107,17 +102,11 @@ function buildConfig(): NextAuthConfig {
     events: {
       async signIn({ user, isNewUser }) {
         if (!user?.id) return;
-        try {
-          await recordActivity(getDb(), {
-            signupId: null,
-            workspaceId: null,
-            actor: { actorId: user.id, actorType: 'organizer' },
-            eventType: 'auth.signed_in',
-            payload: { isNewUser: Boolean(isNewUser) },
-          });
-        } catch (err) {
-          log.warn({ err }, 'recordActivity auth.signed_in failed');
-        }
+        await recordActivityBestEffort(getDb(), {
+          actor: { actorId: user.id, actorType: 'organizer' },
+          eventType: 'auth.signed_in',
+          payload: { isNewUser: Boolean(isNewUser) },
+        });
       },
     },
   };

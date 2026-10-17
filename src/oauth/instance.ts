@@ -1,12 +1,11 @@
 import { hkdfSync } from 'node:crypto';
 import type Provider from 'oidc-provider';
-import { getDb } from '@/db/client';
+import { getDb, type Db } from '@/db/client';
 import { eq } from 'drizzle-orm';
 import { organizers } from '@/db/schema/organizers';
 import { getEnv } from '@/lib/env';
-import { ServiceException } from '@/lib/errors';
 import { log } from '@/lib/log';
-import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
+import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
 import { DrizzleOidcAdapter } from './adapter';
 import { mcpResourceUrl, oauthIssuer } from './config';
 import { findGrantIdFor, touchGrantUsed } from './grants';
@@ -60,6 +59,19 @@ function cookieSigningKey(authSecret: string): string {
   return Buffer.from(hkdfSync('sha256', authSecret, 'opensignup-oauth', 'oauth-cookie-signing', 32)).toString('base64url');
 }
 
+/** Whether a client's metadata document may be fetched now: false for a bad URL or an origin over its limit. */
+export async function allowCimdFetch(db: Db, clientId: string): Promise<boolean> {
+  let origin: string;
+  try {
+    origin = new URL(clientId).origin;
+  } catch {
+    return false;
+  }
+  if ((await chargeRateLimit(db, RateLimits.oauthCimdPerOrigin, origin)) === null) return true;
+  log.warn({ origin }, 'oauth: CIMD fetch rate-limited');
+  return false;
+}
+
 async function build(): Promise<Provider> {
   const env = getEnv();
   const db = getDb();
@@ -80,24 +92,7 @@ async function build(): Promise<Provider> {
       return Boolean(row);
     },
     findGrantId: (accountId, clientId) => findGrantIdFor(db, accountId, clientId),
-    allowCimdFetch: async (clientId) => {
-      let origin: string;
-      try {
-        origin = new URL(clientId).origin;
-      } catch {
-        return false;
-      }
-      try {
-        await consumeRateLimit(db, RateLimits.oauthCimdPerOrigin, origin);
-        return true;
-      } catch (err) {
-        if (err instanceof ServiceException && err.serviceError.code === 'rate_limited') {
-          log.warn({ origin }, 'oauth: CIMD fetch rate-limited');
-          return false;
-        }
-        throw err;
-      }
-    },
+    allowCimdFetch: (clientId) => allowCimdFetch(db, clientId),
     onGrantUsed: (grantId) => touchGrantUsed(db, grantId),
   });
   log.info({ issuer: oauthIssuer(), resource: mcpResourceUrl(), keys: keys.privateKeys.length }, 'oauth: provider ready');
