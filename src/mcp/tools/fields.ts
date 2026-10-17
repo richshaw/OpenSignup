@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { DraftFieldSchema } from '@/lib/magic-compose/prompt';
 import { configFor } from '@/lib/magic-compose/to-template';
 import { ok } from '@/lib/result';
+import { SortOrderSchema } from '@/schemas/common';
 import { SlotFieldUpdateInputSchema } from '@/schemas/slot-fields';
 import { addField, deleteField, updateField } from '@/services/slot-fields';
 import { defineTool } from '../registry';
@@ -16,7 +17,7 @@ export const addFieldTool = defineTool({
   annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: DraftFieldSchema.extend({
     signupId: z.string(),
-    sortOrder: z.number().int().nonnegative().optional().describe('Position among the fields; omit to append.'),
+    sortOrder: SortOrderSchema.optional().describe('Position among the fields; omit to append.'),
   }),
   handler: async (ctx, input) => {
     const { signupId, ref, label, fieldType, choices, sortOrder } = input;

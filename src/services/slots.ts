@@ -16,6 +16,7 @@ import {
   SlotReorderInputSchema,
   SlotUpdateInputSchema,
 } from '@/schemas/slots';
+import { MAX_SORT_ORDER } from '@/schemas/common';
 import { lockSignupForWrite, lockSlot, lockSlotsForSignup, readLiveSignup } from './locks';
 import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
 
@@ -213,9 +214,6 @@ export async function addSlotsBulk(
     return ok(out);
   });
 }
-
-/** The top of the int `sort_order` column. */
-const MAX_SORT_ORDER = 2_147_483_647;
 
 /**
  * The order a slot appended to a signup takes: past every slot it has, and

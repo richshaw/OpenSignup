@@ -7,7 +7,9 @@ import { buildIcs } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { capacityMessage } from './capacity-message';
 import { closedMessage } from './closed-message';
+import { conflictMessage } from './conflict-message';
 import { goneMessage } from './gone-message';
+import { rateLimitMessage } from './rate-limit-message';
 import { ACTION_SIZING } from './slot-format';
 import { urlBreakSegments } from './url-breaks';
 
@@ -60,6 +62,7 @@ interface ApiError {
     alternatives?: { id: string; title: string }[];
     remaining?: number;
     capacity?: number;
+    retryAfterSeconds?: number;
   };
 }
 
@@ -337,10 +340,16 @@ export default function CommitDialog({
   }
 
   // A capacity error gets participant-facing copy built from its numbers, and
-  // a slot or signup closed or removed while this page was open gets its own;
-  // any other error keeps the server's own message and suggestion.
+  // a slot or signup closed or removed while this page was open, a second
+  // sign-up by the same email and a rate limit each get their own; any other
+  // error keeps the server's own message and suggestion.
   const errorText = error
-    ? (capacityMessage(error, 'join') ?? closedMessage(error, 'join') ?? goneMessage(error) ?? error)
+    ? (capacityMessage(error, 'join') ??
+      closedMessage(error, 'join') ??
+      goneMessage(error) ??
+      conflictMessage(error) ??
+      rateLimitMessage(error) ??
+      error)
     : null;
   // Share link and Copy link each say "Link copied" on themselves after a copy.
   const linkCopied = success?.emailed ? shareCopied : copyResult === 'copied';

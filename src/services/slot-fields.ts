@@ -20,6 +20,7 @@ import {
   slotTimeOfDay,
 } from '@/lib/reminder-fields';
 import { err, ok, type Result } from '@/lib/result';
+import { MAX_SORT_ORDER } from '@/schemas/common';
 import {
   MIN_DATE_YEAR,
   TEXT_DEFAULT_MAX_LENGTH,
@@ -196,12 +197,15 @@ export async function addField(
     if (sortOrder === undefined) {
       // Under the signup lock: two concurrent adds would otherwise read the
       // same max and land on the same sortOrder, leaving their order to the
-      // createdAt tiebreak.
+      // createdAt tiebreak. Held at the column's top, as `nextSlotSortOrder`
+      // does for slots: a field sent there would otherwise make every later
+      // add fail the insert; past it, appends tie instead.
       const [top] = await tx
         .select({ max: sql<number | null>`max(${slotFields.sortOrder})` })
         .from(slotFields)
         .where(eq(slotFields.signupId, signupId));
-      sortOrder = top?.max === null || top?.max === undefined ? 0 : top.max + 1;
+      sortOrder =
+        top?.max === null || top?.max === undefined ? 0 : Math.min(top.max + 1, MAX_SORT_ORDER);
     }
 
     const [row] = await tx
