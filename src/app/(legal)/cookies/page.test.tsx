@@ -19,7 +19,7 @@ describe('cookies page', () => {
   it('gives the session cookie the lifetime Auth.js is configured with', () => {
     render(<CookiesPage />);
     const days = SESSION_MAX_AGE_SECONDS / (24 * 60 * 60);
-    expect(rowFor('authjs.session-token')[2]).toBe(`${days} days, renewed while you use the site`);
+    expect(rowFor('authjs.session-token')[2]).toBe(`${days} days from when you sign in`);
 
     // The page reads the constant; this pins that the config does too.
     const config = readFileSync(path.resolve(__dirname, '../../../auth/config.ts'), 'utf8');

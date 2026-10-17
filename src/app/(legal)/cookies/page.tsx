@@ -49,7 +49,7 @@ export default function CookiesPage() {
                   Keeps organizers signed in after they sign in.
                 </td>
                 <td className="px-4 py-3">
-                  {SESSION_MAX_AGE_DAYS} days, renewed while you use the site
+                  {SESSION_MAX_AGE_DAYS} days from when you sign in
                 </td>
               </tr>
               <tr>
