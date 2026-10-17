@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SortOrderSchema } from './common';
 
 export const FIELD_TYPES = ['text', 'date', 'time', 'number', 'enum'] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
@@ -71,7 +72,7 @@ export const SlotFieldInputSchema = z
     label: LabelSchema,
     fieldType: z.enum(FIELD_TYPES),
     /** Position among the signup's fields. Omit to append. */
-    sortOrder: z.number().int().nonnegative().optional(),
+    sortOrder: SortOrderSchema.optional(),
     config: SlotFieldConfigSchema,
   })
   .refine((d) => d.fieldType === d.config.fieldType, {
@@ -83,7 +84,7 @@ export type SlotFieldInput = z.infer<typeof SlotFieldInputSchema>;
 export const SlotFieldUpdateInputSchema = z
   .object({
     label: LabelSchema.optional(),
-    sortOrder: z.number().int().nonnegative().optional(),
+    sortOrder: SortOrderSchema.optional(),
     fieldType: z.enum(FIELD_TYPES).optional(),
     config: SlotFieldConfigSchema.optional(),
   })

@@ -281,6 +281,44 @@ describe('slot-fields service (db)', () => {
       expect(listed.value.map((f) => f.ref)).toEqual(['first', 'added']);
     });
 
+    it('a field at the top of the order column does not stop the next add', async () => {
+      const sigId = await createTestSignup(fx, 'Field order at the top');
+      const top = 2_147_483_647;
+      const pinned = await addField(fx.db, fx.actor, sigId, {
+        ref: 'last',
+        label: 'Last',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+        sortOrder: top,
+      });
+      expect(pinned.ok, JSON.stringify(pinned)).toBe(true);
+      // One past it is out of range for the column; the add ties there instead.
+      const r = await addField(fx.db, fx.actor, sigId, {
+        ref: 'after',
+        label: 'After',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      if (r.ok) expect(r.value.sortOrder).toBe(top);
+    });
+
+    it('refuses a sortOrder past the top of the order column as invalid_input', async () => {
+      const sigId = await createTestSignup(fx, 'Field order out of range');
+      const r = await addField(fx.db, fx.actor, sigId, {
+        ref: 'far',
+        label: 'Far',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+        sortOrder: 3_000_000_000,
+      });
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.error.code).toBe('invalid_input');
+        expect(r.error.field).toBe('sortOrder');
+      }
+    });
+
     it('adds a text, number or enum field without waiting for someone part-way through signing up', async () => {
       const sigId = await createTestSignup(fx, 'Add while committing');
       const day = await addField(fx.db, fx.actor, sigId, {
