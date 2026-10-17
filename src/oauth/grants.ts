@@ -2,7 +2,7 @@ import { and, desc, eq, gt, isNull, or, sql } from 'drizzle-orm';
 import type Provider from 'oidc-provider';
 import { oauthRecords } from '@/db/schema/oauth';
 import type { Db, Queryable } from '@/db/client';
-import { recordActivity } from '@/lib/activity';
+import { recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException } from '@/lib/errors';
 import { log } from '@/lib/log';
 import { requireOrganizerId, type Actor } from '@/lib/policy';
@@ -126,11 +126,7 @@ export async function listConnectedApps(db: Queryable, actor: Actor): Promise<Co
 /** Union of every resource scope in the grant payload. */
 function scopesOfGrant(payload: unknown): Scope[] {
   const resources = (payload as { resources?: Record<string, string> } | null)?.resources ?? {};
-  const out: Scope[] = [];
-  for (const scopeString of Object.values(resources)) {
-    for (const s of parseScopeString(scopeString)) if (!out.includes(s)) out.push(s);
-  }
-  return out;
+  return parseScopeString(Object.values(resources).join(' '));
 }
 
 /**
@@ -140,7 +136,7 @@ function scopesOfGrant(payload: unknown): Scope[] {
  * revoke it.
  */
 export async function revokeConnectedApp(
-  db: Queryable,
+  db: Db,
   provider: Provider,
   actor: Actor,
   grantId: string,
@@ -162,15 +158,9 @@ export async function revokeConnectedApp(
 
   // Telemetry only, and the revocation above is already done: a failed
   // insert here must not report the disconnect as failed.
-  try {
-    await recordActivity(db, {
-      signupId: null,
-      workspaceId: null,
-      actor: { actorId: organizerId, actorType: 'organizer' },
-      eventType: 'oauth.grant_revoked',
-      payload: { clientDomain: describeClient(row.clientId ?? '', row.clientName).domain },
-    });
-  } catch (err) {
-    log.warn({ err }, 'recordActivity oauth.grant_revoked failed');
-  }
+  await recordActivityBestEffort(db, {
+    actor: { actorId: organizerId, actorType: 'organizer' },
+    eventType: 'oauth.grant_revoked',
+    payload: { clientDomain: describeClient(row.clientId ?? '', row.clientName).domain },
+  });
 }
