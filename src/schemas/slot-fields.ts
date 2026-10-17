@@ -5,19 +5,24 @@ export type FieldType = (typeof FIELD_TYPES)[number];
 
 const LABEL_MAX_LENGTH = 80;
 const CHOICE_MAX_LENGTH = 60;
-const MAX_CHOICES = 20;
+export const MAX_CHOICES = 20;
+/** A text field's `maxLength` when the organizer hasn't set one. */
+export const TEXT_DEFAULT_MAX_LENGTH = 200;
 
-const RefSchema = z
+export const RefSchema = z
   .string()
   .min(1)
   .max(40)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'ref must be lowercase kebab');
 
-const LabelSchema = z.string().min(1).max(LABEL_MAX_LENGTH);
+export const LabelSchema = z.string().min(1).max(LABEL_MAX_LENGTH);
+
+/** One choice of an enum field. */
+export const ChoiceSchema = z.string().min(1).max(CHOICE_MAX_LENGTH);
 
 const TextConfigSchema = z.object({
   fieldType: z.literal('text'),
-  maxLength: z.number().int().positive().max(2000).default(200),
+  maxLength: z.number().int().positive().max(2000).default(TEXT_DEFAULT_MAX_LENGTH),
 });
 
 /**
@@ -48,7 +53,7 @@ const NumberConfigSchema = z.object({
 
 const EnumConfigSchema = z.object({
   fieldType: z.literal('enum'),
-  choices: z.array(z.string().min(1).max(CHOICE_MAX_LENGTH)).min(1).max(MAX_CHOICES),
+  choices: z.array(ChoiceSchema).min(1).max(MAX_CHOICES),
 });
 
 export const SlotFieldConfigSchema = z.discriminatedUnion('fieldType', [

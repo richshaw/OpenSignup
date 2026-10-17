@@ -31,7 +31,7 @@ import {
   validateSlotValues,
 } from './slot-fields';
 import { committedBySlot } from './commitments';
-import { lockSignupForWrite, readLiveSignup } from './locks';
+import { lockSignupForWrite, lockSlotsForSignup, readLiveSignup } from './locks';
 import { pickAvailableRef, summarizeValues } from './slots';
 
 interface ReminderSettingsLike {
@@ -443,33 +443,46 @@ async function transitionStatus(
   to: SignupStatus,
   eventType: 'signup.published' | 'signup.closed' | 'signup.archived',
 ): Promise<Result<SignupRow, ServiceError>> {
-  const row = await readLiveSignup(db, signupId);
-  if (!row) return err(serviceError('not_found', 'signup not found'));
-  requireWorkspaceWrite(actor, row.workspaceId);
+  const found = await readLiveSignup(db, signupId);
+  if (!found) return err(serviceError('not_found', 'signup not found'));
+  requireWorkspaceWrite(actor, found.workspaceId);
 
-  if (from !== null && row.status !== from) {
-    return err(
-      serviceError('conflict', `cannot ${to} a signup that is ${row.status}`, {
-        field: 'status',
-        received: row.status,
-        expected: from,
-        suggestion: `call the correct transition for status=${row.status}`,
-      }),
-    );
-  }
+  return db.transaction(async (tx) => {
+    // The status check, the slot count and the write all happen under the
+    // signup lock. Checked on an unlocked read, two transitions that overlapped
+    // both passed and both wrote: an archive racing a publish left the signup
+    // open, and two closes logged two `signup.closed` rows. Now the second one
+    // sees the status the first left, and gets the conflict it would have got
+    // had they run one after the other.
+    const row = await lockSignupForWrite(tx, signupId, found.workspaceId);
+    if (!row) return err(serviceError('not_found', 'signup not found'));
 
-  if (to === 'open') {
-    const slotCount = await db.$count(slots, eq(slots.signupId, signupId));
-    if (slotCount < 1) {
+    if (from !== null && row.status !== from) {
       return err(
-        serviceError('conflict', 'publish requires at least one slot', {
-          suggestion: 'add a slot before publishing',
+        serviceError('conflict', `cannot ${to} a signup that is ${row.status}`, {
+          field: 'status',
+          received: row.status,
+          expected: from,
+          suggestion: `call the correct transition for status=${row.status}`,
         }),
       );
     }
-  }
 
-  const updated = await db.transaction(async (tx) => {
+    if (to === 'open') {
+      // Counted by locking the rows, not with count(*): `deleteSlot` holds its
+      // slot row without the signup lock, so only the slot locks make a delete
+      // of the last slot finish first (and its row drop out of this list) or
+      // wait until the publish has committed.
+      const slotRows = await lockSlotsForSignup(tx, signupId, found.workspaceId);
+      if (slotRows.length < 1) {
+        return err(
+          serviceError('conflict', 'publish requires at least one slot', {
+            suggestion: 'add a slot before publishing',
+          }),
+        );
+      }
+    }
+
     const [next] = await tx
       .update(signups)
       .set({
@@ -477,10 +490,9 @@ async function transitionStatus(
         opensAt: to === 'open' && !row.opensAt ? new Date() : row.opensAt,
         updatedAt: new Date(),
       })
-      // A delete that committed since the read above leaves nothing to change.
-      .where(and(eq(signups.id, signupId), isNull(signups.deletedAt)))
+      .where(eq(signups.id, signupId))
       .returning();
-    if (!next) return undefined;
+    if (!next) return err(serviceError('not_found', 'signup not found'));
 
     await recordActivity(tx, {
       signupId,
@@ -489,11 +501,8 @@ async function transitionStatus(
       eventType,
       payload: { from: row.status, to },
     });
-    return next;
+    return ok(next);
   });
-
-  if (!updated) return err(serviceError('not_found', 'signup not found'));
-  return ok(updated);
 }
 
 export async function listSignupsForWorkspace(

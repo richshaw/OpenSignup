@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { slotTimeOfDay } from '@/lib/reminder-fields';
-import type { SignupStatus } from '@/schemas/signups';
+import { shownSignupStatus } from '@/lib/signup-closing';
+import { requiresEmail, sendsReminders, type SignupStatus } from '@/schemas/signups';
 import type { SlotStatus } from '@/schemas/slots';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { Banner } from '@/components/banner';
@@ -68,6 +69,30 @@ export function toSignupViewSlots(
       committed: committedBySlot?.[slot.id] ?? 0,
     };
   });
+}
+
+/**
+ * The live page's view of the signup itself. Past its closing time an open
+ * signup takes no sign-ups (`signupShutReason`), so it shows as closed: the
+ * Closed banner, and Closed on every slot.
+ */
+export function toSignupViewSignup(
+  signup: {
+    title: string;
+    description: string | null;
+    status: string;
+    closesAt: Date | null;
+    settings: unknown;
+  },
+  now: number = Date.now(),
+): SignupViewProps['signup'] {
+  return {
+    title: signup.title,
+    description: signup.description,
+    status: shownSignupStatus(signup, now) as SignupStatus,
+    requireEmail: requiresEmail(signup.settings),
+    sendReminders: sendsReminders(signup.settings),
+  };
 }
 
 export function toSignupViewFields(fields: readonly SourceField[]): SignupViewField[] {
@@ -185,38 +210,52 @@ export function SignupViewBody({
           ? 'This signup is archived and is not visible to participants.'
           : 'This signup is live. The page below shows what visitors see.';
 
+  // Closing only stops new sign-ups: everyone keeps their place and can still
+  // change or cancel it, so a returning participant sees this bar under the
+  // Closed banner too.
+  const signedUpBar = firstOwn ? (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-surface-sunk bg-success/5 px-4 py-3 text-sm">
+      <span>
+        <span className="font-medium">You&apos;re signed up</span>
+        {ownCount === 1 ? (
+          <>
+            {' '}for <span className="font-medium text-ink">{firstOwnTitle}</span>.
+          </>
+        ) : (
+          <>
+            {' '}for <span className="font-medium text-ink">{ownCount} slots</span>.
+          </>
+        )}
+      </span>
+      <Link
+        href={firstOwn.editUrl}
+        className="shrink-0 font-medium text-brand hover:underline"
+      >
+        {ownCount === 1 ? 'Edit or cancel' : 'Manage'}
+      </Link>
+    </div>
+  ) : null;
+
   return (
     <>
       {!showStateBanner ? null : isPreview ? (
         <Banner kind="preview" title="Preview" body={previewCopy} />
       ) : effectiveStatus === 'closed' ? (
-        <Banner
-          kind="closed"
-          title="Closed"
-          body="This signup is no longer collecting responses."
-        />
-      ) : firstOwn ? (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-surface-sunk bg-success/5 px-4 py-3 text-sm">
-          <span>
-            <span className="font-medium">You&apos;re signed up</span>
-            {ownCount === 1 ? (
-              <>
-                {' '}for <span className="font-medium text-ink">{firstOwnTitle}</span>.
-              </>
-            ) : (
-              <>
-                {' '}for <span className="font-medium text-ink">{ownCount} slots</span>.
-              </>
-            )}
-          </span>
-          <Link
-            href={firstOwn.editUrl}
-            className="shrink-0 font-medium text-brand hover:underline"
-          >
-            {ownCount === 1 ? 'Edit or cancel' : 'Manage'}
-          </Link>
-        </div>
-      ) : null}
+        <>
+          <Banner
+            kind="closed"
+            title="Closed"
+            body={
+              firstOwn
+                ? `No one new can sign up, but your ${ownCount === 1 ? 'spot is' : 'spots are'} still yours.`
+                : 'This signup is no longer collecting responses.'
+            }
+          />
+          {signedUpBar}
+        </>
+      ) : (
+        signedUpBar
+      )}
 
       <header className="space-y-2">
         {/* On /s/[slug] this title *is* the page heading, so it's an h1. In

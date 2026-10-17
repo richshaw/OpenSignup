@@ -8,6 +8,7 @@ import { ACTION_SIZING } from './slot-format';
 import {
   SignupViewBody,
   toSignupViewFields,
+  toSignupViewSignup,
   toSignupViewSlots,
   type SignupViewField,
   type SignupViewSlot,
@@ -532,4 +533,98 @@ describe('the optional email box on the live page', () => {
       expect(help).not.toContain('reminder');
     });
   }
+});
+
+describe('the live page past its closing time', () => {
+  const NOW = Date.parse('2030-04-06T12:00:00Z');
+  const ROW = { title: 'Snack duty', description: null, settings: {}, status: 'open' };
+
+  function renderLive(closesAt: Date | null) {
+    render(
+      <SignupViewBody
+        signup={toSignupViewSignup({ ...ROW, closesAt }, NOW)}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="live"
+      />,
+    );
+  }
+
+  it('shows an open signup whose closing time has passed as closed, with no Sign up button', () => {
+    renderLive(new Date(NOW - 60_000));
+    expect(screen.getByText('This signup is no longer collecting responses.')).toBeInTheDocument();
+    expect(screen.getByText('Closed', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Sign up/ })).toBeNull();
+  });
+
+  it('still offers Sign up before the closing time', () => {
+    renderLive(new Date(NOW + 60_000));
+    expect(screen.queryByText('This signup is no longer collecting responses.')).toBeNull();
+    expect(screen.getByRole('button', { name: /^Sign up for / })).toBeInTheDocument();
+  });
+});
+
+describe('<SignupViewBody /> for a returning participant', () => {
+  const OWN = [{ slotId: 's1', editUrl: '/s/example/c/com_1?t=tok', participantName: 'Pat' }];
+
+  function renderOwn(status: 'open' | 'closed', mode: 'live' | 'preview' = 'live') {
+    render(
+      <SignupViewBody
+        signup={{ ...SIGNUP, status }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode={mode}
+        ownCommitments={OWN}
+      />,
+    );
+  }
+
+  it('shows the signed-up bar and its edit link on an open signup', () => {
+    renderOwn('open');
+    expect(screen.getByText("You're signed up")).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Edit or cancel' })).toHaveAttribute(
+      'href',
+      OWN[0]!.editUrl,
+    );
+    expect(screen.queryByText('Closed', { selector: 'p' })).toBeNull();
+  });
+
+  it('keeps the signed-up bar under the Closed banner, and says their spot is still theirs', () => {
+    renderOwn('closed');
+    expect(screen.getByText('Closed', { selector: 'p' })).toBeInTheDocument();
+    expect(screen.getByText('No one new can sign up, but your spot is still yours.')).toBeInTheDocument();
+    expect(screen.queryByText('This signup is no longer collecting responses.')).toBeNull();
+    expect(screen.getByText("You're signed up")).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Edit or cancel' })).toHaveAttribute(
+      'href',
+      OWN[0]!.editUrl,
+    );
+  });
+
+  it('says "spots" for someone with more than one slot on a closed signup', () => {
+    render(
+      <SignupViewBody
+        signup={{ ...SIGNUP, status: 'closed' }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={[...SLOTS, { ...SLOTS[0]!, id: 's2', ref: 's2' }]}
+        slug="example"
+        mode="live"
+        ownCommitments={[...OWN, { ...OWN[0]!, slotId: 's2' }]}
+      />,
+    );
+    expect(screen.getByText('No one new can sign up, but your spots are still yours.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Manage' })).toBeInTheDocument();
+  });
+
+  it('shows only the Preview banner in the organizer preview of a closed signup', () => {
+    renderOwn('closed', 'preview');
+    expect(screen.getByText('Preview')).toBeInTheDocument();
+    expect(screen.queryByText('Closed', { selector: 'p' })).toBeNull();
+    expect(screen.queryByText("You're signed up")).toBeNull();
+  });
 });

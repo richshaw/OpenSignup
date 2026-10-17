@@ -8,12 +8,14 @@ import {
   SUPPORT_MAILTO,
   operatorLabel,
 } from '@/lib/site-config';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: '/terms',
   title: 'Terms of service',
   description: `The terms for using ${INSTANCE_NAME}: acceptable use, what organizers and participants are responsible for, availability, liability, and the AGPL-3.0 licence.`,
-  alternates: { canonical: '/terms' },
-};
+  siteName: INSTANCE_NAME,
+});
 
 export default function TermsPage() {
   const operator = operatorLabel();

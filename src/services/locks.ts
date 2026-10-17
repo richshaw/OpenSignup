@@ -52,8 +52,10 @@ export async function readLiveSignup(db: Queryable, signupId: string) {
  * the lock (undefined when there is no such signup, or it is soft-deleted,
  * including by a delete that committed while this waited: Postgres checks the
  * row again once the delete's lock is released). Every service that
- * rewrites a signup's settings, changes its fields, or adds, edits or reorders
- * its slots takes this first, so they run one at a time per signup.
+ * rewrites a signup's settings or status, changes its fields, or adds, edits
+ * or reorders its slots takes this first, so they run one at a time per signup.
+ * A publish then locks the signup's slots too (`lockSlotsForSignup`), so it
+ * counts them after any `deleteSlot` already holding one has finished.
  *
  * `for no key update`, not `for update`: someone signing up (`commitToSlot`)
  * holds their slot row and then inserts a commitment whose signup_id foreign

@@ -1,15 +1,19 @@
 import type { SignupTemplate, SignupTemplateSlot } from '@/lib/signup-templates';
-import type { SlotFieldConfig, SlotFieldInput } from '@/schemas/slot-fields';
+import { isRealTime } from '@/lib/reminder-fields';
+import {
+  MAX_CHOICES,
+  TEXT_DEFAULT_MAX_LENGTH,
+  type SlotFieldConfig,
+  type SlotFieldInput,
+} from '@/schemas/slot-fields';
 import { isRealDate } from '@/services/slot-fields';
 import type { MagicComposeDraft } from './prompt';
-
-const HHMM_24H = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function sanitizeEnumChoices(choices: string[] | undefined): string[] {
   return (choices ?? [])
     .map((c) => c.trim())
     .filter((c) => c.length > 0)
-    .slice(0, 20);
+    .slice(0, MAX_CHOICES);
 }
 
 export function configFor(
@@ -18,7 +22,7 @@ export function configFor(
 ): SlotFieldConfig {
   switch (fieldType) {
     case 'text':
-      return { fieldType: 'text', maxLength: 200 };
+      return { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH };
     case 'date':
       return { fieldType: 'date' };
     case 'time':
@@ -41,7 +45,7 @@ function coerceValue(
   switch (fieldType) {
     case 'text': {
       const s = String(raw).trim();
-      return s.length === 0 ? undefined : s.slice(0, 200);
+      return s.length === 0 ? undefined : s.slice(0, TEXT_DEFAULT_MAX_LENGTH);
     }
     case 'date': {
       // The services' own check, not just the shape: createSignup refuses the
@@ -51,7 +55,7 @@ function coerceValue(
     }
     case 'time': {
       const s = String(raw).trim();
-      return HHMM_24H.test(s) ? s : undefined;
+      return isRealTime(s) ? s : undefined;
     }
     case 'number': {
       const n = typeof raw === 'number' ? raw : Number(raw);

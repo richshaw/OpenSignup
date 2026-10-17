@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { FIELD_TYPES } from '@/schemas/slot-fields';
+import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } from '@/schemas/signups';
+import {
+  ChoiceSchema,
+  FIELD_TYPES,
+  LabelSchema,
+  MAX_CHOICES,
+  RefSchema,
+} from '@/schemas/slot-fields';
 import {
   FIELD_TYPE_GUIDE,
   GROUP_BY_SCAN_AXIS,
@@ -18,20 +25,14 @@ export type ChatMessage = {
 export const MAX_FIELDS = 20;
 export const MAX_SLOTS = 200;
 
-const RefSchema = z
-  .string()
-  .min(1)
-  .max(40)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'ref must be lowercase kebab');
-
 export const DraftFieldSchema = z.object({
   ref: RefSchema,
-  label: z.string().min(1).max(80),
+  label: LabelSchema,
   fieldType: z.enum(FIELD_TYPES),
   // Accept null (sent by strict json_schema models for non-enum fields) or an array.
   choices: z
-    .array(z.string().min(1).max(60))
-    .max(20)
+    .array(ChoiceSchema)
+    .max(MAX_CHOICES)
     .nullable()
     .optional()
     .transform((v) => v ?? undefined),
@@ -46,8 +47,8 @@ const DraftSlotSchema = z.object({
 });
 
 export const FullDraftSchema = z.object({
-  title: z.string().min(2).max(120),
-  description: z.string().max(2000).default(''),
+  title: z.string().min(TITLE_MIN_LENGTH).max(TITLE_MAX_LENGTH),
+  description: z.string().max(DESCRIPTION_MAX_LENGTH).default(''),
   fields: z.array(DraftFieldSchema).min(1).max(MAX_FIELDS),
   slots: z.array(DraftSlotSchema).min(1).max(MAX_SLOTS),
   /** Field ref to visually group slots by in the participant view. */

@@ -133,6 +133,9 @@ test.describe('token-gated commitment editing', () => {
     await page.getByRole('link', { name: 'See your new spot' }).click();
     await expect(page).toHaveURL(new RegExp(`/s/${signup.slug}/c/${movedTo}\\?token=`));
     await expect(page.getByRole('heading', { name: 'Your signup' })).toBeVisible();
+    // Named for the slot it moved to, not the one the old link was for.
+    await expect(page.getByText('Afternoon', { exact: true })).toBeVisible();
+    await expect(page.getByText('Morning', { exact: true })).toHaveCount(0);
 
     // Once the sign-up it moved to is cancelled too, the old link says so,
     // and names the slot it moved to.

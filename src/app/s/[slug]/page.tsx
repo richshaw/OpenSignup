@@ -11,10 +11,13 @@ import {
 } from '@/lib/returning-participant';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { readRequestSignals, recordPublicView } from '@/lib/view-tracker';
-import { requiresEmail, sendsReminders, type SignupStatus } from '@/schemas/signups';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { loadPublicSignup } from '@/services/signups.cached';
-import SignupView, { toSignupViewFields, toSignupViewSlots } from './signup-view';
+import SignupView, {
+  toSignupViewFields,
+  toSignupViewSignup,
+  toSignupViewSlots,
+} from './signup-view';
 import { SignupStateMessage } from './state-message';
 
 type PageParams = { params: Promise<{ slug: string }> };
@@ -141,13 +144,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
         </Link>
       </div>
       <SignupView
-        signup={{
-          title: sig.title,
-          description: sig.description,
-          status: sig.status as SignupStatus,
-          requireEmail: requiresEmail(sig.settings),
-          sendReminders: sendsReminders(sig.settings),
-        }}
+        signup={toSignupViewSignup(sig)}
         fields={fields}
         groupByRef={groupByRef}
         slots={slots}

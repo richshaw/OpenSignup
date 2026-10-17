@@ -22,6 +22,7 @@ import {
 import { err, ok, type Result } from '@/lib/result';
 import {
   MIN_DATE_YEAR,
+  TEXT_DEFAULT_MAX_LENGTH,
   type SlotFieldConfig,
   type SlotFieldDefinition,
   SlotFieldInputSchema,
@@ -632,7 +633,8 @@ function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<vo
           }),
         );
       }
-      const max = field.config.fieldType === 'text' ? field.config.maxLength : 200;
+      const max =
+        field.config.fieldType === 'text' ? field.config.maxLength : TEXT_DEFAULT_MAX_LENGTH;
       if (value.length > max) {
         return err(
           serviceError('invalid_input', `"${field.ref}" exceeds maxLength ${max}`, {

@@ -2,11 +2,11 @@ import Link from 'next/link';
 import { after } from 'next/server';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import type { SignupStatus } from '@/schemas/signups';
 import { getSignupForOrganizer } from '@/services/signups';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import SignupView, {
   toSignupViewFields,
+  toSignupViewSignup,
   toSignupViewSlots,
 } from '@/app/s/[slug]/signup-view';
 
@@ -50,11 +50,7 @@ export default async function SignupPreviewPage({ params }: PageParams) {
   return (
     <main className="flex min-h-[100svh] flex-col py-8">
       <SignupView
-        signup={{
-          title: sig.title,
-          description: sig.description,
-          status: sig.status as SignupStatus,
-        }}
+        signup={toSignupViewSignup(sig)}
         fields={fields}
         groupByRef={groupByRef}
         slots={slots}

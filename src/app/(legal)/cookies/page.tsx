@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { pageMetadata } from '@/lib/seo';
 import { INSTANCE_NAME } from '@/lib/site-config';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: '/cookies',
   title: 'Cookies',
   description: `Every cookie ${INSTANCE_NAME} sets, what each one is for, and how long it lasts — plus why there are no advertising or cross-site tracking cookies here.`,
-  alternates: { canonical: '/cookies' },
-};
+  siteName: INSTANCE_NAME,
+});
 
 export default function CookiesPage() {
   return (
