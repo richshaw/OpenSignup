@@ -36,6 +36,7 @@
     "email:dev": "email dev --dir src/email/templates --port 3001",
     "worker": "tsx --tsconfig tsconfig.worker.json src/jobs/worker.ts",
     "eval:magic-compose": "tsx scripts/eval-magic-compose.ts",
+    "eval:mcp": "tsx scripts/eval-mcp.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "reminders:due": "tsx scripts/dev-reminders.ts"

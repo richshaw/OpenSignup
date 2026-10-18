@@ -4,7 +4,7 @@ Developer evals for OpenSignup's Magic Compose feature (natural-language to sign
 
 ## Files
 
-- `dev-evals.json` — 24-case developer eval suite covering each `fieldType`, cross-product/groupBy correctness, edge cases, multilingual input, hostile prompts, and the server invariants that hold regardless of model output.
+- `dev-evals.json` — 26-case developer eval suite, shared by the Magic Compose and MCP runners, covering each `fieldType`, cross-product/groupBy correctness, edge cases, multilingual input, hostile prompts, and the server invariants that hold regardless of model output.
 
 The user-facing starter prompts (School, Sports, Volunteering) shipped in the UI as click-to-try chips live in the Magic Compose UI code, not as a JSON file in this directory.
 
@@ -90,6 +90,18 @@ pnpm eval:magic-compose --no-snapshot         # skip writing snapshot
 ```
 
 Per-run JSON snapshots are written to `evals/magic-compose/snapshots/` for local inspection. The directory is gitignored — snapshots are local-only dev artifacts, not committed. Don't gate CI on `runner: llm` cases — model drift will cause flakes.
+
+## MCP runner
+
+`scripts/eval-mcp.ts` (`pnpm eval:mcp`) runs the same cases against what a connected AI assistant builds through the MCP tools, and scores them with the same checks (`scripts/lib/eval-harness.ts`). It uses the same `LLM_BASE_URL`, `LLM_MODEL` and `LLM_API_KEY` as Magic Compose and the same OpenAI-compatible Chat Completions endpoint, so the model has to support tool calling.
+
+- The model gets a system message with today's date and the server instructions (`src/mcp/instructions.ts`), every tool as `tools/list` describes it, and the case's prompt as the organizer's one message.
+- The arguments of its `create_signup` call are the draft that gets scored. Arguments `create_signup` would refuse go back to the model as the same `invalid_input` error the server sends, so it can retry; the snapshot's `trace.rejectedCreates` counts them.
+- `list_workspaces` and `list_signups` answer as a new account with one workspace and no signups; any other tool says nothing matches. Nothing touches a database.
+- A reply with no `create_signup` call is scored as the refusal arm, so `ev_013` passes when the assistant declines. On any other case it fails as `unexpected_refusal`, with the reply as its detail: an assistant that asks a question first did not build anything.
+- Single-message cases only. Follow-up turns ("add an earlier slot for setup") are #477.
+
+Snapshots go to `evals/mcp/snapshots/` (gitignored).
 
 ## How to extend
 
