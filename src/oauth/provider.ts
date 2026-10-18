@@ -261,6 +261,15 @@ function escapeHtml(s: string): string {
 }
 
 /**
+ * How long a rate-limited browser should wait, for the error page's sentence
+ * ("Wait 40 minutes and try again."). Shared by every OAuth 429 page so their
+ * wording can't drift.
+ */
+export function describeWait(retryAfterSeconds: number): string {
+  return retryAfterSeconds >= 120 ? `${Math.ceil(retryAfterSeconds / 60)} minutes` : `${retryAfterSeconds} seconds`;
+}
+
+/**
  * Shown to a browser when the authorization request itself is broken — a bad
  * redirect URI, an unknown client — and the error cannot be sent back to
  * the client. Deliberately plain and self-contained: at this point nothing

@@ -6,7 +6,9 @@ vi.mock('@/auth/session', () => ({
   requireActor: async () => ({ kind: 'organizer', id: 'org_1', email: 'pat@example.com', workspaceIds: [], workspaceRoles: {} }),
 }));
 vi.mock('@/oauth/provider', () => ({
-  renderErrorPage: ({ error }: { error: string }) => `<p>${error}</p>`,
+  renderErrorPage: ({ error, error_description }: { error: string; error_description: string }) =>
+    `<p>${error} — ${error_description}</p>`,
+  describeWait: (seconds: number) => `${seconds} seconds`,
 }));
 const decide = vi.fn(async (..._args: unknown[]) => new Response(null, { status: 303 }));
 vi.mock('@/oauth/consent', () => ({
@@ -46,7 +48,11 @@ describe('POST /oauth/consent/[uid]/decision', () => {
     check.mockResolvedValueOnce(600);
     const r = await POST(submit(), params);
     expect(r.status).toBe(429);
-    expect(await r.text()).toContain('too_many_requests');
+    expect(r.headers.get('retry-after')).toBe('600');
+    expect(r.headers.get('cache-control')).toBe('no-store');
+    const page = await r.text();
+    expect(page).toContain('too_many_requests');
+    expect(page).toContain('Too many connection attempts. Wait 600 seconds and try again.');
     expect(decide).not.toHaveBeenCalled();
   });
 });

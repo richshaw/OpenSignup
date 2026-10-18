@@ -2,7 +2,7 @@ import { decodeJwt, decodeProtectedHeader } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { OAUTH_COOKIES, OAUTH_ROUTES, consentPath } from './config';
 import { generatePrivateJwk } from './keys';
-import { buildProvider, type ProviderDeps } from './provider';
+import { buildProvider, describeWait, type ProviderDeps } from './provider';
 import {
   codeFromRedirect,
   createDriver,
@@ -378,5 +378,14 @@ describe('a CIMD client that lists none among its token endpoint auth methods', 
     const body = await response.text();
     expect(body).toContain('invalid_client_metadata');
     expect(body).toContain('token_endpoint_auth_method must be');
+  });
+});
+
+describe('describeWait', () => {
+  it('counts seconds under two minutes and whole minutes, rounded up, from there', () => {
+    expect(describeWait(7)).toBe('7 seconds');
+    expect(describeWait(119)).toBe('119 seconds');
+    expect(describeWait(120)).toBe('2 minutes');
+    expect(describeWait(2401)).toBe('41 minutes');
   });
 });
