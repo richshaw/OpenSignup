@@ -30,7 +30,9 @@ export default defineConfig({
       use: { ...devices['iPhone 14'] },
       // The OAuth consent smoke is stateful (one seeded organizer, one grant);
       // two projects running it at once would revoke each other's tokens.
-      testIgnore: /oauth-consent\.spec\.ts/,
+      // The response-header checks send requests, not taps, so a second
+      // device adds nothing but calls against the shared per-IP token limit.
+      testIgnore: /(oauth-consent|response-headers)\.spec\.ts/,
     },
   ],
 });
