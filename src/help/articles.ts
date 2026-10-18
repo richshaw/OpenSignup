@@ -36,7 +36,7 @@ export const HELP_ARTICLES = [
     title: 'Take someone off a slot',
     summary: 'Remove one person from a slot, so their spot opens up for someone else.',
     description:
-      'Remove one person from a slot on your signup, so their spot opens up for someone else. Everyone else stays signed up, and they get no email.',
+      'Remove one person from a slot on your signup, so their spot opens up for someone else. Everyone else stays signed up, and the person you remove gets no email.',
   },
   {
     slug: 'connect-an-ai-assistant',
