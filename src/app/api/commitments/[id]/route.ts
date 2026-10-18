@@ -2,7 +2,7 @@ import { after, type NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
 import type { Db } from '@/db/client';
 import { extractClientIp } from '@/auth/request-context';
-import { fail, handle, ok, respond } from '@/lib/api-response';
+import { fail, handle, ok, readJson, respond } from '@/lib/api-response';
 import { serviceError, ServiceException } from '@/lib/errors';
 import { commitmentLinks } from '@/lib/links';
 import { notifyCommitmentCreated } from '@/email/notify';
@@ -46,7 +46,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const { id } = await ctx.params;
     const db = getDb();
     const token = await authorizeTokenOp(db, req);
-    const body = await req.json().catch(() => ({}));
+    const body = await readJson(req);
     const result = await updateOwnCommitment(db, id, token, body);
     if (!result.ok) return fail(result.error);
     const { moved, ...commitment } = result.value;

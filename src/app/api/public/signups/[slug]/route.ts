@@ -11,7 +11,6 @@ export async function GET(
   return handle(async () => {
     const { slug } = await ctx.params;
     const result = await getPublicSignup(getDb(), slug);
-    if (!result.ok) return respond(result);
     return respond(result, {
       self: link(`/api/public/signups/${slug}`),
     });

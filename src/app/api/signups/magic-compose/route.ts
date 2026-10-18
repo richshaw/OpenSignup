@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getOrganizerSession, requireActor } from '@/auth/session';
 import { getDb } from '@/db/client';
 import { magicComposeEnabled } from '@/lib/env';
-import { fail, handle, ok } from '@/lib/api-response';
+import { fail, handle, ok, readJson } from '@/lib/api-response';
 import { serviceError } from '@/lib/errors';
 import { link, publicSignupUrl } from '@/lib/links';
 import { log } from '@/lib/log';
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     // Parse & validate before consuming rate-limit so malformed/empty bodies
     // don't burn the organizer's 10/hr quota — quota only counts requests we
     // would actually forward to the upstream LLM.
-    const body = (await req.json().catch(() => ({}))) as unknown;
+    const body = await readJson(req);
     const parsed = PromptBodySchema.safeParse(body);
     if (!parsed.success) {
       return fail(
