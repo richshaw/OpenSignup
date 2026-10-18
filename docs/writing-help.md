@@ -25,6 +25,9 @@ learn the product.
 
 - The title is the task, in the reader's words: "Let more than one person take
   a slot", not "Capacity". Start it with a verb.
+- In `src/help/articles.ts`, the `summary` is one short sentence for the list
+  on `/help`. The `description` is what search results and link previews show:
+  110 to 160 characters, saying what the page helps with.
 - The first paragraph says what the reader will have when they finish.
 - Then the steps. Then anything they might want to know afterwards.
 - Keep each numbered list to about seven steps. If a task needs more, break it
@@ -152,8 +155,8 @@ follow it once on a real screen, before you open the pull request.
 ## Adding a page
 
 `node .claude/skills/help-pages/scripts/new-article.mjs <slug> "<Title>" "<Summary>"`
-starts the files for steps 1, 2 and 4 and does step 3 for you. The files
-contain TODOs, which fail the checks until the page is finished. AI agents: the `help-pages` skill in `.claude/skills/` covers the
+starts the files for steps 1, 2 and 4 and does step 3 for you, leaving a TODO
+for the page's `description`. The files contain TODOs, which fail the checks until the page is finished. AI agents: the `help-pages` skill in `.claude/skills/` covers the
 whole process, reviews included.
 
 1. Put the page's on-screen names in `src/help/articles/<slug>.ui.ts`.

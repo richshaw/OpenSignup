@@ -131,7 +131,7 @@ writes.set(
   articlesPath,
   articles.replace(
     close,
-    `  {\n    slug: ${quote(slug)},\n    title: ${quote(title)},\n    summary: ${quote(summary)},\n  },\n${close}`,
+    `  {\n    slug: ${quote(slug)},\n    title: ${quote(title)},\n    summary: ${quote(summary)},\n    description: 'TODO: 110 to 160 characters for search results',\n  },\n${close}`,
   ),
 );
 

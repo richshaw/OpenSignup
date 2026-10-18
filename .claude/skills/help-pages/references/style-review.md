@@ -18,7 +18,7 @@ Read first:
    voice rules, which the help guide builds on.
 3. The article: `src/help/articles/<slug>.tsx`, its on-screen names in
    `<slug>.ui.ts`, and the building blocks in `src/help/components.tsx`.
-4. Its title and summary in `src/help/articles.ts`.
+4. Its title, summary and description in `src/help/articles.ts`.
 5. The automated checks in `src/help/articles.test.tsx`, so you don't propose
    anything they would reject.
 

@@ -10,7 +10,7 @@ import path from 'node:path';
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { APP_ORIGIN, INSTANCE_NAME, SUPPORT_EMAIL } from '@/lib/site-config';
-import { HELP_ARTICLES } from './articles';
+import { HELP_ARTICLES, HELP_INDEX_DESCRIPTION } from './articles';
 import { HELP_BODIES } from './bodies';
 
 const BANNED: ReadonlyArray<readonly [RegExp, string]> = [
@@ -183,7 +183,13 @@ describe.each(HELP_ARTICLES.map((a) => [a.slug, a] as const))(
 
     it('avoids the words the style guide rules out', () => {
       const root = renderBody();
-      const text = [article.title, article.summary, ...blocks(root), ...altTexts(root)].join('\n');
+      const text = [
+        article.title,
+        article.summary,
+        article.description,
+        ...blocks(root),
+        ...altTexts(root),
+      ].join('\n');
       const hits = BANNED.flatMap(([re, why]) => {
         const m = text.match(re);
         return m ? [`"${m[0]}": ${why}`] : [];
@@ -205,6 +211,14 @@ describe.each(HELP_ARTICLES.map((a) => [a.slug, a] as const))(
       ];
       const offenders = headings.filter((h) => titleCaseWords(h, uiNames, allowedCaps).length > 0);
       expect(offenders, 'only the first word and names take a capital').toEqual([]);
+    });
+
+    it('gives search results a description of 110 to 160 characters', () => {
+      expect(
+        article.description.length,
+        'see the note in src/app/layout.tsx',
+      ).toBeGreaterThanOrEqual(110);
+      expect(article.description.length).toBeLessThanOrEqual(160);
     });
 
     it('starts the title with a verb, not a noun', () => {
@@ -283,3 +297,21 @@ describe.each(HELP_ARTICLES.map((a) => [a.slug, a] as const))(
     });
   },
 );
+
+describe('help index', () => {
+  it('gives search results a description of 110 to 160 characters', () => {
+    expect(
+      HELP_INDEX_DESCRIPTION.length,
+      'see the note in src/app/layout.tsx',
+    ).toBeGreaterThanOrEqual(110);
+    expect(HELP_INDEX_DESCRIPTION.length).toBeLessThanOrEqual(160);
+  });
+
+  it('avoids the words the style guide rules out', () => {
+    const hits = BANNED.flatMap(([re, why]) => {
+      const m = HELP_INDEX_DESCRIPTION.match(re);
+      return m ? [`"${m[0]}": ${why}`] : [];
+    });
+    expect(hits, 'docs/writing-help.md#words').toEqual([]);
+  });
+});

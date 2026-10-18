@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   return pageMetadata({
     path: `/help/${article.slug}`,
     title: article.title,
-    description: article.summary,
+    description: article.description,
     siteName: INSTANCE_NAME,
   });
 }

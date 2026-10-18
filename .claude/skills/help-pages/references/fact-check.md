@@ -15,7 +15,7 @@ Don't modify, create or delete any files, and don't commit or push. Read-only
 commands only.
 
 The article: `src/help/articles/<slug>.tsx` (its on-screen names are in
-`<slug>.ui.ts` next to it). Also check its title and summary in
+`<slug>.ui.ts` next to it). Also check its title, summary and description in
 `src/help/articles.ts`, and the alt text of its screenshots. Help pages ship to
 every self-hosted OpenSignup site, so a claim must hold on any site, not just one
 configuration.
