@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
 import { requireActor } from '@/auth/session';
-import { fail, handle, respond } from '@/lib/api-response';
-import { serviceError } from '@/lib/errors';
+import { requireOrganizer } from '@/lib/policy';
+import { handle, respond } from '@/lib/api-response';
 import { deleteSlot, updateSlot } from '@/services/slots';
 
 export async function PATCH(
@@ -12,7 +12,7 @@ export async function PATCH(
   return handle(async () => {
     const { id } = await ctx.params;
     const actor = await requireActor();
-    if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in required'));
+    requireOrganizer(actor);
     const body = await req.json().catch(() => ({}));
     const result = await updateSlot(getDb(), actor, id, body);
     return respond(result);
@@ -26,7 +26,7 @@ export async function DELETE(
   return handle(async () => {
     const { id } = await ctx.params;
     const actor = await requireActor();
-    if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in required'));
+    requireOrganizer(actor);
     // The organizer is at the keyboard; the browser already asked them.
     const result = await deleteSlot(getDb(), actor, id, { force: true });
     return respond(result);

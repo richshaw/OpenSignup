@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { requireActor } from '@/auth/session';
+import { requireOrganizer } from '@/lib/policy';
 import { getDb } from '@/db/client';
-import { fail, handle, respond } from '@/lib/api-response';
-import { serviceError } from '@/lib/errors';
+import { handle, respond } from '@/lib/api-response';
 import { deleteField, updateField } from '@/services/slot-fields';
 
 export async function PATCH(
@@ -12,7 +12,7 @@ export async function PATCH(
   return handle(async () => {
     const { fieldId } = await ctx.params;
     const actor = await requireActor();
-    if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in required'));
+    requireOrganizer(actor);
     const body = await req.json().catch(() => ({}));
     const result = await updateField(getDb(), actor, fieldId, body);
     return respond(result);
@@ -26,7 +26,7 @@ export async function DELETE(
   return handle(async () => {
     const { fieldId } = await ctx.params;
     const actor = await requireActor();
-    if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in required'));
+    requireOrganizer(actor);
     const result = await deleteField(getDb(), actor, fieldId);
     return respond(result);
   });

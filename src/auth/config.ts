@@ -18,6 +18,7 @@ import { consumeMagicLinkRateLimits } from './magic-link-rate-limit';
 import { getCurrentRequestIp } from './request-context';
 import { issueLoginCode } from './login-code';
 import { sendMagicLinkEmail } from './magic-link-send';
+import { SESSION_MAX_AGE_SECONDS } from './session-lifetime';
 
 // Built lazily on first request: SignupAdapter() touches getDb() → getEnv(),
 // which would otherwise fire at module-load and break `next build`'s page-data
@@ -27,7 +28,7 @@ function buildConfig(): NextAuthConfig {
   if (cached) return cached;
   cached = {
     adapter: SignupAdapter(),
-    session: { strategy: 'database' },
+    session: { strategy: 'database', maxAge: SESSION_MAX_AGE_SECONDS },
     trustHost: true,
     providers: [
       Nodemailer({

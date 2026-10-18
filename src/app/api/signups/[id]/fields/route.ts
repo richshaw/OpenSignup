@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { requireActor } from '@/auth/session';
+import { requireOrganizer } from '@/lib/policy';
 import { getDb } from '@/db/client';
 import { fail, handle, respond } from '@/lib/api-response';
-import { serviceError } from '@/lib/errors';
 import { link } from '@/lib/links';
 import { addField, listFields } from '@/services/slot-fields';
 
@@ -13,7 +13,7 @@ export async function GET(
   return handle(async () => {
     const { id } = await ctx.params;
     const actor = await requireActor();
-    if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in required'));
+    requireOrganizer(actor);
     const result = await listFields(getDb(), actor, id);
     return respond(result);
   });
@@ -26,7 +26,7 @@ export async function POST(
   return handle(async () => {
     const { id } = await ctx.params;
     const actor = await requireActor();
-    if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in required'));
+    requireOrganizer(actor);
     const body = await req.json().catch(() => ({}));
     const result = await addField(getDb(), actor, id, body);
     if (!result.ok) return fail(result.error);

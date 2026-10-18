@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
 import { requireActor } from '@/auth/session';
+import { requireOrganizer } from '@/lib/policy';
 import { fail, handle } from '@/lib/api-response';
-import { serviceError } from '@/lib/errors';
 import { listCommitmentsForSignup } from '@/services/commitments';
 import { getSignupRowForOrganizer } from '@/services/signups';
 import { listSlotsForSignup } from '@/services/slots';
@@ -23,7 +23,7 @@ export async function GET(
   return handle(async () => {
     const { id } = await ctx.params;
     const actor = await requireActor();
-    if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in required'));
+    requireOrganizer(actor);
 
     const db = getDb();
     const loaded = await getSignupRowForOrganizer(db, actor, id);

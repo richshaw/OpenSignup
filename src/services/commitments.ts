@@ -17,7 +17,7 @@ import { summarizeSlotValues } from '@/lib/slot-summary';
 import { signupShutReason } from '@/lib/signup-closing';
 import { parseInputSafe } from '@/lib/parse';
 import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
-import { withoutServerOnlyHashes } from '@/lib/public-commitment';
+import { toPublicCommitment, type PublicCommitment } from '@/lib/public-commitment';
 import { err, ok, type Result } from '@/lib/result';
 import { editTokenFor, hashToken, idempotencyKeyHash, verifyHash } from '@/lib/token';
 import {
@@ -31,9 +31,8 @@ import { inWorkspace, readLiveSignup } from './locks';
 import { listFieldsForSignup } from './slot-fields';
 
 type CommitmentRow = typeof commitments.$inferSelect;
-type PublicCommitmentRow = ReturnType<typeof withoutServerOnlyHashes<CommitmentRow>>;
 /** A commitment with who made it. `participantEmail` is null when they gave none. */
-type OwnCommitment = PublicCommitmentRow & {
+type OwnCommitment = PublicCommitment & {
   participantName: string;
   participantEmail: string | null;
 };
@@ -156,7 +155,7 @@ function whyNotTakingPlaces(
 }
 
 export interface CommitResult {
-  commitment: PublicCommitmentRow;
+  commitment: PublicCommitment;
   editToken: string;
   signupSlug: string;
   /** The slot's instant, read under its lock, so the route can keep the
@@ -277,7 +276,7 @@ async function commitParticipantToSlot(
         .limit(1);
       if (earlier) {
         return ok({
-          commitment: withoutServerOnlyHashes(earlier),
+          commitment: toPublicCommitment(earlier),
           editToken: editTokenFor(earlier.id),
           signupSlug: signupRow.slug,
           slotAt: slot.slotAt,
@@ -474,7 +473,7 @@ async function commitParticipantToSlot(
     });
 
     return ok({
-      commitment: withoutServerOnlyHashes(row),
+      commitment: toPublicCommitment(row),
       editToken,
       signupSlug: signupRow.slug,
       slotAt: slot.slotAt,
@@ -515,7 +514,7 @@ export async function getOwnCommitment(
     return err(serviceError('forbidden', 'invalid edit token'));
   }
   return ok({
-    ...withoutServerOnlyHashes(found.c),
+    ...toPublicCommitment(found.c),
     participantName: found.pname,
     participantEmail: found.pemail,
     signupSlug: found.slug,
@@ -555,7 +554,7 @@ export async function getOwnCommitmentsForSignup(
     if (!token) continue;
     if (!verifyHash(token, row.c.editTokenHash)) continue;
     out.push({
-      ...withoutServerOnlyHashes(row.c),
+      ...toPublicCommitment(row.c),
       participantName: row.pname,
       participantEmail: row.pemail,
     });
@@ -572,7 +571,7 @@ const MoveNameSchema = CommitmentCreateInputSchema.pick({ name: true });
  * commitment, whose id and edit token are new, with `moved` holding what its
  * edit link needs.
  */
-type EditedCommitment = PublicCommitmentRow & {
+type EditedCommitment = PublicCommitment & {
   moved?: Pick<CommitResult, 'editToken' | 'signupSlug' | 'slotAt'>;
 };
 
@@ -849,7 +848,7 @@ export async function updateOwnCommitment(
       eventType: 'commitment.updated',
       payload: { commitmentId, changed: Object.keys(data) },
     });
-    return ok(withoutServerOnlyHashes(updated));
+    return ok(toPublicCommitment(updated));
   });
 }
 

@@ -3,7 +3,7 @@ import type { SignupViewField, SignupViewSlot } from './signup-view-types';
 // both places. See src/lib/slot-label.ts.
 import { renderFieldValue } from '@/lib/slot-label';
 
-export { formatSlotDate, pickPrimaryField, renderFieldValue } from '@/lib/slot-label';
+export { pickPrimaryField, renderFieldValue } from '@/lib/slot-label';
 
 export function formatGroupLabel(field: SignupViewField, raw: unknown): string {
   return renderFieldValue(field, raw) ?? `(no ${field.label.toLowerCase()})`;

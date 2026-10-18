@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
 import { requireActor } from '@/auth/session';
-import { fail, handle, respond } from '@/lib/api-response';
-import { serviceError } from '@/lib/errors';
+import { requireOrganizer } from '@/lib/policy';
+import { handle, respond } from '@/lib/api-response';
 import { closeSignup } from '@/services/signups';
 
 export async function POST(
@@ -12,7 +12,7 @@ export async function POST(
   return handle(async () => {
     const { id } = await ctx.params;
     const actor = await requireActor();
-    if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in required'));
+    requireOrganizer(actor);
     const result = await closeSignup(getDb(), actor, id);
     return respond(result);
   });

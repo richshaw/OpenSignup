@@ -22,6 +22,33 @@ const CLIENT = 'test-client';
 const REDIRECT = 'http://localhost/callback';
 const ORG = 'org_test1';
 
+/**
+ * The fields of ChatGPT's CIMD document that matter here: it names
+ * `private_key_jwt` but lists `none` among the methods it supports.
+ */
+const CHATGPT = 'https://chatgpt.com/oauth/client.json';
+const CHATGPT_REDIRECT = 'https://chatgpt.com/connector_platform_oauth_redirect';
+const chatgptDocument = {
+  client_id: CHATGPT,
+  client_name: 'ChatGPT',
+  redirect_uris: [CHATGPT_REDIRECT],
+  grant_types: ['authorization_code', 'refresh_token'],
+  response_types: ['code'],
+  token_endpoint_auth_method: 'private_key_jwt',
+  token_endpoint_auth_methods_supported: ['none', 'private_key_jwt'],
+  token_endpoint_auth_signing_alg: 'RS256',
+  jwks_uri: 'https://chatgpt.com/oauth/jwks.json',
+};
+/** The same document, from a client that can't act as a public client. */
+const KEY_ONLY = 'https://keyonly.example/oauth/client.json';
+const keyOnlyDocument = {
+  ...chatgptDocument,
+  client_id: KEY_ONLY,
+  redirect_uris: ['https://keyonly.example/cb'],
+  token_endpoint_auth_methods_supported: ['private_key_jwt'],
+};
+const cimdDocuments: Record<string, object> = { [CHATGPT]: chatgptDocument, [KEY_ONLY]: keyOnlyDocument };
+
 let d: Driver;
 const grantsUsed: string[] = [];
 const grantIndex = new Map<string, string>();
@@ -42,6 +69,12 @@ beforeAll(async () => {
     allowCimdFetch: async () => true,
     onGrantUsed: async (id) => {
       grantsUsed.push(id);
+    },
+    fetch: async (url) => {
+      const doc = cimdDocuments[String(url)];
+      return doc
+        ? new Response(JSON.stringify(doc), { status: 200, headers: { 'content-type': 'application/json' } })
+        : new Response('not found', { status: 404 });
     },
   };
   d = createDriver(buildProvider(deps), ISSUER);
@@ -304,6 +337,47 @@ describe('consent is never skipped', () => {
     expect(second.response.headers.get('location')).toBe(consentPath(second.uid));
     const details = await interactionDetails(d, second.uid);
     expect(details.prompt.name).toBe('consent');
+  });
+});
+
+describe('a CIMD client that lists none among its token endpoint auth methods', () => {
+  it('is treated as a public client: consent, code exchange without an assertion, refresh', async () => {
+    const { verifier, challenge } = pkcePair();
+    const { uid, response } = await startAuthorization(d, {
+      clientId: CHATGPT,
+      redirectUri: CHATGPT_REDIRECT,
+      scope: 'signups:read signups:write',
+      resource: RESOURCE,
+      challenge,
+    });
+    expect(response.status, await response.clone().text()).toBe(303);
+    expect(response.headers.get('location')).toBe(consentPath(uid));
+
+    await approve(uid, ['signups:read', 'signups:write']);
+    const { code } = codeFromRedirect(await resume(d, uid));
+    const tokenRes = await exchangeCode(d, { clientId: CHATGPT, redirectUri: CHATGPT_REDIRECT, code, verifier, resource: RESOURCE });
+    expect(tokenRes.status, await tokenRes.clone().text()).toBe(200);
+    const tokens = await tokenRes.json();
+    expect(decodeJwt(tokens.access_token).client_id).toBe(CHATGPT);
+    expect(tokens.refresh_token).toBeTruthy();
+
+    const r1 = await refresh(d, { clientId: CHATGPT, refreshToken: tokens.refresh_token });
+    expect(r1.status, await r1.clone().text()).toBe(200);
+    expect(decodeJwt((await r1.json()).access_token).scope).toBe('signups:read signups:write');
+  });
+
+  it('is still rejected when the list does not include none', async () => {
+    const { challenge } = pkcePair();
+    const { response } = await startAuthorization(d, {
+      clientId: KEY_ONLY,
+      redirectUri: 'https://keyonly.example/cb',
+      scope: 'signups:read',
+      challenge,
+    });
+    expect(response.status).toBe(400);
+    const body = await response.text();
+    expect(body).toContain('invalid_client_metadata');
+    expect(body).toContain('token_endpoint_auth_method must be');
   });
 });
 
