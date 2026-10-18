@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Banner } from '@/components/banner';
+import { useDismissibleQueryFlag } from '@/hooks/useDismissibleQueryFlag';
 import { clearAiDraftWarnings, readAiDraftWarnings } from './ai-draft-warnings';
 
 export function AiDraftBanner({
@@ -16,11 +16,7 @@ export function AiDraftBanner({
   fieldsCount: number;
   slotsCount: number;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const showFromUrl = searchParams.get('aiDraft') === '1';
-  const [dismissed, setDismissed] = useState(false);
+  const [shown, dismiss] = useDismissibleQueryFlag('aiDraft');
   const [warnings, setWarnings] = useState<string[]>([]);
 
   useEffect(() => {
@@ -28,19 +24,15 @@ export function AiDraftBanner({
       clearAiDraftWarnings(signupId);
       return;
     }
-    if (!showFromUrl) return;
+    if (!shown) return;
     setWarnings(readAiDraftWarnings(signupId));
-  }, [showFromUrl, signupId, signupStatus]);
+  }, [shown, signupId, signupStatus]);
 
-  if (signupStatus !== 'draft' || !showFromUrl || dismissed) return null;
+  if (signupStatus !== 'draft' || !shown) return null;
 
   const onDismiss = () => {
-    setDismissed(true);
     clearAiDraftWarnings(signupId);
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('aiDraft');
-    const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname);
+    dismiss();
   };
 
   return (

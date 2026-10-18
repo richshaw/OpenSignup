@@ -29,11 +29,6 @@ export function Editable({
   // re-committing the same draft (which would fire onChange twice).
   const settledRef = useRef(false);
 
-  // Reset draft when the underlying value changes from outside (e.g. server refresh).
-  useEffect(() => {
-    if (!editing) setDraft(value);
-  }, [value, editing]);
-
   useEffect(() => {
     if (editing && inputRef.current) {
       settledRef.current = false;
@@ -41,6 +36,13 @@ export function Editable({
       if ('select' in inputRef.current) inputRef.current.select();
     }
   }, [editing]);
+
+  // Start each edit from the current value, which may have changed from
+  // outside (e.g. a server refresh) since the last one.
+  const startEditing = () => {
+    setDraft(value);
+    setEditing(true);
+  };
 
   const commit = () => {
     if (settledRef.current) return;
@@ -52,7 +54,6 @@ export function Editable({
   const cancel = () => {
     if (settledRef.current) return;
     settledRef.current = true;
-    setDraft(value);
     setEditing(false);
   };
 
@@ -103,11 +104,11 @@ export function Editable({
       role="button"
       tabIndex={0}
       aria-label={ariaLabel}
-      onClick={() => setEditing(true)}
+      onClick={startEditing}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          setEditing(true);
+          startEditing();
         }
       }}
       className={`${className} cursor-text rounded transition-colors duration-180 hover:bg-brand-soft focus:bg-brand-soft focus:outline-none`}

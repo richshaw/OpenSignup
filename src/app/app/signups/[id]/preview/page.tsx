@@ -1,9 +1,9 @@
-import Link from 'next/link';
 import { after } from 'next/server';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { getSignupForOrganizer } from '@/services/signups';
 import { recordOrganizerView } from '@/lib/view-tracker';
+import { SignupLoadError } from '@/components/signup/SignupLoadError';
 import SignupView, {
   toSignupViewFields,
   toSignupViewSignup,
@@ -22,14 +22,7 @@ export default async function SignupPreviewPage({ params }: PageParams) {
   const actor = toActor(session);
   const result = await getSignupForOrganizer(getDb(), actor, id);
   if (!result.ok) {
-    return (
-      <div className="rounded-xl border border-surface-sunk bg-white p-8">
-        <p className="text-danger font-medium">{result.error.message}</p>
-        <Link href="/app" className="text-brand text-sm underline">
-          Back to dashboard
-        </Link>
-      </div>
-    );
+    return <SignupLoadError message={result.error.message} />;
   }
   const sig = result.value;
 

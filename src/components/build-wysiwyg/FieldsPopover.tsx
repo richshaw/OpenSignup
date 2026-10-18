@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Bell, ChevronDown, GripVertical, List, Plus, X } from 'lucide-react';
 import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
@@ -8,6 +8,8 @@ import { useReorderable } from '../build-shared/useReorderable';
 import type { BuildField } from '../build-shared/useBuildState';
 import type { SlotFieldConfig } from '@/schemas/slot-fields';
 import { InlineFieldForm, type InlineFieldFormMode } from './InlineFieldForm';
+import { PickerOption } from './PickerOption';
+import { useOutsideClose } from './useOutsideClose';
 
 type FieldsPopoverProps = {
   open: boolean;
@@ -32,31 +34,7 @@ type FieldsPopoverProps = {
   onSetReminder: (ref: string | null) => void;
 };
 
-export function FieldsPopover({
-  open,
-  onOpenChange,
-  fields,
-  groupByFieldRef,
-  reminderFieldRef,
-  onAddField,
-  onUpdateField,
-  onDeleteField,
-  onMoveField,
-  onGroupByChange,
-  onSetReminder,
-}: FieldsPopoverProps) {
-  // null = list view; otherwise inline-edit view (create or edit existing).
-  const [formMode, setFormMode] = useState<InlineFieldFormMode | null>(null);
-  const reminderField = reminderFieldRef
-    ? (fields.find((f) => f.ref === reminderFieldRef) ?? null)
-    : null;
-
-  // Reset back to the list view whenever the modal is closed/reopened so a
-  // half-finished create state doesn't leak across mounts.
-  useEffect(() => {
-    if (!open) setFormMode(null);
-  }, [open]);
-
+export function FieldsPopover({ open, onOpenChange, ...body }: FieldsPopoverProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -66,64 +44,92 @@ export function FieldsPopover({
           aria-describedby={undefined}
           className="fixed left-1/2 top-[10vh] z-50 w-[420px] max-w-[calc(100%-2rem)] max-h-[80vh] -translate-x-1/2 overflow-y-auto rounded-xl border border-surface-sunk bg-white p-4 shadow-card focus:outline-none"
         >
-          <FieldsPopoverHeader
-            title={
-              formMode?.mode === 'edit'
-                ? 'Edit field'
-                : formMode?.mode === 'create'
-                  ? 'New field'
-                  : `Fields · ${fields.length}`
-            }
-          />
-
-          {formMode ? (
-            <InlineFieldForm
-              formMode={formMode}
-              reminderFieldRef={reminderFieldRef}
-              reminderFieldLabel={reminderField?.name ?? null}
-              onCancel={() => setFormMode(null)}
-              onSave={({ name, config, reminder }) => {
-                if (formMode.mode === 'edit') {
-                  const field = formMode.field;
-                  const updated = onUpdateField(field.id, { name, config });
-                  if (reminder !== undefined) {
-                    const turnOn = reminder && reminderFieldRef !== field.ref;
-                    const turnOff = !reminder && reminderFieldRef === field.ref;
-                    if (turnOn || turnOff) {
-                      // After the field save, never alongside it: the settings
-                      // PATCH names this field as a date field.
-                      void updated.then(() => onSetReminder(turnOn ? field.ref : null));
-                    }
-                  }
-                } else {
-                  onAddField(name, config);
-                }
-                setFormMode(null);
-              }}
-              onDelete={
-                formMode.mode === 'edit'
-                  ? () => {
-                      onDeleteField(formMode.field.id);
-                      setFormMode(null);
-                    }
-                  : undefined
-              }
-            />
-          ) : (
-            <FieldsListView
-              fields={fields}
-              groupByFieldRef={groupByFieldRef}
-              reminderFieldRef={reminderFieldRef}
-              onDelete={onDeleteField}
-              onMoveField={onMoveField}
-              onGroupByChange={onGroupByChange}
-              onEdit={(field) => setFormMode({ mode: 'edit', field })}
-              onStartCreate={() => setFormMode({ mode: 'create' })}
-            />
-          )}
+          <FieldsPopoverBody {...body} />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/**
+ * Lives inside `Dialog.Content`, which unmounts on close, so a half-finished
+ * create or edit never survives into the next open.
+ */
+function FieldsPopoverBody({
+  fields,
+  groupByFieldRef,
+  reminderFieldRef,
+  onAddField,
+  onUpdateField,
+  onDeleteField,
+  onMoveField,
+  onGroupByChange,
+  onSetReminder,
+}: Omit<FieldsPopoverProps, 'open' | 'onOpenChange'>) {
+  // null = list view; otherwise inline-edit view (create or edit existing).
+  const [formMode, setFormMode] = useState<InlineFieldFormMode | null>(null);
+  const reminderField = reminderFieldRef
+    ? (fields.find((f) => f.ref === reminderFieldRef) ?? null)
+    : null;
+
+  return (
+    <>
+      <FieldsPopoverHeader
+        title={
+          formMode?.mode === 'edit'
+            ? 'Edit field'
+            : formMode?.mode === 'create'
+              ? 'New field'
+              : `Fields · ${fields.length}`
+        }
+      />
+
+      {formMode ? (
+        <InlineFieldForm
+          formMode={formMode}
+          reminderFieldRef={reminderFieldRef}
+          reminderFieldLabel={reminderField?.name ?? null}
+          onCancel={() => setFormMode(null)}
+          onSave={({ name, config, reminder }) => {
+            if (formMode.mode === 'edit') {
+              const field = formMode.field;
+              const updated = onUpdateField(field.id, { name, config });
+              if (reminder !== undefined) {
+                const turnOn = reminder && reminderFieldRef !== field.ref;
+                const turnOff = !reminder && reminderFieldRef === field.ref;
+                if (turnOn || turnOff) {
+                  // After the field save, never alongside it: the settings
+                  // PATCH names this field as a date field.
+                  void updated.then(() => onSetReminder(turnOn ? field.ref : null));
+                }
+              }
+            } else {
+              onAddField(name, config);
+            }
+            setFormMode(null);
+          }}
+          onDelete={
+            formMode.mode === 'edit'
+              ? () => {
+                  onDeleteField(formMode.field.id);
+                  setFormMode(null);
+                }
+              : undefined
+          }
+        />
+      ) : (
+        <FieldsListView
+          fields={fields}
+          groupByFieldRef={groupByFieldRef}
+          reminderFieldRef={reminderFieldRef}
+          onDelete={onDeleteField}
+          onMoveField={onMoveField}
+          onGroupByChange={onGroupByChange}
+          onEdit={(field) => setFormMode({ mode: 'edit', field })}
+          onStartCreate={() => setFormMode({ mode: 'create' })}
+        />
+      )}
+    </>
   );
 }
 
@@ -300,21 +306,7 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
     [fields],
   );
 
-  // Close on outside click.
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      const target = e.target as Node;
-      if (
-        menuRef.current && !menuRef.current.contains(target) &&
-        triggerRef.current && !triggerRef.current.contains(target)
-      ) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
+  useOutsideClose(open, [menuRef, triggerRef], () => setOpen(false));
 
   const activeField = value ? fields.find((f) => f.ref === value) : null;
   const label =
@@ -344,7 +336,7 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
           aria-label="Group slots by"
           className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[200px] rounded-lg border border-surface-sunk bg-white p-1 shadow-card"
         >
-          <PickItem
+          <PickerOption
             active={value === null}
             icon={<List size={12} />}
             label={'Don\u2019t group'}
@@ -354,7 +346,7 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
           {groupable.map((f) => {
             const TypeIcon = FIELD_TYPE_META[f.config.fieldType].icon;
             return (
-              <PickItem
+              <PickerOption
                 key={f.id}
                 active={value === f.ref}
                 icon={<TypeIcon size={12} />}
@@ -368,32 +360,3 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
     </div>
   );
 }
-
-function PickItem({
-  active,
-  icon,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="option"
-      aria-selected={active}
-      onClick={onClick}
-      className={
-        'flex w-full items-center gap-2 rounded-md border-none px-2.5 py-1.5 text-left text-xs font-medium cursor-pointer ' +
-        (active ? 'bg-brand-soft text-brand' : 'bg-transparent text-ink hover:bg-surface-raised')
-      }
-    >
-      <span className="inline-flex">{icon}</span>
-      <span className="flex-1">{label}</span>
-    </button>
-  );
-}
-
