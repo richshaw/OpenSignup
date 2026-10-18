@@ -84,12 +84,14 @@ const nextConfig = {
           },
         ],
       },
-      // Keep API answers out of every cache. Pages already get `no-store`
-      // from Next, but route handlers get no Cache-Control at all, and some
-      // carry what no cache should keep: `GET /api/commitments/[id]?token=…`
-      // returns a participant's name and email with the edit token in the
-      // URL, and the CSV export lists every participant. Without the header
-      // a browser's disk cache or a shared proxy may store them.
+      // Keep API answers out of every cache. Next gives dynamically rendered
+      // pages `no-store` (static and ISR pages get `s-maxage`, so keep
+      // participant data off those), but route handlers get no Cache-Control
+      // at all, and some carry what no cache should keep:
+      // `GET /api/commitments/[id]?token=…` returns a participant's name and
+      // email with the edit token in the URL, and the CSV export lists every
+      // participant. Without the header a browser's disk cache or a shared
+      // proxy may store them.
       //
       // This replaces any Cache-Control a handler under /api sets itself, so
       // a response that should be cached (like the well-known metadata,
