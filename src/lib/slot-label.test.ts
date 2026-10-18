@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { formatSlotTime, renderFieldValue, slotDetails } from './slot-label';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { formatSlotDate, formatSlotTime, renderFieldValue, slotDetails } from './slot-label';
 
 const fields = [
   { ref: 'date', label: 'Date', fieldType: 'date' },
@@ -33,6 +33,40 @@ describe('slotDetails', () => {
 
   it('is empty for a slot with no fields', () => {
     expect(slotDetails([], {})).toEqual([]);
+  });
+});
+
+describe('formatSlotDate', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('returns null for null/empty/invalid', () => {
+    expect(formatSlotDate(null)).toBeNull();
+    expect(formatSlotDate(undefined)).toBeNull();
+    expect(formatSlotDate('')).toBeNull();
+    expect(formatSlotDate('not-a-date')).toBeNull();
+  });
+
+  it('formats ISO into Weekday, Mon Day', () => {
+    // 2026-04-25 is a Saturday in UTC; we accept any locale-correct prefix
+    // by asserting the shape rather than the exact string.
+    const out = formatSlotDate('2026-04-25T15:00:00Z');
+    expect(out).toMatch(/^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}$/);
+  });
+
+  it('renders YYYY-MM-DD on the same calendar day across timezones', () => {
+    // 2026-04-25 is a Saturday. With `new Date('2026-04-25')` the value parses
+    // as UTC midnight, then `toLocaleDateString` shifts to the host TZ — so in
+    // negative offsets it would render as Fri, Apr 24. Verify both sides of
+    // UTC return the intended calendar day.
+    const instant = new Date('2026-04-25T12:00:00Z');
+    vi.stubEnv('TZ', 'America/Los_Angeles');
+    expect(instant.getHours()).toBe(5);
+    expect(formatSlotDate('2026-04-25')).toBe('Sat, Apr 25');
+    vi.stubEnv('TZ', 'Pacific/Auckland');
+    expect(instant.getHours()).toBe(0);
+    expect(formatSlotDate('2026-04-25')).toBe('Sat, Apr 25');
   });
 });
 
