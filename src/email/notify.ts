@@ -96,6 +96,7 @@ export async function notifyCommitmentCreated(
       sendReminders: sendsReminders(row.signup.settings),
       slotAt: row.slot.slotAt,
       createdAt: row.commitment.createdAt,
+      remindersOptedOutAt: row.participant.remindersOptedOutAt,
     });
 
     await sendCommitmentConfirmation(to, {
