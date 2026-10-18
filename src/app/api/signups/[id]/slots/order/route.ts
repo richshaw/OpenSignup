@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { requireActor } from '@/auth/session';
+import { requireOrganizer } from '@/lib/policy';
 import { getDb } from '@/db/client';
-import { fail, handle, respond } from '@/lib/api-response';
-import { serviceError } from '@/lib/errors';
+import { handle, respond } from '@/lib/api-response';
 import { reorderSlots } from '@/services/slots';
 
 /**
@@ -17,7 +17,7 @@ export async function PUT(
   return handle(async () => {
     const { id } = await ctx.params;
     const actor = await requireActor();
-    if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in required'));
+    requireOrganizer(actor);
     const body = await req.json().catch(() => ({}));
     const result = await reorderSlots(getDb(), actor, id, body);
     return respond(result);

@@ -11,6 +11,8 @@ const isProduction = process.env.NODE_ENV === 'production';
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+  // Don't announce the framework in an `X-Powered-By` header on every page.
+  poweredByHeader: false,
   // Inline package.json version into the client bundle. `npm_package_version`
   // is only set when the process is started via pnpm/npm scripts, so reading
   // it at runtime from `node server.js` (as the Docker image does) returns
@@ -81,6 +83,22 @@ const nextConfig = {
             value: "object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
           },
         ],
+      },
+      // Keep API answers out of every cache. Next gives dynamically rendered
+      // pages `no-store` (static and ISR pages get `s-maxage`, so keep
+      // participant data off those), but route handlers get no Cache-Control
+      // at all, and some carry what no cache should keep:
+      // `GET /api/commitments/[id]?token=…` returns a participant's name and
+      // email with the edit token in the URL, and the CSV export lists every
+      // participant. Without the header a browser's disk cache or a shared
+      // proxy may store them.
+      //
+      // This replaces any Cache-Control a handler under /api sets itself, so
+      // a response that should be cached (like the well-known metadata,
+      // which sets `public, max-age=300`) has to live outside /api.
+      {
+        source: '/api/:path*',
+        headers: [{ key: 'Cache-Control', value: 'no-store' }],
       },
     ];
   },

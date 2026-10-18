@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, Plus } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ChevronDown, Plus } from 'lucide-react';
+import { PickerOption } from './PickerOption';
+import { useOutsideClose } from './useOutsideClose';
 
 type EnumPickerProps = {
   value: string;
@@ -31,32 +33,9 @@ export function EnumPicker({ value, options, ariaLabel, onChange, onAddOption }:
   const [draft, setDraft] = useState('');
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   // Prevents Enter committing and then the unmount-triggered onBlur committing
   // a second time (which would call onAddOption twice).
   const settledRef = useRef(false);
-
-  useEffect(() => {
-    if (adding) {
-      settledRef.current = false;
-      inputRef.current?.focus();
-    }
-  }, [adding]);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      const target = e.target as Node;
-      if (
-        menuRef.current && !menuRef.current.contains(target) &&
-        triggerRef.current && !triggerRef.current.contains(target)
-      ) {
-        close();
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
 
   const close = () => {
     // Mark settled so any blur fired during unmount (Escape, click-outside)
@@ -65,6 +44,13 @@ export function EnumPicker({ value, options, ariaLabel, onChange, onAddOption }:
     setOpen(false);
     setAdding(false);
     setDraft('');
+  };
+
+  useOutsideClose(open, [menuRef, triggerRef], close);
+
+  const startAdding = () => {
+    settledRef.current = false;
+    setAdding(true);
   };
 
   const commitNew = async () => {
@@ -116,36 +102,23 @@ export function EnumPicker({ value, options, ariaLabel, onChange, onAddOption }:
               No items yet.
             </div>
           )}
-          {options.map((opt) => {
-            const active = opt === value;
-            return (
-              <button
-                key={opt}
-                type="button"
-                role="option"
-                aria-selected={active}
-                onClick={() => {
-                  onChange(opt);
-                  close();
-                }}
-                className={
-                  'flex w-full items-center gap-2 rounded-md border-none px-2.5 py-1.5 text-left text-xs cursor-pointer ' +
-                  (active
-                    ? 'bg-brand-soft font-semibold text-brand'
-                    : 'bg-transparent font-medium text-ink hover:bg-surface-raised')
-                }
-              >
-                <span className="inline-flex w-3 shrink-0">{active && <Check size={11} />}</span>
-                <span className="flex-1 truncate">{opt}</span>
-              </button>
-            );
-          })}
+          {options.map((opt) => (
+            <PickerOption
+              key={opt}
+              active={opt === value}
+              label={opt}
+              onClick={() => {
+                onChange(opt);
+                close();
+              }}
+            />
+          ))}
           {options.length > 0 && <div className="my-1 h-px bg-surface-sunk" />}
           {adding ? (
             <div className="flex items-center gap-1 rounded-md bg-brand-soft px-1.5 py-1">
               <Plus size={11} className="shrink-0 text-brand" />
               <input
-                ref={inputRef}
+                autoFocus
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
@@ -167,7 +140,7 @@ export function EnumPicker({ value, options, ariaLabel, onChange, onAddOption }:
           ) : (
             <button
               type="button"
-              onClick={() => setAdding(true)}
+              onClick={startAdding}
               className="flex w-full items-center gap-2 rounded-md border-none bg-transparent px-2.5 py-1.5 text-left text-xs font-medium text-brand cursor-pointer hover:bg-brand-soft"
             >
               <Plus size={12} />

@@ -1,10 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
-import { requireActor } from '@/auth/session';
-import { getOrganizerSession } from '@/auth/session';
-import { handle, respond } from '@/lib/api-response';
+import { getOrganizerSession, requireActor } from '@/auth/session';
+import { fail, handle, respond } from '@/lib/api-response';
 import { serviceError } from '@/lib/errors';
-import { fail } from '@/lib/api-response';
+import { requireOrganizer } from '@/lib/policy';
 import { link, publicSignupUrl } from '@/lib/links';
 import { createSignup, listSignupsForWorkspace } from '@/services/signups';
 import { SIGNUP_STATUSES } from '@/schemas/signups';
@@ -13,7 +12,7 @@ import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 export async function POST(req: NextRequest) {
   return handle(async () => {
     const actor = await requireActor();
-    if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in to create signups'));
+    requireOrganizer(actor);
 
     const db = getDb();
     await consumeRateLimit(db, RateLimits.signupCreatePerOrganizer, actor.id);
@@ -39,7 +38,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   return handle(async () => {
     const actor = await requireActor();
-    if (actor.kind !== 'organizer') return fail(serviceError('unauthorized', 'sign in to list signups'));
+    requireOrganizer(actor);
 
     const url = new URL(req.url);
     const session = await getOrganizerSession();

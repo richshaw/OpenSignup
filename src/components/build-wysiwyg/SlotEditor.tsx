@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
-import { MIN_DATE_YEAR } from '@/schemas/slot-fields';
+import { MIN_DATE_YEAR, type FieldType } from '@/schemas/slot-fields';
 import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
 import { EnumPicker } from './EnumPicker';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
@@ -22,23 +22,21 @@ type SlotEditorProps = {
   onClose: () => void;
 };
 
-const TYPE_PLACEHOLDERS: Record<string, string> = {
-  text: 'e.g. Bring napkins',
-  date: 'YYYY-MM-DD',
-  time: 'e.g. 09:00',
-  number: 'e.g. 12',
-  enum: 'Pick from list',
-};
-
-const TYPE_INPUT_ATTRS: Record<
-  string,
-  { type?: string; min?: string; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'] }
+// Enum cells use EnumPicker, not an input.
+const TYPE_INPUTS: Record<
+  Exclude<FieldType, 'enum'>,
+  {
+    type: string;
+    min?: string;
+    inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+    placeholder: string;
+  }
 > = {
-  text: { type: 'text' },
+  text: { type: 'text', placeholder: 'e.g. Bring napkins' },
   // The picker starts where the services do; they refuse an earlier date.
-  date: { type: 'date', min: `${MIN_DATE_YEAR}-01-01` },
-  time: { type: 'time' },
-  number: { type: 'number', inputMode: 'numeric' },
+  date: { type: 'date', min: `${MIN_DATE_YEAR}-01-01`, placeholder: 'YYYY-MM-DD' },
+  time: { type: 'time', placeholder: 'e.g. 09:00' },
+  number: { type: 'number', inputMode: 'numeric', placeholder: 'e.g. 12' },
 };
 
 /**
@@ -119,9 +117,8 @@ export function SlotEditor({
                 />
               ) : (
                 <input
-                  {...(TYPE_INPUT_ATTRS[fieldType] ?? { type: 'text' })}
+                  {...TYPE_INPUTS[f.config.fieldType]}
                   value={row.values[f.ref] ?? ''}
-                  placeholder={TYPE_PLACEHOLDERS[fieldType] ?? ''}
                   onChange={(e) => onCellChange(f.ref, e.target.value)}
                   className="rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand"
                   aria-label={`${f.name} value`}

@@ -7,7 +7,7 @@ import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
-import { requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
+import { requireOrganizer, requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
 import { toSlug } from '@/lib/slug';
@@ -57,10 +57,8 @@ export async function createSignup(
   rawInput: unknown,
   opts: { template?: SignupTemplate } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
+  requireOrganizer(actor);
   requireWorkspaceWrite(actor, workspaceId);
-  if (actor.kind !== 'organizer') {
-    return err(serviceError('unauthorized', 'organizer required'));
-  }
 
   const input = parseInputSafe(SignupCreateInputSchema, rawInput);
   if (!input.ok) return input;

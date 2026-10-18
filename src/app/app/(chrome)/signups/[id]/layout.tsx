@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
@@ -8,6 +7,7 @@ import { SignupHeader } from '@/components/signup/SignupHeader';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
 import { PublishedBanner } from '@/components/signup/PublishedBanner';
+import { SignupLoadError } from '@/components/signup/SignupLoadError';
 import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, publishAction } from './actions';
 
@@ -31,14 +31,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   const actor = toActor(session);
   const result = await loadSignupForOrganizer(actor, id);
   if (!result.ok) {
-    return (
-      <div className="rounded-xl border border-surface-sunk bg-white p-8">
-        <p className="text-danger font-medium">{result.error.message}</p>
-        <Link href="/app" className="text-brand text-sm underline">
-          Back to dashboard
-        </Link>
-      </div>
-    );
+    return <SignupLoadError message={result.error.message} />;
   }
   const sig = result.value;
   const responsesCount = await countActiveCommitmentsForSignup(getDb(), id);
