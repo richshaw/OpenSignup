@@ -9,7 +9,7 @@ import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { createSignup, updateSignup } from '@/services/signups';
-import { PATCH } from './route';
+import { GET, PATCH } from './route';
 
 // The route reads the organizer from the session cookie. Tests hand it one
 // directly instead of going through Auth.js.
@@ -135,5 +135,36 @@ describe('PATCH /api/signups/[id] settings (db)', () => {
     expect(on.status).toBe(200);
 
     expect(await settingsOf(fx, id)).toEqual({ ...before, sendReminders: true });
+  });
+});
+
+describe('GET /api/signups/[id] signed out (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupFixture();
+  });
+
+  afterAll(async () => {
+    if (!fx) return; // setup failed: let its own error show
+    session.actor = fx.actor;
+    await fx.db.delete(workspaces).where(eq(workspaces.id, fx.workspaceId));
+    await fx.db.delete(organizers).where(eq(organizers.id, fx.organizerId));
+  });
+
+  function get(signupId: string) {
+    const req = new NextRequest(`http://localhost/api/signups/${signupId}`);
+    return GET(req, { params: Promise.resolve({ id: signupId }) });
+  }
+
+  it('answers a real id and an unknown one alike, so a stranger learns neither exists', async () => {
+    const real = await newSignup(fx, 'Signed out probe');
+    session.actor = { kind: 'anonymous' };
+
+    for (const id of [real, makeId('sig')]) {
+      const res = await get(id);
+      expect(res.status).toBe(401);
+      expect((await res.json()).error).toEqual({ code: 'unauthorized', message: 'sign in required' });
+    }
   });
 });

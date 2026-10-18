@@ -45,12 +45,12 @@ describe('policy', () => {
 
   it('anonymous cannot access workspace', () => {
     const anon: Actor = { kind: 'anonymous' };
-    expect(() => requireWorkspaceAccess(anon, 'ws_any')).toThrow(/organizer session/);
+    expect(() => requireWorkspaceAccess(anon, 'ws_any')).toThrow(/sign in required/);
   });
 
   it('anonymous cannot write to workspace', () => {
     const anon: Actor = { kind: 'anonymous' };
-    expect(() => requireWorkspaceWrite(anon, 'ws_any')).toThrow(/organizer session/);
+    expect(() => requireWorkspaceWrite(anon, 'ws_any')).toThrow(/sign in required/);
   });
 
   it('organizer from different workspace cannot write', () => {
@@ -71,7 +71,7 @@ describe('policy', () => {
 
   it('requireOrganizerId throws for anonymous actor', () => {
     const anon: Actor = { kind: 'anonymous' };
-    expect(() => requireOrganizerId(anon)).toThrow(/organizer session/);
+    expect(() => requireOrganizerId(anon)).toThrow(/sign in required/);
   });
 
   it('requireOrganizerId throws for participant actor', () => {
@@ -81,6 +81,6 @@ describe('policy', () => {
       participantId: 'par_1',
       commitmentId: 'com_1',
     };
-    expect(() => requireOrganizerId(participant)).toThrow(/organizer session/);
+    expect(() => requireOrganizerId(participant)).toThrow(/sign in required/);
   });
 });
