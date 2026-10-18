@@ -76,6 +76,21 @@ const cimdDocument = {
   token_endpoint_auth_method: 'none',
 };
 
+/** ChatGPT's document names `private_key_jwt` but also supports `none`. */
+const CHATGPT = 'https://chatgpt.com/oauth/client.json';
+const CHATGPT_REDIRECT = 'https://chatgpt.com/connector_platform_oauth_redirect';
+const chatgptDocument = {
+  client_id: CHATGPT,
+  client_name: 'ChatGPT',
+  redirect_uris: [CHATGPT_REDIRECT],
+  grant_types: ['authorization_code', 'refresh_token'],
+  response_types: ['code'],
+  token_endpoint_auth_method: 'private_key_jwt',
+  token_endpoint_auth_methods_supported: ['none', 'private_key_jwt'],
+  token_endpoint_auth_signing_alg: 'RS256',
+  jwks_uri: 'https://chatgpt.com/oauth/jwks.json',
+};
+
 beforeAll(async () => {
   await db.delete(oauthRecords);
   await db.delete(oauthSigningKeys);
@@ -105,6 +120,9 @@ beforeAll(async () => {
       fetchDispatchers.set(String(url), (init as { dispatcher?: unknown } | undefined)?.dispatcher);
       if (String(url) === CLIENT || String(url) === MISMATCHED_CLIENT) {
         return new Response(JSON.stringify(cimdDocument), { status: 200, headers: { 'content-type': 'application/json' } });
+      }
+      if (String(url) === CHATGPT) {
+        return new Response(JSON.stringify(chatgptDocument), { status: 200, headers: { 'content-type': 'application/json' } });
       }
       return new Response('not found', { status: 404 });
     },
@@ -333,6 +351,23 @@ describe('authorization code flow on Postgres', () => {
     }>(read))?.result;
     expect(readResult?.isError, JSON.stringify(readResult)).toBeFalsy();
     expect(readResult!.structuredContent.signups.map((s) => s.title)).toContain('Read-only listing');
+  });
+
+  it('connects a ChatGPT-shaped CIMD client as a public client', async () => {
+    const { verifier, challenge } = pkcePair();
+    const started = await startAuthorization(d, { clientId: CHATGPT, redirectUri: CHATGPT_REDIRECT, scope: 'signups:read', resource: RESOURCE, challenge });
+    expect(started.response.status, await started.response.clone().text()).toBe(303);
+    expect(started.response.headers.get('location')).toMatch(/^\/oauth\/consent\//);
+
+    await approve(started.uid, ['signups:read']);
+    const { code } = codeFromRedirect(await resume(d, started.uid));
+    const tokenRes = await exchangeCode(d, { clientId: CHATGPT, redirectUri: CHATGPT_REDIRECT, code, verifier, resource: RESOURCE });
+    expect(tokenRes.status, await tokenRes.clone().text()).toBe(200);
+    const tokens = await tokenRes.json();
+    expect(decodeJwt(tokens.access_token)).toMatchObject({ sub: organizerId, client_id: CHATGPT });
+
+    const r1 = await refresh(d, { clientId: CHATGPT, refreshToken: tokens.refresh_token });
+    expect(r1.status, await r1.clone().text()).toBe(200);
   });
 
   it('rejects a CIMD client whose document does not match its id', async () => {

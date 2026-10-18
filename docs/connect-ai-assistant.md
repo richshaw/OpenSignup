@@ -147,7 +147,12 @@ identical `/.well-known/openid-configuration`) plus
 
 Clients identify themselves with a Client ID Metadata Document: the
 `client_id` is an HTTPS URL that OpenSignup fetches. Dynamic client
-registration is off.
+registration is off. A document that lists `none` in
+`token_endpoint_auth_methods_supported` (as ChatGPT's does) is treated as a
+public client, even when its `token_endpoint_auth_method` names another
+method such as `private_key_jwt`. A document that names a shared-secret
+method (`client_secret_basic`, `client_secret_post` or `client_secret_jwt`)
+is refused whatever it lists.
 
 ### Clients that cannot use a metadata document
 
