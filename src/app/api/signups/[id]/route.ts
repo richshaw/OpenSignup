@@ -13,6 +13,7 @@ export async function GET(
   return handle(async () => {
     const { id } = await ctx.params;
     const actor = await requireActor();
+    requireOrganizer(actor);
     const result = await getSignupForOrganizer(getDb(), actor, id);
     if (!result.ok) return fail(result.error);
     return respond(result, {

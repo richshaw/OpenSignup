@@ -138,6 +138,7 @@ describe('PUT /api/signups/[id]/slots/order (db)', () => {
     session.actor = { kind: 'anonymous' };
     const res = await put(signupId, { slotIds: [c, b, a] });
     expect(res.status).toBe(401);
+    expect((await res.json()).error).toEqual({ code: 'unauthorized', message: 'sign in required' });
     expect(await order(fx, signupId)).toEqual([a, b, c]);
   });
 

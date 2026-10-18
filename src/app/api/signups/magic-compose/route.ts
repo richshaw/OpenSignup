@@ -7,7 +7,6 @@ import { fail, handle, ok } from '@/lib/api-response';
 import { serviceError } from '@/lib/errors';
 import { link, publicSignupUrl } from '@/lib/links';
 import { log } from '@/lib/log';
-import { requireOrganizer } from '@/lib/policy';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { defaultLlmClient } from '@/lib/magic-compose/llm-client';
 import { buildMessages, MagicComposeDraftSchema } from '@/lib/magic-compose/prompt';
@@ -30,7 +29,9 @@ export async function POST(req: NextRequest) {
     }
 
     const actor = await requireActor();
-    requireOrganizer(actor);
+    if (actor.kind !== 'organizer') {
+      return fail(serviceError('unauthorized', 'sign in to draft a signup'));
+    }
     const session = await getOrganizerSession();
     if (!session?.defaultWorkspaceId) {
       return fail(
