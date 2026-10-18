@@ -66,23 +66,33 @@ export function ConnectAnAiAssistant() {
         <p>Your assistant needs this address:</p>
         <CopyText>{MCP_ADDRESS}</CopyText>
         <p>
-          Assistants call what you&apos;re adding a connector, or an MCP server. MCP is a shared
-          standard that lets AI assistants connect to other apps.
+          Assistants call what you&apos;re adding a connector, a plugin, or an MCP server. MCP is a
+          shared standard that lets AI assistants connect to other apps.
         </p>
         <p>
           The steps below happen in your assistant, not in {INSTANCE_NAME}, and its menus change
-          from time to time. If a name doesn&apos;t match, look in its settings for connectors. You
-          may need a computer: some assistants don&apos;t let you add a connector from their phone
-          app.
+          from time to time. If a name doesn&apos;t match, look for connectors or plugins. You may
+          need a computer: some assistants don&apos;t let you add a connector from their phone app.
         </p>
         <ul className="list-disc space-y-3 pl-6">
           <li>
             In Claude, go to Settings, then Connectors. Add a custom connector, and paste the
             address.
           </li>
-          <li>
-            In ChatGPT, turn on developer mode in its settings. Then add a connector, and paste the
-            address.
+          <li className="space-y-3">
+            <p>
+              In ChatGPT, open it in your web browser and go to Plugins. Choose the plus button,
+              then Add custom MCP server.
+            </p>
+            <p>
+              Give it a name, like {INSTANCE_NAME}, and paste the address. Keep authentication set
+              to OAuth. Tick the box to say you understand the risk, then choose Create as a plugin.
+            </p>
+            <p>
+              Then install the plugin. In a chat, type @ and choose the plugin when you want ChatGPT
+              to use it.
+            </p>
+            <p>If you use ChatGPT through work, your admin may need to set this up for you.</p>
           </li>
           <li className="space-y-3">
             <p>In Claude Code, run this command:</p>

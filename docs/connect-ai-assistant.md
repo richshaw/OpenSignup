@@ -65,7 +65,14 @@ claude mcp add --transport http opensignup https://<your-instance>/api/mcp
 Then run `/mcp` inside Claude Code and pick the OpenSignup server to start the
 sign-in. A browser window opens for approval.
 
-**ChatGPT** — turn on developer mode, add an MCP server, and use the same URL.
+**ChatGPT** — on the web, go to Plugins, choose the plus button, then **Add
+custom MCP server**. Paste the URL, keep authentication on OAuth, tick the risk
+acknowledgement and choose **Create as a plugin**. Developer mode is no longer
+needed for this. Under **Advanced OAuth settings** the registration method
+should read Client ID Metadata Document (CIMD); this server offers no dynamic
+registration, so if it reads anything else, pick CIMD. Install the plugin, then
+type `@` in a chat and choose it. On a Business or Enterprise workspace, an
+admin may have to create it or grant permission first.
 
 Whatever the client, the flow is the same: you land on OpenSignup, sign in if
 you are not signed in already, and see a consent screen.
