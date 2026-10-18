@@ -11,10 +11,7 @@ export function useTypewriter(full: string, active: boolean, durationMs = 1000):
   const [out, setOut] = useState('');
 
   useEffect(() => {
-    if (!active) {
-      setOut(full);
-      return;
-    }
+    if (!active) return;
     setOut('');
     const start = performance.now();
     let raf = 0;
@@ -27,5 +24,5 @@ export function useTypewriter(full: string, active: boolean, durationMs = 1000):
     return () => cancelAnimationFrame(raf);
   }, [full, active, durationMs]);
 
-  return out;
+  return active ? out : full;
 }
