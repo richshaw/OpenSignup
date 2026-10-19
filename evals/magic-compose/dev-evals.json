@@ -407,6 +407,32 @@
         "groupBy_should_be_null": true,
         "rationale": "Regression: model set groupBy on a uniform-unique item column, producing one-item groups that confuse organizers (screenshot 2026-05-18). Prompt now instructs groupBy=null when every row would be unique; converter sanitizer enforces it server-side regardless."
       }
+    },
+    {
+      "id": "ev_025_snack_parent_per_game_no_participant_fields",
+      "tags": ["principle:slots_are_atom", "field_type:date", "regression"],
+      "runner": "llm",
+      "prompt": "Need a parent to bring snacks to each of our six basketball games this season: Nov 7, Nov 14, Nov 21, Dec 5, Dec 12 and Dec 19, 2026.",
+      "expect": {
+        "slots.count": 6,
+        "slots.all_capacities_equal": 1,
+        "slot_dates.set_must_equal": ["2026-11-07", "2026-11-14", "2026-11-21", "2026-12-05", "2026-12-12", "2026-12-19"],
+        "fields.labels_must_not_match_any": ["name", "email", "phone", "parent", "snack"],
+        "rationale": "Regression (#475, #476): a connected assistant added fields for the parent's name, email and the snack they would bring. Fields are columns the organizer fills in; a sign-up already records a name, email and note."
+      }
+    },
+    {
+      "id": "ev_026_three_parents_per_game_capacity_not_name_fields",
+      "tags": ["principle:slots_are_atom", "edge:capacity_gt_1", "regression"],
+      "runner": "llm",
+      "prompt": "We need three parents at each home game to run the concession stand. Home games are Saturday Nov 7, Nov 21 and Dec 5, 2026.",
+      "expect": {
+        "slots.count": 3,
+        "slots.all_capacities_equal": 3,
+        "slot_dates.set_must_equal": ["2026-11-07", "2026-11-21", "2026-12-05"],
+        "fields.labels_must_not_match_any": ["name", "email", "phone", "parent"],
+        "rationale": "Regression (#475, #476): one slot per game with capacity 3, not three slots per game or a field per parent's name."
+      }
     }
   ]
 }
