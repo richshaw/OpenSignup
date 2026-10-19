@@ -4,11 +4,7 @@ import { requireOrganizerSession, toActor } from '@/auth/session';
 import { getSignupForOrganizer } from '@/services/signups';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { SignupLoadError } from '@/components/signup/SignupLoadError';
-import SignupView, {
-  toSignupViewFields,
-  toSignupViewSignup,
-  toSignupViewSlots,
-} from '@/app/s/[slug]/signup-view';
+import SignupView, { toSignupViewProps } from '@/app/s/[slug]/signup-view';
 
 // Plain string so the root template (`%s · <INSTANCE_NAME>`) supplies the
 // instance suffix exactly once.
@@ -35,21 +31,9 @@ export default async function SignupPreviewPage({ params }: PageParams) {
     }),
   );
 
-  const slots = toSignupViewSlots(sig);
-  const fields = toSignupViewFields(sig.fields);
-  const settings = (sig.settings ?? {}) as { groupByFieldRefs?: string[] };
-  const groupByRef = settings.groupByFieldRefs?.[0] ?? null;
-
   return (
     <main className="flex min-h-[100svh] flex-col py-8">
-      <SignupView
-        signup={toSignupViewSignup(sig)}
-        fields={fields}
-        groupByRef={groupByRef}
-        slots={slots}
-        slug={sig.slug}
-        mode="preview"
-      />
+      <SignupView {...toSignupViewProps(sig)} mode="preview" />
     </main>
   );
 }
