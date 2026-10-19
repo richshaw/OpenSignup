@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
-import { pickAnchorRef, resolveAnchorRef, slotTimeOfDay } from './reminder-fields';
+import { chooseAnchorRef, pickAnchorRef, resolveAnchorRef, slotTimeOfDay } from './reminder-fields';
 
 const date = (ref: string, sortOrder: number) => ({ ref, fieldType: 'date' as const, sortOrder });
 const text = (ref: string, sortOrder: number) => ({ ref, fieldType: 'text' as const, sortOrder });
@@ -40,6 +40,42 @@ describe('resolveAnchorRef', () => {
 
   it('resolves to null once no date field is left', () => {
     expect(resolveAnchorRef({ reminderFromFieldRef: 'depart' }, [text('what', 0)])).toBeNull();
+  });
+});
+
+describe('chooseAnchorRef', () => {
+  const fields = [text('what', 0), date('depart', 1), date('return', 2)];
+
+  it('takes a requested ref that names a date field', () => {
+    expect(chooseAnchorRef('return', 'depart', fields)).toEqual({ ok: true, value: 'return' });
+  });
+
+  it('refuses a requested ref that is not a date field, saying which', () => {
+    expect(chooseAnchorRef('what', 'depart', fields)).toEqual({
+      ok: false,
+      error: {
+        code: 'invalid_input',
+        message: "reminderFromFieldRef must name one of the signup's date fields",
+        field: 'settings.reminderFromFieldRef',
+        received: 'what',
+      },
+    });
+  });
+
+  it('keeps the current ref when nothing is requested and it still names a date field', () => {
+    expect(chooseAnchorRef(undefined, 'return', fields)).toEqual({ ok: true, value: 'return' });
+  });
+
+  it('falls back to the first date field when nothing is requested and the current ref is stale', () => {
+    expect(chooseAnchorRef(undefined, 'gone', fields)).toEqual({ ok: true, value: 'depart' });
+    expect(chooseAnchorRef(undefined, undefined, fields)).toEqual({ ok: true, value: 'depart' });
+  });
+
+  it('is null when nothing is requested and the signup has no date field', () => {
+    expect(chooseAnchorRef(undefined, undefined, [text('what', 0)])).toEqual({
+      ok: true,
+      value: null,
+    });
   });
 });
 
