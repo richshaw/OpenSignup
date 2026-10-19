@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  NO_FIELDS_FOR_PARTICIPANT_DETAILS,
   RULES_IN_BOTH,
   USE_CAPACITY_NOT_DUPLICATE_ROWS,
   USE_DATE_AND_TIME_FIELDS,
@@ -39,9 +40,15 @@ describe('buildInstructions', () => {
     expect(line.indexOf('are fine and expected')).toBeLessThan(line.indexOf('What is not fine'));
   });
 
-  it('carries the two rules written for assistants', () => {
+  it('carries the three rules written for assistants', () => {
     expect(text).toContain(USE_DATE_AND_TIME_FIELDS);
     expect(text).toContain(USE_CAPACITY_NOT_DUPLICATE_ROWS);
+    expect(text).toContain(NO_FIELDS_FOR_PARTICIPANT_DETAILS);
+  });
+
+  it('says what participants give, right after the slots-are-the-atom line', () => {
+    const atom = lines.findIndex((l) => l.includes('Slots are the atom'));
+    expect(lines[atom + 1]).toBe(`- ${NO_FIELDS_FOR_PARTICIPANT_DETAILS}`);
   });
 
   it('ends with the tools it was given, in order', () => {

@@ -6,7 +6,11 @@ import type { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 
-/** `workspace_id = ?`, where null (guest scope) matches only rows with no workspace. */
+/**
+ * `workspace_id = ?`, where null matches only rows with no workspace, such as
+ * page-view activity rows. It never widens a query, and the policy guards
+ * refuse a null workspace outright, so it grants nothing either.
+ */
 export function inWorkspace(
   column:
     | typeof signups.workspaceId
@@ -77,9 +81,7 @@ export async function readLiveSignup(db: Queryable, signupId: string) {
  * `tx` is a transaction, not `Queryable`: on the pool handle the lock would be
  * gone as soon as the select's own autocommit ended. `workspaceId` is the one
  * the caller passed to `requireWorkspaceWrite`, so the row is scoped to the
- * workspace the actor was cleared for, like every other tenant-table query
- * (null, which the guard lets through as guest scope, matches only a signup
- * with no workspace).
+ * workspace the actor was cleared for, like every other tenant-table query.
  */
 export async function lockSignupForWrite(tx: Tx, signupId: string, workspaceId: string | null) {
   const [row] = await tx
