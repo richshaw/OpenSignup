@@ -52,9 +52,16 @@ Menu names change between releases; if the wording below does not match what
 you see, look for whatever the app calls a custom connector or MCP server and
 give it the URL above.
 
-**Claude app** — Settings → Connectors → Add custom connector, then paste the
-MCP endpoint URL. Claude opens a browser window for you to sign in and
-approve.
+**Claude app** — Customize → Connectors → **Add** → **Add custom connector**,
+then name it and paste the MCP endpoint URL. Keep the sign-in settings Claude
+detects. Under **OAuth client**, *Use Claude's published identity* is the one
+that works here (it is a client ID metadata document); *Register automatically*
+needs dynamic registration, which this server does not offer. On Team and
+Enterprise plans an Owner adds the connector under Organization settings →
+Connectors, and each member then chooses **Connect** next to it under
+Customize → Connectors. Claude opens a browser window for you to sign in and
+approve, either when you add it or the first time it is needed, depending on
+the sign-in setting.
 
 **Claude Code** — add the server, then authenticate:
 
@@ -65,7 +72,20 @@ claude mcp add --transport http opensignup https://<your-instance>/api/mcp
 Then run `/mcp` inside Claude Code and pick the OpenSignup server to start the
 sign-in. A browser window opens for approval.
 
-**ChatGPT** — turn on developer mode, add an MCP server, and use the same URL.
+**ChatGPT** — on the web, go to Plugins, choose the plus button, then **Add
+custom MCP server**. Name it, paste the URL, set authentication to OAuth, tick
+the risk acknowledgement and choose **Create as a plugin**. OpenAI's help
+centre says the current Plugins experience needs no developer mode, while its
+Apps SDK and developer-mode guides still say to turn it on; if **Add custom MCP
+server** is missing, turn on developer mode in ChatGPT's settings. Under
+**Advanced OAuth settings** the registration method should read Client ID
+Metadata Document (CIMD); this server offers no dynamic registration, so if it
+reads anything else, pick CIMD. `/api/mcp` answers 401 to any request without a
+token, so expect the consent screen as soon as ChatGPT tries to list the tools. Then
+install the plugin, and type `@` and choose it in each message that should use
+it. On a Business workspace only an admin or owner can create it; on Enterprise
+or Edu an admin can, or can give members the **Create plugins with MCPs**
+permission.
 
 Whatever the client, the flow is the same: you land on OpenSignup, sign in if
 you are not signed in already, and see a consent screen.

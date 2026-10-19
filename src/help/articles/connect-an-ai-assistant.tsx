@@ -66,30 +66,62 @@ export function ConnectAnAiAssistant() {
         <p>Your assistant needs this address:</p>
         <CopyText>{MCP_ADDRESS}</CopyText>
         <p>
-          Assistants call what you&apos;re adding a connector, or an MCP server. MCP is a shared
-          standard that lets AI assistants connect to other apps.
+          Assistants call what you&apos;re adding a connector, a plugin, or an MCP server. MCP is a
+          shared standard that lets AI assistants connect to other apps.
         </p>
         <p>
           The steps below happen in your assistant, not in {INSTANCE_NAME}, and its menus change
-          from time to time. If a name doesn&apos;t match, look in its settings for connectors. You
-          may need a computer: some assistants don&apos;t let you add a connector from their phone
-          app.
+          from time to time. If a name doesn&apos;t match, look in its menus or settings for
+          connectors or plugins. You may need a computer: some assistants don&apos;t let you add a
+          connector from their phone app.
         </p>
         <ul className="list-disc space-y-3 pl-6">
-          <li>
-            In Claude, go to Settings, then Connectors. Add a custom connector, and paste the
-            address.
+          <li className="space-y-3">
+            <p>
+              In Claude, on a Team or Enterprise plan, an owner adds {INSTANCE_NAME} for everyone
+              first. Then you go to Customize, then Connectors, and choose Connect next to it.
+            </p>
+            <p>On any other plan:</p>
+            <Steps>
+              <Step>Go to Customize, then Connectors.</Step>
+              <Step>Choose Add, then Add custom connector.</Step>
+              <Step>
+                Give it a name, like {INSTANCE_NAME}, and paste the address. Then choose Continue.
+              </Step>
+              <Step>Keep the sign-in settings Claude suggests. Choose Continue, then Add.</Step>
+            </Steps>
           </li>
-          <li>
-            In ChatGPT, turn on developer mode in its settings. Then add a connector, and paste the
-            address.
+          <li className="space-y-3">
+            <p>
+              In ChatGPT, use its website, not the phone app. If you use ChatGPT through work, your
+              admin may have to add {INSTANCE_NAME} for you.
+            </p>
+            <Steps>
+              <Step>Go to Plugins.</Step>
+              <Step>
+                Choose the plus button, then Add custom MCP server. If you don&apos;t see it, turn
+                on developer mode in ChatGPT&apos;s settings first.
+              </Step>
+              <Step>Give it a name, like {INSTANCE_NAME}, and paste the address.</Step>
+              <Step>
+                For authentication, choose OAuth. That&apos;s how ChatGPT asks you to sign in to{' '}
+                {INSTANCE_NAME}.
+              </Step>
+              <Step>
+                ChatGPT warns you to add only servers you trust. Tick the box to say you understand.
+              </Step>
+              <Step>Choose Create as a plugin.</Step>
+              <Step>Install the plugin from Plugins.</Step>
+            </Steps>
           </li>
           <li className="space-y-3">
             <p>In Claude Code, run this command:</p>
             <CopyText>{`claude mcp add --transport http opensignup ${MCP_ADDRESS}`}</CopyText>
             <p>Then type /mcp in Claude Code, and choose opensignup to sign in.</p>
           </li>
-          <li>In another assistant, look for a way to add a connector or an MCP server.</li>
+          <li>
+            In another assistant, look for a way to add a connector, a plugin or an MCP server.
+          </li>
         </ul>
       </section>
 
@@ -98,8 +130,8 @@ export function ConnectAnAiAssistant() {
         <Steps>
           <Step>
             <p>
-              When you add the connector, your assistant opens a {INSTANCE_NAME} page in your
-              browser. If you aren&apos;t signed in, sign in first.
+              When you add {INSTANCE_NAME}, or the first time you use it, your assistant opens{' '}
+              {INSTANCE_NAME} in your browser. If you aren&apos;t signed in, sign in first.
             </p>
             <p>
               If the page says <Ui>{UI.expired}</Ui>, go back to your assistant and start again.
@@ -153,13 +185,20 @@ export function ConnectAnAiAssistant() {
             </p>
           </Step>
           <Step>
-            <p>Go back to your assistant. It can now work on your signups.</p>
+            <p>
+              Go back to your assistant and finish any steps above that are left. Then it can work
+              on your signups.
+            </p>
           </Step>
         </Steps>
       </section>
 
       <section className="space-y-4">
         <h2 className="text-xl font-semibold tracking-tight">Try it</h2>
+        <p>
+          In ChatGPT, type @ in your message and choose the plugin. Do it again in each later
+          message that needs {INSTANCE_NAME}.
+        </p>
         <p>Ask for a signup in your own words. For example:</p>
         <blockquote className="border-l-4 border-surface-sunk pl-4 italic">
           Make a snack duty signup for six Saturday games, starting 3 October. Two families bring
