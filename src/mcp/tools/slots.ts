@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ok } from '@/lib/result';
-import { MIN_DATE_YEAR } from '@/schemas/slot-fields';
+import { MIN_DATE_YEAR } from '@/lib/reminder-fields';
 import {
   SlotBulkInputSchema,
   SlotReorderInputSchema,

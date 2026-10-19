@@ -86,7 +86,7 @@ describe('WysiwygGroup', () => {
 
   it('renders the prettified date as the editable header', () => {
     renderGroup({ group: { rawValue: '2026-05-21', key: '2026-05-21' } });
-    expect(screen.getByRole('button', { name: /Group header.*THU, MAY 21/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Group header.*Thu, May 21/ })).toBeTruthy();
   });
 
   it('omits the header when no group field is supplied (flat mode)', () => {
@@ -104,7 +104,7 @@ describe('WysiwygGroup', () => {
     const { onRenameGroup } = renderGroup({
       group: { key: '2026-05-21', rawValue: '2026-05-21', rows: [makeRow()] },
     });
-    fireEvent.click(screen.getByRole('button', { name: /Group header.*THU, MAY 21/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Thu, May 21/ }));
     const input = screen.getByRole('textbox') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '2026-05-22' } });
     fireEvent.keyDown(input, { key: 'Enter' });
