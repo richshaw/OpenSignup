@@ -2,6 +2,7 @@ import { getDb } from '@/db/client';
 import { extractClientIp } from '@/auth/request-context';
 import { fail, handle } from '@/lib/api-response';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
+import { unsubscribePath } from '@/lib/links';
 import { log } from '@/lib/log';
 import {
   optInToReminders,
@@ -48,10 +49,7 @@ export async function GET(request: Request) {
     return Response.redirect(new URL('/s/-/unsubscribe', url.origin), 302);
   }
   return Response.redirect(
-    new URL(
-      `/s/${target.value.signupSlug}/unsubscribe?p=${encodeURIComponent(participantId)}&token=${encodeURIComponent(token)}`,
-      url.origin,
-    ),
+    new URL(unsubscribePath(target.value.signupSlug, participantId, token), url.origin),
     302,
   );
 }

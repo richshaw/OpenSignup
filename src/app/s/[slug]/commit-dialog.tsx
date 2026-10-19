@@ -5,11 +5,8 @@ import { useRouter } from 'next/navigation';
 import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
-import { capacityMessage } from './capacity-message';
-import { closedMessage } from './closed-message';
-import { conflictMessage } from './conflict-message';
-import { goneMessage } from './gone-message';
-import { rateLimitMessage } from './rate-limit-message';
+import { participantErrorCopy } from './participant-error';
+import { Field, NotesAndSpots } from './participant-fields';
 import { ACTION_SIZING } from './slot-format';
 import { urlBreakSegments } from './url-breaks';
 
@@ -148,14 +145,16 @@ export default function CommitDialog({
   // forgotten once one goes through.
   const lastAttempt = useRef<{ body: string; key: string } | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
+  // Read before the sheet opens, so the form's first render already has the
+  // remembered name and the autofocus below can go by it.
+  function handleOpen() {
     const stored = readPrefill();
     setPrefill(stored);
     // Where the email is optional the box starts blank, so someone who chose
     // to leave it out does not send a remembered one by accident.
     setEmailValue(requireEmail ? (stored?.email ?? '') : '');
-  }, [open, requireEmail]);
+    setOpen(true);
+  }
 
   // The sheet's body scrolls under an 85vh cap, and the alert renders below the
   // fields. A screen reader announces it either way, but on a short viewport a
@@ -171,7 +170,7 @@ export default function CommitDialog({
    * not necessarily the one on screen.
    */
   function handleOpenAutoFocus(event: Event) {
-    const target = readPrefill()?.name ? emailRef.current : nameRef.current;
+    const target = prefill?.name ? emailRef.current : nameRef.current;
     // Only take the focus away from Radix if we actually have somewhere to put
     // it. Pre-empting it with nothing to focus would strand the caret on the
     // trigger, which is outside the sheet's focus trap and aria-hidden by then.
@@ -244,7 +243,6 @@ export default function CommitDialog({
             capacity: typeof reportedCapacity === 'number' ? reportedCapacity : capacity,
           });
         }
-        setSubmitting(false);
         return;
       }
       // A blank email keeps the one remembered from an earlier sign-up.
@@ -343,14 +341,7 @@ export default function CommitDialog({
   // a slot or signup closed or removed while this page was open, a second
   // sign-up by the same email and a rate limit each get their own; any other
   // error keeps the server's own message and suggestion.
-  const errorText = error
-    ? (capacityMessage(error, 'join') ??
-      closedMessage(error, 'join') ??
-      goneMessage(error) ??
-      conflictMessage(error) ??
-      rateLimitMessage(error) ??
-      error)
-    : null;
+  const errorText = error ? (participantErrorCopy(error, 'join') ?? error) : null;
   // Share link and Copy link each say "Link copied" on themselves after a copy.
   const linkCopied = success?.emailed ? shareCopied : copyResult === 'copied';
 
@@ -358,7 +349,7 @@ export default function CommitDialog({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
         // Every row's button reads "Sign up", so without this a screen-reader
         // user swiping the list hears the same name N times with no way to tell
         // which slot they are committing to.
@@ -477,38 +468,31 @@ export default function CommitDialog({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium">Your name</span>
-              <input
-                ref={nameRef}
-                type="text"
-                name="name"
-                required
-                minLength={1}
-                autoComplete="name"
-                defaultValue={prefill?.name ?? ''}
-                className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-              />
-            </label>
+            <Field
+              label="Your name"
+              inputRef={nameRef}
+              type="text"
+              name="name"
+              required
+              minLength={1}
+              autoComplete="name"
+              defaultValue={prefill?.name ?? ''}
+            />
             {/* The help text sits outside the label so that it describes the
                 box rather than becoming part of its name. */}
             <div>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">
-                  {emailRequired ? 'Email' : 'Email (optional)'}
-                </span>
-                <input
-                  ref={emailRef}
-                  type="email"
-                  name="email"
-                  required={emailRequired}
-                  aria-describedby={emailRequired ? undefined : emailHelpId}
-                  autoComplete="email"
-                  inputMode="email"
-                  value={emailValue}
-                  onChange={(e) => setEmailValue(e.target.value)}
-                  className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-                />
+              <Field
+                label={emailRequired ? 'Email' : 'Email (optional)'}
+                inputRef={emailRef}
+                type="email"
+                name="email"
+                required={emailRequired}
+                aria-describedby={emailRequired ? undefined : emailHelpId}
+                autoComplete="email"
+                inputMode="email"
+                value={emailValue}
+                onChange={(e) => setEmailValue(e.target.value)}
+              >
                 {emailHint ? (
                   <p className="text-ink-muted mt-1 text-xs">
                     Did you mean{' '}
@@ -522,7 +506,7 @@ export default function CommitDialog({
                     ?
                   </p>
                 ) : null}
-              </label>
+              </Field>
               {emailRequired ? null : (
                 <p id={emailHelpId} className="text-ink-muted mt-1 text-xs">
                   We&apos;ll email you your link to change or cancel
@@ -531,37 +515,23 @@ export default function CommitDialog({
                 </p>
               )}
             </div>
-            <div className={askQuantity ? 'grid grid-cols-[1fr_auto] gap-3' : undefined}>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">Notes (optional)</span>
-                <input
-                  type="text"
-                  name="notes"
-                  maxLength={500}
-                  placeholder="Allergies, preferences, etc."
-                  className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-                />
-              </label>
-              {askQuantity ? (
-                <label className="block w-20">
-                  <span className="mb-1 block text-sm font-medium">Spots</span>
-                  <input
-                    type="number"
-                    name="quantity"
-                    required
-                    min={1}
-                    // Stops an over-ask before it reaches the server. The count
-                    // can be stale, so the server's check still decides.
-                    // At least 1: once the slot has filled, a max of 0 would
-                    // only add a browser bubble to the error already shown.
-                    max={left === null ? undefined : Math.max(left, 1)}
-                    defaultValue={1}
-                    aria-describedby={showSpotsLeft ? spotsLeftId : undefined}
-                    className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-                  />
-                </label>
-              ) : null}
-            </div>
+            <NotesAndSpots
+              notes={{ placeholder: 'Allergies, preferences, etc.' }}
+              spots={
+                askQuantity
+                  ? {
+                      // Stops an over-ask before it reaches the server. The
+                      // count can be stale, so the server's check still
+                      // decides. At least 1: once the slot has filled, a max
+                      // of 0 would only add a browser bubble to the error
+                      // already shown.
+                      max: left === null ? undefined : Math.max(left, 1),
+                      defaultValue: 1,
+                      describedBy: showSpotsLeft ? spotsLeftId : undefined,
+                    }
+                  : undefined
+              }
+            />
             {error ? (
               <div
                 ref={errorRef}
