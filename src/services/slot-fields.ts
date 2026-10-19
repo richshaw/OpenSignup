@@ -15,7 +15,6 @@ import {
 import {
   findReminderFields,
   isRealTime,
-  pickAnchorRef,
   resolveAnchorRef,
   slotTimeOfDay,
 } from '@/lib/reminder-fields';
@@ -37,7 +36,7 @@ type FieldRow = typeof slotFields.$inferSelect;
 // The pure resolution rules live in src/lib/reminder-fields.ts so the build
 // page can share them; re-exported here for the callers that already import
 // them alongside the field services.
-export { findReminderFields, pickAnchorRef };
+export { findReminderFields };
 
 function rowToDefinition(row: FieldRow): SlotFieldDefinition {
   return {
