@@ -49,10 +49,15 @@ export function requireOrganizerId(actor: Actor): string {
   return actor.id;
 }
 
-export function requireWorkspaceAccess(actor: Actor, workspaceId: string | null): WorkspaceRole | null {
-  if (workspaceId === null) return null; // guest-scope, only covered by ownership checks elsewhere
+/**
+ * The actor's role in `workspaceId`, or a throw: `unauthorized` for anyone
+ * who is not an organizer, `forbidden` for an organizer who is not a member.
+ * A row with no workspace (the column is nullable) belongs to nobody, so it is
+ * refused like any workspace the actor is not in, never let through.
+ */
+export function requireWorkspaceAccess(actor: Actor, workspaceId: string | null): WorkspaceRole {
   requireOrganizer(actor);
-  const role = workspaceRole(actor, workspaceId);
+  const role = workspaceId === null ? null : workspaceRole(actor, workspaceId);
   if (!role) {
     throw new ServiceException(
       serviceError('forbidden', 'not a member of that workspace', {
@@ -65,7 +70,6 @@ export function requireWorkspaceAccess(actor: Actor, workspaceId: string | null)
 
 export function requireWorkspaceWrite(actor: Actor, workspaceId: string | null): void {
   const role = requireWorkspaceAccess(actor, workspaceId);
-  if (role === null) return;
   if (!ROLE_CAN_WRITE[role]) {
     throw new ServiceException(
       serviceError('forbidden', 'your role cannot modify this workspace', {

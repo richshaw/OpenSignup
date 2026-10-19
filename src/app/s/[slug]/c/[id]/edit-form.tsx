@@ -3,9 +3,8 @@
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { wasCancelled } from '../../cancelled-message';
-import { capacityMessage } from '../../capacity-message';
-import { closedMessage } from '../../closed-message';
-import { goneMessage } from '../../gone-message';
+import { errorCopyText, participantErrorCopy } from '../../participant-error';
+import { Field, NotesAndSpots } from '../../participant-fields';
 
 // The request never reached the server (offline, or a dropped connection).
 const SAVE_UNREACHABLE = "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.";
@@ -95,18 +94,17 @@ export default function EditForm({
       }
       // `remaining` here is the most this commitment can hold, not the spots
       // still free, so the copy is the edit page's own.
-      const capacity = capacityMessage(payload?.error, 'change');
-      const copy = capacity ?? closedMessage(payload?.error, 'change') ?? goneMessage(payload?.error);
+      const copy = participantErrorCopy(payload?.error, 'change');
       setMessage({
         kind: 'err',
-        text: copy
-          ? [copy.message, copy.suggestion].filter(Boolean).join(' ')
-          : (payload?.error?.message ?? 'save failed'),
+        text: copy ? errorCopyText(copy) : (payload?.error?.message ?? 'save failed'),
       });
       // Someone else took spots since this page loaded, so the line at the
       // top and the field's max take the error's number.
       const remaining = payload?.error?.details?.remaining;
-      if (capacity && typeof remaining === 'number') setReportedMax(remaining);
+      if (payload?.error?.code === 'capacity_full' && typeof remaining === 'number') {
+        setReportedMax(remaining);
+      }
     } else {
       setMessage({ kind: 'ok', text: 'Saved.' });
       // The refresh brings a fresh maxQuantity, but this form stays mounted,
@@ -135,12 +133,10 @@ export default function EditForm({
       router.push(`/s/${slug}`);
     } else {
       const payload = await res.json().catch(() => null);
-      const gone = goneMessage(payload?.error);
+      const copy = participantErrorCopy(payload?.error, 'change');
       setMessage({
         kind: 'err',
-        text: gone
-          ? [gone.message, gone.suggestion].join(' ')
-          : (payload?.error?.message ?? 'cancel failed'),
+        text: copy ? errorCopyText(copy) : (payload?.error?.message ?? 'cancel failed'),
       });
       setConfirmingCancel(false);
     }
@@ -154,43 +150,19 @@ export default function EditForm({
           You can have up to {spotsMax} spots on this slot.
         </p>
       ) : null}
-      <label className="block">
-        <span className="mb-1 block text-sm font-medium">Your name</span>
-        <input
-          type="text"
-          name="name"
-          required
-          defaultValue={initialName}
-          className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-        />
-      </label>
-      <div className={askQuantity ? 'grid grid-cols-[1fr_auto] gap-3' : undefined}>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium">Notes (optional)</span>
-          <input
-            type="text"
-            name="notes"
-            maxLength={500}
-            defaultValue={initialNotes}
-            className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-          />
-        </label>
-        {askQuantity ? (
-          <label className="block w-20">
-            <span className="mb-1 block text-sm font-medium">Spots</span>
-            <input
-              type="number"
-              name="quantity"
-              required
-              min={1}
-              max={spotsMax ?? undefined}
-              defaultValue={initialQuantity}
-              aria-describedby={showSpotsMax ? spotsMaxId : undefined}
-              className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1"
-            />
-          </label>
-        ) : null}
-      </div>
+      <Field label="Your name" type="text" name="name" required defaultValue={initialName} />
+      <NotesAndSpots
+        notes={{ defaultValue: initialNotes }}
+        spots={
+          askQuantity
+            ? {
+                max: spotsMax ?? undefined,
+                defaultValue: initialQuantity,
+                describedBy: showSpotsMax ? spotsMaxId : undefined,
+              }
+            : undefined
+        }
+      />
       {message ? (
         <p
           role={message.kind === 'ok' ? 'status' : 'alert'}

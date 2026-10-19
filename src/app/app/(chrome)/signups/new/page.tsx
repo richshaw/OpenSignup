@@ -1,12 +1,11 @@
-import { redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { getDb } from '@/db/client';
-import { requireOrganizerSession, toActor } from '@/auth/session';
-import { createSignup } from '@/services/signups';
+import { requireOrganizerSession } from '@/auth/session';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
+import { FormError } from '@/components/ui/form-error';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { magicComposeEnabled } from '@/lib/env';
 import { MagicComposeRoot } from '@/components/magic-compose/MagicComposeRoot';
+import { createSignupAction } from './actions';
 
 export const metadata = { title: 'New signup' };
 
@@ -27,27 +26,11 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
     );
   }
 
-  const { manual } = await searchParams;
+  const { manual, error } = await searchParams;
   const useMagic = magicComposeEnabled() && manual !== '1';
 
   if (useMagic) {
     return <MagicComposeRoot />;
-  }
-
-  async function createAction(formData: FormData) {
-    'use server';
-    const s = await requireOrganizerSession();
-    if (!s.defaultWorkspaceId) redirect('/app');
-    const actor = toActor(s);
-    const result = await createSignup(getDb(), actor, s.defaultWorkspaceId, {
-      title: String(formData.get('title') ?? ''),
-      description: String(formData.get('description') ?? ''),
-      visibility: 'unlisted',
-    });
-    if (!result.ok) {
-      redirect(`/app/signups/new?manual=1&error=${encodeURIComponent(result.error.message)}`);
-    }
-    redirect(`/app/signups/${result.value.id}`);
   }
 
   return (
@@ -58,7 +41,8 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
           You can add slots after it&apos;s created. Nothing is visible until you publish.
         </p>
       </div>
-      <form action={createAction} className="space-y-5 rounded-xl border border-surface-sunk bg-white p-6">
+      {error ? <FormError>{error}</FormError> : null}
+      <form action={createSignupAction} className="space-y-5 rounded-xl border border-surface-sunk bg-white p-6">
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Title</span>
           <input
