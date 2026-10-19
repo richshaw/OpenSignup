@@ -33,12 +33,6 @@ interface SourceSlot {
   status: string;
 }
 
-interface SourceField {
-  ref: string;
-  label: string;
-  fieldType: SlotFieldDefinition['fieldType'];
-}
-
 interface SourceSignup {
   settings: unknown;
   fields: SlotFieldDefinition[];
@@ -95,12 +89,23 @@ export function toSignupViewSignup(
   };
 }
 
-export function toSignupViewFields(fields: readonly SourceField[]): SignupViewField[] {
-  return fields.map((f) => ({
-    ref: f.ref,
-    label: f.label,
-    fieldType: f.fieldType,
-  }));
+/**
+ * Everything the page needs from a signup as a service loads it: the live
+ * page passes its sign-up counts, the organizer's preview has none. A field
+ * definition already fits `SignupViewField`, so the fields go as they are.
+ */
+export function toSignupViewProps(
+  signup: SourceSignup & Parameters<typeof toSignupViewSignup>[0] & { slug: string },
+  committedBySlot?: Record<string, number>,
+): Pick<SignupViewProps, 'signup' | 'fields' | 'groupByRef' | 'slots' | 'slug'> {
+  const settings = (signup.settings ?? {}) as { groupByFieldRefs?: string[] };
+  return {
+    signup: toSignupViewSignup(signup),
+    fields: signup.fields,
+    groupByRef: settings.groupByFieldRefs?.[0] ?? null,
+    slots: toSignupViewSlots(signup, committedBySlot),
+    slug: signup.slug,
+  };
 }
 
 interface SignupViewProps {
@@ -145,7 +150,8 @@ function groupSlots(
   groupField: SignupViewField | null,
 ): SlotGroup[] {
   if (!groupField) return [{ key: '__all__', label: '', slots }];
-  const order: string[] = [];
+  // A Map keeps its keys in the order they were first set, so the groups come
+  // out in the order of their first slot.
   const map = new Map<string, SlotGroup>();
   for (const slot of slots) {
     const raw = slot.values[groupField.ref];
@@ -157,14 +163,9 @@ function groupSlots(
       existing.slots.push(slot);
     } else {
       map.set(key, { key, label, slots: [slot] });
-      order.push(key);
     }
   }
-  return order.map((k) => {
-    const g = map.get(k);
-    if (!g) throw new Error(`group ${k} missing`);
-    return g;
-  });
+  return [...map.values()];
 }
 
 function titleFor(
@@ -216,16 +217,11 @@ export function SignupViewBody({
   const signedUpBar = firstOwn ? (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-surface-sunk bg-success/5 px-4 py-3 text-sm">
       <span>
-        <span className="font-medium">You&apos;re signed up</span>
-        {ownCount === 1 ? (
-          <>
-            {' '}for <span className="font-medium text-ink">{firstOwnTitle}</span>.
-          </>
-        ) : (
-          <>
-            {' '}for <span className="font-medium text-ink">{ownCount} slots</span>.
-          </>
-        )}
+        <span className="font-medium">You&apos;re signed up</span> for{' '}
+        <span className="font-medium text-ink">
+          {ownCount === 1 ? firstOwnTitle : `${ownCount} slots`}
+        </span>
+        .
       </span>
       <Link
         href={firstOwn.editUrl}

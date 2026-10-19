@@ -14,9 +14,7 @@ import { readRequestSignals, recordPublicView } from '@/lib/view-tracker';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { loadPublicSignup } from '@/services/signups.cached';
 import SignupView, {
-  toSignupViewFields,
-  toSignupViewSignup,
-  toSignupViewSlots,
+  toSignupViewProps,
 } from './signup-view';
 import { SignupStateMessage } from './state-message';
 
@@ -113,11 +111,6 @@ export default async function PublicSignupPage({ params }: PageParams) {
     }),
   );
 
-  const slots = toSignupViewSlots(sig, sig.committedBySlot);
-  const fields = toSignupViewFields(sig.fields);
-  const settings = (sig.settings ?? {}) as { groupByFieldRefs?: string[] };
-  const groupByRef = settings.groupByFieldRefs?.[0] ?? null;
-
   return (
     <main className="flex min-h-[100svh] flex-col pb-24 pt-10 sm:pt-14">
       {/* Brand mark only. The old "· Public signup" segment told participants
@@ -144,11 +137,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
         </Link>
       </div>
       <SignupView
-        signup={toSignupViewSignup(sig)}
-        fields={fields}
-        groupByRef={groupByRef}
-        slots={slots}
-        slug={slug}
+        {...toSignupViewProps(sig, sig.committedBySlot)}
         mode="live"
         ownCommitments={ownCommitments}
       />
