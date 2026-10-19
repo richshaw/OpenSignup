@@ -734,6 +734,135 @@ describe('useBuildState moveRow', () => {
   });
 });
 
+describe('useBuildState moveRow into another group', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  const dateField = makeApiField({
+    id: 'f-date',
+    ref: 'date',
+    label: 'Date',
+    fieldType: 'date',
+    config: { fieldType: 'date' },
+  });
+  const a: BuildSlot = { id: 'a', capacity: 1, sortOrder: 0, values: { date: '2026-11-01' } };
+  const b: BuildSlot = { id: 'b', capacity: 1, sortOrder: 1, values: { date: '2026-11-02' } };
+  const c: BuildSlot = { id: 'c', capacity: 1, sortOrder: 2, values: { date: '2026-11-02' } };
+
+  function renderGrouped() {
+    return renderHook(() =>
+      useBuildState('sig_test', [dateField], [a, b, c], { ...defaultSettings, groupByFieldRefs: ['date'] }),
+    );
+  }
+
+  it('keeps the new group value on screen and on the server, and saves the new order', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGrouped();
+    await act(async () => {
+      await result.current.moveRow(0, 1, { fieldRef: 'date', value: '2026-11-02' });
+    });
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+    // Any debounced save would land by now.
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['b', 'a', 'c']);
+    expect(result.current.state.rows.find((r) => r.id === 'a')?.values['date']).toBe('2026-11-02');
+
+    const calls = fetchMock.mock.calls as [string, RequestInit][];
+    const orderPut = calls.find(([url, init]) => url === '/api/signups/sig_test/slots/order' && init.method === 'PUT');
+    expect(JSON.parse(String(orderPut?.[1].body))).toEqual({ slotIds: ['b', 'a', 'c'] });
+    const patches = calls.filter(([url, init]) => url === '/api/slots/a' && init.method === 'PATCH');
+    expect(patches.length).toBeGreaterThan(0);
+    for (const [, init] of patches) {
+      expect(JSON.parse(String(init.body))).toEqual({ values: { date: '2026-11-02' } });
+    }
+  });
+
+  it('saves the value alone when the drop leaves the slot at the same index', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGrouped();
+    await act(async () => {
+      await result.current.moveRow(0, 0, { fieldRef: 'date', value: '' });
+    });
+
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['a', 'b', 'c']);
+    expect(result.current.state.rows[0]?.values['date']).toBe('');
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/slots/a');
+    expect(JSON.parse(String(init.body))).toEqual({ values: { date: '' } });
+  });
+
+  it('shows the stale-reorder message and the server rows when the order is refused', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === 'PATCH') return jsonResponse({ data: {} });
+      if (init?.method === 'PUT') {
+        return jsonResponse(
+          { error: { code: 'invalid_input', message: 'slotIds must list every slot of the signup exactly once' } },
+          { ok: false },
+        );
+      }
+      if (url.endsWith('/slots')) {
+        // The value saved, the order didn't, and another tab added a slot.
+        return jsonResponse({
+          data: [
+            { ...a, values: { date: '2026-11-02' } },
+            b,
+            c,
+            { id: 'd', capacity: 1, sortOrder: 3, values: { date: '2026-11-03' } },
+          ],
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGrouped();
+    await act(async () => {
+      await result.current.moveRow(0, 1, { fieldRef: 'date', value: '2026-11-02' });
+    });
+
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['a', 'b', 'c', 'd']);
+    expect(result.current.state.rows[0]?.values['date']).toBe('2026-11-02');
+    expect(result.current.state.saveStatus).toEqual({
+      kind: 'error',
+      code: 'invalid_input',
+      message: "The slots changed in another window, so your move wasn't saved. Drag it again.",
+    });
+  });
+
+  it('shows the server rows when the value save is refused, and sends no order', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === 'PATCH') {
+        return jsonResponse({ error: { code: 'not_found', message: 'Slot not found' } }, { status: 404 });
+      }
+      if (url.endsWith('/slots')) return jsonResponse({ data: [b, c] });
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGrouped();
+    await act(async () => {
+      await result.current.moveRow(0, 1, { fieldRef: 'date', value: '2026-11-02' });
+    });
+
+    expect(fetchMock.mock.calls.some((call) => (call[1] as RequestInit | undefined)?.method === 'PUT')).toBe(false);
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['b', 'c']);
+    expect(result.current.state.saveStatus).toEqual({ kind: 'error', code: 'not_found', message: 'Slot not found' });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // useBuildState duplicateRow
 // ---------------------------------------------------------------------------

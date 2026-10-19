@@ -138,7 +138,7 @@ describe('create_signup', () => {
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const r = await client.callTool({
       name: 'create_signup',
-      arguments: { title: 'x y', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{}] },
+      arguments: { title: 'x y', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
     });
     expect(r.isError).toBeFalsy();
     const body = r.structuredContent as { signup: { id: string }; links: unknown; note: string };

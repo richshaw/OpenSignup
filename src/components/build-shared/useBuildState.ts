@@ -565,21 +565,37 @@ export function useBuildState(
       dispatch({ type: 'OPTIMISTIC_REMOVE_ROW', rowId });
     });
 
-  // Sends the whole new order in one request, which the server applies in one
-  // transaction or not at all. If another tab or an AI assistant added or
-  // removed a slot meanwhile, the list is refused as stale; the refetch then
-  // shows the slots as they are, and the organizer can drag again.
-  const moveRow = async (fromIdx: number, toIdx: number): Promise<void> => {
+  /**
+   * Moves the row at `fromIdx` to `toIdx` and, for a drop into another group,
+   * gives it that group's value for `group.fieldRef`, as one change (#483).
+   * The order goes in one request, which the server applies in one
+   * transaction or not at all; if another tab or an AI assistant added or
+   * removed a slot meanwhile, it is refused as stale, the refetch shows the
+   * slots as they are, and the organizer can drag again. A group value is
+   * saved before the order, so a refused order still leaves the row in the
+   * group it was dropped into.
+   */
+  const moveRow = async (
+    fromIdx: number,
+    toIdx: number,
+    group?: { fieldRef: string; value: string },
+  ): Promise<void> => {
     const previous = stateRef.current.rows;
-    const next = moveItem(previous, fromIdx, toIdx);
-    if (!next) return;
+    const row = previous[fromIdx];
+    if (!row) return;
+    const moved = group ? { ...row, values: { ...row.values, [group.fieldRef]: group.value } } : row;
+    const edited = previous.map((r) => (r === row ? moved : r));
+    const reordered = moveItem(edited, fromIdx, toIdx);
+    if (!group && !reordered) return;
     await saveMove(
       previous,
-      next,
+      reordered ?? edited,
       (rows) => dispatch({ type: 'SET_ROWS', rows }),
       async () => {
+        if (group) await saveRowValues(moved);
+        if (!reordered) return;
         try {
-          await send('PUT', `${slotsUrl}/order`, { slotIds: next.map((r) => r.id) });
+          await send('PUT', `${slotsUrl}/order`, { slotIds: reordered.map((r) => r.id) });
         } catch (e) {
           const err = asErr(e);
           throw err.code === 'invalid_input' ? { code: 'invalid_input', message: STALE_REORDER_MESSAGE } : err;
@@ -593,6 +609,24 @@ export function useBuildState(
   // Cell / capacity debounced saves
   // ---------------------------------------------------------------------------
 
+  /** PATCHes every value `row` holds, so the slot ends up as the row shows it. */
+  async function saveRowValues(row: BuildRow): Promise<void> {
+    const fields = stateRef.current.fields;
+    // Coerce by field type so numeric cells round-trip as numbers and
+    // empty strings on number fields drop out of the patch body.
+    const typedValues: Record<string, unknown> = {};
+    for (const [ref, strVal] of Object.entries(row.values)) {
+      const fld = fields.find((f) => f.ref === ref);
+      if (fld?.config.fieldType === 'number') {
+        const n = Number(strVal);
+        if (strVal !== '' && Number.isFinite(n)) typedValues[ref] = n;
+      } else {
+        typedValues[ref] = strVal;
+      }
+    }
+    await send('PATCH', `/api/slots/${row.id}`, { values: typedValues });
+  }
+
   function flushTimer(key: string, saveFn: () => Promise<void>) {
     const timers = timersRef.current;
     const existing = timers.get(key);
@@ -604,30 +638,12 @@ export function useBuildState(
     timers.set(key, { timeoutId, saveFn });
   }
 
-  /** PATCHes a slot's whole set of values, throwing what the server refused. */
-  async function saveValues(rowId: string, values: Record<string, string>): Promise<void> {
-    const fields = stateRef.current.fields;
-    // Coerce by field type so numeric cells round-trip as numbers and
-    // empty strings on number fields drop out of the patch body.
-    const typedValues: Record<string, unknown> = {};
-    for (const [ref, strVal] of Object.entries(values)) {
-      const fld = fields.find((f) => f.ref === ref);
-      if (fld?.config.fieldType === 'number') {
-        const n = Number(strVal);
-        if (strVal !== '' && Number.isFinite(n)) typedValues[ref] = n;
-      } else {
-        typedValues[ref] = strVal;
-      }
-    }
-    await send('PATCH', `/api/slots/${rowId}`, { values: typedValues });
-  }
-
   const editCell = (rowId: string, fieldRef: string, value: string): void => {
     dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId, fieldRef, value });
     flushTimer(`${rowId}:${fieldRef}`, async () => {
       const row = stateRef.current.rows.find((r) => r.id === rowId);
       if (!row) return;
-      await withSave(() => saveValues(rowId, row.values));
+      await withSave(() => saveRowValues(row));
     });
   };
 
@@ -642,7 +658,7 @@ export function useBuildState(
     for (const r of rows) dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId: r.id, fieldRef, value });
     markSaving();
     const results = await Promise.allSettled(
-      rows.map((r) => saveValues(r.id, { ...r.values, [fieldRef]: value })),
+      rows.map((r) => saveRowValues({ ...r, values: { ...r.values, [fieldRef]: value } })),
     );
     let failure: SaveError | null = null;
     for (const [i, result] of results.entries()) {
