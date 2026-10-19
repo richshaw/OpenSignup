@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   FIELD_TYPES,
+  REF_MAX_LENGTH,
+  RefSchema,
   SlotFieldConfigSchema,
   SlotFieldInputSchema,
   SlotFieldUpdateInputSchema,
+  toFieldRef,
 } from './slot-fields';
 
 describe('FIELD_TYPES', () => {
@@ -173,5 +176,62 @@ describe('SlotFieldUpdateInputSchema', () => {
 
   it('rejects ref in update payload (ref is immutable)', () => {
     expect(() => SlotFieldUpdateInputSchema.parse({ ref: 'newref' })).toThrow();
+  });
+});
+
+describe('toFieldRef', () => {
+  it('kebab-cases a short name', () => {
+    expect(toFieldRef('Café du Matin', [])).toBe('cafe-du-matin');
+  });
+
+  it('cuts a long name to a ref RefSchema accepts', () => {
+    const ref = toFieldRef('Preferred contact time for the volunteer team', []);
+    expect(ref).toBe('preferred-contact-time-for-the-volunteer');
+    expect(RefSchema.safeParse(ref).success).toBe(true);
+  });
+
+  it('does not end on a hyphen when the cut lands on one', () => {
+    // The first 40 characters end on the hyphen after "snacks".
+    const ref = toFieldRef('Name of the person who will bring snacks to the party', []);
+    expect(ref).toBe('name-of-the-person-who-will-bring-snacks');
+    expect(RefSchema.safeParse(ref).success).toBe(true);
+  });
+
+  it('falls back to "field" when the name has no letters or digits', () => {
+    expect(toFieldRef('!!!', [])).toBe('field');
+  });
+
+  it('numbers a taken ref', () => {
+    expect(toFieldRef('Dish', ['dish', 'dish-2'])).toBe('dish-3');
+  });
+
+  it('keeps a numbered ref within the limit when the base is already full length', () => {
+    const name = 'a'.repeat(REF_MAX_LENGTH);
+    const ref = toFieldRef(name, [name]);
+    expect(ref).toBe(`${'a'.repeat(REF_MAX_LENGTH - 2)}-2`);
+    expect(RefSchema.safeParse(ref).success).toBe(true);
+  });
+
+  it('does not leave a hyphen before the number when the shortened base ends on one', () => {
+    const name = `${'a'.repeat(37)} bc`;
+    const ref = toFieldRef(name, [toFieldRef(name, [])]);
+    expect(ref).toBe(`${'a'.repeat(37)}-2`);
+    expect(RefSchema.safeParse(ref).success).toBe(true);
+  });
+
+  it('gives a ref RefSchema accepts for any name a field may have', () => {
+    const names = [
+      'Dish you plan to bring to the potluck dinner',
+      'x'.repeat(80),
+      `${'ab '.repeat(26)}ab`,
+      '  — ',
+    ];
+    for (const name of names) {
+      const first = toFieldRef(name, []);
+      const second = toFieldRef(name, [first]);
+      expect(RefSchema.safeParse(first).success).toBe(true);
+      expect(RefSchema.safeParse(second).success).toBe(true);
+      expect(second).not.toBe(first);
+    }
   });
 });

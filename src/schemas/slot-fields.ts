@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { toKebab } from '@/lib/kebab';
 import { SortOrderSchema } from './common';
 
 export const FIELD_TYPES = ['text', 'date', 'time', 'number', 'enum'] as const;
@@ -10,11 +11,31 @@ export const MAX_CHOICES = 20;
 /** A text field's `maxLength` when the organizer hasn't set one. */
 export const TEXT_DEFAULT_MAX_LENGTH = 200;
 
+export const REF_MAX_LENGTH = 40;
+
 export const RefSchema = z
   .string()
   .min(1)
-  .max(40)
+  .max(REF_MAX_LENGTH)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'ref must be lowercase kebab');
+
+function cutRef(base: string, maxLength: number): string {
+  return base.slice(0, maxLength).replace(/-+$/, '');
+}
+
+/**
+ * A new field's ref, made from its name: kebab-case, cut to fit `RefSchema`,
+ * and numbered (`-2`, `-3`…) when `existingRefs` already has it.
+ */
+export function toFieldRef(name: string, existingRefs: readonly string[]): string {
+  const base = cutRef(toKebab(name), REF_MAX_LENGTH) || 'field';
+  if (!existingRefs.includes(base)) return base;
+  for (let i = 2; ; i++) {
+    const suffix = `-${i}`;
+    const ref = `${cutRef(base, REF_MAX_LENGTH - suffix.length)}${suffix}`;
+    if (!existingRefs.includes(ref)) return ref;
+  }
+}
 
 export const LabelSchema = z.string().min(1).max(LABEL_MAX_LENGTH);
 
