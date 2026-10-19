@@ -30,9 +30,11 @@ export function mapMagicComposeError(e: MagicComposeError): MappedMagicComposeEr
       // matters for log/Sentry classification — not a user input error.
       return { code: 'internal', message: 'request cancelled' };
     case 'timeout':
+      // Organizers read this. The limit that ran out is in the route's
+      // log.warn (llm-client's message names LLM_TIMEOUT_MS's value).
       return {
         code: 'internal',
-        message: 'AI drafting timed out. Try a simpler prompt or raise LLM_TIMEOUT_MS.',
+        message: 'AI drafting timed out. Try a simpler prompt.',
       };
     case 'upstream':
       if (e.status === 401 || e.status === 403) {
