@@ -55,9 +55,14 @@ export function commitmentLinks(
   };
 }
 
+/** The reminder opt-out confirm page's path, which the email links to and the redirects send people back to. */
+export function unsubscribePath(slug: string, participantId: string, token: string): string {
+  return `/s/${slug}/unsubscribe?p=${encodeURIComponent(participantId)}&token=${encodeURIComponent(token)}`;
+}
+
 /** Human-visible link: lands on a confirm page, opts out only on submit. */
 export function reminderUnsubscribeUrl(slug: string, participantId: string, token: string): string {
-  return absoluteUrl(`/s/${slug}/unsubscribe?p=${participantId}&token=${token}`);
+  return absoluteUrl(unsubscribePath(slug, participantId, token));
 }
 
 /**

@@ -7,7 +7,6 @@ import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { ACTION_SIZING } from './slot-format';
 import {
   SignupViewBody,
-  toSignupViewFields,
   toSignupViewSignup,
   toSignupViewSlots,
   type SignupViewField,
@@ -451,7 +450,7 @@ describe('"Add to calendar" on a signup with several time fields', () => {
       render(
         <SignupViewBody
           signup={{ title: 'Trip', description: null, status: 'open' }}
-          fields={toSignupViewFields(TRIP.fields)}
+          fields={TRIP.fields}
           groupByRef={null}
           slots={toSignupViewSlots(TRIP).filter((s) => s.id === slotId)}
           slug="trip"
