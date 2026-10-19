@@ -17,7 +17,6 @@ function renderForm(maxQuantity: number | null, initialQuantity = 1) {
       initialNotes=""
       initialQuantity={initialQuantity}
       maxQuantity={maxQuantity}
-      slug="example"
     />,
   );
 }
@@ -164,6 +163,24 @@ describe('<EditForm /> quantity', () => {
       'Sorry, this is no longer available. Reload the page to see what has changed.',
     );
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  // Reloaded, the page says the spot was cancelled and links back to the
+  // sheet, where the spot shows as free. Sent straight to the sheet, people
+  // had no word that the cancel worked.
+  it('reloads the page in place after a cancel', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ data: {} }) }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(4, 2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel signup' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }));
+
+    await waitFor(() => expect(router.refresh).toHaveBeenCalledOnce());
+    expect(router.push).not.toHaveBeenCalled();
+    // Nothing to press again until the cancelled page replaces this form.
+    expect(screen.getByRole('button', { name: 'Cancelling…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Keep' })).toBeDisabled();
   });
 
   // The sign-up was cancelled, or moved, in another tab while this page was
