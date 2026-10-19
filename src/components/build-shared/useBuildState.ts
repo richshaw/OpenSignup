@@ -604,28 +604,59 @@ export function useBuildState(
     timers.set(key, { timeoutId, saveFn });
   }
 
+  /** PATCHes a slot's whole set of values, throwing what the server refused. */
+  async function saveValues(rowId: string, values: Record<string, string>): Promise<void> {
+    const fields = stateRef.current.fields;
+    // Coerce by field type so numeric cells round-trip as numbers and
+    // empty strings on number fields drop out of the patch body.
+    const typedValues: Record<string, unknown> = {};
+    for (const [ref, strVal] of Object.entries(values)) {
+      const fld = fields.find((f) => f.ref === ref);
+      if (fld?.config.fieldType === 'number') {
+        const n = Number(strVal);
+        if (strVal !== '' && Number.isFinite(n)) typedValues[ref] = n;
+      } else {
+        typedValues[ref] = strVal;
+      }
+    }
+    await send('PATCH', `/api/slots/${rowId}`, { values: typedValues });
+  }
+
   const editCell = (rowId: string, fieldRef: string, value: string): void => {
     dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId, fieldRef, value });
     flushTimer(`${rowId}:${fieldRef}`, async () => {
       const row = stateRef.current.rows.find((r) => r.id === rowId);
       if (!row) return;
-      await withSave(async () => {
-        const fields = stateRef.current.fields;
-        // Coerce by field type so numeric cells round-trip as numbers and
-        // empty strings on number fields drop out of the patch body.
-        const typedValues: Record<string, unknown> = {};
-        for (const [ref, strVal] of Object.entries(row.values)) {
-          const fld = fields.find((f) => f.ref === ref);
-          if (fld?.config.fieldType === 'number') {
-            const n = Number(strVal);
-            if (strVal !== '' && Number.isFinite(n)) typedValues[ref] = n;
-          } else {
-            typedValues[ref] = strVal;
-          }
-        }
-        await send('PATCH', `/api/slots/${rowId}`, { values: typedValues });
-      });
+      await withSave(() => saveValues(rowId, row.values));
     });
+  };
+
+  /**
+   * Sets `fieldRef` to `value` on every row in `rowIds` (a group header's
+   * rows) and saves each one now, not after the cell debounce: a header only
+   * calls this once the organizer has finished choosing. A row the server
+   * refuses goes back to the value it had. Resolves to whether every row saved.
+   */
+  const renameGroup = async (fieldRef: string, rowIds: string[], value: string): Promise<boolean> => {
+    const rows = stateRef.current.rows.filter((r) => rowIds.includes(r.id));
+    for (const r of rows) dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId: r.id, fieldRef, value });
+    markSaving();
+    const results = await Promise.allSettled(
+      rows.map((r) => saveValues(r.id, { ...r.values, [fieldRef]: value })),
+    );
+    let failure: SaveError | null = null;
+    for (const [i, result] of results.entries()) {
+      const row = rows[i];
+      if (result.status === 'fulfilled' || !row) continue;
+      failure ??= asErr(result.reason);
+      dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId: row.id, fieldRef, value: row.values[fieldRef] ?? '' });
+    }
+    if (failure) {
+      markError(failure);
+      return false;
+    }
+    markSaved();
+    return true;
   };
 
   const setCapacity = (rowId: string, capacity: number | null): void => {
@@ -756,6 +787,7 @@ export function useBuildState(
     deleteRow,
     moveRow,
     editCell,
+    renameGroup,
     setCapacity,
     setGroupBy,
     setReminderField,
