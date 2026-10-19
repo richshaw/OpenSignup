@@ -83,4 +83,31 @@ describe('policy', () => {
     };
     expect(() => requireOrganizerId(participant)).toThrow(/sign in required/);
   });
+
+  describe('a row with no workspace', () => {
+    const participant: Actor = {
+      kind: 'participant',
+      signupId: 'sig_1',
+      participantId: 'par_1',
+      commitmentId: 'com_1',
+    };
+
+    it('is refused to an anonymous actor', () => {
+      const anon: Actor = { kind: 'anonymous' };
+      expect(() => requireWorkspaceAccess(anon, null)).toThrow(/sign in required/);
+      expect(() => requireWorkspaceWrite(anon, null)).toThrow(/sign in required/);
+    });
+
+    it('is refused to a participant', () => {
+      expect(() => requireWorkspaceAccess(participant, null)).toThrow(/sign in required/);
+      expect(() => requireWorkspaceWrite(participant, null)).toThrow(/sign in required/);
+    });
+
+    it('is refused to an organizer, member of nothing or of other workspaces', () => {
+      for (const a of [organizer({}), organizer({ ws_one: 'owner' })]) {
+        expect(() => requireWorkspaceAccess(a, null)).toThrow(/not a member/);
+        expect(() => requireWorkspaceWrite(a, null)).toThrow(/not a member/);
+      }
+    });
+  });
 });
