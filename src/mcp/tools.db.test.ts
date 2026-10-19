@@ -184,6 +184,63 @@ describe('signup write tools on Postgres', () => {
     expect(after.signups).toHaveLength(before.signups.length);
   });
 
+  it('create_signup refuses a field with no value in any slot and writes nothing', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const before = (await client.callTool({ name: 'list_signups', arguments: {} })).structuredContent as { signups: unknown[] };
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Snack rota',
+        fields: [
+          { ref: 'item', label: 'Item', fieldType: 'text' },
+          { ref: 'parent-name', label: 'Parent name', fieldType: 'text' },
+        ],
+        slots: [{ values: { item: 'Juice', 'parent-name': '' } }, { values: { item: 'Fruit', 'parent-name': null } }, { values: { item: 'Cake' } }],
+      },
+    });
+    expect(r.isError).toBe(true);
+    const error = (r.structuredContent as { error: { code: string; suggestion: string } }).error;
+    expect(error.code).toBe('invalid_input');
+    expect(error.suggestion).toContain('field "parent-name" has no value in any slot');
+    expect(error.suggestion).not.toContain('"item"');
+    const after = (await client.callTool({ name: 'list_signups', arguments: {} })).structuredContent as { signups: unknown[] };
+    expect(after.signups).toHaveLength(before.signups.length);
+  });
+
+  it('create_signup keeps a field that has a value in at least one slot', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Snack rota partly noted',
+        fields: [
+          { ref: 'item', label: 'Item', fieldType: 'text' },
+          { ref: 'note', label: 'Note', fieldType: 'text' },
+        ],
+        slots: [{ values: { item: 'Juice', note: 'No nuts' } }, { values: { item: 'Fruit' } }],
+      },
+    });
+    expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    const fields = (r.structuredContent as { fields: Array<{ ref: string }> }).fields;
+    expect(fields.map((f) => f.ref)).toEqual(['item', 'note']);
+  });
+
+  it('create_signup reports a field whose every value has the wrong format once, as a format problem', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Bad dates only',
+        fields: [{ ref: 'date', label: 'Date', fieldType: 'date' }],
+        slots: [{ values: { date: '3 October' } }, { values: { date: '4 October' } }],
+      },
+    });
+    const error = (r.structuredContent as { error: { code: string; suggestion: string } }).error;
+    expect(error.code).toBe('invalid_input');
+    expect(error.suggestion).toContain('"date" must be an ISO date');
+    expect(error.suggestion).not.toContain('no value in any slot');
+  });
+
   it('a deleted signup reports deleted, deletes idempotently, and cannot be updated or published', async () => {
     const client = await connectTestClient(ctx, TOOLS);
     const created = await client.callTool({
