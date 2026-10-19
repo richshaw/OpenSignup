@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { Spinner } from '@/components/ui/spinner';
 import { SessionWatcher } from './session-watcher';
 
-export type LoginErrorReason = 'invalid_email' | 'send_failed' | 'rate_limited';
+type LoginErrorReason = 'invalid_email' | 'send_failed' | 'rate_limited';
 export type LoginActionResult =
   | { ok: true; email: string }
   | { ok: false; reason: LoginErrorReason };
@@ -16,26 +16,31 @@ type Props = {
   callbackUrl: string;
 };
 
-type View = 'idle' | 'success' | 'error';
+/** What the last request came to: nothing yet, a link sent, or why not. */
+type View =
+  | { kind: 'idle' }
+  | { kind: 'success'; email: string }
+  | { kind: 'error'; reason: LoginErrorReason };
+
+/** The view, plus `loading` while a request is out. */
+type FormState = 'idle' | 'loading' | 'success' | 'error';
 
 const MIN_LOADING_MS = 500;
 
 export function LoginForm({ action, redeem, callbackUrl }: Props) {
-  const [view, setView] = useState<View>('idle');
+  const [view, setView] = useState<View>({ kind: 'idle' });
   const [pending, startTransition] = useTransition();
-  const [confirmedEmail, setConfirmedEmail] = useState('');
   // Controlled, because React resets an uncontrolled field once a form action
   // runs, which made someone retype their whole address to fix one typo.
   const [email, setEmail] = useState('');
-  const [errorReason, setErrorReason] = useState<LoginErrorReason>('send_failed');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const state: 'idle' | 'loading' | 'success' | 'error' = pending ? 'loading' : view;
+  const state: FormState = pending ? 'loading' : view.kind;
   const inert = state === 'loading' || state === 'success';
   // Each request is charged to the IP's allowance first, which everyone on a
   // shared network shares, so once rate-limited the button does nothing until
   // the address is edited (which clears the error, below).
-  const locked = state === 'error' && errorReason === 'rate_limited';
+  const locked = !pending && view.kind === 'error' && view.reason === 'rate_limited';
 
   const handleSubmit = (formData: FormData) => {
     // The box is disabled while inert, so formData has no address in it.
@@ -58,19 +63,17 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
         await new Promise((r) => setTimeout(r, MIN_LOADING_MS - elapsed));
       }
       if (result.ok) {
-        setConfirmedEmail(result.email);
         // Empty, ready for "Send again" with a different address.
         setEmail('');
-        setView('success');
+        setView({ kind: 'success', email: result.email });
       } else {
-        setErrorReason(result.reason);
-        setView('error');
+        setView({ kind: 'error', reason: result.reason });
       }
     });
   };
 
   const reset = () => {
-    setView('idle');
+    setView({ kind: 'idle' });
     setTimeout(() => inputRef.current?.focus(), 60);
   };
 
@@ -94,7 +97,7 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
             setEmail(e.target.value);
             // A changed address is a new request: drop the error, and with it
             // the rate-limit lock.
-            if (view === 'error') setView('idle');
+            if (view.kind === 'error') setView({ kind: 'idle' });
           }}
           required
           autoComplete="email"
@@ -113,11 +116,11 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
       >
         <ButtonLabel state={state} />
       </button>
-      <HelperText state={state} email={confirmedEmail} errorReason={errorReason} onReset={reset} />
+      <HelperText state={state} view={view} onReset={reset} />
     </form>
-    {state === 'success' ? (
+    {state === 'success' && view.kind === 'success' ? (
       <>
-        <CodeForm email={confirmedEmail} redeem={redeem} />
+        <CodeForm email={view.email} redeem={redeem} />
         <SessionWatcher callbackUrl={callbackUrl} />
       </>
     ) : null}
@@ -199,7 +202,7 @@ function CodeForm({
   );
 }
 
-function ButtonLabel({ state }: { state: 'idle' | 'loading' | 'success' | 'error' }) {
+function ButtonLabel({ state }: { state: FormState }) {
   if (state === 'loading') {
     return (
       <span className="inline-flex items-center justify-center gap-2">
@@ -244,9 +247,8 @@ function CheckIcon() {
 }
 
 type HelperProps = {
-  state: 'idle' | 'loading' | 'success' | 'error';
-  email: string;
-  errorReason: LoginErrorReason;
+  state: FormState;
+  view: View;
   onReset: () => void;
 };
 
@@ -259,7 +261,7 @@ const ERROR_MESSAGES: Record<LoginErrorReason, string> = {
     'Too many sign-in requests. Wait up to an hour. If we already emailed you a link, you can use that.',
 };
 
-function HelperText({ state, email, errorReason, onReset }: HelperProps) {
+function HelperText({ state, view, onReset }: HelperProps) {
   return (
     <p
       role={state === 'error' ? 'alert' : undefined}
@@ -268,9 +270,9 @@ function HelperText({ state, email, errorReason, onReset }: HelperProps) {
       // text-ink-soft's grey.
       className={`min-h-[1.2em] text-xs ${state === 'error' ? 'text-danger' : 'text-ink-soft'}`}
     >
-      {state === 'success' && (
+      {state === 'success' && view.kind === 'success' && (
         <>
-          Link sent to <strong className="text-ink font-medium">{email}</strong>. Check your inbox.{' '}
+          Link sent to <strong className="text-ink font-medium">{view.email}</strong>. Check your inbox.{' '}
           <button
             type="button"
             onClick={onReset}
@@ -280,12 +282,12 @@ function HelperText({ state, email, errorReason, onReset }: HelperProps) {
           </button>
         </>
       )}
-      {state === 'error' && (
+      {state === 'error' && view.kind === 'error' && (
         <>
-          {ERROR_MESSAGES[errorReason]}
+          {ERROR_MESSAGES[view.reason]}
           {/* No quick retry once rate-limited: each request is charged to
               the IP first, and on a shared IP that allowance is everyone's. */}
-          {errorReason !== 'rate_limited' && (
+          {view.reason !== 'rate_limited' && (
             <>
               {' '}
               <button

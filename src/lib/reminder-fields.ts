@@ -1,3 +1,5 @@
+import { serviceError, type ServiceError } from '@/lib/errors';
+import { err, ok, type Result } from '@/lib/result';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 
 /**
@@ -48,8 +50,39 @@ export function resolveAnchorRef(
   fields: readonly AnchorCandidate[],
 ): string | null {
   const current = settings.reminderFromFieldRef;
-  if (current && fields.some((f) => f.fieldType === 'date' && f.ref === current)) return current;
-  return pickAnchorRef(fields);
+  return isDateRef(fields, current) ? current : pickAnchorRef(fields);
+}
+
+function isDateRef(fields: readonly AnchorCandidate[], ref: unknown): ref is string {
+  return fields.some((f) => f.fieldType === 'date' && f.ref === ref);
+}
+
+/**
+ * The anchor a signup should carry after a settings write: the ref the caller
+ * asked for, which must name one of `fields`' date fields, or, with nothing
+ * asked for, `resolveAnchorRef` applied to the current one. Creating and
+ * updating a signup both go through here, so they refuse the same refs with
+ * the same error.
+ */
+export function chooseAnchorRef(
+  requested: string | undefined,
+  current: string | undefined,
+  fields: readonly AnchorCandidate[],
+): Result<string | null, ServiceError> {
+  if (requested === undefined) {
+    return ok(resolveAnchorRef({ reminderFromFieldRef: current }, fields));
+  }
+  if (isDateRef(fields, requested)) return ok(requested);
+  return err(
+    serviceError(
+      'invalid_input',
+      "reminderFromFieldRef must name one of the signup's date fields",
+      {
+        field: 'settings.reminderFromFieldRef',
+        received: requested,
+      },
+    ),
+  );
 }
 
 /**

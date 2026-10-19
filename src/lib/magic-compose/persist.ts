@@ -44,15 +44,23 @@ export async function persistDraft(
     opts.templateId ? { templateId: opts.templateId } : {},
   );
   const warnings = buildWarnings(dropped);
-  if (hasDropped(dropped)) {
-    if (opts.strict) {
+  if (opts.strict) {
+    const valuelessFields = fieldsWithNoValue(template, dropped);
+    if (hasDropped(dropped) || valuelessFields.length > 0) {
       return err(
-        serviceError('invalid_input', 'some values do not fit their fields, so nothing was created', {
-          suggestion: describeDropped(dropped),
-          details: { dropped },
-        }),
+        serviceError(
+          'invalid_input',
+          hasDropped(dropped)
+            ? 'some values do not fit their fields, so nothing was created'
+            : 'some fields have no value in any slot, so nothing was created',
+          {
+            suggestion: describeProblems(dropped, valuelessFields),
+            details: { dropped, valuelessFields },
+          },
+        ),
       );
     }
+  } else if (hasDropped(dropped)) {
     log.warn({ dropped, ...(opts.logContext ?? {}) }, 'draft conversion adjusted or dropped values');
   }
   const created = await createSignup(
@@ -79,12 +87,34 @@ const EXPECTED: Record<DroppedSummary['coercionFailures'][number]['reason'], str
   text: 'text',
 };
 
+/**
+ * Fields no slot gives a value, usually ones the caller meant participants to
+ * fill in. Strict only: Magic Compose keeps them, and `add_field` starts a
+ * field blank on purpose. A field whose values all failed coercion is left
+ * out, since its format problem is already reported.
+ */
+function fieldsWithNoValue(template: SignupTemplate, d: DroppedSummary): string[] {
+  const misformatted = new Set(d.coercionFailures.map((f) => f.ref));
+  return template.fields
+    .map((f) => f.ref)
+    .filter((ref) => !misformatted.has(ref) && !template.slots.some((s) => s.values[ref] !== undefined));
+}
+
 /** What a deliberate caller has to change, one clause per problem. */
-function describeDropped(d: DroppedSummary): string {
+function describeProblems(d: DroppedSummary, valuelessFields: string[]): string {
   const parts: string[] = [];
   for (const f of d.coercionFailures) parts.push(`slot ${f.slot + 1} "${f.ref}" must be ${EXPECTED[f.reason]}`);
   for (const ref of d.emptyEnumFields) parts.push(`enum field "${ref}" needs at least one choice`);
   for (const ref of d.duplicateRefs) parts.push(`field ref "${ref}" is used more than once`);
   for (const key of d.strayValueKeys) parts.push(`value key "${key}" matches no field ref`);
-  return parts.join('; ') + '.';
+  for (const ref of valuelessFields) parts.push(`field "${ref}" has no value in any slot`);
+  let out = parts.join('; ') + '.';
+  if (valuelessFields.length > 0) {
+    out +=
+      ' Fields are columns the organizer fills in; people who sign up give their own name, email and note. ' +
+      (valuelessFields.length === 1
+        ? 'Remove the field, or give it a value in the slots it applies to.'
+        : 'Remove those fields, or give each a value in the slots it applies to.');
+  }
+  return out;
 }
