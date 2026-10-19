@@ -1,34 +1,12 @@
-import type { NextRequest } from 'next/server';
-import { getDb } from '@/db/client';
-import { requireActor } from '@/auth/session';
-import { requireOrganizer } from '@/lib/policy';
-import { handle, respond } from '@/lib/api-response';
+import { readJson } from '@/lib/api-response';
+import { organizerRoute } from '@/lib/organizer-route';
 import { deleteSlot, updateSlot } from '@/services/slots';
 
-export async function PATCH(
-  req: NextRequest,
-  ctx: { params: Promise<{ id: string }> },
-) {
-  return handle(async () => {
-    const { id } = await ctx.params;
-    const actor = await requireActor();
-    requireOrganizer(actor);
-    const body = await req.json().catch(() => ({}));
-    const result = await updateSlot(getDb(), actor, id, body);
-    return respond(result);
-  });
-}
+export const PATCH = organizerRoute<{ id: string }>(async ({ req, db, actor, params }) =>
+  updateSlot(db, actor, params.id, await readJson(req)),
+);
 
-export async function DELETE(
-  _req: NextRequest,
-  ctx: { params: Promise<{ id: string }> },
-) {
-  return handle(async () => {
-    const { id } = await ctx.params;
-    const actor = await requireActor();
-    requireOrganizer(actor);
-    // The organizer is at the keyboard; the browser already asked them.
-    const result = await deleteSlot(getDb(), actor, id, { force: true });
-    return respond(result);
-  });
-}
+// The organizer is at the keyboard; the browser already asked them.
+export const DELETE = organizerRoute<{ id: string }>(({ db, actor, params }) =>
+  deleteSlot(db, actor, params.id, { force: true }),
+);

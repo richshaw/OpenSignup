@@ -1,33 +1,13 @@
-import type { NextRequest } from 'next/server';
-import { requireActor } from '@/auth/session';
-import { requireOrganizer } from '@/lib/policy';
-import { getDb } from '@/db/client';
-import { handle, respond } from '@/lib/api-response';
+import { readJson } from '@/lib/api-response';
+import { organizerRoute } from '@/lib/organizer-route';
 import { deleteField, updateField } from '@/services/slot-fields';
 
-export async function PATCH(
-  req: NextRequest,
-  ctx: { params: Promise<{ id: string; fieldId: string }> },
-) {
-  return handle(async () => {
-    const { fieldId } = await ctx.params;
-    const actor = await requireActor();
-    requireOrganizer(actor);
-    const body = await req.json().catch(() => ({}));
-    const result = await updateField(getDb(), actor, fieldId, body);
-    return respond(result);
-  });
-}
+type Params = { id: string; fieldId: string };
 
-export async function DELETE(
-  _req: NextRequest,
-  ctx: { params: Promise<{ id: string; fieldId: string }> },
-) {
-  return handle(async () => {
-    const { fieldId } = await ctx.params;
-    const actor = await requireActor();
-    requireOrganizer(actor);
-    const result = await deleteField(getDb(), actor, fieldId);
-    return respond(result);
-  });
-}
+export const PATCH = organizerRoute<Params>(async ({ req, db, actor, params }) =>
+  updateField(db, actor, params.fieldId, await readJson(req)),
+);
+
+export const DELETE = organizerRoute<Params>(({ db, actor, params }) =>
+  deleteField(db, actor, params.fieldId),
+);

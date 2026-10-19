@@ -1,6 +1,6 @@
 import { after, type NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
-import { fail, handle, respond } from '@/lib/api-response';
+import { fail, handle, ok, readJson } from '@/lib/api-response';
 import {
   COMMIT_COOKIE_NAME,
   appendReturningCommit,
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const db = getDb();
     const clientIp = extractClientIp(req.headers);
     await consumeRateLimit(db, RateLimits.commitmentPerIp, clientIp ?? 'unknown');
-    const body = await req.json().catch(() => ({}));
+    const body = await readJson(req);
     // Per-address limit as well as per-IP, consumed before commitToSlot so a
     // rejected request never reaches the send. The address is unverified and
     // this endpoint now produces outbound mail, so the IP bucket alone would
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       responseValue.commitment.id,
       responseValue.editToken,
     );
-    const response = respond({ ok: true, value: { ...responseValue, editUrl } }, links);
+    const response = ok({ ...responseValue, editUrl }, { links });
     // Remembered until a week after the slot, so someone who signs up far
     // ahead, perhaps without an email, can still find their way back.
     const nextCookie = appendReturningCommit(req.cookies.get(COMMIT_COOKIE_NAME)?.value ?? null, {

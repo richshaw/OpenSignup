@@ -1,39 +1,16 @@
-import type { NextRequest } from 'next/server';
-import { requireActor } from '@/auth/session';
-import { requireOrganizer } from '@/lib/policy';
-import { getDb } from '@/db/client';
-import { fail, handle, respond } from '@/lib/api-response';
+import { readJson, respond } from '@/lib/api-response';
 import { link } from '@/lib/links';
+import { organizerRoute } from '@/lib/organizer-route';
 import { addField, listFields } from '@/services/slot-fields';
 
-export async function GET(
-  _req: NextRequest,
-  ctx: { params: Promise<{ id: string }> },
-) {
-  return handle(async () => {
-    const { id } = await ctx.params;
-    const actor = await requireActor();
-    requireOrganizer(actor);
-    const result = await listFields(getDb(), actor, id);
-    return respond(result);
-  });
-}
+export const GET = organizerRoute<{ id: string }>(({ db, actor, params }) =>
+  listFields(db, actor, params.id),
+);
 
-export async function POST(
-  req: NextRequest,
-  ctx: { params: Promise<{ id: string }> },
-) {
-  return handle(async () => {
-    const { id } = await ctx.params;
-    const actor = await requireActor();
-    requireOrganizer(actor);
-    const body = await req.json().catch(() => ({}));
-    const result = await addField(getDb(), actor, id, body);
-    if (!result.ok) return fail(result.error);
-    return respond(result, {
-      self: link(`/api/signups/${id}/fields/${result.value.id}`),
-      update: link(`/api/signups/${id}/fields/${result.value.id}`, 'PATCH'),
-      delete: link(`/api/signups/${id}/fields/${result.value.id}`, 'DELETE'),
-    });
-  });
-}
+export const POST = organizerRoute<{ id: string }>(async ({ req, db, actor, params: { id } }) =>
+  respond(await addField(db, actor, id, await readJson(req)), (field) => ({
+    self: link(`/api/signups/${id}/fields/${field.id}`),
+    update: link(`/api/signups/${id}/fields/${field.id}`, 'PATCH'),
+    delete: link(`/api/signups/${id}/fields/${field.id}`, 'DELETE'),
+  })),
+);
