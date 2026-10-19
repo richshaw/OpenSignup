@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation';
 import { FormError } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
+import { unsubscribePath } from '@/lib/links';
 import { previewReminderOptOut } from '@/services/reminder-optout';
+import { SignupStateMessage } from '../state-message';
 
 export const metadata = {
   title: 'Reminder emails',
@@ -38,24 +40,20 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
     // likely visitor is a real participant whose mail client mangled the link,
     // and a "not found" would tell them nothing useful.
     return (
-      <Shell title="This link is incomplete">
-        <p className="text-sm text-ink-muted">
-          Unsubscribe links only work in full. Open the link straight from your reminder email, or
-          reply to the organizer to ask them to stop.
-        </p>
-      </Shell>
+      <SignupStateMessage
+        title="This link is incomplete"
+        body="Unsubscribe links only work in full. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
+      />
     );
   }
 
   const result = await previewReminderOptOut(getDb(), participantId, token);
   if (!result.ok) {
     return (
-      <Shell title="This link isn't valid">
-        <p className="text-sm text-ink-muted">
-          It may have been mangled in transit, or the signup may have been deleted. Open the link
-          straight from your reminder email, or reply to the organizer to ask them to stop.
-        </p>
-      </Shell>
+      <SignupStateMessage
+        title="This link isn't valid"
+        body="It may have been mangled in transit, or the signup may have been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
+      />
     );
   }
 
@@ -69,9 +67,7 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
   // participant's email address under an unrelated signup's URL. Send them to
   // the canonical address instead of rendering the misleading one.
   if (slug !== target.signupSlug) {
-    redirect(
-      `/s/${target.signupSlug}/unsubscribe?p=${encodeURIComponent(participantId)}&token=${encodeURIComponent(token)}`,
-    );
+    redirect(unsubscribePath(target.signupSlug, participantId, token));
   }
 
   const credentials = (
