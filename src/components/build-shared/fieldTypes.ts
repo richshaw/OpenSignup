@@ -30,6 +30,10 @@ export const FIELD_TYPE_META: Record<FieldType, FieldTypeMeta> = {
   },
 };
 
+/** The boxed look of that input, wherever a value is typed into one. */
+export const FIELD_VALUE_INPUT_CLASS =
+  'rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand';
+
 /** The input a value of each type is typed into. List values use EnumPicker instead. */
 export type FieldValueInput = {
   type: string;

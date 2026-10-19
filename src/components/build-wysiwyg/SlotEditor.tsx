@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
-import { FIELD_TYPE_META, FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
+import { FIELD_TYPE_META, FIELD_VALUE_INPUT_CLASS, FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
 import { EnumPicker } from './EnumPicker';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
@@ -102,7 +102,7 @@ export function SlotEditor({
                   {...FIELD_VALUE_INPUTS[f.config.fieldType]}
                   value={row.values[f.ref] ?? ''}
                   onChange={(e) => onCellChange(f.ref, e.target.value)}
-                  className="rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand"
+                  className={FIELD_VALUE_INPUT_CLASS}
                   aria-label={`${f.name} value`}
                 />
               )}

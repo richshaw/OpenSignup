@@ -3,6 +3,7 @@ import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
+import { FIELD_VALUE_INPUT_CLASS } from '../build-shared/fieldTypes';
 
 function makeRow(overrides: Partial<BuildRow> = {}): BuildRow {
   return {
@@ -112,6 +113,13 @@ describe('WysiwygGroup', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onRenameGroup).toHaveBeenCalledOnce();
     expect(onRenameGroup).toHaveBeenCalledWith('2026-05-21', '2026-05-22');
+  });
+
+  it('boxes a date header\'s input as the slot editor does, not in the header\'s small caps', () => {
+    renderGroup({ group: { key: '2026-05-21', rawValue: '2026-05-21', rows: [makeRow()] } });
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*THU, MAY 21/ }));
+    const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
+    expect(input.className).toBe(FIELD_VALUE_INPUT_CLASS);
   });
 
   it('leaves a date header alone when the date is only half typed', () => {
