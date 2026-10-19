@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { useBuildState, type BuildField, type BuildRow } from '../build-shared/useBuildState';
+import { useBuildState, type BuildField, type BuildRow, type BuildSlot } from '../build-shared/useBuildState';
 import { useReorderable } from '../build-shared/useReorderable';
 import { Editable } from './Editable';
 import { EditingRail } from './EditingRail';
@@ -23,12 +23,7 @@ type BuildWysiwygProps = {
   signupId: string;
   signupMeta: SignupMeta;
   initialFields: SlotFieldDefinition[];
-  initialSlots: Array<{
-    id: string;
-    capacity: number | null;
-    sortOrder?: number | null;
-    values: Record<string, unknown>;
-  }>;
+  initialSlots: BuildSlot[];
   initialSettings: SignupSettings;
   /**
    * Spots taken per slot id when the page loaded; a slot with none is absent.
@@ -105,12 +100,7 @@ export function BuildWysiwyg({
   } = useBuildState(
     signupId,
     initialFields,
-    initialSlots.map((s) => ({
-      id: s.id,
-      capacity: s.capacity,
-      sortOrder: s.sortOrder ?? undefined,
-      values: s.values,
-    })),
+    initialSlots,
     initialSettings,
     { title: signupMeta.title, description: signupMeta.description },
   );

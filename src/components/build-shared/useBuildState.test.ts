@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { buildReducer, useBuildState } from './useBuildState';
-import type { BuildState, BuildField, BuildRow } from './useBuildState';
+import type { BuildState, BuildField, BuildRow, BuildSlot } from './useBuildState';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
 
@@ -34,46 +34,8 @@ const makeState = (overrides: Partial<BuildState> = {}): BuildState => ({
   rows: [],
   groupByFieldRef: null,
   reminderFieldRef: null,
-  previewRowIdx: 0,
-  showPreview: false,
   saveStatus: { kind: 'idle' },
   ...overrides,
-});
-
-// ---------------------------------------------------------------------------
-// SET_FIELD_WIDTH
-// ---------------------------------------------------------------------------
-
-describe('buildReducer SET_FIELD_WIDTH', () => {
-  it('sets width on the correct field', () => {
-    const field1 = makeField({ id: 'f1', ref: 'alpha' });
-    const field2 = makeField({ id: 'f2', ref: 'beta' });
-    const state = makeState({ fields: [field1, field2] });
-
-    const next = buildReducer(state, { type: 'SET_FIELD_WIDTH', fieldId: 'f1', width: 300 });
-
-    expect(next.fields[0]?.width).toBe(300);
-    expect(next.fields[1]?.width).toBeUndefined();
-  });
-
-  it('does not mutate other fields', () => {
-    const field1 = makeField({ id: 'f1' });
-    const field2 = makeField({ id: 'f2', name: 'Other', ref: 'other' });
-    const state = makeState({ fields: [field1, field2] });
-
-    const next = buildReducer(state, { type: 'SET_FIELD_WIDTH', fieldId: 'f1', width: 200 });
-
-    expect(next.fields[1]).toEqual(field2);
-  });
-
-  it('clears width when undefined is passed', () => {
-    const field = makeField({ id: 'f1', width: 300 });
-    const state = makeState({ fields: [field] });
-
-    const next = buildReducer(state, { type: 'SET_FIELD_WIDTH', fieldId: 'f1', width: undefined });
-
-    expect(next.fields[0]?.width).toBeUndefined();
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -140,38 +102,6 @@ describe('buildReducer OPTIMISTIC_REMOVE_ROW', () => {
     expect(next.rows).toHaveLength(0);
   });
 
-  it('clamps previewRowIdx when the highlighted row is deleted', () => {
-    const row1 = makeRow({ id: 'r1' });
-    const row2 = makeRow({ id: 'r2' });
-    const state = makeState({ rows: [row1, row2], previewRowIdx: 1 });
-
-    const next = buildReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r2' });
-
-    expect(next.rows).toHaveLength(1);
-    expect(next.previewRowIdx).toBe(0);
-  });
-
-  it('clamps previewRowIdx to 0 when all rows are deleted', () => {
-    const row1 = makeRow({ id: 'r1' });
-    const state = makeState({ rows: [row1], previewRowIdx: 0 });
-
-    const next = buildReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
-
-    expect(next.rows).toHaveLength(0);
-    expect(next.previewRowIdx).toBe(0);
-  });
-
-  it('clamps previewRowIdx when deletion shrinks the list below the current index', () => {
-    const row1 = makeRow({ id: 'r1' });
-    const row2 = makeRow({ id: 'r2' });
-    const row3 = makeRow({ id: 'r3' });
-    const state = makeState({ rows: [row1, row2, row3], previewRowIdx: 2 });
-
-    const next = buildReducer(state, { type: 'OPTIMISTIC_REMOVE_ROW', rowId: 'r1' });
-
-    expect(next.rows).toHaveLength(2);
-    expect(next.previewRowIdx).toBe(1);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -281,24 +211,6 @@ describe('buildReducer SET_SAVE_STATUS', () => {
     const state = makeState({ saveStatus: { kind: 'saved' } });
     const next = buildReducer(state, { type: 'SET_SAVE_STATUS', status: { kind: 'idle' } });
     expect(next.saveStatus).toEqual({ kind: 'idle' });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// SET_SHOW_PREVIEW
-// ---------------------------------------------------------------------------
-
-describe('buildReducer SET_SHOW_PREVIEW', () => {
-  it('sets showPreview to true', () => {
-    const state = makeState({ showPreview: false });
-    const next = buildReducer(state, { type: 'SET_SHOW_PREVIEW', show: true });
-    expect(next.showPreview).toBe(true);
-  });
-
-  it('sets showPreview to false', () => {
-    const state = makeState({ showPreview: true });
-    const next = buildReducer(state, { type: 'SET_SHOW_PREVIEW', show: false });
-    expect(next.showPreview).toBe(false);
   });
 });
 
@@ -561,7 +473,7 @@ describe('useBuildState moveField', () => {
     expect(result.current.state.saveStatus.kind).toBe('saved');
   });
 
-  it('refetches server truth on PATCH failure and preserves session widths', async () => {
+  it('refetches server truth on PATCH failure', async () => {
     const a = makeApiField({ id: 'a', ref: 'a', label: 'A', sortOrder: 0 });
     const b = makeApiField({ id: 'b', ref: 'b', label: 'B', sortOrder: 1 });
     const c = makeApiField({ id: 'c', ref: 'c', label: 'C', sortOrder: 2 });
@@ -585,13 +497,6 @@ describe('useBuildState moveField', () => {
 
     const { result } = renderBuild([a, b, c]);
 
-    // Set a session-only width on field "a" before the failing reorder so we can
-    // verify it survives the refetch.
-    act(() => {
-      result.current.setFieldWidth('a', 321);
-    });
-    expect(result.current.state.fields.find((f) => f.id === 'a')?.width).toBe(321);
-
     await act(async () => {
       await result.current.moveField('c', 0);
     });
@@ -605,7 +510,6 @@ describe('useBuildState moveField', () => {
     expect(patchCalls.length).toBe(2); // aborted after the failing second PATCH
     expect(getCalls.length).toBe(1); // single refetch
     expect(result.current.state.fields.map((f) => f.id)).toEqual(['a', 'b', 'c']);
-    expect(result.current.state.fields.find((f) => f.id === 'a')?.width).toBe(321);
     expect(result.current.state.saveStatus.kind).toBe('error');
   });
 
@@ -715,14 +619,7 @@ describe('useBuildState moveField', () => {
 // useBuildState moveRow (renderHook + mocked fetch)
 // ---------------------------------------------------------------------------
 
-interface InitialRowInput {
-  id: string;
-  capacity: number | null;
-  sortOrder?: number;
-  values: Record<string, unknown>;
-}
-
-function renderBuildWith(initialRows: InitialRowInput[]) {
+function renderBuildWith(initialRows: BuildSlot[]) {
   return renderHook(() =>
     useBuildState('sig_test', [], initialRows, defaultSettings),
   );
@@ -734,9 +631,9 @@ describe('useBuildState moveRow', () => {
   });
 
   it('sends the whole new order in one request', async () => {
-    const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
-    const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
-    const r3: InitialRowInput = { id: 'r3', capacity: null, sortOrder: 2, values: {} };
+    const r1: BuildSlot = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
+    const r2: BuildSlot = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
+    const r3: BuildSlot = { id: 'r3', capacity: null, sortOrder: 2, values: {} };
 
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: [] }));
     vi.stubGlobal('fetch', fetchMock);
@@ -758,8 +655,8 @@ describe('useBuildState moveRow', () => {
   });
 
   it('refetches server truth when the reorder is refused', async () => {
-    const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: { notes: 'one' } };
-    const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: { notes: 'two' } };
+    const r1: BuildSlot = { id: 'r1', capacity: null, sortOrder: 0, values: { notes: 'one' } };
+    const r2: BuildSlot = { id: 'r2', capacity: null, sortOrder: 1, values: { notes: 'two' } };
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -798,8 +695,8 @@ describe('useBuildState moveRow', () => {
   });
 
   it('falls back to snapshot when refetch also fails', async () => {
-    const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
-    const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
+    const r1: BuildSlot = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
+    const r2: BuildSlot = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
 
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, { ok: false }));
     vi.stubGlobal('fetch', fetchMock);
@@ -814,8 +711,8 @@ describe('useBuildState moveRow', () => {
   });
 
   it('is a no-op when fromIdx clamps to toIdx or is out of bounds', async () => {
-    const r1: InitialRowInput = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
-    const r2: InitialRowInput = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
+    const r1: BuildSlot = { id: 'r1', capacity: null, sortOrder: 0, values: {} };
+    const r2: BuildSlot = { id: 'r2', capacity: null, sortOrder: 1, values: {} };
 
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
@@ -834,42 +731,6 @@ describe('useBuildState moveRow', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.state.rows.map((r) => r.id)).toEqual(['r1', 'r2']);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// useBuildState mount-time showPreview default (viewport-aware)
-// ---------------------------------------------------------------------------
-
-function stubMatchMedia(matches: boolean) {
-  const mql = {
-    matches,
-    media: '',
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => false,
-    addListener: () => {},
-    removeListener: () => {},
-  };
-  vi.stubGlobal('matchMedia', vi.fn(() => mql));
-}
-
-describe('useBuildState mount-time showPreview default', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it('defaults showPreview to true when viewport is ≥1280px', () => {
-    stubMatchMedia(true);
-    const { result } = renderBuild([]);
-    expect(result.current.state.showPreview).toBe(true);
-  });
-
-  it('leaves showPreview false when viewport is <1280px', () => {
-    stubMatchMedia(false);
-    const { result } = renderBuild([]);
-    expect(result.current.state.showPreview).toBe(false);
   });
 });
 
