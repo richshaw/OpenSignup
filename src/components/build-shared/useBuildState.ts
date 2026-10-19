@@ -1,4 +1,4 @@
-import { useReducer, useRef, useEffect, useCallback } from 'react';
+import { useReducer, useRef, useEffect } from 'react';
 import type { SlotFieldDefinition, SlotFieldConfig } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
 import type { ErrorCode } from '@/lib/errors';
@@ -19,7 +19,6 @@ export type BuildField = {
    */
   config: SlotFieldConfig;
   sortOrder: number;
-  width?: number; // session-only resize override; not sent to API
 };
 
 export type BuildRow = {
@@ -27,6 +26,14 @@ export type BuildRow = {
   capacity: number | null;
   sortOrder: number;
   values: Record<string, string>; // fieldRef → string value
+};
+
+/** A slot as the build page loads it and the slot routes return it. */
+export type BuildSlot = {
+  id: string;
+  capacity: number | null;
+  sortOrder: number;
+  values: Record<string, unknown>;
 };
 
 /**
@@ -40,12 +47,14 @@ export type SaveStatus =
   | { kind: 'saved' }
   | { kind: 'error'; code: ErrorCode; message?: string };
 
+type SaveError = { code: ErrorCode; message?: string };
+
 const SAVING: SaveStatus = { kind: 'saving' };
 const SAVED: SaveStatus = { kind: 'saved' };
 const IDLE: SaveStatus = { kind: 'idle' };
 
 /** Best-effort parse of `{ error: { code, message } }` from a non-OK Response. */
-async function parseErrorEnvelope(res: Response): Promise<{ code: ErrorCode; message?: string }> {
+async function parseErrorEnvelope(res: Response): Promise<SaveError> {
   try {
     const body = (await res.clone().json()) as { error?: { code?: ErrorCode; message?: string } };
     const code = body.error?.code ?? 'internal';
@@ -69,8 +78,6 @@ export type BuildState = {
    * put even while they are off — so the UI has one value to read.
    */
   reminderFieldRef: string | null;
-  previewRowIdx: number;
-  showPreview: boolean;
   saveStatus: SaveStatus;
 };
 
@@ -81,9 +88,6 @@ export type BuildState = {
 export type BuildAction =
   | { type: 'SET_FIELDS'; fields: BuildField[] }
   | { type: 'SET_ROWS'; rows: BuildRow[] }
-  | { type: 'SET_FIELD_WIDTH'; fieldId: string; width: number | undefined }
-  | { type: 'SET_PREVIEW_ROW'; idx: number }
-  | { type: 'SET_SHOW_PREVIEW'; show: boolean }
   | { type: 'SET_GROUP_BY'; ref: string | null }
   | { type: 'SET_REMINDER_FIELD'; ref: string | null }
   | { type: 'SET_SAVE_STATUS'; status: SaveStatus }
@@ -108,20 +112,6 @@ export function buildReducer(state: BuildState, action: BuildAction): BuildState
     case 'SET_ROWS':
       return { ...state, rows: action.rows };
 
-    case 'SET_FIELD_WIDTH':
-      return {
-        ...state,
-        fields: state.fields.map((f) =>
-          f.id === action.fieldId ? { ...f, width: action.width } : f,
-        ),
-      };
-
-    case 'SET_PREVIEW_ROW':
-      return { ...state, previewRowIdx: action.idx };
-
-    case 'SET_SHOW_PREVIEW':
-      return { ...state, showPreview: action.show };
-
     case 'SET_GROUP_BY':
       return { ...state, groupByFieldRef: action.ref };
 
@@ -134,14 +124,8 @@ export function buildReducer(state: BuildState, action: BuildAction): BuildState
     case 'OPTIMISTIC_ADD_ROW':
       return { ...state, rows: [...state.rows, action.row] };
 
-    case 'OPTIMISTIC_REMOVE_ROW': {
-      const nextRows = state.rows.filter((r) => r.id !== action.rowId);
-      return {
-        ...state,
-        rows: nextRows,
-        previewRowIdx: Math.min(state.previewRowIdx, Math.max(0, nextRows.length - 1)),
-      };
-    }
+    case 'OPTIMISTIC_REMOVE_ROW':
+      return { ...state, rows: state.rows.filter((r) => r.id !== action.rowId) };
 
     case 'OPTIMISTIC_EDIT_CELL':
       return {
@@ -202,6 +186,7 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 // The reorder route refuses a list that isn't every slot exactly once, which from
 // the builder means another window changed the slots. Its own message is for API callers.
 const STALE_REORDER_MESSAGE = "The slots changed in another window, so your move wasn't saved. Drag it again.";
+const TITLE_TOO_SHORT: SaveError = { code: 'invalid_input', message: 'Title must be at least 2 characters.' };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -217,11 +202,20 @@ function toBuildFields(fields: SlotFieldDefinition[]): BuildField[] {
   }));
 }
 
+function toBuildRow(slot: BuildSlot): BuildRow {
+  return {
+    id: slot.id,
+    capacity: slot.capacity,
+    sortOrder: slot.sortOrder,
+    values: toStringValues(slot.values),
+  };
+}
+
 function toLabelRef(label: string, existingRefs: string[]): string {
   const base =
     label
       .normalize('NFKD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[̀-ͯ]/g, '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
@@ -238,6 +232,21 @@ function toStringValues(values: Record<string, unknown>): Record<string, string>
     result[k] = v === null || v === undefined ? '' : String(v);
   }
   return result;
+}
+
+/**
+ * `list` with the item at `fromIdx` moved to `toIdx` (clamped to the list) and
+ * every `sortOrder` renumbered from 0, or null when nothing would move.
+ */
+function moveItem<T extends { sortOrder: number }>(list: T[], fromIdx: number, toIdx: number): T[] | null {
+  if (fromIdx < 0 || fromIdx >= list.length) return null;
+  const clamped = Math.max(0, Math.min(list.length - 1, toIdx));
+  if (clamped === fromIdx) return null;
+  const reordered = list.slice();
+  const [moved] = reordered.splice(fromIdx, 1);
+  if (!moved) return null;
+  reordered.splice(clamped, 0, moved);
+  return reordered.map((item, i) => ({ ...item, sortOrder: i }));
 }
 
 /** The field reminders are sent for, or null when they are switched off. */
@@ -267,6 +276,35 @@ async function savedSettings(res: Response): Promise<SignupSettings | null> {
   }
 }
 
+/**
+ * Sends a request, JSON-encoding `body` when there is one. A non-OK answer
+ * throws the server's `{ code, message }`, which `withSave` shows on the rail.
+ */
+async function send(method: string, url: string, body?: unknown): Promise<Response> {
+  const res = await fetch(
+    url,
+    body === undefined
+      ? { method }
+      : { method, headers: JSON_HEADERS, body: JSON.stringify(body) },
+  );
+  if (!res.ok) throw await parseErrorEnvelope(res);
+  return res;
+}
+
+/** The `data` of a successful request's `{ data }` body. */
+async function sendForData<T>(method: string, url: string, body?: unknown): Promise<T> {
+  const res = await send(method, url, body);
+  return ((await res.json()) as { data: T }).data;
+}
+
+function asErr(e: unknown): SaveError {
+  if (e && typeof e === 'object' && 'code' in e) {
+    const obj = e as SaveError;
+    return obj.message !== undefined ? { code: obj.code, message: obj.message } : { code: obj.code };
+  }
+  return { code: 'internal' };
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -274,7 +312,7 @@ async function savedSettings(res: Response): Promise<SignupSettings | null> {
 export function useBuildState(
   signupId: string,
   initialFields: SlotFieldDefinition[],
-  initialRows: Array<{ id: string; capacity: number | null; sortOrder?: number; values: Record<string, unknown> }>,
+  initialSlots: BuildSlot[],
   initialSettings: SignupSettings,
   initialMeta: { title: string; description: string | null } = { title: '', description: '' },
 ) {
@@ -282,16 +320,9 @@ export function useBuildState(
     title: initialMeta.title,
     description: initialMeta.description ?? '',
     fields: toBuildFields(initialFields),
-    rows: initialRows.map((r, i) => ({
-      id: r.id,
-      capacity: r.capacity,
-      sortOrder: r.sortOrder ?? i,
-      values: toStringValues(r.values),
-    })),
+    rows: initialSlots.map(toBuildRow),
     groupByFieldRef: initialSettings.groupByFieldRefs[0] ?? null,
     reminderFieldRef: reminderFieldFrom(initialSettings),
-    previewRowIdx: 0,
-    showPreview: false,
     saveStatus: IDLE,
   }));
 
@@ -316,16 +347,6 @@ export function useBuildState(
     return () => {
       if (savedTimerRef.current !== null) clearTimeout(savedTimerRef.current);
     };
-  }, []);
-
-  // On mount: default the live-preview side rail to ON when the viewport has
-  // room for both panels (≥xl breakpoint). One-shot — does not re-evaluate on
-  // resize, so a manual toggle off is respected until the next mount.
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return;
-    if (window.matchMedia('(min-width: 1280px)').matches) {
-      dispatch({ type: 'SET_SHOW_PREVIEW', show: true });
-    }
   }, []);
 
   /**
@@ -390,7 +411,7 @@ export function useBuildState(
     savedTimerRef.current = setTimeout(() => dispatch({ type: 'SET_SAVE_STATUS', status: IDLE }), SAVED_CLEAR_MS);
   }
 
-  function markError(err: { code: ErrorCode; message?: string } = { code: 'internal' }) {
+  function markError(err: SaveError = { code: 'internal' }) {
     if (savedTimerRef.current !== null) {
       clearTimeout(savedTimerRef.current);
       savedTimerRef.current = null;
@@ -403,301 +424,176 @@ export function useBuildState(
     });
   }
 
-  /** Wraps a fetch + parseErrorEnvelope so the catch site has the typed code. */
-  async function expectOk(res: Response): Promise<void> {
-    if (res.ok) return;
-    const err = await parseErrorEnvelope(res);
-    throw err;
+  /** Shows "Saving…" while `save` runs, then "Saved" or the error it threw. */
+  async function withSave(save: () => Promise<void>): Promise<void> {
+    markSaving();
+    try {
+      await save();
+      markSaved();
+    } catch (e) {
+      markError(asErr(e));
+    }
   }
 
-  function asErr(e: unknown): { code: ErrorCode; message?: string } {
-    if (e && typeof e === 'object' && 'code' in e) {
-      const obj = e as { code: ErrorCode; message?: string };
-      return obj.message !== undefined ? { code: obj.code, message: obj.message } : { code: obj.code };
+  /**
+   * Shows `next` straight away and runs `save`. A failed save may have left
+   * the server with part of the move or none of it, so the list then shows
+   * what `reload` fetches, or `previous` when that fails too.
+   */
+  async function saveMove<T>(
+    previous: T[],
+    next: T[],
+    show: (items: T[]) => void,
+    save: () => Promise<void>,
+    reload: () => Promise<T[]>,
+  ): Promise<void> {
+    show(next);
+    markSaving();
+    try {
+      await save();
+      markSaved();
+      return;
+    } catch (e) {
+      const failure = asErr(e);
+      try {
+        show(await reload());
+      } catch {
+        show(previous);
+      }
+      markError(failure);
     }
-    return { code: 'internal' };
   }
 
   // ---------------------------------------------------------------------------
   // Field mutations
   // ---------------------------------------------------------------------------
 
-  const addField = useCallback(
-    async (
-      name: string,
-      config: SlotFieldConfig,
-    ): Promise<void> => {
-      markSaving();
-      try {
-        const res = await fetch(`/api/signups/${signupId}/fields`, {
-          method: 'POST',
-          headers: JSON_HEADERS,
-          body: JSON.stringify({
-            ref: toLabelRef(name, stateRef.current.fields.map((f) => f.ref)),
-            label: name,
-            fieldType: config.fieldType,
-            config,
-          }),
-        });
-        await expectOk(res);
-        const envelope = (await res.json()) as { data: SlotFieldDefinition };
-        const field = toBuildFields([envelope.data])[0]!;
-        dispatch({ type: 'APPEND_FIELD', field });
-        mirrorFieldChange([...stateRef.current.fields, field]);
-        markSaved();
-      } catch (e) {
-        markError(asErr(e));
+  const fieldsUrl = `/api/signups/${signupId}/fields`;
+  const showFields = (fields: BuildField[]) => dispatch({ type: 'SET_FIELDS', fields });
+
+  const addField = (name: string, config: SlotFieldConfig): Promise<void> =>
+    withSave(async () => {
+      const created = await sendForData<SlotFieldDefinition>('POST', fieldsUrl, {
+        ref: toLabelRef(name, stateRef.current.fields.map((f) => f.ref)),
+        label: name,
+        fieldType: config.fieldType,
+        config,
+      });
+      const field = toBuildFields([created])[0]!;
+      dispatch({ type: 'APPEND_FIELD', field });
+      mirrorFieldChange([...stateRef.current.fields, field]);
+    });
+
+  const updateField = (
+    fieldId: string,
+    patch: { name?: string; config?: SlotFieldConfig },
+  ): Promise<void> =>
+    withSave(async () => {
+      const body: Record<string, unknown> = {};
+      if (patch.name !== undefined) body['label'] = patch.name;
+      if (patch.config !== undefined) {
+        body['fieldType'] = patch.config.fieldType;
+        body['config'] = patch.config;
       }
-    },
-    [signupId],
-  );
+      const saved = await sendForData<SlotFieldDefinition>('PATCH', `${fieldsUrl}/${fieldId}`, body);
+      const updated = toBuildFields([saved])[0]!;
+      dispatch({ type: 'REPLACE_FIELD', field: updated });
+      mirrorFieldChange(stateRef.current.fields.map((f) => (f.id === updated.id ? updated : f)));
+    });
 
-  const updateField = useCallback(
-    async (
-      fieldId: string,
-      patch: { name?: string; config?: SlotFieldConfig },
-    ): Promise<void> => {
-      markSaving();
-      try {
-        const body: Record<string, unknown> = {};
-        if (patch.name !== undefined) body['label'] = patch.name;
-        if (patch.config !== undefined) {
-          body['fieldType'] = patch.config.fieldType;
-          body['config'] = patch.config;
-        }
+  const deleteField = async (fieldId: string): Promise<void> => {
+    const field = stateRef.current.fields.find((f) => f.id === fieldId);
+    if (!field) return;
+    await withSave(async () => {
+      await send('DELETE', `${fieldsUrl}/${fieldId}`);
+      dispatch({ type: 'DELETE_FIELD', fieldId, fieldRef: field.ref });
+      mirrorFieldChange(stateRef.current.fields.filter((f) => f.id !== fieldId));
+    });
+  };
 
-        const res = await fetch(`/api/signups/${signupId}/fields/${fieldId}`, {
-          method: 'PATCH',
-          headers: JSON_HEADERS,
-          body: JSON.stringify(body),
-        });
-        await expectOk(res);
-        const envelope = (await res.json()) as { data: SlotFieldDefinition };
-        const updated = toBuildFields([envelope.data])[0]!;
-        dispatch({ type: 'REPLACE_FIELD', field: updated });
-        mirrorFieldChange(stateRef.current.fields.map((f) => (f.id === updated.id ? updated : f)));
-        markSaved();
-      } catch (e) {
-        markError(asErr(e));
-      }
-    },
-    [signupId],
-  );
-
-  const deleteField = useCallback(
-    async (fieldId: string): Promise<void> => {
-      const field = state.fields.find((f) => f.id === fieldId);
-      if (!field) return;
-      const fieldRef = field.ref;
-      markSaving();
-      try {
-        const res = await fetch(`/api/signups/${signupId}/fields/${fieldId}`, {
-          method: 'DELETE',
-        });
-        await expectOk(res);
-        dispatch({ type: 'DELETE_FIELD', fieldId, fieldRef });
-        mirrorFieldChange(stateRef.current.fields.filter((f) => f.id !== fieldId));
-        markSaved();
-      } catch (e) {
-        markError(asErr(e));
-      }
-    },
-    [signupId, state.fields],
-  );
-
-  // Concurrent reorders by other organizers can race; this client converges via
-  // refetch on error but the server has no transactional bulk-reorder endpoint.
-  const moveField = useCallback(
-    async (fieldId: string, toIdx: number): Promise<void> => {
-      const previous = state.fields;
-      const fromIdx = previous.findIndex((f) => f.id === fieldId);
-      if (fromIdx === -1) return;
-      const clamped = Math.max(0, Math.min(previous.length - 1, toIdx));
-      if (clamped === fromIdx) return;
-
-      const reordered = previous.slice();
-      const [moved] = reordered.splice(fromIdx, 1);
-      if (!moved) return;
-      reordered.splice(clamped, 0, moved);
-      const resequenced = reordered.map((f, i) => ({ ...f, sortOrder: i }));
-
-      // Optimistic update so the UI reorders immediately.
-      dispatch({ type: 'SET_FIELDS', fields: resequenced });
-      markSaving();
-      let failure: { code: ErrorCode; message?: string } | null = null;
-      try {
-        const changed = resequenced.filter(
+  // Fields have no bulk-reorder route, so this PATCHes each field whose
+  // position changed. A failure part-way can leave the server with some of
+  // them moved; the refetch then shows the order it holds.
+  const moveField = async (fieldId: string, toIdx: number): Promise<void> => {
+    const previous = stateRef.current.fields;
+    const next = moveItem(previous, previous.findIndex((f) => f.id === fieldId), toIdx);
+    if (!next) return;
+    await saveMove(
+      previous,
+      next,
+      showFields,
+      async () => {
+        const changed = next.filter(
           (f, i) => previous[i]?.id !== f.id || previous[i]?.sortOrder !== f.sortOrder,
         );
         for (const f of changed) {
-          const res = await fetch(`/api/signups/${signupId}/fields/${f.id}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ sortOrder: f.sortOrder }),
-          });
-          await expectOk(res);
+          await send('PATCH', `${fieldsUrl}/${f.id}`, { sortOrder: f.sortOrder });
         }
-        markSaved();
-      } catch (e) {
-        failure = asErr(e);
-      }
-      if (failure !== null) {
-        // Server may hold a partial reorder; converge on server truth via refetch.
-        // `previous` already carries session-only column widths — preserve them on
-        // refresh by id, since `toBuildFields` cannot populate `width`.
-        const widthById = new Map(previous.map((f) => [f.id, f.width]));
-        try {
-          const res = await fetch(`/api/signups/${signupId}/fields`);
-          if (res.ok) {
-            const envelope = (await res.json()) as { data: SlotFieldDefinition[] };
-            const refreshed = toBuildFields(envelope.data).map((f) => ({
-              ...f,
-              width: widthById.get(f.id),
-            }));
-            dispatch({ type: 'SET_FIELDS', fields: refreshed });
-          } else {
-            dispatch({ type: 'SET_FIELDS', fields: previous });
-          }
-        } catch {
-          dispatch({ type: 'SET_FIELDS', fields: previous });
-        }
-        markError(failure);
-      }
-    },
-    [signupId, state.fields],
-  );
-
-  const setFieldWidth = useCallback(
-    (fieldId: string, width: number | undefined): void => {
-      dispatch({ type: 'SET_FIELD_WIDTH', fieldId, width });
-    },
-    [],
-  );
+      },
+      async () => toBuildFields(await sendForData<SlotFieldDefinition[]>('GET', fieldsUrl)),
+    );
+  };
 
   // ---------------------------------------------------------------------------
   // Row mutations
   // ---------------------------------------------------------------------------
 
-  const addRow = useCallback(async (
-    seed?: { values?: Record<string, unknown>; capacity?: number },
-  ): Promise<void> => {
-    markSaving();
-    try {
-      const res = await fetch(`/api/signups/${signupId}/slots`, {
-        method: 'POST',
-        headers: JSON_HEADERS,
-        body: JSON.stringify({ values: seed?.values ?? {}, capacity: seed?.capacity ?? 1 }),
-      });
-      await expectOk(res);
-      const envelope = (await res.json()) as {
-        data: { id: string; capacity: number | null; sortOrder: number; values: Record<string, unknown> };
-      };
-      const slot = envelope.data;
-      dispatch({
-        type: 'OPTIMISTIC_ADD_ROW',
-        row: {
-          id: slot.id,
-          capacity: slot.capacity,
-          sortOrder: slot.sortOrder,
-          values: toStringValues(slot.values ?? {}),
-        },
-      });
-      markSaved();
-    } catch (e) {
-      markError(asErr(e));
-    }
-  }, [signupId]);
+  const slotsUrl = `/api/signups/${signupId}/slots`;
 
-  const duplicateRow = useCallback(async (rowId: string): Promise<void> => {
+  const addRow = (seed?: { values?: Record<string, unknown>; capacity?: number }): Promise<void> =>
+    withSave(async () => {
+      const slot = await sendForData<BuildSlot>('POST', slotsUrl, {
+        values: seed?.values ?? {},
+        capacity: seed?.capacity ?? 1,
+      });
+      dispatch({ type: 'OPTIMISTIC_ADD_ROW', row: toBuildRow(slot) });
+    });
+
+  const duplicateRow = async (rowId: string): Promise<void> => {
     const source = stateRef.current.rows.find((r) => r.id === rowId);
     if (!source) return;
     // Clone values verbatim (already string-typed; addRow re-serializes for
     // the API). Capacity falls back to 1 when the source was uncapped — the
     // grid uses null to mean "no limit", but new slots ship with capacity 1
     // to stay safe and consistent with the bare addRow contract.
-    const seedValues: Record<string, unknown> = { ...source.values };
-    await addRow({
-      values: seedValues,
-      capacity: source.capacity ?? 1,
-    });
-  }, [addRow]);
+    await addRow({ values: { ...source.values }, capacity: source.capacity ?? 1 });
+  };
 
-  const deleteRow = useCallback(async (rowId: string): Promise<void> => {
-    markSaving();
-    try {
-      const res = await fetch(`/api/slots/${rowId}`, { method: 'DELETE' });
-      await expectOk(res);
+  const deleteRow = (rowId: string): Promise<void> =>
+    withSave(async () => {
+      await send('DELETE', `/api/slots/${rowId}`);
       dispatch({ type: 'OPTIMISTIC_REMOVE_ROW', rowId });
-      markSaved();
-    } catch (e) {
-      markError(asErr(e));
-    }
-    // markSaving/Saved/Error are stable (inline fns, not deps); rowId is a param
-  }, []);
+    });
 
   // Sends the whole new order in one request, which the server applies in one
   // transaction or not at all. If another tab or an AI assistant added or
   // removed a slot meanwhile, the list is refused as stale; the refetch then
   // shows the slots as they are, and the organizer can drag again.
-  const moveRow = useCallback(
-    async (fromIdx: number, toIdx: number): Promise<void> => {
-      const previous = state.rows;
-      if (fromIdx < 0 || fromIdx >= previous.length) return;
-      const clamped = Math.max(0, Math.min(previous.length - 1, toIdx));
-      if (clamped === fromIdx) return;
-
-      const reordered = previous.slice();
-      const [moved] = reordered.splice(fromIdx, 1);
-      if (!moved) return;
-      reordered.splice(clamped, 0, moved);
-      const resequenced = reordered.map((r, i) => ({ ...r, sortOrder: i }));
-
-      dispatch({ type: 'SET_ROWS', rows: resequenced });
-      markSaving();
-      let failure: { code: ErrorCode; message?: string } | null = null;
-      try {
-        const res = await fetch(`/api/signups/${signupId}/slots/order`, {
-          method: 'PUT',
-          headers: JSON_HEADERS,
-          body: JSON.stringify({ slotIds: resequenced.map((r) => r.id) }),
-        });
-        await expectOk(res);
-        markSaved();
-      } catch (e) {
-        failure = asErr(e);
-        if (failure.code === 'invalid_input') failure = { code: 'invalid_input', message: STALE_REORDER_MESSAGE };
-      }
-      if (failure !== null) {
+  const moveRow = async (fromIdx: number, toIdx: number): Promise<void> => {
+    const previous = stateRef.current.rows;
+    const next = moveItem(previous, fromIdx, toIdx);
+    if (!next) return;
+    await saveMove(
+      previous,
+      next,
+      (rows) => dispatch({ type: 'SET_ROWS', rows }),
+      async () => {
         try {
-          const res = await fetch(`/api/signups/${signupId}/slots`);
-          if (res.ok) {
-            const envelope = (await res.json()) as {
-              data: Array<{ id: string; capacity: number | null; sortOrder: number; values: Record<string, unknown> }>;
-            };
-            const refreshed = envelope.data.map((s) => ({
-              id: s.id,
-              capacity: s.capacity,
-              sortOrder: s.sortOrder,
-              values: toStringValues(s.values ?? {}),
-            }));
-            dispatch({ type: 'SET_ROWS', rows: refreshed });
-          } else {
-            dispatch({ type: 'SET_ROWS', rows: previous });
-          }
-        } catch {
-          dispatch({ type: 'SET_ROWS', rows: previous });
+          await send('PUT', `${slotsUrl}/order`, { slotIds: next.map((r) => r.id) });
+        } catch (e) {
+          const err = asErr(e);
+          throw err.code === 'invalid_input' ? { code: 'invalid_input', message: STALE_REORDER_MESSAGE } : err;
         }
-        markError(failure);
-      }
-    },
-    [signupId, state.rows],
-  );
+      },
+      async () => (await sendForData<BuildSlot[]>('GET', slotsUrl)).map(toBuildRow),
+    );
+  };
 
   // ---------------------------------------------------------------------------
   // Cell / capacity debounced saves
   // ---------------------------------------------------------------------------
 
-  const flushTimer = useCallback((key: string, saveFn: () => Promise<void>) => {
+  function flushTimer(key: string, saveFn: () => Promise<void>) {
     const timers = timersRef.current;
     const existing = timers.get(key);
     if (existing !== undefined) clearTimeout(existing.timeoutId);
@@ -706,66 +602,40 @@ export function useBuildState(
       void saveFn();
     }, DEBOUNCE_MS);
     timers.set(key, { timeoutId, saveFn });
-  }, []);
+  }
 
-  const editCell = useCallback(
-    (rowId: string, fieldRef: string, value: string): void => {
-      dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId, fieldRef, value });
-      const key = `${rowId}:${fieldRef}`;
-      flushTimer(key, async () => {
-        const row = stateRef.current.rows.find((r) => r.id === rowId);
-        if (!row) return;
-        markSaving();
-        try {
-          const fields = stateRef.current.fields;
-          // Coerce by field type so numeric cells round-trip as numbers and
-          // empty strings on number fields drop out of the patch body.
-          const typedValues: Record<string, unknown> = {};
-          for (const [ref, strVal] of Object.entries(row.values)) {
-            const fld = fields.find((f) => f.ref === ref);
-            if (fld?.config.fieldType === 'number') {
-              const n = Number(strVal);
-              if (strVal !== '' && Number.isFinite(n)) typedValues[ref] = n;
-            } else {
-              typedValues[ref] = strVal;
-            }
+  const editCell = (rowId: string, fieldRef: string, value: string): void => {
+    dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId, fieldRef, value });
+    flushTimer(`${rowId}:${fieldRef}`, async () => {
+      const row = stateRef.current.rows.find((r) => r.id === rowId);
+      if (!row) return;
+      await withSave(async () => {
+        const fields = stateRef.current.fields;
+        // Coerce by field type so numeric cells round-trip as numbers and
+        // empty strings on number fields drop out of the patch body.
+        const typedValues: Record<string, unknown> = {};
+        for (const [ref, strVal] of Object.entries(row.values)) {
+          const fld = fields.find((f) => f.ref === ref);
+          if (fld?.config.fieldType === 'number') {
+            const n = Number(strVal);
+            if (strVal !== '' && Number.isFinite(n)) typedValues[ref] = n;
+          } else {
+            typedValues[ref] = strVal;
           }
-          const res = await fetch(`/api/slots/${rowId}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ values: typedValues }),
-          });
-          await expectOk(res);
-          markSaved();
-        } catch (e) {
-          markError(asErr(e));
         }
+        await send('PATCH', `/api/slots/${rowId}`, { values: typedValues });
       });
-    },
-    [flushTimer],
-  );
+    });
+  };
 
-  const setCapacity = useCallback(
-    (rowId: string, capacity: number | null): void => {
-      dispatch({ type: 'OPTIMISTIC_SET_CAPACITY', rowId, capacity });
-      const key = `${rowId}:capacity`;
-      flushTimer(key, async () => {
-        markSaving();
-        try {
-          const res = await fetch(`/api/slots/${rowId}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ capacity }),
-          });
-          await expectOk(res);
-          markSaved();
-        } catch (e) {
-          markError(asErr(e));
-        }
-      });
-    },
-    [flushTimer],
-  );
+  const setCapacity = (rowId: string, capacity: number | null): void => {
+    dispatch({ type: 'OPTIMISTIC_SET_CAPACITY', rowId, capacity });
+    flushTimer(`${rowId}:capacity`, () =>
+      withSave(async () => {
+        await send('PATCH', `/api/slots/${rowId}`, { capacity });
+      }),
+    );
+  };
 
   // Flush all pending saves on unmount — call each pending saveFn immediately,
   // then cancel the timer so it doesn't double-fire.
@@ -782,16 +652,8 @@ export function useBuildState(
   }, []);
 
   // ---------------------------------------------------------------------------
-  // UI state
+  // Signup title, description and settings
   // ---------------------------------------------------------------------------
-
-  const setPreviewRow = useCallback((idx: number): void => {
-    dispatch({ type: 'SET_PREVIEW_ROW', idx });
-  }, []);
-
-  const setShowPreview = useCallback((show: boolean): void => {
-    dispatch({ type: 'SET_SHOW_PREVIEW', show });
-  }, []);
 
   const touchedMetaRef = useRef<Set<'title' | 'description'>>(new Set());
   // Last server-accepted meta values. Used to revert the optimistic state when
@@ -802,70 +664,53 @@ export function useBuildState(
     description: initialMeta.description ?? '',
   });
 
-  const updateSignupMeta = useCallback(
-    (patch: { title?: string; description?: string }): void => {
-      // Track which keys have been touched across consecutive calls so the
-      // debounced PATCH carries every field the user edited in the burst —
-      // not just whichever one was passed in the final call.
-      if (patch.title !== undefined) touchedMetaRef.current.add('title');
-      if (patch.description !== undefined) touchedMetaRef.current.add('description');
-      dispatch({ type: 'OPTIMISTIC_UPDATE_META', patch });
-      flushTimer('signup-meta', async () => {
-        const touched = Array.from(touchedMetaRef.current);
-        touchedMetaRef.current = new Set();
-        const body: Record<string, string> = {};
-        const revert: { title?: string; description?: string } = {};
-        let titleTooShort = false;
-        for (const key of touched) {
-          const raw = stateRef.current[key];
-          const trimmed = raw.trim();
-          if (key === 'title') {
-            if (trimmed.length < 2) {
-              // Server requires min(2). Revert the optimistic value and surface
-              // the validation error so the user knows why their edit didn't
-              // stick — otherwise the title just snaps back with no explanation.
-              revert.title = lastCommittedMetaRef.current.title;
-              titleTooShort = true;
-              continue;
-            }
-            body['title'] = trimmed.slice(0, 120);
-          } else {
-            body['description'] = trimmed.slice(0, 2000);
+  const updateSignupMeta = (patch: { title?: string; description?: string }): void => {
+    // Track which keys have been touched across consecutive calls so the
+    // debounced PATCH carries every field the user edited in the burst —
+    // not just whichever one was passed in the final call.
+    if (patch.title !== undefined) touchedMetaRef.current.add('title');
+    if (patch.description !== undefined) touchedMetaRef.current.add('description');
+    dispatch({ type: 'OPTIMISTIC_UPDATE_META', patch });
+    flushTimer('signup-meta', async () => {
+      const touched = Array.from(touchedMetaRef.current);
+      touchedMetaRef.current = new Set();
+      const body: Record<string, string> = {};
+      const revert: { title?: string; description?: string } = {};
+      let titleTooShort = false;
+      for (const key of touched) {
+        const raw = stateRef.current[key];
+        const trimmed = raw.trim();
+        if (key === 'title') {
+          if (trimmed.length < 2) {
+            // Server requires min(2). Revert the optimistic value and surface
+            // the validation error so the user knows why their edit didn't
+            // stick — otherwise the title just snaps back with no explanation.
+            revert.title = lastCommittedMetaRef.current.title;
+            titleTooShort = true;
+            continue;
           }
+          body['title'] = trimmed.slice(0, 120);
+        } else {
+          body['description'] = trimmed.slice(0, 2000);
         }
-        if (Object.keys(revert).length > 0) {
-          dispatch({ type: 'OPTIMISTIC_UPDATE_META', patch: revert });
-        }
-        if (Object.keys(body).length === 0) {
-          if (titleTooShort) {
-            markError({ code: 'invalid_input', message: 'Title must be at least 2 characters.' });
-          }
-          return;
-        }
-        markSaving();
-        try {
-          const res = await fetch(`/api/signups/${signupId}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify(body),
-          });
-          await expectOk(res);
-          if (body['title'] !== undefined) lastCommittedMetaRef.current.title = body['title'];
-          if (body['description'] !== undefined) lastCommittedMetaRef.current.description = body['description'];
-          if (titleTooShort) {
-            // Description saved but title was rejected client-side — surface
-            // the validation message anyway so the user gets the feedback.
-            markError({ code: 'invalid_input', message: 'Title must be at least 2 characters.' });
-          } else {
-            markSaved();
-          }
-        } catch (e) {
-          markError(asErr(e));
-        }
+      }
+      if (Object.keys(revert).length > 0) {
+        dispatch({ type: 'OPTIMISTIC_UPDATE_META', patch: revert });
+      }
+      if (Object.keys(body).length === 0) {
+        if (titleTooShort) markError(TITLE_TOO_SHORT);
+        return;
+      }
+      await withSave(async () => {
+        await send('PATCH', `/api/signups/${signupId}`, body);
+        if (body['title'] !== undefined) lastCommittedMetaRef.current.title = body['title'];
+        if (body['description'] !== undefined) lastCommittedMetaRef.current.description = body['description'];
+        // Description saved but title was rejected client-side — surface
+        // the validation message anyway so the user gets the feedback.
+        if (titleTooShort) throw TITLE_TOO_SHORT;
       });
-    },
-    [signupId, flushTimer],
-  );
+    });
+  };
 
   /**
    * PATCHes `changed`, only the settings a control changed, and shows the
@@ -874,35 +719,22 @@ export function useBuildState(
    * control, so with two in flight a slow earlier one could land last and put
    * its older snapshot back, and the server could apply them in either order.
    */
-  const saveSettings = useCallback(
-    (changed: Partial<SignupSettings>): Promise<void> => {
-      markSaving();
-      const save = settingsSaveRef.current.then(async () => {
-        // The save this one waited for may have marked the rail saved already.
-        markSaving();
-        try {
-          const res = await fetch(`/api/signups/${signupId}`, {
-            method: 'PATCH',
-            headers: JSON_HEADERS,
-            body: JSON.stringify({ settings: changed }),
-          });
-          await expectOk(res);
-          showSettings((await savedSettings(res)) ?? { ...settingsRef.current, ...changed });
-          markSaved();
-        } catch (e) {
-          markError(asErr(e));
-        }
-      });
-      settingsSaveRef.current = save;
-      return save;
-    },
-    [signupId],
-  );
+  const saveSettings = (changed: Partial<SignupSettings>): Promise<void> => {
+    markSaving();
+    // withSave marks the rail saving again: the save this one waited for may
+    // have marked it saved already.
+    const save = settingsSaveRef.current.then(() =>
+      withSave(async () => {
+        const res = await send('PATCH', `/api/signups/${signupId}`, { settings: changed });
+        showSettings((await savedSettings(res)) ?? { ...settingsRef.current, ...changed });
+      }),
+    );
+    settingsSaveRef.current = save;
+    return save;
+  };
 
-  const setGroupBy = useCallback(
-    (ref: string | null): Promise<void> => saveSettings({ groupByFieldRefs: ref ? [ref] : [] }),
-    [saveSettings],
-  );
+  const setGroupBy = (ref: string | null): Promise<void> =>
+    saveSettings({ groupByFieldRefs: ref ? [ref] : [] });
 
   /**
    * Makes `ref` the reminder field, or switches reminders off with null.
@@ -910,13 +742,8 @@ export function useBuildState(
    * `reminderFromFieldRef`: it still anchors every slot's instant (calendar
    * links, date order), only the switch flips.
    */
-  const setReminderField = useCallback(
-    (ref: string | null): Promise<void> =>
-      saveSettings(
-        ref ? { sendReminders: true, reminderFromFieldRef: ref } : { sendReminders: false },
-      ),
-    [saveSettings],
-  );
+  const setReminderField = (ref: string | null): Promise<void> =>
+    saveSettings(ref ? { sendReminders: true, reminderFromFieldRef: ref } : { sendReminders: false });
 
   return {
     state,
@@ -924,15 +751,12 @@ export function useBuildState(
     updateField,
     deleteField,
     moveField,
-    setFieldWidth,
     addRow,
     duplicateRow,
     deleteRow,
     moveRow,
     editCell,
     setCapacity,
-    setPreviewRow,
-    setShowPreview,
     setGroupBy,
     setReminderField,
     updateSignupMeta,

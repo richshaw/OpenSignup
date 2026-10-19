@@ -37,9 +37,9 @@ export default async function BuildTab({ params }: PageParams) {
         initialFields={sig.fields}
         initialSlots={sig.slots.map((s) => ({
           id: s.id,
-          capacity: s.capacity ?? null,
+          capacity: s.capacity,
           sortOrder: s.sortOrder,
-          values: (s.values ?? {}) as Record<string, unknown>,
+          values: s.values as Record<string, unknown>,
         }))}
         initialSettings={SignupSettingsSchema.parse(sig.settings ?? {})}
         committedBySlot={filled.value}
