@@ -1557,3 +1557,81 @@ describe('useBuildState setGroupBy', () => {
     expect(result.current.state.saveStatus.kind).toBe('saved');
   });
 });
+
+describe('useBuildState settings naming a field this tab has not loaded', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const whatField = makeApiField({ id: 'f-what', ref: 'what', label: 'What', sortOrder: 0 });
+  const eventDay = makeApiField({
+    id: 'f-event',
+    ref: 'event-day',
+    label: 'Event day',
+    fieldType: 'date',
+    sortOrder: 1,
+    config: { fieldType: 'date' },
+  });
+  // An assistant added "Event day" and moved reminders to it after this tab
+  // opened, so the merged settings the PATCH returns name a field it lacks.
+  const saved: SignupSettings = {
+    ...defaultSettings,
+    sendReminders: true,
+    reminderFromFieldRef: 'event-day',
+    groupByFieldRefs: ['what'],
+  };
+
+  function routedFetch(fields: () => Response) {
+    return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/signups/sig_test/fields' && init?.method === 'GET') {
+        return Promise.resolve(fields());
+      }
+      return Promise.resolve(jsonResponse({ data: { id: 'sig_test', settings: saved } }));
+    });
+  }
+
+  it('fetches the field list, so the reminder field it adopts is one the tab can show', async () => {
+    const fetchMock = routedFetch(() => jsonResponse({ data: [whatField, eventDay] }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useBuildState('sig_test', [whatField], [], defaultSettings));
+
+    await act(async () => {
+      await result.current.setGroupBy('what');
+    });
+
+    expect(result.current.state.fields.map((f) => f.ref)).toEqual(['what', 'event-day']);
+    expect(result.current.state.reminderFieldRef).toBe('event-day');
+    expect(result.current.state.groupByFieldRef).toBe('what');
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('does not fetch fields when every field the settings name is loaded', async () => {
+    const fetchMock = routedFetch(() => jsonResponse({ data: [whatField, eventDay] }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useBuildState('sig_test', [whatField, eventDay], [], defaultSettings),
+    );
+
+    await act(async () => {
+      await result.current.setGroupBy('what');
+    });
+
+    const gets = fetchMock.mock.calls.filter((c) => c[1]?.method === 'GET');
+    expect(gets).toHaveLength(0);
+    expect(result.current.state.reminderFieldRef).toBe('event-day');
+  });
+
+  it('still shows the save as saved when the field fetch fails', async () => {
+    const fetchMock = routedFetch(() => jsonResponse({ error: { code: 'internal' } }, { status: 500 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useBuildState('sig_test', [whatField], [], defaultSettings));
+
+    await act(async () => {
+      await result.current.setGroupBy('what');
+    });
+
+    expect(result.current.state.fields.map((f) => f.ref)).toEqual(['what']);
+    expect(result.current.state.groupByFieldRef).toBe('what');
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+});
