@@ -3,6 +3,7 @@ import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
+import { FIELD_VALUE_INPUT_CLASS } from '../build-shared/fieldTypes';
 
 function makeRow(overrides: Partial<BuildRow> = {}): BuildRow {
   return {
@@ -100,15 +101,124 @@ describe('WysiwygGroup', () => {
     expect(onAddSlot).toHaveBeenCalledWith('2026-05-21');
   });
 
-  it('renaming the header calls onRenameGroup with old and new keys', () => {
+  it('edits a date header in a date input that starts where the services do', () => {
     const { onRenameGroup } = renderGroup({
       group: { key: '2026-05-21', rawValue: '2026-05-21', rows: [makeRow()] },
     });
     fireEvent.click(screen.getByRole('button', { name: /Group header.*Thu, May 21/ }));
-    const input = screen.getByRole('textbox') as HTMLInputElement;
+    const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
+    expect(input.type).toBe('date');
+    expect(input.min).toBe('1900-01-01');
     fireEvent.change(input, { target: { value: '2026-05-22' } });
     fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onRenameGroup).toHaveBeenCalledOnce();
     expect(onRenameGroup).toHaveBeenCalledWith('2026-05-21', '2026-05-22');
+  });
+
+  it('boxes a date header\'s input as the slot editor does, not in the header\'s small caps', () => {
+    renderGroup({ group: { key: '2026-05-21', rawValue: '2026-05-21', rows: [makeRow()] } });
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Thu, May 21/ }));
+    const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
+    expect(input.className).toBe(FIELD_VALUE_INPUT_CLASS);
+  });
+
+  it('leaves a date header alone when the date is only half typed', () => {
+    const { onRenameGroup } = renderGroup({
+      group: { key: '2026-05-21', rawValue: '2026-05-21', rows: [makeRow()] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Thu, May 21/ }));
+    const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
+    // A date input reports '' until every part of the date is filled in.
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    expect(onRenameGroup).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /Group header.*Thu, May 21/ })).toBeTruthy();
+  });
+
+  it('sets an empty date group from a blank date input', () => {
+    const { onRenameGroup } = renderGroup({
+      group: { key: '__empty__', rawValue: '', rows: [makeRow()] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Set a date/ }));
+    const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
+    expect(input.type).toBe('date');
+    expect(input.value).toBe('');
+    fireEvent.change(input, { target: { value: '2026-11-14' } });
+    fireEvent.blur(input);
+    expect(onRenameGroup).toHaveBeenCalledWith('__empty__', '2026-11-14');
+  });
+
+  it('offers only the list\'s choices for a List header', () => {
+    const { onRenameGroup } = renderGroup({
+      group: { key: 'Cups', rawValue: 'Cups', rows: [makeRow()] },
+      groupField: makeField({
+        ref: 'item',
+        name: 'Item',
+        config: { fieldType: 'enum', choices: ['Cups', 'Plates'] },
+      }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Cups/ }));
+    expect(screen.queryByRole('textbox')).toBeNull();
+    const options = screen.getAllByRole('option').map((o) => o.textContent);
+    expect(options).toEqual(['Cups', 'Plates']);
+    fireEvent.click(screen.getByRole('option', { name: 'Plates' }));
+    expect(onRenameGroup).toHaveBeenCalledWith('Cups', 'Plates');
+  });
+
+  it('adds a new choice to the list before renaming a List header to it', async () => {
+    const onAddEnumOption = vi.fn<(fieldId: string, value: string) => Promise<void>>().mockResolvedValue();
+    const { onRenameGroup } = renderGroup({
+      group: { key: 'Cups', rawValue: 'Cups', rows: [makeRow()] },
+      groupField: makeField({
+        id: 'f-item',
+        ref: 'item',
+        name: 'Item',
+        config: { fieldType: 'enum', choices: ['Cups'] },
+      }),
+      onAddEnumOption,
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Cups/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to list' }));
+    const input = screen.getByLabelText('New option name');
+    fireEvent.change(input, { target: { value: 'Forks' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() => expect(onRenameGroup).toHaveBeenCalledWith('Cups', 'Forks'));
+    expect(onAddEnumOption).toHaveBeenCalledWith('f-item', 'Forks');
+  });
+
+  it('keeps free text for a Short text header', () => {
+    const { onRenameGroup } = renderGroup({
+      group: { key: 'Snacks', rawValue: 'Snacks', rows: [makeRow()] },
+      groupField: makeField({ ref: 'what', name: 'What', config: { fieldType: 'text', maxLength: 200 } }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Snacks/ }));
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Drinks' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onRenameGroup).toHaveBeenCalledWith('Snacks', 'Drinks');
+  });
+
+  it('says so next to the header when its last change did not save', () => {
+    render(
+      <WysiwygGroup
+        group={{ key: '2026-05-21', rawValue: '2026-05-21', rows: [] }}
+        groupField={makeField()}
+        displayFields={[]}
+        fields={[makeField()]}
+        takenBySlot={{}}
+        expandedRowId={null}
+        onExpandRow={vi.fn()}
+        onEditCell={vi.fn()}
+        onSetCapacity={vi.fn()}
+        onAddEnumOption={vi.fn()}
+        onDuplicateRow={vi.fn()}
+        onDeleteRow={vi.fn()}
+        onAddSlot={vi.fn()}
+        onRenameGroup={vi.fn()}
+        renameFailed
+      />,
+    );
+    expect(screen.getByRole('alert').textContent).toMatch(/didn.t save/);
   });
 
   it('shows "Set a date" placeholder for the empty-bucket header on a date group field', () => {
