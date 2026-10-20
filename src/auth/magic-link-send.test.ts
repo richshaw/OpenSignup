@@ -33,10 +33,12 @@ async function timeOut(transport: ReturnType<typeof slowTransport>['transport'])
   await settled;
 }
 
+let info: ReturnType<typeof vi.spyOn>;
 let warn: ReturnType<typeof vi.spyOn>;
 let error: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   vi.useFakeTimers();
+  info = vi.spyOn(log, 'info').mockImplementation(() => {});
   warn = vi.spyOn(log, 'warn').mockImplementation(() => {});
   error = vi.spyOn(log, 'error').mockImplementation(() => {});
 });
@@ -52,6 +54,14 @@ describe('sendMagicLinkEmail', () => {
     expect(send).toHaveBeenCalledExactlyOnceWith(message);
   });
 
+  it('logs that the link went out, naming only the domain', async () => {
+    await sendMagicLinkEmail({ send: async () => ({ id: 'msg-1', transport: 'smtp' }) }, message);
+    expect(info).toHaveBeenCalledExactlyOnceWith(
+      { emailDomain: 'example.com' },
+      'magic link dispatched',
+    );
+  });
+
   it('logs that a send which outlived the limit went out', async () => {
     const { transport, succeed } = slowTransport();
     await timeOut(transport);
@@ -61,7 +71,7 @@ describe('sendMagicLinkEmail', () => {
     succeed({ id: 'msg-1', transport: 'smtp' });
     await vi.advanceTimersByTimeAsync(0);
     expect(warn).toHaveBeenCalledExactlyOnceWith(
-      { email: 'pat@example.com', elapsedMs: MAGIC_LINK_SEND_TIMEOUT_MS + 5_000 },
+      { emailDomain: 'example.com', elapsedMs: MAGIC_LINK_SEND_TIMEOUT_MS + 5_000 },
       'magic link dispatched after its send timed out',
     );
     expect(error).not.toHaveBeenCalled();
@@ -81,7 +91,7 @@ describe('sendMagicLinkEmail', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(error).toHaveBeenCalledExactlyOnceWith(
       {
-        email: 'pat@example.com',
+        emailDomain: 'example.com',
         sendError: {
           message: 'Invalid login: 535 5.7.8 Authentication failed',
           code: 'EAUTH',
@@ -107,7 +117,7 @@ describe('sendMagicLinkEmail', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(error).toHaveBeenCalledExactlyOnceWith(
       {
-        email: 'pat@example.com',
+        emailDomain: 'example.com',
         sendError: {
           message: 'fetch failed',
           cause: { message: 'connect ECONNREFUSED 127.0.0.1:443', code: 'ECONNREFUSED' },
@@ -126,7 +136,7 @@ describe('sendMagicLinkEmail', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(error).toHaveBeenCalledExactlyOnceWith(
       {
-        email: 'pat@example.com',
+        emailDomain: 'example.com',
         sendError: { message: 'connection reset' },
         elapsedMs: MAGIC_LINK_SEND_TIMEOUT_MS,
       },
@@ -156,6 +166,7 @@ describe('sendMagicLinkEmail', () => {
     expect(logged).toContain('http://localhost:3000/login/confirm?[redacted]');
     expect(logged).not.toContain(token);
     expect(logged).not.toContain(code);
+    expect(logged).not.toContain('pat@example.com');
   });
 
   it('logs nothing more when the send ends in time', async () => {
@@ -171,6 +182,7 @@ describe('sendMagicLinkEmail', () => {
       ),
     ).rejects.toThrow('550 rejected');
     await vi.advanceTimersByTimeAsync(MAGIC_LINK_SEND_TIMEOUT_MS);
+    expect(info).toHaveBeenCalledOnce();
     expect(warn).not.toHaveBeenCalled();
     expect(error).not.toHaveBeenCalled();
   });
