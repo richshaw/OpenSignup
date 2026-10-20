@@ -38,13 +38,14 @@ export async function loadCommitmentRow(db: Db, commitmentId: string, where?: SQ
 /**
  * Whether an `eventType` row is already recorded for this commitment, such as
  * the `commitment.confirmation_sent` or `reminder.sent` that says its email
- * went out.
+ * went out. `where`, a condition over `activity`, narrows which rows count.
  */
 export async function alreadyRecorded(
   db: Db,
   eventType: ActivityEvent,
   signupId: string,
   commitmentId: string,
+  where?: SQL,
 ): Promise<boolean> {
   const [row] = await db
     .select({ id: activity.id })
@@ -57,6 +58,7 @@ export async function alreadyRecorded(
         // event ever recorded even where the expression index is absent.
         eq(activity.signupId, signupId),
         sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
+        where,
       ),
     )
     .limit(1);

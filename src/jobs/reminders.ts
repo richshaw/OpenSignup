@@ -1,5 +1,6 @@
 import { and, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
+import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
@@ -59,6 +60,18 @@ const reminderDueRules = {
   'participant has no email': isNotNull(participants.email),
 } satisfies Record<string, SQL>;
 
+/**
+ * Whether the reminder.sent row whose payload is `payload` was for the slot
+ * time `slotAt`. A row counts only for the time it reminded about, so a slot
+ * the organizer moves after its reminder went out is reminded again for the
+ * new time. Rows recorded before reminders named their time have no `slotAt`,
+ * and count for any time, so a deploy sends nothing twice. The slot side is
+ * cut to milliseconds, the precision the ISO string in the payload keeps.
+ */
+function remindedForTime(payload: SQL, slotAt: SQL): SQL {
+  return sql`coalesce((${payload}->>'slotAt')::timestamptz = date_trunc('milliseconds', ${slotAt}), true)`;
+}
+
 /** Every rule in `reminderDueRules`: the reminder is due now. */
 const reminderDueCondition = and(...Object.values(reminderDueRules))!;
 
@@ -88,7 +101,7 @@ async function reminderSkipReasons(db: Db, commitmentId: string): Promise<string
 /**
  * Selects the commitments whose reminder is *due* — slot still in the future,
  * but now within the signup's reminder lead time — and that have no
- * reminder.sent activity row yet.
+ * reminder.sent activity row yet for the slot's current time.
  *
  * This is a "due now" test rather than a window around the lead time. A window
  * silently drops every reminder whose moment passed while the worker was down;
@@ -113,11 +126,12 @@ export async function selectDueReminders(db: Db): Promise<{ commitmentId: string
     .where(
       and(
         reminderDueCondition,
-        // skip if a reminder was already recorded for this commitment
+        // skip if a reminder was already recorded for this commitment and time
         sql`NOT EXISTS (
           SELECT 1 FROM activity a
           WHERE a.event_type = 'reminder.sent'
             AND (a.payload->>'commitmentId') = ${commitments.id}
+            AND ${remindedForTime(sql`a.payload`, sql`${slots.slotAt}`)}
         )`,
       ),
     );
@@ -164,20 +178,30 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     }
     return;
   }
-  // reminderDueRules requires an email, so this only narrows the type.
+  // reminderDueRules requires an email and a slot time, so this only narrows
+  // the types.
   const to = row.participant.email;
-  if (to === null) return;
+  const slotAt = row.slot.slotAt;
+  if (to === null || slotAt === null) return;
 
   // Idempotency guard, and the only one: the queue does not dedupe (see
   // dispatchReminders), so a commitment can have several jobs, and the first
-  // to send records reminder.sent for the rest to find here. A check, not a
-  // lock: it holds only while a single worker process runs send jobs one at
-  // a time. Two worker processes could each take a job for the same
-  // commitment, both find no row here, and both send, which is why an
-  // instance runs exactly one `pnpm worker`. It also cannot catch an email
-  // that went out when recording it then failed; that job's retry sends it
-  // again.
-  if (await alreadyRecorded(db, 'reminder.sent', row.signup.id, payload.commitmentId)) {
+  // to send records reminder.sent for the rest to find here, for this slot
+  // time (see remindedForTime). A check, not a lock: it holds only while a
+  // single worker process runs send jobs one at a time. Two worker processes
+  // could each take a job for the same commitment, both find no row here, and
+  // both send, which is why an instance runs exactly one `pnpm worker`. It
+  // also cannot catch an email that went out when recording it then failed;
+  // that job's retry sends it again.
+  if (
+    await alreadyRecorded(
+      db,
+      'reminder.sent',
+      row.signup.id,
+      payload.commitmentId,
+      remindedForTime(sql`${activity.payload}`, sql`${slotAt.toISOString()}::timestamptz`),
+    )
+  ) {
     log.info({ commitmentId: payload.commitmentId }, 'reminder already sent; skipping');
     return;
   }
@@ -212,6 +236,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
       commitmentId: row.commitment.id,
       participantId: row.participant.id,
       channel: 'email',
+      slotAt: slotAt.toISOString(),
     },
   });
 }
