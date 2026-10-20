@@ -5,6 +5,7 @@ import { ChevronRight, Download, Send, XCircle } from 'lucide-react';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import type { SignupStatus } from '@/schemas/signups';
+import { StatusActionForm, type StatusAction } from './StatusActionForm';
 
 type MobileMoreMenuSheetProps = {
   open: boolean;
@@ -12,8 +13,8 @@ type MobileMoreMenuSheetProps = {
   signupId: string;
   status: SignupStatus;
   title: string;
-  publishAction: () => void | Promise<void>;
-  closeAction: () => void | Promise<void>;
+  publishAction: StatusAction;
+  closeAction: StatusAction;
 };
 
 export function MobileMoreMenuSheet({
@@ -41,7 +42,11 @@ export function MobileMoreMenuSheet({
         </Link>
 
         {status === 'draft' ? (
-          <form action={publishAction} className="border-t border-surface-sunk">
+          <StatusActionForm
+            action={publishAction}
+            className="border-t border-surface-sunk"
+            errorClassName="pb-3"
+          >
             <AsyncSubmitButton
               loadingLabel="Publishing…"
               className="flex w-full py-3.5 text-[15px] font-semibold text-brand"
@@ -49,11 +54,15 @@ export function MobileMoreMenuSheet({
               <Send size={16} aria-hidden="true" />
               <span>Publish signup</span>
             </AsyncSubmitButton>
-          </form>
+          </StatusActionForm>
         ) : null}
 
         {status === 'open' ? (
-          <form action={closeAction} className="border-t border-surface-sunk">
+          <StatusActionForm
+            action={closeAction}
+            className="border-t border-surface-sunk"
+            errorClassName="pb-3"
+          >
             <AsyncSubmitButton
               loadingLabel="Closing…"
               className="flex w-full py-3.5 text-[15px] font-medium text-ink"
@@ -61,7 +70,7 @@ export function MobileMoreMenuSheet({
               <XCircle size={16} aria-hidden="true" />
               <span>Close signup</span>
             </AsyncSubmitButton>
-          </form>
+          </StatusActionForm>
         ) : null}
       </div>
     </BottomSheet>

@@ -5,14 +5,15 @@ import { StatusPill } from '@/components/status-pill';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import type { SignupStatus } from '@/schemas/signups';
 import { MobileSignupHeader } from './MobileSignupHeader';
+import { StatusActionForm, type StatusAction } from './StatusActionForm';
 
 interface SignupHeaderProps {
   signupId: string;
   title: string;
   status: SignupStatus;
   publicUrl: string;
-  publishAction: () => void | Promise<void>;
-  closeAction: () => void | Promise<void>;
+  publishAction: StatusAction;
+  closeAction: StatusAction;
 }
 
 export function SignupHeader({
@@ -68,24 +69,32 @@ export function SignupHeader({
             Export
           </Link>
           {status === 'draft' ? (
-            <form action={publishAction} className="w-full">
+            <StatusActionForm
+              action={publishAction}
+              className="contents"
+              errorClassName="col-span-full"
+            >
               <AsyncSubmitButton
                 loadingLabel="Publishing…"
                 className="bg-brand inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
               >
                 Publish
               </AsyncSubmitButton>
-            </form>
+            </StatusActionForm>
           ) : null}
           {status === 'open' ? (
-            <form action={closeAction} className="w-full">
+            <StatusActionForm
+              action={closeAction}
+              className="contents"
+              errorClassName="col-span-full"
+            >
               <AsyncSubmitButton
                 loadingLabel="Closing…"
                 className="bg-brand inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
               >
                 Close signup
               </AsyncSubmitButton>
-            </form>
+            </StatusActionForm>
           ) : null}
         </div>
       </div>
