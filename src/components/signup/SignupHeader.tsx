@@ -5,7 +5,12 @@ import { StatusPill } from '@/components/status-pill';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import type { SignupStatus } from '@/schemas/signups';
 import { MobileSignupHeader } from './MobileSignupHeader';
-import { StatusActionForm, type StatusAction } from './StatusActionForm';
+import {
+  StatusActionButtonForm,
+  StatusActionRefusal,
+  StatusActionScope,
+  type StatusAction,
+} from './StatusActionForm';
 
 interface SignupHeaderProps {
   signupId: string;
@@ -42,6 +47,9 @@ export function SignupHeader({
           closeAction={closeAction}
         />
       </div>
+      {/* Publish or Close signup, whichever the status offers. A refusal shows
+          on its own full-width line under the header, not in the button grid. */}
+      <StatusActionScope action={status === 'draft' ? publishAction : closeAction}>
       <header className="hidden space-y-3 md:block">
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0 flex-1 space-y-3">
@@ -69,36 +77,30 @@ export function SignupHeader({
             Export
           </Link>
           {status === 'draft' ? (
-            <StatusActionForm
-              action={publishAction}
-              className="contents"
-              errorClassName="col-span-full"
-            >
+            <StatusActionButtonForm>
               <AsyncSubmitButton
                 loadingLabel="Publishing…"
                 className="bg-brand inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
               >
                 Publish
               </AsyncSubmitButton>
-            </StatusActionForm>
+            </StatusActionButtonForm>
           ) : null}
           {status === 'open' ? (
-            <StatusActionForm
-              action={closeAction}
-              className="contents"
-              errorClassName="col-span-full"
-            >
+            <StatusActionButtonForm>
               <AsyncSubmitButton
                 loadingLabel="Closing…"
                 className="bg-brand inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
               >
                 Close signup
               </AsyncSubmitButton>
-            </StatusActionForm>
+            </StatusActionButtonForm>
           ) : null}
         </div>
       </div>
+      <StatusActionRefusal />
       </header>
+      </StatusActionScope>
     </>
   );
 }
