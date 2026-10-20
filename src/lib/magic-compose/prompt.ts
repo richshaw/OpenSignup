@@ -14,6 +14,7 @@ import {
   NO_PERSONAL_DATA,
   ONE_SLOT_PER_COMBINATION,
   SLOTS_ARE_THE_ATOM,
+  USE_CAPACITY_NOT_DUPLICATE_ROWS,
   neverInventRule,
 } from '@/lib/signup-rules';
 
@@ -91,6 +92,10 @@ ${FIELD_TYPE_GUIDE}
 CROSS-PRODUCT EXPANSION — most important rule:
 
 When the user describes a grid of dimensions (e.g. "3 classes × 12 time slots", "6 games × 2 family roles", "2 days × 3 shifts"), ${ONE_SLOT_PER_COMBINATION} Every slot's "values" object MUST contain a value for every declared field's "ref" — never emit an empty values object.
+
+CAPACITY — one slot, not one row per person:
+
+${USE_CAPACITY_NOT_DUPLICATE_ROWS}
 
 GROUPING — ${GROUP_BY_SCAN_AXIS}:
 - Cross-product with a small named dimension (classes, teachers, stations): groupBy that dimension's ref.

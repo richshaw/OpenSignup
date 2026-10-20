@@ -41,7 +41,8 @@
       "free_form_questions_principle_violation",
       "cross_product_expansion",
       "groupBy_correctness",
-      "groupBy_null_when_pure_date"
+      "groupBy_null_when_pure_date",
+      "capacity_not_duplicate_rows"
     ]
   },
   "runner_legend": {
@@ -432,6 +433,29 @@
         "slot_dates.set_must_equal": ["2026-11-07", "2026-11-21", "2026-12-05"],
         "fields.labels_must_not_match_any": ["name", "email", "phone", "parent"],
         "rationale": "Regression (#475, #476): one slot per game with capacity 3, not three slots per game or a field per parent's name."
+      }
+    },
+    {
+      "id": "ev_027_three_shifts_capacity_not_duplicate_rows",
+      "tags": ["volunteering", "edge:capacity_gt_1", "capacity_not_duplicate_rows", "regression"],
+      "runner": "llm",
+      "prompt": "Park cleanup on Saturday November 14, 2026. Three shifts, 9 to 11, 11 to 1 and 1 to 3, and we need 8 volunteers on each shift, so 24 people in all.",
+      "expect": {
+        "slots.count": 3,
+        "slots.all_capacities_equal": 8,
+        "rationale": "Regression (#501): the Magic Compose prompt had no rule for one slot with N spots, so drafts could come back with a row per person. One slot per shift with capacity 8, not 24 identical rows."
+      }
+    },
+    {
+      "id": "ev_028_potluck_dish_types_capacity_not_row_per_family",
+      "tags": ["school", "edge:capacity_gt_1", "capacity_not_duplicate_rows", "regression"],
+      "runner": "llm",
+      "prompt": "End-of-term potluck for our grade 3 class, Friday December 18, 2026 at 5pm. 20 families are each bringing one dish, about 5 of each: mains, sides, desserts and drinks.",
+      "expect": {
+        "slots.count": 4,
+        "slots.all_capacities_equal": 5,
+        "slot_labels.must_cover_any_of_each": [["main"], ["side"], ["dessert"], ["drink"]],
+        "rationale": "Regression (#501): the potluck starter prompt (\"20 families ... roughly 5 of each\") read as a row per family. One slot per dish type with capacity 5, not 20 rows."
       }
     }
   ]

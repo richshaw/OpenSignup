@@ -16,7 +16,7 @@ export const STARTER_PROMPTS: MagicComposeStarter[] = [
     id: 'classroom',
     label: 'Classroom or school',
     blurb: 'Potlucks, conference signups, supply drives, volunteer days',
-    body: "End-of-year potluck for our grade 3 class on the last Friday of the month at 5pm. 20 families. We need mains, sides, desserts, and drinks, roughly 5 of each.",
+    body: "End-of-year potluck for our grade 3 class on the last Friday of the month at 5pm. We need about 5 mains, 5 sides, 5 desserts and 5 drinks.",
   },
   {
     id: 'community',
