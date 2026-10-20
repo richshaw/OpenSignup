@@ -5,10 +5,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { ACTION_SIZING } from './slot-format';
+import { toSignupViewSlots } from './public-signup';
 import {
   SignupViewBody,
   toSignupViewSignup,
-  toSignupViewSlots,
   type SignupViewField,
   type SignupViewSlot,
 } from './signup-view';
