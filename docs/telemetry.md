@@ -64,8 +64,9 @@ by `clientDomain` instead.
 | `slot.reordered` | organizer | `{ slotIds }` (every slot, in the new order; written even when the order did not change) | `services/slots.ts` (`reorderSlots`, from the `reorder_slots` tool; a drag in the Build tab writes a `slot.updated` per moved slot instead) |
 | `slot.deleted` | organizer | `{ slotId, commitmentsRemoved, places }` (the sign-ups deleted with it, as commitments and as places) | `services/slots.ts` |
 | `commitment.removed` | organizer | `{ commitmentId, participantId, slotId }` (an organizer took the person off their slot on the Responses tab; nobody is emailed) | `services/commitments.ts` (`removeCommitment`) |
-| `field.created` | organizer | `{ fieldId, ref, fieldType, reminderFromFieldRef? }` | `services/slot-fields.ts` |
+| `field.created` | organizer | `{ fieldId, ref, fieldType, beforeFieldId?, reminderFromFieldRef? }` (`beforeFieldId` when the field was put in front of another) | `services/slot-fields.ts` |
 | `field.updated` | organizer | `{ fieldId, ref, changes, reminderFromFieldRef? }` (`changes` maps each key the update sent to its new value) | `services/slot-fields.ts` |
+| `field.reordered` | organizer | `{ fieldIds, reminderFromFieldRef? }` (every field, in the new order; written even when the order did not change) | `services/slot-fields.ts` (`reorderFields`, from the `reorder_fields` tool; the Build tab writes a `field.updated` per moved field instead) |
 | `field.deleted` | organizer | `{ fieldId, ref, reminderFromFieldRef?, removedFromGroupByFieldRefs? }` | `services/slot-fields.ts` |
 
 `reminderFromFieldRef` is present only when the change moved the date field

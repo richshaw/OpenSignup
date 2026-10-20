@@ -100,6 +100,13 @@ export async function lockSignupForWrite(tx: Tx, signupId: string, workspaceId: 
 }
 
 /**
+ * The order a signup's slots are shown in, everywhere: the organizer view, the
+ * public page and the MCP tools. `lockSlotsForSignup` locks in this order too,
+ * so an insert before a given slot finds the same neighbours people see.
+ */
+export const SLOT_DISPLAY_ORDER = [asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt)];
+
+/**
  * A signup's slots in the order they are shown, with every row locked until
  * the transaction ends. Take the signup row lock first (`lockSignupForWrite`):
  * `commitToSlot` and `deleteSlot` hold one slot row and then key-share the
@@ -113,7 +120,7 @@ export async function lockSlotsForSignup(tx: Tx, signupId: string, workspaceId: 
     .select()
     .from(slots)
     .where(and(eq(slots.signupId, signupId), inWorkspace(slots.workspaceId, workspaceId)))
-    .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt))
+    .orderBy(...SLOT_DISPLAY_ORDER)
     .for('update');
 }
 
