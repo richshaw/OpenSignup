@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto';
+import { toKebab } from './kebab';
 
 const CROCKFORD = '0123456789abcdefghjkmnpqrstvwxyz';
 
@@ -10,16 +11,6 @@ export function randomSuffix(length = 5): string {
   return out;
 }
 
-function normalize(input: string): string {
-  return input
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-');
-}
-
 export interface SlugOptions {
   suffix?: boolean;
   fallback?: string;
@@ -28,7 +19,7 @@ export interface SlugOptions {
 
 export function toSlug(input: string, opts: SlugOptions = {}): string {
   const { suffix = false, fallback = 'signup', maxLength = 60 } = opts;
-  let base = normalize(input);
+  let base = toKebab(input);
   if (!base) base = fallback;
   if (base.length > maxLength) base = base.slice(0, maxLength).replace(/-+$/, '');
   if (!suffix) return base;
