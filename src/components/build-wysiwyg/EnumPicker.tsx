@@ -19,6 +19,13 @@ type EnumPickerProps = {
    * in `choices` and reject it as `invalid_input`).
    */
   onAddOption: (value: string) => void | Promise<void>;
+  /** Shown when nothing is chosen. */
+  placeholder?: string;
+  /**
+   * Replaces the slot editor's boxed look, for a picker set inline in text (a
+   * group header); its menu then sets its own width.
+   */
+  triggerClassName?: string;
 };
 
 /**
@@ -27,7 +34,15 @@ type EnumPickerProps = {
  * grow as organizers fill in values, instead of needing a separate schema
  * trip.
  */
-export function EnumPicker({ value, options, ariaLabel, onChange, onAddOption }: EnumPickerProps) {
+export function EnumPicker({
+  value,
+  options,
+  ariaLabel,
+  onChange,
+  onAddOption,
+  placeholder = 'Choose\u2026',
+  triggerClassName,
+}: EnumPickerProps) {
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
@@ -71,7 +86,7 @@ export function EnumPicker({ value, options, ariaLabel, onChange, onAddOption }:
   };
 
   return (
-    <div className="relative" data-testid="enum-picker">
+    <div className={triggerClassName ? 'relative inline-block' : 'relative'} data-testid="enum-picker">
       <button
         ref={triggerRef}
         type="button"
@@ -80,13 +95,14 @@ export function EnumPicker({ value, options, ariaLabel, onChange, onAddOption }:
         aria-expanded={open}
         aria-label={ariaLabel}
         className={
+          triggerClassName ??
           'flex w-full items-center justify-between gap-1.5 rounded-md border bg-white px-2.5 py-1.5 text-left text-[13px] outline-none ' +
-          (open ? 'border-brand' : 'border-surface-sunk') +
-          ' ' +
-          (value ? 'text-ink' : 'text-ink-soft')
+            (open ? 'border-brand' : 'border-surface-sunk') +
+            ' ' +
+            (value ? 'text-ink' : 'text-ink-soft')
         }
       >
-        <span className="truncate">{value || 'Choose\u2026'}</span>
+        <span className="truncate">{value || placeholder}</span>
         <ChevronDown size={11} className="shrink-0 text-ink-soft" />
       </button>
 
@@ -95,7 +111,7 @@ export function EnumPicker({ value, options, ariaLabel, onChange, onAddOption }:
           ref={menuRef}
           role="listbox"
           aria-label={ariaLabel}
-          className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 max-h-[240px] overflow-y-auto rounded-lg border border-surface-sunk bg-white p-1 shadow-card"
+          className={`absolute left-0 ${triggerClassName ? 'min-w-[200px]' : 'right-0'} top-[calc(100%+4px)] z-50 max-h-[240px] overflow-y-auto rounded-lg border border-surface-sunk bg-white p-1 shadow-card`}
         >
           {options.length === 0 && !adding && (
             <div className="px-2.5 py-1.5 text-[11px] italic text-ink-soft">

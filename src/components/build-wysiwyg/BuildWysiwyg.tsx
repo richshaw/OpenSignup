@@ -95,6 +95,7 @@ export function BuildWysiwyg({
     duplicateRow,
     deleteRow,
     editCell,
+    renameGroup,
     setCapacity,
     moveRow,
   } = useBuildState(
@@ -107,6 +108,9 @@ export function BuildWysiwyg({
 
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  // The group whose header change the server refused; its rows are back
+  // under their saved value, so this is that value's key.
+  const [failedRenameKey, setFailedRenameKey] = useState<string | null>(null);
 
   const groupField = state.groupByFieldRef
     ? state.fields.find((f) => f.ref === state.groupByFieldRef) ?? null
@@ -152,15 +156,18 @@ export function BuildWysiwyg({
   const handleRenameGroup = (oldKey: string, newKey: string) => {
     if (!groupField) return;
     if (newKey === oldKey) return;
-    // Rewrite every row in the group to the new group value. `editCell` is
-    // optimistic + debounced, so a burst of rewrites coalesces per row.
+    // Every row in the group takes the new group value.
     const ref = groupField.ref;
-    for (const r of state.rows) {
-      const raw = r.values[ref] ?? '';
-      const matches =
-        oldKey === EMPTY_GROUP_KEY ? raw === '' : raw === oldKey;
-      if (matches) editCell(r.id, ref, newKey);
-    }
+    const rowIds = state.rows
+      .filter((r) => {
+        const raw = r.values[ref] ?? '';
+        return oldKey === EMPTY_GROUP_KEY ? raw === '' : raw === oldKey;
+      })
+      .map((r) => r.id);
+    setFailedRenameKey(null);
+    void renameGroup(ref, rowIds, newKey).then((saved) => {
+      if (!saved) setFailedRenameKey(oldKey);
+    });
   };
 
   return (
@@ -226,6 +233,7 @@ export function BuildWysiwyg({
                 }}
                 onAddSlot={handleAddSlot}
                 onRenameGroup={handleRenameGroup}
+                renameFailed={failedRenameKey === g.key}
                 reorder={slotReorder}
               />
             ))}

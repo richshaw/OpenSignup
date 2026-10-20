@@ -1,9 +1,7 @@
 'use client';
 
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
-import { MIN_DATE_YEAR } from '@/lib/reminder-fields';
-import type { FieldType } from '@/schemas/slot-fields';
-import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
+import { FIELD_TYPE_META, FIELD_VALUE_INPUT_CLASS, FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
 import { EnumPicker } from './EnumPicker';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
@@ -21,23 +19,6 @@ type SlotEditorProps = {
   onDuplicate: () => void;
   onDelete: () => void;
   onClose: () => void;
-};
-
-// Enum cells use EnumPicker, not an input.
-const TYPE_INPUTS: Record<
-  Exclude<FieldType, 'enum'>,
-  {
-    type: string;
-    min?: string;
-    inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
-    placeholder: string;
-  }
-> = {
-  text: { type: 'text', placeholder: 'e.g. Bring napkins' },
-  // The picker starts where the services do; they refuse an earlier date.
-  date: { type: 'date', min: `${MIN_DATE_YEAR}-01-01`, placeholder: 'YYYY-MM-DD' },
-  time: { type: 'time', placeholder: 'e.g. 09:00' },
-  number: { type: 'number', inputMode: 'numeric', placeholder: 'e.g. 12' },
 };
 
 /**
@@ -118,10 +99,10 @@ export function SlotEditor({
                 />
               ) : (
                 <input
-                  {...TYPE_INPUTS[f.config.fieldType]}
+                  {...FIELD_VALUE_INPUTS[f.config.fieldType]}
                   value={row.values[f.ref] ?? ''}
                   onChange={(e) => onCellChange(f.ref, e.target.value)}
-                  className="rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand"
+                  className={FIELD_VALUE_INPUT_CLASS}
                   aria-label={`${f.name} value`}
                 />
               )}
