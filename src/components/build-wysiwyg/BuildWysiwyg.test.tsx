@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { BuildWysiwyg } from './BuildWysiwyg';
 import type { SignupSettings } from '@/schemas/signups';
 
@@ -80,5 +80,43 @@ describe('BuildWysiwyg — spots taken', () => {
     );
     expect(screen.getByText('3/3')).toBeTruthy();
     expect(screen.getByText('0/2')).toBeTruthy();
+  });
+});
+
+describe('BuildWysiwyg — group headers', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('puts a date header back and says so when the server refuses the new date', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: 'internal', message: 'boom' } }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        initialFields={[
+          { id: 'f-date', ref: 'date', label: 'Date', fieldType: 'date', sortOrder: 0, config: { fieldType: 'date' } },
+        ]}
+        initialSettings={{ ...settings, groupByFieldRefs: ['date'] }}
+        initialSlots={[{ id: 'slot_a', capacity: 2, sortOrder: 0, values: { date: '2026-11-14' } }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Sat, Nov 14/ }));
+    const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
+    expect(input.type).toBe('date');
+    fireEvent.change(input, { target: { value: '2026-11-21' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/didn.t save/);
+    expect(screen.getByRole('button', { name: /Group header.*Sat, Nov 14/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Group header.*Sat, Nov 21/ })).toBeNull();
   });
 });

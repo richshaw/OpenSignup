@@ -1557,3 +1557,80 @@ describe('useBuildState setGroupBy', () => {
     expect(result.current.state.saveStatus.kind).toBe('saved');
   });
 });
+
+// ---------------------------------------------------------------------------
+// useBuildState renameGroup
+// ---------------------------------------------------------------------------
+
+describe('useBuildState renameGroup', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const dateField = makeApiField({
+    id: 'f-date',
+    ref: 'date',
+    label: 'Date',
+    fieldType: 'date',
+    config: { fieldType: 'date' },
+  });
+  const slots: BuildSlot[] = [
+    { id: 'r1', capacity: null, sortOrder: 0, values: { date: '2026-11-14', item: 'Cups' } },
+    { id: 'r2', capacity: null, sortOrder: 1, values: { date: '2026-11-14', item: 'Plates' } },
+    { id: 'r3', capacity: null, sortOrder: 2, values: { date: '2026-11-15', item: 'Napkins' } },
+  ];
+
+  function renderGrouped() {
+    return renderHook(() => useBuildState('sig_test', [dateField], slots, defaultSettings));
+  }
+
+  it('saves every row in the group straight away, once each', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGrouped();
+    let saved: boolean | undefined;
+    await act(async () => {
+      saved = await result.current.renameGroup('date', ['r1', 'r2'], '2026-11-21');
+    });
+
+    expect(saved).toBe(true);
+    expect(result.current.state.rows.map((r) => r.values['date'])).toEqual([
+      '2026-11-21',
+      '2026-11-21',
+      '2026-11-15',
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const calls = fetchMock.mock.calls as [string, RequestInit][];
+    expect(calls.map(([url]) => url)).toEqual(['/api/slots/r1', '/api/slots/r2']);
+    expect(calls.map(([, init]) => init.method)).toEqual(['PATCH', 'PATCH']);
+    expect(JSON.parse(String(calls[0]?.[1].body))).toEqual({
+      values: { date: '2026-11-21', item: 'Cups' },
+    });
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('puts the rows back to their saved value when the server refuses', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        { error: { code: 'invalid_input', message: '"date" must be a real date as YYYY-MM-DD' } },
+        { ok: false, status: 400 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderGrouped();
+    let saved: boolean | undefined;
+    await act(async () => {
+      saved = await result.current.renameGroup('date', ['r1', 'r2'], 'Sat, Nov 21');
+    });
+
+    expect(saved).toBe(false);
+    expect(result.current.state.rows.map((r) => r.values['date'])).toEqual([
+      '2026-11-14',
+      '2026-11-14',
+      '2026-11-15',
+    ]);
+    expect(result.current.state.saveStatus.kind).toBe('error');
+  });
+});

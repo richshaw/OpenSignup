@@ -1,4 +1,5 @@
 import { useReducer, useRef, useEffect } from 'react';
+import { toFieldRef } from '@/schemas/slot-fields';
 import type { SlotFieldDefinition, SlotFieldConfig } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
 import type { ErrorCode } from '@/lib/errors';
@@ -209,21 +210,6 @@ function toBuildRow(slot: BuildSlot): BuildRow {
     sortOrder: slot.sortOrder,
     values: toStringValues(slot.values),
   };
-}
-
-function toLabelRef(label: string, existingRefs: string[]): string {
-  const base =
-    label
-      .normalize('NFKD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 48) || 'field';
-  if (!existingRefs.includes(base)) return base;
-  let i = 2;
-  while (existingRefs.includes(`${base}-${i}`)) i++;
-  return `${base}-${i}`;
 }
 
 function toStringValues(values: Record<string, unknown>): Record<string, string> {
@@ -474,7 +460,7 @@ export function useBuildState(
   const addField = (name: string, config: SlotFieldConfig): Promise<void> =>
     withSave(async () => {
       const created = await sendForData<SlotFieldDefinition>('POST', fieldsUrl, {
-        ref: toLabelRef(name, stateRef.current.fields.map((f) => f.ref)),
+        ref: toFieldRef(name, stateRef.current.fields.map((f) => f.ref)),
         label: name,
         fieldType: config.fieldType,
         config,
@@ -647,6 +633,34 @@ export function useBuildState(
     });
   };
 
+  /**
+   * Sets `fieldRef` to `value` on every row in `rowIds` (a group header's
+   * rows) and saves each one now, not after the cell debounce: a header only
+   * calls this once the organizer has finished choosing. A row the server
+   * refuses goes back to the value it had. Resolves to whether every row saved.
+   */
+  const renameGroup = async (fieldRef: string, rowIds: string[], value: string): Promise<boolean> => {
+    const rows = stateRef.current.rows.filter((r) => rowIds.includes(r.id));
+    for (const r of rows) dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId: r.id, fieldRef, value });
+    markSaving();
+    const results = await Promise.allSettled(
+      rows.map((r) => saveRowValues({ ...r, values: { ...r.values, [fieldRef]: value } })),
+    );
+    let failure: SaveError | null = null;
+    for (const [i, result] of results.entries()) {
+      const row = rows[i];
+      if (result.status === 'fulfilled' || !row) continue;
+      failure ??= asErr(result.reason);
+      dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId: row.id, fieldRef, value: row.values[fieldRef] ?? '' });
+    }
+    if (failure) {
+      markError(failure);
+      return false;
+    }
+    markSaved();
+    return true;
+  };
+
   const setCapacity = (rowId: string, capacity: number | null): void => {
     dispatch({ type: 'OPTIMISTIC_SET_CAPACITY', rowId, capacity });
     flushTimer(`${rowId}:capacity`, () =>
@@ -775,6 +789,7 @@ export function useBuildState(
     deleteRow,
     moveRow,
     editCell,
+    renameGroup,
     setCapacity,
     setGroupBy,
     setReminderField,
