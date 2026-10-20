@@ -417,41 +417,56 @@ describe('selectDueReminders (db)', () => {
       slotInHours: 20,
       dated: true,
     });
-    await sendReminderJob({ commitmentId });
-    expect(await reminderSentRows(fx.db, commitmentId)).toBe(1);
-    expect(await dueIds()).not.toContain(commitmentId);
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      await sendReminderJob({ commitmentId });
+      expect(await reminderSentRows(fx.db, commitmentId)).toBe(1);
+      expect(await dueIds()).not.toContain(commitmentId);
+      const first = send.mock.calls[0]![0];
+      expect(first.subject).toMatch(/^Reminder: /);
+      expect(first.text).toContain('this is a reminder that you signed up for');
 
-    // The organizer postpones the slot by about a week.
-    const weekLater = new Date(Date.now() + 8 * 24 * 3600_000).toISOString().slice(0, 10);
-    const moved = await updateSlot(fx.db, fx.actor, slotId, { values: { day: weekLater } });
-    if (!moved.ok) throw new Error(`updateSlot failed: ${moved.error.message}`);
-    expect(await dueIds()).not.toContain(commitmentId);
+      // The organizer postpones the slot by about a week.
+      const weekLater = new Date(Date.now() + 8 * 24 * 3600_000).toISOString().slice(0, 10);
+      const moved = await updateSlot(fx.db, fx.actor, slotId, { values: { day: weekLater } });
+      if (!moved.ok) throw new Error(`updateSlot failed: ${moved.error.message}`);
+      expect(await dueIds()).not.toContain(commitmentId);
 
-    // The week passes: every stored instant moves the same distance closer to
-    // now, until the new time is 20 hours away and inside the lead time.
-    const movedAt = moved.value.slotAt!.getTime();
-    const elapsed = movedAt - (Date.now() + 20 * 3600_000);
-    await fx.db
-      .update(slots)
-      .set({ slotAt: new Date(movedAt - elapsed) })
-      .where(eq(slots.id, slotId));
-    await fx.db
-      .update(activity)
-      .set({
-        payload: sql`jsonb_set(${activity.payload}, '{slotAt}', to_jsonb(
+      // The week passes: every stored instant moves the same distance closer to
+      // now, until the new time is 20 hours away and inside the lead time.
+      const movedAt = moved.value.slotAt!.getTime();
+      const elapsed = movedAt - (Date.now() + 20 * 3600_000);
+      await fx.db
+        .update(slots)
+        .set({ slotAt: new Date(movedAt - elapsed) })
+        .where(eq(slots.id, slotId));
+      await fx.db
+        .update(activity)
+        .set({
+          payload: sql`jsonb_set(${activity.payload}, '{slotAt}', to_jsonb(
           ((${activity.payload}->>'slotAt')::timestamptz - make_interval(secs => ${elapsed / 1000}))
         ))`,
-      })
-      .where(
-        and(
-          eq(activity.eventType, 'reminder.sent'),
-          sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
-        ),
-      );
+        })
+        .where(
+          and(
+            eq(activity.eventType, 'reminder.sent'),
+            sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
+          ),
+        );
 
-    expect(await dueIds()).toContain(commitmentId);
-    await sendReminderJob({ commitmentId });
-    expect(await reminderSentRows(fx.db, commitmentId)).toBe(2);
+      expect(await dueIds()).toContain(commitmentId);
+      await sendReminderJob({ commitmentId });
+      expect(await reminderSentRows(fx.db, commitmentId)).toBe(2);
+
+      // The second reminder says the slot changed, or it reads as a duplicate.
+      expect(send).toHaveBeenCalledTimes(2);
+      const second = send.mock.calls[1]![0];
+      expect(second.subject).toMatch(/^Time changed: /);
+      expect(second.html).toContain('Your slot has changed');
+      expect(second.text).toContain('after your last reminder. Here are the new details.');
+    } finally {
+      send.mockRestore();
+    }
   });
 
   it('records the slot time each reminder was for', async () => {

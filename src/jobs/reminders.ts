@@ -205,6 +205,10 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     log.info({ commitmentId: payload.commitmentId }, 'reminder already sent; skipping');
     return;
   }
+  // Any reminder.sent row still left was for another slot time (one for this
+  // time, or one naming no time, returned above): the organizer moved the
+  // slot after that reminder, and this one says so.
+  const changed = await alreadyRecorded(db, 'reminder.sent', row.signup.id, payload.commitmentId);
 
   const optOutToken = reminderOptOutTokenFor(row.participant.id);
 
@@ -223,6 +227,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
       unsubscribeUrl: reminderUnsubscribeUrl(row.signup.slug, row.participant.id, optOutToken),
       ...(await slotText(db, row.signup.id, row.slot.values)),
       notes: row.commitment.notes,
+      changed,
     },
     { unsubscribePostUrl: reminderUnsubscribePostUrl(row.participant.id, optOutToken) },
   );
