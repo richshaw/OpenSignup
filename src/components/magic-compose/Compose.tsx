@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { ArrowRight, Check, Sparkles } from 'lucide-react';
 import { STARTER_PROMPTS } from '@/lib/magic-compose/templates';
 
 export function Compose({
@@ -35,7 +36,7 @@ export function Compose({
     <div className="mx-auto mt-6 flex max-w-[760px] flex-col gap-7">
       <header className="flex flex-col items-start gap-2.5">
         <span className="bg-brand/10 text-brand inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium tracking-wide">
-          <SparklesIcon className="h-3 w-3" />
+          <Sparkles className="h-3 w-3" aria-hidden="true" />
           New signup
         </span>
         <h1 className="text-4xl font-semibold leading-tight tracking-tight md:text-[44px]">
@@ -68,7 +69,7 @@ export function Compose({
             disabled={!prompt.trim() || disabled}
             className="bg-brand inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <SparklesIcon className="h-3.5 w-3.5" />
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             Draft my signup
           </button>
         </div>
@@ -101,11 +102,11 @@ export function Compose({
                 >
                   {isCurrent ? (
                     <>
-                      <CheckIcon className="h-3 w-3" /> Loaded
+                      <Check className="h-3 w-3" aria-hidden="true" /> Loaded
                     </>
                   ) : (
                     <>
-                      Try this <ArrowRightIcon className="h-3 w-3" />
+                      Try this <ArrowRight className="h-3 w-3" aria-hidden="true" />
                     </>
                   )}
                 </div>
@@ -142,29 +143,5 @@ function Tip({ title, body }: { title: string; body: string }) {
       <div className="text-ink mb-1 text-[13px] font-semibold">{title}</div>
       <div className="text-ink-muted text-[13px] leading-relaxed">{body}</div>
     </div>
-  );
-}
-
-function SparklesIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M12 2l1.8 4.6L18 8.2l-4.2 1.6L12 14l-1.8-4.2L6 8.2l4.2-1.6L12 2zm7 11l1 2.4 2.4 1-2.4 1L19 20l-1-2.6-2.4-1 2.4-1L19 13zM5 13l.8 1.8 1.8.8-1.8.8L5 18.4l-.8-1.8L2.4 16l1.8-.8L5 13z" />
-    </svg>
-  );
-}
-
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" className={className} aria-hidden="true">
-      <path d="M2.5 6.5l2.5 2.5 5-6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ArrowRightIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" className={className} aria-hidden="true">
-      <path d="M2.5 6h7M7 3.5L9.5 6 7 8.5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }

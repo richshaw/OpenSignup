@@ -140,6 +140,38 @@ describe('defaultLlmClient.generateDraft', () => {
     if (!r.ok) expect(r.error.code).toBe('aborted');
   });
 
+  it('returns timeout when the request outlives LLM_TIMEOUT_MS', async () => {
+    process.env.LLM_TIMEOUT_MS = '20';
+    mockFetch(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          );
+        }),
+    );
+    const r = await defaultLlmClient().generateDraft([], new AbortController().signal);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('timeout');
+  });
+
+  it('returns timeout when the body stalls past LLM_TIMEOUT_MS', async () => {
+    process.env.LLM_TIMEOUT_MS = '20';
+    mockFetch(async (_url, init) => {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          init?.signal?.addEventListener('abort', () =>
+            controller.error(new DOMException('aborted', 'AbortError')),
+          );
+        },
+      });
+      return new Response(body, { status: 200 });
+    });
+    const r = await defaultLlmClient().generateDraft([]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('timeout');
+  });
+
   it('parses Retry-After (delta-seconds) on a 429 response', async () => {
     mockFetch(
       async () =>

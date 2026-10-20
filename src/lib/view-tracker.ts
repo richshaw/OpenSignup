@@ -1,13 +1,14 @@
 import type { ActivityEvent } from '@/db/schema/activity';
 import { getDb } from '@/db/client';
-import { recordActivity, type ActivityActor } from '@/lib/activity';
+import { recordActivityBestEffort, type ActivityActor } from '@/lib/activity';
 import type { LandingCta } from '@/lib/landing-cta';
-import { log } from '@/lib/log';
 
 const BOT_RE =
   /bot|crawler|spider|slurp|facebookexternalhit|whatsapp|telegrambot|discordbot|slackbot|twitterbot|linkedinbot|googlebot|bingbot|preview|headlesschrome|phantomjs|httpie|curl|wget/i;
 
 export type UaClass = 'browser' | 'bot' | 'unknown';
+
+const SYSTEM_ACTOR: ActivityActor = { actorId: null, actorType: 'system' };
 
 export function classifyUa(ua: string | null | undefined): UaClass {
   if (!ua) return 'unknown';
@@ -52,23 +53,22 @@ export function readRequestSignals(headerMap: {
   };
 }
 
-async function writeActivity(args: {
-  signupId: string | null;
-  workspaceId: string | null;
-  actor: ActivityActor;
-  eventType: ActivityEvent;
-  payload?: Record<string, unknown>;
-}): Promise<void> {
-  // Single insert — no BEGIN/COMMIT wrapper. The activity log writes-in-tx rule
-  // applies when the activity row describes a mutation in the same tx; these
-  // helpers fire standalone telemetry.
-  await recordActivity(getDb(), {
-    signupId: args.signupId,
-    workspaceId: args.workspaceId,
-    actor: args.actor,
-    eventType: args.eventType,
-    payload: args.payload ?? {},
-  });
+type ActivityRow = Parameters<typeof recordActivityBestEffort>[1];
+
+/**
+ * Shared path for visitor telemetry: skip do-not-track and bot requests, then
+ * write one standalone row. No BEGIN/COMMIT wrapper — the activity log
+ * writes-in-tx rule applies when the row describes a mutation in the same tx;
+ * these rows are telemetry and must never fail the page that records them.
+ */
+async function trackVisitor(
+  signals: RequestSignals,
+  toRow: (uaClass: UaClass, refererHost: string | null) => ActivityRow,
+): Promise<void> {
+  if (signals.dnt) return;
+  const uaClass = classifyUa(signals.userAgent);
+  if (uaClass === 'bot') return;
+  await recordActivityBestEffort(getDb(), toRow(uaClass, refererHost(signals.referer)));
 }
 
 export async function recordPublicView(args: {
@@ -78,71 +78,43 @@ export async function recordPublicView(args: {
   isReturning: boolean;
   signals: RequestSignals;
 }): Promise<void> {
-  try {
-    if (args.signals.dnt) return;
-    const uaClass = classifyUa(args.signals.userAgent);
-    if (uaClass === 'bot') return;
-    await writeActivity({
-      signupId: args.signupId,
-      workspaceId: args.workspaceId,
-      actor: { actorId: null, actorType: 'system' },
-      eventType: 'signup.viewed',
-      payload: {
-        uaClass,
-        refererHost: refererHost(args.signals.referer),
-        isReturning: args.isReturning,
-        signupStatus: args.signupStatus,
-      },
-    });
-  } catch (err) {
-    log.warn({ err }, 'recordPublicView failed');
-  }
+  await trackVisitor(args.signals, (uaClass, refererHost) => ({
+    signupId: args.signupId,
+    workspaceId: args.workspaceId,
+    actor: SYSTEM_ACTOR,
+    eventType: 'signup.viewed',
+    payload: {
+      uaClass,
+      refererHost,
+      isReturning: args.isReturning,
+      signupStatus: args.signupStatus,
+    },
+  }));
 }
 
 export async function recordLandingView(args: {
   signals: RequestSignals;
 }): Promise<void> {
-  try {
-    if (args.signals.dnt) return;
-    const uaClass = classifyUa(args.signals.userAgent);
-    if (uaClass === 'bot') return;
-    await writeActivity({
-      signupId: null,
-      workspaceId: null,
-      actor: { actorId: null, actorType: 'system' },
-      eventType: 'landing.viewed',
-      payload: {
-        uaClass,
-        refererHost: refererHost(args.signals.referer),
-      },
-    });
-  } catch (err) {
-    log.warn({ err }, 'recordLandingView failed');
-  }
+  await trackVisitor(args.signals, (uaClass, refererHost) => ({
+    signupId: null,
+    workspaceId: null,
+    actor: SYSTEM_ACTOR,
+    eventType: 'landing.viewed',
+    payload: { uaClass, refererHost },
+  }));
 }
 
 export async function recordLandingCtaClicked(args: {
   cta: LandingCta;
   signals: RequestSignals;
 }): Promise<void> {
-  try {
-    if (args.signals.dnt) return;
-    const uaClass = classifyUa(args.signals.userAgent);
-    if (uaClass === 'bot') return;
-    await writeActivity({
-      signupId: null,
-      workspaceId: null,
-      actor: { actorId: null, actorType: 'system' },
-      eventType: 'landing.cta_clicked',
-      payload: {
-        cta: args.cta,
-        uaClass,
-        refererHost: refererHost(args.signals.referer),
-      },
-    });
-  } catch (err) {
-    log.warn({ err }, 'recordLandingCtaClicked failed');
-  }
+  await trackVisitor(args.signals, (uaClass, refererHost) => ({
+    signupId: null,
+    workspaceId: null,
+    actor: SYSTEM_ACTOR,
+    eventType: 'landing.cta_clicked',
+    payload: { cta: args.cta, uaClass, refererHost },
+  }));
 }
 
 export async function recordEditLinkFollowed(args: {
@@ -152,19 +124,13 @@ export async function recordEditLinkFollowed(args: {
   participantId: string | null;
   signals: RequestSignals;
 }): Promise<void> {
-  try {
-    if (args.signals.dnt) return;
-    if (classifyUa(args.signals.userAgent) === 'bot') return;
-    await writeActivity({
-      signupId: args.signupId,
-      workspaceId: args.workspaceId,
-      actor: { actorId: args.participantId, actorType: 'participant' },
-      eventType: 'commitment.edit_link_followed',
-      payload: { commitmentId: args.commitmentId },
-    });
-  } catch (err) {
-    log.warn({ err }, 'recordEditLinkFollowed failed');
-  }
+  await trackVisitor(args.signals, () => ({
+    signupId: args.signupId,
+    workspaceId: args.workspaceId,
+    actor: { actorId: args.participantId, actorType: 'participant' },
+    eventType: 'commitment.edit_link_followed',
+    payload: { commitmentId: args.commitmentId },
+  }));
 }
 
 export async function recordOrganizerView(args: {
@@ -174,15 +140,5 @@ export async function recordOrganizerView(args: {
   eventType: ActivityEvent;
   payload?: Record<string, unknown>;
 }): Promise<void> {
-  try {
-    await writeActivity({
-      signupId: args.signupId,
-      workspaceId: args.workspaceId,
-      actor: args.actor,
-      eventType: args.eventType,
-      payload: args.payload,
-    });
-  } catch (err) {
-    log.warn({ err, event: args.eventType }, 'recordOrganizerView failed');
-  }
+  await recordActivityBestEffort(getDb(), args);
 }

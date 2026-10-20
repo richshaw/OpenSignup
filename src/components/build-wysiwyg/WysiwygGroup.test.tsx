@@ -87,7 +87,7 @@ describe('WysiwygGroup', () => {
 
   it('renders the prettified date as the editable header', () => {
     renderGroup({ group: { rawValue: '2026-05-21', key: '2026-05-21' } });
-    expect(screen.getByRole('button', { name: /Group header.*THU, MAY 21/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Group header.*Thu, May 21/ })).toBeTruthy();
   });
 
   it('omits the header when no group field is supplied (flat mode)', () => {
@@ -105,7 +105,7 @@ describe('WysiwygGroup', () => {
     const { onRenameGroup } = renderGroup({
       group: { key: '2026-05-21', rawValue: '2026-05-21', rows: [makeRow()] },
     });
-    fireEvent.click(screen.getByRole('button', { name: /Group header.*THU, MAY 21/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Thu, May 21/ }));
     const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
     expect(input.type).toBe('date');
     expect(input.min).toBe('1900-01-01');
@@ -117,7 +117,7 @@ describe('WysiwygGroup', () => {
 
   it('boxes a date header\'s input as the slot editor does, not in the header\'s small caps', () => {
     renderGroup({ group: { key: '2026-05-21', rawValue: '2026-05-21', rows: [makeRow()] } });
-    fireEvent.click(screen.getByRole('button', { name: /Group header.*THU, MAY 21/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Thu, May 21/ }));
     const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
     expect(input.className).toBe(FIELD_VALUE_INPUT_CLASS);
   });
@@ -126,13 +126,13 @@ describe('WysiwygGroup', () => {
     const { onRenameGroup } = renderGroup({
       group: { key: '2026-05-21', rawValue: '2026-05-21', rows: [makeRow()] },
     });
-    fireEvent.click(screen.getByRole('button', { name: /Group header.*THU, MAY 21/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Thu, May 21/ }));
     const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
     // A date input reports '' until every part of the date is filled in.
     fireEvent.change(input, { target: { value: '' } });
     fireEvent.blur(input);
     expect(onRenameGroup).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: /Group header.*THU, MAY 21/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Group header.*Thu, May 21/ })).toBeTruthy();
   });
 
   it('sets an empty date group from a blank date input', () => {

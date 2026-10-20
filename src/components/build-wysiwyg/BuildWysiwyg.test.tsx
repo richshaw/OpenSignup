@@ -109,14 +109,14 @@ describe('BuildWysiwyg — group headers', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Group header.*SAT, NOV 14/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Sat, Nov 14/ }));
     const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
     expect(input.type).toBe('date');
     fireEvent.change(input, { target: { value: '2026-11-21' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/didn.t save/);
-    expect(screen.getByRole('button', { name: /Group header.*SAT, NOV 14/ })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Group header.*SAT, NOV 21/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /Group header.*Sat, Nov 14/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Group header.*Sat, Nov 21/ })).toBeNull();
   });
 });

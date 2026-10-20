@@ -1,52 +1,37 @@
 const KEY_PREFIX = 'opensignup:ai-draft-warnings:';
 
-function storage(): Storage | null {
-  if (typeof window === 'undefined') return null;
+/**
+ * Run `fn` against sessionStorage, or return `fallback` when there is none
+ * (server render) or it throws (disabled, quota, private mode). Losing the
+ * banner's warnings is fine; breaking the page over them is not.
+ */
+function withStorage<T>(fallback: T, fn: (s: Storage) => T): T {
+  if (typeof window === 'undefined') return fallback;
   try {
-    return window.sessionStorage;
+    return fn(window.sessionStorage);
   } catch {
-    return null;
+    return fallback;
   }
 }
 
 export function writeAiDraftWarnings(signupId: string, warnings: string[]): void {
-  const s = storage();
-  if (!s) return;
   if (warnings.length === 0) {
-    try {
-      s.removeItem(`${KEY_PREFIX}${signupId}`);
-    } catch {
-      // quota / disabled
-    }
+    clearAiDraftWarnings(signupId);
     return;
   }
-  try {
-    s.setItem(`${KEY_PREFIX}${signupId}`, JSON.stringify(warnings));
-  } catch {
-    // quota / disabled — falling back to no banner content is fine.
-  }
+  withStorage(undefined, (s) => s.setItem(`${KEY_PREFIX}${signupId}`, JSON.stringify(warnings)));
 }
 
 export function readAiDraftWarnings(signupId: string): string[] {
-  const s = storage();
-  if (!s) return [];
-  try {
+  return withStorage([], (s) => {
     const raw = s.getItem(`${KEY_PREFIX}${signupId}`);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((v): v is string => typeof v === 'string').slice(0, 10);
-  } catch {
-    return [];
-  }
+  });
 }
 
 export function clearAiDraftWarnings(signupId: string): void {
-  const s = storage();
-  if (!s) return;
-  try {
-    s.removeItem(`${KEY_PREFIX}${signupId}`);
-  } catch {
-    // ignore
-  }
+  withStorage(undefined, (s) => s.removeItem(`${KEY_PREFIX}${signupId}`));
 }

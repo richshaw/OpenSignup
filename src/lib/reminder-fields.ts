@@ -128,6 +128,46 @@ export function findReminderFields(
   return { dateField, timeField: pairedTimeField(dateField, fields) };
 }
 
+/**
+ * The earliest year a date field's values take (`isRealDate` below). No signup is for a day before it, and earlier
+ * years break things downstream: Postgres has no year 0 and refuses it as a
+ * timestamptz, so a slot dated 0000 failed its save or a later `slot_at`
+ * rebuild; the driver reads a stored year below 100 back a century late (0099
+ * as 1999); and the calendar export writes a year below 1000 with fewer than
+ * four digits, which RFC 5545 does not allow. The builder's date input and
+ * the MCP field guide name it too. Here rather than in src/schemas, so the
+ * public page can check a date without loading zod.
+ */
+export const MIN_DATE_YEAR = 1900;
+
+/**
+ * A YYYY-MM-DD string naming a day that exists, in any year.
+ *
+ * The shape regex alone accepts 2026-13-45 and 2026-02-30, which reach
+ * `new Date()` as an Invalid Date (or, for 02-30, silently roll into March).
+ * Checking the parts round-trip rejects both.
+ */
+export function isCalendarDate(value: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  // Not `Date.UTC(y, …)`: it reads years 0–99 as 1900–1999, so 0099-12-31
+  // would fail the round trip and be called impossible rather than too early.
+  // setUTCFullYear takes the year as written.
+  const at = new Date(0);
+  at.setUTCFullYear(y, mo - 1, d);
+  return at.getUTCFullYear() === y && at.getUTCMonth() === mo - 1 && at.getUTCDate() === d;
+}
+
+/**
+ * A value a date field takes: a YYYY-MM-DD day that exists, in
+ * `MIN_DATE_YEAR` or later. Magic Compose blanks a drafted date that fails it,
+ * since `createSignup` would otherwise refuse the whole draft over one cell.
+ */
+export function isRealDate(value: string): boolean {
+  return isCalendarDate(value) && Number(value.slice(0, 4)) >= MIN_DATE_YEAR;
+}
+
 /** An HH:MM string naming a time that exists. The shape regex accepts 99:99. */
 export function isRealTime(value: string): boolean {
   const m = /^(\d{2}):(\d{2})$/.exec(value);

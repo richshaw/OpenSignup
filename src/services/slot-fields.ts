@@ -14,14 +14,16 @@ import {
 } from '@/lib/policy';
 import {
   findReminderFields,
+  isCalendarDate,
+  isRealDate,
   isRealTime,
+  MIN_DATE_YEAR,
   resolveAnchorRef,
   slotTimeOfDay,
 } from '@/lib/reminder-fields';
 import { err, ok, type Result } from '@/lib/result';
 import { MAX_SORT_ORDER } from '@/schemas/common';
 import {
-  MIN_DATE_YEAR,
   TEXT_DEFAULT_MAX_LENGTH,
   type SlotFieldConfig,
   type SlotFieldDefinition,
@@ -592,34 +594,6 @@ function isDateOrTime(fieldType: string): boolean {
 
 function isMissing(value: unknown): boolean {
   return value === undefined || value === null || value === '';
-}
-
-/**
- * A YYYY-MM-DD string naming a day that exists, in any year.
- *
- * The shape regex alone accepts 2026-13-45 and 2026-02-30, which reach
- * `new Date()` as an Invalid Date (or, for 02-30, silently roll into March).
- * Checking the parts round-trip rejects both.
- */
-function isCalendarDate(value: string): boolean {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!m) return false;
-  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  // Not `Date.UTC(y, …)`: it reads years 0–99 as 1900–1999, so 0099-12-31
-  // would fail the round trip and be called impossible rather than too early.
-  // setUTCFullYear takes the year as written.
-  const at = new Date(0);
-  at.setUTCFullYear(y, mo - 1, d);
-  return at.getUTCFullYear() === y && at.getUTCMonth() === mo - 1 && at.getUTCDate() === d;
-}
-
-/**
- * A value a date field takes: a YYYY-MM-DD day that exists, in
- * `MIN_DATE_YEAR` or later. Magic Compose blanks a drafted date that fails it,
- * since `createSignup` would otherwise refuse the whole draft over one cell.
- */
-export function isRealDate(value: string): boolean {
-  return isCalendarDate(value) && Number(value.slice(0, 4)) >= MIN_DATE_YEAR;
 }
 
 function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<void, ServiceError> {

@@ -1,6 +1,7 @@
 import { Type, Calendar, Clock, Hash, List } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { MIN_DATE_YEAR, type FieldType } from '@/schemas/slot-fields';
+import { MIN_DATE_YEAR } from '@/lib/reminder-fields';
+import type { FieldType } from '@/schemas/slot-fields';
 
 export interface FieldTypeMeta {
   icon: LucideIcon;

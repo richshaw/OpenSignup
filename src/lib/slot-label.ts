@@ -9,6 +9,8 @@
  * wrong in front of a participant.
  */
 
+import { isRealDate } from '@/lib/reminder-fields';
+
 /** The shape both `SlotFieldDefinition` and the view's field type satisfy. */
 export interface LabelledField {
   ref: string;
@@ -24,7 +26,10 @@ export function formatSlotDate(iso: string | null | undefined): string | null {
   // parses as UTC midnight and would shift to the prior calendar day in
   // negative-offset zones — construct a local-midnight Date instead so the
   // displayed weekday/day matches what the organizer typed.
+  // `new Date(y, m, d)` silently rolls an impossible day (Feb 31) into the
+  // next month, so a date-only value must pass `isRealDate` first.
   const dateOnly = iso.match(DATE_ONLY);
+  if (dateOnly && !isRealDate(iso)) return null;
   const d = dateOnly
     ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
     : new Date(iso);
