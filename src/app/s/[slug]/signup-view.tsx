@@ -329,7 +329,7 @@ export function SignupViewBody({
                         {own ? (
                           <Link
                             href={own.editUrl}
-                            aria-label={`Edit your signup for ${actionName}`}
+                            aria-label={`Edit your spot for ${actionName}`}
                             className={`${ACTION_SIZING} border border-surface-sunk bg-white font-medium transition hover:bg-surface-raised`}
                           >
                             Edit

@@ -87,7 +87,7 @@ test.describe('public commit flow', () => {
     }
 
     await page.goto(editUrl!);
-    await expect(page.getByRole('heading', { name: 'Your signup' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your spot' })).toBeVisible();
     await expect(page.getByText("You're editing this as Sam Example.")).toBeVisible();
   });
 

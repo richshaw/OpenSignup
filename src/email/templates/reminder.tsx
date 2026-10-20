@@ -42,7 +42,7 @@ export function ReminderEmail({
       <NotesText notes={notes} />
       <EmailButton href={manageUrl}>View or change your slot</EmailButton>
       <Text className="mt-6 text-xs text-[#8a93a4]">
-        Need to change or cancel? Tap the button above — it opens your sign-up directly, no password
+        Need to change or cancel? Tap the button above. It opens your spot directly, no password
         needed. Keep this email to yourself: anyone with the link can change your slot.
       </Text>
       <Text className="mt-4 text-xs text-[#8a93a4]">
