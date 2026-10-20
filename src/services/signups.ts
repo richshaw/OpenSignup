@@ -9,6 +9,7 @@ import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
 import { requireOrganizer, requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
+import { chooseAnchorRef } from '@/lib/reminder-fields';
 import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
 import { toSlug } from '@/lib/slug';
 import {
@@ -26,7 +27,6 @@ import { type SlotCreateInput, SlotCreateInputSchema } from '@/schemas/slots';
 import {
   extractSlotAt,
   listFieldsForSignup,
-  pickAnchorRef,
   recomputeSlotAtForSignup,
   validateSlotValues,
 } from './slot-fields';
@@ -126,27 +126,12 @@ export async function createSignup(
   // instant. An explicit choice must be one of the template's date fields;
   // with none made, the first one is taken — so reminders, calendar links and
   // date ordering work from the moment a signup exists.
-  const requestedAnchor = data.settings.reminderFromFieldRef;
-  if (
-    requestedAnchor !== undefined &&
-    !fieldDefs.some((f) => f.fieldType === 'date' && f.ref === requestedAnchor)
-  ) {
-    return err(
-      serviceError(
-        'invalid_input',
-        "reminderFromFieldRef must name one of the signup's date fields",
-        {
-          field: 'settings.reminderFromFieldRef',
-          received: requestedAnchor,
-        },
-      ),
-    );
-  }
-  const defaultAnchor = requestedAnchor === undefined ? pickAnchorRef(fieldDefs) : null;
+  const anchor = chooseAnchorRef(data.settings.reminderFromFieldRef, undefined, fieldDefs);
+  if (!anchor.ok) return anchor;
   const settings: SignupSettings =
-    defaultAnchor === null
+    anchor.value === null
       ? data.settings
-      : { ...data.settings, reminderFromFieldRef: defaultAnchor };
+      : { ...data.settings, reminderFromFieldRef: anchor.value };
 
   const id = makeId('sig');
   const slug = await pickAvailableSlug(db, data.title);
@@ -311,25 +296,16 @@ export async function updateSignup(
     let mergedSettings: ReminderSettingsLike = prevSettings;
     if (data.settings !== undefined) {
       const fields = await listFieldsForSignup(tx, signupId);
-      const isDateRef = (ref: unknown): ref is string =>
-        fields.some((f) => f.fieldType === 'date' && f.ref === ref);
-      const requested = data.settings.reminderFromFieldRef;
-      if (requested !== undefined && !isDateRef(requested)) {
-        return err(
-          serviceError(
-            'invalid_input',
-            "reminderFromFieldRef must name one of the signup's date fields",
-            { field: 'settings.reminderFromFieldRef', received: requested },
-          ),
-        );
-      }
-      const anchor =
-        requested ??
-        (isDateRef(prevSettings.reminderFromFieldRef)
-          ? prevSettings.reminderFromFieldRef
-          : pickAnchorRef(fields));
+      const anchor = chooseAnchorRef(
+        data.settings.reminderFromFieldRef,
+        prevSettings.reminderFromFieldRef,
+        fields,
+      );
+      if (!anchor.ok) return anchor;
       mergedSettings =
-        anchor === null ? data.settings : { ...data.settings, reminderFromFieldRef: anchor };
+        anchor.value === null
+          ? data.settings
+          : { ...data.settings, reminderFromFieldRef: anchor.value };
     }
     const reminderRefChanged =
       data.settings !== undefined &&

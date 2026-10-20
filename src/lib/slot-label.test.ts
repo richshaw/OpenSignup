@@ -48,6 +48,11 @@ describe('formatSlotDate', () => {
     expect(formatSlotDate('not-a-date')).toBeNull();
   });
 
+  it('returns null for a YYYY-MM-DD day that does not exist, rather than rolling it over', () => {
+    expect(formatSlotDate('2026-02-31')).toBeNull();
+    expect(formatSlotDate('2026-13-01')).toBeNull();
+  });
+
   it('formats ISO into Weekday, Mon Day', () => {
     // 2026-04-25 is a Saturday in UTC; we accept any locale-correct prefix
     // by asserting the shape rather than the exact string.

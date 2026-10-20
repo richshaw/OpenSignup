@@ -41,13 +41,8 @@ export function defaultLlmClient(): LlmClient {
       }
 
       const url = resolveChatCompletionsUrl(env.LLM_BASE_URL);
-      const timeoutController = new AbortController();
-      const timeout = setTimeout(() => timeoutController.abort(), env.LLM_TIMEOUT_MS);
-
-      // Native since Node 20.3 (floor is 20.19 via package.json engines).
-      const combinedSignal = signal
-        ? AbortSignal.any([signal, timeoutController.signal])
-        : timeoutController.signal;
+      const timeoutSignal = AbortSignal.timeout(env.LLM_TIMEOUT_MS);
+      const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
 
       try {
         const res = await fetch(url, {
@@ -103,22 +98,7 @@ export function defaultLlmClient(): LlmClient {
           });
         }
 
-        let rawText: string;
-        try {
-          rawText = await readBoundedText(res, MAX_SUCCESS_BODY_BYTES);
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          if (timeoutController.signal.aborted) {
-            return err({
-              code: 'timeout',
-              message: `LLM request timed out after ${env.LLM_TIMEOUT_MS}ms while reading body`,
-            });
-          }
-          if (signal?.aborted) {
-            return err({ code: 'aborted', message: 'request cancelled by caller' });
-          }
-          return err({ code: 'upstream', message: `failed to read response body: ${msg}` });
-        }
+        const rawText = await readBoundedText(res, MAX_SUCCESS_BODY_BYTES);
         let body: unknown;
         try {
           body = JSON.parse(rawText);
@@ -160,13 +140,14 @@ export function defaultLlmClient(): LlmClient {
         if (signal?.aborted) {
           return err({ code: 'aborted', message: 'request cancelled by caller' });
         }
-        if (timeoutController.signal.aborted) {
-          return err({ code: 'timeout', message: 'LLM request timed out' });
+        if (timeoutSignal.aborted) {
+          return err({
+            code: 'timeout',
+            message: `LLM request timed out after ${env.LLM_TIMEOUT_MS}ms`,
+          });
         }
         const message = e instanceof Error ? e.message : String(e);
         return err({ code: 'upstream', message });
-      } finally {
-        clearTimeout(timeout);
       }
     },
   };
@@ -232,13 +213,7 @@ async function readBoundedText(res: Response, maxBytes: number): Promise<string>
       // releaseLock throws if the reader was already cancelled — ignore.
     }
   }
-  const merged = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
-  let offset = 0;
-  for (const c of chunks) {
-    merged.set(c, offset);
-    offset += c.length;
-  }
-  return new TextDecoder('utf-8', { fatal: false }).decode(merged);
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 /**
@@ -272,13 +247,7 @@ function stripCodeFence(s: string): string {
 }
 
 function extractChoiceContent(body: unknown): string | null {
-  if (!body || typeof body !== 'object') return null;
-  const choices = (body as { choices?: unknown }).choices;
-  if (!Array.isArray(choices) || choices.length === 0) return null;
-  const first = choices[0];
-  if (!first || typeof first !== 'object') return null;
-  const message = (first as { message?: unknown }).message;
-  if (!message || typeof message !== 'object') return null;
-  const content = (message as { content?: unknown }).content;
+  const content = (body as { choices?: { message?: { content?: unknown } }[] } | null)?.choices?.[0]
+    ?.message?.content;
   return typeof content === 'string' ? content : null;
 }

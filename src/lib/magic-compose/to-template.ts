@@ -1,12 +1,11 @@
 import type { SignupTemplate, SignupTemplateSlot } from '@/lib/signup-templates';
-import { isRealTime } from '@/lib/reminder-fields';
+import { isRealDate, isRealTime } from '@/lib/reminder-fields';
 import {
   MAX_CHOICES,
   TEXT_DEFAULT_MAX_LENGTH,
   type SlotFieldConfig,
   type SlotFieldInput,
 } from '@/schemas/slot-fields';
-import { isRealDate } from '@/services/slot-fields';
 import type { MagicComposeDraft } from './prompt';
 
 function sanitizeEnumChoices(choices: string[] | undefined): string[] {

@@ -30,9 +30,10 @@ describe('mapMagicComposeError', () => {
     expect(mapped.code).toBe('internal');
   });
 
-  it('timeout hints at LLM_TIMEOUT_MS', () => {
+  it('timeout tells the organizer what they can do, not how to configure the server', () => {
     const mapped = mapMagicComposeError({ code: 'timeout', message: 'x' });
-    expect(mapped.message).toMatch(/LLM_TIMEOUT_MS/);
+    expect(mapped.message).toBe('AI drafting timed out. Try a simpler prompt.');
+    expect(mapped.message).not.toMatch(/LLM_TIMEOUT_MS/);
   });
 
   it('distinguishes a 401/403 upstream as an API-key problem', () => {

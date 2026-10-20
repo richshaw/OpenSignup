@@ -1,7 +1,8 @@
 'use client';
 
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
-import { MIN_DATE_YEAR, type FieldType } from '@/schemas/slot-fields';
+import { MIN_DATE_YEAR } from '@/lib/reminder-fields';
+import type { FieldType } from '@/schemas/slot-fields';
 import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
 import { EnumPicker } from './EnumPicker';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';

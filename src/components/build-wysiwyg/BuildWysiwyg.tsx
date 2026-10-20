@@ -128,11 +128,8 @@ export function BuildWysiwyg({
           },
           onTransfer: (rowId, toGroupKey, toIdx) => {
             const newGroupValue = toGroupKey === EMPTY_GROUP_KEY ? '' : (toGroupKey ?? '');
-            editCell(rowId, groupField.ref, newGroupValue);
             const fromIdx = state.rows.findIndex((r) => r.id === rowId);
-            if (fromIdx >= 0 && fromIdx !== toIdx) {
-              void moveRow(fromIdx, toIdx);
-            }
+            void moveRow(fromIdx, toIdx, { fieldRef: groupField.ref, value: newGroupValue });
           },
         }
       : {}),

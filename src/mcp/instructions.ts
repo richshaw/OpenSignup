@@ -1,5 +1,6 @@
 import {
   GROUP_BY_SCAN_AXIS,
+  NO_FIELDS_FOR_PARTICIPANT_DETAILS,
   NO_INTAKE_FORMS,
   NO_PERSONAL_DATA,
   ONE_SLOT_PER_COMBINATION,
@@ -47,6 +48,7 @@ export function buildInstructions(
     `- When you create a signup, ${GROUP_BY_SCAN_AXIS}. Leave it out when every slot would be its own group, such as a plain list of dates.`,
     `- ${neverInventRule('assistant')}`,
     `- ${SLOTS_ARE_THE_ATOM} Fields that describe the slot are fine and expected. ${NO_INTAKE_FORMS}`,
+    `- ${NO_FIELDS_FOR_PARTICIPANT_DETAILS}`,
     `- ${NO_PERSONAL_DATA} Say why instead.`,
     ``,
     `Working with the organizer`,
