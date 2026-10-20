@@ -63,11 +63,12 @@ export default function PrivacyPage() {
             rate-limiting&rdquo; below).
           </li>
           <li>
-            For up to 15 minutes after a sign-in email is sent, the sign-in link&apos;s token
-            (stored as a hash, next to your email address), and the six-digit code printed in the
-            email (stored as a keyed hash) with the encrypted sign-in link it stands for, so you can
-            finish signing in from the window you started in. Both are single use. A used or
-            expired one cannot be redeemed, and an hourly cleanup deletes any that are left.
+            After a sign-in email is sent, the sign-in link&apos;s token (stored as a hash, next to
+            your email address), kept until the link expires (an hour by default, or as long as the
+            operator sets it). For up to 15 minutes, the six-digit code printed in the email (stored
+            as a keyed hash) with the encrypted sign-in link it stands for, so you can finish
+            signing in from the window you started in. Both are single use. A used or expired one
+            cannot be redeemed, and an hourly cleanup deletes any that are left.
           </li>
           <li>
             If you connect an app or AI assistant to your account, a record of that approval and the
