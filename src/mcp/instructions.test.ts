@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   NO_FIELDS_FOR_PARTICIPANT_DETAILS,
   RULES_IN_BOTH,
+  USE_CAPACITY_NOT_DUPLICATE_ROWS,
   USE_DATE_AND_TIME_FIELDS,
   neverInventRule,
 } from '@/lib/signup-rules';
@@ -39,8 +40,9 @@ describe('buildInstructions', () => {
     expect(line.indexOf('are fine and expected')).toBeLessThan(line.indexOf('What is not fine'));
   });
 
-  it('carries the two rules written for assistants', () => {
+  it('carries the rules written for assistants, and the capacity rule it had first', () => {
     expect(text).toContain(USE_DATE_AND_TIME_FIELDS);
+    expect(text).toContain(USE_CAPACITY_NOT_DUPLICATE_ROWS);
     expect(text).toContain(NO_FIELDS_FOR_PARTICIPANT_DETAILS);
   });
 
