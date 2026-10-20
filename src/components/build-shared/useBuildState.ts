@@ -647,6 +647,34 @@ export function useBuildState(
     });
   };
 
+  /**
+   * Sets `fieldRef` to `value` on every row in `rowIds` (a group header's
+   * rows) and saves each one now, not after the cell debounce: a header only
+   * calls this once the organizer has finished choosing. A row the server
+   * refuses goes back to the value it had. Resolves to whether every row saved.
+   */
+  const renameGroup = async (fieldRef: string, rowIds: string[], value: string): Promise<boolean> => {
+    const rows = stateRef.current.rows.filter((r) => rowIds.includes(r.id));
+    for (const r of rows) dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId: r.id, fieldRef, value });
+    markSaving();
+    const results = await Promise.allSettled(
+      rows.map((r) => saveRowValues({ ...r, values: { ...r.values, [fieldRef]: value } })),
+    );
+    let failure: SaveError | null = null;
+    for (const [i, result] of results.entries()) {
+      const row = rows[i];
+      if (result.status === 'fulfilled' || !row) continue;
+      failure ??= asErr(result.reason);
+      dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId: row.id, fieldRef, value: row.values[fieldRef] ?? '' });
+    }
+    if (failure) {
+      markError(failure);
+      return false;
+    }
+    markSaved();
+    return true;
+  };
+
   const setCapacity = (rowId: string, capacity: number | null): void => {
     dispatch({ type: 'OPTIMISTIC_SET_CAPACITY', rowId, capacity });
     flushTimer(`${rowId}:capacity`, () =>
@@ -775,6 +803,7 @@ export function useBuildState(
     deleteRow,
     moveRow,
     editCell,
+    renameGroup,
     setCapacity,
     setGroupBy,
     setReminderField,

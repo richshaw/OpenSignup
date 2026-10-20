@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { FIELD_VALUE_INPUT_CLASS, type FieldValueInput } from '../build-shared/fieldTypes';
 
 type EditableProps = {
   value: string;
@@ -11,6 +12,12 @@ type EditableProps = {
   className?: string;
   /** Optional pretty display (used by date group headers); falls back to `value` when omitted. */
   display?: string;
+  /**
+   * The input to edit in, for a value with a type (a date group header uses
+   * the slot editor's date input, boxed as it is there rather than in
+   * `className`'s text style). Plain text when omitted; ignored with `multiline`.
+   */
+  input?: FieldValueInput;
 };
 
 export function Editable({
@@ -21,6 +28,7 @@ export function Editable({
   ariaLabel,
   className = '',
   display,
+  input,
 }: EditableProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -83,7 +91,9 @@ export function Editable({
     }
     return (
       <input
+        {...input}
         {...sharedProps}
+        {...(input ? { className: FIELD_VALUE_INPUT_CLASS } : {})}
         ref={(el) => { inputRef.current = el; }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
