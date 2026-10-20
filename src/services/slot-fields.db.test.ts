@@ -1715,6 +1715,50 @@ describe('slot-fields service (db)', () => {
       expect(await at()).toBe('2026-05-10T17:00:00.000Z');
     });
 
+    it('addField with beforeFieldId rebuilds slot_at when the renumbering unties two times', async () => {
+      const sigId = await createTestSignup(fx, 'Add before re-anchors');
+      const ids: Record<string, string> = {};
+      for (const [ref, fieldType] of [
+        ['day', 'date'],
+        ['start', 'time'],
+        ['end', 'time'],
+      ] as const) {
+        const f = await addField(fx.db, fx.actor, sigId, {
+          ref,
+          label: ref,
+          fieldType,
+          config: { fieldType },
+        });
+        if (!f.ok) throw new Error(`${ref} setup failed`);
+        ids[ref] = f.value.id;
+      }
+      // start and end tied: reminder-fields breaks the tie by ref, so end
+      // pairs with the date, while the list (by createdAt) shows start first.
+      await fx.db.update(slotFields).set({ sortOrder: 1 }).where(eq(slotFields.id, ids.end!));
+      const slot = await addSlot(fx.db, fx.actor, sigId, {
+        values: { day: '2026-05-10', start: '09:00', end: '17:00' },
+      });
+      if (!slot.ok) throw new Error('slot setup failed');
+      const at = async () =>
+        (
+          await fx.db.select().from(slots).where(eq(slots.id, slot.value.id))
+        )[0]?.slotAt?.toISOString();
+      expect(await at()).toBe('2026-05-10T17:00:00.000Z');
+
+      const r = await addField(fx.db, fx.actor, sigId, {
+        ...textField('notes'),
+        beforeFieldId: ids.day!,
+      });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      expect(await order(sigId)).toEqual([
+        ['notes', 0],
+        ['day', 1],
+        ['start', 2],
+        ['end', 3],
+      ]);
+      expect(await at()).toBe('2026-05-10T09:00:00.000Z');
+    });
+
     it('reorderFields leaves the slot rows alone when only a text column moves', async () => {
       const sigId = await createTestSignup(fx, 'Reorder text only');
       const ids: string[] = [];

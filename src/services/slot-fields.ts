@@ -267,12 +267,19 @@ export async function addField(
       );
     }
 
+    // Set when the renumbering below swapped two date or time fields that
+    // were tied, which moves slot_at even though the new field is neither.
+    let timelineMoved = false;
     if (shown) {
       // Renumbered rather than shifted down by one: orders can be tied (the
       // state this exists to get out of), and a shift would keep the tie.
       const ids = shown.map((f) => f.id);
       ids.splice(sortOrder, 0, row.id);
       await writeFieldOrder(tx, signupId, ids);
+      const renumbered = new Map(ids.map((fieldId, i) => [fieldId, i]));
+      timelineMoved =
+        timeline(shown) !==
+        timeline(shown.map((f) => ({ ...f, sortOrder: renumbered.get(f.id) ?? f.sortOrder })));
     }
 
     // A signup that just gained its first date field now has something to
@@ -283,13 +290,14 @@ export async function addField(
     // Any other type is skipped. The anchor and slot_at read only the type and
     // order of date and time fields (src/lib/reminder-fields.ts), and no slot
     // has a value for a field that did not exist, so a text, number or enum
-    // field cannot move either. The rebuild locks every slot row: run for one
-    // of those, the add would queue behind everyone part-way through signing
-    // up and then hold up everyone after them. Gated on the type, not on "is
-    // this the anchor": a time field is never the anchor and still moves
-    // slot_at (see `deleteField`).
+    // field cannot move either, unless placing it renumbered two tied date or
+    // time fields into a different order. The rebuild locks every slot row:
+    // run for one of those, the add would queue behind everyone part-way
+    // through signing up and then hold up everyone after them. Gated on the
+    // type, not on "is this the anchor": a time field is never the anchor and
+    // still moves slot_at (see `deleteField`).
     let anchor: string | null | undefined;
-    if (isDateOrTime(row.fieldType)) {
+    if (isDateOrTime(row.fieldType) || timelineMoved) {
       anchor = await reanchor(tx, signupId, await listFieldsForSignup(tx, signupId));
       await recomputeSlotAtForSignup(tx, signupId, signupRow.workspaceId);
     }
@@ -388,15 +396,7 @@ export async function reorderFields(
     // the anchor, go by the order of the date and time fields, as in
     // `updateField`. Rebuilt only when that order moved: the rebuild locks
     // every slot row, and moving a text column should not queue behind
-    // everyone part-way through signing up. Sorted the way
-    // src/lib/reminder-fields.ts sorts them (ties go by ref), so a tie the
-    // renumbering broke the other way counts as a move.
-    const timeline = (fields: SlotFieldDefinition[]) =>
-      fields
-        .filter((f) => isDateOrTime(f.fieldType))
-        .sort((a, b) => a.sortOrder - b.sortOrder || (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0))
-        .map((f) => f.id)
-        .join(' ');
+    // everyone part-way through signing up.
     let anchor: string | null | undefined;
     if (timeline(current) !== timeline(next)) {
       anchor = await reanchor(tx, signupId, next);
@@ -731,6 +731,18 @@ export function validateSlotValues(
     if (!r.ok) return r;
   }
   return ok(undefined);
+}
+
+// The date and time fields in the order src/lib/reminder-fields.ts reads them
+// (ties go by ref), as one string. Two lists that give different strings pair
+// a different time with the date, or anchor on a different date, so a tie the
+// renumbering broke the other way counts as a move.
+function timeline(fields: SlotFieldDefinition[]): string {
+  return fields
+    .filter((f) => isDateOrTime(f.fieldType))
+    .sort((a, b) => a.sortOrder - b.sortOrder || (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0))
+    .map((f) => f.id)
+    .join(' ');
 }
 
 /** The only field types the reminder anchor and `slots.slot_at` are read from. */
