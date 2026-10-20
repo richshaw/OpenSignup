@@ -1,4 +1,5 @@
 import { useReducer, useRef, useEffect } from 'react';
+import { toFieldRef } from '@/schemas/slot-fields';
 import type { SlotFieldDefinition, SlotFieldConfig } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
 import type { ErrorCode } from '@/lib/errors';
@@ -209,21 +210,6 @@ function toBuildRow(slot: BuildSlot): BuildRow {
     sortOrder: slot.sortOrder,
     values: toStringValues(slot.values),
   };
-}
-
-function toLabelRef(label: string, existingRefs: string[]): string {
-  const base =
-    label
-      .normalize('NFKD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 48) || 'field';
-  if (!existingRefs.includes(base)) return base;
-  let i = 2;
-  while (existingRefs.includes(`${base}-${i}`)) i++;
-  return `${base}-${i}`;
 }
 
 function toStringValues(values: Record<string, unknown>): Record<string, string> {
@@ -474,7 +460,7 @@ export function useBuildState(
   const addField = (name: string, config: SlotFieldConfig): Promise<void> =>
     withSave(async () => {
       const created = await sendForData<SlotFieldDefinition>('POST', fieldsUrl, {
-        ref: toLabelRef(name, stateRef.current.fields.map((f) => f.ref)),
+        ref: toFieldRef(name, stateRef.current.fields.map((f) => f.ref)),
         label: name,
         fieldType: config.fieldType,
         config,
