@@ -82,6 +82,10 @@ export const SlotFieldInputSchema = z
     fieldType: z.enum(FIELD_TYPES),
     /** Position among the signup's fields. Omit to append. */
     sortOrder: SortOrderSchema.optional(),
+    // Put the field in front of this one instead, and move it and every later
+    // field down one. Not allowed together with `sortOrder`; `addField` checks
+    // that, as `addSlotsBulk` does for `beforeSlotId`.
+    beforeFieldId: z.string().optional(),
     config: SlotFieldConfigSchema,
   })
   .refine((d) => d.fieldType === d.config.fieldType, {
@@ -99,6 +103,13 @@ export const SlotFieldUpdateInputSchema = z
   })
   .strict();
 export type SlotFieldUpdateInput = z.infer<typeof SlotFieldUpdateInputSchema>;
+
+// Every field id of the signup, in the order they should be shown. Bounded by
+// the signup's field count, which nothing caps, so no maximum here either, as
+// with `SlotReorderInputSchema`.
+export const SlotFieldReorderInputSchema = z.object({
+  fieldIds: z.array(z.string()).min(1),
+});
 
 export type SlotFieldDefinition = {
   id: string;

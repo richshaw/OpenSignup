@@ -1,6 +1,6 @@
 import type { Scope } from '@/oauth/scopes';
 import { compileTools, type CompiledTool, type ToolDefinition } from '../registry';
-import { addFieldTool, deleteFieldTool, updateFieldTool } from './fields';
+import { addFieldTool, deleteFieldTool, reorderFieldsTool, updateFieldTool } from './fields';
 import { getSignup, listSignups } from './signups-read';
 import {
   archiveSignupTool,
@@ -26,6 +26,7 @@ export const TOOLS: readonly ToolDefinition[] = [
   deleteSignupTool,
   addFieldTool,
   updateFieldTool,
+  reorderFieldsTool,
   deleteFieldTool,
   addSlotsTool,
   updateSlotTool,

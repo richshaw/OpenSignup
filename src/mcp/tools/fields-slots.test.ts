@@ -3,10 +3,15 @@ import { err, ok } from '@/lib/result';
 import { serviceError } from '@/lib/errors';
 import { connectTestClient } from '../testing/client';
 import { unitContext } from '../testing/fixtures';
-import { addFieldTool, deleteFieldTool, updateFieldTool } from './fields';
+import { addFieldTool, deleteFieldTool, reorderFieldsTool, updateFieldTool } from './fields';
 import { addSlotsTool, deleteSlotTool, reorderSlotsTool, updateSlotTool } from './slots';
 
-const fields = { addField: vi.fn(), updateField: vi.fn(), deleteField: vi.fn() };
+const fields = {
+  addField: vi.fn(),
+  updateField: vi.fn(),
+  deleteField: vi.fn(),
+  reorderFields: vi.fn(),
+};
 const slots = {
   addSlotsBulk: vi.fn(),
   updateSlot: vi.fn(),
@@ -17,6 +22,7 @@ vi.mock('@/services/slot-fields', () => ({
   addField: (...a: unknown[]) => fields.addField(...a),
   updateField: (...a: unknown[]) => fields.updateField(...a),
   deleteField: (...a: unknown[]) => fields.deleteField(...a),
+  reorderFields: (...a: unknown[]) => fields.reorderFields(...a),
 }));
 vi.mock('@/services/slots', () => ({
   addSlotsBulk: (...a: unknown[]) => slots.addSlotsBulk(...a),
@@ -29,6 +35,7 @@ vi.mock('@/mcp/links', () => ({ signupLinks: () => ({ edit: 'e', preview: 'v', p
 const TOOLS = [
   addFieldTool,
   updateFieldTool,
+  reorderFieldsTool,
   deleteFieldTool,
   addSlotsTool,
   updateSlotTool,
@@ -79,25 +86,58 @@ describe('field tools', () => {
     expect((r.structuredContent as { field: { config: unknown } }).field.config).toEqual({ fieldType: 'enum', choices: ['Sat', 'Sun'] });
   });
 
-  it('add_field passes an explicit position through and defaults text to a 200-character config', async () => {
+  it('add_field passes beforeFieldId through and defaults text to a 200-character config', async () => {
     fields.addField.mockResolvedValueOnce(ok(field));
     const client = await connectTestClient(ctx, TOOLS);
-    await client.callTool({ name: 'add_field', arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'text', sortOrder: 3 } });
+    await client.callTool({ name: 'add_field', arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'text', beforeFieldId: 'fld_0' } });
     expect(fields.addField).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
       ref: 'what',
       label: 'What',
       fieldType: 'text',
       config: { fieldType: 'text', maxLength: 200 },
-      sortOrder: 3,
+      beforeFieldId: 'fld_0',
     });
   });
 
-  it('add_field refuses a position past the top of the order column', async () => {
+  it('add_field refuses a sortOrder and points at beforeFieldId', async () => {
     const client = await connectTestClient(ctx, TOOLS);
-    const r = await client.callTool({ name: 'add_field', arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'text', sortOrder: 3_000_000_000 } });
+    const r = await client.callTool({ name: 'add_field', arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'text', sortOrder: 0 } });
     expect(r.isError).toBe(true);
-    expect((r.structuredContent as { error: { code: string; field: string } }).error).toMatchObject({ code: 'invalid_input', field: 'sortOrder' });
+    expect((r.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
+    expect(JSON.stringify(r.structuredContent)).toContain('beforeFieldId');
     expect(fields.addField).not.toHaveBeenCalled();
+  });
+
+  it('add_field names what it takes when it refuses a key that is not sortOrder', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const r = await client.callTool({
+      name: 'add_field',
+      arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'enum', config: { fieldType: 'enum', choices: ['a'] } },
+    });
+    expect(r.isError).toBe(true);
+    const text = JSON.stringify(r.structuredContent);
+    expect(text).toContain('invalid_input');
+    expect(text).toContain('add_field takes signupId, ref, label, fieldType, choices and beforeFieldId.');
+    expect(text).not.toContain('no sortOrder');
+    expect(fields.addField).not.toHaveBeenCalled();
+  });
+
+  it('update_field refuses a sortOrder and points at reorder_fields', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const r = await client.callTool({ name: 'update_field', arguments: { fieldId: 'fld_1', sortOrder: 0 } });
+    expect(r.isError).toBe(true);
+    expect((r.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
+    expect(JSON.stringify(r.structuredContent)).toContain('reorder_fields');
+    expect(fields.updateField).not.toHaveBeenCalled();
+  });
+
+  it('reorder_fields passes the ids through and returns the fields', async () => {
+    fields.reorderFields.mockResolvedValueOnce(ok([{ ...field, id: 'fld_2' }, field]));
+    const client = await connectTestClient(ctx, TOOLS);
+    const r = await client.callTool({ name: 'reorder_fields', arguments: { signupId: 'sig_1', fieldIds: ['fld_2', 'fld_1'] } });
+    expect(r.isError).toBeFalsy();
+    expect(fields.reorderFields).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', { fieldIds: ['fld_2', 'fld_1'] });
+    expect((r.structuredContent as { fields: { id: string }[] }).fields.map((f) => f.id)).toEqual(['fld_2', 'fld_1']);
   });
 
   it('update_field keeps the strict schema closed', async () => {
