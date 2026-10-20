@@ -72,10 +72,15 @@ test.describe('token-gated commitment editing', () => {
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('status')).toHaveText('Saved.');
 
-    // Two-step cancel: confirm dialog, then redirect back to the public page.
+    // Two-step cancel: confirm dialog, then the page itself says it worked,
+    // rather than leaving the sheet to say so (its banner may name another
+    // sign-up this browser holds).
     await page.getByRole('button', { name: 'Cancel signup' }).click();
     await expect(page.getByRole('alertdialog', { name: 'Confirm cancellation' })).toBeVisible();
     await page.getByRole('button', { name: 'Yes, cancel' }).click();
+    await expect(page.getByRole('heading', { name: CANCELLED_PAGE.open.title })).toBeVisible();
+    await expect(page.getByText(CANCELLED_PAGE.open.body)).toBeVisible();
+    await page.getByRole('link', { name: 'Back to the signup' }).click();
     await expect(page).toHaveURL(new RegExp(`/s/${seed.editSlug}$`));
 
     // The link in the confirmation email never changes. Followed again, it
@@ -141,7 +146,8 @@ test.describe('token-gated commitment editing', () => {
     // and names the slot it moved to.
     await page.getByRole('button', { name: 'Cancel signup' }).click();
     await page.getByRole('button', { name: 'Yes, cancel' }).click();
-    await expect(page).toHaveURL(new RegExp(`/s/${signup.slug}$`));
+    await expect(page.getByRole('heading', { name: CANCELLED_PAGE.open.title })).toBeVisible();
+    await expect(page.getByText('Afternoon', { exact: true })).toBeVisible();
     await page.goto(first.editUrl);
     await expect(page.getByRole('heading', { name: CANCELLED_PAGE.open.title })).toBeVisible();
     await expect(page.getByText('Afternoon', { exact: true })).toBeVisible();

@@ -119,7 +119,6 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
         initialNotes={c.notes}
         initialQuantity={c.quantity}
         maxQuantity={maxQuantity}
-        slug={slug}
       />
     </main>
   );

@@ -1,33 +1,73 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Check, Sparkles } from 'lucide-react';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { useTypewriter } from '@/hooks/useTypewriter';
+
+type RevealKind = 'fields' | 'slots';
 
 interface DraftStep {
   id: string;
   label: string;
-  duration: number;
+  /** Fixed time on this step; the fields and slots steps take `revealDuration` instead. */
+  duration?: number;
 }
 
 const DRAFT_STEPS: DraftStep[] = [
   { id: 'read', label: 'Reading your description', duration: 700 },
   { id: 'title', label: 'Drafting a title', duration: 700 },
   { id: 'desc', label: 'Writing a short blurb', duration: 900 },
-  { id: 'fields', label: 'Choosing columns for each slot', duration: 1500 },
-  { id: 'slots', label: 'Generating slots', duration: 1800 },
+  { id: 'fields', label: 'Choosing columns for each slot' },
+  { id: 'slots', label: 'Generating slots' },
   { id: 'check', label: 'Tidying up', duration: 600 },
 ];
 
 export const VISIBLE_FIELD_CAP = 4;
 export const VISIBLE_SLOT_CAP = 10;
 
-function fieldsStepDuration(n: number): number {
-  return Math.min(1500, Math.max(600, Math.min(n, VISIBLE_FIELD_CAP) * 220));
+const REVEAL: Record<RevealKind, { cap: number; perItem: number; max: number }> = {
+  fields: { cap: VISIBLE_FIELD_CAP, perItem: 220, max: 1500 },
+  slots: { cap: VISIBLE_SLOT_CAP, perItem: 180, max: 1800 },
+};
+
+/** How long the fields or slots step lasts for a draft with `n` of them. */
+function revealDuration(kind: RevealKind, n: number): number {
+  const { cap, perItem, max } = REVEAL[kind];
+  return Math.min(max, Math.max(600, Math.min(n, cap) * perItem));
 }
 
-function slotsStepDuration(n: number): number {
-  return Math.min(1800, Math.max(600, Math.min(n, VISIBLE_SLOT_CAP) * 180));
+function stepDuration(step: DraftStep, draft: DraftPreview): number {
+  if (step.id === 'fields') return revealDuration('fields', draft.fields.length);
+  if (step.id === 'slots') return revealDuration('slots', draft.slots.length);
+  return step.duration ?? 0;
+}
+
+/**
+ * How many of `count` items to show: none before the step, one at a time
+ * spread over `duration` while it is `active`, and all of them once `passed`.
+ */
+function useStaggeredReveal(
+  active: boolean,
+  passed: boolean,
+  count: number,
+  duration: number,
+): number {
+  const [revealed, setRevealed] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setRevealed(passed ? count : 0);
+      return;
+    }
+    if (count === 0) return;
+    setRevealed(0);
+    const step = duration / count;
+    const ts = Array.from({ length: count }, (_, i) =>
+      setTimeout(() => setRevealed((n) => Math.max(n, i + 1)), step * (i + 0.2)),
+    );
+    return () => ts.forEach(clearTimeout);
+  }, [active, passed, count, duration]);
+  return revealed;
 }
 
 function clampDuration(text: string, min: number, max: number): number {
@@ -54,23 +94,19 @@ export function Drafting({
 
   useEffect(() => {
     if (!draft) return;
-    const steps = DRAFT_STEPS.map((s) => {
-      if (s.id === 'fields') return { ...s, duration: fieldsStepDuration(draft.fields.length) };
-      if (s.id === 'slots') return { ...s, duration: slotsStepDuration(draft.slots.length) };
-      return s;
-    });
+    const durations = DRAFT_STEPS.map((s) => stepDuration(s, draft));
     let i = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const next = () => {
       setStepIdx(i);
-      if (i >= steps.length) {
+      if (i >= durations.length) {
         onAnimationDone();
         return;
       }
       timer = setTimeout(() => {
         i += 1;
         next();
-      }, steps[i]!.duration);
+      }, durations[i]!);
     };
     next();
     return () => {
@@ -101,39 +137,18 @@ export function Drafting({
   const visibleSlots = slots.slice(0, VISIBLE_SLOT_CAP);
   const overflowSlots = Math.max(0, slots.length - visibleSlots.length);
 
-  const [fieldsRevealed, setFieldsRevealed] = useState(0);
-  useEffect(() => {
-    if (DRAFT_STEPS[stepIdx]?.id !== 'fields') {
-      setFieldsRevealed(passed('fields') ? visibleFields.length : 0);
-      return;
-    }
-    if (visibleFields.length === 0) return;
-    setFieldsRevealed(0);
-    const dur = fieldsStepDuration(fields.length);
-    const step = dur / visibleFields.length;
-    const ts = visibleFields.map((_, i) =>
-      setTimeout(() => setFieldsRevealed((n) => Math.max(n, i + 1)), step * (i + 0.2)),
-    );
-    return () => ts.forEach(clearTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepIdx, visibleFields.length, fields.length]);
-
-  const [slotsCount, setSlotsCount] = useState(0);
-  useEffect(() => {
-    if (DRAFT_STEPS[stepIdx]?.id !== 'slots') {
-      setSlotsCount(passed('slots') ? visibleSlots.length : 0);
-      return;
-    }
-    if (visibleSlots.length === 0) return;
-    setSlotsCount(0);
-    const dur = slotsStepDuration(slots.length);
-    const step = dur / visibleSlots.length;
-    const ts = visibleSlots.map((_, i) =>
-      setTimeout(() => setSlotsCount((n) => Math.max(n, i + 1)), step * (i + 0.2)),
-    );
-    return () => ts.forEach(clearTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepIdx, visibleSlots.length, slots.length]);
+  const fieldsRevealed = useStaggeredReveal(
+    DRAFT_STEPS[stepIdx]?.id === 'fields',
+    passed('fields'),
+    visibleFields.length,
+    revealDuration('fields', fields.length),
+  );
+  const slotsCount = useStaggeredReveal(
+    DRAFT_STEPS[stepIdx]?.id === 'slots',
+    passed('slots'),
+    visibleSlots.length,
+    revealDuration('slots', slots.length),
+  );
 
   const titleDone = passed('title');
   const descShown = reached('desc');
@@ -378,14 +393,7 @@ function StepIcon({ done, active }: { done: boolean; active: boolean }) {
   if (done) {
     return (
       <span className="bg-success inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-white">
-        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" className="h-3 w-3">
-          <path
-            d="M2.5 6.5l2.5 2.5 5-6"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
       </span>
     );
   }
@@ -404,9 +412,7 @@ function StepIcon({ done, active }: { done: boolean; active: boolean }) {
 function PulseMark() {
   return (
     <div className="bg-brand/10 text-brand relative flex h-14 w-14 items-center justify-center rounded-2xl">
-      <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6" aria-hidden="true">
-        <path d="M12 2l1.8 4.6L18 8.2l-4.2 1.6L12 14l-1.8-4.2L6 8.2l4.2-1.6L12 2zm7 11l1 2.4 2.4 1-2.4 1L19 20l-1-2.6-2.4-1 2.4-1L19 13zM5 13l.8 1.8 1.8.8-1.8.8L5 18.4l-.8-1.8L2.4 16l1.8-.8L5 13z" />
-      </svg>
+      <Sparkles className="h-6 w-6" aria-hidden="true" />
       <span className="absolute inset-0 animate-ping rounded-2xl border-2 border-brand opacity-50" />
     </div>
   );

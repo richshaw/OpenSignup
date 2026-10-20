@@ -24,7 +24,6 @@ interface EditFormProps {
    * the quantity field is left out; above 1 it is the field's `max`.
    */
   maxQuantity: number | null;
-  slug: string;
 }
 
 export default function EditForm({
@@ -34,7 +33,6 @@ export default function EditForm({
   initialNotes,
   initialQuantity,
   maxQuantity,
-  slug,
 }: EditFormProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -130,16 +128,19 @@ export default function EditForm({
       return;
     }
     if (res.ok) {
-      router.push(`/s/${slug}`);
-    } else {
-      const payload = await res.json().catch(() => null);
-      const copy = participantErrorCopy(payload?.error, 'change');
-      setMessage({
-        kind: 'err',
-        text: copy ? errorCopyText(copy) : (payload?.error?.message ?? 'cancel failed'),
-      });
-      setConfirmingCancel(false);
+      // Reload rather than go back to the sheet, whose banner may name another
+      // sign-up this browser holds: the page then says the spot was cancelled
+      // and links back. `saving` stays on until it does.
+      router.refresh();
+      return;
     }
+    const payload = await res.json().catch(() => null);
+    const copy = participantErrorCopy(payload?.error, 'change');
+    setMessage({
+      kind: 'err',
+      text: copy ? errorCopyText(copy) : (payload?.error?.message ?? 'cancel failed'),
+    });
+    setConfirmingCancel(false);
     setSaving(false);
   }
 

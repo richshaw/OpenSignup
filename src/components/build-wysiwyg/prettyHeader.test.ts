@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { prettyHeader, emptyHeaderCopy } from './prettyHeader';
 
 describe('prettyHeader', () => {
-  it('formats an ISO date into uppercase weekday + month + day', () => {
-    expect(prettyHeader('2026-05-21', 'date')).toBe('THU, MAY 21');
+  it('formats an ISO date as the public page does (the CSS uppercases it)', () => {
+    expect(prettyHeader('2026-05-21', 'date')).toBe('Thu, May 21');
   });
 
   it('returns "Set a date" when value is empty and field is date', () => {
@@ -53,6 +53,11 @@ describe('prettyHeader', () => {
     expect(prettyHeader('2026-02-31', 'date')).toBe('2026-02-31');
     // Month 13.
     expect(prettyHeader('2026-13-01', 'date')).toBe('2026-13-01');
+  });
+
+  it('passes through a typed date that is not in the stored shape', () => {
+    // `new Date()` would read this as Nov 14, 2001, a Wednesday.
+    expect(prettyHeader('Sat, Nov 14', 'date')).toBe('Sat, Nov 14');
   });
 });
 

@@ -1,4 +1,4 @@
-import { MIN_DATE_YEAR } from '@/schemas/slot-fields';
+import { MIN_DATE_YEAR } from '@/lib/reminder-fields';
 
 /**
  * Prose the model reads in tool descriptions. Kept in one place so
