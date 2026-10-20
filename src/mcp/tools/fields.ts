@@ -14,7 +14,8 @@ import { FIELD_GUIDE } from './guides';
  * names the field to go in front of instead, and the service does the
  * numbers. Strict, so a sortOrder from an assistant that remembers the old
  * input is refused rather than dropped, which would put the field last and
- * report a success.
+ * report a success. The message is the refusal for any key it doesn't know,
+ * so it names what the tool takes rather than guessing which key was wrong.
  */
 const AddFieldSchema = DraftFieldSchema.extend({
   signupId: z.string(),
@@ -22,7 +23,9 @@ const AddFieldSchema = DraftFieldSchema.extend({
     .string()
     .optional()
     .describe('Put the new field in front of this field. Leave out to add it at the end.'),
-}).strict('add_field takes no sortOrder. To place the field, pass beforeFieldId.');
+}).strict(
+  'add_field takes signupId, ref, label, fieldType, choices and beforeFieldId. To place the field, pass beforeFieldId.',
+);
 
 export const addFieldTool = defineTool({
   name: 'add_field',

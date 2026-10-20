@@ -108,6 +108,20 @@ describe('field tools', () => {
     expect(fields.addField).not.toHaveBeenCalled();
   });
 
+  it('add_field names what it takes when it refuses a key that is not sortOrder', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const r = await client.callTool({
+      name: 'add_field',
+      arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'enum', config: { fieldType: 'enum', choices: ['a'] } },
+    });
+    expect(r.isError).toBe(true);
+    const text = JSON.stringify(r.structuredContent);
+    expect(text).toContain('invalid_input');
+    expect(text).toContain('add_field takes signupId, ref, label, fieldType, choices and beforeFieldId.');
+    expect(text).not.toContain('no sortOrder');
+    expect(fields.addField).not.toHaveBeenCalled();
+  });
+
   it('update_field refuses a sortOrder and points at reorder_fields', async () => {
     const client = await connectTestClient(ctx, TOOLS);
     const r = await client.callTool({ name: 'update_field', arguments: { fieldId: 'fld_1', sortOrder: 0 } });
