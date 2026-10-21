@@ -588,10 +588,6 @@ export async function getOwnCommitmentsForSignup(
   return out;
 }
 
-// A name a move sends, checked by the rule signing up uses on the trimmed
-// name, which the edit schema alone does not apply: blank is refused.
-const MoveNameSchema = CommitmentCreateInputSchema.pick({ name: true });
-
 /**
  * The commitment as an edit left it. A move to another slot gives the new
  * commitment, whose id and edit token are new, with `moved` holding what its
@@ -617,14 +613,6 @@ export async function updateOwnCommitment(
 
   if (data.swapToSlotId && data.swapToSlotId !== current.slotId) {
     const swapToSlotId = data.swapToSlotId;
-    // Checked before anything is written, and only a name the move sends: one
-    // it leaves out stays as it is, whatever it is. Quantity and notes need no
-    // more checking. Each either passed the edit schema, which bounds it as
-    // signing up does, or comes from the commitment itself (below).
-    if (data.name !== undefined) {
-      const name = parseInputSafe(MoveNameSchema, { name: data.name });
-      if (!name.ok) return name;
-    }
     // A refusal as closed or full rolls the whole move back, so its
     // attempt_failed row is written after, by the participant who tried.
     let refusal: Record<string, unknown> | undefined;
