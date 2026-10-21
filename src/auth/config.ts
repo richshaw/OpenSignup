@@ -7,7 +7,6 @@ import { getEmailTransport } from '@/email';
 import { MagicLinkEmail } from '@/email/templates/magic-link';
 import { recordActivityBestEffort } from '@/lib/activity';
 import { getEnv } from '@/lib/env';
-import { log } from '@/lib/log';
 import { normalizeEmail } from '@/schemas/common';
 import { SignupAdapter } from './adapter';
 import { buildOAuthProviders } from './oauth-providers';
@@ -74,7 +73,6 @@ function buildConfig(): NextAuthConfig {
             html,
             text,
           });
-          log.info({ email: identifier }, 'magic link dispatched');
           await recordActivityBestEffort(getDb(), {
             actor: { actorId: null, actorType: 'system' },
             eventType: 'auth.magic_link_sent',
