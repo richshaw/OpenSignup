@@ -1,4 +1,4 @@
-import { useReducer, useRef, useEffect } from 'react';
+import { useReducer, useRef, useEffect, useState } from 'react';
 import { toFieldRef } from '@/schemas/slot-fields';
 import type { SlotFieldDefinition, SlotFieldConfig } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
@@ -328,6 +328,12 @@ export function useBuildState(
   // never holds up the saves behind it.
   const settingsSaveRef = useRef<Promise<void>>(Promise.resolve());
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Each row's values as the server last accepted them, which a refused cell
+  // edit is put back to (#514). Rows the server sends (the first load, a new
+  // slot, a refetch) and every values save that succeeds keep it current.
+  const [savedValues] = useState(
+    () => new Map(initialSlots.map((s) => [s.id, toStringValues(s.values)])),
+  );
 
   useEffect(() => {
     return () => {
@@ -532,7 +538,9 @@ export function useBuildState(
         values: seed?.values ?? {},
         capacity: seed?.capacity ?? 1,
       });
-      dispatch({ type: 'OPTIMISTIC_ADD_ROW', row: toBuildRow(slot) });
+      const row = toBuildRow(slot);
+      savedValues.set(row.id, row.values);
+      dispatch({ type: 'OPTIMISTIC_ADD_ROW', row });
     });
 
   const duplicateRow = async (rowId: string): Promise<void> => {
@@ -587,7 +595,11 @@ export function useBuildState(
           throw err.code === 'invalid_input' ? { code: 'invalid_input', message: STALE_REORDER_MESSAGE } : err;
         }
       },
-      async () => (await sendForData<BuildSlot[]>('GET', slotsUrl)).map(toBuildRow),
+      async () => {
+        const rows = (await sendForData<BuildSlot[]>('GET', slotsUrl)).map(toBuildRow);
+        for (const r of rows) savedValues.set(r.id, r.values);
+        return rows;
+      },
     );
   };
 
@@ -611,6 +623,25 @@ export function useBuildState(
       }
     }
     await send('PATCH', `/api/slots/${row.id}`, { values: typedValues });
+    savedValues.set(row.id, { ...row.values });
+  }
+
+  /**
+   * Puts the cells of `sent`, a row the server refused, back to their last
+   * saved values, so one bad value can't block every later save of the row
+   * or stay on screen as if it had saved. A cell the organizer has edited
+   * again since, whether typed or still waiting to save, keeps the newer value.
+   */
+  function rollBackRefused(sent: BuildRow) {
+    const current = stateRef.current.rows.find((r) => r.id === sent.id);
+    if (!current) return;
+    const saved = savedValues.get(sent.id) ?? {};
+    for (const [ref, value] of Object.entries(sent.values)) {
+      const savedValue = saved[ref] ?? '';
+      if (value === savedValue || current.values[ref] !== value) continue;
+      if (timersRef.current.has(`${sent.id}:${ref}`)) continue;
+      dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId: sent.id, fieldRef: ref, value: savedValue });
+    }
   }
 
   function flushTimer(key: string, saveFn: () => Promise<void>) {
@@ -629,7 +660,14 @@ export function useBuildState(
     flushTimer(`${rowId}:${fieldRef}`, async () => {
       const row = stateRef.current.rows.find((r) => r.id === rowId);
       if (!row) return;
-      await withSave(() => saveRowValues(row));
+      await withSave(async () => {
+        try {
+          await saveRowValues(row);
+        } catch (e) {
+          rollBackRefused(row);
+          throw e;
+        }
+      });
     });
   };
 
