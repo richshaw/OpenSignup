@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getEnv } from '@/lib/env';
+import { SignInLink } from './sign-in-link';
 
 export const metadata = { title: 'Sign in', robots: { index: false } };
 export const dynamic = 'force-dynamic';
@@ -41,13 +42,7 @@ export default async function ConfirmLoginPage({
           )}
         </p>
       </div>
-      <a
-        href={next}
-        referrerPolicy="no-referrer"
-        className="w-full rounded-lg bg-[#1f6feb] px-5 py-3 text-center font-medium text-white no-underline transition-colors hover:bg-[#1658c4]"
-      >
-        Sign in →
-      </a>
+      <SignInLink href={next} />
       <a href="/login" className="text-center text-sm text-ink-muted hover:underline">
         Use a different email
       </a>
