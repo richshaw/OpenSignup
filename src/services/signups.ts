@@ -284,7 +284,6 @@ export async function updateSignup(
       .set({
         ...(data.title !== undefined ? { title: data.title } : {}),
         ...(data.description !== undefined ? { description: data.description } : {}),
-        ...(data.visibility !== undefined ? { visibility: data.visibility } : {}),
         ...(data.tags !== undefined ? { tags: data.tags } : {}),
         ...(data.closesAt !== undefined
           ? { closesAt: data.closesAt ? new Date(data.closesAt) : null }

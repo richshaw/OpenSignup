@@ -26,7 +26,6 @@ function signupCore(row: SignupRow) {
     slug: row.slug,
     title: row.title,
     status: row.status,
-    visibility: row.visibility,
     closesAt: row.closesAt ? row.closesAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

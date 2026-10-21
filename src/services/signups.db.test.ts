@@ -523,6 +523,18 @@ describe('signups service (db)', () => {
       expect(acts.some((a) => a.eventType === 'signup.updated')).toBe(true);
     });
 
+    it('refuses a visibility change, which nothing reads', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Before'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, { visibility: 'password' });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error).toMatchObject({ code: 'invalid_input', field: 'visibility' });
+      const [stored] = await fx.db.select().from(signups).where(eq(signups.id, created.value.id));
+      expect(stored?.visibility).toBe('unlisted');
+    });
+
     it('returns not_found for a missing signup', async () => {
       const r = await updateSignup(fx.db, fx.actor, makeId('sig'), { title: 'No' });
       expect(r.ok).toBe(false);
