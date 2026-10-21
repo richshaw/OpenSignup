@@ -50,7 +50,43 @@ export const ACTIVE_COMMITMENT_STATUSES: readonly CommitmentRow['status'][] = [
   'tentative',
   'waitlist',
 ];
-const isActiveCommitment = inArray(commitments.status, [...ACTIVE_COMMITMENT_STATUSES]);
+export const isActiveCommitment = inArray(commitments.status, [...ACTIVE_COMMITMENT_STATUSES]);
+
+/**
+ * A commitment whose places count against its slot's capacity: confirmed or
+ * tentative. A waitlisted one is still active (above) but holds no place, and
+ * a cancelled one holds nothing. Every capacity check, and every count of
+ * places taken that a page shows, goes by this.
+ */
+export const holdsPlace = or(
+  eq(commitments.status, 'confirmed'),
+  eq(commitments.status, 'tentative'),
+)!;
+
+/**
+ * How many places a slot has taken (the sum of `quantity` over commitments
+ * that hold one), leaving out `exceptCommitmentId` when given: an edit checks
+ * a new quantity against everyone else's. Guard-free: the caller has checked
+ * the slot, and a capacity check holds the slot row lock (`lockSlot`) so the
+ * count cannot go up before it writes.
+ */
+export async function placesTaken(
+  q: Queryable,
+  slotId: string,
+  exceptCommitmentId?: string,
+): Promise<number> {
+  const [row] = await q
+    .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
+    .from(commitments)
+    .where(
+      and(
+        eq(commitments.slotId, slotId),
+        ...(exceptCommitmentId === undefined ? [] : [ne(commitments.id, exceptCommitmentId)]),
+        holdsPlace,
+      ),
+    );
+  return row?.sum ?? 0;
+}
 
 /**
  * The `conflict` for an edit or cancel of a commitment that is no longer
@@ -140,8 +176,7 @@ function whyNotTakingPlaces(
   // Counted back from slot_at, so for a date-only slot it is measured from the
   // noon-UTC anchor rather than from midnight (see extractSlotAt). No UI sets
   // lockoutHoursBeforeSlot today.
-  const settings = (signup.settings ?? {}) as { lockoutHoursBeforeSlot?: number };
-  const lockoutHours = settings.lockoutHoursBeforeSlot ?? 0;
+  const lockoutHours = signup.settings.lockoutHoursBeforeSlot ?? 0;
   if (slot.slotAt && lockoutHours > 0) {
     if (Date.now() > slot.slotAt.getTime() - lockoutHours * 3600 * 1000) {
       return {
@@ -349,16 +384,7 @@ async function commitParticipantToSlot(
 
     // Capacity is the cap on sum(quantity), not row count: a Qty=5 commit on a
     // cap=4 slot is over capacity even with zero existing rows.
-    const sumRows = await tx
-      .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
-      .from(commitments)
-      .where(
-        and(
-          eq(commitments.slotId, slotId),
-          or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-        ),
-      );
-    const usedQty = sumRows[0]?.sum ?? 0;
+    const usedQty = await placesTaken(tx, slotId);
 
     if (slot.capacity !== null && usedQty + data.quantity > slot.capacity) {
       const remaining = Math.max(0, slot.capacity - usedQty);
@@ -776,17 +802,7 @@ export async function updateOwnCommitment(
 
       const cap = slotRow.capacity;
       if (cap !== null) {
-        const sumRows = await tx
-          .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
-          .from(commitments)
-          .where(
-            and(
-              eq(commitments.slotId, current.slotId),
-              ne(commitments.id, commitmentId),
-              or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-            ),
-          );
-        const otherQty = sumRows[0]?.sum ?? 0;
+        const otherQty = await placesTaken(tx, current.slotId, commitmentId);
         if (otherQty + data.quantity > cap) {
           const remaining = Math.max(0, cap - otherQty);
           await safeRecordAttemptFailed(tx, {
@@ -1052,12 +1068,7 @@ export async function committedBySlot(db: Db, signupId: string): Promise<Record<
       sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int`,
     })
     .from(commitments)
-    .where(
-      and(
-        eq(commitments.signupId, signupId),
-        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-      ),
-    )
+    .where(and(eq(commitments.signupId, signupId), holdsPlace))
     .groupBy(commitments.slotId);
   const out: Record<string, number> = {};
   for (const r of rows) out[r.slotId] = r.sum;
@@ -1108,10 +1119,7 @@ export async function editLimitsForCommitment(
 ): Promise<{ maxQuantity: number | null; closed: boolean; slotName: string }> {
   const row = await readSlotAndSignup(db, commitment.slotId);
   if (!row) return { maxQuantity: null, closed: false, slotName: '' };
-  const slotName = summarizeSlotValues(
-    await listFieldsForSignup(db, row.signupId),
-    (row.values as Record<string, unknown>) ?? {},
-  );
+  const slotName = summarizeSlotValues(await listFieldsForSignup(db, row.signupId), row.values);
 
   if (whyNotTakingPlaces(row.signup, row)) {
     // Read here rather than taken from the caller, whose copy may be older.
@@ -1124,18 +1132,9 @@ export async function editLimitsForCommitment(
   }
 
   if (row.capacity === null) return { maxQuantity: null, closed: false, slotName };
-  const sumRows = await db
-    .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
-    .from(commitments)
-    .where(
-      and(
-        eq(commitments.slotId, commitment.slotId),
-        ne(commitments.id, commitment.id),
-        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-      ),
-    );
+  const others = await placesTaken(db, commitment.slotId, commitment.id);
   return {
-    maxQuantity: Math.max(0, row.capacity - (sumRows[0]?.sum ?? 0)),
+    maxQuantity: Math.max(0, row.capacity - others),
     closed: false,
     slotName,
   };
@@ -1232,7 +1231,7 @@ async function slotName(db: Db, signupId: string, slotId: string): Promise<strin
     .limit(1);
   if (!slot) return '';
   const fields = await listFieldsForSignup(db, signupId);
-  return summarizeSlotValues(fields, (slot.values as Record<string, unknown>) ?? {});
+  return summarizeSlotValues(fields, slot.values);
 }
 
 /**
@@ -1256,14 +1255,5 @@ async function slotStateAfterCancel(db: Db, slotId: string): Promise<CancelledSl
   }
   if (row.capacity === null) return 'open';
   // What `commitToSlot` checks a sign-up against.
-  const [taken] = await db
-    .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
-    .from(commitments)
-    .where(
-      and(
-        eq(commitments.slotId, slotId),
-        or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-      ),
-    );
-  return (taken?.sum ?? 0) >= row.capacity ? 'full' : 'open';
+  return (await placesTaken(db, slotId)) >= row.capacity ? 'full' : 'open';
 }

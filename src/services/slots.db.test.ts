@@ -446,7 +446,7 @@ describe('addSlotsBulk beforeSlotId (db)', () => {
     // in ahead of one, since `addSlot` queues on the signup lock now; the add
     // stays to pin what the renumbering does with a row it was not given.
     const stale = [idOf('c'), idOf('b'), idOf('a')];
-    expect((await deleteSlot(fx.db, fx.actor, idOf('b'))).ok).toBe(true);
+    expect((await deleteSlot(fx.db, fx.actor, idOf('b'), { force: true })).ok).toBe(true);
     expect((await addSlot(fx.db, fx.actor, signupId, { values: { what: 'late' } })).ok).toBe(true);
 
     await fx.db.transaction((tx) => writeSlotOrder(tx, signupId, stale));
@@ -989,7 +989,7 @@ describe('slot writes and the signup lock (db)', () => {
     if (!slot.ok) throw new Error('slot setup failed');
     let editing: ReturnType<typeof updateSlot> | undefined;
     const held = fx.db.transaction(async (tx) => {
-      const gone = await deleteSlot(tx as unknown as Db, colleague, slot.value.id);
+      const gone = await deleteSlot(tx as unknown as Db, colleague, slot.value.id, { force: true });
       expect(gone.ok, JSON.stringify(gone)).toBe(true);
       editing = updateSlot(fx.db, fx.actor, slot.value.id, { capacity: 4 });
       await untilServiceBlockedOn(fx.db, tx, editing);

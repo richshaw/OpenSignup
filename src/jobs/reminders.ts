@@ -10,6 +10,7 @@ import { commitmentEditUrl, reminderUnsubscribePostUrl, reminderUnsubscribeUrl }
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { editTokenFor } from '@/lib/token';
 import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
+import { holdsPlace } from '@/services/commitments';
 import { reminderOptOutTokenFor } from '@/services/reminder-optout';
 import { alreadyRecorded, loadCommitmentRow, slotText } from '@/email/commitment-row';
 import { sendReminder } from '@/email/send';
@@ -33,10 +34,7 @@ const leadInterval = sql`make_interval(hours => ${REMINDER_LEAD_HOURS})`;
  * and the names let the job log which rule a skipped reminder failed.
  */
 const reminderDueRules = {
-  'commitment not active': or(
-    eq(commitments.status, 'confirmed'),
-    eq(commitments.status, 'tentative'),
-  )!,
+  'commitment not active': holdsPlace,
   // 'closed' too, not just 'open'. Closing a signup means "no longer
   // collecting responses" — the commitments already made stay valid and
   // their participants still need the reminder. Excluding it silently
