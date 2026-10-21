@@ -112,6 +112,7 @@ describe('the tool registry', () => {
       'list_signups',
       'list_workspaces',
       'publish_signup',
+      'reorder_fields',
       'reorder_slots',
       'update_field',
       'update_signup',

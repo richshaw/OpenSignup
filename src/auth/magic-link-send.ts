@@ -2,6 +2,7 @@ import { redactSignInCodes, redactUrlQueryStrings } from '@/email/console';
 import type { EmailMessage, EmailTransport } from '@/email/transport';
 import { log } from '@/lib/log';
 import { withTimeout } from '@/lib/with-timeout';
+import { extractEmailDomain } from './email-domain';
 
 // Long enough for a relay that is merely slow. A host that is down fails
 // sooner, in the transport (see src/email/smtp.ts).
@@ -14,14 +15,16 @@ export const MAGIC_LINK_SEND_TIMEOUT_MS = 30_000;
  *
  * Giving up doesn't stop the send, and the timeout error says nothing about
  * the mail server, so how a send that outlives the limit ends is logged: the
- * real error if it fails, and that it went out if it succeeds. Both lines
- * name the recipient, as the on-time "magic link dispatched" line does.
+ * real error if it fails, and that it went out if it succeeds. Like the
+ * on-time "magic link dispatched" line, they name the recipient's domain,
+ * never the address (see "Logs and rate-limiting" on /privacy).
  */
 export async function sendMagicLinkEmail(
   transport: EmailTransport,
   message: EmailMessage,
 ): Promise<void> {
   const startedAt = Date.now();
+  const emailDomain = extractEmailDomain(message.to);
   await withTimeout(
     transport.send(message),
     MAGIC_LINK_SEND_TIMEOUT_MS,
@@ -30,19 +33,17 @@ export async function sendMagicLinkEmail(
       onLateSettle: (result) => {
         const elapsedMs = Date.now() - startedAt;
         if (result.status === 'fulfilled') {
-          log.warn(
-            { email: message.to, elapsedMs },
-            'magic link dispatched after its send timed out',
-          );
+          log.warn({ emailDomain, elapsedMs }, 'magic link dispatched after its send timed out');
         } else {
           log.error(
-            { email: message.to, sendError: describeSendError(result.reason), elapsedMs },
+            { emailDomain, sendError: describeSendError(result.reason), elapsedMs },
             'magic link send failed after it timed out',
           );
         }
       },
     },
   );
+  log.info({ emailDomain }, 'magic link dispatched');
 }
 
 /**

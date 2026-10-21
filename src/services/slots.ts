@@ -1,4 +1,4 @@
-import { and, asc, eq, or, sql } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
 import { slots } from '@/db/schema/slots';
@@ -17,7 +17,13 @@ import {
   SlotUpdateInputSchema,
 } from '@/schemas/slots';
 import { MAX_SORT_ORDER } from '@/schemas/common';
-import { lockSignupForWrite, lockSlot, lockSlotsForSignup, readLiveSignup } from './locks';
+import {
+  lockSignupForWrite,
+  lockSlot,
+  lockSlotsForSignup,
+  readLiveSignup,
+  SLOT_DISPLAY_ORDER,
+} from './locks';
 import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
 
 type SlotRow = typeof slots.$inferSelect;
@@ -518,7 +524,7 @@ export async function listSlotsForSignup(db: Queryable, signupId: string) {
     .select()
     .from(slots)
     .where(eq(slots.signupId, signupId))
-    .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt));
+    .orderBy(...SLOT_DISPLAY_ORDER);
 }
 
 export function summarizeValues(values: Record<string, unknown>): string {

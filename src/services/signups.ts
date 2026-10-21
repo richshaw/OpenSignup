@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Db } from '@/db/client';
 import { signups } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
@@ -32,7 +32,7 @@ import {
 } from './slot-fields';
 import { committedBySlot } from './commitments';
 import { lockSignupForWrite, lockSlotsForSignup, readLiveSignup } from './locks';
-import { pickAvailableRef, summarizeValues } from './slots';
+import { listSlotsForSignup, pickAvailableRef, summarizeValues } from './slots';
 
 interface ReminderSettingsLike {
   reminderFromFieldRef?: string | undefined;
@@ -229,11 +229,7 @@ export async function getSignupForOrganizer(
   if (!loaded.ok) return loaded;
   const row = loaded.value;
   const [signupSlots, fields, filled] = await Promise.all([
-    db
-      .select()
-      .from(slots)
-      .where(eq(slots.signupId, signupId))
-      .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt)),
+    listSlotsForSignup(db, signupId),
     listFieldsForSignup(db, signupId),
     opts.includeFilled ? committedBySlot(db, signupId) : Promise.resolve(undefined),
   ]);
@@ -515,11 +511,7 @@ export async function getPublicSignup(
   }
 
   const [signupSlots, fields, committedBySlotMap] = await Promise.all([
-    db
-      .select()
-      .from(slots)
-      .where(eq(slots.signupId, row.id))
-      .orderBy(asc(slots.sortOrder), asc(slots.slotAt), asc(slots.createdAt)),
+    listSlotsForSignup(db, row.id),
     listFieldsForSignup(db, row.id),
     committedBySlot(db, row.id),
   ]);

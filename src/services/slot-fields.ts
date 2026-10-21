@@ -28,6 +28,7 @@ import {
   type SlotFieldConfig,
   type SlotFieldDefinition,
   SlotFieldInputSchema,
+  SlotFieldReorderInputSchema,
   type SlotFieldUpdateInput,
   SlotFieldUpdateInputSchema,
 } from '@/schemas/slot-fields';
@@ -59,7 +60,11 @@ export async function listFieldsForSignup(
     .select()
     .from(slotFields)
     .where(eq(slotFields.signupId, signupId))
-    .orderBy(asc(slotFields.sortOrder), asc(slotFields.createdAt));
+    // The id is the last word. Fields made in one transaction (every field
+    // `createSignup` writes) share a `createdAt`, so two of them on one
+    // sortOrder had no fixed order and Postgres could return them either way
+    // round from one read to the next.
+    .orderBy(asc(slotFields.sortOrder), asc(slotFields.createdAt), asc(slotFields.id));
   return rows.map(rowToDefinition);
 }
 
@@ -175,6 +180,15 @@ export async function addField(
   const input = parseInputSafe(SlotFieldInputSchema, rawInput);
   if (!input.ok) return input;
   const data = input.value;
+  const { beforeFieldId } = data;
+  if (beforeFieldId !== undefined && data.sortOrder !== undefined) {
+    return err(
+      serviceError('invalid_input', 'sortOrder cannot be used together with beforeFieldId', {
+        field: 'sortOrder',
+        suggestion: 'leave sortOrder out: the field goes in front of beforeFieldId',
+      }),
+    );
+  }
 
   const signupRow = await readLiveSignup(db, signupId);
   if (!signupRow) return err(serviceError('not_found', 'signup not found'));
@@ -195,7 +209,23 @@ export async function addField(
     // date column (DEFAULT_TEMPLATE pins it at 1), so a new column
     // reappeared mid-grid after a reload.
     let sortOrder = data.sortOrder;
-    if (sortOrder === undefined) {
+    // In front of another field: the new field takes that field's position,
+    // and every field is renumbered around it once it is in. The signup lock
+    // keeps every other field write out, so the position found here holds.
+    let shown: SlotFieldDefinition[] | undefined;
+    if (beforeFieldId !== undefined) {
+      shown = await listFieldsForSignup(tx, signupId);
+      sortOrder = shown.findIndex((f) => f.id === beforeFieldId);
+      if (sortOrder < 0) {
+        return err(
+          serviceError('invalid_input', 'beforeFieldId is not a field in this signup', {
+            field: 'beforeFieldId',
+            received: beforeFieldId,
+            suggestion: 'call get_signup to see the ids of its fields, in the order they are shown',
+          }),
+        );
+      }
+    } else if (sortOrder === undefined) {
       // Under the signup lock: two concurrent adds would otherwise read the
       // same max and land on the same sortOrder, leaving their order to the
       // createdAt tiebreak. Held at the column's top, as `nextSlotSortOrder`
@@ -237,6 +267,21 @@ export async function addField(
       );
     }
 
+    // Set when the renumbering below swapped two date or time fields that
+    // were tied, which moves slot_at even though the new field is neither.
+    let timelineMoved = false;
+    if (shown) {
+      // Renumbered rather than shifted down by one: orders can be tied (the
+      // state this exists to get out of), and a shift would keep the tie.
+      const ids = shown.map((f) => f.id);
+      ids.splice(sortOrder, 0, row.id);
+      await writeFieldOrder(tx, signupId, ids);
+      const renumbered = new Map(ids.map((fieldId, i) => [fieldId, i]));
+      timelineMoved =
+        timeline(shown) !==
+        timeline(shown.map((f) => ({ ...f, sortOrder: renumbered.get(f.id) ?? f.sortOrder })));
+    }
+
     // A signup that just gained its first date field now has something to
     // anchor on, and a new time field may pair with the existing date, so
     // adding either re-anchors and rebuilds the slot_at cache. No-op when
@@ -245,13 +290,14 @@ export async function addField(
     // Any other type is skipped. The anchor and slot_at read only the type and
     // order of date and time fields (src/lib/reminder-fields.ts), and no slot
     // has a value for a field that did not exist, so a text, number or enum
-    // field cannot move either. The rebuild locks every slot row: run for one
-    // of those, the add would queue behind everyone part-way through signing
-    // up and then hold up everyone after them. Gated on the type, not on "is
-    // this the anchor": a time field is never the anchor and still moves
-    // slot_at (see `deleteField`).
+    // field cannot move either, unless placing it renumbered two tied date or
+    // time fields into a different order. The rebuild locks every slot row:
+    // run for one of those, the add would queue behind everyone part-way
+    // through signing up and then hold up everyone after them. Gated on the
+    // type, not on "is this the anchor": a time field is never the anchor and
+    // still moves slot_at (see `deleteField`).
     let anchor: string | null | undefined;
-    if (isDateOrTime(row.fieldType)) {
+    if (isDateOrTime(row.fieldType) || timelineMoved) {
       anchor = await reanchor(tx, signupId, await listFieldsForSignup(tx, signupId));
       await recomputeSlotAtForSignup(tx, signupId, signupRow.workspaceId);
     }
@@ -265,10 +311,110 @@ export async function addField(
         fieldId: row.id,
         ref: row.ref,
         fieldType: row.fieldType,
+        ...(beforeFieldId !== undefined ? { beforeFieldId } : {}),
         ...(anchor !== undefined ? { reminderFromFieldRef: anchor } : {}),
       },
     });
     return ok(rowToDefinition(row));
+  });
+}
+
+/**
+ * Number a signup's fields 0..n-1 in the order of `orderedIds`, writing only
+ * the rows whose order changes. The caller has passed the policy guard and
+ * holds the signup lock, and `orderedIds` is every field of the signup, as
+ * `writeSlotOrder` asks of slots.
+ */
+async function writeFieldOrder(tx: Queryable, signupId: string, orderedIds: string[]) {
+  const wanted = sql`jsonb_array_elements_text(${JSON.stringify(orderedIds)}::jsonb)
+    with ordinality as wanted(id, position)`;
+  await tx
+    .update(slotFields)
+    .set({ sortOrder: sql`(wanted.position - 1)::int` })
+    .from(wanted)
+    .where(
+      and(
+        eq(slotFields.signupId, signupId),
+        sql`${slotFields.id} = wanted.id`,
+        sql`${slotFields.sortOrder} <> wanted.position - 1`,
+      ),
+    );
+}
+
+/**
+ * Put a signup's fields in a new order. `fieldIds` has to be every field of
+ * the signup exactly once, for the reason `reorderSlots` gives: a partial list
+ * would leave the fields it skips tied with the ones it names.
+ */
+export async function reorderFields(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+  rawInput: unknown,
+): Promise<Result<SlotFieldDefinition[], ServiceError>> {
+  const input = parseInputSafe(SlotFieldReorderInputSchema, rawInput);
+  if (!input.ok) return input;
+  const { fieldIds } = input.value;
+
+  const signupRow = await readLiveSignup(db, signupId);
+  if (!signupRow) return err(serviceError('not_found', 'signup not found'));
+  requireWorkspaceWrite(actor, signupRow.workspaceId);
+
+  return db.transaction(async (tx) => {
+    // Every field write takes the signup lock, so the list read under it is
+    // the list the renumbering writes over.
+    const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
+    if (!locked) return err(serviceError('not_found', 'signup not found'));
+    const current = await listFieldsForSignup(tx, signupId);
+    const known = new Set(current.map((f) => f.id));
+
+    const seen = new Set<string>();
+    const duplicates = new Set<string>();
+    for (const id of fieldIds) (seen.has(id) ? duplicates : seen).add(id);
+    const unknown = [...seen].filter((id) => !known.has(id));
+    const missing = current.filter((f) => !seen.has(f.id)).map((f) => f.id);
+    if (duplicates.size > 0 || unknown.length > 0 || missing.length > 0) {
+      return err(
+        serviceError('invalid_input', 'fieldIds must list every field of the signup exactly once', {
+          field: 'fieldIds',
+          details: {
+            ...(missing.length > 0 ? { missing } : {}),
+            ...(unknown.length > 0 ? { unknown } : {}),
+            ...(duplicates.size > 0 ? { duplicates: [...duplicates] } : {}),
+          },
+          suggestion:
+            'call get_signup to see the ids of its fields, then send every one of them once, ' +
+            'in the order you want them shown',
+        }),
+      );
+    }
+
+    await writeFieldOrder(tx, signupId, fieldIds);
+    const next = await listFieldsForSignup(tx, signupId);
+
+    // Which time field pairs with the date, and which date field takes over
+    // the anchor, go by the order of the date and time fields, as in
+    // `updateField`. Rebuilt only when that order moved: the rebuild locks
+    // every slot row, and moving a text column should not queue behind
+    // everyone part-way through signing up.
+    let anchor: string | null | undefined;
+    if (timeline(current) !== timeline(next)) {
+      anchor = await reanchor(tx, signupId, next);
+      await recomputeSlotAtForSignup(tx, signupId, signupRow.workspaceId);
+    }
+
+    // Recorded even when the order already matched, as `reorderSlots` does.
+    await recordActivity(tx, {
+      signupId,
+      workspaceId: signupRow.workspaceId,
+      actor: activityActor(actor),
+      eventType: 'field.reordered',
+      payload: {
+        fieldIds,
+        ...(anchor !== undefined ? { reminderFromFieldRef: anchor } : {}),
+      },
+    });
+    return ok(next);
   });
 }
 
@@ -585,6 +731,18 @@ export function validateSlotValues(
     if (!r.ok) return r;
   }
   return ok(undefined);
+}
+
+// The date and time fields in the order src/lib/reminder-fields.ts reads them
+// (ties go by ref), as one string. Two lists that give different strings pair
+// a different time with the date, or anchor on a different date, so a tie the
+// renumbering broke the other way counts as a move.
+function timeline(fields: SlotFieldDefinition[]): string {
+  return fields
+    .filter((f) => isDateOrTime(f.fieldType))
+    .sort((a, b) => a.sortOrder - b.sortOrder || (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0))
+    .map((f) => f.id)
+    .join(' ');
 }
 
 /** The only field types the reminder anchor and `slots.slot_at` are read from. */
