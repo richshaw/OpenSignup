@@ -734,7 +734,7 @@ describe('updateOwnCommitment quantity edit under concurrency (db)', () => {
         quantity: 3,
       });
       await untilServiceBlockedOn(fx.db, tx, editing);
-      const deleted = await deleteSlot(tx as unknown as Db, fx.actor, a.slotId);
+      const deleted = await deleteSlot(tx as unknown as Db, fx.actor, a.slotId, { force: true });
       expect(deleted.ok, JSON.stringify(deleted)).toBe(true);
     });
     await held.finally(() => settle(editing));

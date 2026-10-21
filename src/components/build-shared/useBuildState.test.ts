@@ -101,7 +101,6 @@ describe('buildReducer OPTIMISTIC_REMOVE_ROW', () => {
 
     expect(next.rows).toHaveLength(0);
   });
-
 });
 
 // ---------------------------------------------------------------------------
@@ -165,7 +164,11 @@ describe('buildReducer OPTIMISTIC_SET_CAPACITY', () => {
     const row2 = makeRow({ id: 'r2', capacity: 5 });
     const state = makeState({ rows: [row1, row2] });
 
-    const next = buildReducer(state, { type: 'OPTIMISTIC_SET_CAPACITY', rowId: 'r1', capacity: 10 });
+    const next = buildReducer(state, {
+      type: 'OPTIMISTIC_SET_CAPACITY',
+      rowId: 'r1',
+      capacity: 10,
+    });
 
     expect(next.rows[0]?.capacity).toBe(10);
     expect(next.rows[1]?.capacity).toBe(5);
@@ -175,7 +178,11 @@ describe('buildReducer OPTIMISTIC_SET_CAPACITY', () => {
     const row = makeRow({ id: 'r1', capacity: 10 });
     const state = makeState({ rows: [row] });
 
-    const next = buildReducer(state, { type: 'OPTIMISTIC_SET_CAPACITY', rowId: 'r1', capacity: null });
+    const next = buildReducer(state, {
+      type: 'OPTIMISTIC_SET_CAPACITY',
+      rowId: 'r1',
+      capacity: null,
+    });
 
     expect(next.rows[0]?.capacity).toBeNull();
   });
@@ -204,7 +211,11 @@ describe('buildReducer SET_SAVE_STATUS', () => {
       type: 'SET_SAVE_STATUS',
       status: { kind: 'error', code: 'conflict', message: 'Reload to see latest.' },
     });
-    expect(next.saveStatus).toEqual({ kind: 'error', code: 'conflict', message: 'Reload to see latest.' });
+    expect(next.saveStatus).toEqual({
+      kind: 'error',
+      code: 'conflict',
+      message: 'Reload to see latest.',
+    });
   });
 
   it('updates saveStatus back to idle', () => {
@@ -620,9 +631,7 @@ describe('useBuildState moveField', () => {
 // ---------------------------------------------------------------------------
 
 function renderBuildWith(initialRows: BuildSlot[]) {
-  return renderHook(() =>
-    useBuildState('sig_test', [], initialRows, defaultSettings),
-  );
+  return renderHook(() => useBuildState('sig_test', [], initialRows, defaultSettings));
 }
 
 describe('useBuildState moveRow', () => {
@@ -663,7 +672,12 @@ describe('useBuildState moveRow', () => {
       if (init?.method === 'PUT') {
         // Another tab added a slot, so this tab's list is missing one.
         return jsonResponse(
-          { error: { code: 'invalid_input', message: 'slotIds must list every slot of the signup exactly once' } },
+          {
+            error: {
+              code: 'invalid_input',
+              message: 'slotIds must list every slot of the signup exactly once',
+            },
+          },
           { ok: false },
         );
       }
@@ -753,7 +767,10 @@ describe('useBuildState moveRow into another group', () => {
 
   function renderGrouped() {
     return renderHook(() =>
-      useBuildState('sig_test', [dateField], [a, b, c], { ...defaultSettings, groupByFieldRefs: ['date'] }),
+      useBuildState('sig_test', [dateField], [a, b, c], {
+        ...defaultSettings,
+        groupByFieldRefs: ['date'],
+      }),
     );
   }
 
@@ -776,9 +793,13 @@ describe('useBuildState moveRow into another group', () => {
     expect(result.current.state.rows.find((r) => r.id === 'a')?.values['date']).toBe('2026-11-02');
 
     const calls = fetchMock.mock.calls as [string, RequestInit][];
-    const orderPut = calls.find(([url, init]) => url === '/api/signups/sig_test/slots/order' && init.method === 'PUT');
+    const orderPut = calls.find(
+      ([url, init]) => url === '/api/signups/sig_test/slots/order' && init.method === 'PUT',
+    );
     expect(JSON.parse(String(orderPut?.[1].body))).toEqual({ slotIds: ['b', 'a', 'c'] });
-    const patches = calls.filter(([url, init]) => url === '/api/slots/a' && init.method === 'PATCH');
+    const patches = calls.filter(
+      ([url, init]) => url === '/api/slots/a' && init.method === 'PATCH',
+    );
     expect(patches.length).toBeGreaterThan(0);
     for (const [, init] of patches) {
       expect(JSON.parse(String(init.body))).toEqual({ values: { date: '2026-11-02' } });
@@ -808,7 +829,12 @@ describe('useBuildState moveRow into another group', () => {
       if (init?.method === 'PATCH') return jsonResponse({ data: {} });
       if (init?.method === 'PUT') {
         return jsonResponse(
-          { error: { code: 'invalid_input', message: 'slotIds must list every slot of the signup exactly once' } },
+          {
+            error: {
+              code: 'invalid_input',
+              message: 'slotIds must list every slot of the signup exactly once',
+            },
+          },
           { ok: false },
         );
       }
@@ -845,7 +871,10 @@ describe('useBuildState moveRow into another group', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (init?.method === 'PATCH') {
-        return jsonResponse({ error: { code: 'not_found', message: 'Slot not found' } }, { status: 404 });
+        return jsonResponse(
+          { error: { code: 'not_found', message: 'Slot not found' } },
+          { status: 404 },
+        );
       }
       if (url.endsWith('/slots')) return jsonResponse({ data: [b, c] });
       throw new Error(`unexpected fetch ${url}`);
@@ -857,9 +886,15 @@ describe('useBuildState moveRow into another group', () => {
       await result.current.moveRow(0, 1, { fieldRef: 'date', value: '2026-11-02' });
     });
 
-    expect(fetchMock.mock.calls.some((call) => (call[1] as RequestInit | undefined)?.method === 'PUT')).toBe(false);
+    expect(
+      fetchMock.mock.calls.some((call) => (call[1] as RequestInit | undefined)?.method === 'PUT'),
+    ).toBe(false);
     expect(result.current.state.rows.map((r) => r.id)).toEqual(['b', 'c']);
-    expect(result.current.state.saveStatus).toEqual({ kind: 'error', code: 'not_found', message: 'Slot not found' });
+    expect(result.current.state.saveStatus).toEqual({
+      kind: 'error',
+      code: 'not_found',
+      message: 'Slot not found',
+    });
   });
 });
 
@@ -873,9 +908,11 @@ describe('useBuildState duplicateRow', () => {
   });
 
   it('POSTs the source values + capacity to /api/signups/[id]/slots', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ data: { id: 'new', capacity: 3, sortOrder: 99, values: {} } }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ data: { id: 'new', capacity: 3, sortOrder: 99, values: {} } }),
+      );
     vi.stubGlobal('fetch', fetchMock);
     // Inject an initial row by seeding via the hook.
     const { result } = renderHook(() =>
@@ -912,9 +949,11 @@ describe('useBuildState duplicateRow', () => {
   });
 
   it('falls back capacity to 1 when source had null capacity', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ data: { id: 'new', capacity: 1, sortOrder: 99, values: {} } }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ data: { id: 'new', capacity: 1, sortOrder: 99, values: {} } }),
+      );
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() =>
       useBuildState(
@@ -948,20 +987,29 @@ describe('buildReducer OPTIMISTIC_UPDATE_META', () => {
 
   it('updates description when patch carries a description', () => {
     const state = makeState({ title: 'T', description: 'old' });
-    const next = buildReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: 'new' } });
+    const next = buildReducer(state, {
+      type: 'OPTIMISTIC_UPDATE_META',
+      patch: { description: 'new' },
+    });
     expect(next.title).toBe('T');
     expect(next.description).toBe('new');
   });
 
   it('preserves the other field when only one is patched', () => {
     const state = makeState({ title: 'keep me', description: 'replace me' });
-    const next = buildReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: 'replaced' } });
+    const next = buildReducer(state, {
+      type: 'OPTIMISTIC_UPDATE_META',
+      patch: { description: 'replaced' },
+    });
     expect(next.title).toBe('keep me');
   });
 
   it('allows clearing description to empty string', () => {
     const state = makeState({ title: 'T', description: 'present' });
-    const next = buildReducer(state, { type: 'OPTIMISTIC_UPDATE_META', patch: { description: '' } });
+    const next = buildReducer(state, {
+      type: 'OPTIMISTIC_UPDATE_META',
+      patch: { description: '' },
+    });
     expect(next.description).toBe('');
   });
 });
@@ -971,9 +1019,7 @@ describe('buildReducer OPTIMISTIC_UPDATE_META', () => {
 // ---------------------------------------------------------------------------
 
 function renderBuildWithMeta(meta: { title: string; description: string | null }) {
-  return renderHook(() =>
-    useBuildState('sig_test', [], [], defaultSettings, meta),
-  );
+  return renderHook(() => useBuildState('sig_test', [], [], defaultSettings, meta));
 }
 
 describe('useBuildState updateSignupMeta', () => {
@@ -1008,7 +1054,10 @@ describe('useBuildState updateSignupMeta', () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(String(url)).toBe('/api/signups/sig_test');
     expect((init as RequestInit).method).toBe('PATCH');
-    const body = JSON.parse(String((init as RequestInit).body)) as { title?: string; description?: string };
+    const body = JSON.parse(String((init as RequestInit).body)) as {
+      title?: string;
+      description?: string;
+    };
     expect(body.title).toBe('New');
     expect(body.description).toBeUndefined();
   });
@@ -1027,7 +1076,9 @@ describe('useBuildState updateSignupMeta', () => {
       await vi.advanceTimersByTimeAsync(900);
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as { title?: string };
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
+      title?: string;
+    };
     expect(body.title).toBe('ABC');
   });
 
@@ -1093,12 +1144,14 @@ describe('useBuildState updateSignupMeta', () => {
 
   it('marks saveStatus error with the server error code when PATCH fails', async () => {
     vi.useFakeTimers();
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse(
-        { error: { code: 'conflict', message: 'Stale snapshot' } },
-        { ok: false, status: 409 },
-      ),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(
+          { error: { code: 'conflict', message: 'Stale snapshot' } },
+          { ok: false, status: 409 },
+        ),
+      );
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderBuildWithMeta({ title: 'Old', description: '' });
     act(() => {
@@ -1200,7 +1253,9 @@ describe('useBuildState setReminderField', () => {
       (c) => String(c[0]) === '/api/signups/sig_test' && (c[1] as RequestInit).method === 'PATCH',
     );
     expect(patches).toHaveLength(1);
-    const body = JSON.parse(String((patches[0]![1] as RequestInit).body)) as { settings: Partial<SignupSettings> };
+    const body = JSON.parse(String((patches[0]![1] as RequestInit).body)) as {
+      settings: Partial<SignupSettings>;
+    };
     return body.settings;
   }
 
@@ -1242,7 +1297,10 @@ describe('useBuildState setReminderField', () => {
 
     // Only what changed: the service merges it, so a setting changed in
     // another tab or by an assistant since the page opened is left alone.
-    expect(settingsPatchBody(fetchMock)).toEqual({ sendReminders: true, reminderFromFieldRef: 'date' });
+    expect(settingsPatchBody(fetchMock)).toEqual({
+      sendReminders: true,
+      reminderFromFieldRef: 'date',
+    });
     expect(result.current.state.reminderFieldRef).toBe('date');
     expect(result.current.state.groupByFieldRef).toBe('what');
     expect(result.current.state.saveStatus.kind).toBe('saved');
@@ -1273,7 +1331,10 @@ describe('useBuildState setReminderField', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(
-        jsonResponse({ error: { code: 'invalid_input', message: 'not a date field' } }, { status: 400 }),
+        jsonResponse(
+          { error: { code: 'invalid_input', message: 'not a date field' } },
+          { status: 400 },
+        ),
       );
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() =>
@@ -1356,7 +1417,10 @@ describe('useBuildState setReminderField', () => {
     await act(async () => {
       await result.current.setReminderField('setup-day');
     });
-    expect(settingsPatchBody(fetchMock)).toEqual({ sendReminders: true, reminderFromFieldRef: 'setup-day' });
+    expect(settingsPatchBody(fetchMock)).toEqual({
+      sendReminders: true,
+      reminderFromFieldRef: 'setup-day',
+    });
     expect(result.current.state.reminderFieldRef).toBe('setup-day');
   });
 
@@ -1404,10 +1468,18 @@ describe('useBuildState setGroupBy', () => {
     config: { fieldType: 'date' },
   });
 
-  function settingsPatchBodies(fetchMock: ReturnType<typeof vi.fn>): Array<Partial<SignupSettings>> {
+  function settingsPatchBodies(
+    fetchMock: ReturnType<typeof vi.fn>,
+  ): Array<Partial<SignupSettings>> {
     return fetchMock.mock.calls
-      .filter((c) => String(c[0]) === '/api/signups/sig_test' && (c[1] as RequestInit).method === 'PATCH')
-      .map((c) => (JSON.parse(String((c[1] as RequestInit).body)) as { settings: Partial<SignupSettings> }).settings);
+      .filter(
+        (c) => String(c[0]) === '/api/signups/sig_test' && (c[1] as RequestInit).method === 'PATCH',
+      )
+      .map(
+        (c) =>
+          (JSON.parse(String((c[1] as RequestInit).body)) as { settings: Partial<SignupSettings> })
+            .settings,
+      );
   }
 
   it('PATCHes only groupByFieldRefs, so settings changed elsewhere since the page opened survive', async () => {
@@ -1425,7 +1497,10 @@ describe('useBuildState setGroupBy', () => {
       await result.current.setGroupBy(null);
     });
 
-    expect(settingsPatchBodies(fetchMock)).toEqual([{ groupByFieldRefs: ['what'] }, { groupByFieldRefs: [] }]);
+    expect(settingsPatchBodies(fetchMock)).toEqual([
+      { groupByFieldRefs: ['what'] },
+      { groupByFieldRefs: [] },
+    ]);
     expect(result.current.state.groupByFieldRef).toBeNull();
     expect(result.current.state.saveStatus.kind).toBe('saved');
   });
@@ -1558,6 +1633,90 @@ describe('useBuildState setGroupBy', () => {
   });
 });
 
+describe('useBuildState settings naming a field this tab has not loaded', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const whatField = makeApiField({ id: 'f-what', ref: 'what', label: 'What', sortOrder: 0 });
+  const eventDay = makeApiField({
+    id: 'f-event',
+    ref: 'event-day',
+    label: 'Event day',
+    fieldType: 'date',
+    sortOrder: 1,
+    config: { fieldType: 'date' },
+  });
+  // An assistant added "Event day" and moved reminders to it after this tab
+  // opened, so the merged settings the PATCH returns name a field it lacks.
+  const saved: SignupSettings = {
+    ...defaultSettings,
+    sendReminders: true,
+    reminderFromFieldRef: 'event-day',
+    groupByFieldRefs: ['what'],
+  };
+
+  function routedFetch(fields: () => Response) {
+    return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/signups/sig_test/fields' && init?.method === 'GET') {
+        return Promise.resolve(fields());
+      }
+      return Promise.resolve(jsonResponse({ data: { id: 'sig_test', settings: saved } }));
+    });
+  }
+
+  it('fetches the field list, so the reminder field it adopts is one the tab can show', async () => {
+    const fetchMock = routedFetch(() => jsonResponse({ data: [whatField, eventDay] }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useBuildState('sig_test', [whatField], [], defaultSettings),
+    );
+
+    await act(async () => {
+      await result.current.setGroupBy('what');
+    });
+
+    expect(result.current.state.fields.map((f) => f.ref)).toEqual(['what', 'event-day']);
+    expect(result.current.state.reminderFieldRef).toBe('event-day');
+    expect(result.current.state.groupByFieldRef).toBe('what');
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('does not fetch fields when every field the settings name is loaded', async () => {
+    const fetchMock = routedFetch(() => jsonResponse({ data: [whatField, eventDay] }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useBuildState('sig_test', [whatField, eventDay], [], defaultSettings),
+    );
+
+    await act(async () => {
+      await result.current.setGroupBy('what');
+    });
+
+    const gets = fetchMock.mock.calls.filter((c) => c[1]?.method === 'GET');
+    expect(gets).toHaveLength(0);
+    expect(result.current.state.reminderFieldRef).toBe('event-day');
+  });
+
+  it('still shows the save as saved when the field fetch fails', async () => {
+    const fetchMock = routedFetch(() =>
+      jsonResponse({ error: { code: 'internal' } }, { status: 500 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useBuildState('sig_test', [whatField], [], defaultSettings),
+    );
+
+    await act(async () => {
+      await result.current.setGroupBy('what');
+    });
+
+    expect(result.current.state.fields.map((f) => f.ref)).toEqual(['what']);
+    expect(result.current.state.groupByFieldRef).toBe('what');
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // useBuildState renameGroup
 // ---------------------------------------------------------------------------
@@ -1611,12 +1770,14 @@ describe('useBuildState renameGroup', () => {
   });
 
   it('puts the rows back to their saved value when the server refuses', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse(
-        { error: { code: 'invalid_input', message: '"date" must be a real date as YYYY-MM-DD' } },
-        { ok: false, status: 400 },
-      ),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(
+          { error: { code: 'invalid_input', message: '"date" must be a real date as YYYY-MM-DD' } },
+          { ok: false, status: 400 },
+        ),
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     const { result } = renderGrouped();

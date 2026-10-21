@@ -90,7 +90,7 @@ export default async function ResponsesTab({ params }: PageParams) {
             <tbody role="rowgroup" className="divide-y divide-surface-sunk max-md:block">
               {commitments.map((c) => {
                 const slot = sig.slots.find((s) => s.id === c.slotId);
-                const values = (slot?.values as Record<string, unknown>) ?? {};
+                const values = slot?.values ?? {};
                 const summary = slot ? summarizeSlot(sig.fields, values) : '';
                 // A removal takes the Remove button away, so focus goes to
                 // this cell, which then reads "removed". Every row has it, so

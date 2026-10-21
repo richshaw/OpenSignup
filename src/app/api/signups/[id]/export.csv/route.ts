@@ -2,8 +2,8 @@ import { fail } from '@/lib/api-response';
 import { organizerRoute } from '@/lib/organizer-route';
 import { responsesCsv } from '@/lib/responses-csv';
 import { howCommitmentsEnded, listCommitmentsForSignup } from '@/services/commitments';
+import { getSignupRowForOrganizer } from '@/services/locks';
 import { listFieldsForSignup } from '@/services/slot-fields';
-import { getSignupRowForOrganizer } from '@/services/signups';
 import { listSlotsForSignup } from '@/services/slots';
 
 export const GET = organizerRoute<{ id: string }>(async ({ db, actor, params: { id } }) => {
