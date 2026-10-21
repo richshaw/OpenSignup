@@ -71,7 +71,9 @@ Explain each one the first time a page uses it.
 
 Don't call what one person holds a "sign-up": beside "signup" it reads as the
 same word spelt two ways. Say their spot, or say what they did ("they signed
-up"). **Sign-up form**, a heading on screen, is fine as a name.
+up"). Write "sign-up" only directly before a noun ("sign-up sheet",
+**Sign-up form**), never on its own. This goes for screens, emails and tool
+descriptions as well as help pages.
 
 The box for spots is called **Capacity** on screen. Bold that name when you mean
 the box, and say "spots" everywhere else. The design system allows

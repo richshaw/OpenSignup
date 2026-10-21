@@ -8,7 +8,7 @@ import { Field, NotesAndSpots } from '../../participant-fields';
 
 // The request never reached the server (offline, or a dropped connection).
 const SAVE_UNREACHABLE = "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.";
-const CANCEL_UNREACHABLE = "Couldn't reach the server, so your sign-up wasn't cancelled. Check your connection and try again.";
+const CANCEL_UNREACHABLE = "Couldn't reach the server, so your spot wasn't cancelled. Check your connection and try again.";
 // A refusal whose answer isn't ours to read, such as an error page from a proxy.
 const SAVE_UNREADABLE = "Something went wrong, so your changes weren't saved. Try again.";
 

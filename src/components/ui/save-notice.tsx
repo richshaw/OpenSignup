@@ -12,7 +12,7 @@ export const SAVE_ERROR_MESSAGE: Record<ErrorCode, string> = {
   unauthorized: 'Sign in again to save.',
   conflict: 'Reload to see the latest changes.',
   capacity_full: 'Slot is full.',
-  closed: 'Sign-up is closed.',
+  closed: 'This signup is closed.',
   not_found: 'No longer available.',
   invalid_input: 'Some values weren’t accepted.',
   rate_limited: 'Slow down — try again in a moment.',
