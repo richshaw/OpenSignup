@@ -5,7 +5,12 @@ import { ChevronRight, Download, Send, XCircle } from 'lucide-react';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import type { SignupStatus } from '@/schemas/signups';
-import { StatusActionForm, type StatusAction } from './StatusActionForm';
+import {
+  StatusActionButtonForm,
+  StatusActionRefusal,
+  StatusActionScope,
+  type StatusAction,
+} from './StatusActionForm';
 
 type MobileMoreMenuSheetProps = {
   open: boolean;
@@ -41,37 +46,33 @@ export function MobileMoreMenuSheet({
           <ChevronRight size={14} className="text-ink-soft" aria-hidden="true" />
         </Link>
 
-        {status === 'draft' ? (
-          <StatusActionForm
-            action={publishAction}
-            className="border-t border-surface-sunk"
-            errorClassName="pb-3"
-          >
-            <AsyncSubmitButton
-              loadingLabel="Publishing…"
-              className="flex w-full py-3.5 text-[15px] font-semibold text-brand"
-            >
-              <Send size={16} aria-hidden="true" />
-              <span>Publish signup</span>
-            </AsyncSubmitButton>
-          </StatusActionForm>
-        ) : null}
+        <StatusActionScope action={status === 'draft' ? publishAction : closeAction}>
+          {status === 'draft' ? (
+            <StatusActionButtonForm className="border-t border-surface-sunk">
+              <AsyncSubmitButton
+                loadingLabel="Publishing…"
+                className="flex w-full py-3.5 text-[15px] font-semibold text-brand"
+              >
+                <Send size={16} aria-hidden="true" />
+                <span>Publish signup</span>
+              </AsyncSubmitButton>
+              <StatusActionRefusal className="pb-3" />
+            </StatusActionButtonForm>
+          ) : null}
 
-        {status === 'open' ? (
-          <StatusActionForm
-            action={closeAction}
-            className="border-t border-surface-sunk"
-            errorClassName="pb-3"
-          >
-            <AsyncSubmitButton
-              loadingLabel="Closing…"
-              className="flex w-full py-3.5 text-[15px] font-medium text-ink"
-            >
-              <XCircle size={16} aria-hidden="true" />
-              <span>Close signup</span>
-            </AsyncSubmitButton>
-          </StatusActionForm>
-        ) : null}
+          {status === 'open' ? (
+            <StatusActionButtonForm className="border-t border-surface-sunk">
+              <AsyncSubmitButton
+                loadingLabel="Closing…"
+                className="flex w-full py-3.5 text-[15px] font-medium text-ink"
+              >
+                <XCircle size={16} aria-hidden="true" />
+                <span>Close signup</span>
+              </AsyncSubmitButton>
+              <StatusActionRefusal className="pb-3" />
+            </StatusActionButtonForm>
+          ) : null}
+        </StatusActionScope>
       </div>
     </BottomSheet>
   );
