@@ -57,7 +57,7 @@ function buildConfig(): NextAuthConfig {
           const confirmUrl = buildConfirmationUrl(safeUrl, getEnv().AUTH_URL);
           // The code redeems the same single-use callback as the link, from
           // whichever window the person started in (see ./login-code.ts).
-          const code = await issueLoginCode(getDb(), {
+          const { code, expiresAt: codeExpiresAt } = await issueLoginCode(getDb(), {
             email: subject,
             callbackUrl: safeUrl,
             expiresAt: expires,
@@ -66,6 +66,7 @@ function buildConfig(): NextAuthConfig {
             url: confirmUrl,
             email: identifier,
             expiresInMinutes,
+            codeExpiresInMinutes: Math.max(1, Math.ceil((codeExpiresAt.getTime() - Date.now()) / 60_000)),
             code,
           });
           const { html, text } = await renderEmail(node);
