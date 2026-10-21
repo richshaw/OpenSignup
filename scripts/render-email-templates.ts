@@ -22,6 +22,7 @@ const cases: Array<[string, ReactElement]> = [
       url: 'https://example.test/login/confirm?token=abc',
       email: 'organizer@example.test',
       expiresInMinutes: 60,
+      codeExpiresInMinutes: 15,
     }),
   ],
   [
