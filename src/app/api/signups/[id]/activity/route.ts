@@ -1,7 +1,7 @@
 import { fail, ok } from '@/lib/api-response';
 import { listActivityForSignup } from '@/lib/activity';
 import { organizerRoute } from '@/lib/organizer-route';
-import { getSignupRowForOrganizer } from '@/services/signups';
+import { getSignupRowForOrganizer } from '@/services/locks';
 
 export const GET = organizerRoute<{ id: string }>(async ({ req, db, actor, params: { id } }) => {
   const loaded = await getSignupRowForOrganizer(db, actor, id);
