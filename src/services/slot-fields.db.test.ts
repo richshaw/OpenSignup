@@ -16,7 +16,7 @@ import {
   deleteField,
   listFields,
   listFieldsForSignup,
-  recomputeSlotAtForSignup,
+  rebuildSlotAt,
   reorderFields,
   updateField,
 } from '@/services/slot-fields';
@@ -1207,7 +1207,7 @@ describe('slot-fields service (db)', () => {
     });
   });
 
-  describe('recomputeSlotAtForSignup', () => {
+  describe('rebuildSlotAt', () => {
     it('writes only the slots that move, to a new instant or to none, in one pass', async () => {
       const sigId = await createTestSignup(fx, 'Rebuild in one statement');
       for (const [ref, fieldType] of [
@@ -1239,11 +1239,15 @@ describe('slot-fields service (db)', () => {
 
       const r = await fx.db.transaction(async (tx) => {
         // Move the anchor underneath the rebuild, as updateSignup does.
-        await tx
-          .update(signups)
-          .set({ settings: { reminderFromFieldRef: 'day2' } })
-          .where(eq(signups.id, sigId));
-        return recomputeSlotAtForSignup(tx, sigId, fx.workspaceId);
+        const settings = { reminderFromFieldRef: 'day2' };
+        await tx.update(signups).set({ settings }).where(eq(signups.id, sigId));
+        return rebuildSlotAt(
+          tx,
+          sigId,
+          fx.workspaceId,
+          settings,
+          await listFieldsForSignup(tx, sigId),
+        );
       });
       expect(r).toEqual({ updated: 2 });
       expect(await at(moves)).toBe('2026-07-04T09:30:00.000Z');
@@ -1275,7 +1279,13 @@ describe('slot-fields service (db)', () => {
         // check in JS sees that slot move on every rebuild; Postgres sees it
         // has not.
         await tx.execute(sql`set local time zone 'Europe/Amsterdam'`);
-        return recomputeSlotAtForSignup(tx, sigId, fx.workspaceId);
+        return rebuildSlotAt(
+          tx,
+          sigId,
+          fx.workspaceId,
+          { reminderFromFieldRef: 'day' },
+          await listFieldsForSignup(tx, sigId),
+        );
       });
       expect(r).toEqual({ updated: 0 });
       expect(await Promise.all(ids.map(rowVersion))).toEqual(before);
@@ -1303,11 +1313,15 @@ describe('slot-fields service (db)', () => {
         .where(eq(slots.id, slot.value.id));
 
       const r = await fx.db.transaction(async (tx) => {
-        await tx
-          .update(signups)
-          .set({ settings: { reminderFromFieldRef: 'day2' } })
-          .where(eq(signups.id, sigId));
-        return recomputeSlotAtForSignup(tx, sigId, fx.workspaceId);
+        const settings = { reminderFromFieldRef: 'day2' };
+        await tx.update(signups).set({ settings }).where(eq(signups.id, sigId));
+        return rebuildSlotAt(
+          tx,
+          sigId,
+          fx.workspaceId,
+          settings,
+          await listFieldsForSignup(tx, sigId),
+        );
       });
       expect(r).toEqual({ updated: 1 });
       const [row] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id));
@@ -1541,7 +1555,7 @@ describe('slot-fields service (db)', () => {
           workspaceId: fx.workspaceId,
           ref: `tied-${i}`,
           label: `Tied ${i}`,
-          fieldType: 'text',
+          fieldType: 'text' as const,
           sortOrder: 0,
           config: { fieldType: 'text' },
           createdAt,

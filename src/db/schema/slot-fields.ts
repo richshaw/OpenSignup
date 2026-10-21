@@ -7,6 +7,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import type { FieldType } from '@/schemas/slot-fields';
 import { signups } from './signups';
 import { workspaces } from './workspaces';
 
@@ -22,7 +23,7 @@ export const slotFields = pgTable(
     }),
     ref: text('ref').notNull(),
     label: text('label').notNull(),
-    fieldType: text('field_type').notNull(), // text | date | time | number | enum
+    fieldType: text('field_type').$type<FieldType>().notNull(),
     sortOrder: integer('sort_order').notNull().default(0),
     config: jsonb('config').notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

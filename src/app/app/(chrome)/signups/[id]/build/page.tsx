@@ -39,9 +39,9 @@ export default async function BuildTab({ params }: PageParams) {
           id: s.id,
           capacity: s.capacity,
           sortOrder: s.sortOrder,
-          values: s.values as Record<string, unknown>,
+          values: s.values,
         }))}
-        initialSettings={SignupSettingsSchema.parse(sig.settings ?? {})}
+        initialSettings={SignupSettingsSchema.parse(sig.settings)}
         committedBySlot={filled.value}
       />
     </>

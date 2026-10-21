@@ -1,7 +1,7 @@
 import { fail, ok, readJson, respond } from '@/lib/api-response';
 import { link } from '@/lib/links';
 import { organizerRoute } from '@/lib/organizer-route';
-import { getSignupRowForOrganizer } from '@/services/signups';
+import { getSignupRowForOrganizer } from '@/services/locks';
 import { addSlot, listSlotsForSignup } from '@/services/slots';
 
 export const GET = organizerRoute<{ id: string }>(async ({ db, actor, params: { id } }) => {

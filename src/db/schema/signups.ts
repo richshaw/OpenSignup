@@ -6,6 +6,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import type { StoredSignupSettings } from '@/schemas/signups';
 import { organizers } from './organizers';
 import { workspaces } from './workspaces';
 
@@ -29,7 +30,7 @@ export const signups = pgTable(
     closesAt: timestamp('closes_at', { withTimezone: true }),
     claimTokenHash: text('claim_token_hash'),
     tags: text('tags').array().notNull().default([]),
-    settings: jsonb('settings').notNull().default({}),
+    settings: jsonb('settings').$type<StoredSignupSettings>().notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),

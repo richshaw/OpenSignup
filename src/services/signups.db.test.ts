@@ -14,6 +14,7 @@ import { listFieldsForSignup } from '@/services/slot-fields';
 import { addSlot, deleteSlot } from '@/services/slots';
 import { settle, untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
 import { commitToSlot } from '@/services/commitments';
+import { getSignupRowForOrganizer } from '@/services/locks';
 import {
   archiveSignup,
   closeSignup,
@@ -21,7 +22,6 @@ import {
   deleteSignup,
   getPublicSignup,
   getSignupForOrganizer,
-  getSignupRowForOrganizer,
   listSignupsForWorkspace,
   publishSignup,
   updateSignup,
@@ -830,7 +830,7 @@ describe('signups service (db)', () => {
       // deleteSlot holds the slot row, not the signup's, so only the slot
       // lock can make the publish wait for it.
       const held = fx.db.transaction(async (tx) => {
-        const deleted = await deleteSlot(tx as unknown as Db, fx.actor, slotId);
+        const deleted = await deleteSlot(tx as unknown as Db, fx.actor, slotId, { force: true });
         expect(deleted.ok, JSON.stringify(deleted)).toBe(true);
         publishing = publishSignup(fx.db, fx.actor, signupId);
         await untilServiceBlockedOn(fx.db, tx, publishing);

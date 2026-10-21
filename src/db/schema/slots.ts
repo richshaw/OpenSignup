@@ -22,7 +22,7 @@ export const slots = pgTable(
     }),
     ref: text('ref').notNull(),
     /** Map of field ref -> value, validated against signup's slot_fields. */
-    values: jsonb('values').notNull().default({}),
+    values: jsonb('values').$type<Record<string, unknown>>().notNull().default({}),
     capacity: integer('capacity'), // null = unlimited
     sortOrder: integer('sort_order').notNull().default(0),
     /** Reserved for v2 payments; kept on row for query simplicity. */

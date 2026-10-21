@@ -113,7 +113,7 @@ describe('extractSlotAt', () => {
 
   it('returns null rather than an Invalid Date for an impossible date value', () => {
     // Reaches here only through a legacy row: validateSlotValues now rejects it
-    // on the way in. An Invalid Date would make recomputeSlotAtForSignup rewrite
+    // on the way in. An Invalid Date would make rebuildSlotAt rewrite
     // the row on every pass, since NaN never compares equal to itself.
     const at = extractSlotAt(anchored, [dateField], { date: '2026-13-45' });
     expect(at).toBeNull();
