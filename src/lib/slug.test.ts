@@ -46,6 +46,16 @@ describe('toSlug', () => {
     expect(s).toBe('aaaaaaaaaaaaaaaaaaa');
     expect(s.endsWith('-')).toBe(false);
   });
+
+  it('keeps the slugs it has always made', () => {
+    expect(toSlug('Spring Bake Sale 2026')).toBe('spring-bake-sale-2026');
+    expect(toSlug('Crèche rota — Été / Hiver')).toBe('creche-rota-ete-hiver');
+    expect(toSlug("Coach's corner: snacks & drinks!")).toBe('coach-s-corner-snacks-drinks');
+    expect(toSlug('   ')).toBe('signup');
+    expect(toSlug('Volunteers needed for the end of season tournament and awards evening')).toBe(
+      'volunteers-needed-for-the-end-of-season-tournament-and-award',
+    );
+  });
 });
 
 describe('randomSuffix', () => {
