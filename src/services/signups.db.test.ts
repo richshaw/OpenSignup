@@ -551,6 +551,17 @@ describe('signups service (db)', () => {
       expect(r.error.code).toBe('invalid_input');
     });
 
+    it('refuses a creation whose groupByFieldRefs names no template field (#516)', async () => {
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Bad group'),
+        settings: { groupByFieldRefs: ['ghost'] },
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('invalid_input');
+      expect(r.error.field).toBe('settings.groupByFieldRefs');
+    });
+
     it('keeps reminderFromFieldRef when a settings update omits it', async () => {
       // The anchor must keep naming a date field for as long as the signup has
       // one, so omitting it cannot clear it.
@@ -667,6 +678,37 @@ describe('signups service (db)', () => {
         if (r.ok) continue;
         expect(r.error.code).toBe('invalid_input');
       }
+    });
+
+    it('refuses a groupByFieldRefs entry that names no field (#516)', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Bad group ref'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { groupByFieldRefs: ['nope'] },
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('invalid_input');
+      expect(r.error.field).toBe('settings.groupByFieldRefs');
+      const [row] = await fx.db.select().from(signups).where(eq(signups.id, created.value.id));
+      expect(row?.settings).toEqual(created.value.settings);
+    });
+
+    it('saves an unrelated setting on a row that already holds a stale group-by ref', async () => {
+      // Rows saved before #516 can hold a ref that names no field. Only a save
+      // that sends groupByFieldRefs is checked, so they stay editable.
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Stale group ref'));
+      if (!created.ok) throw new Error('setup failed');
+      await fx.db
+        .update(signups)
+        .set({ settings: { ...(created.value.settings as Record<string, unknown>), groupByFieldRefs: ['gone'] } })
+        .where(eq(signups.id, created.value.id));
+
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, { settings: { sendReminders: false } });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['gone'] });
     });
   });
 
