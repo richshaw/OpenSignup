@@ -65,7 +65,7 @@ test.describe('token-gated commitment editing', () => {
     const editUrl = (await created.json()).data.editUrl as string;
 
     await page.goto(editUrl);
-    await expect(page.getByRole('heading', { name: 'Your signup' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your spot' })).toBeVisible();
     await expect(page.getByLabel('Your name')).toHaveValue(name);
 
     await page.getByLabel('Notes (optional)').fill('Bringing plates');
@@ -111,7 +111,7 @@ test.describe('token-gated commitment editing', () => {
   }) => {
     const mine = await signUp(page, seed.editSlotId);
     await page.goto(mine.editUrl);
-    await expect(page.getByRole('heading', { name: 'Your signup' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your spot' })).toBeVisible();
     expect((await page.request.delete(mine.api)).ok()).toBe(true);
 
     await page.getByLabel('Notes (optional)').fill('Bringing cups');
@@ -137,7 +137,7 @@ test.describe('token-gated commitment editing', () => {
     await expect(page.getByText(CANCELLED_PAGE.open.title)).toHaveCount(0);
     await page.getByRole('link', { name: 'See your new spot' }).click();
     await expect(page).toHaveURL(new RegExp(`/s/${signup.slug}/c/${movedTo}\\?token=`));
-    await expect(page.getByRole('heading', { name: 'Your signup' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your spot' })).toBeVisible();
     // Named for the slot it moved to, not the one the old link was for.
     await expect(page.getByText('Afternoon', { exact: true })).toBeVisible();
     await expect(page.getByText('Morning', { exact: true })).toHaveCount(0);
@@ -194,7 +194,7 @@ test.describe('token-gated commitment editing', () => {
     await page.goto(`/s/${seed.publicSlug}/${path}`);
     const url = new URL(page.url());
     expect(`${url.pathname}${url.search}`).toBe(`/s/${seed.editSlug}/${path}`);
-    await expect(page.getByRole('heading', { name: 'Your signup' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your spot' })).toBeVisible();
     await expect(page.getByRole('link', { name: '← Back to signup' })).toHaveAttribute(
       'href',
       `/s/${seed.editSlug}`,

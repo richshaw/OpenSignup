@@ -186,8 +186,8 @@ export function BuildWysiwyg({
           <Editable
             value={state.title}
             onChange={(next) => updateSignupMeta({ title: next })}
-            placeholder="Untitled sign-up"
-            ariaLabel="Sign-up title"
+            placeholder="Untitled signup"
+            ariaLabel="Signup title"
             className="block text-[22px] font-bold tracking-[-0.02em] text-ink px-1 py-0.5 -mx-1 -my-0.5"
           />
 
@@ -197,7 +197,7 @@ export function BuildWysiwyg({
               onChange={(next) => updateSignupMeta({ description: next })}
               placeholder="Add a short description for volunteers"
               multiline
-              ariaLabel="Sign-up description"
+              ariaLabel="Signup description"
               className="block text-[13px] leading-snug text-ink-muted px-1 py-0.5 -mx-1 -my-0.5"
             />
           </div>

@@ -2,6 +2,7 @@ import { AuthError } from 'next-auth';
 import type { Db } from '@/db/client';
 import { log } from '@/lib/log';
 import { RateLimits, chargeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
+import { extractEmailDomain } from './email-domain';
 
 /**
  * Thrown from `sendVerificationRequest` when a magic-link request is over a
@@ -43,7 +44,12 @@ export async function consumeMagicLinkRateLimits(
   for (const [policy, subject] of charges) {
     const retryAfter = await chargeRateLimit(db, policy, subject);
     if (retryAfter !== null) {
-      log.warn({ email, ip, bucket: policy.bucket }, 'magic link rate-limited');
+      // The domain and bucket are enough to debug a limit; the address and
+      // IP stay out of the logs (see "Logs and rate-limiting" on /privacy).
+      log.warn(
+        { emailDomain: extractEmailDomain(email), bucket: policy.bucket },
+        'magic link rate-limited',
+      );
       throw new MagicLinkRateLimited(policy.bucket, retryAfter);
     }
   }

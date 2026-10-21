@@ -116,7 +116,7 @@ test.describe('Responses tab', () => {
       // Their edit page stays open in another tab while they are removed.
       const form = await participant.newPage();
       await form.goto(editUrl);
-      await expect(form.getByRole('heading', { name: 'Your signup' })).toBeVisible();
+      await expect(form.getByRole('heading', { name: 'Your spot' })).toBeVisible();
 
       await page.goto(`/app/signups/${signupId}/responses`);
       await expect(page.getByRole('tab', { name: 'Responses 1' })).toBeVisible();
