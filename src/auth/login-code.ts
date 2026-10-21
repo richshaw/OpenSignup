@@ -8,6 +8,7 @@ import { makeId } from '@/lib/ids';
 import { err, ok, type Result } from '@/lib/result';
 import { normalizeEmail } from '@/schemas/common';
 import type { ServiceError } from '@/lib/errors';
+import { loginCodeExpiry } from './login-code-lifetime';
 
 /**
  * A six-digit code that rides along in the magic-link email so a person who
@@ -23,14 +24,6 @@ import type { ServiceError } from '@/lib/errors';
  */
 
 export const LOGIN_CODE_LENGTH = 6;
-/**
- * A code never outlives this, whatever the link's own expiry: the per-email
- * attempt budget (5 per 15 minutes, `RateLimits.loginCodePerEmail`) is only a
- * meaningful bound on guessing if the code is gone when the window resets.
- * Fifteen minutes covers "I asked for it and I'm sitting here"; after that the
- * link still works.
- */
-export const LOGIN_CODE_MAX_AGE_MS = 15 * 60 * 1000;
 const PURPOSE = 'login_code';
 
 export function generateLoginCode(): string {
@@ -84,9 +77,9 @@ export function decryptCallbackUrl(blob: string, secret = getEnv().AUTH_SECRET):
 export async function issueLoginCode(
   db: Db,
   input: { email: string; callbackUrl: string; expiresAt: Date },
-): Promise<string> {
+): Promise<{ code: string; expiresAt: Date }> {
   const email = normalizeEmail(input.email);
-  const expiresAt = new Date(Math.min(input.expiresAt.getTime(), Date.now() + LOGIN_CODE_MAX_AGE_MS));
+  const expiresAt = loginCodeExpiry(input.expiresAt);
   const payloadEncrypted = encryptCallbackUrl(input.callbackUrl);
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`login-code:${email}`}))`);
@@ -109,7 +102,7 @@ export async function issueLoginCode(
         })
         .onConflictDoNothing({ target: magicLinks.tokenHash })
         .returning({ id: magicLinks.id });
-      if (inserted.length > 0) return code;
+      if (inserted.length > 0) return { code, expiresAt };
     }
     throw new Error('could not mint a unique sign-in code');
   });
