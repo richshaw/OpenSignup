@@ -1,7 +1,9 @@
 import type { NextRequest } from 'next/server';
+import { toPublicSignup } from '@/app/s/[slug]/public-signup';
 import { getDb } from '@/db/client';
 import { handle, respond } from '@/lib/api-response';
 import { link } from '@/lib/links';
+import { ok } from '@/lib/result';
 import { getPublicSignup } from '@/services/signups';
 
 export async function GET(
@@ -11,7 +13,7 @@ export async function GET(
   return handle(async () => {
     const { slug } = await ctx.params;
     const result = await getPublicSignup(getDb(), slug);
-    return respond(result, {
+    return respond(result.ok ? ok(toPublicSignup(result.value)) : result, {
       self: link(`/api/public/signups/${slug}`),
     });
   });

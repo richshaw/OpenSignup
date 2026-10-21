@@ -213,7 +213,7 @@ test.describe('help: create and publish your first signup', () => {
     // The same browser can still change or cancel.
     await blank.getByRole('button', { name: 'Done' }).click();
     await expect(
-      blank.getByRole('link', { name: /^Edit your signup for Fruit and water/ }),
+      blank.getByRole('link', { name: /^Edit your spot for Fruit and water/ }),
     ).toBeVisible();
     await blank.close();
 

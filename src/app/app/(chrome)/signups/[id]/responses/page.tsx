@@ -97,8 +97,8 @@ export default async function ResponsesTab({ params }: PageParams) {
                 // it outlasts that re-render.
                 const statusId = `status-${c.id}`;
                 // "cancelled" is the participant's own cancel. An organizer's
-                // removal and the old sign-up of a move say so instead. The
-                // CSV export keeps the stored status.
+                // removal and the old sign-up of a move say so instead, here
+                // and in the CSV export.
                 const status = c.status === 'cancelled' ? (ended.get(c.id) ?? c.status) : c.status;
                 // Remove's name, and the start of its question. The slot is
                 // unlabelled, to read as part of a sentence.

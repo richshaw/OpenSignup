@@ -141,7 +141,7 @@ describe('<EditForm /> quantity', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(
-      "Sign-ups have closed, so you can't add more spots. Keep the number you have.",
+      "You can't add more spots now. Keep the number you have.",
     );
     expect(alert).not.toHaveTextContent('not accepting commitments');
     expect(router.refresh).not.toHaveBeenCalled();
@@ -299,7 +299,7 @@ describe('<EditForm /> quantity', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't reach the server, so your sign-up wasn't cancelled. Check your connection and try again.",
+      "Couldn't reach the server, so your spot wasn't cancelled. Check your connection and try again.",
     );
     expect(screen.getByRole('button', { name: 'Cancel signup' })).toBeEnabled();
     expect(router.push).not.toHaveBeenCalled();
