@@ -1,4 +1,5 @@
 import { slotTimeOfDay } from '@/lib/reminder-fields';
+import { slotInLockout } from '@/lib/signup-closing';
 import { requiresEmail, sendsReminders } from '@/schemas/signups';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SlotStatus } from '@/schemas/slots';
@@ -24,10 +25,13 @@ interface SourceSignup {
  * and full field definitions, not just its slots: whether a slot has a time
  * (`hasTime`) depends on which time field pairs with the reminder date field,
  * and the view's own fields carry neither the reminder ref nor sort orders.
+ * A slot inside the signup's lockout before it starts (`slotInLockout`) is
+ * shown closed, since the service refuses a sign-up for it.
  */
 export function toSignupViewSlots(
   signup: SourceSignup,
   committedBySlot?: Record<string, number>,
+  now: number = Date.now(),
 ): SignupViewSlot[] {
   const settings = (signup.settings ?? {}) as { reminderFromFieldRef?: string };
   return signup.slots.map((slot) => {
@@ -39,7 +43,9 @@ export function toSignupViewSlots(
       slotAt: slot.slotAt ? slot.slotAt.toISOString() : null,
       hasTime: slot.slotAt !== null && slotTimeOfDay(settings, signup.fields, values) !== null,
       capacity: slot.capacity,
-      status: slot.status as SlotStatus,
+      status: slotInLockout(signup.settings, slot.slotAt, now)
+        ? 'closed'
+        : (slot.status as SlotStatus),
       committed: committedBySlot?.[slot.id] ?? 0,
     };
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shownSignupStatus, signupShutReason } from './signup-closing';
+import { shownSignupStatus, signupShutReason, slotInLockout } from './signup-closing';
 
 const NOW = Date.parse('2030-04-06T12:00:00Z');
 const PAST = new Date(NOW - 60_000);
@@ -34,5 +34,28 @@ describe('shownSignupStatus', () => {
     expect(shownSignupStatus({ status: 'open', closesAt: null }, NOW)).toBe('open');
     expect(shownSignupStatus({ status: 'closed', closesAt: FUTURE }, NOW)).toBe('closed');
     expect(shownSignupStatus({ status: 'archived', closesAt: PAST }, NOW)).toBe('archived');
+  });
+});
+
+describe('slotInLockout', () => {
+  const HOUR = 3600 * 1000;
+  const LOCKOUT = { lockoutHoursBeforeSlot: 24 };
+
+  it('is in the lockout once the slot starts within that many hours', () => {
+    expect(slotInLockout(LOCKOUT, new Date(NOW + 2 * HOUR), NOW)).toBe(true);
+    expect(slotInLockout(LOCKOUT, new Date(NOW - HOUR), NOW)).toBe(true);
+  });
+
+  it('is not in it while the slot is further away than that', () => {
+    expect(slotInLockout(LOCKOUT, new Date(NOW + 25 * HOUR), NOW)).toBe(false);
+  });
+
+  it('never locks out with no lockout set, a zero lockout, or a slot with no date', () => {
+    const soon = new Date(NOW + HOUR);
+    expect(slotInLockout({}, soon, NOW)).toBe(false);
+    expect(slotInLockout(null, soon, NOW)).toBe(false);
+    expect(slotInLockout({ lockoutHoursBeforeSlot: 0 }, soon, NOW)).toBe(false);
+    expect(slotInLockout({ lockoutHoursBeforeSlot: null }, soon, NOW)).toBe(false);
+    expect(slotInLockout(LOCKOUT, null, NOW)).toBe(false);
   });
 });
