@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CommitmentCreateInputSchema } from './commitments';
+import { CommitmentCreateInputSchema, CommitmentUpdateInputSchema } from './commitments';
 
 describe('CommitmentCreateInputSchema email', () => {
   const base = { name: 'Pat Example' };
@@ -61,5 +61,17 @@ describe('CommitmentCreateInputSchema idempotencyKey', () => {
     expect(r.success).toBe(false);
     if (r.success) return;
     expect(r.error.issues[0]?.path).toEqual(['idempotencyKey']);
+  });
+});
+
+describe('Commitment names', () => {
+  it('refuses a name of only spaces on sign-up and on edit, on the name field', () => {
+    const created = CommitmentCreateInputSchema.safeParse({ name: '   ' });
+    const updated = CommitmentUpdateInputSchema.safeParse({ name: '   ' });
+    for (const r of [created, updated]) {
+      expect(r.success).toBe(false);
+      if (r.success) continue;
+      expect(r.error.issues[0]?.path).toEqual(['name']);
+    }
   });
 });
