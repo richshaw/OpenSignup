@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ALREADY_SIGNED_UP } from './conflict-message';
 import { CLOSED } from './closed-message';
 import { GONE } from './gone-message';
+import { NAME_INVALID } from './name-message';
 import { errorCopyText, participantErrorCopy } from './participant-error';
 
 describe('participantErrorCopy', () => {
@@ -20,6 +21,13 @@ describe('participantErrorCopy', () => {
     expect(participantErrorCopy({ code: 'closed' }, 'change')).toBe(CLOSED.change);
     expect(participantErrorCopy({ code: 'not_found' }, 'join')).toBe(GONE);
     expect(participantErrorCopy({ code: 'not_found' }, 'change')).toBe(GONE);
+  });
+
+  it('words a refused name on both pages', () => {
+    const error = { code: 'invalid_input', field: 'name', message: 'name is required' };
+    expect(participantErrorCopy(error, 'join')).toBe(NAME_INVALID);
+    expect(participantErrorCopy(error, 'change')).toBe(NAME_INVALID);
+    expect(participantErrorCopy({ code: 'invalid_input', field: 'notes' }, 'join')).toBeNull();
   });
 
   it('rewords a repeat sign-up and the rate limit only when signing up', () => {

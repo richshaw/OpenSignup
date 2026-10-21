@@ -18,7 +18,13 @@ export const EmailSchema = z
   .transform(normalizeEmail)
   .pipe(z.string().email());
 
-export const NameSchema = z.string().min(1).max(100).transform((v) => v.trim());
+// Trimmed before the min(1) check, like EmailSchema, so a name of only spaces
+// is refused rather than stored blank. max(100) is on the raw string.
+export const NameSchema = z
+  .string()
+  .max(100)
+  .transform((v) => v.trim())
+  .pipe(z.string().min(1, 'name is required'));
 
 /** The top of the int `sort_order` column on slots and slot fields. */
 export const MAX_SORT_ORDER = 2_147_483_647;
