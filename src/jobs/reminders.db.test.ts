@@ -15,7 +15,7 @@ import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
-import { addSlot } from '@/services/slots';
+import { addSlot, updateSlot } from '@/services/slots';
 import { removeParticipantEmail } from '@/services/testing/participants';
 import { selectDueReminders, sendReminderJob } from './reminders';
 
@@ -72,6 +72,8 @@ interface ScenarioOptions {
   /** Hours ago the participant committed. Defaults to a week. */
   committedHoursAgo?: number;
   settings?: Record<string, unknown>;
+  /** Give the signup a date field, `day`, so `updateSlot` can move the slot. */
+  dated?: boolean;
 }
 
 /**
@@ -84,13 +86,35 @@ async function makeScenario(
   title: string,
   opts: ScenarioOptions,
 ): Promise<{ signupId: string; slotId: string; commitmentId: string; participantId: string }> {
-  const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
-    title,
-    description: '',
-    tags: [],
-    visibility: 'unlisted' as const,
-    settings: opts.settings ?? {},
-  });
+  const created = await createSignup(
+    fx.db,
+    fx.actor,
+    fx.workspaceId,
+    {
+      title,
+      description: '',
+      tags: [],
+      visibility: 'unlisted' as const,
+      settings: opts.settings ?? {},
+    },
+    opts.dated
+      ? {
+          template: {
+            id: 'reminder-test',
+            fields: [
+              {
+                ref: 'day',
+                label: 'Day',
+                fieldType: 'date',
+                sortOrder: 0,
+                config: { fieldType: 'date' },
+              },
+            ],
+            slots: [],
+          },
+        }
+      : {},
+  );
   if (!created.ok) throw new Error(`createSignup failed: ${created.error.message}`);
 
   const slot = await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 5 });
@@ -382,6 +406,112 @@ describe('selectDueReminders (db)', () => {
       await sendReminderJob({ commitmentId });
       await sendReminderJob({ commitmentId });
       expect(send).toHaveBeenCalledTimes(1);
+    } finally {
+      send.mockRestore();
+    }
+    expect(await reminderSentRows(fx.db, commitmentId)).toBe(1);
+  });
+
+  it('reminds again when the organizer moves the slot after its reminder went out', async () => {
+    const { commitmentId, slotId } = await makeScenario(fx, 'Moved after its reminder', {
+      slotInHours: 20,
+      dated: true,
+    });
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      await sendReminderJob({ commitmentId });
+      expect(await reminderSentRows(fx.db, commitmentId)).toBe(1);
+      expect(await dueIds()).not.toContain(commitmentId);
+      const first = send.mock.calls[0]![0];
+      expect(first.subject).toMatch(/^Reminder: /);
+      expect(first.text).toContain('this is a reminder that you signed up for');
+
+      // The organizer postpones the slot by about a week.
+      const weekLater = new Date(Date.now() + 8 * 24 * 3600_000).toISOString().slice(0, 10);
+      const moved = await updateSlot(fx.db, fx.actor, slotId, { values: { day: weekLater } });
+      if (!moved.ok) throw new Error(`updateSlot failed: ${moved.error.message}`);
+      expect(await dueIds()).not.toContain(commitmentId);
+
+      // The week passes: every stored instant moves the same distance closer to
+      // now, until the new time is 20 hours away and inside the lead time.
+      const movedAt = moved.value.slotAt!.getTime();
+      const elapsed = movedAt - (Date.now() + 20 * 3600_000);
+      await fx.db
+        .update(slots)
+        .set({ slotAt: new Date(movedAt - elapsed) })
+        .where(eq(slots.id, slotId));
+      await fx.db
+        .update(activity)
+        .set({
+          payload: sql`jsonb_set(${activity.payload}, '{slotAt}', to_jsonb(
+          ((${activity.payload}->>'slotAt')::timestamptz - make_interval(secs => ${elapsed / 1000}))
+        ))`,
+        })
+        .where(
+          and(
+            eq(activity.eventType, 'reminder.sent'),
+            sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
+          ),
+        );
+
+      expect(await dueIds()).toContain(commitmentId);
+      await sendReminderJob({ commitmentId });
+      expect(await reminderSentRows(fx.db, commitmentId)).toBe(2);
+
+      // The second reminder says the slot changed, or it reads as a duplicate.
+      expect(send).toHaveBeenCalledTimes(2);
+      const second = send.mock.calls[1]![0];
+      expect(second.subject).toMatch(/^Time changed: /);
+      expect(second.html).toContain('Your slot has changed');
+      expect(second.text).toContain('after your last reminder. Here are the new details.');
+    } finally {
+      send.mockRestore();
+    }
+  });
+
+  it('records the slot time each reminder was for', async () => {
+    const { commitmentId, slotId } = await makeScenario(fx, 'Reminder names its time', {
+      slotInHours: 20,
+    });
+    await sendReminderJob({ commitmentId });
+    const [slot] = await fx.db.select().from(slots).where(eq(slots.id, slotId));
+    const [row] = await fx.db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(
+        and(
+          eq(activity.eventType, 'reminder.sent'),
+          sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
+        ),
+      );
+    expect(row?.payload).toMatchObject({ slotAt: slot!.slotAt!.toISOString() });
+  });
+
+  it('does not send again for a reminder.sent row that names no slot time', async () => {
+    // Rows written before reminders recorded their slot time still count as
+    // sent, whatever the slot's time is now, so a deploy sends nothing twice.
+    const { signupId, commitmentId, slotId } = await makeScenario(fx, 'Reminded before', {
+      slotInHours: 20,
+    });
+    await fx.db.insert(activity).values({
+      id: makeId('act'),
+      signupId,
+      workspaceId: fx.workspaceId,
+      actorId: null,
+      actorType: 'system',
+      eventType: 'reminder.sent',
+      payload: { commitmentId, channel: 'email' },
+    });
+    await fx.db
+      .update(slots)
+      .set({ slotAt: sql`now() + make_interval(hours => 10)` })
+      .where(eq(slots.id, slotId));
+    expect(await dueIds()).not.toContain(commitmentId);
+
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      await sendReminderJob({ commitmentId });
+      expect(send).not.toHaveBeenCalled();
     } finally {
       send.mockRestore();
     }
