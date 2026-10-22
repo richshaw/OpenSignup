@@ -281,6 +281,10 @@ describe('<CommitDialog /> sheet', () => {
       expect(alert).toHaveTextContent('Sorry, this is no longer available.');
       expect(alert).toHaveTextContent('Reload the page to see what has changed.');
       expect(alert).not.toHaveTextContent('signup not found');
+      // The ref reaches the alert itself, so a short sheet scrolls to it.
+      await waitFor(() =>
+        expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts).toContain(alert),
+      );
     } finally {
       delete (Element.prototype as Partial<Element>).scrollIntoView;
       vi.unstubAllGlobals();
@@ -308,7 +312,7 @@ describe('<CommitDialog /> sheet', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
       const alert = await screen.findByRole('alert', {}, settle);
-      expect(alert).toHaveTextContent('Sign-ups for this slot have closed.');
+      expect(alert).toHaveTextContent('No one new can sign up for this slot now.');
       expect(alert).toHaveTextContent('Reload the page to see what’s still open.');
       expect(alert).not.toHaveTextContent('signup has closed');
     } finally {

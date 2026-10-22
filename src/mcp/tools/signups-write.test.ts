@@ -302,14 +302,17 @@ describe('update_signup', () => {
     );
   });
 
-  it('does not offer the password visibility, which nothing enforces', async () => {
+  it('does not offer visibility, which nothing reads', async () => {
+    svc.updateSignup.mockResolvedValueOnce(ok(row));
     const client = await connectTestClient(ctx, WRITE_TOOLS);
-    const r = await client.callTool({ name: 'update_signup', arguments: { signupId: 'sig_1', visibility: 'password' } });
-    expect((r.structuredContent as { error: { code: string; field?: string } }).error).toMatchObject({
-      code: 'invalid_input',
-      field: 'visibility',
-    });
-    expect(svc.updateSignup).not.toHaveBeenCalled();
+    const { tools } = await client.listTools();
+    const tool = tools.find((t) => t.name === 'update_signup');
+    expect(tool?.inputSchema.properties).not.toHaveProperty('visibility');
+    expect(tool?.description).not.toContain('visibility');
+    expect(tool?.description).not.toContain('public or unlisted');
+
+    await client.callTool({ name: 'update_signup', arguments: { signupId: 'sig_1', title: 'New', visibility: 'public' } });
+    expect(svc.updateSignup).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', { title: 'New' });
   });
 });
 

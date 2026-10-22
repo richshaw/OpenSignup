@@ -18,14 +18,13 @@ import {
   removeCommitment,
   updateOwnCommitment,
 } from '@/services/commitments';
-import { lockSignupForWrite, readLiveSignup } from '@/services/locks';
+import { getSignupRowForOrganizer, lockSignupForWrite, readLiveSignup } from '@/services/locks';
 import {
   archiveSignup,
   closeSignup,
   createSignup,
   deleteSignup,
   getSignupForOrganizer,
-  getSignupRowForOrganizer,
   publishSignup,
   updateSignup,
 } from '@/services/signups';
@@ -233,7 +232,7 @@ const CALLS: Array<[string, Call]> = [
       addSlotsBulk(fx.db, fx.actor, s.signupId, { rows: [{ values: { day: '2030-05-04' } }] }),
   ],
   ['updateSlot', (fx, s) => updateSlot(fx.db, fx.actor, s.slotA, { capacity: 9 })],
-  ['deleteSlot', (fx, s) => deleteSlot(fx.db, fx.actor, s.slotB)],
+  ['deleteSlot', (fx, s) => deleteSlot(fx.db, fx.actor, s.slotB, { force: true })],
   [
     'reorderSlots',
     (fx, s) => reorderSlots(fx.db, fx.actor, s.signupId, { slotIds: [s.slotB, s.slotA] }),

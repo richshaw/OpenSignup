@@ -2,13 +2,14 @@
 
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { FormError, SuccessNotice } from '@/components/ui/form-error';
 import { wasCancelled } from '../../cancelled-message';
 import { errorCopyText, participantErrorCopy } from '../../participant-error';
 import { Field, NotesAndSpots } from '../../participant-fields';
 
 // The request never reached the server (offline, or a dropped connection).
 const SAVE_UNREACHABLE = "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.";
-const CANCEL_UNREACHABLE = "Couldn't reach the server, so your sign-up wasn't cancelled. Check your connection and try again.";
+const CANCEL_UNREACHABLE = "Couldn't reach the server, so your spot wasn't cancelled. Check your connection and try again.";
 // A refusal whose answer isn't ours to read, such as an error page from a proxy.
 const SAVE_UNREADABLE = "Something went wrong, so your changes weren't saved. Try again.";
 
@@ -164,15 +165,10 @@ export default function EditForm({
             : undefined
         }
       />
-      {message ? (
-        <p
-          role={message.kind === 'ok' ? 'status' : 'alert'}
-          className={`rounded-lg px-3 py-2 text-sm ${
-            message.kind === 'ok' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'
-          }`}
-        >
-          {message.text}
-        </p>
+      {message?.kind === 'ok' ? (
+        <SuccessNotice>{message.text}</SuccessNotice>
+      ) : message ? (
+        <FormError>{message.text}</FormError>
       ) : null}
       <div className="flex flex-wrap items-center gap-3">
         {confirmingCancel ? (

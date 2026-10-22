@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
-import { findReminderFields, validateSlotValues } from './slot-fields';
+import { findReminderFields } from '@/lib/reminder-fields';
+import { validateSlotValues } from './slot-fields';
 
 const def = (overrides: Partial<SlotFieldDefinition>): SlotFieldDefinition => ({
   id: 'fld_aaaaaaaaaaaaaaaaaaaaaa',
@@ -25,7 +26,7 @@ describe('validateSlotValues', () => {
   });
 
   // The shape regex alone accepted all of these. They reached new Date() as an
-  // Invalid Date, which recomputeSlotAtForSignup then rewrote on every pass
+  // Invalid Date, which rebuildSlotAt then rewrote on every pass
   // because NaN is never equal to itself.
   // 0099-02-29 is impossible too (0099 is no leap year), and says so rather
   // than that it is too early.

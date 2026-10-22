@@ -14,6 +14,7 @@ import { listFieldsForSignup } from '@/services/slot-fields';
 import { addSlot, deleteSlot } from '@/services/slots';
 import { settle, untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
 import { commitToSlot } from '@/services/commitments';
+import { getSignupRowForOrganizer } from '@/services/locks';
 import {
   archiveSignup,
   closeSignup,
@@ -21,7 +22,6 @@ import {
   deleteSignup,
   getPublicSignup,
   getSignupForOrganizer,
-  getSignupRowForOrganizer,
   listSignupsForWorkspace,
   publishSignup,
   updateSignup,
@@ -523,6 +523,18 @@ describe('signups service (db)', () => {
       expect(acts.some((a) => a.eventType === 'signup.updated')).toBe(true);
     });
 
+    it('refuses a visibility change, which nothing reads', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Before'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, { visibility: 'password' });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error).toMatchObject({ code: 'invalid_input', field: 'visibility' });
+      const [stored] = await fx.db.select().from(signups).where(eq(signups.id, created.value.id));
+      expect(stored?.visibility).toBe('unlisted');
+    });
+
     it('returns not_found for a missing signup', async () => {
       const r = await updateSignup(fx.db, fx.actor, makeId('sig'), { title: 'No' });
       expect(r.ok).toBe(false);
@@ -549,6 +561,17 @@ describe('signups service (db)', () => {
       expect(r.ok).toBe(false);
       if (r.ok) return;
       expect(r.error.code).toBe('invalid_input');
+    });
+
+    it('refuses a creation whose groupByFieldRefs names no template field (#516)', async () => {
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Bad group'),
+        settings: { groupByFieldRefs: ['ghost'] },
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('invalid_input');
+      expect(r.error.field).toBe('settings.groupByFieldRefs');
     });
 
     it('keeps reminderFromFieldRef when a settings update omits it', async () => {
@@ -667,6 +690,37 @@ describe('signups service (db)', () => {
         if (r.ok) continue;
         expect(r.error.code).toBe('invalid_input');
       }
+    });
+
+    it('refuses a groupByFieldRefs entry that names no field (#516)', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Bad group ref'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { groupByFieldRefs: ['nope'] },
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('invalid_input');
+      expect(r.error.field).toBe('settings.groupByFieldRefs');
+      const [row] = await fx.db.select().from(signups).where(eq(signups.id, created.value.id));
+      expect(row?.settings).toEqual(created.value.settings);
+    });
+
+    it('saves an unrelated setting on a row that already holds a stale group-by ref', async () => {
+      // Rows saved before #516 can hold a ref that names no field. Only a save
+      // that sends groupByFieldRefs is checked, so they stay editable.
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Stale group ref'));
+      if (!created.ok) throw new Error('setup failed');
+      await fx.db
+        .update(signups)
+        .set({ settings: { ...(created.value.settings as Record<string, unknown>), groupByFieldRefs: ['gone'] } })
+        .where(eq(signups.id, created.value.id));
+
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, { settings: { sendReminders: false } });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['gone'] });
     });
   });
 
@@ -866,7 +920,7 @@ describe('signups service (db)', () => {
       // deleteSlot holds the slot row, not the signup's, so only the slot
       // lock can make the publish wait for it.
       const held = fx.db.transaction(async (tx) => {
-        const deleted = await deleteSlot(tx as unknown as Db, fx.actor, slotId);
+        const deleted = await deleteSlot(tx as unknown as Db, fx.actor, slotId, { force: true });
         expect(deleted.ok, JSON.stringify(deleted)).toBe(true);
         publishing = publishSignup(fx.db, fx.actor, signupId);
         await untilServiceBlockedOn(fx.db, tx, publishing);

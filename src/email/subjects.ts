@@ -17,6 +17,11 @@ export function confirmationSubject(signupTitle: string, slotSummary: string): s
   return withSummary("You're signed up", signupTitle, slotSummary);
 }
 
-export function reminderSubject(signupTitle: string, slotSummary: string): string {
-  return withSummary('Reminder', signupTitle, slotSummary);
+/**
+ * `changed` is for a reminder that follows an earlier one for a different
+ * slot time: the organizer moved the slot, and the subject has to say so or
+ * the email reads as a duplicate of the last.
+ */
+export function reminderSubject(signupTitle: string, slotSummary: string, changed = false): string {
+  return withSummary(changed ? 'Time changed' : 'Reminder', signupTitle, slotSummary);
 }

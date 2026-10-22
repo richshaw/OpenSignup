@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
 import postgres from 'postgres';
-import { toSignupViewSlots } from '@/app/s/[slug]/signup-view';
+import { toSignupViewSlots } from '@/app/s/[slug]/public-signup';
 import { getDb, type Db } from '@/db/client';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';

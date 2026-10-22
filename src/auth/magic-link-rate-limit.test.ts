@@ -50,7 +50,7 @@ describe('consumeMagicLinkRateLimits', () => {
     expect(thrown).toBeInstanceOf(MagicLinkRateLimited);
     expect((thrown as MagicLinkRateLimited).cause).toEqual({ bucket: policy.bucket, retryAfterSeconds: 600 });
     expect(logWarn).toHaveBeenCalledWith(
-      { email, ip, bucket: policy.bucket },
+      { emailDomain: 'example.com', bucket: policy.bucket },
       'magic link rate-limited',
     );
   });

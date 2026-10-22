@@ -7,12 +7,12 @@ import { getEmailTransport } from '@/email';
 import { MagicLinkEmail } from '@/email/templates/magic-link';
 import { recordActivityBestEffort } from '@/lib/activity';
 import { getEnv } from '@/lib/env';
-import { log } from '@/lib/log';
 import { normalizeEmail } from '@/schemas/common';
 import { SignupAdapter } from './adapter';
 import { buildOAuthProviders } from './oauth-providers';
 import { canonicalizeMagicLinkUrl, buildConfirmationUrl } from './magic-link-url';
 import { extractEmailDomain } from './email-domain';
+import { authLogger } from './logger';
 import { getMagicLinkMaxAgeSeconds } from './magic-link-expiry';
 import { consumeMagicLinkRateLimits } from './magic-link-rate-limit';
 import { getCurrentRequestIp } from './request-context';
@@ -30,6 +30,7 @@ function buildConfig(): NextAuthConfig {
     adapter: SignupAdapter(),
     session: { strategy: 'database', maxAge: SESSION_MAX_AGE_SECONDS },
     trustHost: true,
+    logger: authLogger,
     providers: [
       Nodemailer({
         // `server` and `from` are required by the Nodemailer provider but unused —
@@ -56,7 +57,7 @@ function buildConfig(): NextAuthConfig {
           const confirmUrl = buildConfirmationUrl(safeUrl, getEnv().AUTH_URL);
           // The code redeems the same single-use callback as the link, from
           // whichever window the person started in (see ./login-code.ts).
-          const code = await issueLoginCode(getDb(), {
+          const { code, expiresAt: codeExpiresAt } = await issueLoginCode(getDb(), {
             email: subject,
             callbackUrl: safeUrl,
             expiresAt: expires,
@@ -65,6 +66,7 @@ function buildConfig(): NextAuthConfig {
             url: confirmUrl,
             email: identifier,
             expiresInMinutes,
+            codeExpiresInMinutes: Math.max(1, Math.ceil((codeExpiresAt.getTime() - Date.now()) / 60_000)),
             code,
           });
           const { html, text } = await renderEmail(node);
@@ -74,7 +76,6 @@ function buildConfig(): NextAuthConfig {
             html,
             text,
           });
-          log.info({ email: identifier }, 'magic link dispatched');
           await recordActivityBestEffort(getDb(), {
             actor: { actorId: null, actorType: 'system' },
             eventType: 'auth.magic_link_sent',

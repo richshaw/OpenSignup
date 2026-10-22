@@ -15,11 +15,11 @@
  */
 export const CLOSED = {
   join: {
-    message: 'Sign-ups for this slot have closed.',
+    message: 'No one new can sign up for this slot now.',
     suggestion: 'Reload the page to see what’s still open.',
   },
   change: {
-    message: "Sign-ups have closed, so you can't add more spots.",
+    message: "You can't add more spots now.",
     suggestion: 'Keep the number you have.',
   },
 } as const;

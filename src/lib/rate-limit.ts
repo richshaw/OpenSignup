@@ -2,6 +2,7 @@ import { lt, sql } from 'drizzle-orm';
 import { rateLimits } from '@/db/schema/rate-limits';
 import type { Db } from '@/db/client';
 import { serviceError, ServiceException } from './errors';
+import { LOGIN_CODE_MAX_AGE_MS } from '@/auth/login-code-lifetime';
 
 export interface RateLimitPolicy {
   bucket: string;
@@ -85,7 +86,7 @@ export const RateLimits = {
   // (`LOGIN_CODE_MAX_AGE_MS`, regardless of the link's own expiry) and is keyed
   // to its email, so 5 tries per 15-minute window caps an attacker at 5 guesses
   // per code — one in two hundred thousand. Real people mistype once, maybe twice.
-  loginCodePerEmail: { bucket: 'auth.code.email', max: 5, windowSeconds: 900 },
+  loginCodePerEmail: { bucket: 'auth.code.email', max: 5, windowSeconds: LOGIN_CODE_MAX_AGE_MS / 1000 },
   loginCodePerIp: { bucket: 'auth.code.ip', max: 30, windowSeconds: 900 },
   commitmentPerIp: { bucket: 'commit.ip', max: 10, windowSeconds: 60 },
   // Per-address, mirroring magicLinkPerEmail. A commit now sends a confirmation

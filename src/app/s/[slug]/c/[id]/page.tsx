@@ -16,7 +16,7 @@ import { CANCELLED_PAGE } from '../../cancelled-message';
 import { SignupStateMessage } from '../../state-message';
 import EditForm from './edit-form';
 
-export const metadata = { title: 'Your signup', robots: { index: false, follow: false } };
+export const metadata = { title: 'Your spot', robots: { index: false, follow: false } };
 
 type PageParams = {
   params: Promise<{ slug: string; id: string }>;
@@ -94,7 +94,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
         <a href={`/s/${slug}`} className="text-ink-muted text-sm hover:underline">
           ← Back to signup
         </a>
-        <h1 className="text-2xl font-semibold tracking-tight">Your signup</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Your spot</h1>
         {/* Which slot this is, as the cancelled page and the emails name it,
             for someone with more than one sign-up or no email to check. */}
         {slotName ? <p className="text-balance text-sm font-medium">{slotName}</p> : null}
@@ -108,7 +108,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
       {closed ? (
         <Banner
           kind="closed"
-          title="Sign-ups have closed"
+          title="Closed"
           body="You can't add more spots now, but you can still change your details, give spots back, or cancel."
         />
       ) : null}

@@ -20,6 +20,7 @@ import {
 import {
   type SignupSettings,
   type SignupStatus,
+  type StoredSignupSettings,
   SignupCreateInputSchema,
   SignupUpdateInputSchema,
 } from '@/schemas/signups';
@@ -27,19 +28,33 @@ import { type SlotCreateInput, SlotCreateInputSchema } from '@/schemas/slots';
 import {
   extractSlotAt,
   listFieldsForSignup,
-  recomputeSlotAtForSignup,
+  rebuildSlotAt,
   validateSlotValues,
 } from './slot-fields';
 import { committedBySlot } from './commitments';
-import { lockSignupForWrite, lockSlotsForSignup, readLiveSignup } from './locks';
+import { getSignupRowForOrganizer, lockSlotsForSignup, withSignupWriteLock } from './locks';
 import { listSlotsForSignup, pickAvailableRef, summarizeValues } from './slots';
 
-interface ReminderSettingsLike {
-  reminderFromFieldRef?: string | undefined;
-  [k: string]: unknown;
-}
-
 type SignupRow = typeof signups.$inferSelect;
+
+/**
+ * Every group-by ref must name one of the signup's fields. The public page
+ * resolves an unknown ref to no grouping without a word, and a field added
+ * later under that ref would switch grouping on with nobody asking (#516).
+ */
+function checkGroupByRefs(
+  refs: readonly string[],
+  fields: readonly Pick<SlotFieldDefinition, 'ref'>[],
+): Result<null, ServiceError> {
+  const unknown = refs.find((ref) => !fields.some((f) => f.ref === ref));
+  if (unknown === undefined) return ok(null);
+  return err(
+    serviceError('invalid_input', "groupByFieldRefs must name one of the signup's fields", {
+      field: 'settings.groupByFieldRefs',
+      received: unknown,
+    }),
+  );
+}
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -128,6 +143,8 @@ export async function createSignup(
   // date ordering work from the moment a signup exists.
   const anchor = chooseAnchorRef(data.settings.reminderFromFieldRef, undefined, fieldDefs);
   if (!anchor.ok) return anchor;
+  const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fieldDefs);
+  if (!grouping.ok) return grouping;
   const settings: SignupSettings =
     anchor.value === null
       ? data.settings
@@ -201,24 +218,6 @@ export async function createSignup(
   return ok(row);
 }
 
-/**
- * Loads one signup for reading and judges access to it, for callers that then
- * read something hanging off the row (its slots, its activity log, its CSV
- * export). A soft-deleted signup is not found (`readLiveSignup`), as it is to
- * the organizer's list and the public page, so nothing reached through this
- * serves a deleted signup's participants.
- */
-export async function getSignupRowForOrganizer(
-  db: Db,
-  actor: Actor,
-  signupId: string,
-): Promise<Result<SignupRow, ServiceError>> {
-  const row = await readLiveSignup(db, signupId);
-  if (!row) return err(serviceError('not_found', 'signup not found'));
-  requireWorkspaceAccess(actor, row.workspaceId);
-  return ok(row);
-}
-
 export async function getSignupForOrganizer(
   db: Db,
   actor: Actor,
@@ -255,20 +254,17 @@ export async function updateSignup(
   signupId: string,
   rawInput: unknown,
 ): Promise<Result<SignupRow, ServiceError>> {
-  const found = await readLiveSignup(db, signupId);
-  if (!found) return err(serviceError('not_found', 'signup not found'));
-  requireWorkspaceWrite(actor, found.workspaceId);
-
-  return db.transaction(async (tx) => {
-    // Everything below reads the row again under a lock, because a sparse
-    // settings update is a read-modify-write of one jsonb column. Merging from a
-    // snapshot taken outside the transaction let two concurrent updates start
-    // from the same settings and the second write drop the first one's key,
-    // which is the one thing "only the settings you pass change" promises.
-    const row = await lockSignupForWrite(tx, signupId, found.workspaceId);
-    if (!row) return err(serviceError('not_found', 'signup not found'));
-
-    const prevSettings = (row.settings as ReminderSettingsLike) ?? {};
+  // Everything below reads the row as read under the lock, because a sparse
+  // settings update is a read-modify-write of one jsonb column. Merging from a
+  // snapshot taken outside the transaction let two concurrent updates start
+  // from the same settings and the second write drop the first one's key,
+  // which is the one thing "only the settings you pass change" promises.
+  return withSignupWriteLock(db, actor, signupId, async (tx, row) => {
+    const prevSettings = row.settings;
+    // Only a group-by the caller sent is checked: a row saved with a stale ref
+    // must not make every unrelated settings save fail.
+    const sentGroupBy =
+      isObject(rawInput) && isObject(rawInput.settings) && rawInput.settings.groupByFieldRefs != null;
     if (isObject(rawInput) && isObject(rawInput.settings)) {
       // The anchor stays out of the merge, so below it is only ever what the
       // caller sent.
@@ -289,15 +285,20 @@ export async function updateSignup(
     // services move it otherwise (when its field is deleted or retyped); a
     // stale client must not be able to strand every slot_at on a column that
     // is gone.
-    let mergedSettings: ReminderSettingsLike = prevSettings;
+    let mergedSettings: StoredSignupSettings = prevSettings;
+    let fields: SlotFieldDefinition[] = [];
     if (data.settings !== undefined) {
-      const fields = await listFieldsForSignup(tx, signupId);
+      fields = await listFieldsForSignup(tx, signupId);
       const anchor = chooseAnchorRef(
         data.settings.reminderFromFieldRef,
         prevSettings.reminderFromFieldRef,
         fields,
       );
       if (!anchor.ok) return anchor;
+      if (sentGroupBy) {
+        const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fields);
+        if (!grouping.ok) return grouping;
+      }
       mergedSettings =
         anchor.value === null
           ? data.settings
@@ -312,7 +313,6 @@ export async function updateSignup(
       .set({
         ...(data.title !== undefined ? { title: data.title } : {}),
         ...(data.description !== undefined ? { description: data.description } : {}),
-        ...(data.visibility !== undefined ? { visibility: data.visibility } : {}),
         ...(data.tags !== undefined ? { tags: data.tags } : {}),
         ...(data.closesAt !== undefined
           ? { closesAt: data.closesAt ? new Date(data.closesAt) : null }
@@ -325,7 +325,7 @@ export async function updateSignup(
     if (!updated) throw new Error('update returned nothing');
 
     if (reminderRefChanged) {
-      await recomputeSlotAtForSignup(tx, signupId, found.workspaceId);
+      await rebuildSlotAt(tx, signupId, row.workspaceId, mergedSettings, fields);
     }
 
     await recordActivity(tx, {
@@ -452,20 +452,16 @@ async function transitionStatus(
   to: SignupStatus,
   eventType: 'signup.published' | 'signup.closed' | 'signup.archived',
 ): Promise<Result<SignupRow, ServiceError>> {
-  const found = await readLiveSignup(db, signupId);
-  if (!found) return err(serviceError('not_found', 'signup not found'));
-  requireWorkspaceWrite(actor, found.workspaceId);
-
-  const result = await db.transaction(async (tx) => {
-    // The status check, the slot count and the write all happen under the
-    // signup lock. Checked on an unlocked read, two transitions that overlapped
-    // both passed and both wrote: an archive racing a publish left the signup
-    // open, and two closes logged two `signup.closed` rows. Now the second one
-    // sees the status the first left, and gets the conflict it would have got
-    // had they run one after the other.
-    const row = await lockSignupForWrite(tx, signupId, found.workspaceId);
-    if (!row) return err(serviceError('not_found', 'signup not found'));
-
+  // Set under the lock, for the telemetry of a refused publish afterwards.
+  let workspaceId: string | null = null;
+  // The status check, the slot count and the write all happen under the
+  // signup lock. Checked on an unlocked read, two transitions that overlapped
+  // both passed and both wrote: an archive racing a publish left the signup
+  // open, and two closes logged two `signup.closed` rows. Now the second one
+  // sees the status the first left, and gets the conflict it would have got
+  // had they run one after the other.
+  const result = await withSignupWriteLock(db, actor, signupId, async (tx, row) => {
+    workspaceId = row.workspaceId;
     if (from !== null && row.status !== from) {
       return err(
         serviceError('conflict', `cannot ${to} a signup that is ${row.status}`, {
@@ -482,7 +478,7 @@ async function transitionStatus(
       // slot row without the signup lock, so only the slot locks make a delete
       // of the last slot finish first (and its row drop out of this list) or
       // wait until the publish has committed.
-      const slotRows = await lockSlotsForSignup(tx, signupId, found.workspaceId);
+      const slotRows = await lockSlotsForSignup(tx, signupId, row.workspaceId);
       if (slotRows.length < 1) {
         return err(
           serviceError('conflict', 'publish requires at least one slot', {
@@ -514,7 +510,7 @@ async function transitionStatus(
     return ok(next);
   });
   if (!result.ok && eventType === 'signup.published') {
-    await recordPublishRefused(db, actor, signupId, found.workspaceId, result.error);
+    await recordPublishRefused(db, actor, signupId, workspaceId, result.error);
   }
   return result;
 }

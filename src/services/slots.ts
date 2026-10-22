@@ -1,4 +1,4 @@
-import { and, eq, or, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
 import { slots } from '@/db/schema/slots';
@@ -23,16 +23,12 @@ import {
   lockSlotsForSignup,
   readLiveSignup,
   SLOT_DISPLAY_ORDER,
+  withSignupWriteLock,
 } from './locks';
+import { isActiveCommitment, placesTaken } from './commitments';
 import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
 
 type SlotRow = typeof slots.$inferSelect;
-
-interface SignupSettingsLike {
-  groupByFieldRefs?: string[];
-  reminderFromFieldRef?: string | undefined;
-  [k: string]: unknown;
-}
 
 export async function addSlot(
   db: Db,
@@ -44,27 +40,18 @@ export async function addSlot(
   if (!input.ok) return input;
   const data = input.value;
 
-  const signupRow = await readLiveSignup(db, signupId);
-  if (!signupRow) return err(serviceError('not_found', 'signup not found'));
-  requireWorkspaceWrite(actor, signupRow.workspaceId);
-
-  return db.transaction(async (tx) => {
-    // The field and settings services hold this lock while they strip a deleted
-    // field's values from every slot and rebuild slot_at, and neither can see a
-    // row inserted meanwhile. So the insert queues behind them, and the fields
-    // and the anchor are read under the lock: a value for a field that has just
-    // gone is refused, and slot_at comes from the anchor as it now stands.
-    // No slot row is held yet, so signup-then-slots holds.
-    // Undefined for a soft delete that committed while this waited, too.
-    const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
-    if (!locked) return err(serviceError('not_found', 'signup not found'));
-
+  // The field and settings services hold the signup lock while they strip a
+  // deleted field's values from every slot and rebuild slot_at, and neither can
+  // see a row inserted meanwhile. So the insert queues behind them, and the
+  // fields and the anchor are read under the lock: a value for a field that has
+  // just gone is refused, and slot_at comes from the anchor as it now stands.
+  // No slot row is held yet, so signup-then-slots holds.
+  return withSignupWriteLock(db, actor, signupId, async (tx, locked) => {
     const fields = await listFieldsForSignup(tx, signupId);
     const valid = validateSlotValues(fields, data.values);
     if (!valid.ok) return valid;
 
-    const settings = (locked.settings as SignupSettingsLike) ?? {};
-    const slotAt = extractSlotAt(settings, fields, data.values);
+    const slotAt = extractSlotAt(locked.settings, fields, data.values);
 
     // An omitted sortOrder appends (`nextSlotSortOrder`), read under the
     // signup lock so two adds cannot land on the same number. It was epoch
@@ -80,7 +67,7 @@ export async function addSlot(
       .values({
         id: makeId('slot'),
         signupId,
-        workspaceId: signupRow.workspaceId,
+        workspaceId: locked.workspaceId,
         ref,
         values: data.values,
         capacity: data.capacity ?? null,
@@ -93,7 +80,7 @@ export async function addSlot(
 
     await recordActivity(tx, {
       signupId,
-      workspaceId: signupRow.workspaceId,
+      workspaceId: locked.workspaceId,
       actor: activityActor(actor),
       eventType: 'slot.created',
       payload: { slotId: inserted.id },
@@ -112,10 +99,6 @@ export async function addSlotsBulk(
   if (!input.ok) return input;
   const data = input.value;
 
-  const signupRow = await readLiveSignup(db, signupId);
-  if (!signupRow) return err(serviceError('not_found', 'signup not found'));
-  requireWorkspaceWrite(actor, signupRow.workspaceId);
-
   const { beforeSlotId } = data;
   if (beforeSlotId !== undefined) {
     const numbered = data.rows.findIndex((r) => r.sortOrder !== undefined);
@@ -130,13 +113,10 @@ export async function addSlotsBulk(
     }
   }
 
-  return db.transaction(async (tx) => {
-    // Serialise appends per signup, the same way `addField` does: two bulk adds
-    // running at once would otherwise read the same max and land on the same
-    // sortOrder, leaving their order to the createdAt tiebreak.
-    const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
-    if (!locked) return err(serviceError('not_found', 'signup not found'));
-
+  // Serialise appends per signup, the same way `addField` does: two bulk adds
+  // running at once would otherwise read the same max and land on the same
+  // sortOrder, leaving their order to the createdAt tiebreak.
+  return withSignupWriteLock(db, actor, signupId, async (tx, locked) => {
     // Read under the lock, as in `addSlot`: a field delete or an anchor move
     // that this waited for has committed, and the rows are checked against the
     // fields, and take their slot_at from the anchor, as it left them.
@@ -145,7 +125,7 @@ export async function addSlotsBulk(
       const valid = validateSlotValues(fields, r.values);
       if (!valid.ok) return valid;
     }
-    const settings = (locked.settings as SignupSettingsLike) ?? {};
+    const settings = locked.settings;
 
     let base: number;
     let shown: SlotRow[] | undefined;
@@ -154,7 +134,7 @@ export async function addSlotsBulk(
       // `deleteSlot` does not take it, so the slot rows are locked too: a
       // delete in flight finishes first, and the target's position found here
       // is still its position when the renumbering runs.
-      shown = await lockSlotsForSignup(tx, signupId, signupRow.workspaceId);
+      shown = await lockSlotsForSignup(tx, signupId, locked.workspaceId);
       base = shown.findIndex((s) => s.id === beforeSlotId);
       if (base < 0) {
         return err(
@@ -181,7 +161,7 @@ export async function addSlotsBulk(
         .values({
           id: makeId('slot'),
           signupId,
-          workspaceId: signupRow.workspaceId,
+          workspaceId: locked.workspaceId,
           ref,
           values: row.values,
           capacity: row.capacity ?? null,
@@ -207,7 +187,7 @@ export async function addSlotsBulk(
 
     await recordActivity(tx, {
       signupId,
-      workspaceId: signupRow.workspaceId,
+      workspaceId: locked.workspaceId,
       actor: activityActor(actor),
       eventType: 'slot.created',
       payload: {
@@ -290,18 +270,12 @@ export async function reorderSlots(
   if (!input.ok) return input;
   const { slotIds } = input.value;
 
-  const signupRow = await readLiveSignup(db, signupId);
-  if (!signupRow) return err(serviceError('not_found', 'signup not found'));
-  requireWorkspaceWrite(actor, signupRow.workspaceId);
-
-  return db.transaction(async (tx) => {
-    // The same two locks as inserting before a slot, for the same reasons: the
-    // signup row keeps adds, edits and other reorders out, and the slot rows
-    // make a delete in flight finish first, so the list is checked against the
-    // slots the signup really has.
-    const locked = await lockSignupForWrite(tx, signupId, signupRow.workspaceId);
-    if (!locked) return err(serviceError('not_found', 'signup not found'));
-    const current = await lockSlotsForSignup(tx, signupId, signupRow.workspaceId);
+  // The same two locks as inserting before a slot, for the same reasons: the
+  // signup row keeps adds, edits and other reorders out, and the slot rows make
+  // a delete in flight finish first, so the list is checked against the slots
+  // the signup really has.
+  return withSignupWriteLock(db, actor, signupId, async (tx, locked) => {
+    const current = await lockSlotsForSignup(tx, signupId, locked.workspaceId);
     const known = new Set(current.map((s) => s.id));
 
     const seen = new Set<string>();
@@ -331,7 +305,7 @@ export async function reorderSlots(
     // this order, and a second code path to stay silent is not worth having.
     await recordActivity(tx, {
       signupId,
-      workspaceId: signupRow.workspaceId,
+      workspaceId: locked.workspaceId,
       actor: activityActor(actor),
       eventType: 'slot.reordered',
       payload: { slotIds },
@@ -375,16 +349,7 @@ export async function updateSlot(
     if (!locked) return err(serviceError('not_found', 'slot not found'));
 
     if (data.capacity !== undefined && data.capacity !== null) {
-      const sumRows = await tx
-        .select({ sum: sql<number>`coalesce(sum(${commitments.quantity}), 0)::int` })
-        .from(commitments)
-        .where(
-          and(
-            eq(commitments.slotId, slotId),
-            or(eq(commitments.status, 'confirmed'), eq(commitments.status, 'tentative')),
-          ),
-        );
-      const usedQty = sumRows[0]?.sum ?? 0;
+      const usedQty = await placesTaken(tx, slotId);
       if (usedQty > data.capacity) {
         return err(
           serviceError(
@@ -405,8 +370,7 @@ export async function updateSlot(
       const fields = await listFieldsForSignup(tx, locked.signupId);
       const valid = validateSlotValues(fields, data.values);
       if (!valid.ok) return valid;
-      const settings = (signupRow.settings as SignupSettingsLike) ?? {};
-      nextSlotAt = extractSlotAt(settings, fields, data.values);
+      nextSlotAt = extractSlotAt(signupRow.settings, fields, data.values);
     }
 
     const [row] = await tx
@@ -444,7 +408,7 @@ export async function deleteSlot(
   db: Db,
   actor: Actor,
   slotId: string,
-  opts: { force?: boolean } = { force: true },
+  opts: { force: boolean },
 ): Promise<Result<{ deleted: true; commitmentsRemoved: number }, ServiceError>> {
   const existing = await db.select().from(slots).where(eq(slots.id, slotId)).limit(1);
   const slotRow = existing[0];
@@ -474,15 +438,11 @@ export async function deleteSlot(
       .where(
         and(
           eq(commitments.slotId, slotId),
-          // `waitlist` counts as signed up here even though it does not count
-          // towards capacity (see `committedBySlot`): a waitlisted person is
-          // someone a participant-side cancel still applies to, and deleting
-          // the slot takes their place away too.
-          or(
-            eq(commitments.status, 'confirmed'),
-            eq(commitments.status, 'tentative'),
-            eq(commitments.status, 'waitlist'),
-          ),
+          // `waitlist` counts as signed up here even though it holds no place
+          // (`holdsPlace`): a waitlisted person is someone a participant-side
+          // cancel still applies to, and deleting the slot takes their place
+          // away too.
+          isActiveCommitment,
         ),
       );
     const commitmentsRemoved = booked?.rows ?? 0;
@@ -490,7 +450,7 @@ export async function deleteSlot(
     // asked about is places, not rows.
     const places = booked?.places ?? 0;
 
-    if (commitmentsRemoved > 0 && opts.force === false) {
+    if (commitmentsRemoved > 0 && !opts.force) {
       return err(
         serviceError(
           'conflict',
