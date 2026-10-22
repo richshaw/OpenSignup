@@ -42,4 +42,3 @@ export const slots = pgTable(
 );
 
 export type Slot = typeof slots.$inferSelect;
-export type NewSlot = typeof slots.$inferInsert;

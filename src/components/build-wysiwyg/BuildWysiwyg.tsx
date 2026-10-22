@@ -9,14 +9,12 @@ import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
-import type { SignupSettings, SignupStatus } from '@/schemas/signups';
+import type { SignupSettings } from '@/schemas/signups';
 
 /** Server-loaded chrome snapshot. Title + description are then edited in-place via updateSignupMeta. */
 type SignupMeta = {
   title: string;
   description: string | null;
-  status: SignupStatus;
-  slug: string;
 };
 
 type BuildWysiwygProps = {

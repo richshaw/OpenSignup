@@ -1,13 +1,18 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Db } from '@/db/client';
-import { signups } from '@/db/schema/signups';
+import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
-import { slots } from '@/db/schema/slots';
+import { slots, type Slot as SlotRow } from '@/db/schema/slots';
 import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
-import { requireOrganizer, requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
+import {
+  requireOrganizer,
+  requireWorkspaceAccess,
+  requireWorkspaceWrite,
+  type Actor,
+} from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { chooseAnchorRef } from '@/lib/reminder-fields';
 import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
@@ -35,8 +40,6 @@ import { committedBySlot } from './commitments';
 import { getSignupRowForOrganizer, lockSlotsForSignup, withSignupWriteLock } from './locks';
 import { listSlotsForSignup, pickAvailableRef, summarizeValues } from './slots';
 
-type SignupRow = typeof signups.$inferSelect;
-
 /**
  * Every group-by ref must name one of the signup's fields. The public page
  * resolves an unknown ref to no grouping without a word, and a field added
@@ -61,7 +64,7 @@ function isObject(v: unknown): v is Record<string, unknown> {
 }
 
 export interface SignupWithSlots extends SignupRow {
-  slots: (typeof slots.$inferSelect)[];
+  slots: SlotRow[];
   fields: SlotFieldDefinition[];
 }
 

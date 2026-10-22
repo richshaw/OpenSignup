@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 type Kind = 'preview' | 'closed' | 'aiDraft' | 'published';
 
 const STYLES: Record<Kind, string> = {
@@ -9,23 +7,16 @@ const STYLES: Record<Kind, string> = {
   published: 'bg-success/10 text-success',
 };
 
-export interface BannerAction {
-  label: string;
-  href: string;
-}
-
 export function Banner({
   kind,
   title,
   body,
   onDismiss,
-  action,
 }: {
   kind: Kind;
   title: string;
   body: string;
   onDismiss?: () => void;
-  action?: BannerAction;
 }) {
   return (
     <div
@@ -36,40 +27,28 @@ export function Banner({
         <p className="text-base font-semibold">{title}</p>
         <p className="text-sm">{body}</p>
       </div>
-      {(action || onDismiss) && (
-        <div className="flex flex-shrink-0 items-center gap-2">
-          {action && (
-            <Link
-              href={action.href}
-              className="rounded-md border border-current/20 px-3 py-1 text-sm font-medium hover:bg-current/10"
-            >
-              {action.label}
-            </Link>
-          )}
-          {onDismiss && (
-            <button
-              type="button"
-              onClick={onDismiss}
-              aria-label="Dismiss"
-              className="rounded-md p-1 text-current/70 hover:bg-current/10 hover:text-current"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M1 1l12 12M13 1L1 13"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
-          )}
-        </div>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          className="flex-shrink-0 rounded-md p-1 text-current/70 hover:bg-current/10 hover:text-current"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M1 1l12 12M13 1L1 13"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
       )}
     </div>
   );

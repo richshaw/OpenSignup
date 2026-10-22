@@ -606,7 +606,7 @@ describe('the live page inside the lockout before a slot', () => {
 });
 
 describe('<SignupViewBody /> for a returning participant', () => {
-  const OWN = [{ slotId: 's1', editUrl: '/s/example/c/com_1?t=tok', participantName: 'Pat' }];
+  const OWN = [{ slotId: 's1', editUrl: '/s/example/c/com_1?t=tok' }];
 
   function renderOwn(status: 'open' | 'closed', mode: 'live' | 'preview' = 'live') {
     render(

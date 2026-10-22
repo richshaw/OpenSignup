@@ -33,6 +33,3 @@ export const signupClaims = pgTable('signup_claims', {
   claimedAt: timestamp('claimed_at', { withTimezone: true }),
   claimedById: text('claimed_by_id'),
 });
-
-export type MagicLink = typeof magicLinks.$inferSelect;
-export type NewMagicLink = typeof magicLinks.$inferInsert;

@@ -3,7 +3,7 @@ import { requireOrganizerSession, toActor } from '@/auth/session';
 import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { BuildWysiwyg } from '@/components/build-wysiwyg/BuildWysiwyg';
-import { SignupSettingsSchema, type SignupStatus } from '@/schemas/signups';
+import { SignupSettingsSchema } from '@/schemas/signups';
 
 type PageParams = { params: Promise<{ id: string }> };
 
@@ -31,8 +31,6 @@ export default async function BuildTab({ params }: PageParams) {
         signupMeta={{
           title: sig.title,
           description: sig.description,
-          status: sig.status as SignupStatus,
-          slug: sig.slug,
         }}
         initialFields={sig.fields}
         initialSlots={sig.slots.map((s) => ({
