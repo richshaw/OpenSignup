@@ -759,12 +759,33 @@ export function useBuildState(
     const save = settingsSaveRef.current.then(() =>
       withSave(async () => {
         const res = await send('PATCH', `/api/signups/${signupId}`, { settings: changed });
-        showSettings((await savedSettings(res)) ?? { ...settingsRef.current, ...changed });
+        const next = (await savedSettings(res)) ?? { ...settingsRef.current, ...changed };
+        await catchUpOnFields(next);
+        showSettings(next);
       }),
     );
     settingsSaveRef.current = save;
     return save;
   };
+
+  /**
+   * Fetches the field list when `next` names a field this tab hasn't loaded,
+   * which happens when another tab or an AI assistant added a field and
+   * pointed a setting at it (#398). Without it no field would show the
+   * reminder bell and every date field's reminder box would be blocked by a
+   * field the tab can't name. The save itself has already succeeded, so a
+   * failed fetch leaves the list as it was rather than reporting an error.
+   */
+  async function catchUpOnFields(next: SignupSettings): Promise<void> {
+    const named = [...next.groupByFieldRefs, ...(next.reminderFromFieldRef ? [next.reminderFromFieldRef] : [])];
+    const loaded = new Set(stateRef.current.fields.map((f) => f.ref));
+    if (named.every((ref) => loaded.has(ref))) return;
+    try {
+      showFields(toBuildFields(await sendForData<SlotFieldDefinition[]>('GET', fieldsUrl)));
+    } catch {
+      // Keep the list the tab has; a reload catches it up.
+    }
+  }
 
   const setGroupBy = (ref: string | null): Promise<void> =>
     saveSettings({ groupByFieldRefs: ref ? [ref] : [] });

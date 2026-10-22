@@ -23,7 +23,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 4 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 20 October 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -63,10 +63,12 @@ export default function PrivacyPage() {
             rate-limiting&rdquo; below).
           </li>
           <li>
-            For up to 15 minutes after a sign-in email is sent, the six-digit code printed in it
-            (stored as a keyed hash) and the encrypted sign-in link it stands for, so you can
-            finish signing in from the window you started in. A code is single use; used and
-            expired records cannot be redeemed and are deleted by an hourly cleanup.
+            After a sign-in email is sent, the sign-in link&apos;s token (stored as a hash, next to
+            your email address), kept until the link expires (an hour by default, or as long as the
+            operator sets it). For up to 15 minutes, the six-digit code printed in the email (stored
+            as a keyed hash) with the encrypted sign-in link it stands for, so you can finish
+            signing in from the window you started in. Both are single use. A used or expired one
+            cannot be redeemed, and an hourly cleanup deletes any that are left.
           </li>
           <li>
             If you connect an app or AI assistant to your account, a record of that approval and the
@@ -112,8 +114,9 @@ export default function PrivacyPage() {
           To prevent abuse, the server records request IP addresses in short-lived rate-limit
           records (e.g. to throttle magic-link sends). These rows are scoped to individual buckets
           and are not joined to your account or commitment for analytics. Server-side application
-          logs are standard request/error logs and do not include cookies, tokens, or magic-link
-          URLs.
+          logs are standard request/error logs and do not include cookies, tokens, magic-link
+          URLs, or email addresses; sign-in log lines name only the part of the address after the
+          @.
         </p>
         <p>
           For each view of a public signup page, the server writes a single activity entry
@@ -133,7 +136,7 @@ export default function PrivacyPage() {
           {INSTANCE_NAME} sends three kinds of email: organizer magic-link sign-in emails, a
           confirmation to a participant when they commit to a slot, and a reminder before a dated
           slot. A participant gets these only if they gave an email address. Moving to a different
-          slot gives your sign-up a new private link, and sends a fresh confirmation with it. The
+          slot gives your spot a new private link, and sends a fresh confirmation with it. The
           old link then leads to the new one. Confirmations and reminders each contain a private
           link that lets you change or cancel that commitment without signing in, so treat them as
           you would a password and don&apos;t forward them. Reminders go out the day before the slot;

@@ -1,12 +1,10 @@
 import Link from 'next/link';
 import { willSendReminder } from '@/lib/reminder-eligibility';
-import { slotTimeOfDay } from '@/lib/reminder-fields';
 import { shownSignupStatus } from '@/lib/signup-closing';
 import { requiresEmail, sendsReminders, type SignupStatus } from '@/schemas/signups';
-import type { SlotStatus } from '@/schemas/slots';
-import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { Banner } from '@/components/banner';
 import CommitDialog from './commit-dialog';
+import { toSignupViewSlots } from './public-signup';
 import {
   ACTION_SIZING,
   buildMetaSegments,
@@ -23,47 +21,6 @@ import type {
 } from './signup-view-types';
 
 export type { SignupViewField, SignupViewSlot };
-
-interface SourceSlot {
-  id: string;
-  ref: string;
-  values: unknown;
-  slotAt: Date | null;
-  capacity: number | null;
-  status: string;
-}
-
-interface SourceSignup {
-  settings: unknown;
-  fields: SlotFieldDefinition[];
-  slots: readonly SourceSlot[];
-}
-
-/**
- * The signup's slots as the page renders them. Needs the signup's settings
- * and full field definitions, not just its slots: whether a slot has a time
- * (`hasTime`) depends on which time field pairs with the reminder date field,
- * and the view's own fields carry neither the reminder ref nor sort orders.
- */
-export function toSignupViewSlots(
-  signup: SourceSignup,
-  committedBySlot?: Record<string, number>,
-): SignupViewSlot[] {
-  const settings = (signup.settings ?? {}) as { reminderFromFieldRef?: string };
-  return signup.slots.map((slot) => {
-    const values = (slot.values as Record<string, unknown>) ?? {};
-    return {
-      id: slot.id,
-      ref: slot.ref,
-      values,
-      slotAt: slot.slotAt ? slot.slotAt.toISOString() : null,
-      hasTime: slot.slotAt !== null && slotTimeOfDay(settings, signup.fields, values) !== null,
-      capacity: slot.capacity,
-      status: slot.status as SlotStatus,
-      committed: committedBySlot?.[slot.id] ?? 0,
-    };
-  });
-}
 
 /**
  * The live page's view of the signup itself. Past its closing time an open
@@ -95,7 +52,8 @@ export function toSignupViewSignup(
  * definition already fits `SignupViewField`, so the fields go as they are.
  */
 export function toSignupViewProps(
-  signup: SourceSignup & Parameters<typeof toSignupViewSignup>[0] & { slug: string },
+  signup: Parameters<typeof toSignupViewSlots>[0] &
+    Parameters<typeof toSignupViewSignup>[0] & { slug: string },
   committedBySlot?: Record<string, number>,
 ): Pick<SignupViewProps, 'signup' | 'fields' | 'groupByRef' | 'slots' | 'slug'> {
   const settings = (signup.settings ?? {}) as { groupByFieldRefs?: string[] };
@@ -329,7 +287,7 @@ export function SignupViewBody({
                         {own ? (
                           <Link
                             href={own.editUrl}
-                            aria-label={`Edit your signup for ${actionName}`}
+                            aria-label={`Edit your spot for ${actionName}`}
                             className={`${ACTION_SIZING} border border-surface-sunk bg-white font-medium transition hover:bg-surface-raised`}
                           >
                             Edit

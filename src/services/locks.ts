@@ -1,10 +1,15 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
-import type { Queryable, Tx } from '@/db/client';
+import type { Db, Queryable, Tx } from '@/db/client';
 import type { activity } from '@/db/schema/activity';
 import type { commitments } from '@/db/schema/commitments';
 import type { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
+import { serviceError, type ServiceError } from '@/lib/errors';
+import { requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
+import { err, ok, type Result } from '@/lib/result';
+
+type SignupRow = typeof signups.$inferSelect;
 
 /**
  * `workspace_id = ?`, where null matches only rows with no workspace, such as
@@ -49,6 +54,50 @@ export async function readLiveSignup(db: Queryable, signupId: string) {
     .where(and(eq(signups.id, signupId), isNull(signups.deletedAt)))
     .limit(1);
   return row;
+}
+
+/**
+ * Loads one signup for reading and judges access to it, for callers that then
+ * read something hanging off the row (its slots, its fields, its activity
+ * log, its CSV export). A soft-deleted signup is not found (`readLiveSignup`),
+ * as it is to the organizer's list and the public page, so nothing reached
+ * through this serves a deleted signup's participants.
+ */
+export async function getSignupRowForOrganizer(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+): Promise<Result<SignupRow, ServiceError>> {
+  const row = await readLiveSignup(db, signupId);
+  if (!row) return err(serviceError('not_found', 'signup not found'));
+  requireWorkspaceAccess(actor, row.workspaceId);
+  return ok(row);
+}
+
+/**
+ * Runs `work` as a write to one signup, opened the way every such write
+ * opens: find the live signup (not found when there is none, or it is
+ * deleted), judge the actor against its workspace, start a transaction, lock
+ * the row (`lockSignupForWrite`) and read it again under the lock, which is
+ * not found too when a delete committed while this waited. `work` gets the
+ * transaction and the row as read under the lock, so a write cannot forget
+ * the check after the lock, which is the one that kept going missing.
+ */
+export async function withSignupWriteLock<T>(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+  work: (tx: Tx, signup: SignupRow) => Promise<Result<T, ServiceError>>,
+): Promise<Result<T, ServiceError>> {
+  const found = await readLiveSignup(db, signupId);
+  if (!found) return err(serviceError('not_found', 'signup not found'));
+  requireWorkspaceWrite(actor, found.workspaceId);
+
+  return db.transaction(async (tx) => {
+    const locked = await lockSignupForWrite(tx, signupId, found.workspaceId);
+    if (!locked) return err(serviceError('not_found', 'signup not found'));
+    return work(tx, locked);
+  });
 }
 
 /**

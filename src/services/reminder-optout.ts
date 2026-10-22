@@ -65,7 +65,7 @@ async function loadVerified(
     .where(and(eq(participants.id, participantId), isNull(signups.deletedAt)))
     .limit(1);
 
-  if (!row) return err(serviceError('not_found', 'that sign-up could not be found'));
+  if (!row) return err(serviceError('not_found', 'that participant could not be found'));
 
   return ok({
     participantId: row.participant.id,

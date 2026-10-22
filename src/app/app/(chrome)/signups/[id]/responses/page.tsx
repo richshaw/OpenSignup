@@ -90,15 +90,15 @@ export default async function ResponsesTab({ params }: PageParams) {
             <tbody role="rowgroup" className="divide-y divide-surface-sunk max-md:block">
               {commitments.map((c) => {
                 const slot = sig.slots.find((s) => s.id === c.slotId);
-                const values = (slot?.values as Record<string, unknown>) ?? {};
+                const values = slot?.values ?? {};
                 const summary = slot ? summarizeSlot(sig.fields, values) : '';
                 // A removal takes the Remove button away, so focus goes to
                 // this cell, which then reads "removed". Every row has it, so
                 // it outlasts that re-render.
                 const statusId = `status-${c.id}`;
                 // "cancelled" is the participant's own cancel. An organizer's
-                // removal and the old sign-up of a move say so instead. The
-                // CSV export keeps the stored status.
+                // removal and the old sign-up of a move say so instead, here
+                // and in the CSV export.
                 const status = c.status === 'cancelled' ? (ended.get(c.id) ?? c.status) : c.status;
                 // Remove's name, and the start of its question. The slot is
                 // unlabelled, to read as part of a sentence.

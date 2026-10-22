@@ -103,7 +103,17 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      # The browser download from Playwright's CDN fails now and then, and one
+      # bad download shouldn't turn the run red. Three tries; a download that
+      # fails every time still fails the job.
+      - name: Install Playwright Chromium
+        run: |
+          for attempt in 1 2 3; do
+            pnpm exec playwright install --with-deps chromium && exit 0
+            echo "::warning::Playwright install failed (attempt $attempt of 3)"
+            [ "$attempt" -lt 3 ] && sleep 15
+          done
+          exit 1
       - run: pnpm db:migrate
       - run: pnpm build
       - run: pnpm test:e2e --project=chromium

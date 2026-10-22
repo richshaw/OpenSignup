@@ -308,7 +308,7 @@ describe('<CommitDialog /> sheet', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
       const alert = await screen.findByRole('alert', {}, settle);
-      expect(alert).toHaveTextContent('Sign-ups for this slot have closed.');
+      expect(alert).toHaveTextContent('No one new can sign up for this slot now.');
       expect(alert).toHaveTextContent('Reload the page to see what’s still open.');
       expect(alert).not.toHaveTextContent('signup has closed');
     } finally {

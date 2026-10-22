@@ -34,6 +34,6 @@ export const GONE_PAGE = {
    */
   editLink: {
     title: 'Sorry, this link isn’t working',
-    body: 'Your sign-up may no longer be available, or the link may be incomplete. Contact the organizer to find out what has changed. If you got a confirmation email, you can also try its link again.',
+    body: 'Your spot may no longer be available, or the link may be incomplete. Contact the organizer to find out what has changed. If you got a confirmation email, you can also try its link again.',
   },
 } as const;

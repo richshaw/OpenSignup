@@ -99,9 +99,14 @@ without one has not always had a send fail.
 
 | event | actor | payload | fired from |
 |---|---|---|---|
-| `reminder.sent` | system | `{ commitmentId, participantId, channel: 'email' }` | `jobs/reminders.ts` |
+| `reminder.sent` | system | `{ commitmentId, participantId, channel: 'email', slotAt }` | `jobs/reminders.ts` |
 | `reminder.opted_out` | participant | `{ participantId }` | `services/reminder-optout.ts`, from a reminder's unsubscribe link or the mail provider's one-click unsubscribe |
 | `reminder.opted_in` | participant | `{ participantId }` | `services/reminder-optout.ts`, from the unsubscribe page, turning reminders back on |
+
+`slotAt` is the slot's time the reminder was for (ISO). A row stops another
+reminder only for that time, so a slot the organizer moves after its reminder
+went out gets one more for the new time. Rows from before `slotAt` was recorded
+have none and stop any further reminder for that commitment.
 
 The opt-out rows are written only when the setting changes, so a repeated
 unsubscribe adds nothing.
