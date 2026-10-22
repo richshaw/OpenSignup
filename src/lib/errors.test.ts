@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { fromZodError, httpStatusFor, serviceError } from './errors';
+import { err, ok } from './result';
+import {
+  fromZodError,
+  httpStatusFor,
+  refusalAsResult,
+  serviceError,
+  ServiceException,
+} from './errors';
 
 describe('serviceError', () => {
   it('includes code and message', () => {
@@ -43,5 +50,30 @@ describe('fromZodError', () => {
     expect(err.received).toBe('number');
     expect(err.suggestion).toBeDefined();
     expect(err.details).toBeUndefined();
+  });
+});
+
+describe('refusalAsResult', () => {
+  it('passes a returned result through', async () => {
+    expect(await refusalAsResult(async () => ok(1))).toEqual(ok(1));
+    const refused = serviceError('conflict', 'taken');
+    expect(await refusalAsResult(async () => err(refused))).toEqual(err(refused));
+  });
+
+  it('turns a thrown ServiceException into an error result', async () => {
+    const forbidden = serviceError('forbidden', 'your role cannot modify this workspace');
+    const result = await refusalAsResult(async () => {
+      throw new ServiceException(forbidden);
+    });
+    expect(result).toEqual(err(forbidden));
+  });
+
+  it('lets any other throw through', async () => {
+    const boom = new Error('boom');
+    await expect(
+      refusalAsResult(async () => {
+        throw boom;
+      }),
+    ).rejects.toBe(boom);
   });
 });
