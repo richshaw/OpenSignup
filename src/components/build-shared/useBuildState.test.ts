@@ -907,19 +907,30 @@ describe('useBuildState duplicateRow', () => {
     vi.unstubAllGlobals();
   });
 
-  it('POSTs the source values + capacity to /api/signups/[id]/slots', async () => {
+  const duplicateFields = [
+    makeApiField({ id: 'f1', ref: 'name', label: 'Name' }),
+    makeApiField({
+      id: 'f2',
+      ref: 'qty',
+      label: 'Qty',
+      fieldType: 'number',
+      sortOrder: 1,
+      config: { fieldType: 'number' },
+    }),
+  ];
+
+  const duplicateBody = async (values: Record<string, unknown>) => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(
         jsonResponse({ data: { id: 'new', capacity: 3, sortOrder: 99, values: {} } }),
       );
     vi.stubGlobal('fetch', fetchMock);
-    // Inject an initial row by seeding via the hook.
     const { result } = renderHook(() =>
       useBuildState(
         'sig_test',
-        [],
-        [{ id: 'src', capacity: 3, sortOrder: 0, values: { name: 'Jane' } }],
+        duplicateFields,
+        [{ id: 'src', capacity: 3, sortOrder: 0, values }],
         defaultSettings,
       ),
     );
@@ -930,12 +941,21 @@ describe('useBuildState duplicateRow', () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(String(url)).toBe('/api/signups/sig_test/slots');
     expect((init as RequestInit).method).toBe('POST');
-    const body = JSON.parse(String((init as RequestInit).body)) as {
-      values: Record<string, string>;
+    return JSON.parse(String((init as RequestInit).body)) as {
+      values: Record<string, unknown>;
       capacity: number;
     };
-    expect(body.values).toEqual({ name: 'Jane' });
+  };
+
+  it('POSTs the source values, typed by field, and capacity to /api/signups/[id]/slots', async () => {
+    const body = await duplicateBody({ name: 'Jane', qty: 12 });
+    expect(body.values).toEqual({ name: 'Jane', qty: 12 });
     expect(body.capacity).toBe(3);
+  });
+
+  it('leaves an empty Number cell out of the body', async () => {
+    const body = await duplicateBody({ name: 'Jane', qty: null });
+    expect(body.values).toEqual({ name: 'Jane' });
   });
 
   it('is a no-op when the source row is missing', async () => {

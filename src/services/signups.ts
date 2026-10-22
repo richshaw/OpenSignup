@@ -37,6 +37,25 @@ import { listSlotsForSignup, pickAvailableRef, summarizeValues } from './slots';
 
 type SignupRow = typeof signups.$inferSelect;
 
+/**
+ * Every group-by ref must name one of the signup's fields. The public page
+ * resolves an unknown ref to no grouping without a word, and a field added
+ * later under that ref would switch grouping on with nobody asking (#516).
+ */
+function checkGroupByRefs(
+  refs: readonly string[],
+  fields: readonly Pick<SlotFieldDefinition, 'ref'>[],
+): Result<null, ServiceError> {
+  const unknown = refs.find((ref) => !fields.some((f) => f.ref === ref));
+  if (unknown === undefined) return ok(null);
+  return err(
+    serviceError('invalid_input', "groupByFieldRefs must name one of the signup's fields", {
+      field: 'settings.groupByFieldRefs',
+      received: unknown,
+    }),
+  );
+}
+
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
@@ -124,6 +143,8 @@ export async function createSignup(
   // date ordering work from the moment a signup exists.
   const anchor = chooseAnchorRef(data.settings.reminderFromFieldRef, undefined, fieldDefs);
   if (!anchor.ok) return anchor;
+  const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fieldDefs);
+  if (!grouping.ok) return grouping;
   const settings: SignupSettings =
     anchor.value === null
       ? data.settings
@@ -240,6 +261,10 @@ export async function updateSignup(
   // which is the one thing "only the settings you pass change" promises.
   return withSignupWriteLock(db, actor, signupId, async (tx, row) => {
     const prevSettings = row.settings;
+    // Only a group-by the caller sent is checked: a row saved with a stale ref
+    // must not make every unrelated settings save fail.
+    const sentGroupBy =
+      isObject(rawInput) && isObject(rawInput.settings) && rawInput.settings.groupByFieldRefs != null;
     if (isObject(rawInput) && isObject(rawInput.settings)) {
       // The anchor stays out of the merge, so below it is only ever what the
       // caller sent.
@@ -270,6 +295,10 @@ export async function updateSignup(
         fields,
       );
       if (!anchor.ok) return anchor;
+      if (sentGroupBy) {
+        const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fields);
+        if (!grouping.ok) return grouping;
+      }
       mergedSettings =
         anchor.value === null
           ? data.settings
