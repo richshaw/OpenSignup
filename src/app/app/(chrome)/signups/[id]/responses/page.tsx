@@ -1,4 +1,5 @@
 import { after } from 'next/server';
+import { Download } from 'lucide-react';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
@@ -11,6 +12,7 @@ import { recordOrganizerView } from '@/lib/view-tracker';
 import { StatusPill } from '@/components/status-pill';
 import { summarizeSlotValues } from '@/lib/slot-summary';
 import { RemoveCommitmentForm } from './remove-commitment-form';
+import { summarizeResponses } from './responses-summary';
 
 type PageParams = { params: Promise<{ id: string }> };
 
@@ -42,12 +44,29 @@ export default async function ResponsesTab({ params }: PageParams) {
   );
   const canRemove = (c: (typeof commitments)[number]) =>
     ACTIVE_COMMITMENT_STATUSES.includes(c.status);
+  const totals = summarizeResponses(commitments, ended);
 
   return (
     <section className="space-y-4">
-      <p className="text-sm text-ink-muted">
-        Everyone who&rsquo;s signed up so far. Export to CSV from the header.
-      </p>
+      {/* Outside the table's box, whose phone layout is its own. With no
+          sign-ups the empty box below says it all. */}
+      {commitments.length > 0 ? (
+        <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between md:gap-3">
+          <p className="text-sm text-ink-muted">
+            <span className="font-semibold text-ink">{totals.count}</span>
+            {totals.rest.map((part) => ` · ${part}`).join('')}
+          </p>
+          {/* A plain link, not next/link: it's a file, so the router has
+              nothing to do, and the route sends it as an attachment. */}
+          <a
+            href={`/api/signups/${sig.id}/export.csv`}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-surface-sunk bg-white px-3.5 text-[15px] font-medium text-ink transition hover:bg-surface-raised md:h-9 md:text-[13px]"
+          >
+            <Download size={15} aria-hidden="true" />
+            Download CSV
+          </a>
+        </div>
+      ) : null}
       {commitments.length === 0 ? (
         <p className="rounded-lg border border-dashed border-surface-sunk p-6 text-center text-sm text-ink-muted">
           No signups yet. Share the public link to start collecting.

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Download, Eye } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
@@ -24,16 +24,13 @@ export function SignupHeader({
   closeAction,
 }: SignupHeaderProps) {
   const previewHref = `/app/signups/${signupId}/preview`;
-  const exportHref = `/api/signups/${signupId}/export.csv`;
   const hasActionButton = status === 'draft' || status === 'open';
-  const buttonCount = hasActionButton ? 3 : 2;
-  const gridColsClass = buttonCount === 3 ? 'grid-cols-3' : 'grid-cols-2';
+  const gridColsClass = hasActionButton ? 'grid-cols-2' : 'grid-cols-1';
 
   return (
     <>
       <div className="md:hidden">
         <MobileSignupHeader
-          signupId={signupId}
           title={title}
           status={status}
           publicUrl={publicUrl}
@@ -59,13 +56,6 @@ export function SignupHeader({
           >
             <Eye size={14} aria-hidden="true" />
             Preview
-          </Link>
-          <Link
-            href={exportHref}
-            className="hover:bg-surface-raised inline-flex w-full items-center justify-center gap-2 rounded-lg border border-surface-sunk px-3 py-1.5 text-xs font-medium transition"
-          >
-            <Download size={14} aria-hidden="true" />
-            Export
           </Link>
           {status === 'draft' ? (
             <form action={publishAction} className="w-full">
