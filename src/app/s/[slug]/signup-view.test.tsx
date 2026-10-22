@@ -565,6 +565,46 @@ describe('the live page past its closing time', () => {
   });
 });
 
+describe('the live page inside the lockout before a slot', () => {
+  const NOW = Date.parse('2030-04-06T12:00:00Z');
+  const HOUR = 3600 * 1000;
+  const slot = (id: string, team: string, slotAt: number) => ({
+    id,
+    ref: id,
+    values: { team },
+    slotAt: new Date(slotAt),
+    capacity: 2,
+    status: 'open',
+  });
+  const SIGNUP_ROW = {
+    settings: { lockoutHoursBeforeSlot: 24 },
+    fields: [] as SlotFieldDefinition[],
+    slots: [slot('soon', 'Hawks', NOW + 2 * HOUR), slot('later', 'Owls', NOW + 72 * HOUR)],
+  };
+
+  it('shows a slot that starts within the lockout as closed, with no Sign up button or count', () => {
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={[{ ref: 'team', label: 'Team', fieldType: 'text' }]}
+        groupByRef={null}
+        slots={toSignupViewSlots(SIGNUP_ROW, {}, NOW)}
+        slug="example"
+        mode="live"
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /^Sign up for Hawks/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Sign up for Owls/ })).toBeEnabled();
+    expect(screen.getAllByText('Closed', { selector: 'span' })).toHaveLength(1);
+    expect(screen.getAllByText('2 left')).toHaveLength(1);
+  });
+
+  it('closes no slot when the signup sets no lockout', () => {
+    const slots = toSignupViewSlots({ ...SIGNUP_ROW, settings: {} }, {}, NOW);
+    expect(slots.map((s) => s.status)).toEqual(['open', 'open']);
+  });
+});
+
 describe('<SignupViewBody /> for a returning participant', () => {
   const OWN = [{ slotId: 's1', editUrl: '/s/example/c/com_1?t=tok', participantName: 'Pat' }];
 
