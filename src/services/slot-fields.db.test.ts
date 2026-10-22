@@ -1207,6 +1207,43 @@ describe('slot-fields service (db)', () => {
     });
   });
 
+  describe('a field reached through another signup', () => {
+    // The field routes nest the field under a signup id. Named with a
+    // signup in the same workspace that isn't its own, a field is not found.
+    async function fieldOfAnotherSignup(): Promise<{ otherId: string; fieldId: string }> {
+      const ownId = await createTestSignup(fx, 'Owns the field');
+      const otherId = await createTestSignup(fx, 'Named in the URL');
+      const created = await addField(fx.db, fx.actor, ownId, {
+        ref: 'teacher',
+        label: 'Teacher',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+      return { otherId, fieldId: created.value.id };
+    }
+
+    it('updateField answers not_found and leaves the field as it was', async () => {
+      const { otherId, fieldId } = await fieldOfAnotherSignup();
+      const r = await updateField(fx.db, fx.actor, fieldId, { label: 'Renamed' }, otherId);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe('not_found');
+
+      const [after] = await fx.db.select().from(slotFields).where(eq(slotFields.id, fieldId));
+      expect(after?.label).toBe('Teacher');
+    });
+
+    it('deleteField answers not_found and leaves the field in place', async () => {
+      const { otherId, fieldId } = await fieldOfAnotherSignup();
+      const r = await deleteField(fx.db, fx.actor, fieldId, otherId);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe('not_found');
+
+      const after = await fx.db.select().from(slotFields).where(eq(slotFields.id, fieldId));
+      expect(after).toHaveLength(1);
+    });
+  });
+
   describe('rebuildSlotAt', () => {
     it('writes only the slots that move, to a new instant or to none, in one pass', async () => {
       const sigId = await createTestSignup(fx, 'Rebuild in one statement');
