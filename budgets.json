@@ -12,7 +12,7 @@
     "/help/[slug]": 113,
     "/app/signups/new": 114,
     "/app/signups/[id]": 124,
-    "/app/signups/[id]/build": 151,
+    "/app/signups/[id]/build": 152,
     "/app/signups/[id]/edit": 124,
     "/app/signups/[id]/preview": 132,
     "/app/signups/[id]/responses": 125,

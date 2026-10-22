@@ -35,7 +35,7 @@ export async function sendReminder(
   const { html, text } = await renderEmail(createElement(ReminderEmail, props));
   return getEmailTransport().send({
     to,
-    subject: reminderSubject(props.signupTitle, props.slotSummary),
+    subject: reminderSubject(props.signupTitle, props.slotSummary, props.changed),
     html,
     text,
     ...(opts.unsubscribePostUrl

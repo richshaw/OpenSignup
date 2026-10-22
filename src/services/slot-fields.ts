@@ -55,6 +55,16 @@ async function readField(q: Queryable, fieldId: string): Promise<FieldRow | unde
   return row;
 }
 
+/**
+ * Whether a field belongs to the signup a route named. The field routes nest
+ * the field under a signup id; a field of another signup answers as not found,
+ * the same as one that doesn't exist. The MCP tools name the field alone and
+ * pass no signup id.
+ */
+function inSignup(field: FieldRow, expectedSignupId: string | undefined): boolean {
+  return expectedSignupId === undefined || field.signupId === expectedSignupId;
+}
+
 export async function listFieldsForSignup(
   db: Queryable,
   signupId: string,
@@ -401,6 +411,7 @@ export async function updateField(
   actor: Actor,
   fieldId: string,
   rawInput: unknown,
+  expectedSignupId?: string,
 ): Promise<Result<SlotFieldDefinition, ServiceError>> {
   const input = parseInputSafe(SlotFieldUpdateInputSchema, rawInput);
   if (!input.ok) return input;
@@ -411,7 +422,9 @@ export async function updateField(
   if (asksForNothing(data)) return err(serviceError('invalid_input', 'nothing to update'));
 
   const existing = await readField(db, fieldId);
-  if (!existing) return err(serviceError('not_found', 'field not found'));
+  if (!existing || !inSignup(existing, expectedSignupId)) {
+    return err(serviceError('not_found', 'field not found'));
+  }
   requireWorkspaceWrite(actor, existing.workspaceId);
 
   if (data.fieldType !== undefined && data.config === undefined) {
@@ -589,9 +602,12 @@ export async function deleteField(
   db: Db,
   actor: Actor,
   fieldId: string,
+  expectedSignupId?: string,
 ): Promise<Result<{ deleted: true }, ServiceError>> {
   const existing = await readField(db, fieldId);
-  if (!existing) return err(serviceError('not_found', 'field not found'));
+  if (!existing || !inSignup(existing, expectedSignupId)) {
+    return err(serviceError('not_found', 'field not found'));
+  }
   requireWorkspaceWrite(actor, existing.workspaceId);
 
   return db.transaction(async (tx) => {

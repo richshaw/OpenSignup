@@ -27,3 +27,23 @@ export function signupShutReason(
 export function shownSignupStatus(signup: ClosingSignup, now: number = Date.now()): string {
   return signupShutReason(signup, now) === 'closes_at' ? 'closed' : signup.status;
 }
+
+/**
+ * Whether a slot is inside the signup's `lockoutHoursBeforeSlot`: it starts
+ * within that many hours, so it takes no more sign-ups. The slot-level half of
+ * `whyNotTakingPlaces` that the public page shares (`toSignupViewSlots`), so
+ * the page shows Closed where the service would refuse. Counted back from
+ * `slot_at`, so a date-only slot is measured from its noon-UTC anchor rather
+ * than from midnight (see `extractSlotAt`). No UI sets the lockout today; the
+ * API and the MCP `update_signup` tool do.
+ */
+export function slotInLockout(
+  settings: unknown,
+  slotAt: Date | null,
+  now: number = Date.now(),
+): boolean {
+  const hours =
+    (settings as { lockoutHoursBeforeSlot?: number | null } | null)?.lockoutHoursBeforeSlot ?? 0;
+  if (!slotAt || hours <= 0) return false;
+  return now > slotAt.getTime() - hours * 3600 * 1000;
+}

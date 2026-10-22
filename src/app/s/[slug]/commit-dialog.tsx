@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { FormError } from '@/components/ui/form-error';
 import { participantErrorCopy } from './participant-error';
 import { Field, NotesAndSpots } from './participant-fields';
 import { ACTION_SIZING } from './slot-format';
@@ -533,11 +534,7 @@ export default function CommitDialog({
               }
             />
             {error ? (
-              <div
-                ref={errorRef}
-                role="alert"
-                className="rounded-lg bg-danger/10 p-3 text-sm text-danger"
-              >
+              <FormError ref={errorRef}>
                 <p className="font-medium">{errorText?.message}</p>
                 {errorText?.suggestion ? <p className="text-xs">{errorText.suggestion}</p> : null}
                 {error.details?.alternatives?.length && error.details.remaining === 0 ? (
@@ -550,7 +547,7 @@ export default function CommitDialog({
                     </a>
                   </div>
                 ) : null}
-              </div>
+              </FormError>
             ) : null}
             <div className="flex gap-3 pt-2">
               <button

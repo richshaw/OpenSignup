@@ -5,10 +5,11 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
-import { ServiceException, type ErrorCode } from '@/lib/errors';
+import { refusalAsResult } from '@/lib/errors';
 import { removeCommitment } from '@/services/commitments';
 import { closeSignup, deleteSignup, publishSignup, updateSignup } from '@/services/signups';
 import { removeRefusal } from './responses/remove-refusal';
+import { statusRefusal } from './status-refusal';
 
 function revalidateSignup(id: string) {
   revalidatePath(`/app/signups/${id}`, 'layout');
@@ -18,19 +19,25 @@ async function requireActor() {
   return toActor(await requireOrganizerSession());
 }
 
-export async function publishAction(signupId: string) {
+/**
+ * The header's Publish and Close signup. A refusal (a viewer's role, a signup
+ * already published or closed in another tab, no slots yet) returns what to
+ * tell the organizer, shown under the button, and revalidates nothing.
+ */
+export async function publishAction(signupId: string): Promise<{ error: string } | null> {
   const actor = await requireActor();
-  const result = await publishSignup(getDb(), actor, signupId);
+  const result = await refusalAsResult(() => publishSignup(getDb(), actor, signupId));
+  if (!result.ok) return { error: statusRefusal(result.error, 'publish') };
   revalidateSignup(signupId);
-  if (result.ok) {
-    redirect(`/app/signups/${signupId}/build?published=1`);
-  }
+  redirect(`/app/signups/${signupId}/build?published=1`);
 }
 
-export async function closeAction(signupId: string) {
+export async function closeAction(signupId: string): Promise<{ error: string } | null> {
   const actor = await requireActor();
-  await closeSignup(getDb(), actor, signupId);
+  const result = await refusalAsResult(() => closeSignup(getDb(), actor, signupId));
+  if (!result.ok) return { error: statusRefusal(result.error, 'close') };
   revalidateSignup(signupId);
+  return null;
 }
 
 /**
@@ -42,17 +49,11 @@ export async function setRequireEmailAction(signupId: string, formData: FormData
   const actor = await requireActor();
   const requireEmail = formData.get('requireEmail') !== 'optional';
   const settingsPath = `/app/signups/${signupId}/settings`;
-  let refused: ErrorCode | null = null;
-  try {
-    const result = await updateSignup(getDb(), actor, signupId, { settings: { requireEmail } });
-    if (!result.ok) refused = result.error.code;
-  } catch (e) {
-    // The policy guard throws rather than returning: a viewer's role.
-    if (!(e instanceof ServiceException)) throw e;
-    refused = e.serviceError.code;
-  }
-  if (refused !== null) {
-    redirect(`${settingsPath}?error=${encodeURIComponent(SAVE_ERROR_MESSAGE[refused])}`);
+  const result = await refusalAsResult(() =>
+    updateSignup(getDb(), actor, signupId, { settings: { requireEmail } }),
+  );
+  if (!result.ok) {
+    redirect(`${settingsPath}?error=${encodeURIComponent(SAVE_ERROR_MESSAGE[result.error.code])}`);
   }
   // This tab re-renders with the saved choice. The public page is dynamic, so
   // its form reads the change on its next request.
@@ -74,14 +75,7 @@ export async function removeCommitmentAction(
   commitmentId: string,
 ): Promise<{ error: string } | null> {
   const actor = await requireActor();
-  let result: Awaited<ReturnType<typeof removeCommitment>>;
-  try {
-    result = await removeCommitment(getDb(), actor, commitmentId);
-  } catch (e) {
-    // The policy guard throws rather than returning.
-    if (e instanceof ServiceException) return { error: removeRefusal(e.serviceError.code) };
-    throw e;
-  }
+  const result = await refusalAsResult(() => removeCommitment(getDb(), actor, commitmentId));
   if (!result.ok) return { error: removeRefusal(result.error.code) };
   // The public page and the edit link are dynamic, so they read the change on
   // their next request.
@@ -91,10 +85,9 @@ export async function removeCommitmentAction(
 
 export async function deleteSignupAction(signupId: string) {
   const actor = await requireActor();
-  const result = await deleteSignup(getDb(), actor, signupId);
+  const result = await refusalAsResult(() => deleteSignup(getDb(), actor, signupId));
   if (!result.ok) {
-    // In plain words by its code, as Save on the same tab is. A viewer's
-    // refusal is thrown, not returned, and is not caught here.
+    // In plain words by its code, as Save on the same tab is.
     const message = SAVE_ERROR_MESSAGE[result.error.code];
     redirect(`/app/signups/${signupId}/settings?error=${encodeURIComponent(message)}`);
   }

@@ -11,6 +11,12 @@ describe('email subjects', () => {
     );
   });
 
+  it('says the time changed on a reminder that follows one for another time', () => {
+    expect(reminderSubject('Spring Book Fair Volunteers', 'Wed, Sep 9 · 13:00', true)).toBe(
+      'Time changed: Spring Book Fair Volunteers · Wed, Sep 9 · 13:00',
+    );
+  });
+
   it('omits the separator when the slot has nothing to summarise', () => {
     expect(confirmationSubject('Bake Sale', '')).toBe("You're signed up: Bake Sale");
     expect(reminderSubject('Bake Sale', '')).toBe('Reminder: Bake Sale');
