@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { requiresEmail, sendsReminders } from './signups';
+import { SignupCreateInputSchema, SignupUpdateInputSchema, requiresEmail, sendsReminders } from './signups';
 
 describe('requiresEmail', () => {
   it.each([
@@ -21,5 +21,23 @@ describe('sendsReminders', () => {
     ['sendReminders false', { sendReminders: false }, false],
   ])('%s', (_label, settings, expected) => {
     expect(sendsReminders(settings)).toBe(expected);
+  });
+});
+
+describe('visibility', () => {
+  it('defaults to unlisted on create', () => {
+    const r = SignupCreateInputSchema.parse({ title: 'Snack rota', settings: {} });
+    expect(r.visibility).toBe('unlisted');
+  });
+
+  // Nothing reads visibility: every signup opens for anyone with its link.
+  it.each(['public', 'unlisted', 'password'])('refuses %s on update', (visibility) => {
+    const r = SignupUpdateInputSchema.safeParse({ visibility });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.path).toEqual(['visibility']);
+  });
+
+  it('accepts an update that leaves visibility out', () => {
+    expect(SignupUpdateInputSchema.safeParse({ title: 'New' }).success).toBe(true);
   });
 });

@@ -27,8 +27,8 @@ the browser:
 - **Create** a signup with its fields and slots in one go. It starts as a
   draft: participants cannot see it until you publish it, though other people
   in the same workspace can.
-- **Change** a signup: title, description, tags, closing time, visibility,
-  settings, fields, and slots.
+- **Change** a signup: title, description, tags, closing time, settings,
+  fields, and slots.
 - **Publish, close, archive, or delete** a signup.
 
 Try: "Build me a snack rota for six Saturday games starting 3 October, two
