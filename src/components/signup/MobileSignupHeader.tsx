@@ -5,14 +5,15 @@ import { MoreHorizontal } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
 import type { SignupStatus } from '@/schemas/signups';
+import type { StatusAction } from './StatusActionForm';
 import { MobileMoreMenuSheet } from './MobileMoreMenuSheet';
 
 interface MobileSignupHeaderProps {
   title: string;
   status: SignupStatus;
   publicUrl: string;
-  publishAction: () => void | Promise<void>;
-  closeAction: () => void | Promise<void>;
+  publishAction: StatusAction;
+  closeAction: StatusAction;
 }
 
 export function MobileSignupHeader({
