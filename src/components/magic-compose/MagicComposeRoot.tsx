@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
+import { FormError } from '@/components/ui/form-error';
 import { Compose } from './Compose';
 import { Drafting } from './Drafting';
 import { writeAiDraftWarnings } from './ai-draft-warnings';
@@ -146,11 +147,8 @@ export function MagicComposeRoot() {
   return (
     <>
       {phase.kind === 'error' && (
-        <div
-          role="alert"
-          className="bg-danger/10 text-danger mx-auto mt-6 max-w-[760px] rounded-lg px-4 py-3 text-sm"
-        >
-          {phase.message}
+        <div className="mx-auto mt-6 max-w-[760px]">
+          <FormError>{phase.message}</FormError>
         </div>
       )}
       <Compose prompt={prompt} setPrompt={setPrompt} onDraft={onDraft} />
