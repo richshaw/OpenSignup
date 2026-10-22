@@ -244,10 +244,9 @@ test.describe('Responses tab', () => {
       commitment: { id: string };
       editToken: string;
     };
-    const moved = await page.request.patch(
-      `/api/commitments/${commitment.id}?token=${editToken}`,
-      { data: { swapToSlotId: otherSlotId } },
-    );
+    const moved = await page.request.patch(`/api/commitments/${commitment.id}?token=${editToken}`, {
+      data: { swapToSlotId: otherSlotId },
+    });
     expect(moved.ok()).toBe(true);
 
     await page.goto(`/app/signups/${signupId}/responses`);
@@ -365,13 +364,19 @@ test.describe('Responses tab', () => {
       exact: true,
     });
     const cards = [
-      [sam, 'Sam Example', sam.getByRole('button', { name: REMOVE_SAM, exact: true })],
-      [alex, 'Alex Example', removeAlex],
+      [
+        sam,
+        'Sam Example',
+        'Fruit and water',
+        sam.getByRole('button', { name: REMOVE_SAM, exact: true }),
+      ],
+      [alex, 'Alex Example', 'Orange slices, water and a first aid kit', removeAlex],
     ] as const;
-    for (const [row, name, remove] of cards) {
+    for (const [row, name, slotName, remove] of cards) {
       const nameCell = row.getByRole('cell', { name, exact: true });
       const status = row.getByRole('cell', { name: 'confirmed', exact: true });
-      const slot = row.getByRole('cell', { name: /^What: / });
+      // The slot's values, with no "What:" in front: the heading says Slot.
+      const slot = row.getByRole('cell', { name: slotName, exact: true });
       for (const part of [nameCell, status, slot, remove]) {
         await expectOnScreen(page, part);
         await expectUncovered(part);
