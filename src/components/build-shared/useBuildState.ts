@@ -212,6 +212,29 @@ function toBuildRow(slot: BuildSlot): BuildRow {
   };
 }
 
+/**
+ * `values` as the API takes them: a Number field's value as a number, left
+ * out when it's empty or not a number; every other value as it is. The grid
+ * holds every value as a string, and the server refuses `"12"` for a Number
+ * field.
+ */
+function toTypedValues(
+  fields: BuildField[],
+  values: Record<string, unknown>,
+): Record<string, unknown> {
+  const typed: Record<string, unknown> = {};
+  for (const [ref, value] of Object.entries(values)) {
+    if (fields.find((f) => f.ref === ref)?.config.fieldType === 'number') {
+      const str = value === null || value === undefined ? '' : String(value);
+      const n = Number(str);
+      if (str !== '' && Number.isFinite(n)) typed[ref] = n;
+    } else {
+      typed[ref] = value;
+    }
+  }
+  return typed;
+}
+
 function toStringValues(values: Record<string, unknown>): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [k, v] of Object.entries(values)) {
@@ -529,7 +552,7 @@ export function useBuildState(
   const addRow = (seed?: { values?: Record<string, unknown>; capacity?: number }): Promise<void> =>
     withSave(async () => {
       const slot = await sendForData<BuildSlot>('POST', slotsUrl, {
-        values: seed?.values ?? {},
+        values: toTypedValues(stateRef.current.fields, seed?.values ?? {}),
         capacity: seed?.capacity ?? 1,
       });
       dispatch({ type: 'OPTIMISTIC_ADD_ROW', row: toBuildRow(slot) });
@@ -538,10 +561,10 @@ export function useBuildState(
   const duplicateRow = async (rowId: string): Promise<void> => {
     const source = stateRef.current.rows.find((r) => r.id === rowId);
     if (!source) return;
-    // Clone values verbatim (already string-typed; addRow re-serializes for
-    // the API). Capacity falls back to 1 when the source was uncapped — the
-    // grid uses null to mean "no limit", but new slots ship with capacity 1
-    // to stay safe and consistent with the bare addRow contract.
+    // Clone the row's values; addRow types them for the API. Capacity falls
+    // back to 1 when the source was uncapped — the grid uses null to mean
+    // "no limit", but new slots ship with capacity 1 to stay safe and
+    // consistent with the bare addRow contract.
     await addRow({ values: { ...source.values }, capacity: source.capacity ?? 1 });
   };
 
@@ -597,20 +620,9 @@ export function useBuildState(
 
   /** PATCHes every value `row` holds, so the slot ends up as the row shows it. */
   async function saveRowValues(row: BuildRow): Promise<void> {
-    const fields = stateRef.current.fields;
-    // Coerce by field type so numeric cells round-trip as numbers and
-    // empty strings on number fields drop out of the patch body.
-    const typedValues: Record<string, unknown> = {};
-    for (const [ref, strVal] of Object.entries(row.values)) {
-      const fld = fields.find((f) => f.ref === ref);
-      if (fld?.config.fieldType === 'number') {
-        const n = Number(strVal);
-        if (strVal !== '' && Number.isFinite(n)) typedValues[ref] = n;
-      } else {
-        typedValues[ref] = strVal;
-      }
-    }
-    await send('PATCH', `/api/slots/${row.id}`, { values: typedValues });
+    await send('PATCH', `/api/slots/${row.id}`, {
+      values: toTypedValues(stateRef.current.fields, row.values),
+    });
   }
 
   function flushTimer(key: string, saveFn: () => Promise<void>) {

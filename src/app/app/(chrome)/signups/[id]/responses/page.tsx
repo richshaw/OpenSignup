@@ -9,7 +9,7 @@ import {
 } from '@/services/commitments';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { StatusPill } from '@/components/status-pill';
-import { summarizeSlot, summarizeSlotValues } from '@/lib/slot-summary';
+import { summarizeSlotValues } from '@/lib/slot-summary';
 import { RemoveCommitmentForm } from './remove-commitment-form';
 
 type PageParams = { params: Promise<{ id: string }> };
@@ -45,11 +45,11 @@ export default async function ResponsesTab({ params }: PageParams) {
 
   return (
     <section className="space-y-4">
-      <p className="text-ink-muted text-sm">
+      <p className="text-sm text-ink-muted">
         Everyone who&rsquo;s signed up so far. Export to CSV from the header.
       </p>
       {commitments.length === 0 ? (
-        <p className="text-ink-muted rounded-lg border border-dashed border-surface-sunk p-6 text-center text-sm">
+        <p className="rounded-lg border border-dashed border-surface-sunk p-6 text-center text-sm text-ink-muted">
           No signups yet. Share the public link to start collecting.
         </p>
       ) : (
@@ -91,7 +91,9 @@ export default async function ResponsesTab({ params }: PageParams) {
               {commitments.map((c) => {
                 const slot = sig.slots.find((s) => s.id === c.slotId);
                 const values = slot?.values ?? {};
-                const summary = slot ? summarizeSlot(sig.fields, values) : '';
+                // Values only: the column heading already says Slot, and the
+                // Remove question below reads the slot the same way.
+                const summary = slot ? summarizeSlotValues(sig.fields, values) : '';
                 // A removal takes the Remove button away, so focus goes to
                 // this cell, which then reads "removed". Every row has it, so
                 // it outlasts that re-render.
@@ -100,10 +102,9 @@ export default async function ResponsesTab({ params }: PageParams) {
                 // removal and the old sign-up of a move say so instead, here
                 // and in the CSV export.
                 const status = c.status === 'cancelled' ? (ended.get(c.id) ?? c.status) : c.status;
-                // Remove's name, and the start of its question. The slot is
-                // unlabelled, to read as part of a sentence.
+                // Remove's name, and the start of its question.
                 const removeLabel = `Remove ${c.participantName} from ${
-                  summarizeSlotValues(sig.fields, values) || slot?.ref || 'this slot'
+                  summary || slot?.ref || 'this slot'
                 }`;
                 return (
                   <tr
