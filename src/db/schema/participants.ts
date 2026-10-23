@@ -46,9 +46,6 @@ export const participants = pgTable(
   }),
 );
 
-export type Participant = typeof participants.$inferSelect;
-export type NewParticipant = typeof participants.$inferInsert;
-
 /**
  * The key a participant's email is matched on: `emailLower`. Sign-up lookups
  * and inserts both derive it here, so a lookup finds the row an insert made.

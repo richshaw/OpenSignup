@@ -10,7 +10,7 @@ import { consentPath, mcpResourceUrl, oauthIssuer, PROVIDER_SCOPES } from './con
 import { ensureGrant } from './grants';
 import { getProvider } from './instance';
 import { withNodePair } from './node-shim';
-import { describeScopes, parseScopeString, RESOURCE_SCOPES, type Scope, type ScopeDescription } from './scopes';
+import { describeScopes, parseScopeString, RESOURCE_SCOPES, type ScopeDescription } from './scopes';
 
 /**
  * The consent step, between the provider's authorization endpoint and the
@@ -25,14 +25,12 @@ export interface ConsentContext {
   client: ClientDisplay;
   /** Rows to render, sensitive scopes last. */
   permissions: ScopeDescription[];
-  requestedScopes: Scope[];
-  /** True when participant contact details are among the requested scopes. */
-  includesParticipantData: boolean;
 }
 
+/** The parked request is gone: expired, already decided, or another browser's. */
 export class ConsentUnavailable extends Error {
-  constructor(public readonly reason: 'expired' | 'invalid') {
-    super(`consent ${reason}`);
+  constructor() {
+    super('consent expired');
   }
 }
 
@@ -56,7 +54,7 @@ async function details(provider: Provider, request: Request) {
     // can retry, not as a misleading "expired" page.
     if (err instanceof oidcErrors.SessionNotFound) {
       log.info({ reason: err.error_description }, 'oauth: interaction not found');
-      throw new ConsentUnavailable('expired');
+      throw new ConsentUnavailable();
     }
     throw err;
   }
@@ -91,8 +89,6 @@ export async function loadConsentContext(uid: string): Promise<ConsentContext> {
     uid,
     client,
     permissions: describeScopes(requestedScopes),
-    requestedScopes,
-    includesParticipantData: requestedScopes.includes('commitments:read'),
   };
 }
 

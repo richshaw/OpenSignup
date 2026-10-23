@@ -23,6 +23,3 @@ export const organizers = pgTable(
     emailIdx: index('organizers_email_idx').on(t.email),
   }),
 );
-
-export type Organizer = typeof organizers.$inferSelect;
-export type NewOrganizer = typeof organizers.$inferInsert;

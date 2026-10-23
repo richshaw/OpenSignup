@@ -45,8 +45,6 @@ export const oauthRecords = pgTable(
   }),
 );
 
-export type OauthRecord = typeof oauthRecords.$inferSelect;
-
 /**
  * Signing keys for JWT access tokens. Generated on first use and shared by
  * every web instance through the database, so a token minted on one machine
@@ -63,5 +61,3 @@ export const oauthSigningKeys = pgTable('oauth_signing_keys', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   retiredAt: timestamp('retired_at', { withTimezone: true }),
 });
-
-export type OauthSigningKey = typeof oauthSigningKeys.$inferSelect;

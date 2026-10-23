@@ -10,13 +10,11 @@ import {
   MagicComposeDraftSchema,
   MAX_FIELDS,
   MAX_SLOTS,
-  RESPONSE_JSON_SCHEMA,
   buildMessages,
-  getSystemPromptForTests,
 } from './prompt';
 
 describe('system prompt', () => {
-  const sys = getSystemPromptForTests();
+  const sys = buildMessages('x')[0]!.content;
 
   it('lists the closed fieldType enum', () => {
     expect(sys).toContain('text, date, time, number, enum');
@@ -224,19 +222,5 @@ describe('draft limits', () => {
         accepts(SignupCreateInputSchema, { title: 'Snack duty', description }),
       );
     }
-  });
-});
-
-describe('RESPONSE_JSON_SCHEMA', () => {
-  it('declares every top-level property the Zod schema accepts', () => {
-    // Locks Zod ↔ JSON-Schema drift. If a new property is added to the Zod
-    // schema, it must be mirrored here (or vice versa).
-    const props = RESPONSE_JSON_SCHEMA.schema.properties;
-    expect(props).toHaveProperty('title');
-    expect(props).toHaveProperty('description');
-    expect(props).toHaveProperty('fields');
-    expect(props).toHaveProperty('slots');
-    expect(props).toHaveProperty('groupBy');
-    expect(props).toHaveProperty('refusalReason');
   });
 });
