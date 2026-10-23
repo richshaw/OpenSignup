@@ -3,6 +3,7 @@ import { err, ok } from '@/lib/result';
 import { TOOLS } from '../tools';
 import {
   buildAssistantMessages,
+  openConversation,
   runAssistant,
   toChatTools,
   type AssistantMessage,
@@ -119,5 +120,79 @@ describe('runAssistant', () => {
     const out = await runAssistant('prompt', { ...base, send, maxRounds: 2 });
     expect(out).toMatchObject({ kind: 'failed', code: 'too_many_rounds' });
     expect(sent).toHaveLength(2);
+  });
+});
+
+describe('openConversation', () => {
+  it('answers every tool call through callTool and returns the reply', async () => {
+    const { send, sent } = scripted([
+      { role: 'assistant', content: null, tool_calls: [call('c1', 'list_signups', {})] },
+      { role: 'assistant', content: 'You have no signups yet.' },
+    ]);
+    const calls: [string, unknown][] = [];
+    const convo = openConversation({
+      ...base,
+      send,
+      callTool: async (name, args) => {
+        calls.push([name, args]);
+        return '{"signups":[]}';
+      },
+    });
+    const out = await convo.say('What have I got?');
+    expect(out).toEqual({
+      kind: 'replied',
+      text: 'You have no signups yet.',
+      toolCalls: [{ name: 'list_signups', args: {} }],
+    });
+    expect(calls).toEqual([['list_signups', {}]]);
+    expect(sent[1]!.at(-1)).toEqual({ role: 'tool', tool_call_id: 'c1', content: '{"signups":[]}' });
+  });
+
+  it('keeps the history across turns, with the next message after the last reply', async () => {
+    const { send, sent } = scripted([
+      { role: 'assistant', content: 'Made it.' },
+      { role: 'assistant', content: 'Added it.' },
+    ]);
+    const convo = openConversation({ ...base, send, callTool: async () => '{}' });
+    await convo.say('Make a signup');
+    const out = await convo.say('Add a slot');
+    expect(out).toMatchObject({ kind: 'replied', text: 'Added it.', toolCalls: [] });
+    expect(sent[1]!.map((m) => m.role)).toEqual(['system', 'user', 'assistant', 'user']);
+    expect(sent[1]!.at(-1)).toEqual({ role: 'user', content: 'Add a slot' });
+  });
+
+  it('does not call the tool when its arguments are not JSON', async () => {
+    const { send, sent } = scripted([
+      { role: 'assistant', content: null, tool_calls: [call('c1', 'add_slots', '{not json')] },
+      { role: 'assistant', content: 'Sorry.' },
+    ]);
+    let called = false;
+    const convo = openConversation({
+      ...base,
+      send,
+      callTool: async () => {
+        called = true;
+        return '{}';
+      },
+    });
+    const out = await convo.say('Add a slot');
+    expect(called).toBe(false);
+    expect(out.toolCalls).toEqual([{ name: 'add_slots', args: '{not json' }]);
+    const result = sent[1]!.find((m) => m.role === 'tool')!;
+    expect(JSON.parse(result.content)).toMatchObject({ error: { code: 'invalid_input' } });
+  });
+
+  it('reports a failed request and gives up after maxRounds', async () => {
+    const failing = openConversation({
+      ...base,
+      send: async () => err({ code: 'timeout', message: 'too slow' }),
+      callTool: async () => '{}',
+    });
+    expect(await failing.say('hi')).toEqual({ kind: 'failed', code: 'timeout', message: 'too slow', toolCalls: [] });
+
+    const loop: AssistantMessage = { role: 'assistant', content: null, tool_calls: [call('c', 'list_signups', {})] };
+    const { send } = scripted([loop, loop, loop]);
+    const looping = openConversation({ ...base, send, callTool: async () => '{}', maxRounds: 2 });
+    expect(await looping.say('hi')).toMatchObject({ kind: 'failed', code: 'too_many_rounds' });
   });
 });
