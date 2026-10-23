@@ -25,6 +25,8 @@ type WysiwygSlotProps = {
   expanded: boolean;
   /** Move focus into the editor when it opens. */
   focusOnOpen?: boolean;
+  /** Called once the editor has taken focus. */
+  onFocused?: () => void;
   onExpand: () => void;
   onCollapse: () => void;
   onEditCell: (fieldRef: string, value: string) => void;
@@ -50,6 +52,7 @@ export function WysiwygSlot({
   displayFields,
   expanded,
   focusOnOpen = false,
+  onFocused,
   onExpand,
   onCollapse,
   onEditCell,
@@ -75,6 +78,7 @@ export function WysiwygSlot({
           row={row}
           fields={fields}
           focusOnOpen={focusOnOpen}
+          {...(onFocused ? { onFocused } : {})}
           onCellChange={onEditCell}
           onCapacity={onSetCapacity}
           onAddEnumOption={onAddEnumOption}

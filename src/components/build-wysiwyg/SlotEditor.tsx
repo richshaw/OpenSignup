@@ -11,6 +11,8 @@ type SlotEditorProps = {
   fields: BuildField[];
   /** Focus the first field's control when the editor opens. */
   focusOnOpen?: boolean;
+  /** Called once the editor has taken focus, so the request can be cleared. */
+  onFocused?: () => void;
   onCellChange: (fieldRef: string, value: string) => void;
   onCapacity: (capacity: number | null) => void;
   /**
@@ -33,6 +35,7 @@ export function SlotEditor({
   row,
   fields,
   focusOnOpen = false,
+  onFocused,
   onCellChange,
   onCapacity,
   onAddEnumOption,
@@ -42,8 +45,10 @@ export function SlotEditor({
 }: SlotEditorProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (focusOnOpen) gridRef.current?.querySelector<HTMLElement>('input, button')?.focus();
-  }, [focusOnOpen]);
+    if (!focusOnOpen) return;
+    gridRef.current?.querySelector<HTMLElement>('input, button')?.focus();
+    onFocused?.();
+  }, [focusOnOpen, onFocused]);
 
   return (
     <div className="px-3.5 pb-3.5 pt-3" data-testid={`slot-editor-${row.id}`}>

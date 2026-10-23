@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BuildWysiwyg } from './BuildWysiwyg';
 import type { SignupSettings } from '@/schemas/signups';
 
@@ -116,5 +116,82 @@ describe('BuildWysiwyg — group headers', () => {
     expect((await screen.findByRole('alert')).textContent).toMatch(/didn.t save/);
     expect(screen.getByRole('button', { name: /Group header.*Sat, Nov 14/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Group header.*Sat, Nov 21/ })).toBeNull();
+  });
+});
+
+describe('BuildWysiwyg — duplicate', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("focuses the copy once, so moving it to another date's group leaves focus alone", async () => {
+    const copy = {
+      id: 'slot_copy',
+      capacity: 2,
+      sortOrder: 1,
+      values: { name: 'Fruit', date: '2026-11-14' },
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ data: String(url).endsWith('/slots/bulk') ? [copy] : {} }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          ),
+        ),
+      ),
+    );
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        initialFields={[
+          {
+            id: 'f-name',
+            ref: 'name',
+            label: 'Name',
+            fieldType: 'text',
+            sortOrder: 0,
+            config: { fieldType: 'text', maxLength: 200 },
+          },
+          {
+            id: 'f-date',
+            ref: 'date',
+            label: 'Date',
+            fieldType: 'date',
+            sortOrder: 1,
+            config: { fieldType: 'date' },
+          },
+        ]}
+        initialSettings={{ ...settings, groupByFieldRefs: ['date'] }}
+        initialSlots={[
+          {
+            id: 'slot_a',
+            capacity: 2,
+            sortOrder: 0,
+            values: { name: 'Fruit', date: '2026-11-14' },
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate' }));
+    const editor = await screen.findByTestId('slot-editor-slot_copy');
+    const name = () =>
+      screen
+        .getByTestId('slot-editor-slot_copy')
+        .querySelector<HTMLInputElement>('input[aria-label="Name value"]')!;
+    await waitFor(() => expect(name()).toHaveFocus());
+
+    // Moving the copy to another date remounts its editor in that date's group.
+    const date = editor.querySelector<HTMLInputElement>('input[aria-label="Date value"]')!;
+    date.focus();
+    fireEvent.change(date, { target: { value: '2026-11-21' } });
+
+    expect(screen.getByRole('button', { name: /Group header.*Sat, Nov 21/ })).toBeTruthy();
+    expect(name()).not.toHaveFocus();
   });
 });
