@@ -1,0 +1,51 @@
+{
+  "purpose": "Follow-up cases for the MCP evals (pnpm eval:mcp): the organizer says more after the assistant has made the signup. Every tool call is answered by the real tools against a local Postgres, and each case is scored on the tools called after the first message, the signup's slots after the first and last messages, and the last reply. Checks are in src/mcp/evals/followup-checks.ts. Synthetic data only.",
+  "cases": [
+    {
+      "id": "ev_101_add_earlier_setup_slot",
+      "tags": ["follow_up", "slot_order"],
+      "runner": "llm",
+      "prompt": "Please create a volunteer signup for our school book fair on Saturday 13 March 2027. Shifts are 10:00-12:00, 12:00-14:00 and 14:00-16:00, three volunteers each.",
+      "followUps": ["Add an earlier slot for setup, 9:00 to 10:00, two volunteers."],
+      "expect": {
+        "followups.tools_must_include": ["add_slots"],
+        "slots.added_count": 1,
+        "slots.removed_count": 0,
+        "slots.first_is_new": true,
+        "slots.first_values_must_mention_any": ["09:00", "9:00", "setup", "set up", "set-up"],
+        "slots.no_duplicates": true,
+        "rationale": "A new slot that comes before the others must go first: add_slots with beforeSlotId set to the slot that is first now, which means reading the slot ids with get_signup. An assistant that appends it leaves setup after the last shift."
+      }
+    },
+    {
+      "id": "ev_102_capacity_not_duplicate_rows",
+      "tags": ["follow_up", "capacity"],
+      "runner": "llm",
+      "prompt": "Please create a potluck signup for the class picnic on Sunday 6 June 2027. People can bring a main, a side or a dessert.",
+      "followUps": ["Each dish needs to feed 20 people, and we're expecting about 200 people in total."],
+      "expect": {
+        "followups.tools_must_not_include": ["add_slots"],
+        "slots.added_count": 0,
+        "slots.no_duplicates": true,
+        "slots.capacities_changed": true,
+        "slots.capacity_sum_range": [10, 30],
+        "rationale": "200 people at 20 per dish is about 10 dishes, or 10 of each course. That is a capacity on the existing slots, not more rows: an assistant once answered this by adding dozens of identical rows."
+      }
+    },
+    {
+      "id": "ev_103_show_me_table_and_edit_link",
+      "tags": ["follow_up", "show_me"],
+      "runner": "llm",
+      "prompt": "Please create a snack duty signup for our under-9s football games on Saturday 3, 10 and 17 April 2027, one family per game.",
+      "followUps": ["Show me what you made."],
+      "expect": {
+        "followups.tools_must_not_include": ["create_signup", "add_slots", "update_slot", "delete_slot"],
+        "slots.added_count": 0,
+        "slots.removed_count": 0,
+        "reply.table_row_per_slot": true,
+        "reply.must_include_edit_link": true,
+        "rationale": "The server instructions ask for slots as a table and for links.edit. \"Show me\" changes nothing, so no write tools."
+      }
+    }
+  ]
+}

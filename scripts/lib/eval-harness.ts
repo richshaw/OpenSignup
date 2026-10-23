@@ -4,6 +4,8 @@
  * it (flags, per-case output, summary, snapshot). Each runner supplies only
  * how a case's prompt becomes a draft: eval-magic-compose.ts asks the Magic
  * Compose prompt, eval-mcp.ts asks a tool-calling model through the MCP tools.
+ * A runner can also load more case files and score a case itself (`scored`),
+ * as eval-mcp.ts does for its follow-up cases.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -12,7 +14,7 @@ import { magicComposeEnabled } from '@/lib/env';
 import type { MagicComposeDraft } from '@/lib/magic-compose/prompt';
 
 const REPO_ROOT = process.cwd();
-const EVAL_FILE = path.join(REPO_ROOT, 'evals/magic-compose/dev-evals.json');
+export const DEV_EVALS_FILE = path.join(REPO_ROOT, 'evals/magic-compose/dev-evals.json');
 
 type Runner = 'llm' | 'server';
 export interface EvalCase {
@@ -20,6 +22,8 @@ export interface EvalCase {
   tags: string[];
   runner: Runner;
   prompt: string;
+  /** Organizer messages sent after `prompt`, one turn each. */
+  followUps?: string[];
   expect: Record<string, unknown>;
 }
 
@@ -63,10 +67,13 @@ function parseArgs(argv: string[]): {
   return args;
 }
 
-async function loadCases(): Promise<EvalCase[]> {
-  const raw = await fs.readFile(EVAL_FILE, 'utf-8');
-  const parsed = JSON.parse(raw) as { cases: EvalCase[] };
-  return parsed.cases;
+async function loadCases(files: readonly string[]): Promise<EvalCase[]> {
+  const cases: EvalCase[] = [];
+  for (const file of files) {
+    const raw = await fs.readFile(file, 'utf-8');
+    cases.push(...(JSON.parse(raw) as { cases: EvalCase[] }).cases);
+  }
+  return cases;
 }
 
 function filterCases(
@@ -566,18 +573,23 @@ function runCheck(
  * What a runner hands back for one case. `draft` is what gets scored;
  * `refusalReason` takes the refusal arm instead (for Magic Compose its
  * `{ refusalReason }` payload, for the MCP evals a reply with no create).
+ * `scored` carries checks the runner ran itself, for cases the draft DSL
+ * can't describe (the MCP follow-up cases).
  */
 export type Produced =
   | { status: 'llm_failed'; code: string; message: string; ms: number; trace?: Record<string, unknown> }
   | { status: 'parse_failed'; raw: unknown; issues: z.ZodIssue[]; ms: number; trace?: Record<string, unknown> }
   | { status: 'draft'; raw: unknown; draft: MagicComposeDraft; ms: number; trace?: Record<string, unknown> }
-  | { status: 'refusal'; raw: unknown; refusalReason: string; ms: number; trace?: Record<string, unknown> };
+  | { status: 'refusal'; raw: unknown; refusalReason: string; ms: number; trace?: Record<string, unknown> }
+  | { status: 'scored'; raw: unknown; checks: CheckResult[]; ms: number; trace?: Record<string, unknown> };
 
 export interface EvalRunner {
   /** Where per-run snapshots go (gitignored by evals/**\/snapshots/). */
   snapshotDir: string;
   /** Names the schema a parse_failed draft failed, in the output. */
   schemaName: string;
+  /** Case files to run. Defaults to dev-evals.json alone. */
+  caseFiles?: readonly string[];
   produce(c: EvalCase): Promise<Produced>;
 }
 
@@ -625,6 +637,10 @@ async function runOneCase(runner: EvalRunner, c: EvalCase): Promise<CaseRun> {
         detail: i.message,
       })),
     };
+  }
+
+  if (res.status === 'scored') {
+    return { ...base, rawOutput: res.raw, checks: res.checks, tokens };
   }
 
   if (res.status === 'refusal') {
@@ -735,7 +751,7 @@ async function writeSnapshot(snapshotDir: string, runs: CaseRun[]): Promise<stri
 
 export async function runEvalCli(runner: EvalRunner): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const allCases = await loadCases();
+  const allCases = await loadCases(runner.caseFiles ?? [DEV_EVALS_FILE]);
   const cases = filterCases(allCases, { caseId: args.caseId, tag: args.tag });
 
   if (args.list) {
