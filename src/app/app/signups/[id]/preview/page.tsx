@@ -16,7 +16,7 @@ export default async function SignupPreviewPage({ params }: PageParams) {
   const { id } = await params;
   const session = await requireOrganizerSession();
   const actor = toActor(session);
-  const result = await getSignupForOrganizer(getDb(), actor, id);
+  const result = await getSignupForOrganizer(getDb(), actor, id, { includeFilled: true });
   if (!result.ok) {
     return <SignupLoadError message={result.error.message} />;
   }
@@ -33,7 +33,7 @@ export default async function SignupPreviewPage({ params }: PageParams) {
 
   return (
     <main className="flex min-h-[100svh] flex-col py-8">
-      <SignupView {...toSignupViewProps(sig)} mode="preview" />
+      <SignupView {...toSignupViewProps(sig, sig.committedBySlot)} mode="preview" />
     </main>
   );
 }

@@ -18,6 +18,8 @@ type EditableProps = {
    * `className`'s text style). Plain text when omitted; ignored with `multiline`.
    */
   input?: FieldValueInput;
+  /** The most characters the value may have, as its field allows. */
+  maxLength?: number;
 };
 
 export function Editable({
@@ -29,6 +31,7 @@ export function Editable({
   className = '',
   display,
   input,
+  maxLength,
 }: EditableProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -71,6 +74,7 @@ export function Editable({
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setDraft(e.target.value),
       onBlur: commit,
       placeholder,
+      maxLength,
       'aria-label': ariaLabel,
       className: `${className} bg-brand-soft rounded outline-none w-full font-[inherit] resize-none border-none`,
     };

@@ -47,8 +47,9 @@ export function toSignupViewSignup(
 }
 
 /**
- * Everything the page needs from a signup as a service loads it: the live
- * page passes its sign-up counts, the organizer's preview has none. A field
+ * Everything the page needs from a signup as a service loads it, with the
+ * sign-up counts per slot; the live page and the organizer's preview both pass
+ * them, so a preview of a live signup shows the spots left. A field
  * definition already fits `SignupViewField`, so the fields go as they are.
  */
 export function toSignupViewProps(
