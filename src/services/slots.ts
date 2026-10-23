@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
-import { slots } from '@/db/schema/slots';
+import { slots, type Slot as SlotRow } from '@/db/schema/slots';
 import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
@@ -27,8 +27,6 @@ import {
 } from './locks';
 import { isActiveCommitment, placesTaken } from './commitments';
 import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
-
-type SlotRow = typeof slots.$inferSelect;
 
 export async function addSlot(
   db: Db,

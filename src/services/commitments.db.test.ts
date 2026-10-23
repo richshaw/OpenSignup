@@ -1447,7 +1447,7 @@ describe('participants without an email (db)', () => {
     const returning = await getOwnCommitmentsForSignup(fx.db, signupId, [
       { commitmentId: r.value.commitment.id, token: r.value.editToken },
     ]);
-    expect(returning.map((c) => c.participantEmail)).toEqual([null]);
+    expect(returning.map((c) => c.id)).toEqual([r.value.commitment.id]);
   });
 
   it('can move to another slot', async () => {

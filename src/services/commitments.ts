@@ -1,14 +1,14 @@
 import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { activity } from '@/db/schema/activity';
-import { commitments } from '@/db/schema/commitments';
+import { commitments, type Commitment as CommitmentRow } from '@/db/schema/commitments';
 import {
   participantEmailColumns,
   participantEmailKey,
   participants,
 } from '@/db/schema/participants';
-import { signups } from '@/db/schema/signups';
-import { slots } from '@/db/schema/slots';
+import { signups, type Signup } from '@/db/schema/signups';
+import { slots, type Slot } from '@/db/schema/slots';
 import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
@@ -30,7 +30,6 @@ import { requiresEmail } from '@/schemas/signups';
 import { inWorkspace, readLiveSignup } from './locks';
 import { listFieldsForSignup } from './slot-fields';
 
-type CommitmentRow = typeof commitments.$inferSelect;
 /** A commitment with who made it. `participantEmail` is null when they gave none. */
 type OwnCommitment = PublicCommitment & {
   participantName: string;
@@ -145,8 +144,8 @@ async function safeRecordAttemptFailed(
  * and `detail` are for the attempt_failed row.
  */
 function whyNotTakingPlaces(
-  signup: Pick<typeof signups.$inferSelect, 'status' | 'closesAt' | 'settings'>,
-  slot: Pick<typeof slots.$inferSelect, 'status' | 'slotAt'>,
+  signup: Pick<Signup, 'status' | 'closesAt' | 'settings'>,
+  slot: Pick<Slot, 'status' | 'slotAt'>,
 ): { reason: 'closed' | 'over_window'; detail: string; error: ServiceError } | null {
   if (slot.status !== 'open') {
     return {
@@ -551,17 +550,12 @@ export async function getOwnCommitmentsForSignup(
   db: Db,
   signupId: string,
   items: { commitmentId: string; token: string }[],
-): Promise<OwnCommitment[]> {
+): Promise<PublicCommitment[]> {
   if (items.length === 0) return [];
   const tokenById = new Map(items.map((i) => [i.commitmentId, i.token]));
   const rows = await db
-    .select({
-      c: commitments,
-      pname: participants.name,
-      pemail: participants.email,
-    })
+    .select()
     .from(commitments)
-    .innerJoin(participants, eq(participants.id, commitments.participantId))
     .where(
       and(
         eq(commitments.signupId, signupId),
@@ -569,16 +563,12 @@ export async function getOwnCommitmentsForSignup(
         isActiveCommitment,
       ),
     );
-  const out: OwnCommitment[] = [];
+  const out: PublicCommitment[] = [];
   for (const row of rows) {
-    const token = tokenById.get(row.c.id);
+    const token = tokenById.get(row.id);
     if (!token) continue;
-    if (!verifyHash(token, row.c.editTokenHash)) continue;
-    out.push({
-      ...toPublicCommitment(row.c),
-      participantName: row.pname,
-      participantEmail: row.pemail,
-    });
+    if (!verifyHash(token, row.editTokenHash)) continue;
+    out.push(toPublicCommitment(row));
   }
   return out;
 }

@@ -4,7 +4,6 @@ import type { SlotStatus } from '@/schemas/slots';
 export interface OwnCommitment {
   slotId: string;
   editUrl: string;
-  participantName: string;
 }
 
 export interface SignupViewSlot {

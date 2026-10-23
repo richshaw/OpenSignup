@@ -15,6 +15,3 @@ export const workspaces = pgTable(
     typeIdx: index('workspaces_type_idx').on(t.type),
   }),
 );
-
-export type Workspace = typeof workspaces.$inferSelect;
-export type NewWorkspace = typeof workspaces.$inferInsert;

@@ -42,19 +42,13 @@ export async function handleOAuthRequest(request: Request, opts: { path?: string
 /**
  * The provider's router matches paths case-insensitively and ignores one
  * trailing slash, so the bucket has to be chosen on the same normalised form
- * or `/api/oauth/AUTHORIZE` would slip into the loosest bucket. Anything
- * under /api/oauth that is not recognised gets the tightest one.
+ * or `/api/oauth/AUTHORIZE` would slip into the loosest bucket. Authorize,
+ * PAR and anything under /api/oauth that is not recognised get the tightest
+ * one.
  */
 export function policyFor(rawPath: string): RateLimitPolicy {
   const path = rawPath.toLowerCase().replace(/\/$/, '');
   if (path === OAUTH_ROUTES.token) return RateLimits.oauthTokenPerIp;
-  if (
-    path === OAUTH_ROUTES.authorization ||
-    path.startsWith(`${OAUTH_ROUTES.authorization}/`) ||
-    path === OAUTH_ROUTES.pushed_authorization_request
-  ) {
-    return RateLimits.oauthAuthorizePerIp;
-  }
   if (
     path === OAUTH_ROUTES.jwks ||
     path === OAUTH_ROUTES.revocation ||
