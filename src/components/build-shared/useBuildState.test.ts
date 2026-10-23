@@ -68,6 +68,33 @@ describe('buildReducer OPTIMISTIC_ADD_ROW', () => {
 });
 
 // ---------------------------------------------------------------------------
+// INSERT_ROW_AFTER
+// ---------------------------------------------------------------------------
+
+describe('buildReducer INSERT_ROW_AFTER', () => {
+  const rows = ['r1', 'r2', 'r3'].map((id, i) => makeRow({ id, sortOrder: i }));
+
+  it('puts the row straight after the named row and renumbers from 0', () => {
+    const next = buildReducer(makeState({ rows }), {
+      type: 'INSERT_ROW_AFTER',
+      afterRowId: 'r1',
+      row: makeRow({ id: 'new', sortOrder: 99 }),
+    });
+    expect(next.rows.map((r) => r.id)).toEqual(['r1', 'new', 'r2', 'r3']);
+    expect(next.rows.map((r) => r.sortOrder)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('appends when the named row is gone', () => {
+    const next = buildReducer(makeState({ rows }), {
+      type: 'INSERT_ROW_AFTER',
+      afterRowId: 'missing',
+      row: makeRow({ id: 'new' }),
+    });
+    expect(next.rows.map((r) => r.id)).toEqual(['r1', 'r2', 'r3', 'new']);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // OPTIMISTIC_REMOVE_ROW
 // ---------------------------------------------------------------------------
 
@@ -919,12 +946,11 @@ describe('useBuildState duplicateRow', () => {
     }),
   ];
 
+  const copyResponse = (row: Partial<BuildSlot> = {}) =>
+    jsonResponse({ data: [{ id: 'new', capacity: 3, sortOrder: 99, values: {}, ...row }] }, { status: 201 });
+
   const duplicateBody = async (values: Record<string, unknown>) => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        jsonResponse({ data: { id: 'new', capacity: 3, sortOrder: 99, values: {} } }),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(copyResponse());
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() =>
       useBuildState(
@@ -939,15 +965,17 @@ describe('useBuildState duplicateRow', () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0]!;
-    expect(String(url)).toBe('/api/signups/sig_test/slots');
+    expect(String(url)).toBe('/api/signups/sig_test/slots/bulk');
     expect((init as RequestInit).method).toBe('POST');
-    return JSON.parse(String((init as RequestInit).body)) as {
-      values: Record<string, unknown>;
-      capacity: number;
+    const body = JSON.parse(String((init as RequestInit).body)) as {
+      rows: { values: Record<string, unknown>; capacity: number }[];
+      beforeSlotId?: string;
     };
+    expect(body.rows).toHaveLength(1);
+    return body.rows[0]!;
   };
 
-  it('POSTs the source values, typed by field, and capacity to /api/signups/[id]/slots', async () => {
+  it('POSTs the source values, typed by field, and capacity to the bulk route', async () => {
     const body = await duplicateBody({ name: 'Jane', qty: 12 });
     expect(body.values).toEqual({ name: 'Jane', qty: 12 });
     expect(body.capacity).toBe(3);
@@ -962,18 +990,16 @@ describe('useBuildState duplicateRow', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() => useBuildState('sig_test', [], [], defaultSettings));
+    let copyId: string | null = 'unset';
     await act(async () => {
-      await result.current.duplicateRow('does-not-exist');
+      copyId = await result.current.duplicateRow('does-not-exist');
     });
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(copyId).toBeNull();
   });
 
   it('falls back capacity to 1 when source had null capacity', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        jsonResponse({ data: { id: 'new', capacity: 1, sortOrder: 99, values: {} } }),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(copyResponse({ capacity: 1 }));
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() =>
       useBuildState(
@@ -987,9 +1013,69 @@ describe('useBuildState duplicateRow', () => {
       await result.current.duplicateRow('src');
     });
     const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
-      capacity: number;
+      rows: { capacity: number }[];
     };
-    expect(body.capacity).toBe(1);
+    expect(body.rows[0]!.capacity).toBe(1);
+  });
+
+  const fourSlots: BuildSlot[] = ['a', 'b', 'c', 'd'].map((id, i) => ({
+    id,
+    capacity: 1,
+    sortOrder: i,
+    values: {},
+  }));
+
+  it('puts the copy of the second of four slots third, in front of the slot after it', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(copyResponse({ id: 'copy', sortOrder: 2 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useBuildState('sig_test', [], fourSlots, defaultSettings));
+    let copyId: string | null = null;
+    await act(async () => {
+      copyId = await result.current.duplicateRow('b');
+    });
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
+      beforeSlotId?: string;
+    };
+    expect(body.beforeSlotId).toBe('c');
+    expect(copyId).toBe('copy');
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['a', 'b', 'copy', 'c', 'd']);
+    expect(result.current.state.rows.map((r) => r.sortOrder)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('sends no beforeSlotId when the source is the last slot, and adds the copy at the end', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(copyResponse({ id: 'copy', sortOrder: 4 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useBuildState('sig_test', [], fourSlots, defaultSettings));
+    await act(async () => {
+      await result.current.duplicateRow('d');
+    });
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as Record<
+      string,
+      unknown
+    >;
+    expect('beforeSlotId' in body).toBe(false);
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['a', 'b', 'c', 'd', 'copy']);
+  });
+
+  it('resolves to null and shows the error when the server refuses the copy', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ error: { code: 'forbidden', message: 'No edit access' } }, { status: 403 }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useBuildState('sig_test', [], fourSlots, defaultSettings));
+    let copyId: string | null = 'unset';
+    await act(async () => {
+      copyId = await result.current.duplicateRow('b');
+    });
+    expect(copyId).toBeNull();
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['a', 'b', 'c', 'd']);
+    expect(result.current.state.saveStatus).toEqual({
+      kind: 'error',
+      code: 'forbidden',
+      message: 'No edit access',
+    });
   });
 });
 

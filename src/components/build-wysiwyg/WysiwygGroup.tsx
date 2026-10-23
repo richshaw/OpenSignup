@@ -29,6 +29,8 @@ type WysiwygGroupProps = {
   /** Spots taken per slot id; a slot with none is absent. */
   takenBySlot: Record<string, number>;
   expandedRowId: string | null;
+  /** The row whose editor takes focus when it opens: a copy just made by Duplicate. */
+  focusRowId?: string | null;
   onExpandRow: (rowId: string | null) => void;
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;
   onSetCapacity: (rowId: string, capacity: number | null) => void;
@@ -51,6 +53,7 @@ export function WysiwygGroup({
   fields,
   takenBySlot,
   expandedRowId,
+  focusRowId = null,
   onExpandRow,
   onEditCell,
   onSetCapacity,
@@ -101,6 +104,7 @@ export function WysiwygGroup({
             fields={fields}
             displayFields={displayFields}
             expanded={expandedRowId === row.id}
+            focusOnOpen={focusRowId === row.id}
             onExpand={() => onExpandRow(row.id)}
             onCollapse={() => onExpandRow(null)}
             onEditCell={(ref, v) => onEditCell(row.id, ref, v)}

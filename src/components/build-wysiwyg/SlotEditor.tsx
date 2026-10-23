@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
 import { FIELD_TYPE_META, FIELD_VALUE_INPUT_CLASS, FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
 import { EnumPicker } from './EnumPicker';
@@ -8,6 +9,8 @@ import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 type SlotEditorProps = {
   row: BuildRow;
   fields: BuildField[];
+  /** Focus the first field's control when the editor opens. */
+  focusOnOpen?: boolean;
   onCellChange: (fieldRef: string, value: string) => void;
   onCapacity: (capacity: number | null) => void;
   /**
@@ -29,6 +32,7 @@ type SlotEditorProps = {
 export function SlotEditor({
   row,
   fields,
+  focusOnOpen = false,
   onCellChange,
   onCapacity,
   onAddEnumOption,
@@ -36,6 +40,11 @@ export function SlotEditor({
   onDelete,
   onClose,
 }: SlotEditorProps) {
+  const gridRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focusOnOpen) gridRef.current?.querySelector<HTMLElement>('input, button')?.focus();
+  }, [focusOnOpen]);
+
   return (
     <div className="px-3.5 pb-3.5 pt-3" data-testid={`slot-editor-${row.id}`}>
       <div className="mb-2.5 flex items-center justify-between">
@@ -69,7 +78,7 @@ export function SlotEditor({
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5">
+      <div ref={gridRef} className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5">
         {fields.map((f) => {
           const fieldType = f.config.fieldType;
           const TypeIcon = FIELD_TYPE_META[fieldType].icon;
