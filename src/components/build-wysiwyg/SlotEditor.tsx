@@ -100,6 +100,7 @@ export function SlotEditor({
               ) : (
                 <input
                   {...FIELD_VALUE_INPUTS[f.config.fieldType]}
+                  {...(f.config.fieldType === 'text' ? { maxLength: f.config.maxLength } : {})}
                   value={row.values[f.ref] ?? ''}
                   onChange={(e) => onCellChange(f.ref, e.target.value)}
                   className={FIELD_VALUE_INPUT_CLASS}

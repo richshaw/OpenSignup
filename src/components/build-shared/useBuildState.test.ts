@@ -1815,3 +1815,120 @@ describe('useBuildState renameGroup', () => {
     expect(result.current.state.saveStatus.kind).toBe('error');
   });
 });
+
+// ---------------------------------------------------------------------------
+// useBuildState editCell refused by the server (#514)
+// ---------------------------------------------------------------------------
+
+describe('useBuildState editCell when the server refuses a value', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  const itemField = makeApiField({ id: 'f-item', ref: 'item', label: 'Item' });
+  const noteField = makeApiField({ id: 'f-note', ref: 'note', label: 'Note', sortOrder: 1 });
+  const slot: BuildSlot = { id: 'r1', capacity: 2, sortOrder: 0, values: { item: 'Fruit', note: '' } };
+
+  // Refuses a slot PATCH whose values hold more than 200 characters, as the
+  // slot service does for a text field with the default maxLength.
+  function stubRefusingServer() {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? '{}')) as { values?: Record<string, unknown> };
+      const tooLong = Object.values(body.values ?? {}).some((v) => typeof v === 'string' && v.length > 200);
+      return tooLong
+        ? jsonResponse({ error: { code: 'invalid_input', message: 'Too long' } }, { status: 400 })
+        : jsonResponse({ data: {} });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  function render() {
+    return renderHook(() => useBuildState('sig_test', [itemField, noteField], [slot], defaultSettings));
+  }
+
+  it('puts the last saved value back and keeps the error showing', async () => {
+    vi.useFakeTimers();
+    stubRefusingServer();
+    const { result } = render();
+
+    act(() => result.current.editCell('r1', 'item', 'x'.repeat(201)));
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(result.current.state.rows[0]?.values['item']).toBe('Fruit');
+    expect(result.current.state.saveStatus).toEqual({ kind: 'error', code: 'invalid_input', message: 'Too long' });
+  });
+
+  it('lets a later edit to another field in the row save', async () => {
+    vi.useFakeTimers();
+    const fetchMock = stubRefusingServer();
+    const { result } = render();
+
+    act(() => result.current.editCell('r1', 'item', 'x'.repeat(201)));
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    act(() => result.current.editCell('r1', 'note', 'Bring napkins'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    const last = fetchMock.mock.calls.at(-1) as [string, RequestInit];
+    expect(JSON.parse(String(last[1].body))).toEqual({ values: { item: 'Fruit', note: 'Bring napkins' } });
+    expect(result.current.state.rows[0]?.values).toEqual({ item: 'Fruit', note: 'Bring napkins' });
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('rolls back from the last value that saved, not the one the page opened with', async () => {
+    vi.useFakeTimers();
+    stubRefusingServer();
+    const { result } = render();
+
+    act(() => result.current.editCell('r1', 'item', 'Orange slices'));
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    act(() => result.current.editCell('r1', 'item', 'x'.repeat(201)));
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(result.current.state.rows[0]?.values['item']).toBe('Orange slices');
+  });
+
+  it('keeps an edit made while the refused save was in flight', async () => {
+    vi.useFakeTimers();
+    let refuse: (res: Response) => void = () => {};
+    const fetchMock = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        String(init?.body).includes('x'.repeat(201))
+          ? new Promise<Response>((resolve) => {
+              refuse = resolve;
+            })
+          : Promise.resolve(jsonResponse({ data: {} })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = render();
+
+    act(() => result.current.editCell('r1', 'item', 'x'.repeat(201)));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    // The organizer types again in the same cell while the refused save is out.
+    act(() => result.current.editCell('r1', 'item', 'Juice boxes'));
+    await act(async () => {
+      refuse(jsonResponse({ error: { code: 'invalid_input', message: 'Too long' } }, { status: 400 }));
+      await Promise.resolve();
+    });
+    expect(result.current.state.rows[0]?.values['item']).toBe('Juice boxes');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.state.rows[0]?.values['item']).toBe('Juice boxes');
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+});

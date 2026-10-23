@@ -57,6 +57,17 @@ function renderEditor(overrides: {
 }
 
 describe('SlotEditor', () => {
+  it("stops a text value at its field's maxLength", () => {
+    renderEditor({
+      fields: [
+        makeField({ id: 'f1', ref: 'name', name: 'Name', config: { fieldType: 'text', maxLength: 40 } }),
+        makeField({ id: 'f2', ref: 'date', name: 'Date', config: { fieldType: 'date' } }),
+      ],
+    });
+    expect((screen.getByLabelText('Name value') as HTMLInputElement).maxLength).toBe(40);
+    expect(screen.getByLabelText('Date value').hasAttribute('maxlength')).toBe(false);
+  });
+
   it('renders one input per field plus a capacity input', () => {
     renderEditor({
       fields: [
