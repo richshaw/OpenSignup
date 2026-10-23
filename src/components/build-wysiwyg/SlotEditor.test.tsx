@@ -68,7 +68,7 @@ describe('SlotEditor', () => {
     expect(screen.getByLabelText('Date value').hasAttribute('maxlength')).toBe(false);
   });
 
-  it('renders one input per field plus a capacity input', () => {
+  it('renders one input per field plus a spots input', () => {
     renderEditor({
       fields: [
         makeField({ id: 'f1', ref: 'name', name: 'Name' }),
@@ -78,7 +78,7 @@ describe('SlotEditor', () => {
     });
     expect((screen.getByLabelText('Name value') as HTMLInputElement).value).toBe('Jane');
     expect((screen.getByLabelText('Date value') as HTMLInputElement).value).toBe('2026-05-21');
-    expect(screen.getByLabelText('Capacity')).toBeTruthy();
+    expect(screen.getByLabelText('Spots')).toBeTruthy();
   });
 
   it('typing into a field calls onCellChange with the field ref + value', () => {
@@ -92,7 +92,7 @@ describe('SlotEditor', () => {
 
   it('capacity input clamps numeric values to >= 1', () => {
     const { onCapacity } = renderEditor({ row: makeRow({ capacity: 3 }) });
-    const cap = screen.getByLabelText('Capacity') as HTMLInputElement;
+    const cap = screen.getByLabelText('Spots') as HTMLInputElement;
     fireEvent.change(cap, { target: { value: '5' } });
     expect(onCapacity).toHaveBeenLastCalledWith(5);
     fireEvent.change(cap, { target: { value: '-2' } });
@@ -105,16 +105,26 @@ describe('SlotEditor', () => {
 
   it('clearing the capacity input sends null (unlimited)', () => {
     const { onCapacity } = renderEditor({ row: makeRow({ capacity: 3 }) });
-    const cap = screen.getByLabelText('Capacity') as HTMLInputElement;
+    const cap = screen.getByLabelText('Spots') as HTMLInputElement;
     fireEvent.change(cap, { target: { value: '' } });
     expect(onCapacity).toHaveBeenLastCalledWith(null);
   });
 
-  it('renders an empty input with an \u221e placeholder when capacity is null', () => {
+  it('renders an empty input with a "No limit" placeholder when capacity is null', () => {
     renderEditor({ row: makeRow({ capacity: null }) });
-    const cap = screen.getByLabelText('Capacity') as HTMLInputElement;
+    const cap = screen.getByLabelText('Spots') as HTMLInputElement;
     expect(cap.value).toBe('');
-    expect(cap.placeholder).toBe('\u221e');
+    expect(cap.placeholder).toBe('No limit');
+  });
+
+  it('describes the spots input with its helper line', () => {
+    renderEditor();
+    const cap = screen.getByLabelText('Spots');
+    const helperId = cap.getAttribute('aria-describedby');
+    expect(helperId).toBeTruthy();
+    expect(document.getElementById(helperId!)?.textContent).toBe(
+      'How many places people can take. Leave blank for no limit.',
+    );
   });
 
   it('Done button calls onClose', () => {

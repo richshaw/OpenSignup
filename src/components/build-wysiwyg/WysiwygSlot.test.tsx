@@ -81,18 +81,18 @@ describe('WysiwygSlot — collapsed', () => {
     renderSlot();
     expect(screen.getByText('9:00 AM')).toBeTruthy();
     expect(screen.getByText('Bring sunscreen')).toBeTruthy();
-    expect(screen.getByText('0/2')).toBeTruthy();
+    expect(screen.getByText('0 of 2 taken')).toBeTruthy();
   });
 
   it('shows how many spots are taken on a slot people have signed up for', () => {
     renderSlot({ row: makeRow({ capacity: 3 }), taken: 3 });
-    expect(screen.getByText('3/3')).toBeTruthy();
-    expect(screen.queryByText('0/3')).toBeNull();
+    expect(screen.getByText('3 of 3 taken')).toBeTruthy();
+    expect(screen.queryByText('0 of 3 taken')).toBeNull();
   });
 
-  it('shows the spots taken against \u221e on an unlimited slot', () => {
+  it('shows only the spots taken on an unlimited slot', () => {
     renderSlot({ row: makeRow({ capacity: null }), taken: 4 });
-    expect(screen.getByText('4/\u221e')).toBeTruthy();
+    expect(screen.getByText('4 taken')).toBeTruthy();
   });
 
   it('falls back to "Set a time" placeholder when the anchor is a time field with no value', () => {
@@ -100,9 +100,9 @@ describe('WysiwygSlot — collapsed', () => {
     expect(screen.getByText('Set a time')).toBeTruthy();
   });
 
-  it('renders 0/\u221e when capacity is null (unlimited)', () => {
+  it('renders "0 taken" when capacity is null (unlimited)', () => {
     renderSlot({ row: makeRow({ capacity: null }) });
-    expect(screen.getByText('0/\u221e')).toBeTruthy();
+    expect(screen.getByText('0 taken')).toBeTruthy();
   });
 
   it('clicking the row body calls onExpand', () => {

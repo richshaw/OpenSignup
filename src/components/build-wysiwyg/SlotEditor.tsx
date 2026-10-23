@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
 import { FIELD_TYPE_META, FIELD_VALUE_INPUT_CLASS, FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
 import { EnumPicker } from './EnumPicker';
@@ -23,7 +24,7 @@ type SlotEditorProps = {
 
 /**
  * Inline accordion editor for a single slot. Auto-fit grid keeps small
- * schemas tight while letting wider schemas wrap naturally; capacity rides
+ * schemas tight while letting wider schemas wrap naturally; spots ride
  * along as the trailing cell so it lives in the same visual band.
  */
 export function SlotEditor({
@@ -36,6 +37,7 @@ export function SlotEditor({
   onDelete,
   onClose,
 }: SlotEditorProps) {
+  const spotsHelpId = useId();
   return (
     <div className="px-3.5 pb-3.5 pt-3" data-testid={`slot-editor-${row.id}`}>
       <div className="mb-2.5 flex items-center justify-between">
@@ -113,13 +115,13 @@ export function SlotEditor({
         <label className="flex flex-col gap-1 text-[11px] text-ink-muted">
           <span className="inline-flex items-center gap-1">
             <Hash size={10} className="text-ink-soft" />
-            Capacity
+            Spots
           </span>
           <input
             type="number"
             min={1}
             value={row.capacity ?? ''}
-            placeholder={'\u221e'}
+            placeholder="No limit"
             onChange={(e) => {
               const raw = e.target.value;
               if (raw === '') {
@@ -129,9 +131,13 @@ export function SlotEditor({
               const parsed = parseInt(raw, 10);
               onCapacity(Math.max(1, Number.isFinite(parsed) ? parsed : 1));
             }}
-            aria-label="Capacity"
+            aria-label="Spots"
+            aria-describedby={spotsHelpId}
             className="w-20 rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand"
           />
+          <span id={spotsHelpId} className="text-[11px] text-ink-soft">
+            How many places people can take. Leave blank for no limit.
+          </span>
         </label>
       </div>
     </div>

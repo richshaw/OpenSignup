@@ -90,14 +90,14 @@ export function CreateAndPublishASignup() {
           </Step>
           <Step>
             <p>
-              In <Ui>{UI.capacity}</Ui>, type how many spots this slot has. If two families bring
-              snacks to each game, type 2.
+              In <Ui>{UI.spots}</Ui>, type how many spots this slot has. If two families bring
+              snacks to each game, type 2. Leave it blank for no limit.
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/slot.png"
-              alt="A slot being edited, with What set to Fruit and water, a date set, and Capacity set to 2."
+              alt="A slot being edited, with What set to Fruit and water, a date set, and Spots set to 2."
               width={520}
-              height={182}
+              height={219}
             />
           </Step>
           <Step>

@@ -62,7 +62,7 @@ wait-url /build
 click Set what
 fill What value = Fruit and water
 fill Date value = 2030-04-06
-fill Capacity = 2
+fill Spots = 2
 wait Saved
 click Done
 ss organizer-builder
