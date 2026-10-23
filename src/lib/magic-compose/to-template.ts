@@ -90,15 +90,6 @@ export interface MagicComposeConversion {
   dropped: DroppedSummary;
 }
 
-export function hasDropped(d: DroppedSummary): boolean {
-  return (
-    d.duplicateRefs.length > 0 ||
-    d.strayValueKeys.length > 0 ||
-    d.coercionFailures.length > 0 ||
-    d.emptyEnumFields.length > 0
-  );
-}
-
 /** Build short user-facing warnings the build page can surface in a banner. */
 export function buildWarnings(dropped: DroppedSummary): string[] {
   const out: string[] = [];

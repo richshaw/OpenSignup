@@ -4,12 +4,18 @@ import type { Result } from '@/lib/result';
 import { toJsonSchema, type ToolDefinition } from '../registry';
 
 /**
- * The model side of the MCP evals (`pnpm eval:mcp`): one organizer message,
+ * The model side of the MCP evals (`pnpm eval:mcp`): organizer messages,
  * answered by a tool-calling model that sees the server instructions and the
- * tools exactly as `tools/list` describes them. What it passes to
- * `create_signup` is what gets scored. Nothing here touches the database:
- * the read tools answer as an empty account, and only `create_signup`'s own
- * input schema decides whether a create would have gone through.
+ * tools exactly as `tools/list` describes them.
+ *
+ * `runAssistant` handles a single message. What the model passes to
+ * `create_signup` is what gets scored, and nothing touches the database: the
+ * read tools answer as an empty account, and only `create_signup`'s own input
+ * schema decides whether a create would have gone through.
+ *
+ * `openConversation` handles follow-up turns. Every tool call goes to
+ * `callTool`, which the runner wires to the real tools (`./followups.ts`), so
+ * the model gets real ids and links to act on.
  *
  * Chat Completions shapes, since the evals reuse the Magic Compose
  * `LLM_*` settings and any OpenAI-compatible endpoint takes them.
@@ -148,4 +154,64 @@ export async function runAssistant(
     }
   }
   return { kind: 'failed', code: 'too_many_rounds', message: `no create after ${maxRounds} rounds`, ...trace };
+}
+
+/** Runs one tool call for the model and returns the text a client would hand back. */
+export type CallTool = (name: string, args: unknown) => Promise<string>;
+
+interface ToolCallRecord {
+  name: string;
+  args: unknown;
+}
+
+export type TurnOutcome =
+  | { kind: 'replied'; text: string; toolCalls: ToolCallRecord[] }
+  | { kind: 'failed'; code: string; message: string; toolCalls: ToolCallRecord[] };
+
+/**
+ * A conversation with the model, one organizer message at a time. Each
+ * `say` keeps answering tool calls through `callTool` until the model
+ * replies in words, and the history carries over to the next `say`.
+ */
+export function openConversation(opts: {
+  send: SendChat;
+  tools: readonly ToolDefinition[];
+  instructions: string;
+  now: Date;
+  callTool: CallTool;
+  maxRounds?: number;
+}): { say(message: string): Promise<TurnOutcome> } {
+  const chatTools = toChatTools(opts.tools);
+  const maxRounds = opts.maxRounds ?? 8;
+  let messages: ToolChatMessage[] = [];
+
+  return {
+    async say(message) {
+      if (messages.length === 0) messages = buildAssistantMessages(message, opts.instructions, opts.now);
+      else messages.push({ role: 'user', content: message });
+      const toolCalls: ToolCallRecord[] = [];
+
+      for (let round = 0; round < maxRounds; round++) {
+        const res = await opts.send(messages, chatTools);
+        if (!res.ok) return { kind: 'failed', ...res.error, toolCalls };
+        const reply = res.value;
+        const calls = reply.tool_calls ?? [];
+        if (calls.length === 0) {
+          messages.push({ role: 'assistant', content: reply.content });
+          return { kind: 'replied', text: reply.content ?? '', toolCalls };
+        }
+
+        messages.push({ role: 'assistant', content: reply.content, tool_calls: calls });
+        for (const c of calls) {
+          const args = parseArguments(c.function.arguments);
+          toolCalls.push({ name: c.function.name, args: args.ok ? args.value : c.function.arguments });
+          const content = args.ok
+            ? await opts.callTool(c.function.name, args.value)
+            : JSON.stringify({ error: { code: 'invalid_input', message: 'arguments were not valid JSON' } });
+          messages.push({ role: 'tool', tool_call_id: c.id, content });
+        }
+      }
+      return { kind: 'failed', code: 'too_many_rounds', message: `no reply after ${maxRounds} rounds`, toolCalls };
+    },
+  };
 }

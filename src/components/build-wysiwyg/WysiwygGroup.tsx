@@ -184,6 +184,7 @@ function GroupHeader({
       ariaLabel={ariaLabel}
       className={`${HEADER_CLASSES} inline-block`}
       {...(isDate ? { input: FIELD_VALUE_INPUTS.date } : {})}
+      {...(groupField.config.fieldType === 'text' ? { maxLength: groupField.config.maxLength } : {})}
     />
   );
 }

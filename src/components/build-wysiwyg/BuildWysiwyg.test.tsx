@@ -18,8 +18,6 @@ const baseProps = {
   signupMeta: {
     title: 'Sample',
     description: 'd',
-    slug: 'sample',
-    status: 'draft' as const,
   },
   initialFields: [],
   initialSlots: [],

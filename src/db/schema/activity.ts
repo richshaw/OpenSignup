@@ -75,6 +75,3 @@ export const ACTIVITY_EVENTS = [
 ] as const;
 
 export type ActivityEvent = (typeof ACTIVITY_EVENTS)[number];
-
-export type Activity = typeof activity.$inferSelect;
-export type NewActivity = typeof activity.$inferInsert;

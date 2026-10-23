@@ -246,23 +246,16 @@ export async function invokeNodeHandler(
 
 /**
  * Same pairing, for provider methods that take `(req, res, ...)` and either
- * return a value or write a redirect into `res`.
+ * return a value or write a redirect into `res`. Every caller hands over a
+ * bodiless request (the consent page's GET and its decision POST), so the
+ * body is never read.
  */
 export async function withNodePair<T>(
   request: Request,
   opts: ShimOptions,
   fn: (req: IncomingMessage, res: ServerResponse) => Promise<T>,
 ): Promise<{ value: T; response: Response; ended: boolean }> {
-  let body: Buffer;
-  try {
-    body = await readRequestBody(request, MAX_BODY_BYTES);
-  } catch (err) {
-    if (err instanceof BodyTooLarge) {
-      return { value: undefined as T, response: tooLarge(), ended: true };
-    }
-    throw err;
-  }
-  const req = toNodeRequest(request, body, opts);
+  const req = toNodeRequest(request, Buffer.alloc(0), opts);
   const res = new ShimResponse(req);
   const value = await fn(req, res as unknown as ServerResponse);
   return { value, response: res.toResponse(), ended: res.writableEnded };
