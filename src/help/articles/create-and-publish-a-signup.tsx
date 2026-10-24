@@ -146,6 +146,12 @@ export function CreateAndPublishASignup() {
             <p>
               You&apos;ll see <Ui>{UI.sendTheLink}</Ui>. Nobody has the link until you send it.
             </p>
+            <Screenshot
+              src="/help/create-and-publish-a-signup/share-panel.png"
+              alt="The panel that opens after publishing, with the link, Copy link, a message to send, Copy message, Email it and a QR code."
+              width={420}
+              height={456}
+            />
           </Step>
           <Step>
             <p>Choose a way to send it:</p>

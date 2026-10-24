@@ -130,7 +130,7 @@ test.describe('help: create and publish your first signup', () => {
     await expect(copyLink).toBeFocused();
     // The message names the signup, its dates, its slots and its spots.
     await expect(panel.getByRole('textbox', { name: 'A message to send with it' })).toHaveValue(
-      /^Snack duty — Spring season\nSat, Apr 6 to Sat, Apr 13 · 2 slots · 4 spots\nSign up here: .*\/s\/snack-duty-spring-season$/,
+      /^Snack duty — Spring season\nSat, Apr 6 to Sat, Apr 13 · 2 slots · 4 spots\nSign up here: \S+\/s\/snack-duty-spring-season[-\w]*$/,
     );
     if (CAPTURE) {
       // The stand-in address again, in the link and in the message; the QR
@@ -153,7 +153,7 @@ test.describe('help: create and publish your first signup', () => {
     const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
     await copyLink.click();
     await expect(panel.getByRole('button', { name: 'Copied' })).toBeVisible();
-    await expect.poll(clipboard).toMatch(/\/s\/snack-duty-spring-season$/);
+    await expect.poll(clipboard).toMatch(/\/s\/snack-duty-spring-season[-\w]*$/);
     await panel.getByRole('button', { name: UI.copyMessage }).click();
     await expect.poll(clipboard).toMatch(/^Snack duty — Spring season\n.*\nSign up here: /);
     await expect(panel.getByRole('link', { name: UI.emailIt })).toHaveAttribute(
@@ -161,9 +161,10 @@ test.describe('help: create and publish your first signup', () => {
       /^mailto:\?subject=Snack%20duty%20%E2%80%94%20Spring%20season&body=/,
     );
     const qr = panel.getByRole('link', { name: UI.downloadQr });
-    await expect(qr).toHaveAttribute('download', 'snack-duty-spring-season-qr.png');
+    // Named after the slug, which an earlier run's signup may have suffixed.
+    await expect(qr).toHaveAttribute('download', /^snack-duty-spring-season[-\w]*-qr\.png$/);
     const [download] = await Promise.all([page.waitForEvent('download'), qr.click()]);
-    expect(download.suggestedFilename()).toBe('snack-duty-spring-season-qr.png');
+    expect(download.suggestedFilename()).toMatch(/^snack-duty-spring-season[-\w]*-qr\.png$/);
 
     // Escape closes it, back to Share; Share opens it again, as the article says.
     await page.keyboard.press('Escape');
@@ -216,7 +217,7 @@ test.describe('help: create and publish your first signup', () => {
     }
     await header.getByRole('button', { name: UI.copyPublicLink }).click();
     // The panel's Copy message came last until this copy lands.
-    await expect.poll(clipboard).toMatch(/^\S+\/s\/snack-duty-spring-season$/);
+    await expect.poll(clipboard).toMatch(/^\S+\/s\/snack-duty-spring-season[-\w]*$/);
     const copied = await clipboard();
 
     // What happens next: the link opens a page people can sign up on.
