@@ -33,15 +33,9 @@ test.describe('organizer flow', () => {
     const draftId = (await created.json()).data.id as string;
 
     await page.goto(`/app/signups/${draftId}/build`);
-    // Desktop header shows Publish directly; mobile tucks it behind the
-    // "More actions" sheet.
-    const desktopPublish = page.getByRole('button', { name: 'Publish', exact: true });
-    if (await desktopPublish.isVisible()) {
-      await desktopPublish.click();
-    } else {
-      await page.getByRole('button', { name: 'More actions' }).click();
-      await page.getByRole('button', { name: 'Publish signup' }).click();
-    }
+    // At the top on a computer, in the bar at the bottom on a phone: the one
+    // on screen.
+    await page.getByRole('button', { name: 'Publish and share', exact: true }).click();
     // It stays on the tab and opens the share panel, a sheet on a phone.
     await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/app/signups/${draftId}/build$`));
