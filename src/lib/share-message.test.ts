@@ -244,6 +244,23 @@ describe('shareMessage: when the slots are', () => {
     expect(line(impossible, [WHAT, TIME])).toBe('1 spot open');
   });
 
+  it('reads the open slots when any is open, so a closed one adds no day and hides no time', () => {
+    const slots = [
+      { ...timed('2026-11-07', '09:00', 4), status: 'closed' },
+      timed('2026-11-14', '11:00', 3),
+    ];
+    expect(line(slots, [WHAT, DATE, TIME])).toBe('Sat, Nov 14, 11:00\u00a0AM · 3 spots open');
+  });
+
+  it('reads every slot when none is open', () => {
+    const slots = [
+      { ...timed('2026-11-07', '11:00', 4), status: 'closed' },
+      { ...timed('2026-11-14', '11:00', 3), status: 'closed' },
+    ];
+    // No spots to offer, but still when it was.
+    expect(line(slots, [WHAT, DATE, TIME])).toBe('Sat, Nov 7 and Sat, Nov 14 · 11:00\u00a0AM');
+  });
+
   it('reads the time field paired with the date field, as the reminders do', () => {
     const fields = [
       { ref: 'depart-time', fieldType: 'time', sortOrder: 0 },
