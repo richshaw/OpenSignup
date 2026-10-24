@@ -48,19 +48,21 @@ function canDrawPng(): boolean {
  * The share panel's QR code, to print on a flyer or put on a sign-up table:
  * on a computer a row with a small preview and Download, on a phone a
  * QR code button beside Copy link. The browser draws both itself, so
- * nothing goes to an outside service. The encoder loads only once this
- * mounts, which keeps it out of the page's first load, and the PNG is drawn
- * only when the download is chosen.
+ * nothing goes to an outside service. The encoder stays out of the page's
+ * first load, and the PNG is drawn only when the download is chosen.
  *
- * Shown only once there's something to save: not while the encoder loads,
- * and not at all if it can't load or the browser can't draw the PNG, so
- * there's never a Download that does nothing. The panel goes on without it.
+ * While the encoder loads, its place is kept by an inert stand-in, so
+ * nothing moves under the organizer's thumb as it arrives. If it can't
+ * load, or the browser can't draw the PNG, the QR code goes away rather
+ * than leave a Download that does nothing. The panel goes on without it.
  */
 export function ShareQrCode({ url, variant }: { url: string; variant: 'desktop' | 'phone' }) {
   const [qr, setQr] = useState<QrState>({ kind: 'loading' });
 
   useEffect(() => {
     let live = true;
+    // `loadSharePanel` starts this beside the panel's own code, so it's
+    // usually in already.
     import('lean-qr/nano')
       .then(({ generate, correction }) => {
         if (!live) return;
@@ -79,14 +81,14 @@ export function ShareQrCode({ url, variant }: { url: string; variant: 'desktop' 
     };
   }, [url]);
 
-  if (qr.kind !== 'ready') return null;
-  const { code, side, path } = qr;
+  if (qr.kind === 'failed') return null;
 
   function download(e: MouseEvent<HTMLAnchorElement>) {
+    if (qr.kind !== 'ready') return;
     // Set before the browser follows the link, which it does after this
     // handler returns, so the click that asked for it saves it. A canvas
     // that wouldn't give the picture back takes the QR code away.
-    const png = toPngDataUrl(code);
+    const png = toPngDataUrl(qr.code);
     if (png) {
       e.currentTarget.href = png;
     } else {
@@ -95,35 +97,50 @@ export function ShareQrCode({ url, variant }: { url: string; variant: 'desktop' 
     }
   }
 
-  const link = (
-    <a
-      href="#"
-      download={qrFileName(url)}
-      onClick={download}
-      aria-label="Download QR code"
-      className={variant === 'phone' ? PHONE_BUTTON_CLASS : DESKTOP_LINK_CLASS}
-    >
-      {variant === 'phone' ? <QrCode size={16} aria-hidden="true" /> : null}
-      {variant === 'phone' ? 'QR code' : 'Download'}
-    </a>
+  const phone = variant === 'phone';
+  const label = (
+    <>
+      {phone ? <QrCode size={16} aria-hidden="true" /> : null}
+      {phone ? 'QR code' : 'Download'}
+    </>
   );
+  const linkClass = phone ? PHONE_BUTTON_CLASS : DESKTOP_LINK_CLASS;
+  // Until the encoder is in: the same box, inert and unseen by screen readers.
+  const link =
+    qr.kind === 'ready' ? (
+      <a
+        href="#"
+        download={qrFileName(url)}
+        onClick={download}
+        aria-label="Download QR code"
+        className={linkClass}
+      >
+        {label}
+      </a>
+    ) : (
+      <span aria-hidden="true" className={`${linkClass} opacity-50`}>
+        {label}
+      </span>
+    );
 
-  if (variant === 'phone') return link;
+  if (phone) return link;
 
   return (
     <div className="flex items-center gap-3 border-t border-surface-sunk pt-3">
       <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-surface-sunk bg-white">
-        <svg
-          viewBox={`0 0 ${side} ${side}`}
-          width={42}
-          height={42}
-          role="img"
-          aria-label="QR code for the link"
-          shapeRendering="crispEdges"
-        >
-          <rect width={side} height={side} fill="#ffffff" />
-          <path d={path} fill="#000000" />
-        </svg>
+        {qr.kind === 'ready' ? (
+          <svg
+            viewBox={`0 0 ${qr.side} ${qr.side}`}
+            width={42}
+            height={42}
+            role="img"
+            aria-label="QR code for the link"
+            shapeRendering="crispEdges"
+          >
+            <rect width={qr.side} height={qr.side} fill="#ffffff" />
+            <path d={qr.path} fill="#000000" />
+          </svg>
+        ) : null}
       </span>
       <span className="min-w-0 flex-1 text-[13px] leading-snug text-ink-muted">
         A QR code for a flyer or a sign-up table.
@@ -133,7 +150,10 @@ export function ShareQrCode({ url, variant }: { url: string; variant: 'desktop' 
   );
 }
 
-const DESKTOP_LINK_CLASS = 'shrink-0 py-1.5 text-[13px] font-semibold text-brand hover:underline';
+// The same height as Copy message and Email it, so its focus ring has room;
+// the negative margin keeps the word at the panel's edge.
+const DESKTOP_LINK_CLASS =
+  '-mr-2.5 inline-flex h-[34px] shrink-0 items-center rounded-[10px] px-2.5 text-[13px] font-semibold text-brand hover:underline';
 
 // Beside Copy link, and drawn the same way.
 const PHONE_BUTTON_CLASS =

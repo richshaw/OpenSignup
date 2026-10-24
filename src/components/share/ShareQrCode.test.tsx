@@ -78,10 +78,13 @@ describe('<ShareQrCode />', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
-  it('shows nothing until the encoder is in', async () => {
+  it('keeps its place while the encoder loads, with nothing to choose yet', async () => {
     giveCanvas();
-    const { container } = render(<ShareQrCode url={LINK} variant="desktop" />);
-    expect(container).toBeEmptyDOMElement();
+    const { container } = render(<ShareQrCode url={LINK} variant="phone" />);
+    // The same box, so Copy link beside it doesn't move when the code comes.
+    expect(container).toHaveTextContent('QR code');
+    expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByRole('link')).toBeNull();
     await encoderSettled();
     expect(screen.getByRole('link', { name: 'Download QR code' })).toBeInTheDocument();
   });
