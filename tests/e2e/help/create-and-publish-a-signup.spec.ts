@@ -149,15 +149,13 @@ test.describe('help: create and publish your first signup', () => {
       await expect(panel.getByRole('img', { name: 'QR code for the link' })).toBeVisible();
       await shot(page, panel, 'share-panel');
     }
+    // The clipboard is written after the click returns, so wait for it.
+    const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
     await copyLink.click();
     await expect(panel.getByRole('button', { name: 'Copied' })).toBeVisible();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
-      /\/s\/snack-duty-spring-season$/,
-    );
+    await expect.poll(clipboard).toMatch(/\/s\/snack-duty-spring-season$/);
     await panel.getByRole('button', { name: UI.copyMessage }).click();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
-      /^Snack duty — Spring season\n.*\nSign up here: /,
-    );
+    await expect.poll(clipboard).toMatch(/^Snack duty — Spring season\n.*\nSign up here: /);
     await expect(panel.getByRole('link', { name: UI.emailIt })).toHaveAttribute(
       'href',
       /^mailto:\?subject=Snack%20duty%20%E2%80%94%20Spring%20season&body=/,
@@ -217,8 +215,9 @@ test.describe('help: create and publish your first signup', () => {
       });
     }
     await header.getByRole('button', { name: UI.copyPublicLink }).click();
-    const copied = await page.evaluate(() => navigator.clipboard.readText());
-    expect(copied).toMatch(/\/s\/snack-duty-spring-season/);
+    // The panel's Copy message came last until this copy lands.
+    await expect.poll(clipboard).toMatch(/^\S+\/s\/snack-duty-spring-season$/);
+    const copied = await clipboard();
 
     // What happens next: the link opens a page people can sign up on.
     await page.goto(copied);
