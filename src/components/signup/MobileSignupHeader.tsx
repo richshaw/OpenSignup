@@ -12,6 +12,7 @@ interface MobileSignupHeaderProps {
   title: string;
   status: SignupStatus;
   publicUrl: string;
+  closeQuestion: string;
   publishAction: StatusAction;
   closeAction: StatusAction;
 }
@@ -20,6 +21,7 @@ export function MobileSignupHeader({
   title,
   status,
   publicUrl,
+  closeQuestion,
   publishAction,
   closeAction,
 }: MobileSignupHeaderProps) {
@@ -34,10 +36,17 @@ export function MobileSignupHeader({
             <div className="mb-1">
               <StatusPill status={status} />
             </div>
-            <h1 className="truncate text-xl font-semibold tracking-tight text-ink">{title}</h1>
+            <h1
+              tabIndex={-1}
+              data-signup-title
+              className="truncate text-xl font-semibold tracking-tight text-ink"
+            >
+              {title}
+            </h1>
           </div>
           {/* The menu holds Publish or Close signup. A closed or archived
-              signup has neither, so there's no menu to open. */}
+              signup has neither, so there's no menu to open, and focus goes
+              to the title once Close signup has closed it. */}
           {hasActions ? (
             <button
               type="button"
@@ -53,11 +62,14 @@ export function MobileSignupHeader({
         <PublicLinkChip url={publicUrl} />
       </header>
 
+      {/* Closing the signup closes the sheet too, rather than leaving it open
+          with nothing in it. */}
       <MobileMoreMenuSheet
-        open={menuOpen}
+        open={menuOpen && hasActions}
         onClose={() => setMenuOpen(false)}
         status={status}
         title={title}
+        closeQuestion={closeQuestion}
         publishAction={publishAction}
         closeAction={closeAction}
       />

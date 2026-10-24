@@ -3,8 +3,11 @@ import { Eye } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
+import { closeSignupQuestion, type SpotCounts } from '@/lib/spot-counts';
 import type { SignupStatus } from '@/schemas/signups';
+import { HeaderAnnouncer } from './HeaderAnnouncer';
 import { MobileSignupHeader } from './MobileSignupHeader';
+import { MoreActionsMenu } from './MoreActionsMenu';
 import {
   StatusActionButtonForm,
   StatusActionRefusal,
@@ -17,6 +20,8 @@ interface SignupHeaderProps {
   title: string;
   status: SignupStatus;
   publicUrl: string;
+  /** Spots taken and in all, for what Close signup asks. */
+  spots: SpotCounts;
   publishAction: StatusAction;
   closeAction: StatusAction;
 }
@@ -26,12 +31,14 @@ export function SignupHeader({
   title,
   status,
   publicUrl,
+  spots,
   publishAction,
   closeAction,
 }: SignupHeaderProps) {
   const previewHref = `/app/signups/${signupId}/preview`;
-  const hasActionButton = status === 'draft' || status === 'open';
-  const gridColsClass = hasActionButton ? 'grid-cols-2' : 'grid-cols-1';
+  const gridColsClass =
+    status === 'draft' ? 'grid-cols-2' : status === 'open' ? 'grid-cols-[1fr_auto]' : 'grid-cols-1';
+  const closeQuestion = closeSignupQuestion(spots);
 
   return (
     <>
@@ -40,18 +47,27 @@ export function SignupHeader({
           title={title}
           status={status}
           publicUrl={publicUrl}
+          closeQuestion={closeQuestion}
           publishAction={publishAction}
           closeAction={closeAction}
         />
       </div>
-      {/* Publish or Close signup, whichever the status offers. A refusal shows
-          on its own full-width line under the header, not in the button grid. */}
+      {/* Publish, or on an open signup the ⋯ that holds Close signup. Publish's
+          refusal shows on its own full-width line under the header, not in the
+          button grid; Close signup's shows in its panel. */}
       <StatusActionScope action={status === 'draft' ? publishAction : closeAction}>
       <header className="hidden space-y-3 md:block">
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex min-h-[1.875rem] flex-wrap items-center gap-3">
-            <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
+            {/* Focusable, to take focus once Close signup's ⋯ is gone. */}
+            <h1
+              tabIndex={-1}
+              data-signup-title
+              className="truncate text-2xl font-semibold tracking-tight"
+            >
+              {title}
+            </h1>
             <StatusPill status={status} />
           </div>
           <PublicLinkChip url={publicUrl} className="inline-flex max-w-md" />
@@ -76,21 +92,15 @@ export function SignupHeader({
               </AsyncSubmitButton>
             </StatusActionButtonForm>
           ) : null}
-          {status === 'open' ? (
-            <StatusActionButtonForm>
-              <AsyncSubmitButton
-                loadingLabel="Closing…"
-                className="bg-brand inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
-              >
-                Close signup
-              </AsyncSubmitButton>
-            </StatusActionButtonForm>
-          ) : null}
+          {status === 'open' ? <MoreActionsMenu closeQuestion={closeQuestion} /> : null}
         </div>
       </div>
-      <StatusActionRefusal />
+      {status === 'draft' ? <StatusActionRefusal /> : null}
       </header>
       </StatusActionScope>
+      {/* Last, so the layout's spacing between the headers and the tabs stays
+          as it was. */}
+      <HeaderAnnouncer status={status} />
     </>
   );
 }

@@ -44,6 +44,11 @@ export function StatusActionButtonForm({
   );
 }
 
+/** Whether Publish or Close signup is in flight, for controls outside its form. */
+export function useStatusActionPending(): boolean {
+  return useContext(StatusActionContext)?.[2] ?? false;
+}
+
 /** Why Publish or Close signup was refused, or nothing until it is. */
 export function StatusActionRefusal({ className }: { className?: string }) {
   const state = useContext(StatusActionContext)?.[0];

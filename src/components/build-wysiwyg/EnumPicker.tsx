@@ -2,8 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { ChevronDown, Plus } from 'lucide-react';
+import { useOutsideClose } from '@/hooks/useOutsideClose';
 import { PickerOption } from './PickerOption';
-import { useOutsideClose } from './useOutsideClose';
 
 type EnumPickerProps = {
   value: string;

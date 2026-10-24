@@ -45,6 +45,87 @@ test.describe('organizer flow', () => {
     await expect(page.getByText('Signup published')).toBeVisible();
   });
 
+  test('Close signup asks first, and Not yet leaves the signup open', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const signup = await createPublishedSignup(page.request, {
+      title: `Close flow ${Date.now()}`,
+      slot: { values: { what: 'Juice', date: '2030-04-06' }, capacity: 5 },
+    });
+    const storedStatus = async () =>
+      (await (await page.request.get(`/api/signups/${signup.id}`)).json()).data.status;
+    const pill = (status: string) =>
+      page.getByText(status, { exact: true }).locator('visible=true');
+
+    await page.goto(`/app/signups/${signup.id}/build`);
+    const more = page.getByRole('button', { name: 'More actions' });
+    const panel = page.getByRole('dialog', { name: 'More actions' });
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await more.click();
+    await expect(more).toHaveAttribute('aria-expanded', 'true');
+    await panel.getByRole('button', { name: 'Close signup' }).click();
+    await expect(panel).toContainText(
+      'Nobody has signed up yet. People can’t sign up after this, and you can’t reopen it.',
+    );
+    const notYet = panel.getByRole('button', { name: 'Not yet' });
+    await expect(notYet).toBeFocused();
+    await notYet.click();
+    await expect(panel).toBeHidden();
+    await expect(more).toBeFocused();
+    await expect(pill('open')).toBeVisible();
+    expect(await storedStatus()).toBe('open');
+
+    await more.click();
+    await panel.getByRole('button', { name: 'Close signup' }).click();
+    await panel.getByRole('button', { name: 'Close signup' }).click();
+    await expect(pill('closed')).toBeVisible();
+    expect(await storedStatus()).toBe('closed');
+    // The ⋯ went with it, so focus is on the title, and a screen reader hears
+    // what happened.
+    await expect(more).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Closed. People can’t sign up now.' }),
+    ).toHaveCount(1);
+  });
+
+  test('on a phone, Close signup asks first in the More actions sheet', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const title = `Close on a phone ${Date.now()}`;
+    const signup = await createPublishedSignup(page.request, {
+      title,
+      slot: { values: { what: 'Juice', date: '2030-04-06' }, capacity: 5 },
+    });
+    const storedStatus = async () =>
+      (await (await page.request.get(`/api/signups/${signup.id}`)).json()).data.status;
+
+    await page.goto(`/app/signups/${signup.id}/build`);
+    const more = page.getByRole('button', { name: 'More actions' });
+    const sheet = page.getByRole('dialog', { name: title });
+    await more.click();
+    await sheet.getByRole('button', { name: 'Close signup' }).click();
+    await expect(
+      sheet.getByRole('group', { name: /^Nobody has signed up yet\. People can’t sign up/ }),
+    ).toBeVisible();
+    const notYet = sheet.getByRole('button', { name: 'Not yet' });
+    await expect(notYet).toBeFocused();
+    for (const name of ['Not yet', 'Close signup']) {
+      const box = await sheet.getByRole('button', { name }).boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    }
+    await notYet.click();
+    await expect(sheet).toBeHidden();
+    expect(await storedStatus()).toBe('open');
+
+    await more.click();
+    await sheet.getByRole('button', { name: 'Close signup' }).click();
+    await sheet.getByRole('button', { name: 'Close signup' }).click();
+    await expect(sheet).toBeHidden();
+    await expect(page.getByText('closed', { exact: true }).locator('visible=true')).toBeVisible();
+    expect(await storedStatus()).toBe('closed');
+    await expect(more).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+  });
+
   test('the slot editor takes no date before 1900', async ({ page }) => {
     // A fresh signup per run. createSignup applies DEFAULT_TEMPLATE: fields
     // `what` (text) and `date`.
@@ -122,6 +203,8 @@ test.describe('organizer flow', () => {
 
     const settings = `/app/signups/${signup.id}/settings`;
     await page.goto(settings);
+    // The header has a live region of its own.
+    const saved = page.getByRole('region', { name: 'Sign-up form' }).getByRole('status');
     const required = page.getByRole('radio', { name: 'Required' });
     const optional = page.getByRole('radio', { name: 'Optional' });
     await expect(required).toBeChecked();
@@ -138,7 +221,7 @@ test.describe('organizer flow', () => {
     await expect(optionalHelp).toBeVisible();
     await expect(requiredHelp).toBeHidden();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByRole('status')).toHaveText('Saved');
+    await expect(saved).toHaveText('Saved');
     expect(await storedRequireEmail()).toBe(false);
     await page.reload();
     await expect(optional).toBeChecked();
@@ -153,7 +236,7 @@ test.describe('organizer flow', () => {
     await page.goto(settings);
     await required.check();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByRole('status')).toHaveText('Saved');
+    await expect(saved).toHaveText('Saved');
     expect(await storedRequireEmail()).toBe(true);
     await expect(required).toBeChecked();
 

@@ -1,8 +1,9 @@
 import { getDb } from '@/db/client';
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
-import { loadSignupForOrganizer } from '@/services/signups.cached';
+import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { countActiveCommitmentsForSignup } from '@/services/commitments';
 import { publicSignupUrl } from '@/lib/links';
+import { spotCounts } from '@/lib/spot-counts';
 import { SignupHeader } from '@/components/signup/SignupHeader';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
@@ -34,7 +35,14 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
     return <SignupLoadError message={result.error.message} />;
   }
   const sig = result.value;
-  const responsesCount = await countActiveCommitmentsForSignup(getDb(), id);
+  // The Build tab reads the same spots taken, through the same cached read.
+  const [responsesCount, filled] = await Promise.all([
+    countActiveCommitmentsForSignup(getDb(), id),
+    loadCommittedBySlotForOrganizer(actor, id),
+  ]);
+  if (!filled.ok) {
+    return <SignupLoadError message={filled.error.message} />;
+  }
 
   return (
     <div className="space-y-6">
@@ -43,6 +51,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
         title={sig.title}
         status={sig.status as SignupStatus}
         publicUrl={publicSignupUrl(sig.slug)}
+        spots={spotCounts(sig.slots, filled.value)}
         publishAction={publishAction.bind(null, id)}
         closeAction={closeAction.bind(null, id)}
       />
