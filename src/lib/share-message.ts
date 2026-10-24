@@ -141,3 +141,15 @@ export function withLink(message: string, url: string): string {
   if (text.includes(url)) return text;
   return text ? `${text}\n${url}` : url;
 }
+
+/**
+ * The body of the email Email it opens. Its subject is the signup's title,
+ * so the body starts after the message's first line when that line is the
+ * title, as the message starts out; a first line the organizer changed is
+ * kept. The link goes back in if an edit took it out, as `withLink` does.
+ */
+export function emailBody(message: string, title: string, url: string): string {
+  const [first = '', ...rest] = message.trim().split('\n');
+  const body = first.trim() === title.trim() ? rest.join('\n') : message;
+  return withLink(body, url);
+}

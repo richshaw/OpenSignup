@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useId, useRef, useState, type Ref } from 'react';
 import { Check, Copy, Mail, Share } from 'lucide-react';
 import { useClipboardCopy } from '@/hooks/useClipboardCopy';
-import { withLink } from '@/lib/share-message';
+import { emailBody, withLink } from '@/lib/share-message';
 import { emitSignupLinkEvent } from '@/lib/signup-link-events';
 import { ShareQrCode } from './ShareQrCode';
 
@@ -97,7 +97,9 @@ export function SharePanel({
   }, [refused]);
 
   const toSend = withLink(message, url);
-  const mailto = `mailto:?subject=${encodeURIComponent(title.trim())}&body=${encodeURIComponent(toSend)}`;
+  const mailto = `mailto:?subject=${encodeURIComponent(title.trim())}&body=${encodeURIComponent(
+    emailBody(message, title, url),
+  )}`;
 
   async function copy(what: Copied) {
     const worked = await (what === 'link' ? link.copy(url) : messageCopy.copy(toSend));

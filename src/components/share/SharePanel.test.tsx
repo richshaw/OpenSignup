@@ -169,7 +169,17 @@ describe('<SharePanel /> on a computer', () => {
     );
   });
 
-  it('emails the message, with the title as the subject', () => {
+  it('emails the message without its first line, the title, which is the subject', () => {
+    render(<Owner title=" Bake sale helpers " />);
+    expect(screen.getByRole('link', { name: 'Email it' })).toHaveAttribute(
+      'href',
+      `mailto:?subject=Bake%20sale%20helpers&body=${encodeURIComponent(
+        MESSAGE.split('\n').slice(1).join('\n'),
+      )}`,
+    );
+  });
+
+  it('emails the whole message once its first line was changed', () => {
     render(<Owner title=" Bake sale helpers " />);
     fireEvent.change(screen.getByLabelText('A message to send with it'), {
       target: { value: `Can you help? & bring a friend: ${LINK}` },

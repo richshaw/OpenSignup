@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shareMessage, withLink, type ShareMessageSignup } from './share-message';
+import { emailBody, shareMessage, withLink, type ShareMessageSignup } from './share-message';
 
 const LINK = 'https://your-site.example/s/book-fair-k3x';
 const SIGN_UP = `Sign up here, no account needed: ${LINK}`;
@@ -280,5 +280,31 @@ describe('withLink', () => {
 
   it('trims space left at either end', () => {
     expect(withLink(`\n  See you there ${LINK}  \n`, LINK)).toBe(`See you there ${LINK}`);
+  });
+});
+
+describe('emailBody', () => {
+  const TITLE = 'Fall book fair volunteers';
+
+  it('starts after the title, which is the email’s subject', () => {
+    const message = `${TITLE}\nThu, Nov 12 to Sat, Nov 14 · 21 spots open\n${SIGN_UP}`;
+    expect(emailBody(message, TITLE, LINK)).toBe(
+      `Thu, Nov 12 to Sat, Nov 14 · 21 spots open\n${SIGN_UP}`,
+    );
+  });
+
+  it('knows the title with stray space around it', () => {
+    expect(emailBody(`  ${TITLE} \n${SIGN_UP}`, ` ${TITLE}`, LINK)).toBe(SIGN_UP);
+  });
+
+  it('keeps the whole message when the first line was changed', () => {
+    const message = `Hi all, can you help at the book fair?\n${SIGN_UP}`;
+    expect(emailBody(message, TITLE, LINK)).toBe(message);
+  });
+
+  it('puts the link back when the edit took it out', () => {
+    expect(emailBody(`${TITLE}\nCan you help on Saturday?`, TITLE, LINK)).toBe(
+      `Can you help on Saturday?\n${LINK}`,
+    );
   });
 });
