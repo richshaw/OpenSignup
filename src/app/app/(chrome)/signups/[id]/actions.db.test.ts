@@ -358,7 +358,7 @@ describe('closeQuestionAction (db)', () => {
     });
     if (!commit.ok) throw new Error(commit.error.message);
     expect(await closeQuestionAction(signupId)).toEqual({
-      question: `4 of 5 spots are still open.${after}`,
+      question: `4 of 5 spots are still open.${after} Everyone already signed up keeps their spot.`,
     });
     expect(revalidatePath).not.toHaveBeenCalled();
   });

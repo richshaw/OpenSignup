@@ -91,6 +91,8 @@ test.describe('organizer flow', () => {
     await panel.getByRole('button', { name: 'Close signup' }).click();
     // The signup's empty first slot and Juice: 1 + 5 spots, 1 taken.
     await expect(panel).toContainText('5 of 6 spots are still open.');
+    // Someone has signed up, so it says what happens to them.
+    await expect(panel).toContainText('Everyone already signed up keeps their spot.');
     await panel.getByRole('button', { name: 'Close signup' }).click();
     await expect(pill('closed')).toBeVisible();
     await expect(banner).toBeVisible();
