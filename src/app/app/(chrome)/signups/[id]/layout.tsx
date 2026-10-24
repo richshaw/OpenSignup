@@ -3,7 +3,7 @@ import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/se
 import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { countActiveCommitmentsForSignup } from '@/services/commitments';
 import { publicSignupUrl } from '@/lib/links';
-import { spotCounts } from '@/lib/spot-counts';
+import { KEEPS_THEIR_SPOT, spotCounts } from '@/lib/spot-counts';
 import { SignupHeader } from '@/components/signup/SignupHeader';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
@@ -66,7 +66,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
           kind="closed"
           live={false}
           title="Signup closed"
-          body="People can’t sign up now. Everyone already signed up keeps their spot."
+          body={`People can’t sign up now. ${KEEPS_THEIR_SPOT}`}
         />
       ) : null}
       <AiDraftBanner
