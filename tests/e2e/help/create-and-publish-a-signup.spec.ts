@@ -357,10 +357,19 @@ test.describe('help: create and publish your first signup', () => {
       const what = slotEditor.getByRole('textbox', { name: `${UI.what} value` });
       await expect(what).toBeFocused();
       await what.fill('TBD');
+      // Done hands the focus back to Publish and share, as the fix opened it.
       await slotEditor.getByRole('button', { name: UI.done }).click();
+      await expect(publish).toBeFocused();
 
-      // A slot that still says "TBD" is something people would see. Name it
-      // first opens it again, focus on the TBD.
+      // A slot that still says "TBD" is marked on the Build tab, and is
+      // something people would see. Name it first opens it again, focus on
+      // the TBD.
+      await expect(page.getByRole('tab', { name: UI.build })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      const mark = page.getByText(UI.stillSays, { exact: true });
+      await expect(mark).toBeVisible();
       await publish.click();
       const beforePeopleSee = page.getByRole('dialog', { name: UI.beforePeopleSee });
       await expect(beforePeopleSee).toBeVisible();
@@ -370,6 +379,13 @@ test.describe('help: create and publish your first signup', () => {
       await expect(what).toHaveValue('TBD');
       await what.fill('Fruit and water');
       await slotEditor.getByRole('button', { name: UI.done }).click();
+      // Named, the mark goes; focus is back on Publish and share, and the
+      // header says it can be published.
+      await expect(publish).toBeFocused();
+      await expect(mark).toHaveCount(0);
+      await expect(
+        page.getByRole('status').filter({ hasText: 'Saved. Publish and share when you’re ready.' }),
+      ).toHaveCount(1);
 
       await publish.click();
       const sheet = page.getByRole('dialog', { name: UI.sendTheLink });

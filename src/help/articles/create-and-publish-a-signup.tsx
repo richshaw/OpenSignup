@@ -154,6 +154,11 @@ export function CreateAndPublishASignup() {
                 and change it. Or choose <Ui>{UI.publishAnyway}</Ui>, and people will see
                 &ldquo;TBD&rdquo; until you change it.
               </p>
+              <p>
+                Until you change it, the slot is marked <Ui>{UI.stillSays}</Ui> on the{' '}
+                <Ui>{UI.build}</Ui> tab. Once your signup is published, the mark says{' '}
+                <Ui>{UI.peopleCanSee}</Ui>.
+              </p>
             </Note>
             <p>
               Once it&apos;s published, you&apos;ll see <Ui>{UI.sendTheLink}</Ui>. Nobody has the
