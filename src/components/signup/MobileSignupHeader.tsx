@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { MoreHorizontal } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
@@ -25,6 +26,7 @@ export function MobileSignupHeader({
   publishAction,
   closeAction,
 }: MobileSignupHeaderProps) {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const hasActions = status === 'draft' || status === 'open';
 
@@ -50,8 +52,15 @@ export function MobileSignupHeader({
           {hasActions ? (
             <button
               type="button"
-              onClick={() => setMenuOpen(true)}
+              onClick={() => {
+                setMenuOpen(true);
+                // Close signup's question counts the spots taken, which
+                // switching tabs doesn't reload.
+                if (status === 'open') router.refresh();
+              }}
               aria-label="More actions"
+              aria-haspopup="dialog"
+              aria-expanded={menuOpen}
               className="-mr-1.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-raised"
             >
               <MoreHorizontal size={20} aria-hidden="true" />

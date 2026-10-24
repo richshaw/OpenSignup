@@ -20,8 +20,8 @@ interface SignupHeaderProps {
   title: string;
   status: SignupStatus;
   publicUrl: string;
-  /** Spots taken and in all, for what Close signup asks. */
-  spots: SpotCounts;
+  /** Spots taken, in all and still open, for what Close signup asks. Null for a draft. */
+  spots: SpotCounts | null;
   publishAction: StatusAction;
   closeAction: StatusAction;
 }
@@ -38,10 +38,10 @@ export function SignupHeader({
   const previewHref = `/app/signups/${signupId}/preview`;
   const gridColsClass =
     status === 'draft' ? 'grid-cols-2' : status === 'open' ? 'grid-cols-[1fr_auto]' : 'grid-cols-1';
-  const closeQuestion = closeSignupQuestion(spots);
+  const closeQuestion = spots ? closeSignupQuestion(spots) : '';
 
   return (
-    <>
+    <HeaderAnnouncer status={status}>
       <div className="md:hidden">
         <MobileSignupHeader
           title={title}
@@ -54,8 +54,8 @@ export function SignupHeader({
       </div>
       {/* Publish, or on an open signup the ⋯ that holds Close signup. Publish's
           refusal shows on its own full-width line under the header, not in the
-          button grid; Close signup's shows in its panel. */}
-      <StatusActionScope action={status === 'draft' ? publishAction : closeAction}>
+          button grid; Close signup's shows in its panel, which runs it. */}
+      <StatusActionScope action={publishAction}>
       <header className="hidden space-y-3 md:block">
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0 flex-1 space-y-3">
@@ -92,15 +92,14 @@ export function SignupHeader({
               </AsyncSubmitButton>
             </StatusActionButtonForm>
           ) : null}
-          {status === 'open' ? <MoreActionsMenu closeQuestion={closeQuestion} /> : null}
+          {status === 'open' ? (
+            <MoreActionsMenu closeQuestion={closeQuestion} closeAction={closeAction} />
+          ) : null}
         </div>
       </div>
       {status === 'draft' ? <StatusActionRefusal /> : null}
       </header>
       </StatusActionScope>
-      {/* Last, so the layout's spacing between the headers and the tabs stays
-          as it was. */}
-      <HeaderAnnouncer status={status} />
-    </>
+    </HeaderAnnouncer>
   );
 }

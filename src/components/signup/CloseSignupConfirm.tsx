@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import {
   StatusActionButtonForm,
@@ -21,16 +21,19 @@ interface CloseSignupConfirmProps {
  * it: the ⋯ panel on a computer, the More actions sheet on a phone. Not yet,
  * the safe choice, has focus when the question appears and again after a
  * refusal, which shows under the buttons. Entering the group reads the
- * question out, since focus lands on a button.
+ * question out, since focus lands on a button. Each time it's asked starts
+ * clean: a refusal shows only for a Close signup pressed here.
  */
 export function CloseSignupConfirm({ question, onNotYet, phone = false }: CloseSignupConfirmProps) {
   const pending = useStatusActionPending();
   const notYet = useRef<HTMLButtonElement>(null);
   const questionId = useId();
+  const [pressed, setPressed] = useState(false);
   useEffect(() => {
     if (!pending) notYet.current?.focus();
   }, [pending]);
 
+  // Both buttons have a border, so they're the same height.
   const size = phone ? 'min-h-12 w-full text-[15px]' : 'px-3 py-1.5 text-xs';
   return (
     <div role="group" aria-labelledby={questionId} className="space-y-3">
@@ -53,13 +56,14 @@ export function CloseSignupConfirm({ question, onNotYet, phone = false }: CloseS
         <StatusActionButtonForm>
           <AsyncSubmitButton
             loadingLabel="Closing…"
-            className={`rounded-lg bg-danger font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 ${size}`}
+            onClick={() => setPressed(true)}
+            className={`rounded-lg border border-danger bg-danger font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 ${size}`}
           >
             Close signup
           </AsyncSubmitButton>
         </StatusActionButtonForm>
       </div>
-      <StatusActionRefusal />
+      {pressed && !pending ? <StatusActionRefusal /> : null}
     </div>
   );
 }

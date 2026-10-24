@@ -1,22 +1,46 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { MoreHorizontal, XCircle } from 'lucide-react';
 import { Popover } from '@/components/ui/Popover';
 import { CloseSignupConfirm } from './CloseSignupConfirm';
-import { useStatusActionPending } from './StatusActionForm';
+import { useAnnouncedClose } from './HeaderAnnouncer';
+import { StatusActionScope, useStatusActionPending, type StatusAction } from './StatusActionForm';
+
+interface MoreActionsMenuProps {
+  closeQuestion: string;
+  closeAction: StatusAction;
+}
 
 /**
  * The ⋯ beside Preview on an open signup, on a computer. Its one item, Close
  * signup, asks first in the same panel: a signup can't be reopened, so
  * closing it is never one click in the spot where Publish was.
  */
-export function MoreActionsMenu({ closeQuestion }: { closeQuestion: string }) {
+export function MoreActionsMenu({ closeQuestion, closeAction }: MoreActionsMenuProps) {
+  const closeSignup = useAnnouncedClose(closeAction);
+  return (
+    <StatusActionScope action={closeSignup}>
+      <Menu closeQuestion={closeQuestion} />
+    </StatusActionScope>
+  );
+}
+
+function Menu({ closeQuestion }: { closeQuestion: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const pending = useStatusActionPending();
   const trigger = useRef<HTMLButtonElement>(null);
   const closeItem = useRef<HTMLButtonElement>(null);
+
+  function openMenu() {
+    setOpen(true);
+    // The question counts the spots taken, and the header's counts are from
+    // when the page loaded: switching tabs doesn't reload them.
+    router.refresh();
+  }
 
   // Held open while Close signup is in flight, so a refusal has somewhere to
   // show. Once it closes the signup, this menu is gone from the header.
@@ -31,7 +55,7 @@ export function MoreActionsMenu({ closeQuestion }: { closeQuestion: string }) {
       <button
         ref={trigger}
         type="button"
-        onClick={() => (open ? close() : setOpen(true))}
+        onClick={() => (open ? close() : openMenu())}
         aria-label="More actions"
         aria-haspopup="dialog"
         aria-expanded={open}

@@ -55,6 +55,7 @@ test.describe('organizer flow', () => {
       (await (await page.request.get(`/api/signups/${signup.id}`)).json()).data.status;
     const pill = (status: string) =>
       page.getByText(status, { exact: true }).locator('visible=true');
+    const banner = page.getByText('Signup closed', { exact: true });
 
     await page.goto(`/app/signups/${signup.id}/build`);
     const more = page.getByRole('button', { name: 'More actions' });
@@ -72,12 +73,30 @@ test.describe('organizer flow', () => {
     await expect(panel).toBeHidden();
     await expect(more).toBeFocused();
     await expect(pill('open')).toBeVisible();
+    await expect(banner).toHaveCount(0);
     expect(await storedStatus()).toBe('open');
+
+    // Someone signs up meanwhile. The question counts them, though the page
+    // hasn't reloaded.
+    const slots = (await (await page.request.get(`/api/signups/${signup.id}/slots`)).json())
+      .data as { id: string; values: { what?: string } }[];
+    const juice = slots.find((slot) => slot.values.what === 'Juice');
+    const signedUp = await page.request.post(`/api/slots/${juice?.id}/commitments`, {
+      headers: { 'x-forwarded-for': '203.0.113.78' },
+      data: { name: 'Sam Example', email: `sam+${Date.now()}@example.test`, quantity: 1 },
+    });
+    expect(signedUp.ok()).toBe(true);
 
     await more.click();
     await panel.getByRole('button', { name: 'Close signup' }).click();
+    // The signup's empty first slot and Juice: 1 + 5 spots, 1 taken.
+    await expect(panel).toContainText('5 of 6 spots are still open.');
     await panel.getByRole('button', { name: 'Close signup' }).click();
     await expect(pill('closed')).toBeVisible();
+    await expect(banner).toBeVisible();
+    await expect(
+      page.getByText('People can’t sign up now. Everyone already signed up keeps their spot.'),
+    ).toBeVisible();
     expect(await storedStatus()).toBe('closed');
     // The ⋯ went with it, so focus is on the title, and a screen reader hears
     // what happened.
@@ -121,9 +140,33 @@ test.describe('organizer flow', () => {
     await sheet.getByRole('button', { name: 'Close signup' }).click();
     await expect(sheet).toBeHidden();
     await expect(page.getByText('closed', { exact: true }).locator('visible=true')).toBeVisible();
+    await expect(page.getByText('Signup closed', { exact: true })).toBeVisible();
     expect(await storedStatus()).toBe('closed');
     await expect(more).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+  });
+
+  test('a signup closed some other way shows as closed, without the announcement', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const signup = await createPublishedSignup(page.request, {
+      title: `Closed elsewhere ${Date.now()}`,
+      slot: { values: { what: 'Juice', date: '2030-04-06' }, capacity: 5 },
+    });
+    await page.goto(`/app/signups/${signup.id}/settings`);
+    await expect(page.getByRole('button', { name: 'More actions' })).toBeVisible();
+
+    // As another tab or an AI assistant would, then a save on this page
+    // brings the header up to date.
+    expect((await page.request.post(`/api/signups/${signup.id}/close`)).ok()).toBe(true);
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByText('Signup closed', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'More actions' })).toHaveCount(0);
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Closed. People can’t sign up now.' }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1 })).not.toBeFocused();
   });
 
   test('the slot editor takes no date before 1900', async ({ page }) => {

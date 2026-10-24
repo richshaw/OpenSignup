@@ -2,17 +2,16 @@
 import { describe, it, expect, vi } from 'vitest';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MoreActionsMenu } from './MoreActionsMenu';
-import { StatusActionScope, type StatusAction } from './StatusActionForm';
+import type { StatusAction } from './StatusActionForm';
+
+const refresh = vi.hoisted(() => vi.fn());
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }));
 
 const QUESTION =
   'Nobody has signed up yet. People can’t sign up after this, and you can’t reopen it.';
 
 function renderMenu(closeAction: StatusAction = vi.fn<StatusAction>(async () => null)) {
-  render(
-    <StatusActionScope action={closeAction}>
-      <MoreActionsMenu closeQuestion={QUESTION} />
-    </StatusActionScope>,
-  );
+  render(<MoreActionsMenu closeQuestion={QUESTION} closeAction={closeAction} />);
   return { closeAction, more: screen.getByRole('button', { name: 'More actions' }) };
 }
 
@@ -25,7 +24,10 @@ describe('MoreActionsMenu', () => {
     expect(more).toHaveAttribute('aria-haspopup', 'dialog');
     expect(more).toHaveAttribute('aria-expanded', 'false');
 
+    refresh.mockClear();
     fireEvent.click(more);
+    // For the question's counts, which are from when the page loaded.
+    expect(refresh).toHaveBeenCalledTimes(1);
     expect(more).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('dialog', { name: 'More actions' })).toBeInTheDocument();
     expect(closeButton()).toHaveFocus();
@@ -85,10 +87,10 @@ describe('MoreActionsMenu', () => {
 
   it('closes when focus moves to something outside it, and leaves focus there', () => {
     render(
-      <StatusActionScope action={async () => null}>
-        <MoreActionsMenu closeQuestion={QUESTION} />
+      <>
+        <MoreActionsMenu closeQuestion={QUESTION} closeAction={async () => null} />
         <button type="button">Preview</button>
-      </StatusActionScope>,
+      </>,
     );
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
     const elsewhere = screen.getByRole('button', { name: 'Preview' });
@@ -120,5 +122,44 @@ describe('MoreActionsMenu', () => {
     const panel = screen.getByRole('dialog', { name: 'More actions' });
     await waitFor(() => expect(panel).toHaveTextContent('You don’t have edit access.'));
     expect(screen.getByRole('button', { name: 'Not yet' })).toHaveFocus();
+  });
+
+  it('stays open while Close signup is in flight: Escape and a click outside wait', async () => {
+    // A close that doesn't answer until the end of the test. React waits for
+    // every action in flight before it finishes any, so one left hanging
+    // would hold up the tests after this.
+    let answer: (result: null) => void = () => {};
+    renderMenu(() => new Promise((resolve) => (answer = resolve)));
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(closeButton());
+    await act(async () => {
+      fireEvent.click(closeButton());
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: /Closing/ })).toBeDisabled());
+    expect(screen.getByRole('button', { name: 'Not yet' })).toBeDisabled();
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(screen.getByRole('dialog', { name: 'More actions' })).toBeInTheDocument();
+    fireEvent.mouseDown(document.body);
+    expect(screen.getByRole('dialog', { name: 'More actions' })).toBeInTheDocument();
+    await act(async () => answer(null));
+  });
+
+  it('starts clean when asked again: an earlier refusal doesn’t come back', async () => {
+    const { more } = renderMenu(async () => ({ error: 'You don’t have edit access.' }));
+    fireEvent.click(more);
+    fireEvent.click(closeButton());
+    await act(async () => {
+      fireEvent.click(closeButton());
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('dialog')).toHaveTextContent('You don’t have edit access.'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Not yet' }));
+
+    fireEvent.click(more);
+    fireEvent.click(closeButton());
+    expect(screen.getByRole('group', { name: QUESTION })).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('You don’t have edit access.');
   });
 });
