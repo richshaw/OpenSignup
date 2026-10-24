@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { closeSignupQuestion, spotCounts } from './spot-counts';
+import { closeSignupQuestion, spotCounts, spotsTakenLine } from './spot-counts';
 
 describe('spotCounts', () => {
   it('adds up every slot’s capacity, the spots taken on them and the spots still open', () => {
@@ -148,5 +148,45 @@ describe('closeSignupQuestion', () => {
     expect(closeSignupQuestion({ taken: 1, total: null, open: null, allSlotsOpen: true })).toBe(
       `1 spot is taken.${after}`,
     );
+  });
+});
+
+describe('spotsTakenLine', () => {
+  const counts = (taken: number, total: number | null) => ({
+    taken,
+    total,
+    open: total === null ? null : Math.max(0, total - taken),
+    allSlotsOpen: true,
+  });
+
+  it('counts the spots taken of all of them when every slot has a limit', () => {
+    expect(spotsTakenLine(counts(0, 21), 'open')).toBe('0 of 21 spots taken');
+    expect(spotsTakenLine(counts(3, 21), 'open')).toBe('3 of 21 spots taken');
+    expect(spotsTakenLine(counts(21, 21), 'open')).toBe('21 of 21 spots taken');
+  });
+
+  it('says spot, not spots, of one', () => {
+    expect(spotsTakenLine(counts(0, 1), 'open')).toBe('0 of 1 spot taken');
+    expect(spotsTakenLine(counts(1, 1), 'open')).toBe('1 of 1 spot taken');
+  });
+
+  it('counts only the spots taken when a slot has no limit', () => {
+    expect(spotsTakenLine(counts(0, null), 'open')).toBe('0 spots taken');
+    expect(spotsTakenLine(counts(1, null), 'open')).toBe('1 spot taken');
+    expect(spotsTakenLine(counts(3, null), 'open')).toBe('3 spots taken');
+  });
+
+  it('counts only the spots taken when there are no slots to count against', () => {
+    expect(spotsTakenLine(counts(0, 0), 'open')).toBe('0 spots taken');
+  });
+
+  it('says what it counts when an organizer lowered a slot below its sign-ups', () => {
+    expect(spotsTakenLine(counts(5, 4), 'open')).toBe('5 of 4 spots taken');
+  });
+
+  it('says first that a closed or archived signup has stopped taking sign-ups', () => {
+    expect(spotsTakenLine(counts(3, 21), 'closed')).toBe('Closed · 3 of 21 spots taken');
+    expect(spotsTakenLine(counts(1, null), 'closed')).toBe('Closed · 1 spot taken');
+    expect(spotsTakenLine(counts(3, 21), 'archived')).toBe('Archived · 3 of 21 spots taken');
   });
 });

@@ -1,3 +1,5 @@
+import type { SignupStatus } from '@/schemas/signups';
+
 /** A signup's spots, all slots together. */
 export interface SpotCounts {
   /** Spots confirmed and tentative sign-ups hold, as the public page counts them. */
@@ -59,4 +61,21 @@ function standing({ taken, total, open, allSlotsOpen }: SpotCounts): string {
   const verb = open === 1 ? 'is' : 'are';
   if (total === null) return `${open} ${open === 1 ? 'spot' : 'spots'} ${verb} still open.`;
   return `${open} of ${total} spots ${verb} still open.`;
+}
+
+/**
+ * How many of a signup's spots are taken, for its header: beside the public
+ * link, and in a phone's bar while it's open. "0 of 21 spots taken", or
+ * "3 spots taken" when a slot has no limit and there's no total to count
+ * against. Once the signup has stopped taking sign-ups it says so first, as
+ * "Closed · 3 of 21 spots taken": the count won't change now.
+ */
+export function spotsTakenLine({ taken, total }: SpotCounts, status: SignupStatus): string {
+  const counted =
+    total === null || total === 0
+      ? `${taken} ${taken === 1 ? 'spot' : 'spots'} taken`
+      : `${taken} of ${total} ${total === 1 ? 'spot' : 'spots'} taken`;
+  if (status === 'closed') return `Closed · ${counted}`;
+  if (status === 'archived') return `Archived · ${counted}`;
+  return counted;
 }
