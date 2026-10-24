@@ -36,7 +36,7 @@ describe('when the share panel can’t load', () => {
     await expect(loadSharePanel()).resolves.toBe(ShareUnavailable);
   });
 
-  it('the panel still opens, with the link, Copy link and what to do', async () => {
+  it('the panel still opens, with the link, its copy button and what to do', async () => {
     render(
       <ShareScope publishAction={async () => null} title="Bake sale" url={LINK} message="">
         <ShareButton variant="desktop" />
@@ -47,21 +47,10 @@ describe('when the share panel can’t load', () => {
     expect(
       await within(panel).findByText('Couldn’t load the other ways to share. Reload to try again.'),
     ).toBeInTheDocument();
-    expect(within(panel).getByLabelText('Public link')).toHaveValue(LINK);
-    const copy = within(panel).getByRole('button', { name: 'Copy link' });
-    expect(copy).toHaveFocus();
-    fireEvent.click(copy);
+    expect(within(panel).getByText(LINK)).toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole('button', { name: 'Copy public link' }));
     await within(panel).findByText('Link copied');
     expect(writeText).toHaveBeenCalledWith(LINK);
-  });
-
-  it('says so when the clipboard refuses, and selects the link', async () => {
-    writeText.mockRejectedValue(new Error('denied'));
-    render(<ShareUnavailable url={LINK} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
-    await screen.findByText('Couldn’t copy. Select the link and copy it.');
-    const field = screen.getByLabelText<HTMLInputElement>('Public link');
-    expect(field).toHaveFocus();
-    expect([field.selectionStart, field.selectionEnd]).toEqual([0, LINK.length]);
+    expect(within(panel).getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
 });

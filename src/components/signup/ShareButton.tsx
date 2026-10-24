@@ -1,7 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { useId, useRef } from 'react';
+import { lazy, Suspense, useId, useRef } from 'react';
 import { Share2, X } from 'lucide-react';
 import { loadSharePanel } from '@/components/share/load-share-panel';
 import { PublishedMark, shareHeading } from '@/components/share/share-heading';
@@ -13,15 +12,11 @@ import { useShare } from './ShareScope';
 // The panel's body, its QR encoder with it, loads only when it first opens
 // (or as Publish is pressed), so none of it is in a signup page's first load.
 // Its heading and ✕ are here, so the panel is named and can be closed while
-// the body loads, and if it never does.
-const SharePanel = dynamic(() => loadSharePanel(), {
-  ssr: false,
-  loading: () => (
-    <div className="flex min-h-40 items-center justify-center text-ink-soft">
-      <Spinner />
-    </div>
-  ),
-});
+// the body loads, and if it never does. React's own lazy rather than
+// next/dynamic, which is the same thing in the App Router plus a runtime of
+// about 1.5 kB in every signup tab's first load; the panel renders only once
+// it's opened, never on the server, so there's no `ssr: false` to want.
+const SharePanel = lazy(() => loadSharePanel().then((Panel) => ({ default: Panel })));
 
 /**
  * An open signup's Share, and the share panel it opens: a popover under the
@@ -38,14 +33,22 @@ export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
   const shown = share.open && share.desktop === desktop;
 
   const panel = (
-    <SharePanel
-      variant={variant}
-      firstTime={share.firstTime}
-      title={share.title}
-      url={share.url}
-      message={share.message}
-      onMessageChange={share.setMessage}
-    />
+    <Suspense
+      fallback={
+        <div className="flex min-h-40 items-center justify-center text-ink-soft">
+          <Spinner />
+        </div>
+      }
+    >
+      <SharePanel
+        variant={variant}
+        firstTime={share.firstTime}
+        title={share.title}
+        url={share.url}
+        message={share.message}
+        onMessageChange={share.setMessage}
+      />
+    </Suspense>
   );
 
   const button = (

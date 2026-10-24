@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useId, useRef, useState, type Ref } from 'react';
 import { Check, Copy, Mail, Share } from 'lucide-react';
 import { useClipboardCopy } from '@/hooks/useClipboardCopy';
 import { withLink } from '@/lib/share-message';
-import { LINK_COPY_REFUSED, ShareLinkField } from './ShareLinkField';
 import { ShareQrCode } from './ShareQrCode';
 
 export interface SharePanelProps {
@@ -30,6 +29,7 @@ const LEAD_LATER = {
   phone: 'Send it to a group chat, by text or by email. Anyone with the link can sign up.',
 } as const;
 
+const LINK_COPY_REFUSED = 'Couldn’t copy. Select the link and copy it.';
 const MESSAGE_COPY_REFUSED = 'Couldn’t copy. Select the message and copy it.';
 
 type Copied = 'link' | 'message';
@@ -214,7 +214,7 @@ export function SharePanel({
           {/* The link to copy by hand, once the clipboard has refused it. */}
           {refused?.what === 'link' ? (
             <div className="flex">
-              <ShareLinkField url={url} ref={linkField} />
+              <LinkField url={url} ref={linkField} />
             </div>
           ) : null}
           <div className="flex gap-2">
@@ -227,7 +227,7 @@ export function SharePanel({
       ) : (
         <>
           <div className="flex gap-2">
-            <ShareLinkField url={url} ref={linkField} />
+            <LinkField url={url} ref={linkField} />
             {copyLinkButton}
           </div>
           {messageBox}
@@ -236,6 +236,30 @@ export function SharePanel({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * The public link in a read-only box, selected whole when it gets focus, so
+ * it can be copied by hand where the clipboard refuses.
+ */
+function LinkField({ url, ref }: { url: string; ref: Ref<HTMLInputElement> }) {
+  const id = useId();
+  return (
+    <>
+      <label htmlFor={id} className="sr-only">
+        Public link
+      </label>
+      <input
+        ref={ref}
+        id={id}
+        type="text"
+        readOnly
+        value={url}
+        onFocus={(e) => e.currentTarget.select()}
+        className="h-10 min-w-0 flex-1 rounded-[10px] border border-surface-sunk bg-surface-raised px-3 font-mono text-[12.5px] text-ink"
+      />
+    </>
   );
 }
 

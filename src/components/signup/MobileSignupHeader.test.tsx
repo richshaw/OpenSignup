@@ -68,8 +68,11 @@ describe('MobileSignupHeader', () => {
     });
     expect(publish).toHaveBeenCalledOnce();
 
-    // The layout re-renders with the signup open.
-    rerender(<Phone status="open" action={publish} />);
+    // The layout re-renders with the signup open (in an act that waits, so
+    // the panel's code, loading as it mounts, is in when the act ends).
+    await act(async () => {
+      rerender(<Phone status="open" action={publish} />);
+    });
     expect(screen.queryByRole('dialog', { name: 'Bake sale helpers' })).toBeNull();
     const sheet = await screen.findByRole('dialog', { name: 'Now send people the link' });
     expect(sheet).toHaveAccessibleDescription('Published');
