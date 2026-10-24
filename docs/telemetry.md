@@ -147,8 +147,8 @@ Both rows have `signup_id` and `workspace_id` set to `NULL` — the page is
 tenant-independent. Together they form the top of the organizer funnel
 (`landing.viewed` → `landing.cta_clicked` → `auth.magic_link_sent` →
 `auth.signed_in` → `signup.draft_started` → `signup.created`).
-`landing.cta_clicked` and `signup.link_copied` are the only client-emitted
-events in the catalogue; all others fire server-side. The landing beacon reads
+`landing.cta_clicked`, `signup.link_copied` and `signup.link_shared` are the
+only client-emitted events in the catalogue; all others fire server-side. The landing beacon reads
 UA/referer/DNT from request headers server-side, and the link beacon is
 accepted only from a signed-in member of the signup's workspace, who names just the event and the surface — no other
 client-supplied data is trusted.
@@ -384,7 +384,7 @@ edits, `auth.signed_in`, **and** the organizer-side RSC pageview events
 (`signup.editor_opened`, `signup.previewed`, `signup.draft_started`, and the
 Build tab's `signup.viewed`) which are written with the organizer as actor,
 and the organizer's telemetry rows (`signup.publish_refused`,
-`signup.link_copied`, `magic_compose.failed`).
+`signup.link_copied`, `signup.link_shared`, `magic_compose.failed`).
 The public page's `signup.viewed` is system-actor and does not advance
 `last_active_at`.
 
