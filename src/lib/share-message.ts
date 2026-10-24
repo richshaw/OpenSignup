@@ -17,28 +17,32 @@ export interface ShareMessageSignup {
 
 /**
  * The message the share panel offers to send with a signup's link, built
- * from the signup's own data and nothing else:
+ * from the signup's own data and nothing else, in words the people it's
+ * sent to know:
  *
  *     Fall book fair volunteers
- *     Thu, Nov 12 to Sat, Nov 14 · 8 slots · 21 spots
- *     Sign up here: https://…/s/book-fair-k3x
+ *     Thu, Nov 12 to Sat, Nov 14 · 21 spots open
+ *     Sign up here, no account needed: https://…/s/book-fair-k3x
  *
- * The middle line leaves out each part that doesn't apply: the dates when
- * no slot has one, the spots when an open slot has no limit or none are
- * left, and the line itself when nothing is left. Once people have signed
- * up, the spots are the ones still open ("18 spots left"), from
- * `committedBySlot` (as the commitments service counts them; none for a
- * draft). The organizer can change it before sending.
+ * No count of slots: that's the organizer's word, and the spots are what
+ * tell a reader there's room. The middle line leaves out each part that
+ * doesn't apply: the dates when no slot has one, the spots when an open
+ * slot has no limit or none are left, and the line itself when nothing is
+ * left, so a signup with no dates and no limits gets its title and the
+ * link. Once people have signed up, the spots are the ones still open
+ * ("18 spots left"), from `committedBySlot` (as the commitments service
+ * counts them; none for a draft). The description stays out: a link
+ * preview shows it already. The organizer can change it before sending.
  */
 export function shareMessage(
   signup: ShareMessageSignup,
   url: string,
   committedBySlot: Record<string, number> = {},
 ): string {
-  const facts = [dateSpan(signup), slotCount(signup), spotCount(signup, committedBySlot)].filter(
+  const facts = [dateSpan(signup), spotCount(signup, committedBySlot)].filter(
     (part): part is string => part !== null,
   );
-  return [signup.title.trim(), facts.join(' · '), `Sign up here: ${url}`]
+  return [signup.title.trim(), facts.join(' · '), `Sign up here, no account needed: ${url}`]
     .filter(Boolean)
     .join('\n');
 }
@@ -64,13 +68,8 @@ function dateSpan({ settings, fields, slots }: ShareMessageSignup): string | nul
   return days.length === 1 ? first : `${first} to ${last}`;
 }
 
-function slotCount({ slots }: ShareMessageSignup): string | null {
-  if (slots.length === 0) return null;
-  return slots.length === 1 ? '1 slot' : `${slots.length} slots`;
-}
-
 /**
- * The spots people can take, added up over the open slots: "21 spots"
+ * The spots people can take, added up over the open slots: "21 spots open"
  * before anyone has signed up, "18 spots left" after. Null when an open
  * slot has no limit, or when no spot is left to offer.
  */
@@ -81,7 +80,7 @@ function spotCount(
   const { taken, open } = spotCounts(slots, committedBySlot);
   if (open === null || open === 0) return null;
   const spots = open === 1 ? '1 spot' : `${open} spots`;
-  return taken === 0 ? spots : `${spots} left`;
+  return `${spots} ${taken === 0 ? 'open' : 'left'}`;
 }
 
 /**

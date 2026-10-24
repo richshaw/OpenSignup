@@ -159,9 +159,10 @@ export function CreateAndPublishASignup() {
                 <Ui>{UI.copyLink}</Ui> copies the link. Paste it into an email or a group chat.
               </li>
               <li>
-                There&apos;s a message to send with the link. It names your signup and says how
-                many slots there are. If the slots have dates, it gives them. If every slot has a
-                limit, it says how many spots are left. You can change the message.{' '}
+                There&apos;s a message to send with the link. It names your signup. If the slots
+                have dates, it gives them. If every slot has a limit, it says how many spots are
+                open. It also says that nobody needs an account to sign up. You can change the
+                message.{' '}
                 <Ui>{UI.copyMessage}</Ui> copies it, with the link. <Ui>{UI.emailIt}</Ui> opens
                 your email app with it.
               </li>

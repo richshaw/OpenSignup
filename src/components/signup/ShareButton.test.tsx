@@ -20,7 +20,7 @@ vi.mock('@/components/share/load-share-panel', async (importOriginal) => {
 });
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
-const MESSAGE = `Bake sale helpers\n4 slots · 8 spots\nSign up here: ${LINK}`;
+const MESSAGE = `Bake sale helpers\n8 spots open\nSign up here, no account needed: ${LINK}`;
 
 /** A window this wide; jsdom has no matchMedia of its own. */
 function windowWidth(width: number) {
@@ -176,11 +176,15 @@ describe('ShareButton on a computer', () => {
   it('takes a fresher message from the server until the organizer edits it', async () => {
     const { rerender } = render(<Header />);
     rerender(
-      <Header message={`Bake sale helpers\nSat, Nov 14 · 5 slots\nSign up here: ${LINK}`} />,
+      <Header
+        message={`Bake sale helpers\nSat, Nov 14 · 5 spots left\nSign up here, no account needed: ${LINK}`}
+      />,
     );
     fireEvent.click(shareIn('desktop'));
     const box = await screen.findByLabelText('A message to send with it');
-    expect(box).toHaveValue(`Bake sale helpers\nSat, Nov 14 · 5 slots\nSign up here: ${LINK}`);
+    expect(box).toHaveValue(
+      `Bake sale helpers\nSat, Nov 14 · 5 spots left\nSign up here, no account needed: ${LINK}`,
+    );
 
     fireEvent.change(box, { target: { value: 'Mine' } });
     rerender(<Header message={MESSAGE} />);
