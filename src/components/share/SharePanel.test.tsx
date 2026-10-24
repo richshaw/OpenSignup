@@ -12,7 +12,7 @@ const emit = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/signup-link-events', () => ({ emitSignupLinkEvent: emit }));
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
-const MESSAGE = `Bake sale helpers\nSat, Nov 14 · 4 slots · 8 spots\nSign up here: ${LINK}`;
+const MESSAGE = `Bake sale helpers\nSat, Nov 14 · 8 spots open\nSign up here, no account needed: ${LINK}`;
 const writeText = vi.fn<(text: string) => Promise<void>>();
 
 /** The panel with its owner's message state, as the header keeps it. */
