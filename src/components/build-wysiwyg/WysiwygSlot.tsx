@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { Copy, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { SlotEditor } from './SlotEditor';
 import { emptyHeaderCopy } from './prettyHeader';
+import { placeholderMark, slotRowLabel } from './slotRow';
 import { renderFieldValue } from '@/lib/slot-label';
+import type { SignupStatus } from '@/schemas/signups';
 import type { UseReorderableResult } from '../build-shared/useReorderable';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
@@ -17,6 +19,8 @@ type WysiwygSlotProps = {
   taken: number;
   /** Whether the signup sends reminders, and so emails about a moved slot. */
   remindersOn: boolean;
+  /** The signup's, for what a slot still saying "TBD" is marked with. */
+  status: SignupStatus;
   fields: BuildField[];
   /**
    * All non-group fields in organizer-chosen order. `displayFields[0]` becomes
@@ -42,11 +46,15 @@ type WysiwygSlotProps = {
  * Hover or focus-within on the collapsed row reveals a floating toolbar
  * with Edit / Duplicate / Delete affordances (keyboard parity via
  * focus-within, per the design's "one mode cue" feedback).
+ *
+ * A row whose values still hold TBD, TBC or TBA, as Publish's check finds
+ * them, is warm and tagged after its values, as it reads now, edits and all.
  */
 export function WysiwygSlot({
   row,
   taken,
   remindersOn,
+  status,
   fields,
   displayFields,
   expanded,
@@ -113,15 +121,19 @@ export function WysiwygSlot({
     ? emptyHeaderCopy(anchorField.config.fieldType, anchorField.name)
     : null;
 
+  // Any field counts, the group's too, as in Publish's check.
+  const mark = placeholderMark(row.values, fields, status);
+
   // aria-label must mirror the visible primary label — including the empty-state
   // placeholder — so multiple empty rows aren't exposed as identical "Edit slot"
-  // to assistive tech. (aria-label overrides the button's text content.)
-  let ariaLabel = 'Edit slot';
-  if (anchorValue) {
-    ariaLabel = isTimeAnchor ? `Edit slot at ${anchorValue}` : `Edit slot \u2014 ${anchorValue}`;
-  } else if (placeholder) {
-    ariaLabel = `Edit slot \u2014 ${placeholder}`;
-  }
+  // to assistive tech, and say the tag. (aria-label overrides the button's text
+  // content.)
+  const ariaLabel = slotRowLabel({
+    anchor: anchorValue,
+    time: isTimeAnchor,
+    prompt: placeholder,
+    mark,
+  });
 
   const anchorSizing = summary ? 'max-w-[60%] shrink-0' : 'min-w-0';
 
@@ -147,7 +159,10 @@ export function WysiwygSlot({
           ? 'border-transparent bg-brand-soft opacity-50'
           : isDropTarget
             ? 'border-t-2 border-brand bg-surface-raised'
-            : 'border-transparent focus-within:bg-surface-raised/50 hover:bg-surface-raised/50')
+            : // Warm, and staying so on hover: the tag's text keeps 4.5:1 on it.
+              mark
+              ? 'border-transparent bg-warn/5'
+              : 'border-transparent focus-within:bg-surface-raised/50 hover:bg-surface-raised/50')
       }
     >
       {reorder && (
@@ -185,6 +200,11 @@ export function WysiwygSlot({
           )}
           {summary && (
             <span className="min-w-0 truncate text-xs text-ink-muted">{summary}</span>
+          )}
+          {mark && (
+            <span className="shrink-0 rounded-full bg-warn/10 px-2 py-0.5 text-[11px] font-semibold leading-tight text-warn">
+              {mark}
+            </span>
           )}
         </div>
         {/* Spots taken, not left: organizers want to know how many signed up.

@@ -26,6 +26,7 @@ const baseProps = {
   initialFields: [],
   initialSlots: [],
   initialSettings: settings,
+  status: 'draft' as const,
   committedBySlot: {},
 };
 
@@ -275,5 +276,59 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
       '/api/slots/slot_a',
       expect.objectContaining({ method: 'PATCH' }),
     );
+  });
+});
+
+describe('BuildWysiwyg — a slot that still says TBD', () => {
+  const what = {
+    id: 'f-what',
+    ref: 'what',
+    label: 'What',
+    fieldType: 'text' as const,
+    sortOrder: 0,
+    config: { fieldType: 'text' as const, maxLength: 200 },
+  };
+  const slots = [
+    { id: 'slot_a', capacity: 1, sortOrder: 0, values: { what: 'Setup' } },
+    { id: 'slot_b', capacity: 1, sortOrder: 1, values: { what: 'Cashier TBD' } },
+  ];
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('is marked as it reads now, and in words for whether people can see it', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ data: {} }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+    const page = (status: 'draft' | 'open') => (
+      <BuildWysiwyg {...baseProps} status={status} initialFields={[what]} initialSlots={slots} />
+    );
+    const { rerender, unmount } = render(page('draft'));
+    expect(screen.getAllByText(/^Still says/)).toHaveLength(1);
+    const marked = screen.getByRole('button', {
+      name: 'Edit slot — Cashier TBD, still says “TBD”',
+    });
+
+    // Published: the Publish action renders the page again with its status.
+    rerender(page('open'));
+    expect(screen.getByText('People can see “TBD”')).toBeTruthy();
+    expect(screen.queryByText(/^Still says/)).toBeNull();
+
+    // Named, the mark goes as it's typed, before it has saved.
+    fireEvent.click(marked);
+    fireEvent.change(screen.getByRole('textbox', { name: 'What value' }), {
+      target: { value: 'Cashier' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.getByRole('button', { name: 'Edit slot — Cashier' })).toBeTruthy();
+    expect(screen.queryByText(/can see/)).toBeNull();
+    unmount();
   });
 });
