@@ -59,7 +59,7 @@ afterEach(() => {
   encoder.fails = false;
 });
 
-const NAME = 'QR code for Bake sale helpers’s sign-up link';
+const NAME = 'QR code for the sign-up link to Bake sale helpers';
 
 function renderQr(variant: 'desktop' | 'phone') {
   return render(

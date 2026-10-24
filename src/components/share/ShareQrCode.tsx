@@ -118,7 +118,7 @@ export function ShareQrCode({
   if (!qr || refused) return null;
   const { code, side, path } = qr;
   const name = qrFileName(url);
-  const alt = `QR code for ${title.trim()}’s sign-up link`;
+  const alt = `QR code for the sign-up link to ${title.trim()}`;
 
   function record() {
     if (recorded.current) return;

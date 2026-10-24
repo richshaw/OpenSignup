@@ -163,7 +163,9 @@ test.describe('help: create and publish your first signup', () => {
         }, standIn);
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
       await expect(
-        panel.getByRole('img', { name: 'QR code for Snack duty — Spring season’s sign-up link' }),
+        panel.getByRole('img', {
+          name: 'QR code for the sign-up link to Snack duty — Spring season',
+        }),
       ).toBeVisible();
       await shot(page, panel, 'share-panel');
     }
@@ -347,7 +349,7 @@ test.describe('help: create and publish your first signup', () => {
       await expect(qr).toHaveAttribute('aria-expanded', 'true');
       await expect(qr).toBeFocused();
       const code = sheet.getByRole('img', {
-        name: /^QR code for Phone publish \d+’s sign-up link$/,
+        name: /^QR code for the sign-up link to Phone publish \d+$/,
       });
       await expect(code).toBeVisible();
       const save = sheet.getByRole('button', { name: UI.saveImage });
