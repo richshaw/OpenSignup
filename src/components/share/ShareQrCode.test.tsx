@@ -106,14 +106,14 @@ describe('<ShareQrCode /> on a computer', () => {
     // The code fills the top, a square as wide as the picture.
     expect(ctx.drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, width, width);
     expect(ctx.fillText).toHaveBeenCalledExactlyOnceWith(
-      '\u2068Bake sale helpers\u2069',
+      '\u2066Bake sale helpers\u2069',
       width / 2,
       expect.any(Number),
     );
     expect(ctx.fillText.mock.calls[0]![2]).toBeGreaterThan(width);
   });
 
-  it('isolates each line of the title, so a right-to-left one keeps its ellipsis at its end', () => {
+  it('isolates each line in the title’s direction, so a right-to-left one keeps its ellipsis at its end', () => {
     const ctx = giveCanvas();
     const restore = stayOnPage();
     // Too long for two lines at 20px a character, so the second ends in "…".
@@ -124,7 +124,7 @@ describe('<ShareQrCode /> on a computer', () => {
     restore();
     const drawn = ctx.fillText.mock.calls.map(([text]) => text as string);
     expect(drawn).toHaveLength(2);
-    for (const text of drawn) expect(text).toMatch(/^\u2068[^\u2068\u2069]+\u2069$/);
+    for (const text of drawn) expect(text).toMatch(/^\u2067[^\u2066-\u2069]+\u2069$/);
     expect(drawn[1]).toMatch(/…\u2069$/);
   });
 });

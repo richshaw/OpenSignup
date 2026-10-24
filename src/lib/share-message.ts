@@ -46,7 +46,7 @@ export function shareMessage(
   url: string,
   committedBySlot: Record<string, number> = {},
 ): string {
-  const facts = [dateSpan(signup), spotCount(signup, committedBySlot)].filter(
+  const facts = [dateSpan(signup, committedBySlot), spotCount(signup, committedBySlot)].filter(
     (part): part is string => part !== null,
   );
   return [signup.title.trim(), facts.join(' · '), `Sign up here, no account needed: ${url}`]
@@ -57,11 +57,11 @@ export function shareMessage(
 /**
  * When the slots are, from the date field the reminders use (or the first
  * date field) and the time field paired with it, as the reminders pair them.
- * It reads the open slots when any slot is open, and every slot otherwise:
- * the message asks people to sign up, so a closed slot, which they can't
- * take, doesn't add a day or hide a time the open ones share. (The spots
- * count only open slots too.)
- *
+ * It reads the slots people can still take, the ones the spots count: open,
+ * with a spot left or no limit. The message asks people to sign up, so a
+ * closed or full slot doesn't add a day or hide a time the others share.
+ * When none has room, it reads the open slots, and when none is open, every
+ * slot.
  *
  * - the days: one ("Sat, Nov 14"); days that run on with no gap, as a range
  *   ("Thu, Nov 12 to Sat, Nov 14"); two or three with a gap, named ("Sat,
@@ -74,9 +74,15 @@ export function shareMessage(
  *
  * Null when there's neither.
  */
-function dateSpan({ settings, fields, slots: all }: ShareMessageSignup): string | null {
+function dateSpan(
+  { settings, fields, slots: all }: ShareMessageSignup,
+  committedBySlot: Record<string, number>,
+): string | null {
   const open = all.filter((s) => s.status === 'open');
-  const slots = open.length > 0 ? open : all;
+  const withRoom = open.filter(
+    (s) => s.capacity === null || s.capacity - (committedBySlot[s.id] ?? 0) > 0,
+  );
+  const slots = withRoom.length > 0 ? withRoom : open.length > 0 ? open : all;
   const dateRef = resolveAnchorRef(settings, fields);
   const timeRef = pairedTimeField(fields.find((f) => f.ref === dateRef) ?? null, fields)?.ref;
   const dated = dateRef
