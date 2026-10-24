@@ -93,6 +93,7 @@ export type BuildAction =
   | { type: 'SET_REMINDER_FIELD'; ref: string | null }
   | { type: 'SET_SAVE_STATUS'; status: SaveStatus }
   | { type: 'OPTIMISTIC_ADD_ROW'; row: BuildRow }
+  | { type: 'INSERT_ROW_AFTER'; afterRowId: string; row: BuildRow }
   | { type: 'OPTIMISTIC_REMOVE_ROW'; rowId: string }
   | { type: 'OPTIMISTIC_EDIT_CELL'; rowId: string; fieldRef: string; value: string }
   | { type: 'OPTIMISTIC_SET_CAPACITY'; rowId: string; capacity: number | null }
@@ -124,6 +125,14 @@ export function buildReducer(state: BuildState, action: BuildAction): BuildState
 
     case 'OPTIMISTIC_ADD_ROW':
       return { ...state, rows: [...state.rows, action.row] };
+
+    case 'INSERT_ROW_AFTER': {
+      // Renumbered from 0, as the server renumbers the slots around an insert.
+      const at = state.rows.findIndex((r) => r.id === action.afterRowId);
+      const rows = state.rows.slice();
+      rows.splice(at < 0 ? rows.length : at + 1, 0, action.row);
+      return { ...state, rows: rows.map((r, i) => ({ ...r, sortOrder: i })) };
+    }
 
     case 'OPTIMISTIC_REMOVE_ROW':
       return { ...state, rows: state.rows.filter((r) => r.id !== action.rowId) };
@@ -555,25 +564,49 @@ export function useBuildState(
 
   const slotsUrl = `/api/signups/${signupId}/slots`;
 
-  const addRow = (seed?: { values?: Record<string, unknown>; capacity?: number }): Promise<void> =>
+  const addRow = (seed?: { values?: Record<string, unknown> }): Promise<void> =>
     withSave(async () => {
       const slot = await sendForData<BuildSlot>('POST', slotsUrl, {
         values: toTypedValues(stateRef.current.fields, seed?.values ?? {}),
-        capacity: seed?.capacity ?? 1,
+        capacity: 1,
       });
       const row = toBuildRow(slot);
       savedValues.set(row.id, row.values);
       dispatch({ type: 'OPTIMISTIC_ADD_ROW', row });
     });
 
-  const duplicateRow = async (rowId: string): Promise<void> => {
-    const source = stateRef.current.rows.find((r) => r.id === rowId);
-    if (!source) return;
-    // Clone the row's values; addRow types them for the API. Capacity falls
-    // back to 1 when the source was uncapped — the grid uses null to mean
-    // "no limit", but new slots ship with capacity 1 to stay safe and
-    // consistent with the bare addRow contract.
-    await addRow({ values: { ...source.values }, capacity: source.capacity ?? 1 });
+  /**
+   * Adds a copy of the row straight after it (#557), where the organizer
+   * looks for it, rather than at the end. Resolves to the copy's id, or null
+   * when nothing was added.
+   */
+  const duplicateRow = async (rowId: string): Promise<string | null> => {
+    const rows = stateRef.current.rows;
+    const at = rows.findIndex((r) => r.id === rowId);
+    const source = rows[at];
+    if (!source) return null;
+    const next = rows[at + 1];
+    let copyId: string | null = null;
+    await withSave(async () => {
+      // Capacity falls back to 1 when the source was uncapped — the grid uses
+      // null to mean "no limit", but new slots ship with capacity 1 to stay
+      // safe and consistent with addRow.
+      const [slot] = await sendForData<BuildSlot[]>('POST', `${slotsUrl}/bulk`, {
+        rows: [
+          {
+            values: toTypedValues(stateRef.current.fields, { ...source.values }),
+            capacity: source.capacity ?? 1,
+          },
+        ],
+        ...(next ? { beforeSlotId: next.id } : {}),
+      });
+      if (!slot) return;
+      const row = toBuildRow(slot);
+      savedValues.set(row.id, row.values);
+      dispatch({ type: 'INSERT_ROW_AFTER', afterRowId: rowId, row });
+      copyId = row.id;
+    });
+    return copyId;
   };
 
   const deleteRow = (rowId: string): Promise<void> =>

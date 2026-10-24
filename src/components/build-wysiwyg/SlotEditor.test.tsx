@@ -36,6 +36,8 @@ function renderEditor(overrides: {
   onDuplicate?: Mock<() => void>;
   onDelete?: Mock<() => void>;
   onClose?: Mock<() => void>;
+  focusOnOpen?: boolean;
+  onFocused?: Mock<() => void>;
 } = {}) {
   const onCellChange = overrides.onCellChange ?? vi.fn<(fieldRef: string, value: string) => void>();
   const onCapacity = overrides.onCapacity ?? vi.fn<(capacity: number | null) => void>();
@@ -47,6 +49,8 @@ function renderEditor(overrides: {
     <SlotEditor
       row={overrides.row ?? makeRow({ values: { name: 'Existing' } })}
       fields={overrides.fields ?? [makeField()]}
+      {...(overrides.focusOnOpen !== undefined ? { focusOnOpen: overrides.focusOnOpen } : {})}
+      {...(overrides.onFocused ? { onFocused: overrides.onFocused } : {})}
       taken={overrides.taken ?? 0}
       remindersOn={overrides.remindersOn ?? true}
       onCellChange={onCellChange}
@@ -166,6 +170,24 @@ describe('SlotEditor', () => {
     const { onDuplicate } = renderEditor();
     fireEvent.click(screen.getByRole('button', { name: /Duplicate/ }));
     expect(onDuplicate).toHaveBeenCalled();
+  });
+
+  it('moves focus to the first field when focusOnOpen is set', () => {
+    renderEditor({ focusOnOpen: true });
+    expect(screen.getByRole('textbox', { name: 'Name value' })).toHaveFocus();
+  });
+
+  it('leaves focus alone when focusOnOpen is not set', () => {
+    const onFocused = vi.fn<() => void>();
+    renderEditor({ onFocused });
+    expect(screen.getByRole('textbox', { name: 'Name value' })).not.toHaveFocus();
+    expect(onFocused).not.toHaveBeenCalled();
+  });
+
+  it('calls onFocused once it has taken focus', () => {
+    const onFocused = vi.fn<() => void>();
+    renderEditor({ focusOnOpen: true, onFocused });
+    expect(onFocused).toHaveBeenCalledTimes(1);
   });
 
   it('renders native input types for date / time / number fields', () => {
