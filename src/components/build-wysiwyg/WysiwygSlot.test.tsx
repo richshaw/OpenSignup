@@ -272,7 +272,8 @@ describe('WysiwygSlot — a slot that still says TBD', () => {
   it('keeps 10ch for the summary beside a tag on a computer, letting the tag wrap', () => {
     renderSlot({ row: marked('Job TBD') });
     const summary = screen.getByText('Job TBD');
-    expect(summary.className).toMatch(/\bmin-w-\[10ch\] flex-1\b/);
+    // At least 10ch, growing no wider than its text, so the tag follows it.
+    expect(summary.className).toMatch(/\bmin-w-\[10ch\] max-w-max flex-1\b/);
     // Its line may wrap, so the tag can drop under the values.
     expect(summary.closest('button')?.firstElementChild?.className).not.toMatch(/md:flex-nowrap/);
   });

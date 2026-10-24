@@ -523,6 +523,29 @@ test.describe('the TBD mark on a computer', () => {
     expect(await summary.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     expect(t.y).toBeGreaterThanOrEqual(a.y + a.height);
   });
+
+  test('follows a short slot’s values, not the count', async ({ page, context }) => {
+    await loginAsSeededOrganizer(context);
+    const signup = await createPublishedSignup(page.request, {
+      title: `Short mark ${Date.now()}`,
+      slot: { values: { what: 'Juice TBD', date: '2030-04-06' }, capacity: 3 },
+    });
+    await page.goto(`/app/signups/${signup.id}/build`);
+    const row = page.getByRole('button', { name: 'Edit slot — Juice TBD, people can see “TBD”' });
+    const tag = row.getByText('People can see “TBD”', { exact: true });
+    const summary = row.getByText(/^Sat, Apr 6/);
+    const count = row.getByText('0 of 3 taken', { exact: true });
+    for (const part of [tag, summary, count]) await expect(part).toBeVisible();
+
+    const [t, s, c] = await Promise.all([tag, summary, count].map((l) => l.boundingBox()));
+    if (!t || !s || !c) throw new Error('a part of the row is not on screen');
+    // On the same line, right after the date (the 10px gap), and well clear
+    // of the count rather than pushed against it.
+    expect(Math.abs(t.y + t.height / 2 - (s.y + s.height / 2))).toBeLessThan(4);
+    expect(t.x - (s.x + s.width)).toBeGreaterThanOrEqual(0);
+    expect(t.x - (s.x + s.width)).toBeLessThanOrEqual(14);
+    expect(c.x - (t.x + t.width)).toBeGreaterThan(40);
+  });
 });
 
 // What Publish waits for and where its fix goes, at a computer's size.

@@ -200,8 +200,10 @@ export function WysiwygSlot({
             steps aside (contents) so they sit in the row as before. On a
             computer the summary keeps 10ch beside a tag ("Sat, Apr 6"), and
             the tag drops under them when that leaves it no room, rather
-            than squeeze the summary to nothing. A row without a tag lays
-            out as it always has. */}
+            than squeeze the summary to nothing. The summary grows into what
+            the line has left, but no wider than its text, so the tag sits
+            right after it rather than against the count. A row without a
+            tag lays out as it always has. */}
         <div
           className={`flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1 ${mark ? '' : 'md:flex-nowrap'}`}
         >
@@ -219,7 +221,7 @@ export function WysiwygSlot({
             )}
             {summary && (
               <span
-                className={`${mark ? 'min-w-[10ch] flex-1' : 'min-w-0'} truncate text-xs text-ink-muted`}
+                className={`${mark ? 'min-w-[10ch] max-w-max flex-1' : 'min-w-0'} truncate text-xs text-ink-muted`}
               >
                 {summary}
               </span>
