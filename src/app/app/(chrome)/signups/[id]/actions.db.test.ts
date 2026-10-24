@@ -485,13 +485,12 @@ describe('Publish’s check (db)', () => {
   // #525 counts refused publishes. The check now stops what the service used
   // to refuse, so it writes the same row.
   describe('signup.publish_refused', () => {
-    const refusals = async (id: string) =>
-      (
-        await db
-          .select({ payload: activity.payload, actorId: activity.actorId })
-          .from(activity)
-          .where(and(eq(activity.signupId, id), eq(activity.eventType, 'signup.publish_refused')))
-      ).map((row) => row.payload);
+    const refusalRows = async (id: string) =>
+      db
+        .select({ payload: activity.payload, actorId: activity.actorId })
+        .from(activity)
+        .where(and(eq(activity.signupId, id), eq(activity.eventType, 'signup.publish_refused')));
+    const refusals = async (id: string) => (await refusalRows(id)).map((row) => row.payload);
 
     it.each<[string, () => Promise<{ id: string }>, Record<string, unknown>]>([
       ['no slots', () => draft([], { empty: true }), { code: 'conflict', reason: 'no_slots' }],
@@ -505,7 +504,8 @@ describe('Publish’s check (db)', () => {
     ])('writes one row when the check stops %s', async (_name, make, payload) => {
       const { id } = await make();
       await publishAction(id);
-      expect(await refusals(id)).toEqual([payload]);
+      // By the organizer who pressed Publish and share.
+      expect(await refusalRows(id)).toEqual([{ payload, actorId: organizerId }]);
     });
 
     it('writes no more once the organizer chooses Publish anyway', async () => {
