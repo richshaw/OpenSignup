@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { useEffect } from 'react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { BuildBridge, useBuildBridge } from '@/components/signup/BuildBridge';
 import { BuildWysiwyg } from './BuildWysiwyg';
 import type { SignupSettings } from '@/schemas/signups';
@@ -29,6 +30,7 @@ const baseProps = {
   initialFields: [],
   initialSlots: [],
   initialSettings: settings,
+  status: 'draft' as const,
   committedBySlot: {},
 };
 
@@ -225,9 +227,24 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     { id: 'slot_b', capacity: 1, sortOrder: 1, values: { what: 'Cleanup', where: 'Room TBA' } },
   ];
 
-  /** Asks the Build tab, as the header's Publish does, through the bridge. */
-  function Header({ onReady }: { onReady: (bridge: ReturnType<typeof useBuildBridge>) => void }) {
-    onReady(useBuildBridge());
+  // What Publish and share does when the bridge hands it the focus back.
+  const handBack = vi.fn();
+
+  /**
+   * Asks the Build tab, as the header's Publish does, through the bridge, and
+   * takes the focus when it's handed back, as Publish and share does.
+   */
+  function Header({
+    onReady,
+    takesFocus = true,
+  }: {
+    onReady: (bridge: ReturnType<typeof useBuildBridge>) => void;
+    /** False once published: there's no Publish and share to take it. */
+    takesFocus?: boolean;
+  }) {
+    const bridge = useBuildBridge();
+    onReady(bridge);
+    useEffect(() => (takesFocus ? bridge.onHandBack(handBack) : undefined), [bridge, takesFocus]);
     return null;
   }
 
@@ -235,13 +252,15 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
   function Layout({
     onReady,
     build,
+    takesFocus = true,
   }: {
     onReady: (b: ReturnType<typeof useBuildBridge>) => void;
     build: boolean;
+    takesFocus?: boolean;
   }) {
     return (
       <BuildBridge buildHref="/app/signups/sig_t/build">
-        <Header onReady={onReady} />
+        <Header onReady={onReady} takesFocus={takesFocus} />
         {build ? (
           <BuildWysiwyg {...baseProps} initialFields={[what, where]} initialSlots={slots} />
         ) : null}
@@ -266,7 +285,13 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     router.push.mockClear();
+    handBack.mockClear();
   });
+
+  const done = (slotId: string) =>
+    fireEvent.click(
+      within(screen.getByTestId(`slot-editor-${slotId}`)).getByRole('button', { name: 'Done' }),
+    );
 
   it('opens the slot it’s about, with focus in the field asked for', () => {
     const { bridge } = renderBuild();
@@ -355,5 +380,266 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
       '/api/slots/slot_a',
       expect.objectContaining({ method: 'PATCH' }),
     );
+  });
+
+  it('hands the focus back to Publish and share when Done closes the slot it opened', () => {
+    const { bridge } = renderBuild();
+    act(() => {
+      bridge().openSlot('slot_b', 'where');
+    });
+    expect(handBack).not.toHaveBeenCalled();
+    done('slot_b');
+    expect(handBack).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+
+    // Once: opened again by the organizer, Done just closes it.
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Cleanup/ }));
+    done('slot_b');
+    expect(handBack).toHaveBeenCalledOnce();
+  });
+
+  it('hands nothing back after a slot the organizer opened', () => {
+    renderBuild();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    done('slot_a');
+    expect(handBack).not.toHaveBeenCalled();
+  });
+
+  it('hands nothing back once the organizer has opened another slot', () => {
+    const { bridge } = renderBuild();
+    act(() => {
+      bridge().openSlot('slot_b', 'where');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    done('slot_a');
+    expect(handBack).not.toHaveBeenCalled();
+  });
+
+  it('hands it back for a slot a fix on another tab opened, and for one it added', async () => {
+    const { bridge, showBuild } = renderBuild({ build: false });
+    act(() => {
+      bridge().openSlot('slot_b', 'where');
+    });
+    showBuild(true);
+    done('slot_b');
+    expect(handBack).toHaveBeenCalledOnce();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ data: { id: 'slot_new', capacity: 1, sortOrder: 2, values: {} } }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+    );
+    await act(async () => bridge().openSlot(null, null));
+    done('slot_new');
+    expect(handBack).toHaveBeenCalledTimes(2);
+  });
+
+  it('lets Enter in a one-line box do what Done does, in the slot it opened', () => {
+    const { bridge } = renderBuild();
+    act(() => {
+      bridge().openSlot('slot_b', 'where');
+    });
+    const where = screen.getByRole('textbox', { name: 'Where value' });
+    // Mid-composition, Enter is the input method's; Safari ends the
+    // composition first, then sends that Enter as key 229.
+    fireEvent.keyDown(where, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(where, { key: 'Enter', keyCode: 229 });
+    expect(screen.getByTestId('slot-editor-slot_b')).toBeInTheDocument();
+    expect(handBack).not.toHaveBeenCalled();
+    fireEvent.keyDown(where, { key: 'Enter' });
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+    expect(handBack).toHaveBeenCalledOnce();
+
+    // Spots is one of its boxes too.
+    act(() => {
+      bridge().openSlot('slot_a', null);
+    });
+    fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Spots' }), { key: 'Enter' });
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+    expect(handBack).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves Enter as it was in a slot the organizer opened, or once they open one', () => {
+    const { bridge } = renderBuild();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'What value' }), { key: 'Enter' });
+    expect(screen.getByTestId('slot-editor-slot_a')).toBeInTheDocument();
+
+    act(() => {
+      bridge().openSlot('slot_b', 'where');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'What value' }), { key: 'Enter' });
+    expect(screen.getByTestId('slot-editor-slot_a')).toBeInTheDocument();
+    expect(handBack).not.toHaveBeenCalled();
+  });
+
+  it('leaves the slot open on Enter once there’s no Publish and share to take the focus', () => {
+    let bridge: ReturnType<typeof useBuildBridge> | null = null;
+    // Published with the slot still open: the header has Share now.
+    render(<Layout onReady={(b) => (bridge = b)} build takesFocus={false} />);
+    act(() => {
+      bridge!.openSlot('slot_b', 'where');
+    });
+    const where = screen.getByRole('textbox', { name: 'Where value' });
+    expect(fireEvent.keyDown(where, { key: 'Enter' })).toBe(true);
+    expect(screen.getByTestId('slot-editor-slot_b')).toBeInTheDocument();
+    expect(where).toHaveFocus();
+    // Done still closes it.
+    done('slot_b');
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+    expect(handBack).not.toHaveBeenCalled();
+  });
+
+  it('hands nothing back after Duplicate opens the copy, or after Delete', async () => {
+    const copy = {
+      id: 'slot_copy',
+      capacity: 1,
+      sortOrder: 2,
+      values: { what: 'Cleanup', where: 'Room TBA' },
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ data: String(url).endsWith('/slots/bulk') ? [copy] : {} }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        ),
+      ),
+    );
+    const { bridge } = renderBuild();
+    act(() => {
+      bridge().openSlot('slot_b', 'where');
+    });
+    fireEvent.click(
+      within(screen.getByTestId('slot-editor-slot_b')).getByRole('button', { name: 'Duplicate' }),
+    );
+    const copyEditor = await screen.findByTestId('slot-editor-slot_copy');
+    // The copy is Duplicate's, not the fix's: Enter leaves it open, and Done
+    // just closes it.
+    fireEvent.keyDown(within(copyEditor).getByRole('textbox', { name: 'Where value' }), {
+      key: 'Enter',
+    });
+    expect(screen.getByTestId('slot-editor-slot_copy')).toBeInTheDocument();
+    done('slot_copy');
+    expect(handBack).not.toHaveBeenCalled();
+
+    act(() => {
+      bridge().openSlot('slot_a', null);
+    });
+    fireEvent.click(
+      within(screen.getByTestId('slot-editor-slot_a')).getByRole('button', { name: 'Delete' }),
+    );
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+    expect(handBack).not.toHaveBeenCalled();
+  });
+
+  it('leaves Enter to a list’s new item, then lets it close the slot', async () => {
+    const kind = {
+      id: 'f-kind',
+      ref: 'kind',
+      label: 'Kind',
+      fieldType: 'enum' as const,
+      sortOrder: 1,
+      config: { fieldType: 'enum' as const, choices: ['Cake'] },
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ data: {} }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    );
+    let bridge: ReturnType<typeof useBuildBridge> | null = null;
+    render(
+      <BuildBridge buildHref="/app/signups/sig_t/build">
+        <Header onReady={(b) => (bridge = b)} />
+        <BuildWysiwyg
+          {...baseProps}
+          initialFields={[what, kind]}
+          initialSlots={[{ id: 'slot_a', capacity: 1, sortOrder: 0, values: { what: 'TBD' } }]}
+        />
+      </BuildBridge>,
+    );
+    act(() => {
+      bridge!.openSlot('slot_a', 'what');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Kind value' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to list' }));
+    const item = screen.getByRole('textbox', { name: 'New option name' });
+    fireEvent.change(item, { target: { value: 'Pie' } });
+    await act(async () => {
+      fireEvent.keyDown(item, { key: 'Enter' });
+    });
+    expect(screen.getByTestId('slot-editor-slot_a')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Kind value' })).toHaveTextContent('Pie');
+    expect(handBack).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'What value' }), { key: 'Enter' });
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+    expect(handBack).toHaveBeenCalledOnce();
+  });
+});
+
+describe('BuildWysiwyg — a slot that still says TBD', () => {
+  const what = {
+    id: 'f-what',
+    ref: 'what',
+    label: 'What',
+    fieldType: 'text' as const,
+    sortOrder: 0,
+    config: { fieldType: 'text' as const, maxLength: 200 },
+  };
+  const slots = [
+    { id: 'slot_a', capacity: 1, sortOrder: 0, values: { what: 'Setup' } },
+    { id: 'slot_b', capacity: 1, sortOrder: 1, values: { what: 'Cashier TBD' } },
+  ];
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('is marked as it reads now, and in words for whether people can see it', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ data: {} }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+    const page = (status: 'draft' | 'open') => (
+      <BuildWysiwyg {...baseProps} status={status} initialFields={[what]} initialSlots={slots} />
+    );
+    const { rerender, unmount } = render(page('draft'));
+    expect(screen.getAllByText(/^Still says/)).toHaveLength(1);
+    const marked = screen.getByRole('button', {
+      name: 'Edit slot — Cashier TBD, still says “TBD”',
+    });
+
+    // Published: the Publish action renders the page again with its status.
+    rerender(page('open'));
+    expect(screen.getByText('People can see “TBD”')).toBeTruthy();
+    expect(screen.queryByText(/^Still says/)).toBeNull();
+
+    // Named, the mark goes as it's typed, before it has saved.
+    fireEvent.click(marked);
+    fireEvent.change(screen.getByRole('textbox', { name: 'What value' }), {
+      target: { value: 'Cashier' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.getByRole('button', { name: 'Edit slot — Cashier' })).toBeTruthy();
+    expect(screen.queryByText(/can see/)).toBeNull();
+    unmount();
   });
 });

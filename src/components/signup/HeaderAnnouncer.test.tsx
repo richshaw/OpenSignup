@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import type { SignupStatus } from '@/schemas/signups';
-import { HeaderAnnouncer, useAnnouncedClose } from './HeaderAnnouncer';
+import { HeaderAnnouncer, useAnnounce, useAnnouncedClose } from './HeaderAnnouncer';
 import type { StatusAction } from './StatusActionForm';
 
 const CLOSED = 'Closed. People can’t sign up now.';
@@ -51,5 +51,29 @@ describe('HeaderAnnouncer', () => {
     });
     show('closed');
     expect(screen.getByRole('status')).toHaveTextContent('');
+  });
+
+  it('says the same words again as a new node, so a screen reader reads them again', () => {
+    function Say() {
+      const say = useAnnounce();
+      return (
+        <button type="button" onClick={() => say('Saved.')}>
+          Say
+        </button>
+      );
+    }
+    render(
+      <HeaderAnnouncer status="draft">
+        <Say />
+      </HeaderAnnouncer>,
+    );
+    const region = screen.getByRole('status');
+    act(() => screen.getByRole('button', { name: 'Say' }).click());
+    const first = region.firstElementChild;
+    expect(region).toHaveTextContent('Saved.');
+    act(() => screen.getByRole('button', { name: 'Say' }).click());
+    expect(region).toHaveTextContent('Saved.');
+    expect(region.firstElementChild).not.toBe(first);
+    expect(region.children).toHaveLength(1);
   });
 });

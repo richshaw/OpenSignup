@@ -14,6 +14,7 @@ import { loadSharePanel } from '@/components/share/load-share-panel';
 import { Spinner } from '@/components/ui/spinner';
 import type { PublishCheckAnswer } from '@/lib/publish-check';
 import { useBuildBridge } from './BuildBridge';
+import { useAnnounce } from './HeaderAnnouncer';
 import { BAR_BUTTON, HEADER_BUTTON, PRIMARY } from './header-buttons';
 import { PublishCheckPanel } from './PublishCheckPanel';
 import { useShare } from './ShareScope';
@@ -26,6 +27,9 @@ import {
 
 /** How long Publish waits for the Build tab's saves before it goes on. */
 const SAVE_WAIT_MS = 10_000;
+
+/** How long Publish and share stays ringed once a check's fix hands it the focus. */
+const RING_MS = 1_600;
 
 interface Publish {
   /** Saving the Build tab's edits, then publishing. */
@@ -130,28 +134,61 @@ export function PublishRefusal({ className }: { className?: string }) {
  * A draft's Publish and share: in a computer's header, or filling a phone's
  * bar at the bottom of the screen. The check's panel opens from it (see
  * `PublishCheckPanel`); pressing this again closes the popover.
+ *
+ * When Done, or Enter, closes the slot a check's fix opened, the one on
+ * screen takes the focus, ringed for `RING_MS` so it shows after a click too,
+ * and the header says the organizer can publish now; not "Saved", as the
+ * slot's last edit may still be on its way. The ring goes early when it's
+ * pressed or loses the focus. A held Enter's repeats are ignored: the first
+ * brings focus here from the slot, and the next mustn't publish. Other keys'
+ * repeats go through, so a held Tab moves on past it; a held Space presses
+ * only as it's let go, so its repeats need nothing.
  */
 export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
   const { busy, check, publish, closeCheck, fix } = useContext(PublishContext);
   const share = useShare();
   const desktop = variant === 'desktop';
-  const answer = check !== null && share.desktop === desktop ? check : null;
+  const onScreen = share.desktop === desktop;
+  const answer = check !== null && onScreen ? check : null;
   const trigger = useRef<HTMLButtonElement>(null);
+  const { onHandBack } = useBuildBridge();
+  const say = useAnnounce();
+  // Counts hand-backs, so a second one starts the ring's time again; 0 is off.
+  const [ring, setRing] = useState(0);
+
+  useEffect(() => {
+    if (!onScreen) return;
+    return onHandBack(() => {
+      trigger.current?.focus();
+      setRing((n) => n + 1);
+      say('Publish and share when you’re ready.');
+    });
+  }, [onScreen, onHandBack, say]);
+  useEffect(() => {
+    if (!ring) return;
+    const timer = setTimeout(setRing, RING_MS, 0);
+    return () => clearTimeout(timer);
+  }, [ring]);
 
   const button = (
     <button
       ref={trigger}
       type="button"
       onClick={() => {
+        setRing(0);
         if (busy) return;
         if (answer) closeCheck();
         else publish();
+      }}
+      onBlur={() => setRing(0)}
+      onKeyDown={(e) => {
+        if (e.repeat && e.key === 'Enter') e.preventDefault();
       }}
       aria-haspopup="dialog"
       aria-expanded={answer !== null}
       aria-busy={busy}
       aria-disabled={busy || undefined}
-      className={`${desktop ? HEADER_BUTTON : BAR_BUTTON} ${PRIMARY} ${busy ? 'cursor-progress brightness-90' : ''}`}
+      className={`${desktop ? HEADER_BUTTON : BAR_BUTTON} ${PRIMARY} ${busy ? 'cursor-progress brightness-90' : ''} ${ring ? 'outline outline-2 outline-offset-[3px] outline-brand' : ''}`}
     >
       {busy ? <Spinner /> : <Send size={desktop ? 15 : 16} aria-hidden="true" />}
       {busy ? 'Publishing…' : 'Publish and share'}

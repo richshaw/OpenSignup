@@ -125,6 +125,11 @@ export function CreateAndPublishASignup() {
           <Ui>{UI.delete}</Ui>. Don&apos;t leave a slot empty: people see it as{' '}
           <Ui>{UI.untitledSlot}</Ui>.
         </p>
+        <p>
+          A slot that still says &ldquo;TBD&rdquo;, &ldquo;TBC&rdquo; or &ldquo;TBA&rdquo; is
+          marked <Ui>{UI.stillSays}</Ui> on the <Ui>{UI.build}</Ui> tab, with its own word. Once
+          your signup is published, the mark says <Ui>{UI.peopleCanSee}</Ui>.
+        </p>
       </section>
 
       <section className="space-y-4">

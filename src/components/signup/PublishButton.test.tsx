@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { BuildWysiwyg } from '@/components/build-wysiwyg/BuildWysiwyg';
 import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/publish-check';
 import { BuildBridge, useRegisterBuildTab } from './BuildBridge';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
@@ -367,5 +368,172 @@ describe('the check on a phone', () => {
     // A tick for Radix, which hands focus back a moment after the sheet closes.
     await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
     expect(screen.getByRole('textbox', { name: 'What value' })).toHaveFocus();
+  });
+});
+
+describe('Done after the check’s fix', () => {
+  const READY = 'Publish and share when you’re ready.';
+  const RING = /\boutline-brand\b/;
+
+  /** The Build tab, its one slot still saying TBD: the slot `TBD`'s fix opens. */
+  const buildTab = (
+    <BuildWysiwyg
+      signupId="sig_1"
+      signupMeta={{ title: 'Bake sale helpers', description: null }}
+      initialFields={[
+        {
+          id: 'f-what',
+          ref: 'what',
+          label: 'What',
+          fieldType: 'text',
+          sortOrder: 0,
+          config: { fieldType: 'text', maxLength: 200 },
+        },
+      ]}
+      initialSlots={[{ id: 'slot_b', capacity: 1, sortOrder: 0, values: { what: 'Cashier TBD' } }]}
+      initialSettings={{
+        requireEmail: true,
+        allowNotes: true,
+        showWhoSignedUp: true,
+        lockoutHoursBeforeSlot: 0,
+        sendReminders: true,
+        groupByFieldRefs: [],
+      }}
+      status="draft"
+      committedBySlot={{}}
+    />
+  );
+  const what = () => screen.getByRole('textbox', { name: 'What value' });
+  const done = () => fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+  beforeEach(() => {
+    // The slot's edit saves once its debounce is over.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ data: {} }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    );
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('on a computer, puts focus on Publish and share, rings it for a moment, and says so', async () => {
+    windowWidth(1280);
+    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    const publish = publishIn('desktop');
+    await press(publish);
+    fireEvent.click(screen.getByRole('button', { name: 'Name it first' }));
+    expect(what()).toHaveFocus();
+    fireEvent.change(what(), { target: { value: 'Cashier' } });
+    expect(publish.className).not.toMatch(RING);
+
+    vi.useFakeTimers();
+    done();
+    expect(publish).toHaveFocus();
+    expect(publish.className).toMatch(RING);
+    expect(publishIn('phone').className).not.toMatch(RING);
+    expect(screen.getByRole('status')).toHaveTextContent(READY);
+    // The slot is named now, and its mark has gone.
+    expect(screen.getByRole('button', { name: 'Edit slot — Cashier' })).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(1_599));
+    expect(publish.className).toMatch(RING);
+    act(() => vi.advanceTimersByTime(1));
+    expect(publish.className).not.toMatch(RING);
+    expect(publish).toHaveFocus();
+  });
+
+  it('on a phone, puts focus on the bar’s Publish and share', async () => {
+    windowWidth(390);
+    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    const publish = publishIn('phone');
+    await press(publish);
+    const sheet = await screen.findByRole('dialog', { name: 'Before people see it' });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Name it first' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
+    expect(what()).toHaveFocus();
+    fireEvent.change(what(), { target: { value: 'Cashier' } });
+    done();
+    expect(publish).toHaveFocus();
+    expect(publish.className).toMatch(RING);
+    expect(publishIn('desktop').className).not.toMatch(RING);
+    expect(screen.getByRole('status')).toHaveTextContent(READY);
+  });
+
+  it('takes Enter in the field the fix put focus in as Done', async () => {
+    windowWidth(1280);
+    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    const publish = publishIn('desktop');
+    await press(publish);
+    fireEvent.click(screen.getByRole('button', { name: 'Name it first' }));
+    fireEvent.change(what(), { target: { value: 'Cashier' } });
+    fireEvent.keyDown(what(), { key: 'Enter' });
+    expect(screen.queryByRole('textbox', { name: 'What value' })).toBeNull();
+    expect(publish).toHaveFocus();
+    expect(publish.className).toMatch(RING);
+    expect(screen.getByRole('status')).toHaveTextContent(READY);
+  });
+
+  it('ignores a held Enter’s repeats, so holding it after the slot doesn’t publish', async () => {
+    windowWidth(1280);
+    const action = vi.fn(async () => answer(TBD));
+    render(<Header action={action} page={buildTab} />);
+    const publish = publishIn('desktop');
+    await press(publish);
+    fireEvent.click(screen.getByRole('button', { name: 'Name it first' }));
+    fireEvent.keyDown(what(), { key: 'Enter' });
+    expect(publish).toHaveFocus();
+    // fireEvent says false when the default was prevented: no click follows.
+    expect(fireEvent.keyDown(publish, { key: 'Enter', repeat: true })).toBe(false);
+    expect(fireEvent.keyDown(publishIn('phone'), { key: 'Enter', repeat: true })).toBe(false);
+    // A fresh press still works.
+    expect(fireEvent.keyDown(publish, { key: 'Enter' })).toBe(true);
+    expect(action).toHaveBeenCalledOnce();
+  });
+
+  it('lets a held Tab move on past it, either way, on a computer and a phone', () => {
+    windowWidth(1280);
+    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    // fireEvent says true when nothing prevented the default: focus moves on.
+    for (const button of [publishIn('desktop'), publishIn('phone')]) {
+      expect(fireEvent.keyDown(button, { key: 'Tab', repeat: true })).toBe(true);
+      expect(fireEvent.keyDown(button, { key: 'Tab', shiftKey: true, repeat: true })).toBe(true);
+    }
+  });
+
+  it('drops the ring early when focus moves on', async () => {
+    windowWidth(1280);
+    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    const publish = publishIn('desktop');
+    await press(publish);
+    fireEvent.click(screen.getByRole('button', { name: 'Name it first' }));
+    done();
+    expect(publish.className).toMatch(RING);
+    act(() => publish.blur());
+    expect(publish.className).not.toMatch(RING);
+  });
+
+  it('leaves focus alone after a slot the organizer opened', () => {
+    windowWidth(1280);
+    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit slot — Cashier TBD, still says “TBD”' }),
+    );
+    what().focus();
+    // Enter does nothing new here: the slot stays open.
+    fireEvent.keyDown(what(), { key: 'Enter' });
+    expect(what()).toHaveFocus();
+    done();
+    expect(publishIn('desktop')).not.toHaveFocus();
+    expect(publishIn('desktop').className).not.toMatch(RING);
+    expect(screen.getByRole('status')).toHaveTextContent('');
   });
 });

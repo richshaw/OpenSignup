@@ -12,6 +12,7 @@
  */
 
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
+import { placeholderIn } from '@/lib/placeholder-text';
 import { summarizeSlotValues } from '@/lib/slot-summary';
 
 type PublishCheckField = Pick<SlotFieldDefinition, 'ref' | 'label' | 'fieldType'>;
@@ -47,15 +48,6 @@ function isEmpty(value: unknown): boolean {
   return (
     value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
   );
-}
-
-// Not inside another word, in any script: "ÉTBA" and "TBD1" are not placeholders.
-const PLACEHOLDER = /(?<![\p{L}\p{N}_])(TBD|TBC|TBA)(?![\p{L}\p{N}_])/iu;
-
-/** The placeholder word in `value`, in capitals, or null. */
-function placeholderIn(value: unknown): string | null {
-  const match = typeof value === 'string' ? PLACEHOLDER.exec(value) : null;
-  return match ? match[1]!.toUpperCase() : null;
 }
 
 /** The first problem with the slots, blocking ones first, or null when there is none. */

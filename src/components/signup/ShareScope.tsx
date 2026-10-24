@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { useAnnouncePublished } from './HeaderAnnouncer';
+import { useAnnounce } from './HeaderAnnouncer';
 import { PublishState } from './PublishButton';
 import { StatusActionScope, useStatusActionState, type StatusAction } from './StatusActionForm';
 
@@ -89,16 +89,16 @@ function ShareState({ signupId, title, url, message: serverMessage, children }: 
   // Only an answer that arrives while this is mounted opens the panel.
   const result = useStatusActionState();
   const handled = useRef(result);
-  const announcePublished = useAnnouncePublished();
+  const say = useAnnounce();
   useEffect(() => {
     if (result === handled.current) return;
     handled.current = result;
     if (result && 'published' in result) {
       setFirstTime(true);
       setOpen(true);
-      announcePublished();
+      say('Published. Anyone with the link can sign up now.');
     }
-  }, [result, announcePublished]);
+  }, [result, say]);
 
   const openShare = useCallback(() => {
     setFirstTime(false);

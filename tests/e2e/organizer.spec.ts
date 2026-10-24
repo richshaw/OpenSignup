@@ -306,6 +306,9 @@ for (const [device, viewport] of [
       page.getByRole('button', { name: 'Publish and share', exact: true });
     const storedStatus = async (page: Page, id: string) =>
       (await (await page.request.get(`/api/signups/${id}`)).json()).data.status;
+    // What the header's live region says once Publish and share has the focus back.
+    const ready = (page: Page) =>
+      page.getByRole('status').filter({ hasText: 'Publish and share when you’re ready.' });
 
     test('an empty slot stops Publish, and Fill it in opens it', async ({ page }) => {
       const draft = await createDraft(page.request, { title: `Empty slot ${Date.now()}` });
@@ -361,9 +364,189 @@ for (const [device, viewport] of [
       await check.getByRole('button', { name: 'Publish anyway' }).click();
       await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
       expect(await storedStatus(page, draft.id)).toBe('open');
+
+      // With no Publish and share left to go back to, Enter in the slot's box
+      // leaves it open, and Done closes it, saying nothing. The slot's mark
+      // now says people can see it.
+      await page.keyboard.press('Escape');
+      await what.press('Enter');
+      await expect(what).toBeFocused();
+      await page
+        .getByTestId(`slot-editor-${draft.slotId}`)
+        .getByRole('button', { name: 'Done' })
+        .click();
+      await expect(
+        page.getByRole('button', { name: 'Edit slot — Cashier TBD, people can see “TBD”' }),
+      ).toBeVisible();
+      await expect(page.getByText('People can see “TBD”', { exact: true })).toBeVisible();
+      await expect(ready(page)).toHaveCount(0);
+    });
+
+    test('a slot that says TBD is marked, and Enter after Name it first goes back to Publish and share', async ({
+      page,
+    }) => {
+      const draft = await createDraft(page.request, {
+        title: `Marked TBD ${Date.now()}`,
+        values: { what: 'Cashier TBD', date: '2030-04-06' },
+      });
+      await page.goto(`/app/signups/${draft.id}/build`);
+      const slot = page.getByTestId(`wysiwyg-slot-${draft.slotId}`);
+      const mark = slot.getByText('Still says “TBD”', { exact: true });
+      await expect(mark).toBeVisible();
+      await expect(
+        slot.getByRole('button', { name: 'Edit slot — Cashier TBD, still says “TBD”' }),
+      ).toBeVisible();
+
+      const publish = publishButton(page);
+      await publish.click();
+      await page
+        .getByRole('dialog', { name: 'Before people see it' })
+        .getByRole('button', { name: 'Name it first' })
+        .click();
+      const editor = page.getByTestId(`slot-editor-${draft.slotId}`);
+      const what = editor.getByRole('textbox', { name: 'What value' });
+      await expect(what).toBeFocused();
+      await what.fill('Cashier');
+      // Enter in the box does what Done does, in a slot the check opened.
+      await what.press('Enter');
+      await expect(editor).toHaveCount(0);
+
+      // Focus is back on Publish and share, ringed for a moment (as after a
+      // click on Done, where no focus ring would show), and the header says
+      // it can be published. The mark has gone with the TBD, before the edit
+      // has saved.
+      await expect(publish).toBeFocused();
+      await expect(publish).toHaveCSS('outline-offset', '3px');
+      await expect(ready(page)).toHaveCount(1);
+      await expect(mark).toHaveCount(0);
+      await expect(slot.getByRole('button', { name: 'Edit slot — Cashier' })).toBeVisible();
+      await expect(publish).not.toHaveCSS('outline-offset', '3px');
+      await expect(publish).toBeFocused();
+
+      // Enter publishes from there, with the edit saved first.
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
+      expect(await storedStatus(page, draft.id)).toBe('open');
+    });
+
+    test('Enter or Done after opening a slot by hand doesn’t move focus to Publish and share', async ({
+      page,
+    }) => {
+      const draft = await createDraft(page.request, {
+        title: `Opened by hand ${Date.now()}`,
+        values: { what: 'Cashier TBD', date: '2030-04-06' },
+      });
+      await page.goto(`/app/signups/${draft.id}/build`);
+      await page.getByRole('button', { name: /^Edit slot — Cashier TBD/ }).click();
+      const editor = page.getByTestId(`slot-editor-${draft.slotId}`);
+      // Enter does nothing new in a slot opened by hand.
+      await editor.getByRole('textbox', { name: 'What value' }).press('Enter');
+      await expect(editor).toBeVisible();
+      await expect(editor.getByRole('textbox', { name: 'What value' })).toBeFocused();
+      await editor.getByRole('button', { name: 'Done' }).click();
+      await expect(publishButton(page)).not.toBeFocused();
+      await expect(ready(page)).toHaveCount(0);
     });
   });
 }
+
+// A slot still saying TBD is marked on the Build tab. On a phone the tag
+// has a line of its own, under the slot's values: beside them it ran over
+// the spots count and left the values no room.
+test.describe('the TBD mark on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('sits clear of the spots count, and the slot’s values still show', async ({
+    page,
+    context,
+  }) => {
+    await loginAsSeededOrganizer(context);
+    const signup = await createPublishedSignup(page.request, {
+      title: `Mark on a phone ${Date.now()}`,
+      slot: { values: { what: 'Bake stall: TBD', date: '2030-04-06' }, capacity: 3 },
+    });
+    await page.goto(`/app/signups/${signup.id}/build`);
+    const row = page.getByRole('button', {
+      name: 'Edit slot — Bake stall: TBD, people can see “TBD”',
+    });
+    const tag = row.getByText('People can see “TBD”', { exact: true });
+    const anchor = row.getByText('Bake stall: TBD', { exact: true });
+    const summary = row.getByText(/^Sat, Apr 6/);
+    const count = row.getByText('0 of 3 taken', { exact: true });
+    for (const part of [tag, anchor, summary, count]) await expect(part).toBeVisible();
+
+    const [t, a, s, c] = await Promise.all(
+      [tag, anchor, summary, count].map((l) => l.boundingBox()),
+    );
+    if (!t || !a || !s || !c) throw new Error('a part of the row is not on screen');
+    // Nothing runs over the count: toBeVisible() alone passes on an overlap.
+    for (const box of [t, a, s]) expect(box.x + box.width).toBeLessThanOrEqual(c.x);
+    // The tag is under the values, and they aren't cut short.
+    expect(t.y).toBeGreaterThanOrEqual(a.y + a.height);
+    for (const part of [anchor, summary]) {
+      expect(await part.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    }
+  });
+});
+
+// On a computer the tag follows the slot's values, and drops under them
+// when a long name leaves no room, rather than squeeze the summary away.
+test.describe('the TBD mark on a computer', () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  test('drops under a long name, keeping the date beside it whole', async ({ page, context }) => {
+    await loginAsSeededOrganizer(context);
+    const signup = await createPublishedSignup(page.request, {
+      title: `Long mark ${Date.now()}`,
+      slot: {
+        values: { what: 'Cashier for the whole long afternoon shift TBD', date: '2030-04-06' },
+        capacity: 3,
+      },
+    });
+    await page.goto(`/app/signups/${signup.id}/build`);
+    const row = page.getByRole('button', { name: /people can see “TBD”$/ });
+    const tag = row.getByText('People can see “TBD”', { exact: true });
+    const anchor = row.getByText(/^Cashier for the whole/);
+    const summary = row.getByText(/^Sat, Apr 6/);
+    const count = row.getByText('0 of 3 taken', { exact: true });
+    for (const part of [tag, anchor, summary, count]) await expect(part).toBeVisible();
+
+    const [t, a, s, c] = await Promise.all(
+      [tag, anchor, summary, count].map((l) => l.boundingBox()),
+    );
+    if (!t || !a || !s || !c) throw new Error('a part of the row is not on screen');
+    for (const box of [t, a, s]) expect(box.x + box.width).toBeLessThanOrEqual(c.x);
+    // The date keeps its 10ch and isn't cut short; the tag went under.
+    const tenCh = await summary.evaluate((el) => parseFloat(getComputedStyle(el).minWidth));
+    expect(tenCh).toBeGreaterThan(0);
+    expect(s.width).toBeGreaterThanOrEqual(tenCh - 0.5);
+    expect(await summary.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    expect(t.y).toBeGreaterThanOrEqual(a.y + a.height);
+  });
+
+  test('follows a short slot’s values, not the count', async ({ page, context }) => {
+    await loginAsSeededOrganizer(context);
+    const signup = await createPublishedSignup(page.request, {
+      title: `Short mark ${Date.now()}`,
+      slot: { values: { what: 'Juice TBD', date: '2030-04-06' }, capacity: 3 },
+    });
+    await page.goto(`/app/signups/${signup.id}/build`);
+    const row = page.getByRole('button', { name: 'Edit slot — Juice TBD, people can see “TBD”' });
+    const tag = row.getByText('People can see “TBD”', { exact: true });
+    const summary = row.getByText(/^Sat, Apr 6/);
+    const count = row.getByText('0 of 3 taken', { exact: true });
+    for (const part of [tag, summary, count]) await expect(part).toBeVisible();
+
+    const [t, s, c] = await Promise.all([tag, summary, count].map((l) => l.boundingBox()));
+    if (!t || !s || !c) throw new Error('a part of the row is not on screen');
+    // On the same line, right after the date (the 10px gap), and well clear
+    // of the count rather than pushed against it.
+    expect(Math.abs(t.y + t.height / 2 - (s.y + s.height / 2))).toBeLessThan(4);
+    expect(t.x - (s.x + s.width)).toBeGreaterThanOrEqual(0);
+    expect(t.x - (s.x + s.width)).toBeLessThanOrEqual(14);
+    expect(c.x - (t.x + t.width)).toBeGreaterThan(40);
+  });
+});
 
 // What Publish waits for and where its fix goes, at a computer's size.
 test.describe('Publish’s check, around the Build tab', () => {
