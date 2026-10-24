@@ -67,7 +67,7 @@ test.describe('help: create and publish your first signup', () => {
     await expect(slotEditor.getByText(UI.date, { exact: true })).toBeVisible();
     await slotEditor.getByRole('textbox', { name: `${UI.what} value` }).fill('Fruit and water');
     await slotEditor.getByLabel(`${UI.date} value`).fill('2030-04-06');
-    await slotEditor.getByRole('spinbutton', { name: UI.capacity }).fill('2');
+    await slotEditor.getByRole('spinbutton', { name: UI.spots }).fill('2');
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
     await shot(page, slotEditor, 'slot');
     await slotEditor.getByRole('button', { name: UI.done }).click();
