@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useRegisterBuildTab } from '@/components/signup/BuildBridge';
 import { useBuildState, type BuildField, type BuildRow, type BuildSlot } from '../build-shared/useBuildState';
@@ -114,6 +114,15 @@ export function BuildWysiwyg({
     fieldRef: string | null;
   } | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
+  // A copy just made by Duplicate, whose editor takes focus when it opens.
+  // Cleared once it has: in a signup grouped by date, changing the copy's
+  // date remounts its editor in the new group, which must not take focus again.
+  const [focusRowId, setFocusRowId] = useState<string | null>(null);
+  const clearFocusRow = useCallback(() => setFocusRowId(null), []);
+  const expandRow = (rowId: string | null) => {
+    setFocusRowId(null);
+    setExpandedRowId(rowId);
+  };
   // The group whose header change the server refused; its rows are back
   // under their saved value, so this is that value's key.
   const [failedRenameKey, setFailedRenameKey] = useState<string | null>(null);
@@ -160,7 +169,7 @@ export function BuildWysiwyg({
   };
 
   const showSlot = (rowId: string, fieldRef: string | null) => {
-    setExpandedRowId(rowId);
+    expandRow(rowId);
     setFocusRequest({ rowId, fieldRef });
   };
 
@@ -265,7 +274,9 @@ export function BuildWysiwyg({
                 takenBySlot={committedBySlot}
                 remindersOn={state.reminderFieldRef !== null}
                 expandedRowId={expandedRowId}
-                onExpandRow={setExpandedRowId}
+                focusRowId={focusRowId}
+                onRowFocused={clearFocusRow}
+                onExpandRow={expandRow}
                 onEditCell={editCell}
                 onSetCapacity={(rowId, c) => setCapacity(rowId, c)}
                 onAddEnumOption={(fieldId, value) => {
@@ -279,9 +290,16 @@ export function BuildWysiwyg({
                     config: { fieldType: 'enum', choices: [...field.config.choices, value] },
                   });
                 }}
-                onDuplicateRow={(rowId) => { void duplicateRow(rowId); }}
+                onDuplicateRow={(rowId) => {
+                  // Open the copy: the next thing changed is usually its date (#557).
+                  void duplicateRow(rowId).then((copyId) => {
+                    if (copyId === null) return;
+                    setExpandedRowId(copyId);
+                    setFocusRowId(copyId);
+                  });
+                }}
                 onDeleteRow={(rowId) => {
-                  if (expandedRowId === rowId) setExpandedRowId(null);
+                  if (expandedRowId === rowId) expandRow(null);
                   void deleteRow(rowId);
                 }}
                 onAddSlot={handleAddSlot}
