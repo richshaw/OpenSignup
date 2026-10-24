@@ -110,7 +110,8 @@ export function qrPngLayout(
 /**
  * `text` in lines no wider than `maxWidth`, broken between words, or inside
  * a word too long for a line of its own (or a title in a script written
- * without spaces). Past `TITLE_LINES`, the last line kept ends in `…`.
+ * without spaces), between whole characters. Past `TITLE_LINES`, the last
+ * line kept ends in `…`.
  */
 function wrap(text: string, maxWidth: number, measure: (text: string) => number): string[] {
   const lines: string[] = [];
@@ -127,7 +128,7 @@ function wrap(text: string, maxWidth: number, measure: (text: string) => number)
       continue;
     }
     line = '';
-    for (const char of Array.from(word)) {
+    for (const char of graphemes(word)) {
       if (line && measure(line + char) > maxWidth) {
         lines.push(line);
         line = '';
@@ -138,11 +139,24 @@ function wrap(text: string, maxWidth: number, measure: (text: string) => number)
   if (line) lines.push(line);
   if (lines.length <= TITLE_LINES) return lines;
 
-  const cut = Array.from(lines[TITLE_LINES - 1]!);
+  const cut = graphemes(lines[TITLE_LINES - 1]!);
   const ending = () => `${cut.join('').trimEnd()}…`;
   while (cut.length > 0 && measure(ending()) > maxWidth) cut.pop();
   return [...lines.slice(0, TITLE_LINES - 1), ending()];
 }
+
+/**
+ * `text`'s characters as a reader sees them, so a break or a cut never
+ * splits an emoji made of several (a family, a flag) or a letter and its
+ * accent. Code points where the browser has no `Intl.Segmenter`.
+ */
+function graphemes(text: string): string[] {
+  if (typeof Intl.Segmenter !== 'function') return Array.from(text);
+  segmenter ??= new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  return Array.from(segmenter.segment(text), ({ segment }) => segment);
+}
+
+let segmenter: Intl.Segmenter | undefined;
 
 /**
  * The downloaded picture's name, from the link's last path segment (the

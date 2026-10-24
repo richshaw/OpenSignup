@@ -49,7 +49,13 @@ function toPngDataUrl(code: Bitmap2D, title: string): string | null {
     ctx.font = titleFont(layout.fontPx);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const line of layout.lines) ctx.fillText(line.text, layout.width / 2, line.middle);
+    // Each line is isolated (U+2068 … U+2069), so it reads in its own
+    // direction rather than the page's: a right-to-left title keeps its "…"
+    // at its end, on the left. The marks have no width, so the layout
+    // measures the line without them.
+    for (const line of layout.lines) {
+      ctx.fillText(`\u2068${line.text}\u2069`, layout.width / 2, line.middle);
+    }
     return big.toDataURL('image/png');
   } catch {
     return null;
@@ -107,6 +113,9 @@ export function ShareQrCode({
   const [shown, setShown] = useState(false);
   const [saved, setSaved] = useState(false);
   const recorded = useRef(false);
+  // While the phone's share menu is open: a second tap on Save image then
+  // would be refused, and must not fall through to a download.
+  const sharing = useRef(false);
   const largeId = useId();
 
   useEffect(() => {
@@ -146,6 +155,7 @@ export function ShareQrCode({
   }
 
   async function save() {
+    if (sharing.current) return;
     const png = picture();
     if (!png) return;
     record();
@@ -154,14 +164,18 @@ export function ShareQrCode({
     // the data URL there and then, as sharing must start in the tap.
     const file = new File([pngBytes(png)], name, { type: 'image/png' });
     if (navigator.canShare?.({ files: [file] })) {
+      sharing.current = true;
       try {
         await navigator.share({ files: [file] });
         // Saved, or sent to another app: the phone's own menu has said
         // which, and "Saved" here might not be true.
         return;
       } catch (err) {
-        // Closed without saving: nothing to say. Refused: download instead.
-        if (err instanceof DOMException && err.name === 'AbortError') return;
+        // Closed without saving, or a menu already open: nothing to say.
+        // Refused: download instead.
+        if (err instanceof DOMException && QUIET_SHARE_ERRORS.includes(err.name)) return;
+      } finally {
+        sharing.current = false;
       }
     }
     downloadFile(png, name);
@@ -250,6 +264,13 @@ export function ShareQrCode({
     </div>
   );
 }
+
+/**
+ * A share that rejects with one of these sent nothing and needs no
+ * download: the menu was closed (AbortError), or one was already open
+ * (InvalidStateError).
+ */
+const QUIET_SHARE_ERRORS = ['AbortError', 'InvalidStateError'];
 
 /** A data URL's bytes. */
 function pngBytes(dataUrl: string): Uint8Array<ArrayBuffer> {
