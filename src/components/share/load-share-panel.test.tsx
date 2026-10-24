@@ -8,6 +8,8 @@ import { ShareUnavailable } from './ShareUnavailable';
 
 // The panel's chunk can't be fetched: a weak signal, or a tab left open
 // across an update.
+const emit = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/signup-link-events', () => ({ emitSignupLinkEvent: emit }));
 vi.mock('./SharePanel', () => {
   throw new Error('Loading chunk failed');
 });
@@ -57,6 +59,8 @@ describe('when the share panel can’t load', () => {
     fireEvent.click(within(panel).getByRole('button', { name: 'Copy public link' }));
     await within(panel).findByText('Link copied');
     expect(writeText).toHaveBeenCalledWith(LINK);
+    // The panel's copy, not the header's.
+    expect(emit).toHaveBeenCalledExactlyOnceWith('sig_1', 'copied', 'share_panel');
     expect(within(panel).getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
 });

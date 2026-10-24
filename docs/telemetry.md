@@ -55,7 +55,8 @@ by `clientDomain` instead.
 | `signup.viewed` | system | `{ uaClass, refererHost, isReturning, signupStatus }` | RSC at `/s/[slug]` |
 | `signup.viewed` | organizer | `{ device }` (the organizer opening the Build tab, not a participant view; filter on `actor_type = 'system'` to leave these out) | RSC at `/app/signups/[id]/build` |
 | `signup.publish_refused` | organizer | `{ code: 'conflict', reason: 'no_slots' }`, or `{ code: 'conflict', reason: 'not_draft', status }` with the status it had by then (`closed` or `archived` in another tab). A publish of a signup that's already open (a second click, or a retry after one that worked) isn't recorded | `services/signups.ts` (`publishSignup`), after its transaction. A viewer's publish is refused by the policy guard before that and writes nothing |
-| `signup.link_copied` | organizer | `{ surface: 'header', status }` (where the link was copied from, and the signup's status then: a draft's link only says the signup isn't ready) | client beacon from the organizer's pages, via `POST /api/signups/[id]/link-events?event=copied&surface=…`, metered per organizer (60 an hour; past that, copies go uncounted) |
+| `signup.link_copied` | organizer | `{ surface, status }`: where the link was copied from, `header` (the public link chip), `share_panel` (the share panel's Copy link, or the chip it shows when its code couldn't load) or `share_message` (the share panel's Copy message, which copies the message with the link), and the signup's status then (a draft's link only says the signup isn't ready). Recorded once the clipboard has taken it; a refused copy writes nothing | client beacon from the organizer's pages, via `POST /api/signups/[id]/link-events?event=copied&surface=…`, metered per organizer (60 an hour, copies and shares together; past that, they go uncounted) |
+| `signup.link_shared` | organizer | `{ surface, status }`: how the share panel sent the link on, `share_menu` (the phone's own share menu, once it says it sent; closing it without sending writes nothing), `email` (the click on Email it, which opens the organizer's email app) or `qr_code` (the click on the QR code's Download, once the picture is drawn), and the signup's status then. Never the message or who it went to: the app can't see either | client beacon from the share panel, via `POST /api/signups/[id]/link-events?event=shared&surface=…`, on the same meter. An event names only its own surfaces: a copy from `email` or a share from `header` is refused |
 | `magic_compose.failed` | organizer | `{ code }`: the AI client's `not_configured` \| `rate_limited` \| `upstream` \| `invalid_json` \| `schema_mismatch` \| `timeout` \| `aborted`; `schema_mismatch` too for a draft of the wrong shape; `refusal` when the model declined; `not_saved` when the draft couldn't be saved; `over_limit` when the organizer had used up this instance's Magic Compose quota for the hour. Never the prompt or the model's words | `POST /api/signups/magic-compose`. `signup_id` is `NULL`: no signup was made |
 
 `device` is `'phone'`, `'computer'` or `'unknown'`, from the browser's
@@ -66,7 +67,7 @@ phone can be told apart from ones abandoned at a desk; public views carry
 `uaClass` instead, which separates browsers from bots and says nothing about
 the device.
 
-`signup.publish_refused`, `signup.link_copied` and `magic_compose.failed`
+`signup.publish_refused`, `signup.link_copied`, `signup.link_shared` and `magic_compose.failed`
 describe no change, so each is written on its own,
 outside any transaction, and a failed write never fails the request.
 

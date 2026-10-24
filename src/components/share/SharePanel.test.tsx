@@ -7,6 +7,9 @@ import { SharePanel, type SharePanelProps } from './SharePanel';
 
 // The QR code has its own test; here it would only wait on the encoder.
 vi.mock('./ShareQrCode', () => ({ ShareQrCode: () => null }));
+// What the panel records: each copy or share that worked, once.
+const emit = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/signup-link-events', () => ({ emitSignupLinkEvent: emit }));
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const MESSAGE = `Bake sale helpers\nSat, Nov 14 · 4 slots · 8 spots\nSign up here: ${LINK}`;
@@ -34,6 +37,7 @@ function giveShareMenu(share: (data: ShareData) => Promise<void>) {
 }
 
 beforeEach(() => {
+  emit.mockClear();
   writeText.mockReset().mockResolvedValue(undefined);
   Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
 });
@@ -90,6 +94,7 @@ describe('<SharePanel /> on a computer', () => {
     await screen.findByRole('button', { name: 'Copied' });
     expect(writeText).toHaveBeenCalledExactlyOnceWith(LINK);
     expect(screen.getByText('Link copied')).toBeInTheDocument();
+    expect(emit).toHaveBeenCalledExactlyOnceWith('sig_1', 'copied', 'share_panel');
   });
 
   it('says so when the clipboard refuses, and selects the link to copy by hand', async () => {
@@ -102,6 +107,7 @@ describe('<SharePanel /> on a computer', () => {
       screen.getByRole('button', { name: 'Copy link' }),
     );
     expect(screen.queryByText('Link copied')).not.toBeInTheDocument();
+    expect(emit).not.toHaveBeenCalled();
     const field = screen.getByLabelText<HTMLInputElement>('Public link');
     expect(field).toHaveFocus();
     expect([field.selectionStart, field.selectionEnd]).toEqual([0, LINK.length]);
@@ -122,6 +128,7 @@ describe('<SharePanel /> on a computer', () => {
       screen.getByRole('button', { name: 'Copy message' }),
     );
     expect(screen.queryByText('Couldn’t copy. Select the link and copy it.')).toBeNull();
+    expect(emit).not.toHaveBeenCalled();
     const box = screen.getByLabelText<HTMLTextAreaElement>('A message to send with it');
     expect(box).toHaveFocus();
     expect([box.selectionStart, box.selectionEnd]).toEqual([0, MESSAGE.length]);
@@ -148,6 +155,7 @@ describe('<SharePanel /> on a computer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
     await screen.findByText('Message copied');
     expect(writeText).toHaveBeenCalledExactlyOnceWith(edited);
+    expect(emit).toHaveBeenCalledExactlyOnceWith('sig_1', 'copied', 'share_message');
   });
 
   it('puts the link back when the edit took it out', async () => {
@@ -172,6 +180,16 @@ describe('<SharePanel /> on a computer', () => {
         `Can you help? & bring a friend: ${LINK}`,
       )}`,
     );
+  });
+
+  it('records Email it as a share when it’s chosen', () => {
+    render(<Owner />);
+    // jsdom can't open an email app; keep it from trying.
+    const stay = (e: Event) => e.preventDefault();
+    window.addEventListener('click', stay);
+    fireEvent.click(screen.getByRole('link', { name: 'Email it' }));
+    window.removeEventListener('click', stay);
+    expect(emit).toHaveBeenCalledExactlyOnceWith('sig_1', 'shared', 'email');
   });
 
   it('never offers Share…, even where the browser has a share menu', () => {
@@ -229,6 +247,7 @@ describe('<SharePanel /> on a phone', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Share…' }));
     await screen.findByText('Sent from your phone’s share menu.');
+    expect(emit).toHaveBeenCalledExactlyOnceWith('sig_1', 'shared', 'share_menu');
     expect(share).toHaveBeenCalledExactlyOnceWith({
       title: 'Bake sale helpers',
       text: `Bake sale on Saturday, can you help?\n${LINK}`,
@@ -248,5 +267,6 @@ describe('<SharePanel /> on a phone', () => {
       screen.getByText('Opens your phone’s share menu, with the message and link.'),
     ).toBeInTheDocument();
     expect(screen.queryByText('Sent from your phone’s share menu.')).not.toBeInTheDocument();
+    expect(emit).not.toHaveBeenCalled();
   });
 });

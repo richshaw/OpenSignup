@@ -11,7 +11,8 @@ import type { SharePanelProps } from './SharePanel';
 export function ShareUnavailable({ signupId, url }: Pick<SharePanelProps, 'signupId' | 'url'>) {
   return (
     <div className="flex flex-col items-start gap-3">
-      <PublicLinkChip url={url} signupId={signupId} />
+      {/* A copy here is the share panel's, not the header's. */}
+      <PublicLinkChip url={url} signupId={signupId} surface="share_panel" />
       <p className="text-[13px] leading-snug text-ink-muted">
         Couldn’t load the other ways to share. Reload to try again.
       </p>

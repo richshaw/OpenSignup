@@ -2,22 +2,29 @@
 
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import { useClipboardCopy } from '@/hooks/useClipboardCopy';
-import { emitSignupLinkEvent } from '@/lib/signup-link-events';
+import { emitSignupLinkEvent, type SignupLinkCopySurface } from '@/lib/signup-link-events';
 
 interface PublicLinkChipProps {
   url: string;
   /** The signup the link is for, so a copy is recorded against it. */
   signupId: string;
+  /** Where a copy is recorded as made: the header, unless said otherwise. */
+  surface?: SignupLinkCopySurface;
   className?: string;
 }
 
-export function PublicLinkChip({ url, signupId, className = '' }: PublicLinkChipProps) {
+export function PublicLinkChip({
+  url,
+  signupId,
+  surface = 'header',
+  className = '',
+}: PublicLinkChipProps) {
   const { copied, copy } = useClipboardCopy(1400);
 
   async function handleCopy() {
     // The clipboard can refuse (e.g. an insecure context): then stay quiet,
     // and record nothing.
-    if (await copy(url)) emitSignupLinkEvent(signupId, 'copied', 'header');
+    if (await copy(url)) emitSignupLinkEvent(signupId, 'copied', surface);
   }
 
   return (

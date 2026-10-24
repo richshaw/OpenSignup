@@ -4,6 +4,7 @@ import { useEffect, useState, type MouseEvent } from 'react';
 import { QrCode } from 'lucide-react';
 import type { Bitmap2D } from 'lean-qr/nano';
 import { QR_QUIET_ZONE, qrFileName, qrPngScale, qrSide, qrSvgPath } from '@/lib/qr';
+import { emitSignupLinkEvent } from '@/lib/signup-link-events';
 
 /** The downloaded picture is at least this many pixels wide, enough for print. */
 const PNG_MIN_PX = 1024;
@@ -56,7 +57,16 @@ function canDrawPng(): boolean {
  * load, or the browser can't draw the PNG, the QR code goes away rather
  * than leave a Download that does nothing. The panel goes on without it.
  */
-export function ShareQrCode({ url, variant }: { url: string; variant: 'desktop' | 'phone' }) {
+export function ShareQrCode({
+  signupId,
+  url,
+  variant,
+}: {
+  /** The signup the link is for, so a download is recorded against it. */
+  signupId: string;
+  url: string;
+  variant: 'desktop' | 'phone';
+}) {
   const [qr, setQr] = useState<QrState>({ kind: 'loading' });
 
   useEffect(() => {
@@ -91,6 +101,7 @@ export function ShareQrCode({ url, variant }: { url: string; variant: 'desktop' 
     const png = toPngDataUrl(qr.code);
     if (png) {
       e.currentTarget.href = png;
+      emitSignupLinkEvent(signupId, 'shared', 'qr_code');
     } else {
       e.preventDefault();
       setQr({ kind: 'failed' });

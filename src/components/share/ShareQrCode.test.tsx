@@ -18,6 +18,9 @@ vi.mock('lean-qr/nano', async (importOriginal) => {
   };
 });
 
+const emit = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/signup-link-events', () => ({ emitSignupLinkEvent: emit }));
+
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const PNG = 'data:image/png;base64,iVBORw0KGgo=';
 
@@ -48,6 +51,7 @@ function stayOnPage(): () => void {
 }
 
 afterEach(() => {
+  emit.mockClear();
   vi.restoreAllMocks();
   encoder.fails = false;
 });
@@ -62,7 +66,7 @@ async function encoderSettled() {
 describe('<ShareQrCode />', () => {
   it('on a computer, shows the code and a Download named after the signup', async () => {
     giveCanvas();
-    render(<ShareQrCode url={LINK} variant="desktop" />);
+    render(<ShareQrCode signupId="sig_1" url={LINK} variant="desktop" />);
     const download = await screen.findByRole('link', { name: 'Download QR code' });
     expect(screen.getByText('A QR code for a flyer or a sign-up table.')).toBeInTheDocument();
     expect(download).toHaveTextContent('Download');
@@ -72,7 +76,7 @@ describe('<ShareQrCode />', () => {
 
   it('on a phone, is a QR code button with no preview', async () => {
     giveCanvas();
-    render(<ShareQrCode url={LINK} variant="phone" />);
+    render(<ShareQrCode signupId="sig_1" url={LINK} variant="phone" />);
     const download = await screen.findByRole('link', { name: 'Download QR code' });
     expect(download).toHaveTextContent('QR code');
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
@@ -80,7 +84,7 @@ describe('<ShareQrCode />', () => {
 
   it('keeps its place while the encoder loads, with nothing to choose yet', async () => {
     giveCanvas();
-    const { container } = render(<ShareQrCode url={LINK} variant="phone" />);
+    const { container } = render(<ShareQrCode signupId="sig_1" url={LINK} variant="phone" />);
     // The same box, so Copy link beside it doesn't move when the code comes.
     expect(container).toHaveTextContent('QR code');
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
@@ -92,18 +96,20 @@ describe('<ShareQrCode />', () => {
   it('draws the picture only when Download is chosen, then saves it', async () => {
     const ctx = giveCanvas();
     const restore = stayOnPage();
-    render(<ShareQrCode url={LINK} variant="desktop" />);
+    render(<ShareQrCode signupId="sig_1" url={LINK} variant="desktop" />);
     const download = await screen.findByRole('link', { name: 'Download QR code' });
     expect(ctx.drawImage).not.toHaveBeenCalled();
     fireEvent.click(download);
     restore();
     expect(ctx.drawImage).toHaveBeenCalledOnce();
     expect(download).toHaveAttribute('href', PNG);
+    // A share from the QR code, recorded once the picture was there to save.
+    expect(emit).toHaveBeenCalledExactlyOnceWith('sig_1', 'shared', 'qr_code');
   });
 
   it('leaves itself out where the browser has no canvas to draw on', async () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
-    const { container } = render(<ShareQrCode url={LINK} variant="desktop" />);
+    const { container } = render(<ShareQrCode signupId="sig_1" url={LINK} variant="desktop" />);
     await encoderSettled();
     expect(container).toBeEmptyDOMElement();
   });
@@ -113,17 +119,18 @@ describe('<ShareQrCode />', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockImplementation(() => {
       throw new DOMException('Tainted canvases may not be exported.', 'SecurityError');
     });
-    const { container } = render(<ShareQrCode url={LINK} variant="phone" />);
+    const { container } = render(<ShareQrCode signupId="sig_1" url={LINK} variant="phone" />);
     const download = await screen.findByRole('link', { name: 'Download QR code' });
     // fireEvent returns false when the default action was prevented.
     expect(fireEvent.click(download)).toBe(false);
     expect(container).toBeEmptyDOMElement();
+    expect(emit).not.toHaveBeenCalled();
   });
 
   it('leaves itself out when the encoder can’t load, so the panel goes on without it', async () => {
     giveCanvas();
     encoder.fails = true;
-    const { container } = render(<ShareQrCode url={LINK} variant="desktop" />);
+    const { container } = render(<ShareQrCode signupId="sig_1" url={LINK} variant="desktop" />);
     await encoderSettled();
     expect(container).toBeEmptyDOMElement();
   });
