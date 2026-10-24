@@ -1,18 +1,15 @@
 'use client';
 
-import { useEffect, useState, type MouseEvent } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
 import { QrCode } from 'lucide-react';
-import type { Bitmap2D } from 'lean-qr/nano';
+import { correction, generate, type Bitmap2D } from 'lean-qr/nano';
 import { QR_QUIET_ZONE, qrFileName, qrPngScale, qrSide, qrSvgPath } from '@/lib/qr';
 import { emitSignupLinkEvent } from '@/lib/signup-link-events';
 
 /** The downloaded picture is at least this many pixels wide, enough for print. */
 const PNG_MIN_PX = 1024;
 
-type QrState =
-  | { kind: 'loading' }
-  | { kind: 'failed' }
-  | { kind: 'ready'; code: Bitmap2D; side: number; path: string };
+type Qr = { code: Bitmap2D; side: number; path: string };
 
 /**
  * The code, margin included, black on white, as a PNG data URL; null where
@@ -36,12 +33,17 @@ function toPngDataUrl(code: Bitmap2D): string | null {
   }
 }
 
-/** Whether this browser gives a canvas to draw the PNG on. */
-function canDrawPng(): boolean {
+/**
+ * The link's QR code, or null where there'd be nothing to save: a browser
+ * with no canvas to draw the PNG on, or an encoder that fails.
+ */
+function makeQr(url: string): Qr | null {
   try {
-    return document.createElement('canvas').getContext('2d') !== null;
+    if (document.createElement('canvas').getContext('2d') === null) return null;
+    const code = generate(url, { minCorrectionLevel: correction.M });
+    return { code, side: qrSide(code), path: qrSvgPath(code) };
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -49,13 +51,15 @@ function canDrawPng(): boolean {
  * The share panel's QR code, to print on a flyer or put on a sign-up table:
  * on a computer a row with a small preview and Download, on a phone a
  * QR code button beside Copy link. The browser draws both itself, so
- * nothing goes to an outside service. The encoder stays out of the page's
- * first load, and the PNG is drawn only when the download is chosen.
+ * nothing goes to an outside service, and the PNG only when the download
+ * is chosen. The encoder (`lean-qr/nano`, 2 kB) comes in the panel's own
+ * code, which loads only when the panel opens, so it's never in a page's
+ * first load and the code is there as soon as the panel is: nothing to
+ * wait for, and nothing moves.
  *
- * While the encoder loads, its place is kept by an inert stand-in, so
- * nothing moves under the organizer's thumb as it arrives. If it can't
- * load, or the browser can't draw the PNG, the QR code goes away rather
- * than leave a Download that does nothing. The panel goes on without it.
+ * Where the browser can't draw the PNG, there's no QR code, rather than a
+ * Download that does nothing; one that fails when chosen goes away. The
+ * panel goes on without it.
  */
 export function ShareQrCode({
   signupId,
@@ -67,91 +71,56 @@ export function ShareQrCode({
   url: string;
   variant: 'desktop' | 'phone';
 }) {
-  const [qr, setQr] = useState<QrState>({ kind: 'loading' });
-
-  useEffect(() => {
-    let live = true;
-    // `loadSharePanel` starts this beside the panel's own code, so it's
-    // usually in already.
-    import('lean-qr/nano')
-      .then(({ generate, correction }) => {
-        if (!live) return;
-        if (!canDrawPng()) {
-          setQr({ kind: 'failed' });
-          return;
-        }
-        const code = generate(url, { minCorrectionLevel: correction.M });
-        setQr({ kind: 'ready', code, side: qrSide(code), path: qrSvgPath(code) });
-      })
-      .catch(() => {
-        if (live) setQr({ kind: 'failed' });
-      });
-    return () => {
-      live = false;
-    };
-  }, [url]);
-
-  if (qr.kind === 'failed') return null;
+  // Rendered only in the browser: the panel never renders on the server.
+  const qr = useMemo(() => makeQr(url), [url]);
+  const [refused, setRefused] = useState(false);
+  if (!qr || refused) return null;
+  const { code, side, path } = qr;
 
   function download(e: MouseEvent<HTMLAnchorElement>) {
-    if (qr.kind !== 'ready') return;
     // Set before the browser follows the link, which it does after this
     // handler returns, so the click that asked for it saves it. A canvas
     // that wouldn't give the picture back takes the QR code away.
-    const png = toPngDataUrl(qr.code);
+    const png = toPngDataUrl(code);
     if (png) {
       e.currentTarget.href = png;
       emitSignupLinkEvent(signupId, 'shared', 'qr_code');
     } else {
       e.preventDefault();
-      setQr({ kind: 'failed' });
+      setRefused(true);
     }
   }
 
   const phone = variant === 'phone';
-  const label = (
-    <>
+  const link = (
+    <a
+      href="#"
+      download={qrFileName(url)}
+      onClick={download}
+      aria-label="Download QR code"
+      className={phone ? PHONE_BUTTON_CLASS : DESKTOP_LINK_CLASS}
+    >
       {phone ? <QrCode size={16} aria-hidden="true" /> : null}
       {phone ? 'QR code' : 'Download'}
-    </>
+    </a>
   );
-  const linkClass = phone ? PHONE_BUTTON_CLASS : DESKTOP_LINK_CLASS;
-  // Until the encoder is in: the same box, inert and unseen by screen readers.
-  const link =
-    qr.kind === 'ready' ? (
-      <a
-        href="#"
-        download={qrFileName(url)}
-        onClick={download}
-        aria-label="Download QR code"
-        className={linkClass}
-      >
-        {label}
-      </a>
-    ) : (
-      <span aria-hidden="true" className={`${linkClass} opacity-50`}>
-        {label}
-      </span>
-    );
 
   if (phone) return link;
 
   return (
     <div className="flex items-center gap-3 border-t border-surface-sunk pt-3">
       <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-surface-sunk bg-white">
-        {qr.kind === 'ready' ? (
-          <svg
-            viewBox={`0 0 ${qr.side} ${qr.side}`}
-            width={42}
-            height={42}
-            role="img"
-            aria-label="QR code for the link"
-            shapeRendering="crispEdges"
-          >
-            <rect width={qr.side} height={qr.side} fill="#ffffff" />
-            <path d={qr.path} fill="#000000" />
-          </svg>
-        ) : null}
+        <svg
+          viewBox={`0 0 ${side} ${side}`}
+          width={42}
+          height={42}
+          role="img"
+          aria-label="QR code for the link"
+          shapeRendering="crispEdges"
+        >
+          <rect width={side} height={side} fill="#ffffff" />
+          <path d={path} fill="#000000" />
+        </svg>
       </span>
       <span className="min-w-0 flex-1 text-[13px] leading-snug text-ink-muted">
         A QR code for a flyer or a sign-up table.

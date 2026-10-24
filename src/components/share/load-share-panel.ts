@@ -12,10 +12,6 @@ import { ShareUnavailable } from './ShareUnavailable';
  * publishing.
  */
 export function loadSharePanel(): Promise<ComponentType<SharePanelProps>> {
-  // The QR encoder alongside, rather than once the panel asks for it, so
-  // the QR code's place is filled soon after the panel shows. A failure is
-  // the QR code's to handle when it asks again.
-  import('lean-qr/nano').catch(() => {});
   return import('./SharePanel').then(
     (m) => m.SharePanel,
     () => ShareUnavailable,
