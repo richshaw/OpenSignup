@@ -244,7 +244,7 @@ export function SharePanel({
             {linkNotice}
             <div className="flex gap-2">
               {copyLinkButton}
-              <ShareQrCode signupId={signupId} url={url} variant="phone" />
+              <ShareQrCode signupId={signupId} title={title} url={url} variant="phone" />
             </div>
           </div>
           {messageBox}
@@ -259,7 +259,7 @@ export function SharePanel({
             {linkNotice}
           </div>
           {messageBox}
-          <ShareQrCode signupId={signupId} url={url} variant="desktop" />
+          <ShareQrCode signupId={signupId} title={title} url={url} variant="desktop" />
         </>
       )}
     </div>

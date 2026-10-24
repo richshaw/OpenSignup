@@ -3,30 +3,53 @@
 import { useMemo, useState, type MouseEvent } from 'react';
 import { QrCode } from 'lucide-react';
 import { correction, generate, type Bitmap2D } from 'lean-qr/nano';
-import { QR_QUIET_ZONE, qrFileName, qrPngScale, qrSide, qrSvgPath } from '@/lib/qr';
+import { QR_QUIET_ZONE, qrFileName, qrPngLayout, qrSide, qrSvgPath } from '@/lib/qr';
 import { emitSignupLinkEvent } from '@/lib/signup-link-events';
 
 /** The downloaded picture is at least this many pixels wide, enough for print. */
 const PNG_MIN_PX = 1024;
 
+/** The title's font in the picture: a plain sans-serif every system has. */
+const titleFont = (px: number) =>
+  `600 ${px}px system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+
 type Qr = { code: Bitmap2D; side: number; path: string };
 
 /**
- * The code, margin included, black on white, as a PNG data URL; null where
- * the browser can't draw one (no canvas, or a canvas it won't read back).
- * The encoder paints one pixel per module, which is then scaled up with no
+ * The code, margin included, black on white, with the signup's title
+ * centred under it (see `qrPngLayout`), as a PNG data URL; null where the
+ * browser can't draw one (no canvas, or a canvas it won't read back). The
+ * encoder paints one pixel per module, which is then scaled up with no
  * smoothing so the edges stay sharp.
  */
-function toPngDataUrl(code: Bitmap2D): string | null {
+function toPngDataUrl(code: Bitmap2D, title: string): string | null {
   try {
     const small = document.createElement('canvas');
     code.toCanvas(small, { pad: QR_QUIET_ZONE, on: [0, 0, 0, 255], off: [255, 255, 255, 255] });
     const big = document.createElement('canvas');
-    big.width = big.height = qrSide(code) * qrPngScale(code, PNG_MIN_PX);
     const ctx = big.getContext('2d');
     if (!ctx) return null;
+    const layout = qrPngLayout(
+      code,
+      title,
+      (text, px) => {
+        ctx.font = titleFont(px);
+        return ctx.measureText(text).width;
+      },
+      PNG_MIN_PX,
+    );
+    // Sizing the canvas clears it and resets the context's settings.
+    big.width = layout.width;
+    big.height = layout.height;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, layout.width, layout.height);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(small, 0, 0, big.width, big.height);
+    ctx.drawImage(small, 0, 0, layout.width, layout.width);
+    ctx.fillStyle = '#000000';
+    ctx.font = titleFont(layout.fontPx);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const line of layout.lines) ctx.fillText(line.text, layout.width / 2, line.middle);
     return big.toDataURL('image/png');
   } catch {
     return null;
@@ -63,11 +86,14 @@ function makeQr(url: string): Qr | null {
  */
 export function ShareQrCode({
   signupId,
+  title,
   url,
   variant,
 }: {
   /** The signup the link is for, so a download is recorded against it. */
   signupId: string;
+  /** The signup's title, printed under the code in the picture. */
+  title: string;
   url: string;
   variant: 'desktop' | 'phone';
 }) {
@@ -81,7 +107,7 @@ export function ShareQrCode({
     // Set before the browser follows the link, which it does after this
     // handler returns, so the click that asked for it saves it. A canvas
     // that wouldn't give the picture back takes the QR code away.
-    const png = toPngDataUrl(code);
+    const png = toPngDataUrl(code, title);
     if (png) {
       e.currentTarget.href = png;
       emitSignupLinkEvent(signupId, 'shared', 'qr_code');

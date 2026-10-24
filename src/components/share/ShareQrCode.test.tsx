@@ -34,6 +34,10 @@ function giveCanvas() {
     }),
     putImageData: () => {},
     drawImage: vi.fn(),
+    fillRect: vi.fn(),
+    fillText: vi.fn(),
+    // Every character 20px wide at any size.
+    measureText: (text: string) => ({ width: text.length * 20 }),
   };
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
     ctx as unknown as CanvasRenderingContext2D,
@@ -58,7 +62,7 @@ afterEach(() => {
 describe('<ShareQrCode />', () => {
   it('on a computer, shows the code and a Download named after the signup', () => {
     giveCanvas();
-    render(<ShareQrCode signupId="sig_1" url={LINK} variant="desktop" />);
+    render(<ShareQrCode signupId="sig_1" title="Bake sale helpers" url={LINK} variant="desktop" />);
     const download = screen.getByRole('link', { name: 'Download QR code' });
     expect(screen.getByText('A QR code for a flyer or a sign-up table.')).toBeInTheDocument();
     expect(download).toHaveTextContent('Download');
@@ -68,7 +72,7 @@ describe('<ShareQrCode />', () => {
 
   it('on a phone, is a QR code button with no preview', () => {
     giveCanvas();
-    render(<ShareQrCode signupId="sig_1" url={LINK} variant="phone" />);
+    render(<ShareQrCode signupId="sig_1" title="Bake sale helpers" url={LINK} variant="phone" />);
     const download = screen.getByRole('link', { name: 'Download QR code' });
     expect(download).toHaveTextContent('QR code');
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
@@ -77,7 +81,7 @@ describe('<ShareQrCode />', () => {
   it('draws the picture only when Download is chosen, then saves it', () => {
     const ctx = giveCanvas();
     const restore = stayOnPage();
-    render(<ShareQrCode signupId="sig_1" url={LINK} variant="desktop" />);
+    render(<ShareQrCode signupId="sig_1" title="Bake sale helpers" url={LINK} variant="desktop" />);
     const download = screen.getByRole('link', { name: 'Download QR code' });
     expect(ctx.drawImage).not.toHaveBeenCalled();
     fireEvent.click(download);
@@ -88,9 +92,30 @@ describe('<ShareQrCode />', () => {
     expect(emit).toHaveBeenCalledExactlyOnceWith('sig_1', 'shared', 'qr_code');
   });
 
+  it('prints the title under the code, centred, on a white picture taller than it is wide', () => {
+    const ctx = giveCanvas();
+    const restore = stayOnPage();
+    render(<ShareQrCode signupId="sig_1" title="Bake sale helpers" url={LINK} variant="desktop" />);
+    fireEvent.click(screen.getByRole('link', { name: 'Download QR code' }));
+    restore();
+    const [x, y, width, height] = ctx.fillRect.mock.calls[0] as [number, number, number, number];
+    expect([x, y]).toEqual([0, 0]);
+    expect(height).toBeGreaterThan(width);
+    // The code fills the top, a square as wide as the picture.
+    expect(ctx.drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, width, width);
+    expect(ctx.fillText).toHaveBeenCalledExactlyOnceWith(
+      'Bake sale helpers',
+      width / 2,
+      expect.any(Number),
+    );
+    expect(ctx.fillText.mock.calls[0]![2]).toBeGreaterThan(width);
+  });
+
   it('is never there where the browser has no canvas to draw on', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
-    const { container } = render(<ShareQrCode signupId="sig_1" url={LINK} variant="phone" />);
+    const { container } = render(
+      <ShareQrCode signupId="sig_1" title="Bake sale helpers" url={LINK} variant="phone" />,
+    );
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -99,7 +124,9 @@ describe('<ShareQrCode />', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockImplementation(() => {
       throw new DOMException('Tainted canvases may not be exported.', 'SecurityError');
     });
-    const { container } = render(<ShareQrCode signupId="sig_1" url={LINK} variant="phone" />);
+    const { container } = render(
+      <ShareQrCode signupId="sig_1" title="Bake sale helpers" url={LINK} variant="phone" />,
+    );
     const download = screen.getByRole('link', { name: 'Download QR code' });
     // fireEvent returns false when the default action was prevented.
     expect(fireEvent.click(download)).toBe(false);
@@ -110,7 +137,9 @@ describe('<ShareQrCode />', () => {
   it('leaves itself out when the encoder fails, so the panel goes on without it', () => {
     giveCanvas();
     encoder.fails = true;
-    const { container } = render(<ShareQrCode signupId="sig_1" url={LINK} variant="desktop" />);
+    const { container } = render(
+      <ShareQrCode signupId="sig_1" title="Bake sale helpers" url={LINK} variant="desktop" />,
+    );
     expect(container).toBeEmptyDOMElement();
   });
 });

@@ -3,7 +3,7 @@ import { correction, generate } from 'lean-qr/nano';
 import {
   QR_QUIET_ZONE,
   qrFileName,
-  qrPngScale,
+  qrPngLayout,
   qrRuns,
   qrSide,
   qrSvgPath,
@@ -46,19 +46,74 @@ describe('qrSvgPath', () => {
   });
 });
 
-describe('qrSide and qrPngScale', () => {
+describe('qrSide and qrPngLayout', () => {
   // The smallest QR code is 21 modules a side; 29 with its margin.
   const smallest = grid(...Array.from({ length: 21 }, () => '.'.repeat(21)));
+  // Each character half as wide as the font is tall: at 51px, 28 fit in the
+  // 735px between the margins.
+  const measure = (text: string, fontPx: number) => (Array.from(text).length * fontPx) / 2;
+  const layout = (title: string) => qrPngLayout(smallest, title, measure, 1000);
+  const fits = (text: string) => measure(text, 51) <= 1015 - 2 * 4 * 35;
 
   it('adds the margin to both sides', () => {
     expect(qrSide(smallest)).toBe(21 + 2 * Q);
   });
 
   it('picks whole pixels per module, enough to reach the width asked for', () => {
-    const scale = qrPngScale(smallest, 1000);
+    const { scale, width } = layout('');
     expect(scale).toBe(35);
-    expect(scale * qrSide(smallest)).toBeGreaterThanOrEqual(1000);
+    expect(width).toBe(35 * qrSide(smallest));
+    expect(width).toBeGreaterThanOrEqual(1000);
     expect((scale - 1) * qrSide(smallest)).toBeLessThan(1000);
+  });
+
+  it('is the square code alone when there is no title', () => {
+    expect(layout('')).toEqual({ scale: 35, width: 1015, height: 1015, fontPx: 51, lines: [] });
+    expect(layout('  \n ').lines).toEqual([]);
+  });
+
+  it('puts the title under the code’s margin, at a twentieth of the width', () => {
+    const { width, height, fontPx, lines } = layout('  Bake sale helpers ');
+    expect(fontPx).toBe(Math.round(width / 20));
+    // One line, 64px high, below the code and its margin, with the margin
+    // again under it.
+    expect(lines).toEqual([{ text: 'Bake sale helpers', middle: width + 32 }]);
+    expect(height).toBe(width + 64 + 4 * 35);
+  });
+
+  it('breaks a long title between words, no line wider than the code', () => {
+    const { width, height, lines } = layout('Snack duty for the spring season at the park');
+    expect(lines).toEqual([
+      { text: 'Snack duty for the spring', middle: width + 32 },
+      { text: 'season at the park', middle: width + 96 },
+    ]);
+    expect(height).toBe(width + 2 * 64 + 4 * 35);
+  });
+
+  it('stops at two lines, the second ending in an ellipsis', () => {
+    const { lines } = layout(
+      'Volunteers for the school book fair, setting up, selling and packing away on Saturday',
+    );
+    expect(lines.map((l) => l.text)).toEqual([
+      'Volunteers for the school',
+      'book fair, setting up,…',
+    ]);
+    // A word cut to fit keeps what fits beside the ellipsis.
+    const longer = layout('Volunteers for the school bookfairsettingupsellingandpacking away');
+    expect(longer.lines.map((l) => l.text)).toEqual([
+      'Volunteers for the school',
+      'bookfairsettingupsellingand…',
+    ]);
+    for (const { text } of longer.lines) expect(fits(text)).toBe(true);
+  });
+
+  it('breaks inside a word too long for a line, or a title written without spaces', () => {
+    expect(layout('x'.repeat(40)).lines.map((l) => l.text)).toEqual([
+      'x'.repeat(28),
+      'x'.repeat(12),
+    ]);
+    const title = '春の読書会のボランティア募集です。'.repeat(2);
+    expect(layout(title).lines.map((l) => l.text)).toEqual([title.slice(0, 28), title.slice(28)]);
   });
 });
 
