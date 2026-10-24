@@ -24,11 +24,18 @@ export interface ShareMessageSignup {
  *     Sign up here: https://…/s/book-fair-k3x
  *
  * The middle line leaves out each part that doesn't apply: the dates when
- * no slot has one, the spots when any slot has no limit, and the line
- * itself when nothing is left. The organizer can change it before sending.
+ * no slot has one, the spots when an open slot has no limit or none are
+ * left, and the line itself when nothing is left. Once people have signed
+ * up, the spots are the ones still open ("18 spots left"), from
+ * `committedBySlot` (as the commitments service counts them; none for a
+ * draft). The organizer can change it before sending.
  */
-export function shareMessage(signup: ShareMessageSignup, url: string): string {
-  const facts = [dateSpan(signup), slotCount(signup), spotCount(signup)].filter(
+export function shareMessage(
+  signup: ShareMessageSignup,
+  url: string,
+  committedBySlot: Record<string, number> = {},
+): string {
+  const facts = [dateSpan(signup), slotCount(signup), spotCount(signup, committedBySlot)].filter(
     (part): part is string => part !== null,
   );
   return [signup.title.trim(), facts.join(' · '), `Sign up here: ${url}`]
@@ -62,13 +69,19 @@ function slotCount({ slots }: ShareMessageSignup): string | null {
   return slots.length === 1 ? '1 slot' : `${slots.length} slots`;
 }
 
-/** Every slot's spots added up, or null when any slot has no limit. */
-function spotCount({ slots }: ShareMessageSignup): string | null {
-  if (slots.length === 0) return null;
-  // Only the total matters here, so nothing taken is passed in.
-  const { total } = spotCounts(slots, {});
-  if (total === null) return null;
-  return total === 1 ? '1 spot' : `${total} spots`;
+/**
+ * The spots people can take, added up over the open slots: "21 spots"
+ * before anyone has signed up, "18 spots left" after. Null when an open
+ * slot has no limit, or when no spot is left to offer.
+ */
+function spotCount(
+  { slots }: ShareMessageSignup,
+  committedBySlot: Record<string, number>,
+): string | null {
+  const { taken, open } = spotCounts(slots, committedBySlot);
+  if (open === null || open === 0) return null;
+  const spots = open === 1 ? '1 spot' : `${open} spots`;
+  return taken === 0 ? spots : `${spots} left`;
 }
 
 /**

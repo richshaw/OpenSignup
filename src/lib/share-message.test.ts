@@ -95,10 +95,44 @@ describe('shareMessage', () => {
     );
   });
 
-  it('leaves the spots out when any slot has no limit', () => {
+  it('leaves the spots out when an open slot has no limit', () => {
     const slots = [slot('2026-11-14', 3), slot('2026-11-14', null)];
     expect(shareMessage(signup({ slots }), LINK)).toBe(
       `Fall book fair volunteers\nSat, Nov 14 · 2 slots\nSign up here: ${LINK}`,
+    );
+  });
+
+  it('says how many spots are left once people have signed up', () => {
+    const slots = [slot('2026-11-14', 3), slot('2026-11-14', 4)];
+    const [first, second] = slots as [(typeof slots)[0], (typeof slots)[0]];
+    expect(shareMessage(signup({ slots }), LINK, { [first.id]: 2, [second.id]: 1 })).toBe(
+      `Fall book fair volunteers\nSat, Nov 14 · 2 slots · 4 spots left\nSign up here: ${LINK}`,
+    );
+    expect(shareMessage(signup({ slots }), LINK, { [first.id]: 3, [second.id]: 3 })).toBe(
+      `Fall book fair volunteers\nSat, Nov 14 · 2 slots · 1 spot left\nSign up here: ${LINK}`,
+    );
+  });
+
+  it('leaves the spots out when none are left', () => {
+    const slots = [slot('2026-11-14', 2), slot('2026-11-14', 1)];
+    const [first, second] = slots as [(typeof slots)[0], (typeof slots)[0]];
+    expect(shareMessage(signup({ slots }), LINK, { [first.id]: 2, [second.id]: 1 })).toBe(
+      `Fall book fair volunteers\nSat, Nov 14 · 2 slots\nSign up here: ${LINK}`,
+    );
+  });
+
+  it('offers no spots on a closed slot, and an over-full one takes none from another', () => {
+    const slots = [
+      slot('2026-11-14', 3),
+      { ...slot('2026-11-14', 5), status: 'closed' },
+      slot('2026-11-14', 2),
+    ];
+    const [first, , third] = slots as [(typeof slots)[0], unknown, (typeof slots)[0]];
+    expect(shareMessage(signup({ slots }), LINK)).toBe(
+      `Fall book fair volunteers\nSat, Nov 14 · 3 slots · 5 spots\nSign up here: ${LINK}`,
+    );
+    expect(shareMessage(signup({ slots }), LINK, { [first.id]: 4, [third.id]: 1 })).toBe(
+      `Fall book fair volunteers\nSat, Nov 14 · 3 slots · 1 spot left\nSign up here: ${LINK}`,
     );
   });
 

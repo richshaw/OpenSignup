@@ -56,7 +56,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
         publicUrl={publicUrl}
         spots={filled ? spotCounts(sig.slots, filled.value) : null}
         closeQuestionAction={closeQuestionAction.bind(null, id)}
-        shareMessage={shareMessage(sig, publicUrl)}
+        shareMessage={shareMessage(sig, publicUrl, filled?.value)}
         publishAction={publishAction.bind(null, id)}
         closeAction={closeAction.bind(null, id)}
       />

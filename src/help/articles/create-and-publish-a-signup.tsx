@@ -156,7 +156,7 @@ export function CreateAndPublishASignup() {
               <li>
                 There&apos;s a message to send with the link. It names your signup and says how
                 many slots there are. If the slots have dates, it gives them. If every slot has a
-                limit, it says how many spots. You can change the message.{' '}
+                limit, it says how many spots are left. You can change the message.{' '}
                 <Ui>{UI.copyMessage}</Ui> copies it, with the link. <Ui>{UI.emailIt}</Ui> opens
                 your email app with it.
               </li>
