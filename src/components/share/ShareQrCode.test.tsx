@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ShareQrCode } from './ShareQrCode';
 
 // The real encoder, unless a test makes it fail.
@@ -153,18 +153,26 @@ describe('<ShareQrCode /> on a phone', () => {
     expect(emit).toHaveBeenCalledOnce();
   });
 
-  it('saves the picture through the phone’s share menu where it can share a file', async () => {
+  it('hands the picture to the phone’s share menu where it can share a file, and leaves the saying to it', async () => {
     giveCanvas();
     const share = giveFileSharing(async () => {});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click');
     renderQr('phone');
     fireEvent.click(screen.getByRole('button', { name: 'QR code' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save image' }));
-    await screen.findByRole('button', { name: 'Saved' });
-    expect(screen.getByText('QR code saved')).toHaveAttribute('aria-live', 'polite');
+    const save = screen.getByRole('button', { name: 'Save image' });
+    const live = save.nextElementSibling!;
+    await act(async () => {
+      fireEvent.click(save);
+    });
     const [{ files }] = share.mock.calls[0] as [ShareData];
     expect(files).toHaveLength(1);
     expect(files![0]!.name).toBe('bake-sale-k3x-qr.png');
     expect(files![0]!.type).toBe('image/png');
+    // It may have gone to another app rather than been saved, so no "Saved".
+    expect(save).toHaveTextContent('Save image');
+    expect(live).toHaveAttribute('aria-live', 'polite');
+    expect(live).toBeEmptyDOMElement();
+    expect(click).not.toHaveBeenCalled();
     expect(emit).toHaveBeenCalledOnce();
   });
 
@@ -176,9 +184,13 @@ describe('<ShareQrCode /> on a phone', () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click');
     renderQr('phone');
     fireEvent.click(screen.getByRole('button', { name: 'QR code' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save image' }));
-    await waitFor(() => expect(share).toHaveBeenCalledOnce());
-    expect(screen.getByRole('button', { name: 'Save image' })).toBeInTheDocument();
+    const save = screen.getByRole('button', { name: 'Save image' });
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    expect(share).toHaveBeenCalledOnce();
+    expect(save).toHaveTextContent('Save image');
+    expect(save.nextElementSibling).toBeEmptyDOMElement();
     expect(click).not.toHaveBeenCalled();
   });
 
@@ -194,6 +206,7 @@ describe('<ShareQrCode /> on a phone', () => {
     fireEvent.click(screen.getByRole('button', { name: 'QR code' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save image' }));
     await screen.findByRole('button', { name: 'Saved' });
+    expect(screen.getByText('QR code saved')).toHaveAttribute('aria-live', 'polite');
     expect(saved).toEqual([{ href: PNG, download: 'bake-sale-k3x-qr.png', attached: true }]);
     // Back to Save image after a moment.
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save image' })).toBeVisible(), {

@@ -156,14 +156,15 @@ export function ShareQrCode({
     if (navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({ files: [file] });
+        // Saved, or sent to another app: the phone's own menu has said
+        // which, and "Saved" here might not be true.
+        return;
       } catch (err) {
         // Closed without saving: nothing to say. Refused: download instead.
         if (err instanceof DOMException && err.name === 'AbortError') return;
-        downloadFile(png, name);
       }
-    } else {
-      downloadFile(png, name);
     }
+    downloadFile(png, name);
     setSaved(true);
   }
 
