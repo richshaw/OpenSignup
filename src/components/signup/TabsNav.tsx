@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
+import { useDropPendingFix } from './BuildBridge';
 
 interface TabsNavProps {
   signupId: string;
@@ -23,6 +24,9 @@ type TabId = (typeof TABS)[number]['id'];
 export function TabsNav({ signupId, counts }: TabsNavProps) {
   const pathname = usePathname();
   const activeRef = useRef<HTMLAnchorElement | null>(null);
+  // A tab other than Build, even the one showing, means the organizer has
+  // moved on from a check's fix still on its way to Build.
+  const dropPendingFix = useDropPendingFix();
 
   const activeTab: TabId = (() => {
     const segment = pathname.split('/').pop() ?? '';
@@ -53,6 +57,7 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
             key={t.id}
             ref={active ? activeRef : null}
             href={`/app/signups/${signupId}/${t.id}`}
+            {...(t.id === 'build' ? {} : { onClick: dropPendingFix })}
             role="tab"
             aria-selected={active}
             aria-current={active ? 'page' : undefined}
