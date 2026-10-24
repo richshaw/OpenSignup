@@ -459,6 +459,20 @@ describe('Done after the check’s fix', () => {
     expect(screen.getByRole('status')).toHaveTextContent(READY);
   });
 
+  it('takes Enter in the field the fix put focus in as Done', async () => {
+    windowWidth(1280);
+    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    const publish = publishIn('desktop');
+    await press(publish);
+    fireEvent.click(screen.getByRole('button', { name: 'Name it first' }));
+    fireEvent.change(what(), { target: { value: 'Cashier' } });
+    fireEvent.keyDown(what(), { key: 'Enter' });
+    expect(screen.queryByRole('textbox', { name: 'What value' })).toBeNull();
+    expect(publish).toHaveFocus();
+    expect(publish.className).toMatch(RING);
+    expect(screen.getByRole('status')).toHaveTextContent(READY);
+  });
+
   it('drops the ring early when focus moves on', async () => {
     windowWidth(1280);
     render(<Header action={async () => answer(TBD)} page={buildTab} />);
@@ -478,6 +492,9 @@ describe('Done after the check’s fix', () => {
       screen.getByRole('button', { name: 'Edit slot — Cashier TBD, still says “TBD”' }),
     );
     what().focus();
+    // Enter does nothing new here: the slot stays open.
+    fireEvent.keyDown(what(), { key: 'Enter' });
+    expect(what()).toHaveFocus();
     done();
     expect(publishIn('desktop')).not.toHaveFocus();
     expect(publishIn('desktop').className).not.toMatch(RING);

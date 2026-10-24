@@ -348,6 +348,92 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     done('slot_new');
     expect(handBack).toHaveBeenCalledTimes(2);
   });
+
+  it('lets Enter in a one-line box do what Done does, in the slot it opened', () => {
+    const { bridge } = renderBuild();
+    act(() => {
+      bridge().openSlot('slot_b', 'where');
+    });
+    const where = screen.getByRole('textbox', { name: 'Where value' });
+    // Mid-composition, Enter is the input method's.
+    fireEvent.keyDown(where, { key: 'Enter', isComposing: true });
+    expect(screen.getByTestId('slot-editor-slot_b')).toBeInTheDocument();
+    fireEvent.keyDown(where, { key: 'Enter' });
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+    expect(handBack).toHaveBeenCalledOnce();
+
+    // Spots is one of its boxes too.
+    act(() => {
+      bridge().openSlot('slot_a', null);
+    });
+    fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Spots' }), { key: 'Enter' });
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+    expect(handBack).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves Enter as it was in a slot the organizer opened, or once they open one', () => {
+    const { bridge } = renderBuild();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'What value' }), { key: 'Enter' });
+    expect(screen.getByTestId('slot-editor-slot_a')).toBeInTheDocument();
+
+    act(() => {
+      bridge().openSlot('slot_b', 'where');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'What value' }), { key: 'Enter' });
+    expect(screen.getByTestId('slot-editor-slot_a')).toBeInTheDocument();
+    expect(handBack).not.toHaveBeenCalled();
+  });
+
+  it('leaves Enter to a list’s new item, then lets it close the slot', async () => {
+    const kind = {
+      id: 'f-kind',
+      ref: 'kind',
+      label: 'Kind',
+      fieldType: 'enum' as const,
+      sortOrder: 1,
+      config: { fieldType: 'enum' as const, choices: ['Cake'] },
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ data: {} }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    );
+    let bridge: ReturnType<typeof useBuildBridge> | null = null;
+    render(
+      <BuildBridge buildHref="/app/signups/sig_t/build">
+        <Header onReady={(b) => (bridge = b)} />
+        <BuildWysiwyg
+          {...baseProps}
+          initialFields={[what, kind]}
+          initialSlots={[{ id: 'slot_a', capacity: 1, sortOrder: 0, values: { what: 'TBD' } }]}
+        />
+      </BuildBridge>,
+    );
+    act(() => {
+      bridge!.openSlot('slot_a', 'what');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Kind value' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to list' }));
+    const item = screen.getByRole('textbox', { name: 'New option name' });
+    fireEvent.change(item, { target: { value: 'Pie' } });
+    await act(async () => {
+      fireEvent.keyDown(item, { key: 'Enter' });
+    });
+    expect(screen.getByTestId('slot-editor-slot_a')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Kind value' })).toHaveTextContent('Pie');
+    expect(handBack).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'What value' }), { key: 'Enter' });
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+    expect(handBack).toHaveBeenCalledOnce();
+  });
 });
 
 describe('BuildWysiwyg — a slot that still says TBD', () => {

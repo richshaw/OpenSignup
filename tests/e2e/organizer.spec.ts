@@ -376,7 +376,7 @@ for (const [device, viewport] of [
       await expect(page.getByRole('status').filter({ hasText: 'Saved. Publish' })).toHaveCount(0);
     });
 
-    test('a slot that says TBD is marked, and Done after Name it first goes back to Publish and share', async ({
+    test('a slot that says TBD is marked, and Enter after Name it first goes back to Publish and share', async ({
       page,
     }) => {
       const draft = await createDraft(page.request, {
@@ -401,11 +401,14 @@ for (const [device, viewport] of [
       const what = editor.getByRole('textbox', { name: 'What value' });
       await expect(what).toBeFocused();
       await what.fill('Cashier');
-      await editor.getByRole('button', { name: 'Done' }).click();
+      // Enter in the box does what Done does, in a slot the check opened.
+      await what.press('Enter');
+      await expect(editor).toHaveCount(0);
 
-      // Focus is back on Publish and share, ringed for a moment so it shows
-      // after a click too, and the header says it can be published. The mark
-      // has gone with the TBD, before the edit has saved.
+      // Focus is back on Publish and share, ringed for a moment (as after a
+      // click on Done, where no focus ring would show), and the header says
+      // it can be published. The mark has gone with the TBD, before the edit
+      // has saved.
       await expect(publish).toBeFocused();
       await expect(publish).toHaveCSS('outline-offset', '3px');
       await expect(
@@ -422,7 +425,7 @@ for (const [device, viewport] of [
       expect(await storedStatus(page, draft.id)).toBe('open');
     });
 
-    test('Done after opening a slot by hand doesn’t move focus to Publish and share', async ({
+    test('Enter or Done after opening a slot by hand doesn’t move focus to Publish and share', async ({
       page,
     }) => {
       const draft = await createDraft(page.request, {
@@ -431,10 +434,12 @@ for (const [device, viewport] of [
       });
       await page.goto(`/app/signups/${draft.id}/build`);
       await page.getByRole('button', { name: /^Edit slot — Cashier TBD/ }).click();
-      await page
-        .getByTestId(`slot-editor-${draft.slotId}`)
-        .getByRole('button', { name: 'Done' })
-        .click();
+      const editor = page.getByTestId(`slot-editor-${draft.slotId}`);
+      // Enter does nothing new in a slot opened by hand.
+      await editor.getByRole('textbox', { name: 'What value' }).press('Enter');
+      await expect(editor).toBeVisible();
+      await expect(editor.getByRole('textbox', { name: 'What value' })).toBeFocused();
+      await editor.getByRole('button', { name: 'Done' }).click();
       await expect(publishButton(page)).not.toBeFocused();
       await expect(page.getByRole('status').filter({ hasText: 'Saved. Publish' })).toHaveCount(0);
     });

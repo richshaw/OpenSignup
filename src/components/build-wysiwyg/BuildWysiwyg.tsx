@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Plus } from 'lucide-react';
 import { useRegisterBuildTab } from '@/components/signup/BuildBridge';
 import { useBuildState, type BuildField, type BuildRow, type BuildSlot } from '../build-shared/useBuildState';
@@ -120,7 +120,7 @@ export function BuildWysiwyg({
     fieldRef: string | null;
   } | null>(null);
   // The slot Publish's check opened, until the organizer opens one
-  // themselves: Done on it hands focus back to Publish and share.
+  // themselves: Done on it, or Enter, hands focus back to Publish and share.
   const fixRow = useRef<string | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   // The group whose header change the server refused; its rows are back
@@ -205,6 +205,24 @@ export function BuildWysiwyg({
     setExpandedRowId(rowId);
   };
 
+  // In the editor the check opened, Enter in a one-line box (text, number,
+  // date, time) does what Done does, as the design has it. Not while typing a
+  // new list item, whose box takes Enter itself, nor mid-composition in an
+  // input method; an editor opened by hand keeps Enter as it was.
+  const enterIsDone = (e: KeyboardEvent<HTMLElement>) => {
+    const box = e.target as HTMLInputElement;
+    if (
+      e.key === 'Enter' &&
+      !e.defaultPrevented &&
+      !e.nativeEvent.isComposing &&
+      /^(text|number|date|time)$/.test(box.type) &&
+      box.closest<HTMLElement>('[data-slot-editor]')?.dataset.slotEditor === fixRow.current
+    ) {
+      e.preventDefault();
+      expandRow(null);
+    }
+  };
+
   // Focus goes in the field asked for, or the slot's first, once its editor
   // is open; with no fields, in Spots.
   useEffect(() => {
@@ -242,6 +260,7 @@ export function BuildWysiwyg({
   return (
     <div
       ref={sheetRef}
+      onKeyDown={enterIsDone}
       className="-mt-6 -mb-8 min-h-[calc(100vh-12rem)] bg-surface-raised pt-6 pb-24 md:pt-10 md:pb-32"
     >
       <div
