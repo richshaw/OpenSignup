@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState, type MouseEvent } from 'react';
-import { QrCode } from 'lucide-react';
+import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { Check, Download, QrCode } from 'lucide-react';
 import { correction, generate, type Bitmap2D } from 'lean-qr/nano';
 import { QR_QUIET_ZONE, qrFileName, qrPngLayout, qrSide, qrSvgPath } from '@/lib/qr';
 import { emitSignupLinkEvent } from '@/lib/signup-link-events';
@@ -72,17 +72,21 @@ function makeQr(url: string): Qr | null {
 
 /**
  * The share panel's QR code, to print on a flyer or put on a sign-up table:
- * on a computer a row with a small preview and Download, on a phone a
- * QR code button beside Copy link. The browser draws both itself, so
- * nothing goes to an outside service, and the PNG only when the download
- * is chosen. The encoder (`lean-qr/nano`, 2 kB) comes in the panel's own
- * code, which loads only when the panel opens, so it's never in a page's
- * first load and the code is there as soon as the panel is: nothing to
- * wait for, and nothing moves.
+ * on a computer a row with a small preview and Download; on a phone a
+ * QR code button beside Copy link, which shows the code large in the sheet
+ * with Save image under it. The browser draws it itself, so nothing goes to
+ * an outside service, and the PNG only when it's saved. The encoder
+ * (`lean-qr/nano`, 2 kB) comes in the panel's own code, which loads only
+ * when the panel opens, so it's never in a page's first load and the code
+ * is there as soon as the panel is: nothing to wait for, and nothing moves.
  *
  * Where the browser can't draw the PNG, there's no QR code, rather than a
  * Download that does nothing; one that fails when chosen goes away. The
  * panel goes on without it.
+ *
+ * Its use is recorded once each time the panel opens, when the code is
+ * first shown large or first saved or downloaded: one more look at it, or
+ * a second copy, isn't another share.
  */
 export function ShareQrCode({
   signupId,
@@ -90,7 +94,7 @@ export function ShareQrCode({
   url,
   variant,
 }: {
-  /** The signup the link is for, so a download is recorded against it. */
+  /** The signup the link is for, so its use is recorded against it. */
   signupId: string;
   /** The signup's title, printed under the code in the picture. */
   title: string;
@@ -100,38 +104,120 @@ export function ShareQrCode({
   // Rendered only in the browser: the panel never renders on the server.
   const qr = useMemo(() => makeQr(url), [url]);
   const [refused, setRefused] = useState(false);
+  const [shown, setShown] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const recorded = useRef(false);
+  const largeId = useId();
+
+  useEffect(() => {
+    if (!saved) return;
+    const timer = setTimeout(() => setSaved(false), 2000);
+    return () => clearTimeout(timer);
+  }, [saved]);
+
   if (!qr || refused) return null;
   const { code, side, path } = qr;
+  const name = qrFileName(url);
+  const alt = `QR code for ${title.trim()}’s sign-up link`;
+
+  function record() {
+    if (recorded.current) return;
+    recorded.current = true;
+    emitSignupLinkEvent(signupId, 'shared', 'qr_code');
+  }
+
+  /** The picture, or null having taken the QR code away. */
+  function picture(): string | null {
+    const png = toPngDataUrl(code, title);
+    if (!png) setRefused(true);
+    return png;
+  }
 
   function download(e: MouseEvent<HTMLAnchorElement>) {
     // Set before the browser follows the link, which it does after this
-    // handler returns, so the click that asked for it saves it. A canvas
-    // that wouldn't give the picture back takes the QR code away.
-    const png = toPngDataUrl(code, title);
+    // handler returns, so the click that asked for it saves it.
+    const png = picture();
     if (png) {
       e.currentTarget.href = png;
-      emitSignupLinkEvent(signupId, 'shared', 'qr_code');
+      record();
     } else {
       e.preventDefault();
-      setRefused(true);
     }
   }
 
-  const phone = variant === 'phone';
-  const link = (
-    <a
-      href="#"
-      download={qrFileName(url)}
-      onClick={download}
-      aria-label="Download QR code"
-      className={phone ? PHONE_BUTTON_CLASS : DESKTOP_LINK_CLASS}
-    >
-      {phone ? <QrCode size={16} aria-hidden="true" /> : null}
-      {phone ? 'QR code' : 'Download'}
-    </a>
-  );
+  async function save() {
+    const png = picture();
+    if (!png) return;
+    record();
+    // A phone that can share a file offers its own Save Image (and the
+    // apps it could go to); elsewhere it downloads. The file is made from
+    // the data URL there and then, as sharing must start in the tap.
+    const file = new File([pngBytes(png)], name, { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file] });
+      } catch (err) {
+        // Closed without saving: nothing to say. Refused: download instead.
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        downloadFile(png, name);
+      }
+    } else {
+      downloadFile(png, name);
+    }
+    setSaved(true);
+  }
 
-  if (phone) return link;
+  if (variant === 'phone') {
+    return (
+      <>
+        {/* Focus stays here: a screen reader hears "QR code, expanded",
+            then the code's name and Save image, and choosing it again
+            puts the code away. */}
+        <button
+          type="button"
+          aria-expanded={shown}
+          aria-controls={shown ? largeId : undefined}
+          onClick={() => {
+            if (!shown) record();
+            setShown(!shown);
+          }}
+          className={PHONE_BUTTON_CLASS}
+        >
+          <QrCode size={16} aria-hidden="true" />
+          QR code
+        </button>
+        {shown ? (
+          <div id={largeId} className="flex basis-full flex-col items-center gap-3 pt-1">
+            <svg
+              viewBox={`0 0 ${side} ${side}`}
+              role="img"
+              aria-label={alt}
+              shapeRendering="crispEdges"
+              className="aspect-square w-full max-w-[280px] rounded-[12px] border border-surface-sunk"
+            >
+              <rect width={side} height={side} fill="#ffffff" />
+              <path d={path} fill="#000000" />
+            </svg>
+            <button
+              type="button"
+              onClick={() => void save()}
+              className={`${PHONE_SAVE_CLASS} w-full max-w-[280px]`}
+            >
+              {saved ? (
+                <Check size={16} strokeWidth={2.6} aria-hidden="true" />
+              ) : (
+                <Download size={16} aria-hidden="true" />
+              )}
+              {saved ? 'Saved' : 'Save image'}
+            </button>
+            <p aria-live="polite" className="sr-only">
+              {saved ? 'QR code saved' : ''}
+            </p>
+          </div>
+        ) : null}
+      </>
+    );
+  }
 
   return (
     <div className="flex items-center gap-3 border-t border-surface-sunk pt-3">
@@ -141,7 +227,7 @@ export function ShareQrCode({
           width={42}
           height={42}
           role="img"
-          aria-label="QR code for the link"
+          aria-label={alt}
           shapeRendering="crispEdges"
         >
           <rect width={side} height={side} fill="#ffffff" />
@@ -151,9 +237,35 @@ export function ShareQrCode({
       <span className="min-w-0 flex-1 text-[13px] leading-snug text-ink-muted">
         A QR code for a flyer or a sign-up table.
       </span>
-      {link}
+      <a
+        href="#"
+        download={name}
+        onClick={download}
+        aria-label="Download QR code"
+        className={DESKTOP_LINK_CLASS}
+      >
+        Download
+      </a>
     </div>
   );
+}
+
+/** A data URL's bytes. */
+function pngBytes(dataUrl: string): Uint8Array<ArrayBuffer> {
+  const binary = atob(dataUrl.slice(dataUrl.indexOf(',') + 1));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+/** Saves `href` as a file called `name`, as a download link would. */
+function downloadFile(href: string, name: string) {
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  a.remove();
 }
 
 // The same height as Copy message and Email it, so its focus ring has room;
@@ -164,3 +276,7 @@ const DESKTOP_LINK_CLASS =
 // Beside Copy link, and drawn the same way.
 const PHONE_BUTTON_CLASS =
   'inline-flex h-12 flex-1 basis-0 items-center justify-center gap-2 rounded-[12px] border border-surface-sunk bg-white text-[15px] font-semibold text-ink transition hover:bg-surface-raised';
+
+// Under the large code, as wide as it, so Saved doesn't change its size.
+const PHONE_SAVE_CLASS =
+  'inline-flex h-12 items-center justify-center gap-2 rounded-[12px] border border-surface-sunk bg-white text-[15px] font-semibold text-ink transition hover:bg-surface-raised';

@@ -242,7 +242,8 @@ export function SharePanel({
               </div>
             ) : null}
             {linkNotice}
-            <div className="flex gap-2">
+            {/* The QR code shows large on a row of its own, under these. */}
+            <div className="flex flex-wrap gap-2">
               {copyLinkButton}
               <ShareQrCode signupId={signupId} title={title} url={url} variant="phone" />
             </div>
