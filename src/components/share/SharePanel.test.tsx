@@ -95,8 +95,11 @@ describe('<SharePanel /> on a computer', () => {
     writeText.mockRejectedValue(new Error('denied'));
     render(<Owner />);
     fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
-    await screen.findByText('Couldn’t copy. Select the link and copy it.');
-    expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument();
+    const notice = await screen.findByText('Couldn’t copy. Select the link and copy it.');
+    // Right under the row of the button that was refused.
+    expect(notice.previousElementSibling).toContainElement(
+      screen.getByRole('button', { name: 'Copy link' }),
+    );
     expect(screen.queryByText('Link copied')).not.toBeInTheDocument();
     const field = screen.getByLabelText<HTMLInputElement>('Public link');
     expect(field).toHaveFocus();
@@ -113,7 +116,11 @@ describe('<SharePanel /> on a computer', () => {
     writeText.mockRejectedValue(new Error('denied'));
     render(<Owner />);
     fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
-    await screen.findByText('Couldn’t copy. Select the message and copy it.');
+    const notice = await screen.findByText('Couldn’t copy. Select the message and copy it.');
+    expect(notice.previousElementSibling).toContainElement(
+      screen.getByRole('button', { name: 'Copy message' }),
+    );
+    expect(screen.queryByText('Couldn’t copy. Select the link and copy it.')).toBeNull();
     const box = screen.getByLabelText<HTMLTextAreaElement>('A message to send with it');
     expect(box).toHaveFocus();
     expect([box.selectionStart, box.selectionEnd]).toEqual([0, MESSAGE.length]);
@@ -179,9 +186,14 @@ describe('<SharePanel /> on a phone', () => {
     render(<Owner variant="phone" />);
     expect(screen.queryByLabelText('Public link')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
-    await screen.findByText('Couldn’t copy. Select the link and copy it.');
+    const notice = await screen.findByText('Couldn’t copy. Select the link and copy it.');
     const field = screen.getByLabelText<HTMLInputElement>('Public link');
     expect(field).toHaveValue(LINK);
+    // Beside the link's box, above Copy link, not under the message.
+    expect(notice.previousElementSibling).toContainElement(field);
+    expect(notice.nextElementSibling).toContainElement(
+      screen.getByRole('button', { name: 'Copy link' }),
+    );
     await waitFor(() => expect(field).toHaveFocus());
     expect([field.selectionStart, field.selectionEnd]).toEqual([0, LINK.length]);
   });

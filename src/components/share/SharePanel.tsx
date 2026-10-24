@@ -174,16 +174,20 @@ export function SharePanel({
           </a>
         </div>
       )}
+      {canShare ? null : (
+        <p aria-live="polite" className={refused?.what === 'message' ? REFUSED : 'sr-only'}>
+          {refused?.what === 'message' ? MESSAGE_COPY_REFUSED : ''}
+        </p>
+      )}
     </div>
   );
 
-  // One live region: the last copy that worked, unseen, or a refusal, seen.
-  const notice = (
-    <p
-      aria-live="polite"
-      className={refused ? 'text-[13px] font-medium leading-snug text-danger' : 'sr-only'}
-    >
-      {refused ? (refused.what === 'link' ? LINK_COPY_REFUSED : MESSAGE_COPY_REFUSED) : copiedNow}
+  // Under the link's row: a refused copy of the link, seen, or else the last
+  // copy that worked, link or message, unseen. A refused copy of the message
+  // shows under its own row, above.
+  const linkNotice = (
+    <p aria-live="polite" className={refused?.what === 'link' ? REFUSED : 'sr-only'}>
+      {refused?.what === 'link' ? LINK_COPY_REFUSED : refused ? '' : copiedNow}
     </p>
   );
 
@@ -211,27 +215,32 @@ export function SharePanel({
               </p>
             </div>
           ) : null}
-          {/* The link to copy by hand, once the clipboard has refused it. */}
-          {refused?.what === 'link' ? (
-            <div className="flex">
-              <LinkField url={url} ref={linkField} />
+          <div className="flex flex-col gap-2">
+            {/* The link to copy by hand, and why, once the clipboard has
+                refused it. */}
+            {refused?.what === 'link' ? (
+              <div className="flex">
+                <LinkField url={url} ref={linkField} />
+              </div>
+            ) : null}
+            {linkNotice}
+            <div className="flex gap-2">
+              {copyLinkButton}
+              <ShareQrCode url={url} variant="phone" />
             </div>
-          ) : null}
-          <div className="flex gap-2">
-            {copyLinkButton}
-            <ShareQrCode url={url} variant="phone" />
           </div>
           {messageBox}
-          {notice}
         </>
       ) : (
         <>
-          <div className="flex gap-2">
-            <LinkField url={url} ref={linkField} />
-            {copyLinkButton}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex gap-2">
+              <LinkField url={url} ref={linkField} />
+              {copyLinkButton}
+            </div>
+            {linkNotice}
           </div>
           {messageBox}
-          {notice}
           <ShareQrCode url={url} variant="desktop" />
         </>
       )}
@@ -269,6 +278,9 @@ const DESKTOP_PRIMARY =
 // Copy message and Email it.
 const SECONDARY =
   'inline-flex items-center gap-1.5 rounded-[10px] border border-surface-sunk bg-white font-semibold text-ink transition hover:bg-surface-raised';
+
+// A refused copy's line, under the row of the button that was refused.
+const REFUSED = 'text-[13px] font-medium leading-snug text-danger';
 
 const PHONE_BUTTON =
   'inline-flex items-center justify-center gap-2 rounded-[12px] font-semibold transition';
