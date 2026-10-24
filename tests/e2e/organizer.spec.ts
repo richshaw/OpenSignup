@@ -361,6 +361,82 @@ for (const [device, viewport] of [
       await check.getByRole('button', { name: 'Publish anyway' }).click();
       await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
       expect(await storedStatus(page, draft.id)).toBe('open');
+
+      // The slot's mark now says people can see it. Done, with no Publish and
+      // share left to go back to, says nothing.
+      await page.keyboard.press('Escape');
+      await page
+        .getByTestId(`slot-editor-${draft.slotId}`)
+        .getByRole('button', { name: 'Done' })
+        .click();
+      await expect(
+        page.getByRole('button', { name: 'Edit slot — Cashier TBD, people can see “TBD”' }),
+      ).toBeVisible();
+      await expect(page.getByText('People can see “TBD”', { exact: true })).toBeVisible();
+      await expect(page.getByRole('status').filter({ hasText: 'Saved. Publish' })).toHaveCount(0);
+    });
+
+    test('a slot that says TBD is marked, and Done after Name it first goes back to Publish and share', async ({
+      page,
+    }) => {
+      const draft = await createDraft(page.request, {
+        title: `Marked TBD ${Date.now()}`,
+        values: { what: 'Cashier TBD', date: '2030-04-06' },
+      });
+      await page.goto(`/app/signups/${draft.id}/build`);
+      const slot = page.getByTestId(`wysiwyg-slot-${draft.slotId}`);
+      const mark = slot.getByText('Still says “TBD”', { exact: true });
+      await expect(mark).toBeVisible();
+      await expect(
+        slot.getByRole('button', { name: 'Edit slot — Cashier TBD, still says “TBD”' }),
+      ).toBeVisible();
+
+      const publish = publishButton(page);
+      await publish.click();
+      await page
+        .getByRole('dialog', { name: 'Before people see it' })
+        .getByRole('button', { name: 'Name it first' })
+        .click();
+      const editor = page.getByTestId(`slot-editor-${draft.slotId}`);
+      const what = editor.getByRole('textbox', { name: 'What value' });
+      await expect(what).toBeFocused();
+      await what.fill('Cashier');
+      await editor.getByRole('button', { name: 'Done' }).click();
+
+      // Focus is back on Publish and share, ringed for a moment so it shows
+      // after a click too, and the header says it can be published. The mark
+      // has gone with the TBD, before the edit has saved.
+      await expect(publish).toBeFocused();
+      await expect(publish).toHaveCSS('outline-offset', '3px');
+      await expect(
+        page.getByRole('status').filter({ hasText: 'Saved. Publish and share when you’re ready.' }),
+      ).toHaveCount(1);
+      await expect(mark).toHaveCount(0);
+      await expect(slot.getByRole('button', { name: 'Edit slot — Cashier' })).toBeVisible();
+      await expect(publish).not.toHaveCSS('outline-offset', '3px');
+      await expect(publish).toBeFocused();
+
+      // Enter publishes from there, with the edit saved first.
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
+      expect(await storedStatus(page, draft.id)).toBe('open');
+    });
+
+    test('Done after opening a slot by hand doesn’t move focus to Publish and share', async ({
+      page,
+    }) => {
+      const draft = await createDraft(page.request, {
+        title: `Opened by hand ${Date.now()}`,
+        values: { what: 'Cashier TBD', date: '2030-04-06' },
+      });
+      await page.goto(`/app/signups/${draft.id}/build`);
+      await page.getByRole('button', { name: /^Edit slot — Cashier TBD/ }).click();
+      await page
+        .getByTestId(`slot-editor-${draft.slotId}`)
+        .getByRole('button', { name: 'Done' })
+        .click();
+      await expect(publishButton(page)).not.toBeFocused();
+      await expect(page.getByRole('status').filter({ hasText: 'Saved. Publish' })).toHaveCount(0);
     });
   });
 }

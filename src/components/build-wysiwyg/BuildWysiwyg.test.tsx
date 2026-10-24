@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { act, render, screen, fireEvent } from '@testing-library/react';
+import { useEffect } from 'react';
+import { act, render, screen, fireEvent, within } from '@testing-library/react';
 import { BuildBridge, useBuildBridge } from '@/components/signup/BuildBridge';
 import { BuildWysiwyg } from './BuildWysiwyg';
 import type { SignupSettings } from '@/schemas/signups';
@@ -146,9 +147,17 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     { id: 'slot_b', capacity: 1, sortOrder: 1, values: { what: 'Cleanup', where: 'Room TBA' } },
   ];
 
-  /** Asks the Build tab, as the header's Publish does, through the bridge. */
+  // What Publish and share does when the bridge hands it the focus back.
+  const handBack = vi.fn();
+
+  /**
+   * Asks the Build tab, as the header's Publish does, through the bridge, and
+   * takes the focus when it's handed back, as Publish and share does.
+   */
   function Header({ onReady }: { onReady: (bridge: ReturnType<typeof useBuildBridge>) => void }) {
-    onReady(useBuildBridge());
+    const bridge = useBuildBridge();
+    onReady(bridge);
+    useEffect(() => bridge.onHandBack(handBack), [bridge]);
     return null;
   }
 
@@ -187,7 +196,13 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     router.push.mockClear();
+    handBack.mockClear();
   });
+
+  const done = (slotId: string) =>
+    fireEvent.click(
+      within(screen.getByTestId(`slot-editor-${slotId}`)).getByRole('button', { name: 'Done' }),
+    );
 
   it('opens the slot it’s about, with focus in the field asked for', () => {
     const { bridge } = renderBuild();
@@ -276,6 +291,62 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
       '/api/slots/slot_a',
       expect.objectContaining({ method: 'PATCH' }),
     );
+  });
+
+  it('hands the focus back to Publish and share when Done closes the slot it opened', () => {
+    const { bridge } = renderBuild();
+    act(() => {
+      bridge().openSlot('slot_b', 'where');
+    });
+    expect(handBack).not.toHaveBeenCalled();
+    done('slot_b');
+    expect(handBack).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+
+    // Once: opened again by the organizer, Done just closes it.
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Cleanup/ }));
+    done('slot_b');
+    expect(handBack).toHaveBeenCalledOnce();
+  });
+
+  it('hands nothing back after a slot the organizer opened', () => {
+    renderBuild();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    done('slot_a');
+    expect(handBack).not.toHaveBeenCalled();
+  });
+
+  it('hands nothing back once the organizer has opened another slot', () => {
+    const { bridge } = renderBuild();
+    act(() => {
+      bridge().openSlot('slot_b', 'where');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    done('slot_a');
+    expect(handBack).not.toHaveBeenCalled();
+  });
+
+  it('hands it back for a slot a fix on another tab opened, and for one it added', async () => {
+    const { bridge, showBuild } = renderBuild({ build: false });
+    act(() => {
+      bridge().openSlot('slot_b', 'where');
+    });
+    showBuild(true);
+    done('slot_b');
+    expect(handBack).toHaveBeenCalledOnce();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ data: { id: 'slot_new', capacity: 1, sortOrder: 2, values: {} } }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+    );
+    await act(async () => bridge().openSlot(null, null));
+    done('slot_new');
+    expect(handBack).toHaveBeenCalledTimes(2);
   });
 });
 

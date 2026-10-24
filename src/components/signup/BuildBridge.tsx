@@ -18,15 +18,29 @@ interface BuildTab {
   openSlot: (slotId: string | null, fieldRef: string | null) => boolean;
 }
 
-interface Bridge extends BuildTab {
+/** What the header reaches the Build tab with. */
+interface HeaderBridge extends BuildTab {
+  /**
+   * Has `focus` run when the editor a check's fix opened closes with Done;
+   * the function it returns stops that. Publish and share sets it while it's
+   * the one on screen.
+   */
+  onHandBack: (focus: () => void) => () => void;
+}
+
+interface Bridge extends HeaderBridge {
   /** The Build tab, as it mounts; the function it returns takes it off again. */
   register: (tab: BuildTab) => () => void;
+  /** The Build tab: Done has closed the editor a check's fix opened. */
+  handBack: () => void;
 }
 
 const NO_BUILD_TAB: Bridge = {
   register: () => () => {},
   flushPendingSaves: async () => true,
   openSlot: () => false,
+  onHandBack: () => () => {},
+  handBack: () => {},
 };
 
 const BridgeContext = createContext<Bridge>(NO_BUILD_TAB);
@@ -43,12 +57,14 @@ const SAVED = Promise.resolve(true);
  * so going Back and Forward, or a bookmark, can't open it, or add a slot,
  * again. A Build tab that goes away leaves its last saves behind: the edits
  * it sent as it went may still be on their way, so the next Publish waits
- * for those too.
+ * for those too. And once the organizer has fixed the slot, Done hands focus
+ * back to Publish and share, through here.
  */
 export function BuildBridge({ buildHref, children }: { buildHref: string; children: ReactNode }) {
   const tab = useRef<BuildTab | null>(null);
   const pending = useRef<[string | null, string | null] | null>(null);
   const leaving = useRef(SAVED);
+  const focusPublish = useRef<(() => void) | null>(null);
   const router = useRouter();
   const bridge = useMemo<Bridge>(
     () => ({
@@ -75,6 +91,13 @@ export function BuildBridge({ buildHref, children }: { buildHref: string; childr
         router.push(buildHref);
         return true;
       },
+      onHandBack: (focus) => {
+        focusPublish.current = focus;
+        return () => {
+          if (focusPublish.current === focus) focusPublish.current = null;
+        };
+      },
+      handBack: () => focusPublish.current?.(),
     }),
     [buildHref, router],
   );
@@ -82,13 +105,16 @@ export function BuildBridge({ buildHref, children }: { buildHref: string; childr
 }
 
 /** The header's way to the Build tab; does nothing outside a `BuildBridge`. */
-export function useBuildBridge(): BuildTab {
+export function useBuildBridge(): HeaderBridge {
   return useContext(BridgeContext);
 }
 
-/** Makes `tab` the Build tab the header reaches, while the caller is mounted. */
-export function useRegisterBuildTab(tab: BuildTab): void {
-  const { register } = useContext(BridgeContext);
+/**
+ * Makes `tab` the Build tab the header reaches, while the caller is mounted,
+ * and returns what it calls when Done closes the editor a check's fix opened.
+ */
+export function useRegisterBuildTab(tab: BuildTab): () => void {
+  const { register, handBack } = useContext(BridgeContext);
   const latest = useRef(tab);
   useEffect(() => {
     latest.current = tab;
@@ -101,4 +127,5 @@ export function useRegisterBuildTab(tab: BuildTab): void {
       }),
     [register],
   );
+  return handBack;
 }

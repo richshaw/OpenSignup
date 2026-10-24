@@ -32,19 +32,18 @@ export function useAnnouncedClose(closeAction: StatusAction): StatusAction {
   };
 }
 
-// Called when this page's Publish has published the signup.
-const PublishedHere = createContext<(() => void) | null>(null);
+const Say = createContext<(message: string) => void>(() => {});
 
 /**
- * What the header's share panel calls when Publish on this page answers that
- * it published, so the header says so. Focus is the panel's, which opens at
- * the same moment. A signup published some other way says nothing.
+ * Has the header's live region say `message`: the share panel's "Published."
+ * when Publish on this page answers that it published (focus is the panel's,
+ * which opens at the same moment; a signup published some other way says
+ * nothing), and Publish and share's "Saved." when it takes the focus back
+ * after a check's fix. The same words said again are read again.
  */
-export function useAnnouncePublished(): () => void {
-  return useContext(PublishedHere) ?? noop;
+export function useAnnounce(): (message: string) => void {
+  return useContext(Say);
 }
-
-function noop() {}
 
 /**
  * Holds the computer and phone headers, with one live region for both that
@@ -59,13 +58,12 @@ export function HeaderAnnouncer({
   status: SignupStatus;
   children: ReactNode;
 }) {
-  const [message, setMessage] = useState('');
+  // What the region says, and how many times it's been told: each time is a
+  // new node in it, so a screen reader reads the same words again.
+  const [said, setSaid] = useState<[string, number]>(['', 0]);
+  const say = useCallback((message: string) => setSaid(([, n]) => [message, n + 1]), []);
   const previous = useRef(status);
   const closedHere = useRef(false);
-  const publishedHere = useCallback(
-    () => setMessage('Published. Anyone with the link can sign up now.'),
-    [],
-  );
 
   useEffect(() => {
     const was = previous.current;
@@ -74,7 +72,7 @@ export function HeaderAnnouncer({
     const fromHere = closedHere.current;
     closedHere.current = false;
     if (!fromHere || was !== 'open' || status !== 'closed') return;
-    setMessage('Closed. People can’t sign up now.');
+    say('Closed. People can’t sign up now.');
     // A tick later, once a phone's sheet has finished closing: until then its
     // focus trap would take focus back. Both headers' titles are in the page,
     // one hidden, so it's the one on screen.
@@ -83,15 +81,15 @@ export function HeaderAnnouncer({
       titles.find((title) => title.getClientRects().length > 0)?.focus();
     });
     return () => clearTimeout(timer);
-  }, [status]);
+  }, [status, say]);
 
   return (
     <ClosedHere.Provider value={closedHere}>
-      <PublishedHere.Provider value={publishedHere}>{children}</PublishedHere.Provider>
+      <Say.Provider value={say}>{children}</Say.Provider>
       {/* Last, so the layout's spacing between the headers and the tabs stays
           as it was. */}
       <p role="status" className="sr-only">
-        {message}
+        <span key={said[1]}>{said[0]}</span>
       </p>
     </ClosedHere.Provider>
   );

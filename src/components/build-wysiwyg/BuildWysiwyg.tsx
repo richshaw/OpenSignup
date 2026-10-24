@@ -119,6 +119,9 @@ export function BuildWysiwyg({
     rowId: string;
     fieldRef: string | null;
   } | null>(null);
+  // The slot Publish's check opened, until the organizer opens one
+  // themselves: Done on it hands focus back to Publish and share.
+  const fixRow = useRef<string | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   // The group whose header change the server refused; its rows are back
   // under their saved value, so this is that value's key.
@@ -166,6 +169,7 @@ export function BuildWysiwyg({
   };
 
   const showSlot = (rowId: string, fieldRef: string | null) => {
+    fixRow.current = rowId;
     setExpandedRowId(rowId);
     setFocusRequest({ rowId, fieldRef });
   };
@@ -189,7 +193,17 @@ export function BuildWysiwyg({
 
   // The header's Publish saves what's pending here first, and a check's fix
   // opens the slot it's about, here or once this tab has loaded.
-  useRegisterBuildTab({ flushPendingSaves, openSlot });
+  const handBack = useRegisterBuildTab({ flushPendingSaves, openSlot });
+
+  // A row asks for null when Done closes its editor, the one that's open.
+  // When that's the slot the check opened, Publish and share takes the focus,
+  // without waiting for the slot's last edits to save: Publish sends them
+  // first. Opening a slot by hand ends that.
+  const expandRow = (rowId: string | null) => {
+    if (rowId === null && fixRow.current === expandedRowId) handBack();
+    fixRow.current = null;
+    setExpandedRowId(rowId);
+  };
 
   // Focus goes in the field asked for, or the slot's first, once its editor
   // is open; with no fields, in Spots.
@@ -272,7 +286,7 @@ export function BuildWysiwyg({
                 remindersOn={state.reminderFieldRef !== null}
                 status={status}
                 expandedRowId={expandedRowId}
-                onExpandRow={setExpandedRowId}
+                onExpandRow={expandRow}
                 onEditCell={editCell}
                 onSetCapacity={(rowId, c) => setCapacity(rowId, c)}
                 onAddEnumOption={(fieldId, value) => {
