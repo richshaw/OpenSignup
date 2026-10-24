@@ -489,6 +489,42 @@ test.describe('the TBD mark on a phone', () => {
   });
 });
 
+// On a computer the tag follows the slot's values, and drops under them
+// when a long name leaves no room, rather than squeeze the summary away.
+test.describe('the TBD mark on a computer', () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  test('drops under a long name, keeping the date beside it whole', async ({ page, context }) => {
+    await loginAsSeededOrganizer(context);
+    const signup = await createPublishedSignup(page.request, {
+      title: `Long mark ${Date.now()}`,
+      slot: {
+        values: { what: 'Cashier for the whole long afternoon shift TBD', date: '2030-04-06' },
+        capacity: 3,
+      },
+    });
+    await page.goto(`/app/signups/${signup.id}/build`);
+    const row = page.getByRole('button', { name: /people can see “TBD”$/ });
+    const tag = row.getByText('People can see “TBD”', { exact: true });
+    const anchor = row.getByText(/^Cashier for the whole/);
+    const summary = row.getByText(/^Sat, Apr 6/);
+    const count = row.getByText('0 of 3 taken', { exact: true });
+    for (const part of [tag, anchor, summary, count]) await expect(part).toBeVisible();
+
+    const [t, a, s, c] = await Promise.all(
+      [tag, anchor, summary, count].map((l) => l.boundingBox()),
+    );
+    if (!t || !a || !s || !c) throw new Error('a part of the row is not on screen');
+    for (const box of [t, a, s]) expect(box.x + box.width).toBeLessThanOrEqual(c.x);
+    // The date keeps its 10ch and isn't cut short; the tag went under.
+    const tenCh = await summary.evaluate((el) => parseFloat(getComputedStyle(el).minWidth));
+    expect(tenCh).toBeGreaterThan(0);
+    expect(s.width).toBeGreaterThanOrEqual(tenCh - 0.5);
+    expect(await summary.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    expect(t.y).toBeGreaterThanOrEqual(a.y + a.height);
+  });
+});
+
 // What Publish waits for and where its fix goes, at a computer's size.
 test.describe('Publish’s check, around the Build tab', () => {
   test.use({ viewport: { width: 1280, height: 900 } });

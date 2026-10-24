@@ -269,6 +269,22 @@ describe('WysiwygSlot — a slot that still says TBD', () => {
     expect(screen.getByText('Still says “TBD”').className).toMatch(/\btext-warn\b/);
   });
 
+  it('keeps 10ch for the summary beside a tag on a computer, letting the tag wrap', () => {
+    renderSlot({ row: marked('Job TBD') });
+    const summary = screen.getByText('Job TBD');
+    expect(summary.className).toMatch(/\bmin-w-\[10ch\] flex-1\b/);
+    // Its line may wrap, so the tag can drop under the values.
+    expect(summary.closest('button')?.firstElementChild?.className).not.toMatch(/md:flex-nowrap/);
+  });
+
+  it('leaves a row without a tag as it was', () => {
+    renderSlot({ row: marked('Cashier') });
+    const summary = screen.getByText('Cashier');
+    expect(summary.className).toMatch(/\bmin-w-0\b/);
+    expect(summary.className).not.toMatch(/10ch|flex-1/);
+    expect(summary.closest('button')?.firstElementChild?.className).toMatch(/\bmd:flex-nowrap\b/);
+  });
+
   it('says people can see it once published', () => {
     renderSlot({ row: marked('tba'), status: 'open' });
     expect(screen.getByText('People can see “TBA”')).toBeTruthy();

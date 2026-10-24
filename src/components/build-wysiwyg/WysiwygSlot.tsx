@@ -197,8 +197,14 @@ export function WysiwygSlot({
             A TBD tag follows them on a computer. On a phone, where it left
             them no room and ran over the count, it has a line of its own
             under them: their box takes the first line, and on a computer
-            steps aside (contents) so they sit in the row as before. */}
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1 md:flex-nowrap">
+            steps aside (contents) so they sit in the row as before. On a
+            computer the summary keeps 10ch beside a tag ("Sat, Apr 6"), and
+            the tag drops under them when that leaves it no room, rather
+            than squeeze the summary to nothing. A row without a tag lays
+            out as it always has. */}
+        <div
+          className={`flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1 ${mark ? '' : 'md:flex-nowrap'}`}
+        >
           <div className="flex min-w-0 basis-full items-center gap-2.5 md:contents">
             {anchorValue ? (
               <span className={`${anchorSizing} truncate text-sm font-semibold text-ink`}>
@@ -212,7 +218,11 @@ export function WysiwygSlot({
               <span className="shrink-0 text-sm font-semibold text-ink">Slot</span>
             )}
             {summary && (
-              <span className="min-w-0 truncate text-xs text-ink-muted">{summary}</span>
+              <span
+                className={`${mark ? 'min-w-[10ch] flex-1' : 'min-w-0'} truncate text-xs text-ink-muted`}
+              >
+                {summary}
+              </span>
             )}
           </div>
           {mark && (
