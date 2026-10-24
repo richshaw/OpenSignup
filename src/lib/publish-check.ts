@@ -32,10 +32,10 @@ export type PublishCheck =
    * Slots still holding TBD, TBC or TBA, in display order. A warning. `words`
    * are each slot's first one, in capitals, each once, in the order found;
    * `fieldRef` is the field it's in on the first slot, and `slotLabel` that
-   * slot's values as the page prints them, less any that is only the word,
+   * slot's values as the page prints them, less any made only of the words,
    * give or take punctuation ("Sat, Nov 14 · 1:00 PM" for a slot whose What
-   * is "TBD" or "(TBD)", but "Cashier TBD · Sat, Nov 14"), or empty when it
-   * has none.
+   * is "TBD", "(TBD)" or "TBD/TBC", but "Cashier TBD · Sat, Nov 14"), or
+   * empty when it has none.
    */
   | {
       kind: 'placeholder';
@@ -61,13 +61,18 @@ function placeholderIn(value: unknown): string | null {
 }
 
 /**
- * Whether `value` is the word with nothing but spaces and punctuation round
- * it, such as " tbd " or "(TBD)", which names nothing; "Cashier TBD" does.
+ * Whether `value` is made only of the words, with nothing but spaces and
+ * punctuation round them, such as " tbd ", "(TBD)" or "TBD/TBC", which name
+ * nothing; "Cashier TBD" does. Words split where `PLACEHOLDER` sees them end,
+ * so "TBD_TBC", which it doesn't count, isn't one.
  */
 function isOnlyPlaceholder(value: unknown): boolean {
   if (typeof value !== 'string') return false;
-  const bare = value.replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-  return placeholderIn(value) === bare.toUpperCase();
+  const words = value
+    .replace(/[^\p{L}\p{N}_]+/gu, ' ')
+    .trim()
+    .split(' ');
+  return words.every((word) => placeholderIn(word) === word.toUpperCase());
 }
 
 /** The first problem with the slots, blocking ones first, or null when there is none. */

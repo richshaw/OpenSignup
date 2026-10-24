@@ -240,12 +240,15 @@ describe('checkBeforePublish', () => {
     });
 
     it.each([
-      ['(TBD)', 'Fruit and water · Sat, Apr 6'],
-      ['TBD.', 'Fruit and water · Sat, Apr 6'],
-      ['TBD?', 'Fruit and water · Sat, Apr 6'],
-      [' tbd ', 'Fruit and water · Sat, Apr 6'],
-      ['Cashier TBD', 'Fruit and water · Sat, Apr 6 · Cashier TBD'],
-    ])('names a slot whose Who is %j as “%s”', (value, slotLabel) => {
+      ['(TBD)', 'TBD', 'Fruit and water · Sat, Apr 6'],
+      ['TBD.', 'TBD', 'Fruit and water · Sat, Apr 6'],
+      ['TBD?', 'TBD', 'Fruit and water · Sat, Apr 6'],
+      [' tbd ', 'TBD', 'Fruit and water · Sat, Apr 6'],
+      ['TBD/TBC', 'TBD', 'Fruit and water · Sat, Apr 6'],
+      ['TBD TBD', 'TBD', 'Fruit and water · Sat, Apr 6'],
+      ['tba, tbc', 'TBA', 'Fruit and water · Sat, Apr 6'],
+      ['Cashier TBD', 'TBD', 'Fruit and water · Sat, Apr 6 · Cashier TBD'],
+    ])('names a slot whose Who is %j, which says %s, as “%s”', (value, word, slotLabel) => {
       const who = field('who', 'text', 'Who');
       const input = {
         fields: [what, date, who],
@@ -253,8 +256,20 @@ describe('checkBeforePublish', () => {
       };
       expect(checkBeforePublish(input)).toMatchObject({
         fieldRef: 'who',
-        words: ['TBD'],
+        words: [word],
         slotLabel,
+      });
+    });
+
+    it('keeps a value it doesn’t count as the words, such as “TBD_TBC”', () => {
+      const who = field('who', 'text', 'Who');
+      const input = {
+        fields: [what, who],
+        slots: [slot('s1', { what: 'Grill TBD', who: 'TBD_TBC' })],
+      };
+      expect(checkBeforePublish(input)).toMatchObject({
+        fieldRef: 'what',
+        slotLabel: 'Grill TBD · TBD_TBC',
       });
     });
 
