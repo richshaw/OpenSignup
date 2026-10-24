@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { FormError } from '@/components/ui/form-error';
 import { Compose } from './Compose';
 import { Drafting } from './Drafting';
+import { explainDraftFailure, type DraftError, type DraftErrorBody } from './draft-errors';
 import { writeAiDraftWarnings } from './ai-draft-warnings';
 
 interface DraftResponse {
@@ -18,7 +20,7 @@ interface ApiBody {
     draft: DraftPreview;
     warnings?: string[];
   };
-  error?: { message: string; suggestion?: string };
+  error?: DraftErrorBody;
 }
 
 type Phase =
@@ -29,7 +31,7 @@ type Phase =
       response: DraftResponse | null;
       animationDone: boolean;
     }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; error: DraftError };
 
 /**
  * Hard ceiling on the drafting phase. The LLM timeout is 180s server-side
@@ -58,7 +60,10 @@ export function MagicComposeRoot() {
       abortRef.current = null;
       setPhase({
         kind: 'error',
-        message: 'AI drafting is taking longer than expected. Try again or simplify your prompt.',
+        error: {
+          kind: 'message',
+          text: 'AI drafting is taking longer than expected. Try again or simplify your prompt.',
+        },
       });
     }, DRAFTING_WATCHDOG_MS);
     return () => clearTimeout(timer);
@@ -88,10 +93,7 @@ export function MagicComposeRoot() {
 
       const data = body?.data;
       if (!res.ok || !data?.id) {
-        const base = body?.error?.message ?? `AI drafting failed (HTTP ${res.status}). Try again.`;
-        const suggestion = body?.error?.suggestion;
-        const message = suggestion ? `${base} — ${suggestion}` : base;
-        setPhase({ kind: 'error', message });
+        setPhase({ kind: 'error', error: explainDraftFailure(res.status, body?.error) });
         return;
       }
 
@@ -109,7 +111,7 @@ export function MagicComposeRoot() {
       );
     } catch (e) {
       if (controller.signal.aborted) return;
-      setPhase({ kind: 'error', message: explainFetchError(e) });
+      setPhase({ kind: 'error', error: { kind: 'message', text: explainFetchError(e) } });
     }
   }, [prompt]);
 
@@ -138,10 +140,26 @@ export function MagicComposeRoot() {
     <>
       {phase.kind === 'error' && (
         <div className="mx-auto mt-6 max-w-[760px]">
-          <FormError>{phase.message}</FormError>
+          <FormError>
+            <DraftErrorText error={phase.error} />
+          </FormError>
         </div>
       )}
       <Compose prompt={prompt} setPrompt={setPrompt} onDraft={onDraft} />
+    </>
+  );
+}
+
+function DraftErrorText({ error }: { error: DraftError }) {
+  if (error.kind === 'message') return <>{error.text}</>;
+  return (
+    <>
+      You&apos;ve used this hour&apos;s AI drafts. Try again in {error.minutes}{' '}
+      {error.minutes === 1 ? 'minute' : 'minutes'}, or{' '}
+      <Link href="/app/signups/new?manual=1" className="font-medium underline">
+        fill it in by hand
+      </Link>
+      .
     </>
   );
 }

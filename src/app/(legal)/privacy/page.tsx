@@ -23,7 +23,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 23 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 24 October 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -194,8 +194,9 @@ export default function PrivacyPage() {
         </p>
         <p>
           Whatever a connected assistant reads under the permissions you approved is then processed
-          by that assistant&apos;s vendor under their own terms and privacy policy, not ours. By
-          itself, {INSTANCE_NAME} sends nothing to an AI vendor: only an app you connected, acting
+          by that assistant&apos;s vendor under their own terms and privacy policy, not ours. Apart
+          from AI drafting, described under &ldquo;Third parties&rdquo; below,{' '}
+          {INSTANCE_NAME} sends nothing to an AI vendor itself: only an app you connected, acting
           on your instructions, can pull data out.
         </p>
       </section>
@@ -210,6 +211,14 @@ export default function PrivacyPage() {
           any such integration, the operator will list it on request. Separately from anything the
           operator configures, an organizer can connect an app or AI assistant to their own account.
           See &ldquo;Connected apps and AI assistants&rdquo; above.
+        </p>
+        <p>
+          If the operator has turned on AI drafting, what an organizer types into it to describe
+          their signup is sent to the AI provider the operator configured, which turns it into a
+          draft. It goes as typed, so leave out anything you wouldn&apos;t want the provider to
+          see; nothing else about you, your signups or the people on them goes with it. The
+          provider handles it under its own terms. To keep a description away from the provider,
+          skip AI drafting and fill the signup in by hand.
         </p>
         <p>
           If third-party sign-in (for example, Google) is enabled and you choose it, you
