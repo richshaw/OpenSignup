@@ -27,6 +27,7 @@ export function PhoneBar({ status, spotsTaken }: PhoneBarProps) {
   if (!hasPhoneBar(status)) return null;
   return (
     <div
+      ref={measure}
       data-phone-bar
       className="fixed inset-x-0 bottom-0 z-40 border-t border-surface-sunk bg-white px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3"
     >
@@ -50,4 +51,24 @@ export function PhoneBar({ status, spotsTaken }: PhoneBarProps) {
       )}
     </div>
   );
+}
+
+/**
+ * Puts the bar's height on the page as --phone-bar-h, while the bar is there:
+ * the room the layout leaves under the page, and the page's
+ * scroll-padding-bottom, so a control Tab brings into view stops above the
+ * bar. It grows when a refusal shows, and is 0 on a computer, where the bar is
+ * hidden. A ref callback with a cleanup, so it starts and stops with the bar.
+ */
+function measure(el: HTMLDivElement) {
+  if (typeof ResizeObserver === 'undefined') return;
+  const root = document.documentElement.style;
+  const observer = new ResizeObserver(() =>
+    root.setProperty('--phone-bar-h', `${el.offsetHeight}px`),
+  );
+  observer.observe(el, { box: 'border-box' });
+  return () => {
+    observer.disconnect();
+    root.removeProperty('--phone-bar-h');
+  };
 }

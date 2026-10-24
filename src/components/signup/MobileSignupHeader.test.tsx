@@ -185,6 +185,36 @@ describe('MobileSignupHeader: the bar at the bottom', () => {
     await waitFor(() => expect(inBar().getByRole('button', { name: 'Share' })).toHaveFocus());
   });
 
+  it('tells the page how tall the bar is, and forgets it once the bar has gone', () => {
+    // jsdom has no ResizeObserver and lays nothing out: a stand-in that
+    // reports once as it starts observing, and a bar 121px tall, as one with
+    // a two-line refusal is.
+    const observed: Element[] = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private readonly report: () => void) {}
+        observe(el: Element) {
+          observed.push(el);
+          this.report();
+        }
+        disconnect() {}
+      },
+    );
+    const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(121);
+    const root = document.documentElement.style;
+    try {
+      const { rerender } = render(<Phone status="draft" action={async () => null} />);
+      expect(observed).toEqual([bar()]);
+      expect(root.getPropertyValue('--phone-bar-h')).toBe('121px');
+      rerender(<Phone status="closed" action={async () => null} />);
+      expect(root.getPropertyValue('--phone-bar-h')).toBe('');
+    } finally {
+      height.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('a signup published some other way opens nothing and says nothing', async () => {
     const publish = vi.fn<StatusAction>(async () => ({ published: true }));
     const { rerender } = render(<Phone status="draft" action={publish} />);
