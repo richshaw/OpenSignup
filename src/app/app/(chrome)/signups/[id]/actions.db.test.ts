@@ -5,9 +5,12 @@ import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
+import { slots as slotsTable } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
+import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/publish-check';
+import { EMPTY_TEMPLATE } from '@/lib/signup-templates';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
@@ -239,7 +242,8 @@ describe('a viewer choosing Publish, Close or Delete (db)', () => {
     });
     if (!created.ok) throw new Error(created.error.message);
     signupId = created.value.id;
-    const slot = await addSlot(db, owner, signupId, { values: {}, capacity: 1 });
+    // Something to sign up for, so Publish's check lets it through.
+    const slot = await addSlot(db, owner, signupId, { values: { what: 'Juice' }, capacity: 1 });
     if (!slot.ok) throw new Error(slot.error.message);
   });
 
@@ -297,6 +301,184 @@ describe('a viewer choosing Publish, Close or Delete (db)', () => {
       `/app/signups/${signupId}/settings?error=${encodeURIComponent('You don’t have edit access.')}`,
     );
     expect((await row())?.deletedAt).toBeNull();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+// Publish checks a draft as it's stored before publishing it (#503).
+describe('Publish’s check (db)', () => {
+  const db = getDb();
+  const organizerId = makeId('org');
+  const workspaceId = makeId('ws');
+  const slug = `test-${workspaceId.slice(-8).toLowerCase()}`;
+  const owner: Actor = {
+    kind: 'organizer',
+    id: organizerId,
+    email: `${slug}@example.test`,
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+  const viewer: Actor = {
+    kind: 'organizer',
+    id: makeId('org'),
+    email: 'viewer@example.test',
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'viewer' },
+  };
+
+  /**
+   * A fresh draft. The default template gives it What and Date and one empty
+   * slot; the empty one gives it neither. `slots` adds slots after that.
+   */
+  async function draft(
+    slots: Record<string, unknown>[] = [],
+    { empty = false }: { empty?: boolean } = {},
+  ): Promise<{ id: string; slotIds: string[] }> {
+    const created = await createSignup(
+      db,
+      owner,
+      workspaceId,
+      {
+        title: 'Check before publishing',
+        description: '',
+        tags: [],
+        visibility: 'unlisted',
+        settings: {},
+      },
+      empty ? { template: EMPTY_TEMPLATE } : {},
+    );
+    if (!created.ok) throw new Error(created.error.message);
+    const slotIds: string[] = [];
+    for (const values of slots) {
+      const slot = await addSlot(db, owner, created.value.id, { values, capacity: 1 });
+      if (!slot.ok) throw new Error(slot.error.message);
+      slotIds.push(slot.value.id);
+    }
+    return { id: created.value.id, slotIds };
+  }
+
+  const statusOf = async (id: string) => {
+    const [found] = await db
+      .select({ status: signups.status })
+      .from(signups)
+      .where(eq(signups.id, id));
+    return found?.status;
+  };
+  const slotsOf = async (id: string) =>
+    (
+      await db
+        .select({ id: slotsTable.id, sortOrder: slotsTable.sortOrder })
+        .from(slotsTable)
+        .where(eq(slotsTable.signupId, id))
+    )
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((s) => s.id);
+  const anyway = () => {
+    const form = new FormData();
+    form.set('acknowledge', 'placeholder');
+    return form;
+  };
+  const answer = (check: PublishCheck) => ({
+    check,
+    copy: publishCheckCopy(check),
+    target: publishCheckTarget(check),
+  });
+
+  beforeAll(async () => {
+    await db.transaction(async (tx) => {
+      await tx.insert(organizers).values({ id: organizerId, email: owner.email, name: 'Test Org' });
+      await tx.insert(workspaces).values({
+        id: workspaceId,
+        slug,
+        name: 'Test Workspace',
+        type: 'personal',
+        plan: 'free',
+      });
+    });
+  });
+
+  afterAll(async () => {
+    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+    await db.delete(organizers).where(eq(organizers.id, organizerId));
+  });
+
+  beforeEach(() => {
+    revalidatePath.mockClear();
+    session.actor = owner;
+  });
+
+  it('stops a draft with no slots and leaves it a draft', async () => {
+    const { id } = await draft([], { empty: true });
+    expect(await publishAction(id)).toEqual(answer({ kind: 'no_slots' }));
+    expect(await statusOf(id)).toBe('draft');
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('stops a draft with slots but no fields', async () => {
+    const { id } = await draft([{}], { empty: true });
+    expect(await publishAction(id)).toEqual(answer({ kind: 'no_fields' }));
+    expect(await statusOf(id)).toBe('draft');
+  });
+
+  it('stops a draft whose every slot is empty, pointing at the first', async () => {
+    const { id } = await draft([{ what: '  ' }]);
+    const [first] = await slotsOf(id);
+    expect(await publishAction(id)).toEqual(
+      answer({ kind: 'all_blank', slotId: first!, slotCount: 2 }),
+    );
+    expect(await statusOf(id)).toBe('draft');
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('warns about a slot that still says TBD, and leaves it a draft', async () => {
+    const { id, slotIds } = await draft([
+      { what: 'Setup', date: '2026-11-14' },
+      { what: 'Cashier TBD', date: '2026-11-14' },
+    ]);
+    expect(await publishAction(id)).toEqual(
+      answer({
+        kind: 'placeholder',
+        slotIds: [slotIds[1]!],
+        words: ['TBD'],
+        fieldRef: 'what',
+        slotLabel: 'Sat, Nov 14',
+      }),
+    );
+    expect(await statusOf(id)).toBe('draft');
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('publishes past the warning once the organizer chooses Publish anyway', async () => {
+    const { id } = await draft([{ what: 'Cashier TBD' }]);
+    expect(await publishAction(id, anyway())).toEqual({ published: true });
+    expect(await statusOf(id)).toBe('open');
+    expect(revalidatePath).toHaveBeenCalledWith(`/app/signups/${id}`, 'layout');
+  });
+
+  it('still stops a blocking problem when the form says Publish anyway', async () => {
+    const { id } = await draft();
+    const [first] = await slotsOf(id);
+    expect(await publishAction(id, anyway())).toEqual(
+      answer({ kind: 'all_blank', slotId: first!, slotCount: 1 }),
+    );
+    expect(await statusOf(id)).toBe('draft');
+  });
+
+  it('refuses a viewer before checking anything', async () => {
+    const { id } = await draft();
+    session.actor = viewer;
+    expect(await publishAction(id)).toEqual({ error: 'You don’t have edit access.' });
+    expect(await statusOf(id)).toBe('draft');
+  });
+
+  it('doesn’t check a signup that’s no longer a draft: it asks for a reload', async () => {
+    // Published by an AI assistant, say, which publishes without the check.
+    const { id } = await draft();
+    const published = await publishSignup(db, owner, id);
+    if (!published.ok) throw new Error(published.error.message);
+    expect(await publishAction(id)).toEqual({
+      error: 'This signup changed since the page loaded. Reload to see the latest.',
+    });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

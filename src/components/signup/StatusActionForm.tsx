@@ -2,18 +2,21 @@
 
 import { createContext, useActionState, useContext, type ReactNode } from 'react';
 import { FormError } from '@/components/ui/form-error';
+import type { PublishCheckAnswer } from '@/lib/publish-check';
 
 /**
  * What Publish or Close signup answers: why it was refused, that it
- * published (which opens the share panel), or nothing.
+ * published (which opens the share panel), what Publish's check found
+ * (which opens its panel), or nothing.
  */
-type StatusActionState = { error: string } | { published: true } | null;
-export type StatusAction = () => Promise<StatusActionState>;
+type StatusActionState = { error: string } | { published: true } | PublishCheckAnswer | null;
+/** Publish takes a form saying the organizer chose Publish anyway; Close signup takes none. */
+export type StatusAction = (form?: FormData) => Promise<StatusActionState>;
 
-// What useActionState returns: the refusal (or null), the form action, pending.
-const StatusActionContext = createContext<readonly [StatusActionState, () => void, boolean] | null>(
-  null,
-);
+// What useActionState returns: the answer (or null), the form action, pending.
+const StatusActionContext = createContext<
+  readonly [StatusActionState, (form: FormData) => void, boolean] | null
+>(null);
 
 /**
  * Runs Publish or Close signup for everything inside it, so the button can
@@ -30,8 +33,20 @@ export function StatusActionScope({
   action: StatusAction;
   children: ReactNode;
 }) {
-  const scope = useActionState(action, null);
+  const scope = useActionState(
+    (_previous: StatusActionState, form: FormData) => action(form),
+    null,
+  );
   return <StatusActionContext.Provider value={scope}>{children}</StatusActionContext.Provider>;
+}
+
+/**
+ * Runs the scope's action with `form`, for a button that does some work of
+ * its own first (Publish saves the Build tab's edits); call it inside
+ * `startTransition`. Nothing outside a scope.
+ */
+export function useStatusActionDispatch(): ((form: FormData) => void) | null {
+  return useContext(StatusActionContext)?.[1] ?? null;
 }
 
 export function StatusActionButtonForm({
@@ -59,12 +74,22 @@ export function useStatusActionState(): StatusActionState {
   return useContext(StatusActionContext)?.[0] ?? null;
 }
 
-/** Why Publish or Close signup was refused, or nothing until it is. */
-export function StatusActionRefusal({ className }: { className?: string }) {
+/**
+ * Why Publish or Close signup was refused, or nothing until it is. `message`,
+ * when given, says it instead: Publish stopped before it was sent.
+ */
+export function StatusActionRefusal({
+  className,
+  message,
+}: {
+  className?: string;
+  message?: string;
+}) {
   const state = useContext(StatusActionContext)?.[0];
-  return state && 'error' in state ? (
+  const refusal = message ?? (state && 'error' in state ? state.error : null);
+  return refusal ? (
     <div className={className}>
-      <FormError>{state.error}</FormError>
+      <FormError>{refusal}</FormError>
     </div>
   ) : null;
 }

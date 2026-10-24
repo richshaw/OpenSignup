@@ -26,6 +26,8 @@ type PopoverProps = {
   label?: string;
   /** The id of a heading inside that names the dialog. */
   labelledBy?: string;
+  /** The id of the text inside that describes it, read out as it opens. */
+  describedBy?: string;
   /** The panel's width and padding. */
   className?: string;
   children: ReactNode;
@@ -43,6 +45,7 @@ export function Popover({
   initialFocusRef,
   label,
   labelledBy,
+  describedBy,
   className = '',
   children,
 }: PopoverProps) {
@@ -92,6 +95,7 @@ export function Popover({
       role="dialog"
       aria-label={label}
       aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
       tabIndex={-1}
       onFocus={() => {
         returnFocus.current = true;

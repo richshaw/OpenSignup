@@ -140,14 +140,14 @@ describe('MobileSignupHeader: the bar at the bottom', () => {
 
   it('says why Publish was refused just above the button, not in a sheet', async () => {
     render(
-      <Phone status="draft" action={async () => ({ error: 'Add a slot before publishing.' })} />,
+      <Phone status="draft" action={async () => ({ error: 'You don’t have edit access.' })} />,
     );
     const publish = inBar().getByRole('button', { name: 'Publish and share' });
     await act(async () => {
       fireEvent.click(publish);
     });
     const refusal = inBar().getByRole('alert');
-    expect(refusal).toHaveTextContent('Add a slot before publishing.');
+    expect(refusal).toHaveTextContent('You don’t have edit access.');
     expect(refusal.compareDocumentPosition(publish) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );

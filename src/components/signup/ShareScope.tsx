@@ -10,9 +10,9 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { loadSharePanel } from '@/components/share/load-share-panel';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useAnnouncePublished } from './HeaderAnnouncer';
+import { PublishState } from './PublishButton';
 import { StatusActionScope, useStatusActionState, type StatusAction } from './StatusActionForm';
 
 interface Share {
@@ -42,7 +42,9 @@ export function useShare(): Share {
 /**
  * Publish, from either header, and the share panel it opens. One
  * `StatusActionScope` runs Publish for the computer's header and the phone's
- * bar both, and pressing Publish starts loading the panel's code.
+ * bar both, and `PublishState` saves the Build tab's edits before it, starts
+ * loading the panel's code as it's pressed, and holds the check Publish can
+ * answer with.
  *
  * The share panel's state is for the computer and phone headers both: one
  * panel, shown as a popover by the computer's Share button or as a sheet on
@@ -59,13 +61,11 @@ export function ShareScope({
   publishAction,
   ...props
 }: ShareStateProps & { publishAction: StatusAction }) {
-  const publish = useCallback<StatusAction>(() => {
-    void loadSharePanel();
-    return publishAction();
-  }, [publishAction]);
   return (
-    <StatusActionScope action={publish}>
-      <ShareState {...props} />
+    <StatusActionScope action={publishAction}>
+      <PublishState>
+        <ShareState {...props} />
+      </PublishState>
     </StatusActionScope>
   );
 }

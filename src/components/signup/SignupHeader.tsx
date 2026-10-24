@@ -1,23 +1,19 @@
 import Link from 'next/link';
-import { Eye, Send } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
-import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { closeSignupQuestion, spotsTakenLine, type SpotCounts } from '@/lib/spot-counts';
 import type { SignupStatus } from '@/schemas/signups';
 import type { CloseQuestionAction } from './CloseSignupConfirm';
 import { DraftLine, PhonePreviewItem, PhoneStanding } from './HeaderParts';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
-import { HEADER_BUTTON, OUTLINED, PRIMARY } from './header-buttons';
+import { HEADER_BUTTON, OUTLINED } from './header-buttons';
 import { MobileSignupHeader } from './MobileSignupHeader';
 import { MoreActionsMenu } from './MoreActionsMenu';
+import { PublishButton, PublishRefusal } from './PublishButton';
 import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
-import {
-  StatusActionButtonForm,
-  StatusActionRefusal,
-  type StatusAction,
-} from './StatusActionForm';
+import type { StatusAction } from './StatusActionForm';
 
 interface SignupHeaderProps {
   signupId: string;
@@ -114,14 +110,7 @@ export function SignupHeader({
             <Eye size={15} aria-hidden="true" />
             Preview
           </Link>
-          {status === 'draft' ? (
-            <StatusActionButtonForm>
-              <AsyncSubmitButton loadingLabel="Publishing…" className={`${HEADER_BUTTON} ${PRIMARY}`}>
-                <Send size={15} aria-hidden="true" />
-                Publish and share
-              </AsyncSubmitButton>
-            </StatusActionButtonForm>
-          ) : null}
+          {status === 'draft' ? <PublishButton variant="desktop" /> : null}
           {status === 'open' ? (
             <>
               <ShareButton variant="desktop" />
@@ -134,7 +123,7 @@ export function SignupHeader({
           ) : null}
         </div>
       </div>
-      {status === 'draft' ? <StatusActionRefusal /> : null}
+      {status === 'draft' ? <PublishRefusal /> : null}
       </header>
       </ShareScope>
     </HeaderAnnouncer>

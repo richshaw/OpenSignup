@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { PublishButton } from './PublishButton';
 import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
-import { StatusActionButtonForm, type StatusAction } from './StatusActionForm';
+import type { StatusAction } from './StatusActionForm';
 
 // The QR code has its own test; here it would only wait on the encoder.
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
@@ -33,7 +34,7 @@ function windowWidth(width: number) {
     }) as unknown as MediaQueryList;
 }
 
-/** Both headers' Share buttons, as SignupHeader lays them out, and a Publish. */
+/** Both headers' Share buttons, as SignupHeader lays them out, and Publish and share. */
 function Header({
   action = async () => null,
   message = MESSAGE,
@@ -43,9 +44,7 @@ function Header({
 }) {
   return (
     <ShareScope publishAction={action} title="Bake sale helpers" url={LINK} message={message}>
-      <StatusActionButtonForm>
-        <button type="submit">Publish</button>
-      </StatusActionButtonForm>
+      <PublishButton variant="desktop" />
       <div data-testid="desktop">
         <ShareButton variant="desktop" />
       </div>
@@ -104,7 +103,7 @@ describe('ShareButton on a computer', () => {
     render(<Header action={publish} />);
     const before = loads.count;
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Publish and share' }));
     });
     expect(publish).toHaveBeenCalledOnce();
     expect(loads.count).toBe(before + 1);
@@ -131,7 +130,7 @@ describe('ShareButton on a computer', () => {
     render(<Header action={async () => ({ published: true })} />);
     expect(screen.queryByRole('dialog')).toBeNull();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Publish and share' }));
     });
     const panel = await screen.findByRole('dialog', { name: 'Now send people the link' });
     expect(within(panel).getByText('Published')).toBeInTheDocument();
@@ -147,9 +146,9 @@ describe('ShareButton on a computer', () => {
   });
 
   it('stays shut when Publish is refused', async () => {
-    render(<Header action={async () => ({ error: 'Add a slot before publishing.' })} />);
+    render(<Header action={async () => ({ error: 'You don’t have edit access.' })} />);
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Publish and share' }));
     });
     expect(screen.queryByRole('dialog')).toBeNull();
   });
@@ -204,7 +203,7 @@ describe('ShareButton on a phone', () => {
   it('says Published the first time, beside the title', async () => {
     render(<Header action={async () => ({ published: true })} />);
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Publish and share' }));
     });
     const sheet = await screen.findByRole('dialog', { name: 'Now send people the link' });
     expect(sheet).toHaveAccessibleDescription('Published');
