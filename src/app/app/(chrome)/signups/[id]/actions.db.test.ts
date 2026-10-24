@@ -13,7 +13,7 @@ import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/p
 import { EMPTY_TEMPLATE } from '@/lib/signup-templates';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
-import { addSlot } from '@/services/slots';
+import { addSlot, updateSlot } from '@/services/slots';
 import {
   closeAction,
   closeQuestionAction,
@@ -528,6 +528,46 @@ describe('Publish’s check (db)', () => {
       const refused = await publishSignup(db, owner, id);
       expect(refused.ok).toBe(false);
       expect(await refusals(id)).toEqual([{ code: 'conflict', reason: 'no_slots' }]);
+    });
+  });
+
+  // After a warning, signup.published says whether the organizer chose
+  // Publish anyway, or fixed the slot first.
+  describe('signup.published after a warning', () => {
+    const published = async (id: string) =>
+      (
+        await db
+          .select({ payload: activity.payload })
+          .from(activity)
+          .where(and(eq(activity.signupId, id), eq(activity.eventType, 'signup.published')))
+      ).map((row) => row.payload);
+
+    it('says acknowledged: placeholder when Publish anyway published past it', async () => {
+      const { id } = await draft([{ what: 'Cashier TBD' }]);
+      await publishAction(id);
+      await publishAction(id, anyway());
+      expect(await published(id)).toEqual([
+        { from: 'draft', to: 'open', acknowledged: 'placeholder' },
+      ]);
+    });
+
+    it('says nothing more when the organizer named the slot first', async () => {
+      const { id, slotIds } = await draft([{ what: 'Cashier TBD' }]);
+      await publishAction(id);
+      const named = await updateSlot(db, owner, slotIds[0]!, { values: { what: 'Cashier' } });
+      if (!named.ok) throw new Error(named.error.message);
+      expect(await publishAction(id)).toEqual({ published: true });
+      expect(await published(id)).toEqual([{ from: 'draft', to: 'open' }]);
+    });
+
+    it('says nothing more when the slot was named before Publish anyway reached the server', async () => {
+      // The form still says Publish anyway, but there's nothing to publish past.
+      const { id, slotIds } = await draft([{ what: 'Cashier TBD' }]);
+      await publishAction(id);
+      const named = await updateSlot(db, owner, slotIds[0]!, { values: { what: 'Cashier' } });
+      if (!named.ok) throw new Error(named.error.message);
+      await publishAction(id, anyway());
+      expect(await published(id)).toEqual([{ from: 'draft', to: 'open' }]);
     });
   });
 });
