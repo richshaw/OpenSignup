@@ -106,11 +106,26 @@ describe('<ShareQrCode /> on a computer', () => {
     // The code fills the top, a square as wide as the picture.
     expect(ctx.drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, width, width);
     expect(ctx.fillText).toHaveBeenCalledExactlyOnceWith(
-      'Bake sale helpers',
+      '\u2068Bake sale helpers\u2069',
       width / 2,
       expect.any(Number),
     );
     expect(ctx.fillText.mock.calls[0]![2]).toBeGreaterThan(width);
+  });
+
+  it('isolates each line of the title, so a right-to-left one keeps its ellipsis at its end', () => {
+    const ctx = giveCanvas();
+    const restore = stayOnPage();
+    // Too long for two lines at 20px a character, so the second ends in "…".
+    const title =
+      'מתנדבים ליריד הספרים של בית הספר, הקמה, מכירה ופירוק בשבת בבוקר, ואחר כך ניקיון האולם וסידור הכיסאות';
+    render(<ShareQrCode signupId="sig_1" title={title} url={LINK} variant="desktop" />);
+    fireEvent.click(screen.getByRole('link', { name: 'Download QR code' }));
+    restore();
+    const drawn = ctx.fillText.mock.calls.map(([text]) => text as string);
+    expect(drawn).toHaveLength(2);
+    for (const text of drawn) expect(text).toMatch(/^\u2068[^\u2068\u2069]+\u2069$/);
+    expect(drawn[1]).toMatch(/…\u2069$/);
   });
 });
 
