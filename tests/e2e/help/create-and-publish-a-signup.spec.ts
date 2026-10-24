@@ -83,25 +83,30 @@ test.describe('help: create and publish your first signup', () => {
     await withEmpty.close();
 
     await page.getByRole('button', { name: /Fruit and water/ }).click();
+    const original = await slotEditor.getAttribute('data-testid');
     await slotEditor.getByRole('button', { name: UI.duplicate }).click();
-    await slotEditor.getByRole('button', { name: UI.done }).click();
-    await expect(page.getByRole('button', { name: /^Edit slot/ })).toHaveCount(3);
-    // "Then open the copy and change its date." The copy lands last.
-    await page
-      .getByRole('button', { name: /Fruit and water/ })
-      .last()
-      .click();
-    // A cell saves a moment after the last keystroke, and Publish below
-    // doesn't wait for a save still on its way, so wait for this one to land
-    // (what an organizer sees as Saved) before going on: otherwise, on a slow
-    // runner, the share panel's message is built without the new date.
-    const copyDateSaved = page.waitForResponse(
-      (r) =>
-        r.request().method() === 'PATCH' && /^\/api\/slots\/[^/]+$/.test(new URL(r.url()).pathname),
+    // "The copy opens below it": the original closes and the copy's editor
+    // opens in its place, directly under the original's row, with focus in it.
+    await expect(slotEditor).not.toHaveAttribute('data-testid', original!);
+    await expect(slotEditor.getByRole('textbox', { name: `${UI.what} value` })).toBeFocused();
+    await expect(page.getByRole('button', { name: /Fruit and water/ })).toHaveCount(1);
+    const rows = page.locator('[data-testid^="wysiwyg-slot-"]');
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(1).locator('[data-testid^="slot-editor-"]')).toBeVisible();
+    // "ready for you to change its date"
+    // "Saved" may still be showing from the copy, so wait for the date's own save.
+    const dateSaved = page.waitForResponse(
+      (res) => res.request().method() === 'PATCH' && res.url().includes('/api/slots/') && res.ok(),
     );
     await slotEditor.getByLabel(`${UI.date} value`).fill('2030-04-13');
+    await dateSaved;
     await slotEditor.getByRole('button', { name: UI.done }).click();
-    expect((await copyDateSaved).ok()).toBe(true);
+    await expect(rows.nth(0)).toContainText('Apr 6');
+    await expect(rows.nth(1)).toContainText('Apr 13');
+    // The server keeps the copy in the same place.
+    await page.reload();
+    await expect(rows.nth(0)).toContainText('Apr 6');
+    await expect(rows.nth(1)).toContainText('Apr 13');
     await page.getByText(UI.emptySlot, { exact: true }).click();
     await slotEditor.getByRole('button', { name: UI.delete }).click();
     await expect(page.getByRole('button', { name: /^Edit slot/ })).toHaveCount(2);

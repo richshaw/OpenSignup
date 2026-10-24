@@ -31,6 +31,10 @@ type WysiwygGroupProps = {
   /** Whether the signup sends reminders, and so emails about a moved slot. */
   remindersOn: boolean;
   expandedRowId: string | null;
+  /** The row whose editor takes focus when it opens: a copy just made by Duplicate. */
+  focusRowId?: string | null;
+  /** Called once that row's editor has taken focus. */
+  onRowFocused?: () => void;
   onExpandRow: (rowId: string | null) => void;
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;
   onSetCapacity: (rowId: string, capacity: number | null) => void;
@@ -54,6 +58,8 @@ export function WysiwygGroup({
   takenBySlot,
   remindersOn,
   expandedRowId,
+  focusRowId = null,
+  onRowFocused,
   onExpandRow,
   onEditCell,
   onSetCapacity,
@@ -105,6 +111,8 @@ export function WysiwygGroup({
             fields={fields}
             displayFields={displayFields}
             expanded={expandedRowId === row.id}
+            focusOnOpen={focusRowId === row.id}
+            {...(onRowFocused ? { onFocused: onRowFocused } : {})}
             onExpand={() => onExpandRow(row.id)}
             onCollapse={() => onExpandRow(null)}
             onEditCell={(ref, v) => onEditCell(row.id, ref, v)}
