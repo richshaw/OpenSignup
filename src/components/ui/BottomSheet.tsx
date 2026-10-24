@@ -24,6 +24,11 @@ type BottomSheetProps = {
    * described by it too. The dialog's own link to it is Radix's.
    */
   descriptionId?: string;
+  /**
+   * The id of text in the sheet's body that describes it, for a description
+   * too long to sit beside the title. Ignored when `description` is given.
+   */
+  describedBy?: string;
   /** When true, omit the bottom border under the title (matches design's `compact` sheet). */
   compact?: boolean;
   /**
@@ -62,6 +67,7 @@ export function BottomSheet({
   title,
   description,
   descriptionId,
+  describedBy,
   compact = false,
   busy = false,
   onOpenAutoFocus,
@@ -78,8 +84,8 @@ export function BottomSheet({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[rgb(11_18_32/0.35)] backdrop-blur-sm" />
         <Dialog.Content
-          // With no description, say so; with one, Radix links it.
-          {...(description ? {} : { 'aria-describedby': undefined })}
+          // With a description Radix links it; otherwise the body's text, or none.
+          {...(description ? {} : { 'aria-describedby': describedBy })}
           {...(onOpenAutoFocus ? { onOpenAutoFocus } : {})}
           {...(onCloseAutoFocus ? { onCloseAutoFocus } : {})}
           className={[

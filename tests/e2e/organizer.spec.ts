@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { BASE_URL, loadSeed } from './helpers/fixtures';
-import { createPublishedSignup } from './helpers/signups';
+import { createDraft, createPublishedSignup } from './helpers/signups';
 
 const seed = loadSeed();
 
@@ -20,17 +20,11 @@ test.describe('organizer flow', () => {
   test('organizer publishes a draft signup', async ({ page }) => {
     // Create a fresh draft via the API (session cookie carries auth) so the
     // test owns its state — projects and retries never compete over one draft.
-    const created = await page.request.post('/api/signups', {
-      data: {
-        title: `Publish flow ${Date.now()}`,
-        description: '',
-        tags: [],
-        visibility: 'unlisted',
-        settings: {},
-      },
+    // Its slot says what it is, so Publish's check has nothing to stop.
+    const { id: draftId } = await createDraft(page.request, {
+      title: `Publish flow ${Date.now()}`,
+      values: { what: 'Juice', date: '2030-04-06' },
     });
-    expect(created.ok()).toBe(true);
-    const draftId = (await created.json()).data.id as string;
 
     await page.goto(`/app/signups/${draftId}/build`);
     // At the top on a computer, in the bar at the bottom on a phone: the one
@@ -292,6 +286,183 @@ test.describe('organizer flow', () => {
     await page.goto('/app');
     await expect(page).toHaveURL(/\/login/);
     await anonContext.close();
+  });
+});
+
+// Publish checks the page first (#503), at a computer's size and a phone's:
+// the header's popover, or a sheet over the bar at the bottom of the screen.
+for (const [device, viewport] of [
+  ['a computer', { width: 1280, height: 900 }],
+  ['a phone', { width: 390, height: 844 }],
+] as const) {
+  test.describe(`Publish’s check on ${device}`, () => {
+    test.use({ viewport });
+    test.beforeEach(async ({ context }) => {
+      await loginAsSeededOrganizer(context);
+    });
+
+    // At the top on a computer, in the bar on a phone: the one on screen.
+    const publishButton = (page: Page) =>
+      page.getByRole('button', { name: 'Publish and share', exact: true });
+    const storedStatus = async (page: Page, id: string) =>
+      (await (await page.request.get(`/api/signups/${id}`)).json()).data.status;
+
+    test('an empty slot stops Publish, and Fill it in opens it', async ({ page }) => {
+      const draft = await createDraft(page.request, { title: `Empty slot ${Date.now()}` });
+      await page.goto(`/app/signups/${draft.id}/build`);
+      const publish = publishButton(page);
+      await publish.click();
+      const check = page.getByRole('dialog', { name: 'Nothing to sign up for yet' });
+      await expect(check).toBeVisible();
+      await expect(check).toContainText(
+        'The slot is empty. Say what people sign up for, then publish.',
+      );
+      await expect(check.getByRole('button', { name: 'Fill it in' })).toBeFocused();
+      expect(await storedStatus(page, draft.id)).toBe('draft');
+
+      // Escape puts focus back on Publish and share.
+      await page.keyboard.press('Escape');
+      await expect(check).toBeHidden();
+      await expect(publish).toBeFocused();
+
+      await publish.click();
+      await check.getByRole('button', { name: 'Fill it in' }).click();
+      await expect(check).toBeHidden();
+      const editor = page.getByTestId(`slot-editor-${draft.slotId}`);
+      await expect(editor.getByRole('textbox', { name: 'What value' })).toBeFocused();
+      expect(await storedStatus(page, draft.id)).toBe('draft');
+    });
+
+    test('a slot that says TBD warns, from another tab too, and Publish anyway publishes', async ({
+      page,
+    }) => {
+      const draft = await createDraft(page.request, {
+        title: `Still TBD ${Date.now()}`,
+        values: { what: 'Cashier TBD', date: '2030-04-06' },
+      });
+      await page.goto(`/app/signups/${draft.id}/responses`);
+      const publish = publishButton(page);
+      await publish.click();
+      const check = page.getByRole('dialog', { name: 'Before people see it' });
+      await expect(check).toContainText('Sat, Apr 6 still says “TBD”.');
+      expect(await storedStatus(page, draft.id)).toBe('draft');
+
+      // Name it first goes to Build, with that slot open and focus on the TBD.
+      await check.getByRole('button', { name: 'Name it first' }).click();
+      await expect(page).toHaveURL(new RegExp(`/app/signups/${draft.id}/build$`));
+      const what = page
+        .getByTestId(`slot-editor-${draft.slotId}`)
+        .getByRole('textbox', { name: 'What value' });
+      await expect(what).toBeFocused();
+      await expect(what).toHaveValue('Cashier TBD');
+
+      // Publish anyway publishes it as it is, and the share panel opens.
+      await publish.click();
+      await check.getByRole('button', { name: 'Publish anyway' }).click();
+      await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
+      expect(await storedStatus(page, draft.id)).toBe('open');
+    });
+  });
+}
+
+// What Publish waits for and where its fix goes, at a computer's size.
+test.describe('Publish’s check, around the Build tab', () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+  test.beforeEach(async ({ context }) => {
+    await loginAsSeededOrganizer(context);
+  });
+
+  const publishButton = (page: Page) =>
+    page.getByRole('button', { name: 'Publish and share', exact: true });
+  const storedStatus = async (page: Page, id: string) =>
+    (await (await page.request.get(`/api/signups/${id}`)).json()).data.status;
+  const storedSlots = async (page: Page, id: string) =>
+    (await (await page.request.get(`/api/signups/${id}/slots`)).json()).data as {
+      id: string;
+      values: Record<string, unknown>;
+    }[];
+
+  test('Add a slot from another tab opens one on Build, and Back and Forward add no more', async ({
+    page,
+  }) => {
+    const draft = await createDraft(page.request, { title: `No slots ${Date.now()}` });
+    expect((await page.request.delete(`/api/slots/${draft.slotId}`)).ok()).toBe(true);
+
+    await page.goto(`/app/signups/${draft.id}/settings`);
+    await publishButton(page).click();
+    const check = page.getByRole('dialog', { name: 'Nothing to sign up for yet' });
+    await expect(check).toContainText('There are no slots yet. Add one, then publish.');
+    await check.getByRole('button', { name: 'Add a slot' }).click();
+    // The address is Build's own: the slot to open never goes in it.
+    await expect(page).toHaveURL(new RegExp(`/app/signups/${draft.id}/build$`));
+    const editor = page.locator('[data-testid^="slot-editor-"]');
+    await expect(editor.getByRole('textbox', { name: 'What value' })).toBeFocused();
+    expect(await storedSlots(page, draft.id)).toHaveLength(1);
+
+    // Back and Forward bring Build back without adding a slot. (What Build
+    // then shows is the router's copy from the first visit: Next keeps it for
+    // Back and Forward, and Build's own saves don't refresh it.)
+    const added: string[] = [];
+    page.on('request', (r) => {
+      if (r.method() === 'POST' && r.url().endsWith(`/api/signups/${draft.id}/slots`)) {
+        added.push(r.url());
+      }
+    });
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/app/signups/${draft.id}/settings$`));
+    await page.goForward();
+    await expect(page).toHaveURL(new RegExp(`/app/signups/${draft.id}/build$`));
+    await expect(page.getByRole('button', { name: 'Signup title' })).toBeVisible();
+    expect(added).toEqual([]);
+    expect(await storedSlots(page, draft.id)).toHaveLength(1);
+  });
+
+  test('a change that didn’t save stops Publish, and says so', async ({ page }) => {
+    const draft = await createDraft(page.request, {
+      title: `Unsaved ${Date.now()}`,
+      values: { what: 'Juice', date: '2030-04-06' },
+    });
+    await page.goto(`/app/signups/${draft.id}/build`);
+    await page.getByRole('button', { name: /^Edit slot .*Juice/ }).click();
+    // The server refuses every slot save from here on.
+    await page.route(`**/api/slots/${draft.slotId}`, (route) =>
+      route.request().method() === 'PATCH'
+        ? route.fulfill({
+            status: 500,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: { code: 'internal', message: 'Down for a moment' } }),
+          })
+        : route.continue(),
+    );
+    await page.getByRole('textbox', { name: 'What value' }).fill('Juice boxes');
+    await publishButton(page).click();
+    await expect(
+      page
+        .getByText('A change didn’t save. Fix it, then publish.', { exact: true })
+        .locator('visible=true'),
+    ).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await storedStatus(page, draft.id)).toBe('draft');
+  });
+
+  test('an edit typed just before going to another tab is what Publish checks', async ({
+    page,
+  }) => {
+    const draft = await createDraft(page.request, {
+      title: `Typed then left ${Date.now()}`,
+      values: { what: 'Juice', date: '2030-04-06' },
+    });
+    await page.goto(`/app/signups/${draft.id}/build`);
+    await page.getByRole('button', { name: /^Edit slot .*Juice/ }).click();
+    // Well inside the 800 ms a cell waits before it saves.
+    await page.getByRole('textbox', { name: 'What value' }).fill('TBD');
+    await page.getByRole('tab', { name: 'Responses' }).click();
+    await expect(page).toHaveURL(new RegExp(`/app/signups/${draft.id}/responses$`));
+    await publishButton(page).click();
+    const check = page.getByRole('dialog', { name: 'Before people see it' });
+    await expect(check).toContainText('Sat, Apr 6 still says “TBD”.');
+    expect((await storedSlots(page, draft.id))[0]?.values.what).toBe('TBD');
+    expect(await storedStatus(page, draft.id)).toBe('draft');
   });
 });
 

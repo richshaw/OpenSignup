@@ -63,7 +63,13 @@ export function SlotEditor({
 
   const spotsHelpId = useId();
   return (
-    <div className="px-3.5 pb-3.5 pt-3" data-testid={`slot-editor-${row.id}`}>
+    <div
+      className="px-3.5 pb-3.5 pt-3"
+      data-testid={`slot-editor-${row.id}`}
+      // Where BuildWysiwyg finds the editor, and each field's box in it, to
+      // put focus in when Publish's check opens this slot.
+      data-slot-editor={row.id}
+    >
       <div className="mb-2.5 flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-ink-soft">
           Editing slot
@@ -117,6 +123,7 @@ export function SlotEditor({
           return (
             <Cell
               key={f.id}
+              data-field-ref={f.ref}
               className="flex flex-col gap-1 text-[11px] text-ink-muted"
             >
               <span className="inline-flex items-center gap-1">

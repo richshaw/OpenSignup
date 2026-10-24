@@ -360,6 +360,10 @@ export function useBuildState(
   // never holds up the saves behind it.
   const settingsSaveRef = useRef<Promise<void>>(Promise.resolve());
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Every save under way (see track), which flushPendingSaves waits for, and
+  // how many have failed since the page opened, which it compares.
+  const inFlightRef = useRef<Set<Promise<unknown>>>(new Set());
+  const failuresRef = useRef(0);
   // Each row's values as the server last accepted them, which a refused cell
   // edit is put back to (#514). Rows the server sends (the first load, a new
   // slot, a refetch) and every values save that succeeds keep it current.
@@ -448,11 +452,25 @@ export function useBuildState(
     });
   }
 
+  /** Adds `save` to the saves in flight until it settles, counting it if it fails, and returns it. */
+  function track<T>(save: Promise<T>): Promise<T> {
+    const inFlight = inFlightRef.current;
+    inFlight.add(save);
+    save.then(
+      () => inFlight.delete(save),
+      () => {
+        failuresRef.current += 1;
+        inFlight.delete(save);
+      },
+    );
+    return save;
+  }
+
   /** Shows "Saving…" while `save` runs, then "Saved" or the error it threw. */
   async function withSave(save: () => Promise<void>): Promise<void> {
     markSaving();
     try {
-      await save();
+      await track(save());
       markSaved();
     } catch (e) {
       markError(asErr(e));
@@ -474,7 +492,7 @@ export function useBuildState(
     show(next);
     markSaving();
     try {
-      await save();
+      await track(save());
       markSaved();
       return;
     } catch (e) {
@@ -564,8 +582,10 @@ export function useBuildState(
 
   const slotsUrl = `/api/signups/${signupId}/slots`;
 
-  const addRow = (seed?: { values?: Record<string, unknown> }): Promise<void> =>
-    withSave(async () => {
+  /** Adds a slot, and resolves to its id, or null when the server refused it. */
+  const addRow = async (seed?: { values?: Record<string, unknown> }): Promise<string | null> => {
+    let added: string | null = null;
+    await withSave(async () => {
       const slot = await sendForData<BuildSlot>('POST', slotsUrl, {
         values: toTypedValues(stateRef.current.fields, seed?.values ?? {}),
         capacity: 1,
@@ -573,7 +593,10 @@ export function useBuildState(
       const row = toBuildRow(slot);
       savedValues.set(row.id, row.values);
       dispatch({ type: 'OPTIMISTIC_ADD_ROW', row });
+      added = row.id;
     });
+    return added;
+  };
 
   /**
    * Adds a copy of the row straight after it (#557), where the organizer
@@ -726,9 +749,9 @@ export function useBuildState(
     const rows = stateRef.current.rows.filter((r) => rowIds.includes(r.id));
     for (const r of rows) dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId: r.id, fieldRef, value });
     markSaving();
-    const results = await Promise.allSettled(
-      rows.map((r) => saveRowValues({ ...r, values: { ...r.values, [fieldRef]: value } })),
-    );
+    const saves = rows.map((r) => saveRowValues({ ...r, values: { ...r.values, [fieldRef]: value } }));
+    void track(Promise.all(saves));
+    const results = await Promise.allSettled(saves);
     let failure: SaveError | null = null;
     for (const [i, result] of results.entries()) {
       const row = rows[i];
@@ -754,7 +777,8 @@ export function useBuildState(
   };
 
   // Flush all pending saves on unmount — call each pending saveFn immediately,
-  // then cancel the timer so it doesn't double-fire.
+  // then cancel the timer and drop it, so it doesn't double-fire, even when a
+  // flushPendingSaves after unmount (Publish on another tab) sends what's left.
   // Capture timersRef.current in a variable so the cleanup uses the same Map
   // reference that was set at effect-run time (avoids the exhaustive-deps warning).
   useEffect(() => {
@@ -764,8 +788,36 @@ export function useBuildState(
         clearTimeout(timeoutId);
         void saveFn();
       }
+      timers.clear();
     };
   }, []);
+
+  /**
+   * Sends every edit still waiting out its debounce now, and resolves once no
+   * save is waiting or in flight, including one a save sets off as it ends
+   * (adding a list choice, then the cell that uses it), so the server holds
+   * everything the organizer has done (Publish checks what it holds).
+   * Resolves to whether every save since it began succeeded; a failed one
+   * shows its own error. It works after unmount too, on the saves the tab
+   * sent as it went.
+   */
+  const flushPendingSaves = async (): Promise<boolean> => {
+    const failures = failuresRef.current;
+    for (;;) {
+      const timers = timersRef.current;
+      const pending = [...timers.values()];
+      timers.clear();
+      const saves = [
+        ...pending.map(({ timeoutId, saveFn }) => {
+          clearTimeout(timeoutId);
+          return saveFn();
+        }),
+        ...inFlightRef.current,
+      ];
+      if (saves.length === 0) return failuresRef.current === failures;
+      await Promise.allSettled(saves);
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // Signup title, description and settings
@@ -838,14 +890,17 @@ export function useBuildState(
   const saveSettings = (changed: Partial<SignupSettings>): Promise<void> => {
     markSaving();
     // withSave marks the rail saving again: the save this one waited for may
-    // have marked it saved already.
-    const save = settingsSaveRef.current.then(() =>
-      withSave(async () => {
-        const res = await send('PATCH', `/api/signups/${signupId}`, { settings: changed });
-        const next = (await savedSettings(res)) ?? { ...settingsRef.current, ...changed };
-        await catchUpOnFields(next);
-        showSettings(next);
-      }),
+    // have marked it saved already. Tracked from now, not from when it is
+    // sent, so a flush also waits for a save still queued behind another.
+    const save = track(
+      settingsSaveRef.current.then(() =>
+        withSave(async () => {
+          const res = await send('PATCH', `/api/signups/${signupId}`, { settings: changed });
+          const next = (await savedSettings(res)) ?? { ...settingsRef.current, ...changed };
+          await catchUpOnFields(next);
+          showSettings(next);
+        }),
+      ),
     );
     settingsSaveRef.current = save;
     return save;
@@ -898,5 +953,6 @@ export function useBuildState(
     setGroupBy,
     setReminderField,
     updateSignupMeta,
+    flushPendingSaves,
   };
 }

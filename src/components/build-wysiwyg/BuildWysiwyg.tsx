@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
+import { useRegisterBuildTab } from '@/components/signup/BuildBridge';
 import { useBuildState, type BuildField, type BuildRow, type BuildSlot } from '../build-shared/useBuildState';
 import { useReorderable } from '../build-shared/useReorderable';
 import { Editable } from './Editable';
@@ -96,6 +97,7 @@ export function BuildWysiwyg({
     renameGroup,
     setCapacity,
     moveRow,
+    flushPendingSaves,
   } = useBuildState(
     signupId,
     initialFields,
@@ -106,6 +108,12 @@ export function BuildWysiwyg({
 
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  // The slot whose editor gets focus once it's open, and in which field.
+  const [focusRequest, setFocusRequest] = useState<{
+    rowId: string;
+    fieldRef: string | null;
+  } | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   // A copy just made by Duplicate, whose editor takes focus when it opens.
   // Cleared once it has: in a signup grouped by date, changing the copy's
   // date remounts its editor in the new group, which must not take focus again.
@@ -160,6 +168,49 @@ export function BuildWysiwyg({
     void addRow({ values: {} });
   };
 
+  const showSlot = (rowId: string, fieldRef: string | null) => {
+    expandRow(rowId);
+    setFocusRequest({ rowId, fieldRef });
+  };
+
+  /**
+   * Opens a slot's editor (a new slot when `slotId` is null), focus in
+   * `fieldRef`, and says whether it could: a slot added elsewhere since the
+   * page loaded isn't here to open.
+   */
+  const openSlot = (slotId: string | null, fieldRef: string | null): boolean => {
+    if (slotId === null) {
+      void addRow().then((id) => {
+        if (id) showSlot(id, null);
+      });
+      return true;
+    }
+    if (!state.rows.some((r) => r.id === slotId)) return false;
+    showSlot(slotId, fieldRef);
+    return true;
+  };
+
+  // The header's Publish saves what's pending here first, and a check's fix
+  // opens the slot it's about, here or once this tab has loaded.
+  useRegisterBuildTab({ flushPendingSaves, openSlot });
+
+  // Focus goes in the field asked for, or the slot's first, once its editor
+  // is open; with no fields, in Spots.
+  useEffect(() => {
+    if (!focusRequest) return;
+    const editor = Array.from(
+      sheetRef.current?.querySelectorAll<HTMLElement>('[data-slot-editor]') ?? [],
+    ).find((el) => el.dataset.slotEditor === focusRequest.rowId);
+    if (!editor) return;
+    const boxes = Array.from(editor.querySelectorAll<HTMLElement>('[data-field-ref]'));
+    const box = boxes.find((b) => b.dataset.fieldRef === focusRequest.fieldRef) ?? boxes[0];
+    const control = box
+      ? box.querySelector<HTMLElement>('input, button')
+      : editor.querySelector<HTMLElement>('input');
+    editor.scrollIntoView?.({ block: 'center' });
+    control?.focus({ preventScroll: true });
+  }, [focusRequest]);
+
   const handleRenameGroup = (oldKey: string, newKey: string) => {
     if (!groupField) return;
     if (newKey === oldKey) return;
@@ -178,7 +229,10 @@ export function BuildWysiwyg({
   };
 
   return (
-    <div className="-mt-6 -mb-8 min-h-[calc(100vh-12rem)] bg-surface-raised pt-6 pb-24 md:pt-10 md:pb-32">
+    <div
+      ref={sheetRef}
+      className="-mt-6 -mb-8 min-h-[calc(100vh-12rem)] bg-surface-raised pt-6 pb-24 md:pt-10 md:pb-32"
+    >
       <div
         className={`mx-auto w-full rounded-none border border-surface-sunk border-t-[3px] border-t-brand bg-white shadow-card transition-[max-width] duration-180 ease-emphasized md:rounded-xl ${sheetMaxWidthClass(state.fields.length)}`}
       >

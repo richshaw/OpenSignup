@@ -6,6 +6,13 @@ import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
 import { refusalAsResult } from '@/lib/errors';
+import { requireWorkspaceWrite } from '@/lib/policy';
+import {
+  checkBeforePublish,
+  publishCheckCopy,
+  publishCheckTarget,
+  type PublishCheckAnswer,
+} from '@/lib/publish-check';
 import { closeSignupQuestion, spotCounts } from '@/lib/spot-counts';
 import { removeCommitment } from '@/services/commitments';
 import {
@@ -13,6 +20,7 @@ import {
   deleteSignup,
   getSignupForOrganizer,
   publishSignup,
+  recordPublishCheck,
   updateSignup,
 } from '@/services/signups';
 import { removeRefusal } from './responses/remove-refusal';
@@ -28,19 +36,52 @@ async function requireActor() {
 
 /**
  * The header's Publish and Close signup. A refusal (a viewer's role, a signup
- * already published or closed in another tab, no slots yet) returns what to
- * tell the organizer, shown under the button, and revalidates nothing.
+ * already published or closed in another tab) returns what to tell the
+ * organizer, shown under the button, and revalidates nothing.
  *
  * Both stay on the tab they were pressed on and re-render the layout. Publish
  * says it published, which is what opens the header's share panel: an answer
  * to this press, not a flag in the URL, so a reload or a shared link never
  * opens it again.
+ *
+ * Publish first checks a draft as it's stored (the header has saved the Build
+ * tab's edits by then): no slots, no fields or every slot empty answers with
+ * the check and publishes nothing, and so does a slot still saying "TBD"
+ * unless `form` says the organizer chose Publish anyway
+ * (`acknowledge=placeholder`). The form can't wave a blocking problem
+ * through. The check reads without a lock, so an edit landing between it and
+ * the publish (from another tab, or an AI assistant) isn't checked: a narrow
+ * race, and what's published is what the page then shows. A viewer is
+ * refused before anything is checked. A signup that isn't a draft goes
+ * straight to the service, which says it changed since the page loaded. The
+ * service doesn't check; the MCP tool and the REST API publish without it.
  */
 export async function publishAction(
   signupId: string,
-): Promise<{ error: string } | { published: true }> {
+  form?: FormData,
+): Promise<{ error: string } | { published: true } | PublishCheckAnswer> {
   const actor = await requireActor();
-  const result = await refusalAsResult(() => publishSignup(getDb(), actor, signupId));
+  const db = getDb();
+  const read = await refusalAsResult(async () => {
+    const loaded = await getSignupForOrganizer(db, actor, signupId);
+    if (loaded.ok) requireWorkspaceWrite(actor, loaded.value.workspaceId);
+    return loaded;
+  });
+  if (!read.ok) return { error: statusRefusal(read.error, 'publish') };
+  // Publish anyway past a slot still saying TBD, which signup.published records.
+  let anyway = false;
+  if (read.value.status === 'draft') {
+    const check = checkBeforePublish(read.value);
+    anyway = check?.kind === 'placeholder' && form?.get('acknowledge') === 'placeholder';
+    if (check && !anyway) {
+      // #525's count of refused publishes, now that the service doesn't see these.
+      await refusalAsResult(() => recordPublishCheck(db, actor, signupId, check));
+      return { check, copy: publishCheckCopy(check), target: publishCheckTarget(check) };
+    }
+  }
+  const result = await refusalAsResult(() =>
+    publishSignup(db, actor, signupId, anyway ? { acknowledged: 'placeholder' } : {}),
+  );
   if (!result.ok) return { error: statusRefusal(result.error, 'publish') };
   revalidateSignup(signupId);
   return { published: true };

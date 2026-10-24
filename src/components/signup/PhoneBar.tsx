@@ -1,12 +1,9 @@
 'use client';
 
-import { Send } from 'lucide-react';
-import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import type { SignupStatus } from '@/schemas/signups';
-import { BAR_BUTTON, PRIMARY } from './header-buttons';
 import { hasPhoneBar } from './phone-bar';
+import { PublishButton, PublishRefusal } from './PublishButton';
 import { ShareButton } from './ShareButton';
-import { StatusActionButtonForm, StatusActionRefusal } from './StatusActionForm';
 
 interface PhoneBarProps {
   status: SignupStatus;
@@ -19,7 +16,8 @@ interface PhoneBarProps {
  * sheet: a draft's Publish and share, filling it, or an open signup's count
  * and Share, which opens the share sheet and gets the focus back when it
  * closes. Publish runs in `SignupHeader`'s scope, so a refusal shows here,
- * just above the button, and the share sheet opens once it has published.
+ * just above the button, its check opens a sheet over the bar, and the
+ * share sheet opens once it has published.
  * A closed or archived signup has no bar. The layout leaves room for it at
  * the bottom of the page (`PHONE_BAR_ROOM`).
  */
@@ -33,13 +31,8 @@ export function PhoneBar({ status, spotsTaken }: PhoneBarProps) {
     >
       {status === 'draft' ? (
         <>
-          <StatusActionRefusal className="pb-3" />
-          <StatusActionButtonForm>
-            <AsyncSubmitButton loadingLabel="Publishing…" className={`${BAR_BUTTON} ${PRIMARY}`}>
-              <Send size={16} aria-hidden="true" />
-              Publish and share
-            </AsyncSubmitButton>
-          </StatusActionButtonForm>
+          <PublishRefusal className="pb-3" />
+          <PublishButton variant="phone" />
         </>
       ) : (
         <div className="flex items-center gap-3">

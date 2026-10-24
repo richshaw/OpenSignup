@@ -313,7 +313,7 @@ test.describe('help: create and publish your first signup', () => {
   test.describe('on a phone', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
-    test('Publish and share is at the bottom, and Preview is under the three dots', async ({
+    test('Publish and share is at the bottom, asks for an empty slot to be filled in, and Preview is under the three dots', async ({
       page,
       context,
     }) => {
@@ -354,6 +354,37 @@ test.describe('help: create and publish your first signup', () => {
       expect(box.height).toBeGreaterThanOrEqual(48);
       expect(box.width).toBeGreaterThan(390 - 2 * 16 - 1);
       expect(box.y + box.height).toBeGreaterThan(844 - 24);
+
+      // The new signup's one slot is empty, so there's nothing to sign up for
+      // yet: Publish says so and publishes nothing. Fill it in opens the slot,
+      // focus in What.
+      const storedStatus = async () =>
+        (await (await page.request.get(`/api/signups/${id}`)).json()).data.status;
+      await publish.click();
+      const nothingYet = page.getByRole('dialog', { name: UI.nothingYet });
+      await expect(nothingYet).toBeVisible();
+      await expect(nothingYet.getByRole('button', { name: UI.fillItIn })).toBeFocused();
+      expect(await storedStatus()).toBe('draft');
+      await nothingYet.getByRole('button', { name: UI.fillItIn }).click();
+      await expect(nothingYet).toBeHidden();
+      const slotEditor = page.locator('[data-testid^="slot-editor-"]');
+      const what = slotEditor.getByRole('textbox', { name: `${UI.what} value` });
+      await expect(what).toBeFocused();
+      await what.fill('TBD');
+      await slotEditor.getByRole('button', { name: UI.done }).click();
+
+      // A slot that still says "TBD" is something people would see. Name it
+      // first opens it again, focus on the TBD.
+      await publish.click();
+      const beforePeopleSee = page.getByRole('dialog', { name: UI.beforePeopleSee });
+      await expect(beforePeopleSee).toBeVisible();
+      await expect(beforePeopleSee.getByRole('button', { name: UI.publishAnyway })).toBeVisible();
+      await beforePeopleSee.getByRole('button', { name: UI.nameItFirst }).click();
+      await expect(what).toBeFocused();
+      await expect(what).toHaveValue('TBD');
+      await what.fill('Fruit and water');
+      await slotEditor.getByRole('button', { name: UI.done }).click();
+
       await publish.click();
       const sheet = page.getByRole('dialog', { name: UI.sendTheLink });
       await expect(sheet).toBeVisible();
