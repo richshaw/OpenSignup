@@ -246,6 +246,25 @@ describe('Publish and share', () => {
     expect(checking()).toHaveLength(2);
   });
 
+  it('holds both labels in each button, so its width stays, and is named by the one shown', async () => {
+    const { wait } = slowSaves(async () => null);
+    const label = (button: HTMLElement, text: string) => within(button).getByText(text);
+    const buttons = [publishIn('desktop'), publishIn('phone')];
+    for (const button of buttons) {
+      expect(label(button, 'Checking…')).toHaveClass('invisible');
+      expect(label(button, 'Checking…')).toHaveAttribute('aria-hidden', 'true');
+    }
+    await press(buttons[0]!);
+    await wait(300);
+    for (const button of buttons) {
+      expect(button).toHaveAccessibleName('Checking…');
+      expect(label(button, 'Publish and share')).toHaveClass('invisible');
+      expect(label(button, 'Publish and share')).toHaveAttribute('aria-hidden', 'true');
+      expect(label(button, 'Checking…')).not.toHaveClass('invisible');
+      expect(label(button, 'Checking…')).not.toHaveAttribute('aria-hidden');
+    }
+  });
+
   it('shows no spinner for a check that answers at once', async () => {
     vi.useFakeTimers();
     render(<Header action={async () => answer(EMPTY)} />);

@@ -167,9 +167,20 @@ export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
       aria-disabled={busy || undefined}
       className={`${desktop ? HEADER_BUTTON : BAR_BUTTON} ${PRIMARY} ${showBusy ? 'cursor-progress brightness-90' : ''}`}
     >
-      {showBusy ? <Spinner /> : <Send size={desktop ? 15 : 16} aria-hidden="true" />}
-      {/* True whether it ends in the check or a publish, which checks first. */}
-      {showBusy ? 'Checking…' : 'Publish and share'}
+      {/* Both labels with their icons, in one cell: the one not shown keeps
+          its room unread, so the button is as wide as the wider in any
+          language and the header doesn't shift. "Checking…" is true whether
+          it ends in the check or a publish, which checks first. */}
+      <span className="grid *:flex *:items-center *:justify-center *:gap-2 *:[grid-area:1/1]">
+        <span className={showBusy ? 'invisible' : ''} aria-hidden={showBusy || undefined}>
+          <Send size={desktop ? 15 : 16} aria-hidden="true" />
+          Publish and share
+        </span>
+        <span className={showBusy ? '' : 'invisible'} aria-hidden={!showBusy || undefined}>
+          <Spinner />
+          Checking…
+        </span>
+      </span>
     </button>
   );
 
