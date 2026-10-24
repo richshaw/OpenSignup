@@ -164,6 +164,13 @@ describe('shareMessage', () => {
 });
 
 describe('shareMessage: when the slots are', () => {
+  const TIME = { ref: 'time', fieldType: 'time', sortOrder: 2 } as const;
+  const timed = (date: string | undefined, time: string | undefined, capacity = 1) => {
+    const values: Record<string, string> = { what: 'Litter pick' };
+    if (date !== undefined) values.date = date;
+    if (time !== undefined) values.time = time;
+    return { id: `slot_${++slotIds}`, values, capacity, status: 'open' };
+  };
   const line = (slots: ShareMessageSignup['slots'], fields: ShareMessageSignup['fields']) =>
     shareMessage(signup({ fields, slots }), LINK).split('\n')[1];
   const days = (...dates: string[]) => dates.map((d) => slot(d));
@@ -205,6 +212,53 @@ describe('shareMessage: when the slots are', () => {
     expect(line(days('2026-11-07', '2026-11-14', '2026-11-21', '2026-11-28'), [WHAT, DATE])).toBe(
       'Sat, Nov 7 to Sat, Nov 28 · 4 spots open',
     );
+  });
+
+  it('adds a time every slot shares to its one day', () => {
+    const slots = [timed('2026-11-21', '11:00', 10), timed('2026-11-21', '11:00', 9)];
+    expect(line(slots, [WHAT, DATE, TIME])).toBe('Sat, Nov 21, 11:00\u00a0AM · 19 spots open');
+  });
+
+  it('gives a time several days share as a part of its own, not as the range’s end', () => {
+    const slots = [timed('2026-11-12', '11:00'), timed('2026-11-14', '11:00')];
+    expect(line(slots, [WHAT, DATE, TIME])).toBe(
+      'Thu, Nov 12 and Sat, Nov 14 · 11:00\u00a0AM · 2 spots open',
+    );
+    const run = [timed('2026-11-12', '11:00'), timed('2026-11-13', '11:00')];
+    expect(line(run, [WHAT, DATE, TIME])).toBe(
+      'Thu, Nov 12 to Fri, Nov 13 · 11:00\u00a0AM · 2 spots open',
+    );
+  });
+
+  it('gives the time alone when there are no dates', () => {
+    const slots = [timed(undefined, '11:00', 19)];
+    expect(line(slots, [WHAT, TIME])).toBe('11:00\u00a0AM · 19 spots open');
+  });
+
+  it('leaves the time out when the slots differ, or one has none', () => {
+    const mixed = [timed('2026-11-21', '11:00'), timed('2026-11-21', '13:00')];
+    expect(line(mixed, [WHAT, DATE, TIME])).toBe('Sat, Nov 21 · 2 spots open');
+    const missing = [timed('2026-11-21', '11:00'), timed('2026-11-21', undefined)];
+    expect(line(missing, [WHAT, DATE, TIME])).toBe('Sat, Nov 21 · 2 spots open');
+    const impossible = [timed(undefined, '25:00')];
+    expect(line(impossible, [WHAT, TIME])).toBe('1 spot open');
+  });
+
+  it('reads the time field paired with the date field, as the reminders do', () => {
+    const fields = [
+      { ref: 'depart-time', fieldType: 'time', sortOrder: 0 },
+      { ref: 'date', fieldType: 'date', sortOrder: 1 },
+      { ref: 'return-time', fieldType: 'time', sortOrder: 2 },
+    ] as const;
+    const slots = [
+      {
+        id: 'slot_a',
+        values: { date: '2026-11-21', 'depart-time': '09:00', 'return-time': '17:30' },
+        capacity: 1,
+        status: 'open',
+      },
+    ];
+    expect(line(slots, fields)).toBe('Sat, Nov 21, 5:30\u00a0PM · 1 spot open');
   });
 });
 
