@@ -172,7 +172,8 @@ export function CreateAndPublishASignup() {
               <li>
                 For a flyer or a sign-up table, choose <Ui>{UI.downloadQr}</Ui> to save a QR code of
                 the link, with your signup&apos;s title under it. On a phone, choose{' '}
-                <Ui>{UI.qrOnPhone}</Ui> to show the code, then <Ui>{UI.saveImage}</Ui>.
+                <Ui>{UI.qrOnPhone}</Ui> to show the code, then <Ui>{UI.saveImage}</Ui>. Most phones
+                then open their share menu, where you can save the picture or send it.
               </li>
             </ul>
           </Step>

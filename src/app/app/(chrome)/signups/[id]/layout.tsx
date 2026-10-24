@@ -4,7 +4,7 @@ import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/servi
 import { countActiveCommitmentsForSignup } from '@/services/commitments';
 import { publicSignupUrl } from '@/lib/links';
 import { shareMessage } from '@/lib/share-message';
-import { spotCounts } from '@/lib/spot-counts';
+import { KEEPS_THEIR_SPOT, spotCounts } from '@/lib/spot-counts';
 import { SignupHeader } from '@/components/signup/SignupHeader';
 import { hasPhoneBar, PHONE_BAR_ROOM } from '@/components/signup/phone-bar';
 import { TabsNav } from '@/components/signup/TabsNav';
@@ -71,7 +71,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
           kind="closed"
           live={false}
           title="Signup closed"
-          body="People can’t sign up now. Everyone already signed up keeps their spot."
+          body={`People can’t sign up now. ${KEEPS_THEIR_SPOT}`}
         />
       ) : null}
       <AiDraftBanner

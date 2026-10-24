@@ -208,21 +208,49 @@ describe('<SharePanel /> on a computer', () => {
     expect(screen.queryByRole('button', { name: 'Share…' })).not.toBeInTheDocument();
   });
 
-  it('grows the message box with the message, from 5 rows to 12', () => {
-    render(<Owner />);
-    const box = screen.getByLabelText('A message to send with it');
-    // Three lines, the link's wrapping once, and one to type into.
-    expect(box).toHaveAttribute('rows', '5');
+  describe('its message box', () => {
+    // jsdom lays nothing out: the box's rows are 20px with 8px of padding
+    // above and below and a 1px border, and its content is a row a line.
+    let sheet: HTMLStyleElement;
+    beforeEach(() => {
+      sheet = document.createElement('style');
+      sheet.textContent =
+        'textarea { line-height: 20px; padding-top: 8px; padding-bottom: 8px; border-top-width: 1px; border-bottom-width: 1px; }';
+      document.head.append(sheet);
+      vi.spyOn(HTMLTextAreaElement.prototype, 'scrollHeight', 'get').mockImplementation(function (
+        this: HTMLTextAreaElement,
+      ) {
+        return Math.max(5, this.value.split('\n').length) * 20 + 16;
+      });
+    });
+    afterEach(() => {
+      sheet.remove();
+      vi.restoreAllMocks();
+    });
     const lines = (n: number) => Array.from({ length: n }, (_, i) => `Line ${i + 1}`).join('\n');
-    fireEvent.change(box, { target: { value: lines(10) } });
-    expect(box).toHaveAttribute('rows', '11');
-    // A long line counts the rows it wraps to.
-    fireEvent.change(box, { target: { value: `${lines(8)}\n${'Bring a dish. '.repeat(8)}` } });
-    expect(box).toHaveAttribute('rows', '12');
-    fireEvent.change(box, { target: { value: lines(30) } });
-    expect(box).toHaveAttribute('rows', '12');
-    fireEvent.change(box, { target: { value: '' } });
-    expect(box).toHaveAttribute('rows', '5');
+
+    it('fits the message, from 5 rows to 12, as it changes', () => {
+      render(<Owner />);
+      const box = screen.getByLabelText<HTMLTextAreaElement>('A message to send with it');
+      expect(box).toHaveAttribute('rows', '5');
+      // 5 rows of 20px, the padding and the border.
+      expect(box.style.height).toBe('118px');
+      fireEvent.change(box, { target: { value: lines(10) } });
+      expect(box.style.height).toBe('218px');
+      fireEvent.change(box, { target: { value: lines(30) } });
+      expect(box.style.height).toBe('258px');
+      fireEvent.change(box, { target: { value: lines(2) } });
+      expect(box.style.height).toBe('118px');
+    });
+
+    it('keeps the size the organizer dragged it to', () => {
+      render(<Owner />);
+      const box = screen.getByLabelText<HTMLTextAreaElement>('A message to send with it');
+      // What dragging the box's corner does.
+      box.style.height = '300px';
+      fireEvent.change(box, { target: { value: lines(10) } });
+      expect(box.style.height).toBe('300px');
+    });
   });
 });
 

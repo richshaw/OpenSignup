@@ -56,7 +56,12 @@ export function shareMessage(
 
 /**
  * When the slots are, from the date field the reminders use (or the first
- * date field) and the time field paired with it, as the reminders pair them:
+ * date field) and the time field paired with it, as the reminders pair them.
+ * It reads the open slots when any slot is open, and every slot otherwise:
+ * the message asks people to sign up, so a closed slot, which they can't
+ * take, doesn't add a day or hide a time the open ones share. (The spots
+ * count only open slots too.)
+ *
  *
  * - the days: one ("Sat, Nov 14"); days that run on with no gap, as a range
  *   ("Thu, Nov 12 to Sat, Nov 14"); two or three with a gap, named ("Sat,
@@ -69,7 +74,9 @@ export function shareMessage(
  *
  * Null when there's neither.
  */
-function dateSpan({ settings, fields, slots }: ShareMessageSignup): string | null {
+function dateSpan({ settings, fields, slots: all }: ShareMessageSignup): string | null {
+  const open = all.filter((s) => s.status === 'open');
+  const slots = open.length > 0 ? open : all;
   const dateRef = resolveAnchorRef(settings, fields);
   const timeRef = pairedTimeField(fields.find((f) => f.ref === dateRef) ?? null, fields)?.ref;
   const dated = dateRef
