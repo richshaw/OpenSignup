@@ -56,9 +56,13 @@ export default function PrivacyPage() {
           <li>The signups, slots, and settings you create.</li>
           <li>
             An append-only activity log of organizer actions (sign-ins, creating and editing
-            signups, sending magic links), participant commitments on your signups, and reminder
-            dispatches. This exists so an organizer can audit what happened in their own workspace
-            and so the operator can investigate abuse. The same log records anonymous view telemetry
+            signups, sending magic links, copying a signup&rsquo;s link, a publish or an AI draft
+            that didn&rsquo;t go through), which of your own pages you open and whether on a phone
+            or a computer (never the browser&rsquo;s full identifying string), participant
+            commitments on your signups, and reminder dispatches. This exists so an organizer can
+            audit what happened in their own workspace, so the operator can investigate abuse, and
+            so the operator can count, in aggregate, where organizers get stuck between starting a
+            signup and sharing it. The same log records anonymous view telemetry
             on the marketing home page and on your public signup pages (see &ldquo;Logs and
             rate-limiting&rdquo; below).
           </li>

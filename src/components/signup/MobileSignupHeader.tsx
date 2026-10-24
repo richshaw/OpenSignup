@@ -10,6 +10,7 @@ import type { StatusAction } from './StatusActionForm';
 import { MobileMoreMenuSheet } from './MobileMoreMenuSheet';
 
 interface MobileSignupHeaderProps {
+  signupId: string;
   title: string;
   status: SignupStatus;
   publicUrl: string;
@@ -20,6 +21,7 @@ interface MobileSignupHeaderProps {
 }
 
 export function MobileSignupHeader({
+  signupId,
   title,
   status,
   publicUrl,
@@ -68,7 +70,7 @@ export function MobileSignupHeader({
           ) : null}
         </div>
 
-        <PublicLinkChip url={publicUrl} />
+        <PublicLinkChip url={publicUrl} signupId={signupId} />
       </header>
 
       {/* Closing the signup closes the sheet too, rather than leaving it open
