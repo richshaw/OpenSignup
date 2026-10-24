@@ -463,7 +463,7 @@ describe('selectDueReminders (db)', () => {
       const second = send.mock.calls[1]![0];
       expect(second.subject).toMatch(/^Time changed: /);
       expect(second.html).toContain('Your slot has changed');
-      expect(second.text).toContain('after your last reminder. Here are the new details.');
+      expect(second.text).toContain('since we last emailed you. Here are the new details.');
     } finally {
       send.mockRestore();
     }

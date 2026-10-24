@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
@@ -11,21 +11,20 @@ import { commitmentEditUrl, reminderUnsubscribePostUrl, reminderUnsubscribeUrl }
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { editTokenFor } from '@/lib/token';
 import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
-import { holdsPlace } from '@/services/commitments';
 import { reminderOptOutTokenFor } from '@/services/reminder-optout';
 import { alreadyRecorded, loadCommitmentRow, slotText } from '@/email/commitment-row';
 import { sendReminder } from '@/email/send';
+import { allOf, notifiableRules, skipReasons, wasToldDifferentTime } from './notify-rules';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
 
 /** The reminder lead time as a SQL interval. Fixed for every signup. */
 const leadInterval = sql`make_interval(hours => ${REMINDER_LEAD_HOURS})`;
 
 /**
- * When a commitment's reminder is due, as named SQL rules over a query joining
- * commitments, participants, slots and signups. Each rule holds when the
- * reminder may go out, and its name says why it can't when it doesn't. All
- * but the reminder.sent check, which the scan and the send job each make on
- * their own terms.
+ * When a commitment's reminder is due: the rules for emailing a participant at
+ * all (`notifiableRules`), plus the reminder's own timing. All but the
+ * reminder.sent check, which the scan and the send job each make on their own
+ * terms.
  *
  * The scan queues jobs with them and the send job re-reads its row through
  * them, because the job runs later: seconds normally, hours when the worker is
@@ -35,27 +34,11 @@ const leadInterval = sql`make_interval(hours => ${REMINDER_LEAD_HOURS})`;
  * and the names let the job log which rule a skipped reminder failed.
  */
 const reminderDueRules = {
-  'commitment not active': holdsPlace,
-  // 'closed' too, not just 'open'. Closing a signup means "no longer
-  // collecting responses" — the commitments already made stay valid and
-  // their participants still need the reminder. Excluding it silently
-  // cancelled reminders whenever an organizer tidied up after sign-ups
-  // ended, which the shorter default lead makes far more likely: at 24h,
-  // closing the evening before the event now lands inside the window.
-  // 'draft' and 'archived' stay excluded — never public, and put away.
-  'signup not open or closed': or(eq(signups.status, 'open'), eq(signups.status, 'closed'))!,
-  'signup deleted': isNull(signups.deletedAt),
-  'slot has no date': isNotNull(slots.slotAt),
-  // Still ahead of the participant, and inside the reminder lead time.
-  'slot passed': sql`${slots.slotAt} > now()`,
+  ...notifiableRules,
+  // Inside the reminder lead time.
   'slot beyond the lead time': sql`${slots.slotAt} <= now() + ${leadInterval}`,
   // Not still in the afterglow of their own confirmation (see selectDueReminders).
   'signed up too recently': sql`${commitments.createdAt} < now() - make_interval(hours => ${REMINDER_SETTLE_HOURS})`,
-  'reminders off': sql`COALESCE((${signups.settings}->>'sendReminders')::boolean, true) = true`,
-  // Participants who unsubscribed from this signup's reminders.
-  'participant opted out': isNull(participants.remindersOptedOutAt),
-  // Participants who gave no email: there is nowhere to send one.
-  'participant has no email': isNotNull(participants.email),
 } satisfies Record<string, SQL>;
 
 /**
@@ -71,30 +54,7 @@ function remindedForTime(payload: SQL, slotAt: SQL): SQL {
 }
 
 /** Every rule in `reminderDueRules`: the reminder is due now. */
-const reminderDueCondition = and(...Object.values(reminderDueRules))!;
-
-/**
- * The names of the rules in `reminderDueRules` a commitment's reminder fails
- * right now, or null when there is no such commitment. Only for logging a
- * skipped send: it reads the same rules the condition is built from, so the
- * reasons cannot drift from what the scan and the job decide.
- */
-async function reminderSkipReasons(db: Db, commitmentId: string): Promise<string[] | null> {
-  const failed = Object.entries(reminderDueRules).map(
-    ([reason, rule]) => sql`CASE WHEN coalesce(${rule}, false) THEN NULL ELSE ${reason}::text END`,
-  );
-  const [row] = await db
-    .select({
-      reasons: sql<string[]>`array_remove(ARRAY[${sql.join(failed, sql`, `)}], NULL)`,
-    })
-    .from(commitments)
-    .innerJoin(slots, eq(slots.id, commitments.slotId))
-    .innerJoin(signups, eq(signups.id, commitments.signupId))
-    .innerJoin(participants, eq(participants.id, commitments.participantId))
-    .where(eq(commitments.id, commitmentId))
-    .limit(1);
-  return row ? row.reasons : null;
-}
+const reminderDueCondition = allOf(reminderDueRules);
 
 /**
  * Selects the commitments whose reminder is *due* — slot still in the future,
@@ -168,7 +128,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   // archived signup to an unsubscribe to a slot moved later, shows up here as
   // no row. A second query then names the rules it failed, for the log.
   if (!row) {
-    const reasons = await reminderSkipReasons(db, payload.commitmentId);
+    const reasons = await skipReasons(db, payload.commitmentId, reminderDueRules);
     if (reasons === null) {
       log.warn({ commitmentId: payload.commitmentId }, 'commitment not found for reminder');
     } else {
@@ -203,10 +163,11 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     log.info({ commitmentId: payload.commitmentId }, 'reminder already sent; skipping');
     return;
   }
-  // Any reminder.sent row still left was for another slot time (one for this
-  // time, or one naming no time, returned above): the organizer moved the
-  // slot after that reminder, and this one says so.
-  const changed = await alreadyRecorded(db, 'reminder.sent', row.signup.id, payload.commitmentId);
+  // The last email the participant got, a reminder, a change email or the
+  // confirmation, was for another slot time: the organizer moved the slot
+  // since, and this one says so. A move they were already told about by a
+  // change email reads as a normal reminder.
+  const changed = await wasToldDifferentTime(db, payload.commitmentId);
 
   const optOutToken = reminderOptOutTokenFor(row.participant.id);
 

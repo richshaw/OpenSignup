@@ -1,13 +1,23 @@
 'use client';
 
+import { useId } from 'react';
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
 import { FIELD_TYPE_META, FIELD_VALUE_INPUT_CLASS, FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
+import { InlineNote } from '@/components/ui/inline-note';
 import { EnumPicker } from './EnumPicker';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
 type SlotEditorProps = {
   row: BuildRow;
   fields: BuildField[];
+  /** Spots taken on this slot when the page loaded (`committedBySlot`). */
+  taken: number;
+  /**
+   * Whether the people holding this slot are emailed when its date or time
+   * changes: the signup sends reminders. The change email follows the same
+   * switch (src/jobs/slot-changes.ts).
+   */
+  remindersOn: boolean;
   onCellChange: (fieldRef: string, value: string) => void;
   onCapacity: (capacity: number | null) => void;
   /**
@@ -23,12 +33,14 @@ type SlotEditorProps = {
 
 /**
  * Inline accordion editor for a single slot. Auto-fit grid keeps small
- * schemas tight while letting wider schemas wrap naturally; capacity rides
+ * schemas tight while letting wider schemas wrap naturally; spots ride
  * along as the trailing cell so it lives in the same visual band.
  */
 export function SlotEditor({
   row,
   fields,
+  taken,
+  remindersOn,
   onCellChange,
   onCapacity,
   onAddEnumOption,
@@ -36,6 +48,7 @@ export function SlotEditor({
   onDelete,
   onClose,
 }: SlotEditorProps) {
+  const spotsHelpId = useId();
   return (
     <div className="px-3.5 pb-3.5 pt-3" data-testid={`slot-editor-${row.id}`}>
       <div className="mb-2.5 flex items-center justify-between">
@@ -69,6 +82,14 @@ export function SlotEditor({
           </button>
         </div>
       </div>
+      {taken > 0 && (
+        <InlineNote className="mb-2.5">
+          {signedUpLine(taken)}{' '}
+          {remindersOn
+            ? 'If you change its date or time, we\u2019ll email them to let them know.'
+            : 'Reminders are off, so we won\u2019t email them if you change it.'}
+        </InlineNote>
+      )}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5">
         {fields.map((f) => {
           const fieldType = f.config.fieldType;
@@ -113,13 +134,13 @@ export function SlotEditor({
         <label className="flex flex-col gap-1 text-[11px] text-ink-muted">
           <span className="inline-flex items-center gap-1">
             <Hash size={10} className="text-ink-soft" />
-            Capacity
+            Spots
           </span>
           <input
             type="number"
             min={1}
             value={row.capacity ?? ''}
-            placeholder={'\u221e'}
+            placeholder="No limit"
             onChange={(e) => {
               const raw = e.target.value;
               if (raw === '') {
@@ -129,11 +150,21 @@ export function SlotEditor({
               const parsed = parseInt(raw, 10);
               onCapacity(Math.max(1, Number.isFinite(parsed) ? parsed : 1));
             }}
-            aria-label="Capacity"
+            aria-label="Spots"
+            aria-describedby={spotsHelpId}
             className="w-20 rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand"
           />
+          <span id={spotsHelpId} className="text-[11px] text-ink-soft">
+            How many places people can take. Leave blank for no limit.
+          </span>
         </label>
       </div>
     </div>
   );
+}
+
+function signedUpLine(taken: number): string {
+  return taken === 1
+    ? '1 person is signed up for this slot.'
+    : `${taken} people are signed up for this slot.`;
 }

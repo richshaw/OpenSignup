@@ -14,6 +14,7 @@ import { renderEmail } from '@/email/render';
 import { CommitmentConfirmationEmail } from '@/email/templates/commitment-confirmation';
 import { MagicLinkEmail } from '@/email/templates/magic-link';
 import { ReminderEmail } from '@/email/templates/reminder';
+import { SlotChangedEmail } from '@/email/templates/slot-changed';
 
 const cases: Array<[string, ReactElement]> = [
   [
@@ -57,6 +58,21 @@ const cases: Array<[string, ReactElement]> = [
       notes: 'Bringing grapes',
     }),
   ],
+  [
+    'slot-changed',
+    createElement(SlotChangedEmail, {
+      participantName: 'Dana',
+      signupTitle: 'Saturday Snack Rotation',
+      manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
+      unsubscribeUrl: 'https://example.test/s/snacks/unsubscribe?p=par_1&token=abc',
+      slotDetails: [
+        { label: 'Date', value: 'Sun, Sep 6' },
+        { label: 'Snack', value: 'Fruit' },
+      ],
+      slotSummary: 'Sun, Sep 6 · Fruit',
+      notes: null,
+    }),
+  ],
 ];
 
 /**
@@ -69,6 +85,7 @@ const expected: Record<string, string> = {
   'magic-link': 'https://example.test/login/confirm?token=abc',
   'commitment-confirmation': 'https://example.test/s/snacks/c/com_1?token=abc',
   reminder: 'Sat, Sep 5',
+  'slot-changed': 'Sun, Sep 6',
 };
 
 async function main(): Promise<void> {

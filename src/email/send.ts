@@ -1,11 +1,12 @@
 import { createElement } from 'react';
 import { getEmailTransport } from './index';
-import { confirmationSubject, reminderSubject } from './subjects';
+import { confirmationSubject, reminderSubject, slotChangedSubject } from './subjects';
 import {
   CommitmentConfirmationEmail,
   type CommitmentConfirmationEmailProps,
 } from './templates/commitment-confirmation';
 import { ReminderEmail, type ReminderEmailProps } from './templates/reminder';
+import { SlotChangedEmail, type SlotChangedEmailProps } from './templates/slot-changed';
 import { renderEmail } from './render';
 
 export async function sendCommitmentConfirmation(
@@ -46,5 +47,24 @@ export async function sendReminder(
           },
         }
       : {}),
+  });
+}
+
+/** Same one-click unsubscribe as a reminder: one opt-out silences both. */
+export async function sendSlotChanged(
+  to: string,
+  props: SlotChangedEmailProps,
+  opts: { unsubscribePostUrl: string },
+) {
+  const { html, text } = await renderEmail(createElement(SlotChangedEmail, props));
+  return getEmailTransport().send({
+    to,
+    subject: slotChangedSubject(props.signupTitle, props.slotSummary),
+    html,
+    text,
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubscribePostUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
   });
 }

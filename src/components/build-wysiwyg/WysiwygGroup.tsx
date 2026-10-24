@@ -28,6 +28,8 @@ type WysiwygGroupProps = {
   fields: BuildField[];
   /** Spots taken per slot id; a slot with none is absent. */
   takenBySlot: Record<string, number>;
+  /** Whether the signup sends reminders, and so emails about a moved slot. */
+  remindersOn: boolean;
   expandedRowId: string | null;
   onExpandRow: (rowId: string | null) => void;
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;
@@ -50,6 +52,7 @@ export function WysiwygGroup({
   displayFields,
   fields,
   takenBySlot,
+  remindersOn,
   expandedRowId,
   onExpandRow,
   onEditCell,
@@ -98,6 +101,7 @@ export function WysiwygGroup({
             key={row.id}
             row={row}
             taken={takenBySlot[row.id] ?? 0}
+            remindersOn={remindersOn}
             fields={fields}
             displayFields={displayFields}
             expanded={expandedRowId === row.id}

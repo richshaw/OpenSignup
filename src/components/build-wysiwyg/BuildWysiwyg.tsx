@@ -209,6 +209,7 @@ export function BuildWysiwyg({
                 displayFields={displayFields}
                 fields={state.fields}
                 takenBySlot={committedBySlot}
+                remindersOn={state.reminderFieldRef !== null}
                 expandedRowId={expandedRowId}
                 onExpandRow={setExpandedRowId}
                 onEditCell={editCell}

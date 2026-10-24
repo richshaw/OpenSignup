@@ -15,6 +15,8 @@ type WysiwygSlotProps = {
    * them (`committedBySlot`). A snapshot from when the page loaded.
    */
   taken: number;
+  /** Whether the signup sends reminders, and so emails about a moved slot. */
+  remindersOn: boolean;
   fields: BuildField[];
   /**
    * All non-group fields in organizer-chosen order. `displayFields[0]` becomes
@@ -44,6 +46,7 @@ type WysiwygSlotProps = {
 export function WysiwygSlot({
   row,
   taken,
+  remindersOn,
   fields,
   displayFields,
   expanded,
@@ -71,6 +74,8 @@ export function WysiwygSlot({
         <SlotEditor
           row={row}
           fields={fields}
+          taken={taken}
+          remindersOn={remindersOn}
           onCellChange={onEditCell}
           onCapacity={onSetCapacity}
           onAddEnumOption={onAddEnumOption}
@@ -182,8 +187,10 @@ export function WysiwygSlot({
             <span className="min-w-0 truncate text-xs text-ink-muted">{summary}</span>
           )}
         </div>
-        <span className="shrink-0 font-mono text-[11px] text-ink-soft">
-          {taken}/{row.capacity ?? '\u221e'}
+        {/* Spots taken, not left: organizers want to know how many signed up.
+            The public page counts what's left. */}
+        <span className="shrink-0 text-[11px] tabular-nums text-ink-soft">
+          {row.capacity === null ? `${taken} taken` : `${taken} of ${row.capacity} taken`}
         </span>
       </button>
       <div
