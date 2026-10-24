@@ -344,7 +344,7 @@ for (const [device, viewport] of [
       const publish = publishButton(page);
       await publish.click();
       const check = page.getByRole('dialog', { name: 'Before people see it' });
-      await expect(check).toContainText('Sat, Apr 6 still says “TBD”.');
+      await expect(check).toContainText('Cashier TBD · Sat, Apr 6 still says “TBD”.');
       expect(await storedStatus(page, draft.id)).toBe('draft');
 
       // Name it first goes to Build, with that slot open and focus on the TBD.

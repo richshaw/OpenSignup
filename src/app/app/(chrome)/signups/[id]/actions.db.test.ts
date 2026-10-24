@@ -441,7 +441,7 @@ describe('Publish’s check (db)', () => {
         slotIds: [slotIds[1]!],
         words: ['TBD'],
         fieldRef: 'what',
-        slotLabel: 'Sat, Nov 14',
+        slotLabel: 'Cashier TBD · Sat, Nov 14',
       }),
     );
     expect(await statusOf(id)).toBe('draft');
