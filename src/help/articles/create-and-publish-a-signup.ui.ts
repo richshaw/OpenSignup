@@ -15,6 +15,8 @@ export const UI = {
   title: 'Title',
   description: 'Description (optional)',
   createSignup: 'Create signup',
+  // Under a draft's title, where a published signup's link is.
+  draftOnly: 'Only you can see this draft until you publish it.',
   emptySlot: 'Set what',
   what: 'What',
   date: 'Date',
@@ -25,11 +27,12 @@ export const UI = {
   delete: 'Delete',
   // What people see on the signup page for a slot left empty.
   untitledSlot: 'Untitled slot',
+  // At the top on a computer; on a phone, in the three dots' sheet.
   preview: 'Preview',
-  publish: 'Publish',
-  // Phones: the three-dot button's accessible name, then the item it opens.
+  // At the top on a computer; on a phone, in the bar at the bottom of the screen.
+  publish: 'Publish and share',
+  // Phones: the three-dot button's accessible name.
   moreActions: 'More actions',
-  publishOnPhone: 'Publish signup',
   publicLink: 'Public link',
   // An icon-only button: the article says "the copy button"; the test uses this.
   copyPublicLink: 'Copy public link',
@@ -43,7 +46,7 @@ export const UI = {
   qrOnPhone: 'QR code',
   // Only on phones with a share menu, so a unit test checks it, not the walkthrough.
   shareOnPhone: 'Share…',
-  // An open signup's button at the top, which opens the panel again.
+  // An open signup's button where Publish and share was, which opens the panel again.
   share: 'Share',
   // On the signup page people open: each slot's button starts with this.
   signUp: 'Sign up',
