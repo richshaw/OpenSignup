@@ -69,6 +69,7 @@ describe('spotCounts', () => {
 
 describe('closeSignupQuestion', () => {
   const after = ' People can’t sign up after this, and you can’t reopen it.';
+  const kept = `${after} Everyone already signed up keeps their spot.`;
 
   it('says nobody has signed up yet when no spot is taken', () => {
     expect(closeSignupQuestion({ taken: 0, total: 21, open: 21, allSlotsOpen: true })).toBe(
@@ -81,27 +82,27 @@ describe('closeSignupQuestion', () => {
 
   it('says how many spots are still open when every open slot has a limit', () => {
     expect(closeSignupQuestion({ taken: 3, total: 21, open: 18, allSlotsOpen: true })).toBe(
-      `18 of 21 spots are still open.${after}`,
+      `18 of 21 spots are still open.${kept}`,
     );
     expect(closeSignupQuestion({ taken: 20, total: 21, open: 1, allSlotsOpen: true })).toBe(
-      `1 of 21 spots is still open.${after}`,
+      `1 of 21 spots is still open.${kept}`,
     );
     expect(closeSignupQuestion({ taken: 21, total: 21, open: 0, allSlotsOpen: true })).toBe(
-      `Every spot is taken.${after}`,
+      `Every spot is taken.${kept}`,
     );
   });
 
   it('goes by the open spots, not the total less those taken', () => {
     // A closed slot with free spots, or an over-full one, makes them differ.
     expect(closeSignupQuestion({ taken: 4, total: 21, open: 3, allSlotsOpen: false })).toBe(
-      `3 of 21 spots are still open.${after}`,
+      `3 of 21 spots are still open.${kept}`,
     );
     // A closed slot with no limit leaves no total to count against.
     expect(closeSignupQuestion({ taken: 3, total: null, open: 3, allSlotsOpen: false })).toBe(
-      `3 spots are still open.${after}`,
+      `3 spots are still open.${kept}`,
     );
     expect(closeSignupQuestion({ taken: 3, total: null, open: 1, allSlotsOpen: false })).toBe(
-      `1 spot is still open.${after}`,
+      `1 spot is still open.${kept}`,
     );
   });
 
@@ -118,7 +119,7 @@ describe('closeSignupQuestion', () => {
         ],
         { slot_a: 2, slot_b: 3 },
       ),
-    ).toBe(`Every spot is taken.${after}`);
+    ).toBe(`Every spot is taken.${kept}`);
     // An over-full slot makes up the count, but the closed slot has free spots.
     expect(
       question(
@@ -128,7 +129,7 @@ describe('closeSignupQuestion', () => {
         ],
         { slot_a: 3 },
       ),
-    ).toBe(`No spots are open.${after}`);
+    ).toBe(`No spots are open.${kept}`);
     // Full, but one slot is closed.
     expect(
       question(
@@ -138,15 +139,15 @@ describe('closeSignupQuestion', () => {
         ],
         { slot_a: 2, slot_b: 1 },
       ),
-    ).toBe(`No spots are open.${after}`);
+    ).toBe(`No spots are open.${kept}`);
   });
 
   it('says how many spots are taken when an open slot has no limit', () => {
     expect(closeSignupQuestion({ taken: 3, total: null, open: null, allSlotsOpen: true })).toBe(
-      `3 spots are taken.${after}`,
+      `3 spots are taken.${kept}`,
     );
     expect(closeSignupQuestion({ taken: 1, total: null, open: null, allSlotsOpen: true })).toBe(
-      `1 spot is taken.${after}`,
+      `1 spot is taken.${kept}`,
     );
   });
 });

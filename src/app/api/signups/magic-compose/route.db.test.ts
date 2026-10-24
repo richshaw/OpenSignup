@@ -1,5 +1,6 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
+import { NextRequest } from 'next/server';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
@@ -20,6 +21,23 @@ import type { LlmClient } from '@/lib/magic-compose/llm-client';
 import { magicComposeToTemplate } from '@/lib/magic-compose/to-template';
 import { listFieldsForSignup } from '@/services/slot-fields';
 import { createSignup } from '@/services/signups';
+import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH } from '@/schemas/signups';
+import { POST } from './route';
+
+// For the tests that drive POST itself: the session and the model are
+// stubbed, everything from the draft's parse to the database is real.
+const route = vi.hoisted(() => ({ actor: undefined as unknown, workspaceId: '', llmResult: undefined as unknown }));
+vi.mock('@/auth/session', () => ({
+  requireActor: async () => route.actor,
+  getOrganizerSession: async () => ({ defaultWorkspaceId: route.workspaceId }),
+}));
+vi.mock('@/lib/env', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/env')>()),
+  magicComposeEnabled: () => true,
+}));
+vi.mock('@/lib/magic-compose/llm-client', () => ({
+  defaultLlmClient: () => ({ generateDraft: async () => route.llmResult }),
+}));
 
 interface Fixture {
   db: Db;
@@ -179,5 +197,72 @@ describe('magic-compose route chain (db)', () => {
       fields: [{ ref: 'essay', label: 'Essay', fieldType: 'essay' }],
     });
     expect(r.success).toBe(false);
+  });
+});
+
+describe('POST /api/signups/magic-compose with an over-long title or description (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+    route.actor = fx.actor;
+    route.workspaceId = fx.workspaceId;
+  });
+
+  afterAll(async () => {
+    await teardown(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  async function compose(draft: unknown) {
+    route.llmResult = ok(draft);
+    const res = await POST(
+      new NextRequest('http://localhost/api/signups/magic-compose', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt: 'Keep our announcement word for word' }),
+      }),
+    );
+    const body = (await res.json()) as { data: { id: string; warnings: string[] } };
+    return { status: res.status, ...body.data };
+  }
+
+  async function savedSignup(id: string) {
+    const [row] = await fx.db.select().from(signups).where(eq(signups.id, id));
+    return row!;
+  }
+
+  it('makes the signup with the description cut to its limit, and warns', async () => {
+    const description = 'Please bring a dish to share with everyone. '.repeat(48);
+    expect(description.length).toBeGreaterThan(2100);
+    const r = await compose({ ...CANNED_DRAFT, description });
+    expect(r.status).toBe(200);
+    const row = await savedSignup(r.id);
+    expect(row.description!.length).toBeLessThanOrEqual(DESCRIPTION_MAX_LENGTH);
+    expect(row.description!.endsWith('…')).toBe(true);
+    expect(r.warnings).toContain(
+      "The AI's description was longer than 2,000 characters, so the end was cut off. Check it below.",
+    );
+    const slotRows = await fx.db.select().from(slots).where(eq(slots.signupId, r.id));
+    expect(slotRows).toHaveLength(3);
+  });
+
+  it('makes the signup with the title cut to its limit, and warns', async () => {
+    const title = 'U9 snack duty for the spring season of Saturday games '.repeat(3);
+    expect(title.length).toBeGreaterThan(TITLE_MAX_LENGTH);
+    const r = await compose({ ...CANNED_DRAFT, title });
+    expect(r.status).toBe(200);
+    const row = await savedSignup(r.id);
+    expect(row.title.length).toBeLessThanOrEqual(TITLE_MAX_LENGTH);
+    expect(row.title.endsWith('…')).toBe(true);
+    expect(r.warnings).toContain(
+      "The AI's title was longer than 120 characters, so the end was cut off. Check it below.",
+    );
+  });
+
+  it('adds no warning to a draft within the limits', async () => {
+    const r = await compose(CANNED_DRAFT);
+    expect(r.status).toBe(200);
+    expect(r.warnings).toEqual([]);
+    expect((await savedSignup(r.id)).description).toBe(CANNED_DRAFT.description);
   });
 });

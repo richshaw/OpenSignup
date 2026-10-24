@@ -55,9 +55,11 @@ export const UI = {
   copyLink: 'Copy link',
   copyMessage: 'Copy message',
   emailIt: 'Email it',
-  // The QR code's button on a computer, then on a phone.
+  // The QR code's button on a computer, then on a phone, and the button
+  // under the code a phone shows.
   downloadQr: 'Download',
   qrOnPhone: 'QR code',
+  saveImage: 'Save image',
   // Only on phones with a share menu, so a unit test checks it, not the walkthrough.
   shareOnPhone: 'Share…',
   // An open signup's button where Publish and share was, which opens the panel again.

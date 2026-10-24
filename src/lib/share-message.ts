@@ -1,5 +1,11 @@
-import { isRealDate, resolveAnchorRef, type AnchorCandidate } from '@/lib/reminder-fields';
-import { formatSlotDate } from '@/lib/slot-label';
+import {
+  isRealDate,
+  isRealTime,
+  pairedTimeField,
+  resolveAnchorRef,
+  type AnchorCandidate,
+} from '@/lib/reminder-fields';
+import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
 import { spotCounts } from '@/lib/spot-counts';
 
 /** What the share message reads from a signup. `SignupWithSlots` has it all. */
@@ -21,12 +27,13 @@ export interface ShareMessageSignup {
  * sent to know:
  *
  *     Fall book fair volunteers
- *     Thu, Nov 12 to Sat, Nov 14 · 21 spots open
+ *     Thu, Nov 12 to Sat, Nov 14 · 11:00 AM · 21 spots open
  *     Sign up here, no account needed: https://…/s/book-fair-k3x
  *
  * No count of slots: that's the organizer's word, and the spots are what
  * tell a reader there's room. The middle line leaves out each part that
- * doesn't apply: the dates when no slot has one, the spots when an open
+ * doesn't apply: the dates when no slot has one, the time when the slots
+ * don't share one (`dateSpan` says how both read), the spots when an open
  * slot has no limit or none are left, and the line itself when nothing is
  * left, so a signup with no dates and no limits gets its title and the
  * link. Once people have signed up, the spots are the ones still open
@@ -48,24 +55,65 @@ export function shareMessage(
 }
 
 /**
- * The days the slots fall on, from the date field the reminders use (or
- * the first date field): "Sat, Nov 14", or "Thu, Nov 12 to Sat, Nov 14".
+ * When the slots are, from the date field the reminders use (or the first
+ * date field) and the time field paired with it, as the reminders pair them:
+ *
+ * - the days: one ("Sat, Nov 14"); days that run on with no gap, as a range
+ *   ("Thu, Nov 12 to Sat, Nov 14"); two or three with a gap, named ("Sat,
+ *   Nov 7 and Sat, Nov 14", "Sat, Nov 7, Sat, Nov 14 and Sat, Nov 21"); four
+ *   or more with a gap, the range again, as a list would run too long;
+ * - the time, only when every dated slot (every slot, without dates) has the
+ *   same one: after a single day ("Sat, Nov 21, 11:00 AM"), as a part of its
+ *   own after several (a time after a range would read as the end's), or on
+ *   its own when there are no dates. Formatted as the signup page shows it.
+ *
+ * Null when there's neither.
  */
 function dateSpan({ settings, fields, slots }: ShareMessageSignup): string | null {
-  const ref = resolveAnchorRef(settings, fields);
-  if (!ref) return null;
+  const dateRef = resolveAnchorRef(settings, fields);
+  const timeRef = pairedTimeField(fields.find((f) => f.ref === dateRef) ?? null, fields)?.ref;
+  const dated = dateRef
+    ? slots.filter((s) => {
+        const v = s.values[dateRef];
+        return typeof v === 'string' && isRealDate(v);
+      })
+    : [];
   // YYYY-MM-DD strings sort as the days they name.
-  const days = [
-    ...new Set(
-      slots
-        .map((s) => s.values[ref])
-        .filter((v): v is string => typeof v === 'string' && isRealDate(v)),
-    ),
-  ].sort();
-  const first = formatSlotDate(days[0]);
-  const last = formatSlotDate(days[days.length - 1]);
-  if (!first || !last) return null;
-  return days.length === 1 ? first : `${first} to ${last}`;
+  const days = [...new Set(dated.map((s) => s.values[dateRef ?? ''] as string))].sort();
+  const time = timeRef ? sharedTime(dated.length > 0 ? dated : slots, timeRef) : null;
+  const when = dayList(days);
+  if (!when) return time;
+  if (!time) return when;
+  return days.length === 1 ? `${when}, ${time}` : `${when} · ${time}`;
+}
+
+/** The time every one of `slots` has in `timeRef`, formatted, or null. */
+function sharedTime(slots: ShareMessageSignup['slots'], timeRef: string): string | null {
+  const times = new Set(slots.map((s) => s.values[timeRef]));
+  const [only] = times;
+  if (slots.length === 0 || times.size !== 1 || typeof only !== 'string' || !isRealTime(only)) {
+    return null;
+  }
+  return formatSlotTime(only);
+}
+
+/** The days, sorted and distinct, in words; see `dateSpan`. */
+function dayList(days: string[]): string | null {
+  const named = days.map((d) => formatSlotDate(d)).filter((d): d is string => d !== null);
+  if (named.length !== days.length || named.length === 0) return null;
+  const first = named[0]!;
+  const last = named[named.length - 1]!;
+  if (named.length === 1) return first;
+  const runsOn = days.every((d, i) => i === 0 || d === nextDay(days[i - 1]!));
+  if (runsOn || named.length >= 4) return `${first} to ${last}`;
+  return `${named.slice(0, -1).join(', ')} and ${last}`;
+}
+
+/** The calendar day after a YYYY-MM-DD day, in the same form. */
+function nextDay(day: string): string {
+  const at = new Date(`${day}T00:00:00Z`);
+  at.setUTCDate(at.getUTCDate() + 1);
+  return at.toISOString().slice(0, 10);
 }
 
 /**
@@ -92,4 +140,16 @@ export function withLink(message: string, url: string): string {
   const text = message.trim();
   if (text.includes(url)) return text;
   return text ? `${text}\n${url}` : url;
+}
+
+/**
+ * The body of the email Email it opens. Its subject is the signup's title,
+ * so the body starts after the message's first line when that line is the
+ * title, as the message starts out; a first line the organizer changed is
+ * kept. The link goes back in if an edit took it out, as `withLink` does.
+ */
+export function emailBody(message: string, title: string, url: string): string {
+  const [first = '', ...rest] = message.trim().split('\n');
+  const body = first.trim() === title.trim() ? rest.join('\n') : message;
+  return withLink(body, url);
 }

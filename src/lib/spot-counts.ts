@@ -48,10 +48,13 @@ export function spotCounts(
 
 /**
  * What Close signup asks before it closes: where the signup stands, then
- * what closing does. There is no way back from closed, so it says so.
+ * what closing does. There is no way back from closed, so it says so. Once
+ * someone has signed up, it also says they keep their spot, in the closed
+ * banner's own words, since that's what organizers stop to ask.
  */
 export function closeSignupQuestion(counts: SpotCounts): string {
-  return `${standing(counts)} People can’t sign up after this, and you can’t reopen it.`;
+  const question = `${standing(counts)} People can’t sign up after this, and you can’t reopen it.`;
+  return counts.taken > 0 ? `${question} Everyone already signed up keeps their spot.` : question;
 }
 
 function standing({ taken, total, open, allSlotsOpen }: SpotCounts): string {

@@ -441,7 +441,7 @@ describe('Publish’s check (db)', () => {
         slotIds: [slotIds[1]!],
         words: ['TBD'],
         fieldRef: 'what',
-        slotLabel: 'Sat, Nov 14',
+        slotLabel: 'Cashier TBD · Sat, Nov 14',
       }),
     );
     expect(await statusOf(id)).toBe('draft');
@@ -638,7 +638,7 @@ describe('closeQuestionAction (db)', () => {
     });
     if (!commit.ok) throw new Error(commit.error.message);
     expect(await closeQuestionAction(signupId)).toEqual({
-      question: `4 of 5 spots are still open.${after}`,
+      question: `4 of 5 spots are still open.${after} Everyone already signed up keeps their spot.`,
     });
     expect(revalidatePath).not.toHaveBeenCalled();
   });

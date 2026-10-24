@@ -179,19 +179,19 @@ export function CreateAndPublishASignup() {
               </li>
               <li>
                 There&apos;s a message to send with the link. It names your signup. If the slots
-                have dates, it gives them. If every slot has a limit, it says how many spots are
-                open. It also says that nobody needs an account to sign up. You can change the
-                message.{' '}
-                <Ui>{UI.copyMessage}</Ui> copies it, with the link. <Ui>{UI.emailIt}</Ui> opens
-                your email app with it.
+                have dates, it gives them. If every slot has the same time, it gives that too. If
+                every slot has a limit, it says how many spots are open. It also says that nobody
+                needs an account to sign up. You can change the message. <Ui>{UI.copyMessage}</Ui>{' '}
+                copies it, with the link. <Ui>{UI.emailIt}</Ui> opens your email app with it.
               </li>
               <li>
                 On most phones, <Ui>{UI.shareOnPhone}</Ui> is there instead of those two. It opens
                 your phone&apos;s share menu, with the message and the link.
               </li>
               <li>
-                For a flyer or a sign-up table, choose <Ui>{UI.downloadQr}</Ui> to save a QR code
-                of the link. On a phone, choose <Ui>{UI.qrOnPhone}</Ui>.
+                For a flyer or a sign-up table, choose <Ui>{UI.downloadQr}</Ui> to save a QR code of
+                the link, with your signup&apos;s title under it. On a phone, choose{' '}
+                <Ui>{UI.qrOnPhone}</Ui> to show the code, then <Ui>{UI.saveImage}</Ui>.
               </li>
             </ul>
           </Step>
@@ -219,9 +219,9 @@ export function CreateAndPublishASignup() {
         <h2 className="text-xl font-semibold tracking-tight">What happens next</h2>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            People open the link and choose <Ui>{UI.signUp}</Ui> on a slot. They type their name
-            and email address, and can add a note. You can make the email address optional, as
-            shown below.
+            People open the link and choose <Ui>{UI.signUp}</Ui> on a slot. They type their name and
+            email address, and can add a note. You can make the email address optional, as shown
+            below.
           </li>
           <li>
             A slot with more than one spot shows how many are left, like 1 left. People can take
@@ -242,8 +242,7 @@ export function CreateAndPublishASignup() {
       <section className="space-y-4">
         <h2 className="text-xl font-semibold tracking-tight">Reminders</h2>
         <p>
-          If a slot has a date, people who take it and gave an email address get a reminder
-          email{' '}
+          If a slot has a date, people who take it and gave an email address get a reminder email{' '}
           {REMINDER_WHEN}. Someone who signs up later than that gets one about {SETTLE} after
           signing up, unless the slot is less than {SETTLE} away. Each reminder has a link to stop
           them.
@@ -279,16 +278,16 @@ export function CreateAndPublishASignup() {
         </h2>
         <p>
           A signup asks people for their email address unless you make it optional. Someone who
-          leaves it blank gets no emails at all, not even reminders. They need to save the link they see after
-          signing up. Only the browser they used remembers it.
+          leaves it blank gets no emails at all, not even reminders. They need to save the link they
+          see after signing up. Only the browser they used remembers it.
         </p>
         <p>To make the email address optional:</p>
         <Steps>
           <Step>
             <p>
               On a phone, the <Ui>{UI.settings}</Ui> link at the very top of the page is for your
-              account, so skip it. Under your signup&apos;s title, choose the{' '}
-              <Ui>{UI.settings}</Ui> tab.
+              account, so skip it. Under your signup&apos;s title, choose the <Ui>{UI.settings}</Ui>{' '}
+              tab.
             </p>
           </Step>
           <Step>

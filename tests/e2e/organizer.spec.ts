@@ -82,6 +82,8 @@ test.describe('organizer flow', () => {
     await panel.getByRole('button', { name: 'Close signup' }).click();
     // The signup's empty first slot and Juice: 1 + 5 spots, 1 taken.
     await expect(panel).toContainText('5 of 6 spots are still open.');
+    // Someone has signed up, so it says what happens to them.
+    await expect(panel).toContainText('Everyone already signed up keeps their spot.');
     await panel.getByRole('button', { name: 'Close signup' }).click();
     await expect(pill('closed')).toBeVisible();
     await expect(banner).toBeVisible();
@@ -347,7 +349,7 @@ for (const [device, viewport] of [
       const publish = publishButton(page);
       await publish.click();
       const check = page.getByRole('dialog', { name: 'Before people see it' });
-      await expect(check).toContainText('Sat, Apr 6 still says “TBD”.');
+      await expect(check).toContainText('Cashier TBD · Sat, Apr 6 still says “TBD”.');
       expect(await storedStatus(page, draft.id)).toBe('draft');
 
       // Name it first goes to Build, with that slot open and focus on the TBD.

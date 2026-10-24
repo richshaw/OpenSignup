@@ -33,8 +33,9 @@ export type PublishCheck =
    * Slots still holding TBD, TBC or TBA, in display order. A warning. `words`
    * are each slot's first one, in capitals, each once, in the order found;
    * `fieldRef` is the field it's in on the first slot, and `slotLabel` that
-   * slot's other values as the page prints them ("Sat, Nov 14 · 1:00 PM"), or
-   * empty when it has none.
+   * slot's values as the page prints them, less any that is only the word
+   * ("Sat, Nov 14 · 1:00 PM" for a slot whose What is "TBD", but "Cashier
+   * TBD · Sat, Nov 14"), or empty when it has none.
    */
   | {
       kind: 'placeholder';
@@ -48,6 +49,11 @@ function isEmpty(value: unknown): boolean {
   return (
     value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
   );
+}
+
+/** Whether `value` is the word and nothing more, such as " tbd ", which names nothing. */
+function isOnlyPlaceholder(value: unknown): boolean {
+  return typeof value === 'string' && placeholderIn(value) === value.trim().toUpperCase();
 }
 
 /** The first problem with the slots, blocking ones first, or null when there is none. */
@@ -80,11 +86,11 @@ export function checkBeforePublish({
   }
   if (!found) return null;
 
-  // The slot is named by its other values: the panel quotes the words itself.
+  // The slot is named by its values, less one that is only the word, which
+  // the panel quotes itself. A value the word is part of stays: without
+  // "Cashier TBD", the label would read as if the date were TBD.
   const { values } = found.slot;
-  const others = fields.filter(
-    (f) => !isEmpty(values[f.ref]) && placeholderIn(values[f.ref]) === null,
-  );
+  const others = fields.filter((f) => !isEmpty(values[f.ref]) && !isOnlyPlaceholder(values[f.ref]));
   return {
     kind: 'placeholder',
     slotIds,

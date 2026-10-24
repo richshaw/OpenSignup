@@ -19,6 +19,9 @@ const what = field('what', 'text', 'What');
 const date = field('date', 'date', 'Date');
 const time = field('time', 'time', 'Time');
 
+/** How the warning ends. */
+const LATER = 'People will see that, and a published signup can’t go back to being a draft.';
+
 describe('checkBeforePublish', () => {
   it('finds nothing wrong with slots that say what they are', () => {
     const input = {
@@ -216,18 +219,48 @@ describe('checkBeforePublish', () => {
       const where = field('where', 'text', 'Where');
       const input = {
         fields: [what, where],
-        slots: [slot('s1', { what: 'Setup', where: 'Room TBA' })],
+        slots: [slot('s1', { what: 'Setup', where: 'TBA' })],
       };
       expect(checkBeforePublish(input)).toMatchObject({ fieldRef: 'where', slotLabel: 'Setup' });
     });
 
-    it('leaves every value holding a placeholder, and every empty one, out of the label', () => {
+    it('names the slot by a value the word is part of, so it doesn’t read as the date', () => {
+      const input = {
+        fields: [what, date],
+        slots: [
+          slot('s1', { what: 'Cashier TBD', date: '2026-11-14' }),
+          slot('s2', { what: 'Grill', date: '2026-11-14' }),
+        ],
+      };
+      const check = checkBeforePublish(input);
+      expect(check).toMatchObject({ slotIds: ['s1'], slotLabel: 'Cashier TBD · Sat, Nov 14' });
+      expect(publishCheckCopy(check!).text).toBe(
+        `Cashier TBD · Sat, Nov 14 still says “TBD”. ${LATER}`,
+      );
+    });
+
+    it('leaves out a field whose whole value is the word', () => {
+      const who = field('who', 'text', 'Who');
+      const input = {
+        fields: [what, date, who],
+        slots: [slot('s1', { what: 'Fruit and water', date: '2030-04-06', who: 'TBA' })],
+      };
+      const check = checkBeforePublish(input);
+      expect(check).toMatchObject({ fieldRef: 'who', slotLabel: 'Fruit and water · Sat, Apr 6' });
+      expect(publishCheckCopy(check!).text).toBe(
+        `Fruit and water · Sat, Apr 6 still says “TBA”. ${LATER}`,
+      );
+    });
+
+    it('leaves out a value that is only the word in any case, and every empty one, but no other', () => {
       const where = field('where', 'text', 'Where');
       const input = {
         fields: [what, date, where, time],
-        slots: [slot('s1', { what: 'Cashier TBD', date: '2026-11-14', where: 'tba', time: '  ' })],
+        slots: [
+          slot('s1', { what: 'Cashier TBD', date: '2026-11-14', where: ' tba ', time: '  ' }),
+        ],
       };
-      expect(checkBeforePublish(input)).toMatchObject({ slotLabel: 'Sat, Nov 14' });
+      expect(checkBeforePublish(input)).toMatchObject({ slotLabel: 'Cashier TBD · Sat, Nov 14' });
     });
 
     it('gives an empty label when the slot has no other values', () => {
@@ -243,8 +276,6 @@ describe('checkBeforePublish', () => {
 });
 
 describe('publishCheckCopy', () => {
-  const later = 'People will see that, and a published signup can’t go back to being a draft.';
-
   it('asks for a slot when there are none', () => {
     expect(publishCheckCopy({ kind: 'no_slots' })).toEqual({
       blocking: true,
@@ -292,7 +323,7 @@ describe('publishCheckCopy', () => {
     expect(publishCheckCopy(check)).toEqual({
       blocking: false,
       title: 'Before people see it',
-      text: `Sat, Nov 14 · 1:00 PM still says “TBD”. ${later}`,
+      text: `Sat, Nov 14 · 1:00 PM still says “TBD”. ${LATER}`,
       fix: 'Name it first',
       secondary: 'Publish anyway',
     });
@@ -306,7 +337,7 @@ describe('publishCheckCopy', () => {
       fieldRef: 'what',
       slotLabel: '',
     };
-    expect(publishCheckCopy(check).text).toBe(`One slot still says “TBA”. ${later}`);
+    expect(publishCheckCopy(check).text).toBe(`One slot still says “TBA”. ${LATER}`);
   });
 
   it('names every word the slots still say', () => {
@@ -317,9 +348,9 @@ describe('publishCheckCopy', () => {
       fieldRef: 'what',
       slotLabel: 'Setup',
     };
-    expect(publishCheckCopy(two).text).toBe(`3 slots still say “TBD” or “TBA”. ${later}`);
+    expect(publishCheckCopy(two).text).toBe(`3 slots still say “TBD” or “TBA”. ${LATER}`);
     const three: PublishCheck = { ...two, words: ['TBA', 'TBD', 'TBC'] };
-    expect(publishCheckCopy(three).text).toBe(`3 slots still say “TBA”, “TBD” or “TBC”. ${later}`);
+    expect(publishCheckCopy(three).text).toBe(`3 slots still say “TBA”, “TBD” or “TBC”. ${LATER}`);
   });
 
   it('counts the slots when there are several', () => {
@@ -332,7 +363,7 @@ describe('publishCheckCopy', () => {
     };
     expect(publishCheckCopy(check)).toMatchObject({
       blocking: false,
-      text: `3 slots still say “TBD”. ${later}`,
+      text: `3 slots still say “TBD”. ${LATER}`,
       fix: 'Name it first',
       secondary: 'Publish anyway',
     });
