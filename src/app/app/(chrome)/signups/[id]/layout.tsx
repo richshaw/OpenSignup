@@ -6,6 +6,7 @@ import { publicSignupUrl } from '@/lib/links';
 import { shareMessage } from '@/lib/share-message';
 import { spotCounts } from '@/lib/spot-counts';
 import { SignupHeader } from '@/components/signup/SignupHeader';
+import { hasPhoneBar, PHONE_BAR_ROOM } from '@/components/signup/phone-bar';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
 import { Banner } from '@/components/banner';
@@ -46,13 +47,16 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
     return <SignupLoadError message={filled.error.message} />;
   }
   const publicUrl = publicSignupUrl(sig.slug);
+  const status = sig.status as SignupStatus;
 
   return (
-    <div className="space-y-6">
+    // On a phone, a draft's Publish and share or an open signup's Share is in
+    // a bar fixed to the bottom of the screen; the page leaves room for it.
+    <div className={`space-y-6 ${hasPhoneBar(status) ? PHONE_BAR_ROOM : ''}`}>
       <SignupHeader
         signupId={id}
         title={sig.title}
-        status={sig.status as SignupStatus}
+        status={status}
         publicUrl={publicUrl}
         spots={filled ? spotCounts(sig.slots, filled.value) : null}
         closeQuestionAction={closeQuestionAction.bind(null, id)}

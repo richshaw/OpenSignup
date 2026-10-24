@@ -7,6 +7,7 @@ import { PublishedMark, shareHeading } from '@/components/share/share-heading';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Popover } from '@/components/ui/Popover';
 import { Spinner } from '@/components/ui/spinner';
+import { BAR_BUTTON, HEADER_BUTTON, PRIMARY } from './header-buttons';
 import { useShare } from './ShareScope';
 
 // The panel's body, its QR encoder with it, loads only when it first opens
@@ -20,10 +21,12 @@ const SharePanel = lazy(() => loadSharePanel().then((Panel) => ({ default: Panel
 
 /**
  * An open signup's Share, and the share panel it opens: a popover under the
- * button on a computer, a sheet on a phone. Escape or the panel's ✕ puts
- * focus back on this button, as does a tap outside a phone's sheet; it's
- * also where focus goes after the panel Publish opened, since Publish is
- * gone. A click outside the popover leaves focus where it landed.
+ * button in a computer's header, a sheet from the bar at the bottom of a
+ * phone's screen. Escape or the panel's ✕ puts focus back on this button, as
+ * does a tap outside a phone's sheet; it's also where focus goes after the
+ * panel Publish and share opened, since that button is gone, and this one
+ * has taken its place. A click outside the popover leaves focus where it
+ * landed.
  */
 export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
   const share = useShare();
@@ -59,13 +62,9 @@ export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
       onClick={() => (shown ? share.closeShare() : share.openShare())}
       aria-haspopup="dialog"
       aria-expanded={shown}
-      className={
-        desktop
-          ? 'inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110'
-          : 'inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand text-[15px] font-semibold text-white transition hover:brightness-110'
-      }
+      className={`${desktop ? HEADER_BUTTON : BAR_BUTTON} ${PRIMARY}`}
     >
-      <Share2 size={desktop ? 14 : 16} aria-hidden="true" />
+      <Share2 size={desktop ? 15 : 16} aria-hidden="true" />
       Share
     </button>
   );

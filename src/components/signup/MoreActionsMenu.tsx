@@ -8,6 +8,7 @@ import {
   useCloseQuestion,
   type CloseQuestionAction,
 } from './CloseSignupConfirm';
+import { OUTLINED } from './header-buttons';
 import { useAnnouncedClose } from './HeaderAnnouncer';
 import { StatusActionScope, useStatusActionPending, type StatusAction } from './StatusActionForm';
 
@@ -18,7 +19,7 @@ interface MoreActionsMenuProps {
 }
 
 /**
- * The ⋯ beside Preview on an open signup, on a computer. Its one item, Close
+ * The ⋯ beside Share on an open signup, on a computer. Its one item, Close
  * signup, asks first in the same panel: a signup can't be reopened, so
  * closing it is never one click in the spot where Publish was.
  */
@@ -68,9 +69,9 @@ function Menu({
         aria-label="More actions"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="inline-flex items-center justify-center rounded-lg border border-surface-sunk p-1.5 transition hover:bg-surface-raised"
+        className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition ${OUTLINED}`}
       >
-        <MoreHorizontal size={16} aria-hidden="true" />
+        <MoreHorizontal size={18} aria-hidden="true" />
       </button>
       <Popover
         open={open}

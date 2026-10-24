@@ -25,7 +25,7 @@ test.describe('help: create and publish your first signup', () => {
   // Screenshots at 2x so text stays sharp; the article sizes them in CSS pixels.
   test.use({ deviceScaleFactor: 2 });
 
-  test('the steps work as written', async ({ page, context, browser, isMobile }) => {
+  test('the steps work as written', async ({ page, context, isMobile }) => {
     test.skip(isMobile, 'the phone path is its own test below');
     await loginAsSeededOrganizer(context);
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -49,15 +49,13 @@ test.describe('help: create and publish your first signup', () => {
     await page.getByRole('button', { name: UI.createSignup }).click();
     await page.waitForURL(/\/build$/);
     await expect(page.getByText('draft', { exact: true }).locator('visible=true')).toBeVisible();
-    // "Nobody else can see a draft": its link says it isn't ready yet.
-    const draftLink = await page
-      .getByRole('link', { name: 'Open public page' })
-      .locator('visible=true')
-      .getAttribute('href');
-    const outsider = await browser.newPage();
-    await outsider.goto(draftLink ?? '');
-    await expect(outsider.getByText(/isn.t ready yet/)).toBeVisible();
-    await outsider.close();
+    // Under the title, the draft line, and no link to send yet.
+    await expect(
+      page.getByText(UI.draftOnly, { exact: true }).locator('visible=true'),
+    ).toBeVisible();
+    await expect(
+      page.getByText(UI.publicLink, { exact: true }).locator('visible=true'),
+    ).toHaveCount(0);
 
     // Add slots
     await page.getByText(UI.emptySlot, { exact: true }).click();
@@ -197,6 +195,10 @@ test.describe('help: create and publish your first signup', () => {
     await expect(page.getByRole('dialog')).toBeHidden();
 
     await expect(header.getByText(UI.publicLink, { exact: true })).toBeVisible();
+    // Next to the link, how many spots are taken: none of the two slots' four.
+    const count = header.getByText('0 of 4 spots taken', { exact: true });
+    await expect(count).toBeVisible();
+    await expect(header.getByText(UI.draftOnly, { exact: true })).toHaveCount(0);
     if (CAPTURE) {
       // Each site has its own address; show a stand-in, not this test server's.
       // Only the text changes: the copy button still copies the real link.
@@ -205,21 +207,22 @@ test.describe('help: create and publish your first signup', () => {
         .evaluate(
           (el) => (el.textContent = 'https://your-site.example/s/snack-duty-spring-season'),
         );
-      // Crop to the title and the link: the whole header is too wide to read
-      // once it is scaled into the article's column.
+      // Crop to the title, the link and the count beside it: the whole header
+      // is too wide to read once it is scaled into the article's column.
       const chip = header.getByRole('button', { name: UI.copyPublicLink }).locator('..');
       const title = header.getByRole('heading', { level: 1 });
       const pill = header.getByText('open', { exact: true });
-      const boxes = await Promise.all([title, pill, chip].map((l) => l.boundingBox()));
-      if (boxes.some((b) => !b)) throw new Error('title, status or link not on screen');
-      const [t, st, c] = boxes as [
+      const boxes = await Promise.all([title, pill, chip, count].map((l) => l.boundingBox()));
+      if (boxes.some((b) => !b)) throw new Error('title, status, link or count not on screen');
+      const [t, st, c, n] = boxes as [
+        NonNullable<(typeof boxes)[0]>,
         NonNullable<(typeof boxes)[0]>,
         NonNullable<(typeof boxes)[0]>,
         NonNullable<(typeof boxes)[0]>,
       ];
       const pad = 16;
       const left = Math.min(t.x, c.x) - pad;
-      const right = Math.max(st.x + st.width, c.x + c.width) + pad;
+      const right = Math.max(st.x + st.width, c.x + c.width, n.x + n.width) + pad;
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `${SHOT_DIR}/published.png`,
@@ -310,28 +313,50 @@ test.describe('help: create and publish your first signup', () => {
   test.describe('on a phone', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
-    test('publish is under the three dots, and there is no preview', async ({ page, context }) => {
+    test('Publish and share is at the bottom, and Preview is under the three dots', async ({
+      page,
+      context,
+    }) => {
       await loginAsSeededOrganizer(context);
+      const title = `Phone publish ${Date.now()}`;
       const created = await page.request.post('/api/signups', {
-        data: {
-          title: `Phone publish ${Date.now()}`,
-          description: '',
-          tags: [],
-          visibility: 'unlisted',
-          settings: {},
-        },
+        data: { title, description: '', tags: [], visibility: 'unlisted', settings: {} },
       });
       expect(created.ok()).toBe(true);
       const id = (await created.json()).data.id as string;
 
       await page.goto(`/app/signups/${id}/build`);
+      await expect(
+        page.getByText(UI.draftOnly, { exact: true }).locator('visible=true'),
+      ).toBeVisible();
+      await expect(
+        page.getByText(UI.publicLink, { exact: true }).locator('visible=true'),
+      ).toHaveCount(0);
+
+      // Preview isn't at the top on a phone: it's under the three dots, and
+      // opens in a new tab.
       await expect(page.getByRole('link', { name: UI.preview })).toBeHidden();
       await page.getByRole('button', { name: UI.moreActions }).click();
-      await page.getByRole('button', { name: UI.publishOnPhone }).click();
-      // The More actions sheet gives way to the share sheet.
+      const more = page.getByRole('dialog', { name: title });
+      await expect(more.getByRole('button', { name: /Publish/ })).toHaveCount(0);
+      const [preview] = await Promise.all([
+        page.waitForEvent('popup'),
+        more.getByRole('link', { name: UI.preview }).click(),
+      ]);
+      await expect(preview.getByRole('heading', { name: title })).toBeVisible();
+      await preview.close();
+      await expect(more).toBeHidden();
+
+      // Publish and share fills the bar at the bottom of the screen.
+      const publish = page.getByRole('button', { name: UI.publish, exact: true });
+      const box = await publish.boundingBox();
+      if (!box) throw new Error('Publish and share not on screen');
+      expect(box.height).toBeGreaterThanOrEqual(48);
+      expect(box.width).toBeGreaterThan(390 - 2 * 16 - 1);
+      expect(box.y + box.height).toBeGreaterThan(844 - 24);
+      await publish.click();
       const sheet = page.getByRole('dialog', { name: UI.sendTheLink });
       await expect(sheet).toBeVisible();
-      await expect(page.getByRole('button', { name: UI.publishOnPhone })).toHaveCount(0);
       await expect(sheet.getByRole('button', { name: UI.copyLink })).toBeVisible();
       await expect(sheet.getByRole('link', { name: UI.qrOnPhone })).toBeVisible();
       // This browser has no share menu, so the message's own buttons show.
@@ -339,12 +364,16 @@ test.describe('help: create and publish your first signup', () => {
       await expect(sheet.getByRole('link', { name: UI.emailIt })).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(sheet).toBeHidden();
+
+      // The link is at the top now, and Share, beside the count, is where
+      // Publish and share was, with the focus back on it.
       await expect(
         page.getByText(UI.publicLink, { exact: true }).locator('visible=true'),
       ).toBeVisible();
-      await expect(
-        page.getByRole('button', { name: UI.share, exact: true }).locator('visible=true'),
-      ).toBeFocused();
+      await expect(publish).toHaveCount(0);
+      const bar = page.locator('[data-phone-bar]');
+      await expect(bar.getByText('0 of 1 spot taken', { exact: true })).toBeVisible();
+      await expect(bar.getByRole('button', { name: UI.share, exact: true })).toBeFocused();
     });
   });
 });

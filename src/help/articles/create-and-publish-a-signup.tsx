@@ -61,8 +61,8 @@ export function CreateAndPublishASignup() {
           </Step>
           <Step>
             <p>
-              Choose <Ui>{UI.createSignup}</Ui>. Your signup is saved as a draft. Nobody else can
-              see a draft until you publish it.
+              Choose <Ui>{UI.createSignup}</Ui>. Your signup is saved as a draft. Under its title,
+              it says <Ui>{UI.draftOnly}</Ui> There&apos;s no link to send yet.
             </p>
           </Step>
         </Steps>
@@ -132,16 +132,15 @@ export function CreateAndPublishASignup() {
         <Steps>
           <Step>
             <p>
-              On a computer, you can check your signup first. Choose <Ui>{UI.preview}</Ui> at the
-              top of the page. It opens in a new tab and shows what people will see. Small screens,
-              like most phones, don&apos;t show this button.
+              You can check your signup first. Choose <Ui>{UI.preview}</Ui> at the top of the page.
+              On a phone, choose the three dots at the top, then <Ui>{UI.preview}</Ui>. It opens in
+              a new tab and shows what people will see.
             </p>
           </Step>
           <Step>
             <p>
               When you publish, anyone with the link can sign up. Choose <Ui>{UI.publish}</Ui> at
-              the top of the page. On a phone, choose the three dots at the top, then{' '}
-              <Ui>{UI.publishOnPhone}</Ui>.
+              the top of the page. On a phone, it&apos;s at the bottom of the screen.
             </p>
             <p>
               You&apos;ll see <Ui>{UI.sendTheLink}</Ui>. Nobody has the link until you send it.
@@ -179,17 +178,18 @@ export function CreateAndPublishASignup() {
           </Step>
           <Step>
             <p>
-              To send the link again later, choose <Ui>{UI.share}</Ui> at the top of the page. Or,
-              next to <Ui>{UI.publicLink}</Ui>, choose the copy button.
+              To send the link again later, choose <Ui>{UI.share}</Ui>. It&apos;s at the top of the
+              page, or at the bottom of the screen on a phone. Or, next to{' '}
+              <Ui>{UI.publicLink}</Ui>, choose the copy button.
             </p>
             <p>
-              The link is there before you publish too. Until you publish, it only says the signup
-              isn&apos;t ready.
+              Next to the link, you can see how many spots are taken. On a phone, that&apos;s
+              beside <Ui>{UI.share}</Ui>.
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/published.png"
-              alt="The top of a published signup, marked open, with the public link and its copy button."
-              width={480}
+              alt="The top of a published signup, marked open, with the public link, its copy button and how many spots are taken."
+              width={605}
               height={110}
             />
           </Step>

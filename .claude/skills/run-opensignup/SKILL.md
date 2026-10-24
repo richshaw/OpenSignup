@@ -66,7 +66,7 @@ fill Spots = 2
 wait Saved
 click Done
 ss organizer-builder
-click Publish
+click Publish and share
 wait Now send people the link
 press Escape
 follow Open public page

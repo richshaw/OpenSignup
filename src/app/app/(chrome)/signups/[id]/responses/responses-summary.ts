@@ -1,4 +1,5 @@
 import type { commitments as commitmentsTable } from '@/db/schema/commitments';
+import type { SignupStatus } from '@/schemas/signups';
 import { ACTIVE_COMMITMENT_STATUSES } from '@/services/commitments';
 
 type Status = (typeof commitmentsTable.$inferSelect)['status'];
@@ -29,4 +30,20 @@ export function summarizeResponses(
   if (cancelled > 0) rest.push(`${cancelled} cancelled`);
   if (removed > 0) rest.push(`${removed} removed`);
   return { count: `${active} ${active === 1 ? 'sign-up' : 'sign-ups'}`, rest };
+}
+
+/**
+ * What the Responses tab says when nobody has signed up. A draft has no
+ * public link on screen to share, and a closed or archived signup takes no
+ * more sign-ups, so only an open one is pointed at the link. A closed one's
+ * banner already says why nobody can sign up; an archived one has no banner.
+ * "Signup" is the page, never what someone did (docs/writing-help.md).
+ */
+export function noResponsesLine(status: SignupStatus): string {
+  if (status === 'draft')
+    return 'Nobody has signed up yet. People can sign up once you publish and share it.';
+  if (status === 'open')
+    return 'Nobody has signed up yet. Share the public link to start collecting.';
+  if (status === 'closed') return 'Nobody signed up.';
+  return 'Nobody signed up. People can’t sign up now.';
 }
