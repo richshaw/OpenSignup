@@ -18,8 +18,14 @@ export interface ReminderEmailProps {
   /** The same values on one line, from `summarizeSlotValues()`, for the preview text. */
   slotSummary: string;
   notes?: string | null;
-  /** Per-signup opt-out link. Reminders are the only email it silences. */
+  /** Per-signup opt-out link. It silences reminders and slot-change emails. */
   unsubscribeUrl: string;
+  /**
+   * The last email the participant got was for a different slot time: the
+   * organizer has moved the slot since, so the email says so rather than
+   * repeating itself.
+   */
+  changed?: boolean;
 }
 
 export function ReminderEmail({
@@ -30,14 +36,22 @@ export function ReminderEmail({
   slotSummary,
   notes,
   unsubscribeUrl,
+  changed = false,
 }: ReminderEmailProps) {
   return (
-    <EmailLayout preview={reminderSubject(signupTitle, slotSummary)}>
-      <EmailHeading>Coming up</EmailHeading>
-      <EmailIntro>
-        Hi {participantName}, this is a reminder that you signed up for{' '}
-        <strong>{signupTitle}</strong>.
-      </EmailIntro>
+    <EmailLayout preview={reminderSubject(signupTitle, slotSummary, changed)}>
+      <EmailHeading>{changed ? 'Your slot has changed' : 'Coming up'}</EmailHeading>
+      {changed ? (
+        <EmailIntro>
+          Hi {participantName}, the organizer changed your slot for <strong>{signupTitle}</strong>{' '}
+          since we last emailed you. Here are the new details.
+        </EmailIntro>
+      ) : (
+        <EmailIntro>
+          Hi {participantName}, this is a reminder that you signed up for{' '}
+          <strong>{signupTitle}</strong>.
+        </EmailIntro>
+      )}
       <SlotDetailsText details={slotDetails} />
       <NotesText notes={notes} />
       <EmailButton href={manageUrl}>View or change your slot</EmailButton>

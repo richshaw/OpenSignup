@@ -284,6 +284,16 @@ describe('signup write tools on Postgres', () => {
     const u = updated.structuredContent as { signup: { settings: Record<string, unknown> } };
     expect(u.signup.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['day'] });
 
+    // A group-by that names no field is refused, and the one stored stays (#516).
+    const badGroup = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: c.signup.id, settings: { groupByFieldRefs: ['nope'] } },
+    });
+    expect(badGroup.isError).toBe(true);
+    expect((badGroup.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
+    const [grouped] = await db.select({ settings: signups.settings }).from(signups).where(eq(signups.id, c.signup.id));
+    expect(grouped?.settings).toMatchObject({ groupByFieldRefs: ['day'] });
+
     // A closing time can be set, then cleared with null, leaving the settings alone.
     const closing = await client.callTool({
       name: 'update_signup',

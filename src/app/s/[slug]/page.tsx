@@ -94,7 +94,6 @@ export default async function PublicSignupPage({ params }: PageParams) {
   const ownCommitments = found.map((c) => ({
     slotId: c.slotId,
     editUrl: commitmentEditUrl(slug, c.id, tokenById.get(c.id) ?? ''),
-    participantName: c.participantName,
   }));
 
   // Read headers in the request context — `after(...)` runs outside it and

@@ -1,4 +1,4 @@
-import { useReducer, useRef, useEffect } from 'react';
+import { useReducer, useRef, useEffect, useState } from 'react';
 import { toFieldRef } from '@/schemas/slot-fields';
 import type { SlotFieldDefinition, SlotFieldConfig } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
@@ -212,6 +212,29 @@ function toBuildRow(slot: BuildSlot): BuildRow {
   };
 }
 
+/**
+ * `values` as the API takes them: a Number field's value as a number, left
+ * out when it's empty or not a number; every other value as it is. The grid
+ * holds every value as a string, and the server refuses `"12"` for a Number
+ * field.
+ */
+function toTypedValues(
+  fields: BuildField[],
+  values: Record<string, unknown>,
+): Record<string, unknown> {
+  const typed: Record<string, unknown> = {};
+  for (const [ref, value] of Object.entries(values)) {
+    if (fields.find((f) => f.ref === ref)?.config.fieldType === 'number') {
+      const str = value === null || value === undefined ? '' : String(value);
+      const n = Number(str);
+      if (str !== '' && Number.isFinite(n)) typed[ref] = n;
+    } else {
+      typed[ref] = value;
+    }
+  }
+  return typed;
+}
+
 function toStringValues(values: Record<string, unknown>): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [k, v] of Object.entries(values)) {
@@ -328,6 +351,12 @@ export function useBuildState(
   // never holds up the saves behind it.
   const settingsSaveRef = useRef<Promise<void>>(Promise.resolve());
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Each row's values as the server last accepted them, which a refused cell
+  // edit is put back to (#514). Rows the server sends (the first load, a new
+  // slot, a refetch) and every values save that succeeds keep it current.
+  const [savedValues] = useState(
+    () => new Map(initialSlots.map((s) => [s.id, toStringValues(s.values)])),
+  );
 
   useEffect(() => {
     return () => {
@@ -529,19 +558,21 @@ export function useBuildState(
   const addRow = (seed?: { values?: Record<string, unknown>; capacity?: number }): Promise<void> =>
     withSave(async () => {
       const slot = await sendForData<BuildSlot>('POST', slotsUrl, {
-        values: seed?.values ?? {},
+        values: toTypedValues(stateRef.current.fields, seed?.values ?? {}),
         capacity: seed?.capacity ?? 1,
       });
-      dispatch({ type: 'OPTIMISTIC_ADD_ROW', row: toBuildRow(slot) });
+      const row = toBuildRow(slot);
+      savedValues.set(row.id, row.values);
+      dispatch({ type: 'OPTIMISTIC_ADD_ROW', row });
     });
 
   const duplicateRow = async (rowId: string): Promise<void> => {
     const source = stateRef.current.rows.find((r) => r.id === rowId);
     if (!source) return;
-    // Clone values verbatim (already string-typed; addRow re-serializes for
-    // the API). Capacity falls back to 1 when the source was uncapped — the
-    // grid uses null to mean "no limit", but new slots ship with capacity 1
-    // to stay safe and consistent with the bare addRow contract.
+    // Clone the row's values; addRow types them for the API. Capacity falls
+    // back to 1 when the source was uncapped — the grid uses null to mean
+    // "no limit", but new slots ship with capacity 1 to stay safe and
+    // consistent with the bare addRow contract.
     await addRow({ values: { ...source.values }, capacity: source.capacity ?? 1 });
   };
 
@@ -587,7 +618,11 @@ export function useBuildState(
           throw err.code === 'invalid_input' ? { code: 'invalid_input', message: STALE_REORDER_MESSAGE } : err;
         }
       },
-      async () => (await sendForData<BuildSlot[]>('GET', slotsUrl)).map(toBuildRow),
+      async () => {
+        const rows = (await sendForData<BuildSlot[]>('GET', slotsUrl)).map(toBuildRow);
+        for (const r of rows) savedValues.set(r.id, r.values);
+        return rows;
+      },
     );
   };
 
@@ -597,20 +632,28 @@ export function useBuildState(
 
   /** PATCHes every value `row` holds, so the slot ends up as the row shows it. */
   async function saveRowValues(row: BuildRow): Promise<void> {
-    const fields = stateRef.current.fields;
-    // Coerce by field type so numeric cells round-trip as numbers and
-    // empty strings on number fields drop out of the patch body.
-    const typedValues: Record<string, unknown> = {};
-    for (const [ref, strVal] of Object.entries(row.values)) {
-      const fld = fields.find((f) => f.ref === ref);
-      if (fld?.config.fieldType === 'number') {
-        const n = Number(strVal);
-        if (strVal !== '' && Number.isFinite(n)) typedValues[ref] = n;
-      } else {
-        typedValues[ref] = strVal;
-      }
+    await send('PATCH', `/api/slots/${row.id}`, {
+      values: toTypedValues(stateRef.current.fields, row.values),
+    });
+    savedValues.set(row.id, { ...row.values });
+  }
+
+  /**
+   * Puts the cells of `sent`, a row the server refused, back to their last
+   * saved values, so one bad value can't block every later save of the row
+   * or stay on screen as if it had saved. A cell the organizer has edited
+   * again since, whether typed or still waiting to save, keeps the newer value.
+   */
+  function rollBackRefused(sent: BuildRow) {
+    const current = stateRef.current.rows.find((r) => r.id === sent.id);
+    if (!current) return;
+    const saved = savedValues.get(sent.id) ?? {};
+    for (const [ref, value] of Object.entries(sent.values)) {
+      const savedValue = saved[ref] ?? '';
+      if (value === savedValue || current.values[ref] !== value) continue;
+      if (timersRef.current.has(`${sent.id}:${ref}`)) continue;
+      dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId: sent.id, fieldRef: ref, value: savedValue });
     }
-    await send('PATCH', `/api/slots/${row.id}`, { values: typedValues });
   }
 
   function flushTimer(key: string, saveFn: () => Promise<void>) {
@@ -629,7 +672,14 @@ export function useBuildState(
     flushTimer(`${rowId}:${fieldRef}`, async () => {
       const row = stateRef.current.rows.find((r) => r.id === rowId);
       if (!row) return;
-      await withSave(() => saveRowValues(row));
+      await withSave(async () => {
+        try {
+          await saveRowValues(row);
+        } catch (e) {
+          rollBackRefused(row);
+          throw e;
+        }
+      });
     });
   };
 
@@ -759,12 +809,33 @@ export function useBuildState(
     const save = settingsSaveRef.current.then(() =>
       withSave(async () => {
         const res = await send('PATCH', `/api/signups/${signupId}`, { settings: changed });
-        showSettings((await savedSettings(res)) ?? { ...settingsRef.current, ...changed });
+        const next = (await savedSettings(res)) ?? { ...settingsRef.current, ...changed };
+        await catchUpOnFields(next);
+        showSettings(next);
       }),
     );
     settingsSaveRef.current = save;
     return save;
   };
+
+  /**
+   * Fetches the field list when `next` names a field this tab hasn't loaded,
+   * which happens when another tab or an AI assistant added a field and
+   * pointed a setting at it (#398). Without it no field would show the
+   * reminder bell and every date field's reminder box would be blocked by a
+   * field the tab can't name. The save itself has already succeeded, so a
+   * failed fetch leaves the list as it was rather than reporting an error.
+   */
+  async function catchUpOnFields(next: SignupSettings): Promise<void> {
+    const named = [...next.groupByFieldRefs, ...(next.reminderFromFieldRef ? [next.reminderFromFieldRef] : [])];
+    const loaded = new Set(stateRef.current.fields.map((f) => f.ref));
+    if (named.every((ref) => loaded.has(ref))) return;
+    try {
+      showFields(toBuildFields(await sendForData<SlotFieldDefinition[]>('GET', fieldsUrl)));
+    } catch {
+      // Keep the list the tab has; a reload catches it up.
+    }
+  }
 
   const setGroupBy = (ref: string | null): Promise<void> =>
     saveSettings({ groupByFieldRefs: ref ? [ref] : [] });

@@ -9,7 +9,8 @@ import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { createSignup } from '@/services/signups';
-import { deleteSignupAction, setRequireEmailAction } from './actions';
+import { addSlot } from '@/services/slots';
+import { closeAction, deleteSignupAction, publishAction, setRequireEmailAction } from './actions';
 
 // The action reads the organizer from the session cookie. Tests hand it one
 // directly instead of going through Auth.js.
@@ -177,5 +178,109 @@ describe('deleteSignupAction (db)', () => {
       `/app/signups/sig_nope/settings?error=${encodeURIComponent('No longer available.')}`,
     );
     expect(url).not.toMatch(/signup%20not%20found/);
+  });
+});
+
+// A viewer's refusal is thrown by the policy guard, not returned. Each action
+// turns it into a message rather than letting it reach the error page.
+describe('a viewer choosing Publish, Close or Delete (db)', () => {
+  const db = getDb();
+  const organizerId = makeId('org');
+  const workspaceId = makeId('ws');
+  const slug = `test-${workspaceId.slice(-8).toLowerCase()}`;
+  const owner: Actor = {
+    kind: 'organizer',
+    id: organizerId,
+    email: `${slug}@example.test`,
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+  const viewer: Actor = {
+    kind: 'organizer',
+    id: makeId('org'),
+    email: 'viewer@example.test',
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'viewer' },
+  };
+  let signupId: string;
+
+  const row = async () => {
+    const [found] = await db
+      .select({ status: signups.status, deletedAt: signups.deletedAt })
+      .from(signups)
+      .where(eq(signups.id, signupId));
+    return found;
+  };
+
+  beforeAll(async () => {
+    await db.transaction(async (tx) => {
+      await tx.insert(organizers).values({ id: organizerId, email: owner.email, name: 'Test Org' });
+      await tx.insert(workspaces).values({
+        id: workspaceId,
+        slug,
+        name: 'Test Workspace',
+        type: 'personal',
+        plan: 'free',
+      });
+    });
+    const created = await createSignup(db, owner, workspaceId, {
+      title: 'Viewer refusals',
+      description: '',
+      tags: [],
+      visibility: 'unlisted',
+      settings: {},
+    });
+    if (!created.ok) throw new Error(created.error.message);
+    signupId = created.value.id;
+    const slot = await addSlot(db, owner, signupId, { values: {}, capacity: 1 });
+    if (!slot.ok) throw new Error(slot.error.message);
+  });
+
+  afterAll(async () => {
+    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+    await db.delete(organizers).where(eq(organizers.id, organizerId));
+  });
+
+  beforeEach(() => {
+    revalidatePath.mockClear();
+  });
+
+  it('Publish says the viewer can’t edit and leaves the draft as it was', async () => {
+    session.actor = viewer;
+    expect(await publishAction(signupId)).toEqual({ error: 'You don’t have edit access.' });
+    expect((await row())?.status).toBe('draft');
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('Close says the viewer can’t edit and leaves the signup open', async () => {
+    session.actor = owner;
+    expect(await redirectOf(() => publishAction(signupId))).toBe(
+      `/app/signups/${signupId}/build?published=1`,
+    );
+    revalidatePath.mockClear();
+
+    session.actor = viewer;
+    expect(await closeAction(signupId)).toEqual({ error: 'You don’t have edit access.' });
+    expect((await row())?.status).toBe('open');
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('Close on a signup that’s no longer open asks for a reload', async () => {
+    session.actor = owner;
+    expect(await closeAction(signupId)).toBeNull();
+    expect((await row())?.status).toBe('closed');
+    expect(await closeAction(signupId)).toEqual({
+      error: 'This signup changed since the page loaded. Reload to see the latest.',
+    });
+  });
+
+  it('Delete comes back to Settings saying the viewer can’t edit', async () => {
+    session.actor = viewer;
+    const url = await redirectOf(() => deleteSignupAction(signupId));
+    expect(url).toBe(
+      `/app/signups/${signupId}/settings?error=${encodeURIComponent('You don’t have edit access.')}`,
+    );
+    expect((await row())?.deletedAt).toBeNull();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

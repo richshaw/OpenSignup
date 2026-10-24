@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { confirmationSubject, reminderSubject } from './subjects';
+import { confirmationSubject, reminderSubject, slotChangedSubject } from './subjects';
 
 describe('email subjects', () => {
   it('leads with the signup title, then the slot values', () => {
@@ -8,6 +8,18 @@ describe('email subjects', () => {
     );
     expect(reminderSubject('Spring Book Fair Volunteers', 'Wed, Sep 9 · 13:00')).toBe(
       'Reminder: Spring Book Fair Volunteers · Wed, Sep 9 · 13:00',
+    );
+  });
+
+  it('says the time changed on a reminder that follows one for another time', () => {
+    expect(reminderSubject('Spring Book Fair Volunteers', 'Wed, Sep 9 · 13:00', true)).toBe(
+      'Time changed: Spring Book Fair Volunteers · Wed, Sep 9 · 13:00',
+    );
+  });
+
+  it('says the time changed when the organizer moves the slot', () => {
+    expect(slotChangedSubject('Spring Book Fair Volunteers', 'Thu, Sep 10 · 13:00')).toBe(
+      'Time changed: Spring Book Fair Volunteers · Thu, Sep 10 · 13:00',
     );
   });
 

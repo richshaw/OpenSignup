@@ -9,12 +9,10 @@ export function Compose({
   prompt,
   setPrompt,
   onDraft,
-  disabled,
 }: {
   prompt: string;
   setPrompt: (value: string) => void;
   onDraft: () => void;
-  disabled?: boolean;
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null);
 
@@ -66,7 +64,7 @@ export function Compose({
           <button
             type="button"
             onClick={onDraft}
-            disabled={!prompt.trim() || disabled}
+            disabled={!prompt.trim()}
             className="bg-brand inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />

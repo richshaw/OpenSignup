@@ -6,13 +6,12 @@ export type SlotStatus = (typeof SLOT_STATUSES)[number];
 
 const SlotValuesSchema = z.record(z.string(), z.unknown());
 
-const baseSlotInput = z.object({
+export const SlotCreateInputSchema = z.object({
   values: SlotValuesSchema.default({}),
   capacity: z.number().int().positive().nullable().default(1),
   sortOrder: SortOrderSchema.optional(),
 });
 
-export const SlotCreateInputSchema = baseSlotInput;
 export type SlotCreateInput = z.infer<typeof SlotCreateInputSchema>;
 
 export const SlotBulkInputSchema = z.object({

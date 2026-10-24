@@ -1,8 +1,9 @@
 import type { LabelledField } from '@/lib/slot-label';
 
 /**
- * The file an organizer downloads with Export: one row per sign-up, one column
- * per signup field headed by its label, then who signed up and how it stands.
+ * The file an organizer downloads with the Responses tab's Download CSV: one
+ * row per sign-up, one column per signup field headed by its label, then who
+ * signed up and how it stands.
  *
  * Field values go out as stored (dates `YYYY-MM-DD`, times `HH:MM`, numbers as
  * numbers), not as `renderFieldValue` shows them, so a spreadsheet sorts the

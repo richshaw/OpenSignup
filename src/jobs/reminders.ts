@@ -1,5 +1,6 @@
-import { and, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
+import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
@@ -13,17 +14,17 @@ import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
 import { reminderOptOutTokenFor } from '@/services/reminder-optout';
 import { alreadyRecorded, loadCommitmentRow, slotText } from '@/email/commitment-row';
 import { sendReminder } from '@/email/send';
+import { allOf, notifiableRules, skipReasons, wasToldDifferentTime } from './notify-rules';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
 
 /** The reminder lead time as a SQL interval. Fixed for every signup. */
 const leadInterval = sql`make_interval(hours => ${REMINDER_LEAD_HOURS})`;
 
 /**
- * When a commitment's reminder is due, as named SQL rules over a query joining
- * commitments, participants, slots and signups. Each rule holds when the
- * reminder may go out, and its name says why it can't when it doesn't. All
- * but the reminder.sent check, which the scan and the send job each make on
- * their own terms.
+ * When a commitment's reminder is due: the rules for emailing a participant at
+ * all (`notifiableRules`), plus the reminder's own timing. All but the
+ * reminder.sent check, which the scan and the send job each make on their own
+ * terms.
  *
  * The scan queues jobs with them and the send job re-reads its row through
  * them, because the job runs later: seconds normally, hours when the worker is
@@ -33,62 +34,32 @@ const leadInterval = sql`make_interval(hours => ${REMINDER_LEAD_HOURS})`;
  * and the names let the job log which rule a skipped reminder failed.
  */
 const reminderDueRules = {
-  'commitment not active': or(
-    eq(commitments.status, 'confirmed'),
-    eq(commitments.status, 'tentative'),
-  )!,
-  // 'closed' too, not just 'open'. Closing a signup means "no longer
-  // collecting responses" — the commitments already made stay valid and
-  // their participants still need the reminder. Excluding it silently
-  // cancelled reminders whenever an organizer tidied up after sign-ups
-  // ended, which the shorter default lead makes far more likely: at 24h,
-  // closing the evening before the event now lands inside the window.
-  // 'draft' and 'archived' stay excluded — never public, and put away.
-  'signup not open or closed': or(eq(signups.status, 'open'), eq(signups.status, 'closed'))!,
-  'signup deleted': isNull(signups.deletedAt),
-  'slot has no date': isNotNull(slots.slotAt),
-  // Still ahead of the participant, and inside the reminder lead time.
-  'slot passed': sql`${slots.slotAt} > now()`,
+  ...notifiableRules,
+  // Inside the reminder lead time.
   'slot beyond the lead time': sql`${slots.slotAt} <= now() + ${leadInterval}`,
   // Not still in the afterglow of their own confirmation (see selectDueReminders).
   'signed up too recently': sql`${commitments.createdAt} < now() - make_interval(hours => ${REMINDER_SETTLE_HOURS})`,
-  'reminders off': sql`COALESCE((${signups.settings}->>'sendReminders')::boolean, true) = true`,
-  // Participants who unsubscribed from this signup's reminders.
-  'participant opted out': isNull(participants.remindersOptedOutAt),
-  // Participants who gave no email: there is nowhere to send one.
-  'participant has no email': isNotNull(participants.email),
 } satisfies Record<string, SQL>;
 
-/** Every rule in `reminderDueRules`: the reminder is due now. */
-const reminderDueCondition = and(...Object.values(reminderDueRules))!;
-
 /**
- * The names of the rules in `reminderDueRules` a commitment's reminder fails
- * right now, or null when there is no such commitment. Only for logging a
- * skipped send: it reads the same rules the condition is built from, so the
- * reasons cannot drift from what the scan and the job decide.
+ * Whether the reminder.sent row whose payload is `payload` was for the slot
+ * time `slotAt`. A row counts only for the time it reminded about, so a slot
+ * the organizer moves after its reminder went out is reminded again for the
+ * new time. Rows recorded before reminders named their time have no `slotAt`,
+ * and count for any time, so a deploy sends nothing twice. The slot side is
+ * cut to milliseconds, the precision the ISO string in the payload keeps.
  */
-async function reminderSkipReasons(db: Db, commitmentId: string): Promise<string[] | null> {
-  const failed = Object.entries(reminderDueRules).map(
-    ([reason, rule]) => sql`CASE WHEN coalesce(${rule}, false) THEN NULL ELSE ${reason}::text END`,
-  );
-  const [row] = await db
-    .select({
-      reasons: sql<string[]>`array_remove(ARRAY[${sql.join(failed, sql`, `)}], NULL)`,
-    })
-    .from(commitments)
-    .innerJoin(slots, eq(slots.id, commitments.slotId))
-    .innerJoin(signups, eq(signups.id, commitments.signupId))
-    .innerJoin(participants, eq(participants.id, commitments.participantId))
-    .where(eq(commitments.id, commitmentId))
-    .limit(1);
-  return row ? row.reasons : null;
+function remindedForTime(payload: SQL, slotAt: SQL): SQL {
+  return sql`coalesce((${payload}->>'slotAt')::timestamptz = date_trunc('milliseconds', ${slotAt}), true)`;
 }
+
+/** Every rule in `reminderDueRules`: the reminder is due now. */
+const reminderDueCondition = allOf(reminderDueRules);
 
 /**
  * Selects the commitments whose reminder is *due* — slot still in the future,
  * but now within the signup's reminder lead time — and that have no
- * reminder.sent activity row yet.
+ * reminder.sent activity row yet for the slot's current time.
  *
  * This is a "due now" test rather than a window around the lead time. A window
  * silently drops every reminder whose moment passed while the worker was down;
@@ -113,11 +84,12 @@ export async function selectDueReminders(db: Db): Promise<{ commitmentId: string
     .where(
       and(
         reminderDueCondition,
-        // skip if a reminder was already recorded for this commitment
+        // skip if a reminder was already recorded for this commitment and time
         sql`NOT EXISTS (
           SELECT 1 FROM activity a
           WHERE a.event_type = 'reminder.sent'
             AND (a.payload->>'commitmentId') = ${commitments.id}
+            AND ${remindedForTime(sql`a.payload`, sql`${slots.slotAt}`)}
         )`,
       ),
     );
@@ -156,7 +128,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   // archived signup to an unsubscribe to a slot moved later, shows up here as
   // no row. A second query then names the rules it failed, for the log.
   if (!row) {
-    const reasons = await reminderSkipReasons(db, payload.commitmentId);
+    const reasons = await skipReasons(db, payload.commitmentId, reminderDueRules);
     if (reasons === null) {
       log.warn({ commitmentId: payload.commitmentId }, 'commitment not found for reminder');
     } else {
@@ -164,23 +136,38 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
     }
     return;
   }
-  // reminderDueRules requires an email, so this only narrows the type.
+  // reminderDueRules requires an email and a slot time, so this only narrows
+  // the types.
   const to = row.participant.email;
-  if (to === null) return;
+  const slotAt = row.slot.slotAt;
+  if (to === null || slotAt === null) return;
 
   // Idempotency guard, and the only one: the queue does not dedupe (see
   // dispatchReminders), so a commitment can have several jobs, and the first
-  // to send records reminder.sent for the rest to find here. A check, not a
-  // lock: it holds only while a single worker process runs send jobs one at
-  // a time. Two worker processes could each take a job for the same
-  // commitment, both find no row here, and both send, which is why an
-  // instance runs exactly one `pnpm worker`. It also cannot catch an email
-  // that went out when recording it then failed; that job's retry sends it
-  // again.
-  if (await alreadyRecorded(db, 'reminder.sent', row.signup.id, payload.commitmentId)) {
+  // to send records reminder.sent for the rest to find here, for this slot
+  // time (see remindedForTime). A check, not a lock: it holds only while a
+  // single worker process runs send jobs one at a time. Two worker processes
+  // could each take a job for the same commitment, both find no row here, and
+  // both send, which is why an instance runs exactly one `pnpm worker`. It
+  // also cannot catch an email that went out when recording it then failed;
+  // that job's retry sends it again.
+  if (
+    await alreadyRecorded(
+      db,
+      'reminder.sent',
+      row.signup.id,
+      payload.commitmentId,
+      remindedForTime(sql`${activity.payload}`, sql`${slotAt.toISOString()}::timestamptz`),
+    )
+  ) {
     log.info({ commitmentId: payload.commitmentId }, 'reminder already sent; skipping');
     return;
   }
+  // The last email the participant got, a reminder, a change email or the
+  // confirmation, was for another slot time: the organizer moved the slot
+  // since, and this one says so. A move they were already told about by a
+  // change email reads as a normal reminder.
+  const changed = await wasToldDifferentTime(db, payload.commitmentId);
 
   const optOutToken = reminderOptOutTokenFor(row.participant.id);
 
@@ -199,6 +186,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
       unsubscribeUrl: reminderUnsubscribeUrl(row.signup.slug, row.participant.id, optOutToken),
       ...(await slotText(db, row.signup.id, row.slot.values)),
       notes: row.commitment.notes,
+      changed,
     },
     { unsubscribePostUrl: reminderUnsubscribePostUrl(row.participant.id, optOutToken) },
   );
@@ -212,6 +200,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
       commitmentId: row.commitment.id,
       participantId: row.participant.id,
       channel: 'email',
+      slotAt: slotAt.toISOString(),
     },
   });
 }

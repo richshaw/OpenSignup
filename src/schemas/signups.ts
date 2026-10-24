@@ -48,6 +48,14 @@ export const SignupSettingsSchema = z
 export type SignupSettings = z.infer<typeof SignupSettingsSchema>;
 
 /**
+ * What `signups.settings` holds. Any key can be missing: the column defaults
+ * to `{}`, rows predate keys added since, and a sparse update clears a key by
+ * deleting it. `SignupSettingsSchema` fills the defaults in when a reader
+ * needs them.
+ */
+export type StoredSignupSettings = Partial<SignupSettings>;
+
+/**
  * Whether a signup asks each new participant for an email: its `requireEmail`
  * setting, true when the key is missing, as the default says. Settings that
  * fail to parse also mean true, so a bad row never stops the address being
@@ -89,4 +97,10 @@ export const SignupUpdateInputSchema = SignupCreateInputSchema.partial().extend(
   title: z.string().min(TITLE_MIN_LENGTH).max(TITLE_MAX_LENGTH).optional(),
   /** `null` clears the closing time; omitted leaves it alone. */
   closesAt: z.string().datetime().nullable().optional(),
+  // Nothing reads visibility: every signup opens for anyone with its link, and
+  // none is listed or indexed. Refused rather than stripped, so a caller is not
+  // told a change worked when nothing changed.
+  visibility: z
+    .undefined({ errorMap: () => ({ message: "visibility can't be changed: anyone with a signup's link can open it" }) })
+    .optional(),
 });

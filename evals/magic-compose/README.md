@@ -99,7 +99,15 @@ Per-run JSON snapshots are written to `evals/magic-compose/snapshots/` for local
 - The arguments of its `create_signup` call are the draft that gets scored. Arguments `create_signup` would refuse go back to the model as the same `invalid_input` error the server sends, so it can retry; the snapshot's `trace.rejectedCreates` counts them.
 - `list_workspaces` and `list_signups` answer as a new account with one workspace and no signups; any other tool says nothing matches. Nothing touches a database.
 - A reply with no `create_signup` call is scored as the refusal arm, so `ev_013` passes when the assistant declines. On any other case it fails as `unexpected_refusal`, with the reply as its detail: an assistant that asks a question first did not build anything.
-- Single-message cases only. Follow-up turns ("add an earlier slot for setup") are #477.
+### Follow-up cases
+
+`evals/mcp/followup-evals.json` holds cases where the organizer says more after the first message. `prompt` is the first message and `followUps` lists the ones after it, each sent once the model has replied in words to the one before. Run only these with `pnpm eval:mcp --tag=follow_up`.
+
+- Every tool call is answered by the real MCP tools against the local Postgres (`DATABASE_URL`; start it and run migrations as for `pnpm test:db`), so the model gets real signup ids, slot ids and links. Each case gets a new organizer and workspace, deleted afterwards (`src/mcp/evals/followups.ts`).
+- The first message has to create the signup. If it doesn't, the case fails as `no_signup`.
+- Checks (`src/mcp/evals/followup-checks.ts`) look at the tools called after the first message (`followups.tools_must_include`, `followups.tools_must_not_include`), the signup's slots after the first message and after the last (`slots.added_count`, `slots.removed_count`, `slots.first_is_new`, `slots.first_values_must_mention_any`, `slots.no_duplicates`, `slots.capacities_changed`, `slots.capacity_sum_range`), and the last reply (`reply.table_row_per_slot`, `reply.must_include_edit_link`). The reply checks are plain text checks, not a model grading it.
+- Each case costs several model calls, more than a single-message case.
+- The real tools log each call. `LOG_LEVEL=warn pnpm eval:mcp` keeps those lines out of the eval's output.
 
 Snapshots go to `evals/mcp/snapshots/` (gitignored).
 

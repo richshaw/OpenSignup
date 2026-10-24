@@ -22,6 +22,3 @@ export const workspaceMembers = pgTable(
     byOrganizer: index('workspace_members_by_organizer').on(t.organizerId),
   }),
 );
-
-export type WorkspaceMember = typeof workspaceMembers.$inferSelect;
-export type NewWorkspaceMember = typeof workspaceMembers.$inferInsert;

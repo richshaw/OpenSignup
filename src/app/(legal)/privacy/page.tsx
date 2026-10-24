@@ -23,7 +23,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 20 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 23 October 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -88,8 +88,9 @@ export default function PrivacyPage() {
           <li>Display name.</li>
           <li>
             Email address, if you give one. The organizer decides whether a signup requires it. We
-            use it to send you a confirmation with your link to change or cancel, and reminders if
-            the organizer has them on. If you leave it blank where that is allowed, we send you no
+            use it to send you a confirmation with your link to change or cancel, and, if the
+            organizer has reminders on, reminders and an email when your slot moves to a new date
+            or time. If you leave it blank where that is allowed, we send you no
             emails. Your link is then shown on screen after you sign up, and only that browser
             remembers it: for 60 days, or until a week after your slot if that is later.
           </li>
@@ -133,15 +134,17 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Email delivery</h2>
         <p>
-          {INSTANCE_NAME} sends three kinds of email: organizer magic-link sign-in emails, a
-          confirmation to a participant when they commit to a slot, and a reminder before a dated
-          slot. A participant gets these only if they gave an email address. Moving to a different
+          {INSTANCE_NAME} sends four kinds of email: organizer magic-link sign-in emails, a
+          confirmation to a participant when they commit to a slot, a reminder before a dated
+          slot, and an email when the organizer moves a participant&apos;s slot to a new date or
+          time. A participant gets these only if they gave an email address. Moving to a different
           slot gives your spot a new private link, and sends a fresh confirmation with it. The
-          old link then leads to the new one. Confirmations and reminders each contain a private
+          old link then leads to the new one. Each of these participant emails contains a private
           link that lets you change or cancel that commitment without signing in, so treat them as
-          you would a password and don&apos;t forward them. Reminders go out the day before the slot;
-          organizers can turn them off for a signup entirely. Every reminder carries a link that stops
-          reminders for that signup; we record only the time you opted out, and it does not affect
+          you would a password and don&apos;t forward them. Reminders go out the day before the slot,
+          and a moved-slot email about 10 minutes after the organizer&apos;s last change to its date
+          or time; organizers can turn both off for a signup entirely, with the reminders setting.
+          Every reminder and moved-slot email carries a link that stops both for that signup; we record only the time you opted out, and it does not affect
           any other signup or your slot itself. Delivery uses whichever transport the operator has
           configured (SMTP, a transactional provider, or local console output in
           development). No marketing email is ever sent.

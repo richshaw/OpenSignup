@@ -498,20 +498,52 @@ describe('updateOwnCommitment swap (db)', () => {
     expect(onSecond).toEqual([]);
   });
 
-  // Signing up trims the name and keeps it, so a name of spaces is stored
-  // blank. A move that sends no name must not check that stored one again.
+  it('refuses a name of only spaces on sign-up and on edit', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Signup Blank');
+    const blank = await commitToSlot(fx.db, a.slotId, {
+      name: '   ',
+      email: 'mo@example.test',
+      quantity: 1,
+    });
+    expect(blank.ok).toBe(false);
+    if (blank.ok) return;
+    expect(blank.error).toMatchObject({ code: 'invalid_input', field: 'name' });
+
+    const mine = await commitToSlot(fx.db, a.slotId, {
+      name: 'Mo',
+      email: 'mo@example.test',
+      quantity: 1,
+    });
+    if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
+    const edit = await updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
+      name: '   ',
+    });
+    expect(edit.ok).toBe(false);
+    if (edit.ok) return;
+    expect(edit.error).toMatchObject({ code: 'invalid_input', field: 'name' });
+
+    const [p] = await fx.db
+      .select({ name: participants.name })
+      .from(participants)
+      .where(eq(participants.id, mine.value.commitment.participantId));
+    expect(p?.name).toBe('Mo');
+  });
+
+  // Signing up used to store a name of spaces blank, so such rows exist. A
+  // move that sends no name must not check that stored one again.
   it('moves someone whose stored name is blank when the move sends no name', async () => {
     const a = await makeOpenSignupWithSlot(fx, 'Signup L');
     const second = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 5 });
     if (!second.ok) throw new Error(`addSlot failed: ${second.error.message}`);
 
     const mine = await commitToSlot(fx.db, a.slotId, {
-      name: '   ',
+      name: 'Lou',
       email: 'lou@example.test',
       quantity: 1,
     });
     if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
     const { participantId } = mine.value.commitment;
+    await fx.db.update(participants).set({ name: '' }).where(eq(participants.id, participantId));
 
     const r = await updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
       swapToSlotId: second.value.id,
@@ -734,7 +766,7 @@ describe('updateOwnCommitment quantity edit under concurrency (db)', () => {
         quantity: 3,
       });
       await untilServiceBlockedOn(fx.db, tx, editing);
-      const deleted = await deleteSlot(tx as unknown as Db, fx.actor, a.slotId);
+      const deleted = await deleteSlot(tx as unknown as Db, fx.actor, a.slotId, { force: true });
       expect(deleted.ok, JSON.stringify(deleted)).toBe(true);
     });
     await held.finally(() => settle(editing));
@@ -1415,7 +1447,7 @@ describe('participants without an email (db)', () => {
     const returning = await getOwnCommitmentsForSignup(fx.db, signupId, [
       { commitmentId: r.value.commitment.id, token: r.value.editToken },
     ]);
-    expect(returning.map((c) => c.participantEmail)).toEqual([null]);
+    expect(returning.map((c) => c.id)).toEqual([r.value.commitment.id]);
   });
 
   it('can move to another slot', async () => {

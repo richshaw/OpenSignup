@@ -1,4 +1,5 @@
 import { after } from 'next/server';
+import { Download } from 'lucide-react';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
@@ -9,8 +10,9 @@ import {
 } from '@/services/commitments';
 import { recordOrganizerView } from '@/lib/view-tracker';
 import { StatusPill } from '@/components/status-pill';
-import { summarizeSlot, summarizeSlotValues } from '@/lib/slot-summary';
+import { summarizeSlotValues } from '@/lib/slot-summary';
 import { RemoveCommitmentForm } from './remove-commitment-form';
+import { summarizeResponses } from './responses-summary';
 
 type PageParams = { params: Promise<{ id: string }> };
 
@@ -42,14 +44,31 @@ export default async function ResponsesTab({ params }: PageParams) {
   );
   const canRemove = (c: (typeof commitments)[number]) =>
     ACTIVE_COMMITMENT_STATUSES.includes(c.status);
+  const totals = summarizeResponses(commitments, ended);
 
   return (
     <section className="space-y-4">
-      <p className="text-ink-muted text-sm">
-        Everyone who&rsquo;s signed up so far. Export to CSV from the header.
-      </p>
+      {/* Outside the table's box, whose phone layout is its own. With no
+          sign-ups the empty box below says it all. */}
+      {commitments.length > 0 ? (
+        <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between md:gap-3">
+          <p className="text-sm text-ink-muted">
+            <span className="font-semibold text-ink">{totals.count}</span>
+            {totals.rest.map((part) => ` · ${part}`).join('')}
+          </p>
+          {/* A plain link, not next/link: it's a file, so the router has
+              nothing to do, and the route sends it as an attachment. */}
+          <a
+            href={`/api/signups/${sig.id}/export.csv`}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-surface-sunk bg-white px-3.5 text-[15px] font-medium text-ink transition hover:bg-surface-raised md:h-9 md:text-[13px]"
+          >
+            <Download size={15} aria-hidden="true" />
+            Download CSV
+          </a>
+        </div>
+      ) : null}
       {commitments.length === 0 ? (
-        <p className="text-ink-muted rounded-lg border border-dashed border-surface-sunk p-6 text-center text-sm">
+        <p className="rounded-lg border border-dashed border-surface-sunk p-6 text-center text-sm text-ink-muted">
           No signups yet. Share the public link to start collecting.
         </p>
       ) : (
@@ -90,8 +109,10 @@ export default async function ResponsesTab({ params }: PageParams) {
             <tbody role="rowgroup" className="divide-y divide-surface-sunk max-md:block">
               {commitments.map((c) => {
                 const slot = sig.slots.find((s) => s.id === c.slotId);
-                const values = (slot?.values as Record<string, unknown>) ?? {};
-                const summary = slot ? summarizeSlot(sig.fields, values) : '';
+                const values = slot?.values ?? {};
+                // Values only: the column heading already says Slot, and the
+                // Remove question below reads the slot the same way.
+                const summary = slot ? summarizeSlotValues(sig.fields, values) : '';
                 // A removal takes the Remove button away, so focus goes to
                 // this cell, which then reads "removed". Every row has it, so
                 // it outlasts that re-render.
@@ -100,10 +121,9 @@ export default async function ResponsesTab({ params }: PageParams) {
                 // removal and the old sign-up of a move say so instead, here
                 // and in the CSV export.
                 const status = c.status === 'cancelled' ? (ended.get(c.id) ?? c.status) : c.status;
-                // Remove's name, and the start of its question. The slot is
-                // unlabelled, to read as part of a sentence.
+                // Remove's name, and the start of its question.
                 const removeLabel = `Remove ${c.participantName} from ${
-                  summarizeSlotValues(sig.fields, values) || slot?.ref || 'this slot'
+                  summary || slot?.ref || 'this slot'
                 }`;
                 return (
                   <tr

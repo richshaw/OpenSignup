@@ -3,8 +3,9 @@ config({ path: '.env.local' });
 config({ path: '.env' });
 
 import { log } from '@/lib/log';
-import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
+import { getBoss, QUEUES, type ReminderSendPayload, type SlotChangeSendPayload } from './queue';
 import { dispatchReminders, sendReminderJob } from './reminders';
+import { dispatchSlotChanges, sendSlotChangeJob } from './slot-changes';
 import { runHousekeeping } from './housekeeping';
 
 async function main() {
@@ -32,6 +33,29 @@ async function main() {
     }
   });
 
+  await boss.work<SlotChangeSendPayload>(QUEUES.slotChangeSend, async (jobs) => {
+    for (const job of jobs) {
+      try {
+        await sendSlotChangeJob(job.data);
+      } catch (err) {
+        log.error({ err, commitmentId: job.data.commitmentId }, 'slot-change email failed');
+        throw err; // retried as a reminder send is
+      }
+    }
+  });
+
+  // Slot changes: every 2 minutes, so an email goes out between 10 and 12
+  // minutes after the organizer's last move (SLOT_CHANGE_SETTLE_MINUTES).
+  await boss.schedule(QUEUES.slotChangeDispatch, '*/2 * * * *');
+  await boss.work(QUEUES.slotChangeDispatch, async () => {
+    try {
+      await dispatchSlotChanges();
+    } catch (err) {
+      log.error({ err }, 'slot-change dispatch failed');
+      throw err;
+    }
+  });
+
   // Housekeeping: hourly. Reads already ignore expired rows, so a missed run
   // costs disk, never correctness.
   await boss.schedule(QUEUES.housekeeping, '17 * * * *');
@@ -44,7 +68,7 @@ async function main() {
     }
   });
 
-  log.info('signup worker started · reminderDispatch + reminderSend + housekeeping queues online');
+  log.info('signup worker started · reminder, slot-change and housekeeping queues online');
 
   const shutdown = async (signal: string) => {
     log.info({ signal }, 'stopping worker');

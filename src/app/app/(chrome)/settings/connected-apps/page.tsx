@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { FormError } from '@/components/ui/form-error';
+import { FormError, SuccessNotice } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
 import { ServiceException } from '@/lib/errors';
 import { log } from '@/lib/log';
@@ -60,10 +60,10 @@ export default async function ConnectedAppsPage({
 
       {error ? <FormError>{error}</FormError> : null}
       {disconnected ? (
-        <p role="status" className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success">
+        <SuccessNotice>
           Disconnected. It can no longer get new access, and any access it still holds ends within{' '}
           {residualMinutes} minutes.
-        </p>
+        </SuccessNotice>
       ) : null}
 
       {apps.length === 0 ? (
