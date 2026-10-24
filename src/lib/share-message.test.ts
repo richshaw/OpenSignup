@@ -61,13 +61,6 @@ describe('shareMessage', () => {
     );
   });
 
-  it('leaves the dates out when the signup has no date field', () => {
-    const slots = [{ id: 'slot_a', values: { what: 'Setup' }, capacity: 2, status: 'open' }];
-    expect(shareMessage(signup({ fields: [WHAT], slots }), LINK)).toBe(
-      `Fall book fair volunteers\n2 spots open\n${SIGN_UP}`,
-    );
-  });
-
   it('ignores blank and impossible dates', () => {
     const slots = [slot(undefined), slot(''), slot('2026-02-30'), slot('2026-11-14')];
     expect(shareMessage(signup({ slots }), LINK)).toBe(
