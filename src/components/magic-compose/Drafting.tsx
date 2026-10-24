@@ -1,9 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Check, Sparkles } from 'lucide-react';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { useTypewriter } from '@/hooks/useTypewriter';
+import type { FollowUp } from '@/lib/magic-compose/questions';
+import { ChunkBoundary } from './ChunkBoundary';
+import { YouWrote } from './YouWrote';
+
+// Only a call with answers shows it, so it loads with the questions rather
+// than with the page (see `preloadQuestions` in MagicComposeRoot). Loading, or
+// if it won't load, the description stands in for it.
+const DraftingFrom = lazy(() =>
+  import('./DraftingFrom').then((m) => ({ default: m.DraftingFrom })),
+);
 
 type RevealKind = 'fields' | 'slots';
 
@@ -81,11 +91,14 @@ function formatPreviewValue(raw: unknown): string {
 
 export function Drafting({
   prompt,
+  followUp = null,
   draft,
   onCancel,
   onAnimationDone,
 }: {
   prompt: string;
+  /** The answers this draft is made from, on the call after the questions. */
+  followUp?: FollowUp | null;
   draft: DraftPreview | null;
   onCancel: () => void;
   onAnimationDone: () => void;
@@ -157,14 +170,22 @@ export function Drafting({
   const slotCols = Math.max(1, visibleFields.length);
   const gridTemplateColumns = `38px repeat(${slotCols}, minmax(0, 1fr)) 50px`;
 
+  // A first call may come back with questions rather than a draft, so until
+  // one arrives the screen doesn't promise one. A call with answers always drafts.
+  const reading = !draft && !followUp;
+
   return (
     <div className="mx-auto mt-10 grid max-w-[1080px] grid-cols-1 items-start gap-7 md:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]">
       <aside className="flex flex-col gap-4 md:sticky md:top-6">
         <PulseMark />
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Drafting your signup</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {reading ? 'Reading your description' : 'Drafting your signup'}
+          </h1>
           <p className="text-ink-muted mt-1.5 text-sm leading-relaxed">
-            You&apos;ll be able to edit anything once it&apos;s ready.
+            {reading
+              ? "You'll get a draft, or a few quick questions if it needs more to go on."
+              : "You'll be able to edit anything once it's ready."}
           </p>
         </div>
 
@@ -199,7 +220,7 @@ export function Drafting({
         <button
           type="button"
           onClick={onCancel}
-          className="text-ink-muted hover:text-ink self-start rounded-xl px-3 py-2 text-sm font-medium"
+          className="text-ink-muted hover:text-ink min-h-11 self-start rounded-xl px-3 text-sm font-medium"
         >
           Cancel
         </button>
@@ -209,14 +230,20 @@ export function Drafting({
         <div className="border-surface-sunk bg-surface-raised text-ink-muted flex items-center justify-between border-b px-4 py-3 text-xs font-medium">
           <span className="flex items-center gap-2">
             <span className="bg-warn inline-block h-1.5 w-1.5 animate-pulse rounded-full" />
-            Drafting · live
+            {reading ? 'Reading' : 'Drafting'} · live
           </span>
         </div>
 
         <div className="flex flex-col gap-5 p-6">
-          <blockquote className="border-surface-sunk text-ink-muted line-clamp-2 border-l-2 pl-3.5 text-sm leading-relaxed">
-            {prompt}
-          </blockquote>
+          {followUp ? (
+            <ChunkBoundary fallback={<YouWrote prompt={prompt} variant="box" />}>
+              <Suspense fallback={<YouWrote prompt={prompt} variant="box" />}>
+                <DraftingFrom prompt={prompt} followUp={followUp} />
+              </Suspense>
+            </ChunkBoundary>
+          ) : (
+            <YouWrote prompt={prompt} variant="box" />
+          )}
 
           <DraftField label="Title">
             {reached('title') && titleText ? (

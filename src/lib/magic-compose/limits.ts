@@ -20,6 +20,13 @@ export const WHAT_OPTION_MAX_LENGTH = 40;
 export const WHAT_ITEMS_MAX = 12;
 export const WHAT_ITEM_MAX_LENGTH = 80;
 
+/**
+ * The earliest year "One day" takes. A copy of `MIN_DATE_YEAR` in
+ * src/lib/reminder-fields.ts, which a test keeps equal: that module imports
+ * the shared errors, and zod with them.
+ */
+export const EARLIEST_DATE_YEAR = 1900;
+
 /** The "Several days" text box. */
 export const WHEN_TEXT_MAX_LENGTH = 200;
 

@@ -27,10 +27,37 @@ describe('<Drafting />', () => {
     expect(screen.queryByText(/Snack duty, U9 Eagles/)).toBeNull();
     expect(screen.queryByText(/Spring season/)).toBeNull();
     expect(screen.queryByText(/Snack \+ drinks/)).toBeNull();
-    // The user's prompt is still rendered in the blockquote.
-    expect(screen.getByText('anything')).toBeInTheDocument();
-    // Step 1 is the active step while pending.
-    expect(screen.getByText('Reading your description')).toBeInTheDocument();
+    // The user's prompt is quoted back to them.
+    expect(screen.getByText('“anything”')).toBeInTheDocument();
+    // A first call may get questions back, so the heading doesn't promise a draft yet.
+    expect(screen.getByRole('heading', { name: 'Reading your description' })).toBeInTheDocument();
+    expect(
+      screen.getByText("You'll get a draft, or a few quick questions if it needs more to go on."),
+    ).toBeInTheDocument();
+  });
+
+  it('drafts from the answers on the call after the questions, a blank one marked', async () => {
+    render(
+      <Drafting
+        prompt="Bake sale"
+        followUp={{
+          what: { picked: ['Staff the table'], added: [] },
+          when: { kind: 'not_decided' },
+          howMany: [2],
+        }}
+        draft={null}
+        onCancel={() => {}}
+        onAnimationDone={() => {}}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'Drafting your signup' })).toBeInTheDocument();
+    const card = await screen.findByRole('region', { name: 'Drafting from' });
+    expect(card).toHaveTextContent('“Bake sale”');
+    expect(card).toHaveTextContent('One left blank');
+    expect(card).toHaveTextContent('Staff the table2 people');
+    expect(card).toHaveTextContent(
+      'Not decided. The draft will use placeholder dates you can fill in later.',
+    );
   });
 
   it('renders real title, labels, and slot rows for a small draft', () => {

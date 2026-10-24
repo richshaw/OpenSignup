@@ -41,13 +41,17 @@ export function Compose({
           What are you organizing?
         </h1>
         <p className="text-ink-muted text-base leading-relaxed md:text-lg">
-          The more detail you share, the better the draft. We&apos;ll turn it into a title, blurb, and slots for you to edit.
+          <span className="text-ink font-medium">
+            Say what people sign up for, when, and how many of each.
+          </span>{' '}
+          We&apos;ll turn it into a title, blurb, and slots for you to edit.
         </p>
       </header>
 
       <div className="border-surface-sunk overflow-hidden rounded-2xl border bg-white shadow-sm transition focus-within:border-brand">
         <textarea
           ref={taRef}
+          aria-label="Describe your signup"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={onKeyDown}

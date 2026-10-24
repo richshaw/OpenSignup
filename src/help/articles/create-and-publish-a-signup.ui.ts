@@ -12,6 +12,11 @@ export const UI = {
   composeHeading: 'What are you organizing?',
   skipCompose: 'Skip, fill in by hand',
   draftCompose: 'Draft my signup',
+  // The questions drafting may ask before it drafts. The walkthrough never
+  // reaches them (CI runs without an AI), so create-and-publish-a-signup.test.tsx
+  // renders that screen and checks these two names instead.
+  questionsHeading: 'A few details first',
+  draftWithPlaceholders: 'Draft with placeholders',
   title: 'Title',
   description: 'Description (optional)',
   createSignup: 'Create signup',
