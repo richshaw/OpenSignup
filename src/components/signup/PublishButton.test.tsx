@@ -77,7 +77,13 @@ function Header({
   return (
     <BuildBridge buildHref="/app/signups/sig_1/build">
       <HeaderAnnouncer status="draft">
-        <ShareScope publishAction={action} title="Bake sale helpers" url={LINK} message="">
+        <ShareScope
+          publishAction={action}
+          signupId="sig_1"
+          title="Bake sale helpers"
+          url={LINK}
+          message=""
+        >
           <div data-testid="desktop">
             <PublishButton variant="desktop" />
             <ShareButton variant="desktop" />

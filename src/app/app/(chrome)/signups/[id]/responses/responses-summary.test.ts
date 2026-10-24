@@ -47,18 +47,25 @@ describe('noResponsesLine', () => {
   it('tells a draft’s organizer that people can sign up once it’s published', () => {
     // A draft shows no public link, so there's nothing to share yet.
     expect(noResponsesLine('draft')).toBe(
-      'No signups yet. People can sign up once you publish and share it.',
+      'Nobody has signed up yet. People can sign up once you publish and share it.',
     );
   });
 
   it('points an open signup at its public link', () => {
     expect(noResponsesLine('open')).toBe(
-      'No signups yet. Share the public link to start collecting.',
+      'Nobody has signed up yet. Share the public link to start collecting.',
     );
   });
 
-  it('says nobody can sign up any more once it’s closed or archived', () => {
-    expect(noResponsesLine('closed')).toBe('No signups. People can’t sign up now.');
-    expect(noResponsesLine('archived')).toBe('No signups. People can’t sign up now.');
+  it('says nobody signed up once it’s closed, and why nobody will on an archived one', () => {
+    // A closed signup's banner already says people can't sign up now.
+    expect(noResponsesLine('closed')).toBe('Nobody signed up.');
+    expect(noResponsesLine('archived')).toBe('Nobody signed up. People can’t sign up now.');
+  });
+
+  it('never calls what people did a "signup", which is the page', () => {
+    for (const status of ['draft', 'open', 'closed', 'archived'] as const) {
+      expect(noResponsesLine(status)).not.toMatch(/signups?\b/i);
+    }
   });
 });

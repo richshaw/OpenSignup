@@ -1,7 +1,6 @@
-import { after } from 'next/server';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
-import { recordOrganizerView } from '@/lib/view-tracker';
+import { trackOrganizerView } from '@/lib/view-tracker';
 import { BuildWysiwyg } from '@/components/build-wysiwyg/BuildWysiwyg';
 import { SignupSettingsSchema } from '@/schemas/signups';
 
@@ -16,14 +15,12 @@ export default async function BuildTab({ params }: PageParams) {
   const filled = await loadCommittedBySlotForOrganizer(actor, id);
   if (!filled.ok) return null;
   const sig = result.value;
-  after(() =>
-    recordOrganizerView({
-      actor: { actorId: session.organizerId, actorType: 'organizer' },
-      signupId: sig.id,
-      workspaceId: sig.workspaceId,
-      eventType: 'signup.viewed',
-    }),
-  );
+  await trackOrganizerView({
+    actor: { actorId: session.organizerId, actorType: 'organizer' },
+    signupId: sig.id,
+    workspaceId: sig.workspaceId,
+    eventType: 'signup.viewed',
+  });
   return (
     <>
       <BuildWysiwyg

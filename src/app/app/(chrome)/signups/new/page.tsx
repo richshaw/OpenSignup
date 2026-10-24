@@ -1,8 +1,7 @@
-import { after } from 'next/server';
 import { requireOrganizerSession } from '@/auth/session';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { FormError } from '@/components/ui/form-error';
-import { recordOrganizerView } from '@/lib/view-tracker';
+import { trackOrganizerView } from '@/lib/view-tracker';
 import { magicComposeEnabled } from '@/lib/env';
 import { MagicComposeRoot } from '@/components/magic-compose/MagicComposeRoot';
 import { createSignupAction } from './actions';
@@ -14,20 +13,19 @@ type PageProps = { searchParams: Promise<{ manual?: string; error?: string }> };
 export default async function NewSignupPage({ searchParams }: PageProps) {
   const session = await requireOrganizerSession();
 
-  if (session.defaultWorkspaceId) {
-    const workspaceId = session.defaultWorkspaceId;
-    after(() =>
-      recordOrganizerView({
-        actor: { actorId: session.organizerId, actorType: 'organizer' },
-        signupId: null,
-        workspaceId,
-        eventType: 'signup.draft_started',
-      }),
-    );
-  }
-
   const { manual, error } = await searchParams;
   const useMagic = magicComposeEnabled() && manual !== '1';
+
+  if (session.defaultWorkspaceId) {
+    const workspaceId = session.defaultWorkspaceId;
+    await trackOrganizerView({
+      actor: { actorId: session.organizerId, actorType: 'organizer' },
+      signupId: null,
+      workspaceId,
+      eventType: 'signup.draft_started',
+      payload: { mode: useMagic ? 'magic' : 'manual' },
+    });
+  }
 
   if (useMagic) {
     return <MagicComposeRoot />;

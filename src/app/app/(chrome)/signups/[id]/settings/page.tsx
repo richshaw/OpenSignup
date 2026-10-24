@@ -1,10 +1,9 @@
-import { after } from 'next/server';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { SavedNotice } from '@/components/ui/save-notice';
 import { requiresEmail } from '@/schemas/signups';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
-import { recordOrganizerView } from '@/lib/view-tracker';
+import { trackOrganizerView } from '@/lib/view-tracker';
 import { FormError } from '@/components/ui/form-error';
 import { setRequireEmailAction } from '../actions';
 import { DeleteSignupForm } from './delete-signup-form';
@@ -22,15 +21,13 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
   if (!result.ok) return null;
   const sig = result.value;
   const requireEmail = requiresEmail(sig.settings);
-  after(() =>
-    recordOrganizerView({
-      actor: { actorId: session.organizerId, actorType: 'organizer' },
-      signupId: sig.id,
-      workspaceId: sig.workspaceId,
-      eventType: 'signup.editor_opened',
-      payload: { section: 'settings' },
-    }),
-  );
+  await trackOrganizerView({
+    actor: { actorId: session.organizerId, actorType: 'organizer' },
+    signupId: sig.id,
+    workspaceId: sig.workspaceId,
+    eventType: 'signup.editor_opened',
+    payload: { section: 'settings' },
+  });
 
   // Reminders are configured on the date field itself, in the Build tab's
   // field editor. This tab keeps what has no better home: whether the sign-up

@@ -25,10 +25,13 @@ export function DraftLine() {
  * the bar at the bottom, beside Share.
  */
 export function PhoneStanding({
+  signupId,
   status,
   publicUrl,
   spotsTaken,
 }: {
+  /** For the chip, which records a copy against the signup. */
+  signupId: string;
   status: SignupStatus;
   publicUrl: string;
   /** From `spotsTakenLine`; null for a draft. */
@@ -37,7 +40,7 @@ export function PhoneStanding({
   if (status === 'draft') return <DraftLine />;
   return (
     <div className="flex flex-col gap-1.5">
-      <PublicLinkChip url={publicUrl} />
+      <PublicLinkChip url={publicUrl} signupId={signupId} />
       {status !== 'open' && spotsTaken ? (
         <p className="text-[13px] text-ink-muted">{spotsTaken}</p>
       ) : null}

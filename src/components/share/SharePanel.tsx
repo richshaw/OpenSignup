@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useId, useRef, useState, type Ref } from 'r
 import { Check, Copy, Mail, Share } from 'lucide-react';
 import { useClipboardCopy } from '@/hooks/useClipboardCopy';
 import { withLink } from '@/lib/share-message';
+import { emitSignupLinkEvent } from '@/lib/signup-link-events';
 import { ShareQrCode } from './ShareQrCode';
 
 export interface SharePanelProps {
@@ -11,6 +12,8 @@ export interface SharePanelProps {
   variant: 'desktop' | 'phone';
   /** Just published: says that nobody has the link yet. */
   firstTime: boolean;
+  /** The signup the link is for, so a copy or a share is recorded against it. */
+  signupId: string;
   /** The signup's title: the email's subject and the shared title. */
   title: string;
   /** The public link. */
@@ -36,9 +39,10 @@ type Copied = 'link' | 'message';
 
 /**
  * Ways to send a published signup's link: copy it, copy or email a message
- * with it, a QR code, and on a phone the phone's own share menu. Everything
- * happens in the browser or the organizer's own apps; nothing is sent to us
- * or to anyone else. Loaded only when it opens.
+ * with it, a QR code, and on a phone the phone's own share menu. The sending
+ * happens in the browser or the organizer's own apps. Each copy or share
+ * that worked is recorded (`emitSignupLinkEvent`): which button, and nothing
+ * about the message or who it went to. Loaded only when it opens.
  *
  * The heading, "Published" and the ✕ are the container's (`ShareButton`),
  * so the popover or sheet is named and can be closed while this loads.
@@ -50,6 +54,7 @@ type Copied = 'link' | 'message';
 export function SharePanel({
   variant,
   firstTime,
+  signupId,
   title,
   url,
   message,
@@ -99,6 +104,7 @@ export function SharePanel({
     if (worked) {
       setRefused(null);
       setLastCopied(what);
+      emitSignupLinkEvent(signupId, 'copied', what === 'link' ? 'share_panel' : 'share_message');
     } else {
       setLastCopied(null);
       setRefused((was) => ({ what, n: (was?.n ?? 0) + 1 }));
@@ -111,10 +117,11 @@ export function SharePanel({
       await navigator.share({ title: title.trim(), text: toSend });
     } catch {
       // Closing the menu without sending rejects with AbortError, and a
-      // refused share rejects too. Neither sent anything.
+      // refused share rejects too. Neither sent anything, so neither counts.
       return;
     }
     setShared(true);
+    emitSignupLinkEvent(signupId, 'shared', 'share_menu');
   }
 
   const lead = firstTime ? LEAD_FIRST_TIME : LEAD_LATER[variant];
@@ -168,7 +175,12 @@ export function SharePanel({
             {messageCopy.copied ? <Check size={14} strokeWidth={2.6} aria-hidden="true" /> : null}
             {messageCopy.copied ? 'Copied' : 'Copy message'}
           </button>
-          <a href={mailto} className={messageAction}>
+          <a
+            href={mailto}
+            // Counted on the click: what happens in the email app isn't ours to see.
+            onClick={() => emitSignupLinkEvent(signupId, 'shared', 'email')}
+            className={messageAction}
+          >
             <Mail size={14} aria-hidden="true" />
             Email it
           </a>
@@ -226,7 +238,7 @@ export function SharePanel({
             {linkNotice}
             <div className="flex gap-2">
               {copyLinkButton}
-              <ShareQrCode url={url} variant="phone" />
+              <ShareQrCode signupId={signupId} url={url} variant="phone" />
             </div>
           </div>
           {messageBox}
@@ -241,7 +253,7 @@ export function SharePanel({
             {linkNotice}
           </div>
           {messageBox}
-          <ShareQrCode url={url} variant="desktop" />
+          <ShareQrCode signupId={signupId} url={url} variant="desktop" />
         </>
       )}
     </div>

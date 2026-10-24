@@ -22,6 +22,7 @@ function Phone({ status, action }: { status: SignupStatus; action: StatusAction 
     <HeaderAnnouncer status={status}>
       <ShareScope
         publishAction={action}
+        signupId="sig_1"
         title="Bake sale helpers"
         url={LINK}
         message={`Bake sale helpers\n${LINK}`}
@@ -29,7 +30,14 @@ function Phone({ status, action }: { status: SignupStatus; action: StatusAction 
         <MobileSignupHeader
           title="Bake sale helpers"
           status={status}
-          standing={<PhoneStanding status={status} publicUrl={LINK} spotsTaken={spotsTaken} />}
+          standing={
+            <PhoneStanding
+              signupId="sig_1"
+              status={status}
+              publicUrl={LINK}
+              spotsTaken={spotsTaken}
+            />
+          }
           previewItem={<PhonePreviewItem href={PREVIEW} />}
           spotsTaken={spotsTaken}
           closeQuestion={QUESTION}

@@ -4,7 +4,7 @@ Developer evals for OpenSignup's Magic Compose feature (natural-language to sign
 
 ## Files
 
-- `dev-evals.json` — 26-case developer eval suite, shared by the Magic Compose and MCP runners, covering each `fieldType`, cross-product/groupBy correctness, edge cases, multilingual input, hostile prompts, and the server invariants that hold regardless of model output.
+- `dev-evals.json` — 27-case developer eval suite, shared by the Magic Compose and MCP runners, covering each `fieldType`, cross-product/groupBy correctness, capacity instead of duplicate rows, edge cases, multilingual input, hostile prompts, and the server invariants that hold regardless of model output.
 
 The user-facing starter prompts (School, Sports, Volunteering) shipped in the UI as click-to-try chips live in the Magic Compose UI code, not as a JSON file in this directory.
 
@@ -128,3 +128,4 @@ When adding a case:
 - Empty prompt rejected with `invalid_input` before LLM call (`ev_014`).
 - No PII fields, no tenant IDs in model output (`ev_012`, `ev_020`).
 - Refusal pattern on hostile prompts (`ev_013`).
+- Several people for the same thing is one slot with a capacity, not a row per person: shifts that each need several volunteers, several parents per game, and the "Classroom or school" starter prompt word for word, whose potluck is one slot per dish type (`ev_005`, `ev_006`, `ev_026`, `ev_027`). `ev_025` is the counter-case, one parent per game at capacity 1. Run them together with `--tag=capacity_not_duplicate_rows`.
