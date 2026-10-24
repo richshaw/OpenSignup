@@ -9,10 +9,11 @@ import type { CloseQuestionAction } from './CloseSignupConfirm';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
 import { MobileSignupHeader } from './MobileSignupHeader';
 import { MoreActionsMenu } from './MoreActionsMenu';
+import { ShareButton } from './ShareButton';
+import { ShareScope } from './ShareScope';
 import {
   StatusActionButtonForm,
   StatusActionRefusal,
-  StatusActionScope,
   type StatusAction,
 } from './StatusActionForm';
 
@@ -25,6 +26,8 @@ interface SignupHeaderProps {
   spots: SpotCounts | null;
   /** Asks the question again from the spots taken now, when ⋯ opens. */
   closeQuestionAction: CloseQuestionAction;
+  /** What the share panel offers to send with the link, from `shareMessage`. */
+  shareMessage: string;
   publishAction: StatusAction;
   closeAction: StatusAction;
 }
@@ -36,16 +39,29 @@ export function SignupHeader({
   publicUrl,
   spots,
   closeQuestionAction,
+  shareMessage,
   publishAction,
   closeAction,
 }: SignupHeaderProps) {
   const previewHref = `/app/signups/${signupId}/preview`;
   const gridColsClass =
-    status === 'draft' ? 'grid-cols-2' : status === 'open' ? 'grid-cols-[1fr_auto]' : 'grid-cols-1';
+    status === 'draft'
+      ? 'grid-cols-2'
+      : status === 'open'
+        ? 'grid-cols-[1fr_1fr_auto]'
+        : 'grid-cols-1';
   const closeQuestion = spots ? closeSignupQuestion(spots) : '';
 
   return (
     <HeaderAnnouncer status={status}>
+      {/* Publish, from either header, and the share panel it opens. */}
+      <ShareScope
+        publishAction={publishAction}
+        signupId={signupId}
+        title={title}
+        url={publicUrl}
+        message={shareMessage}
+      >
       <div className="md:hidden">
         <MobileSignupHeader
           signupId={signupId}
@@ -54,14 +70,13 @@ export function SignupHeader({
           publicUrl={publicUrl}
           closeQuestion={closeQuestion}
           closeQuestionAction={closeQuestionAction}
-          publishAction={publishAction}
           closeAction={closeAction}
         />
       </div>
-      {/* Publish, or on an open signup the ⋯ that holds Close signup. Publish's
-          refusal shows on its own full-width line under the header, not in the
-          button grid; Close signup's shows in its panel, which runs it. */}
-      <StatusActionScope action={publishAction}>
+      {/* Publish, or on an open signup Share and the ⋯ that holds Close
+          signup. Publish's refusal shows on its own full-width line under the
+          header, not in the button grid; Close signup's shows in its panel,
+          which runs it. */}
       <header className="hidden space-y-3 md:block">
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0 flex-1 space-y-3">
@@ -99,17 +114,20 @@ export function SignupHeader({
             </StatusActionButtonForm>
           ) : null}
           {status === 'open' ? (
-            <MoreActionsMenu
-              closeQuestion={closeQuestion}
-              closeQuestionAction={closeQuestionAction}
-              closeAction={closeAction}
-            />
+            <>
+              <ShareButton variant="desktop" />
+              <MoreActionsMenu
+                closeQuestion={closeQuestion}
+                closeQuestionAction={closeQuestionAction}
+                closeAction={closeAction}
+              />
+            </>
           ) : null}
         </div>
       </div>
       {status === 'draft' ? <StatusActionRefusal /> : null}
       </header>
-      </StatusActionScope>
+      </ShareScope>
     </HeaderAnnouncer>
   );
 }

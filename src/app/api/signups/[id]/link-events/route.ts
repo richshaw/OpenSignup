@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * A beacon from the organizer's pages when they copy or share a signup's
- * link: `?event=copied&surface=…`, no body. Behind the organizer's session
+ * link: `?event=copied&surface=…` or `?event=shared&surface=…`, no body. Behind the organizer's session
  * rather than a per-IP rate limit, since only a signed-in member of the
  * signup's workspace can write one, and metered per organizer, since a viewer
  * can too.

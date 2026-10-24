@@ -30,13 +30,20 @@ async function requireActor() {
  * The header's Publish and Close signup. A refusal (a viewer's role, a signup
  * already published or closed in another tab, no slots yet) returns what to
  * tell the organizer, shown under the button, and revalidates nothing.
+ *
+ * Both stay on the tab they were pressed on and re-render the layout. Publish
+ * says it published, which is what opens the header's share panel: an answer
+ * to this press, not a flag in the URL, so a reload or a shared link never
+ * opens it again.
  */
-export async function publishAction(signupId: string): Promise<{ error: string } | null> {
+export async function publishAction(
+  signupId: string,
+): Promise<{ error: string } | { published: true }> {
   const actor = await requireActor();
   const result = await refusalAsResult(() => publishSignup(getDb(), actor, signupId));
   if (!result.ok) return { error: statusRefusal(result.error, 'publish') };
   revalidateSignup(signupId);
-  redirect(`/app/signups/${signupId}/build?published=1`);
+  return { published: true };
 }
 
 export async function closeAction(signupId: string): Promise<{ error: string } | null> {

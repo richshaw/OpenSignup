@@ -259,13 +259,22 @@ describe('a viewer choosing Publish, Close or Delete (db)', () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it('Close says the viewer can’t edit and leaves the signup open', async () => {
+  it('Publish says it published and re-renders the signup where it was pressed', async () => {
     session.actor = owner;
-    expect(await redirectOf(() => publishAction(signupId))).toBe(
-      `/app/signups/${signupId}/build?published=1`,
-    );
-    revalidatePath.mockClear();
+    expect(await publishAction(signupId)).toEqual({ published: true });
+    expect((await row())?.status).toBe('open');
+    expect(revalidatePath).toHaveBeenCalledWith(`/app/signups/${signupId}`, 'layout');
+  });
 
+  it('Publish on a signup that’s already open asks for a reload', async () => {
+    session.actor = owner;
+    expect(await publishAction(signupId)).toEqual({
+      error: 'This signup changed since the page loaded. Reload to see the latest.',
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('Close says the viewer can’t edit and leaves the signup open', async () => {
     session.actor = viewer;
     expect(await closeAction(signupId)).toEqual({ error: 'You don’t have edit access.' });
     expect((await row())?.status).toBe('open');

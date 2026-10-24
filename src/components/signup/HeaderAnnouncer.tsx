@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -31,6 +32,20 @@ export function useAnnouncedClose(closeAction: StatusAction): StatusAction {
   };
 }
 
+// Called when this page's Publish has published the signup.
+const PublishedHere = createContext<(() => void) | null>(null);
+
+/**
+ * What the header's share panel calls when Publish on this page answers that
+ * it published, so the header says so. Focus is the panel's, which opens at
+ * the same moment. A signup published some other way says nothing.
+ */
+export function useAnnouncePublished(): () => void {
+  return useContext(PublishedHere) ?? noop;
+}
+
+function noop() {}
+
 /**
  * Holds the computer and phone headers, with one live region for both that
  * says what a change made from this page did. Closing a signup takes away
@@ -47,6 +62,10 @@ export function HeaderAnnouncer({
   const [message, setMessage] = useState('');
   const previous = useRef(status);
   const closedHere = useRef(false);
+  const publishedHere = useCallback(
+    () => setMessage('Published. Anyone with the link can sign up now.'),
+    [],
+  );
 
   useEffect(() => {
     const was = previous.current;
@@ -68,7 +87,7 @@ export function HeaderAnnouncer({
 
   return (
     <ClosedHere.Provider value={closedHere}>
-      {children}
+      <PublishedHere.Provider value={publishedHere}>{children}</PublishedHere.Provider>
       {/* Last, so the layout's spacing between the headers and the tabs stays
           as it was. */}
       <p role="status" className="sr-only">

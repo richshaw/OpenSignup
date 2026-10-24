@@ -3,8 +3,12 @@
 import { createContext, useActionState, useContext, type ReactNode } from 'react';
 import { FormError } from '@/components/ui/form-error';
 
-export type StatusAction = () => Promise<{ error: string } | null>;
-type StatusActionState = Awaited<ReturnType<StatusAction>>;
+/**
+ * What Publish or Close signup answers: why it was refused, that it
+ * published (which opens the share panel), or nothing.
+ */
+type StatusActionState = { error: string } | { published: true } | null;
+export type StatusAction = () => Promise<StatusActionState>;
 
 // What useActionState returns: the refusal (or null), the form action, pending.
 const StatusActionContext = createContext<readonly [StatusActionState, () => void, boolean] | null>(
@@ -16,7 +20,8 @@ const StatusActionContext = createContext<readonly [StatusActionState, () => voi
  * sit in one place (`StatusActionButtonForm`) and its refusal in another
  * (`StatusActionRefusal`), such as a full-width line under the header. When
  * the action is refused it returns why, and that shows instead of nothing
- * happening.
+ * happening. One scope serves the computer and phone headers both, so it
+ * outlives the phone's More actions sheet, which closes as Publish lands.
  */
 export function StatusActionScope({
   action,
@@ -49,10 +54,15 @@ export function useStatusActionPending(): boolean {
   return useContext(StatusActionContext)?.[2] ?? false;
 }
 
+/** What Publish or Close signup last answered, null before either is pressed. */
+export function useStatusActionState(): StatusActionState {
+  return useContext(StatusActionContext)?.[0] ?? null;
+}
+
 /** Why Publish or Close signup was refused, or nothing until it is. */
 export function StatusActionRefusal({ className }: { className?: string }) {
   const state = useContext(StatusActionContext)?.[0];
-  return state ? (
+  return state && 'error' in state ? (
     <div className={className}>
       <FormError>{state.error}</FormError>
     </div>
