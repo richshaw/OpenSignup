@@ -38,6 +38,12 @@ type BottomSheetProps = {
    * land the caret on a particular field instead.
    */
   onOpenAutoFocus?: (event: Event) => void;
+  /**
+   * Radix hands focus back, on close, to whatever had it when the sheet
+   * opened. Pass a handler that calls `preventDefault()` and focuses
+   * something else when that might be gone by then.
+   */
+  onCloseAutoFocus?: (event: Event) => void;
   children: ReactNode;
 };
 
@@ -59,6 +65,7 @@ export function BottomSheet({
   compact = false,
   busy = false,
   onOpenAutoFocus,
+  onCloseAutoFocus,
   children,
 }: BottomSheetProps) {
   return (
@@ -69,6 +76,7 @@ export function BottomSheet({
           // With no description, say so; with one, Radix links it.
           {...(description ? {} : { 'aria-describedby': undefined })}
           {...(onOpenAutoFocus ? { onOpenAutoFocus } : {})}
+          {...(onCloseAutoFocus ? { onCloseAutoFocus } : {})}
           className={[
             'fixed z-50 bg-white flex flex-col overflow-hidden',
             // mobile: bottom sheet

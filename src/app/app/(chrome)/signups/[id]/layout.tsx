@@ -3,12 +3,12 @@ import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/se
 import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { countActiveCommitmentsForSignup } from '@/services/commitments';
 import { publicSignupUrl } from '@/lib/links';
+import { shareMessage } from '@/lib/share-message';
 import { spotCounts } from '@/lib/spot-counts';
 import { SignupHeader } from '@/components/signup/SignupHeader';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
 import { Banner } from '@/components/banner';
-import { PublishedBanner } from '@/components/signup/PublishedBanner';
 import { SignupLoadError } from '@/components/signup/SignupLoadError';
 import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, closeQuestionAction, publishAction } from './actions';
@@ -45,6 +45,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   if (filled && !filled.ok) {
     return <SignupLoadError message={filled.error.message} />;
   }
+  const publicUrl = publicSignupUrl(sig.slug);
 
   return (
     <div className="space-y-6">
@@ -52,13 +53,13 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
         signupId={id}
         title={sig.title}
         status={sig.status as SignupStatus}
-        publicUrl={publicSignupUrl(sig.slug)}
+        publicUrl={publicUrl}
         spots={filled ? spotCounts(sig.slots, filled.value) : null}
         closeQuestionAction={closeQuestionAction.bind(null, id)}
+        shareMessage={shareMessage(sig, publicUrl)}
         publishAction={publishAction.bind(null, id)}
         closeAction={closeAction.bind(null, id)}
       />
-      <PublishedBanner signupStatus={sig.status} />
       {/* On every tab, for as long as it's closed. Not a live region: closing
           it from this page is announced by the header. */}
       {sig.status === 'closed' ? (

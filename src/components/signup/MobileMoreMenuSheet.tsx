@@ -11,6 +11,7 @@ import {
   StatusActionButtonForm,
   StatusActionRefusal,
   StatusActionScope,
+  useStatusActionPending,
   type StatusAction,
 } from './StatusActionForm';
 
@@ -20,17 +21,21 @@ type MobileMoreMenuSheetProps = {
   status: SignupStatus;
   title: string;
   closeQuestion: string;
-  publishAction: StatusAction;
   closeAction: StatusAction;
 };
 
+/**
+ * The phone's More actions: Publish signup, or Close signup, which asks
+ * first. Publish runs in `SignupHeader`'s `StatusActionScope`, which outlives
+ * this sheet, so its answer still opens the share sheet once this one has
+ * closed. Close signup runs in a scope of its own here.
+ */
 export function MobileMoreMenuSheet({
   open,
   onClose,
   status,
   title,
   closeQuestion,
-  publishAction,
   closeAction,
 }: MobileMoreMenuSheetProps) {
   // Close signup asks first, in the sheet, as it does in the ⋯ panel on a
@@ -45,22 +50,11 @@ export function MobileMoreMenuSheet({
   return (
     <BottomSheet open={open} onClose={close} title={title} compact>
       <div className="flex flex-col">
-        <StatusActionScope action={status === 'draft' ? publishAction : closeSignup}>
-          {status === 'draft' ? (
-            <StatusActionButtonForm>
-              <AsyncSubmitButton
-                loadingLabel="Publishing…"
-                className="flex w-full py-3.5 text-[15px] font-semibold text-brand"
-              >
-                <Send size={16} aria-hidden="true" />
-                <span>Publish signup</span>
-              </AsyncSubmitButton>
-              <StatusActionRefusal className="pb-3" />
-            </StatusActionButtonForm>
-          ) : null}
+        {status === 'draft' ? <PublishItem /> : null}
 
-          {status === 'open' ? (
-            confirming ? (
+        {status === 'open' ? (
+          <StatusActionScope action={closeSignup}>
+            {confirming ? (
               <CloseSignupConfirm phone question={closeQuestion} onNotYet={close} />
             ) : (
               <button
@@ -71,10 +65,33 @@ export function MobileMoreMenuSheet({
                 <XCircle size={16} aria-hidden="true" />
                 <span>Close signup</span>
               </button>
-            )
-          ) : null}
-        </StatusActionScope>
+            )}
+          </StatusActionScope>
+        ) : null}
       </div>
     </BottomSheet>
+  );
+}
+
+/**
+ * Publish signup, in the header's scope. Its refusal shows only for a press
+ * made since the sheet opened, as Close signup's does: the scope outlives
+ * the sheet, and an old refusal would otherwise come back with it.
+ */
+function PublishItem() {
+  const pending = useStatusActionPending();
+  const [pressed, setPressed] = useState(false);
+  return (
+    <StatusActionButtonForm>
+      <AsyncSubmitButton
+        loadingLabel="Publishing…"
+        onClick={() => setPressed(true)}
+        className="flex w-full py-3.5 text-[15px] font-semibold text-brand"
+      >
+        <Send size={16} aria-hidden="true" />
+        <span>Publish signup</span>
+      </AsyncSubmitButton>
+      {pressed && !pending ? <StatusActionRefusal className="pb-3" /> : null}
+    </StatusActionButtonForm>
   );
 }

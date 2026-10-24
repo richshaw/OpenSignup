@@ -67,7 +67,8 @@ wait Saved
 click Done
 ss organizer-builder
 click Publish
-wait Signup published
+wait Now send people the link
+press Escape
 follow Open public page
 as-visitor
 wait Fruit and water

@@ -8,6 +8,7 @@ import type { SignupStatus } from '@/schemas/signups';
 import { useCloseQuestion, type CloseQuestionAction } from './CloseSignupConfirm';
 import type { StatusAction } from './StatusActionForm';
 import { MobileMoreMenuSheet } from './MobileMoreMenuSheet';
+import { ShareButton } from './ShareButton';
 
 interface MobileSignupHeaderProps {
   title: string;
@@ -15,21 +16,24 @@ interface MobileSignupHeaderProps {
   publicUrl: string;
   closeQuestion: string;
   closeQuestionAction: CloseQuestionAction;
-  publishAction: StatusAction;
   closeAction: StatusAction;
 }
 
+/** The phone's header. Publish runs in `SignupHeader`'s scope, Close signup in the sheet's. */
 export function MobileSignupHeader({
   title,
   status,
   publicUrl,
   closeQuestion,
   closeQuestionAction,
-  publishAction,
   closeAction,
 }: MobileSignupHeaderProps) {
   const [question, askAgain] = useCloseQuestion(closeQuestion, closeQuestionAction);
-  const [menuOpen, setMenuOpen] = useState(false);
+  // The status the More actions sheet was opened on. Publishing or closing
+  // changes the status, which closes the sheet rather than leaving it open on
+  // what the signup can do next: after Publish the share sheet opens instead.
+  const [menuFor, setMenuFor] = useState<SignupStatus | null>(null);
+  const menuOpen = menuFor === status;
   const hasActions = status === 'draft' || status === 'open';
 
   return (
@@ -55,7 +59,7 @@ export function MobileSignupHeader({
             <button
               type="button"
               onClick={() => {
-                setMenuOpen(true);
+                setMenuFor(status);
                 if (status === 'open') askAgain();
               }}
               aria-label="More actions"
@@ -69,17 +73,15 @@ export function MobileSignupHeader({
         </div>
 
         <PublicLinkChip url={publicUrl} />
+        {status === 'open' ? <ShareButton variant="phone" /> : null}
       </header>
 
-      {/* Closing the signup closes the sheet too, rather than leaving it open
-          with nothing in it. */}
       <MobileMoreMenuSheet
-        open={menuOpen && hasActions}
-        onClose={() => setMenuOpen(false)}
+        open={menuOpen}
+        onClose={() => setMenuFor(null)}
         status={status}
         title={title}
         closeQuestion={question}
-        publishAction={publishAction}
         closeAction={closeAction}
       />
     </>
