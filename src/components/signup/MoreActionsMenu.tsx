@@ -1,15 +1,19 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { MoreHorizontal, XCircle } from 'lucide-react';
 import { Popover } from '@/components/ui/Popover';
-import { CloseSignupConfirm } from './CloseSignupConfirm';
+import {
+  CloseSignupConfirm,
+  useCloseQuestion,
+  type CloseQuestionAction,
+} from './CloseSignupConfirm';
 import { useAnnouncedClose } from './HeaderAnnouncer';
 import { StatusActionScope, useStatusActionPending, type StatusAction } from './StatusActionForm';
 
 interface MoreActionsMenuProps {
   closeQuestion: string;
+  closeQuestionAction: CloseQuestionAction;
   closeAction: StatusAction;
 }
 
@@ -18,17 +22,24 @@ interface MoreActionsMenuProps {
  * signup, asks first in the same panel: a signup can't be reopened, so
  * closing it is never one click in the spot where Publish was.
  */
-export function MoreActionsMenu({ closeQuestion, closeAction }: MoreActionsMenuProps) {
+export function MoreActionsMenu({
+  closeQuestion,
+  closeQuestionAction,
+  closeAction,
+}: MoreActionsMenuProps) {
   const closeSignup = useAnnouncedClose(closeAction);
   return (
     <StatusActionScope action={closeSignup}>
-      <Menu closeQuestion={closeQuestion} />
+      <Menu closeQuestion={closeQuestion} closeQuestionAction={closeQuestionAction} />
     </StatusActionScope>
   );
 }
 
-function Menu({ closeQuestion }: { closeQuestion: string }) {
-  const router = useRouter();
+function Menu({
+  closeQuestion,
+  closeQuestionAction,
+}: Pick<MoreActionsMenuProps, 'closeQuestion' | 'closeQuestionAction'>) {
+  const [question, askAgain] = useCloseQuestion(closeQuestion, closeQuestionAction);
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const pending = useStatusActionPending();
@@ -37,9 +48,7 @@ function Menu({ closeQuestion }: { closeQuestion: string }) {
 
   function openMenu() {
     setOpen(true);
-    // The question counts the spots taken, and the header's counts are from
-    // when the page loaded: switching tabs doesn't reload them.
-    router.refresh();
+    askAgain();
   }
 
   // Held open while Close signup is in flight, so a refusal has somewhere to
@@ -73,7 +82,7 @@ function Menu({ closeQuestion }: { closeQuestion: string }) {
       >
         {confirming ? (
           <div className="p-1.5">
-            <CloseSignupConfirm question={closeQuestion} onNotYet={close} />
+            <CloseSignupConfirm question={question} onNotYet={close} />
           </div>
         ) : (
           <button

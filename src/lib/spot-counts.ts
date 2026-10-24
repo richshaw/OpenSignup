@@ -9,6 +9,11 @@ export interface SpotCounts {
    * than none, added up. Null when an open slot has no limit.
    */
   open: number | null;
+  /**
+   * Whether every slot is open. Only then does no open spots mean every spot
+   * is taken: a closed slot can still have free ones.
+   */
+  allSlotsOpen: boolean;
 }
 
 /**
@@ -24,15 +29,19 @@ export function spotCounts(
   let taken = 0;
   let total: number | null = 0;
   let open: number | null = 0;
+  let allSlotsOpen = true;
   for (const slot of slots) {
     const onSlot = committedBySlot[slot.id] ?? 0;
     taken += onSlot;
     total = total === null || slot.capacity === null ? null : total + slot.capacity;
-    if (slot.status !== 'open') continue;
+    if (slot.status !== 'open') {
+      allSlotsOpen = false;
+      continue;
+    }
     open =
       open === null || slot.capacity === null ? null : open + Math.max(0, slot.capacity - onSlot);
   }
-  return { taken, total, open };
+  return { taken, total, open, allSlotsOpen };
 }
 
 /**
@@ -43,12 +52,10 @@ export function closeSignupQuestion(counts: SpotCounts): string {
   return `${standing(counts)} People can’t sign up after this, and you can’t reopen it.`;
 }
 
-function standing({ taken, total, open }: SpotCounts): string {
+function standing({ taken, total, open, allSlotsOpen }: SpotCounts): string {
   if (taken === 0) return 'Nobody has signed up yet.';
   if (open === null) return taken === 1 ? '1 spot is taken.' : `${taken} spots are taken.`;
-  if (open === 0) {
-    return total !== null && taken >= total ? 'Every spot is taken.' : 'No spots are still open.';
-  }
+  if (open === 0) return allSlotsOpen ? 'Every spot is taken.' : 'No spots are open.';
   const verb = open === 1 ? 'is' : 'are';
   if (total === null) return `${open} ${open === 1 ? 'spot' : 'spots'} ${verb} still open.`;
   return `${open} of ${total} spots ${verb} still open.`;

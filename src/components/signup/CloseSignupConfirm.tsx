@@ -8,8 +8,30 @@ import {
   useStatusActionPending,
 } from './StatusActionForm';
 
+/** `closeQuestionAction`, bound to the signup. */
+export type CloseQuestionAction = () => Promise<{ question: string } | { error: string }>;
+
+/**
+ * Close signup's question, and a function to ask it again from the spots
+ * taken now, for when the menu opens: the page's counts are from when it
+ * loaded, and switching tabs doesn't reload them. The page's question shows
+ * until the answer comes, and stays if none does.
+ */
+export function useCloseQuestion(pageQuestion: string, closeQuestionAction: CloseQuestionAction) {
+  const [fresh, setFresh] = useState<string | null>(null);
+  function askAgain() {
+    closeQuestionAction().then(
+      (answer) => {
+        if ('question' in answer) setFresh(answer.question);
+      },
+      () => {},
+    );
+  }
+  return [fresh ?? pageQuestion, askAgain] as const;
+}
+
 interface CloseSignupConfirmProps {
-  /** From `closeSignupQuestion`, built on the server. */
+  /** From `closeSignupQuestion`, built on the server (see `useCloseQuestion`). */
   question: string;
   onNotYet: () => void;
   /** The phone sheet's sizes: full-width buttons at least 44px tall. */

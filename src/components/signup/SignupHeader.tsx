@@ -5,6 +5,7 @@ import { StatusPill } from '@/components/status-pill';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { closeSignupQuestion, type SpotCounts } from '@/lib/spot-counts';
 import type { SignupStatus } from '@/schemas/signups';
+import type { CloseQuestionAction } from './CloseSignupConfirm';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
 import { MobileSignupHeader } from './MobileSignupHeader';
 import { MoreActionsMenu } from './MoreActionsMenu';
@@ -22,6 +23,8 @@ interface SignupHeaderProps {
   publicUrl: string;
   /** Spots taken, in all and still open, for what Close signup asks. Null for a draft. */
   spots: SpotCounts | null;
+  /** Asks the question again from the spots taken now, when ⋯ opens. */
+  closeQuestionAction: CloseQuestionAction;
   publishAction: StatusAction;
   closeAction: StatusAction;
 }
@@ -32,6 +35,7 @@ export function SignupHeader({
   status,
   publicUrl,
   spots,
+  closeQuestionAction,
   publishAction,
   closeAction,
 }: SignupHeaderProps) {
@@ -48,6 +52,7 @@ export function SignupHeader({
           status={status}
           publicUrl={publicUrl}
           closeQuestion={closeQuestion}
+          closeQuestionAction={closeQuestionAction}
           publishAction={publishAction}
           closeAction={closeAction}
         />
@@ -93,7 +98,11 @@ export function SignupHeader({
             </StatusActionButtonForm>
           ) : null}
           {status === 'open' ? (
-            <MoreActionsMenu closeQuestion={closeQuestion} closeAction={closeAction} />
+            <MoreActionsMenu
+              closeQuestion={closeQuestion}
+              closeQuestionAction={closeQuestionAction}
+              closeAction={closeAction}
+            />
           ) : null}
         </div>
       </div>

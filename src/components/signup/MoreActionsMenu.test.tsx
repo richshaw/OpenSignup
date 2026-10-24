@@ -1,17 +1,27 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import type { CloseQuestionAction } from './CloseSignupConfirm';
 import { MoreActionsMenu } from './MoreActionsMenu';
 import type { StatusAction } from './StatusActionForm';
-
-const refresh = vi.hoisted(() => vi.fn());
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }));
 
 const QUESTION =
   'Nobody has signed up yet. People can’t sign up after this, and you can’t reopen it.';
 
-function renderMenu(closeAction: StatusAction = vi.fn<StatusAction>(async () => null)) {
-  render(<MoreActionsMenu closeQuestion={QUESTION} closeAction={closeAction} />);
+/** Asking again is refused, so the page's question stays. */
+const keepQuestion: CloseQuestionAction = async () => ({ error: 'Not asked in this test.' });
+
+function renderMenu(
+  closeAction: StatusAction = vi.fn<StatusAction>(async () => null),
+  closeQuestionAction: CloseQuestionAction = keepQuestion,
+) {
+  render(
+    <MoreActionsMenu
+      closeQuestion={QUESTION}
+      closeQuestionAction={closeQuestionAction}
+      closeAction={closeAction}
+    />,
+  );
   return { closeAction, more: screen.getByRole('button', { name: 'More actions' }) };
 }
 
@@ -24,14 +34,28 @@ describe('MoreActionsMenu', () => {
     expect(more).toHaveAttribute('aria-haspopup', 'dialog');
     expect(more).toHaveAttribute('aria-expanded', 'false');
 
-    refresh.mockClear();
     fireEvent.click(more);
-    // For the question's counts, which are from when the page loaded.
-    expect(refresh).toHaveBeenCalledTimes(1);
     expect(more).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('dialog', { name: 'More actions' })).toBeInTheDocument();
     expect(closeButton()).toHaveFocus();
     expect(closeAction).not.toHaveBeenCalled();
+  });
+
+  it('asks the question again as it opens, from the spots taken now', async () => {
+    const fresh =
+      '3 of 6 spots are still open. People can’t sign up after this, and you can’t reopen it.';
+    let answer: (result: { question: string }) => void = () => {};
+    const closeQuestionAction = vi.fn<CloseQuestionAction>(
+      () => new Promise((resolve) => (answer = resolve)),
+    );
+    const { more } = renderMenu(undefined, closeQuestionAction);
+    fireEvent.click(more);
+    expect(closeQuestionAction).toHaveBeenCalledTimes(1);
+    fireEvent.click(closeButton());
+    // The page's question until the answer comes.
+    expect(screen.getByRole('group', { name: QUESTION })).toBeInTheDocument();
+    await act(async () => answer({ question: fresh }));
+    expect(screen.getByRole('group', { name: fresh })).toBeInTheDocument();
   });
 
   it('asks first, with focus on Not yet', () => {
@@ -88,7 +112,11 @@ describe('MoreActionsMenu', () => {
   it('closes when focus moves to something outside it, and leaves focus there', () => {
     render(
       <>
-        <MoreActionsMenu closeQuestion={QUESTION} closeAction={async () => null} />
+        <MoreActionsMenu
+          closeQuestion={QUESTION}
+          closeQuestionAction={keepQuestion}
+          closeAction={async () => null}
+        />
         <button type="button">Preview</button>
       </>,
     );

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { MoreHorizontal } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
 import type { SignupStatus } from '@/schemas/signups';
+import { useCloseQuestion, type CloseQuestionAction } from './CloseSignupConfirm';
 import type { StatusAction } from './StatusActionForm';
 import { MobileMoreMenuSheet } from './MobileMoreMenuSheet';
 
@@ -14,6 +14,7 @@ interface MobileSignupHeaderProps {
   status: SignupStatus;
   publicUrl: string;
   closeQuestion: string;
+  closeQuestionAction: CloseQuestionAction;
   publishAction: StatusAction;
   closeAction: StatusAction;
 }
@@ -23,10 +24,11 @@ export function MobileSignupHeader({
   status,
   publicUrl,
   closeQuestion,
+  closeQuestionAction,
   publishAction,
   closeAction,
 }: MobileSignupHeaderProps) {
-  const router = useRouter();
+  const [question, askAgain] = useCloseQuestion(closeQuestion, closeQuestionAction);
   const [menuOpen, setMenuOpen] = useState(false);
   const hasActions = status === 'draft' || status === 'open';
 
@@ -54,9 +56,7 @@ export function MobileSignupHeader({
               type="button"
               onClick={() => {
                 setMenuOpen(true);
-                // Close signup's question counts the spots taken, which
-                // switching tabs doesn't reload.
-                if (status === 'open') router.refresh();
+                if (status === 'open') askAgain();
               }}
               aria-label="More actions"
               aria-haspopup="dialog"
@@ -78,7 +78,7 @@ export function MobileSignupHeader({
         onClose={() => setMenuOpen(false)}
         status={status}
         title={title}
-        closeQuestion={closeQuestion}
+        closeQuestion={question}
         publishAction={publishAction}
         closeAction={closeAction}
       />

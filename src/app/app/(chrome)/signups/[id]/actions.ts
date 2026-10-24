@@ -6,8 +6,15 @@ import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
 import { refusalAsResult } from '@/lib/errors';
+import { closeSignupQuestion, spotCounts } from '@/lib/spot-counts';
 import { removeCommitment } from '@/services/commitments';
-import { closeSignup, deleteSignup, publishSignup, updateSignup } from '@/services/signups';
+import {
+  closeSignup,
+  deleteSignup,
+  getSignupForOrganizer,
+  publishSignup,
+  updateSignup,
+} from '@/services/signups';
 import { removeRefusal } from './responses/remove-refusal';
 import { statusRefusal } from './status-refusal';
 
@@ -38,6 +45,25 @@ export async function closeAction(signupId: string): Promise<{ error: string } |
   if (!result.ok) return { error: statusRefusal(result.error, 'close') };
   revalidateSignup(signupId);
   return null;
+}
+
+/**
+ * What Close signup asks, from the spots taken now. The header's counts are
+ * from when the page loaded, and switching tabs doesn't reload them, so the
+ * ⋯ menu asks for this as it opens. It only reads: nothing is revalidated,
+ * so the page isn't rendered again and records no view. A refusal comes back
+ * like Close signup's, and the menu keeps the question it has.
+ */
+export async function closeQuestionAction(
+  signupId: string,
+): Promise<{ question: string } | { error: string }> {
+  const actor = await requireActor();
+  const result = await refusalAsResult(() =>
+    getSignupForOrganizer(getDb(), actor, signupId, { includeFilled: true }),
+  );
+  if (!result.ok) return { error: statusRefusal(result.error, 'close') };
+  const { slots, committedBySlot } = result.value;
+  return { question: closeSignupQuestion(spotCounts(slots, committedBySlot ?? {})) };
 }
 
 /**

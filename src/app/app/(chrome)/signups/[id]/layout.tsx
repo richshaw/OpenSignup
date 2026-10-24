@@ -11,7 +11,7 @@ import { Banner } from '@/components/banner';
 import { PublishedBanner } from '@/components/signup/PublishedBanner';
 import { SignupLoadError } from '@/components/signup/SignupLoadError';
 import type { SignupStatus } from '@/schemas/signups';
-import { closeAction, publishAction } from './actions';
+import { closeAction, closeQuestionAction, publishAction } from './actions';
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -54,6 +54,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
         status={sig.status as SignupStatus}
         publicUrl={publicSignupUrl(sig.slug)}
         spots={filled ? spotCounts(sig.slots, filled.value) : null}
+        closeQuestionAction={closeQuestionAction.bind(null, id)}
         publishAction={publishAction.bind(null, id)}
         closeAction={closeAction.bind(null, id)}
       />
