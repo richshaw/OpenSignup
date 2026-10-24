@@ -26,12 +26,20 @@ export interface LlmClient {
   generateDraft(
     messages: ChatMessage[],
     signal?: AbortSignal,
+    options?: {
+      /**
+       * A shorter limit than `LLM_TIMEOUT_MS` for this one call, for a caller
+       * sharing one budget across two. Running out is still `timeout`; a
+       * shorter signal of the caller's own would come back as `aborted`.
+       */
+      timeoutMs?: number;
+    },
   ): Promise<Result<unknown, MagicComposeError>>;
 }
 
 export function defaultLlmClient(): LlmClient {
   return {
-    async generateDraft(messages, signal) {
+    async generateDraft(messages, signal, options = {}) {
       const env = getEnv();
       if (!env.LLM_BASE_URL || !env.LLM_MODEL) {
         return err({
@@ -41,7 +49,8 @@ export function defaultLlmClient(): LlmClient {
       }
 
       const url = resolveChatCompletionsUrl(env.LLM_BASE_URL);
-      const timeoutSignal = AbortSignal.timeout(env.LLM_TIMEOUT_MS);
+      const timeoutMs = Math.min(options.timeoutMs ?? env.LLM_TIMEOUT_MS, env.LLM_TIMEOUT_MS);
+      const timeoutSignal = AbortSignal.timeout(timeoutMs);
       const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
 
       try {
@@ -143,7 +152,7 @@ export function defaultLlmClient(): LlmClient {
         if (timeoutSignal.aborted) {
           return err({
             code: 'timeout',
-            message: `LLM request timed out after ${env.LLM_TIMEOUT_MS}ms`,
+            message: `LLM request timed out after ${timeoutMs}ms`,
           });
         }
         const message = e instanceof Error ? e.message : String(e);

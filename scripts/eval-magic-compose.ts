@@ -19,7 +19,12 @@ config({ path: '.env' });
 
 import path from 'node:path';
 import { defaultLlmClient } from '@/lib/magic-compose/llm-client';
-import { buildMessages, MagicComposeDraftSchema, type MagicComposeParsed } from '@/lib/magic-compose/prompt';
+import {
+  buildMessages,
+  isQuestionsReply,
+  MagicComposeDraftSchema,
+  type MagicComposeParsed,
+} from '@/lib/magic-compose/prompt';
 import { runEvalCli } from './lib/eval-harness';
 
 function isRefusal(p: MagicComposeParsed): p is { refusalReason: string } {
@@ -38,6 +43,10 @@ runEvalCli({
 
     const parsed = MagicComposeDraftSchema.safeParse(res.value);
     if (!parsed.success) return { status: 'parse_failed', raw: res.value, issues: parsed.error.issues, ms };
+    if (isQuestionsReply(parsed.data)) {
+      // The prompt doesn't ask yet; scoring questions comes with the prompt change.
+      return { status: 'llm_failed', code: 'questions', message: 'asked questions instead of drafting', ms };
+    }
     if (isRefusal(parsed.data)) {
       return { status: 'refusal', raw: res.value, refusalReason: parsed.data.refusalReason, ms };
     }

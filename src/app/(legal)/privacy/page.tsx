@@ -214,11 +214,12 @@ export default function PrivacyPage() {
         </p>
         <p>
           If the operator has turned on AI drafting, what an organizer types into it to describe
-          their signup is sent to the AI provider the operator configured, which turns it into a
-          draft. It goes as typed, so leave out anything you wouldn&apos;t want the provider to
-          see; nothing else about you, your signups or the people on them goes with it. The
-          provider handles it under its own terms. To keep a description away from the provider,
-          skip AI drafting and fill the signup in by hand.
+          their signup, along with any answers they give to the questions it asks, is sent to the AI
+          provider the operator configured, which turns it into a draft. It goes as typed, so leave
+          out anything you wouldn&apos;t want the provider to see; nothing else about you, your
+          signups or the people on them goes with it. The provider handles it under its own terms.
+          To keep a description away from the provider, skip AI drafting and fill the signup in by
+          hand.
         </p>
         <p>
           If third-party sign-in (for example, Google) is enabled and you choose it, you
