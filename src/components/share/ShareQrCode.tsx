@@ -49,12 +49,14 @@ function toPngDataUrl(code: Bitmap2D, title: string): string | null {
     ctx.font = titleFont(layout.fontPx);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // Each line is isolated (U+2068 … U+2069), so it reads in its own
-    // direction rather than the page's: a right-to-left title keeps its "…"
-    // at its end, on the left. The marks have no width, so the layout
-    // measures the line without them.
+    // Each line is isolated in the title's direction (U+2067 right to left,
+    // U+2066 left to right, … U+2069) rather than the page's, so a
+    // right-to-left title keeps its "…" at its end, on the left, even on a
+    // line that starts with a Latin word. The marks have no width, so the
+    // layout measures the line without them.
+    const isolate = layout.direction === 'rtl' ? '\u2067' : '\u2066';
     for (const line of layout.lines) {
-      ctx.fillText(`\u2068${line.text}\u2069`, layout.width / 2, line.middle);
+      ctx.fillText(`${isolate}${line.text}\u2069`, layout.width / 2, line.middle);
     }
     return big.toDataURL('image/png');
   } catch {

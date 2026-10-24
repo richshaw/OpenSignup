@@ -5,6 +5,7 @@ import {
   qrFileName,
   qrPngLayout,
   qrRuns,
+  textDirection,
   qrSide,
   qrSvgPath,
   type QrModules,
@@ -68,7 +69,14 @@ describe('qrSide and qrPngLayout', () => {
   });
 
   it('is the square code alone when there is no title', () => {
-    expect(layout('')).toEqual({ scale: 35, width: 1015, height: 1015, fontPx: 51, lines: [] });
+    expect(layout('')).toEqual({
+      scale: 35,
+      width: 1015,
+      height: 1015,
+      fontPx: 51,
+      lines: [],
+      direction: 'ltr',
+    });
     expect(layout('  \n ').lines).toEqual([]);
   });
 
@@ -141,6 +149,34 @@ describe('qrSide and qrPngLayout', () => {
         (l) => l.text,
       ),
     ).toEqual(['x'.repeat(28), `${'y'.repeat(21)}…`]);
+  });
+});
+
+describe('textDirection', () => {
+  it('reads a title from its first letter', () => {
+    expect(textDirection('Bake sale helpers')).toBe('ltr');
+    expect(textDirection('מתנדבים ליריד הספרים')).toBe('rtl');
+    expect(textDirection('متطوعون لمعرض الكتاب')).toBe('rtl');
+  });
+
+  it('skips digits, spaces and punctuation, which don’t decide it', () => {
+    expect(textDirection('2026: מתנדבים ליריד הספרים')).toBe('rtl');
+    expect(textDirection(' "12" Bake sale')).toBe('ltr');
+    expect(textDirection('2026 🎉')).toBe('ltr');
+  });
+
+  it('gives a Hebrew title one direction, though its second line starts with a Latin word', () => {
+    const measure = (text: string, fontPx: number) => (Array.from(text).length * fontPx) / 2;
+    const code = { size: 21, get: () => false };
+    // 28 characters a line at this size, so "Zoom" starts the second.
+    const { lines, direction } = qrPngLayout(
+      code,
+      'מתנדבים ליריד הספרים של בית Zoom ספר בשבת בבוקר והקמה ומכירה',
+      measure,
+      1000,
+    );
+    expect(lines[1]!.text.startsWith('Zoom')).toBe(true);
+    expect(direction).toBe('rtl');
   });
 });
 

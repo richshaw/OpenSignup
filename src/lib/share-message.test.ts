@@ -165,7 +165,11 @@ describe('shareMessage', () => {
 
 describe('shareMessage: when the slots are', () => {
   const TIME = { ref: 'time', fieldType: 'time', sortOrder: 2 } as const;
-  const timed = (date: string | undefined, time: string | undefined, capacity = 1) => {
+  const timed = (
+    date: string | undefined,
+    time: string | undefined,
+    capacity: number | null = 1,
+  ) => {
     const values: Record<string, string> = { what: 'Litter pick' };
     if (date !== undefined) values.date = date;
     if (time !== undefined) values.time = time;
@@ -250,6 +254,35 @@ describe('shareMessage: when the slots are', () => {
       timed('2026-11-14', '11:00', 3),
     ];
     expect(line(slots, [WHAT, DATE, TIME])).toBe('Sat, Nov 14, 11:00\u00a0AM · 3 spots open');
+  });
+
+  it('reads the slots with room, so a full one adds no day and hides no time', () => {
+    const full = timed('2026-11-07', '09:00', 1);
+    const slots = [full, timed('2026-11-14', '11:00', 3)];
+    expect(
+      shareMessage(signup({ fields: [WHAT, DATE, TIME], slots }), LINK, { [full.id]: 1 }),
+    ).toBe(`Fall book fair volunteers\nSat, Nov 14, 11:00\u00a0AM · 3 spots left\n${SIGN_UP}`);
+    // No limit is room.
+    const unlimited = [full, timed('2026-11-14', '11:00', null)];
+    expect(
+      shareMessage(signup({ fields: [WHAT, DATE, TIME], slots: unlimited }), LINK, {
+        [full.id]: 1,
+      }).split('\n')[1],
+    ).toBe('Sat, Nov 14, 11:00\u00a0AM');
+  });
+
+  it('reads the open slots when every one is full', () => {
+    const first = timed('2026-11-07', '11:00', 1);
+    const second = timed('2026-11-14', '11:00', 2);
+    const closed = { ...timed('2026-11-21', '09:00', 4), status: 'closed' };
+    const committed = { [first.id]: 1, [second.id]: 2 };
+    expect(
+      shareMessage(
+        signup({ fields: [WHAT, DATE, TIME], slots: [first, second, closed] }),
+        LINK,
+        committed,
+      ).split('\n')[1],
+    ).toBe('Sat, Nov 7 and Sat, Nov 14 · 11:00\u00a0AM');
   });
 
   it('reads every slot when none is open', () => {
