@@ -23,7 +23,6 @@ function Owner(props: Partial<SharePanelProps>) {
       url={LINK}
       message={message}
       onMessageChange={setMessage}
-      onClose={() => {}}
       {...props}
     />
   );
@@ -42,44 +41,30 @@ afterEach(() => {
   Reflect.deleteProperty(navigator, 'share');
 });
 
+// The heading, "Published" and the ✕ are ShareButton's, and tested there.
 describe('<SharePanel /> wording', () => {
-  it('says it was published, and that nobody has the link yet, the first time', () => {
-    render(<Owner firstTime headingId="share-heading" />);
-    expect(screen.getByText('Published')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Now send people the link' })).toHaveAttribute(
-      'id',
-      'share-heading',
-    );
+  it('says that nobody has the link yet, the first time', () => {
+    render(<Owner firstTime />);
     expect(
       screen.getByText('Anyone with the link can sign up. Nobody has it until you send it.'),
     ).toBeInTheDocument();
+    expect(screen.queryByRole('heading')).toBeNull();
   });
 
   it('says how to send it on later visits', () => {
     render(<Owner />);
-    expect(screen.queryByText('Published')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Share the link' })).toBeInTheDocument();
     expect(
       screen.getByText('Send it by email or in a group chat. Anyone with the link can sign up.'),
     ).toBeInTheDocument();
   });
 
-  it('names a group chat and a text first on a phone, whose sheet has the heading', () => {
+  it('names a group chat and a text first on a phone', () => {
     render(<Owner variant="phone" />);
-    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
     expect(
       screen.getByText(
         'Send it to a group chat, by text or by email. Anyone with the link can sign up.',
       ),
     ).toBeInTheDocument();
-  });
-
-  it('closes from its ✕', () => {
-    const onClose = vi.fn();
-    render(<Owner onClose={onClose} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(onClose).toHaveBeenCalledOnce();
   });
 });
 
@@ -106,13 +91,44 @@ describe('<SharePanel /> on a computer', () => {
     expect(screen.getByText('Link copied')).toBeInTheDocument();
   });
 
-  it('says nothing when the clipboard refuses', async () => {
+  it('says so when the clipboard refuses, and selects the link to copy by hand', async () => {
     writeText.mockRejectedValue(new Error('denied'));
     render(<Owner />);
     fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
-    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    await screen.findByText('Couldn’t copy. Select the link and copy it.');
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument();
     expect(screen.queryByText('Link copied')).not.toBeInTheDocument();
+    const field = screen.getByLabelText<HTMLInputElement>('Public link');
+    expect(field).toHaveFocus();
+    expect([field.selectionStart, field.selectionEnd]).toEqual([0, LINK.length]);
+
+    // A copy that works afterwards takes the place of the refusal.
+    writeText.mockResolvedValue(undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    await screen.findByText('Link copied');
+    expect(screen.queryByText('Couldn’t copy. Select the link and copy it.')).toBeNull();
+  });
+
+  it('says so when the clipboard refuses the message, and selects it', async () => {
+    writeText.mockRejectedValue(new Error('denied'));
+    render(<Owner />);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
+    await screen.findByText('Couldn’t copy. Select the message and copy it.');
+    const box = screen.getByLabelText<HTMLTextAreaElement>('A message to send with it');
+    expect(box).toHaveFocus();
+    expect([box.selectionStart, box.selectionEnd]).toEqual([0, MESSAGE.length]);
+  });
+
+  it('announces each copy, the last one made', async () => {
+    render(<Owner />);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    await screen.findByText('Link copied');
+    fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
+    await screen.findByText('Message copied');
+    expect(screen.queryByText('Link copied')).toBeNull();
+    // The link's button, first, still says Copied.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Copied' })[0]!);
+    await screen.findByText('Link copied');
   });
 
   it('copies the message as edited', async () => {
@@ -158,6 +174,18 @@ describe('<SharePanel /> on a computer', () => {
 });
 
 describe('<SharePanel /> on a phone', () => {
+  it('shows the link to copy by hand when the clipboard refuses it', async () => {
+    writeText.mockRejectedValue(new Error('denied'));
+    render(<Owner variant="phone" />);
+    expect(screen.queryByLabelText('Public link')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    await screen.findByText('Couldn’t copy. Select the link and copy it.');
+    const field = screen.getByLabelText<HTMLInputElement>('Public link');
+    expect(field).toHaveValue(LINK);
+    await waitFor(() => expect(field).toHaveFocus());
+    expect([field.selectionStart, field.selectionEnd]).toEqual([0, LINK.length]);
+  });
+
   it('without a share menu, starts on Copy link and keeps Copy message and Email it', () => {
     render(<Owner variant="phone" />);
     expect(screen.queryByRole('button', { name: 'Share…' })).not.toBeInTheDocument();

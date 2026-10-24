@@ -14,7 +14,6 @@ import { ShareScope } from './ShareScope';
 import {
   StatusActionButtonForm,
   StatusActionRefusal,
-  StatusActionScope,
   type StatusAction,
 } from './StatusActionForm';
 
@@ -55,11 +54,13 @@ export function SignupHeader({
 
   return (
     <HeaderAnnouncer status={status}>
-      {/* Publish, from either header, and the share panel it opens. One
-          scope for both, so it outlives the phone's More actions sheet,
-          which closes as Publish's answer lands. */}
-      <StatusActionScope action={publishAction}>
-      <ShareScope title={title} url={publicUrl} message={shareMessage}>
+      {/* Publish, from either header, and the share panel it opens. */}
+      <ShareScope
+        publishAction={publishAction}
+        title={title}
+        url={publicUrl}
+        message={shareMessage}
+      >
       <div className="md:hidden">
         <MobileSignupHeader
           title={title}
@@ -125,7 +126,6 @@ export function SignupHeader({
       {status === 'draft' ? <StatusActionRefusal /> : null}
       </header>
       </ShareScope>
-      </StatusActionScope>
     </HeaderAnnouncer>
   );
 }

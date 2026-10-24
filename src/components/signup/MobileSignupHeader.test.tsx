@@ -5,7 +5,7 @@ import type { SignupStatus } from '@/schemas/signups';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
 import { MobileSignupHeader } from './MobileSignupHeader';
 import { ShareScope } from './ShareScope';
-import { StatusActionScope, type StatusAction } from './StatusActionForm';
+import type { StatusAction } from './StatusActionForm';
 
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
 
@@ -17,18 +17,21 @@ const QUESTION =
 function Phone({ status, action }: { status: SignupStatus; action: StatusAction }) {
   return (
     <HeaderAnnouncer status={status}>
-      <StatusActionScope action={action}>
-        <ShareScope title="Bake sale helpers" url={LINK} message={`Bake sale helpers\n${LINK}`}>
-          <MobileSignupHeader
-            title="Bake sale helpers"
-            status={status}
-            publicUrl={LINK}
-            closeQuestion={QUESTION}
-            closeQuestionAction={async () => ({ question: QUESTION })}
-            closeAction={async () => null}
-          />
-        </ShareScope>
-      </StatusActionScope>
+      <ShareScope
+        publishAction={action}
+        title="Bake sale helpers"
+        url={LINK}
+        message={`Bake sale helpers\n${LINK}`}
+      >
+        <MobileSignupHeader
+          title="Bake sale helpers"
+          status={status}
+          publicUrl={LINK}
+          closeQuestion={QUESTION}
+          closeQuestionAction={async () => ({ question: QUESTION })}
+          closeAction={async () => null}
+        />
+      </ShareScope>
     </HeaderAnnouncer>
   );
 }

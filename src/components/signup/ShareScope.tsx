@@ -10,9 +10,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { loadSharePanel } from '@/components/share/load-share-panel';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useAnnouncePublished } from './HeaderAnnouncer';
-import { useStatusActionState } from './StatusActionForm';
+import { StatusActionScope, useStatusActionState, type StatusAction } from './StatusActionForm';
 
 interface Share {
   /** Whether the share panel is open, in whichever header is on screen. */
@@ -39,11 +40,16 @@ export function useShare(): Share {
 }
 
 /**
- * The share panel's state, for the computer and phone headers both: one
+ * Publish, from either header, and the share panel it opens. One
+ * `StatusActionScope` runs Publish for both headers, so it outlives the
+ * phone's More actions sheet, which closes as Publish's answer lands, and
+ * pressing Publish starts loading the panel's code.
+ *
+ * The share panel's state is for the computer and phone headers both: one
  * panel, shown as a popover by the computer's Share button or as a sheet on
  * a phone, never both. Publish on this page answering that it published
- * (inside the header's `StatusActionScope`) opens it in its first-time form,
- * and has the header say so. A signup published elsewhere does neither.
+ * opens it in its first-time form, and has the header say so. A signup
+ * published elsewhere does neither.
  *
  * The message is the server's, built from the signup, until the organizer
  * edits it; then the edit is kept while the page is open, so reopening the
@@ -51,16 +57,28 @@ export function useShare(): Share {
  * re-renders after Publish) replaces the one the page loaded with.
  */
 export function ShareScope({
-  title,
-  url,
-  message: serverMessage,
-  children,
-}: {
+  publishAction,
+  ...props
+}: ShareStateProps & { publishAction: StatusAction }) {
+  const publish = useCallback<StatusAction>(() => {
+    void loadSharePanel();
+    return publishAction();
+  }, [publishAction]);
+  return (
+    <StatusActionScope action={publish}>
+      <ShareState {...props} />
+    </StatusActionScope>
+  );
+}
+
+interface ShareStateProps {
   title: string;
   url: string;
   message: string;
   children: ReactNode;
-}) {
+}
+
+function ShareState({ title, url, message: serverMessage, children }: ShareStateProps) {
   const [open, setOpen] = useState(false);
   const [firstTime, setFirstTime] = useState(false);
   const [edited, setEdited] = useState<string | null>(null);

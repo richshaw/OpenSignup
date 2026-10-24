@@ -1,16 +1,16 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { Check, Copy, Mail, Share, X } from 'lucide-react';
+import { useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
+import { Check, Copy, Mail, Share } from 'lucide-react';
 import { useClipboardCopy } from '@/hooks/useClipboardCopy';
 import { withLink } from '@/lib/share-message';
+import { LINK_COPY_REFUSED, ShareLinkField } from './ShareLinkField';
 import { ShareQrCode } from './ShareQrCode';
-import { PublishedMark, shareHeading } from './share-heading';
 
 export interface SharePanelProps {
   /** A popover by the header's button on a computer, a sheet on a phone. */
   variant: 'desktop' | 'phone';
-  /** Just published: says so, and that nobody has the link yet. */
+  /** Just published: says that nobody has the link yet. */
   firstTime: boolean;
   /** The signup's title: the email's subject and the shared title. */
   title: string;
@@ -22,10 +22,6 @@ export interface SharePanelProps {
    */
   message: string;
   onMessageChange: (message: string) => void;
-  /** The ✕. */
-  onClose: () => void;
-  /** The heading's id, for the popover's `aria-labelledby`. */
-  headingId?: string;
 }
 
 const LEAD_FIRST_TIME = 'Anyone with the link can sign up. Nobody has it until you send it.';
@@ -34,18 +30,22 @@ const LEAD_LATER = {
   phone: 'Send it to a group chat, by text or by email. Anyone with the link can sign up.',
 } as const;
 
+const MESSAGE_COPY_REFUSED = 'Couldn’t copy. Select the message and copy it.';
+
+type Copied = 'link' | 'message';
+
 /**
  * Ways to send a published signup's link: copy it, copy or email a message
  * with it, a QR code, and on a phone the phone's own share menu. Everything
  * happens in the browser or the organizer's own apps; nothing is sent to us
  * or to anyone else. Loaded only when it opens.
  *
- * On a computer the panel has its own heading and ✕. On a phone the sheet
- * around it has them (`shareHeading`), since the sheet's dialog needs its
- * title in place the moment it opens, before this has loaded.
+ * The heading, "Published" and the ✕ are the container's (`ShareButton`),
+ * so the popover or sheet is named and can be closed while this loads.
  *
  * Focus goes to the first way to send it: Copy link, or Share… where the
- * phone has a share menu.
+ * phone has a share menu. Each copy is announced; a copy the clipboard
+ * refuses says so and selects what to copy by hand.
  */
 export function SharePanel({
   variant,
@@ -54,8 +54,6 @@ export function SharePanel({
   url,
   message,
   onMessageChange,
-  onClose,
-  headingId,
 }: SharePanelProps) {
   const link = useClipboardCopy();
   const messageCopy = useClipboardCopy();
@@ -64,10 +62,16 @@ export function SharePanel({
   // before paint, so the buttons don't move once they're seen.
   const [canShare, setCanShare] = useState<boolean | null>(variant === 'phone' ? null : false);
   const [shared, setShared] = useState(false);
-  const linkId = useId();
+  // The last copy that worked, which the live region says while its button
+  // says Copied; or the last that the clipboard refused, which shows until
+  // a copy works. `n` makes each refusal select again.
+  const [lastCopied, setLastCopied] = useState<Copied | null>(null);
+  const [refused, setRefused] = useState<{ what: Copied; n: number } | null>(null);
   const messageId = useId();
   const copyRef = useRef<HTMLButtonElement>(null);
   const shareRef = useRef<HTMLButtonElement>(null);
+  const linkField = useRef<HTMLInputElement>(null);
+  const messageField = useRef<HTMLTextAreaElement>(null);
   const focused = useRef(false);
 
   useLayoutEffect(() => {
@@ -80,8 +84,26 @@ export function SharePanel({
     (canShare ? shareRef : copyRef).current?.focus();
   }, [canShare]);
 
+  useEffect(() => {
+    if (!refused) return;
+    const field = refused.what === 'link' ? linkField.current : messageField.current;
+    field?.focus();
+    field?.select();
+  }, [refused]);
+
   const toSend = withLink(message, url);
   const mailto = `mailto:?subject=${encodeURIComponent(title.trim())}&body=${encodeURIComponent(toSend)}`;
+
+  async function copy(what: Copied) {
+    const worked = await (what === 'link' ? link.copy(url) : messageCopy.copy(toSend));
+    if (worked) {
+      setRefused(null);
+      setLastCopied(what);
+    } else {
+      setLastCopied(null);
+      setRefused((was) => ({ what, n: (was?.n ?? 0) + 1 }));
+    }
+  }
 
   async function share() {
     try {
@@ -98,12 +120,18 @@ export function SharePanel({
   const lead = firstTime ? LEAD_FIRST_TIME : LEAD_LATER[variant];
   const phone = variant === 'phone';
   const messageAction = `${SECONDARY} ${phone ? 'h-11 px-4 text-[15px]' : 'h-[34px] px-3 text-[13px]'}`;
+  const copiedNow =
+    lastCopied === 'link' && link.copied
+      ? 'Link copied'
+      : lastCopied === 'message' && messageCopy.copied
+        ? 'Message copied'
+        : '';
 
   const copyLinkButton = (
     <button
       ref={copyRef}
       type="button"
-      onClick={() => void link.copy(url)}
+      onClick={() => void copy('link')}
       className={
         phone
           ? `${PHONE_BUTTON} h-12 flex-1 basis-0 text-[15px] ${canShare ? PHONE_SECONDARY : PHONE_PRIMARY}`
@@ -125,6 +153,7 @@ export function SharePanel({
         {phone ? 'The message that goes with it' : 'A message to send with it'}
       </label>
       <textarea
+        ref={messageField}
         id={messageId}
         rows={phone ? 6 : 5}
         value={message}
@@ -135,11 +164,7 @@ export function SharePanel({
       />
       {canShare ? null : (
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => void messageCopy.copy(toSend)}
-            className={messageAction}
-          >
+          <button type="button" onClick={() => void copy('message')} className={messageAction}>
             {messageCopy.copied ? <Check size={14} strokeWidth={2.6} aria-hidden="true" /> : null}
             {messageCopy.copied ? 'Copied' : 'Copy message'}
           </button>
@@ -152,27 +177,18 @@ export function SharePanel({
     </div>
   );
 
+  // One live region: the last copy that worked, unseen, or a refusal, seen.
+  const notice = (
+    <p
+      aria-live="polite"
+      className={refused ? 'text-[13px] font-medium leading-snug text-danger' : 'sr-only'}
+    >
+      {refused ? (refused.what === 'link' ? LINK_COPY_REFUSED : MESSAGE_COPY_REFUSED) : copiedNow}
+    </p>
+  );
+
   return (
     <div className="flex flex-col gap-3.5">
-      {phone ? null : (
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-col gap-1">
-            {firstTime ? <PublishedMark /> : null}
-            <h2 id={headingId} className="text-base font-semibold tracking-tight text-ink">
-              {shareHeading(firstTime)}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="-mr-1.5 -mt-1.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-surface-raised"
-          >
-            <X size={16} aria-hidden="true" />
-          </button>
-        </div>
-      )}
-
       <p className={`leading-snug text-ink-muted ${phone ? 'text-sm' : 'text-[13px]'}`}>{lead}</p>
 
       {phone ? (
@@ -195,36 +211,30 @@ export function SharePanel({
               </p>
             </div>
           ) : null}
+          {/* The link to copy by hand, once the clipboard has refused it. */}
+          {refused?.what === 'link' ? (
+            <div className="flex">
+              <ShareLinkField url={url} ref={linkField} />
+            </div>
+          ) : null}
           <div className="flex gap-2">
             {copyLinkButton}
             <ShareQrCode url={url} variant="phone" />
           </div>
           {messageBox}
+          {notice}
         </>
       ) : (
         <>
           <div className="flex gap-2">
-            <label htmlFor={linkId} className="sr-only">
-              Public link
-            </label>
-            <input
-              id={linkId}
-              type="text"
-              readOnly
-              value={url}
-              onFocus={(e) => e.currentTarget.select()}
-              className="h-10 min-w-0 flex-1 rounded-[10px] border border-surface-sunk bg-surface-raised px-3 font-mono text-[12.5px] text-ink"
-            />
+            <ShareLinkField url={url} ref={linkField} />
             {copyLinkButton}
           </div>
           {messageBox}
+          {notice}
           <ShareQrCode url={url} variant="desktop" />
         </>
       )}
-
-      <span className="sr-only" aria-live="polite">
-        {link.copied ? 'Link copied' : messageCopy.copied ? 'Message copied' : ''}
-      </span>
     </div>
   );
 }

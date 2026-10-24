@@ -2,32 +2,33 @@
 
 import dynamic from 'next/dynamic';
 import { useId, useRef } from 'react';
-import { Share2 } from 'lucide-react';
+import { Share2, X } from 'lucide-react';
+import { loadSharePanel } from '@/components/share/load-share-panel';
 import { PublishedMark, shareHeading } from '@/components/share/share-heading';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Popover } from '@/components/ui/Popover';
 import { Spinner } from '@/components/ui/spinner';
 import { useShare } from './ShareScope';
 
-// The panel's body, its QR encoder with it, loads only when it first opens,
-// so none of it is in a signup page's first load.
-const SharePanel = dynamic(
-  () => import('@/components/share/SharePanel').then((m) => m.SharePanel),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex min-h-40 items-center justify-center text-ink-soft">
-        <Spinner />
-      </div>
-    ),
-  },
-);
+// The panel's body, its QR encoder with it, loads only when it first opens
+// (or as Publish is pressed), so none of it is in a signup page's first load.
+// Its heading and ✕ are here, so the panel is named and can be closed while
+// the body loads, and if it never does.
+const SharePanel = dynamic(() => loadSharePanel(), {
+  ssr: false,
+  loading: () => (
+    <div className="flex min-h-40 items-center justify-center text-ink-soft">
+      <Spinner />
+    </div>
+  ),
+});
 
 /**
  * An open signup's Share, and the share panel it opens: a popover under the
- * button on a computer, a sheet on a phone. Closing the panel (its ✕,
- * Escape, a click outside) puts focus back on this button, which is also
- * where it goes after the panel Publish opened, since Publish is gone.
+ * button on a computer, a sheet on a phone. Escape or the panel's ✕ puts
+ * focus back on this button, as does a tap outside a phone's sheet; it's
+ * also where focus goes after the panel Publish opened, since Publish is
+ * gone. A click outside the popover leaves focus where it landed.
  */
 export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
   const share = useShare();
@@ -44,8 +45,6 @@ export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
       url={share.url}
       message={share.message}
       onMessageChange={share.setMessage}
-      onClose={share.closeShare}
-      headingId={headingId}
     />
   );
 
@@ -76,8 +75,24 @@ export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
           onClose={share.closeShare}
           triggerRef={trigger}
           labelledBy={headingId}
-          className="w-[420px] max-w-[calc(100vw-2rem)] p-[18px]"
+          className="flex w-[420px] max-w-[calc(100vw-2rem)] flex-col gap-3.5 p-[18px]"
         >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex flex-col gap-1">
+              {share.firstTime ? <PublishedMark /> : null}
+              <h2 id={headingId} className="text-base font-semibold tracking-tight text-ink">
+                {shareHeading(share.firstTime)}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={share.closeShare}
+              aria-label="Close"
+              className="-mr-1.5 -mt-1.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-surface-raised"
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
+          </div>
           {panel}
         </Popover>
       </div>

@@ -3,10 +3,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
-import { StatusActionButtonForm, StatusActionScope, type StatusAction } from './StatusActionForm';
+import { StatusActionButtonForm, type StatusAction } from './StatusActionForm';
 
 // The QR code has its own test; here it would only wait on the encoder.
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
+// The real loader, watched, to see Publish start it.
+const loads = vi.hoisted(() => ({ count: 0 }));
+vi.mock('@/components/share/load-share-panel', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/components/share/load-share-panel')>();
+  return {
+    loadSharePanel: () => {
+      loads.count += 1;
+      return real.loadSharePanel();
+    },
+  };
+});
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const MESSAGE = `Bake sale helpers\n4 slots · 8 spots\nSign up here: ${LINK}`;
@@ -31,19 +42,17 @@ function Header({
   message?: string;
 }) {
   return (
-    <StatusActionScope action={action}>
-      <ShareScope title="Bake sale helpers" url={LINK} message={message}>
-        <StatusActionButtonForm>
-          <button type="submit">Publish</button>
-        </StatusActionButtonForm>
-        <div data-testid="desktop">
-          <ShareButton variant="desktop" />
-        </div>
-        <div data-testid="phone">
-          <ShareButton variant="phone" />
-        </div>
-      </ShareScope>
-    </StatusActionScope>
+    <ShareScope publishAction={action} title="Bake sale helpers" url={LINK} message={message}>
+      <StatusActionButtonForm>
+        <button type="submit">Publish</button>
+      </StatusActionButtonForm>
+      <div data-testid="desktop">
+        <ShareButton variant="desktop" />
+      </div>
+      <div data-testid="phone">
+        <ShareButton variant="phone" />
+      </div>
+    </ShareScope>
   );
 }
 
@@ -79,6 +88,28 @@ describe('ShareButton on a computer', () => {
     );
     // One panel: the phone's sheet stays shut.
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  });
+
+  it('has its heading and ✕ from the start, before the rest has loaded', () => {
+    render(<Header />);
+    fireEvent.click(shareIn('desktop'));
+    const panel = screen.getByRole('dialog', { name: 'Share the link' });
+    expect(within(panel).getByRole('heading', { name: 'Share the link' })).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'Close' })).toBeInTheDocument();
+  });
+
+  it('starts loading the panel as Publish is pressed', async () => {
+    let answer: (result: { published: true }) => void = () => {};
+    const publish = vi.fn<StatusAction>(() => new Promise((resolve) => (answer = resolve)));
+    render(<Header action={publish} />);
+    const before = loads.count;
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+    });
+    expect(publish).toHaveBeenCalledOnce();
+    expect(loads.count).toBe(before + 1);
+    await act(async () => answer({ published: true }));
+    expect(await screen.findByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
   });
 
   it('closes on Escape and on its ✕, and puts focus back on Share', async () => {

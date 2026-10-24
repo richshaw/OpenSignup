@@ -35,7 +35,6 @@ describe('create-and-publish-a-signup: a phone’s share menu', () => {
         url="https://your-site.example/s/snack-duty-spring-season"
         message="Snack duty — Spring season"
         onMessageChange={() => {}}
-        onClose={() => {}}
       />,
     );
     expect(screen.getByRole('button', { name: UI.shareOnPhone })).toBeInTheDocument();
