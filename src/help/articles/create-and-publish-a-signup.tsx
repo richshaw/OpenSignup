@@ -115,8 +115,8 @@ export function CreateAndPublishASignup() {
           </Step>
           <Step>
             <p>
-              To copy a slot, open it and choose <Ui>{UI.duplicate}</Ui>. Then open the copy and
-              change its date.
+              To copy a slot, open it and choose <Ui>{UI.duplicate}</Ui>. The copy opens below it,
+              ready for you to change its date.
             </p>
           </Step>
         </Steps>

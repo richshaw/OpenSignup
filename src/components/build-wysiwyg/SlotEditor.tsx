@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
 import { FIELD_TYPE_META, FIELD_VALUE_INPUT_CLASS, FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
 import { InlineNote } from '@/components/ui/inline-note';
@@ -10,6 +10,10 @@ import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 type SlotEditorProps = {
   row: BuildRow;
   fields: BuildField[];
+  /** Focus the first field's control when the editor opens. */
+  focusOnOpen?: boolean;
+  /** Called once the editor has taken focus, so the request can be cleared. */
+  onFocused?: () => void;
   /** Spots taken on this slot when the page loaded (`committedBySlot`). */
   taken: number;
   /**
@@ -39,6 +43,8 @@ type SlotEditorProps = {
 export function SlotEditor({
   row,
   fields,
+  focusOnOpen = false,
+  onFocused,
   taken,
   remindersOn,
   onCellChange,
@@ -48,6 +54,13 @@ export function SlotEditor({
   onDelete,
   onClose,
 }: SlotEditorProps) {
+  const gridRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!focusOnOpen) return;
+    gridRef.current?.querySelector<HTMLElement>('input, button')?.focus();
+    onFocused?.();
+  }, [focusOnOpen, onFocused]);
+
   const spotsHelpId = useId();
   return (
     <div className="px-3.5 pb-3.5 pt-3" data-testid={`slot-editor-${row.id}`}>
@@ -90,7 +103,7 @@ export function SlotEditor({
             : 'Reminders are off, so we won\u2019t email them if you change it.'}
         </InlineNote>
       )}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5">
+      <div ref={gridRef} className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5">
         {fields.map((f) => {
           const fieldType = f.config.fieldType;
           const TypeIcon = FIELD_TYPE_META[fieldType].icon;
