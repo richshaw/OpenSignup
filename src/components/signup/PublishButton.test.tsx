@@ -13,7 +13,10 @@ import type { StatusAction } from './StatusActionForm';
 
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
 const router = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock('next/navigation', () => ({ useRouter: () => router }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => router,
+  usePathname: () => '/app/signups/sig_1/build',
+}));
 const loads = vi.hoisted(() => ({ count: 0 }));
 vi.mock('@/components/share/load-share-panel', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/components/share/load-share-panel')>();
@@ -78,7 +81,13 @@ function Header({
   return (
     <BuildBridge buildHref="/app/signups/sig_1/build">
       <HeaderAnnouncer status="draft">
-        <ShareScope publishAction={action} title="Bake sale helpers" url={LINK} message="">
+        <ShareScope
+          publishAction={action}
+          signupId="sig_1"
+          title="Bake sale helpers"
+          url={LINK}
+          message=""
+        >
           <div data-testid="desktop">
             <PublishButton variant="desktop" />
             <ShareButton variant="desktop" />

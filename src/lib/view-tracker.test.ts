@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { classifyUa, isDoNotTrack, refererHost } from './view-tracker';
+import {
+  classifyDevice,
+  classifyUa,
+  isDoNotTrack,
+  readRequestSignals,
+  refererHost,
+} from './view-tracker';
 
 describe('classifyUa', () => {
   it('returns browser for a real Chrome UA', () => {
@@ -60,6 +66,48 @@ describe('classifyUa', () => {
 
   it('returns unknown for empty string', () => {
     expect(classifyUa('')).toBe('unknown');
+  });
+});
+
+describe('classifyDevice', () => {
+  const iphone =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+  const androidPhone =
+    'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+  const androidTablet =
+    'Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  const mac =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+  it('takes the Sec-CH-UA-Mobile hint when the browser sends one', () => {
+    expect(classifyDevice({ userAgent: mac, mobileHint: '?1' })).toBe('phone');
+    expect(classifyDevice({ userAgent: androidPhone, mobileHint: '?0' })).toBe('computer');
+  });
+
+  it('reads a phone from "Mobi" in the User-Agent otherwise', () => {
+    expect(classifyDevice({ userAgent: iphone })).toBe('phone');
+    expect(classifyDevice({ userAgent: androidPhone })).toBe('phone');
+  });
+
+  it('counts tablets and desktops as computers', () => {
+    const iPadMini =
+      'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+    expect(classifyDevice({ userAgent: iPadMini })).toBe('computer');
+    expect(classifyDevice({ userAgent: androidTablet })).toBe('computer');
+    expect(classifyDevice({ userAgent: mac })).toBe('computer');
+  });
+
+  it('is unknown with neither', () => {
+    expect(classifyDevice({ userAgent: null })).toBe('unknown');
+  });
+});
+
+describe('readRequestSignals', () => {
+  it('keeps the mobile hint only when it was sent', () => {
+    const sent = readRequestSignals(new Headers({ 'user-agent': 'x', 'sec-ch-ua-mobile': '?1' }));
+    expect(sent.mobileHint).toBe('?1');
+    const notSent = readRequestSignals(new Headers({ 'user-agent': 'x' }));
+    expect('mobileHint' in notSent).toBe(false);
   });
 });
 

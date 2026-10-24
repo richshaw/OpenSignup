@@ -43,7 +43,13 @@ function Header({
   message?: string;
 }) {
   return (
-    <ShareScope publishAction={action} title="Bake sale helpers" url={LINK} message={message}>
+    <ShareScope
+      publishAction={action}
+      signupId="sig_1"
+      title="Bake sale helpers"
+      url={LINK}
+      message={message}
+    >
       <PublishButton variant="desktop" />
       <div data-testid="desktop">
         <ShareButton variant="desktop" />

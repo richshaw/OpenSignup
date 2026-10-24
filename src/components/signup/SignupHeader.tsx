@@ -53,6 +53,7 @@ export function SignupHeader({
       {/* Publish, from either header, and the share panel it opens. */}
       <ShareScope
         publishAction={publishAction}
+        signupId={signupId}
         title={title}
         url={publicUrl}
         message={shareMessage}
@@ -62,7 +63,12 @@ export function SignupHeader({
           title={title}
           status={status}
           standing={
-            <PhoneStanding status={status} publicUrl={publicUrl} spotsTaken={spotsTaken} />
+            <PhoneStanding
+              signupId={signupId}
+              status={status}
+              publicUrl={publicUrl}
+              spotsTaken={spotsTaken}
+            />
           }
           previewItem={<PhonePreviewItem href={previewHref} />}
           spotsTaken={spotsTaken}
@@ -93,7 +99,11 @@ export function SignupHeader({
             <DraftLine />
           ) : (
             <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
-              <PublicLinkChip url={publicUrl} className="inline-flex max-w-md" />
+              <PublicLinkChip
+                url={publicUrl}
+                signupId={signupId}
+                className="inline-flex max-w-md"
+              />
               {spotsTaken ? (
                 <span className="text-[13px] text-ink-muted">{spotsTaken}</span>
               ) : null}

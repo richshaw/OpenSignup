@@ -3,10 +3,11 @@ import type { Db } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import { slots, type Slot as SlotRow } from '@/db/schema/slots';
-import { activityActor, recordActivity } from '@/lib/activity';
+import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
+import type { PublishCheck } from '@/lib/publish-check';
 import {
   requireOrganizer,
   requireWorkspaceAccess,
@@ -37,7 +38,12 @@ import {
   validateSlotValues,
 } from './slot-fields';
 import { committedBySlot } from './commitments';
-import { getSignupRowForOrganizer, lockSlotsForSignup, withSignupWriteLock } from './locks';
+import {
+  getSignupRowForOrganizer,
+  lockSlotsForSignup,
+  readLiveSignup,
+  withSignupWriteLock,
+} from './locks';
 import { listSlotsForSignup, pickAvailableRef, summarizeValues } from './slots';
 
 /**
@@ -350,6 +356,78 @@ export async function publishSignup(
   return transitionStatus(db, actor, signupId, 'draft', 'open', 'signup.published');
 }
 
+/**
+ * What a refused publish records, by the field its conflict names: no slots
+ * yet, or a signup that stopped being a draft since the page loaded (closed
+ * or archived in another tab). Null for anything else, including a signup
+ * that is already open: a second click, or a retry after a publish that
+ * worked, is not a publish anyone was refused.
+ */
+function publishRefusal(error: ServiceError): Record<string, unknown> | null {
+  if (error.code !== 'conflict') return null;
+  if (error.field === 'slots') return { code: error.code, reason: 'no_slots' };
+  if (error.field === 'status' && error.received !== 'open') {
+    return { code: error.code, reason: 'not_draft', status: error.received };
+  }
+  return null;
+}
+
+/**
+ * Telemetry for a publish the service turned down. Written after the
+ * transaction, best effort, since it describes no change. A viewer's refusal
+ * is thrown by the policy guard before this point and is not recorded.
+ */
+async function recordPublishRefused(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+  workspaceId: string | null,
+  error: ServiceError,
+): Promise<void> {
+  const payload = publishRefusal(error);
+  if (!payload) return;
+  await recordActivityBestEffort(db, {
+    signupId,
+    workspaceId,
+    actor: activityActor(actor),
+    eventType: 'signup.publish_refused',
+    payload,
+  });
+}
+
+/**
+ * Telemetry for what Publish's check stopped or warned about. The publish
+ * action runs the check before the service, which then never sees those
+ * refusals, so this writes the row `recordPublishRefused` would have: a
+ * blocking problem in the same shape as the service's refusals
+ * (`{ code: 'conflict', reason }`, where `reason` is the check's kind, and
+ * `no_slots` reads exactly as before), the placeholder warning as
+ * `{ reason: 'placeholder', warning: true }`, so a warning shown and a later
+ * Publish anyway can be told apart. Best effort, outside any transaction, as
+ * it describes no change; the signup is read and the write guard run first.
+ */
+export async function recordPublishCheck(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+  check: PublishCheck,
+): Promise<Result<null, ServiceError>> {
+  const found = await readLiveSignup(db, signupId);
+  if (!found) return err(serviceError('not_found', 'signup not found'));
+  requireWorkspaceWrite(actor, found.workspaceId);
+  await recordActivityBestEffort(db, {
+    signupId,
+    workspaceId: found.workspaceId,
+    actor: activityActor(actor),
+    eventType: 'signup.publish_refused',
+    payload:
+      check.kind === 'placeholder'
+        ? { reason: 'placeholder', warning: true }
+        : { code: 'conflict', reason: check.kind },
+  });
+  return ok(null);
+}
+
 export async function closeSignup(
   db: Db,
   actor: Actor,
@@ -416,13 +494,16 @@ async function transitionStatus(
   to: SignupStatus,
   eventType: 'signup.published' | 'signup.closed' | 'signup.archived',
 ): Promise<Result<SignupRow, ServiceError>> {
+  // Set under the lock, for the telemetry of a refused publish afterwards.
+  let workspaceId: string | null = null;
   // The status check, the slot count and the write all happen under the
   // signup lock. Checked on an unlocked read, two transitions that overlapped
   // both passed and both wrote: an archive racing a publish left the signup
   // open, and two closes logged two `signup.closed` rows. Now the second one
   // sees the status the first left, and gets the conflict it would have got
   // had they run one after the other.
-  return withSignupWriteLock(db, actor, signupId, async (tx, row) => {
+  const result = await withSignupWriteLock(db, actor, signupId, async (tx, row) => {
+    workspaceId = row.workspaceId;
     if (from !== null && row.status !== from) {
       return err(
         serviceError('conflict', `cannot ${to} a signup that is ${row.status}`, {
@@ -443,6 +524,7 @@ async function transitionStatus(
       if (slotRows.length < 1) {
         return err(
           serviceError('conflict', 'publish requires at least one slot', {
+            field: 'slots',
             suggestion: 'add a slot before publishing',
           }),
         );
@@ -469,6 +551,10 @@ async function transitionStatus(
     });
     return ok(next);
   });
+  if (!result.ok && eventType === 'signup.published') {
+    await recordPublishRefused(db, actor, signupId, workspaceId, result.error);
+  }
+  return result;
 }
 
 export async function listSignupsForWorkspace(

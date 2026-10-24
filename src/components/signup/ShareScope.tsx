@@ -22,6 +22,8 @@ interface Share {
   firstTime: boolean;
   /** A computer's popover or a phone's sheet; null until the window can be asked. */
   desktop: boolean | null;
+  /** The signup the link is for, so a copy or a share is recorded against it. */
+  signupId: string;
   title: string;
   url: string;
   /** The message to send with the link, as the organizer last left it. */
@@ -71,13 +73,14 @@ export function ShareScope({
 }
 
 interface ShareStateProps {
+  signupId: string;
   title: string;
   url: string;
   message: string;
   children: ReactNode;
 }
 
-function ShareState({ title, url, message: serverMessage, children }: ShareStateProps) {
+function ShareState({ signupId, title, url, message: serverMessage, children }: ShareStateProps) {
   const [open, setOpen] = useState(false);
   const [firstTime, setFirstTime] = useState(false);
   const [edited, setEdited] = useState<string | null>(null);
@@ -108,6 +111,7 @@ function ShareState({ title, url, message: serverMessage, children }: ShareState
       open,
       firstTime,
       desktop,
+      signupId,
       title,
       url,
       message: edited ?? serverMessage,
@@ -115,7 +119,7 @@ function ShareState({ title, url, message: serverMessage, children }: ShareState
       openShare,
       closeShare,
     }),
-    [open, firstTime, desktop, title, url, edited, serverMessage, openShare, closeShare],
+    [open, firstTime, desktop, signupId, title, url, edited, serverMessage, openShare, closeShare],
   );
   return <ShareContext.Provider value={value}>{children}</ShareContext.Provider>;
 }

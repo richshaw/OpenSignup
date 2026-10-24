@@ -7,7 +7,10 @@ import { BuildWysiwyg } from './BuildWysiwyg';
 import type { SignupSettings } from '@/schemas/signups';
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock('next/navigation', () => ({ useRouter: () => router }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => router,
+  usePathname: () => '/app/signups/sig_1/build',
+}));
 
 const settings: SignupSettings = {
   requireEmail: true,

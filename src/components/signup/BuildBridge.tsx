@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 /** What the Build tab lets the header do while it's showing. */
 interface BuildTab {
@@ -58,9 +58,12 @@ const SAVED = Promise.resolve(true);
  * On another tab the fix goes to Build and leaves the slot to open here,
  * which the Build tab takes once, as it mounts. It's never in the address,
  * so going Back and Forward, or a bookmark, can't open it, or add a slot,
- * again. A Build tab that goes away leaves its last saves behind: the edits
- * it sent as it went may still be on their way, so the next Publish waits
- * for those too. And once the organizer has fixed the slot, Done hands focus
+ * again; and if the organizer ends up on another tab instead, it's dropped,
+ * so a later visit to Build doesn't add an empty slot. A Build tab that goes
+ * away leaves its last saves behind: the edits it sent as it went may still
+ * be on their way, so the next Publish waits for those too. Whether they
+ * saved counts only until a Build tab shows again, whose own saves are then
+ * what matter. And once the organizer has fixed the slot, Done hands focus
  * back to Publish and share, through here.
  */
 export function BuildBridge({ buildHref, children }: { buildHref: string; children: ReactNode }) {
@@ -69,10 +72,15 @@ export function BuildBridge({ buildHref, children }: { buildHref: string; childr
   const leaving = useRef(SAVED);
   const focusPublish = useRef<(() => void) | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
+  useEffect(() => {
+    if (pathname !== buildHref) pending.current = null;
+  }, [pathname, buildHref]);
   const bridge = useMemo<Bridge>(
     () => ({
       register: (next) => {
         tab.current = next;
+        leaving.current = leaving.current.then(() => true);
         const request = pending.current;
         pending.current = null;
         if (request) next.openSlot(...request);

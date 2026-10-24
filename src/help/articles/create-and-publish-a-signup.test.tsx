@@ -32,6 +32,7 @@ describe('create-and-publish-a-signup: a phone’s share menu', () => {
       <SharePanel
         variant="phone"
         firstTime
+        signupId="sig_1"
         title="Snack duty — Spring season"
         url="https://your-site.example/s/snack-duty-spring-season"
         message="Snack duty — Spring season"

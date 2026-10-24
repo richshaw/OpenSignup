@@ -35,11 +35,15 @@ export function summarizeResponses(
 /**
  * What the Responses tab says when nobody has signed up. A draft has no
  * public link on screen to share, and a closed or archived signup takes no
- * more sign-ups, so only an open one is pointed at the link.
+ * more sign-ups, so only an open one is pointed at the link. A closed one's
+ * banner already says why nobody can sign up; an archived one has no banner.
+ * "Signup" is the page, never what someone did (docs/writing-help.md).
  */
 export function noResponsesLine(status: SignupStatus): string {
   if (status === 'draft')
-    return 'No signups yet. People can sign up once you publish and share it.';
-  if (status === 'open') return 'No signups yet. Share the public link to start collecting.';
-  return 'No signups. People can’t sign up now.';
+    return 'Nobody has signed up yet. People can sign up once you publish and share it.';
+  if (status === 'open')
+    return 'Nobody has signed up yet. Share the public link to start collecting.';
+  if (status === 'closed') return 'Nobody signed up.';
+  return 'Nobody signed up. People can’t sign up now.';
 }
