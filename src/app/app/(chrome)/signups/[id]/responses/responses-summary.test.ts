@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeResponses } from './responses-summary';
+import { noResponsesLine, summarizeResponses } from './responses-summary';
 
 const text = (s: ReturnType<typeof summarizeResponses>) => [s.count, ...s.rest].join(' · ');
 
@@ -40,5 +40,25 @@ describe('summarizeResponses', () => {
       { id: 'b', status: 'cancelled' },
     ] as const;
     expect(text(summarizeResponses(rows, new Map()))).toBe('0 sign-ups · 2 cancelled');
+  });
+});
+
+describe('noResponsesLine', () => {
+  it('tells a draft’s organizer that people can sign up once it’s published', () => {
+    // A draft shows no public link, so there's nothing to share yet.
+    expect(noResponsesLine('draft')).toBe(
+      'No signups yet. People can sign up once you publish and share it.',
+    );
+  });
+
+  it('points an open signup at its public link', () => {
+    expect(noResponsesLine('open')).toBe(
+      'No signups yet. Share the public link to start collecting.',
+    );
+  });
+
+  it('says nobody can sign up any more once it’s closed or archived', () => {
+    expect(noResponsesLine('closed')).toBe('No signups. People can’t sign up now.');
+    expect(noResponsesLine('archived')).toBe('No signups. People can’t sign up now.');
   });
 });
