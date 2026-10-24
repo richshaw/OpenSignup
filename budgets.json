@@ -11,12 +11,12 @@
     "/login": 109,
     "/help/[slug]": 113,
     "/app/signups/new": 114,
-    "/app/signups/[id]": 125,
-    "/app/signups/[id]/build": 154,
-    "/app/signups/[id]/edit": 125,
+    "/app/signups/[id]": 127,
+    "/app/signups/[id]/build": 155,
+    "/app/signups/[id]/edit": 127,
     "/app/signups/[id]/preview": 132,
-    "/app/signups/[id]/responses": 127,
-    "/app/signups/[id]/settings": 126,
+    "/app/signups/[id]/responses": 128,
+    "/app/signups/[id]/settings": 128,
     "*": 108
   }
 }

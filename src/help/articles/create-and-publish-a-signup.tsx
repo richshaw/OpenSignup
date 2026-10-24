@@ -144,13 +144,43 @@ export function CreateAndPublishASignup() {
               <Ui>{UI.publishOnPhone}</Ui>.
             </p>
             <p>
-              You&apos;ll see <Ui>{UI.published}</Ui>.
+              You&apos;ll see <Ui>{UI.sendTheLink}</Ui>. Nobody has the link until you send it.
             </p>
+            <Screenshot
+              src="/help/create-and-publish-a-signup/share-panel.png"
+              alt="The panel that opens after publishing, with the link, Copy link, a message to send, Copy message, Email it and a QR code."
+              width={420}
+              height={456}
+            />
+          </Step>
+          <Step>
+            <p>Choose a way to send it:</p>
+            <ul className="list-disc space-y-2 pl-6">
+              <li>
+                <Ui>{UI.copyLink}</Ui> copies the link. Paste it into an email or a group chat.
+              </li>
+              <li>
+                There&apos;s a message to send with the link. It names your signup. If the slots
+                have dates, it gives them. If every slot has a limit, it says how many spots are
+                open. It also says that nobody needs an account to sign up. You can change the
+                message.{' '}
+                <Ui>{UI.copyMessage}</Ui> copies it, with the link. <Ui>{UI.emailIt}</Ui> opens
+                your email app with it.
+              </li>
+              <li>
+                On most phones, <Ui>{UI.shareOnPhone}</Ui> is there instead of those two. It opens
+                your phone&apos;s share menu, with the message and the link.
+              </li>
+              <li>
+                For a flyer or a sign-up table, choose <Ui>{UI.downloadQr}</Ui> to save a QR code
+                of the link. On a phone, choose <Ui>{UI.qrOnPhone}</Ui>.
+              </li>
+            </ul>
           </Step>
           <Step>
             <p>
-              Next to <Ui>{UI.publicLink}</Ui>, choose the copy button. Send the link to people by
-              email or in a group chat.
+              To send the link again later, choose <Ui>{UI.share}</Ui> at the top of the page. Or,
+              next to <Ui>{UI.publicLink}</Ui>, choose the copy button.
             </p>
             <p>
               The link is there before you publish too. Until you publish, it only says the signup

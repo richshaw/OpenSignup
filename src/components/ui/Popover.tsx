@@ -17,7 +17,10 @@ type PopoverProps = {
    * it when the panel closes by Escape or from a button inside.
    */
   triggerRef: RefObject<HTMLElement | null>;
-  /** What takes focus when the panel opens. The panel itself, if left out. */
+  /**
+   * What takes focus when the panel opens. The panel itself, if left out,
+   * and nothing when a child already put focus inside as it mounted.
+   */
   initialFocusRef?: RefObject<HTMLElement | null>;
   /** The dialog's name, when no heading inside it can give one. */
   label?: string;
@@ -66,7 +69,10 @@ export function Popover({
   useEffect(() => {
     if (!open) return;
     returnFocus.current = true;
-    (latest.current.initialFocusRef?.current ?? panelRef.current)?.focus();
+    // Unless something inside took focus as it mounted, which runs first.
+    if (!panelRef.current?.contains(document.activeElement)) {
+      (latest.current.initialFocusRef?.current ?? panelRef.current)?.focus();
+    }
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') latest.current.onClose();
     }

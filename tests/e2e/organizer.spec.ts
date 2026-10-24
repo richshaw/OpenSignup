@@ -42,7 +42,10 @@ test.describe('organizer flow', () => {
       await page.getByRole('button', { name: 'More actions' }).click();
       await page.getByRole('button', { name: 'Publish signup' }).click();
     }
-    await expect(page.getByText('Signup published')).toBeVisible();
+    // It stays on the tab and opens the share panel, a sheet on a phone.
+    await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/app/signups/${draftId}/build$`));
+    await expect(page.getByRole('dialog').getByRole('button', { name: 'Copy link' })).toBeVisible();
   });
 
   test('Close signup asks first, and Not yet leaves the signup open', async ({ page }) => {

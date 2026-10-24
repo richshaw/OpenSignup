@@ -33,7 +33,18 @@ export const UI = {
   publicLink: 'Public link',
   // An icon-only button: the article says "the copy button"; the test uses this.
   copyPublicLink: 'Copy public link',
-  published: 'Signup published',
+  // The panel Publish opens, by its heading, and what it offers.
+  sendTheLink: 'Now send people the link',
+  copyLink: 'Copy link',
+  copyMessage: 'Copy message',
+  emailIt: 'Email it',
+  // The QR code's button on a computer, then on a phone.
+  downloadQr: 'Download',
+  qrOnPhone: 'QR code',
+  // Only on phones with a share menu, so a unit test checks it, not the walkthrough.
+  shareOnPhone: 'Share…',
+  // An open signup's button at the top, which opens the panel again.
+  share: 'Share',
   // On the signup page people open: each slot's button starts with this.
   signUp: 'Sign up',
   // The button reads "Fields (2)"; the count changes, so the test matches the start.
