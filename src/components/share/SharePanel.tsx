@@ -126,7 +126,11 @@ export function SharePanel({
 
   const lead = firstTime ? LEAD_FIRST_TIME : LEAD_LATER[variant];
   const phone = variant === 'phone';
-  const messageAction = `${SECONDARY} ${phone ? 'h-11 px-4 text-[15px]' : 'h-[34px] px-3 text-[13px]'}`;
+  // As wide as "Copy message" at its widest, so its "Copied" doesn't move
+  // Email it beside it.
+  const messageAction = `${SECONDARY} ${
+    phone ? 'h-11 min-w-[148px] px-4 text-[15px]' : 'h-[34px] min-w-[124px] px-3 text-[13px]'
+  }`;
   const copiedNow =
     lastCopied === 'link' && link.copied
       ? 'Link copied'
@@ -289,7 +293,7 @@ const DESKTOP_PRIMARY =
 
 // Copy message and Email it.
 const SECONDARY =
-  'inline-flex items-center gap-1.5 rounded-[10px] border border-surface-sunk bg-white font-semibold text-ink transition hover:bg-surface-raised';
+  'inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-surface-sunk bg-white font-semibold text-ink transition hover:bg-surface-raised';
 
 // A refused copy's line, under the row of the button that was refused.
 const REFUSED = 'text-[13px] font-medium leading-snug text-danger';
