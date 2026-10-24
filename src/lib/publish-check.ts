@@ -33,9 +33,10 @@ export type PublishCheck =
    * Slots still holding TBD, TBC or TBA, in display order. A warning. `words`
    * are each slot's first one, in capitals, each once, in the order found;
    * `fieldRef` is the field it's in on the first slot, and `slotLabel` that
-   * slot's values as the page prints them, less any that is only the word
-   * ("Sat, Nov 14 · 1:00 PM" for a slot whose What is "TBD", but "Cashier
-   * TBD · Sat, Nov 14"), or empty when it has none.
+   * slot's values as the page prints them, less any that is only the word,
+   * give or take punctuation ("Sat, Nov 14 · 1:00 PM" for a slot whose What
+   * is "TBD" or "(TBD)", but "Cashier TBD · Sat, Nov 14"), or empty when it
+   * has none.
    */
   | {
       kind: 'placeholder';
@@ -51,9 +52,14 @@ function isEmpty(value: unknown): boolean {
   );
 }
 
-/** Whether `value` is the word and nothing more, such as " tbd ", which names nothing. */
+/**
+ * Whether `value` is the word with nothing but spaces and punctuation round
+ * it, such as " tbd " or "(TBD)", which names nothing; "Cashier TBD" does.
+ */
 function isOnlyPlaceholder(value: unknown): boolean {
-  return typeof value === 'string' && placeholderIn(value) === value.trim().toUpperCase();
+  if (typeof value !== 'string') return false;
+  const bare = value.replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  return placeholderIn(value) === bare.toUpperCase();
 }
 
 /** The first problem with the slots, blocking ones first, or null when there is none. */

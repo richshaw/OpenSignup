@@ -123,6 +123,29 @@ function FieldTab() {
 
 const publishIn = (where: 'desktop' | 'phone') =>
   within(screen.getByTestId(where)).getByRole('button', { name: 'Publish and share' });
+const checking = () => screen.queryAllByRole('button', { name: 'Checking…' });
+
+/**
+ * A Header on fake timers whose Build tab's saves answer only when `save` is
+ * called: true, or false for a save that failed.
+ */
+function slowSaves(action: StatusAction) {
+  vi.useFakeTimers();
+  let settle: (saved: boolean) => void = () => {};
+  render(
+    <Header
+      action={action}
+      buildTab={{
+        flushPendingSaves: () => new Promise<boolean>((resolve) => (settle = resolve)),
+        openSlot: () => true,
+      }}
+    />,
+  );
+  return {
+    wait: (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms)),
+    save: (saved = true) => act(async () => settle(saved)),
+  };
+}
 
 async function press(button: HTMLElement) {
   await act(async () => {
@@ -164,21 +187,8 @@ describe('Publish and share', () => {
     expect(await screen.findByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
   });
 
-  it('says Checking…, on both buttons, only once the answer is slow, and for a moment at least', async () => {
-    vi.useFakeTimers();
-    let saved: (value: boolean) => void = () => {};
-    render(
-      <Header
-        action={async () => answer(EMPTY)}
-        buildTab={{
-          flushPendingSaves: () => new Promise<boolean>((resolve) => (saved = resolve)),
-          openSlot: () => true,
-        }}
-      />,
-    );
-    const wait = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
-    const checking = () => screen.queryAllByRole('button', { name: 'Checking…' });
-
+  it('says Checking…, on both buttons, only once the answer is slow, until the panel opens', async () => {
+    const { wait, save } = slowSaves(async () => answer(EMPTY));
     await press(publishIn('desktop'));
     await wait(299);
     expect(checking()).toHaveLength(0);
@@ -186,16 +196,74 @@ describe('Publish and share', () => {
     expect(checking()).toHaveLength(2);
     for (const button of checking()) expect(button).toHaveAttribute('aria-busy', 'true');
 
-    // The check answers at 350 ms; the spinner stays until 700.
+    // The check answers at 350 ms, and its panel takes over from the spinner.
     await wait(50);
-    await act(async () => saved(true));
+    await save();
     expect(screen.getByRole('dialog', { name: 'Nothing to sign up for yet' })).toBeInTheDocument();
+    expect(checking()).toHaveLength(0);
+    // Closing the panel doesn't bring it back.
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Fill it in' }), { key: 'Escape' });
+    await wait(1_000);
+    expect(checking()).toHaveLength(0);
+  });
+
+  it('stops saying Checking… as a save’s refusal shows', async () => {
+    const { wait, save } = slowSaves(async () => answer(EMPTY));
+    await press(publishIn('desktop'));
+    await wait(350);
     expect(checking()).toHaveLength(2);
+    await save(false);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'A change didn’t save. Fix it, then publish.',
+    );
+    expect(checking()).toHaveLength(0);
+  });
+
+  it('keeps Checking… 400 ms at least when nothing else on screen changes', async () => {
+    const { wait, save } = slowSaves(async () => null);
+    await press(publishIn('desktop'));
+    await wait(350);
+    await save();
+    // Shown at 300, so kept until 700, though it isn't busy now.
+    expect(checking()).toHaveLength(2);
+    expect(checking()[0]).toHaveAttribute('aria-busy', 'false');
     await wait(349);
     expect(checking()).toHaveLength(2);
     await wait(1);
     expect(checking()).toHaveLength(0);
-    expect(publishIn('phone')).toHaveAttribute('aria-busy', 'false');
+  });
+
+  it('waits its 300 ms again for a press just after an answer', async () => {
+    const { wait, save } = slowSaves(async () => answer(EMPTY));
+    await press(publishIn('desktop'));
+    await wait(350);
+    await save();
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Fill it in' }), { key: 'Escape' });
+    await wait(50);
+    await press(publishIn('desktop'));
+    await wait(299);
+    expect(checking()).toHaveLength(0);
+    await wait(1);
+    expect(checking()).toHaveLength(2);
+  });
+
+  it('holds both labels in each button, so its width stays, and is named by the one shown', async () => {
+    const { wait } = slowSaves(async () => null);
+    const label = (button: HTMLElement, text: string) => within(button).getByText(text);
+    const buttons = [publishIn('desktop'), publishIn('phone')];
+    for (const button of buttons) {
+      expect(label(button, 'Checking…')).toHaveClass('invisible');
+      expect(label(button, 'Checking…')).toHaveAttribute('aria-hidden', 'true');
+    }
+    await press(buttons[0]!);
+    await wait(300);
+    for (const button of buttons) {
+      expect(button).toHaveAccessibleName('Checking…');
+      expect(label(button, 'Publish and share')).toHaveClass('invisible');
+      expect(label(button, 'Publish and share')).toHaveAttribute('aria-hidden', 'true');
+      expect(label(button, 'Checking…')).not.toHaveClass('invisible');
+      expect(label(button, 'Checking…')).not.toHaveAttribute('aria-hidden');
+    }
   });
 
   it('shows no spinner for a check that answers at once', async () => {
@@ -204,7 +272,7 @@ describe('Publish and share', () => {
     await press(publishIn('desktop'));
     expect(screen.getByRole('dialog', { name: 'Nothing to sign up for yet' })).toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(1_000));
-    expect(screen.queryAllByRole('button', { name: 'Checking…' })).toHaveLength(0);
+    expect(checking()).toHaveLength(0);
   });
 
   it('publishes straight away off the Build tab, with nothing to save', async () => {

@@ -239,6 +239,25 @@ describe('checkBeforePublish', () => {
       );
     });
 
+    it.each([
+      ['(TBD)', 'Fruit and water · Sat, Apr 6'],
+      ['TBD.', 'Fruit and water · Sat, Apr 6'],
+      ['TBD?', 'Fruit and water · Sat, Apr 6'],
+      [' tbd ', 'Fruit and water · Sat, Apr 6'],
+      ['Cashier TBD', 'Fruit and water · Sat, Apr 6 · Cashier TBD'],
+    ])('names a slot whose Who is %j as “%s”', (value, slotLabel) => {
+      const who = field('who', 'text', 'Who');
+      const input = {
+        fields: [what, date, who],
+        slots: [slot('s1', { what: 'Fruit and water', date: '2030-04-06', who: value })],
+      };
+      expect(checkBeforePublish(input)).toMatchObject({
+        fieldRef: 'who',
+        words: ['TBD'],
+        slotLabel,
+      });
+    });
+
     it('leaves out a field whose whole value is the word', () => {
       const who = field('who', 'text', 'Who');
       const input = {

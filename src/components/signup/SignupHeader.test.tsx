@@ -32,11 +32,18 @@ function renderHeader(status: SignupStatus, spots: SpotCounts | null = SPOTS) {
   return { computer: within(computer), phone: within(phone), bar };
 }
 
-/** The buttons and links by the title on a computer, in order. */
+/**
+ * The buttons and links by the title on a computer, in order, by what a screen
+ * reader reads: Publish and share holds its busy label too, hidden.
+ */
 function computerActions(computer: ReturnType<typeof within>) {
   return [...computer.queryAllByRole('button'), ...computer.queryAllByRole('link')]
     .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
-    .map((el) => el.getAttribute('aria-label') ?? el.textContent);
+    .map((el) => {
+      const read = el.cloneNode(true) as Element;
+      read.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove());
+      return el.getAttribute('aria-label') ?? read.textContent;
+    });
 }
 
 beforeEach(() => {

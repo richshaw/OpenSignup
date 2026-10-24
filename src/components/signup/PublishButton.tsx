@@ -36,9 +36,10 @@ interface Publish {
   /** Saving the Build tab's edits, then publishing: a second press does nothing. */
   busy: boolean;
   /**
-   * Whether the button shows it's busy: only once it has been for 300 ms, and
-   * then for 400 ms at least, so a check that answers at once flashes no
-   * spinner, and one just slower doesn't flicker.
+   * Whether the button shows it's busy: only once it has been for 300 ms, so
+   * a check that answers at once flashes no spinner, and then until the
+   * press's answer shows (the check's panel, or a refusal). Only when nothing
+   * else on screen changes does it stay 400 ms at least, so it never flickers.
    */
   showBusy: boolean;
   /** One of the Build tab's saves failed, so Publish stopped there. */
@@ -73,20 +74,20 @@ export function PublishState({ children }: { children: ReactNode }) {
   const build = useBuildBridge();
   const [saving, setSaving] = useState(false);
   const [unsaved, setUnsaved] = useState(false);
-  const [open, setOpen] = useState(false);
-
-  // Each answer opens the panel, or not, once; closing it keeps it closed.
-  const handled = useRef(result);
-  useEffect(() => {
-    if (result === handled.current) return;
-    handled.current = result;
-    setOpen(result !== null && 'check' in result);
-  }, [result]);
-  const check = open && result && 'check' in result ? result : null;
+  // The answer there was when Publish was last pressed: one that differs is
+  // that press's own, on screen as its panel or a refusal.
+  const [pressedWith, setPressedWith] = useState(result);
+  // The answer whose panel was closed, or that was there to begin with. A
+  // check Publish answers with opens its panel in the same render as it
+  // comes, as the spinner goes, and closing it keeps it closed.
+  const [closedOn, setClosedOn] = useState(result);
+  const check = result && 'check' in result && result !== closedOn ? result : null;
+  const close = () => setClosedOn(result);
 
   async function publish(anyway = false) {
-    setOpen(false);
+    close();
     setUnsaved(false);
+    setPressedWith(result);
     void loadSharePanel();
     setSaving(true);
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -108,7 +109,11 @@ export function PublishState({ children }: { children: ReactNode }) {
   }
 
   const busy = saving || pending;
-  const showBusy = useDelayedFlag(busy, { delay: 300, minVisible: 400 });
+  // An answer on screen ends the busy look in the same render, and lets the
+  // flag go too (no minimum), so a press soon after waits its 300 ms again.
+  const answered = unsaved || result !== pressedWith;
+  const showBusy =
+    useDelayedFlag(busy, { delay: 300, minVisible: answered ? 0 : 400 }) && !answered;
   // Two buttons read this, so it isn't worth memoizing.
   const value: Publish = {
     busy,
@@ -116,9 +121,9 @@ export function PublishState({ children }: { children: ReactNode }) {
     unsaved,
     check,
     publish: (anyway) => void publish(anyway),
-    closeCheck: () => setOpen(false),
+    closeCheck: close,
     fix: () => {
-      setOpen(false);
+      close();
       const target = check?.target;
       return target ? build.openSlot(target.slotId, target.fieldRef) : false;
     },
@@ -200,9 +205,20 @@ export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
       aria-disabled={busy || undefined}
       className={`${desktop ? HEADER_BUTTON : BAR_BUTTON} ${PRIMARY} ${showBusy ? 'cursor-progress brightness-90' : ''} ${ring ? 'outline outline-2 outline-offset-[3px] outline-brand' : ''}`}
     >
-      {showBusy ? <Spinner /> : <Send size={desktop ? 15 : 16} aria-hidden="true" />}
-      {/* True whether it ends in the check or a publish, which checks first. */}
-      {showBusy ? 'Checking…' : 'Publish and share'}
+      {/* Both labels with their icons, in one cell: the one not shown keeps
+          its room unread, so the button is as wide as the wider in any
+          language and the header doesn't shift. "Checking…" is true whether
+          it ends in the check or a publish, which checks first. */}
+      <span className="grid *:flex *:items-center *:justify-center *:gap-2 *:[grid-area:1/1]">
+        <span className={showBusy ? 'invisible' : ''} aria-hidden={showBusy || undefined}>
+          <Send size={desktop ? 15 : 16} aria-hidden="true" />
+          Publish and share
+        </span>
+        <span className={showBusy ? '' : 'invisible'} aria-hidden={!showBusy || undefined}>
+          <Spinner />
+          Checking…
+        </span>
+      </span>
     </button>
   );
 
