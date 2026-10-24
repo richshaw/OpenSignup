@@ -11,6 +11,7 @@ import { MobileMoreMenuSheet } from './MobileMoreMenuSheet';
 import { ShareButton } from './ShareButton';
 
 interface MobileSignupHeaderProps {
+  signupId: string;
   title: string;
   status: SignupStatus;
   publicUrl: string;
@@ -21,6 +22,7 @@ interface MobileSignupHeaderProps {
 
 /** The phone's header. Publish runs in `SignupHeader`'s scope, Close signup in the sheet's. */
 export function MobileSignupHeader({
+  signupId,
   title,
   status,
   publicUrl,
@@ -72,7 +74,7 @@ export function MobileSignupHeader({
           ) : null}
         </div>
 
-        <PublicLinkChip url={publicUrl} />
+        <PublicLinkChip url={publicUrl} signupId={signupId} />
         {status === 'open' ? <ShareButton variant="phone" /> : null}
       </header>
 

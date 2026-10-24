@@ -43,6 +43,7 @@ export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
       <SharePanel
         variant={variant}
         firstTime={share.firstTime}
+        signupId={share.signupId}
         title={share.title}
         url={share.url}
         message={share.message}

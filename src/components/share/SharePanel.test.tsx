@@ -19,6 +19,7 @@ function Owner(props: Partial<SharePanelProps>) {
     <SharePanel
       variant="desktop"
       firstTime={false}
+      signupId="sig_1"
       title="Bake sale helpers"
       url={LINK}
       message={message}

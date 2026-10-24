@@ -41,7 +41,8 @@
       "free_form_questions_principle_violation",
       "cross_product_expansion",
       "groupBy_correctness",
-      "groupBy_null_when_pure_date"
+      "groupBy_null_when_pure_date",
+      "capacity_not_duplicate_rows"
     ]
   },
   "runner_legend": {
@@ -107,7 +108,7 @@
     },
     {
       "id": "ev_005_high_capacity_per_slot",
-      "tags": ["sports", "edge:capacity_gt_1", "field_type:date"],
+      "tags": ["sports", "edge:capacity_gt_1", "field_type:date", "capacity_not_duplicate_rows"],
       "runner": "llm",
       "prompt": "Saturday home games for the high school football season — need 4 parent volunteers per game to run the drink station. 8 home games on these Saturdays: Sep 5, 12, 26, Oct 3, 17, 24, Nov 7, 14, 2026.",
       "expect": {
@@ -127,7 +128,7 @@
     },
     {
       "id": "ev_006_three_shifts_one_day",
-      "tags": ["volunteering", "field_type:time", "happy_path"],
+      "tags": ["volunteering", "field_type:time", "happy_path", "capacity_not_duplicate_rows"],
       "runner": "llm",
       "prompt": "Food bank Thanksgiving distribution, Tuesday November 24, 2026. Three shifts: 7am-10am, 10am-1pm, 1pm-4pm. Need 6 volunteers per shift.",
       "expect": {
@@ -410,7 +411,7 @@
     },
     {
       "id": "ev_025_snack_parent_per_game_no_participant_fields",
-      "tags": ["principle:slots_are_atom", "field_type:date", "regression"],
+      "tags": ["principle:slots_are_atom", "field_type:date", "regression", "capacity_not_duplicate_rows"],
       "runner": "llm",
       "prompt": "Need a parent to bring snacks to each of our six basketball games this season: Nov 7, Nov 14, Nov 21, Dec 5, Dec 12 and Dec 19, 2026.",
       "expect": {
@@ -423,7 +424,7 @@
     },
     {
       "id": "ev_026_three_parents_per_game_capacity_not_name_fields",
-      "tags": ["principle:slots_are_atom", "edge:capacity_gt_1", "regression"],
+      "tags": ["principle:slots_are_atom", "edge:capacity_gt_1", "regression", "capacity_not_duplicate_rows"],
       "runner": "llm",
       "prompt": "We need three parents at each home game to run the concession stand. Home games are Saturday Nov 7, Nov 21 and Dec 5, 2026.",
       "expect": {
@@ -432,6 +433,19 @@
         "slot_dates.set_must_equal": ["2026-11-07", "2026-11-21", "2026-12-05"],
         "fields.labels_must_not_match_any": ["name", "email", "phone", "parent"],
         "rationale": "Regression (#475, #476): one slot per game with capacity 3, not three slots per game or a field per parent's name."
+      }
+    },
+    {
+      "id": "ev_027_classroom_starter_capacity_not_row_per_family",
+      "tags": ["school", "edge:capacity_gt_1", "capacity_not_duplicate_rows", "regression"],
+      "runner": "llm",
+      "prompt": "End-of-year potluck for our grade 3 class on the last Friday of the month at 5pm. 20 families are each bringing one dish: we need 5 families on mains, 5 on sides, 5 on desserts and 5 on drinks.",
+      "expect": {
+        "slots.count": 4,
+        "slots.all_capacities_equal": 5,
+        "slot_labels.must_cover_any_of_each": [["main"], ["side"], ["dessert"], ["drink"]],
+        "groupBy_should_be_null": true,
+        "rationale": "Regression (#501): the 'Classroom or school' starter prompt, word for word (src/lib/magic-compose/templates.ts). Its old wording (\"20 families ... roughly 5 of each\") read as a row per family. One slot per dish type with capacity 5, not 20 rows, and no groupBy: every slot is its own dish type."
       }
     }
   ]

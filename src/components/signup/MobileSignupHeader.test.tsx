@@ -19,11 +19,13 @@ function Phone({ status, action }: { status: SignupStatus; action: StatusAction 
     <HeaderAnnouncer status={status}>
       <ShareScope
         publishAction={action}
+        signupId="sig_1"
         title="Bake sale helpers"
         url={LINK}
         message={`Bake sale helpers\n${LINK}`}
       >
         <MobileSignupHeader
+          signupId="sig_1"
           title="Bake sale helpers"
           status={status}
           publicUrl={LINK}

@@ -11,6 +11,8 @@ export interface SharePanelProps {
   variant: 'desktop' | 'phone';
   /** Just published: says that nobody has the link yet. */
   firstTime: boolean;
+  /** The signup the link is for, so a copy or a share is recorded against it. */
+  signupId: string;
   /** The signup's title: the email's subject and the shared title. */
   title: string;
   /** The public link. */

@@ -2,14 +2,23 @@
 
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import { useClipboardCopy } from '@/hooks/useClipboardCopy';
+import { emitSignupLinkEvent } from '@/lib/signup-link-events';
 
 interface PublicLinkChipProps {
   url: string;
+  /** The signup the link is for, so a copy is recorded against it. */
+  signupId: string;
   className?: string;
 }
 
-export function PublicLinkChip({ url, className = '' }: PublicLinkChipProps) {
+export function PublicLinkChip({ url, signupId, className = '' }: PublicLinkChipProps) {
   const { copied, copy } = useClipboardCopy(1400);
+
+  async function handleCopy() {
+    // The clipboard can refuse (e.g. an insecure context): then stay quiet,
+    // and record nothing.
+    if (await copy(url)) emitSignupLinkEvent(signupId, 'copied', 'header');
+  }
 
   return (
     <div
@@ -21,8 +30,7 @@ export function PublicLinkChip({ url, className = '' }: PublicLinkChipProps) {
       <span className="mr-2 min-w-0 flex-1 truncate font-mono text-xs text-ink">{url}</span>
       <button
         type="button"
-        // The clipboard can refuse (e.g. an insecure context). Stay quiet.
-        onClick={() => void copy(url)}
+        onClick={() => void handleCopy()}
         aria-label="Copy public link"
         title="Copy"
         className={`inline-flex items-center justify-center rounded-full p-1.5 transition ${

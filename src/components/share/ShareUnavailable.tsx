@@ -8,10 +8,10 @@ import type { SharePanelProps } from './SharePanel';
  * failed load would take the page down with it. The chip is in every signup
  * page's first load already, so this costs next to nothing there.
  */
-export function ShareUnavailable({ url }: Pick<SharePanelProps, 'url'>) {
+export function ShareUnavailable({ signupId, url }: Pick<SharePanelProps, 'signupId' | 'url'>) {
   return (
     <div className="flex flex-col items-start gap-3">
-      <PublicLinkChip url={url} />
+      <PublicLinkChip url={url} signupId={signupId} />
       <p className="text-[13px] leading-snug text-ink-muted">
         Couldn’t load the other ways to share. Reload to try again.
       </p>

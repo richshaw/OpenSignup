@@ -38,7 +38,13 @@ describe('when the share panel can’t load', () => {
 
   it('the panel still opens, with the link, its copy button and what to do', async () => {
     render(
-      <ShareScope publishAction={async () => null} title="Bake sale" url={LINK} message="">
+      <ShareScope
+        publishAction={async () => null}
+        signupId="sig_1"
+        title="Bake sale"
+        url={LINK}
+        message=""
+      >
         <ShareButton variant="desktop" />
       </ShareScope>,
     );

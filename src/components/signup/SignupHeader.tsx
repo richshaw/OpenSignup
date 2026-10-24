@@ -57,12 +57,14 @@ export function SignupHeader({
       {/* Publish, from either header, and the share panel it opens. */}
       <ShareScope
         publishAction={publishAction}
+        signupId={signupId}
         title={title}
         url={publicUrl}
         message={shareMessage}
       >
       <div className="md:hidden">
         <MobileSignupHeader
+          signupId={signupId}
           title={title}
           status={status}
           publicUrl={publicUrl}
@@ -89,7 +91,7 @@ export function SignupHeader({
             </h1>
             <StatusPill status={status} />
           </div>
-          <PublicLinkChip url={publicUrl} className="inline-flex max-w-md" />
+          <PublicLinkChip url={publicUrl} signupId={signupId} className="inline-flex max-w-md" />
         </div>
         <div className={`grid w-full max-w-full shrink-0 ${gridColsClass} gap-x-2 gap-y-3 sm:w-auto sm:max-w-sm`}>
           <Link
