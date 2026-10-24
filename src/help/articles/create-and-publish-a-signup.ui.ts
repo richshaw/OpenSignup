@@ -31,6 +31,13 @@ export const UI = {
   preview: 'Preview',
   // At the top on a computer; on a phone, in the bar at the bottom of the screen.
   publish: 'Publish and share',
+  // What Publish says, by its heading, when every slot is empty, and its fix.
+  nothingYet: 'Nothing to sign up for yet',
+  fillItIn: 'Fill it in',
+  // What Publish says when a slot still says TBD, by its heading, and its two choices.
+  beforePeopleSee: 'Before people see it',
+  nameItFirst: 'Name it first',
+  publishAnyway: 'Publish anyway',
   // Phones: the three-dot button's accessible name.
   moreActions: 'More actions',
   publicLink: 'Public link',

@@ -142,8 +142,22 @@ export function CreateAndPublishASignup() {
               When you publish, anyone with the link can sign up. Choose <Ui>{UI.publish}</Ui> at
               the top of the page. On a phone, it&apos;s at the bottom of the screen.
             </p>
+            <Note>
+              <p>
+                If every slot is empty, you&apos;ll see <Ui>{UI.nothingYet}</Ui>, and your signup
+                isn&apos;t published. Choose <Ui>{UI.fillItIn}</Ui> to open the first slot. Fill it
+                in, then choose <Ui>{UI.publish}</Ui> again.
+              </p>
+              <p>
+                If a slot still says &ldquo;TBD&rdquo;, you&apos;ll see{' '}
+                <Ui>{UI.beforePeopleSee}</Ui>. Choose <Ui>{UI.nameItFirst}</Ui> to open that slot
+                and change it. Or choose <Ui>{UI.publishAnyway}</Ui>, and people will see
+                &ldquo;TBD&rdquo; until you change it.
+              </p>
+            </Note>
             <p>
-              You&apos;ll see <Ui>{UI.sendTheLink}</Ui>. Nobody has the link until you send it.
+              Once it&apos;s published, you&apos;ll see <Ui>{UI.sendTheLink}</Ui>. Nobody has the
+              link until you send it.
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/share-panel.png"
