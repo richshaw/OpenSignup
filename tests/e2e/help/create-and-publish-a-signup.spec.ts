@@ -142,9 +142,10 @@ test.describe('help: create and publish your first signup', () => {
     await expect(page).toHaveURL(/\/build$/);
     const copyLink = panel.getByRole('button', { name: UI.copyLink });
     await expect(copyLink).toBeFocused();
-    // The message names the signup, its dates, its slots and its spots.
+    // The message names the signup, its dates and the spots open, and says
+    // no account is needed: no count of slots, the organizer's word.
     await expect(panel.getByRole('textbox', { name: 'A message to send with it' })).toHaveValue(
-      /^Snack duty — Spring season\nSat, Apr 6 to Sat, Apr 13 · 2 slots · 4 spots\nSign up here: \S+\/s\/snack-duty-spring-season[-\w]*$/,
+      /^Snack duty — Spring season\nSat, Apr 6 to Sat, Apr 13 · 4 spots open\nSign up here, no account needed: \S+\/s\/snack-duty-spring-season[-\w]*$/,
     );
     if (CAPTURE) {
       // The stand-in address again, in the link and in the message; the QR
@@ -169,7 +170,9 @@ test.describe('help: create and publish your first signup', () => {
     await expect(panel.getByRole('button', { name: 'Copied' })).toBeVisible();
     await expect.poll(clipboard).toMatch(/\/s\/snack-duty-spring-season[-\w]*$/);
     await panel.getByRole('button', { name: UI.copyMessage }).click();
-    await expect.poll(clipboard).toMatch(/^Snack duty — Spring season\n.*\nSign up here: /);
+    await expect
+      .poll(clipboard)
+      .toMatch(/^Snack duty — Spring season\n.*\nSign up here, no account needed: /);
     await expect(panel.getByRole('link', { name: UI.emailIt })).toHaveAttribute(
       'href',
       /^mailto:\?subject=Snack%20duty%20%E2%80%94%20Spring%20season&body=/,
