@@ -1,9 +1,10 @@
 /**
  * Drawing a QR code that the browser made itself, with no outside service:
- * the share panel's preview (an SVG path) and the size and name of its
- * download (a PNG the encoder draws on a canvas). The encoder is loaded on
- * demand; these helpers only read its module grid, so they stay small and
- * testable without it.
+ * the share panel's preview (an SVG path) and the layout and name of its
+ * picture (a PNG drawn on a canvas, the signup's title under the code).
+ * These helpers only read the encoder's module grid and take the canvas's
+ * text measuring as an argument, so they stay pure and testable without
+ * either.
  */
 
 /** A QR code's square grid of modules, as `lean-qr` returns it. */
@@ -55,9 +56,92 @@ export function qrSvgPath(code: QrModules): string {
     .join('');
 }
 
-/** Whole pixels per module, so the downloaded picture is at least `minPx` wide. */
-export function qrPngScale(code: QrModules, minPx: number): number {
-  return Math.ceil(minPx / qrSide(code));
+/**
+ * Where the picture's parts go, in pixels: the code with its margin, a
+ * square as wide as the picture, and the title's lines under it.
+ */
+export interface QrPngLayout {
+  /** Pixels per module. */
+  scale: number;
+  width: number;
+  height: number;
+  /** The title's size; its lines are centred on `width / 2`. */
+  fontPx: number;
+  /** At most two lines, the last ending in `…` if the title went on. */
+  lines: { text: string; middle: number }[];
+}
+
+/** The title's lines, at most this many. */
+const TITLE_LINES = 2;
+
+/**
+ * Lays the picture out for `title`, at least `minPx` wide: whole pixels per
+ * module, so the code's edges stay sharp, and the title in lines no wider
+ * than the code itself. The title's size is a twentieth of the width, about
+ * 9pt where the picture prints 2½ inches wide. Below the code's own margin,
+ * which scanners need clear, the title gets the same margin again under it,
+ * so the picture has a white border all round. No title, and the picture
+ * is the square code alone.
+ *
+ * `measure(text, fontPx)` is the width the text would be drawn at that
+ * size: the canvas's `measureText`.
+ */
+export function qrPngLayout(
+  code: QrModules,
+  title: string,
+  measure: (text: string, fontPx: number) => number,
+  minPx: number,
+): QrPngLayout {
+  const scale = Math.ceil(minPx / qrSide(code));
+  const width = qrSide(code) * scale;
+  const margin = QR_QUIET_ZONE * scale;
+  const fontPx = Math.round(width / 20);
+  const lineHeight = Math.round(fontPx * 1.25);
+  const lines = wrap(title, width - 2 * margin, (text) => measure(text, fontPx));
+  return {
+    scale,
+    width,
+    height: lines.length === 0 ? width : width + lines.length * lineHeight + margin,
+    fontPx,
+    lines: lines.map((text, i) => ({ text, middle: width + i * lineHeight + lineHeight / 2 })),
+  };
+}
+
+/**
+ * `text` in lines no wider than `maxWidth`, broken between words, or inside
+ * a word too long for a line of its own (or a title in a script written
+ * without spaces). Past `TITLE_LINES`, the last line kept ends in `…`.
+ */
+function wrap(text: string, maxWidth: number, measure: (text: string) => number): string[] {
+  const lines: string[] = [];
+  let line = '';
+  for (const word of text.trim().split(/\s+/).filter(Boolean)) {
+    const joined = line ? `${line} ${word}` : word;
+    if (measure(joined) <= maxWidth) {
+      line = joined;
+      continue;
+    }
+    if (line) lines.push(line);
+    if (measure(word) <= maxWidth) {
+      line = word;
+      continue;
+    }
+    line = '';
+    for (const char of Array.from(word)) {
+      if (line && measure(line + char) > maxWidth) {
+        lines.push(line);
+        line = '';
+      }
+      line += char;
+    }
+  }
+  if (line) lines.push(line);
+  if (lines.length <= TITLE_LINES) return lines;
+
+  const cut = Array.from(lines[TITLE_LINES - 1]!);
+  const ending = () => `${cut.join('').trimEnd()}…`;
+  while (cut.length > 0 && measure(ending()) > maxWidth) cut.pop();
+  return [...lines.slice(0, TITLE_LINES - 1), ending()];
 }
 
 /**

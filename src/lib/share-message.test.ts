@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shareMessage, withLink, type ShareMessageSignup } from './share-message';
+import { emailBody, shareMessage, withLink, type ShareMessageSignup } from './share-message';
 
 const LINK = 'https://your-site.example/s/book-fair-k3x';
 const SIGN_UP = `Sign up here, no account needed: ${LINK}`;
@@ -163,6 +163,105 @@ describe('shareMessage', () => {
   });
 });
 
+describe('shareMessage: when the slots are', () => {
+  const TIME = { ref: 'time', fieldType: 'time', sortOrder: 2 } as const;
+  const timed = (date: string | undefined, time: string | undefined, capacity = 1) => {
+    const values: Record<string, string> = { what: 'Litter pick' };
+    if (date !== undefined) values.date = date;
+    if (time !== undefined) values.time = time;
+    return { id: `slot_${++slotIds}`, values, capacity, status: 'open' };
+  };
+  const line = (slots: ShareMessageSignup['slots'], fields: ShareMessageSignup['fields']) =>
+    shareMessage(signup({ fields, slots }), LINK).split('\n')[1];
+  const days = (...dates: string[]) => dates.map((d) => slot(d));
+
+  it('names one day', () => {
+    expect(line(days('2026-11-14', '2026-11-14'), [WHAT, DATE])).toBe('Sat, Nov 14 · 2 spots open');
+  });
+
+  it('gives days that run on with no gap as a range', () => {
+    expect(line(days('2026-11-13', '2026-11-12', '2026-11-14'), [WHAT, DATE])).toBe(
+      'Thu, Nov 12 to Sat, Nov 14 · 3 spots open',
+    );
+    expect(line(days('2026-11-13', '2026-11-14'), [WHAT, DATE])).toBe(
+      'Fri, Nov 13 to Sat, Nov 14 · 2 spots open',
+    );
+    // Across a month's end.
+    expect(line(days('2026-10-31', '2026-11-01'), [WHAT, DATE])).toBe(
+      'Sat, Oct 31 to Sun, Nov 1 · 2 spots open',
+    );
+  });
+
+  it('names two days with a gap', () => {
+    expect(line(days('2026-11-14', '2026-11-07'), [WHAT, DATE])).toBe(
+      'Sat, Nov 7 and Sat, Nov 14 · 2 spots open',
+    );
+  });
+
+  it('names three days with a gap', () => {
+    expect(line(days('2026-11-21', '2026-11-07', '2026-11-14'), [WHAT, DATE])).toBe(
+      'Sat, Nov 7, Sat, Nov 14 and Sat, Nov 21 · 3 spots open',
+    );
+    // A gap anywhere is a gap.
+    expect(line(days('2026-11-12', '2026-11-13', '2026-11-20'), [WHAT, DATE])).toBe(
+      'Thu, Nov 12, Fri, Nov 13 and Fri, Nov 20 · 3 spots open',
+    );
+  });
+
+  it('gives four days or more with a gap as a range, rather than a long list', () => {
+    expect(line(days('2026-11-07', '2026-11-14', '2026-11-21', '2026-11-28'), [WHAT, DATE])).toBe(
+      'Sat, Nov 7 to Sat, Nov 28 · 4 spots open',
+    );
+  });
+
+  it('adds a time every slot shares to its one day', () => {
+    const slots = [timed('2026-11-21', '11:00', 10), timed('2026-11-21', '11:00', 9)];
+    expect(line(slots, [WHAT, DATE, TIME])).toBe('Sat, Nov 21, 11:00\u00a0AM · 19 spots open');
+  });
+
+  it('gives a time several days share as a part of its own, not as the range’s end', () => {
+    const slots = [timed('2026-11-12', '11:00'), timed('2026-11-14', '11:00')];
+    expect(line(slots, [WHAT, DATE, TIME])).toBe(
+      'Thu, Nov 12 and Sat, Nov 14 · 11:00\u00a0AM · 2 spots open',
+    );
+    const run = [timed('2026-11-12', '11:00'), timed('2026-11-13', '11:00')];
+    expect(line(run, [WHAT, DATE, TIME])).toBe(
+      'Thu, Nov 12 to Fri, Nov 13 · 11:00\u00a0AM · 2 spots open',
+    );
+  });
+
+  it('gives the time alone when there are no dates', () => {
+    const slots = [timed(undefined, '11:00', 19)];
+    expect(line(slots, [WHAT, TIME])).toBe('11:00\u00a0AM · 19 spots open');
+  });
+
+  it('leaves the time out when the slots differ, or one has none', () => {
+    const mixed = [timed('2026-11-21', '11:00'), timed('2026-11-21', '13:00')];
+    expect(line(mixed, [WHAT, DATE, TIME])).toBe('Sat, Nov 21 · 2 spots open');
+    const missing = [timed('2026-11-21', '11:00'), timed('2026-11-21', undefined)];
+    expect(line(missing, [WHAT, DATE, TIME])).toBe('Sat, Nov 21 · 2 spots open');
+    const impossible = [timed(undefined, '25:00')];
+    expect(line(impossible, [WHAT, TIME])).toBe('1 spot open');
+  });
+
+  it('reads the time field paired with the date field, as the reminders do', () => {
+    const fields = [
+      { ref: 'depart-time', fieldType: 'time', sortOrder: 0 },
+      { ref: 'date', fieldType: 'date', sortOrder: 1 },
+      { ref: 'return-time', fieldType: 'time', sortOrder: 2 },
+    ] as const;
+    const slots = [
+      {
+        id: 'slot_a',
+        values: { date: '2026-11-21', 'depart-time': '09:00', 'return-time': '17:30' },
+        capacity: 1,
+        status: 'open',
+      },
+    ];
+    expect(line(slots, fields)).toBe('Sat, Nov 21, 5:30\u00a0PM · 1 spot open');
+  });
+});
+
 describe('withLink', () => {
   it('sends the message as it is while the link is still in it', () => {
     const edited = `Hi all, can you help at the book fair?\n${SIGN_UP}`;
@@ -181,5 +280,31 @@ describe('withLink', () => {
 
   it('trims space left at either end', () => {
     expect(withLink(`\n  See you there ${LINK}  \n`, LINK)).toBe(`See you there ${LINK}`);
+  });
+});
+
+describe('emailBody', () => {
+  const TITLE = 'Fall book fair volunteers';
+
+  it('starts after the title, which is the email’s subject', () => {
+    const message = `${TITLE}\nThu, Nov 12 to Sat, Nov 14 · 21 spots open\n${SIGN_UP}`;
+    expect(emailBody(message, TITLE, LINK)).toBe(
+      `Thu, Nov 12 to Sat, Nov 14 · 21 spots open\n${SIGN_UP}`,
+    );
+  });
+
+  it('knows the title with stray space around it', () => {
+    expect(emailBody(`  ${TITLE} \n${SIGN_UP}`, ` ${TITLE}`, LINK)).toBe(SIGN_UP);
+  });
+
+  it('keeps the whole message when the first line was changed', () => {
+    const message = `Hi all, can you help at the book fair?\n${SIGN_UP}`;
+    expect(emailBody(message, TITLE, LINK)).toBe(message);
+  });
+
+  it('puts the link back when the edit took it out', () => {
+    expect(emailBody(`${TITLE}\nCan you help on Saturday?`, TITLE, LINK)).toBe(
+      `Can you help on Saturday?\n${LINK}`,
+    );
   });
 });

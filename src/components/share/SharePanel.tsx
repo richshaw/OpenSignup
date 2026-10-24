@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useId, useRef, useState, type Ref } from 'react';
 import { Check, Copy, Mail, Share } from 'lucide-react';
 import { useClipboardCopy } from '@/hooks/useClipboardCopy';
-import { withLink } from '@/lib/share-message';
+import { emailBody, withLink } from '@/lib/share-message';
 import { emitSignupLinkEvent } from '@/lib/signup-link-events';
 import { ShareQrCode } from './ShareQrCode';
 
@@ -97,7 +97,9 @@ export function SharePanel({
   }, [refused]);
 
   const toSend = withLink(message, url);
-  const mailto = `mailto:?subject=${encodeURIComponent(title.trim())}&body=${encodeURIComponent(toSend)}`;
+  const mailto = `mailto:?subject=${encodeURIComponent(title.trim())}&body=${encodeURIComponent(
+    emailBody(message, title, url),
+  )}`;
 
   async function copy(what: Copied) {
     const worked = await (what === 'link' ? link.copy(url) : messageCopy.copy(toSend));
@@ -126,7 +128,11 @@ export function SharePanel({
 
   const lead = firstTime ? LEAD_FIRST_TIME : LEAD_LATER[variant];
   const phone = variant === 'phone';
-  const messageAction = `${SECONDARY} ${phone ? 'h-11 px-4 text-[15px]' : 'h-[34px] px-3 text-[13px]'}`;
+  // As wide as "Copy message" at its widest, so its "Copied" doesn't move
+  // Email it beside it.
+  const messageAction = `${SECONDARY} ${
+    phone ? 'h-11 min-w-[148px] px-4 text-[15px]' : 'h-[34px] min-w-[124px] px-3 text-[13px]'
+  }`;
   const copiedNow =
     lastCopied === 'link' && link.copied
       ? 'Link copied'
@@ -157,12 +163,12 @@ export function SharePanel({
   const messageBox = (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={messageId} className="text-[13px] font-semibold text-ink">
-        {phone ? 'The message that goes with it' : 'A message to send with it'}
+        A message to send with it
       </label>
       <textarea
         ref={messageField}
         id={messageId}
-        rows={phone ? 6 : 5}
+        rows={phone ? PHONE_ROWS : messageRows(message)}
         value={message}
         onChange={(e) => onMessageChange(e.target.value)}
         className={`w-full rounded-[10px] border border-surface-sunk bg-white px-3 py-2 leading-normal text-ink focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand ${
@@ -236,9 +242,10 @@ export function SharePanel({
               </div>
             ) : null}
             {linkNotice}
-            <div className="flex gap-2">
+            {/* The QR code shows large on a row of its own, under these. */}
+            <div className="flex flex-wrap gap-2">
               {copyLinkButton}
-              <ShareQrCode signupId={signupId} url={url} variant="phone" />
+              <ShareQrCode signupId={signupId} title={title} url={url} variant="phone" />
             </div>
           </div>
           {messageBox}
@@ -253,7 +260,7 @@ export function SharePanel({
             {linkNotice}
           </div>
           {messageBox}
-          <ShareQrCode signupId={signupId} url={url} variant="desktop" />
+          <ShareQrCode signupId={signupId} title={title} url={url} variant="desktop" />
         </>
       )}
     </div>
@@ -284,12 +291,32 @@ function LinkField({ url, ref }: { url: string; ref: Ref<HTMLInputElement> }) {
   );
 }
 
+const PHONE_ROWS = 6;
+
+/**
+ * The computer's message box grows with the message, from 5 rows to 12, so
+ * a message of up to 10 lines shows whole. It counts rows rather than using
+ * `field-sizing: content`, which not every browser has: each line takes the
+ * rows it wraps to at about 50 characters a row (the box holds 55 or so),
+ * and one more is left to type into. Dragging the box's corner still wins.
+ */
+function messageRows(message: string): number {
+  const rows = message
+    .split('\n')
+    .reduce((n, line) => n + Math.max(1, Math.ceil(line.length / CHARS_PER_ROW)), 0);
+  return Math.min(MAX_ROWS, Math.max(MIN_ROWS, rows + 1));
+}
+
+const CHARS_PER_ROW = 50;
+const MIN_ROWS = 5;
+const MAX_ROWS = 12;
+
 const DESKTOP_PRIMARY =
   'inline-flex h-10 items-center justify-center gap-1.5 rounded-[10px] bg-brand px-4 text-[13.5px] font-semibold text-white transition hover:brightness-110';
 
 // Copy message and Email it.
 const SECONDARY =
-  'inline-flex items-center gap-1.5 rounded-[10px] border border-surface-sunk bg-white font-semibold text-ink transition hover:bg-surface-raised';
+  'inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-surface-sunk bg-white font-semibold text-ink transition hover:bg-surface-raised';
 
 // A refused copy's line, under the row of the button that was refused.
 const REFUSED = 'text-[13px] font-medium leading-snug text-danger';
