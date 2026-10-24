@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { serviceError, ServiceException } from '@/lib/errors';
 import { err, ok } from '@/lib/result';
+import { DESCRIPTION_MAX_LENGTH } from '@/schemas/signups';
 import { connectTestClient } from '../testing/client';
 import { signupRow, unitContext } from '../testing/fixtures';
 import {
@@ -165,6 +166,24 @@ describe('create_signup', () => {
     expect(body.error.code).toBe('invalid_input');
     expect(body.error.suggestion).toMatch(/date/i);
     expect(body.error.details.dropped).toBeTruthy();
+    expect(svc.createSignup).not.toHaveBeenCalled();
+  });
+
+  // Magic Compose cuts an over-long description down; the tool refuses it, so
+  // the assistant can retry with a shorter one.
+  it('refuses a description over its limit and creates nothing', async () => {
+    const client = await connectTestClient(ctx, WRITE_TOOLS);
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Snack rota',
+        description: 'x'.repeat(DESCRIPTION_MAX_LENGTH + 1),
+        fields: [{ ref: 'a', label: 'A', fieldType: 'text' }],
+        slots: [{ values: { a: 'x' } }],
+      },
+    });
+    expect(r.isError).toBe(true);
+    expect((r.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
     expect(svc.createSignup).not.toHaveBeenCalled();
   });
 
