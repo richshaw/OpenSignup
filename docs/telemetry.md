@@ -61,6 +61,7 @@ by `clientDomain` instead.
 |---|---|---|---|
 | `slot.created` | organizer | `{ slotId }` from `addSlot`; `{ count, bulk: true, slotIds, beforeSlotId? }` from `addSlotsBulk` (the bulk endpoint and the `add_slots` tool), one row per call | `services/slots.ts` |
 | `slot.updated` | organizer | `{ slotId, changed }` (the keys the update sent) | `services/slots.ts` |
+| `slot.rescheduled` | organizer | `{ slotId, from, to }` (the slot's time before and after, ISO or `null`), alongside the `slot.updated` of an edit that moved it | `services/slots.ts` (`updateSlot`; a field change that re-times every slot writes none) |
 | `slot.reordered` | organizer | `{ slotIds }` (every slot, in the new order; written even when the order did not change) | `services/slots.ts` (`reorderSlots`, from the `reorder_slots` tool; a drag in the Build tab writes a `slot.updated` per moved slot instead) |
 | `slot.deleted` | organizer | `{ slotId, commitmentsRemoved, places }` (the sign-ups deleted with it, as commitments and as places) | `services/slots.ts` |
 | `commitment.removed` | organizer | `{ commitmentId, participantId, slotId }` (an organizer took the person off their slot on the Responses tab; nobody is emailed) | `services/commitments.ts` (`removeCommitment`) |
@@ -100,6 +101,7 @@ without one has not always had a send fail.
 | event | actor | payload | fired from |
 |---|---|---|---|
 | `reminder.sent` | system | `{ commitmentId, participantId, channel: 'email', slotAt }` | `jobs/reminders.ts` |
+| `slot.change_sent` | system | `{ commitmentId, participantId, channel: 'email', slotAt }` | `jobs/slot-changes.ts` |
 | `reminder.opted_out` | participant | `{ participantId }` | `services/reminder-optout.ts`, from a reminder's unsubscribe link or the mail provider's one-click unsubscribe |
 | `reminder.opted_in` | participant | `{ participantId }` | `services/reminder-optout.ts`, from the unsubscribe page, turning reminders back on |
 
@@ -107,6 +109,13 @@ without one has not always had a send fail.
 reminder only for that time, so a slot the organizer moves after its reminder
 went out gets one more for the new time. Rows from before `slotAt` was recorded
 have none and stop any further reminder for that commitment.
+
+`slot.change_sent` is the email telling a participant their slot moved, sent
+once the slot has gone 10 minutes without another `slot.rescheduled`. Its
+`slotAt` is the time it told them. What a participant was last told is the
+newest of their confirmation, reminders and change emails; a confirmation
+names no time, so its time is the `from` of the first `slot.rescheduled` after
+it. Reminders off or an opt-out stops change emails too.
 
 The opt-out rows are written only when the setting changes, so a repeated
 unsubscribe adds nothing.

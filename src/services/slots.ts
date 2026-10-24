@@ -391,6 +391,22 @@ export async function updateSlot(
       eventType: 'slot.updated',
       payload: { slotId, changed: Object.keys(data) },
     });
+    // A new date or time: the row the worker reads to tell the people holding
+    // the slot (src/jobs/slot-changes.ts), with where it was, so it can tell
+    // what a participant was last told from where the slot is now.
+    if (data.values !== undefined && !sameInstant(locked.slotAt, row.slotAt)) {
+      await recordActivity(tx, {
+        signupId: row.signupId,
+        workspaceId: locked.workspaceId,
+        actor: activityActor(actor),
+        eventType: 'slot.rescheduled',
+        payload: {
+          slotId,
+          from: locked.slotAt?.toISOString() ?? null,
+          to: row.slotAt?.toISOString() ?? null,
+        },
+      });
+    }
     return ok(row);
   });
 }
@@ -511,4 +527,8 @@ export async function pickAvailableRef(
     if (collision.length === 0) return candidate;
   }
   return `${base}-${Date.now()}`;
+}
+
+function sameInstant(a: Date | null, b: Date | null): boolean {
+  return a === null || b === null ? a === b : a.getTime() === b.getTime();
 }

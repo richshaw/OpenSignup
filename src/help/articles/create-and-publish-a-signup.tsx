@@ -1,4 +1,4 @@
-import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
+import { REMINDER_SETTLE_HOURS, SLOT_CHANGE_SETTLE_MINUTES } from '@/lib/reminder-eligibility';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
 import { Note, Screenshot, Step, Steps, Ui } from '../components';
@@ -11,6 +11,9 @@ const REMINDER_WHEN =
   REMINDER_LEAD_HOURS === 24 ? 'the day before' : `${REMINDER_LEAD_HOURS} hours before`;
 // A sign-up newer than this isn't picked up yet (src/jobs/reminders.ts).
 const SETTLE = REMINDER_SETTLE_HOURS === 1 ? 'an hour' : `${REMINDER_SETTLE_HOURS} hours`;
+
+// How long after an organizer's last change a moved-slot email goes (src/jobs/slot-changes.ts).
+const SETTLE_CHANGE = `${SLOT_CHANGE_SETTLE_MINUTES} minutes`;
 
 export function CreateAndPublishASignup() {
   return (
@@ -90,14 +93,14 @@ export function CreateAndPublishASignup() {
           </Step>
           <Step>
             <p>
-              In <Ui>{UI.capacity}</Ui>, type how many spots this slot has. If two families bring
-              snacks to each game, type 2.
+              In <Ui>{UI.spots}</Ui>, type how many spots this slot has. If two families bring
+              snacks to each game, type 2. Leave it blank for no limit.
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/slot.png"
-              alt="A slot being edited, with What set to Fruit and water, a date set, and Capacity set to 2."
+              alt="A slot being edited, with What set to Fruit and water, a date set, and Spots set to 2."
               width={520}
-              height={182}
+              height={219}
             />
           </Step>
           <Step>
@@ -195,6 +198,11 @@ export function CreateAndPublishASignup() {
           {REMINDER_WHEN}. Someone who signs up later than that gets one about {SETTLE} after
           signing up, unless the slot is less than {SETTLE} away. Each reminder has a link to stop
           them.
+        </p>
+        <p>
+          If you change the date or time of a slot people have taken, they get an email. It comes
+          about {SETTLE_CHANGE} after your last change, with the new details. This goes with
+          reminders: if you turn reminders off, nobody is told when you move a slot.
         </p>
         <p>Reminders are on for every new signup. To turn them off:</p>
         <Steps>

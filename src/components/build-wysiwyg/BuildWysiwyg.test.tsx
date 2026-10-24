@@ -76,8 +76,8 @@ describe('BuildWysiwyg — spots taken', () => {
         committedBySlot={{ slot_full: 3 }}
       />,
     );
-    expect(screen.getByText('3/3')).toBeTruthy();
-    expect(screen.getByText('0/2')).toBeTruthy();
+    expect(screen.getByText('3 of 3 taken')).toBeTruthy();
+    expect(screen.getByText('0 of 2 taken')).toBeTruthy();
   });
 });
 

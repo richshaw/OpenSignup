@@ -18,7 +18,7 @@ export const UI = {
   emptySlot: 'Set what',
   what: 'What',
   date: 'Date',
-  capacity: 'Capacity',
+  spots: 'Spots',
   done: 'Done',
   addSlot: 'Add a slot',
   duplicate: 'Duplicate',
