@@ -1,15 +1,17 @@
 import { getDb } from '@/db/client';
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
-import { loadSignupForOrganizer } from '@/services/signups.cached';
+import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { countActiveCommitmentsForSignup } from '@/services/commitments';
 import { publicSignupUrl } from '@/lib/links';
+import { spotCounts } from '@/lib/spot-counts';
 import { SignupHeader } from '@/components/signup/SignupHeader';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
+import { Banner } from '@/components/banner';
 import { PublishedBanner } from '@/components/signup/PublishedBanner';
 import { SignupLoadError } from '@/components/signup/SignupLoadError';
 import type { SignupStatus } from '@/schemas/signups';
-import { closeAction, publishAction } from './actions';
+import { closeAction, closeQuestionAction, publishAction } from './actions';
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -34,7 +36,15 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
     return <SignupLoadError message={result.error.message} />;
   }
   const sig = result.value;
-  const responsesCount = await countActiveCommitmentsForSignup(getDb(), id);
+  // Spots taken, which a draft's header doesn't show. The Build tab reads
+  // them through the same cached read.
+  const [responsesCount, filled] = await Promise.all([
+    countActiveCommitmentsForSignup(getDb(), id),
+    sig.status === 'draft' ? null : loadCommittedBySlotForOrganizer(actor, id),
+  ]);
+  if (filled && !filled.ok) {
+    return <SignupLoadError message={filled.error.message} />;
+  }
 
   return (
     <div className="space-y-6">
@@ -43,10 +53,22 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
         title={sig.title}
         status={sig.status as SignupStatus}
         publicUrl={publicSignupUrl(sig.slug)}
+        spots={filled ? spotCounts(sig.slots, filled.value) : null}
+        closeQuestionAction={closeQuestionAction.bind(null, id)}
         publishAction={publishAction.bind(null, id)}
         closeAction={closeAction.bind(null, id)}
       />
       <PublishedBanner signupStatus={sig.status} />
+      {/* On every tab, for as long as it's closed. Not a live region: closing
+          it from this page is announced by the header. */}
+      {sig.status === 'closed' ? (
+        <Banner
+          kind="closed"
+          live={false}
+          title="Signup closed"
+          body="People can’t sign up now. Everyone already signed up keeps their spot."
+        />
+      ) : null}
       <AiDraftBanner
         signupId={id}
         signupStatus={sig.status}

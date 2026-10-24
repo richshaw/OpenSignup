@@ -8,9 +8,16 @@ import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
-import { createSignup } from '@/services/signups';
+import { commitToSlot } from '@/services/commitments';
+import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
-import { closeAction, deleteSignupAction, publishAction, setRequireEmailAction } from './actions';
+import {
+  closeAction,
+  closeQuestionAction,
+  deleteSignupAction,
+  publishAction,
+  setRequireEmailAction,
+} from './actions';
 
 // The action reads the organizer from the session cookie. Tests hand it one
 // directly instead of going through Auth.js.
@@ -282,5 +289,90 @@ describe('a viewer choosing Publish, Close or Delete (db)', () => {
     );
     expect((await row())?.deletedAt).toBeNull();
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe('closeQuestionAction (db)', () => {
+  const db = getDb();
+  const organizerId = makeId('org');
+  const workspaceId = makeId('ws');
+  const slug = `test-${workspaceId.slice(-8).toLowerCase()}`;
+  const owner: Actor = {
+    kind: 'organizer',
+    id: organizerId,
+    email: `${slug}@example.test`,
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+  const after = ' People can’t sign up after this, and you can’t reopen it.';
+  let signupId: string;
+  let slotId: string;
+
+  beforeAll(async () => {
+    await db.transaction(async (tx) => {
+      await tx.insert(organizers).values({ id: organizerId, email: owner.email, name: 'Test Org' });
+      await tx.insert(workspaces).values({
+        id: workspaceId,
+        slug,
+        name: 'Test Workspace',
+        type: 'personal',
+        plan: 'free',
+      });
+    });
+    // A new signup starts with one empty slot of 1 spot; this adds one of 4.
+    const created = await createSignup(db, owner, workspaceId, {
+      title: 'Close question',
+      description: '',
+      tags: [],
+      visibility: 'unlisted',
+      settings: {},
+    });
+    if (!created.ok) throw new Error(created.error.message);
+    signupId = created.value.id;
+    const slot = await addSlot(db, owner, signupId, { values: { what: 'Juice' }, capacity: 4 });
+    if (!slot.ok) throw new Error(slot.error.message);
+    slotId = slot.value.id;
+    const published = await publishSignup(db, owner, signupId);
+    if (!published.ok) throw new Error(published.error.message);
+  });
+
+  afterAll(async () => {
+    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+    await db.delete(organizers).where(eq(organizers.id, organizerId));
+  });
+
+  beforeEach(() => {
+    revalidatePath.mockClear();
+  });
+
+  it('asks from the spots taken now, and revalidates nothing', async () => {
+    session.actor = owner;
+    expect(await closeQuestionAction(signupId)).toEqual({
+      question: `Nobody has signed up yet.${after}`,
+    });
+
+    const commit = await commitToSlot(db, slotId, {
+      name: 'Sam Example',
+      email: `sam-${slug}@example.test`,
+      quantity: 1,
+    });
+    if (!commit.ok) throw new Error(commit.error.message);
+    expect(await closeQuestionAction(signupId)).toEqual({
+      question: `4 of 5 spots are still open.${after} Everyone already signed up keeps their spot.`,
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('comes back with a refusal, not an error, for someone who can’t see the signup', async () => {
+    // What Close signup itself would say next.
+    session.actor = { kind: 'anonymous' };
+    expect(await closeQuestionAction(signupId)).toEqual({
+      error: 'Couldn’t close the signup. Try again.',
+    });
+
+    session.actor = owner;
+    expect(await closeQuestionAction('sig_nope')).toEqual({
+      error: 'This signup is no longer available.',
+    });
   });
 });

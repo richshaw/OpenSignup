@@ -12,15 +12,21 @@ export function Banner({
   title,
   body,
   onDismiss,
+  live = true,
 }: {
   kind: Kind;
   title: string;
   body: string;
   onDismiss?: () => void;
+  /**
+   * A live region (`role="status"`) unless false: for a banner that says what
+   * the page is, where the change that put it there is announced already.
+   */
+  live?: boolean;
 }) {
   return (
     <div
-      role="status"
+      role={live ? 'status' : undefined}
       className={`flex items-start gap-3 rounded-lg px-5 py-4 ${STYLES[kind]}`}
     >
       <div className="min-w-0 flex-1 space-y-1">
