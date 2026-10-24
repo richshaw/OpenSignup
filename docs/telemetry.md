@@ -49,11 +49,26 @@ by `clientDomain` instead.
 | `signup.closed` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.archived` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.deleted` | organizer | `{ status }` (the status it had when deleted) | `services/signups.ts` |
-| `signup.draft_started` | organizer | `{}` | RSC at `/app/signups/new` |
-| `signup.editor_opened` | organizer | `{ section: 'settings' \| 'responses' }` | RSC at `/app/signups/[id]/settings` and `/app/signups/[id]/responses` |
-| `signup.previewed` | organizer | `{}` | RSC at `/app/signups/[id]/preview` |
+| `signup.draft_started` | organizer | `{ mode: 'magic' \| 'manual', device }` (`mode` is the form the page showed: Magic Compose, or the manual title-and-description form) | RSC at `/app/signups/new` |
+| `signup.editor_opened` | organizer | `{ section: 'settings' \| 'responses', device }` | RSC at `/app/signups/[id]/settings` and `/app/signups/[id]/responses` |
+| `signup.previewed` | organizer | `{ device }` | RSC at `/app/signups/[id]/preview` |
 | `signup.viewed` | system | `{ uaClass, refererHost, isReturning, signupStatus }` | RSC at `/s/[slug]` |
-| `signup.viewed` | organizer | `{}` (the organizer opening the Build tab, not a participant view; filter on `actor_type = 'system'` to leave these out) | RSC at `/app/signups/[id]/build` |
+| `signup.viewed` | organizer | `{ device }` (the organizer opening the Build tab, not a participant view; filter on `actor_type = 'system'` to leave these out) | RSC at `/app/signups/[id]/build` |
+| `signup.publish_refused` | organizer | `{ code: 'conflict', reason: 'no_slots' }`, or `{ code: 'conflict', reason: 'not_draft', status }` with the status it had by then (`closed` or `archived` in another tab). A publish of a signup that's already open (a second click, or a retry after one that worked) isn't recorded | `services/signups.ts` (`publishSignup`), after its transaction. A viewer's publish is refused by the policy guard before that and writes nothing |
+| `signup.link_copied` | organizer | `{ surface: 'header', status }` (where the link was copied from, and the signup's status then: a draft's link only says the signup isn't ready) | client beacon from the organizer's pages, via `POST /api/signups/[id]/link-events?event=copied&surface=…`, metered per organizer (60 an hour; past that, copies go uncounted) |
+| `magic_compose.failed` | organizer | `{ code }`: the AI client's `not_configured` \| `rate_limited` \| `upstream` \| `invalid_json` \| `schema_mismatch` \| `timeout` \| `aborted`; `schema_mismatch` too for a draft of the wrong shape; `refusal` when the model declined; `not_saved` when the draft couldn't be saved; `over_limit` when the organizer had used up this instance's Magic Compose quota for the hour. Never the prompt or the model's words | `POST /api/signups/magic-compose`. `signup_id` is `NULL`: no signup was made |
+
+`device` is `'phone'`, `'computer'` or `'unknown'`, from the browser's
+`Sec-CH-UA-Mobile` hint when it sends one, otherwise from "Mobi" in its
+User-Agent (`classifyDevice` in `src/lib/view-tracker.ts`). Tablets count as
+computers. It is on the organizer's page views only, so drafts abandoned on a
+phone can be told apart from ones abandoned at a desk; public views carry
+`uaClass` instead, which separates browsers from bots and says nothing about
+the device.
+
+`signup.publish_refused`, `signup.link_copied` and `magic_compose.failed`
+describe no change, so each is written on its own,
+outside any transaction, and a failed write never fails the request.
 
 ### Slot / field lifecycle
 
@@ -131,9 +146,11 @@ Both rows have `signup_id` and `workspace_id` set to `NULL` — the page is
 tenant-independent. Together they form the top of the organizer funnel
 (`landing.viewed` → `landing.cta_clicked` → `auth.magic_link_sent` →
 `auth.signed_in` → `signup.draft_started` → `signup.created`).
-`landing.cta_clicked` is the only client-emitted event in the catalogue;
-all others fire server-side. The beacon reads UA/referer/DNT from request
-headers server-side — no client-supplied data is trusted.
+`landing.cta_clicked` and `signup.link_copied` are the only client-emitted
+events in the catalogue; all others fire server-side. The landing beacon reads
+UA/referer/DNT from request headers server-side, and the link beacon is
+accepted only from a signed-in member of the signup's workspace, who names just the event and the surface — no other
+client-supplied data is trusted.
 
 ### Auth & workspace
 
@@ -364,7 +381,9 @@ without a `SELECT DISTINCT actor_id` scan of `activity`. The definition of
 "active" is "any organizer-actor activity write" — signup mutations, slot
 edits, `auth.signed_in`, **and** the organizer-side RSC pageview events
 (`signup.editor_opened`, `signup.previewed`, `signup.draft_started`, and the
-Build tab's `signup.viewed`) which are written with the organizer as actor.
+Build tab's `signup.viewed`) which are written with the organizer as actor,
+and the organizer's telemetry rows (`signup.publish_refused`,
+`signup.link_copied`, `magic_compose.failed`).
 The public page's `signup.viewed` is system-actor and does not advance
 `last_active_at`.
 
@@ -373,7 +392,6 @@ The public page's `signup.viewed` is system-actor and does not advance
 - Slot click / commit-dialog open on the participant page — would require
   client JS, deliberately excluded to keep `/s/[slug]` vendor-free and
   privacy-friendly.
-- Share-link copy on the organizer side — would require client JS.
 - Email delivery, bounce, or complaint events — would require a Resend
   webhook handler. Not implemented. What is recorded is that the mail
   transport accepted a message: `auth.magic_link_sent`,

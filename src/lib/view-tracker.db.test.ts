@@ -385,6 +385,7 @@ describe('view-tracker (db)', () => {
         workspaceId,
         eventType: 'signup.editor_opened',
         payload: { section: 'slots' },
+        signals: browserSignals(),
       });
       const rows = await db
         .select()
@@ -399,7 +400,26 @@ describe('view-tracker (db)', () => {
       const row = rows[0]!;
       expect(row.actorType).toBe('organizer');
       expect(row.actorId).toBe(organizerId);
-      expect((row.payload as Record<string, unknown>).section).toBe('slots');
+      expect(row.payload).toEqual({ section: 'slots', device: 'computer' });
+    });
+
+    it('says the page was opened on a phone, and never stores the User-Agent', async () => {
+      const iphoneUa =
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+      await recordOrganizerView({
+        actor: { actorId: organizerId, actorType: 'organizer' },
+        signupId,
+        workspaceId,
+        eventType: 'signup.previewed',
+        signals: browserSignals({ userAgent: iphoneUa, dnt: true }),
+      });
+      const rows = await db
+        .select()
+        .from(activity)
+        .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.previewed')));
+      // Signed in, so do-not-track doesn't skip it.
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.payload).toEqual({ device: 'phone' });
     });
 
     it('writes signup.draft_started without a signupId', async () => {
@@ -408,6 +428,8 @@ describe('view-tracker (db)', () => {
         signupId: null,
         workspaceId,
         eventType: 'signup.draft_started',
+        payload: { mode: 'manual' },
+        signals: browserSignals({ mobileHint: '?1' }),
       });
       const rows = await db
         .select()
@@ -420,6 +442,7 @@ describe('view-tracker (db)', () => {
         );
       expect(rows.length).toBeGreaterThanOrEqual(1);
       expect(rows[0]!.signupId).toBeNull();
+      expect(rows[0]!.payload).toEqual({ mode: 'manual', device: 'phone' });
     });
   });
 });
