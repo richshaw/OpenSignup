@@ -2,13 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Check, Copy, ExternalLink } from 'lucide-react';
+import { emitSignupLinkEvent } from '@/lib/signup-link-events';
 
 interface PublicLinkChipProps {
   url: string;
+  /** The signup the link is for, so a copy is recorded against it. */
+  signupId: string;
   className?: string;
 }
 
-export function PublicLinkChip({ url, className = '' }: PublicLinkChipProps) {
+export function PublicLinkChip({ url, signupId, className = '' }: PublicLinkChipProps) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -23,6 +26,7 @@ export function PublicLinkChip({ url, className = '' }: PublicLinkChipProps) {
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(url);
+      emitSignupLinkEvent(signupId, 'copied', 'header');
       setCopied(true);
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);

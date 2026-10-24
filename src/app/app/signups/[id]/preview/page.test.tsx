@@ -13,7 +13,7 @@ vi.mock('@/auth/session', () => ({
 vi.mock('@/services/signups', () => ({
   getSignupForOrganizer: (...args: unknown[]) => getSignupForOrganizer(...args),
 }));
-vi.mock('@/lib/view-tracker', () => ({ recordOrganizerView: vi.fn() }));
+vi.mock('@/lib/view-tracker', () => ({ trackOrganizerView: vi.fn() }));
 
 const { default: SignupPreviewPage } = await import('./page');
 
