@@ -16,8 +16,10 @@ function signup(overrides: Partial<ShareMessageSignup> = {}): ShareMessageSignup
   };
 }
 
+let slotCount = 0;
 function slot(date: string | undefined, capacity: number | null = 1) {
-  return { values: date === undefined ? { what: 'Setup' } : { what: 'Setup', date }, capacity };
+  const values = date === undefined ? { what: 'Setup' } : { what: 'Setup', date };
+  return { id: `slot_${++slotCount}`, values, capacity, status: 'open' };
 }
 
 describe('shareMessage', () => {
@@ -52,7 +54,7 @@ describe('shareMessage', () => {
   });
 
   it('leaves the dates out when the signup has no date field', () => {
-    const slots = [{ values: { what: 'Setup' }, capacity: 2 }];
+    const slots = [{ id: 'slot_a', values: { what: 'Setup' }, capacity: 2, status: 'open' }];
     expect(shareMessage(signup({ fields: [WHAT], slots }), LINK)).toBe(
       `Fall book fair volunteers\n1 slot · 2 spots\nSign up here: ${LINK}`,
     );
@@ -78,7 +80,12 @@ describe('shareMessage', () => {
       { ref: 'fair-day', fieldType: 'date', sortOrder: 1 },
     ] as const;
     const slots = [
-      { values: { 'setup-day': '2026-11-10', 'fair-day': '2026-11-14' }, capacity: 1 },
+      {
+        id: 'slot_a',
+        values: { 'setup-day': '2026-11-10', 'fair-day': '2026-11-14' },
+        capacity: 1,
+        status: 'open',
+      },
     ];
     expect(
       shareMessage(signup({ fields, slots, settings: { reminderFromFieldRef: 'fair-day' } }), LINK),

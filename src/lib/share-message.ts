@@ -1,12 +1,18 @@
 import { isRealDate, resolveAnchorRef, type AnchorCandidate } from '@/lib/reminder-fields';
 import { formatSlotDate } from '@/lib/slot-label';
+import { spotCounts } from '@/lib/spot-counts';
 
 /** What the share message reads from a signup. `SignupWithSlots` has it all. */
 export interface ShareMessageSignup {
   title: string;
   settings: { reminderFromFieldRef?: string | undefined };
   fields: readonly AnchorCandidate[];
-  slots: readonly { values: Record<string, unknown>; capacity: number | null }[];
+  slots: readonly {
+    id: string;
+    values: Record<string, unknown>;
+    capacity: number | null;
+    status: string;
+  }[];
 }
 
 /**
@@ -56,14 +62,12 @@ function slotCount({ slots }: ShareMessageSignup): string | null {
   return slots.length === 1 ? '1 slot' : `${slots.length} slots`;
 }
 
-/** Every slot's places added up, or null when any slot takes anyone who comes. */
+/** Every slot's spots added up, or null when any slot has no limit. */
 function spotCount({ slots }: ShareMessageSignup): string | null {
   if (slots.length === 0) return null;
-  let total = 0;
-  for (const { capacity } of slots) {
-    if (capacity === null) return null;
-    total += capacity;
-  }
+  // Only the total matters here, so nothing taken is passed in.
+  const { total } = spotCounts(slots, {});
+  if (total === null) return null;
   return total === 1 ? '1 spot' : `${total} spots`;
 }
 
