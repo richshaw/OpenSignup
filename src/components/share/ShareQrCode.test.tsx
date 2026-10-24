@@ -209,6 +209,47 @@ describe('<ShareQrCode /> on a phone', () => {
     expect(click).not.toHaveBeenCalled();
   });
 
+  it('takes no second tap while the share menu is open, nor downloads for one', async () => {
+    giveCanvas();
+    let close = () => {};
+    const share = giveFileSharing(
+      () =>
+        new Promise<void>((_, reject) => {
+          close = () => reject(new DOMException('Share canceled', 'AbortError'));
+        }),
+    );
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click');
+    renderQr('phone');
+    fireEvent.click(screen.getByRole('button', { name: 'QR code' }));
+    const save = screen.getByRole('button', { name: 'Save image' });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    expect(share).toHaveBeenCalledOnce();
+    await act(async () => close());
+    // Once it's closed, Save image works again.
+    fireEvent.click(save);
+    expect(share).toHaveBeenCalledTimes(2);
+    expect(click).not.toHaveBeenCalled();
+    expect(save).toHaveTextContent('Save image');
+  });
+
+  it('says nothing when the phone says a share menu is already open', async () => {
+    giveCanvas();
+    giveFileSharing(async () => {
+      throw new DOMException('An earlier share has not yet completed.', 'InvalidStateError');
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click');
+    renderQr('phone');
+    fireEvent.click(screen.getByRole('button', { name: 'QR code' }));
+    const save = screen.getByRole('button', { name: 'Save image' });
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    expect(save).toHaveTextContent('Save image');
+    expect(save.nextElementSibling).toBeEmptyDOMElement();
+    expect(click).not.toHaveBeenCalled();
+  });
+
   it('downloads the picture where the phone can’t share a file, then says Saved', async () => {
     giveCanvas();
     const saved: { href: string; download: string; attached: boolean }[] = [];
