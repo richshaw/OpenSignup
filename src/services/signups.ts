@@ -6,6 +6,7 @@ import { slots, type Slot as SlotRow } from '@/db/schema/slots';
 import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
+import { log } from '@/lib/log';
 import { parseInputSafe } from '@/lib/parse';
 import type { PublishCheck } from '@/lib/publish-check';
 import {
@@ -418,7 +419,14 @@ export async function recordPublishCheck(
   signupId: string,
   check: PublishCheck,
 ): Promise<Result<null, ServiceError>> {
-  const found = await readLiveSignup(db, signupId);
+  let found: SignupRow | undefined;
+  try {
+    found = await readLiveSignup(db, signupId);
+  } catch (e) {
+    // The publish it describes shows its check all the same.
+    log.warn({ err: e, signupId }, 'recordPublishCheck: reading the signup failed');
+    return ok(null);
+  }
   if (!found) return err(serviceError('not_found', 'signup not found'));
   requireWorkspaceWrite(actor, found.workspaceId);
   await recordActivityBestEffort(db, {
