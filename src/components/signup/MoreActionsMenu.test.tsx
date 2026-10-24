@@ -43,7 +43,7 @@ describe('MoreActionsMenu', () => {
 
   it('asks the question again as it opens, from the spots taken now', async () => {
     const fresh =
-      '3 of 6 spots are still open. People can’t sign up after this, and you can’t reopen it.';
+      '3 of 6 spots are still open. People can’t sign up after this, and you can’t reopen it. Everyone already signed up keeps their spot.';
     let answer: (result: { question: string }) => void = () => {};
     const closeQuestionAction = vi.fn<CloseQuestionAction>(
       () => new Promise((resolve) => (answer = resolve)),

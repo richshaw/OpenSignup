@@ -96,10 +96,10 @@ export function chooseAnchorRef(
  * time belonging to a date sits beside it. Falls back to the first time field
  * so a signup that puts its only time column first still resolves.
  */
-function pairedTimeField(
-  dateField: SlotFieldDefinition | null,
-  fields: SlotFieldDefinition[],
-): SlotFieldDefinition | null {
+export function pairedTimeField<F extends AnchorCandidate>(
+  dateField: F | null,
+  fields: readonly F[],
+): F | null {
   const timeFields = fields.filter((f) => f.fieldType === 'time').sort(byOrder);
   if (timeFields.length === 0) return null;
   if (!dateField) return timeFields[0] ?? null;

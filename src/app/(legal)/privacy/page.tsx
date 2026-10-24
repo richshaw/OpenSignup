@@ -57,8 +57,8 @@ export default function PrivacyPage() {
           <li>
             An append-only activity log of organizer actions (sign-ins, creating and editing
             signups, sending magic links, copying a signup&rsquo;s link, or from the share panel
-            sending it by your phone&rsquo;s share menu, choosing Email it or downloading the QR
-            code, a publish or an AI
+            sending it by your phone&rsquo;s share menu, choosing Email it, or showing or saving
+            the QR code, a publish or an AI
             draft that didn&rsquo;t go through), which of your own pages you open and whether on a phone
             or a computer (never the browser&rsquo;s full identifying string), participant
             commitments on your signups, and reminder dispatches. For a copy or a share it records

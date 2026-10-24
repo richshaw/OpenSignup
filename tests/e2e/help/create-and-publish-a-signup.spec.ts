@@ -140,10 +140,11 @@ test.describe('help: create and publish your first signup', () => {
     await expect(page).toHaveURL(/\/build$/);
     const copyLink = panel.getByRole('button', { name: UI.copyLink });
     await expect(copyLink).toBeFocused();
-    // The message names the signup, its dates and the spots open, and says
-    // no account is needed: no count of slots, the organizer's word.
+    // The message names the signup, its dates (two, a week apart, so not
+    // a range) and the spots open, and says no account is needed: no count
+    // of slots, the organizer's word.
     await expect(panel.getByRole('textbox', { name: 'A message to send with it' })).toHaveValue(
-      /^Snack duty — Spring season\nSat, Apr 6 to Sat, Apr 13 · 4 spots open\nSign up here, no account needed: \S+\/s\/snack-duty-spring-season[-\w]*$/,
+      /^Snack duty — Spring season\nSat, Apr 6 and Sat, Apr 13 · 4 spots open\nSign up here, no account needed: \S+\/s\/snack-duty-spring-season[-\w]*$/,
     );
     if (CAPTURE) {
       // The stand-in address again, in the link and in the message; the QR
@@ -159,7 +160,11 @@ test.describe('help: create and publish your first signup', () => {
           box.value = box.value.replace(/\S+$/, url);
         }, standIn);
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-      await expect(panel.getByRole('img', { name: 'QR code for the link' })).toBeVisible();
+      await expect(
+        panel.getByRole('img', {
+          name: 'QR code for the sign-up link to Snack duty — Spring season',
+        }),
+      ).toBeVisible();
       await shot(page, panel, 'share-panel');
     }
     // The clipboard is written after the click returns, so wait for it.
@@ -358,10 +363,24 @@ test.describe('help: create and publish your first signup', () => {
       const sheet = page.getByRole('dialog', { name: UI.sendTheLink });
       await expect(sheet).toBeVisible();
       await expect(sheet.getByRole('button', { name: UI.copyLink })).toBeVisible();
-      await expect(sheet.getByRole('link', { name: UI.qrOnPhone })).toBeVisible();
       // This browser has no share menu, so the message's own buttons show.
       await expect(sheet.getByRole('button', { name: UI.copyMessage })).toBeVisible();
       await expect(sheet.getByRole('link', { name: UI.emailIt })).toBeVisible();
+      // QR code shows the code in the sheet, then Save image saves it: a
+      // download here, where the browser can't share a file.
+      const qr = sheet.getByRole('button', { name: UI.qrOnPhone });
+      await expect(qr).toHaveAttribute('aria-expanded', 'false');
+      await qr.click();
+      await expect(qr).toHaveAttribute('aria-expanded', 'true');
+      await expect(qr).toBeFocused();
+      const code = sheet.getByRole('img', {
+        name: /^QR code for the sign-up link to Phone publish \d+$/,
+      });
+      await expect(code).toBeVisible();
+      const save = sheet.getByRole('button', { name: UI.saveImage });
+      const [download] = await Promise.all([page.waitForEvent('download'), save.click()]);
+      expect(download.suggestedFilename()).toMatch(/^phone-publish-\d+[-\w]*-qr\.png$/);
+      await expect(sheet.getByRole('button', { name: 'Saved' })).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(sheet).toBeHidden();
 

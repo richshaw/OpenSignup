@@ -169,7 +169,17 @@ describe('<SharePanel /> on a computer', () => {
     );
   });
 
-  it('emails the message, with the title as the subject', () => {
+  it('emails the message without its first line, the title, which is the subject', () => {
+    render(<Owner title=" Bake sale helpers " />);
+    expect(screen.getByRole('link', { name: 'Email it' })).toHaveAttribute(
+      'href',
+      `mailto:?subject=Bake%20sale%20helpers&body=${encodeURIComponent(
+        MESSAGE.split('\n').slice(1).join('\n'),
+      )}`,
+    );
+  });
+
+  it('emails the whole message once its first line was changed', () => {
     render(<Owner title=" Bake sale helpers " />);
     fireEvent.change(screen.getByLabelText('A message to send with it'), {
       target: { value: `Can you help? & bring a friend: ${LINK}` },
@@ -197,6 +207,23 @@ describe('<SharePanel /> on a computer', () => {
     render(<Owner />);
     expect(screen.queryByRole('button', { name: 'Share…' })).not.toBeInTheDocument();
   });
+
+  it('grows the message box with the message, from 5 rows to 12', () => {
+    render(<Owner />);
+    const box = screen.getByLabelText('A message to send with it');
+    // Three lines, the link's wrapping once, and one to type into.
+    expect(box).toHaveAttribute('rows', '5');
+    const lines = (n: number) => Array.from({ length: n }, (_, i) => `Line ${i + 1}`).join('\n');
+    fireEvent.change(box, { target: { value: lines(10) } });
+    expect(box).toHaveAttribute('rows', '11');
+    // A long line counts the rows it wraps to.
+    fireEvent.change(box, { target: { value: `${lines(8)}\n${'Bring a dish. '.repeat(8)}` } });
+    expect(box).toHaveAttribute('rows', '12');
+    fireEvent.change(box, { target: { value: lines(30) } });
+    expect(box).toHaveAttribute('rows', '12');
+    fireEvent.change(box, { target: { value: '' } });
+    expect(box).toHaveAttribute('rows', '5');
+  });
 });
 
 describe('<SharePanel /> on a phone', () => {
@@ -221,7 +248,9 @@ describe('<SharePanel /> on a phone', () => {
     render(<Owner variant="phone" />);
     expect(screen.queryByRole('button', { name: 'Share…' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy link' })).toHaveFocus();
-    expect(screen.getByLabelText('The message that goes with it')).toHaveValue(MESSAGE);
+    expect(screen.getByLabelText('A message to send with it')).toHaveValue(MESSAGE);
+    // The sheet scrolls, so its box stays one size.
+    expect(screen.getByLabelText('A message to send with it')).toHaveAttribute('rows', '6');
     expect(screen.getByRole('button', { name: 'Copy message' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Email it' })).toBeInTheDocument();
   });
@@ -242,7 +271,7 @@ describe('<SharePanel /> on a phone', () => {
     const share = vi.fn(async (_data: ShareData) => {});
     giveShareMenu(share);
     render(<Owner variant="phone" />);
-    fireEvent.change(screen.getByLabelText('The message that goes with it'), {
+    fireEvent.change(screen.getByLabelText('A message to send with it'), {
       target: { value: 'Bake sale on Saturday, can you help?' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Share…' }));
