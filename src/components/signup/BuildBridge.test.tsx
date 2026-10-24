@@ -4,7 +4,11 @@ import { act, render } from '@testing-library/react';
 import { BuildBridge, useBuildBridge, useRegisterBuildTab } from './BuildBridge';
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock('next/navigation', () => ({ useRouter: () => router }));
+// Where the organizer is: another tab until a test says otherwise.
+const nav = vi.hoisted(() => ({ pathname: '/app/signups/sig_1/responses' }));
+vi.mock('next/navigation', () => ({ useRouter: () => router, usePathname: () => nav.pathname }));
+
+const BUILD = '/app/signups/sig_1/build';
 
 type Bridge = ReturnType<typeof useBuildBridge>;
 type Tab = Parameters<typeof useRegisterBuildTab>[0];
@@ -45,6 +49,7 @@ const idleTab = (): Tab => ({
 
 afterEach(() => {
   router.push.mockClear();
+  nav.pathname = '/app/signups/sig_1/responses';
 });
 
 describe('BuildBridge', () => {
@@ -62,6 +67,7 @@ describe('BuildBridge', () => {
     expect(router.push).toHaveBeenCalledWith('/app/signups/sig_1/build');
 
     const tab = idleTab();
+    nav.pathname = BUILD;
     show(tab);
     expect(tab.openSlot).toHaveBeenCalledOnce();
     expect(tab.openSlot).toHaveBeenCalledWith(null, null);
@@ -71,6 +77,19 @@ describe('BuildBridge', () => {
     const again = idleTab();
     show(again);
     expect(again.openSlot).not.toHaveBeenCalled();
+  });
+
+  it('drops the request when the organizer ends up on another tab instead', () => {
+    const { bridge, show } = renderBridge(null);
+    bridge().openSlot(null, null);
+    // They went to Settings rather than waiting for Build.
+    nav.pathname = '/app/signups/sig_1/settings';
+    show(null);
+    // A later visit to Build adds nothing.
+    nav.pathname = BUILD;
+    const tab = idleTab();
+    show(tab);
+    expect(tab.openSlot).not.toHaveBeenCalled();
   });
 
   it('saves nothing and says so off the Build tab', async () => {
@@ -103,6 +122,28 @@ describe('BuildBridge', () => {
 
     // That answer is used once; the next Publish starts clean.
     await expect(bridge().flushPendingSaves()).resolves.toBe(true);
+  });
+
+  it('stops counting a departed tab’s failed save once a Build tab shows again, but still waits for it', async () => {
+    let finish: (saved: boolean) => void = () => {};
+    const left: Tab = {
+      flushPendingSaves: vi.fn(() => new Promise<boolean>((resolve) => (finish = resolve))),
+      openSlot: vi.fn(() => true),
+    };
+    const { bridge, show } = renderBridge(left);
+    show(null);
+    show(idleTab());
+    let saved: boolean | null = null;
+    const flushed = bridge()
+      .flushPendingSaves()
+      .then((value) => (saved = value));
+    await act(async () => {});
+    expect(saved).toBeNull();
+    await act(async () => {
+      finish(false);
+      await flushed;
+    });
+    expect(saved).toBe(true);
   });
 
   it('waits for the Build tab showing and for one that left before it', async () => {

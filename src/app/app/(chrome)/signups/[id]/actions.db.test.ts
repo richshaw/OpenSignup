@@ -481,6 +481,55 @@ describe('Publish’s check (db)', () => {
     });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
+
+  // #525 counts refused publishes. The check now stops what the service used
+  // to refuse, so it writes the same row.
+  describe('signup.publish_refused', () => {
+    const refusals = async (id: string) =>
+      (
+        await db
+          .select({ payload: activity.payload, actorId: activity.actorId })
+          .from(activity)
+          .where(and(eq(activity.signupId, id), eq(activity.eventType, 'signup.publish_refused')))
+      ).map((row) => row.payload);
+
+    it.each<[string, () => Promise<{ id: string }>, Record<string, unknown>]>([
+      ['no slots', () => draft([], { empty: true }), { code: 'conflict', reason: 'no_slots' }],
+      ['no fields', () => draft([{}], { empty: true }), { code: 'conflict', reason: 'no_fields' }],
+      ['every slot empty', () => draft(), { code: 'conflict', reason: 'all_blank' }],
+      [
+        'a slot still saying TBD',
+        () => draft([{ what: 'Cashier TBD' }]),
+        { reason: 'placeholder', warning: true },
+      ],
+    ])('writes one row when the check stops %s', async (_name, make, payload) => {
+      const { id } = await make();
+      await publishAction(id);
+      expect(await refusals(id)).toEqual([payload]);
+    });
+
+    it('writes no more once the organizer chooses Publish anyway', async () => {
+      const { id } = await draft([{ what: 'Cashier TBD' }]);
+      await publishAction(id);
+      expect(await publishAction(id, anyway())).toEqual({ published: true });
+      expect(await refusals(id)).toEqual([{ reason: 'placeholder', warning: true }]);
+    });
+
+    it('writes nothing for a viewer, who is refused before the check', async () => {
+      const { id } = await draft();
+      session.actor = viewer;
+      await publishAction(id);
+      expect(await refusals(id)).toEqual([]);
+    });
+
+    it('still comes from the service when it refuses a publish the check didn’t see', async () => {
+      // The MCP tool and the REST API publish through the service alone.
+      const { id } = await draft([], { empty: true });
+      const refused = await publishSignup(db, owner, id);
+      expect(refused.ok).toBe(false);
+      expect(await refusals(id)).toEqual([{ code: 'conflict', reason: 'no_slots' }]);
+    });
+  });
 });
 
 describe('closeQuestionAction (db)', () => {

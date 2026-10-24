@@ -12,7 +12,10 @@ import type { StatusAction } from './StatusActionForm';
 
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
 const router = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock('next/navigation', () => ({ useRouter: () => router }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => router,
+  usePathname: () => '/app/signups/sig_1/build',
+}));
 const loads = vi.hoisted(() => ({ count: 0 }));
 vi.mock('@/components/share/load-share-panel', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/components/share/load-share-panel')>();

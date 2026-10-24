@@ -20,6 +20,7 @@ import {
   deleteSignup,
   getSignupForOrganizer,
   publishSignup,
+  recordPublishCheck,
   updateSignup,
 } from '@/services/signups';
 import { removeRefusal } from './responses/remove-refusal';
@@ -71,6 +72,8 @@ export async function publishAction(
     const check = checkBeforePublish(read.value);
     const anyway = check?.kind === 'placeholder' && form?.get('acknowledge') === 'placeholder';
     if (check && !anyway) {
+      // #525's count of refused publishes, now that the service doesn't see these.
+      await refusalAsResult(() => recordPublishCheck(db, actor, signupId, check));
       return { check, copy: publishCheckCopy(check), target: publishCheckTarget(check) };
     }
   }
