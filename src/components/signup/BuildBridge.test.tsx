@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, render } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { BuildBridge, useBuildBridge, useRegisterBuildTab } from './BuildBridge';
+import { TabsNav } from './TabsNav';
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 // Where the organizer is: another tab until a test says otherwise.
@@ -9,6 +10,9 @@ const nav = vi.hoisted(() => ({ pathname: '/app/signups/sig_1/responses' }));
 vi.mock('next/navigation', () => ({ useRouter: () => router, usePathname: () => nav.pathname }));
 
 const BUILD = '/app/signups/sig_1/build';
+
+// TabsNav scrolls its tab into view, which jsdom can't.
+Element.prototype.scrollIntoView = () => {};
 
 type Bridge = ReturnType<typeof useBuildBridge>;
 type Tab = Parameters<typeof useRegisterBuildTab>[0];
@@ -32,6 +36,7 @@ function renderBridge(tab: Tab | null) {
   const tree = (shown: Tab | null) => (
     <BuildBridge buildHref="/app/signups/sig_1/build">
       <Header onReady={(b) => (bridge = b)} />
+      <TabsNav signupId="sig_1" counts={{ build: 2, responses: 0 }} />
       {shown ? <BuildTab {...shown} /> : null}
     </BuildBridge>
   );
@@ -93,6 +98,71 @@ describe('BuildBridge', () => {
     const tab = idleTab();
     show(tab);
     expect(tab.openSlot).not.toHaveBeenCalled();
+  });
+
+  describe('a fix still on its way to Build', () => {
+    // A tab's own onClick runs; jsdom just doesn't follow the link.
+    const stay = (e: Event) => e.preventDefault();
+    beforeEach(() => document.addEventListener('click', stay));
+    afterEach(() => document.removeEventListener('click', stay));
+
+    // The organizer pressed Add a slot on Settings, and Build hasn't come yet.
+    function pressedOnSettings() {
+      nav.pathname = '/app/signups/sig_1/settings';
+      const view = renderBridge(null);
+      view.bridge().openSlot(null, null);
+      return view;
+    }
+
+    /** Build arrives, and whether it was asked to open a slot. */
+    function buildArrives(show: (tab: Tab | null) => void) {
+      nav.pathname = BUILD;
+      const tab = idleTab();
+      show(tab);
+      return tab.openSlot;
+    }
+
+    it('is kept through a re-render on the same page', () => {
+      const { show } = pressedOnSettings();
+      show(null);
+      expect(buildArrives(show)).toHaveBeenCalledWith(null, null);
+    });
+
+    it('is kept when the organizer chooses Build themselves', () => {
+      const { show } = pressedOnSettings();
+      fireEvent.click(screen.getByRole('tab', { name: /Build/ }));
+      expect(buildArrives(show)).toHaveBeenCalledOnce();
+    });
+
+    it('is dropped when the organizer chooses the tab they’re on, so the path never changes', () => {
+      const { show } = pressedOnSettings();
+      fireEvent.click(screen.getByRole('tab', { name: 'Settings' }));
+      show(null);
+      expect(buildArrives(show)).not.toHaveBeenCalled();
+    });
+
+    it('is dropped when the organizer chooses another tab', () => {
+      const { show } = pressedOnSettings();
+      fireEvent.click(screen.getByRole('tab', { name: /Responses/ }));
+      expect(buildArrives(show)).not.toHaveBeenCalled();
+    });
+
+    it('is dropped on Back or Forward', () => {
+      const { show } = pressedOnSettings();
+      act(() => {
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      });
+      expect(buildArrives(show)).not.toHaveBeenCalled();
+    });
+
+    it('is dropped when a form is sent, such as Settings’ Save', () => {
+      const { show } = pressedOnSettings();
+      const form = document.createElement('form');
+      document.body.append(form);
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      form.remove();
+      expect(buildArrives(show)).not.toHaveBeenCalled();
+    });
   });
 
   it('saves nothing and says so off the Build tab', async () => {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useEffect } from 'react';
-import { act, render, screen, fireEvent, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { BuildBridge, useBuildBridge } from '@/components/signup/BuildBridge';
 import { BuildWysiwyg } from './BuildWysiwyg';
 import type { SignupSettings } from '@/schemas/signups';
@@ -125,6 +125,83 @@ describe('BuildWysiwyg — group headers', () => {
     expect((await screen.findByRole('alert')).textContent).toMatch(/didn.t save/);
     expect(screen.getByRole('button', { name: /Group header.*Sat, Nov 14/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Group header.*Sat, Nov 21/ })).toBeNull();
+  });
+});
+
+describe('BuildWysiwyg — duplicate', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("focuses the copy once, so moving it to another date's group leaves focus alone", async () => {
+    const copy = {
+      id: 'slot_copy',
+      capacity: 2,
+      sortOrder: 1,
+      values: { name: 'Fruit', date: '2026-11-14' },
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ data: String(url).endsWith('/slots/bulk') ? [copy] : {} }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          ),
+        ),
+      ),
+    );
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        initialFields={[
+          {
+            id: 'f-name',
+            ref: 'name',
+            label: 'Name',
+            fieldType: 'text',
+            sortOrder: 0,
+            config: { fieldType: 'text', maxLength: 200 },
+          },
+          {
+            id: 'f-date',
+            ref: 'date',
+            label: 'Date',
+            fieldType: 'date',
+            sortOrder: 1,
+            config: { fieldType: 'date' },
+          },
+        ]}
+        initialSettings={{ ...settings, groupByFieldRefs: ['date'] }}
+        initialSlots={[
+          {
+            id: 'slot_a',
+            capacity: 2,
+            sortOrder: 0,
+            values: { name: 'Fruit', date: '2026-11-14' },
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate' }));
+    const editor = await screen.findByTestId('slot-editor-slot_copy');
+    const name = () =>
+      screen
+        .getByTestId('slot-editor-slot_copy')
+        .querySelector<HTMLInputElement>('input[aria-label="Name value"]')!;
+    await waitFor(() => expect(name()).toHaveFocus());
+
+    // Moving the copy to another date remounts its editor in that date's group.
+    const date = editor.querySelector<HTMLInputElement>('input[aria-label="Date value"]')!;
+    date.focus();
+    fireEvent.change(date, { target: { value: '2026-11-21' } });
+
+    expect(screen.getByRole('button', { name: /Group header.*Sat, Nov 21/ })).toBeTruthy();
+    expect(name()).not.toHaveFocus();
   });
 });
 
@@ -414,6 +491,51 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     expect(where).toHaveFocus();
     // Done still closes it.
     done('slot_b');
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+    expect(handBack).not.toHaveBeenCalled();
+  });
+
+  it('hands nothing back after Duplicate opens the copy, or after Delete', async () => {
+    const copy = {
+      id: 'slot_copy',
+      capacity: 1,
+      sortOrder: 2,
+      values: { what: 'Cleanup', where: 'Room TBA' },
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ data: String(url).endsWith('/slots/bulk') ? [copy] : {} }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        ),
+      ),
+    );
+    const { bridge } = renderBuild();
+    act(() => {
+      bridge().openSlot('slot_b', 'where');
+    });
+    fireEvent.click(
+      within(screen.getByTestId('slot-editor-slot_b')).getByRole('button', { name: 'Duplicate' }),
+    );
+    const copyEditor = await screen.findByTestId('slot-editor-slot_copy');
+    // The copy is Duplicate's, not the fix's: Enter leaves it open, and Done
+    // just closes it.
+    fireEvent.keyDown(within(copyEditor).getByRole('textbox', { name: 'Where value' }), {
+      key: 'Enter',
+    });
+    expect(screen.getByTestId('slot-editor-slot_copy')).toBeInTheDocument();
+    done('slot_copy');
+    expect(handBack).not.toHaveBeenCalled();
+
+    act(() => {
+      bridge().openSlot('slot_a', null);
+    });
+    fireEvent.click(
+      within(screen.getByTestId('slot-editor-slot_a')).getByRole('button', { name: 'Delete' }),
+    );
     expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
     expect(handBack).not.toHaveBeenCalled();
   });

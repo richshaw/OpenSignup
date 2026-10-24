@@ -68,16 +68,20 @@ export async function publishAction(
     return loaded;
   });
   if (!read.ok) return { error: statusRefusal(read.error, 'publish') };
+  // Publish anyway past a slot still saying TBD, which signup.published records.
+  let anyway = false;
   if (read.value.status === 'draft') {
     const check = checkBeforePublish(read.value);
-    const anyway = check?.kind === 'placeholder' && form?.get('acknowledge') === 'placeholder';
+    anyway = check?.kind === 'placeholder' && form?.get('acknowledge') === 'placeholder';
     if (check && !anyway) {
       // #525's count of refused publishes, now that the service doesn't see these.
       await refusalAsResult(() => recordPublishCheck(db, actor, signupId, check));
       return { check, copy: publishCheckCopy(check), target: publishCheckTarget(check) };
     }
   }
-  const result = await refusalAsResult(() => publishSignup(db, actor, signupId));
+  const result = await refusalAsResult(() =>
+    publishSignup(db, actor, signupId, anyway ? { acknowledged: 'placeholder' } : {}),
+  );
   if (!result.ok) return { error: statusRefusal(result.error, 'publish') };
   revalidateSignup(signupId);
   return { published: true };

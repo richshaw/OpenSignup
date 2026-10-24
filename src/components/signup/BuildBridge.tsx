@@ -36,10 +36,13 @@ interface Bridge extends HeaderBridge {
    * Publish and share took the focus: not once the signup is published.
    */
   handBack: () => boolean;
+  /** Forgets a slot a fix asked Build to open: the organizer went elsewhere. */
+  dropPending: () => void;
 }
 
 const NO_BUILD_TAB: Bridge = {
   register: () => () => {},
+  dropPending: () => {},
   flushPendingSaves: async () => true,
   openSlot: () => false,
   onHandBack: () => () => {},
@@ -58,8 +61,12 @@ const SAVED = Promise.resolve(true);
  * On another tab the fix goes to Build and leaves the slot to open here,
  * which the Build tab takes once, as it mounts. It's never in the address,
  * so going Back and Forward, or a bookmark, can't open it, or add a slot,
- * again; and if the organizer ends up on another tab instead, it's dropped,
- * so a later visit to Build doesn't add an empty slot. A Build tab that goes
+ * again. Until Build takes it, it's dropped, so a later visit to Build
+ * doesn't add an empty slot, when the organizer does anything else first:
+ * the path settles on a page that isn't Build; they choose a tab that isn't
+ * Build, the one they're on included (`TabsNav` calls `dropPending`); they
+ * go Back or Forward; or they submit a form, such as Settings' Save, which
+ * comes back to the same page. A Build tab that goes
  * away leaves its last saves behind: the edits it sent as it went may still
  * be on their way, so the next Publish waits for those too. Whether they
  * saved counts only until a Build tab shows again, whose own saves are then
@@ -76,6 +83,17 @@ export function BuildBridge({ buildHref, children }: { buildHref: string; childr
   useEffect(() => {
     if (pathname !== buildHref) pending.current = null;
   }, [pathname, buildHref]);
+  useEffect(() => {
+    const drop = () => {
+      pending.current = null;
+    };
+    window.addEventListener('popstate', drop);
+    document.addEventListener('submit', drop, true);
+    return () => {
+      window.removeEventListener('popstate', drop);
+      document.removeEventListener('submit', drop, true);
+    };
+  }, []);
   const bridge = useMemo<Bridge>(
     () => ({
       register: (next) => {
@@ -89,6 +107,9 @@ export function BuildBridge({ buildHref, children }: { buildHref: string; childr
           const left = Promise.all([leaving.current, next.flushPendingSaves()]);
           leaving.current = left.then((saved) => saved.every(Boolean));
         };
+      },
+      dropPending: () => {
+        pending.current = null;
       },
       flushPendingSaves: async () => {
         const left = leaving.current;
@@ -122,6 +143,11 @@ export function BuildBridge({ buildHref, children }: { buildHref: string; childr
 /** The header's way to the Build tab; does nothing outside a `BuildBridge`. */
 export function useBuildBridge(): HeaderBridge {
   return useContext(BridgeContext);
+}
+
+/** Forgets a pending fix, for a tab the organizer chooses that isn't Build. */
+export function useDropPendingFix(): () => void {
+  return useContext(BridgeContext).dropPending;
 }
 
 /**

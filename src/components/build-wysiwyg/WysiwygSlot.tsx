@@ -29,6 +29,10 @@ type WysiwygSlotProps = {
    */
   displayFields: BuildField[];
   expanded: boolean;
+  /** Move focus into the editor when it opens. */
+  focusOnOpen?: boolean;
+  /** Called once the editor has taken focus. */
+  onFocused?: () => void;
   onExpand: () => void;
   onCollapse: () => void;
   onEditCell: (fieldRef: string, value: string) => void;
@@ -58,6 +62,8 @@ export function WysiwygSlot({
   fields,
   displayFields,
   expanded,
+  focusOnOpen = false,
+  onFocused,
   onExpand,
   onCollapse,
   onEditCell,
@@ -82,6 +88,8 @@ export function WysiwygSlot({
         <SlotEditor
           row={row}
           fields={fields}
+          focusOnOpen={focusOnOpen}
+          {...(onFocused ? { onFocused } : {})}
           taken={taken}
           remindersOn={remindersOn}
           onCellChange={onEditCell}
