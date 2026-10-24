@@ -130,6 +130,7 @@ async function press(button: HTMLElement) {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   Reflect.deleteProperty(window, 'matchMedia');
   router.push.mockClear();
 });
@@ -149,14 +150,60 @@ describe('Publish and share', () => {
     expect(loads.count).toBe(before + 1);
     expect(flushPendingSaves).toHaveBeenCalledOnce();
     expect(publish).not.toHaveBeenCalled();
-    const busy = within(screen.getByTestId('desktop')).getByRole('button', { name: 'Publishing…' });
+    // Busy at once, so a second press does nothing, though it doesn't look it yet.
+    const busy = publishIn('desktop');
     expect(busy).toHaveAttribute('aria-busy', 'true');
     expect(busy).toHaveAttribute('aria-disabled', 'true');
+    await press(busy);
+    expect(flushPendingSaves).toHaveBeenCalledOnce();
 
     await act(async () => saved(true));
     expect(publish).toHaveBeenCalledOnce();
     expect(publish.mock.calls[0]?.[0]?.get('acknowledge')).toBeNull();
     expect(await screen.findByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
+  });
+
+  it('says Checking…, on both buttons, only once the answer is slow, and for a moment at least', async () => {
+    vi.useFakeTimers();
+    let saved: (value: boolean) => void = () => {};
+    render(
+      <Header
+        action={async () => answer(EMPTY)}
+        buildTab={{
+          flushPendingSaves: () => new Promise<boolean>((resolve) => (saved = resolve)),
+          openSlot: () => true,
+        }}
+      />,
+    );
+    const wait = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+    const checking = () => screen.queryAllByRole('button', { name: 'Checking…' });
+
+    await press(publishIn('desktop'));
+    await wait(299);
+    expect(checking()).toHaveLength(0);
+    await wait(1);
+    expect(checking()).toHaveLength(2);
+    for (const button of checking()) expect(button).toHaveAttribute('aria-busy', 'true');
+
+    // The check answers at 350 ms; the spinner stays until 700.
+    await wait(50);
+    await act(async () => saved(true));
+    expect(screen.getByRole('dialog', { name: 'Nothing to sign up for yet' })).toBeInTheDocument();
+    expect(checking()).toHaveLength(2);
+    await wait(349);
+    expect(checking()).toHaveLength(2);
+    await wait(1);
+    expect(checking()).toHaveLength(0);
+    expect(publishIn('phone')).toHaveAttribute('aria-busy', 'false');
+  });
+
+  it('shows no spinner for a check that answers at once', async () => {
+    vi.useFakeTimers();
+    render(<Header action={async () => answer(EMPTY)} />);
+    await press(publishIn('desktop'));
+    expect(screen.getByRole('dialog', { name: 'Nothing to sign up for yet' })).toBeInTheDocument();
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+    expect(screen.queryAllByRole('button', { name: 'Checking…' })).toHaveLength(0);
   });
 
   it('publishes straight away off the Build tab, with nothing to save', async () => {
@@ -169,9 +216,6 @@ describe('Publish and share', () => {
 
 describe('Publish and share, when a save goes wrong', () => {
   beforeEach(() => windowWidth(1280));
-  afterEach(() => {
-    vi.useRealTimers();
-  });
 
   it('doesn’t publish past a change that didn’t save, and says so where refusals go', async () => {
     const publish = vi.fn<StatusAction>(async () => ({ published: true }));

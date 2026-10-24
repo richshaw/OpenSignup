@@ -12,6 +12,7 @@ import {
 import { Send } from 'lucide-react';
 import { loadSharePanel } from '@/components/share/load-share-panel';
 import { Spinner } from '@/components/ui/spinner';
+import { useDelayedFlag } from '@/hooks/useDelayedFlag';
 import type { PublishCheckAnswer } from '@/lib/publish-check';
 import { useBuildBridge } from './BuildBridge';
 import { BAR_BUTTON, HEADER_BUTTON, PRIMARY } from './header-buttons';
@@ -28,8 +29,14 @@ import {
 const SAVE_WAIT_MS = 10_000;
 
 interface Publish {
-  /** Saving the Build tab's edits, then publishing. */
+  /** Saving the Build tab's edits, then publishing: a second press does nothing. */
   busy: boolean;
+  /**
+   * Whether the button shows it's busy: only once it has been for 300 ms, and
+   * then for 400 ms at least, so a check that answers at once flashes no
+   * spinner, and one just slower doesn't flicker.
+   */
+  showBusy: boolean;
   /** One of the Build tab's saves failed, so Publish stopped there. */
   unsaved: boolean;
   /** What Publish's check found, while its panel is open. */
@@ -96,9 +103,12 @@ export function PublishState({ children }: { children: ReactNode }) {
     startTransition(() => dispatch?.(form));
   }
 
+  const busy = saving || pending;
+  const showBusy = useDelayedFlag(busy, { delay: 300, minVisible: 400 });
   // Two buttons read this, so it isn't worth memoizing.
   const value: Publish = {
-    busy: saving || pending,
+    busy,
+    showBusy,
     unsaved,
     check,
     publish: (anyway) => void publish(anyway),
@@ -132,7 +142,7 @@ export function PublishRefusal({ className }: { className?: string }) {
  * `PublishCheckPanel`); pressing this again closes the popover.
  */
 export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
-  const { busy, check, publish, closeCheck, fix } = useContext(PublishContext);
+  const { busy, showBusy, check, publish, closeCheck, fix } = useContext(PublishContext);
   const share = useShare();
   const desktop = variant === 'desktop';
   const answer = check !== null && share.desktop === desktop ? check : null;
@@ -151,10 +161,11 @@ export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
       aria-expanded={answer !== null}
       aria-busy={busy}
       aria-disabled={busy || undefined}
-      className={`${desktop ? HEADER_BUTTON : BAR_BUTTON} ${PRIMARY} ${busy ? 'cursor-progress brightness-90' : ''}`}
+      className={`${desktop ? HEADER_BUTTON : BAR_BUTTON} ${PRIMARY} ${showBusy ? 'cursor-progress brightness-90' : ''}`}
     >
-      {busy ? <Spinner /> : <Send size={desktop ? 15 : 16} aria-hidden="true" />}
-      {busy ? 'Publishing…' : 'Publish and share'}
+      {showBusy ? <Spinner /> : <Send size={desktop ? 15 : 16} aria-hidden="true" />}
+      {/* True whether it ends in the check or a publish, which checks first. */}
+      {showBusy ? 'Checking…' : 'Publish and share'}
     </button>
   );
 
