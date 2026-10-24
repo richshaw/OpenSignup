@@ -163,6 +163,51 @@ describe('shareMessage', () => {
   });
 });
 
+describe('shareMessage: when the slots are', () => {
+  const line = (slots: ShareMessageSignup['slots'], fields: ShareMessageSignup['fields']) =>
+    shareMessage(signup({ fields, slots }), LINK).split('\n')[1];
+  const days = (...dates: string[]) => dates.map((d) => slot(d));
+
+  it('names one day', () => {
+    expect(line(days('2026-11-14', '2026-11-14'), [WHAT, DATE])).toBe('Sat, Nov 14 · 2 spots open');
+  });
+
+  it('gives days that run on with no gap as a range', () => {
+    expect(line(days('2026-11-13', '2026-11-12', '2026-11-14'), [WHAT, DATE])).toBe(
+      'Thu, Nov 12 to Sat, Nov 14 · 3 spots open',
+    );
+    expect(line(days('2026-11-13', '2026-11-14'), [WHAT, DATE])).toBe(
+      'Fri, Nov 13 to Sat, Nov 14 · 2 spots open',
+    );
+    // Across a month's end.
+    expect(line(days('2026-10-31', '2026-11-01'), [WHAT, DATE])).toBe(
+      'Sat, Oct 31 to Sun, Nov 1 · 2 spots open',
+    );
+  });
+
+  it('names two days with a gap', () => {
+    expect(line(days('2026-11-14', '2026-11-07'), [WHAT, DATE])).toBe(
+      'Sat, Nov 7 and Sat, Nov 14 · 2 spots open',
+    );
+  });
+
+  it('names three days with a gap', () => {
+    expect(line(days('2026-11-21', '2026-11-07', '2026-11-14'), [WHAT, DATE])).toBe(
+      'Sat, Nov 7, Sat, Nov 14 and Sat, Nov 21 · 3 spots open',
+    );
+    // A gap anywhere is a gap.
+    expect(line(days('2026-11-12', '2026-11-13', '2026-11-20'), [WHAT, DATE])).toBe(
+      'Thu, Nov 12, Fri, Nov 13 and Fri, Nov 20 · 3 spots open',
+    );
+  });
+
+  it('gives four days or more with a gap as a range, rather than a long list', () => {
+    expect(line(days('2026-11-07', '2026-11-14', '2026-11-21', '2026-11-28'), [WHAT, DATE])).toBe(
+      'Sat, Nov 7 to Sat, Nov 28 · 4 spots open',
+    );
+  });
+});
+
 describe('withLink', () => {
   it('sends the message as it is while the link is still in it', () => {
     const edited = `Hi all, can you help at the book fair?\n${SIGN_UP}`;

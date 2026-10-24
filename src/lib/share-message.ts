@@ -26,7 +26,8 @@ export interface ShareMessageSignup {
  *
  * No count of slots: that's the organizer's word, and the spots are what
  * tell a reader there's room. The middle line leaves out each part that
- * doesn't apply: the dates when no slot has one, the spots when an open
+ * doesn't apply: the dates when no slot has one (`dateSpan` says how they
+ * read), the spots when an open
  * slot has no limit or none are left, and the line itself when nothing is
  * left, so a signup with no dates and no limits gets its title and the
  * link. Once people have signed up, the spots are the ones still open
@@ -48,24 +49,44 @@ export function shareMessage(
 }
 
 /**
- * The days the slots fall on, from the date field the reminders use (or
- * the first date field): "Sat, Nov 14", or "Thu, Nov 12 to Sat, Nov 14".
+ * The days the slots fall on, from the date field the reminders use (or the
+ * first date field): one ("Sat, Nov 14"); days that run on with no gap, as a
+ * range ("Thu, Nov 12 to Sat, Nov 14"); two or three with a gap, named
+ * ("Sat, Nov 7 and Sat, Nov 14", "Sat, Nov 7, Sat, Nov 14 and Sat, Nov
+ * 21"); four or more with a gap, the range again, as a list would run too
+ * long. Null when no slot has a date.
  */
 function dateSpan({ settings, fields, slots }: ShareMessageSignup): string | null {
-  const ref = resolveAnchorRef(settings, fields);
-  if (!ref) return null;
+  const dateRef = resolveAnchorRef(settings, fields);
+  if (!dateRef) return null;
   // YYYY-MM-DD strings sort as the days they name.
   const days = [
     ...new Set(
       slots
-        .map((s) => s.values[ref])
+        .map((s) => s.values[dateRef])
         .filter((v): v is string => typeof v === 'string' && isRealDate(v)),
     ),
   ].sort();
-  const first = formatSlotDate(days[0]);
-  const last = formatSlotDate(days[days.length - 1]);
-  if (!first || !last) return null;
-  return days.length === 1 ? first : `${first} to ${last}`;
+  return dayList(days);
+}
+
+/** The days, sorted and distinct, in words; see `dateSpan`. */
+function dayList(days: string[]): string | null {
+  const named = days.map((d) => formatSlotDate(d)).filter((d): d is string => d !== null);
+  if (named.length !== days.length || named.length === 0) return null;
+  const first = named[0]!;
+  const last = named[named.length - 1]!;
+  if (named.length === 1) return first;
+  const runsOn = days.every((d, i) => i === 0 || d === nextDay(days[i - 1]!));
+  if (runsOn || named.length >= 4) return `${first} to ${last}`;
+  return `${named.slice(0, -1).join(', ')} and ${last}`;
+}
+
+/** The calendar day after a YYYY-MM-DD day, in the same form. */
+function nextDay(day: string): string {
+  const at = new Date(`${day}T00:00:00Z`);
+  at.setUTCDate(at.getUTCDate() + 1);
+  return at.toISOString().slice(0, 10);
 }
 
 /**
