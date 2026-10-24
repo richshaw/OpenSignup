@@ -43,13 +43,16 @@ export const USE_DATE_AND_TIME_FIELDS = `When slots happen on a day or at a time
 
 export const NO_FIELDS_FOR_PARTICIPANT_DETAILS = `Fields are columns the organizer fills in. People who sign up give a name, email and optional note, so add no fields for those.`;
 
-// The middle differs by reader. The drafter gets one shot and cannot ask, so
-// it falls back to placeholders; an assistant is in a conversation and can.
-// It asks only for what the slots need: a draft is invisible and cheap, so
-// it need not hold up the first create over every missing detail.
+// The middle differs by reader. The drafter asks only when the prompt doesn't
+// say what people sign up for, and only once: the app words the questions and
+// sends the answers back. A missing date or count becomes a placeholder
+// instead, for the organizer to fill in in the builder. An assistant is in a
+// conversation and can ask for anything the slots need, and only that: a
+// draft is invisible and cheap, so it need not hold up the first create over
+// every missing detail.
 // No spaces at either end: `neverInventRule` owns the joins.
 const NEVER_INVENT_MIDDLE = {
-  drafter: `that aren't in the user's prompt. If the prompt is vague (no dates, no specific count, no specifics — e.g. "make a signup for my kid's soccer team"), produce 1-3 placeholder slots with labels like "TBD: game 1", "TBD: shift 1" and call out the gap in description ("Add specific dates/details here").`,
+  drafter: `that aren't in the user's prompt. If the prompt doesn't say what people sign up for (e.g. "make a signup for my kid's soccer team") and carries no answers to your questions, don't draft: ask, with the QUESTIONS reply. If it says what but not when or how many (e.g. "snack duty for the soccer team"), draft anyway: where the slots need dates or times it doesn't give, produce 1-3 placeholder slots with labels like "TBD: game 1", "TBD: shift 1" and call out the gap in description ("Add specific dates/details here").`,
   assistant: `the organizer has not given you. If something the slots need is missing, ask for it.`,
 } as const;
 

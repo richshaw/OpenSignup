@@ -155,10 +155,18 @@ Output schema (return ONLY this JSON object, no prose, no fences):
     { "ref": "<lowercase-kebab>", "label": "<Human label>", "fieldType": "text|date|time|number|enum", "choices": [<strings, [] when not enum>] }
   ],
   "slots": [
-    { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default> }
+    { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default, or null for no limit> }
   ],
   "groupBy": "<field-ref to group slots by, or null>"
 }
+
+QUESTIONS — when the prompt doesn't say what people sign up for, return ONLY this object instead of a draft:
+
+{ "questions": { "topics": ["what", "when", "how_many"], "whatOptions": ["<option>", "<option>"] } }
+
+- topics: only the ones the prompt leaves out, always including "what". Leave out "when" if it gives a date or time, and "how_many" if it gives a count.
+- whatOptions: ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself.
+- A message that carries "Answers to your questions:" is never answered with questions. Draft from the answers.
 
 ${FIELD_TYPE_GUIDE}
 
@@ -226,21 +234,33 @@ OUTPUT:
   "groupBy": null
 }
 
-Example C — vague prompt, no invention:
+Example C — doesn't say what people sign up for, so ask:
 
 USER: "Make a signup for my kid's soccer team"
 
 OUTPUT:
 {
-  "title": "Soccer team signup",
-  "description": "Replace these placeholder slots with the real games, snack duties, or carpool shifts.",
+  "questions": {
+    "topics": ["what", "when", "how_many"],
+    "whatOptions": ["Bring snacks", "Drive to away games", "Help at practice"]
+  }
+}
+
+Example D — says what but not when, so draft with placeholders:
+
+USER: "Ushers for the school play, two parents per performance"
+
+OUTPUT:
+{
+  "title": "School play ushers",
+  "description": "Two parents usher at each performance. Replace these placeholder performances with the real dates.",
   "fields": [
-    { "ref": "what", "label": "What", "fieldType": "text", "choices": [] }
+    { "ref": "performance", "label": "Performance", "fieldType": "text", "choices": [] }
   ],
   "slots": [
-    { "values": { "what": "TBD: game 1" }, "capacity": 1 },
-    { "values": { "what": "TBD: game 2" }, "capacity": 1 },
-    { "values": { "what": "TBD: game 3" }, "capacity": 1 }
+    { "values": { "performance": "TBD: performance 1" }, "capacity": 2 },
+    { "values": { "performance": "TBD: performance 2" }, "capacity": 2 },
+    { "values": { "performance": "TBD: performance 3" }, "capacity": 2 }
   ],
   "groupBy": null
 }
@@ -263,7 +283,7 @@ LOAD-BEARING RULES:
 
 8. Max ${MAX_FIELDS} fields. Max ${MAX_SLOTS} slots. If a literal expansion would exceed 200 slots, cap by the less-informative dimension and note the cap in description.
 
-9. capacity defaults to 1 (one participant per slot) unless the user clearly says otherwise.
+9. capacity defaults to 1 (one participant per slot) unless the user clearly says otherwise. "No limit" means null.
 
 10. Today's date is {{TODAY}}. When the user gives a month and day with no year, assume the next occurrence relative to today.`;
 

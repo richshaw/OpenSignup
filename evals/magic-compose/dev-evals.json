@@ -42,7 +42,9 @@
       "cross_product_expansion",
       "groupBy_correctness",
       "groupBy_null_when_pure_date",
-      "capacity_not_duplicate_rows"
+      "capacity_not_duplicate_rows",
+      "questions_when_what_is_missing",
+      "follow_up_with_answers"
     ]
   },
   "runner_legend": {
@@ -164,13 +166,15 @@
     },
     {
       "id": "ev_008_vague_prompt_no_invention",
-      "tags": ["edge:vague", "ux", "no_invention"],
+      "tags": ["edge:vague", "ux", "no_invention", "questions"],
       "runner": "llm",
       "prompt": "Make a signup for my kid's soccer team",
       "expect": {
-        "behavior": "Produce a minimal draft (1-3 slots) with placeholder/scaffold labels, OR a short title and description that flags the gap. Must not invent specific dates, opponents, or capacities.",
-        "must_not_invent": ["specific 2026 dates", "specific opponents", "specific venue"],
-        "slots.count_range": [1, 6]
+        "behavior": "Ask instead of drafting: the prompt doesn't say what people sign up for. Ask about what, when and how many, with two to four options for what and no dates or counts in them. Until #570 this case drafted 1-6 placeholder slots.",
+        "questions.must_ask": true,
+        "questions.topics_must_equal": ["what", "when", "how_many"],
+        "questions.options_count_range": [2, 4],
+        "questions.options_must_not_contain_date_or_number": true
       }
     },
     {
@@ -446,6 +450,211 @@
         "slot_labels.must_cover_any_of_each": [["main"], ["side"], ["dessert"], ["drink"]],
         "groupBy_should_be_null": true,
         "rationale": "Regression (#501): the 'Classroom or school' starter prompt, word for word (src/lib/magic-compose/templates.ts). Its old wording (\"20 families ... roughly 5 of each\") read as a row per family. One slot per dish type with capacity 5, not 20 rows, and no groupBy: every slot is its own dish type."
+      }
+    },
+    {
+      "id": "ev_028_name_only_bake_sale_asks",
+      "tags": ["questions", "edge:vague"],
+      "runner": "llm",
+      "prompt": "Bake sale",
+      "expect": {
+        "questions.must_ask": true,
+        "questions.topics_must_equal": ["what", "when", "how_many"],
+        "questions.options_count_range": [2, 4],
+        "questions.options_must_not_contain_date_or_number": true,
+        "questions.options_must_mention_any": [
+          "bake",
+          "baking",
+          "baked",
+          "sell",
+          "selling",
+          "sale",
+          "table",
+          "stall",
+          "booth",
+          "treats",
+          "cakes",
+          "cookies",
+          "set up",
+          "clean up",
+          "cash"
+        ],
+        "rationale": "#570: the event's name alone says nothing to build slots from. The options belong to a bake sale, not to Example C's soccer team."
+      }
+    },
+    {
+      "id": "ev_029_name_only_class_picnic_asks",
+      "tags": ["questions", "edge:vague"],
+      "runner": "llm",
+      "prompt": "Class picnic",
+      "expect": {
+        "questions.must_ask": true,
+        "questions.topics_must_equal": ["what", "when", "how_many"],
+        "questions.options_count_range": [2, 4],
+        "questions.options_must_not_contain_date_or_number": true
+      }
+    },
+    {
+      "id": "ev_030_date_but_no_what_asks_without_when",
+      "tags": ["questions", "edge:vague", "field_type:date"],
+      "runner": "llm",
+      "prompt": "Team party on Saturday, June 5",
+      "expect": {
+        "questions.must_ask": true,
+        "questions.topics_must_include": ["what"],
+        "questions.topics_must_not_include": ["when"],
+        "questions.options_count_range": [2, 4],
+        "questions.options_must_not_contain_date_or_number": true,
+        "rationale": "#570: only the missing topics are asked, so not the date it already has. June 5 rather than the design's June 6, which next falls on a Sunday and could make the date look unsure."
+      }
+    },
+    {
+      "id": "ev_031_french_name_only_asks_in_french",
+      "tags": ["questions", "i18n", "edge:non_english"],
+      "runner": "llm",
+      "prompt": "Vente de gâteaux pour l'école",
+      "expect": {
+        "questions.must_ask": true,
+        "questions.topics_must_equal": ["what", "when", "how_many"],
+        "questions.options_count_range": [2, 4],
+        "questions.options_must_not_contain_date_or_number": true,
+        "questions.options_must_mention_any": [
+          "gateau",
+          "gateaux",
+          "patisserie",
+          "patisseries",
+          "faire",
+          "preparer",
+          "apporter",
+          "vendre",
+          "tenir",
+          "aider",
+          "installer",
+          "ranger",
+          "boissons",
+          "caisse",
+          "le",
+          "la",
+          "les",
+          "des",
+          "du",
+          "un",
+          "une",
+          "et",
+          "pour",
+          "au",
+          "aux"
+        ],
+        "questions.options_must_not_mention_any": [
+          "bake",
+          "baking",
+          "bring",
+          "sell",
+          "selling",
+          "help",
+          "staff",
+          "clean",
+          "set up",
+          "and"
+        ],
+        "rationale": "#570: options for what are in the description's language, like \"Faire un gâteau\". Words are matched whole and without accents."
+      }
+    },
+    {
+      "id": "ev_032_dish_list_without_date_drafts",
+      "tags": ["questions", "near_miss", "edge:no_dates"],
+      "runner": "llm",
+      "prompt": "Potluck for the end-of-year class party: mains, sides, desserts and drinks.",
+      "expect": {
+        "slots.count": 4,
+        "slot_values_must_cover_all": ["main", "side", "dessert", "drink"],
+        "fields.must_not_include_field_type": "date",
+        "groupBy_should_be_null": true,
+        "rationale": "#570: it says what people sign up for, so it drafts. No date and no count is not a reason to ask."
+      }
+    },
+    {
+      "id": "ev_033_full_potluck_drafts",
+      "tags": ["questions", "near_miss", "edge:capacity_gt_1"],
+      "runner": "llm",
+      "prompt": "Potluck Friday at 6pm. Mains, sides, desserts and drinks, about 5 of each.",
+      "expect": {
+        "slots.count": 4,
+        "slots.all_capacities_equal": 5,
+        "slot_values_must_cover_all": ["main", "side", "dessert", "drink"],
+        "slot_times_or_description_must_mention": ["18:00", "6pm", "6 pm", "friday"]
+      }
+    },
+    {
+      "id": "ev_034_what_without_when_drafts_placeholders",
+      "tags": ["questions", "near_miss", "no_invention", "edge:capacity_gt_1"],
+      "runner": "llm",
+      "prompt": "Snack duty for the soccer team, two families per game",
+      "expect": {
+        "slots.count_range": [1, 3],
+        "slots.all_capacities_equal": 2,
+        "slot_values_must_cover_all": ["tbd"],
+        "slot_dates.set_must_equal": [],
+        "assistant_may_ask": true,
+        "rationale": "#570: it says what but not when, so it still drafts \"TBD: game 1\"… with 2 spots each, and invents no dates. An assistant may ask for the dates instead, as its own instructions say."
+      }
+    },
+    {
+      "id": "ev_035_conference_slots_without_times_drafts_placeholders",
+      "tags": ["questions", "near_miss", "no_invention"],
+      "runner": "llm",
+      "prompt": "Parent-teacher conferences, 15-minute slots",
+      "expect": {
+        "slots.count_range": [1, 3],
+        "slot_values_must_cover_all": ["tbd"],
+        "slot_dates.set_must_equal": [],
+        "assistant_may_ask": true,
+        "rationale": "#570: it says what but not when, so it drafts \"TBD:\" times rather than asking or inventing a schedule."
+      }
+    },
+    {
+      "id": "ev_036_answers_draft_those_items_date_and_counts",
+      "tags": ["questions", "answers"],
+      "runner": "llm",
+      "prompt": "Bake sale",
+      "answers": {
+        "what": {
+          "picked": ["Bake something to sell", "Staff the table"],
+          "added": ["Bring drinks"]
+        },
+        "when": { "kind": "one_day", "date": "2027-05-08", "from": "09:00", "to": "13:00" },
+        "howMany": [null, 2, 1]
+      },
+      "expect": {
+        "questions.topics_must_equal": ["what", "when", "how_many"],
+        "slots.count": 3,
+        "slot_values_must_cover_all": ["bake something to sell", "staff the table", "bring drinks"],
+        "slot_dates_or_description_must_mention": ["2027-05-08", "may 8", "8 may"],
+        "slot_times_or_description_must_mention": ["09:00", "9am", "9 am"],
+        "slots.capacity_for_label": [
+          { "label_match": "bake something", "capacity": null },
+          { "label_match": "staff the table", "capacity": 2 },
+          { "label_match": "bring drinks", "capacity": 1 }
+        ],
+        "rationale": "#570: the second call drafts from the answers as given: one slot per item, that date and time, and those counts, with no limit as capacity null."
+      }
+    },
+    {
+      "id": "ev_037_answers_all_skipped_draft_placeholders",
+      "tags": ["questions", "answers", "no_invention"],
+      "runner": "llm",
+      "prompt": "Class picnic",
+      "answers": {
+        "what": { "picked": [], "added": [] },
+        "when": { "kind": "not_decided" },
+        "placeholders": true
+      },
+      "expect": {
+        "title_must_match_any": ["picnic"],
+        "slots.count_range": [1, 6],
+        "slot_values_must_cover_all": ["tbd"],
+        "slot_dates.set_must_equal": [],
+        "rationale": "#570: Draft with placeholders. Every answer is skipped, so the second call drafts \"TBD:\" rows and invents nothing, and never asks again."
       }
     }
   ]
