@@ -24,8 +24,10 @@ type TabId = (typeof TABS)[number]['id'];
 export function TabsNav({ signupId, counts }: TabsNavProps) {
   const pathname = usePathname();
   const activeRef = useRef<HTMLAnchorElement | null>(null);
-  // A tab other than Build, even the one showing, means the organizer has
-  // moved on from a check's fix still on its way to Build.
+  // A plain primary click on a tab other than Build, even the one showing,
+  // means the organizer has moved on from a check's fix still on its way to
+  // Build. A Ctrl, Cmd, Shift or Alt click doesn't navigate this window, and
+  // a middle click never reaches onClick, so those leave it be.
   const dropPendingFix = useDropPendingFix();
 
   const activeTab: TabId = (() => {
@@ -60,8 +62,8 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
             {...(t.id === 'build'
               ? {}
               : {
-                  // Not a click that opens the tab in a new browser tab: this
-                  // one still goes on to Build.
+                  // Not a modified click (a new tab or window, or a
+                  // download): this window still goes on to Build.
                   onClick: (e: React.MouseEvent) => {
                     if (e.button === 0 && !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)) {
                       dropPendingFix();

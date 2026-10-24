@@ -141,14 +141,19 @@ describe('BuildBridge', () => {
       expect(buildArrives(show)).not.toHaveBeenCalled();
     });
 
-    it.each<[string, Parameters<typeof fireEvent.click>[1]]>([
-      ['a Ctrl-click', { ctrlKey: true }],
-      ['a Cmd-click', { metaKey: true }],
-      ['a Shift-click', { shiftKey: true }],
-      ['a middle click', { button: 1 }],
-    ])('is kept through %s on another tab, which opens it in a new browser tab', (_name, init) => {
+    it.each<[string, (tab: HTMLElement) => void]>([
+      ['a Ctrl-click', (tab) => fireEvent.click(tab, { ctrlKey: true })],
+      ['a Cmd-click', (tab) => fireEvent.click(tab, { metaKey: true })],
+      ['a Shift-click', (tab) => fireEvent.click(tab, { shiftKey: true })],
+      ['an Alt-click', (tab) => fireEvent.click(tab, { altKey: true })],
+      // Browsers send a middle click as auxclick, never as click.
+      [
+        'a middle click',
+        (tab) => fireEvent(tab, new MouseEvent('auxclick', { bubbles: true, button: 1 })),
+      ],
+    ])('is kept through %s on another tab, which doesn’t navigate this window', (_name, press) => {
       const { show } = pressedOnSettings();
-      fireEvent.click(screen.getByRole('tab', { name: /Responses/ }), init);
+      press(screen.getByRole('tab', { name: /Responses/ }));
       expect(buildArrives(show)).toHaveBeenCalledOnce();
     });
 
