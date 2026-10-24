@@ -83,6 +83,16 @@ export function SharePanel({
     if (variant === 'phone') setCanShare(typeof navigator.share === 'function');
   }, [variant]);
 
+  // The computer's box fits the message as it changes, before it's seen,
+  // until the organizer drags its corner: then the size they chose stays.
+  const fitted = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const box = messageField.current;
+    if (variant === 'phone' || !box) return;
+    if (fitted.current !== null && box.style.height !== fitted.current) return;
+    fitted.current = fitToMessage(box);
+  }, [variant, message]);
+
   useEffect(() => {
     if (canShare === null || focused.current) return;
     focused.current = true;
@@ -168,7 +178,7 @@ export function SharePanel({
       <textarea
         ref={messageField}
         id={messageId}
-        rows={phone ? PHONE_ROWS : messageRows(message)}
+        rows={phone ? PHONE_ROWS : MIN_ROWS}
         value={message}
         onChange={(e) => onMessageChange(e.target.value)}
         className={`w-full rounded-[10px] border border-surface-sunk bg-white px-3 py-2 leading-normal text-ink focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand ${
@@ -291,25 +301,33 @@ function LinkField({ url, ref }: { url: string; ref: Ref<HTMLInputElement> }) {
   );
 }
 
+// The message box's rows: on a phone, where the sheet scrolls, one size; on
+// a computer, where it fits the message (see `fitToMessage`), the fewest.
 const PHONE_ROWS = 6;
-
-/**
- * The computer's message box grows with the message, from 5 rows to 12, so
- * a message of up to 10 lines shows whole. It counts rows rather than using
- * `field-sizing: content`, which not every browser has: each line takes the
- * rows it wraps to at about 50 characters a row (the box holds 55 or so),
- * and one more is left to type into. Dragging the box's corner still wins.
- */
-function messageRows(message: string): number {
-  const rows = message
-    .split('\n')
-    .reduce((n, line) => n + Math.max(1, Math.ceil(line.length / CHARS_PER_ROW)), 0);
-  return Math.min(MAX_ROWS, Math.max(MIN_ROWS, rows + 1));
-}
-
-const CHARS_PER_ROW = 50;
 const MIN_ROWS = 5;
 const MAX_ROWS = 12;
+
+/**
+ * Makes the computer's message box as tall as the message, from 5 rows (its
+ * `rows`) to 12, so a message of up to 10 lines shows whole however wide
+ * its text runs: the browser's own measure of it (`scrollHeight`), not a
+ * guess at characters a row, which wide letters such as Chinese outran.
+ * Returns the height it set.
+ */
+function fitToMessage(box: HTMLTextAreaElement): string {
+  const style = getComputedStyle(box);
+  const px = (value: string) => parseFloat(value) || 0;
+  const frame = px(style.borderTopWidth) + px(style.borderBottomWidth);
+  const line = parseFloat(style.lineHeight);
+  const most = Number.isFinite(line)
+    ? MAX_ROWS * line + px(style.paddingTop) + px(style.paddingBottom) + frame
+    : Infinity;
+  // Back to its rows first, so it can shrink as well as grow.
+  box.style.height = '';
+  const height = `${Math.min(box.scrollHeight + frame, most)}px`;
+  box.style.height = height;
+  return height;
+}
 
 const DESKTOP_PRIMARY =
   'inline-flex h-10 items-center justify-center gap-1.5 rounded-[10px] bg-brand px-4 text-[13.5px] font-semibold text-white transition hover:brightness-110';
