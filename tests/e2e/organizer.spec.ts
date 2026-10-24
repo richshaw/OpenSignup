@@ -446,6 +446,45 @@ for (const [device, viewport] of [
   });
 }
 
+// A slot still saying TBD is marked on the Build tab. On a phone the tag
+// has a line of its own, under the slot's values: beside them it ran over
+// the spots count and left the values no room.
+test.describe('the TBD mark on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('sits clear of the spots count, and the slot’s values still show', async ({
+    page,
+    context,
+  }) => {
+    await loginAsSeededOrganizer(context);
+    const signup = await createPublishedSignup(page.request, {
+      title: `Mark on a phone ${Date.now()}`,
+      slot: { values: { what: 'Bake stall: TBD', date: '2030-04-06' }, capacity: 3 },
+    });
+    await page.goto(`/app/signups/${signup.id}/build`);
+    const row = page.getByRole('button', {
+      name: 'Edit slot — Bake stall: TBD, people can see “TBD”',
+    });
+    const tag = row.getByText('People can see “TBD”', { exact: true });
+    const anchor = row.getByText('Bake stall: TBD', { exact: true });
+    const summary = row.getByText(/^Sat, Apr 6/);
+    const count = row.getByText('0 of 3 taken', { exact: true });
+    for (const part of [tag, anchor, summary, count]) await expect(part).toBeVisible();
+
+    const [t, a, s, c] = await Promise.all(
+      [tag, anchor, summary, count].map((l) => l.boundingBox()),
+    );
+    if (!t || !a || !s || !c) throw new Error('a part of the row is not on screen');
+    // Nothing runs over the count: toBeVisible() alone passes on an overlap.
+    for (const box of [t, a, s]) expect(box.x + box.width).toBeLessThanOrEqual(c.x);
+    // The tag is under the values, and they aren't cut short.
+    expect(t.y).toBeGreaterThanOrEqual(a.y + a.height);
+    for (const part of [anchor, summary]) {
+      expect(await part.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    }
+  });
+});
+
 // What Publish waits for and where its fix goes, at a computer's size.
 test.describe('Publish’s check, around the Build tab', () => {
   test.use({ viewport: { width: 1280, height: 900 } });

@@ -258,7 +258,9 @@ describe('WysiwygSlot — a slot that still says TBD', () => {
     renderSlot({ row: marked('Job TBD') });
     const row = screen.getByTestId('wysiwyg-slot-r1');
     expect(row.className).toMatch(/\bbg-warn\/5\b/);
-    expect(row.className).not.toMatch(/hover:bg-surface-raised/);
+    // Hover and focus still tint it, as any row.
+    expect(row.className).toMatch(/\bhover:bg-surface-raised\/50\b/);
+    expect(row.className).toMatch(/\bfocus-within:bg-surface-raised\/50\b/);
     const button = screen.getByRole('button', {
       name: 'Edit slot at 1:00\u00a0PM, still says “TBD”',
     });

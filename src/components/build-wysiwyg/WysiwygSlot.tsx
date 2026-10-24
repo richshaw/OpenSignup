@@ -159,10 +159,9 @@ export function WysiwygSlot({
           ? 'border-transparent bg-brand-soft opacity-50'
           : isDropTarget
             ? 'border-t-2 border-brand bg-surface-raised'
-            : // Warm, and staying so on hover: the tag's text keeps 4.5:1 on it.
-              mark
-              ? 'border-transparent bg-warn/5'
-              : 'border-transparent focus-within:bg-surface-raised/50 hover:bg-surface-raised/50')
+            : // Warm while it still says TBD. Hover and focus tint it as any
+              // row; the tag's text keeps 4.8:1 on either.
+              `${mark ? 'bg-warn/5 ' : ''}border-transparent focus-within:bg-surface-raised/50 hover:bg-surface-raised/50`)
       }
     >
       {reorder && (
@@ -185,22 +184,28 @@ export function WysiwygSlot({
             shrink together, a short anchor like a date lost to the longer
             summary on a phone: "Wed, S…" beside a mostly visible location.
             With no summary beside it the cap would only waste the space, so
-            the anchor then simply truncates at the row's edge. */}
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          {anchorValue ? (
-            <span className={`${anchorSizing} truncate text-sm font-semibold text-ink`}>
-              {anchorValue}
-            </span>
-          ) : placeholder ? (
-            <span className={`${anchorSizing} truncate text-sm italic font-normal text-ink-soft`}>
-              {placeholder}
-            </span>
-          ) : (
-            <span className="shrink-0 text-sm font-semibold text-ink">Slot</span>
-          )}
-          {summary && (
-            <span className="min-w-0 truncate text-xs text-ink-muted">{summary}</span>
-          )}
+            the anchor then simply truncates at the row's edge.
+            A TBD tag follows them on a computer. On a phone, where it left
+            them no room and ran over the count, it has a line of its own
+            under them: their box takes the first line, and on a computer
+            steps aside (contents) so they sit in the row as before. */}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1 md:flex-nowrap">
+          <div className="flex min-w-0 basis-full items-center gap-2.5 md:contents">
+            {anchorValue ? (
+              <span className={`${anchorSizing} truncate text-sm font-semibold text-ink`}>
+                {anchorValue}
+              </span>
+            ) : placeholder ? (
+              <span className={`${anchorSizing} truncate text-sm italic font-normal text-ink-soft`}>
+                {placeholder}
+              </span>
+            ) : (
+              <span className="shrink-0 text-sm font-semibold text-ink">Slot</span>
+            )}
+            {summary && (
+              <span className="min-w-0 truncate text-xs text-ink-muted">{summary}</span>
+            )}
+          </div>
           {mark && (
             <span className="shrink-0 rounded-full bg-warn/10 px-2 py-0.5 text-[11px] font-semibold leading-tight text-warn">
               {mark}
