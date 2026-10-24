@@ -69,6 +69,8 @@ export interface QrPngLayout {
   fontPx: number;
   /** At most two lines, the last ending in `…` if the title went on. */
   lines: { text: string; middle: number }[];
+  /** The way the title reads, for every line (see `textDirection`). */
+  direction: 'ltr' | 'rtl';
 }
 
 /** The title's lines, at most this many. */
@@ -104,7 +106,24 @@ export function qrPngLayout(
     height: lines.length === 0 ? width : width + lines.length * lineHeight + margin,
     fontPx,
     lines: lines.map((text, i) => ({ text, middle: width + i * lineHeight + lineHeight / 2 })),
+    direction: textDirection(title),
   };
+}
+
+/** Letters of the scripts written right to left. */
+const RTL_LETTER =
+  /[\p{Script=Hebrew}\p{Script=Arabic}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}\p{Script=Adlam}]/u;
+
+/**
+ * The way `text` reads, from its first letter, as the bidi algorithm takes
+ * a paragraph's direction from its first strong character: digits, spaces
+ * and punctuation don't decide it. Taken once for the whole title, so a
+ * line of a Hebrew title that starts with a Latin word ("Zoom") still reads
+ * right to left, with its "…" at its end, on the left.
+ */
+export function textDirection(text: string): 'ltr' | 'rtl' {
+  const first = /\p{L}/u.exec(text)?.[0];
+  return first !== undefined && RTL_LETTER.test(first) ? 'rtl' : 'ltr';
 }
 
 /**
