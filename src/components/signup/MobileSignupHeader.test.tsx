@@ -91,4 +91,36 @@ describe('MobileSignupHeader', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(screen.getByRole('button', { name: 'Share' })).toHaveFocus());
   });
+
+  it('shows Publish’s refusal only for a press since the sheet opened', async () => {
+    const publish = vi.fn<StatusAction>(async () => ({ error: 'Add a slot before publishing.' }));
+    render(<Phone status="draft" action={publish} />);
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    let more = screen.getByRole('dialog', { name: 'Bake sale helpers' });
+    await act(async () => {
+      fireEvent.click(within(more).getByRole('button', { name: 'Publish signup' }));
+    });
+    expect(await within(more).findByText('Add a slot before publishing.')).toBeInTheDocument();
+
+    // The scope outlives the sheet, but the refusal doesn't come back with it.
+    fireEvent.keyDown(more, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    more = screen.getByRole('dialog', { name: 'Bake sale helpers' });
+    expect(within(more).getByRole('button', { name: 'Publish signup' })).toBeInTheDocument();
+    expect(within(more).queryByText('Add a slot before publishing.')).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Now send people the link' })).toBeNull();
+  });
+
+  it('a signup published some other way opens nothing and says nothing', async () => {
+    const publish = vi.fn<StatusAction>(async () => ({ published: true }));
+    const { rerender } = render(<Phone status="draft" action={publish} />);
+    // Another tab, or an AI assistant, published it; the page re-renders open.
+    await act(async () => {
+      rerender(<Phone status="open" action={publish} />);
+    });
+    expect(publish).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('');
+  });
 });
