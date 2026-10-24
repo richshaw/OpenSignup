@@ -31,8 +31,11 @@ interface HeaderBridge extends BuildTab {
 interface Bridge extends HeaderBridge {
   /** The Build tab, as it mounts; the function it returns takes it off again. */
   register: (tab: BuildTab) => () => void;
-  /** The Build tab: Done has closed the editor a check's fix opened. */
-  handBack: () => void;
+  /**
+   * The Build tab: the editor a check's fix opened is closing. Says whether
+   * Publish and share took the focus: not once the signup is published.
+   */
+  handBack: () => boolean;
 }
 
 const NO_BUILD_TAB: Bridge = {
@@ -40,7 +43,7 @@ const NO_BUILD_TAB: Bridge = {
   flushPendingSaves: async () => true,
   openSlot: () => false,
   onHandBack: () => () => {},
-  handBack: () => {},
+  handBack: () => false,
 };
 
 const BridgeContext = createContext<Bridge>(NO_BUILD_TAB);
@@ -97,7 +100,11 @@ export function BuildBridge({ buildHref, children }: { buildHref: string; childr
           if (focusPublish.current === focus) focusPublish.current = null;
         };
       },
-      handBack: () => focusPublish.current?.(),
+      handBack: () => {
+        const focus = focusPublish.current;
+        focus?.();
+        return focus !== null;
+      },
     }),
     [buildHref, router],
   );
@@ -111,9 +118,10 @@ export function useBuildBridge(): HeaderBridge {
 
 /**
  * Makes `tab` the Build tab the header reaches, while the caller is mounted,
- * and returns what it calls when Done closes the editor a check's fix opened.
+ * and returns what it calls when the editor a check's fix opened closes, which
+ * says whether Publish and share took the focus.
  */
-export function useRegisterBuildTab(tab: BuildTab): () => void {
+export function useRegisterBuildTab(tab: BuildTab): () => boolean {
   const { register, handBack } = useContext(BridgeContext);
   const latest = useRef(tab);
   useEffect(() => {

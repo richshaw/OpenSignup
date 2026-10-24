@@ -135,10 +135,12 @@ export function PublishRefusal({ className }: { className?: string }) {
  * bar at the bottom of the screen. The check's panel opens from it (see
  * `PublishCheckPanel`); pressing this again closes the popover.
  *
- * When Done closes the slot a check's fix opened, the one on screen takes the
- * focus, ringed for `RING_MS` so it shows after a click too, and the header
- * says the organizer can publish now. The ring goes early when it's pressed or
- * loses the focus.
+ * When Done, or Enter, closes the slot a check's fix opened, the one on
+ * screen takes the focus, ringed for `RING_MS` so it shows after a click too,
+ * and the header says the organizer can publish now; not "Saved", as the
+ * slot's last edit may still be on its way. The ring goes early when it's
+ * pressed or loses the focus. A held Enter's repeats are ignored: the first
+ * brings focus here from the slot, and the next mustn't publish.
  */
 export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
   const { busy, check, publish, closeCheck, fix } = useContext(PublishContext);
@@ -157,7 +159,7 @@ export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
     return onHandBack(() => {
       trigger.current?.focus();
       setRing((n) => n + 1);
-      say('Saved. Publish and share when you’re ready.');
+      say('Publish and share when you’re ready.');
     });
   }, [onScreen, onHandBack, say]);
   useEffect(() => {
@@ -177,6 +179,9 @@ export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
         else publish();
       }}
       onBlur={() => setRing(0)}
+      onKeyDown={(e) => {
+        if (e.repeat) e.preventDefault();
+      }}
       aria-haspopup="dialog"
       aria-expanded={answer !== null}
       aria-busy={busy}

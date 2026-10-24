@@ -38,8 +38,9 @@ const Say = createContext<(message: string) => void>(() => {});
  * Has the header's live region say `message`: the share panel's "Published."
  * when Publish on this page answers that it published (focus is the panel's,
  * which opens at the same moment; a signup published some other way says
- * nothing), and Publish and share's "Saved." when it takes the focus back
- * after a check's fix. The same words said again are read again.
+ * nothing), and Publish and share's "Publish and share when you’re ready."
+ * when it takes the focus back after a check's fix. The same words said
+ * again are read again.
  */
 export function useAnnounce(): (message: string) => void {
   return useContext(Say);

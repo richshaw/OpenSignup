@@ -154,10 +154,17 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
    * Asks the Build tab, as the header's Publish does, through the bridge, and
    * takes the focus when it's handed back, as Publish and share does.
    */
-  function Header({ onReady }: { onReady: (bridge: ReturnType<typeof useBuildBridge>) => void }) {
+  function Header({
+    onReady,
+    takesFocus = true,
+  }: {
+    onReady: (bridge: ReturnType<typeof useBuildBridge>) => void;
+    /** False once published: there's no Publish and share to take it. */
+    takesFocus?: boolean;
+  }) {
     const bridge = useBuildBridge();
     onReady(bridge);
-    useEffect(() => bridge.onHandBack(handBack), [bridge]);
+    useEffect(() => (takesFocus ? bridge.onHandBack(handBack) : undefined), [bridge, takesFocus]);
     return null;
   }
 
@@ -165,13 +172,15 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
   function Layout({
     onReady,
     build,
+    takesFocus = true,
   }: {
     onReady: (b: ReturnType<typeof useBuildBridge>) => void;
     build: boolean;
+    takesFocus?: boolean;
   }) {
     return (
       <BuildBridge buildHref="/app/signups/sig_t/build">
-        <Header onReady={onReady} />
+        <Header onReady={onReady} takesFocus={takesFocus} />
         {build ? (
           <BuildWysiwyg {...baseProps} initialFields={[what, where]} initialSlots={slots} />
         ) : null}
@@ -355,9 +364,12 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
       bridge().openSlot('slot_b', 'where');
     });
     const where = screen.getByRole('textbox', { name: 'Where value' });
-    // Mid-composition, Enter is the input method's.
+    // Mid-composition, Enter is the input method's; Safari ends the
+    // composition first, then sends that Enter as key 229.
     fireEvent.keyDown(where, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(where, { key: 'Enter', keyCode: 229 });
     expect(screen.getByTestId('slot-editor-slot_b')).toBeInTheDocument();
+    expect(handBack).not.toHaveBeenCalled();
     fireEvent.keyDown(where, { key: 'Enter' });
     expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
     expect(handBack).toHaveBeenCalledOnce();
@@ -383,6 +395,23 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'What value' }), { key: 'Enter' });
     expect(screen.getByTestId('slot-editor-slot_a')).toBeInTheDocument();
+    expect(handBack).not.toHaveBeenCalled();
+  });
+
+  it('leaves the slot open on Enter once there’s no Publish and share to take the focus', () => {
+    let bridge: ReturnType<typeof useBuildBridge> | null = null;
+    // Published with the slot still open: the header has Share now.
+    render(<Layout onReady={(b) => (bridge = b)} build takesFocus={false} />);
+    act(() => {
+      bridge!.openSlot('slot_b', 'where');
+    });
+    const where = screen.getByRole('textbox', { name: 'Where value' });
+    expect(fireEvent.keyDown(where, { key: 'Enter' })).toBe(true);
+    expect(screen.getByTestId('slot-editor-slot_b')).toBeInTheDocument();
+    expect(where).toHaveFocus();
+    // Done still closes it.
+    done('slot_b');
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
     expect(handBack).not.toHaveBeenCalled();
   });
 

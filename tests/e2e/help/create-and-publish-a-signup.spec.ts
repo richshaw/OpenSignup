@@ -384,7 +384,7 @@ test.describe('help: create and publish your first signup', () => {
       await expect(publish).toBeFocused();
       await expect(mark).toHaveCount(0);
       await expect(
-        page.getByRole('status').filter({ hasText: 'Saved. Publish and share when you’re ready.' }),
+        page.getByRole('status').filter({ hasText: 'Publish and share when you’re ready.' }),
       ).toHaveCount(1);
 
       await publish.click();

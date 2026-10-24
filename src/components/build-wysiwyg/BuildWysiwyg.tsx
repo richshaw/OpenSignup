@@ -206,20 +206,26 @@ export function BuildWysiwyg({
   };
 
   // In the editor the check opened, Enter in a one-line box (text, number,
-  // date, time) does what Done does, as the design has it. Not while typing a
-  // new list item, whose box takes Enter itself, nor mid-composition in an
-  // input method; an editor opened by hand keeps Enter as it was.
+  // date, time) does what Done does, as the design has it, as long as Publish
+  // and share takes the focus: once the signup is published there's none, and
+  // the editor stays open rather than drop focus on the page. Not while
+  // typing a new list item, whose box takes Enter itself, nor while an input
+  // method is composing (Safari ends the composition first, then sends Enter
+  // as key 229). An editor opened by hand keeps Enter as it was.
   const enterIsDone = (e: KeyboardEvent<HTMLElement>) => {
     const box = e.target as HTMLInputElement;
     if (
       e.key === 'Enter' &&
       !e.defaultPrevented &&
       !e.nativeEvent.isComposing &&
+      e.nativeEvent.keyCode !== 229 &&
       /^(text|number|date|time)$/.test(box.type) &&
-      box.closest<HTMLElement>('[data-slot-editor]')?.dataset.slotEditor === fixRow.current
+      box.closest<HTMLElement>('[data-slot-editor]')?.dataset.slotEditor === fixRow.current &&
+      handBack()
     ) {
       e.preventDefault();
-      expandRow(null);
+      fixRow.current = null;
+      setExpandedRowId(null);
     }
   };
 

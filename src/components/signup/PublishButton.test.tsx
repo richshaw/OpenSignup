@@ -363,7 +363,7 @@ describe('the check on a phone', () => {
 });
 
 describe('Done after the check’s fix', () => {
-  const READY = 'Saved. Publish and share when you’re ready.';
+  const READY = 'Publish and share when you’re ready.';
   const RING = /\boutline-brand\b/;
 
   /** The Build tab, its one slot still saying TBD: the slot `TBD`'s fix opens. */
@@ -471,6 +471,23 @@ describe('Done after the check’s fix', () => {
     expect(publish).toHaveFocus();
     expect(publish.className).toMatch(RING);
     expect(screen.getByRole('status')).toHaveTextContent(READY);
+  });
+
+  it('ignores a held Enter’s repeats, so holding it after the slot doesn’t publish', async () => {
+    windowWidth(1280);
+    const action = vi.fn(async () => answer(TBD));
+    render(<Header action={action} page={buildTab} />);
+    const publish = publishIn('desktop');
+    await press(publish);
+    fireEvent.click(screen.getByRole('button', { name: 'Name it first' }));
+    fireEvent.keyDown(what(), { key: 'Enter' });
+    expect(publish).toHaveFocus();
+    // fireEvent says false when the default was prevented: no click follows.
+    expect(fireEvent.keyDown(publish, { key: 'Enter', repeat: true })).toBe(false);
+    expect(fireEvent.keyDown(publishIn('phone'), { key: 'Enter', repeat: true })).toBe(false);
+    // A fresh press still works.
+    expect(fireEvent.keyDown(publish, { key: 'Enter' })).toBe(true);
+    expect(action).toHaveBeenCalledOnce();
   });
 
   it('drops the ring early when focus moves on', async () => {

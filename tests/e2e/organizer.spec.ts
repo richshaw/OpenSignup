@@ -306,6 +306,9 @@ for (const [device, viewport] of [
       page.getByRole('button', { name: 'Publish and share', exact: true });
     const storedStatus = async (page: Page, id: string) =>
       (await (await page.request.get(`/api/signups/${id}`)).json()).data.status;
+    // What the header's live region says once Publish and share has the focus back.
+    const ready = (page: Page) =>
+      page.getByRole('status').filter({ hasText: 'Publish and share when you’re ready.' });
 
     test('an empty slot stops Publish, and Fill it in opens it', async ({ page }) => {
       const draft = await createDraft(page.request, { title: `Empty slot ${Date.now()}` });
@@ -362,9 +365,12 @@ for (const [device, viewport] of [
       await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
       expect(await storedStatus(page, draft.id)).toBe('open');
 
-      // The slot's mark now says people can see it. Done, with no Publish and
-      // share left to go back to, says nothing.
+      // With no Publish and share left to go back to, Enter in the slot's box
+      // leaves it open, and Done closes it, saying nothing. The slot's mark
+      // now says people can see it.
       await page.keyboard.press('Escape');
+      await what.press('Enter');
+      await expect(what).toBeFocused();
       await page
         .getByTestId(`slot-editor-${draft.slotId}`)
         .getByRole('button', { name: 'Done' })
@@ -373,7 +379,7 @@ for (const [device, viewport] of [
         page.getByRole('button', { name: 'Edit slot — Cashier TBD, people can see “TBD”' }),
       ).toBeVisible();
       await expect(page.getByText('People can see “TBD”', { exact: true })).toBeVisible();
-      await expect(page.getByRole('status').filter({ hasText: 'Saved. Publish' })).toHaveCount(0);
+      await expect(ready(page)).toHaveCount(0);
     });
 
     test('a slot that says TBD is marked, and Enter after Name it first goes back to Publish and share', async ({
@@ -411,9 +417,7 @@ for (const [device, viewport] of [
       // has saved.
       await expect(publish).toBeFocused();
       await expect(publish).toHaveCSS('outline-offset', '3px');
-      await expect(
-        page.getByRole('status').filter({ hasText: 'Saved. Publish and share when you’re ready.' }),
-      ).toHaveCount(1);
+      await expect(ready(page)).toHaveCount(1);
       await expect(mark).toHaveCount(0);
       await expect(slot.getByRole('button', { name: 'Edit slot — Cashier' })).toBeVisible();
       await expect(publish).not.toHaveCSS('outline-offset', '3px');
@@ -441,7 +445,7 @@ for (const [device, viewport] of [
       await expect(editor.getByRole('textbox', { name: 'What value' })).toBeFocused();
       await editor.getByRole('button', { name: 'Done' }).click();
       await expect(publishButton(page)).not.toBeFocused();
-      await expect(page.getByRole('status').filter({ hasText: 'Saved. Publish' })).toHaveCount(0);
+      await expect(ready(page)).toHaveCount(0);
     });
   });
 }

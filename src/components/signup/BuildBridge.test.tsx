@@ -15,7 +15,7 @@ function Header({ onReady }: { onReady: (bridge: Bridge) => void }) {
 }
 
 // What the Build tab got back to hand the focus to Publish and share with.
-let handBack: () => void = () => {};
+let handBack: () => boolean = () => false;
 
 function BuildTab(tab: Tab) {
   handBack = useRegisterBuildTab(tab);
@@ -123,19 +123,19 @@ describe('BuildBridge', () => {
     const desktop = vi.fn();
     const phone = vi.fn();
     const stopDesktop = bridge().onHandBack(desktop);
-    handBack();
+    expect(handBack()).toBe(true);
     expect(desktop).toHaveBeenCalledOnce();
 
     // The window narrows: the phone's takes over, and the computer's stops.
     const stopPhone = bridge().onHandBack(phone);
     stopDesktop();
-    handBack();
+    expect(handBack()).toBe(true);
     expect(phone).toHaveBeenCalledOnce();
     expect(desktop).toHaveBeenCalledOnce();
 
-    // Published: no Publish and share, so nothing takes it.
+    // Published: no Publish and share, so nothing takes it, and it says so.
     stopPhone();
-    handBack();
+    expect(handBack()).toBe(false);
     expect(phone).toHaveBeenCalledOnce();
   });
 });
