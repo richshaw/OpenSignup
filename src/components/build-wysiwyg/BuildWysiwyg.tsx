@@ -342,9 +342,7 @@ export function BuildWysiwyg({
                   // Open the copy: the next thing changed is usually its date (#557).
                   void duplicateRow(rowId).then((copyId) => {
                     if (copyId === null) return;
-                    // Opened by Duplicate, not a fix: Enter there does nothing new.
-                    fixRow.current = null;
-                    setExpandedRowId(copyId);
+                    expandRow(copyId);
                     setFocusRowId(copyId);
                   });
                 }}
