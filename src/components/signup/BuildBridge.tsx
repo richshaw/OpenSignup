@@ -47,9 +47,11 @@ const SAVED = Promise.resolve(true);
  * again. Until Build takes it, it's dropped, so a later visit to Build
  * doesn't add an empty slot, when the organizer does anything else first:
  * the path settles on a page that isn't Build; they choose a tab that isn't
- * Build, the one they're on included (`TabsNav` calls `dropPending`); they
- * go Back or Forward; or they submit a form, such as Settings' Save, which
- * comes back to the same page. A Build tab that goes
+ * Build with a plain primary click, the one they're on included (`TabsNav`
+ * calls `dropPending`; a Ctrl, Cmd, Shift or Alt click, or a middle click,
+ * doesn't navigate this window and keeps it); they go Back or Forward; or
+ * they submit a form, such as Settings' Save, which comes back to the same
+ * page. A Build tab that goes
  * away leaves its last saves behind: the edits it sent as it went may still
  * be on their way, so the next Publish waits for those too. Whether they
  * saved counts only until a Build tab shows again, whose own saves are then
