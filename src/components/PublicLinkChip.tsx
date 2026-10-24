@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import { Check, Copy, ExternalLink } from 'lucide-react';
+import { useClipboardCopy } from '@/hooks/useClipboardCopy';
 
 interface PublicLinkChipProps {
   url: string;
@@ -9,28 +9,11 @@ interface PublicLinkChipProps {
 }
 
 export function PublicLinkChip({ url, className = '' }: PublicLinkChipProps) {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, []);
+  const { copied, copy } = useClipboardCopy(1400);
 
   async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
-      timerRef.current = setTimeout(() => setCopied(false), 1400);
-    } catch {
-      // Clipboard API can fail (e.g. insecure context). Stay quiet.
-    }
+    // The clipboard can refuse (e.g. an insecure context). Stay quiet.
+    await copy(url);
   }
 
   return (
