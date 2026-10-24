@@ -275,7 +275,7 @@ test.describe('Responses tab', () => {
     const download = page.getByRole('link', { name: 'Download CSV' });
 
     await page.goto(`/app/signups/${signupId}/responses`);
-    await expect(page.getByText('No signups yet.', { exact: false })).toBeVisible();
+    await expect(page.getByText('Nobody has signed up yet.', { exact: false })).toBeVisible();
     await expect(download).toHaveCount(0);
     // The header no longer offers it, on any tab.
     await expect(page.getByRole('link', { name: 'Export', exact: true })).toHaveCount(0);

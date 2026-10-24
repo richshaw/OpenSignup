@@ -60,8 +60,8 @@ export function PhoneBar({ status, spotsTaken }: PhoneBarProps) {
  * bar. It grows when a refusal shows, and is 0 on a computer, where the bar is
  * hidden. A ref callback with a cleanup, so it starts and stops with the bar.
  */
-function measure(el: HTMLDivElement) {
-  if (typeof ResizeObserver === 'undefined') return;
+function measure(el: HTMLDivElement | null) {
+  if (!el || typeof ResizeObserver === 'undefined') return;
   const root = document.documentElement.style;
   const observer = new ResizeObserver(() =>
     root.setProperty('--phone-bar-h', `${el.offsetHeight}px`),
