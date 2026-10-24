@@ -20,8 +20,8 @@ const StatusActionContext = createContext<readonly [StatusActionState, () => voi
  * sit in one place (`StatusActionButtonForm`) and its refusal in another
  * (`StatusActionRefusal`), such as a full-width line under the header. When
  * the action is refused it returns why, and that shows instead of nothing
- * happening. One scope serves the computer and phone headers both, so it
- * outlives the phone's More actions sheet, which closes as Publish lands.
+ * happening. One scope can serve more than one button, as Publish's serves
+ * the computer's header and the phone's bar.
  */
 export function StatusActionScope({
   action,

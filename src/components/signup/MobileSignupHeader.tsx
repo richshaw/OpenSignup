@@ -8,6 +8,7 @@ import { useCloseQuestion, type CloseQuestionAction } from './CloseSignupConfirm
 import type { StatusAction } from './StatusActionForm';
 import { MobileMoreMenuSheet } from './MobileMoreMenuSheet';
 import { PhoneBar } from './PhoneBar';
+import { hasPhoneBar } from './phone-bar';
 
 interface MobileSignupHeaderProps {
   title: string;
@@ -39,12 +40,11 @@ export function MobileSignupHeader({
   closeAction,
 }: MobileSignupHeaderProps) {
   const [question, askAgain] = useCloseQuestion(closeQuestion, closeQuestionAction);
-  // The status the More actions sheet was opened on. Publishing or closing
-  // changes the status, which closes the sheet rather than leaving it open on
-  // what the signup can do next.
+  // The status the More actions sheet was opened on. Close signup changes
+  // the status, which closes the sheet rather than leaving it open on what
+  // the signup can do next.
   const [menuFor, setMenuFor] = useState<SignupStatus | null>(null);
   const menuOpen = menuFor === status;
-  const hasActions = status === 'draft' || status === 'open';
 
   return (
     <>
@@ -62,10 +62,11 @@ export function MobileSignupHeader({
               {title}
             </h1>
           </div>
-          {/* The menu holds Preview, and Close signup once it's open. A closed
-              or archived signup has neither, so there's no menu to open, and
-              focus goes to the title once Close signup has closed it. */}
-          {hasActions ? (
+          {/* The menu holds Preview, and Close signup once it's open, so it
+              comes and goes with the bar. A closed or archived signup has
+              neither, and focus goes to the title once Close signup has
+              closed it. */}
+          {hasPhoneBar(status) ? (
             <button
               type="button"
               onClick={() => {
