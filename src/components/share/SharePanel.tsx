@@ -163,7 +163,7 @@ export function SharePanel({
   const messageBox = (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={messageId} className="text-[13px] font-semibold text-ink">
-        {phone ? 'The message that goes with it' : 'A message to send with it'}
+        A message to send with it
       </label>
       <textarea
         ref={messageField}

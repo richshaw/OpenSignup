@@ -204,7 +204,7 @@ describe('ShareButton on a phone', () => {
     await waitFor(() =>
       expect(within(sheet).getByRole('button', { name: 'Copy link' })).toHaveFocus(),
     );
-    expect(within(sheet).getByLabelText('The message that goes with it')).toHaveValue(MESSAGE);
+    expect(within(sheet).getByLabelText('A message to send with it')).toHaveValue(MESSAGE);
 
     fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());

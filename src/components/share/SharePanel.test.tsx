@@ -231,7 +231,7 @@ describe('<SharePanel /> on a phone', () => {
     render(<Owner variant="phone" />);
     expect(screen.queryByRole('button', { name: 'Share…' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy link' })).toHaveFocus();
-    expect(screen.getByLabelText('The message that goes with it')).toHaveValue(MESSAGE);
+    expect(screen.getByLabelText('A message to send with it')).toHaveValue(MESSAGE);
     expect(screen.getByRole('button', { name: 'Copy message' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Email it' })).toBeInTheDocument();
   });
@@ -252,7 +252,7 @@ describe('<SharePanel /> on a phone', () => {
     const share = vi.fn(async (_data: ShareData) => {});
     giveShareMenu(share);
     render(<Owner variant="phone" />);
-    fireEvent.change(screen.getByLabelText('The message that goes with it'), {
+    fireEvent.change(screen.getByLabelText('A message to send with it'), {
       target: { value: 'Bake sale on Saturday, can you help?' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Share…' }));
