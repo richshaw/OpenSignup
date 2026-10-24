@@ -115,6 +115,33 @@ describe('qrSide and qrPngLayout', () => {
     const title = '春の読書会のボランティア募集です。'.repeat(2);
     expect(layout(title).lines.map((l) => l.text)).toEqual([title.slice(0, 28), title.slice(28)]);
   });
+
+  // The stand-in measure counts code points: a family is 7, a flag 2.
+  const FAMILY = '👨‍👩‍👧‍👦';
+  const FLAG = '🇺🇸';
+
+  it('never breaks inside an emoji made of several characters', () => {
+    expect(layout(`ab${FAMILY.repeat(5)}`).lines.map((l) => l.text)).toEqual([
+      `ab${FAMILY.repeat(3)}`,
+      FAMILY.repeat(2),
+    ]);
+    expect(layout(`x${FLAG.repeat(20)}`).lines.map((l) => l.text)).toEqual([
+      `x${FLAG.repeat(13)}`,
+      FLAG.repeat(7),
+    ]);
+  });
+
+  it('never cuts an emoji in half for the ellipsis', () => {
+    expect(layout(`${'x'.repeat(28)} ${FLAG.repeat(20)}`).lines.map((l) => l.text)).toEqual([
+      'x'.repeat(28),
+      `${FLAG.repeat(13)}…`,
+    ]);
+    expect(
+      layout(`${'x'.repeat(28)} ${'y'.repeat(21)}${FAMILY} ${'z'.repeat(10)}`).lines.map(
+        (l) => l.text,
+      ),
+    ).toEqual(['x'.repeat(28), `${'y'.repeat(21)}…`]);
+  });
 });
 
 describe('qrFileName', () => {
