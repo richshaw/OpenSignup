@@ -22,6 +22,7 @@ import { persistDraft } from '@/lib/magic-compose/persist';
 import type { FollowUp } from '@/lib/magic-compose/questions';
 import { mapMagicComposeError } from './errors';
 import { buildDraftPreview } from './preview';
+import { recordAnswered, recordAsked, type FollowUpOutcome } from './telemetry';
 
 const PromptBodySchema = z.object({
   prompt: z.string().min(1).max(4000),
@@ -76,7 +77,11 @@ function askedAgain(followUp: FollowUp) {
 }
 
 export async function POST(req: NextRequest) {
-  return handle(async () => {
+  // A follow-up writes one magic_compose.answered row once it has ended,
+  // however it ended (a draft, a refusal, asked_again or an error), so the
+  // handler leaves that write here, to run after its response is ready.
+  const pending: { answered?: () => Promise<void> } = {};
+  const res = await handle(async () => {
     if (!magicComposeEnabled()) {
       return fail(
         serviceError('forbidden', 'Magic Compose is not enabled on this instance', {
@@ -137,6 +142,12 @@ export async function POST(req: NextRequest) {
       throw e;
     }
 
+    const workspaceId = session.defaultWorkspaceId;
+    const outcome: FollowUpOutcome = { retried: false, gaveUp: false };
+    if (followUp) {
+      pending.answered = () => recordAnswered(db, actor, workspaceId, followUp, outcome);
+    }
+
     const client = defaultLlmClient();
     // One time budget for the whole request: a follow-up's retry gets what the
     // first call left, so the organizer never waits twice LLM_TIMEOUT_MS.
@@ -152,6 +163,8 @@ export async function POST(req: NextRequest) {
     if (followUp && raw.ok && asksQuestions(raw.value)) {
       const left = deadline - Date.now();
       if (req.signal.aborted || left < Math.min(RETRY_MIN_MS, getEnv().LLM_TIMEOUT_MS / 2)) {
+        // An organizer who has left isn't told anything, so it isn't a give-up.
+        outcome.gaveUp = !req.signal.aborted;
         log.warn(
           { promptLength: userPrompt.length, msLeft: left, aborted: req.signal.aborted },
           'magic-compose asked again after the answers, with no time to retry',
@@ -168,12 +181,14 @@ export async function POST(req: NextRequest) {
         { promptLength: userPrompt.length },
         'magic-compose asked again after the answers; retrying once',
       );
+      outcome.retried = true;
       raw = await client.generateDraft(
         buildFollowUpMessages(userPrompt, followUp, { firmly: true }),
         req.signal,
         { timeoutMs: left },
       );
       if (raw.ok && asksQuestions(raw.value)) {
+        outcome.gaveUp = true;
         log.warn({ promptLength: userPrompt.length }, 'magic-compose asked again after the retry');
         await recordFailed(db, actor, session.defaultWorkspaceId, 'asked_again');
         return askedAgain(followUp);
@@ -217,7 +232,8 @@ export async function POST(req: NextRequest) {
 
     // Structured refusal: model returned only `refusalReason`. Surface the
     // reason to the user without creating a signup or burning further work;
-    // the activity row says only that it was a refusal. Rate-limit stays
+    // the failed row says only that it was a refusal (and a follow-up's
+    // answered row is still written, as for any ending). Rate-limit stays
     // consumed (the LLM call did happen).
     if ('refusalReason' in draft.data) {
       log.info(
@@ -247,6 +263,9 @@ export async function POST(req: NextRequest) {
         },
         'magic-compose asked questions',
       );
+      // Questions nobody saw would count as "asked, then left the questions
+      // screen", so a request the organizer has already left records none.
+      if (!req.signal.aborted) await recordAsked(db, actor, workspaceId, questions);
       return ok({ questions });
     }
 
@@ -294,4 +313,6 @@ export async function POST(req: NextRequest) {
       },
     );
   });
+  await pending.answered?.();
+  return res;
 }

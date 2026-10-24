@@ -88,6 +88,48 @@ outside any transaction, and a failed write never fails the request.
 `reminderFromFieldRef` is present only when the change moved the date field
 reminders are timed from (`null` when none is left).
 
+### Magic Compose (AI drafting)
+
+A draft that fails, for whatever reason, is `magic_compose.failed` under
+Signup lifecycle above. These two count the questions round.
+
+| event | actor | payload | fired from |
+|---|---|---|---|
+| `magic_compose.asked` | organizer | `{ topics, options }`: the topics the model asked about (`what`, `when`, `how_many`; always `what`) and how many options it offered for "what" (2 to 4), never the options themselves | `POST /api/signups/magic-compose`, on a first call the model answered with questions instead of a draft, unless the organizer had already left |
+| `magic_compose.answered` | organizer | `{ answered, skipped, picked, added, limits, placeholders, retried, gaveUp }`, described below | `POST /api/signups/magic-compose`, once a follow-up (a call carrying the organizer's answers) has ended, however it ended: a draft, a refusal, an error or `asked_again`. One row per follow-up the hourly quota was charged for |
+
+In `magic_compose.answered`:
+
+- `answered` and `skipped` list which of `what` and `when` the organizer
+  answered or left blank, for the ones they were asked. "How many" has no
+  blank state (an empty box means no limit), so it is in neither.
+- `picked` is how many of the model's options the organizer picked, and
+  `added` how many things of their own they added. These are the browser's
+  claim: it sends the two lists apart, and the server can't check which items
+  came from the options.
+- `limits` is how many of those things were given a number of people (`0`
+  when "how many" wasn't asked).
+- `placeholders` is `true` when the organizer pressed Draft with placeholders.
+  Every answer is then blank; the flag tells it apart from leaving them all
+  blank by hand.
+- `retried` is `true` when the model answered with questions again and the
+  server asked it once more, more firmly, without charging the quota again:
+  one more call to the AI.
+- `gaveUp` is `true` when that retry asked too, or there was no time left for
+  one (then `retried` is `false`), and the organizer was told the AI couldn't
+  draft from their answers. An organizer who had already left was told
+  nothing, so that's `false`.
+
+Both rows have `signup_id` set to `NULL` and `workspace_id` set to the
+organizer's default workspace. They describe no change, so each is written on
+its own, outside any transaction, and a failed write never fails the request.
+Payloads hold codes and counts only: never the description, the options or the
+answers. A first call that drafts writes neither (its `signup.created` has
+`templateId: 'magic-compose'`). An organizer who was asked and then left the
+questions screen, or went Back to rewrite the description, shows up as a
+`magic_compose.asked` with no `magic_compose.answered` after it; there is no
+event for leaving.
+
 ### Participant funnel
 
 | event | actor | payload | fired from |

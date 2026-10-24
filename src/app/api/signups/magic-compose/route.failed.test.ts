@@ -72,8 +72,11 @@ function compose(
   );
 }
 
+/** The magic_compose.failed rows; the questions round's own rows are tested elsewhere. */
 function recordedCodes() {
-  return vi.mocked(recordActivityBestEffort).mock.calls.map(([, row]) => ({
+  return vi.mocked(recordActivityBestEffort).mock.calls
+    .filter(([, row]) => row.eventType === 'magic_compose.failed')
+    .map(([, row]) => ({
     eventType: row.eventType,
     workspaceId: row.workspaceId,
     actorId: row.actor.actorId,

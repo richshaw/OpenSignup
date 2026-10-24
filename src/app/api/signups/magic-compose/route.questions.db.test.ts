@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
+import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
@@ -13,6 +14,7 @@ import { MAGIC_COMPOSE_BUCKET } from '@/lib/magic-compose/limits';
 import type { ChatMessage } from '@/lib/magic-compose/prompt';
 import type { FollowUp } from '@/lib/magic-compose/questions';
 import type { Actor } from '@/lib/policy';
+import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { err, ok } from '@/lib/result';
 import { POST } from './route';
 
@@ -156,6 +158,27 @@ async function signupsMade(): Promise<number> {
     .from(signups)
     .where(eq(signups.workspaceId, workspaceId));
   return rows.length;
+}
+
+/** The workspace's Magic Compose telemetry rows, oldest first. */
+/** The questions round's own rows; #525's magic_compose.failed has its own tests. */
+async function composeRows() {
+  return getDb()
+    .select({
+      eventType: activity.eventType,
+      actorType: activity.actorType,
+      actorId: activity.actorId,
+      signupId: activity.signupId,
+      payload: activity.payload,
+    })
+    .from(activity)
+    .where(
+      and(
+        eq(activity.workspaceId, workspaceId),
+        inArray(activity.eventType, ['magic_compose.asked', 'magic_compose.answered']),
+      ),
+    )
+    .orderBy(activity.occurredAt);
 }
 
 /** The user message of the model's nth call. */
@@ -374,5 +397,152 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
     expect(body.error.message).toMatch(message);
     expect(llm.calls).toHaveLength(0);
     expect(await quotaUsed()).toBe(0);
+  });
+});
+
+describe('POST /api/signups/magic-compose: what the activity log records (db)', () => {
+  it('records magic_compose.asked, with the topics and how many options, for a first call that asked', async () => {
+    llm.replies = [ok(QUESTIONS)];
+    expect((await compose({ prompt: 'Bake sale' })).status).toBe(200);
+    expect(await composeRows()).toEqual([
+      {
+        eventType: 'magic_compose.asked',
+        actorType: 'organizer',
+        actorId: organizerId,
+        signupId: null,
+        payload: { topics: ['what', 'when', 'how_many'], options: 3 },
+      },
+    ]);
+  });
+
+  it('records nothing for a first call that drafts', async () => {
+    llm.replies = [ok(DRAFT)];
+    expect(
+      (await compose({ prompt: 'Bake sale on Saturday: bakers and two at the table' })).status,
+    ).toBe(200);
+    expect(await composeRows()).toEqual([]);
+  });
+
+  it('records one magic_compose.answered, as counts, for a follow-up that drafts', async () => {
+    llm.replies = [ok(DRAFT)];
+    expect((await compose({ prompt: 'Bake sale', followUp: ANSWERS })).status).toBe(200);
+    expect(await composeRows()).toEqual([
+      {
+        eventType: 'magic_compose.answered',
+        actorType: 'organizer',
+        actorId: organizerId,
+        signupId: null,
+        payload: {
+          answered: ['what', 'when'],
+          skipped: [],
+          picked: 2,
+          added: 0,
+          limits: 1,
+          placeholders: false,
+          retried: false,
+          gaveUp: false,
+        },
+      },
+    ]);
+  });
+
+  it.each([
+    ['questions, then a draft', [ok(QUESTIONS), ok(DRAFT)], { retried: true, gaveUp: false }],
+    ['questions twice', [ok(QUESTIONS), ok(QUESTIONS)], { retried: true, gaveUp: true }],
+    ['a refusal', [ok({ refusalReason: 'Not this one.' })], { retried: false, gaveUp: false }],
+    ['an AI error', [err({ code: 'timeout', message: 'slow' })], { retried: false, gaveUp: false }],
+  ])('records one row however a follow-up ends: %s', async (_name, replies, flags) => {
+    llm.replies = replies;
+    await compose({ prompt: 'Bake sale', followUp: ANSWERS });
+    const rows = await composeRows();
+    expect(rows.map((r) => r.eventType)).toEqual(['magic_compose.answered']);
+    expect(rows[0]?.payload).toMatchObject(flags);
+  });
+
+  it('records gaveUp, and no retry, when there was no time for the retry', async () => {
+    const start = Date.now();
+    let elapsed = 0;
+    vi.spyOn(Date, 'now').mockImplementation(() => start + elapsed);
+    llm.onCall = () => {
+      elapsed += getEnv().LLM_TIMEOUT_MS - 1_000;
+    };
+    try {
+      llm.replies = [ok(QUESTIONS)];
+      await compose({ prompt: 'Bake sale', followUp: ANSWERS });
+    } finally {
+      vi.restoreAllMocks();
+    }
+    const rows = await composeRows();
+    expect(rows.map((r) => r.payload)).toEqual([
+      expect.objectContaining({ retried: false, gaveUp: true }),
+    ]);
+  });
+
+  it('records no give-up for an organizer who had already left', async () => {
+    llm.replies = [ok(QUESTIONS)];
+    const controller = new AbortController();
+    controller.abort();
+    await compose({ prompt: 'Bake sale', followUp: ANSWERS }, { signal: controller.signal });
+    const rows = await composeRows();
+    expect(rows.map((r) => r.payload)).toEqual([
+      expect.objectContaining({ retried: false, gaveUp: false }),
+    ]);
+  });
+
+  it('records no magic_compose.asked when the organizer left before the questions came back', async () => {
+    llm.replies = [ok(QUESTIONS)];
+    const controller = new AbortController();
+    controller.abort();
+    await compose({ prompt: 'Bake sale' }, { signal: controller.signal });
+    expect(await composeRows()).toEqual([]);
+  });
+
+  it('records Draft with placeholders as every topic skipped', async () => {
+    llm.replies = [ok(DRAFT)];
+    await compose({ prompt: 'Bake sale', followUp: PLACEHOLDERS });
+    const rows = await composeRows();
+    expect(rows[0]?.payload).toEqual({
+      answered: [],
+      skipped: ['what', 'when'],
+      picked: 0,
+      added: 0,
+      limits: 0,
+      placeholders: true,
+      retried: false,
+      gaveUp: false,
+    });
+  });
+
+  it('records nothing for answers rejected before the quota', async () => {
+    await compose({
+      prompt: 'Bake sale',
+      followUp: { ...ANSWERS, when: { kind: 'one_day', date: '2026-02-30' } },
+    });
+    expect(await composeRows()).toEqual([]);
+  });
+
+  it('records nothing for a follow-up turned away by the hourly quota', async () => {
+    const policy = RateLimits.magicComposePerOrganizer;
+    await consumeRateLimit(getDb(), policy, organizerId, policy.max);
+    llm.replies = [ok(DRAFT)];
+    expect((await compose({ prompt: 'Bake sale', followUp: ANSWERS })).status).toBe(429);
+    expect(await composeRows()).toEqual([]);
+  });
+
+  it('never stores the description, the options or the answers', async () => {
+    llm.replies = [ok(QUESTIONS), ok(DRAFT)];
+    await compose({ prompt: 'Bake sale' });
+    await compose({
+      prompt: 'Bake sale',
+      followUp: {
+        ...ANSWERS,
+        what: { ...ANSWERS.what, added: ['Bring lemonade'] },
+        howMany: [null, 2, 4],
+      },
+    });
+    const stored = JSON.stringify((await composeRows()).map((r) => r.payload));
+    for (const text of ['Bake', 'Staff', 'Set up', 'lemonade', '2026-11-14', '09:00', '13:00']) {
+      expect(stored).not.toContain(text);
+    }
   });
 });
