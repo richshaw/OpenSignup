@@ -21,9 +21,9 @@ interface BuildTab {
 /** What the header reaches the Build tab with. */
 interface HeaderBridge extends BuildTab {
   /**
-   * Has `focus` run when the editor a check's fix opened closes with Done;
-   * the function it returns stops that. Publish and share sets it while it's
-   * the one on screen.
+   * Has `focus` run when the editor a check's fix opened closes with Done or
+   * Enter; the function it returns stops that. Publish and share sets it
+   * while it's the one on screen.
    */
   onHandBack: (focus: () => void) => () => void;
 }

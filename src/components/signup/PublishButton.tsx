@@ -140,7 +140,9 @@ export function PublishRefusal({ className }: { className?: string }) {
  * and the header says the organizer can publish now; not "Saved", as the
  * slot's last edit may still be on its way. The ring goes early when it's
  * pressed or loses the focus. A held Enter's repeats are ignored: the first
- * brings focus here from the slot, and the next mustn't publish.
+ * brings focus here from the slot, and the next mustn't publish. Other keys'
+ * repeats go through, so a held Tab moves on past it; a held Space presses
+ * only as it's let go, so its repeats need nothing.
  */
 export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
   const { busy, check, publish, closeCheck, fix } = useContext(PublishContext);
@@ -180,7 +182,7 @@ export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
       }}
       onBlur={() => setRing(0)}
       onKeyDown={(e) => {
-        if (e.repeat) e.preventDefault();
+        if (e.repeat && e.key === 'Enter') e.preventDefault();
       }}
       aria-haspopup="dialog"
       aria-expanded={answer !== null}

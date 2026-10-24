@@ -52,7 +52,8 @@ type WysiwygSlotProps = {
  * focus-within, per the design's "one mode cue" feedback).
  *
  * A row whose values still hold TBD, TBC or TBA, as Publish's check finds
- * them, is warm and tagged after its values, as it reads now, edits and all.
+ * them, is warm and tagged after its values (under them on a phone), as it
+ * reads now, edits and all.
  */
 export function WysiwygSlot({
   row,

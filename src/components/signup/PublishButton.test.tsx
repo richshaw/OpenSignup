@@ -499,6 +499,16 @@ describe('Done after the check’s fix', () => {
     expect(action).toHaveBeenCalledOnce();
   });
 
+  it('lets a held Tab move on past it, either way, on a computer and a phone', () => {
+    windowWidth(1280);
+    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    // fireEvent says true when nothing prevented the default: focus moves on.
+    for (const button of [publishIn('desktop'), publishIn('phone')]) {
+      expect(fireEvent.keyDown(button, { key: 'Tab', repeat: true })).toBe(true);
+      expect(fireEvent.keyDown(button, { key: 'Tab', shiftKey: true, repeat: true })).toBe(true);
+    }
+  });
+
   it('drops the ring early when focus moves on', async () => {
     windowWidth(1280);
     render(<Header action={async () => answer(TBD)} page={buildTab} />);
