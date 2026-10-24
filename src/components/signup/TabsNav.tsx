@@ -57,7 +57,17 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
             key={t.id}
             ref={active ? activeRef : null}
             href={`/app/signups/${signupId}/${t.id}`}
-            {...(t.id === 'build' ? {} : { onClick: dropPendingFix })}
+            {...(t.id === 'build'
+              ? {}
+              : {
+                  // Not a click that opens the tab in a new browser tab: this
+                  // one still goes on to Build.
+                  onClick: (e: React.MouseEvent) => {
+                    if (e.button === 0 && !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)) {
+                      dropPendingFix();
+                    }
+                  },
+                })}
             role="tab"
             aria-selected={active}
             aria-current={active ? 'page' : undefined}

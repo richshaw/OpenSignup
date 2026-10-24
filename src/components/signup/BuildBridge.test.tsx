@@ -141,6 +141,17 @@ describe('BuildBridge', () => {
       expect(buildArrives(show)).not.toHaveBeenCalled();
     });
 
+    it.each<[string, Parameters<typeof fireEvent.click>[1]]>([
+      ['a Ctrl-click', { ctrlKey: true }],
+      ['a Cmd-click', { metaKey: true }],
+      ['a Shift-click', { shiftKey: true }],
+      ['a middle click', { button: 1 }],
+    ])('is kept through %s on another tab, which opens it in a new browser tab', (_name, init) => {
+      const { show } = pressedOnSettings();
+      fireEvent.click(screen.getByRole('tab', { name: /Responses/ }), init);
+      expect(buildArrives(show)).toHaveBeenCalledOnce();
+    });
+
     it('is dropped when the organizer chooses another tab', () => {
       const { show } = pressedOnSettings();
       fireEvent.click(screen.getByRole('tab', { name: /Responses/ }));
