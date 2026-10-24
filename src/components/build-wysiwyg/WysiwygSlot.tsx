@@ -169,7 +169,7 @@ export function WysiwygSlot({
           : isDropTarget
             ? 'border-t-2 border-brand bg-surface-raised'
             : // Warm while it still says TBD. Hover and focus tint it as any
-              // row; the tag's text keeps 4.8:1 on either.
+              // row. The tag's text is 4.64:1 at rest, 4.81:1 tinted.
               `${mark ? 'bg-warn/5 ' : ''}border-transparent focus-within:bg-surface-raised/50 hover:bg-surface-raised/50`)
       }
     >
