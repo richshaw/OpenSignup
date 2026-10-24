@@ -37,15 +37,9 @@ export function Banner({
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss"
-          className="flex-shrink-0 rounded-md p-1 text-current/70 hover:bg-current/10 hover:text-current"
+          className="text-current/70 hover:bg-current/10 flex-shrink-0 rounded-md p-1 hover:text-current"
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            aria-hidden="true"
-          >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
             <path
               d="M1 1l12 12M13 1L1 13"
               stroke="currentColor"

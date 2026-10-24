@@ -11,33 +11,25 @@ interface PublicLinkChipProps {
 export function PublicLinkChip({ url, className = '' }: PublicLinkChipProps) {
   const { copied, copy } = useClipboardCopy(1400);
 
-  async function handleCopy() {
-    // The clipboard can refuse (e.g. an insecure context). Stay quiet.
-    await copy(url);
-  }
-
   return (
     <div
-      className={`border-surface-sunk bg-surface-raised text-ink inline-flex max-w-full items-center rounded-full border py-0.5 pr-1 pl-3 text-[13px] ${className}`}
+      className={`inline-flex max-w-full items-center rounded-full border border-surface-sunk bg-surface-raised py-0.5 pl-3 pr-1 text-[13px] text-ink ${className}`}
     >
-      <span className="text-ink-muted border-surface-sunk mr-2 border-r pr-2 text-xs font-medium">
+      <span className="mr-2 border-r border-surface-sunk pr-2 text-xs font-medium text-ink-muted">
         Public link
       </span>
-      <span className="text-ink mr-2 min-w-0 flex-1 truncate font-mono text-xs">{url}</span>
+      <span className="mr-2 min-w-0 flex-1 truncate font-mono text-xs text-ink">{url}</span>
       <button
         type="button"
-        onClick={handleCopy}
+        // The clipboard can refuse (e.g. an insecure context). Stay quiet.
+        onClick={() => void copy(url)}
         aria-label="Copy public link"
         title="Copy"
         className={`inline-flex items-center justify-center rounded-full p-1.5 transition ${
           copied ? 'bg-success/10 text-success' : 'text-ink-muted hover:text-ink'
         }`}
       >
-        {copied ? (
-          <Check size={16} aria-hidden="true" />
-        ) : (
-          <Copy size={16} aria-hidden="true" />
-        )}
+        {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
       </button>
       <a
         href={url}
@@ -45,7 +37,7 @@ export function PublicLinkChip({ url, className = '' }: PublicLinkChipProps) {
         rel="noopener noreferrer"
         aria-label="Open public page"
         title="Open"
-        className="text-ink-muted hover:text-ink inline-flex items-center justify-center rounded-full p-1.5 transition"
+        className="inline-flex items-center justify-center rounded-full p-1.5 text-ink-muted transition hover:text-ink"
       >
         <ExternalLink size={16} aria-hidden="true" />
       </a>

@@ -275,7 +275,6 @@ describe('a viewer choosing Publish, Close or Delete (db)', () => {
   });
 
   it('Close says the viewer can’t edit and leaves the signup open', async () => {
-
     session.actor = viewer;
     expect(await closeAction(signupId)).toEqual({ error: 'You don’t have edit access.' });
     expect((await row())?.status).toBe('open');

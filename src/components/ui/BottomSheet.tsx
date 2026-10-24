@@ -69,7 +69,12 @@ export function BottomSheet({
   children,
 }: BottomSheetProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[rgb(11_18_32/0.35)] backdrop-blur-sm" />
         <Dialog.Content
@@ -78,7 +83,7 @@ export function BottomSheet({
           {...(onOpenAutoFocus ? { onOpenAutoFocus } : {})}
           {...(onCloseAutoFocus ? { onCloseAutoFocus } : {})}
           className={[
-            'fixed z-50 bg-white flex flex-col overflow-hidden',
+            'fixed z-50 flex flex-col overflow-hidden bg-white',
             // mobile: bottom sheet
             'inset-x-0 bottom-0 max-h-[85vh] rounded-t-3xl',
             'pb-[calc(env(safe-area-inset-bottom)+16px)]',
@@ -91,7 +96,7 @@ export function BottomSheet({
           {title ? (
             <div
               className={[
-                'flex items-center justify-between px-4 pt-5 pb-2.5 md:px-5 md:pb-3',
+                'flex items-center justify-between px-4 pb-2.5 pt-5 md:px-5 md:pb-3',
                 compact ? '' : 'border-b border-surface-sunk',
               ].join(' ')}
             >
@@ -121,9 +126,7 @@ export function BottomSheet({
             </div>
           ) : null}
 
-          <div className="min-h-0 flex-1 overflow-auto px-4 pb-5 pt-3 md:px-5">
-            {children}
-          </div>
+          <div className="min-h-0 flex-1 overflow-auto px-4 pb-5 pt-3 md:px-5">{children}</div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

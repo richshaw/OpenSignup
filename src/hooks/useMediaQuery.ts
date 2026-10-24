@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 /**
  * Whether the window matches a media query, kept current as it changes; null
@@ -9,17 +9,22 @@ import { useCallback, useSyncExternalStore } from 'react';
  * swap.
  */
 export function useMediaQuery(query: string): boolean | null {
+  // One list for the query, asked on every render; none on the server, or
+  // where there is no matchMedia to make one.
+  const list = useMemo(
+    () => (typeof window === 'undefined' || !window.matchMedia ? null : window.matchMedia(query)),
+    [query],
+  );
   const subscribe = useCallback(
     (onChange: () => void) => {
-      const list = window.matchMedia(query);
-      list.addEventListener('change', onChange);
-      return () => list.removeEventListener('change', onChange);
+      list?.addEventListener('change', onChange);
+      return () => list?.removeEventListener('change', onChange);
     },
-    [query],
+    [list],
   );
   return useSyncExternalStore(
     subscribe,
-    () => window.matchMedia(query).matches,
+    () => list?.matches ?? null,
     () => null,
   );
 }
