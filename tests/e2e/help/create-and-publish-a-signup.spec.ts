@@ -93,8 +93,17 @@ test.describe('help: create and publish your first signup', () => {
       .getByRole('button', { name: /Fruit and water/ })
       .last()
       .click();
+    // A cell saves a moment after the last keystroke, and Publish below
+    // doesn't wait for a save still on its way, so wait for this one to land
+    // (what an organizer sees as Saved) before going on: otherwise, on a slow
+    // runner, the share panel's message is built without the new date.
+    const copyDateSaved = page.waitForResponse(
+      (r) =>
+        r.request().method() === 'PATCH' && /^\/api\/slots\/[^/]+$/.test(new URL(r.url()).pathname),
+    );
     await slotEditor.getByLabel(`${UI.date} value`).fill('2030-04-13');
     await slotEditor.getByRole('button', { name: UI.done }).click();
+    expect((await copyDateSaved).ok()).toBe(true);
     await page.getByText(UI.emptySlot, { exact: true }).click();
     await slotEditor.getByRole('button', { name: UI.delete }).click();
     await expect(page.getByRole('button', { name: /^Edit slot/ })).toHaveCount(2);
