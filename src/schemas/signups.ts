@@ -97,4 +97,10 @@ export const SignupUpdateInputSchema = SignupCreateInputSchema.partial().extend(
   title: z.string().min(TITLE_MIN_LENGTH).max(TITLE_MAX_LENGTH).optional(),
   /** `null` clears the closing time; omitted leaves it alone. */
   closesAt: z.string().datetime().nullable().optional(),
+  // Nothing reads visibility: every signup opens for anyone with its link, and
+  // none is listed or indexed. Refused rather than stripped, so a caller is not
+  // told a change worked when nothing changed.
+  visibility: z
+    .undefined({ errorMap: () => ({ message: "visibility can't be changed: anyone with a signup's link can open it" }) })
+    .optional(),
 });

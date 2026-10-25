@@ -20,6 +20,15 @@
  */
 export const REMINDER_SETTLE_HOURS = 1;
 
+/**
+ * How long a slot must sit still after its last move before the people holding
+ * it are emailed about it (src/jobs/slot-changes.ts). Builder edits save field
+ * by field, and typing in a date input can save the days in between, so one
+ * move by the organizer is often several. Waiting for the slot to settle turns
+ * them into one email, for where it ended up.
+ */
+export const SLOT_CHANGE_SETTLE_MINUTES = 10;
+
 const MS_PER_HOUR = 3_600_000;
 
 /**

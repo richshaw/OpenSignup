@@ -75,7 +75,7 @@ up"). Write "sign-up" only directly before a noun ("sign-up sheet",
 **Sign-up form**), never on its own. This goes for screens, emails and tool
 descriptions as well as help pages.
 
-The box for spots is called **Capacity** on screen. Bold that name when you mean
+The box for spots is called **Spots** on screen. Bold that name when you mean
 the box, and say "spots" everywhere else. The design system allows
 "participants" in the product; help pages say "people who sign up", which is
 plainer.

@@ -92,15 +92,16 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
         <p className="text-sm text-ink-muted">
           {done === 'off' ? (
             <>
-              You won&apos;t get any more reminder emails for <strong>{target.signupTitle}</strong>.
-              Your slot is unchanged — if you also want to give it up, open the link in your
+              You won&apos;t get any more reminders for <strong>{target.signupTitle}</strong>, or
+              emails when the organizer changes your slot&apos;s date or time. Your slot is unchanged — if you also want to give it up, open the link in your
               confirmation email and cancel there.
             </>
           ) : (
             <>
               Reminders for <strong>{target.signupTitle}</strong> are off
               {target.participantEmail ? ` for ${target.participantEmail}` : null}. You won&apos;t
-              get any reminder emails about it.
+              get reminders about it, or emails when the organizer changes your slot&apos;s date or
+              time.
             </>
           )}
         </p>
@@ -136,14 +137,16 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
         {done === 'on' ? (
           <>
             You&apos;ll get reminders for <strong>{target.signupTitle}</strong> again
-            {target.participantEmail ? ` at ${target.participantEmail}` : null}. You can stop them
+            {target.participantEmail ? ` at ${target.participantEmail}` : null}, and emails when your
+            slot&apos;s date or time changes. You can stop them
             any time from the link in one.
           </>
         ) : (
           <>
             We&apos;ll stop sending{target.participantEmail ? ` ${target.participantEmail}` : null}{' '}
-            reminders for <strong>{target.signupTitle}</strong>. This only affects this signup, and
-            your slot stays as it is.
+            reminders for <strong>{target.signupTitle}</strong>, and emails when the organizer
+            changes your slot&apos;s date or time. This only affects this signup, and your slot
+            stays as it is.
           </>
         )}
       </p>

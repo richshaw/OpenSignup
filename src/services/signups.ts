@@ -1,13 +1,18 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Db } from '@/db/client';
-import { signups } from '@/db/schema/signups';
+import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
-import { slots } from '@/db/schema/slots';
-import { activityActor, recordActivity } from '@/lib/activity';
+import { slots, type Slot as SlotRow } from '@/db/schema/slots';
+import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
-import { requireOrganizer, requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
+import {
+  requireOrganizer,
+  requireWorkspaceAccess,
+  requireWorkspaceWrite,
+  type Actor,
+} from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { chooseAnchorRef } from '@/lib/reminder-fields';
 import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
@@ -35,14 +40,31 @@ import { committedBySlot } from './commitments';
 import { getSignupRowForOrganizer, lockSlotsForSignup, withSignupWriteLock } from './locks';
 import { listSlotsForSignup, pickAvailableRef, summarizeValues } from './slots';
 
-type SignupRow = typeof signups.$inferSelect;
+/**
+ * Every group-by ref must name one of the signup's fields. The public page
+ * resolves an unknown ref to no grouping without a word, and a field added
+ * later under that ref would switch grouping on with nobody asking (#516).
+ */
+function checkGroupByRefs(
+  refs: readonly string[],
+  fields: readonly Pick<SlotFieldDefinition, 'ref'>[],
+): Result<null, ServiceError> {
+  const unknown = refs.find((ref) => !fields.some((f) => f.ref === ref));
+  if (unknown === undefined) return ok(null);
+  return err(
+    serviceError('invalid_input', "groupByFieldRefs must name one of the signup's fields", {
+      field: 'settings.groupByFieldRefs',
+      received: unknown,
+    }),
+  );
+}
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
 export interface SignupWithSlots extends SignupRow {
-  slots: (typeof slots.$inferSelect)[];
+  slots: SlotRow[];
   fields: SlotFieldDefinition[];
 }
 
@@ -124,6 +146,8 @@ export async function createSignup(
   // date ordering work from the moment a signup exists.
   const anchor = chooseAnchorRef(data.settings.reminderFromFieldRef, undefined, fieldDefs);
   if (!anchor.ok) return anchor;
+  const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fieldDefs);
+  if (!grouping.ok) return grouping;
   const settings: SignupSettings =
     anchor.value === null
       ? data.settings
@@ -240,6 +264,10 @@ export async function updateSignup(
   // which is the one thing "only the settings you pass change" promises.
   return withSignupWriteLock(db, actor, signupId, async (tx, row) => {
     const prevSettings = row.settings;
+    // Only a group-by the caller sent is checked: a row saved with a stale ref
+    // must not make every unrelated settings save fail.
+    const sentGroupBy =
+      isObject(rawInput) && isObject(rawInput.settings) && rawInput.settings.groupByFieldRefs != null;
     if (isObject(rawInput) && isObject(rawInput.settings)) {
       // The anchor stays out of the merge, so below it is only ever what the
       // caller sent.
@@ -270,6 +298,10 @@ export async function updateSignup(
         fields,
       );
       if (!anchor.ok) return anchor;
+      if (sentGroupBy) {
+        const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fields);
+        if (!grouping.ok) return grouping;
+      }
       mergedSettings =
         anchor.value === null
           ? data.settings
@@ -284,7 +316,6 @@ export async function updateSignup(
       .set({
         ...(data.title !== undefined ? { title: data.title } : {}),
         ...(data.description !== undefined ? { description: data.description } : {}),
-        ...(data.visibility !== undefined ? { visibility: data.visibility } : {}),
         ...(data.tags !== undefined ? { tags: data.tags } : {}),
         ...(data.closesAt !== undefined
           ? { closesAt: data.closesAt ? new Date(data.closesAt) : null }
@@ -317,6 +348,45 @@ export async function publishSignup(
   signupId: string,
 ): Promise<Result<SignupRow, ServiceError>> {
   return transitionStatus(db, actor, signupId, 'draft', 'open', 'signup.published');
+}
+
+/**
+ * What a refused publish records, by the field its conflict names: no slots
+ * yet, or a signup that stopped being a draft since the page loaded (closed
+ * or archived in another tab). Null for anything else, including a signup
+ * that is already open: a second click, or a retry after a publish that
+ * worked, is not a publish anyone was refused.
+ */
+function publishRefusal(error: ServiceError): Record<string, unknown> | null {
+  if (error.code !== 'conflict') return null;
+  if (error.field === 'slots') return { code: error.code, reason: 'no_slots' };
+  if (error.field === 'status' && error.received !== 'open') {
+    return { code: error.code, reason: 'not_draft', status: error.received };
+  }
+  return null;
+}
+
+/**
+ * Telemetry for a publish the service turned down. Written after the
+ * transaction, best effort, since it describes no change. A viewer's refusal
+ * is thrown by the policy guard before this point and is not recorded.
+ */
+async function recordPublishRefused(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+  workspaceId: string | null,
+  error: ServiceError,
+): Promise<void> {
+  const payload = publishRefusal(error);
+  if (!payload) return;
+  await recordActivityBestEffort(db, {
+    signupId,
+    workspaceId,
+    actor: activityActor(actor),
+    eventType: 'signup.publish_refused',
+    payload,
+  });
 }
 
 export async function closeSignup(
@@ -385,13 +455,16 @@ async function transitionStatus(
   to: SignupStatus,
   eventType: 'signup.published' | 'signup.closed' | 'signup.archived',
 ): Promise<Result<SignupRow, ServiceError>> {
+  // Set under the lock, for the telemetry of a refused publish afterwards.
+  let workspaceId: string | null = null;
   // The status check, the slot count and the write all happen under the
   // signup lock. Checked on an unlocked read, two transitions that overlapped
   // both passed and both wrote: an archive racing a publish left the signup
   // open, and two closes logged two `signup.closed` rows. Now the second one
   // sees the status the first left, and gets the conflict it would have got
   // had they run one after the other.
-  return withSignupWriteLock(db, actor, signupId, async (tx, row) => {
+  const result = await withSignupWriteLock(db, actor, signupId, async (tx, row) => {
+    workspaceId = row.workspaceId;
     if (from !== null && row.status !== from) {
       return err(
         serviceError('conflict', `cannot ${to} a signup that is ${row.status}`, {
@@ -412,6 +485,7 @@ async function transitionStatus(
       if (slotRows.length < 1) {
         return err(
           serviceError('conflict', 'publish requires at least one slot', {
+            field: 'slots',
             suggestion: 'add a slot before publishing',
           }),
         );
@@ -438,6 +512,10 @@ async function transitionStatus(
     });
     return ok(next);
   });
+  if (!result.ok && eventType === 'signup.published') {
+    await recordPublishRefused(db, actor, signupId, workspaceId, result.error);
+  }
+  return result;
 }
 
 export async function listSignupsForWorkspace(

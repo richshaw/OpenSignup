@@ -64,6 +64,7 @@ function renderGroup(overrides: {
       displayFields={overrides.displayFields ?? []}
       fields={overrides.fields ?? (groupField ? [groupField] : [])}
       takenBySlot={{}}
+      remindersOn={false}
       expandedRowId={overrides.expandedRowId ?? null}
       onExpandRow={onExpandRow}
       onEditCell={onEditCell}
@@ -198,6 +199,15 @@ describe('WysiwygGroup', () => {
     expect(onRenameGroup).toHaveBeenCalledWith('Snacks', 'Drinks');
   });
 
+  it("stops a Short text header at its field's maxLength", () => {
+    renderGroup({
+      group: { key: 'Snacks', rawValue: 'Snacks', rows: [makeRow()] },
+      groupField: makeField({ ref: 'what', name: 'What', config: { fieldType: 'text', maxLength: 40 } }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*Snacks/ }));
+    expect((screen.getByRole('textbox') as HTMLInputElement).maxLength).toBe(40);
+  });
+
   it('says so next to the header when its last change did not save', () => {
     render(
       <WysiwygGroup
@@ -206,6 +216,7 @@ describe('WysiwygGroup', () => {
         displayFields={[]}
         fields={[makeField()]}
         takenBySlot={{}}
+      remindersOn={false}
         expandedRowId={null}
         onExpandRow={vi.fn()}
         onEditCell={vi.fn()}

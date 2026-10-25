@@ -28,12 +28,16 @@ function makeRow(overrides: Partial<BuildRow> = {}): BuildRow {
 function renderEditor(overrides: {
   row?: BuildRow;
   fields?: BuildField[];
+  taken?: number;
+  remindersOn?: boolean;
   onCellChange?: Mock<(fieldRef: string, value: string) => void>;
   onCapacity?: Mock<(capacity: number | null) => void>;
   onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;
   onDuplicate?: Mock<() => void>;
   onDelete?: Mock<() => void>;
   onClose?: Mock<() => void>;
+  focusOnOpen?: boolean;
+  onFocused?: Mock<() => void>;
 } = {}) {
   const onCellChange = overrides.onCellChange ?? vi.fn<(fieldRef: string, value: string) => void>();
   const onCapacity = overrides.onCapacity ?? vi.fn<(capacity: number | null) => void>();
@@ -45,6 +49,10 @@ function renderEditor(overrides: {
     <SlotEditor
       row={overrides.row ?? makeRow({ values: { name: 'Existing' } })}
       fields={overrides.fields ?? [makeField()]}
+      {...(overrides.focusOnOpen !== undefined ? { focusOnOpen: overrides.focusOnOpen } : {})}
+      {...(overrides.onFocused ? { onFocused: overrides.onFocused } : {})}
+      taken={overrides.taken ?? 0}
+      remindersOn={overrides.remindersOn ?? true}
       onCellChange={onCellChange}
       onCapacity={onCapacity}
       onAddEnumOption={onAddEnumOption}
@@ -57,7 +65,37 @@ function renderEditor(overrides: {
 }
 
 describe('SlotEditor', () => {
-  it('renders one input per field plus a capacity input', () => {
+  it('says nothing about sign-ups on a slot nobody holds', () => {
+    renderEditor({ taken: 0 });
+    expect(screen.queryByRole('note')).toBeNull();
+  });
+
+  it('warns that the people holding the slot will be emailed about a move', () => {
+    renderEditor({ taken: 2, remindersOn: true });
+    expect(screen.getByRole('note').textContent).toBe(
+      '2 people are signed up for this slot. If you change its date or time, we\u2019ll email them to let them know.',
+    );
+  });
+
+  it('warns that nobody is told when reminders are off', () => {
+    renderEditor({ taken: 1, remindersOn: false });
+    expect(screen.getByRole('note').textContent).toBe(
+      '1 person is signed up for this slot. Reminders are off, so we won\u2019t email them if you change it.',
+    );
+  });
+
+  it("stops a text value at its field's maxLength", () => {
+    renderEditor({
+      fields: [
+        makeField({ id: 'f1', ref: 'name', name: 'Name', config: { fieldType: 'text', maxLength: 40 } }),
+        makeField({ id: 'f2', ref: 'date', name: 'Date', config: { fieldType: 'date' } }),
+      ],
+    });
+    expect((screen.getByLabelText('Name value') as HTMLInputElement).maxLength).toBe(40);
+    expect(screen.getByLabelText('Date value').hasAttribute('maxlength')).toBe(false);
+  });
+
+  it('renders one input per field plus a spots input', () => {
     renderEditor({
       fields: [
         makeField({ id: 'f1', ref: 'name', name: 'Name' }),
@@ -67,7 +105,7 @@ describe('SlotEditor', () => {
     });
     expect((screen.getByLabelText('Name value') as HTMLInputElement).value).toBe('Jane');
     expect((screen.getByLabelText('Date value') as HTMLInputElement).value).toBe('2026-05-21');
-    expect(screen.getByLabelText('Capacity')).toBeTruthy();
+    expect(screen.getByLabelText('Spots')).toBeTruthy();
   });
 
   it('typing into a field calls onCellChange with the field ref + value', () => {
@@ -81,7 +119,7 @@ describe('SlotEditor', () => {
 
   it('capacity input clamps numeric values to >= 1', () => {
     const { onCapacity } = renderEditor({ row: makeRow({ capacity: 3 }) });
-    const cap = screen.getByLabelText('Capacity') as HTMLInputElement;
+    const cap = screen.getByLabelText('Spots') as HTMLInputElement;
     fireEvent.change(cap, { target: { value: '5' } });
     expect(onCapacity).toHaveBeenLastCalledWith(5);
     fireEvent.change(cap, { target: { value: '-2' } });
@@ -94,16 +132,26 @@ describe('SlotEditor', () => {
 
   it('clearing the capacity input sends null (unlimited)', () => {
     const { onCapacity } = renderEditor({ row: makeRow({ capacity: 3 }) });
-    const cap = screen.getByLabelText('Capacity') as HTMLInputElement;
+    const cap = screen.getByLabelText('Spots') as HTMLInputElement;
     fireEvent.change(cap, { target: { value: '' } });
     expect(onCapacity).toHaveBeenLastCalledWith(null);
   });
 
-  it('renders an empty input with an \u221e placeholder when capacity is null', () => {
+  it('renders an empty input with a "No limit" placeholder when capacity is null', () => {
     renderEditor({ row: makeRow({ capacity: null }) });
-    const cap = screen.getByLabelText('Capacity') as HTMLInputElement;
+    const cap = screen.getByLabelText('Spots') as HTMLInputElement;
     expect(cap.value).toBe('');
-    expect(cap.placeholder).toBe('\u221e');
+    expect(cap.placeholder).toBe('No limit');
+  });
+
+  it('describes the spots input with its helper line', () => {
+    renderEditor();
+    const cap = screen.getByLabelText('Spots');
+    const helperId = cap.getAttribute('aria-describedby');
+    expect(helperId).toBeTruthy();
+    expect(document.getElementById(helperId!)?.textContent).toBe(
+      'How many places people can take. Leave blank for no limit.',
+    );
   });
 
   it('Done button calls onClose', () => {
@@ -122,6 +170,24 @@ describe('SlotEditor', () => {
     const { onDuplicate } = renderEditor();
     fireEvent.click(screen.getByRole('button', { name: /Duplicate/ }));
     expect(onDuplicate).toHaveBeenCalled();
+  });
+
+  it('moves focus to the first field when focusOnOpen is set', () => {
+    renderEditor({ focusOnOpen: true });
+    expect(screen.getByRole('textbox', { name: 'Name value' })).toHaveFocus();
+  });
+
+  it('leaves focus alone when focusOnOpen is not set', () => {
+    const onFocused = vi.fn<() => void>();
+    renderEditor({ onFocused });
+    expect(screen.getByRole('textbox', { name: 'Name value' })).not.toHaveFocus();
+    expect(onFocused).not.toHaveBeenCalled();
+  });
+
+  it('calls onFocused once it has taken focus', () => {
+    const onFocused = vi.fn<() => void>();
+    renderEditor({ focusOnOpen: true, onFocused });
+    expect(onFocused).toHaveBeenCalledTimes(1);
   });
 
   it('renders native input types for date / time / number fields', () => {

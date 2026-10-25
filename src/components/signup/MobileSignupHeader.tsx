@@ -5,6 +5,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
 import type { SignupStatus } from '@/schemas/signups';
+import type { StatusAction } from './StatusActionForm';
 import { MobileMoreMenuSheet } from './MobileMoreMenuSheet';
 
 interface MobileSignupHeaderProps {
@@ -12,8 +13,8 @@ interface MobileSignupHeaderProps {
   title: string;
   status: SignupStatus;
   publicUrl: string;
-  publishAction: () => void | Promise<void>;
-  closeAction: () => void | Promise<void>;
+  publishAction: StatusAction;
+  closeAction: StatusAction;
 }
 
 export function MobileSignupHeader({
@@ -25,6 +26,7 @@ export function MobileSignupHeader({
   closeAction,
 }: MobileSignupHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const hasActions = status === 'draft' || status === 'open';
 
   return (
     <>
@@ -36,23 +38,26 @@ export function MobileSignupHeader({
             </div>
             <h1 className="truncate text-xl font-semibold tracking-tight text-ink">{title}</h1>
           </div>
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            aria-label="More actions"
-            className="-mr-1.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-raised"
-          >
-            <MoreHorizontal size={20} aria-hidden="true" />
-          </button>
+          {/* The menu holds Publish or Close signup. A closed or archived
+              signup has neither, so there's no menu to open. */}
+          {hasActions ? (
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              aria-label="More actions"
+              className="-mr-1.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-raised"
+            >
+              <MoreHorizontal size={20} aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
 
-        <PublicLinkChip url={publicUrl} />
+        <PublicLinkChip url={publicUrl} signupId={signupId} />
       </header>
 
       <MobileMoreMenuSheet
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
-        signupId={signupId}
         status={status}
         title={title}
         publishAction={publishAction}

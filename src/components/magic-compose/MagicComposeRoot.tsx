@@ -3,19 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
+import { FormError } from '@/components/ui/form-error';
 import { Compose } from './Compose';
 import { Drafting } from './Drafting';
 import { writeAiDraftWarnings } from './ai-draft-warnings';
 
 interface DraftResponse {
   id: string;
-  slug: string;
 }
 
 interface ApiBody {
   data?: {
     id: string;
-    slug: string;
     draft: DraftPreview;
     warnings?: string[];
   };
@@ -82,17 +81,9 @@ export function MagicComposeRoot() {
       });
       if (controller.signal.aborted) return;
 
-      let body: ApiBody | null;
-      try {
-        body = (await res.json()) as ApiBody;
-      } catch {
-        if (controller.signal.aborted) return;
-        setPhase({
-          kind: 'error',
-          message: 'The server returned an unexpected response. Try again.',
-        });
-        return;
-      }
+      // A body that isn't JSON throws a SyntaxError, which the catch below
+      // turns into the same "unexpected response" message.
+      const body = (await res.json()) as ApiBody | null;
       if (controller.signal.aborted) return;
 
       const data = body?.data;
@@ -111,7 +102,7 @@ export function MagicComposeRoot() {
           ? {
               kind: 'drafting',
               draft: data.draft,
-              response: { id: data.id, slug: data.slug },
+              response: { id: data.id },
               animationDone: p.animationDone,
             }
           : p,
@@ -146,11 +137,8 @@ export function MagicComposeRoot() {
   return (
     <>
       {phase.kind === 'error' && (
-        <div
-          role="alert"
-          className="bg-danger/10 text-danger mx-auto mt-6 max-w-[760px] rounded-lg px-4 py-3 text-sm"
-        >
-          {phase.message}
+        <div className="mx-auto mt-6 max-w-[760px]">
+          <FormError>{phase.message}</FormError>
         </div>
       )}
       <Compose prompt={prompt} setPrompt={setPrompt} onDraft={onDraft} />

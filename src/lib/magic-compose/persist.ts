@@ -6,7 +6,7 @@ import { err, ok, type Result } from '@/lib/result';
 import type { SignupTemplate } from '@/lib/signup-templates';
 import { createSignup } from '@/services/signups';
 import type { MagicComposeDraft } from './prompt';
-import { buildWarnings, hasDropped, magicComposeToTemplate, type DroppedSummary } from './to-template';
+import { buildWarnings, magicComposeToTemplate, type DroppedSummary } from './to-template';
 
 type SignupRow = Extract<Awaited<ReturnType<typeof createSignup>>, { ok: true }>['value'];
 
@@ -46,11 +46,11 @@ export async function persistDraft(
   const warnings = buildWarnings(dropped);
   if (opts.strict) {
     const valuelessFields = fieldsWithNoValue(template, dropped);
-    if (hasDropped(dropped) || valuelessFields.length > 0) {
+    if (warnings.length > 0 || valuelessFields.length > 0) {
       return err(
         serviceError(
           'invalid_input',
-          hasDropped(dropped)
+          warnings.length > 0
             ? 'some values do not fit their fields, so nothing was created'
             : 'some fields have no value in any slot, so nothing was created',
           {
@@ -60,7 +60,7 @@ export async function persistDraft(
         ),
       );
     }
-  } else if (hasDropped(dropped)) {
+  } else if (warnings.length > 0) {
     log.warn({ dropped, ...(opts.logContext ?? {}) }, 'draft conversion adjusted or dropped values');
   }
   const created = await createSignup(

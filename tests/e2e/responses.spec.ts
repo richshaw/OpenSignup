@@ -149,6 +149,8 @@ test.describe('Responses tab', () => {
       await expect(status).toBeFocused();
       // The tab counts only the people still signed up.
       await expect(page.getByRole('tab', { name: 'Responses 0' })).toBeVisible();
+      // So does the line above the table, which says where they went.
+      await expect(page.getByText('0 sign-ups · 1 removed')).toBeVisible();
 
       // The spot is free again, and their page no longer says it is theirs.
       await visitor.reload();
@@ -244,10 +246,9 @@ test.describe('Responses tab', () => {
       commitment: { id: string };
       editToken: string;
     };
-    const moved = await page.request.patch(
-      `/api/commitments/${commitment.id}?token=${editToken}`,
-      { data: { swapToSlotId: otherSlotId } },
-    );
+    const moved = await page.request.patch(`/api/commitments/${commitment.id}?token=${editToken}`, {
+      data: { swapToSlotId: otherSlotId },
+    });
     expect(moved.ok()).toBe(true);
 
     await page.goto(`/app/signups/${signupId}/responses`);
@@ -261,6 +262,30 @@ test.describe('Responses tab', () => {
         .getByRole('cell', { name: 'confirmed', exact: true }),
     ).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Responses 1' })).toBeVisible();
+    // The old half of a move isn't someone dropping out.
+    await expect(page.getByText('1 sign-up', { exact: true })).toBeVisible();
+  });
+
+  test('Download CSV sits above the table, and only once someone has signed up', async ({
+    page,
+    context,
+  }) => {
+    await loginAsSeededOrganizer(context);
+    const { signupId, slotId } = await createSignupWithSlot(page);
+    const download = page.getByRole('link', { name: 'Download CSV' });
+
+    await page.goto(`/app/signups/${signupId}/responses`);
+    await expect(page.getByText('No signups yet.', { exact: false })).toBeVisible();
+    await expect(download).toHaveCount(0);
+    // The header no longer offers it, on any tab.
+    await expect(page.getByRole('link', { name: 'Export', exact: true })).toHaveCount(0);
+
+    await signUp(page.request, slotId);
+    await page.reload();
+    await expect(page.getByText('1 sign-up', { exact: true })).toBeVisible();
+    await expect(download).toHaveAttribute('href', `/api/signups/${signupId}/export.csv`);
+    const [file] = await Promise.all([page.waitForEvent('download'), download.click()]);
+    expect(file.suggestedFilename()).toMatch(/-responses\.csv$/);
   });
 
   test('Keep and Escape wait while a removal is in flight', async ({ page, context }) => {
@@ -345,6 +370,15 @@ test.describe('Responses tab', () => {
     const sam = page.getByRole('row').filter({ hasText: 'Sam Example' });
     const alex = page.getByRole('row').filter({ hasText: 'Alex Example' });
     await expect(sam).toBeVisible();
+    // Download CSV gets a row of its own, under the summary, thumb-sized.
+    const download = page.getByRole('link', { name: 'Download CSV' });
+    await expectTouchSize(download);
+    const [line, button] = await Promise.all([
+      page.getByText('2 sign-ups', { exact: true }).boundingBox(),
+      download.boundingBox(),
+    ]);
+    if (!line || !button) throw new Error('not on the page');
+    expect(button.y).toBeGreaterThanOrEqual(line.y + line.height);
     const fits = () =>
       page.evaluate(() => {
         const box = document.querySelector('table')?.parentElement;
@@ -365,13 +399,19 @@ test.describe('Responses tab', () => {
       exact: true,
     });
     const cards = [
-      [sam, 'Sam Example', sam.getByRole('button', { name: REMOVE_SAM, exact: true })],
-      [alex, 'Alex Example', removeAlex],
+      [
+        sam,
+        'Sam Example',
+        'Fruit and water',
+        sam.getByRole('button', { name: REMOVE_SAM, exact: true }),
+      ],
+      [alex, 'Alex Example', 'Orange slices, water and a first aid kit', removeAlex],
     ] as const;
-    for (const [row, name, remove] of cards) {
+    for (const [row, name, slotName, remove] of cards) {
       const nameCell = row.getByRole('cell', { name, exact: true });
       const status = row.getByRole('cell', { name: 'confirmed', exact: true });
-      const slot = row.getByRole('cell', { name: /^What: / });
+      // The slot's values, with no "What:" in front: the heading says Slot.
+      const slot = row.getByRole('cell', { name: slotName, exact: true });
       for (const part of [nameCell, status, slot, remove]) {
         await expectOnScreen(page, part);
         await expectUncovered(part);
@@ -404,5 +444,20 @@ test.describe('Responses tab', () => {
     await expectOnScreen(page, removed);
     await expectUncovered(removed);
     expect(await fits()).toBe(true);
+  });
+
+  test('on a phone, a closed signup has no ⋯ menu, since it would be empty', async ({
+    page,
+    context,
+  }) => {
+    await loginAsSeededOrganizer(context);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { signupId } = await createSignupWithSlot(page);
+    await page.goto(`/app/signups/${signupId}/responses`);
+    await expect(page.getByRole('button', { name: 'More actions' })).toBeVisible();
+    expect((await page.request.post(`/api/signups/${signupId}/close`)).ok()).toBe(true);
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'More actions' })).toHaveCount(0);
   });
 });

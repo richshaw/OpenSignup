@@ -20,6 +20,8 @@ export const FIELD_TYPE_GUIDE = `FIELD TYPE GUIDE — pick the most specific typ
 /** Starts mid-sentence: each side supplies its own "when there is a grid" opening. */
 export const ONE_SLOT_PER_COMBINATION = `produce ONE slot per combination, not one slot per dimension. That means N×M slots total.`;
 
+export const USE_CAPACITY_NOT_DUPLICATE_ROWS = `When several people can take the same thing, make ONE slot and set its capacity: 5 shifts that need 8 people each is 5 slots with capacity 8, not 40 identical rows.`;
+
 /** Lower-case on purpose: it follows a heading dash in the prompt. */
 export const GROUP_BY_SCAN_AXIS = `set "groupBy" to the field ref the participant will visually scan by`;
 
@@ -33,13 +35,11 @@ export const NEVER_INVENT_HEAD = `Never invent dates, locations, opponents, sche
 
 export const NEVER_INVENT_TAIL = `Do not fabricate a season's worth of games, opponents, or shifts just to fill the signup.`;
 
-// The next three are for assistants only, for now, and so are not in
+// The next two are for assistants only, for now, and so are not in
 // `RULES_IN_BOTH`: adding one to the Magic Compose prompt changes what that
 // model reads, which needs an eval run first.
 
 export const USE_DATE_AND_TIME_FIELDS = `When slots happen on a day or at a time, add a date field, and a time field if needed. Reminder emails are timed from the date field: with a text field like "Sat 9am" nobody gets one.`;
-
-export const USE_CAPACITY_NOT_DUPLICATE_ROWS = `When several people can take the same thing, make ONE slot and set its capacity: 5 shifts that need 8 people each is 5 slots with capacity 8, not 40 identical rows.`;
 
 export const NO_FIELDS_FOR_PARTICIPANT_DETAILS = `Fields are columns the organizer fills in. People who sign up give a name, email and optional note, so add no fields for those.`;
 
@@ -64,6 +64,7 @@ export function neverInventRule(audience: keyof typeof NEVER_INVENT_MIDDLE): str
  */
 export const RULES_IN_BOTH: readonly string[] = [
   ONE_SLOT_PER_COMBINATION,
+  USE_CAPACITY_NOT_DUPLICATE_ROWS,
   GROUP_BY_SCAN_AXIS,
   SLOTS_ARE_THE_ATOM,
   NO_INTAKE_FORMS,

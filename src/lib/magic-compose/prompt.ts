@@ -14,6 +14,7 @@ import {
   NO_PERSONAL_DATA,
   ONE_SLOT_PER_COMBINATION,
   SLOTS_ARE_THE_ATOM,
+  USE_CAPACITY_NOT_DUPLICATE_ROWS,
   neverInventRule,
 } from '@/lib/signup-rules';
 
@@ -91,6 +92,10 @@ ${FIELD_TYPE_GUIDE}
 CROSS-PRODUCT EXPANSION — most important rule:
 
 When the user describes a grid of dimensions (e.g. "3 classes × 12 time slots", "6 games × 2 family roles", "2 days × 3 shifts"), ${ONE_SLOT_PER_COMBINATION} Every slot's "values" object MUST contain a value for every declared field's "ref" — never emit an empty values object.
+
+CAPACITY — one slot, not one row per person:
+
+${USE_CAPACITY_NOT_DUPLICATE_ROWS}
 
 GROUPING — ${GROUP_BY_SCAN_AXIS}:
 - Cross-product with a small named dimension (classes, teachers, stations): groupBy that dimension's ref.
@@ -203,69 +208,3 @@ export function buildMessages(userPrompt: string, now: Date = new Date()): ChatM
     { role: 'user', content: userPrompt },
   ];
 }
-
-export function getSystemPromptForTests(): string {
-  return renderSystemPrompt(todayIso());
-}
-
-/**
- * Reference JSON Schema describing the expected draft shape. NOT currently
- * sent to the provider: `defaultLlmClient` requests `response_format:
- * { type: 'json_object' }` because Gemini's strict structured-output mode
- * stalled on the permissive `values` object until the token cap. This
- * constant lives on as (a) executable documentation of the contract and
- * (b) a drift-lock in `prompt.test.ts` — if a property is added to the Zod
- * schema, this object must be updated too, which forces the question of
- * whether to enable strict mode for providers that handle it well.
- *
- * Uses only the subset of keywords that Gemini, OpenAI, Anthropic, and
- * Ollama all accept: type, enum, properties, required, items. No
- * additionalProperties, pattern, anyOf, minLength/maxLength, or
- * minItems/maxItems — Gemini rejects those.
- *
- * `choices` is an array of strings (empty for non-enum fields). `capacity`
- * is an integer or null; null means "unlimited" and any positive integer
- * caps the slot at that count (the converter normalises 0 / negative to 1).
- * `values` is a free-form object because slot value keys are dynamic.
- */
-export const RESPONSE_JSON_SCHEMA = {
-  name: 'magic_compose_draft',
-  strict: true,
-  schema: {
-    type: 'object',
-    required: ['title', 'description', 'fields', 'slots', 'groupBy'],
-    properties: {
-      title: { type: 'string' },
-      description: { type: 'string' },
-      fields: {
-        type: 'array',
-        items: {
-          type: 'object',
-          required: ['ref', 'label', 'fieldType', 'choices'],
-          properties: {
-            ref: { type: 'string' },
-            label: { type: 'string' },
-            fieldType: {
-              type: 'string',
-              enum: ['text', 'date', 'time', 'number', 'enum'],
-            },
-            choices: { type: 'array', items: { type: 'string' } },
-          },
-        },
-      },
-      slots: {
-        type: 'array',
-        items: {
-          type: 'object',
-          required: ['values', 'capacity'],
-          properties: {
-            values: { type: 'object' },
-            capacity: { type: 'integer' },
-          },
-        },
-      },
-      groupBy: { type: 'string', nullable: true },
-      refusalReason: { type: 'string', nullable: true },
-    },
-  },
-} as const;

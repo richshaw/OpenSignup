@@ -26,6 +26,10 @@ CROSS-PRODUCT EXPANSION — most important rule:
 
 When the user describes a grid of dimensions (e.g. "3 classes × 12 time slots", "6 games × 2 family roles", "2 days × 3 shifts"), produce ONE slot per combination, not one slot per dimension. That means N×M slots total. Every slot's "values" object MUST contain a value for every declared field's "ref" — never emit an empty values object.
 
+CAPACITY — one slot, not one row per person:
+
+When several people can take the same thing, make ONE slot and set its capacity: 5 shifts that need 8 people each is 5 slots with capacity 8, not 40 identical rows.
+
 GROUPING — set "groupBy" to the field ref the participant will visually scan by:
 - Cross-product with a small named dimension (classes, teachers, stations): groupBy that dimension's ref.
 - Pure date list (weekly games, shift dates): groupBy = null.

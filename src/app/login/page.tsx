@@ -6,6 +6,7 @@ import { getOrganizerSession } from '@/auth/session';
 import { getEnabledOAuthProviders } from '@/auth/oauth-providers';
 import { getCurrentRequestIp } from '@/auth/request-context';
 import { SiteFooter } from '@/components/site-footer';
+import { FormError } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
 import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
 import { EmailSchema } from '@/schemas/common';
@@ -78,11 +79,11 @@ export default async function LoginPage({
         </p>
       </div>
       {params.error ? (
-        <p className="text-danger text-sm" role="alert">
+        <FormError>
           {params.error === 'Verification'
             ? 'That sign-in link is no longer valid. It may have been used already or it may have expired. Request a new one below.'
             : 'Something went wrong. Try again.'}
-        </p>
+        </FormError>
       ) : null}
       <OAuthButtons providers={oauthProviders} callbackUrl={callbackUrl} />
       <LoginForm action={handle} redeem={redeem} callbackUrl={callbackUrl} />

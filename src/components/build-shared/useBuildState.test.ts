@@ -68,6 +68,33 @@ describe('buildReducer OPTIMISTIC_ADD_ROW', () => {
 });
 
 // ---------------------------------------------------------------------------
+// INSERT_ROW_AFTER
+// ---------------------------------------------------------------------------
+
+describe('buildReducer INSERT_ROW_AFTER', () => {
+  const rows = ['r1', 'r2', 'r3'].map((id, i) => makeRow({ id, sortOrder: i }));
+
+  it('puts the row straight after the named row and renumbers from 0', () => {
+    const next = buildReducer(makeState({ rows }), {
+      type: 'INSERT_ROW_AFTER',
+      afterRowId: 'r1',
+      row: makeRow({ id: 'new', sortOrder: 99 }),
+    });
+    expect(next.rows.map((r) => r.id)).toEqual(['r1', 'new', 'r2', 'r3']);
+    expect(next.rows.map((r) => r.sortOrder)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('appends when the named row is gone', () => {
+    const next = buildReducer(makeState({ rows }), {
+      type: 'INSERT_ROW_AFTER',
+      afterRowId: 'missing',
+      row: makeRow({ id: 'new' }),
+    });
+    expect(next.rows.map((r) => r.id)).toEqual(['r1', 'r2', 'r3', 'new']);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // OPTIMISTIC_REMOVE_ROW
 // ---------------------------------------------------------------------------
 
@@ -907,19 +934,29 @@ describe('useBuildState duplicateRow', () => {
     vi.unstubAllGlobals();
   });
 
-  it('POSTs the source values + capacity to /api/signups/[id]/slots', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        jsonResponse({ data: { id: 'new', capacity: 3, sortOrder: 99, values: {} } }),
-      );
+  const duplicateFields = [
+    makeApiField({ id: 'f1', ref: 'name', label: 'Name' }),
+    makeApiField({
+      id: 'f2',
+      ref: 'qty',
+      label: 'Qty',
+      fieldType: 'number',
+      sortOrder: 1,
+      config: { fieldType: 'number' },
+    }),
+  ];
+
+  const copyResponse = (row: Partial<BuildSlot> = {}) =>
+    jsonResponse({ data: [{ id: 'new', capacity: 3, sortOrder: 99, values: {}, ...row }] }, { status: 201 });
+
+  const duplicateBody = async (values: Record<string, unknown>) => {
+    const fetchMock = vi.fn().mockResolvedValue(copyResponse());
     vi.stubGlobal('fetch', fetchMock);
-    // Inject an initial row by seeding via the hook.
     const { result } = renderHook(() =>
       useBuildState(
         'sig_test',
-        [],
-        [{ id: 'src', capacity: 3, sortOrder: 0, values: { name: 'Jane' } }],
+        duplicateFields,
+        [{ id: 'src', capacity: 3, sortOrder: 0, values }],
         defaultSettings,
       ),
     );
@@ -928,32 +965,41 @@ describe('useBuildState duplicateRow', () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0]!;
-    expect(String(url)).toBe('/api/signups/sig_test/slots');
+    expect(String(url)).toBe('/api/signups/sig_test/slots/bulk');
     expect((init as RequestInit).method).toBe('POST');
     const body = JSON.parse(String((init as RequestInit).body)) as {
-      values: Record<string, string>;
-      capacity: number;
+      rows: { values: Record<string, unknown>; capacity: number }[];
+      beforeSlotId?: string;
     };
-    expect(body.values).toEqual({ name: 'Jane' });
+    expect(body.rows).toHaveLength(1);
+    return body.rows[0]!;
+  };
+
+  it('POSTs the source values, typed by field, and capacity to the bulk route', async () => {
+    const body = await duplicateBody({ name: 'Jane', qty: 12 });
+    expect(body.values).toEqual({ name: 'Jane', qty: 12 });
     expect(body.capacity).toBe(3);
+  });
+
+  it('leaves an empty Number cell out of the body', async () => {
+    const body = await duplicateBody({ name: 'Jane', qty: null });
+    expect(body.values).toEqual({ name: 'Jane' });
   });
 
   it('is a no-op when the source row is missing', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() => useBuildState('sig_test', [], [], defaultSettings));
+    let copyId: string | null = 'unset';
     await act(async () => {
-      await result.current.duplicateRow('does-not-exist');
+      copyId = await result.current.duplicateRow('does-not-exist');
     });
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(copyId).toBeNull();
   });
 
   it('falls back capacity to 1 when source had null capacity', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        jsonResponse({ data: { id: 'new', capacity: 1, sortOrder: 99, values: {} } }),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(copyResponse({ capacity: 1 }));
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() =>
       useBuildState(
@@ -967,9 +1013,69 @@ describe('useBuildState duplicateRow', () => {
       await result.current.duplicateRow('src');
     });
     const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
-      capacity: number;
+      rows: { capacity: number }[];
     };
-    expect(body.capacity).toBe(1);
+    expect(body.rows[0]!.capacity).toBe(1);
+  });
+
+  const fourSlots: BuildSlot[] = ['a', 'b', 'c', 'd'].map((id, i) => ({
+    id,
+    capacity: 1,
+    sortOrder: i,
+    values: {},
+  }));
+
+  it('puts the copy of the second of four slots third, in front of the slot after it', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(copyResponse({ id: 'copy', sortOrder: 2 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useBuildState('sig_test', [], fourSlots, defaultSettings));
+    let copyId: string | null = null;
+    await act(async () => {
+      copyId = await result.current.duplicateRow('b');
+    });
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
+      beforeSlotId?: string;
+    };
+    expect(body.beforeSlotId).toBe('c');
+    expect(copyId).toBe('copy');
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['a', 'b', 'copy', 'c', 'd']);
+    expect(result.current.state.rows.map((r) => r.sortOrder)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('sends no beforeSlotId when the source is the last slot, and adds the copy at the end', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(copyResponse({ id: 'copy', sortOrder: 4 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useBuildState('sig_test', [], fourSlots, defaultSettings));
+    await act(async () => {
+      await result.current.duplicateRow('d');
+    });
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as Record<
+      string,
+      unknown
+    >;
+    expect('beforeSlotId' in body).toBe(false);
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['a', 'b', 'c', 'd', 'copy']);
+  });
+
+  it('resolves to null and shows the error when the server refuses the copy', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ error: { code: 'forbidden', message: 'No edit access' } }, { status: 403 }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useBuildState('sig_test', [], fourSlots, defaultSettings));
+    let copyId: string | null = 'unset';
+    await act(async () => {
+      copyId = await result.current.duplicateRow('b');
+    });
+    expect(copyId).toBeNull();
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['a', 'b', 'c', 'd']);
+    expect(result.current.state.saveStatus).toEqual({
+      kind: 'error',
+      code: 'forbidden',
+      message: 'No edit access',
+    });
   });
 });
 
@@ -1793,5 +1899,122 @@ describe('useBuildState renameGroup', () => {
       '2026-11-15',
     ]);
     expect(result.current.state.saveStatus.kind).toBe('error');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useBuildState editCell refused by the server (#514)
+// ---------------------------------------------------------------------------
+
+describe('useBuildState editCell when the server refuses a value', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  const itemField = makeApiField({ id: 'f-item', ref: 'item', label: 'Item' });
+  const noteField = makeApiField({ id: 'f-note', ref: 'note', label: 'Note', sortOrder: 1 });
+  const slot: BuildSlot = { id: 'r1', capacity: 2, sortOrder: 0, values: { item: 'Fruit', note: '' } };
+
+  // Refuses a slot PATCH whose values hold more than 200 characters, as the
+  // slot service does for a text field with the default maxLength.
+  function stubRefusingServer() {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? '{}')) as { values?: Record<string, unknown> };
+      const tooLong = Object.values(body.values ?? {}).some((v) => typeof v === 'string' && v.length > 200);
+      return tooLong
+        ? jsonResponse({ error: { code: 'invalid_input', message: 'Too long' } }, { status: 400 })
+        : jsonResponse({ data: {} });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  function render() {
+    return renderHook(() => useBuildState('sig_test', [itemField, noteField], [slot], defaultSettings));
+  }
+
+  it('puts the last saved value back and keeps the error showing', async () => {
+    vi.useFakeTimers();
+    stubRefusingServer();
+    const { result } = render();
+
+    act(() => result.current.editCell('r1', 'item', 'x'.repeat(201)));
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(result.current.state.rows[0]?.values['item']).toBe('Fruit');
+    expect(result.current.state.saveStatus).toEqual({ kind: 'error', code: 'invalid_input', message: 'Too long' });
+  });
+
+  it('lets a later edit to another field in the row save', async () => {
+    vi.useFakeTimers();
+    const fetchMock = stubRefusingServer();
+    const { result } = render();
+
+    act(() => result.current.editCell('r1', 'item', 'x'.repeat(201)));
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    act(() => result.current.editCell('r1', 'note', 'Bring napkins'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    const last = fetchMock.mock.calls.at(-1) as [string, RequestInit];
+    expect(JSON.parse(String(last[1].body))).toEqual({ values: { item: 'Fruit', note: 'Bring napkins' } });
+    expect(result.current.state.rows[0]?.values).toEqual({ item: 'Fruit', note: 'Bring napkins' });
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('rolls back from the last value that saved, not the one the page opened with', async () => {
+    vi.useFakeTimers();
+    stubRefusingServer();
+    const { result } = render();
+
+    act(() => result.current.editCell('r1', 'item', 'Orange slices'));
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    act(() => result.current.editCell('r1', 'item', 'x'.repeat(201)));
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(result.current.state.rows[0]?.values['item']).toBe('Orange slices');
+  });
+
+  it('keeps an edit made while the refused save was in flight', async () => {
+    vi.useFakeTimers();
+    let refuse: (res: Response) => void = () => {};
+    const fetchMock = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        String(init?.body).includes('x'.repeat(201))
+          ? new Promise<Response>((resolve) => {
+              refuse = resolve;
+            })
+          : Promise.resolve(jsonResponse({ data: {} })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = render();
+
+    act(() => result.current.editCell('r1', 'item', 'x'.repeat(201)));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    // The organizer types again in the same cell while the refused save is out.
+    act(() => result.current.editCell('r1', 'item', 'Juice boxes'));
+    await act(async () => {
+      refuse(jsonResponse({ error: { code: 'invalid_input', message: 'Too long' } }, { status: 400 }));
+      await Promise.resolve();
+    });
+    expect(result.current.state.rows[0]?.values['item']).toBe('Juice boxes');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.state.rows[0]?.values['item']).toBe('Juice boxes');
+    expect(result.current.state.saveStatus.kind).toBe('saved');
   });
 });

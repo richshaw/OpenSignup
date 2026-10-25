@@ -2,14 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Check, Copy, ExternalLink } from 'lucide-react';
+import { emitSignupLinkEvent } from '@/lib/signup-link-events';
 
 interface PublicLinkChipProps {
   url: string;
-  compact?: boolean;
+  /** The signup the link is for, so a copy is recorded against it. */
+  signupId: string;
   className?: string;
 }
 
-export function PublicLinkChip({ url, compact = false, className = '' }: PublicLinkChipProps) {
+export function PublicLinkChip({ url, signupId, className = '' }: PublicLinkChipProps) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -24,6 +26,7 @@ export function PublicLinkChip({ url, compact = false, className = '' }: PublicL
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(url);
+      emitSignupLinkEvent(signupId, 'copied', 'header');
       setCopied(true);
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);
@@ -38,11 +41,9 @@ export function PublicLinkChip({ url, compact = false, className = '' }: PublicL
     <div
       className={`border-surface-sunk bg-surface-raised text-ink inline-flex max-w-full items-center rounded-full border py-0.5 pr-1 pl-3 text-[13px] ${className}`}
     >
-      {!compact ? (
-        <span className="text-ink-muted border-surface-sunk mr-2 border-r pr-2 text-xs font-medium">
-          Public link
-        </span>
-      ) : null}
+      <span className="text-ink-muted border-surface-sunk mr-2 border-r pr-2 text-xs font-medium">
+        Public link
+      </span>
       <span className="text-ink mr-2 min-w-0 flex-1 truncate font-mono text-xs">{url}</span>
       <button
         type="button"

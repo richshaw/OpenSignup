@@ -70,4 +70,3 @@ export const commitments = pgTable(
 );
 
 export type Commitment = typeof commitments.$inferSelect;
-export type NewCommitment = typeof commitments.$inferInsert;

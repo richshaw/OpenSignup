@@ -1,20 +1,20 @@
 import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { activity } from '@/db/schema/activity';
-import { commitments } from '@/db/schema/commitments';
+import { commitments, type Commitment as CommitmentRow } from '@/db/schema/commitments';
 import {
   participantEmailColumns,
   participantEmailKey,
   participants,
 } from '@/db/schema/participants';
-import { signups } from '@/db/schema/signups';
-import { slots } from '@/db/schema/slots';
+import { signups, type Signup } from '@/db/schema/signups';
+import { slots, type Slot } from '@/db/schema/slots';
 import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
 import { summarizeSlotValues } from '@/lib/slot-summary';
-import { signupShutReason } from '@/lib/signup-closing';
+import { signupShutReason, slotInLockout } from '@/lib/signup-closing';
 import { parseInputSafe } from '@/lib/parse';
 import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { toPublicCommitment, type PublicCommitment } from '@/lib/public-commitment';
@@ -30,7 +30,6 @@ import { requiresEmail } from '@/schemas/signups';
 import { inWorkspace, readLiveSignup } from './locks';
 import { listFieldsForSignup } from './slot-fields';
 
-type CommitmentRow = typeof commitments.$inferSelect;
 /** A commitment with who made it. `participantEmail` is null when they gave none. */
 type OwnCommitment = PublicCommitment & {
   participantName: string;
@@ -134,9 +133,10 @@ async function safeRecordAttemptFailed(
  * the order signing up has always checked them: the slot is closed; the
  * signup's status is anything but `open` (a draft, closed or archived signup);
  * its `closesAt` has passed; or the slot starts within the signup's
- * `lockoutHoursBeforeSlot`. The two signup rules are `signupShutReason`, which
- * the public page reads too. Taking a place (`commitParticipantToSlot`, for
- * someone signing up and for a move to another slot), raising a quantity
+ * `lockoutHoursBeforeSlot`. The two signup rules are `signupShutReason` and the
+ * lockout is `slotInLockout`, which the public page reads too. Taking a place
+ * (`commitParticipantToSlot`, for someone signing up and for a move to another
+ * slot), raising a quantity
  * (`updateOwnCommitment`) and the edit page's limit (`editLimitsForCommitment`)
  * all ask this, so a place refused one way cannot be had another; so does the
  * edit page of a cancelled sign-up (`cancelledCommitmentState`), before it
@@ -144,8 +144,8 @@ async function safeRecordAttemptFailed(
  * and `detail` are for the attempt_failed row.
  */
 function whyNotTakingPlaces(
-  signup: Pick<typeof signups.$inferSelect, 'status' | 'closesAt' | 'settings'>,
-  slot: Pick<typeof slots.$inferSelect, 'status' | 'slotAt'>,
+  signup: Pick<Signup, 'status' | 'closesAt' | 'settings'>,
+  slot: Pick<Slot, 'status' | 'slotAt'>,
 ): { reason: 'closed' | 'over_window'; detail: string; error: ServiceError } | null {
   if (slot.status !== 'open') {
     return {
@@ -173,18 +173,12 @@ function whyNotTakingPlaces(
       error: serviceError('closed', 'signup has closed'),
     };
   }
-  // Counted back from slot_at, so for a date-only slot it is measured from the
-  // noon-UTC anchor rather than from midnight (see extractSlotAt). No UI sets
-  // lockoutHoursBeforeSlot today.
-  const lockoutHours = signup.settings.lockoutHoursBeforeSlot ?? 0;
-  if (slot.slotAt && lockoutHours > 0) {
-    if (Date.now() > slot.slotAt.getTime() - lockoutHours * 3600 * 1000) {
-      return {
-        reason: 'over_window',
-        detail: 'slot_lockout',
-        error: serviceError('closed', 'too close to the slot time to sign up'),
-      };
-    }
+  if (slotInLockout(signup.settings, slot.slotAt)) {
+    return {
+      reason: 'over_window',
+      detail: 'slot_lockout',
+      error: serviceError('closed', 'too close to the slot time to sign up'),
+    };
   }
   return null;
 }
@@ -556,17 +550,12 @@ export async function getOwnCommitmentsForSignup(
   db: Db,
   signupId: string,
   items: { commitmentId: string; token: string }[],
-): Promise<OwnCommitment[]> {
+): Promise<PublicCommitment[]> {
   if (items.length === 0) return [];
   const tokenById = new Map(items.map((i) => [i.commitmentId, i.token]));
   const rows = await db
-    .select({
-      c: commitments,
-      pname: participants.name,
-      pemail: participants.email,
-    })
+    .select()
     .from(commitments)
-    .innerJoin(participants, eq(participants.id, commitments.participantId))
     .where(
       and(
         eq(commitments.signupId, signupId),
@@ -574,16 +563,12 @@ export async function getOwnCommitmentsForSignup(
         isActiveCommitment,
       ),
     );
-  const out: OwnCommitment[] = [];
+  const out: PublicCommitment[] = [];
   for (const row of rows) {
-    const token = tokenById.get(row.c.id);
+    const token = tokenById.get(row.id);
     if (!token) continue;
-    if (!verifyHash(token, row.c.editTokenHash)) continue;
-    out.push({
-      ...toPublicCommitment(row.c),
-      participantName: row.pname,
-      participantEmail: row.pemail,
-    });
+    if (!verifyHash(token, row.editTokenHash)) continue;
+    out.push(toPublicCommitment(row));
   }
   return out;
 }

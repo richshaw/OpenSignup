@@ -3,13 +3,11 @@ import type { Db, Queryable, Tx } from '@/db/client';
 import type { activity } from '@/db/schema/activity';
 import type { commitments } from '@/db/schema/commitments';
 import type { participants } from '@/db/schema/participants';
-import { signups } from '@/db/schema/signups';
+import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
-
-type SignupRow = typeof signups.$inferSelect;
 
 /**
  * `workspace_id = ?`, where null matches only rows with no workspace, such as

@@ -1,18 +1,24 @@
 import Link from 'next/link';
-import { Download, Eye } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import type { SignupStatus } from '@/schemas/signups';
 import { MobileSignupHeader } from './MobileSignupHeader';
+import {
+  StatusActionButtonForm,
+  StatusActionRefusal,
+  StatusActionScope,
+  type StatusAction,
+} from './StatusActionForm';
 
 interface SignupHeaderProps {
   signupId: string;
   title: string;
   status: SignupStatus;
   publicUrl: string;
-  publishAction: () => void | Promise<void>;
-  closeAction: () => void | Promise<void>;
+  publishAction: StatusAction;
+  closeAction: StatusAction;
 }
 
 export function SignupHeader({
@@ -24,10 +30,8 @@ export function SignupHeader({
   closeAction,
 }: SignupHeaderProps) {
   const previewHref = `/app/signups/${signupId}/preview`;
-  const exportHref = `/api/signups/${signupId}/export.csv`;
   const hasActionButton = status === 'draft' || status === 'open';
-  const buttonCount = hasActionButton ? 3 : 2;
-  const gridColsClass = buttonCount === 3 ? 'grid-cols-3' : 'grid-cols-2';
+  const gridColsClass = hasActionButton ? 'grid-cols-2' : 'grid-cols-1';
 
   return (
     <>
@@ -41,6 +45,9 @@ export function SignupHeader({
           closeAction={closeAction}
         />
       </div>
+      {/* Publish or Close signup, whichever the status offers. A refusal shows
+          on its own full-width line under the header, not in the button grid. */}
+      <StatusActionScope action={status === 'draft' ? publishAction : closeAction}>
       <header className="hidden space-y-3 md:block">
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0 flex-1 space-y-3">
@@ -48,7 +55,7 @@ export function SignupHeader({
             <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
             <StatusPill status={status} />
           </div>
-          <PublicLinkChip url={publicUrl} className="inline-flex max-w-md" />
+          <PublicLinkChip url={publicUrl} signupId={signupId} className="inline-flex max-w-md" />
         </div>
         <div className={`grid w-full max-w-full shrink-0 ${gridColsClass} gap-x-2 gap-y-3 sm:w-auto sm:max-w-sm`}>
           <Link
@@ -60,36 +67,31 @@ export function SignupHeader({
             <Eye size={14} aria-hidden="true" />
             Preview
           </Link>
-          <Link
-            href={exportHref}
-            className="hover:bg-surface-raised inline-flex w-full items-center justify-center gap-2 rounded-lg border border-surface-sunk px-3 py-1.5 text-xs font-medium transition"
-          >
-            <Download size={14} aria-hidden="true" />
-            Export
-          </Link>
           {status === 'draft' ? (
-            <form action={publishAction} className="w-full">
+            <StatusActionButtonForm>
               <AsyncSubmitButton
                 loadingLabel="Publishing…"
                 className="bg-brand inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
               >
                 Publish
               </AsyncSubmitButton>
-            </form>
+            </StatusActionButtonForm>
           ) : null}
           {status === 'open' ? (
-            <form action={closeAction} className="w-full">
+            <StatusActionButtonForm>
               <AsyncSubmitButton
                 loadingLabel="Closing…"
                 className="bg-brand inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
               >
                 Close signup
               </AsyncSubmitButton>
-            </form>
+            </StatusActionButtonForm>
           ) : null}
         </div>
       </div>
+      <StatusActionRefusal />
       </header>
+      </StatusActionScope>
     </>
   );
 }

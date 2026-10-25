@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { FormError, SuccessNotice } from '@/components/ui/form-error';
 import { wasCancelled } from '../../cancelled-message';
 import { errorCopyText, participantErrorCopy } from '../../participant-error';
 import { Field, NotesAndSpots } from '../../participant-fields';
@@ -164,15 +165,10 @@ export default function EditForm({
             : undefined
         }
       />
-      {message ? (
-        <p
-          role={message.kind === 'ok' ? 'status' : 'alert'}
-          className={`rounded-lg px-3 py-2 text-sm ${
-            message.kind === 'ok' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'
-          }`}
-        >
-          {message.text}
-        </p>
+      {message?.kind === 'ok' ? (
+        <SuccessNotice>{message.text}</SuccessNotice>
+      ) : message ? (
+        <FormError>{message.text}</FormError>
       ) : null}
       <div className="flex flex-wrap items-center gap-3">
         {confirmingCancel ? (
