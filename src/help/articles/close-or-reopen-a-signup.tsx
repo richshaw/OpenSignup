@@ -59,8 +59,8 @@ export function CloseOrReopenASignup() {
         <h2 className="text-xl font-semibold tracking-tight">While it&apos;s closed</h2>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            Your signup is marked <Ui>{UI.closed}</Ui>. Under its title, on every tab, a grey box
-            says <Ui>{UI.signupClosed}</Ui>.
+            Your signup is marked <Ui>{UI.closed}</Ui> at the top of the page. Right after you close
+            it, a grey box under its title says <Ui>{UI.signupClosed}</Ui>.
           </li>
           <li>
             People who open the link see <Ui>{UI.closedForPeople}</Ui> at the top of the page, and
@@ -110,8 +110,8 @@ export function CloseOrReopenASignup() {
           </Step>
         </Steps>
         <p>
-          The grey box goes away, and your signup is marked <Ui>{UI.open}</Ui> again. You don&apos;t
-          need to send the link again, since it hasn&apos;t changed.
+          Your signup is marked <Ui>{UI.open}</Ui> again. You don&apos;t need to send the link
+          again, since it hasn&apos;t changed.
         </p>
         <p>
           If an AI assistant gave your signup a closing time that has passed, reopening removes it.

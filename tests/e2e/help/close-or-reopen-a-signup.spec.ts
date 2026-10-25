@@ -159,17 +159,18 @@ test.describe('help: close or reopen a signup', () => {
       }
       await closeNow.click();
 
-      // While it's closed
+      // While it's closed: "Right after you close it, a grey box under its
+      // title says Signup closed."
       const banner = page.getByText(UI.signupClosed, { exact: true });
       await expect(pill(UI.closed)).toBeVisible();
       await expect(banner).toBeVisible();
       await expect(more).toHaveCount(0);
       expect((await stored()).status).toBe('closed');
-      // "on every tab"
+      // "marked closed at the top of the page", on every tab
       for (const tab of ['Responses', 'Settings', 'Build']) {
         await page.getByRole('tab', { name: new RegExp(`^${tab}`) }).click();
         await page.waitForURL(new RegExp(`/${tab.toLowerCase()}$`));
-        await expect(banner).toBeVisible();
+        await expect(pill(UI.closed)).toBeVisible();
       }
       // "the link stays the same"
       await expect(link).toHaveText(before ?? '');
@@ -215,7 +216,10 @@ test.describe('help: close or reopen a signup', () => {
       await chooseFromYourSignups(page, signup.id);
       const reopen = page.getByRole('button', { name: UI.reopenSignup });
       const preview = page.getByRole('link', { name: UI.preview }).locator('visible=true');
-      await expect(banner).toBeVisible();
+      // Coming back to it later, the box has gone, and the top of the page
+      // says it's closed.
+      await expect(pill(UI.closed)).toBeVisible();
+      await expect(banner).toHaveCount(0);
       await expect(reopen).toBeVisible();
       // "At the top of the page, choose Reopen signup, next to Preview."
       const [previewBox, reopenBox] = await Promise.all([
