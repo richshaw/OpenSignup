@@ -202,6 +202,14 @@ describe('<SharePanel /> on a computer', () => {
     expect(emit).toHaveBeenCalledExactlyOnceWith('sig_1', 'shared', 'email');
   });
 
+  it('keeps Copy message as wide as it gets, so Copied doesn’t move Email it', () => {
+    render(<Owner />);
+    const copyMessage = screen.getByRole('button', { name: 'Copy message' });
+    expect(copyMessage).toHaveClass('min-w-[124px]');
+    expect(screen.getByRole('link', { name: 'Email it' })).toHaveClass('min-w-[124px]');
+    expect(copyMessage.parentElement).not.toHaveClass('grid');
+  });
+
   it('never offers Share…, even where the browser has a share menu', () => {
     giveShareMenu(async () => {});
     render(<Owner />);
@@ -279,8 +287,12 @@ describe('<SharePanel /> on a phone', () => {
     expect(screen.getByLabelText('A message to send with it')).toHaveValue(MESSAGE);
     // The sheet scrolls, so its box stays one size.
     expect(screen.getByLabelText('A message to send with it')).toHaveAttribute('rows', '6');
-    expect(screen.getByRole('button', { name: 'Copy message' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Email it' })).toBeInTheDocument();
+    // Half the row each, under Copy link and QR code.
+    const copyMessage = screen.getByRole('button', { name: 'Copy message' });
+    expect(copyMessage.parentElement).toHaveClass('grid', 'grid-cols-2');
+    expect(copyMessage.parentElement).toContainElement(
+      screen.getByRole('link', { name: 'Email it' }),
+    );
   });
 
   it('with a share menu, starts on Share…, which stands in for Copy message and Email it', () => {

@@ -48,10 +48,11 @@ export const UI = {
   copyLink: 'Copy link',
   copyMessage: 'Copy message',
   emailIt: 'Email it',
-  // The QR code's button on a computer, then on a phone, and the button
-  // under the code a phone shows.
+  // The QR code's button on a computer, then on a phone (which says Hide QR
+  // code while the code shows), and the button under the code a phone shows.
   downloadQr: 'Download',
   qrOnPhone: 'QR code',
+  hideQrCode: 'Hide QR code',
   saveImage: 'Save image',
   // Only on phones with a share menu, so a unit test checks it, not the walkthrough.
   shareOnPhone: 'Share…',
