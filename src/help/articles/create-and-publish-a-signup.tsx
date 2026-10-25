@@ -61,8 +61,8 @@ export function CreateAndPublishASignup() {
           </Step>
           <Step>
             <p>
-              Choose <Ui>{UI.createSignup}</Ui>. Your signup is saved as a draft. Nobody else can
-              see a draft until you publish it.
+              Choose <Ui>{UI.createSignup}</Ui>. Your signup is saved as a draft. Under its title,
+              it says <Ui>{UI.draftOnly}</Ui> There&apos;s no link to send yet.
             </p>
           </Step>
         </Steps>
@@ -125,6 +125,11 @@ export function CreateAndPublishASignup() {
           <Ui>{UI.delete}</Ui>. Don&apos;t leave a slot empty: people see it as{' '}
           <Ui>{UI.untitledSlot}</Ui>.
         </p>
+        <p>
+          A slot that still says &ldquo;TBD&rdquo;, &ldquo;TBC&rdquo; or &ldquo;TBA&rdquo; is
+          marked <Ui>{UI.stillSays}</Ui> on the <Ui>{UI.build}</Ui> tab, with its own word. Once
+          your signup is published, the mark says <Ui>{UI.peopleCanSee}</Ui>.
+        </p>
       </section>
 
       <section className="space-y-4">
@@ -132,34 +137,80 @@ export function CreateAndPublishASignup() {
         <Steps>
           <Step>
             <p>
-              On a computer, you can check your signup first. Choose <Ui>{UI.preview}</Ui> at the
-              top of the page. It opens in a new tab and shows what people will see. Small screens,
-              like most phones, don&apos;t show this button.
+              You can check your signup first. Choose <Ui>{UI.preview}</Ui> at the top of the page.
+              On a phone, choose the three dots at the top, then <Ui>{UI.preview}</Ui>. It opens in
+              a new tab and shows what people will see.
             </p>
           </Step>
           <Step>
             <p>
               When you publish, anyone with the link can sign up. Choose <Ui>{UI.publish}</Ui> at
-              the top of the page. On a phone, choose the three dots at the top, then{' '}
-              <Ui>{UI.publishOnPhone}</Ui>.
+              the top of the page. On a phone, it&apos;s at the bottom of the screen.
             </p>
+            <Note>
+              <p>
+                If every slot is empty, you&apos;ll see <Ui>{UI.nothingYet}</Ui>, and your signup
+                isn&apos;t published. Choose <Ui>{UI.fillItIn}</Ui> to open the first slot. Fill it
+                in, then choose <Ui>{UI.publish}</Ui> again.
+              </p>
+              <p>
+                If a slot still says &ldquo;TBD&rdquo;, you&apos;ll see{' '}
+                <Ui>{UI.beforePeopleSee}</Ui>. Choose <Ui>{UI.nameItFirst}</Ui> to open that slot
+                and change it. Or choose <Ui>{UI.publishAnyway}</Ui>, and people will see
+                &ldquo;TBD&rdquo; until you change it.
+              </p>
+            </Note>
             <p>
-              You&apos;ll see <Ui>{UI.published}</Ui>.
+              Once it&apos;s published, you&apos;ll see <Ui>{UI.sendTheLink}</Ui>. Nobody has the
+              link until you send it.
             </p>
+            <Screenshot
+              src="/help/create-and-publish-a-signup/share-panel.png"
+              alt="The panel that opens after publishing, with the link, Copy link, a message to send, Copy message, Email it and a QR code."
+              width={420}
+              height={456}
+            />
+          </Step>
+          <Step>
+            <p>Choose a way to send it:</p>
+            <ul className="list-disc space-y-2 pl-6">
+              <li>
+                <Ui>{UI.copyLink}</Ui> copies the link. Paste it into an email or a group chat.
+              </li>
+              <li>
+                There&apos;s a message to send with the link. It names your signup. If the slots
+                have dates, it gives them. If every slot has the same time, it gives that too. If
+                every slot has a limit, it says how many spots are open. It also says that nobody
+                needs an account to sign up. You can change the message. <Ui>{UI.copyMessage}</Ui>{' '}
+                copies it, with the link. <Ui>{UI.emailIt}</Ui> opens your email app with it.
+              </li>
+              <li>
+                On most phones, <Ui>{UI.shareOnPhone}</Ui> is there instead of those two. It opens
+                your phone&apos;s share menu, with the message and the link.
+              </li>
+              <li>
+                For a flyer or a sign-up table, choose <Ui>{UI.downloadQr}</Ui> to save a QR code of
+                the link, with your signup&apos;s title under it. On a phone, choose{' '}
+                <Ui>{UI.qrOnPhone}</Ui> to show the code, then <Ui>{UI.saveImage}</Ui>. Most phones
+                then open their share menu, where you can save the picture or send it. Choose{' '}
+                <Ui>{UI.hideQrCode}</Ui> to put the code away.
+              </li>
+            </ul>
           </Step>
           <Step>
             <p>
-              Next to <Ui>{UI.publicLink}</Ui>, choose the copy button. Send the link to people by
-              email or in a group chat.
+              To send the link again later, choose <Ui>{UI.share}</Ui>. It&apos;s at the top of the
+              page, or at the bottom of the screen on a phone. Or, next to{' '}
+              <Ui>{UI.publicLink}</Ui>, choose the copy button.
             </p>
             <p>
-              The link is there before you publish too. Until you publish, it only says the signup
-              isn&apos;t ready.
+              Next to the link, you can see how many spots are taken. On a phone, that&apos;s
+              beside <Ui>{UI.share}</Ui>.
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/published.png"
-              alt="The top of a published signup, marked open, with the public link and its copy button."
-              width={480}
+              alt="The top of a published signup, marked open, with the public link, its copy button and how many spots are taken."
+              width={605}
               height={110}
             />
           </Step>
@@ -170,9 +221,9 @@ export function CreateAndPublishASignup() {
         <h2 className="text-xl font-semibold tracking-tight">What happens next</h2>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            People open the link and choose <Ui>{UI.signUp}</Ui> on a slot. They type their name
-            and email address, and can add a note. You can make the email address optional, as
-            shown below.
+            People open the link and choose <Ui>{UI.signUp}</Ui> on a slot. They type their name and
+            email address, and can add a note. You can make the email address optional, as shown
+            below.
           </li>
           <li>
             A slot with more than one spot shows how many are left, like 1 left. People can take
@@ -193,8 +244,7 @@ export function CreateAndPublishASignup() {
       <section className="space-y-4">
         <h2 className="text-xl font-semibold tracking-tight">Reminders</h2>
         <p>
-          If a slot has a date, people who take it and gave an email address get a reminder
-          email{' '}
+          If a slot has a date, people who take it and gave an email address get a reminder email{' '}
           {REMINDER_WHEN}. Someone who signs up later than that gets one about {SETTLE} after
           signing up, unless the slot is less than {SETTLE} away. Each reminder has a link to stop
           them.
@@ -230,16 +280,16 @@ export function CreateAndPublishASignup() {
         </h2>
         <p>
           A signup asks people for their email address unless you make it optional. Someone who
-          leaves it blank gets no emails at all, not even reminders. They need to save the link they see after
-          signing up. Only the browser they used remembers it.
+          leaves it blank gets no emails at all, not even reminders. They need to save the link they
+          see after signing up. Only the browser they used remembers it.
         </p>
         <p>To make the email address optional:</p>
         <Steps>
           <Step>
             <p>
               On a phone, the <Ui>{UI.settings}</Ui> link at the very top of the page is for your
-              account, so skip it. Under your signup&apos;s title, choose the{' '}
-              <Ui>{UI.settings}</Ui> tab.
+              account, so skip it. Under your signup&apos;s title, choose the <Ui>{UI.settings}</Ui>{' '}
+              tab.
             </p>
           </Step>
           <Step>

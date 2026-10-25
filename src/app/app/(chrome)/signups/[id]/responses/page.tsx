@@ -9,9 +9,10 @@ import {
 } from '@/services/commitments';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { StatusPill } from '@/components/status-pill';
+import type { SignupStatus } from '@/schemas/signups';
 import { summarizeSlotValues } from '@/lib/slot-summary';
 import { RemoveCommitmentForm } from './remove-commitment-form';
-import { summarizeResponses } from './responses-summary';
+import { noResponsesLine, summarizeResponses } from './responses-summary';
 
 type PageParams = { params: Promise<{ id: string }> };
 
@@ -66,7 +67,7 @@ export default async function ResponsesTab({ params }: PageParams) {
       ) : null}
       {commitments.length === 0 ? (
         <p className="rounded-lg border border-dashed border-surface-sunk p-6 text-center text-sm text-ink-muted">
-          No signups yet. Share the public link to start collecting.
+          {noResponsesLine(sig.status as SignupStatus)}
         </p>
       ) : (
         // A table from md up. Narrower, it would be wider than the screen (an

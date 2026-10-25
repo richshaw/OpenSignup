@@ -5,12 +5,22 @@ import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
+import { slots as slotsTable } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
-import { createSignup } from '@/services/signups';
-import { addSlot } from '@/services/slots';
-import { closeAction, deleteSignupAction, publishAction, setRequireEmailAction } from './actions';
+import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/publish-check';
+import { EMPTY_TEMPLATE } from '@/lib/signup-templates';
+import { commitToSlot } from '@/services/commitments';
+import { createSignup, publishSignup } from '@/services/signups';
+import { addSlot, updateSlot } from '@/services/slots';
+import {
+  closeAction,
+  closeQuestionAction,
+  deleteSignupAction,
+  publishAction,
+  setRequireEmailAction,
+} from './actions';
 
 // The action reads the organizer from the session cookie. Tests hand it one
 // directly instead of going through Auth.js.
@@ -232,7 +242,8 @@ describe('a viewer choosing Publish, Close or Delete (db)', () => {
     });
     if (!created.ok) throw new Error(created.error.message);
     signupId = created.value.id;
-    const slot = await addSlot(db, owner, signupId, { values: {}, capacity: 1 });
+    // Something to sign up for, so Publish's check lets it through.
+    const slot = await addSlot(db, owner, signupId, { values: { what: 'Juice' }, capacity: 1 });
     if (!slot.ok) throw new Error(slot.error.message);
   });
 
@@ -252,13 +263,22 @@ describe('a viewer choosing Publish, Close or Delete (db)', () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it('Close says the viewer can’t edit and leaves the signup open', async () => {
+  it('Publish says it published and re-renders the signup where it was pressed', async () => {
     session.actor = owner;
-    expect(await redirectOf(() => publishAction(signupId))).toBe(
-      `/app/signups/${signupId}/build?published=1`,
-    );
-    revalidatePath.mockClear();
+    expect(await publishAction(signupId)).toEqual({ published: true });
+    expect((await row())?.status).toBe('open');
+    expect(revalidatePath).toHaveBeenCalledWith(`/app/signups/${signupId}`, 'layout');
+  });
 
+  it('Publish on a signup that’s already open asks for a reload', async () => {
+    session.actor = owner;
+    expect(await publishAction(signupId)).toEqual({
+      error: 'This signup changed since the page loaded. Reload to see the latest.',
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('Close says the viewer can’t edit and leaves the signup open', async () => {
     session.actor = viewer;
     expect(await closeAction(signupId)).toEqual({ error: 'You don’t have edit access.' });
     expect((await row())?.status).toBe('open');
@@ -282,5 +302,357 @@ describe('a viewer choosing Publish, Close or Delete (db)', () => {
     );
     expect((await row())?.deletedAt).toBeNull();
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+// Publish checks a draft as it's stored before publishing it (#503).
+describe('Publish’s check (db)', () => {
+  const db = getDb();
+  const organizerId = makeId('org');
+  const workspaceId = makeId('ws');
+  const slug = `test-${workspaceId.slice(-8).toLowerCase()}`;
+  const owner: Actor = {
+    kind: 'organizer',
+    id: organizerId,
+    email: `${slug}@example.test`,
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+  const viewer: Actor = {
+    kind: 'organizer',
+    id: makeId('org'),
+    email: 'viewer@example.test',
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'viewer' },
+  };
+
+  /**
+   * A fresh draft. The default template gives it What and Date and one empty
+   * slot; the empty one gives it neither. `slots` adds slots after that.
+   */
+  async function draft(
+    slots: Record<string, unknown>[] = [],
+    { empty = false }: { empty?: boolean } = {},
+  ): Promise<{ id: string; slotIds: string[] }> {
+    const created = await createSignup(
+      db,
+      owner,
+      workspaceId,
+      {
+        title: 'Check before publishing',
+        description: '',
+        tags: [],
+        visibility: 'unlisted',
+        settings: {},
+      },
+      empty ? { template: EMPTY_TEMPLATE } : {},
+    );
+    if (!created.ok) throw new Error(created.error.message);
+    const slotIds: string[] = [];
+    for (const values of slots) {
+      const slot = await addSlot(db, owner, created.value.id, { values, capacity: 1 });
+      if (!slot.ok) throw new Error(slot.error.message);
+      slotIds.push(slot.value.id);
+    }
+    return { id: created.value.id, slotIds };
+  }
+
+  const statusOf = async (id: string) => {
+    const [found] = await db
+      .select({ status: signups.status })
+      .from(signups)
+      .where(eq(signups.id, id));
+    return found?.status;
+  };
+  const slotsOf = async (id: string) =>
+    (
+      await db
+        .select({ id: slotsTable.id, sortOrder: slotsTable.sortOrder })
+        .from(slotsTable)
+        .where(eq(slotsTable.signupId, id))
+    )
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((s) => s.id);
+  const anyway = () => {
+    const form = new FormData();
+    form.set('acknowledge', 'placeholder');
+    return form;
+  };
+  const answer = (check: PublishCheck) => ({
+    check,
+    copy: publishCheckCopy(check),
+    target: publishCheckTarget(check),
+  });
+
+  beforeAll(async () => {
+    await db.transaction(async (tx) => {
+      await tx.insert(organizers).values({ id: organizerId, email: owner.email, name: 'Test Org' });
+      await tx.insert(workspaces).values({
+        id: workspaceId,
+        slug,
+        name: 'Test Workspace',
+        type: 'personal',
+        plan: 'free',
+      });
+    });
+  });
+
+  afterAll(async () => {
+    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+    await db.delete(organizers).where(eq(organizers.id, organizerId));
+  });
+
+  beforeEach(() => {
+    revalidatePath.mockClear();
+    session.actor = owner;
+  });
+
+  it('stops a draft with no slots and leaves it a draft', async () => {
+    const { id } = await draft([], { empty: true });
+    expect(await publishAction(id)).toEqual(answer({ kind: 'no_slots' }));
+    expect(await statusOf(id)).toBe('draft');
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('stops a draft with slots but no fields', async () => {
+    const { id } = await draft([{}], { empty: true });
+    expect(await publishAction(id)).toEqual(answer({ kind: 'no_fields' }));
+    expect(await statusOf(id)).toBe('draft');
+  });
+
+  it('stops a draft whose every slot is empty, pointing at the first', async () => {
+    const { id } = await draft([{ what: '  ' }]);
+    const [first] = await slotsOf(id);
+    expect(await publishAction(id)).toEqual(
+      answer({ kind: 'all_blank', slotId: first!, slotCount: 2 }),
+    );
+    expect(await statusOf(id)).toBe('draft');
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('warns about a slot that still says TBD, and leaves it a draft', async () => {
+    const { id, slotIds } = await draft([
+      { what: 'Setup', date: '2026-11-14' },
+      { what: 'Cashier TBD', date: '2026-11-14' },
+    ]);
+    expect(await publishAction(id)).toEqual(
+      answer({
+        kind: 'placeholder',
+        slotIds: [slotIds[1]!],
+        words: ['TBD'],
+        fieldRef: 'what',
+        slotLabel: 'Cashier TBD · Sat, Nov 14',
+      }),
+    );
+    expect(await statusOf(id)).toBe('draft');
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('publishes past the warning once the organizer chooses Publish anyway', async () => {
+    const { id } = await draft([{ what: 'Cashier TBD' }]);
+    expect(await publishAction(id, anyway())).toEqual({ published: true });
+    expect(await statusOf(id)).toBe('open');
+    expect(revalidatePath).toHaveBeenCalledWith(`/app/signups/${id}`, 'layout');
+  });
+
+  it('still stops a blocking problem when the form says Publish anyway', async () => {
+    const { id } = await draft();
+    const [first] = await slotsOf(id);
+    expect(await publishAction(id, anyway())).toEqual(
+      answer({ kind: 'all_blank', slotId: first!, slotCount: 1 }),
+    );
+    expect(await statusOf(id)).toBe('draft');
+  });
+
+  it('refuses a viewer before checking anything', async () => {
+    const { id } = await draft();
+    session.actor = viewer;
+    expect(await publishAction(id)).toEqual({ error: 'You don’t have edit access.' });
+    expect(await statusOf(id)).toBe('draft');
+  });
+
+  it('doesn’t check a signup that’s no longer a draft: it asks for a reload', async () => {
+    // Published by an AI assistant, say, which publishes without the check.
+    const { id } = await draft();
+    const published = await publishSignup(db, owner, id);
+    if (!published.ok) throw new Error(published.error.message);
+    expect(await publishAction(id)).toEqual({
+      error: 'This signup changed since the page loaded. Reload to see the latest.',
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  // #525 counts refused publishes. The check now stops what the service used
+  // to refuse, so it writes the same row.
+  describe('signup.publish_refused', () => {
+    const refusalRows = async (id: string) =>
+      db
+        .select({ payload: activity.payload, actorId: activity.actorId })
+        .from(activity)
+        .where(and(eq(activity.signupId, id), eq(activity.eventType, 'signup.publish_refused')));
+    const refusals = async (id: string) => (await refusalRows(id)).map((row) => row.payload);
+
+    it.each<[string, () => Promise<{ id: string }>, Record<string, unknown>]>([
+      ['no slots', () => draft([], { empty: true }), { code: 'conflict', reason: 'no_slots' }],
+      ['no fields', () => draft([{}], { empty: true }), { code: 'conflict', reason: 'no_fields' }],
+      ['every slot empty', () => draft(), { code: 'conflict', reason: 'all_blank' }],
+      [
+        'a slot still saying TBD',
+        () => draft([{ what: 'Cashier TBD' }]),
+        { reason: 'placeholder', warning: true },
+      ],
+    ])('writes one row when the check stops %s', async (_name, make, payload) => {
+      const { id } = await make();
+      await publishAction(id);
+      // By the organizer who pressed Publish and share.
+      expect(await refusalRows(id)).toEqual([{ payload, actorId: organizerId }]);
+    });
+
+    it('writes no more once the organizer chooses Publish anyway', async () => {
+      const { id } = await draft([{ what: 'Cashier TBD' }]);
+      await publishAction(id);
+      expect(await publishAction(id, anyway())).toEqual({ published: true });
+      expect(await refusals(id)).toEqual([{ reason: 'placeholder', warning: true }]);
+    });
+
+    it('writes nothing for a viewer, who is refused before the check', async () => {
+      const { id } = await draft();
+      session.actor = viewer;
+      await publishAction(id);
+      expect(await refusals(id)).toEqual([]);
+    });
+
+    it('still comes from the service when it refuses a publish the check didn’t see', async () => {
+      // The MCP tool and the REST API publish through the service alone.
+      const { id } = await draft([], { empty: true });
+      const refused = await publishSignup(db, owner, id);
+      expect(refused.ok).toBe(false);
+      expect(await refusals(id)).toEqual([{ code: 'conflict', reason: 'no_slots' }]);
+    });
+  });
+
+  // After a warning, signup.published says whether the organizer chose
+  // Publish anyway, or fixed the slot first.
+  describe('signup.published after a warning', () => {
+    const published = async (id: string) =>
+      (
+        await db
+          .select({ payload: activity.payload })
+          .from(activity)
+          .where(and(eq(activity.signupId, id), eq(activity.eventType, 'signup.published')))
+      ).map((row) => row.payload);
+
+    it('says acknowledged: placeholder when Publish anyway published past it', async () => {
+      const { id } = await draft([{ what: 'Cashier TBD' }]);
+      await publishAction(id);
+      await publishAction(id, anyway());
+      expect(await published(id)).toEqual([
+        { from: 'draft', to: 'open', acknowledged: 'placeholder' },
+      ]);
+    });
+
+    it('says nothing more when the organizer named the slot first', async () => {
+      const { id, slotIds } = await draft([{ what: 'Cashier TBD' }]);
+      await publishAction(id);
+      const named = await updateSlot(db, owner, slotIds[0]!, { values: { what: 'Cashier' } });
+      if (!named.ok) throw new Error(named.error.message);
+      expect(await publishAction(id)).toEqual({ published: true });
+      expect(await published(id)).toEqual([{ from: 'draft', to: 'open' }]);
+    });
+
+    it('says nothing more when the slot was named before Publish anyway reached the server', async () => {
+      // The form still says Publish anyway, but there's nothing to publish past.
+      const { id, slotIds } = await draft([{ what: 'Cashier TBD' }]);
+      await publishAction(id);
+      const named = await updateSlot(db, owner, slotIds[0]!, { values: { what: 'Cashier' } });
+      if (!named.ok) throw new Error(named.error.message);
+      await publishAction(id, anyway());
+      expect(await published(id)).toEqual([{ from: 'draft', to: 'open' }]);
+    });
+  });
+});
+
+describe('closeQuestionAction (db)', () => {
+  const db = getDb();
+  const organizerId = makeId('org');
+  const workspaceId = makeId('ws');
+  const slug = `test-${workspaceId.slice(-8).toLowerCase()}`;
+  const owner: Actor = {
+    kind: 'organizer',
+    id: organizerId,
+    email: `${slug}@example.test`,
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+  const after = ' People can’t sign up after this, and you can’t reopen it.';
+  let signupId: string;
+  let slotId: string;
+
+  beforeAll(async () => {
+    await db.transaction(async (tx) => {
+      await tx.insert(organizers).values({ id: organizerId, email: owner.email, name: 'Test Org' });
+      await tx.insert(workspaces).values({
+        id: workspaceId,
+        slug,
+        name: 'Test Workspace',
+        type: 'personal',
+        plan: 'free',
+      });
+    });
+    // A new signup starts with one empty slot of 1 spot; this adds one of 4.
+    const created = await createSignup(db, owner, workspaceId, {
+      title: 'Close question',
+      description: '',
+      tags: [],
+      visibility: 'unlisted',
+      settings: {},
+    });
+    if (!created.ok) throw new Error(created.error.message);
+    signupId = created.value.id;
+    const slot = await addSlot(db, owner, signupId, { values: { what: 'Juice' }, capacity: 4 });
+    if (!slot.ok) throw new Error(slot.error.message);
+    slotId = slot.value.id;
+    const published = await publishSignup(db, owner, signupId);
+    if (!published.ok) throw new Error(published.error.message);
+  });
+
+  afterAll(async () => {
+    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+    await db.delete(organizers).where(eq(organizers.id, organizerId));
+  });
+
+  beforeEach(() => {
+    revalidatePath.mockClear();
+  });
+
+  it('asks from the spots taken now, and revalidates nothing', async () => {
+    session.actor = owner;
+    expect(await closeQuestionAction(signupId)).toEqual({
+      question: `Nobody has signed up yet.${after}`,
+    });
+
+    const commit = await commitToSlot(db, slotId, {
+      name: 'Sam Example',
+      email: `sam-${slug}@example.test`,
+      quantity: 1,
+    });
+    if (!commit.ok) throw new Error(commit.error.message);
+    expect(await closeQuestionAction(signupId)).toEqual({
+      question: `4 of 5 spots are still open.${after} Everyone already signed up keeps their spot.`,
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('comes back with a refusal, not an error, for someone who can’t see the signup', async () => {
+    // What Close signup itself would say next.
+    session.actor = { kind: 'anonymous' };
+    expect(await closeQuestionAction(signupId)).toEqual({
+      error: 'Couldn’t close the signup. Try again.',
+    });
+
+    session.actor = owner;
+    expect(await closeQuestionAction('sig_nope')).toEqual({
+      error: 'This signup is no longer available.',
+    });
   });
 });

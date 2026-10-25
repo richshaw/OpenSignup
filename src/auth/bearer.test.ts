@@ -4,9 +4,6 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 vi.mock('@/db/client', () => ({ getDb: () => ({}) as unknown }));
 // The session module drags in Auth.js, which does not load under vitest.
 vi.mock('./organizer-session', () => ({ loadOrganizerSessionById: vi.fn(), toActor: vi.fn() }));
-vi.mock('@/lib/env', () => ({
-  getEnv: () => ({ AUTH_URL: 'https://signup.example.org', AUTH_SECRET: 'x'.repeat(32) }),
-}));
 
 const ISSUER = 'https://signup.example.org';
 const RESOURCE = `${ISSUER}/api/mcp`;
@@ -105,17 +102,5 @@ describe('createVerifier infrastructure failures', () => {
     const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys: async () => { throw new Error('db down'); }, reload() {} });
     const token = await mint(signer, 'k1', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c' });
     await expect(v.verifyAccessToken(token)).rejects.toMatchObject({ code: 'server_error' });
-  });
-});
-
-describe('insufficientScopeResponse', () => {
-  it('is a 403 challenge naming the scope and the resource metadata', async () => {
-    const { insufficientScopeResponse } = await import('./bearer');
-    const r = insufficientScopeResponse(['commitments:read']);
-    expect(r.status).toBe(403);
-    const challenge = r.headers.get('www-authenticate') ?? '';
-    expect(challenge).toContain('error="insufficient_scope"');
-    expect(challenge).toContain('scope="commitments:read"');
-    expect(challenge).toContain('resource_metadata="https://signup.example.org/.well-known/oauth-protected-resource/api/mcp"');
   });
 });

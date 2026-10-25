@@ -65,6 +65,7 @@ function renderGroup(overrides: {
       fields={overrides.fields ?? (groupField ? [groupField] : [])}
       takenBySlot={{}}
       remindersOn={false}
+      status="draft"
       expandedRowId={overrides.expandedRowId ?? null}
       onExpandRow={onExpandRow}
       onEditCell={onEditCell}
@@ -216,7 +217,8 @@ describe('WysiwygGroup', () => {
         displayFields={[]}
         fields={[makeField()]}
         takenBySlot={{}}
-      remindersOn={false}
+        remindersOn={false}
+        status="draft"
         expandedRowId={null}
         onExpandRow={vi.fn()}
         onEditCell={vi.fn()}

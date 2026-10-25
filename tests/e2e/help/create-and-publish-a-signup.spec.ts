@@ -25,7 +25,7 @@ test.describe('help: create and publish your first signup', () => {
   // Screenshots at 2x so text stays sharp; the article sizes them in CSS pixels.
   test.use({ deviceScaleFactor: 2 });
 
-  test('the steps work as written', async ({ page, context, browser, isMobile }) => {
+  test('the steps work as written', async ({ page, context, isMobile }) => {
     test.skip(isMobile, 'the phone path is its own test below');
     await loginAsSeededOrganizer(context);
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -49,15 +49,13 @@ test.describe('help: create and publish your first signup', () => {
     await page.getByRole('button', { name: UI.createSignup }).click();
     await page.waitForURL(/\/build$/);
     await expect(page.getByText('draft', { exact: true }).locator('visible=true')).toBeVisible();
-    // "Nobody else can see a draft": its link says it isn't ready yet.
-    const draftLink = await page
-      .getByRole('link', { name: 'Open public page' })
-      .locator('visible=true')
-      .getAttribute('href');
-    const outsider = await browser.newPage();
-    await outsider.goto(draftLink ?? '');
-    await expect(outsider.getByText(/isn.t ready yet/)).toBeVisible();
-    await outsider.close();
+    // Under the title, the draft line, and no link to send yet.
+    await expect(
+      page.getByText(UI.draftOnly, { exact: true }).locator('visible=true'),
+    ).toBeVisible();
+    await expect(
+      page.getByText(UI.publicLink, { exact: true }).locator('visible=true'),
+    ).toHaveCount(0);
 
     // Add slots
     await page.getByText(UI.emptySlot, { exact: true }).click();
@@ -136,12 +134,76 @@ test.describe('help: create and publish your first signup', () => {
     await preview.close();
 
     await page.getByRole('button', { name: UI.publish, exact: true }).click();
-    await expect(page.getByText(UI.published)).toBeVisible();
+    const panel = page.getByRole('dialog', { name: UI.sendTheLink });
+    await expect(panel).toBeVisible();
+    // Publish stays on this tab, and the panel starts on Copy link.
+    await expect(page).toHaveURL(/\/build$/);
+    const copyLink = panel.getByRole('button', { name: UI.copyLink });
+    await expect(copyLink).toBeFocused();
+    // The message names the signup, its dates (two, a week apart, so not
+    // a range) and the spots open, and says no account is needed: no count
+    // of slots, the organizer's word.
+    await expect(panel.getByRole('textbox', { name: 'A message to send with it' })).toHaveValue(
+      /^Snack duty — Spring season\nSat, Apr 6 and Sat, Apr 13 · 4 spots open\nSign up here, no account needed: \S+\/s\/snack-duty-spring-season[-\w]*$/,
+    );
+    if (CAPTURE) {
+      // The stand-in address again, in the link and in the message; the QR
+      // code still holds the real one. No focus ring in the picture.
+      const standIn = 'https://your-site.example/s/snack-duty-spring-season';
+      await panel.getByLabel(UI.publicLink).evaluate((el, url) => {
+        (el as HTMLInputElement).value = url;
+      }, standIn);
+      await panel
+        .getByRole('textbox', { name: 'A message to send with it' })
+        .evaluate((el, url) => {
+          const box = el as HTMLTextAreaElement;
+          box.value = box.value.replace(/\S+$/, url);
+        }, standIn);
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await expect(
+        panel.getByRole('img', {
+          name: 'QR code for the sign-up link to Snack duty — Spring season',
+        }),
+      ).toBeVisible();
+      await shot(page, panel, 'share-panel');
+    }
+    // The clipboard is written after the click returns, so wait for it.
+    const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
+    await copyLink.click();
+    await expect(panel.getByRole('button', { name: 'Copied' })).toBeVisible();
+    await expect.poll(clipboard).toMatch(/\/s\/snack-duty-spring-season[-\w]*$/);
+    await panel.getByRole('button', { name: UI.copyMessage }).click();
+    await expect
+      .poll(clipboard)
+      .toMatch(/^Snack duty — Spring season\n.*\nSign up here, no account needed: /);
+    await expect(panel.getByRole('link', { name: UI.emailIt })).toHaveAttribute(
+      'href',
+      /^mailto:\?subject=Snack%20duty%20%E2%80%94%20Spring%20season&body=/,
+    );
+    const qr = panel.getByRole('link', { name: UI.downloadQr });
+    // Named after the slug, which an earlier run's signup may have suffixed.
+    await expect(qr).toHaveAttribute('download', /^snack-duty-spring-season[-\w]*-qr\.png$/);
+    const [download] = await Promise.all([page.waitForEvent('download'), qr.click()]);
+    expect(download.suggestedFilename()).toMatch(/^snack-duty-spring-season[-\w]*-qr\.png$/);
 
+    // Escape closes it, back to Share; Share opens it again, as the article says.
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden();
     const header = page
       .locator('header', { has: page.getByText(UI.publicLink, { exact: true }) })
       .locator('visible=true');
+    const share = header.getByRole('button', { name: UI.share, exact: true });
+    await expect(share).toBeFocused();
+    await share.click();
+    await expect(page.getByRole('dialog', { name: 'Share the link' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toBeHidden();
+
     await expect(header.getByText(UI.publicLink, { exact: true })).toBeVisible();
+    // Next to the link, how many spots are taken: none of the two slots' four.
+    const count = header.getByText('0 of 4 spots taken', { exact: true });
+    await expect(count).toBeVisible();
+    await expect(header.getByText(UI.draftOnly, { exact: true })).toHaveCount(0);
     if (CAPTURE) {
       // Each site has its own address; show a stand-in, not this test server's.
       // Only the text changes: the copy button still copies the real link.
@@ -150,21 +212,22 @@ test.describe('help: create and publish your first signup', () => {
         .evaluate(
           (el) => (el.textContent = 'https://your-site.example/s/snack-duty-spring-season'),
         );
-      // Crop to the title and the link: the whole header is too wide to read
-      // once it is scaled into the article's column.
+      // Crop to the title, the link and the count beside it: the whole header
+      // is too wide to read once it is scaled into the article's column.
       const chip = header.getByRole('button', { name: UI.copyPublicLink }).locator('..');
       const title = header.getByRole('heading', { level: 1 });
       const pill = header.getByText('open', { exact: true });
-      const boxes = await Promise.all([title, pill, chip].map((l) => l.boundingBox()));
-      if (boxes.some((b) => !b)) throw new Error('title, status or link not on screen');
-      const [t, st, c] = boxes as [
+      const boxes = await Promise.all([title, pill, chip, count].map((l) => l.boundingBox()));
+      if (boxes.some((b) => !b)) throw new Error('title, status, link or count not on screen');
+      const [t, st, c, n] = boxes as [
+        NonNullable<(typeof boxes)[0]>,
         NonNullable<(typeof boxes)[0]>,
         NonNullable<(typeof boxes)[0]>,
         NonNullable<(typeof boxes)[0]>,
       ];
       const pad = 16;
       const left = Math.min(t.x, c.x) - pad;
-      const right = Math.max(st.x + st.width, c.x + c.width) + pad;
+      const right = Math.max(st.x + st.width, c.x + c.width, n.x + n.width) + pad;
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `${SHOT_DIR}/published.png`,
@@ -178,8 +241,9 @@ test.describe('help: create and publish your first signup', () => {
       });
     }
     await header.getByRole('button', { name: UI.copyPublicLink }).click();
-    const copied = await page.evaluate(() => navigator.clipboard.readText());
-    expect(copied).toMatch(/\/s\/snack-duty-spring-season/);
+    // The panel's Copy message came last until this copy lands.
+    await expect.poll(clipboard).toMatch(/^\S+\/s\/snack-duty-spring-season[-\w]*$/);
+    const copied = await clipboard();
 
     // What happens next: the link opens a page people can sign up on.
     await page.goto(copied);
@@ -254,28 +318,135 @@ test.describe('help: create and publish your first signup', () => {
   test.describe('on a phone', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
-    test('publish is under the three dots, and there is no preview', async ({ page, context }) => {
+    test('Publish and share is at the bottom, asks for an empty slot to be filled in, and Preview is under the three dots', async ({
+      page,
+      context,
+    }) => {
       await loginAsSeededOrganizer(context);
+      const title = `Phone publish ${Date.now()}`;
       const created = await page.request.post('/api/signups', {
-        data: {
-          title: `Phone publish ${Date.now()}`,
-          description: '',
-          tags: [],
-          visibility: 'unlisted',
-          settings: {},
-        },
+        data: { title, description: '', tags: [], visibility: 'unlisted', settings: {} },
       });
       expect(created.ok()).toBe(true);
       const id = (await created.json()).data.id as string;
 
       await page.goto(`/app/signups/${id}/build`);
+      await expect(
+        page.getByText(UI.draftOnly, { exact: true }).locator('visible=true'),
+      ).toBeVisible();
+      await expect(
+        page.getByText(UI.publicLink, { exact: true }).locator('visible=true'),
+      ).toHaveCount(0);
+
+      // Preview isn't at the top on a phone: it's under the three dots, and
+      // opens in a new tab.
       await expect(page.getByRole('link', { name: UI.preview })).toBeHidden();
       await page.getByRole('button', { name: UI.moreActions }).click();
-      await page.getByRole('button', { name: UI.publishOnPhone }).click();
-      await expect(page.getByText(UI.published)).toBeVisible();
+      const more = page.getByRole('dialog', { name: title });
+      await expect(more.getByRole('button', { name: /Publish/ })).toHaveCount(0);
+      const [preview] = await Promise.all([
+        page.waitForEvent('popup'),
+        more.getByRole('link', { name: UI.preview }).click(),
+      ]);
+      await expect(preview.getByRole('heading', { name: title })).toBeVisible();
+      await preview.close();
+      await expect(more).toBeHidden();
+
+      // Publish and share fills the bar at the bottom of the screen.
+      const publish = page.getByRole('button', { name: UI.publish, exact: true });
+      const box = await publish.boundingBox();
+      if (!box) throw new Error('Publish and share not on screen');
+      expect(box.height).toBeGreaterThanOrEqual(48);
+      expect(box.width).toBeGreaterThan(390 - 2 * 16 - 1);
+      expect(box.y + box.height).toBeGreaterThan(844 - 24);
+
+      // The new signup's one slot is empty, so there's nothing to sign up for
+      // yet: Publish says so and publishes nothing. Fill it in opens the slot,
+      // focus in What.
+      const storedStatus = async () =>
+        (await (await page.request.get(`/api/signups/${id}`)).json()).data.status;
+      await publish.click();
+      const nothingYet = page.getByRole('dialog', { name: UI.nothingYet });
+      await expect(nothingYet).toBeVisible();
+      await expect(nothingYet.getByRole('button', { name: UI.fillItIn })).toBeFocused();
+      expect(await storedStatus()).toBe('draft');
+      await nothingYet.getByRole('button', { name: UI.fillItIn }).click();
+      await expect(nothingYet).toBeHidden();
+      const slotEditor = page.locator('[data-testid^="slot-editor-"]');
+      const what = slotEditor.getByRole('textbox', { name: `${UI.what} value` });
+      await expect(what).toBeFocused();
+      await what.fill('TBD');
+      // Done hands the focus back to Publish and share, as the fix opened it.
+      await slotEditor.getByRole('button', { name: UI.done }).click();
+      await expect(publish).toBeFocused();
+
+      // A slot that still says "TBD" is marked on the Build tab, and is
+      // something people would see. Name it first opens it again, focus on
+      // the TBD.
+      await expect(page.getByRole('tab', { name: UI.build })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      const mark = page.getByText(UI.stillSays, { exact: true });
+      await expect(mark).toBeVisible();
+      await publish.click();
+      const beforePeopleSee = page.getByRole('dialog', { name: UI.beforePeopleSee });
+      await expect(beforePeopleSee).toBeVisible();
+      await expect(beforePeopleSee.getByRole('button', { name: UI.publishAnyway })).toBeVisible();
+      await beforePeopleSee.getByRole('button', { name: UI.nameItFirst }).click();
+      await expect(what).toBeFocused();
+      await expect(what).toHaveValue('TBD');
+      await what.fill('Fruit and water');
+      await slotEditor.getByRole('button', { name: UI.done }).click();
+      // Named, the mark goes; focus is back on Publish and share, and the
+      // header says it can be published.
+      await expect(publish).toBeFocused();
+      await expect(mark).toHaveCount(0);
+      await expect(
+        page.getByRole('status').filter({ hasText: 'Publish and share when you’re ready.' }),
+      ).toHaveCount(1);
+
+      await publish.click();
+      const sheet = page.getByRole('dialog', { name: UI.sendTheLink });
+      await expect(sheet).toBeVisible();
+      await expect(sheet.getByRole('button', { name: UI.copyLink })).toBeVisible();
+      // This browser has no share menu, so the message's own buttons show.
+      await expect(sheet.getByRole('button', { name: UI.copyMessage })).toBeVisible();
+      await expect(sheet.getByRole('link', { name: UI.emailIt })).toBeVisible();
+      // QR code shows the code in the sheet, then Save image saves it: a
+      // download here, where the browser can't share a file.
+      const qr = sheet.getByRole('button', { name: UI.qrOnPhone, exact: true });
+      await expect(qr).toHaveAttribute('aria-expanded', 'false');
+      await qr.click();
+      // The same button, now Hide QR code, with the focus still on it.
+      const hide = sheet.getByRole('button', { name: UI.hideQrCode, exact: true });
+      await expect(hide).toHaveAttribute('aria-expanded', 'true');
+      await expect(hide).toBeFocused();
+      const code = sheet.getByRole('img', {
+        name: /^QR code for the sign-up link to Phone publish \d+$/,
+      });
+      await expect(code).toBeVisible();
+      const save = sheet.getByRole('button', { name: UI.saveImage });
+      const [download] = await Promise.all([page.waitForEvent('download'), save.click()]);
+      expect(download.suggestedFilename()).toMatch(/^phone-publish-\d+[-\w]*-qr\.png$/);
+      await expect(sheet.getByRole('button', { name: 'Saved' })).toBeVisible();
+      // Hide QR code puts it away, and the message's buttons are back.
+      await hide.click();
+      await expect(code).toBeHidden();
+      await expect(qr).toHaveAttribute('aria-expanded', 'false');
+      await expect(sheet.getByRole('link', { name: UI.emailIt })).toBeInViewport();
+      await page.keyboard.press('Escape');
+      await expect(sheet).toBeHidden();
+
+      // The link is at the top now, and Share, beside the count, is where
+      // Publish and share was, with the focus back on it.
       await expect(
         page.getByText(UI.publicLink, { exact: true }).locator('visible=true'),
       ).toBeVisible();
+      await expect(publish).toHaveCount(0);
+      const bar = page.locator('[data-phone-bar]');
+      await expect(bar.getByText('0 of 1 spot taken', { exact: true })).toBeVisible();
+      await expect(bar.getByRole('button', { name: UI.share, exact: true })).toBeFocused();
     });
   });
 });

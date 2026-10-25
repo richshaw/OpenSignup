@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { Copy, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { SlotEditor } from './SlotEditor';
 import { emptyHeaderCopy } from './prettyHeader';
+import { placeholderMark, slotRowLabel } from './slotRow';
 import { renderFieldValue } from '@/lib/slot-label';
+import type { SignupStatus } from '@/schemas/signups';
 import type { UseReorderableResult } from '../build-shared/useReorderable';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
@@ -17,6 +19,8 @@ type WysiwygSlotProps = {
   taken: number;
   /** Whether the signup sends reminders, and so emails about a moved slot. */
   remindersOn: boolean;
+  /** The signup's, for what a slot still saying "TBD" is marked with. */
+  status: SignupStatus;
   fields: BuildField[];
   /**
    * All non-group fields in organizer-chosen order. `displayFields[0]` becomes
@@ -46,11 +50,16 @@ type WysiwygSlotProps = {
  * Hover or focus-within on the collapsed row reveals a floating toolbar
  * with Edit / Duplicate / Delete affordances (keyboard parity via
  * focus-within, per the design's "one mode cue" feedback).
+ *
+ * A row whose values still hold TBD, TBC or TBA, as Publish's check finds
+ * them, is warm and tagged after its values (under them on a phone), as it
+ * reads now, edits and all.
  */
 export function WysiwygSlot({
   row,
   taken,
   remindersOn,
+  status,
   fields,
   displayFields,
   expanded,
@@ -121,15 +130,19 @@ export function WysiwygSlot({
     ? emptyHeaderCopy(anchorField.config.fieldType, anchorField.name)
     : null;
 
+  // Any field counts, the group's too, as in Publish's check.
+  const mark = placeholderMark(row.values, fields, status);
+
   // aria-label must mirror the visible primary label — including the empty-state
   // placeholder — so multiple empty rows aren't exposed as identical "Edit slot"
-  // to assistive tech. (aria-label overrides the button's text content.)
-  let ariaLabel = 'Edit slot';
-  if (anchorValue) {
-    ariaLabel = isTimeAnchor ? `Edit slot at ${anchorValue}` : `Edit slot \u2014 ${anchorValue}`;
-  } else if (placeholder) {
-    ariaLabel = `Edit slot \u2014 ${placeholder}`;
-  }
+  // to assistive tech, and say the tag. (aria-label overrides the button's text
+  // content.)
+  const ariaLabel = slotRowLabel({
+    anchor: anchorValue,
+    time: isTimeAnchor,
+    prompt: placeholder,
+    mark,
+  });
 
   const anchorSizing = summary ? 'max-w-[60%] shrink-0' : 'min-w-0';
 
@@ -155,7 +168,9 @@ export function WysiwygSlot({
           ? 'border-transparent bg-brand-soft opacity-50'
           : isDropTarget
             ? 'border-t-2 border-brand bg-surface-raised'
-            : 'border-transparent focus-within:bg-surface-raised/50 hover:bg-surface-raised/50')
+            : // Warm while it still says TBD. Hover and focus tint it as any
+              // row. The tag's text is 4.64:1 at rest, 4.81:1 tinted.
+              `${mark ? 'bg-warn/5 ' : ''}border-transparent focus-within:bg-surface-raised/50 hover:bg-surface-raised/50`)
       }
     >
       {reorder && (
@@ -178,21 +193,44 @@ export function WysiwygSlot({
             shrink together, a short anchor like a date lost to the longer
             summary on a phone: "Wed, S…" beside a mostly visible location.
             With no summary beside it the cap would only waste the space, so
-            the anchor then simply truncates at the row's edge. */}
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          {anchorValue ? (
-            <span className={`${anchorSizing} truncate text-sm font-semibold text-ink`}>
-              {anchorValue}
+            the anchor then simply truncates at the row's edge.
+            A TBD tag follows them on a computer. On a phone, where it left
+            them no room and ran over the count, it has a line of its own
+            under them: their box takes the first line, and on a computer
+            steps aside (contents) so they sit in the row as before. On a
+            computer the summary keeps 10ch beside a tag ("Sat, Apr 6"), and
+            the tag drops under them when that leaves it no room, rather
+            than squeeze the summary to nothing. The summary grows into what
+            the line has left, but no wider than its text, so the tag sits
+            right after it rather than against the count. A row without a
+            tag lays out as it always has. */}
+        <div
+          className={`flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1 ${mark ? '' : 'md:flex-nowrap'}`}
+        >
+          <div className="flex min-w-0 basis-full items-center gap-2.5 md:contents">
+            {anchorValue ? (
+              <span className={`${anchorSizing} truncate text-sm font-semibold text-ink`}>
+                {anchorValue}
+              </span>
+            ) : placeholder ? (
+              <span className={`${anchorSizing} truncate text-sm italic font-normal text-ink-soft`}>
+                {placeholder}
+              </span>
+            ) : (
+              <span className="shrink-0 text-sm font-semibold text-ink">Slot</span>
+            )}
+            {summary && (
+              <span
+                className={`${mark ? 'min-w-[10ch] max-w-max flex-1' : 'min-w-0'} truncate text-xs text-ink-muted`}
+              >
+                {summary}
+              </span>
+            )}
+          </div>
+          {mark && (
+            <span className="shrink-0 rounded-full bg-warn/10 px-2 py-0.5 text-[11px] font-semibold leading-tight text-warn">
+              {mark}
             </span>
-          ) : placeholder ? (
-            <span className={`${anchorSizing} truncate text-sm italic font-normal text-ink-soft`}>
-              {placeholder}
-            </span>
-          ) : (
-            <span className="shrink-0 text-sm font-semibold text-ink">Slot</span>
-          )}
-          {summary && (
-            <span className="min-w-0 truncate text-xs text-ink-muted">{summary}</span>
           )}
         </div>
         {/* Spots taken, not left: organizers want to know how many signed up.

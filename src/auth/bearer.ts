@@ -106,18 +106,6 @@ export async function resolveBearerActor(
   };
 }
 
-/**
- * A 403 `insufficient_scope` challenge naming the missing scope, for the
- * step-up path: a client holding `signups:*` that reaches for participant
- * data gets told exactly which scope to ask for.
- */
-export function insufficientScopeResponse(required: Scope[]): Response {
-  return bearerAuthChallengeResponse(
-    new OAuthError(OAuthErrorCode.InsufficientScope, 'this action needs an additional permission'),
-    { requiredScopes: required, resourceMetadataUrl: protectedResourceMetadataUrl(mcpResourceUrl()) },
-  );
-}
-
 let verifier: OAuthTokenVerifier | null = null;
 const RELOAD_INTERVAL_MS = 30_000;
 

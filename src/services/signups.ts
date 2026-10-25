@@ -6,7 +6,9 @@ import { slots, type Slot as SlotRow } from '@/db/schema/slots';
 import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
+import { log } from '@/lib/log';
 import { parseInputSafe } from '@/lib/parse';
+import type { PublishCheck } from '@/lib/publish-check';
 import {
   requireOrganizer,
   requireWorkspaceAccess,
@@ -37,7 +39,12 @@ import {
   validateSlotValues,
 } from './slot-fields';
 import { committedBySlot } from './commitments';
-import { getSignupRowForOrganizer, lockSlotsForSignup, withSignupWriteLock } from './locks';
+import {
+  getSignupRowForOrganizer,
+  lockSlotsForSignup,
+  readLiveSignup,
+  withSignupWriteLock,
+} from './locks';
 import { listSlotsForSignup, pickAvailableRef, summarizeValues } from './slots';
 
 /**
@@ -342,12 +349,18 @@ export async function updateSignup(
   });
 }
 
+/**
+ * `acknowledged: 'placeholder'` goes in the `signup.published` row when the
+ * organizer chose Publish anyway past the header's warning that a slot still
+ * says TBD, so telemetry can tell that apart from a slot fixed first.
+ */
 export async function publishSignup(
   db: Db,
   actor: Actor,
   signupId: string,
+  opts: { acknowledged?: 'placeholder' } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
-  return transitionStatus(db, actor, signupId, 'draft', 'open', 'signup.published');
+  return transitionStatus(db, actor, signupId, 'draft', 'open', 'signup.published', opts);
 }
 
 /**
@@ -387,6 +400,46 @@ async function recordPublishRefused(
     eventType: 'signup.publish_refused',
     payload,
   });
+}
+
+/**
+ * Telemetry for what Publish's check stopped or warned about. The publish
+ * action runs the check before the service, which then never sees those
+ * refusals, so this writes the row `recordPublishRefused` would have: a
+ * blocking problem in the same shape as the service's refusals
+ * (`{ code: 'conflict', reason }`, where `reason` is the check's kind, and
+ * `no_slots` reads exactly as before), the placeholder warning as
+ * `{ reason: 'placeholder', warning: true }`, so a warning shown and a later
+ * Publish anyway can be told apart. Best effort, outside any transaction, as
+ * it describes no change; the signup is read and the write guard run first.
+ */
+export async function recordPublishCheck(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+  check: PublishCheck,
+): Promise<Result<null, ServiceError>> {
+  let found: SignupRow | undefined;
+  try {
+    found = await readLiveSignup(db, signupId);
+  } catch (e) {
+    // The publish it describes shows its check all the same.
+    log.warn({ err: e, signupId }, 'recordPublishCheck: reading the signup failed');
+    return ok(null);
+  }
+  if (!found) return err(serviceError('not_found', 'signup not found'));
+  requireWorkspaceWrite(actor, found.workspaceId);
+  await recordActivityBestEffort(db, {
+    signupId,
+    workspaceId: found.workspaceId,
+    actor: activityActor(actor),
+    eventType: 'signup.publish_refused',
+    payload:
+      check.kind === 'placeholder'
+        ? { reason: 'placeholder', warning: true }
+        : { code: 'conflict', reason: check.kind },
+  });
+  return ok(null);
 }
 
 export async function closeSignup(
@@ -454,6 +507,8 @@ async function transitionStatus(
   from: SignupStatus | null,
   to: SignupStatus,
   eventType: 'signup.published' | 'signup.closed' | 'signup.archived',
+  // More for the activity row's payload.
+  extra: Record<string, unknown> = {},
 ): Promise<Result<SignupRow, ServiceError>> {
   // Set under the lock, for the telemetry of a refused publish afterwards.
   let workspaceId: string | null = null;
@@ -508,7 +563,7 @@ async function transitionStatus(
       workspaceId: row.workspaceId,
       actor: activityActor(actor),
       eventType,
-      payload: { from: row.status, to },
+      payload: { from: row.status, to, ...extra },
     });
     return ok(next);
   });
