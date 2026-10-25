@@ -372,6 +372,28 @@ for (const [device, viewport] of [
       await page.goto(`/s/${signup.slug}`);
       await expect(page.getByRole('button', { name: /^Sign up for Juice/ })).toBeEnabled();
     });
+
+    test('a refused Reopen signup keeps the keyboard on the button', async ({ page }) => {
+      const signup = await createClosedSignup(page.request, {
+        title: `Reopen refused ${Date.now()}`,
+        slot: { values: { what: 'Juice', date: '2030-04-06' }, capacity: 5 },
+      });
+      await page.goto(`/app/signups/${signup.id}/build`);
+      const reopen = page.getByRole('button', { name: 'Reopen signup' });
+      await expect(reopen).toBeVisible();
+
+      // Reopened somewhere else meanwhile, so this page's press is refused.
+      expect((await page.request.post(`/api/signups/${signup.id}/reopen`)).ok()).toBe(true);
+      await reopen.focus();
+      await page.keyboard.press('Enter');
+
+      await expect(
+        page.getByText('This signup changed since the page loaded. Reload to see the latest.'),
+      ).toBeVisible();
+      // The button was disabled while the press was in flight, which takes
+      // focus off it in a browser; the refusal gives it back.
+      await expect(reopen).toBeFocused();
+    });
   });
 }
 

@@ -8,31 +8,36 @@ const STYLES: Record<Kind, string> = {
   aiDraft: 'bg-brand/10 text-brand',
 };
 
-export function Banner({
-  kind,
-  title,
-  body,
-  action,
-  onDismiss,
-  live = true,
-}: {
+type BannerProps = {
   kind: Kind;
   title: string;
   body: string;
-  /**
-   * What the organizer can do about it, such as the closed banner's Reopen
-   * signup: under the text, at its left, on every width. Never at the
-   * banner's right edge, where Close signup's confirm button was a moment
-   * before the closed banner appeared.
-   */
-  action?: ReactNode;
   onDismiss?: () => void;
-  /**
-   * A live region (`role="status"`) unless false: for a banner that says what
-   * the page is, where the change that put it there is announced already.
-   */
-  live?: boolean;
-}) {
+} & (
+  | {
+      /**
+       * A live region (`role="status"`) unless false: for a banner that says
+       * what the page is, where the change that put it there is announced
+       * already.
+       */
+      live?: true;
+      action?: never;
+    }
+  | {
+      live: false;
+      /**
+       * What the organizer can do about it, such as the closed banner's
+       * Reopen signup: under the text, at its left, on every width. Never at
+       * the banner's right edge, where Close signup's confirm button was a
+       * moment before the closed banner appeared. Only in a banner that isn't
+       * a live region: a button's refusal is an alert, which mustn't sit
+       * inside a status region.
+       */
+      action?: ReactNode;
+    }
+);
+
+export function Banner({ kind, title, body, action, onDismiss, live = true }: BannerProps) {
   return (
     <div
       role={live ? 'status' : undefined}
