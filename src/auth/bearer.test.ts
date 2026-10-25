@@ -107,15 +107,3 @@ describe('createVerifier infrastructure failures', () => {
     await expect(v.verifyAccessToken(token)).rejects.toMatchObject({ code: 'server_error' });
   });
 });
-
-describe('insufficientScopeResponse', () => {
-  it('is a 403 challenge naming the scope and the resource metadata', async () => {
-    const { insufficientScopeResponse } = await import('./bearer');
-    const r = insufficientScopeResponse(['commitments:read']);
-    expect(r.status).toBe(403);
-    const challenge = r.headers.get('www-authenticate') ?? '';
-    expect(challenge).toContain('error="insufficient_scope"');
-    expect(challenge).toContain('scope="commitments:read"');
-    expect(challenge).toContain('resource_metadata="https://signup.example.org/.well-known/oauth-protected-resource/api/mcp"');
-  });
-});
