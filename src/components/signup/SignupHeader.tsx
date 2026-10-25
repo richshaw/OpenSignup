@@ -6,7 +6,6 @@ import { closeSignupQuestion, spotsTakenLine, type SpotCounts } from '@/lib/spot
 import type { SignupStatus } from '@/schemas/signups';
 import type { CloseQuestionAction } from './CloseSignupConfirm';
 import { DraftLine, PhonePreviewItem, PhoneStanding } from './HeaderParts';
-import { HeaderAnnouncer } from './HeaderAnnouncer';
 import { HEADER_BUTTON, OUTLINED } from './header-buttons';
 import { MobileSignupHeader } from './MobileSignupHeader';
 import { MoreActionsMenu } from './MoreActionsMenu';
@@ -49,15 +48,15 @@ export function SignupHeader({
   const spotsTaken = spots ? spotsTakenLine(spots, status) : null;
 
   return (
-    <HeaderAnnouncer status={status}>
-      {/* Publish, from either header, and the share panel it opens. */}
-      <ShareScope
-        publishAction={publishAction}
-        signupId={signupId}
-        title={title}
-        url={publicUrl}
-        message={shareMessage}
-      >
+    // Publish, from either header, and the share panel it opens. Their live
+    // region is the layout's HeaderAnnouncer, round this and the closed banner.
+    <ShareScope
+      publishAction={publishAction}
+      signupId={signupId}
+      title={title}
+      url={publicUrl}
+      message={shareMessage}
+    >
       <div className="md:hidden">
         <MobileSignupHeader
           title={title}
@@ -135,7 +134,6 @@ export function SignupHeader({
       </div>
       {status === 'draft' ? <PublishRefusal /> : null}
       </header>
-      </ShareScope>
-    </HeaderAnnouncer>
+    </ShareScope>
   );
 }

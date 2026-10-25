@@ -6,7 +6,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import type { SignupStatus } from '@/schemas/signups';
 import { CloseSignupConfirm } from './CloseSignupConfirm';
 import { SHEET_ITEM } from './header-buttons';
-import { useAnnouncedClose } from './HeaderAnnouncer';
+import { useAnnouncedStatusChange } from './HeaderAnnouncer';
 import { StatusActionScope, type StatusAction } from './StatusActionForm';
 
 type MobileMoreMenuSheetProps = {
@@ -38,7 +38,7 @@ export function MobileMoreMenuSheet({
   // Close signup asks first, in the sheet, as it does in the ⋯ panel on a
   // computer. The next time the sheet opens, it starts from the menu again.
   const [confirming, setConfirming] = useState(false);
-  const closeSignup = useAnnouncedClose(closeAction);
+  const closeSignup = useAnnouncedStatusChange(closeAction, 'closed');
   function close() {
     setConfirming(false);
     onClose();

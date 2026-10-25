@@ -1,56 +1,135 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import type { SignupStatus } from '@/schemas/signups';
-import { HeaderAnnouncer, useAnnounce, useAnnouncedClose } from './HeaderAnnouncer';
+import { HeaderAnnouncer, useAnnounce, useAnnouncedStatusChange } from './HeaderAnnouncer';
 import type { StatusAction } from './StatusActionForm';
 
 const CLOSED = 'Closed. People can’t sign up now.';
 
-/** Runs a close the way the header's Close signup does, through the hook. */
-function CloseButton({ action }: { action: StatusAction }) {
-  const close = useAnnouncedClose(action);
+/** Runs a status change the way the header's Close signup does, through the hook. */
+function ChangeButton({ action, to }: { action: StatusAction; to: SignupStatus }) {
+  const change = useAnnouncedStatusChange(action, to);
   return (
-    <button type="button" onClick={() => void close()}>
-      Close
+    <button type="button" onClick={() => void change()}>
+      Change
     </button>
   );
 }
 
-function renderHeader(action: StatusAction) {
-  const ui = (status: SignupStatus) => (
-    <HeaderAnnouncer status={status}>
-      <CloseButton action={action} />
+/**
+ * The announcer at `status`, round both headers' titles and a button that
+ * asks for `to`. CSS shows one header or the other; here the computer's is on
+ * screen and the phone's isn't.
+ */
+function renderHeader(
+  action: StatusAction,
+  status: SignupStatus = 'open',
+  to: SignupStatus = 'closed',
+) {
+  const ui = (now: SignupStatus) => (
+    <HeaderAnnouncer status={now}>
+      <h1 tabIndex={-1} data-signup-title data-testid="phone-title">
+        Bake sale helpers
+      </h1>
+      <h1 tabIndex={-1} data-signup-title data-testid="computer-title">
+        Bake sale helpers
+      </h1>
+      <ChangeButton action={action} to={to} />
     </HeaderAnnouncer>
   );
-  const utils = render(ui('open'));
-  return { ...utils, show: (status: SignupStatus) => utils.rerender(ui(status)) };
+  const utils = render(ui(status));
+  const button = screen.getByRole('button', { name: 'Change' });
+  return {
+    ...utils,
+    show: (now: SignupStatus) => utils.rerender(ui(now)),
+    /** Presses the button from the keyboard, so focus is on it to begin with. */
+    press: () =>
+      act(async () => {
+        button.focus();
+        button.click();
+      }),
+    button,
+  };
 }
 
+/** Waits out the tick the header waits before it moves focus. */
+const tick = () => act(() => new Promise<void>((resolve) => setTimeout(resolve)));
+
+beforeEach(() => {
+  // jsdom lays nothing out: only the computer's title takes up room.
+  vi.spyOn(Element.prototype, 'getClientRects').mockImplementation(function (this: Element) {
+    const onScreen = this.getAttribute('data-testid') === 'computer-title';
+    return (onScreen ? [{}] : []) as unknown as DOMRectList;
+  });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('HeaderAnnouncer', () => {
-  it('says the signup closed when this page’s Close signup closed it', async () => {
-    const { show } = renderHeader(async () => null);
+  it('says the signup closed when this page’s Close signup closed it, and focuses the title on screen', async () => {
+    const { show, press } = renderHeader(async () => null);
     expect(screen.getByRole('status')).toHaveTextContent('');
-    await act(async () => {
-      screen.getByRole('button', { name: 'Close' }).click();
-    });
+    await press();
     show('closed');
     expect(screen.getByRole('status')).toHaveTextContent(CLOSED);
+    await tick();
+    expect(screen.getByTestId('computer-title')).toHaveFocus();
   });
 
-  it('says nothing when the signup was closed some other way', () => {
-    const { show } = renderHeader(async () => null);
+  it('says nothing and leaves focus alone when the signup was closed some other way', async () => {
+    const { show, button } = renderHeader(async () => null);
+    act(() => button.focus());
     show('closed');
+    await tick();
     expect(screen.getByRole('status')).toHaveTextContent('');
+    expect(button).toHaveFocus();
   });
 
   it('says nothing after a refused close, when the signup closes later some other way', async () => {
-    const { show } = renderHeader(async () => ({ error: 'You don’t have edit access.' }));
-    await act(async () => {
-      screen.getByRole('button', { name: 'Close' }).click();
-    });
+    const { show, press, button } = renderHeader(async () => ({
+      error: 'You don’t have edit access.',
+    }));
+    await press();
     show('closed');
+    await tick();
     expect(screen.getByRole('status')).toHaveTextContent('');
+    expect(button).toHaveFocus();
+  });
+
+  // The status it asked for, but from a status the header has no words for
+  // a change from: it goes by both.
+  it.each<[string, SignupStatus]>([
+    ['a draft published through the hook', 'open'],
+    ['a draft closed through the hook', 'closed'],
+  ])(
+    'says nothing and leaves focus alone after %s, a change it doesn’t announce',
+    async (_, to) => {
+      const { show, press, button } = renderHeader(async () => null, 'draft', to);
+      await press();
+      show(to);
+      await tick();
+      expect(screen.getByRole('status')).toHaveTextContent('');
+      expect(button).toHaveFocus();
+    },
+  );
+
+  it('says nothing when the status changes some other way after a change asked for here', async () => {
+    // Close signup answered, but the draft was published elsewhere first.
+    const { show, press, button } = renderHeader(async () => null, 'draft', 'closed');
+    await press();
+    show('open');
+    await tick();
+    expect(screen.getByRole('status')).toHaveTextContent('');
+    expect(button).toHaveFocus();
+    // That change used up the ask: a close that comes later, from elsewhere,
+    // says nothing either.
+    show('closed');
+    await tick();
+    expect(screen.getByRole('status')).toHaveTextContent('');
+    expect(button).toHaveFocus();
   });
 
   it('says the same words again as a new node, so a screen reader reads them again', () => {

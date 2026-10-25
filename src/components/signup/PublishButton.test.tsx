@@ -66,8 +66,9 @@ function FakeBuildTab(props: Parameters<typeof useRegisterBuildTab>[0]) {
 
 /**
  * The header's Publish and share, on a computer and a phone, as SignupHeader
- * lays them out, with the Share button that takes its place once published
- * (here from the start, to show the panel Publish opens). `page` is the tab.
+ * lays them out in the layout's HeaderAnnouncer, with the Share button that
+ * takes its place once published (here from the start, to show the panel
+ * Publish opens). `page` is the tab.
  */
 function Header({
   action,
