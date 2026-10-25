@@ -36,9 +36,11 @@ async function requireActor() {
 }
 
 /**
- * The header's Publish, Close signup and Reopen signup. A refusal (a viewer's role, a signup already published, closed or
- * reopened in another tab) returns what to tell the organizer, shown under
- * the button, and revalidates nothing.
+ * The header's Publish, Close signup and Reopen signup. A refusal (a
+ * viewer's role, a signup already published, closed or reopened in another
+ * tab) returns what to tell the organizer, and revalidates nothing. It shows
+ * under the header on a computer for Publish and Reopen signup, in Close
+ * signup's panel, and by the button on a phone.
  *
  * All three stay on the tab they were pressed on and re-render the layout.
  * Publish says it published, which is what opens the header's share panel:

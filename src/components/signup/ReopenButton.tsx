@@ -25,10 +25,14 @@ import {
 const ReopenButtonRef = createContext<RefObject<HTMLButtonElement | null> | null>(null);
 
 /**
- * Where a closed signup's Reopen signup runs, round the computer's header so
- * its refusal can show on a line of its own under the header, as Publish's
- * does, rather than by the button, where it would push Preview aside. Only
- * while `active`: Publish's buttons in the same header need their own scope.
+ * Where a closed signup's Reopen signup runs. On a computer it's round the
+ * header, so the refusal can show on a line of its own under the header, as
+ * Publish's does, rather than by the button, where it would push Preview
+ * aside; on a phone, round the sheet's item and its refusal. Only while
+ * `active`: Publish's buttons in the same header need their own scope. So
+ * when the signup closes or reopens, what it wraps mounts afresh: fine for
+ * the header's row today, which holds nothing worth keeping, but anything
+ * added there that keeps state loses it then.
  * Once it has reopened the signup the header says so and focus moves to the
  * title (`HeaderAnnouncer`); no share panel opens, since the link is the one
  * already shared.
