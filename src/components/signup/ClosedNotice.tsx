@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Banner } from '@/components/banner';
 import type { SignupStatus } from '@/schemas/signups';
-import { focusTitle, useChangedHere } from './HeaderAnnouncer';
+import { focusTitle, useLastStatusChange } from './HeaderAnnouncer';
 
 /**
  * The grey Signup closed box, once: under the header right after Close
@@ -17,9 +17,10 @@ import { focusTitle, useChangedHere } from './HeaderAnnouncer';
  * with it, so focus goes to the signup's title rather than to the page.
  */
 export function ClosedNotice({ status, body }: { status: SignupStatus; body: string }) {
-  const changed = useChangedHere();
+  const changed = useLastStatusChange();
   const [dismissed, setDismissed] = useState<number | null>(null);
-  if (status !== 'closed' || changed?.to !== 'closed' || dismissed === changed.n) return null;
+  if (status !== 'closed' || !changed?.here || changed.to !== 'closed' || dismissed === changed.n)
+    return null;
   return (
     <Banner
       kind="closed"

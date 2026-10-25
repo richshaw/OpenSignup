@@ -84,6 +84,16 @@ describe('ClosedNotice', () => {
     expect(box()).toBeNull();
   });
 
+  it('shows nothing when, after a close here, it’s reopened and closed some other way', async () => {
+    const { rerender } = render(page('open'));
+    await press('Close signup');
+    rerender(page('closed'));
+    rerender(page('open'));
+    expect(box()).toBeNull();
+    rerender(page('closed'));
+    expect(box()).toBeNull();
+  });
+
   it('goes once the signup is reopened, and shows again on the next close from here', async () => {
     const { rerender } = render(page('open'));
     await press('Close signup');
