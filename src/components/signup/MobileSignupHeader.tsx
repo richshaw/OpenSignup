@@ -5,10 +5,9 @@ import { MoreHorizontal } from 'lucide-react';
 import { StatusPill } from '@/components/status-pill';
 import type { SignupStatus } from '@/schemas/signups';
 import { useCloseQuestion, type CloseQuestionAction } from './CloseSignupConfirm';
-import type { StatusAction } from './StatusActionForm';
+import type { StatusChangeAction } from './StatusActionForm';
 import { MobileMoreMenuSheet } from './MobileMoreMenuSheet';
 import { PhoneBar } from './PhoneBar';
-import { hasPhoneBar } from './phone-bar';
 
 interface MobileSignupHeaderProps {
   title: string;
@@ -21,13 +20,14 @@ interface MobileSignupHeaderProps {
   spotsTaken: string | null;
   closeQuestion: string;
   closeQuestionAction: CloseQuestionAction;
-  closeAction: StatusAction;
+  closeAction: StatusChangeAction;
+  reopenAction: StatusChangeAction;
 }
 
 /**
  * The phone's header, and the bar at the bottom of the screen that holds
  * Publish and share, or Share. Publish runs in `SignupHeader`'s scope, Close
- * signup in the More actions sheet's.
+ * signup in the More actions sheet's, and Reopen signup in its own there.
  */
 export function MobileSignupHeader({
   title,
@@ -38,12 +38,15 @@ export function MobileSignupHeader({
   closeQuestion,
   closeQuestionAction,
   closeAction,
+  reopenAction,
 }: MobileSignupHeaderProps) {
   const [question, askAgain] = useCloseQuestion(closeQuestion, closeQuestionAction);
-  // The status the More actions sheet was opened on. Close signup changes
-  // the status, which closes the sheet rather than leaving it open on what
-  // the signup can do next.
+  // The status the More actions sheet was opened on. Close signup and Reopen
+  // signup change the status, which closes the sheet rather than leaving it
+  // open on what the signup can do next. Forgotten as soon as the status
+  // changes, so a change back made anywhere doesn't open the sheet again.
   const [menuFor, setMenuFor] = useState<SignupStatus | null>(null);
+  if (menuFor !== null && menuFor !== status) setMenuFor(null);
   const menuOpen = menuFor === status;
 
   return (
@@ -62,11 +65,10 @@ export function MobileSignupHeader({
               {title}
             </h1>
           </div>
-          {/* The menu holds Preview, and Close signup once it's open, so it
-              comes and goes with the bar. A closed or archived signup has
-              neither, and focus goes to the title once Close signup has
-              closed it. */}
-          {hasPhoneBar(status) ? (
+          {/* The menu holds Preview, with Close signup once it's open and
+              Reopen signup once it's closed. An archived signup has none of
+              them. */}
+          {status !== 'archived' ? (
             <button
               type="button"
               onClick={() => {
@@ -96,6 +98,7 @@ export function MobileSignupHeader({
         previewItem={previewItem}
         closeQuestion={question}
         closeAction={closeAction}
+        reopenAction={reopenAction}
       />
     </>
   );

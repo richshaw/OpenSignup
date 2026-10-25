@@ -6,14 +6,15 @@ import { publicSignupUrl } from '@/lib/links';
 import { shareMessage } from '@/lib/share-message';
 import { KEEPS_THEIR_SPOT, spotCounts } from '@/lib/spot-counts';
 import { BuildBridge } from '@/components/signup/BuildBridge';
+import { ClosedNotice } from '@/components/signup/ClosedNotice';
+import { HeaderAnnouncer } from '@/components/signup/HeaderAnnouncer';
 import { SignupHeader } from '@/components/signup/SignupHeader';
 import { hasPhoneBar, PHONE_BAR_ROOM } from '@/components/signup/phone-bar';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
-import { Banner } from '@/components/banner';
 import { SignupLoadError } from '@/components/signup/SignupLoadError';
 import type { SignupStatus } from '@/schemas/signups';
-import { closeAction, closeQuestionAction, publishAction } from './actions';
+import { closeAction, closeQuestionAction, publishAction, reopenAction } from './actions';
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -57,27 +58,28 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
       {/* On a phone, a draft's Publish and share or an open signup's Share is in
         a bar fixed to the bottom of the screen; the page leaves room for it. */}
       <div className={`space-y-6 ${hasPhoneBar(status) ? PHONE_BAR_ROOM : ''}`}>
-        <SignupHeader
-          signupId={id}
-          title={sig.title}
-          status={status}
-          publicUrl={publicUrl}
-          spots={filled ? spotCounts(sig.slots, filled.value) : null}
-          closeQuestionAction={closeQuestionAction.bind(null, id)}
-          shareMessage={shareMessage(sig, publicUrl, filled?.value)}
-          publishAction={publishAction.bind(null, id)}
-          closeAction={closeAction.bind(null, id)}
-        />
-        {/* On every tab, for as long as it's closed. Not a live region: closing
-          it from this page is announced by the header. */}
-        {sig.status === 'closed' ? (
-          <Banner
-            kind="closed"
-            live={false}
-            title="Signup closed"
-            body={`People can’t sign up now. ${KEEPS_THEIR_SPOT}`}
+        {/* One live region for the computer's header and the phone's, so a
+          status change made from either is said in one place, round the
+          closed box too, which shows only after this page's own Close
+          signup. It adds only that region to the page, after the header and
+          the box, so they stay this div's own children and keep its
+          spacing. */}
+        <HeaderAnnouncer status={status}>
+          <SignupHeader
+            signupId={id}
+            title={sig.title}
+            status={status}
+            publicUrl={publicUrl}
+            spots={filled ? spotCounts(sig.slots, filled.value) : null}
+            closeQuestionAction={closeQuestionAction.bind(null, id)}
+            shareMessage={shareMessage(sig, publicUrl, filled?.value)}
+            publishAction={publishAction.bind(null, id)}
+            closeAction={closeAction.bind(null, id)}
+            reopenAction={reopenAction.bind(null, id)}
           />
-        ) : null}
+          {/* Once, after Close signup on this page; see ClosedNotice. */}
+          <ClosedNotice status={status} body={`People can’t sign up now. ${KEEPS_THEIR_SPOT}`} />
+        </HeaderAnnouncer>
         <AiDraftBanner
           signupId={id}
           signupStatus={sig.status}

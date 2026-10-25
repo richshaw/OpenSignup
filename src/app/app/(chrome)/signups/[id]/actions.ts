@@ -21,6 +21,7 @@ import {
   getSignupForOrganizer,
   publishSignup,
   recordPublishCheck,
+  reopenSignup,
   updateSignup,
 } from '@/services/signups';
 import { removeRefusal } from './responses/remove-refusal';
@@ -35,14 +36,17 @@ async function requireActor() {
 }
 
 /**
- * The header's Publish and Close signup. A refusal (a viewer's role, a signup
- * already published or closed in another tab) returns what to tell the
- * organizer, shown under the button, and revalidates nothing.
+ * The header's Publish, Close signup and Reopen signup. A refusal (a
+ * viewer's role, a signup already published, closed or reopened in another
+ * tab) returns what to tell the organizer, and revalidates nothing. It shows
+ * under the header on a computer for Publish and Reopen signup, in Close
+ * signup's panel, and by the button on a phone.
  *
- * Both stay on the tab they were pressed on and re-render the layout. Publish
- * says it published, which is what opens the header's share panel: an answer
- * to this press, not a flag in the URL, so a reload or a shared link never
- * opens it again.
+ * All three stay on the tab they were pressed on and re-render the layout.
+ * Publish says it published, which is what opens the header's share panel:
+ * an answer to this press, not a flag in the URL, so a reload or a shared
+ * link never opens it again. Reopen opens no panel: the link was shared when
+ * the signup was first published.
  *
  * Publish first checks a draft as it's stored (the header has saved the Build
  * tab's edits by then): no slots, no fields or every slot empty answers with
@@ -91,6 +95,14 @@ export async function closeAction(signupId: string): Promise<{ error: string } |
   const actor = await requireActor();
   const result = await refusalAsResult(() => closeSignup(getDb(), actor, signupId));
   if (!result.ok) return { error: statusRefusal(result.error, 'close') };
+  revalidateSignup(signupId);
+  return null;
+}
+
+export async function reopenAction(signupId: string): Promise<{ error: string } | null> {
+  const actor = await requireActor();
+  const result = await refusalAsResult(() => reopenSignup(getDb(), actor, signupId));
+  if (!result.ok) return { error: statusRefusal(result.error, 'reopen') };
   revalidateSignup(signupId);
   return null;
 }

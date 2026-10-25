@@ -1,18 +1,24 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { render, within } from '@testing-library/react';
+import { act, fireEvent, render, within } from '@testing-library/react';
 import type { SpotCounts } from '@/lib/spot-counts';
 import type { SignupStatus } from '@/schemas/signups';
 import { SignupHeader } from './SignupHeader';
+import type { StatusChangeAction } from './StatusActionForm';
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const SPOTS: SpotCounts = { taken: 3, total: 21, open: 18, allSlotsOpen: true };
 
 /**
- * Both headers, as the layout renders them (a draft has no counts). CSS
+ * Both headers, as the layout renders them (a draft has no counts), without
+ * the layout's `HeaderAnnouncer` around them, which nothing here reads. CSS
  * shows one or the other; here they're both in the page, phone first.
  */
-function renderHeader(status: SignupStatus, spots: SpotCounts | null = SPOTS) {
+function renderHeader(
+  status: SignupStatus,
+  spots: SpotCounts | null = SPOTS,
+  reopenAction: StatusChangeAction = async () => null,
+) {
   const { container } = render(
     <SignupHeader
       signupId="sig_1"
@@ -24,12 +30,13 @@ function renderHeader(status: SignupStatus, spots: SpotCounts | null = SPOTS) {
       shareMessage={`Bake sale helpers\n${LINK}`}
       publishAction={async () => null}
       closeAction={async () => null}
+      reopenAction={reopenAction}
     />,
   );
   const [phone, computer] = Array.from(container.querySelectorAll('header'));
   if (!phone || !computer) throw new Error('expected both headers');
   const bar = container.querySelector<HTMLElement>('[data-phone-bar]');
-  return { computer: within(computer), phone: within(phone), bar };
+  return { computer: within(computer), phone: within(phone), bar, computerHeader: computer };
 }
 
 /**
@@ -98,12 +105,13 @@ describe('SignupHeader on a computer', () => {
     expect(computer.getByText('1 spot taken')).toBeInTheDocument();
   });
 
-  it('shows a closed or archived signup only Preview, and says the count is final', () => {
+  it('shows a closed signup Preview and Reopen signup, and an archived one only Preview', () => {
     const closed = renderHeader('closed');
     expect(computerActions(closed.computer)).toEqual([
       'Copy public link',
       'Open public page',
       'Preview',
+      'Reopen signup',
     ]);
     expect(closed.computer.getByText('Closed · 3 of 21 spots taken')).toBeInTheDocument();
 
@@ -114,6 +122,22 @@ describe('SignupHeader on a computer', () => {
       'Preview',
     ]);
     expect(archived.computer.getByText('Archived · 3 of 21 spots taken')).toBeInTheDocument();
+  });
+  it('says why Reopen signup was refused on a line under the header, not by the buttons', async () => {
+    const { computer, computerHeader } = renderHeader('closed', SPOTS, async () => ({
+      error: 'You don’t have edit access.',
+    }));
+    const reopen = computer.getByRole('button', { name: 'Reopen signup' });
+    await act(async () => {
+      fireEvent.click(reopen);
+    });
+    const refusal = await computer.findByRole('alert');
+    expect(refusal).toHaveTextContent('You don’t have edit access.');
+    // The row with the title and the buttons is the header's first child;
+    // the refusal comes after it, so Preview stays beside Reopen signup.
+    const row = computerHeader.firstElementChild;
+    expect(row?.contains(reopen)).toBe(true);
+    expect(row?.contains(refusal)).toBe(false);
   });
 });
 
@@ -138,10 +162,17 @@ describe('SignupHeader on a phone', () => {
     expect(phone.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
   });
 
-  it('has no bar and no ⋯ once the signup is closed', () => {
+  it('has no bar once the signup is closed, and keeps ⋯ for Reopen signup', () => {
     const { phone, bar } = renderHeader('closed');
     expect(bar).toBeNull();
-    expect(phone.queryByRole('button', { name: 'More actions' })).toBeNull();
+    expect(phone.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
+    expect(phone.queryByRole('button', { name: 'Reopen signup' })).toBeNull();
     expect(phone.getByText('Closed · 3 of 21 spots taken')).toBeInTheDocument();
+  });
+
+  it('has no bar and no ⋯ once the signup is archived', () => {
+    const { phone, bar } = renderHeader('archived');
+    expect(bar).toBeNull();
+    expect(phone.queryByRole('button', { name: 'More actions' })).toBeNull();
   });
 });

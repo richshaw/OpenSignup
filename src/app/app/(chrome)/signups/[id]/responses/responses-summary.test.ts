@@ -58,7 +58,7 @@ describe('noResponsesLine', () => {
   });
 
   it('says nobody signed up once it’s closed, and why nobody will on an archived one', () => {
-    // A closed signup's banner already says people can't sign up now.
+    // "Closed", in the header, already says people can't sign up now; "archived" doesn't.
     expect(noResponsesLine('closed')).toBe('Nobody signed up.');
     expect(noResponsesLine('archived')).toBe('Nobody signed up. People can’t sign up now.');
   });

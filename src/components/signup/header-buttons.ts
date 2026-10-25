@@ -10,12 +10,15 @@ export const HEADER_BUTTON =
 export const BAR_BUTTON =
   'inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-[15px] transition';
 
-/** The one blue button: Publish and share on a draft, Share once it's open. */
+/**
+ * The header's one blue button: Publish and share on a draft, Share once
+ * it's open, and Reopen signup once it's closed.
+ */
 export const PRIMARY =
   'bg-brand font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90';
 
 /** Preview and ⋯. */
 export const OUTLINED = 'border border-surface-sunk bg-white font-medium hover:bg-surface-raised';
 
-/** An item in a phone's More actions sheet: Preview, Close signup. */
+/** An item in a phone's More actions sheet: Preview, Close signup, Reopen signup. */
 export const SHEET_ITEM = 'flex w-full items-center gap-2 py-3.5 text-[15px] font-medium text-ink';

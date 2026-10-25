@@ -6,14 +6,14 @@ import { closeSignupQuestion, spotsTakenLine, type SpotCounts } from '@/lib/spot
 import type { SignupStatus } from '@/schemas/signups';
 import type { CloseQuestionAction } from './CloseSignupConfirm';
 import { DraftLine, PhonePreviewItem, PhoneStanding } from './HeaderParts';
-import { HeaderAnnouncer } from './HeaderAnnouncer';
 import { HEADER_BUTTON, OUTLINED } from './header-buttons';
 import { MobileSignupHeader } from './MobileSignupHeader';
 import { MoreActionsMenu } from './MoreActionsMenu';
 import { PublishButton, PublishRefusal } from './PublishButton';
+import { ReopenButton, ReopenRefusal, ReopenScope } from './ReopenButton';
 import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
-import type { StatusAction } from './StatusActionForm';
+import type { StatusAction, StatusChangeAction } from './StatusActionForm';
 
 interface SignupHeaderProps {
   signupId: string;
@@ -30,7 +30,8 @@ interface SignupHeaderProps {
   /** What the share panel offers to send with the link, from `shareMessage`. */
   shareMessage: string;
   publishAction: StatusAction;
-  closeAction: StatusAction;
+  closeAction: StatusChangeAction;
+  reopenAction: StatusChangeAction;
 }
 
 export function SignupHeader({
@@ -43,21 +44,22 @@ export function SignupHeader({
   shareMessage,
   publishAction,
   closeAction,
+  reopenAction,
 }: SignupHeaderProps) {
   const previewHref = `/app/signups/${signupId}/preview`;
   const closeQuestion = spots ? closeSignupQuestion(spots) : '';
   const spotsTaken = spots ? spotsTakenLine(spots, status) : null;
 
   return (
-    <HeaderAnnouncer status={status}>
-      {/* Publish, from either header, and the share panel it opens. */}
-      <ShareScope
-        publishAction={publishAction}
-        signupId={signupId}
-        title={title}
-        url={publicUrl}
-        message={shareMessage}
-      >
+    // Publish, from either header, and the share panel it opens. Their live
+    // region is the layout's HeaderAnnouncer, round this and the closed banner.
+    <ShareScope
+      publishAction={publishAction}
+      signupId={signupId}
+      title={title}
+      url={publicUrl}
+      message={shareMessage}
+    >
       <div className="md:hidden">
         <MobileSignupHeader
           title={title}
@@ -75,13 +77,16 @@ export function SignupHeader({
           closeQuestion={closeQuestion}
           closeQuestionAction={closeQuestionAction}
           closeAction={closeAction}
+          reopenAction={reopenAction}
         />
       </div>
-      {/* Preview, then Publish and share on a draft, or on an open signup
-          Share and the ⋯ that holds Close signup. Publish's refusal shows on
-          its own full-width line under the header, not by the buttons; Close
+      {/* Preview, then Publish and share on a draft, on an open signup
+          Share and the ⋯ that holds Close signup, or on a closed one Reopen
+          signup. Publish's refusal shows on its own full-width line under
+          the header, not by the buttons, and so does Reopen signup's; Close
           signup's shows in its panel, which runs it. */}
       <header className="hidden space-y-3 md:block">
+      <ReopenScope reopenAction={reopenAction} active={status === 'closed'}>
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex min-h-[1.875rem] flex-wrap items-center gap-3">
@@ -131,11 +136,13 @@ export function SignupHeader({
               />
             </>
           ) : null}
+          {status === 'closed' ? <ReopenButton /> : null}
         </div>
       </div>
       {status === 'draft' ? <PublishRefusal /> : null}
+      {status === 'closed' ? <ReopenRefusal /> : null}
+      </ReopenScope>
       </header>
-      </ShareScope>
-    </HeaderAnnouncer>
+    </ShareScope>
   );
 }

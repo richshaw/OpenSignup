@@ -6,17 +6,27 @@ import { HeaderAnnouncer } from './HeaderAnnouncer';
 import { PhonePreviewItem, PhoneStanding } from './HeaderParts';
 import { MobileSignupHeader } from './MobileSignupHeader';
 import { ShareScope } from './ShareScope';
-import type { StatusAction } from './StatusActionForm';
+import type { StatusAction, StatusChangeAction } from './StatusActionForm';
 
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const PREVIEW = '/app/signups/sig_1/preview';
-const QUESTION =
-  'Nobody has signed up yet. People can’t sign up after this, and you can’t reopen it.';
+const QUESTION = 'Nobody has signed up yet. People can’t sign up until you reopen it.';
 
-/** The phone's header as SignupHeader puts it together, at `status`, its parts included. */
-function Phone({ status, action }: { status: SignupStatus; action: StatusAction }) {
+/**
+ * The phone's header as SignupHeader puts it together, at `status`, its parts
+ * included, in the HeaderAnnouncer the layout puts round it.
+ */
+function Phone({
+  status,
+  action,
+  reopen = async () => null,
+}: {
+  status: SignupStatus;
+  action: StatusAction;
+  reopen?: StatusChangeAction;
+}) {
   const spotsTaken = status === 'draft' ? null : '0 of 4 spots taken';
   return (
     <HeaderAnnouncer status={status}>
@@ -43,6 +53,7 @@ function Phone({ status, action }: { status: SignupStatus; action: StatusAction 
           closeQuestion={QUESTION}
           closeQuestionAction={async () => ({ question: QUESTION })}
           closeAction={async () => null}
+          reopenAction={reopen}
         />
       </ShareScope>
     </HeaderAnnouncer>
@@ -104,10 +115,89 @@ describe('MobileSignupHeader: the More actions sheet', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('isn’t there for a closed or archived signup', () => {
-    const { rerender } = render(<Phone status="closed" action={async () => null} />);
-    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
-    rerender(<Phone status="archived" action={async () => null} />);
+  it('stays shut when a signup closed from it is reopened', async () => {
+    // Close signup in the sheet closes the sheet by changing the status. A
+    // Reopen, from the sheet or anywhere else, changes it back, and the sheet
+    // mustn't come back with it.
+    const { rerender } = render(<Phone status="open" action={async () => null} />);
+    openMore();
+    rerender(<Phone status="closed" action={async () => null} />);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    rerender(<Phone status="open" action={async () => null} />);
+    expect(screen.getByRole('button', { name: 'More actions' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('opens on the menu again, not Close’s question, after Close from it and a reopen', async () => {
+    const { rerender } = render(<Phone status="open" action={async () => null} />);
+    let sheet = openMore();
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Close signup' }));
+    // Close's question, then its red Close signup, which closes the signup.
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Close signup' }));
+    });
+    rerender(<Phone status="closed" action={async () => null} />);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    rerender(<Phone status="open" action={async () => null} />);
+
+    sheet = openMore();
+    expect(within(sheet).getByRole('link', { name: 'Preview' })).toBeInTheDocument();
+    expect(within(sheet).getByRole('button', { name: 'Close signup' })).toBeInTheDocument();
+    expect(within(sheet).queryByRole('button', { name: 'Not yet' })).toBeNull();
+  });
+
+  it('holds Preview, then Reopen signup, for a closed signup', () => {
+    render(<Phone status="closed" action={async () => null} />);
+    const sheet = openMore();
+    const items = [
+      ...within(sheet).queryAllByRole('link'),
+      ...within(sheet).queryAllByRole('button'),
+    ]
+      .filter((el) => el.getAttribute('aria-label') !== 'Close')
+      .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
+      .map((el) => el.textContent);
+    expect(items).toEqual(['Preview', 'Reopen signup']);
+  });
+
+  it('reopens from Reopen signup, and shuts as the signup opens', async () => {
+    const reopen = vi.fn<StatusChangeAction>(async () => null);
+    const { rerender } = render(
+      <Phone status="closed" action={async () => null} reopen={reopen} />,
+    );
+    const sheet = openMore();
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Reopen signup' }));
+    });
+    await waitFor(() => expect(reopen).toHaveBeenCalledTimes(1));
+    rerender(<Phone status="open" action={async () => null} reopen={reopen} />);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('button', { name: 'More actions' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('opens on Reopen signup, not Close’s question, on a signup closed from it', async () => {
+    const { rerender } = render(<Phone status="open" action={async () => null} />);
+    const open = openMore();
+    fireEvent.click(within(open).getByRole('button', { name: 'Close signup' }));
+    await act(async () => {
+      fireEvent.click(within(open).getByRole('button', { name: 'Close signup' }));
+    });
+    rerender(<Phone status="closed" action={async () => null} />);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    const closed = openMore();
+    expect(within(closed).getByRole('button', { name: 'Reopen signup' })).toBeInTheDocument();
+    expect(within(closed).queryByRole('button', { name: 'Not yet' })).toBeNull();
+    expect(within(closed).queryByRole('button', { name: 'Close signup' })).toBeNull();
+  });
+
+  it('isn’t there for an archived signup', () => {
+    render(<Phone status="archived" action={async () => null} />);
     expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
   });
 });

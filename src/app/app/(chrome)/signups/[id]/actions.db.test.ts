@@ -19,6 +19,7 @@ import {
   closeQuestionAction,
   deleteSignupAction,
   publishAction,
+  reopenAction,
   setRequireEmailAction,
 } from './actions';
 
@@ -193,7 +194,7 @@ describe('deleteSignupAction (db)', () => {
 
 // A viewer's refusal is thrown by the policy guard, not returned. Each action
 // turns it into a message rather than letting it reach the error page.
-describe('a viewer choosing Publish, Close or Delete (db)', () => {
+describe('a viewer choosing Publish, Close, Reopen or Delete (db)', () => {
   const db = getDb();
   const organizerId = makeId('org');
   const workspaceId = makeId('ws');
@@ -292,6 +293,34 @@ describe('a viewer choosing Publish, Close or Delete (db)', () => {
     expect(await closeAction(signupId)).toEqual({
       error: 'This signup changed since the page loaded. Reload to see the latest.',
     });
+  });
+
+  it('Reopen says the viewer can’t edit and leaves the signup closed', async () => {
+    session.actor = viewer;
+    expect(await reopenAction(signupId)).toEqual({ error: 'You don’t have edit access.' });
+    expect((await row())?.status).toBe('closed');
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('Reopen opens a closed signup again and re-renders it where it was pressed', async () => {
+    session.actor = owner;
+    expect(await reopenAction(signupId)).toBeNull();
+    expect((await row())?.status).toBe('open');
+    expect(revalidatePath).toHaveBeenCalledWith(`/app/signups/${signupId}`, 'layout');
+    const reopened = await db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.reopened')));
+    expect(reopened.map((r) => r.payload)).toEqual([{ from: 'closed', to: 'open' }]);
+  });
+
+  it('Reopen on a signup that’s already open asks for a reload', async () => {
+    session.actor = owner;
+    expect(await reopenAction(signupId)).toEqual({
+      error: 'This signup changed since the page loaded. Reload to see the latest.',
+    });
+    expect((await row())?.status).toBe('open');
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it('Delete comes back to Settings saying the viewer can’t edit', async () => {
@@ -584,7 +613,7 @@ describe('closeQuestionAction (db)', () => {
     workspaceIds: [workspaceId],
     workspaceRoles: { [workspaceId]: 'owner' },
   };
-  const after = ' People can’t sign up after this, and you can’t reopen it.';
+  const after = ' People can’t sign up until you reopen it.';
   let signupId: string;
   let slotId: string;
 

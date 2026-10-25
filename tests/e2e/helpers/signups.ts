@@ -29,6 +29,19 @@ export async function createPublishedSignup(
 }
 
 /**
+ * A fresh closed signup: published as `createPublishedSignup` makes it, then
+ * closed through the API, as another tab or an AI assistant would.
+ */
+export async function createClosedSignup(
+  request: APIRequestContext,
+  opts: Parameters<typeof createPublishedSignup>[1],
+): Promise<{ id: string; slug: string }> {
+  const signup = await createPublishedSignup(request, opts);
+  await post(request, `/api/signups/${signup.id}/close`);
+  return signup;
+}
+
+/**
  * A fresh draft made through the API, as the organizer `request` is signed in
  * as. It has the default template's fields, `what` and `date`, and its one
  * slot, which starts empty, as a new signup's does, unless `values` fills it.

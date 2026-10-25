@@ -3,16 +3,15 @@ import { describe, it, expect, vi } from 'vitest';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { CloseQuestionAction } from './CloseSignupConfirm';
 import { MoreActionsMenu } from './MoreActionsMenu';
-import type { StatusAction } from './StatusActionForm';
+import type { StatusChangeAction } from './StatusActionForm';
 
-const QUESTION =
-  'Nobody has signed up yet. People can’t sign up after this, and you can’t reopen it.';
+const QUESTION = 'Nobody has signed up yet. People can’t sign up until you reopen it.';
 
 /** Asking again is refused, so the page's question stays. */
 const keepQuestion: CloseQuestionAction = async () => ({ error: 'Not asked in this test.' });
 
 function renderMenu(
-  closeAction: StatusAction = vi.fn<StatusAction>(async () => null),
+  closeAction: StatusChangeAction = vi.fn<StatusChangeAction>(async () => null),
   closeQuestionAction: CloseQuestionAction = keepQuestion,
 ) {
   render(
@@ -43,7 +42,7 @@ describe('MoreActionsMenu', () => {
 
   it('asks the question again as it opens, from the spots taken now', async () => {
     const fresh =
-      '3 of 6 spots are still open. People can’t sign up after this, and you can’t reopen it. Everyone already signed up keeps their spot.';
+      '3 of 6 spots are still open. People can’t sign up until you reopen it. Everyone already signed up keeps their spot.';
     let answer: (result: { question: string }) => void = () => {};
     const closeQuestionAction = vi.fn<CloseQuestionAction>(
       () => new Promise((resolve) => (answer = resolve)),

@@ -21,7 +21,7 @@ export interface HelpArticleMeta {
 
 /** The meta description of `/help` itself, held to the same length. */
 export const HELP_INDEX_DESCRIPTION =
-  'Step-by-step guides for people who make signups: create and publish one, take someone off a slot, and let an AI assistant do the work for you.';
+  'Step-by-step guides for people who make signups: create, publish, close and reopen one, take someone off a slot, and let an AI assistant help.';
 
 export const HELP_ARTICLES = [
   {
@@ -37,6 +37,14 @@ export const HELP_ARTICLES = [
     summary: 'Remove one person from a slot, so their spot opens up for someone else.',
     description:
       'Remove one person from a slot on your signup, so their spot opens up for someone else. Everyone else stays signed up, and the person you remove gets no email.',
+  },
+  {
+    slug: 'close-or-reopen-a-signup',
+    title: 'Close or reopen a signup',
+    summary:
+      "Stop anyone new signing up, and let people sign up again at the same link when you're ready.",
+    description:
+      'Close your signup so nobody new can sign up, and everyone already signed up keeps their spot. Reopen it later, at the same link.',
   },
   {
     slug: 'connect-an-ai-assistant',

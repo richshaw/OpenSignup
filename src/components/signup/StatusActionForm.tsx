@@ -5,13 +5,22 @@ import { FormError } from '@/components/ui/form-error';
 import type { PublishCheckAnswer } from '@/lib/publish-check';
 
 /**
- * What Publish or Close signup answers: why it was refused, that it
- * published (which opens the share panel), what Publish's check found
- * (which opens its panel), or nothing.
+ * What Publish, Close signup or Reopen signup answers: why it was refused,
+ * that it published (which opens the share panel), what Publish's check
+ * found (which opens its panel), or nothing.
  */
 type StatusActionState = { error: string } | { published: true } | PublishCheckAnswer | null;
-/** Publish takes a form saying the organizer chose Publish anyway; Close signup takes none. */
+/**
+ * Publish takes a form saying the organizer chose Publish anyway; Close
+ * signup and Reopen signup take none.
+ */
 export type StatusAction = (form?: FormData) => Promise<StatusActionState>;
+/**
+ * An action that only changes the signup's status, as Close signup does: it
+ * takes no form, and answers null once the status has changed or why it
+ * hasn't. What `useAnnouncedStatusChange` takes; Publish is none of these.
+ */
+export type StatusChangeAction = () => Promise<{ error: string } | null>;
 
 // What useActionState returns: the answer (or null), the form action, pending.
 const StatusActionContext = createContext<
@@ -19,12 +28,12 @@ const StatusActionContext = createContext<
 >(null);
 
 /**
- * Runs Publish or Close signup for everything inside it, so the button can
- * sit in one place (`StatusActionButtonForm`) and its refusal in another
- * (`StatusActionRefusal`), such as a full-width line under the header. When
- * the action is refused it returns why, and that shows instead of nothing
- * happening. One scope can serve more than one button, as Publish's serves
- * the computer's header and the phone's bar.
+ * Runs Publish, Close signup or Reopen signup for everything inside it, so
+ * the button can sit in one place (`StatusActionButtonForm`) and its refusal
+ * in another (`StatusActionRefusal`), such as a full-width line under the
+ * header. When the action is refused it returns why, and that shows instead
+ * of nothing happening. One scope can serve more than one button, as
+ * Publish's serves the computer's header and the phone's bar.
  */
 export function StatusActionScope({
   action,
@@ -64,19 +73,26 @@ export function StatusActionButtonForm({
   );
 }
 
-/** Whether Publish or Close signup is in flight, for controls outside its form. */
+/**
+ * Whether the scope's Publish, Close signup or Reopen signup is in flight,
+ * for controls outside its form.
+ */
 export function useStatusActionPending(): boolean {
   return useContext(StatusActionContext)?.[2] ?? false;
 }
 
-/** What Publish or Close signup last answered, null before either is pressed. */
+/**
+ * What the scope's Publish, Close signup or Reopen signup last answered,
+ * null before it's pressed.
+ */
 export function useStatusActionState(): StatusActionState {
   return useContext(StatusActionContext)?.[0] ?? null;
 }
 
 /**
- * Why Publish or Close signup was refused, or nothing until it is. `message`,
- * when given, says it instead: Publish stopped before it was sent.
+ * Why the scope's Publish, Close signup or Reopen signup was refused, or
+ * nothing until it is. `message`, when given, says it instead: Publish
+ * stopped before it was sent.
  */
 export function StatusActionRefusal({
   className,

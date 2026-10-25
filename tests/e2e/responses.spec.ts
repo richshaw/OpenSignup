@@ -446,7 +446,7 @@ test.describe('Responses tab', () => {
     expect(await fits()).toBe(true);
   });
 
-  test('on a phone, a closed signup has no ⋯ menu, since it would be empty', async ({
+  test('on a phone, a closed signup’s ⋯ holds Reopen signup, and an archived one has none', async ({
     page,
     context,
   }) => {
@@ -454,10 +454,20 @@ test.describe('Responses tab', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     const { signupId } = await createSignupWithSlot(page);
     await page.goto(`/app/signups/${signupId}/responses`);
-    await expect(page.getByRole('button', { name: 'More actions' })).toBeVisible();
+    const more = page.getByRole('button', { name: 'More actions' });
+    await expect(more).toBeVisible();
     expect((await page.request.post(`/api/signups/${signupId}/close`)).ok()).toBe(true);
     await page.reload();
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'More actions' })).toHaveCount(0);
+    await more.click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet.getByRole('link', { name: 'Preview' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Reopen signup' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Close signup' })).toHaveCount(0);
+
+    expect((await page.request.post(`/api/signups/${signupId}/archive`)).ok()).toBe(true);
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(more).toHaveCount(0);
   });
 });

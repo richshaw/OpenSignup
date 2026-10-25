@@ -1,7 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { BASE_URL, loadSeed } from './helpers/fixtures';
-import { createDraft, createPublishedSignup } from './helpers/signups';
+import { createClosedSignup, createDraft, createPublishedSignup } from './helpers/signups';
 
 const seed = loadSeed();
 
@@ -56,7 +56,7 @@ test.describe('organizer flow', () => {
     await expect(more).toHaveAttribute('aria-expanded', 'true');
     await panel.getByRole('button', { name: 'Close signup' }).click();
     await expect(panel).toContainText(
-      'Nobody has signed up yet. People can’t sign up after this, and you can’t reopen it.',
+      'Nobody has signed up yet. People can’t sign up until you reopen it.',
     );
     const notYet = panel.getByRole('button', { name: 'Not yet' });
     await expect(notYet).toBeFocused();
@@ -98,6 +98,23 @@ test.describe('organizer flow', () => {
     await expect(
       page.getByRole('status').filter({ hasText: 'Closed. People can’t sign up now.' }),
     ).toHaveCount(1);
+
+    // The box stays on the other tabs, and goes for good with its ✕, which
+    // gives focus to the title. The header still says it's closed, and the
+    // next page load shows no box.
+    await page.getByRole('tab', { name: /^Settings/ }).click();
+    await page.waitForURL(/\/settings$/);
+    await expect(banner).toBeVisible();
+    await page.getByRole('button', { name: 'Dismiss' }).click();
+    await expect(banner).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+    await expect(pill('closed')).toBeVisible();
+    await page.reload();
+    await expect(pill('closed')).toBeVisible();
+    await expect(
+      page.getByText('Closed · 1 of 6 spots taken').locator('visible=true'),
+    ).toBeVisible();
+    await expect(banner).toHaveCount(0);
   });
 
   test('on a phone, Close signup asks first in the More actions sheet', async ({ page }) => {
@@ -135,11 +152,28 @@ test.describe('organizer flow', () => {
     await expect(page.getByText('closed', { exact: true }).locator('visible=true')).toBeVisible();
     await expect(page.getByText('Signup closed', { exact: true })).toBeVisible();
     expect(await storedStatus()).toBe('closed');
-    await expect(more).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+
+    // ⋯ stays, now with Reopen signup in place of Close's question. Reopened
+    // from it, the signup is open again and the sheet shuts.
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await more.click();
+    await expect(sheet.getByRole('button', { name: 'Not yet' })).toHaveCount(0);
+    await expect(sheet.getByRole('button', { name: 'Close signup' })).toHaveCount(0);
+    await sheet.getByRole('button', { name: 'Reopen signup' }).click();
+    await expect(page.getByText('open', { exact: true }).locator('visible=true')).toBeVisible();
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await expect(sheet).toBeHidden();
+    expect(await storedStatus()).toBe('open');
+
+    // Opened again, the sheet starts from its menu, not Close's question.
+    await more.click();
+    await expect(sheet.getByRole('link', { name: 'Preview' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Close signup' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Not yet' })).toHaveCount(0);
   });
 
-  test('a signup closed some other way shows as closed, without the announcement', async ({
+  test('a signup closed some other way shows as closed, without the announcement or the box', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -154,12 +188,45 @@ test.describe('organizer flow', () => {
     // brings the header up to date.
     expect((await page.request.post(`/api/signups/${signup.id}/close`)).ok()).toBe(true);
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByText('Signup closed', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reopen signup' })).toBeVisible();
+    await expect(page.getByText('Signup closed', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'More actions' })).toHaveCount(0);
     await expect(
       page.getByRole('status').filter({ hasText: 'Closed. People can’t sign up now.' }),
     ).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 1 })).not.toBeFocused();
+  });
+
+  test('Close, then Reopen, doesn’t put Reopen under the confirm’s button', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const signup = await createPublishedSignup(page.request, {
+      title: `Close then reopen ${Date.now()}`,
+      slot: { values: { what: 'Juice', date: '2030-04-06' }, capacity: 5 },
+    });
+    await page.goto(`/app/signups/${signup.id}/build`);
+    const panel = page.getByRole('dialog', { name: 'More actions' });
+    await page.getByRole('button', { name: 'More actions' }).click();
+    await panel.getByRole('button', { name: 'Close signup' }).click();
+    const confirm = panel.getByRole('group').getByRole('button', { name: 'Close signup' });
+    await expect(confirm).toBeVisible();
+    // Read before pressing it: the panel goes once the signup closes.
+    const confirmBox = await confirm.boundingBox();
+    await confirm.click();
+    const reopen = page.getByRole('button', { name: 'Reopen signup' });
+    await expect(reopen).toBeVisible();
+    const reopenBox = await reopen.boundingBox();
+    if (!confirmBox || !reopenBox) throw new Error('both buttons should have been on screen');
+
+    // Reopen takes the header's row, at its right where Share and the ⋯
+    // were, and the panel hung below the ⋯, so its red button was under the
+    // header: a second click on it lands below Reopen, not on it.
+    expect(reopenBox.y + reopenBox.height).toBeLessThanOrEqual(confirmBox.y);
+    const overlap =
+      reopenBox.x < confirmBox.x + confirmBox.width &&
+      confirmBox.x < reopenBox.x + reopenBox.width &&
+      reopenBox.y < confirmBox.y + confirmBox.height &&
+      confirmBox.y < reopenBox.y + reopenBox.height;
+    expect(overlap).toBe(false);
   });
 
   test('the slot editor takes no date before 1900', async ({ page }) => {
@@ -290,6 +357,103 @@ test.describe('organizer flow', () => {
     await anonContext.close();
   });
 });
+
+/**
+ * Reopen signup on a closed signup's page: beside Preview on a computer, or
+ * on a phone in the More actions sheet, which this opens.
+ */
+async function reopenSignup(page: Page, device: 'a computer' | 'a phone'): Promise<Locator> {
+  if (device === 'a computer') return page.getByRole('button', { name: 'Reopen signup' });
+  await page.getByRole('button', { name: 'More actions' }).click();
+  return page.getByRole('dialog').getByRole('button', { name: 'Reopen signup' });
+}
+
+// Reopen signup, at a computer's size, beside Preview, and a phone's, in the
+// ⋯ sheet.
+for (const [device, viewport] of [
+  ['a computer', { width: 1280, height: 900 }],
+  ['a phone', { width: 390, height: 844 }],
+] as const) {
+  test.describe(`Reopen signup on ${device}`, () => {
+    test.use({ viewport });
+    test.beforeEach(async ({ context }) => {
+      await loginAsSeededOrganizer(context);
+    });
+
+    test('Reopen signup opens a closed signup again', async ({ page }) => {
+      const signup = await createClosedSignup(page.request, {
+        title: `Reopen flow ${Date.now()}`,
+        slot: { values: { what: 'Juice', date: '2030-04-06' }, capacity: 5 },
+      });
+      const storedStatus = async () =>
+        (await (await page.request.get(`/api/signups/${signup.id}`)).json()).data.status;
+      const pill = (status: string) =>
+        page.getByText(status, { exact: true }).locator('visible=true');
+      const banner = page.getByText('Signup closed', { exact: true });
+
+      await page.goto(`/app/signups/${signup.id}/build`);
+      await expect(pill('closed')).toBeVisible();
+      // Closed before the page loaded, so no box: the header says it.
+      await expect(banner).toHaveCount(0);
+      const reopen = await reopenSignup(page, device);
+      await expect(reopen).toBeVisible();
+      if (device === 'a phone') {
+        const box = await reopen.boundingBox();
+        expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      } else {
+        // Beside Preview, where a draft has Publish and share.
+        const preview = page.getByRole('link', { name: 'Preview' }).locator('visible=true');
+        const [previewBox, reopenBox] = await Promise.all([
+          preview.boundingBox(),
+          reopen.boundingBox(),
+        ]);
+        if (!previewBox || !reopenBox) throw new Error('Preview and Reopen should be on screen');
+        const gap = reopenBox.x - (previewBox.x + previewBox.width);
+        expect(gap).toBeGreaterThanOrEqual(0);
+        expect(gap).toBeLessThan(16);
+        expect(Math.abs(reopenBox.y - previewBox.y)).toBeLessThan(2);
+      }
+      await reopen.click();
+
+      await expect(banner).toHaveCount(0);
+      await expect(reopen).toHaveCount(0);
+      await expect(pill('open')).toBeVisible();
+      // The button went once the signup opened, so focus is on the title,
+      // and a screen reader hears what happened.
+      await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+      await expect(
+        page.getByRole('status').filter({ hasText: 'Reopened. People can sign up again.' }),
+      ).toHaveCount(1);
+      expect(await storedStatus()).toBe('open');
+
+      // People can sign up again.
+      await page.goto(`/s/${signup.slug}`);
+      await expect(page.getByRole('button', { name: /^Sign up for Juice/ })).toBeEnabled();
+    });
+
+    test('a refused Reopen signup keeps the keyboard on the button', async ({ page }) => {
+      const signup = await createClosedSignup(page.request, {
+        title: `Reopen refused ${Date.now()}`,
+        slot: { values: { what: 'Juice', date: '2030-04-06' }, capacity: 5 },
+      });
+      await page.goto(`/app/signups/${signup.id}/build`);
+      const reopen = await reopenSignup(page, device);
+      await expect(reopen).toBeVisible();
+
+      // Reopened somewhere else meanwhile, so this page's press is refused.
+      expect((await page.request.post(`/api/signups/${signup.id}/reopen`)).ok()).toBe(true);
+      await reopen.focus();
+      await page.keyboard.press('Enter');
+
+      await expect(
+        page.getByText('This signup changed since the page loaded. Reload to see the latest.'),
+      ).toBeVisible();
+      // The button was disabled while the press was in flight, which takes
+      // focus off it in a browser; the refusal gives it back.
+      await expect(reopen).toBeFocused();
+    });
+  });
+}
 
 // Publish checks the page first (#503), at a computer's size and a phone's:
 // the header's popover, or a sheet over the bar at the bottom of the screen.

@@ -54,12 +54,13 @@ export const KEEPS_THEIR_SPOT = 'Everyone already signed up keeps their spot.';
 
 /**
  * What Close signup asks before it closes: where the signup stands, then
- * what closing does. There is no way back from closed, so it says so. Once
- * someone has signed up, it also says they keep their spot, in the closed
- * banner's own words, since that's what organizers stop to ask.
+ * what closing does. It stops sign-ups until the organizer reopens it with
+ * Reopen signup, so it says that rather than sounding final. Once someone
+ * has signed up, it also says they keep their spot, in the closed banner's
+ * own words, since that's what organizers stop to ask.
  */
 export function closeSignupQuestion(counts: SpotCounts): string {
-  const question = `${standing(counts)} People can’t sign up after this, and you can’t reopen it.`;
+  const question = `${standing(counts)} People can’t sign up until you reopen it.`;
   return counts.taken > 0 ? `${question} ${KEEPS_THEIR_SPOT}` : question;
 }
 
