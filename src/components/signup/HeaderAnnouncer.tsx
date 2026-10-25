@@ -53,15 +53,16 @@ const ANNOUNCED: Partial<Record<SignupStatus, Partial<Record<SignupStatus, strin
 const Say = createContext<(message: string) => void>(() => {});
 
 /**
- * The status a change made from this page last left the signup in, once the
- * page shows it, numbered so each change is its own: null until there's been
- * one. Another tab, or an AI assistant, changes nothing here.
+ * The last status change the page has shown: the status the signup changed
+ * to, whether a button on this page made it (`here`; not when another tab or
+ * an AI assistant did), and a number so each change is its own. Null until
+ * there's been one.
  */
-type ChangedHere = { to: SignupStatus; n: number } | null;
-const Changed = createContext<ChangedHere>(null);
+type StatusChange = { to: SignupStatus; here: boolean; n: number } | null;
+const Changed = createContext<StatusChange>(null);
 
-/** What a change made from this page last did; see `ChangedHere`. */
-export function useChangedHere(): ChangedHere {
+/** The last status change the page has shown; see `StatusChange`. */
+export function useLastStatusChange(): StatusChange {
   return useContext(Changed);
 }
 
@@ -93,8 +94,8 @@ export function useAnnounce(): (message: string) => void {
  * phone's ⋯. A status change takes away the button that made it, and the
  * focus with it (Close signup goes with the ⋯ that held it, Reopen signup
  * once the signup is open), so focus goes to the signup's title rather than
- * to the page. The closed box reads `useChangedHere` to show only after this
- * page's own Close signup.
+ * to the page. The closed box reads `useLastStatusChange` to show only after
+ * this page's own Close signup.
  */
 export function HeaderAnnouncer({
   status,
@@ -109,7 +110,7 @@ export function HeaderAnnouncer({
   const say = useCallback((message: string) => setSaid(([, n]) => [message, n + 1]), []);
   const previous = useRef(status);
   const askedFor = useRef<SignupStatus | null>(null);
-  const [changed, setChanged] = useState<ChangedHere>(null);
+  const [changed, setChanged] = useState<StatusChange>(null);
 
   useEffect(() => {
     const was = previous.current;
@@ -117,10 +118,13 @@ export function HeaderAnnouncer({
     if (was === status) return;
     const asked = askedFor.current;
     askedFor.current = null;
-    const words = asked === status ? ANNOUNCED[was]?.[status] : undefined;
+    const here = asked === status;
+    // Every change, not only this page's, so a close made elsewhere after
+    // one made here doesn't count as this page's.
+    setChanged((last) => ({ to: status, here, n: (last?.n ?? 0) + 1 }));
+    const words = here ? ANNOUNCED[was]?.[status] : undefined;
     if (!words) return;
     say(words);
-    setChanged((last) => ({ to: status, n: (last?.n ?? 0) + 1 }));
     // A tick later, once a phone's sheet has finished closing: until then its
     // focus trap would take focus back.
     const timer = setTimeout(focusTitle);
