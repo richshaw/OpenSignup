@@ -73,7 +73,7 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
             role="tab"
             aria-selected={active}
             aria-current={active ? 'page' : undefined}
-            className={`-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm transition ${
+            className={`-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm transition focus-visible:outline-offset-[-3px] ${
               active
                 ? 'border-brand text-ink font-semibold'
                 : 'text-ink-muted hover:text-ink border-transparent font-medium'
