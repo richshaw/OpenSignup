@@ -31,7 +31,7 @@ export function AsyncSubmitButton({
       className={className}
       {...rest}
     >
-      <span className="inline-flex items-center gap-2 transition-opacity duration-180 ease-emphasized">
+      <span className="flex items-center justify-center gap-2 transition-opacity duration-180 ease-emphasized">
         {pending ? (
           <>
             <Spinner />
