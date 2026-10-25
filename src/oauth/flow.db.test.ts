@@ -240,7 +240,12 @@ describe('authorization code flow on Postgres', () => {
     expect(stepUp.ok).toBe(false);
     if (!stepUp.ok) {
       expect(stepUp.response.status).toBe(403);
-      expect(stepUp.response.headers.get('www-authenticate')).toContain('scope="commitments:read"');
+      const challenge = stepUp.response.headers.get('www-authenticate') ?? '';
+      expect(challenge).toContain('error="insufficient_scope"');
+      expect(challenge).toContain('scope="commitments:read"');
+      expect(challenge).toContain(
+        'resource_metadata="https://signup.example.org/.well-known/oauth-protected-resource/api/mcp"',
+      );
     }
 
     // Grant bookkeeping.

@@ -138,10 +138,11 @@ export function SharePanel({
 
   const lead = firstTime ? LEAD_FIRST_TIME : LEAD_LATER[variant];
   const phone = variant === 'phone';
-  // As wide as "Copy message" at its widest, so its "Copied" doesn't move
-  // Email it beside it.
+  // On a computer, as wide as "Copy message" at its widest, so its "Copied"
+  // doesn't move Email it beside it. On a phone, half the row each, lined up
+  // with Copy link and QR code above, which keeps them still too.
   const messageAction = `${SECONDARY} ${
-    phone ? 'h-11 min-w-[148px] px-4 text-[15px]' : 'h-[34px] min-w-[124px] px-3 text-[13px]'
+    phone ? 'h-11 px-4 text-[15px]' : 'h-[34px] min-w-[124px] px-3 text-[13px]'
   }`;
   const copiedNow =
     lastCopied === 'link' && link.copied
@@ -157,7 +158,7 @@ export function SharePanel({
       onClick={() => void copy('link')}
       className={
         phone
-          ? `${PHONE_BUTTON} h-12 flex-1 basis-0 text-[15px] ${canShare ? PHONE_SECONDARY : PHONE_PRIMARY}`
+          ? `${PHONE_BUTTON} h-12 text-[15px] ${canShare ? PHONE_SECONDARY : PHONE_PRIMARY}`
           : `${DESKTOP_PRIMARY} min-w-[112px] shrink-0`
       }
     >
@@ -186,7 +187,7 @@ export function SharePanel({
         }`}
       />
       {canShare ? null : (
-        <div className="flex flex-wrap gap-2">
+        <div className={phone ? 'grid grid-cols-2 gap-2' : 'flex flex-wrap gap-2'}>
           <button type="button" onClick={() => void copy('message')} className={messageAction}>
             {messageCopy.copied ? <Check size={14} strokeWidth={2.6} aria-hidden="true" /> : null}
             {messageCopy.copied ? 'Copied' : 'Copy message'}
@@ -252,8 +253,10 @@ export function SharePanel({
               </div>
             ) : null}
             {linkNotice}
-            {/* The QR code shows large on a row of its own, under these. */}
-            <div className="flex flex-wrap gap-2">
+            {/* Half the row each, as Copy message and Email it are below,
+                so the two rows line up; the QR code shows large across both
+                columns, under these. */}
+            <div className="grid grid-cols-2 gap-2">
               {copyLinkButton}
               <ShareQrCode signupId={signupId} title={title} url={url} variant="phone" />
             </div>
