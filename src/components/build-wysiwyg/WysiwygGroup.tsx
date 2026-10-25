@@ -8,6 +8,7 @@ import { prettyHeader, emptyHeaderCopy } from './prettyHeader';
 import { FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
 import type { UseReorderableResult } from '../build-shared/useReorderable';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
+import type { SignupStatus } from '@/schemas/signups';
 
 export type SlotGroup = {
   /** Stable key — group field value, or `'__empty__'` for the no-value bucket. */
@@ -30,6 +31,8 @@ type WysiwygGroupProps = {
   takenBySlot: Record<string, number>;
   /** Whether the signup sends reminders, and so emails about a moved slot. */
   remindersOn: boolean;
+  /** The signup's, for what a slot still saying "TBD" is marked with. */
+  status: SignupStatus;
   expandedRowId: string | null;
   /** The row whose editor takes focus when it opens: a copy just made by Duplicate. */
   focusRowId?: string | null;
@@ -57,6 +60,7 @@ export function WysiwygGroup({
   fields,
   takenBySlot,
   remindersOn,
+  status,
   expandedRowId,
   focusRowId = null,
   onRowFocused,
@@ -108,6 +112,7 @@ export function WysiwygGroup({
             row={row}
             taken={takenBySlot[row.id] ?? 0}
             remindersOn={remindersOn}
+            status={status}
             fields={fields}
             displayFields={displayFields}
             expanded={expandedRowId === row.id}

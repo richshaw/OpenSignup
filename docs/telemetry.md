@@ -45,7 +45,7 @@ by `clientDomain` instead.
 |---|---|---|---|
 | `signup.created` | organizer | `{ templateId, fieldsAdded, slotsAdded }` — `templateId` is `default`, `magic-compose`, or `mcp` (created by a connected assistant) | `services/signups.ts` |
 | `signup.updated` | organizer | `{ changed }` (the keys the update sent, changed or not) | `services/signups.ts` |
-| `signup.published` | organizer | `{ from, to }` | `services/signups.ts` |
+| `signup.published` | organizer | `{ from, to }`, plus `acknowledged: 'placeholder'` when the organizer chose Publish anyway past the header's warning that a slot still says TBD, TBC or TBA (never from the MCP tool or the REST API, which publish without the check) | `services/signups.ts` (`publishSignup`; the flag comes from the publish action) |
 | `signup.closed` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.archived` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.deleted` | organizer | `{ status }` (the status it had when deleted) | `services/signups.ts` |
@@ -54,8 +54,9 @@ by `clientDomain` instead.
 | `signup.previewed` | organizer | `{ device }` | RSC at `/app/signups/[id]/preview` |
 | `signup.viewed` | system | `{ uaClass, refererHost, isReturning, signupStatus }` | RSC at `/s/[slug]` |
 | `signup.viewed` | organizer | `{ device }` (the organizer opening the Build tab, not a participant view; filter on `actor_type = 'system'` to leave these out) | RSC at `/app/signups/[id]/build` |
-| `signup.publish_refused` | organizer | `{ code: 'conflict', reason: 'no_slots' }`, or `{ code: 'conflict', reason: 'not_draft', status }` with the status it had by then (`closed` or `archived` in another tab). A publish of a signup that's already open (a second click, or a retry after one that worked) isn't recorded | `services/signups.ts` (`publishSignup`), after its transaction. A viewer's publish is refused by the policy guard before that and writes nothing |
-| `signup.link_copied` | organizer | `{ surface: 'header', status }` (where the link was copied from, and the signup's status then: a draft's link only says the signup isn't ready) | client beacon from the organizer's pages, via `POST /api/signups/[id]/link-events?event=copied&surface=…`, metered per organizer (60 an hour; past that, copies go uncounted) |
+| `signup.publish_refused` | organizer | `{ code: 'conflict', reason }`: `no_slots`, `no_fields` (slots but no fields) or `all_blank` (no slot has a value in any field), or `not_draft` with `status`, the status it had by then (`closed` or `archived` in another tab). `{ reason: 'placeholder', warning: true }` when Publish warned that a slot still says TBD, TBC or TBA. A warning doesn't stop anyone, so count real refusals as the rows whose payload has `code`. After a warning, a `signup.published` with `acknowledged: 'placeholder'` means the organizer chose Publish anyway; one without it means they fixed the slots first (Name it first, then Publish and share again), or that it was published another way, which doesn't check: `POST /api/signups/[id]/publish`, or a connected AI assistant's `publish_signup` (whose row also carries `viaClientId`). A publish of a signup that's already open (a second click, or a retry after one that worked) isn't recorded | the header's Publish and share: `recordPublishCheck` (`services/signups.ts`), from the publish action, for what its check stops or warns about (`no_slots`, `no_fields`, `all_blank`, `placeholder`) before the service sees it. The MCP tool and the REST API publish through the service alone: `publishSignup` writes `no_slots` and `not_draft` after its transaction. A viewer's publish is refused by the policy guard before either and writes nothing |
+| `signup.link_copied` | organizer | `{ surface, status }`: where the link was copied from, `header` (the public link chip), `share_panel` (the share panel's Copy link, or the chip it shows when its code couldn't load) or `share_message` (the share panel's Copy message, which copies the message with the link), and the signup's status then. A draft shows no link to copy, so only rows written before drafts lost theirs can carry `draft`. Recorded once the clipboard has taken it; a refused copy writes nothing | client beacon from the organizer's pages, via `POST /api/signups/[id]/link-events?event=copied&surface=…`, metered per organizer (60 an hour, copies and shares together; past that, they go uncounted) |
+| `signup.link_shared` | organizer | `{ surface, status }`: how the share panel sent the link on, `share_menu` (the phone's own share menu, once it says it sent; closing it without sending writes nothing), `email` (the click on Email it, which opens the organizer's email app) or `qr_code` (the QR code, at most once each time the panel is opened: the first time a phone shows it large, or the first Download or Save image once the picture is drawn), and the signup's status then. Never the message or who it went to: the app can't see either | client beacon from the share panel, via `POST /api/signups/[id]/link-events?event=shared&surface=…`, on the same meter. An event names only its own surfaces: a copy from `email` or a share from `header` is refused |
 | `magic_compose.failed` | organizer | `{ code }`: the AI client's `not_configured` \| `rate_limited` \| `upstream` \| `invalid_json` \| `schema_mismatch` \| `timeout` \| `aborted`; `schema_mismatch` too for a draft of the wrong shape; `refusal` when the model declined; `not_saved` when the draft couldn't be saved; `over_limit` when the organizer had used up this instance's Magic Compose quota for the hour. Never the prompt or the model's words | `POST /api/signups/magic-compose`. `signup_id` is `NULL`: no signup was made |
 
 `device` is `'phone'`, `'computer'` or `'unknown'`, from the browser's
@@ -66,7 +67,7 @@ phone can be told apart from ones abandoned at a desk; public views carry
 `uaClass` instead, which separates browsers from bots and says nothing about
 the device.
 
-`signup.publish_refused`, `signup.link_copied` and `magic_compose.failed`
+`signup.publish_refused`, `signup.link_copied`, `signup.link_shared` and `magic_compose.failed`
 describe no change, so each is written on its own,
 outside any transaction, and a failed write never fails the request.
 
@@ -146,8 +147,8 @@ Both rows have `signup_id` and `workspace_id` set to `NULL` — the page is
 tenant-independent. Together they form the top of the organizer funnel
 (`landing.viewed` → `landing.cta_clicked` → `auth.magic_link_sent` →
 `auth.signed_in` → `signup.draft_started` → `signup.created`).
-`landing.cta_clicked` and `signup.link_copied` are the only client-emitted
-events in the catalogue; all others fire server-side. The landing beacon reads
+`landing.cta_clicked`, `signup.link_copied` and `signup.link_shared` are the
+only client-emitted events in the catalogue; all others fire server-side. The landing beacon reads
 UA/referer/DNT from request headers server-side, and the link beacon is
 accepted only from a signed-in member of the signup's workspace, who names just the event and the surface — no other
 client-supplied data is trusted.
@@ -383,7 +384,7 @@ edits, `auth.signed_in`, **and** the organizer-side RSC pageview events
 (`signup.editor_opened`, `signup.previewed`, `signup.draft_started`, and the
 Build tab's `signup.viewed`) which are written with the organizer as actor,
 and the organizer's telemetry rows (`signup.publish_refused`,
-`signup.link_copied`, `magic_compose.failed`).
+`signup.link_copied`, `signup.link_shared`, `magic_compose.failed`).
 The public page's `signup.viewed` is system-actor and does not advance
 `last_active_at`.
 

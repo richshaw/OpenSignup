@@ -10,6 +10,10 @@
   html {
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    /* A phone's bar at the bottom of a signup's pages (PhoneBar sets its
+       height): a control scrolled into view, by Tab or otherwise, stops
+       above it. 0 everywhere else. */
+    scroll-padding-bottom: var(--phone-bar-h, 0px);
   }
 
   body {

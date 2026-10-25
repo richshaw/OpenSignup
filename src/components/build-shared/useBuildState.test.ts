@@ -2018,3 +2018,337 @@ describe('useBuildState editCell when the server refuses a value', () => {
     expect(result.current.state.saveStatus.kind).toBe('saved');
   });
 });
+
+// ---------------------------------------------------------------------------
+// useBuildState flushPendingSaves (Publish waits on it)
+// ---------------------------------------------------------------------------
+
+describe('useBuildState flushPendingSaves', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  const itemField = makeApiField({ id: 'f-item', ref: 'item', label: 'Item' });
+  const slots: BuildSlot[] = [
+    { id: 'r1', capacity: 2, sortOrder: 0, values: { item: 'Fruit' } },
+    { id: 'r2', capacity: 1, sortOrder: 1, values: { item: 'Napkins' } },
+  ];
+
+  type Hook = ReturnType<typeof useBuildState>;
+
+  // Answers each request only when told to, oldest first.
+  function stubSlowServer() {
+    const waiting: ((res: Response) => void)[] = [];
+    const fetchMock = vi.fn(
+      (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Promise<Response>((resolve) => {
+          waiting.push(resolve);
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    return {
+      fetchMock,
+      answer: (res: Response = jsonResponse({ data: {} })) => waiting.shift()?.(res),
+    };
+  }
+
+  function render() {
+    return renderHook(() => useBuildState('sig_test', [itemField], slots, defaultSettings));
+  }
+
+  /** Starts a flush and reports whether it has resolved yet. */
+  /** Starts a flush and reports whether it has resolved yet, and to what. */
+  function startFlush(result: { current: Hook }) {
+    let done = false;
+    let saved: boolean | null = null;
+    let promise: Promise<void> = Promise.resolve();
+    act(() => {
+      promise = result.current.flushPendingSaves().then((value) => {
+        done = true;
+        saved = value;
+      });
+    });
+    return { promise, done: () => done, saved: () => saved };
+  }
+
+  async function settle() {
+    await act(async () => {
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+    });
+  }
+
+  it('sends a pending cell edit at once and waits for it', async () => {
+    vi.useFakeTimers();
+    const server = stubSlowServer();
+    const { result } = render();
+
+    act(() => result.current.editCell('r1', 'item', 'Juice boxes'));
+    expect(server.fetchMock).not.toHaveBeenCalled();
+    const flush = startFlush(result);
+    expect(server.fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = server.fetchMock.mock.calls[0]!;
+    expect(url).toBe('/api/slots/r1');
+    expect(JSON.parse(String(init?.body))).toEqual({ values: { item: 'Juice boxes' } });
+
+    await settle();
+    expect(flush.done()).toBe(false);
+    await act(async () => {
+      server.answer();
+      await flush.promise;
+    });
+    expect(flush.saved()).toBe(true);
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('does not send the flushed edit again when its debounce would have run, or on unmount', async () => {
+    vi.useFakeTimers();
+    const server = stubSlowServer();
+    const { result, unmount } = render();
+
+    act(() => result.current.editCell('r1', 'item', 'Juice boxes'));
+    act(() => result.current.setCapacity('r2', 3));
+    const flush = startFlush(result);
+    await act(async () => {
+      server.answer();
+      server.answer();
+      await flush.promise;
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    unmount();
+    await Promise.resolve();
+
+    expect(server.fetchMock).toHaveBeenCalledTimes(2);
+    expect(server.fetchMock.mock.calls.map(([u, i]) => [u, JSON.parse(String(i?.body))])).toEqual([
+      ['/api/slots/r1', { values: { item: 'Juice boxes' } }],
+      ['/api/slots/r2', { capacity: 3 }],
+    ]);
+  });
+
+  it('waits for a debounced save that is already in flight', async () => {
+    vi.useFakeTimers();
+    const server = stubSlowServer();
+    const { result } = render();
+
+    act(() => result.current.editCell('r1', 'item', 'Juice boxes'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(server.fetchMock).toHaveBeenCalledTimes(1);
+
+    const flush = startFlush(result);
+    await settle();
+    expect(server.fetchMock).toHaveBeenCalledTimes(1);
+    expect(flush.done()).toBe(false);
+    await act(async () => {
+      server.answer();
+      await flush.promise;
+    });
+    expect(flush.done()).toBe(true);
+  });
+
+  const newSlot: BuildSlot = { id: 'r3', capacity: 1, sortOrder: 2, values: {} };
+  const newField = makeApiField({ id: 'f-where', ref: 'where', label: 'Where', sortOrder: 1 });
+
+  it.each<[string, (hook: Hook) => Promise<unknown>, unknown]>([
+    ['an added slot', (hook) => hook.addRow(), newSlot],
+    ['a deleted slot', (hook) => hook.deleteRow('r2'), {}],
+    // Duplicate, just before Publish: the copy is saved before the check reads.
+    ['a duplicated slot', (hook) => hook.duplicateRow('r1'), [{ ...newSlot, values: { item: 'Fruit' } }]],
+    ['a moved slot', (hook) => hook.moveRow(0, 1), {}],
+    ['a renamed group', (hook) => hook.renameGroup('item', ['r1', 'r2'], 'Cups'), {}],
+    ['a changed setting', (hook) => hook.setGroupBy('item'), {}],
+    [
+      'an added field',
+      (hook) => hook.addField('Where', { fieldType: 'text', maxLength: 200 }),
+      newField,
+    ],
+  ])('waits for %s while its save is in flight', async (_name, start, data) => {
+    vi.useFakeTimers();
+    const server = stubSlowServer();
+    const { result } = render();
+
+    act(() => {
+      void start(result.current);
+    });
+    await settle();
+    const sent = server.fetchMock.mock.calls.length;
+    expect(sent).toBeGreaterThan(0);
+    const flush = startFlush(result);
+    await settle();
+    expect(flush.done()).toBe(false);
+    expect(server.fetchMock).toHaveBeenCalledTimes(sent);
+
+    await act(async () => {
+      for (let i = 0; i < sent; i++) server.answer(jsonResponse({ data }));
+      await flush.promise;
+    });
+    expect(flush.done()).toBe(true);
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('waits for a settings save queued behind another', async () => {
+    vi.useFakeTimers();
+    const server = stubSlowServer();
+    const { result } = render();
+
+    act(() => {
+      void result.current.setGroupBy('item');
+      void result.current.setReminderField(null);
+    });
+    const flush = startFlush(result);
+    await settle();
+    // The second waits for the first to be answered before it is sent.
+    expect(server.fetchMock).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      server.answer();
+      await vi.waitFor(() => expect(server.fetchMock).toHaveBeenCalledTimes(2));
+    });
+    expect(flush.done()).toBe(false);
+    await act(async () => {
+      server.answer();
+      await flush.promise;
+    });
+    expect(flush.done()).toBe(true);
+  });
+
+  it('resolves to false when a save fails, leaving its error showing', async () => {
+    vi.useFakeTimers();
+    const server = stubSlowServer();
+    const { result } = render();
+
+    act(() => result.current.editCell('r1', 'item', 'Juice boxes'));
+    const flush = startFlush(result);
+    await act(async () => {
+      server.answer(jsonResponse({ error: { code: 'forbidden', message: 'No' } }, { status: 403 }));
+      await flush.promise;
+    });
+    expect(flush.saved()).toBe(false);
+    expect(result.current.state.saveStatus).toEqual({
+      kind: 'error',
+      code: 'forbidden',
+      message: 'No',
+    });
+  });
+
+  it('resolves at once when nothing is waiting or in flight, after an earlier flush too', async () => {
+    vi.useFakeTimers();
+    const server = stubSlowServer();
+    const { result } = render();
+
+    const first = startFlush(result);
+    await settle();
+    expect(first.done()).toBe(true);
+
+    act(() => result.current.editCell('r1', 'item', 'Juice boxes'));
+    const second = startFlush(result);
+    await act(async () => {
+      server.answer();
+      await second.promise;
+    });
+    const third = startFlush(result);
+    await settle();
+    expect(third.done()).toBe(true);
+    expect(server.fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for a save that one ending sets off', async () => {
+    // A list choice is added, then the cell that uses it is set, as the
+    // slot editor's list picker does.
+    vi.useFakeTimers();
+    const server = stubSlowServer();
+    const { result } = render();
+
+    act(() => {
+      void result.current
+        .updateField('f-item', { name: 'Item' })
+        .then(() => result.current.editCell('r1', 'item', 'Cups'));
+    });
+    await settle();
+    const flush = startFlush(result);
+    await act(async () => {
+      server.answer(jsonResponse({ data: itemField }));
+      await vi.waitFor(() => expect(server.fetchMock).toHaveBeenCalledTimes(2));
+    });
+    expect(flush.done()).toBe(false);
+    expect(server.fetchMock.mock.calls[1]?.[0]).toBe('/api/slots/r1');
+    await act(async () => {
+      server.answer();
+      await flush.promise;
+    });
+    expect(flush.saved()).toBe(true);
+  });
+
+  it('counts a group rename the server refuses as not saved', async () => {
+    vi.useFakeTimers();
+    const server = stubSlowServer();
+    const { result } = render();
+
+    act(() => {
+      void result.current.renameGroup('item', ['r1', 'r2'], 'Cups');
+    });
+    const flush = startFlush(result);
+    await act(async () => {
+      server.answer();
+      server.answer(jsonResponse({ error: { code: 'internal' } }, { status: 500 }));
+      await flush.promise;
+    });
+    expect(flush.saved()).toBe(false);
+  });
+
+  it('still waits for the saves a tab sent as it went, after it has gone', async () => {
+    vi.useFakeTimers();
+    const server = stubSlowServer();
+    const { result, unmount } = render();
+    const { flushPendingSaves } = result.current;
+
+    act(() => result.current.editCell('r1', 'item', 'Juice boxes'));
+    unmount();
+    expect(server.fetchMock).toHaveBeenCalledTimes(1);
+    let saved: boolean | null = null;
+    const flushed = flushPendingSaves().then((value) => {
+      saved = value;
+    });
+    await Promise.resolve();
+    expect(saved).toBeNull();
+    // Nothing is sent twice.
+    expect(server.fetchMock).toHaveBeenCalledTimes(1);
+    server.answer(jsonResponse({ error: { code: 'forbidden' } }, { status: 403 }));
+    await flushed;
+    expect(saved).toBe(false);
+  });
+});
+
+describe('useBuildState addRow', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('resolves to the new slot’s id, for the check’s Add a slot to open it', async () => {
+    const slot: BuildSlot = { id: 'r9', capacity: 1, sortOrder: 0, values: {} };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ data: slot })));
+    const { result } = renderBuild([]);
+    let id: string | null = null;
+    await act(async () => {
+      id = await result.current.addRow();
+    });
+    expect(id).toBe('r9');
+    expect(result.current.state.rows.map((r) => r.id)).toEqual(['r9']);
+  });
+
+  it('resolves to null when the server refuses it, which shows the error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ error: { code: 'forbidden' } }, { status: 403 })),
+    );
+    const { result } = renderBuild([]);
+    let id: string | null = 'unset';
+    await act(async () => {
+      id = await result.current.addRow();
+    });
+    expect(id).toBeNull();
+    expect(result.current.state.saveStatus).toEqual({ kind: 'error', code: 'forbidden' });
+  });
+});
