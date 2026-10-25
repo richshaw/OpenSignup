@@ -137,6 +137,14 @@ test.describe('organizer flow', () => {
     expect(await storedStatus()).toBe('closed');
     await expect(more).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+
+    // Reopened from the banner, the signup is open again, and the sheet
+    // Close signup was chosen in doesn't come back with it.
+    await page.getByRole('button', { name: 'Reopen signup' }).click();
+    await expect(page.getByText('open', { exact: true }).locator('visible=true')).toBeVisible();
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await expect(sheet).toBeHidden();
+    expect(await storedStatus()).toBe('open');
   });
 
   test('a signup closed some other way shows as closed, without the announcement', async ({

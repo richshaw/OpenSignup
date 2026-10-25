@@ -42,8 +42,11 @@ export function MobileSignupHeader({
   const [question, askAgain] = useCloseQuestion(closeQuestion, closeQuestionAction);
   // The status the More actions sheet was opened on. Close signup changes
   // the status, which closes the sheet rather than leaving it open on what
-  // the signup can do next.
+  // the signup can do next. Forgotten as soon as the status changes, so a
+  // Reopen from the closed banner, which changes it back, doesn't open the
+  // sheet again.
   const [menuFor, setMenuFor] = useState<SignupStatus | null>(null);
+  if (menuFor !== null && menuFor !== status) setMenuFor(null);
   const menuOpen = menuFor === status;
 
   return (
