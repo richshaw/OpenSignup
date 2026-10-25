@@ -79,7 +79,7 @@ export function CloseOrReopenASignup() {
           src="/help/close-or-reopen-a-signup/what-people-see.png"
           alt="The signup page people see once it’s closed: Closed at the top, saying the signup is no longer collecting responses, and Closed on both slots, Fruit and water and Orange slices."
           width={704}
-          height={311}
+          height={340}
         />
       </section>
 
@@ -104,7 +104,7 @@ export function CloseOrReopenASignup() {
               src="/help/close-or-reopen-a-signup/closed-banner.png"
               alt="The grey Signup closed box, saying people can’t sign up now and everyone already signed up keeps their spot, with a blue Reopen signup button under it."
               width={720}
-              height={124}
+              height={129}
             />
           </Step>
         </Steps>
