@@ -114,11 +114,10 @@ export async function issueLoginCode(
  * number removed. Run by the housekeeping job.
  */
 export async function sweepExpiredLoginCodes(db: Queryable): Promise<number> {
-  const rows = await db
+  const { count } = await db
     .delete(magicLinks)
-    .where(and(eq(magicLinks.purpose, PURPOSE), or(lt(magicLinks.expiresAt, new Date()), sql`${magicLinks.consumedAt} is not null`)))
-    .returning({ id: magicLinks.id });
-  return rows.length;
+    .where(and(eq(magicLinks.purpose, PURPOSE), or(lt(magicLinks.expiresAt, new Date()), sql`${magicLinks.consumedAt} is not null`)));
+  return count;
 }
 
 /**
