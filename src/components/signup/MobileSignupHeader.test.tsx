@@ -15,7 +15,10 @@ const PREVIEW = '/app/signups/sig_1/preview';
 const QUESTION =
   'Nobody has signed up yet. People can’t sign up after this, and you can’t reopen it.';
 
-/** The phone's header as SignupHeader puts it together, at `status`, its parts included. */
+/**
+ * The phone's header as SignupHeader puts it together, at `status`, its parts
+ * included, in the HeaderAnnouncer the layout puts round it.
+ */
 function Phone({ status, action }: { status: SignupStatus; action: StatusAction }) {
   const spotsTaken = status === 'draft' ? null : '0 of 4 spots taken';
   return (

@@ -6,6 +6,7 @@ import { publicSignupUrl } from '@/lib/links';
 import { shareMessage } from '@/lib/share-message';
 import { KEEPS_THEIR_SPOT, spotCounts } from '@/lib/spot-counts';
 import { BuildBridge } from '@/components/signup/BuildBridge';
+import { HeaderAnnouncer } from '@/components/signup/HeaderAnnouncer';
 import { SignupHeader } from '@/components/signup/SignupHeader';
 import { hasPhoneBar, PHONE_BAR_ROOM } from '@/components/signup/phone-bar';
 import { TabsNav } from '@/components/signup/TabsNav';
@@ -57,27 +58,33 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
       {/* On a phone, a draft's Publish and share or an open signup's Share is in
         a bar fixed to the bottom of the screen; the page leaves room for it. */}
       <div className={`space-y-6 ${hasPhoneBar(status) ? PHONE_BAR_ROOM : ''}`}>
-        <SignupHeader
-          signupId={id}
-          title={sig.title}
-          status={status}
-          publicUrl={publicUrl}
-          spots={filled ? spotCounts(sig.slots, filled.value) : null}
-          closeQuestionAction={closeQuestionAction.bind(null, id)}
-          shareMessage={shareMessage(sig, publicUrl, filled?.value)}
-          publishAction={publishAction.bind(null, id)}
-          closeAction={closeAction.bind(null, id)}
-        />
-        {/* On every tab, for as long as it's closed. Not a live region: closing
-          it from this page is announced by the header. */}
-        {sig.status === 'closed' ? (
-          <Banner
-            kind="closed"
-            live={false}
-            title="Signup closed"
-            body={`People can’t sign up now. ${KEEPS_THEIR_SPOT}`}
+        {/* One live region for the headers and the closed banner, so a status
+          change made from any of them is said in one place. It adds only
+          that region to the page, after them, so they stay this div's own
+          children and keep its spacing. */}
+        <HeaderAnnouncer status={status}>
+          <SignupHeader
+            signupId={id}
+            title={sig.title}
+            status={status}
+            publicUrl={publicUrl}
+            spots={filled ? spotCounts(sig.slots, filled.value) : null}
+            closeQuestionAction={closeQuestionAction.bind(null, id)}
+            shareMessage={shareMessage(sig, publicUrl, filled?.value)}
+            publishAction={publishAction.bind(null, id)}
+            closeAction={closeAction.bind(null, id)}
           />
-        ) : null}
+          {/* On every tab, for as long as it's closed. Not a live region:
+            closing it from this page is announced by the header's. */}
+          {sig.status === 'closed' ? (
+            <Banner
+              kind="closed"
+              live={false}
+              title="Signup closed"
+              body={`People can’t sign up now. ${KEEPS_THEIR_SPOT}`}
+            />
+          ) : null}
+        </HeaderAnnouncer>
         <AiDraftBanner
           signupId={id}
           signupStatus={sig.status}
