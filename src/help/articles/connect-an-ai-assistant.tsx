@@ -48,7 +48,7 @@ export function ConnectAnAiAssistant() {
             leaves it out gets no emails.
           </li>
           <li>
-            Publish, close, archive or delete a signup. Closing, archiving or deleting can&apos;t be
+            Publish, close, reopen, archive or delete a signup. Archiving or deleting can&apos;t be
             undone.
           </li>
         </ul>
