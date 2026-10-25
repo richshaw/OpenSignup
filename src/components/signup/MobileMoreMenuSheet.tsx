@@ -36,23 +36,21 @@ export function MobileMoreMenuSheet({
   closeAction,
 }: MobileMoreMenuSheetProps) {
   // Close signup asks first, in the sheet, as it does in the ⋯ panel on a
-  // computer. The next time the sheet opens, it starts from the menu again.
+  // computer. The next time the sheet opens, it starts from the menu again,
+  // including after Close signup itself shut it by closing the signup.
   const [confirming, setConfirming] = useState(false);
+  if (!open && confirming) setConfirming(false);
   const closeSignup = useAnnouncedStatusChange(closeAction, 'closed');
-  function close() {
-    setConfirming(false);
-    onClose();
-  }
 
   return (
-    <BottomSheet open={open} onClose={close} title={title} compact>
+    <BottomSheet open={open} onClose={onClose} title={title} compact>
       <StatusActionScope action={closeSignup}>
         {confirming ? (
-          <CloseSignupConfirm phone question={closeQuestion} onNotYet={close} />
+          <CloseSignupConfirm phone question={closeQuestion} onNotYet={onClose} />
         ) : (
           <div className="flex flex-col">
             {/* Preview opens a new tab, so the sheet closes behind it. */}
-            <div onClick={close}>{previewItem}</div>
+            <div onClick={onClose}>{previewItem}</div>
             {status === 'open' ? (
               <button type="button" onClick={() => setConfirming(true)} className={SHEET_ITEM}>
                 <XCircle size={16} aria-hidden="true" />
