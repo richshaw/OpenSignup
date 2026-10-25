@@ -481,8 +481,9 @@ async function transitionStatus(
   const result = await withSignupWriteLock(db, actor, signupId, async (tx, row) => {
     workspaceId = row.workspaceId;
     if (from !== null && row.status !== from) {
+      const verb = eventType === 'signup.reopened' ? 'reopen' : to;
       return err(
-        serviceError('conflict', `cannot ${to} a signup that is ${row.status}`, {
+        serviceError('conflict', `cannot ${verb} a signup that is ${row.status}`, {
           field: 'status',
           received: row.status,
           expected: from,
