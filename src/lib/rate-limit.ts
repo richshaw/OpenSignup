@@ -166,6 +166,6 @@ const LONGEST_WINDOW_SECONDS = Math.max(...Object.values(RateLimits).map((p) => 
  */
 export async function sweepExpiredRateLimits(db: Db): Promise<number> {
   const cutoff = new Date(Date.now() - 2 * LONGEST_WINDOW_SECONDS * 1000);
-  const rows = await db.delete(rateLimits).where(lt(rateLimits.windowStart, cutoff)).returning({ b: rateLimits.bucket });
-  return rows.length;
+  const { count } = await db.delete(rateLimits).where(lt(rateLimits.windowStart, cutoff));
+  return count;
 }

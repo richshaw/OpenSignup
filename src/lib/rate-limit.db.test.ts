@@ -115,7 +115,7 @@ describe('sweepExpiredRateLimits', () => {
       { bucket: 'sweep.test', subject: 'old', windowStart: new Date(Date.now() - 3 * 24 * 3600 * 1000), count: 1 },
       { bucket: 'sweep.test', subject: 'fresh', windowStart: new Date(), count: 1 },
     ]);
-    await sweepExpiredRateLimits(db);
+    expect(await sweepExpiredRateLimits(db)).toBeGreaterThanOrEqual(1);
     const rows = await db.select({ subject: rateLimits.subject }).from(rateLimits).where(eq(rateLimits.bucket, 'sweep.test'));
     expect(rows.map((r) => r.subject)).toEqual(['fresh']);
     await db.delete(rateLimits).where(eq(rateLimits.bucket, 'sweep.test'));
