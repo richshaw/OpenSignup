@@ -191,7 +191,7 @@ export function ShareQrCode({
             expanded", then the code's name and Save image. While the code
             shows, the button looks pressed and says Hide QR code, since
             the code pushes the message below the screen and one tap brings
-            it back. It's half the row either way, so the row doesn't move. */}
+            it back. It's a grid column either way, so the row doesn't move. */}
         <button
           type="button"
           aria-expanded={shown}
@@ -206,7 +206,7 @@ export function ShareQrCode({
           {shown ? 'Hide QR code' : 'QR code'}
         </button>
         {shown ? (
-          <div id={largeId} className="flex basis-full flex-col items-center gap-3 pt-1">
+          <div id={largeId} className="col-span-2 flex flex-col items-center gap-3 pt-1">
             <svg
               viewBox={`0 0 ${side} ${side}`}
               role="img"
@@ -304,7 +304,7 @@ const DESKTOP_LINK_CLASS =
 // Fields button has while open), with ink text, since brand on the tint is
 // under 4.5:1 at this size.
 const PHONE_BUTTON_CLASS =
-  'inline-flex h-12 flex-1 basis-0 items-center justify-center gap-2 whitespace-nowrap rounded-[12px] border text-[15px] font-semibold text-ink transition';
+  'inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-[12px] border text-[15px] font-semibold text-ink transition';
 const PHONE_BUTTON_CLOSED = 'border-surface-sunk bg-white hover:bg-surface-raised';
 const PHONE_BUTTON_OPEN = 'border-brand bg-brand-soft';
 

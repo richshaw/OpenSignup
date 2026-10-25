@@ -158,7 +158,7 @@ export function SharePanel({
       onClick={() => void copy('link')}
       className={
         phone
-          ? `${PHONE_BUTTON} h-12 flex-1 basis-0 text-[15px] ${canShare ? PHONE_SECONDARY : PHONE_PRIMARY}`
+          ? `${PHONE_BUTTON} h-12 text-[15px] ${canShare ? PHONE_SECONDARY : PHONE_PRIMARY}`
           : `${DESKTOP_PRIMARY} min-w-[112px] shrink-0`
       }
     >
@@ -253,8 +253,10 @@ export function SharePanel({
               </div>
             ) : null}
             {linkNotice}
-            {/* The QR code shows large on a row of its own, under these. */}
-            <div className="flex flex-wrap gap-2">
+            {/* Half the row each, as Copy message and Email it are below,
+                so the two rows line up; the QR code shows large across both
+                columns, under these. */}
+            <div className="grid grid-cols-2 gap-2">
               {copyLinkButton}
               <ShareQrCode signupId={signupId} title={title} url={url} variant="phone" />
             </div>
