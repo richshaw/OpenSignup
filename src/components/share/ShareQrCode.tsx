@@ -187,9 +187,11 @@ export function ShareQrCode({
   if (variant === 'phone') {
     return (
       <>
-        {/* Focus stays here: a screen reader hears "QR code, expanded",
-            then the code's name and Save image, and choosing it again
-            puts the code away. */}
+        {/* Focus stays here: a screen reader hears "Hide QR code,
+            expanded", then the code's name and Save image. While the code
+            shows, the button looks pressed and says Hide QR code, since
+            the code pushes the message below the screen and one tap brings
+            it back. It's half the row either way, so the row doesn't move. */}
         <button
           type="button"
           aria-expanded={shown}
@@ -198,10 +200,10 @@ export function ShareQrCode({
             if (!shown) record();
             setShown(!shown);
           }}
-          className={PHONE_BUTTON_CLASS}
+          className={`${PHONE_BUTTON_CLASS} ${shown ? PHONE_BUTTON_OPEN : PHONE_BUTTON_CLOSED}`}
         >
-          <QrCode size={16} aria-hidden="true" />
-          QR code
+          <QrCode size={16} aria-hidden="true" className={shown ? 'text-brand' : undefined} />
+          {shown ? 'Hide QR code' : 'QR code'}
         </button>
         {shown ? (
           <div id={largeId} className="flex basis-full flex-col items-center gap-3 pt-1">
@@ -297,9 +299,14 @@ function downloadFile(href: string, name: string) {
 const DESKTOP_LINK_CLASS =
   '-mr-2.5 inline-flex h-[34px] shrink-0 items-center rounded-[10px] px-2.5 text-[13px] font-semibold text-brand hover:underline';
 
-// Beside Copy link, and drawn the same way.
+// Beside Copy link, and drawn the same way; while the code shows, in the
+// app's pressed look, a brand border on a brand tint (as the Build tab's
+// Fields button has while open), with ink text, since brand on the tint is
+// under 4.5:1 at this size.
 const PHONE_BUTTON_CLASS =
-  'inline-flex h-12 flex-1 basis-0 items-center justify-center gap-2 rounded-[12px] border border-surface-sunk bg-white text-[15px] font-semibold text-ink transition hover:bg-surface-raised';
+  'inline-flex h-12 flex-1 basis-0 items-center justify-center gap-2 whitespace-nowrap rounded-[12px] border text-[15px] font-semibold text-ink transition';
+const PHONE_BUTTON_CLOSED = 'border-surface-sunk bg-white hover:bg-surface-raised';
+const PHONE_BUTTON_OPEN = 'border-brand bg-brand-soft';
 
 // Under the large code, as wide as it, so Saved doesn't change its size.
 const PHONE_SAVE_CLASS =
