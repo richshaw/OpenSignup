@@ -53,6 +53,28 @@ const ANNOUNCED: Partial<Record<SignupStatus, Partial<Record<SignupStatus, strin
 const Say = createContext<(message: string) => void>(() => {});
 
 /**
+ * The status a change made from this page last left the signup in, once the
+ * page shows it, numbered so each change is its own: null until there's been
+ * one. Another tab, or an AI assistant, changes nothing here.
+ */
+type ChangedHere = { to: SignupStatus; n: number } | null;
+const Changed = createContext<ChangedHere>(null);
+
+/** What a change made from this page last did; see `ChangedHere`. */
+export function useChangedHere(): ChangedHere {
+  return useContext(Changed);
+}
+
+/**
+ * Moves focus to the signup's title. Both headers' titles are in the page,
+ * one hidden, so it's the one on screen.
+ */
+export function focusTitle(): void {
+  const titles = Array.from(document.querySelectorAll<HTMLElement>('[data-signup-title]'));
+  titles.find((title) => title.getClientRects().length > 0)?.focus();
+}
+
+/**
  * Has the header's live region say `message`: the share panel's "Published."
  * when Publish on this page answers that it published (focus is the panel's,
  * which opens at the same moment; a signup published some other way says
@@ -65,13 +87,14 @@ export function useAnnounce(): (message: string) => void {
 }
 
 /**
- * Holds the computer and phone headers, and the closed banner under them,
- * with one live region that says what a change made from this page did:
- * Close signup's, from the ⋯, and Reopen signup's, from beside Preview or
- * the phone's ⋯. A status change takes away the button that made it, and
- * the focus with it (Close signup goes with the ⋯ that held it, Reopen
- * signup once the signup is open), so focus goes to the signup's title
- * rather than to the page.
+ * Holds the computer and phone headers, and the closed box under them, with
+ * one live region that says what a change made from this page did: Close
+ * signup's, from the ⋯, and Reopen signup's, from beside Preview or the
+ * phone's ⋯. A status change takes away the button that made it, and the
+ * focus with it (Close signup goes with the ⋯ that held it, Reopen signup
+ * once the signup is open), so focus goes to the signup's title rather than
+ * to the page. The closed box reads `useChangedHere` to show only after this
+ * page's own Close signup.
  */
 export function HeaderAnnouncer({
   status,
@@ -86,6 +109,7 @@ export function HeaderAnnouncer({
   const say = useCallback((message: string) => setSaid(([, n]) => [message, n + 1]), []);
   const previous = useRef(status);
   const askedFor = useRef<SignupStatus | null>(null);
+  const [changed, setChanged] = useState<ChangedHere>(null);
 
   useEffect(() => {
     const was = previous.current;
@@ -96,20 +120,19 @@ export function HeaderAnnouncer({
     const words = asked === status ? ANNOUNCED[was]?.[status] : undefined;
     if (!words) return;
     say(words);
+    setChanged((last) => ({ to: status, n: (last?.n ?? 0) + 1 }));
     // A tick later, once a phone's sheet has finished closing: until then its
-    // focus trap would take focus back. Both headers' titles are in the page,
-    // one hidden, so it's the one on screen.
-    const timer = setTimeout(() => {
-      const titles = Array.from(document.querySelectorAll<HTMLElement>('[data-signup-title]'));
-      titles.find((title) => title.getClientRects().length > 0)?.focus();
-    });
+    // focus trap would take focus back.
+    const timer = setTimeout(focusTitle);
     return () => clearTimeout(timer);
   }, [status, say]);
 
   return (
     <AskedFor.Provider value={askedFor}>
-      <Say.Provider value={say}>{children}</Say.Provider>
-      {/* Last, after the headers and the closed banner, so the layout's
+      <Say.Provider value={say}>
+        <Changed.Provider value={changed}>{children}</Changed.Provider>
+      </Say.Provider>
+      {/* Last, after the headers and the closed box, so the layout's
           spacing between them and the tabs stays as it was. */}
       <p role="status" className="sr-only">
         <span key={said[1]}>{said[0]}</span>

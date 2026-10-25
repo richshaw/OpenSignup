@@ -98,6 +98,23 @@ test.describe('organizer flow', () => {
     await expect(
       page.getByRole('status').filter({ hasText: 'Closed. People can’t sign up now.' }),
     ).toHaveCount(1);
+
+    // The box stays on the other tabs, and goes for good with its ✕, which
+    // gives focus to the title. The header still says it's closed, and the
+    // next page load shows no box.
+    await page.getByRole('tab', { name: /^Settings/ }).click();
+    await page.waitForURL(/\/settings$/);
+    await expect(banner).toBeVisible();
+    await page.getByRole('button', { name: 'Dismiss' }).click();
+    await expect(banner).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+    await expect(pill('closed')).toBeVisible();
+    await page.reload();
+    await expect(pill('closed')).toBeVisible();
+    await expect(
+      page.getByText('Closed · 1 of 6 spots taken').locator('visible=true'),
+    ).toBeVisible();
+    await expect(banner).toHaveCount(0);
   });
 
   test('on a phone, Close signup asks first in the More actions sheet', async ({ page }) => {
@@ -156,7 +173,7 @@ test.describe('organizer flow', () => {
     await expect(sheet.getByRole('button', { name: 'Not yet' })).toHaveCount(0);
   });
 
-  test('a signup closed some other way shows as closed, without the announcement', async ({
+  test('a signup closed some other way shows as closed, without the announcement or the box', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -171,7 +188,8 @@ test.describe('organizer flow', () => {
     // brings the header up to date.
     expect((await page.request.post(`/api/signups/${signup.id}/close`)).ok()).toBe(true);
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByText('Signup closed', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reopen signup' })).toBeVisible();
+    await expect(page.getByText('Signup closed', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'More actions' })).toHaveCount(0);
     await expect(
       page.getByRole('status').filter({ hasText: 'Closed. People can’t sign up now.' }),
@@ -374,8 +392,9 @@ for (const [device, viewport] of [
       const banner = page.getByText('Signup closed', { exact: true });
 
       await page.goto(`/app/signups/${signup.id}/build`);
-      await expect(banner).toBeVisible();
       await expect(pill('closed')).toBeVisible();
+      // Closed before the page loaded, so no box: the header says it.
+      await expect(banner).toHaveCount(0);
       const reopen = await reopenSignup(page, device);
       await expect(reopen).toBeVisible();
       if (device === 'a phone') {
