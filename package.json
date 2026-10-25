@@ -50,7 +50,7 @@
     "drizzle-orm": "^0.45.2",
     "jose": "6.2.12",
     "lucide-react": "^0.468.0",
-    "next": "15.5.27",
+    "next": "15.5.28",
     "next-auth": "5.0.0-beta.32",
     "nodemailer": "^10.0.9",
     "oidc-provider": "9.12.2",
@@ -66,7 +66,7 @@
   },
   "pnpm": {
     "overrides": {
-      "next": "15.5.27",
+      "next": "15.5.28",
       "shell-quote": "1.11.0"
     },
     "peerDependencyRules": {
@@ -102,7 +102,7 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vite": "^7.0.0",
+    "vite": "^7.3.7",
     "vitest": "^4.1.11"
   }
 }
