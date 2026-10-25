@@ -2,7 +2,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { ACTION_SIZING } from './slot-format';
 import { toSignupViewSlots } from './public-signup';
@@ -665,5 +665,141 @@ describe('<SignupViewBody /> for a returning participant', () => {
     expect(screen.getByText('Preview')).toBeInTheDocument();
     expect(screen.queryByText('Closed', { selector: 'p' })).toBeNull();
     expect(screen.queryByText("You're signed up")).toBeNull();
+  });
+});
+
+describe('naming the slot once its row is out of sight', () => {
+  const settle = { timeout: 5000 };
+  // Three shifts with the same name on one Saturday, grouped by date, so the
+  // time is what tells them apart.
+  const SHIFT_FIELDS: SignupViewField[] = [
+    { ref: 'date', label: 'Date', fieldType: 'date' },
+    { ref: 'task', label: 'Task', fieldType: 'text' },
+    { ref: 'start', label: 'Start', fieldType: 'time' },
+  ];
+  const SHIFTS: SignupViewSlot[] = [
+    { ...SLOTS[0]!, id: 'am', values: { date: '2026-11-07', task: 'Sort and pack food', start: '09:00' } },
+    { ...SLOTS[0]!, id: 'pm', values: { date: '2026-11-07', task: 'Sort and pack food', start: '12:00' } },
+  ];
+  // Not grouped: the same dish on two dates, with the date in the row's
+  // second line.
+  const DISH_FIELDS: SignupViewField[] = [
+    { ref: 'item', label: 'Item', fieldType: 'text' },
+    { ref: 'date', label: 'Date', fieldType: 'date' },
+  ];
+  const DISHES: SignupViewSlot[] = [
+    { ...SLOTS[0]!, id: 'd1', values: { item: 'Bring a dish', date: '2026-11-07' } },
+    { ...SLOTS[0]!, id: 'd2', values: { item: 'Bring a dish', date: '2026-11-14' } },
+  ];
+
+  function renderLive(fields: SignupViewField[], groupByRef: string | null, slots: SignupViewSlot[]) {
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={fields}
+        groupByRef={groupByRef}
+        slots={slots}
+        slug="example"
+        mode="live"
+        showStateBanner={false}
+      />,
+    );
+  }
+
+  async function signUp(button: RegExp) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          data: { commitment: { id: 'com_1' }, editUrl: 'https://example.test/s/example/c/com_1' },
+        }),
+      })),
+    );
+    try {
+      fireEvent.click(screen.getByRole('button', { name: button }));
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Pat Example' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pat@example.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      await screen.findByRole('heading', { name: "You're in." }, settle);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  }
+
+  it("shows a grouped slot's date and time above its name in the sheet", async () => {
+    renderLive(SHIFT_FIELDS, 'date', SHIFTS);
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up for .*12:00/ }));
+    const dialog = await screen.findByRole('dialog', {}, settle);
+    expect(within(dialog).getByText(/^Sat, Nov 7 · 12:00\sPM$/)).toBeInTheDocument();
+    expect(within(dialog).getByText('Sort and pack food')).toBeInTheDocument();
+  });
+
+  it('announces the sheet with the group named once', async () => {
+    renderLive(SHIFT_FIELDS, 'date', SHIFTS);
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up for .*12:00/ }));
+    expect(await screen.findByRole('dialog', {}, settle)).toHaveAccessibleName(
+      /^Sign up for Sat, Nov 7, Sort and pack food, 12:00\sPM$/,
+    );
+  });
+
+  it("names a grouped slot's date and time in \"You're in.\"", async () => {
+    renderLive(SHIFT_FIELDS, 'date', SHIFTS);
+    await signUp(/^Sign up for .*12:00/);
+    expect(
+      screen.getByText(/^Sat, Nov 7 · Sort and pack food · 12:00\sPM$/, { selector: 'strong' }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows an ungrouped slot's date in the sheet and in \"You're in.\"", async () => {
+    renderLive(DISH_FIELDS, null, DISHES);
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up for .*Nov 14/ }));
+    const dialog = await screen.findByRole('dialog', {}, settle);
+    expect(within(dialog).getByText('Sat, Nov 14')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await signUp(/^Sign up for .*Nov 14/);
+    expect(
+      screen.getByText('Bring a dish · Sat, Nov 14', { selector: 'strong' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows no line above the name of a slot with nothing but its title', async () => {
+    renderLive([{ ref: 'item', label: 'Item', fieldType: 'text' }], null, [
+      { ...SLOTS[0]!, id: 'only', values: { item: 'Cookies' } },
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign up for Cookies' }));
+    const dialog = await screen.findByRole('dialog', {}, settle);
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(/^Sign up for CookiesCookies$/);
+    expect(dialog.querySelector('p[aria-hidden="true"]')).toBeNull();
+  });
+
+  it('leaves "(no date)" out of the name of a slot in the no-date group', async () => {
+    renderLive(SHIFT_FIELDS, 'date', [
+      { ...SLOTS[0]!, id: 'undated', values: { task: 'Sort and pack food', start: '09:00' } },
+    ]);
+    await signUp(/^Sign up for /);
+    expect(
+      screen.getByText(/^Sort and pack food · 9:00\sAM$/, { selector: 'strong' }),
+    ).toBeInTheDocument();
+  });
+
+  it('names the group and time in the signed-up bar', () => {
+    render(
+      <SignupViewBody
+        signup={SIGNUP}
+        fields={SHIFT_FIELDS}
+        groupByRef="date"
+        slots={SHIFTS}
+        slug="example"
+        mode="live"
+        ownCommitments={[{ slotId: 'pm', editUrl: '/s/example/c/com_1?t=tok' }]}
+      />,
+    );
+    expect(
+      screen.getByText(/^Sat, Nov 7 · Sort and pack food · 12:00\sPM$/, {
+        selector: 'span.text-ink',
+      }),
+    ).toBeInTheDocument();
   });
 });

@@ -14,6 +14,14 @@ type BottomSheetProps = {
    */
   title?: ReactNode;
   /**
+   * A line above the title that says where its subject sits, such as a slot's
+   * date and time. Hidden from assistive tech, so it is for a sighted reader
+   * only: put anything a screen reader needs in the title's `sr-only` part.
+   * Outside the heading, so the heading's two-line clamp never trades the
+   * title for it.
+   */
+  eyebrow?: ReactNode;
+  /**
    * A short line beside the title, such as "2 of 4 spots left". It sits
    * outside the heading, so the dialog's name stays the title's, and it
    * becomes the dialog's accessible description, read out when it opens.
@@ -65,6 +73,7 @@ export function BottomSheet({
   open,
   onClose,
   title,
+  eyebrow,
   description,
   descriptionId,
   describedBy,
@@ -107,6 +116,11 @@ export function BottomSheet({
               ].join(' ')}
             >
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                {eyebrow ? (
+                  <p aria-hidden="true" className="basis-full text-sm text-ink-muted">
+                    {eyebrow}
+                  </p>
+                ) : null}
                 {/* Wraps to two lines rather than truncating: this heading is
                     often the only place the sheet names what it is acting on,
                     and one clipped line at 390px loses the end of it. */}
