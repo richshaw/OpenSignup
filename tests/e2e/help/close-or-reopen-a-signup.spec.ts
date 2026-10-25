@@ -214,19 +214,21 @@ test.describe('help: close or reopen a signup', () => {
       expect(passed.ok(), await passed.text()).toBe(true);
       await chooseFromYourSignups(page, signup.id);
       const reopen = page.getByRole('button', { name: UI.reopenSignup });
+      const preview = page.getByRole('link', { name: UI.preview }).locator('visible=true');
       await expect(banner).toBeVisible();
       await expect(reopen).toBeVisible();
-      if (CAPTURE) {
-        // At a computer's narrowest, so the box isn't too wide to read once
-        // it's scaled into the article's column. Same layout as at any width
-        // from there up.
-        const size = page.viewportSize();
-        await page.setViewportSize({ width: 768, height: size?.height ?? 720 });
-        const box = banner.locator('xpath=../..');
-        await expect(box.getByRole('button', { name: UI.reopenSignup })).toBeVisible();
-        await shot(page, [box], 'closed-banner', 0);
-        if (size) await page.setViewportSize(size);
-      }
+      // "At the top of the page, choose Reopen signup, next to Preview."
+      const [previewBox, reopenBox] = await Promise.all([
+        preview.boundingBox(),
+        reopen.boundingBox(),
+      ]);
+      if (!previewBox || !reopenBox)
+        throw new Error('Preview and Reopen signup should be on screen');
+      const reopenGap = reopenBox.x - (previewBox.x + previewBox.width);
+      expect(reopenGap).toBeGreaterThanOrEqual(0);
+      expect(reopenGap).toBeLessThan(16);
+      expect(reopenBox.y).toBeLessThan(150);
+      await shot(page, [preview, reopen], 'reopen-button');
       await reopen.click();
 
       await expect(banner).toHaveCount(0);
@@ -254,7 +256,7 @@ test.describe('help: close or reopen a signup', () => {
   test.describe('on a phone', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
-    test('the three dots are next to the title, and Reopen signup is in the grey box', async ({
+    test('the three dots are next to the title, and Reopen signup is behind them', async ({
       page,
       context,
     }) => {
@@ -295,23 +297,18 @@ test.describe('help: close or reopen a signup', () => {
       ).toBeVisible();
       const banner = page.getByText(UI.signupClosed, { exact: true });
       await expect(banner).toBeVisible();
-      await expect(more).toHaveCount(0);
 
-      // Reopen your signup: the button is in the grey box, under its title.
-      const reopen = page.getByRole('button', { name: UI.reopenSignup });
-      const box = banner.locator('xpath=../..');
-      await expect(box.getByRole('button', { name: UI.reopenSignup })).toBeVisible();
-      const [reopenBox, bannerBox] = await Promise.all([
-        reopen.boundingBox(),
-        banner.boundingBox(),
-      ]);
-      expect(reopenBox?.y ?? 0).toBeGreaterThan(bannerBox?.y ?? Infinity);
-      await reopen.click();
+      // Reopen your signup: "On a phone, choose the three dots next to your
+      // signup's title first." They stay once it's closed.
+      await expect(more).toBeVisible();
+      await more.click();
+      await expect(sheet.getByRole('link', { name: UI.preview })).toBeVisible();
+      await expect(sheet.getByRole('button', { name: UI.closeSignup })).toHaveCount(0);
+      await sheet.getByRole('button', { name: UI.reopenSignup }).click();
+      await expect(sheet).toBeHidden();
       await expect(banner).toHaveCount(0);
       await expect(page.getByText(UI.open, { exact: true }).locator('visible=true')).toBeVisible();
       await expect(more).toBeVisible();
-      // The sheet Close signup was chosen in doesn't come back with it.
-      await expect(sheet).toBeHidden();
     });
   });
 });

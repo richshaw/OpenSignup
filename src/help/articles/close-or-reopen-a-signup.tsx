@@ -97,14 +97,15 @@ export function CloseOrReopenASignup() {
           </Step>
           <Step>
             <p>
-              Under its title, in the grey <Ui>{UI.signupClosed}</Ui> box, choose{' '}
-              <Ui>{UI.reopenSignup}</Ui>.
+              At the top of the page, choose <Ui>{UI.reopenSignup}</Ui>, next to{' '}
+              <Ui>{UI.preview}</Ui>. On a phone, choose the three dots next to your signup&apos;s
+              title first.
             </p>
             <Screenshot
-              src="/help/close-or-reopen-a-signup/closed-banner.png"
-              alt="The grey Signup closed box, saying people can’t sign up now and everyone already signed up keeps their spot, with a blue Reopen signup button under it."
-              width={720}
-              height={129}
+              src="/help/close-or-reopen-a-signup/reopen-button.png"
+              alt="Preview and a blue Reopen signup button, at the top right of a closed signup’s page."
+              width={280}
+              height={68}
             />
           </Step>
         </Steps>

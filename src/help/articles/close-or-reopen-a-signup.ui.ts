@@ -22,9 +22,12 @@ export const UI = {
   // The signup's status, beside its title.
   closed: 'closed',
   open: 'open',
-  // The grey box on every tab of a closed signup, by its heading, and its button.
+  // The grey box on every tab of a closed signup, by its heading.
   signupClosed: 'Signup closed',
+  // A closed signup's button at the top of the page, beside Preview. On a
+  // phone it's behind the three dots, under Preview.
   reopenSignup: 'Reopen signup',
+  preview: 'Preview',
   // On the signup page people open: the heading of the box at the top, and
   // what each slot says in place of Sign up.
   closedForPeople: 'Closed',
