@@ -16,6 +16,17 @@ interface CommitDialogProps {
   slotTitle: string;
   /** Full disambiguating name for the button; see slotAccessibleName. */
   actionName: string;
+  /**
+   * The slot's name for reading, group and every value (`slotDisplayName`).
+   * "You're in." and the share text use it, because by then the row and its
+   * group heading are out of sight.
+   */
+  slotName: string;
+  /**
+   * The slot's group and other values without its title (`slotContext`),
+   * shown above the title in the sheet. Empty for a slot with only a title.
+   */
+  slotContext: string;
   slotAt: string | null;
   /**
    * Whether the slot carries a time of its own: the row's `hasTime`, which the
@@ -106,6 +117,8 @@ export default function CommitDialog({
   slotId,
   slotTitle,
   actionName,
+  slotName,
+  slotContext,
   slotAt,
   slotHasTime,
   spotsLeft,
@@ -302,7 +315,7 @@ export default function CommitDialog({
     if (!success) return;
     const shareData = {
       title: signupTitle,
-      text: `I'm signed up for "${slotTitle}".`,
+      text: `I'm signed up for "${slotName}".`,
       url: success.editUrl,
     };
     const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
@@ -375,10 +388,12 @@ export default function CommitDialog({
         busy={submitting}
         onOpenAutoFocus={handleOpenAutoFocus}
         // On screen the heading is the slot's own name, which is what the
-        // participant just tapped. The name the dialog is *announced* by is the
-        // disambiguated one the trigger uses, because "Cookies" alone repeats
-        // across every date of a grouped signup, and says nothing about what
-        // the sheet is for.
+        // participant just tapped, below a line (the eyebrow) with its group
+        // and other values: on a phone the sheet covers the list, and
+        // "Cookies" alone repeats across every date of a grouped signup. The
+        // name the dialog is *announced* by is the one the trigger uses, which
+        // already holds all of that, so both visible lines are hidden from
+        // assistive tech rather than read twice.
         title={
           success ? (
             "You're in."
@@ -389,6 +404,7 @@ export default function CommitDialog({
             </>
           )
         }
+        eyebrow={success ? undefined : slotContext || undefined}
         description={
           !success && showSpotsLeft ? `${left} of ${slotCapacity} spots left` : undefined
         }
@@ -397,7 +413,7 @@ export default function CommitDialog({
         {success ? (
           <div className="space-y-4">
             <p className="text-ink-muted text-sm">
-              We&apos;ve saved your spot for <strong className="text-ink">{slotTitle}</strong>.{' '}
+              We&apos;ve saved your spot for <strong className="text-ink">{slotName}</strong>.{' '}
               {success.emailed ? (
                 'Bookmark this link to edit or cancel later:'
               ) : (
