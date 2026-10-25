@@ -12,7 +12,7 @@ import { MoreActionsMenu } from './MoreActionsMenu';
 import { PublishButton, PublishRefusal } from './PublishButton';
 import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
-import type { StatusAction } from './StatusActionForm';
+import type { StatusAction, StatusChangeAction } from './StatusActionForm';
 
 interface SignupHeaderProps {
   signupId: string;
@@ -29,7 +29,7 @@ interface SignupHeaderProps {
   /** What the share panel offers to send with the link, from `shareMessage`. */
   shareMessage: string;
   publishAction: StatusAction;
-  closeAction: StatusAction;
+  closeAction: StatusChangeAction;
 }
 
 export function SignupHeader({

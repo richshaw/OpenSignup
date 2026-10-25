@@ -3,13 +3,13 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import type { SignupStatus } from '@/schemas/signups';
 import { HeaderAnnouncer, useAnnounce, useAnnouncedStatusChange } from './HeaderAnnouncer';
-import type { StatusAction } from './StatusActionForm';
+import type { StatusAction, StatusChangeAction } from './StatusActionForm';
 
 const CLOSED = 'Closed. People can’t sign up now.';
 const REOPENED = 'Reopened. People can sign up again.';
 
 /** Runs a status change the way the header's Close signup does, through the hook. */
-function ChangeButton({ action, to }: { action: StatusAction; to: SignupStatus }) {
+function ChangeButton({ action, to }: { action: StatusChangeAction; to: SignupStatus }) {
   const change = useAnnouncedStatusChange(action, to);
   return (
     <button type="button" onClick={() => void change()}>
@@ -24,7 +24,7 @@ function ChangeButton({ action, to }: { action: StatusAction; to: SignupStatus }
  * screen and the phone's isn't.
  */
 function renderHeader(
-  action: StatusAction,
+  action: StatusChangeAction,
   status: SignupStatus = 'open',
   to: SignupStatus = 'closed',
 ) {
@@ -44,7 +44,7 @@ function renderHeader(
   return {
     ...utils,
     show: (now: SignupStatus) => utils.rerender(ui(now)),
-    /** Presses the button from the keyboard, so focus is on it to begin with. */
+    /** Presses the button with focus on it first, as a keyboard user would. */
     press: () =>
       act(async () => {
         button.focus();
@@ -132,10 +132,10 @@ describe('HeaderAnnouncer', () => {
   });
 
   // The status it asked for, but from a status the header has no words for
-  // a change from: it goes by both. A Publish (draft to open) through the
-  // hook mustn't say "Reopened".
+  // a change from: it goes by both. The draft-to-open row is what keeps
+  // reaching open from a draft from saying "Reopened".
   it.each<[string, SignupStatus]>([
-    ['a draft published through the hook', 'open'],
+    ['a draft opened through the hook', 'open'],
     ['a draft closed through the hook', 'closed'],
   ])(
     'says nothing and leaves focus alone after %s, a change it doesn’t announce',
@@ -187,5 +187,17 @@ describe('HeaderAnnouncer', () => {
     expect(region).toHaveTextContent('Saved.');
     expect(region.firstElementChild).not.toBe(first);
     expect(region.children).toHaveLength(1);
+  });
+});
+
+describe('useAnnouncedStatusChange', () => {
+  it('takes no action shaped like Publish, which it would break', () => {
+    // Publish takes a form and answers { published: true } when it works. The
+    // hook passes no form and counts any answer but null as a refusal, so the
+    // type keeps Publish out rather than letting it through to fail quietly.
+    const publishShaped: StatusAction = async () => ({ published: true });
+    // @ts-expect-error: not an action the hook takes.
+    const taken: Parameters<typeof useAnnouncedStatusChange>[0] = publishShaped;
+    expect(taken).toBe(publishShaped);
   });
 });

@@ -9,7 +9,8 @@ const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const SPOTS: SpotCounts = { taken: 3, total: 21, open: 18, allSlotsOpen: true };
 
 /**
- * Both headers, as the layout renders them (a draft has no counts). CSS
+ * Both headers, as the layout renders them (a draft has no counts), without
+ * the layout's `HeaderAnnouncer` around them, which nothing here reads. CSS
  * shows one or the other; here they're both in the page, phone first.
  */
 function renderHeader(status: SignupStatus, spots: SpotCounts | null = SPOTS) {

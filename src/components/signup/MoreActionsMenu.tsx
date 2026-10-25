@@ -10,12 +10,16 @@ import {
 } from './CloseSignupConfirm';
 import { OUTLINED } from './header-buttons';
 import { useAnnouncedStatusChange } from './HeaderAnnouncer';
-import { StatusActionScope, useStatusActionPending, type StatusAction } from './StatusActionForm';
+import {
+  StatusActionScope,
+  useStatusActionPending,
+  type StatusChangeAction,
+} from './StatusActionForm';
 
 interface MoreActionsMenuProps {
   closeQuestion: string;
   closeQuestionAction: CloseQuestionAction;
-  closeAction: StatusAction;
+  closeAction: StatusChangeAction;
 }
 
 /**

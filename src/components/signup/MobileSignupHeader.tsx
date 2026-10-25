@@ -5,7 +5,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { StatusPill } from '@/components/status-pill';
 import type { SignupStatus } from '@/schemas/signups';
 import { useCloseQuestion, type CloseQuestionAction } from './CloseSignupConfirm';
-import type { StatusAction } from './StatusActionForm';
+import type { StatusChangeAction } from './StatusActionForm';
 import { MobileMoreMenuSheet } from './MobileMoreMenuSheet';
 import { PhoneBar } from './PhoneBar';
 import { hasPhoneBar } from './phone-bar';
@@ -21,7 +21,7 @@ interface MobileSignupHeaderProps {
   spotsTaken: string | null;
   closeQuestion: string;
   closeQuestionAction: CloseQuestionAction;
-  closeAction: StatusAction;
+  closeAction: StatusChangeAction;
 }
 
 /**
