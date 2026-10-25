@@ -122,6 +122,24 @@ describe('MobileSignupHeader: the More actions sheet', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('opens on the menu again, not Close’s question, after Close from it and a reopen', async () => {
+    const { rerender } = render(<Phone status="open" action={async () => null} />);
+    let sheet = openMore();
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Close signup' }));
+    // Close's question, then its red Close signup, which closes the signup.
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Close signup' }));
+    });
+    rerender(<Phone status="closed" action={async () => null} />);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    rerender(<Phone status="open" action={async () => null} />);
+
+    sheet = openMore();
+    expect(within(sheet).getByRole('link', { name: 'Preview' })).toBeInTheDocument();
+    expect(within(sheet).getByRole('button', { name: 'Close signup' })).toBeInTheDocument();
+    expect(within(sheet).queryByRole('button', { name: 'Not yet' })).toBeNull();
+  });
+
   it('isn’t there for a closed or archived signup', () => {
     const { rerender } = render(<Phone status="closed" action={async () => null} />);
     expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();

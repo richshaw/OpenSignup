@@ -145,6 +145,12 @@ test.describe('organizer flow', () => {
     await expect(more).toHaveAttribute('aria-expanded', 'false');
     await expect(sheet).toBeHidden();
     expect(await storedStatus()).toBe('open');
+
+    // Opened again, the sheet starts from its menu, not Close's question.
+    await more.click();
+    await expect(sheet.getByRole('link', { name: 'Preview' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Close signup' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Not yet' })).toHaveCount(0);
   });
 
   test('a signup closed some other way shows as closed, without the announcement', async ({
