@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { SignupStatus } from '@/schemas/signups';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
 import { ReopenButton } from './ReopenButton';
-import type { StatusAction } from './StatusActionForm';
+import type { StatusChangeAction } from './StatusActionForm';
 
 const NO_ACCESS = 'You don’t have edit access.';
 
@@ -22,7 +22,7 @@ afterEach(() => {
 
 describe('ReopenButton', () => {
   it('reopens the signup when pressed', async () => {
-    const reopenAction = vi.fn<StatusAction>(async () => null);
+    const reopenAction = vi.fn<StatusChangeAction>(async () => null);
     render(<ReopenButton reopenAction={reopenAction} />);
     await press(reopenButton());
     await waitFor(() => expect(reopenAction).toHaveBeenCalledTimes(1));
@@ -34,7 +34,7 @@ describe('ReopenButton', () => {
     // every action in flight before it finishes any, so one left hanging
     // would hold up the tests after this.
     let answer: (result: null) => void = () => {};
-    const reopenAction = vi.fn<StatusAction>(() => new Promise((resolve) => (answer = resolve)));
+    const reopenAction = vi.fn<StatusChangeAction>(() => new Promise((resolve) => (answer = resolve)));
     render(<ReopenButton reopenAction={reopenAction} />);
     await press(reopenButton());
 
@@ -60,10 +60,37 @@ describe('ReopenButton', () => {
     expect(reopenButton()).toBeEnabled();
   });
 
+  it('gives focus back to the button after a refusal', async () => {
+    // A browser takes focus off a button while it's disabled and doesn't
+    // give it back. jsdom keeps it there, so the test moves it elsewhere on
+    // the page while the press is in flight.
+    let answer: (result: { error: string }) => void = () => {};
+    render(
+      <>
+        <ReopenButton reopenAction={() => new Promise((resolve) => (answer = resolve))} />
+        <a href="#elsewhere">Elsewhere</a>
+      </>,
+    );
+    reopenButton().focus();
+    await press(reopenButton());
+    const elsewhere = screen.getByRole('link', { name: 'Elsewhere' });
+    elsewhere.focus();
+    expect(elsewhere).toHaveFocus();
+
+    await act(async () => answer({ error: NO_ACCESS }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(NO_ACCESS);
+    expect(reopenButton()).toHaveFocus();
+  });
+
+  it('takes no focus as the page loads', () => {
+    render(<ReopenButton reopenAction={async () => null} />);
+    expect(reopenButton()).not.toHaveFocus();
+  });
+
   it('hides an old refusal while a retry is in flight', async () => {
     let answer: (result: null) => void = () => {};
     const reopenAction = vi
-      .fn<StatusAction>()
+      .fn<StatusChangeAction>()
       .mockResolvedValueOnce({ error: NO_ACCESS })
       .mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
     render(<ReopenButton reopenAction={reopenAction} />);
@@ -82,7 +109,7 @@ describe('ReopenButton', () => {
     vi.spyOn(Element.prototype, 'getClientRects').mockImplementation(function (this: Element) {
       return (this.hasAttribute('data-signup-title') ? [{}] : []) as unknown as DOMRectList;
     });
-    const page = (status: SignupStatus, action: StatusAction) => (
+    const page = (status: SignupStatus, action: StatusChangeAction) => (
       <HeaderAnnouncer status={status}>
         <h1 tabIndex={-1} data-signup-title>
           Bake sale helpers

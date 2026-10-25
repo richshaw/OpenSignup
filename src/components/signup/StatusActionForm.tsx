@@ -15,6 +15,12 @@ type StatusActionState = { error: string } | { published: true } | PublishCheckA
  * signup and Reopen signup take none.
  */
 export type StatusAction = (form?: FormData) => Promise<StatusActionState>;
+/**
+ * An action that only changes the signup's status, as Close signup does: it
+ * takes no form, and answers null once the status has changed or why it
+ * hasn't. What `useAnnouncedStatusChange` takes; Publish is none of these.
+ */
+export type StatusChangeAction = () => Promise<{ error: string } | null>;
 
 // What useActionState returns: the answer (or null), the form action, pending.
 const StatusActionContext = createContext<

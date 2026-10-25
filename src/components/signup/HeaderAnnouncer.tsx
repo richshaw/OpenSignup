@@ -11,7 +11,7 @@ import {
   type RefObject,
 } from 'react';
 import type { SignupStatus } from '@/schemas/signups';
-import type { StatusAction } from './StatusActionForm';
+import type { StatusChangeAction } from './StatusActionForm';
 
 // The status a button on this page has just changed the signup to, set when
 // its action answers, and read when the header next sees its status change.
@@ -22,8 +22,16 @@ const AskedFor = createContext<RefObject<SignupStatus | null> | null>(null);
  * `to`, so the header can say so and move focus. A signup changed some other
  * way (another tab, an AI assistant) shows its new status when the page next
  * reloads its data, without either.
+ *
+ * Only for an action that answers null once it has changed the status and
+ * takes no form (`StatusChangeAction`). Publish takes a form and answers
+ * `{ published: true }`, so it can't come through here: it says what it did
+ * through the share panel (`useAnnounce`).
  */
-export function useAnnouncedStatusChange(action: StatusAction, to: SignupStatus): StatusAction {
+export function useAnnouncedStatusChange(
+  action: StatusChangeAction,
+  to: SignupStatus,
+): StatusChangeAction {
   const askedFor = useContext(AskedFor);
   return async () => {
     const refusal = await action();
@@ -34,8 +42,9 @@ export function useAnnouncedStatusChange(action: StatusAction, to: SignupStatus)
 
 // What the header says after a change this page asked for, by the status the
 // signup changed from and then to; any other change says nothing. It goes by
-// both on purpose, not by the new status alone: a Publish that came through
-// here (draft to open) mustn't say what reopening a closed signup does.
+// both on purpose, not by the new status alone, so each message is said only
+// for the change it describes: reaching open from a draft is a publish, not
+// what reopening a closed signup says.
 const ANNOUNCED: Partial<Record<SignupStatus, Partial<Record<SignupStatus, string>>>> = {
   open: { closed: 'Closed. People can’t sign up now.' },
   closed: { open: 'Reopened. People can sign up again.' },

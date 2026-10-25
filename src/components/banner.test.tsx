@@ -40,6 +40,7 @@ describe('<Banner />', () => {
         title="Drafted with AI"
         body="Check it before you publish."
         onDismiss={onDismiss}
+        live={false}
         action={<button type="button">Do it</button>}
       />,
     );
@@ -50,5 +51,12 @@ describe('<Banner />', () => {
     expect(dismiss).toHaveClass('flex-shrink-0');
     fireEvent.click(dismiss);
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes an action only in a banner that isn’t a live region', () => {
+    // A button's refusal is an alert, which mustn't sit inside role="status".
+    // @ts-expect-error: a live banner takes no action.
+    const live = <Banner kind="closed" title="T" body="B" action={<button type="button">X</button>} />;
+    expect(live.props.action).toBeTruthy();
   });
 });
