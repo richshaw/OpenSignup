@@ -12,8 +12,7 @@ vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const PREVIEW = '/app/signups/sig_1/preview';
-const QUESTION =
-  'Nobody has signed up yet. People can’t sign up after this, and you can’t reopen it.';
+const QUESTION = 'Nobody has signed up yet. People can’t sign up until you reopen it.';
 
 /**
  * The phone's header as SignupHeader puts it together, at `status`, its parts

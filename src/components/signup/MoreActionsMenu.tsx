@@ -20,8 +20,9 @@ interface MoreActionsMenuProps {
 
 /**
  * The ⋯ beside Share on an open signup, on a computer. Its one item, Close
- * signup, asks first in the same panel: a signup can't be reopened, so
- * closing it is never one click in the spot where Publish was.
+ * signup, asks first in the same panel: a closed signup turns everyone away
+ * until the organizer reopens it from the closed banner, so closing it is
+ * never one click in the spot where Publish was.
  */
 export function MoreActionsMenu({
   closeQuestion,

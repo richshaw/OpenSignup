@@ -35,9 +35,10 @@ export function useAnnouncedStatusChange(action: StatusAction, to: SignupStatus)
 // What the header says after a change this page asked for, by the status the
 // signup changed from and then to; any other change says nothing. It goes by
 // both on purpose, not by the new status alone: a Publish that came through
-// here (draft to open) mustn't say what reopening a closed signup would.
+// here (draft to open) mustn't say what reopening a closed signup does.
 const ANNOUNCED: Partial<Record<SignupStatus, Partial<Record<SignupStatus, string>>>> = {
   open: { closed: 'Closed. People can’t sign up now.' },
+  closed: { open: 'Reopened. People can sign up again.' },
 };
 
 const Say = createContext<(message: string) => void>(() => {});
@@ -56,10 +57,11 @@ export function useAnnounce(): (message: string) => void {
 
 /**
  * Holds the computer and phone headers, and the closed banner under them,
- * with one live region that says what a change made from this page did. A
+ * with one live region that says what a change made from this page did:
+ * Close signup's, from the header, and Reopen signup's, from the banner. A
  * status change takes away the button that made it, and the focus with it
- * (Close signup goes with the ⋯ that held it), so focus goes to the signup's
- * title rather than to the page.
+ * (Close signup goes with the ⋯ that held it, Reopen signup with the banner),
+ * so focus goes to the signup's title rather than to the page.
  */
 export function HeaderAnnouncer({
   status,

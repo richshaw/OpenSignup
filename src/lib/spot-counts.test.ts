@@ -68,7 +68,7 @@ describe('spotCounts', () => {
 });
 
 describe('closeSignupQuestion', () => {
-  const after = ' People can’t sign up after this, and you can’t reopen it.';
+  const after = ' People can’t sign up until you reopen it.';
   const kept = `${after} Everyone already signed up keeps their spot.`;
 
   it('says nobody has signed up yet when no spot is taken', () => {

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 type Kind = 'preview' | 'closed' | 'aiDraft';
 
 const STYLES: Record<Kind, string> = {
@@ -10,12 +12,20 @@ export function Banner({
   kind,
   title,
   body,
+  action,
   onDismiss,
   live = true,
 }: {
   kind: Kind;
   title: string;
   body: string;
+  /**
+   * What the organizer can do about it, such as the closed banner's Reopen
+   * signup: under the text, at its left, on every width. Never at the
+   * banner's right edge, where Close signup's confirm button was a moment
+   * before the closed banner appeared.
+   */
+  action?: ReactNode;
   onDismiss?: () => void;
   /**
    * A live region (`role="status"`) unless false: for a banner that says what
@@ -31,6 +41,9 @@ export function Banner({
       <div className="min-w-0 flex-1 space-y-1">
         <p className="text-base font-semibold">{title}</p>
         <p className="text-sm">{body}</p>
+        {/* 12px under the body: space-y-1's 4px top margin, which outranks
+            an mt-* here, and this 8px. */}
+        {action ? <div className="pt-2">{action}</div> : null}
       </div>
       {onDismiss && (
         <button

@@ -12,9 +12,10 @@ import { hasPhoneBar, PHONE_BAR_ROOM } from '@/components/signup/phone-bar';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
 import { Banner } from '@/components/banner';
+import { ReopenButton } from '@/components/signup/ReopenButton';
 import { SignupLoadError } from '@/components/signup/SignupLoadError';
 import type { SignupStatus } from '@/schemas/signups';
-import { closeAction, closeQuestionAction, publishAction } from './actions';
+import { closeAction, closeQuestionAction, publishAction, reopenAction } from './actions';
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -74,14 +75,16 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
             publishAction={publishAction.bind(null, id)}
             closeAction={closeAction.bind(null, id)}
           />
-          {/* On every tab, for as long as it's closed. Not a live region:
-            closing it from this page is announced by the header's. */}
+          {/* On every tab, for as long as it's closed, with Reopen signup
+            under its text. Not a live region: closing it from this page,
+            and reopening it from here, are announced by the header's. */}
           {sig.status === 'closed' ? (
             <Banner
               kind="closed"
               live={false}
               title="Signup closed"
               body={`People can’t sign up now. ${KEEPS_THEIR_SPOT}`}
+              action={<ReopenButton reopenAction={reopenAction.bind(null, id)} />}
             />
           ) : null}
         </HeaderAnnouncer>

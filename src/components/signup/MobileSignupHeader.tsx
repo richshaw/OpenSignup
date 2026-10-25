@@ -65,7 +65,8 @@ export function MobileSignupHeader({
           {/* The menu holds Preview, and Close signup once it's open, so it
               comes and goes with the bar. A closed or archived signup has
               neither, and focus goes to the title once Close signup has
-              closed it. */}
+              closed it; a closed one's way back is the closed banner's
+              Reopen signup, under the header. */}
           {hasPhoneBar(status) ? (
             <button
               type="button"

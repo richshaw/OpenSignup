@@ -10,7 +10,10 @@ export const HEADER_BUTTON =
 export const BAR_BUTTON =
   'inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-[15px] transition';
 
-/** The one blue button: Publish and share on a draft, Share once it's open. */
+/**
+ * The one blue button: Publish and share on a draft, Share once it's open,
+ * and the closed banner's Reopen signup once it's closed.
+ */
 export const PRIMARY =
   'bg-brand font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90';
 
