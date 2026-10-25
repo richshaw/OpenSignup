@@ -7,7 +7,7 @@ import type { SignupStatus } from '@/schemas/signups';
 import { CloseSignupConfirm } from './CloseSignupConfirm';
 import { SHEET_ITEM } from './header-buttons';
 import { useAnnouncedStatusChange } from './HeaderAnnouncer';
-import { StatusActionScope, type StatusAction } from './StatusActionForm';
+import { StatusActionScope, type StatusChangeAction } from './StatusActionForm';
 
 type MobileMoreMenuSheetProps = {
   open: boolean;
@@ -17,7 +17,7 @@ type MobileMoreMenuSheetProps = {
   /** `PhonePreviewItem`, rendered on the server. */
   previewItem: ReactNode;
   closeQuestion: string;
-  closeAction: StatusAction;
+  closeAction: StatusChangeAction;
 };
 
 /**

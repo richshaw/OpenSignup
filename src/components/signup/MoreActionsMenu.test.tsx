@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { CloseQuestionAction } from './CloseSignupConfirm';
 import { MoreActionsMenu } from './MoreActionsMenu';
-import type { StatusAction } from './StatusActionForm';
+import type { StatusChangeAction } from './StatusActionForm';
 
 const QUESTION =
   'Nobody has signed up yet. People can’t sign up after this, and you can’t reopen it.';
@@ -12,7 +12,7 @@ const QUESTION =
 const keepQuestion: CloseQuestionAction = async () => ({ error: 'Not asked in this test.' });
 
 function renderMenu(
-  closeAction: StatusAction = vi.fn<StatusAction>(async () => null),
+  closeAction: StatusChangeAction = vi.fn<StatusChangeAction>(async () => null),
   closeQuestionAction: CloseQuestionAction = keepQuestion,
 ) {
   render(
