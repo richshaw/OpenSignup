@@ -106,6 +106,22 @@ describe('MobileSignupHeader: the More actions sheet', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
+  it('stays shut when a signup closed from it is reopened', async () => {
+    // Close signup in the sheet closes the sheet by changing the status. A
+    // Reopen from the closed banner changes it back, and the sheet mustn't
+    // come back with it.
+    const { rerender } = render(<Phone status="open" action={async () => null} />);
+    openMore();
+    rerender(<Phone status="closed" action={async () => null} />);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    rerender(<Phone status="open" action={async () => null} />);
+    expect(screen.getByRole('button', { name: 'More actions' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('isn’t there for a closed or archived signup', () => {
     const { rerender } = render(<Phone status="closed" action={async () => null} />);
     expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
