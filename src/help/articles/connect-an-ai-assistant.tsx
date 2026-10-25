@@ -48,8 +48,8 @@ export function ConnectAnAiAssistant() {
             leaves it out gets no emails.
           </li>
           <li>
-            Publish, close, archive or delete a signup. Archiving or deleting can&apos;t be undone.
-            You can reopen a closed signup from its page.
+            Publish, close, reopen, archive or delete a signup. Archiving or deleting can&apos;t be
+            undone.
           </li>
         </ul>
         <p>It can&apos;t see the names or email addresses of people who sign up.</p>
