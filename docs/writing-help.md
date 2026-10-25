@@ -46,7 +46,8 @@ learn the product.
   list anyway, so the walkthrough can find it.
 - Say where to find it when it is not obvious: "at the top of the page".
 - When a phone shows it somewhere else, say so in the same step. For example,
-  on a phone **Publish** is behind the three dots, as **Publish signup**.
+  on a phone **Publish and share** is at the bottom of the screen, and
+  **Preview** is behind the three dots.
 - Don't write "click" or "tap". Write "choose": it works for a mouse and a
   finger.
 - Steps inside another company's app, like an AI assistant, name its menus in

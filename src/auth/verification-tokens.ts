@@ -10,9 +10,8 @@ import { verificationTokens } from '@/db/schema/auth';
  * these rows again.
  */
 export async function sweepExpiredVerificationTokens(db: Queryable): Promise<number> {
-  const rows = await db
+  const { count } = await db
     .delete(verificationTokens)
-    .where(lt(verificationTokens.expires, new Date()))
-    .returning({ token: verificationTokens.token });
-  return rows.length;
+    .where(lt(verificationTokens.expires, new Date()));
+  return count;
 }

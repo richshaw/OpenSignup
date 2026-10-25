@@ -38,7 +38,7 @@ describe('POST /api/signups/[id]/link-events (db)', () => {
   };
   let signupId: string;
 
-  const rows = (eventType: 'signup.link_copied') =>
+  const rows = (eventType: 'signup.link_copied' | 'signup.link_shared') =>
     db
       .select({ actorId: activity.actorId, payload: activity.payload })
       .from(activity)
@@ -91,6 +91,37 @@ describe('POST /api/signups/[id]/link-events (db)', () => {
     ]);
   });
 
+  it('records a copy from the share panel’s Copy link and its Copy message', async () => {
+    expect((await beacon(signupId, 'event=copied&surface=share_panel')).status).toBe(200);
+    expect((await beacon(signupId, 'event=copied&surface=share_message')).status).toBe(200);
+    expect(await rows('signup.link_copied')).toEqual([
+      { actorId: organizerId, payload: { surface: 'share_panel', status: 'draft' } },
+      { actorId: organizerId, payload: { surface: 'share_message', status: 'draft' } },
+    ]);
+  });
+
+  it('records a share from the share menu, Email it and the QR code, as shares', async () => {
+    for (const surface of ['share_menu', 'email', 'qr_code']) {
+      expect((await beacon(signupId, `event=shared&surface=${surface}`)).status).toBe(200);
+    }
+    expect(await rows('signup.link_shared')).toEqual([
+      { actorId: organizerId, payload: { surface: 'share_menu', status: 'draft' } },
+      { actorId: organizerId, payload: { surface: 'email', status: 'draft' } },
+      { actorId: organizerId, payload: { surface: 'qr_code', status: 'draft' } },
+    ]);
+    expect(await rows('signup.link_copied')).toEqual([]);
+  });
+
+  it('refuses a share from where only copies come, and a copy from where only shares do', async () => {
+    expect((await beacon(signupId, 'event=shared&surface=share_panel')).status).toBe(400);
+    expect((await beacon(signupId, 'event=shared&surface=share_message')).status).toBe(400);
+    expect((await beacon(signupId, 'event=copied&surface=share_menu')).status).toBe(400);
+    expect((await beacon(signupId, 'event=copied&surface=qr_code')).status).toBe(400);
+    expect((await beacon(signupId, 'event=shared')).status).toBe(400);
+    expect(await rows('signup.link_shared')).toEqual([]);
+    expect(await rows('signup.link_copied')).toEqual([]);
+  });
+
   it('stops counting past 60 copies an hour from one organizer', async () => {
     const otherOrganizer = makeId('org');
     session.actor = { ...owner, id: otherOrganizer };
@@ -116,7 +147,12 @@ describe('POST /api/signups/[id]/link-events (db)', () => {
 
   it('refuses an organizer from another workspace', async () => {
     const otherWs = makeId('ws');
-    session.actor = { ...owner, id: makeId('org'), workspaceIds: [otherWs], workspaceRoles: { [otherWs]: 'owner' } };
+    session.actor = {
+      ...owner,
+      id: makeId('org'),
+      workspaceIds: [otherWs],
+      workspaceRoles: { [otherWs]: 'owner' },
+    };
     expect((await beacon(signupId, 'event=copied&surface=header')).status).toBe(403);
     expect(await rows('signup.link_copied')).toEqual([]);
   });
