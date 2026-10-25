@@ -36,8 +36,7 @@ async function requireActor() {
 }
 
 /**
- * The header's Publish and Close signup, and the closed banner's Reopen
- * signup. A refusal (a viewer's role, a signup already published, closed or
+ * The header's Publish, Close signup and Reopen signup. A refusal (a viewer's role, a signup already published, closed or
  * reopened in another tab) returns what to tell the organizer, shown under
  * the button, and revalidates nothing.
  *

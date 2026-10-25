@@ -116,11 +116,8 @@ const TOKENS_UNDER_A_GRANT: ReadonlySet<string> = new Set(['RefreshToken', 'Auth
 
 /** Delete rows whose expiry has passed. Returns the number removed. */
 export async function sweepExpiredOauthRecords(db: Queryable): Promise<number> {
-  const rows = await db
-    .delete(oauthRecords)
-    .where(lt(oauthRecords.expiresAt, new Date()))
-    .returning({ id: oauthRecords.id });
-  return rows.length;
+  const { count } = await db.delete(oauthRecords).where(lt(oauthRecords.expiresAt, new Date()));
+  return count;
 }
 
 function str(v: unknown): string | null {

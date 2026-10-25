@@ -111,11 +111,13 @@ describe('sweepExpiredRateLimits', () => {
     const { rateLimits } = await import('@/db/schema/rate-limits');
     const { eq } = await import('drizzle-orm');
     const db = getDb();
+    // Clear anything already expired, so the count below is this test's alone.
+    await sweepExpiredRateLimits(db);
     await db.insert(rateLimits).values([
       { bucket: 'sweep.test', subject: 'old', windowStart: new Date(Date.now() - 3 * 24 * 3600 * 1000), count: 1 },
       { bucket: 'sweep.test', subject: 'fresh', windowStart: new Date(), count: 1 },
     ]);
-    await sweepExpiredRateLimits(db);
+    expect(await sweepExpiredRateLimits(db)).toBe(1);
     const rows = await db.select({ subject: rateLimits.subject }).from(rateLimits).where(eq(rateLimits.bucket, 'sweep.test'));
     expect(rows.map((r) => r.subject)).toEqual(['fresh']);
     await db.delete(rateLimits).where(eq(rateLimits.bucket, 'sweep.test'));

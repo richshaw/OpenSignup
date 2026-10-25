@@ -12,7 +12,6 @@ import { hasPhoneBar, PHONE_BAR_ROOM } from '@/components/signup/phone-bar';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
 import { Banner } from '@/components/banner';
-import { ReopenButton } from '@/components/signup/ReopenButton';
 import { SignupLoadError } from '@/components/signup/SignupLoadError';
 import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, closeQuestionAction, publishAction, reopenAction } from './actions';
@@ -59,10 +58,10 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
       {/* On a phone, a draft's Publish and share or an open signup's Share is in
         a bar fixed to the bottom of the screen; the page leaves room for it. */}
       <div className={`space-y-6 ${hasPhoneBar(status) ? PHONE_BAR_ROOM : ''}`}>
-        {/* One live region for the headers and the closed banner, so a status
-          change made from any of them is said in one place. It adds only
-          that region to the page, after them, so they stay this div's own
-          children and keep its spacing. */}
+        {/* One live region for the computer's header and the phone's, so a
+          status change made from either is said in one place. It adds only
+          that region to the page, after the header and the closed banner,
+          so they stay this div's own children and keep its spacing. */}
         <HeaderAnnouncer status={status}>
           <SignupHeader
             signupId={id}
@@ -74,17 +73,17 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
             shareMessage={shareMessage(sig, publicUrl, filled?.value)}
             publishAction={publishAction.bind(null, id)}
             closeAction={closeAction.bind(null, id)}
+            reopenAction={reopenAction.bind(null, id)}
           />
-          {/* On every tab, for as long as it's closed, with Reopen signup
-            under its text. Not a live region: closing it from this page,
-            and reopening it from here, are announced by the header's. */}
+          {/* On every tab, for as long as it's closed. Not a live region:
+            closing or reopening it from this page is announced by the
+            header's. */}
           {sig.status === 'closed' ? (
             <Banner
               kind="closed"
               live={false}
               title="Signup closed"
               body={`People can’t sign up now. ${KEEPS_THEIR_SPOT}`}
-              action={<ReopenButton reopenAction={reopenAction.bind(null, id)} />}
             />
           ) : null}
         </HeaderAnnouncer>

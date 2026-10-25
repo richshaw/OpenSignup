@@ -150,11 +150,15 @@ describe('<ShareQrCode /> on a phone', () => {
     renderQr('phone');
     const button = screen.getByRole('button', { name: 'QR code' });
     expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(button).not.toHaveClass('bg-brand-soft');
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Save image' })).not.toBeInTheDocument();
 
     fireEvent.click(button);
+    // Open, it looks pressed and says what one more tap does, by name too.
     expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(button).toHaveAccessibleName('Hide QR code');
+    expect(button).toHaveClass('border-brand', 'bg-brand-soft');
     const code = screen.getByRole('img', { name: NAME });
     expect(button).toHaveAttribute('aria-controls', code.parentElement!.id);
     expect(screen.getByRole('button', { name: 'Save image' })).toBeInTheDocument();
@@ -163,6 +167,8 @@ describe('<ShareQrCode /> on a phone', () => {
 
     fireEvent.click(button);
     expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(button).toHaveAccessibleName('QR code');
+    expect(button).not.toHaveClass('bg-brand-soft');
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     fireEvent.click(button);
     expect(emit).toHaveBeenCalledOnce();
