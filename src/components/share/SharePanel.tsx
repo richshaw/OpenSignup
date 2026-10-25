@@ -138,10 +138,11 @@ export function SharePanel({
 
   const lead = firstTime ? LEAD_FIRST_TIME : LEAD_LATER[variant];
   const phone = variant === 'phone';
-  // As wide as "Copy message" at its widest, so its "Copied" doesn't move
-  // Email it beside it.
+  // On a computer, as wide as "Copy message" at its widest, so its "Copied"
+  // doesn't move Email it beside it. On a phone, half the row each, lined up
+  // with Copy link and QR code above, which keeps them still too.
   const messageAction = `${SECONDARY} ${
-    phone ? 'h-11 min-w-[148px] px-4 text-[15px]' : 'h-[34px] min-w-[124px] px-3 text-[13px]'
+    phone ? 'h-11 px-4 text-[15px]' : 'h-[34px] min-w-[124px] px-3 text-[13px]'
   }`;
   const copiedNow =
     lastCopied === 'link' && link.copied
@@ -186,7 +187,7 @@ export function SharePanel({
         }`}
       />
       {canShare ? null : (
-        <div className="flex flex-wrap gap-2">
+        <div className={phone ? 'grid grid-cols-2 gap-2' : 'flex flex-wrap gap-2'}>
           <button type="button" onClick={() => void copy('message')} className={messageAction}>
             {messageCopy.copied ? <Check size={14} strokeWidth={2.6} aria-hidden="true" /> : null}
             {messageCopy.copied ? 'Copied' : 'Copy message'}
