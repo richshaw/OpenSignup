@@ -25,6 +25,7 @@ function renderHeader(status: SignupStatus, spots: SpotCounts | null = SPOTS) {
       shareMessage={`Bake sale helpers\n${LINK}`}
       publishAction={async () => null}
       closeAction={async () => null}
+      reopenAction={async () => null}
     />,
   );
   const [phone, computer] = Array.from(container.querySelectorAll('header'));
@@ -99,12 +100,13 @@ describe('SignupHeader on a computer', () => {
     expect(computer.getByText('1 spot taken')).toBeInTheDocument();
   });
 
-  it('shows a closed or archived signup only Preview, and says the count is final', () => {
+  it('shows a closed signup Preview and Reopen signup, and an archived one only Preview', () => {
     const closed = renderHeader('closed');
     expect(computerActions(closed.computer)).toEqual([
       'Copy public link',
       'Open public page',
       'Preview',
+      'Reopen signup',
     ]);
     expect(closed.computer.getByText('Closed · 3 of 21 spots taken')).toBeInTheDocument();
 
@@ -139,10 +141,17 @@ describe('SignupHeader on a phone', () => {
     expect(phone.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
   });
 
-  it('has no bar and no ⋯ once the signup is closed', () => {
+  it('has no bar once the signup is closed, and keeps ⋯ for Reopen signup', () => {
     const { phone, bar } = renderHeader('closed');
     expect(bar).toBeNull();
-    expect(phone.queryByRole('button', { name: 'More actions' })).toBeNull();
+    expect(phone.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
+    expect(phone.queryByRole('button', { name: 'Reopen signup' })).toBeNull();
     expect(phone.getByText('Closed · 3 of 21 spots taken')).toBeInTheDocument();
+  });
+
+  it('has no bar and no ⋯ once the signup is archived', () => {
+    const { phone, bar } = renderHeader('archived');
+    expect(bar).toBeNull();
+    expect(phone.queryByRole('button', { name: 'More actions' })).toBeNull();
   });
 });

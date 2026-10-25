@@ -67,10 +67,11 @@ export function useAnnounce(): (message: string) => void {
 /**
  * Holds the computer and phone headers, and the closed banner under them,
  * with one live region that says what a change made from this page did:
- * Close signup's, from the header, and Reopen signup's, from the banner. A
- * status change takes away the button that made it, and the focus with it
- * (Close signup goes with the ⋯ that held it, Reopen signup with the banner),
- * so focus goes to the signup's title rather than to the page.
+ * Close signup's, from the ⋯, and Reopen signup's, from beside Preview or
+ * the phone's ⋯. A status change takes away the button that made it, and
+ * the focus with it (Close signup goes with the ⋯ that held it, Reopen
+ * signup once the signup is open), so focus goes to the signup's title
+ * rather than to the page.
  */
 export function HeaderAnnouncer({
   status,

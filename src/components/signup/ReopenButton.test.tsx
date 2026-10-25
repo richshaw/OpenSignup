@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { SignupStatus } from '@/schemas/signups';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
-import { ReopenButton } from './ReopenButton';
+import { ReopenButton, ReopenSheetItem } from './ReopenButton';
 import type { StatusChangeAction } from './StatusActionForm';
 
 const NO_ACCESS = 'You don’t have edit access.';
@@ -34,7 +34,9 @@ describe('ReopenButton', () => {
     // every action in flight before it finishes any, so one left hanging
     // would hold up the tests after this.
     let answer: (result: null) => void = () => {};
-    const reopenAction = vi.fn<StatusChangeAction>(() => new Promise((resolve) => (answer = resolve)));
+    const reopenAction = vi.fn<StatusChangeAction>(
+      () => new Promise((resolve) => (answer = resolve)),
+    );
     render(<ReopenButton reopenAction={reopenAction} />);
     await press(reopenButton());
 
@@ -114,7 +116,7 @@ describe('ReopenButton', () => {
         <h1 tabIndex={-1} data-signup-title>
           Bake sale helpers
         </h1>
-        {/* The banner, with its button, shows only while it's closed. */}
+        {/* The header's Reopen signup shows only while it's closed. */}
         {status === 'closed' ? <ReopenButton reopenAction={action} /> : null}
       </HeaderAnnouncer>
     );
@@ -132,5 +134,30 @@ describe('ReopenButton', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Reopened. People can sign up again.');
     await act(() => new Promise<void>((resolve) => setTimeout(resolve)));
     expect(screen.getByRole('heading', { name: 'Bake sale helpers' })).toHaveFocus();
+  });
+});
+
+describe('ReopenSheetItem', () => {
+  it('reopens when pressed, and after a refusal says why under it and gives it focus back', async () => {
+    let answer: (result: { error: string }) => void = () => {};
+    const reopenAction = vi.fn<StatusChangeAction>(
+      () => new Promise((resolve) => (answer = resolve)),
+    );
+    const { container } = render(
+      <>
+        <ReopenSheetItem reopenAction={reopenAction} />
+        <a href="#elsewhere">Elsewhere</a>
+      </>,
+    );
+    await press(reopenButton());
+    await waitFor(() => expect(reopenAction).toHaveBeenCalledTimes(1));
+    screen.getByRole('link', { name: 'Elsewhere' }).focus();
+
+    await act(async () => answer({ error: NO_ACCESS }));
+    const refusal = await screen.findByRole('alert');
+    expect(refusal).toHaveTextContent(NO_ACCESS);
+    const form = container.querySelector('form');
+    expect(form?.compareDocumentPosition(refusal)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(reopenButton()).toHaveFocus();
   });
 });

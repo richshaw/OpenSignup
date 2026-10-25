@@ -10,6 +10,7 @@ import { HEADER_BUTTON, OUTLINED } from './header-buttons';
 import { MobileSignupHeader } from './MobileSignupHeader';
 import { MoreActionsMenu } from './MoreActionsMenu';
 import { PublishButton, PublishRefusal } from './PublishButton';
+import { ReopenButton } from './ReopenButton';
 import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
 import type { StatusAction, StatusChangeAction } from './StatusActionForm';
@@ -30,6 +31,7 @@ interface SignupHeaderProps {
   shareMessage: string;
   publishAction: StatusAction;
   closeAction: StatusChangeAction;
+  reopenAction: StatusChangeAction;
 }
 
 export function SignupHeader({
@@ -42,6 +44,7 @@ export function SignupHeader({
   shareMessage,
   publishAction,
   closeAction,
+  reopenAction,
 }: SignupHeaderProps) {
   const previewHref = `/app/signups/${signupId}/preview`;
   const closeQuestion = spots ? closeSignupQuestion(spots) : '';
@@ -74,12 +77,14 @@ export function SignupHeader({
           closeQuestion={closeQuestion}
           closeQuestionAction={closeQuestionAction}
           closeAction={closeAction}
+          reopenAction={reopenAction}
         />
       </div>
-      {/* Preview, then Publish and share on a draft, or on an open signup
-          Share and the ⋯ that holds Close signup. Publish's refusal shows on
-          its own full-width line under the header, not by the buttons; Close
-          signup's shows in its panel, which runs it. */}
+      {/* Preview, then Publish and share on a draft, on an open signup
+          Share and the ⋯ that holds Close signup, or on a closed one Reopen
+          signup. Publish's refusal shows on its own full-width line under
+          the header, not by the buttons; Close signup's shows in its panel,
+          which runs it, and Reopen signup's under it. */}
       <header className="hidden space-y-3 md:block">
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0 flex-1 space-y-3">
@@ -109,7 +114,7 @@ export function SignupHeader({
             </div>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-start gap-2">
           <Link
             href={previewHref}
             target="_blank"
@@ -130,6 +135,7 @@ export function SignupHeader({
               />
             </>
           ) : null}
+          {status === 'closed' ? <ReopenButton reopenAction={reopenAction} /> : null}
         </div>
       </div>
       {status === 'draft' ? <PublishRefusal /> : null}

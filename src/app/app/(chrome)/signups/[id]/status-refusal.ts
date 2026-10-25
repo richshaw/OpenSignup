@@ -1,10 +1,10 @@
 import type { ServiceError } from '@/lib/errors';
 
 /**
- * What an organizer reads when Publish, Close signup or the closed banner's
- * Reopen signup is refused, in place of the service's message, which is
- * written for developers ("cannot open a signup that is closed", "your role
- * cannot modify this workspace"). A `conflict` on the status means another
+ * What an organizer reads when Publish, Close signup or Reopen signup is
+ * refused, in place of the service's message, which is written for
+ * developers ("cannot open a signup that is closed", "your role cannot
+ * modify this workspace"). A `conflict` on the status means another
  * tab or person changed it since the page loaded; the only other conflict is
  * publishing or reopening a signup with no slots.
  */

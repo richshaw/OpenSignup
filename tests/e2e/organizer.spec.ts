@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { BASE_URL, loadSeed } from './helpers/fixtures';
 import { createClosedSignup, createDraft, createPublishedSignup } from './helpers/signups';
@@ -135,12 +135,15 @@ test.describe('organizer flow', () => {
     await expect(page.getByText('closed', { exact: true }).locator('visible=true')).toBeVisible();
     await expect(page.getByText('Signup closed', { exact: true })).toBeVisible();
     expect(await storedStatus()).toBe('closed');
-    await expect(more).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
 
-    // Reopened from the banner, the signup is open again, and the sheet
-    // Close signup was chosen in doesn't come back with it.
-    await page.getByRole('button', { name: 'Reopen signup' }).click();
+    // ⋯ stays, now with Reopen signup in place of Close's question. Reopened
+    // from it, the signup is open again and the sheet shuts.
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await more.click();
+    await expect(sheet.getByRole('button', { name: 'Not yet' })).toHaveCount(0);
+    await expect(sheet.getByRole('button', { name: 'Close signup' })).toHaveCount(0);
+    await sheet.getByRole('button', { name: 'Reopen signup' }).click();
     await expect(page.getByText('open', { exact: true }).locator('visible=true')).toBeVisible();
     await expect(more).toHaveAttribute('aria-expanded', 'false');
     await expect(sheet).toBeHidden();
@@ -196,11 +199,10 @@ test.describe('organizer flow', () => {
     const reopenBox = await reopen.boundingBox();
     if (!confirmBox || !reopenBox) throw new Error('both buttons should have been on screen');
 
-    // They're hundreds of pixels apart sideways: the panel is 320px wide and
-    // hangs from the ⋯ at the header's right, while Reopen sits at the
-    // banner's left. How far they'd overlap vertically depends on how many
-    // lines the question took, and this doesn't rely on it.
-    expect(reopenBox.x + reopenBox.width).toBeLessThan(confirmBox.x);
+    // Reopen takes the header's row, at its right where Share and the ⋯
+    // were, and the panel hung below the ⋯, so its red button was under the
+    // header: a second click on it lands below Reopen, not on it.
+    expect(reopenBox.y + reopenBox.height).toBeLessThanOrEqual(confirmBox.y);
     const overlap =
       reopenBox.x < confirmBox.x + confirmBox.width &&
       confirmBox.x < reopenBox.x + reopenBox.width &&
@@ -338,7 +340,18 @@ test.describe('organizer flow', () => {
   });
 });
 
-// The closed banner's Reopen signup, at a computer's size and a phone's.
+/**
+ * Reopen signup on a closed signup's page: beside Preview on a computer, or
+ * on a phone in the More actions sheet, which this opens.
+ */
+async function reopenSignup(page: Page, device: 'a computer' | 'a phone'): Promise<Locator> {
+  if (device === 'a computer') return page.getByRole('button', { name: 'Reopen signup' });
+  await page.getByRole('button', { name: 'More actions' }).click();
+  return page.getByRole('dialog').getByRole('button', { name: 'Reopen signup' });
+}
+
+// Reopen signup, at a computer's size, beside Preview, and a phone's, in the
+// ⋯ sheet.
 for (const [device, viewport] of [
   ['a computer', { width: 1280, height: 900 }],
   ['a phone', { width: 390, height: 844 }],
@@ -363,19 +376,31 @@ for (const [device, viewport] of [
       await page.goto(`/app/signups/${signup.id}/build`);
       await expect(banner).toBeVisible();
       await expect(pill('closed')).toBeVisible();
-      const reopen = page.getByRole('button', { name: 'Reopen signup' });
+      const reopen = await reopenSignup(page, device);
       await expect(reopen).toBeVisible();
       if (device === 'a phone') {
         const box = await reopen.boundingBox();
         expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      } else {
+        // Beside Preview, where a draft has Publish and share.
+        const preview = page.getByRole('link', { name: 'Preview' }).locator('visible=true');
+        const [previewBox, reopenBox] = await Promise.all([
+          preview.boundingBox(),
+          reopen.boundingBox(),
+        ]);
+        if (!previewBox || !reopenBox) throw new Error('Preview and Reopen should be on screen');
+        const gap = reopenBox.x - (previewBox.x + previewBox.width);
+        expect(gap).toBeGreaterThanOrEqual(0);
+        expect(gap).toBeLessThan(16);
+        expect(Math.abs(reopenBox.y - previewBox.y)).toBeLessThan(2);
       }
       await reopen.click();
 
       await expect(banner).toHaveCount(0);
       await expect(reopen).toHaveCount(0);
       await expect(pill('open')).toBeVisible();
-      // The banner went with the button, so focus is on the title, and a
-      // screen reader hears what happened.
+      // The button went once the signup opened, so focus is on the title,
+      // and a screen reader hears what happened.
       await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
       await expect(
         page.getByRole('status').filter({ hasText: 'Reopened. People can sign up again.' }),
@@ -393,7 +418,7 @@ for (const [device, viewport] of [
         slot: { values: { what: 'Juice', date: '2030-04-06' }, capacity: 5 },
       });
       await page.goto(`/app/signups/${signup.id}/build`);
-      const reopen = page.getByRole('button', { name: 'Reopen signup' });
+      const reopen = await reopenSignup(page, device);
       await expect(reopen).toBeVisible();
 
       // Reopened somewhere else meanwhile, so this page's press is refused.

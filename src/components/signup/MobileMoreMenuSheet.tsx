@@ -7,6 +7,7 @@ import type { SignupStatus } from '@/schemas/signups';
 import { CloseSignupConfirm } from './CloseSignupConfirm';
 import { SHEET_ITEM } from './header-buttons';
 import { useAnnouncedStatusChange } from './HeaderAnnouncer';
+import { ReopenSheetItem } from './ReopenButton';
 import { StatusActionScope, type StatusChangeAction } from './StatusActionForm';
 
 type MobileMoreMenuSheetProps = {
@@ -18,13 +19,15 @@ type MobileMoreMenuSheetProps = {
   previewItem: ReactNode;
   closeQuestion: string;
   closeAction: StatusChangeAction;
+  reopenAction: StatusChangeAction;
 };
 
 /**
  * The phone's More actions: Preview, which a computer has beside Publish and
- * share, and on an open signup Close signup, which asks first. Publish and
- * Share are in the bar at the bottom of the screen. Close signup runs in a
- * scope of its own here.
+ * share, then on an open signup Close signup, which asks first, or on a
+ * closed one Reopen signup, which doesn't. Publish and Share are in the bar
+ * at the bottom of the screen. Close signup runs in a scope of its own here,
+ * and Reopen signup in another.
  */
 export function MobileMoreMenuSheet({
   open,
@@ -34,6 +37,7 @@ export function MobileMoreMenuSheet({
   previewItem,
   closeQuestion,
   closeAction,
+  reopenAction,
 }: MobileMoreMenuSheetProps) {
   // Close signup asks first, in the sheet, as it does in the ⋯ panel on a
   // computer. The next time the sheet opens, it starts from the menu again,
@@ -57,6 +61,7 @@ export function MobileMoreMenuSheet({
                 <span>Close signup</span>
               </button>
             ) : null}
+            {status === 'closed' ? <ReopenSheetItem reopenAction={reopenAction} /> : null}
           </div>
         )}
       </StatusActionScope>

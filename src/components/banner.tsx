@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react';
-
 type Kind = 'preview' | 'closed' | 'aiDraft';
 
 const STYLES: Record<Kind, string> = {
@@ -8,36 +6,23 @@ const STYLES: Record<Kind, string> = {
   aiDraft: 'bg-brand/10 text-brand',
 };
 
-type BannerProps = {
+export function Banner({
+  kind,
+  title,
+  body,
+  onDismiss,
+  live = true,
+}: {
   kind: Kind;
   title: string;
   body: string;
   onDismiss?: () => void;
-} & (
-  | {
-      /**
-       * A live region (`role="status"`) unless false: for a banner that says
-       * what the page is, where the change that put it there is announced
-       * already.
-       */
-      live?: true;
-      action?: never;
-    }
-  | {
-      live: false;
-      /**
-       * What the organizer can do about it, such as the closed banner's
-       * Reopen signup: under the text, at its left, on every width. Never at
-       * the banner's right edge, where Close signup's confirm button was a
-       * moment before the closed banner appeared. Only in a banner that isn't
-       * a live region: a button's refusal is an alert, which mustn't sit
-       * inside a status region.
-       */
-      action?: ReactNode;
-    }
-);
-
-export function Banner({ kind, title, body, action, onDismiss, live = true }: BannerProps) {
+  /**
+   * A live region (`role="status"`) unless false: for a banner that says what
+   * the page is, where the change that put it there is announced already.
+   */
+  live?: boolean;
+}) {
   return (
     <div
       role={live ? 'status' : undefined}
@@ -46,9 +31,6 @@ export function Banner({ kind, title, body, action, onDismiss, live = true }: Ba
       <div className="min-w-0 flex-1 space-y-1">
         <p className="text-base font-semibold">{title}</p>
         <p className="text-sm">{body}</p>
-        {/* 12px under the body: space-y-1's 4px top margin, which outranks
-            an mt-* here, and this 8px. */}
-        {action ? <div className="pt-2">{action}</div> : null}
       </div>
       {onDismiss && (
         <button
