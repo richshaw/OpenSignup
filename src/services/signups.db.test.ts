@@ -768,7 +768,8 @@ describe('signups service (db)', () => {
       expect(r.ok).toBe(false);
       if (r.ok) return;
       expect(r.error.code).toBe('conflict');
-      expect(r.error.message).toMatch(/at least one slot/);
+      expect(r.error.message).toBe('publish requires at least one slot');
+      expect(r.error.suggestion).toBe('add a slot before publishing');
       expect(await refusedPublishes(created.value.id)).toEqual([
         { code: 'conflict', reason: 'no_slots' },
       ]);
@@ -974,6 +975,7 @@ describe('signups service (db)', () => {
           expect(r.error.field, status).toBe('status');
           expect(r.error.received, status).toBe(status);
           expect(r.error.expected, status).toBe('closed');
+          expect(r.error.message, status).toBe(`cannot reopen a signup that is ${status}`);
           expect(await statusOf(signupId)).toBe(status);
           expect(await reopenedRows(signupId)).toEqual([]);
         }

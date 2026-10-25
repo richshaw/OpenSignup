@@ -10,6 +10,7 @@ export const GET = organizerRoute<{ id: string }>(async ({ db, actor, params: { 
     addSlot: link(`/api/signups/${id}/slots`, 'POST'),
     publish: link(`/api/signups/${id}/publish`, 'POST'),
     close: link(`/api/signups/${id}/close`, 'POST'),
+    reopen: link(`/api/signups/${id}/reopen`, 'POST'),
     archive: link(`/api/signups/${id}/archive`, 'POST'),
     activity: link(`/api/signups/${id}/activity`),
     exportCsv: link(`/api/signups/${id}/export.csv`),
