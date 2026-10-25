@@ -16,22 +16,25 @@ const CAPTURE = process.env.HELP_SCREENSHOTS === '1';
 const SHOT_DIR = `public/help/${SLUG}`;
 const TITLE = 'Snack duty — Spring season';
 
+type Pad = number | { top: number; right: number; bottom: number; left: number };
+
 /**
  * The part of the page that holds every one of `targets`, with `pad` pixels
- * of the page around it, in whole pixels, so the file is exactly twice the
- * size the article gives.
+ * of the page around it (the same on every side, or each side's own), in
+ * whole pixels, so the file is exactly twice the size the article gives.
  */
-async function shot(page: Page, targets: Locator[], name: string, pad = 16): Promise<void> {
+async function shot(page: Page, targets: Locator[], name: string, pad: Pad = 16): Promise<void> {
   if (!CAPTURE) return;
+  const around = typeof pad === 'number' ? { top: pad, right: pad, bottom: pad, left: pad } : pad;
   // Fonts and focus settle after the last action.
   await page.waitForTimeout(300);
   const boxes = await Promise.all(targets.map((target) => target.boundingBox()));
   const found = boxes.filter((box) => box !== null);
   if (found.length !== targets.length) throw new Error(`${name}: not on the page`);
-  const x = Math.floor(Math.min(...found.map((b) => b.x))) - pad;
-  const y = Math.floor(Math.min(...found.map((b) => b.y))) - pad;
-  const right = Math.ceil(Math.max(...found.map((b) => b.x + b.width))) + pad;
-  const bottom = Math.ceil(Math.max(...found.map((b) => b.y + b.height))) + pad;
+  const x = Math.floor(Math.min(...found.map((b) => b.x))) - around.left;
+  const y = Math.floor(Math.min(...found.map((b) => b.y))) - around.top;
+  const right = Math.ceil(Math.max(...found.map((b) => b.x + b.width))) + around.right;
+  const bottom = Math.ceil(Math.max(...found.map((b) => b.y + b.height))) + around.bottom;
   await page.screenshot({
     path: `${SHOT_DIR}/${name}.png`,
     clip: { x, y, width: right - x, height: bottom - y },
@@ -145,7 +148,14 @@ test.describe('help: close or reopen a signup', () => {
       if (CAPTURE) {
         // No focus ring on Not yet in the picture.
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-        await shot(page, [more, panel], 'close-question');
+        // Flush with the panel's left and bottom edges: the page under it
+        // shows there otherwise.
+        await shot(page, [more, panel], 'close-question', {
+          top: 16,
+          right: 16,
+          bottom: 0,
+          left: 0,
+        });
       }
       await closeNow.click();
 
@@ -266,7 +276,7 @@ test.describe('help: close or reopen a signup', () => {
       const share = page.getByRole('button', { name: UI.share, exact: true });
       await expect(share).toBeVisible();
       const shareBox = await share.boundingBox();
-      expect(shareBox?.y ?? 0).toBeGreaterThan(844 / 2);
+      expect(shareBox?.y ?? 0).toBeGreaterThan((page.viewportSize()?.height ?? 0) / 2);
 
       await more.click();
       // On a phone the three dots open a sheet, named after the signup.
@@ -300,6 +310,8 @@ test.describe('help: close or reopen a signup', () => {
       await expect(banner).toHaveCount(0);
       await expect(page.getByText(UI.open, { exact: true }).locator('visible=true')).toBeVisible();
       await expect(more).toBeVisible();
+      // The sheet Close signup was chosen in doesn't come back with it.
+      await expect(sheet).toBeHidden();
     });
   });
 });

@@ -48,8 +48,8 @@ export function CloseOrReopenASignup() {
             <Screenshot
               src="/help/close-or-reopen-a-signup/close-question.png"
               alt="The panel under the three dots, saying 3 of 4 spots are still open, people can’t sign up until you reopen it, and everyone already signed up keeps their spot. Under it are Not yet and a red Close signup."
-              width={352}
-              height={211}
+              width={336}
+              height={195}
             />
           </Step>
         </Steps>
@@ -67,8 +67,8 @@ export function CloseOrReopenASignup() {
             on each slot that isn&apos;t full. Nobody new can sign up.
           </li>
           <li>
-            {KEEPS_THEIR_SPOT} They can still use their link to change their details or cancel, but
-            they can&apos;t take more spots.
+            {KEEPS_THEIR_SPOT} They can still change their details or cancel with the link they got
+            when they signed up, but they can&apos;t take more spots.
           </li>
           <li>
             Closing doesn&apos;t change reminder emails. Anyone who would have got one still does.
@@ -114,7 +114,7 @@ export function CloseOrReopenASignup() {
         </p>
         <p>
           If an AI assistant gave your signup a closing time that has passed, reopening removes it.
-          A closing time still to come stays.
+          A closing time still to come stays, and nobody can sign up after it.
         </p>
       </section>
     </>
