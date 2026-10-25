@@ -3,10 +3,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { SignupStatus } from '@/schemas/signups';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
-import { ReopenButton, ReopenSheetItem } from './ReopenButton';
+import { ReopenButton, ReopenRefusal, ReopenScope, ReopenSheetItem } from './ReopenButton';
 import type { StatusChangeAction } from './StatusActionForm';
 
 const NO_ACCESS = 'You don’t have edit access.';
+
+/** Reopen signup as a computer's header has it: its scope, the button, and the refusal's line. */
+function Header({ action }: { action: StatusChangeAction }) {
+  return (
+    <ReopenScope reopenAction={action}>
+      <ReopenButton />
+      <ReopenRefusal />
+    </ReopenScope>
+  );
+}
 
 const reopenButton = () => screen.getByRole('button', { name: 'Reopen signup' });
 
@@ -20,10 +30,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('ReopenButton', () => {
+describe('Reopen signup in a computer’s header', () => {
   it('reopens the signup when pressed', async () => {
     const reopenAction = vi.fn<StatusChangeAction>(async () => null);
-    render(<ReopenButton reopenAction={reopenAction} />);
+    render(<Header action={reopenAction} />);
     await press(reopenButton());
     await waitFor(() => expect(reopenAction).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole('alert')).toBeNull();
@@ -37,7 +47,7 @@ describe('ReopenButton', () => {
     const reopenAction = vi.fn<StatusChangeAction>(
       () => new Promise((resolve) => (answer = resolve)),
     );
-    render(<ReopenButton reopenAction={reopenAction} />);
+    render(<Header action={reopenAction} />);
     await press(reopenButton());
 
     const busy = await screen.findByRole('button', { name: /Reopening…/ });
@@ -48,10 +58,8 @@ describe('ReopenButton', () => {
     await act(async () => answer(null));
   });
 
-  it('shows a refusal under the button', async () => {
-    const { container } = render(
-      <ReopenButton reopenAction={async () => ({ error: NO_ACCESS })} />,
-    );
+  it('shows a refusal after the button', async () => {
+    const { container } = render(<Header action={async () => ({ error: NO_ACCESS })} />);
     await press(reopenButton());
 
     const refusal = await screen.findByRole('alert');
@@ -69,7 +77,7 @@ describe('ReopenButton', () => {
     let answer: (result: { error: string }) => void = () => {};
     render(
       <>
-        <ReopenButton reopenAction={() => new Promise((resolve) => (answer = resolve))} />
+        <Header action={() => new Promise((resolve) => (answer = resolve))} />
         <a href="#elsewhere">Elsewhere</a>
       </>,
     );
@@ -85,7 +93,7 @@ describe('ReopenButton', () => {
   });
 
   it('takes no focus as the page loads', () => {
-    render(<ReopenButton reopenAction={async () => null} />);
+    render(<Header action={async () => null} />);
     expect(reopenButton()).not.toHaveFocus();
   });
 
@@ -95,7 +103,7 @@ describe('ReopenButton', () => {
       .fn<StatusChangeAction>()
       .mockResolvedValueOnce({ error: NO_ACCESS })
       .mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
-    render(<ReopenButton reopenAction={reopenAction} />);
+    render(<Header action={reopenAction} />);
 
     await press(reopenButton());
     expect(await screen.findByRole('alert')).toHaveTextContent(NO_ACCESS);
@@ -117,7 +125,7 @@ describe('ReopenButton', () => {
           Bake sale helpers
         </h1>
         {/* The header's Reopen signup shows only while it's closed. */}
-        {status === 'closed' ? <ReopenButton reopenAction={action} /> : null}
+        {status === 'closed' ? <Header action={action} /> : null}
       </HeaderAnnouncer>
     );
 
@@ -137,7 +145,7 @@ describe('ReopenButton', () => {
   });
 });
 
-describe('ReopenSheetItem', () => {
+describe('Reopen signup in a phone’s More actions sheet', () => {
   it('reopens when pressed, and after a refusal says why under it and gives it focus back', async () => {
     let answer: (result: { error: string }) => void = () => {};
     const reopenAction = vi.fn<StatusChangeAction>(
