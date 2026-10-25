@@ -10,6 +10,8 @@ import {
   buildMetaSegments,
   capacityLabel,
   slotAccessibleName,
+  slotContext,
+  slotDisplayName,
   formatGroupLabel,
   pickPrimaryField,
   renderFieldValue,
@@ -114,8 +116,7 @@ function groupSlots(
   const map = new Map<string, SlotGroup>();
   for (const slot of slots) {
     const raw = slot.values[groupField.ref];
-    const isUnset = raw === undefined || raw === null || raw === '';
-    const key = isUnset ? '__unset__' : String(raw);
+    const key = isUnsetValue(raw) ? '__unset__' : String(raw);
     const label = formatGroupLabel(groupField, raw);
     const existing = map.get(key);
     if (existing) {
@@ -125,6 +126,21 @@ function groupSlots(
     }
   }
   return [...map.values()];
+}
+
+function isUnsetValue(raw: unknown): boolean {
+  return raw === undefined || raw === null || raw === '';
+}
+
+/**
+ * The group a slot's name starts with, or null when the signup isn't grouped
+ * or the slot has no value for the group field: "(no date)" heads that group
+ * on the page, but says nothing in a slot's name.
+ */
+function nameGroupFor(slot: SignupViewSlot, groupField: SignupViewField | null): string | null {
+  if (!groupField) return null;
+  const raw = slot.values[groupField.ref];
+  return isUnsetValue(raw) ? null : formatGroupLabel(groupField, raw);
 }
 
 function titleFor(
@@ -158,7 +174,13 @@ export function SignupViewBody({
   const firstOwn = ownCommitments?.[0] ?? null;
   const ownCount = ownCommitments?.length ?? 0;
   const firstOwnSlot = firstOwn ? slots.find((s) => s.id === firstOwn.slotId) ?? null : null;
-  const firstOwnTitle = firstOwnSlot ? titleFor(firstOwnSlot, primary) : '';
+  const firstOwnName = firstOwnSlot
+    ? slotDisplayName(
+        nameGroupFor(firstOwnSlot, groupField),
+        titleFor(firstOwnSlot, primary),
+        buildMetaSegments({ fields, slot: firstOwnSlot, primaryRef, groupRef }),
+      )
+    : '';
   const Title = mode === 'showcase' ? 'h2' : 'h1';
 
   const previewCopy =
@@ -178,7 +200,7 @@ export function SignupViewBody({
       <span>
         <span className="font-medium">You&apos;re signed up</span> for{' '}
         <span className="font-medium text-ink">
-          {ownCount === 1 ? firstOwnTitle : `${ownCount} slots`}
+          {ownCount === 1 ? firstOwnName : `${ownCount} slots`}
         </span>
         .
       </span>
@@ -249,6 +271,7 @@ export function SignupViewBody({
                   ? { text: '', sr: null }
                   : capacityLabel(slot.committed, slot.capacity);
                 const actionName = slotAccessibleName(group.label || null, title, meta);
+                const nameGroup = nameGroupFor(slot, groupField);
                 return (
                   <li
                     key={slot.id}
@@ -318,6 +341,8 @@ export function SignupViewBody({
                             slotId={slot.id}
                             slotTitle={title}
                             actionName={actionName}
+                            slotName={slotDisplayName(nameGroup, title, meta)}
+                            slotContext={slotContext(nameGroup, meta)}
                             slotAt={slot.slotAt}
                             slotHasTime={slot.hasTime}
                             spotsLeft={spotsLeft}
