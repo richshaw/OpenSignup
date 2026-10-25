@@ -10,6 +10,7 @@ import {
   createSignupTool,
   deleteSignupTool,
   publishSignupTool,
+  reopenSignupTool,
   updateSignupTool,
 } from './signups-write';
 
@@ -18,6 +19,7 @@ const WRITE_TOOLS = [
   updateSignupTool,
   publishSignupTool,
   closeSignupTool,
+  reopenSignupTool,
   archiveSignupTool,
   deleteSignupTool,
 ];
@@ -27,6 +29,7 @@ const svc = {
   updateSignup: vi.fn(),
   publishSignup: vi.fn(),
   closeSignup: vi.fn(),
+  reopenSignup: vi.fn(),
   archiveSignup: vi.fn(),
   deleteSignup: vi.fn(),
   getSignupForOrganizer: vi.fn(),
@@ -37,6 +40,7 @@ vi.mock('@/services/signups', () => ({
   updateSignup: (...a: unknown[]) => svc.updateSignup(...a),
   publishSignup: (...a: unknown[]) => svc.publishSignup(...a),
   closeSignup: (...a: unknown[]) => svc.closeSignup(...a),
+  reopenSignup: (...a: unknown[]) => svc.reopenSignup(...a),
   archiveSignup: (...a: unknown[]) => svc.archiveSignup(...a),
   deleteSignup: (...a: unknown[]) => svc.deleteSignup(...a),
   getSignupForOrganizer: (...a: unknown[]) => svc.getSignupForOrganizer(...a),
@@ -339,6 +343,7 @@ describe('status tools', () => {
   it.each([
     ['publish_signup', 'publishSignup'],
     ['close_signup', 'closeSignup'],
+    ['reopen_signup', 'reopenSignup'],
     ['archive_signup', 'archiveSignup'],
     ['delete_signup', 'deleteSignup'],
   ] as const)('%s calls %s with the id', async (tool, fn) => {
