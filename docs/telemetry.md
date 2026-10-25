@@ -47,6 +47,7 @@ by `clientDomain` instead.
 | `signup.updated` | organizer | `{ changed }` (the keys the update sent, changed or not) | `services/signups.ts` |
 | `signup.published` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.closed` | organizer | `{ from, to }` | `services/signups.ts` |
+| `signup.reopened` | organizer | `{ from, to }`, plus `clearedClosesAt` (the closing time it removed, as an ISO string) when the signup's closing time had already passed | `services/signups.ts` |
 | `signup.archived` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.deleted` | organizer | `{ status }` (the status it had when deleted) | `services/signups.ts` |
 | `signup.draft_started` | organizer | `{ mode: 'magic' \| 'manual', device }` (`mode` is the form the page showed: Magic Compose, or the manual title-and-description form) | RSC at `/app/signups/new` |
