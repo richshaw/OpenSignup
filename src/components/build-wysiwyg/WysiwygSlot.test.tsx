@@ -3,6 +3,7 @@ import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WysiwygSlot } from './WysiwygSlot';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
+import type { SignupStatus } from '@/schemas/signups';
 
 function makeField(overrides: Partial<BuildField> = {}): BuildField {
   return {
@@ -30,6 +31,9 @@ type RenderProps = {
   row?: BuildRow;
   taken?: number;
   displayFields?: BuildField[];
+  /** Every field, the group's too; the display fields when not given. */
+  fields?: BuildField[];
+  status?: SignupStatus;
   onExpand?: Mock<() => void>;
   onCollapse?: Mock<() => void>;
   onEditCell?: Mock<(fieldRef: string, value: string) => void>;
@@ -62,7 +66,8 @@ function renderSlot(overrides: RenderProps = {}) {
       row={overrides.row ?? makeRow()}
       taken={overrides.taken ?? 0}
       remindersOn={false}
-      fields={displayFields}
+      status={overrides.status ?? 'draft'}
+      fields={overrides.fields ?? displayFields}
       displayFields={displayFields}
       expanded={overrides.expanded ?? false}
       onExpand={onExpand}
@@ -243,6 +248,106 @@ describe('WysiwygSlot — collapsed', () => {
       });
       expect(screen.getByRole('button', { name: 'Edit slot \u2014 Set a time' })).toBeTruthy();
     });
+  });
+});
+
+describe('WysiwygSlot — a slot that still says TBD', () => {
+  const marked = (notes: string) => makeRow({ values: { shift: '13:00', notes } });
+
+  it('is warm, with a tag after its values that its name ends with', () => {
+    renderSlot({ row: marked('Job TBD') });
+    const row = screen.getByTestId('wysiwyg-slot-r1');
+    expect(row.className).toMatch(/\bbg-warn\/5\b/);
+    // Hover and focus still tint it, as any row.
+    expect(row.className).toMatch(/\bhover:bg-surface-raised\/50\b/);
+    expect(row.className).toMatch(/\bfocus-within:bg-surface-raised\/50\b/);
+    const button = screen.getByRole('button', {
+      name: 'Edit slot at 1:00\u00a0PM, still says “TBD”',
+    });
+    // After the anchor and the summary, inside the row's button.
+    expect(button.textContent).toBe('1:00\u00a0PMJob TBDStill says “TBD”0 of 2 taken');
+    expect(screen.getByText('Still says “TBD”').className).toMatch(/\btext-warn\b/);
+  });
+
+  it('keeps 10ch for the summary beside a tag on a computer, letting the tag wrap', () => {
+    renderSlot({ row: marked('Job TBD') });
+    const summary = screen.getByText('Job TBD');
+    // At least 10ch, growing no wider than its text, so the tag follows it.
+    expect(summary.className).toMatch(/\bmin-w-\[10ch\] max-w-max flex-1\b/);
+    // Its line may wrap, so the tag can drop under the values.
+    expect(summary.closest('button')?.firstElementChild?.className).not.toMatch(/md:flex-nowrap/);
+  });
+
+  it('leaves a row without a tag as it was', () => {
+    renderSlot({ row: marked('Cashier') });
+    const summary = screen.getByText('Cashier');
+    expect(summary.className).toMatch(/\bmin-w-0\b/);
+    expect(summary.className).not.toMatch(/10ch|flex-1/);
+    expect(summary.closest('button')?.firstElementChild?.className).toMatch(/\bmd:flex-nowrap\b/);
+  });
+
+  it('says people can see it once published', () => {
+    renderSlot({ row: marked('tba'), status: 'open' });
+    expect(screen.getByText('People can see “TBA”')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Edit slot at 1:00\u00a0PM, people can see “TBA”' }),
+    ).toBeTruthy();
+  });
+
+  it('counts the group’s field too, as Publish’s check does', () => {
+    const where = makeField({
+      id: 'f3',
+      ref: 'where',
+      name: 'Where',
+      config: { fieldType: 'text', maxLength: 200 },
+    });
+    const shift = makeField();
+    renderSlot({
+      displayFields: [shift],
+      fields: [where, shift],
+      row: makeRow({ values: { where: 'Room TBC', shift: '13:00' } }),
+    });
+    expect(screen.getByText('Still says “TBC”')).toBeTruthy();
+  });
+
+  it('follows the slot’s values as they change, and goes once it’s named', () => {
+    const notes = makeField({
+      id: 'f2',
+      ref: 'notes',
+      name: 'Notes',
+      config: { fieldType: 'text', maxLength: 200 },
+    });
+    const fields = [makeField(), notes];
+    const { rerender } = renderSlot({ row: marked('TBD'), displayFields: fields });
+    expect(screen.getByText('Still says “TBD”')).toBeTruthy();
+    rerender(
+      <WysiwygSlot
+        row={marked('Cashier')}
+        taken={0}
+        remindersOn={false}
+        status="draft"
+        fields={fields}
+        displayFields={fields}
+        expanded={false}
+        onExpand={vi.fn()}
+        onCollapse={vi.fn()}
+        onEditCell={vi.fn()}
+        onSetCapacity={vi.fn()}
+        onAddEnumOption={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/still says/i)).toBeNull();
+    const row = screen.getByTestId('wysiwyg-slot-r1');
+    expect(row.className).not.toMatch(/bg-warn/);
+    expect(screen.getByRole('button', { name: 'Edit slot at 1:00\u00a0PM' })).toBeTruthy();
+  });
+
+  it('isn’t marked for a near-miss', () => {
+    renderSlot({ row: marked('Tbacco and TBDX') });
+    expect(screen.queryByText(/still says/i)).toBeNull();
+    expect(screen.getByTestId('wysiwyg-slot-r1').className).not.toMatch(/bg-warn/);
   });
 });
 

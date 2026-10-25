@@ -102,9 +102,9 @@ export const RateLimits = {
   commitmentTokenOpsPerIp: { bucket: 'commit.token.ip', max: 30, windowSeconds: 60 },
   signupCreatePerOrganizer: { bucket: 'signup.create', max: 60, windowSeconds: 3600 },
   magicComposePerOrganizer: { bucket: 'magic.compose', max: 10, windowSeconds: 3600 },
-  // The organizer's link-copy beacon. Signed in, but a viewer can send it too,
-  // and each one is a row in the append-only activity log, so it is metered.
-  // Far above a person copying a link: past it, copies just go uncounted.
+  // The organizer's link beacon (copies and shares). Signed in, but a viewer
+  // can send it too, and each one is a row in the append-only activity log, so
+  // it is metered. Far above a person sharing a link: past it, they go uncounted.
   signupLinkEventsPerOrganizer: { bucket: 'signup.link_events', max: 60, windowSeconds: 3600 },
   // Unsubscribe is unauthenticated and token-guarded. Generous on purpose:
   // RFC 8058 one-click POSTs arrive from a handful of provider egress IPs on
@@ -166,6 +166,6 @@ const LONGEST_WINDOW_SECONDS = Math.max(...Object.values(RateLimits).map((p) => 
  */
 export async function sweepExpiredRateLimits(db: Db): Promise<number> {
   const cutoff = new Date(Date.now() - 2 * LONGEST_WINDOW_SECONDS * 1000);
-  const rows = await db.delete(rateLimits).where(lt(rateLimits.windowStart, cutoff)).returning({ b: rateLimits.bucket });
-  return rows.length;
+  const { count } = await db.delete(rateLimits).where(lt(rateLimits.windowStart, cutoff));
+  return count;
 }

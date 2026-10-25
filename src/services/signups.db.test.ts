@@ -24,6 +24,7 @@ import {
   getSignupForOrganizer,
   listSignupsForWorkspace,
   publishSignup,
+  recordPublishCheck,
   reopenSignup,
   updateSignup,
 } from '@/services/signups';
@@ -741,6 +742,18 @@ describe('signups service (db)', () => {
         .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.publish_refused')));
       return rows.map((r) => r.payload);
     }
+
+    it('recordPublishCheck never fails the publish it describes, even when its read does', async () => {
+      // Telemetry: a database that won't answer leaves the check to show.
+      const down = {
+        select: () => {
+          throw new Error('connection lost');
+        },
+      } as unknown as Db;
+      await expect(
+        recordPublishCheck(down, fx.actor, 'sig_any', { kind: 'no_slots' }),
+      ).resolves.toEqual({ ok: true, value: null });
+    });
 
     it('publishSignup moves draft → open and stamps opensAt', async () => {
       const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Pub'));
