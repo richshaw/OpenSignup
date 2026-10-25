@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
-import { TITLE_MIN_LENGTH } from '@/schemas/signups';
 import { createSignup } from '@/services/signups';
 
 const NEW_PATH = '/app/signups/new?manual=1';
@@ -31,14 +30,7 @@ export async function createSignupAction(formData: FormData) {
     visibility: 'unlisted',
   });
   if (!result.ok) {
-    // The input's maxLength keeps a title from running long, so a title the
-    // schema refuses here is one that is too short once trimmed. The words
-    // match the Build tab's.
-    const message =
-      result.error.code === 'invalid_input' && result.error.field === 'title'
-        ? `Title must be at least ${TITLE_MIN_LENGTH} characters.`
-        : result.error.message;
-    redirect(`${NEW_PATH}&error=${encodeURIComponent(message)}`);
+    redirect(`${NEW_PATH}&error=${encodeURIComponent(result.error.message)}`);
   }
   redirect(`/app/signups/${result.value.id}`);
 }

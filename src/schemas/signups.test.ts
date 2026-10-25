@@ -46,6 +46,20 @@ describe('title', () => {
   it('trims the title on update', () => {
     expect(SignupUpdateInputSchema.parse({ title: ' Bake sale ' }).title).toBe('Bake sale');
   });
+
+  it('says why a title of only spaces is refused, in the Build tab’s words', () => {
+    const r = SignupCreateInputSchema.safeParse({ title: '   ', settings: {} });
+    expect(r.error?.issues[0]?.message).toBe('Title must be at least 2 characters.');
+  });
+
+  // Magic Compose's fitDraftText cuts a title by its raw length, so the limit
+  // is on the raw string too: otherwise it would cut a title the schema takes.
+  it('checks the 120-character limit before trimming', () => {
+    const accepts = (title: string) =>
+      SignupCreateInputSchema.safeParse({ title, settings: {} }).success;
+    expect(accepts('a'.repeat(120))).toBe(true);
+    expect(accepts(`${'a'.repeat(119)}   `)).toBe(false);
+  });
 });
 
 describe('visibility', () => {

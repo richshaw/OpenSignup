@@ -75,15 +75,21 @@ export function sendsReminders(settings: unknown): boolean {
   return parsed.success ? parsed.data.sendReminders : true;
 }
 
-export const TITLE_MIN_LENGTH = 2;
+const TITLE_MIN_LENGTH = 2;
 export const TITLE_MAX_LENGTH = 120;
 export const DESCRIPTION_MAX_LENGTH = 2000;
 
 /**
- * Trimmed before its length is checked, so a title of only spaces is refused
- * rather than saved blank. Shared with Magic Compose's draft schema.
+ * Trimmed before the min check, like NameSchema, so a title of only spaces is
+ * refused rather than saved blank. max is on the raw string, as Magic
+ * Compose's fitDraftText measures it. Zod runs the checks in this order.
+ * Shared with Magic Compose's draft schema.
  */
-export const TitleSchema = z.string().trim().min(TITLE_MIN_LENGTH).max(TITLE_MAX_LENGTH);
+export const TitleSchema = z
+  .string()
+  .max(TITLE_MAX_LENGTH)
+  .trim()
+  .min(TITLE_MIN_LENGTH, `Title must be at least ${TITLE_MIN_LENGTH} characters.`);
 
 export const SignupCreateInputSchema = z.object({
   title: TitleSchema,
