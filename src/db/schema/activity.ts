@@ -35,6 +35,7 @@ export const ACTIVITY_EVENTS = [
   'signup.updated',
   'signup.published',
   'signup.closed',
+  'signup.reopened',
   'signup.archived',
   'signup.deleted',
   'signup.draft_started',

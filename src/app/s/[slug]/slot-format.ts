@@ -137,3 +137,28 @@ export function slotAccessibleName(
 ): string {
   return [groupLabel, title, ...meta].filter((p): p is string => Boolean(p)).join(', ');
 }
+
+/**
+ * A slot's name for participants to read: the group, the slot's own title,
+ * then the rest of its values, in the order the page shows them. The sign-up
+ * sheet's "You're in.", the signed-up bar and the share text use it, so a
+ * slot is named the same everywhere once its row is out of sight. The title
+ * alone repeats under every group of a grouped signup, and across dates or
+ * times of an ungrouped one.
+ */
+export function slotDisplayName(
+  groupLabel: string | null,
+  title: string,
+  meta: readonly string[],
+): string {
+  return [groupLabel, title, ...meta].filter((p): p is string => Boolean(p)).join(' · ');
+}
+
+/**
+ * Everything `slotDisplayName` says but the title: the line the sign-up sheet
+ * shows above the slot's name, where the group heading sat on the page. Empty
+ * when the slot has nothing but its title.
+ */
+export function slotContext(groupLabel: string | null, meta: readonly string[]): string {
+  return [groupLabel, ...meta].filter((p): p is string => Boolean(p)).join(' · ');
+}
