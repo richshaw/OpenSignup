@@ -368,11 +368,13 @@ test.describe('help: create and publish your first signup', () => {
       await expect(sheet.getByRole('link', { name: UI.emailIt })).toBeVisible();
       // QR code shows the code in the sheet, then Save image saves it: a
       // download here, where the browser can't share a file.
-      const qr = sheet.getByRole('button', { name: UI.qrOnPhone });
+      const qr = sheet.getByRole('button', { name: UI.qrOnPhone, exact: true });
       await expect(qr).toHaveAttribute('aria-expanded', 'false');
       await qr.click();
-      await expect(qr).toHaveAttribute('aria-expanded', 'true');
-      await expect(qr).toBeFocused();
+      // The same button, now Hide QR code, with the focus still on it.
+      const hide = sheet.getByRole('button', { name: UI.hideQrCode, exact: true });
+      await expect(hide).toHaveAttribute('aria-expanded', 'true');
+      await expect(hide).toBeFocused();
       const code = sheet.getByRole('img', {
         name: /^QR code for the sign-up link to Phone publish \d+$/,
       });
@@ -381,6 +383,11 @@ test.describe('help: create and publish your first signup', () => {
       const [download] = await Promise.all([page.waitForEvent('download'), save.click()]);
       expect(download.suggestedFilename()).toMatch(/^phone-publish-\d+[-\w]*-qr\.png$/);
       await expect(sheet.getByRole('button', { name: 'Saved' })).toBeVisible();
+      // Hide QR code puts it away, and the message's buttons are back.
+      await hide.click();
+      await expect(code).toBeHidden();
+      await expect(qr).toHaveAttribute('aria-expanded', 'false');
+      await expect(sheet.getByRole('link', { name: UI.emailIt })).toBeInViewport();
       await page.keyboard.press('Escape');
       await expect(sheet).toBeHidden();
 

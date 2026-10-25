@@ -65,7 +65,10 @@ jobs:
       - run: pnpm budgets
 
   e2e:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, where Playwright 1.59 can't install
+    # Chromium ("does not support chromium on ubuntu26.04-x64"). Move back to
+    # ubuntu-latest with a Playwright release that supports it.
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16-alpine
