@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Send } from 'lucide-react';
-import { loadSharePanel } from '@/components/share/load-share-panel';
+import { loadSharePanel, usePrefetchSharePanel } from '@/components/share/load-share-panel';
 import { Spinner } from '@/components/ui/spinner';
 import { useDelayedFlag } from '@/hooks/useDelayedFlag';
 import type { PublishCheckAnswer } from '@/lib/publish-check';
@@ -170,6 +170,8 @@ export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
   const say = useAnnounce();
   // Counts hand-backs, so a second one starts the ring's time again; 0 is off.
   const [ring, setRing] = useState(0);
+  // Publishing opens the share panel, so its code is fetched ahead.
+  usePrefetchSharePanel();
 
   useEffect(() => {
     if (!onScreen) return;

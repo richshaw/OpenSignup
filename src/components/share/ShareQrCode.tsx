@@ -84,9 +84,9 @@ function makeQr(url: string): Qr | null {
  * QR code button beside Copy link, which shows the code large in the sheet
  * with Save image under it. The browser draws it itself, so nothing goes to
  * an outside service, and the PNG only when it's saved. The encoder
- * (`lean-qr/nano`, 2 kB) comes in the panel's own code, which loads only
- * when the panel opens, so it's never in a page's first load and the code
- * is there as soon as the panel is: nothing to wait for, and nothing moves.
+ * (`lean-qr/nano`, 2 kB) comes in the panel's own code, which loads after
+ * the page does, so it's never in a page's first load, and the code is
+ * there as soon as the panel is: nothing to wait for, and nothing moves.
  *
  * Where the browser can't draw the PNG, there's no QR code, rather than a
  * Download that does nothing; one that fails when chosen goes away. The
