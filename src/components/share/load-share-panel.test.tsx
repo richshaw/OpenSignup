@@ -63,4 +63,30 @@ describe('when the share panel can’t load', () => {
     expect(emit).toHaveBeenCalledExactlyOnceWith('sig_1', 'copied', 'share_panel');
     expect(within(panel).getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
+
+  it('a load that failed ahead isn’t kept, so opening the panel tries again', async () => {
+    vi.resetModules();
+    const fresh = await import('./load-share-panel');
+    const { ShareScope: Scope } = await import('@/components/signup/ShareScope');
+    const { ShareButton: Share } = await import('@/components/signup/ShareButton');
+    await fresh.loadSharePanel();
+    render(
+      <Scope
+        publishAction={async () => null}
+        signupId="sig_1"
+        title="Bake sale"
+        url={LINK}
+        message=""
+      >
+        <Share variant="desktop" />
+      </Scope>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    const panel = screen.getByRole('dialog', { name: 'Share the link' });
+    // Not answered at once from the failed load: the fallback shows while it
+    // asks again.
+    const failed = 'Couldn’t load the other ways to share. Reload to try again.';
+    expect(within(panel).queryByText(failed)).toBeNull();
+    expect(await within(panel).findByText(failed)).toBeInTheDocument();
+  });
 });
