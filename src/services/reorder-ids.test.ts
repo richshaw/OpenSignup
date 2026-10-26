@@ -25,13 +25,12 @@ describe.each([
   });
 
   it('preserves the complete error and the order of each invalid ID list', () => {
-    expect(
-      everyIdOnceError(
-        ['c', 'foreign-b', 'c', 'foreign-a', 'a', 'foreign-b', 'c'],
-        ['a', 'b', 'c', 'd'],
-        noun,
-      ),
-    ).toStrictEqual({
+    const error = everyIdOnceError(
+      ['c', 'foreign-b', 'c', 'foreign-a', 'a', 'foreign-b', 'c'],
+      ['a', 'b', 'c', 'd'],
+      noun,
+    );
+    const expected = {
       code: 'invalid_input',
       message,
       field,
@@ -41,7 +40,10 @@ describe.each([
         duplicates: ['c', 'foreign-b'],
       },
       suggestion,
-    });
+    };
+    expect(error).toStrictEqual(expected);
+    // toStrictEqual ignores key order; the API sends the keys in this order.
+    expect(JSON.stringify(error)).toBe(JSON.stringify(expected));
   });
 
   it('includes only the applicable error details', () => {

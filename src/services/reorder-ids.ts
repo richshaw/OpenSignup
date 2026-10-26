@@ -1,5 +1,9 @@
 import { serviceError, type ServiceError } from '@/lib/errors';
 
+/**
+ * The `invalid_input` error for an id list that doesn't name every current id exactly once,
+ * or `null` when it does.
+ */
 export function everyIdOnceError(
   ids: string[],
   currentIds: string[],
