@@ -33,7 +33,12 @@ type WysiwygSlotProps = {
   focusOnOpen?: boolean;
   /** Called once the editor has taken focus. */
   onFocused?: () => void;
-  onExpand: () => void;
+  /**
+   * Opens the editor. `byKeyboard` is true when Enter or Space pressed the
+   * row or the toolbar's Edit, so the editor can take focus without a click or
+   * tap raising a phone's keyboard.
+   */
+  onExpand: (byKeyboard: boolean) => void;
   onCollapse: () => void;
   onEditCell: (fieldRef: string, value: string) => void;
   onSetCapacity: (capacity: number | null) => void;
@@ -185,7 +190,7 @@ export function WysiwygSlot({
       )}
       <button
         type="button"
-        onClick={onExpand}
+        onClick={(e) => onExpand(e.detail === 0)}
         aria-label={ariaLabel}
         // Where BuildWysiwyg finds the row to put focus back on when its
         // editor closes.
@@ -247,7 +252,7 @@ export function WysiwygSlot({
         className="absolute right-2 top-1.5 flex gap-px rounded-md border border-surface-sunk bg-white p-0.5 opacity-0 shadow-sm transition-opacity duration-180 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
         inert={!interactive}
       >
-        <ToolbarButton label={actions.edit} onClick={onExpand}>
+        <ToolbarButton label={actions.edit} onClick={(e) => onExpand(e.detail === 0)}>
           <Pencil size={11} />
         </ToolbarButton>
         <ToolbarButton label={actions.duplicate} onClick={onDuplicate}>
@@ -269,7 +274,7 @@ function ToolbarButton({
 }: {
   label: string;
   danger?: boolean;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   children: React.ReactNode;
 }) {
   return (
@@ -279,7 +284,7 @@ function ToolbarButton({
       onClick={(e) => {
         // Don't bubble into the parent expand-on-click button.
         e.stopPropagation();
-        onClick();
+        onClick(e);
       }}
       className={
         'inline-flex h-6 w-6 items-center justify-center rounded border-none bg-transparent text-ink-soft transition-colors duration-180 ' +

@@ -211,14 +211,15 @@ export function BuildWysiwyg({
   // opens the slot it's about, here or once this tab has loaded.
   const handBack = useRegisterBuildTab({ flushPendingSaves, openSlot });
 
-  // What a row asks for: its own editor, which takes the focus, or null when
-  // Done or Escape closes it, the one that's open. When that's the slot the
+  // What a row asks for: its own editor, or null when Done or Escape closes
+  // the one that's open. An editor opened by Enter or Space takes the focus;
+  // one opened by a click or tap doesn't, so a phone's keyboard stays down. When that's the slot the
   // check opened, Publish and share takes the focus, without waiting for the
   // slot's last edits to save: Publish sends them first. Otherwise, as once
   // the signup is published, the slot's row does. Deleting the slot, or
   // Duplicate opening its copy, closes it some other way and hands nothing
   // back.
-  const rowAsks = (rowId: string | null) => {
+  const rowAsks = (rowId: string | null, byKeyboard = false) => {
     if (rowId === null) {
       const closing = expandedRowId;
       if (!(fixRow.current === closing && handBack())) setRowToRefocus(closing);
@@ -226,7 +227,7 @@ export function BuildWysiwyg({
       return;
     }
     expandRow(rowId);
-    setFocusRowId(rowId);
+    if (byKeyboard) setFocusRowId(rowId);
   };
 
   useEffect(() => {

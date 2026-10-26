@@ -561,16 +561,32 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     expect(handBack).toHaveBeenCalledOnce();
   });
 
-  it('puts focus in the first box of a slot opened from its row', () => {
+  // A click that Enter or Space fires on a button has a detail of 0; a mouse
+  // click or a tap counts its clicks, from 1.
+  it('puts focus in the first box of a slot opened from its row by keyboard', () => {
     renderBuild();
-    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Cleanup, / }));
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Cleanup, / }), { detail: 0 });
     expect(screen.getByRole('textbox', { name: 'What value' })).toHaveFocus();
     // The toolbar's Edit does the same.
     done('slot_b');
-    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }), { detail: 0 });
     expect(
       within(screen.getByTestId('slot-editor-slot_a')).getByRole('textbox', { name: 'What value' }),
     ).toHaveFocus();
+  });
+
+  it('leaves focus alone when a click or tap opens a slot, so a phone keeps its keyboard down', () => {
+    renderBuild();
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Cleanup, / }), { detail: 1 });
+    const editor = screen.getByTestId('slot-editor-slot_b');
+    expect(within(editor).getByRole('textbox', { name: 'What value' })).not.toHaveFocus();
+    expect(editor).not.toContainElement(document.activeElement as HTMLElement);
+    // The toolbar's Edit too.
+    done('slot_b');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }), { detail: 1 });
+    expect(screen.getByTestId('slot-editor-slot_a')).not.toContainElement(
+      document.activeElement as HTMLElement,
+    );
   });
 
   it('puts focus back on the slot’s row after Done or Escape in a slot the organizer opened', () => {
