@@ -5,40 +5,12 @@
  * and points at the article. With HELP_SCREENSHOTS=1 it also refreshes the
  * article's pictures.
  */
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { UI } from '@/help/articles/take-someone-off-a-slot.ui';
 import { loginAsSeededOrganizer } from '../helpers/auth';
+import { helpShot } from '../helpers/help-shots';
 
 const SLUG = 'take-someone-off-a-slot';
-const CAPTURE = process.env.HELP_SCREENSHOTS === '1';
-const SHOT_DIR = `public/help/${SLUG}`;
-
-/**
- * The target with a margin of the page around it: the dialog's rounded corners
- * then sit on its dimmed backdrop, rather than showing scraps of it at the
- * corners of the picture.
- */
-async function shot(page: Page, target: Locator, name: string): Promise<void> {
-  if (!CAPTURE) return;
-  // Fonts and focus rings settle after the last action.
-  await page.waitForTimeout(300);
-  const box = await target.boundingBox();
-  if (!box) throw new Error(`${name}: not on the page`);
-  // Whole pixels, so the file is exactly twice the size the article gives.
-  const pad = 16;
-  const x = Math.floor(box.x) - pad;
-  const y = Math.floor(box.y) - pad;
-  await page.screenshot({
-    path: `${SHOT_DIR}/${name}.png`,
-    clip: {
-      x,
-      y,
-      width: Math.ceil(box.x + box.width) + pad - x,
-      height: Math.ceil(box.y + box.height) + pad - y,
-    },
-    animations: 'disabled',
-  });
-}
 
 test.describe('help: take someone off a slot', () => {
   // Screenshots at 2x so text stays sharp; the article sizes them in CSS pixels.
@@ -104,7 +76,9 @@ test.describe('help: take someone off a slot', () => {
       await expect(row.getByRole('cell', { name: 'confirmed', exact: true })).toBeVisible();
 
       await remove.click();
-      await shot(page, confirm, 'confirm');
+      // A margin of the page around the dialog, so its rounded corners sit on
+      // the dimmed backdrop rather than showing scraps of it.
+      await helpShot(page, SLUG, [confirm], 'confirm');
       await confirm.getByRole('button', { name: UI.yesRemove }).click();
 
       // What happens next

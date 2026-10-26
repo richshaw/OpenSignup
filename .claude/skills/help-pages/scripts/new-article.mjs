@@ -89,20 +89,12 @@ writes.set(
  * on-screen names, so a renamed or moved control fails here and points at the
  * article. With HELP_SCREENSHOTS=1 it also refreshes the article's pictures.
  */
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { UI } from '@/help/articles/${slug}.ui';
 import { loginAsSeededOrganizer } from '../helpers/auth';
+import { helpElementShot } from '../helpers/help-shots';
 
 const SLUG = '${slug}';
-const CAPTURE = process.env.HELP_SCREENSHOTS === '1';
-const SHOT_DIR = \`public/help/\${SLUG}\`;
-
-async function shot(page: Page, target: Locator, name: string): Promise<void> {
-  if (!CAPTURE) return;
-  // Fonts and the save indicator settle after the last action.
-  await page.waitForTimeout(300);
-  await target.screenshot({ path: \`\${SHOT_DIR}/\${name}.png\`, animations: 'disabled' });
-}
 
 test.describe(${quote(`help: ${title.toLowerCase()}`)}, () => {
   // Screenshots at 2x so text stays sharp; the article sizes them in CSS pixels.
@@ -113,7 +105,7 @@ test.describe(${quote(`help: ${title.toLowerCase()}`)}, () => {
     await loginAsSeededOrganizer(context);
     await page.goto('/app');
     await expect(page.getByRole('heading', { name: UI.yourSignups })).toBeVisible();
-    await shot(page, page.locator('main'), 'start');
+    await helpElementShot(page, SLUG, page.locator('main'), 'start');
     // TODO: follow every step by the names in UI, and assert what the article says happens.
     throw new Error('TODO: write this walkthrough before the article ships');
   });

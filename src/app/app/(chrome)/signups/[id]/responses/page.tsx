@@ -4,6 +4,7 @@ import { requireOrganizerSession, toActor } from '@/auth/session';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import {
   ACTIVE_COMMITMENT_STATUSES,
+  PLACE_HOLDING_STATUSES,
   howCommitmentsEnded,
   listCommitmentsForSignup,
 } from '@/services/commitments';
@@ -38,7 +39,7 @@ export default async function ResponsesTab({ params }: PageParams) {
   // does. Cancelled rows keep their quantity but no longer hold anything, so
   // they don't count, the same rule the public page's "2/4" follows.
   const showSpots = commitments.some(
-    (c) => c.quantity > 1 && (c.status === 'confirmed' || c.status === 'tentative'),
+    (c) => c.quantity > 1 && PLACE_HOLDING_STATUSES.includes(c.status),
   );
   const canRemove = (c: (typeof commitments)[number]) =>
     ACTIVE_COMMITMENT_STATUSES.includes(c.status);

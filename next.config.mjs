@@ -39,9 +39,6 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_COMMIT_SHA: commitSha(),
   },
-  experimental: {
-    typedRoutes: false,
-  },
   eslint: {
     ignoreDuringBuilds: true,
   },
