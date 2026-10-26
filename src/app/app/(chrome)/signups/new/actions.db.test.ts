@@ -103,6 +103,23 @@ describe('createSignupAction (db)', () => {
     expect(charged?.count).toBe(1);
   });
 
+  it('refuses a title of only spaces, back on the form with the Build tab’s message', async () => {
+    const url = await submit('   ');
+    expect(url.startsWith('/app/signups/new?manual=1&error=')).toBe(true);
+    const message = new URL(url, 'http://localhost').searchParams.get('error');
+    expect(message).toBe('Title must be at least 2 characters.');
+    expect(await created()).toHaveLength(0);
+  });
+
+  it('saves the title trimmed', async () => {
+    await submit('  Bake sale  ');
+    const rows = await db
+      .select({ title: signups.title })
+      .from(signups)
+      .where(eq(signups.workspaceId, workspaceId));
+    expect(rows.map((r) => r.title)).toEqual(['Bake sale']);
+  });
+
   it('refuses a create past the limit, back on the form with a plain message', async () => {
     // Everything but the last unit of this hour's quota is already spent.
     await chargeRateLimit(db, policy, organizerId, policy.max - 1);
