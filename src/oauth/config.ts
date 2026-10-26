@@ -95,6 +95,12 @@ export const OAUTH_TTL = {
  */
 export const SIGNING_KEY_CACHE_MAX_AGE = 5 * 60;
 
+/**
+ * Seconds past `exp` the verifier still accepts an access token, for clock
+ * skew. Retiring a signing key waits this out too.
+ */
+export const ACCESS_TOKEN_CLOCK_TOLERANCE = 15;
+
 export const SIGNING_ALG = 'ES256';
 
 export const RESOURCE_SCOPE_STRING = RESOURCE_SCOPES.join(' ');

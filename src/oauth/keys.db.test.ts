@@ -4,6 +4,9 @@ import { getDb } from '@/db/client';
 import { oauthSigningKeys } from '@/db/schema/oauth';
 import { OAUTH_TTL } from './config';
 import {
+  RETIRE_AFTER_SECONDS,
+  generatePrivateJwk,
+  keyErrorSummary,
   listSigningKeys,
   loadOrCreateSigningKeys,
   markSigningKeyInUse,
@@ -45,7 +48,7 @@ describe('signing keys', () => {
     const newKid = await rotateSigningKey(db);
     const after = await loadOrCreateSigningKeys(db);
     expect(after.privateKeys.map((k) => k.kid)).toEqual([newKid, oldKid]);
-    await signingFor(newKid, OAUTH_TTL.ACCESS_TOKEN + 1);
+    await signingFor(newKid, RETIRE_AFTER_SECONDS + 1);
     expect(await retireSigningKey(db, oldKid)).toBe('retired');
     const retired = await loadOrCreateSigningKeys(db);
     expect(retired.privateKeys.map((k) => k.kid)).toEqual([newKid]);
@@ -53,8 +56,7 @@ describe('signing keys', () => {
   });
 
   it('refuses to retire a key until a newer one has signed for an access token lifetime', async () => {
-    const [current] = await listSigningKeys(db);
-    const oldKid = current!.kid;
+    const oldKid = await rotateSigningKey(db);
     await signingFor(oldKid, 3600);
     // The newest key: nothing has replaced it.
     expect(await retireSigningKey(db, oldKid)).toBe('in_use');
@@ -72,10 +74,40 @@ describe('signing keys', () => {
     expect(await retireSigningKey(db, newKid)).toBe('in_use');
     expect(await retireSigningKey(db, oldKid)).toBe('in_use');
 
+    // A token signed just before the switch is still accepted for the
+    // verifier's clock tolerance past its expiry.
     await signingFor(newKid, OAUTH_TTL.ACCESS_TOKEN + 1);
+    expect(await retireSigningKey(db, oldKid)).toBe('in_use');
+
+    await signingFor(newKid, RETIRE_AFTER_SECONDS + 1);
     expect(await retireSigningKey(db, newKid)).toBe('in_use');
     expect(await retireSigningKey(db, oldKid)).toBe('retired');
-    expect((await listSigningKeys(db)).map((k) => k.kid)).toEqual([newKid]);
+    expect((await listSigningKeys(db)).map((k) => k.kid)).not.toContain(oldKid);
+  });
+
+  it('retires a leaked key at once with force, but never the newest', async () => {
+    const leaked = await rotateSigningKey(db);
+    await new Promise((r) => setTimeout(r, 5));
+    const newKid = await rotateSigningKey(db);
+    // The new key hasn't signed anything yet.
+    expect(await retireSigningKey(db, leaked)).toBe('in_use');
+    expect(await retireSigningKey(db, newKid, { force: true })).toBe('in_use');
+    expect(await retireSigningKey(db, leaked, { force: true })).toBe('retired');
+    expect((await listSigningKeys(db)).map((k) => k.kid)).not.toContain(leaked);
+  });
+
+  it('describes a failed key insert without its private key', async () => {
+    const jwk = await generatePrivateJwk();
+    await db.insert(oauthSigningKeys).values({ kid: jwk.kid!, alg: 'ES256', jwk });
+    const err = await db
+      .insert(oauthSigningKeys)
+      .values({ kid: jwk.kid!, alg: 'ES256', jwk })
+      .catch((e: unknown) => e);
+    // The raw error would print it.
+    expect(String((err as Error).message)).toContain(jwk.d!);
+    const summary = keyErrorSummary(err);
+    expect(summary).toMatch(/duplicate key/);
+    expect(summary).not.toContain(jwk.d!);
   });
 
   it('refuses a kid that is not an active key', async () => {
