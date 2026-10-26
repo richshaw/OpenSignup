@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments, type Commitment as CommitmentRow } from '@/db/schema/commitments';
@@ -57,10 +57,11 @@ export const isActiveCommitment = inArray(commitments.status, [...ACTIVE_COMMITM
  * a cancelled one holds nothing. Every capacity check, and every count of
  * places taken that a page shows, goes by this.
  */
-export const holdsPlace = or(
-  eq(commitments.status, 'confirmed'),
-  eq(commitments.status, 'tentative'),
-)!;
+export const PLACE_HOLDING_STATUSES: readonly CommitmentRow['status'][] = [
+  'confirmed',
+  'tentative',
+];
+export const holdsPlace = inArray(commitments.status, [...PLACE_HOLDING_STATUSES]);
 
 /**
  * How many places a slot has taken (the sum of `quantity` over commitments
