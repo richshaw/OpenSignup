@@ -35,6 +35,7 @@ import {
   lockSlotsForSignup,
   withSignupWriteLock,
 } from './locks';
+import { everyIdOnceError } from './reorder-ids';
 
 function rowToDefinition(row: FieldRow): SlotFieldDefinition {
   return {
@@ -353,28 +354,12 @@ export async function reorderFields(
   // list the renumbering writes over.
   return withSignupWriteLock(db, actor, signupId, async (tx, signupRow) => {
     const current = await listFieldsForSignup(tx, signupId);
-    const known = new Set(current.map((f) => f.id));
-
-    const seen = new Set<string>();
-    const duplicates = new Set<string>();
-    for (const id of fieldIds) (seen.has(id) ? duplicates : seen).add(id);
-    const unknown = [...seen].filter((id) => !known.has(id));
-    const missing = current.filter((f) => !seen.has(f.id)).map((f) => f.id);
-    if (duplicates.size > 0 || unknown.length > 0 || missing.length > 0) {
-      return err(
-        serviceError('invalid_input', 'fieldIds must list every field of the signup exactly once', {
-          field: 'fieldIds',
-          details: {
-            ...(missing.length > 0 ? { missing } : {}),
-            ...(unknown.length > 0 ? { unknown } : {}),
-            ...(duplicates.size > 0 ? { duplicates: [...duplicates] } : {}),
-          },
-          suggestion:
-            'call get_signup to see the ids of its fields, then send every one of them once, ' +
-            'in the order you want them shown',
-        }),
-      );
-    }
+    const bad = everyIdOnceError(
+      fieldIds,
+      current.map((f) => f.id),
+      'field',
+    );
+    if (bad) return err(bad);
 
     await writeFieldOrder(tx, signupId, fieldIds);
     const next = await listFieldsForSignup(tx, signupId);
