@@ -13,6 +13,7 @@ const loads = vi.hoisted(() => ({ count: 0 }));
 vi.mock('@/components/share/load-share-panel', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/components/share/load-share-panel')>();
   return {
+    ...real,
     loadSharePanel: () => {
       loads.count += 1;
       return real.loadSharePanel();

@@ -42,7 +42,8 @@ type Copied = 'link' | 'message';
  * with it, a QR code, and on a phone the phone's own share menu. The sending
  * happens in the browser or the organizer's own apps. Each copy or share
  * that worked is recorded (`emitSignupLinkEvent`): which button, and nothing
- * about the message or who it went to. Loaded only when it opens.
+ * about the message or who it went to. Loaded after the page, once it's
+ * idle, or when it opens if it isn't in by then (`load-share-panel.ts`).
  *
  * The heading, "Published" and the ✕ are the container's (`ShareButton`),
  * so the popover or sheet is named and can be closed while this loads.
