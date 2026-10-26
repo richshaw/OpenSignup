@@ -6,7 +6,9 @@ import { slots, type Slot as SlotRow } from '@/db/schema/slots';
 import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
+import { log } from '@/lib/log';
 import { parseInputSafe } from '@/lib/parse';
+import type { PublishCheck } from '@/lib/publish-check';
 import {
   requireOrganizer,
   requireWorkspaceAccess,
@@ -37,7 +39,12 @@ import {
   validateSlotValues,
 } from './slot-fields';
 import { committedBySlot } from './commitments';
-import { getSignupRowForOrganizer, lockSlotsForSignup, withSignupWriteLock } from './locks';
+import {
+  getSignupRowForOrganizer,
+  lockSlotsForSignup,
+  readLiveSignup,
+  withSignupWriteLock,
+} from './locks';
 import { listSlotsForSignup, pickAvailableRef, summarizeValues } from './slots';
 
 /**
@@ -342,12 +349,18 @@ export async function updateSignup(
   });
 }
 
+/**
+ * `acknowledged: 'placeholder'` goes in the `signup.published` row when the
+ * organizer chose Publish anyway past the header's warning that a slot still
+ * says TBD, so telemetry can tell that apart from a slot fixed first.
+ */
 export async function publishSignup(
   db: Db,
   actor: Actor,
   signupId: string,
+  opts: { acknowledged?: 'placeholder' } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
-  return transitionStatus(db, actor, signupId, 'draft', 'open', 'signup.published');
+  return transitionStatus(db, actor, signupId, 'draft', 'open', 'signup.published', opts);
 }
 
 /**
@@ -389,12 +402,67 @@ async function recordPublishRefused(
   });
 }
 
+/**
+ * Telemetry for what Publish's check stopped or warned about. The publish
+ * action runs the check before the service, which then never sees those
+ * refusals, so this writes the row `recordPublishRefused` would have: a
+ * blocking problem in the same shape as the service's refusals
+ * (`{ code: 'conflict', reason }`, where `reason` is the check's kind, and
+ * `no_slots` reads exactly as before), the placeholder warning as
+ * `{ reason: 'placeholder', warning: true }`, so a warning shown and a later
+ * Publish anyway can be told apart. Best effort, outside any transaction, as
+ * it describes no change; the signup is read and the write guard run first.
+ */
+export async function recordPublishCheck(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+  check: PublishCheck,
+): Promise<Result<null, ServiceError>> {
+  let found: SignupRow | undefined;
+  try {
+    found = await readLiveSignup(db, signupId);
+  } catch (e) {
+    // The publish it describes shows its check all the same.
+    log.warn({ err: e, signupId }, 'recordPublishCheck: reading the signup failed');
+    return ok(null);
+  }
+  if (!found) return err(serviceError('not_found', 'signup not found'));
+  requireWorkspaceWrite(actor, found.workspaceId);
+  await recordActivityBestEffort(db, {
+    signupId,
+    workspaceId: found.workspaceId,
+    actor: activityActor(actor),
+    eventType: 'signup.publish_refused',
+    payload:
+      check.kind === 'placeholder'
+        ? { reason: 'placeholder', warning: true }
+        : { code: 'conflict', reason: check.kind },
+  });
+  return ok(null);
+}
+
 export async function closeSignup(
   db: Db,
   actor: Actor,
   signupId: string,
 ): Promise<Result<SignupRow, ServiceError>> {
   return transitionStatus(db, actor, signupId, 'open', 'closed', 'signup.closed');
+}
+
+/**
+ * Takes sign-ups again on a closed signup, at the same link. Everyone already
+ * signed up keeps their spot, and the first publish's `opensAt` stays. Only a
+ * closed signup reopens: a draft is published, and an archived one stays put
+ * away. A closing time that has passed is removed (see `transitionStatus`),
+ * and one still to come is kept.
+ */
+export async function reopenSignup(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+): Promise<Result<SignupRow, ServiceError>> {
+  return transitionStatus(db, actor, signupId, 'closed', 'open', 'signup.reopened');
 }
 
 export async function archiveSignup(
@@ -453,7 +521,9 @@ async function transitionStatus(
   signupId: string,
   from: SignupStatus | null,
   to: SignupStatus,
-  eventType: 'signup.published' | 'signup.closed' | 'signup.archived',
+  eventType: 'signup.published' | 'signup.closed' | 'signup.reopened' | 'signup.archived',
+  // More for the activity row's payload.
+  extra: Record<string, unknown> = {},
 ): Promise<Result<SignupRow, ServiceError>> {
   // Set under the lock, for the telemetry of a refused publish afterwards.
   let workspaceId: string | null = null;
@@ -466,8 +536,9 @@ async function transitionStatus(
   const result = await withSignupWriteLock(db, actor, signupId, async (tx, row) => {
     workspaceId = row.workspaceId;
     if (from !== null && row.status !== from) {
+      const verb = eventType === 'signup.reopened' ? 'reopen' : to;
       return err(
-        serviceError('conflict', `cannot ${to} a signup that is ${row.status}`, {
+        serviceError('conflict', `cannot ${verb} a signup that is ${row.status}`, {
           field: 'status',
           received: row.status,
           expected: from,
@@ -483,21 +554,34 @@ async function transitionStatus(
       // wait until the publish has committed.
       const slotRows = await lockSlotsForSignup(tx, signupId, row.workspaceId);
       if (slotRows.length < 1) {
+        const [verb, doing] =
+          eventType === 'signup.reopened' ? ['reopen', 'reopening'] : ['publish', 'publishing'];
         return err(
-          serviceError('conflict', 'publish requires at least one slot', {
+          serviceError('conflict', `${verb} requires at least one slot`, {
             field: 'slots',
-            suggestion: 'add a slot before publishing',
+            suggestion: `add a slot before ${doing}`,
           }),
         );
       }
     }
 
+    const now = new Date();
+    // A reopen takes sign-ups again straight away, so a closing time that has
+    // passed goes: kept, it would go on refusing everyone (`signupShutReason`),
+    // and the web app has no way to change it. At now as well as before it,
+    // since a millisecond later it would have passed. The activity row keeps
+    // the time, as nothing else records it.
+    const clearedClosesAt =
+      eventType === 'signup.reopened' && row.closesAt && row.closesAt.getTime() <= now.getTime()
+        ? row.closesAt
+        : null;
     const [next] = await tx
       .update(signups)
       .set({
         status: to,
-        opensAt: to === 'open' && !row.opensAt ? new Date() : row.opensAt,
-        updatedAt: new Date(),
+        opensAt: to === 'open' && !row.opensAt ? now : row.opensAt,
+        ...(clearedClosesAt ? { closesAt: null } : {}),
+        updatedAt: now,
       })
       .where(eq(signups.id, signupId))
       .returning();
@@ -508,7 +592,12 @@ async function transitionStatus(
       workspaceId: row.workspaceId,
       actor: activityActor(actor),
       eventType,
-      payload: { from: row.status, to },
+      payload: {
+        from: row.status,
+        to,
+        ...extra,
+        ...(clearedClosesAt ? { clearedClosesAt: clearedClosesAt.toISOString() } : {}),
+      },
     });
     return ok(next);
   });

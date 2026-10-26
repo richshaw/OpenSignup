@@ -5,6 +5,8 @@ import {
   formatGroupLabel,
   pickPrimaryField,
   renderFieldValue,
+  slotContext,
+  slotDisplayName,
 } from './slot-format';
 import type { SignupViewField } from './signup-view-types';
 
@@ -153,5 +155,32 @@ describe('capacityLabel', () => {
     // A lone "0" has no denominator to anchor it and reads as noise.
     expect(capacityLabel(0, null)).toEqual({ text: '', sr: null });
     expect(capacityLabel(3, null)).toEqual({ text: '3', sr: '3 signed up' });
+  });
+});
+
+describe('slotDisplayName', () => {
+  it('names the group, then the slot, then the rest, as the page reads', () => {
+    expect(slotDisplayName('Sat, Nov 7', 'Sort and pack food', ['9:00 AM', '12:00 PM'])).toBe(
+      'Sat, Nov 7 · Sort and pack food · 9:00 AM · 12:00 PM',
+    );
+  });
+
+  it('names an ungrouped slot by its title and the rest', () => {
+    expect(slotDisplayName(null, 'Bring a dish', ['Sat, Nov 14'])).toBe('Bring a dish · Sat, Nov 14');
+  });
+
+  it('is the title alone when there is nothing else', () => {
+    expect(slotDisplayName(null, 'Cookies', [])).toBe('Cookies');
+  });
+});
+
+describe('slotContext', () => {
+  it('is everything but the title: the group, then the rest', () => {
+    expect(slotContext('Sat, Nov 7', ['9:00 AM', '12:00 PM'])).toBe('Sat, Nov 7 · 9:00 AM · 12:00 PM');
+    expect(slotContext(null, ['Sat, Nov 14'])).toBe('Sat, Nov 14');
+  });
+
+  it('is empty when the slot has nothing but its title', () => {
+    expect(slotContext(null, [])).toBe('');
   });
 });

@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Plus } from 'lucide-react';
+import { useRegisterBuildTab } from '@/components/signup/BuildBridge';
 import { useBuildState, type BuildField, type BuildRow, type BuildSlot } from '../build-shared/useBuildState';
 import { useReorderable } from '../build-shared/useReorderable';
 import { Editable } from './Editable';
@@ -9,7 +10,7 @@ import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
-import type { SignupSettings } from '@/schemas/signups';
+import type { SignupSettings, SignupStatus } from '@/schemas/signups';
 
 /** Server-loaded chrome snapshot. Title + description are then edited in-place via updateSignupMeta. */
 type SignupMeta = {
@@ -23,6 +24,11 @@ type BuildWysiwygProps = {
   initialFields: SlotFieldDefinition[];
   initialSlots: BuildSlot[];
   initialSettings: SignupSettings;
+  /**
+   * The signup's status, which a slot still saying "TBD" is marked by. It
+   * follows Publish, which renders the page again.
+   */
+  status: SignupStatus;
   /**
    * Spots taken per slot id when the page loaded; a slot with none is absent.
    * Slots added in this session start empty, so they read 0 without an entry.
@@ -78,6 +84,7 @@ export function BuildWysiwyg({
   initialFields,
   initialSlots,
   initialSettings,
+  status,
   committedBySlot,
 }: BuildWysiwygProps) {
   const {
@@ -96,6 +103,7 @@ export function BuildWysiwyg({
     renameGroup,
     setCapacity,
     moveRow,
+    flushPendingSaves,
   } = useBuildState(
     signupId,
     initialFields,
@@ -106,12 +114,24 @@ export function BuildWysiwyg({
 
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  // The slot whose editor gets focus once it's open, and in which field.
+  const [focusRequest, setFocusRequest] = useState<{
+    rowId: string;
+    fieldRef: string | null;
+  } | null>(null);
+  // The slot Publish's check opened, until any other editor opens or this
+  // one closes: Done on it, or Enter, hands focus back to Publish and share.
+  const fixRow = useRef<string | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   // A copy just made by Duplicate, whose editor takes focus when it opens.
   // Cleared once it has: in a signup grouped by date, changing the copy's
   // date remounts its editor in the new group, which must not take focus again.
   const [focusRowId, setFocusRowId] = useState<string | null>(null);
   const clearFocusRow = useCallback(() => setFocusRowId(null), []);
+  // Opens a slot's editor, or with null closes the one open, as the
+  // organizer's own choice: a fix's slot is a fix's no longer.
   const expandRow = (rowId: string | null) => {
+    fixRow.current = null;
     setFocusRowId(null);
     setExpandedRowId(rowId);
   };
@@ -160,6 +180,83 @@ export function BuildWysiwyg({
     void addRow({ values: {} });
   };
 
+  const showSlot = (rowId: string, fieldRef: string | null) => {
+    expandRow(rowId);
+    fixRow.current = rowId;
+    setFocusRequest({ rowId, fieldRef });
+  };
+
+  /**
+   * Opens a slot's editor (a new slot when `slotId` is null), focus in
+   * `fieldRef`, and says whether it could: a slot added elsewhere since the
+   * page loaded isn't here to open.
+   */
+  const openSlot = (slotId: string | null, fieldRef: string | null): boolean => {
+    if (slotId === null) {
+      void addRow().then((id) => {
+        if (id) showSlot(id, null);
+      });
+      return true;
+    }
+    if (!state.rows.some((r) => r.id === slotId)) return false;
+    showSlot(slotId, fieldRef);
+    return true;
+  };
+
+  // The header's Publish saves what's pending here first, and a check's fix
+  // opens the slot it's about, here or once this tab has loaded.
+  const handBack = useRegisterBuildTab({ flushPendingSaves, openSlot });
+
+  // What a row asks for: its own editor, or null when Done closes it, the
+  // one that's open. When that's the slot the check opened, Publish and share
+  // takes the focus, without waiting for the slot's last edits to save:
+  // Publish sends them first. Deleting the slot, or Duplicate opening its
+  // copy, closes it some other way and hands nothing back.
+  const rowAsks = (rowId: string | null) => {
+    if (rowId === null && fixRow.current === expandedRowId) handBack();
+    expandRow(rowId);
+  };
+
+  // In the editor the check opened, Enter in a one-line box (text, number,
+  // date, time) does what Done does, as the design has it, as long as Publish
+  // and share takes the focus: once the signup is published there's none, and
+  // the editor stays open rather than drop focus on the page. Not while
+  // typing a new list item, whose box takes Enter itself, nor while an input
+  // method is composing (Safari ends the composition first, then sends Enter
+  // as key 229). An editor opened by hand keeps Enter as it was.
+  const enterIsDone = (e: KeyboardEvent<HTMLElement>) => {
+    const box = e.target as HTMLInputElement;
+    if (
+      e.key === 'Enter' &&
+      !e.defaultPrevented &&
+      !e.nativeEvent.isComposing &&
+      e.nativeEvent.keyCode !== 229 &&
+      /^(text|number|date|time)$/.test(box.type) &&
+      box.closest<HTMLElement>('[data-slot-editor]')?.dataset.slotEditor === fixRow.current &&
+      handBack()
+    ) {
+      e.preventDefault();
+      expandRow(null);
+    }
+  };
+
+  // Focus goes in the field asked for, or the slot's first, once its editor
+  // is open; with no fields, in Spots.
+  useEffect(() => {
+    if (!focusRequest) return;
+    const editor = Array.from(
+      sheetRef.current?.querySelectorAll<HTMLElement>('[data-slot-editor]') ?? [],
+    ).find((el) => el.dataset.slotEditor === focusRequest.rowId);
+    if (!editor) return;
+    const boxes = Array.from(editor.querySelectorAll<HTMLElement>('[data-field-ref]'));
+    const box = boxes.find((b) => b.dataset.fieldRef === focusRequest.fieldRef) ?? boxes[0];
+    const control = box
+      ? box.querySelector<HTMLElement>('input, button')
+      : editor.querySelector<HTMLElement>('input');
+    editor.scrollIntoView?.({ block: 'center' });
+    control?.focus({ preventScroll: true });
+  }, [focusRequest]);
+
   const handleRenameGroup = (oldKey: string, newKey: string) => {
     if (!groupField) return;
     if (newKey === oldKey) return;
@@ -178,7 +275,11 @@ export function BuildWysiwyg({
   };
 
   return (
-    <div className="-mt-6 -mb-8 min-h-[calc(100vh-12rem)] bg-surface-raised pt-6 pb-24 md:pt-10 md:pb-32">
+    <div
+      ref={sheetRef}
+      onKeyDown={enterIsDone}
+      className="-mt-6 -mb-8 min-h-[calc(100vh-12rem)] bg-surface-raised pt-6 pb-24 md:pt-10 md:pb-32"
+    >
       <div
         className={`mx-auto w-full rounded-none border border-surface-sunk border-t-[3px] border-t-brand bg-white shadow-card transition-[max-width] duration-180 ease-emphasized md:rounded-xl ${sheetMaxWidthClass(state.fields.length)}`}
       >
@@ -219,10 +320,11 @@ export function BuildWysiwyg({
                 fields={state.fields}
                 takenBySlot={committedBySlot}
                 remindersOn={state.reminderFieldRef !== null}
+                status={status}
                 expandedRowId={expandedRowId}
                 focusRowId={focusRowId}
                 onRowFocused={clearFocusRow}
-                onExpandRow={expandRow}
+                onExpandRow={rowAsks}
                 onEditCell={editCell}
                 onSetCapacity={(rowId, c) => setCapacity(rowId, c)}
                 onAddEnumOption={(fieldId, value) => {
@@ -240,7 +342,7 @@ export function BuildWysiwyg({
                   // Open the copy: the next thing changed is usually its date (#557).
                   void duplicateRow(rowId).then((copyId) => {
                     if (copyId === null) return;
-                    setExpandedRowId(copyId);
+                    expandRow(copyId);
                     setFocusRowId(copyId);
                   });
                 }}

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } from '@/schemas/signups';
+import { DESCRIPTION_MAX_LENGTH, TitleSchema } from '@/schemas/signups';
 import {
   ChoiceSchema,
   FIELD_TYPES,
@@ -48,7 +48,7 @@ const DraftSlotSchema = z.object({
 });
 
 export const FullDraftSchema = z.object({
-  title: z.string().min(TITLE_MIN_LENGTH).max(TITLE_MAX_LENGTH),
+  title: TitleSchema,
   description: z.string().max(DESCRIPTION_MAX_LENGTH).default(''),
   fields: z.array(DraftFieldSchema).min(1).max(MAX_FIELDS),
   slots: z.array(DraftSlotSchema).min(1).max(MAX_SLOTS),

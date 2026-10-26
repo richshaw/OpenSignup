@@ -66,8 +66,9 @@ fill Spots = 2
 wait Saved
 click Done
 ss organizer-builder
-click Publish
-wait Signup published
+click Publish and share
+wait Now send people the link
+press Escape
 follow Open public page
 as-visitor
 wait Fruit and water

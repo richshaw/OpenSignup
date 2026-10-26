@@ -24,6 +24,7 @@ describe('buildSitemap', () => {
       'https://example.test/help',
       'https://example.test/help/create-and-publish-a-signup',
       'https://example.test/help/take-someone-off-a-slot',
+      'https://example.test/help/close-or-reopen-a-signup',
       'https://example.test/help/connect-an-ai-assistant',
     ]);
     expect(urls.length).toBe(INDEXABLE_ROUTES.length);

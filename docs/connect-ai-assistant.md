@@ -29,7 +29,7 @@ the browser:
   in the same workspace can.
 - **Change** a signup: title, description, tags, closing time, settings,
   fields, and slots.
-- **Publish, close, archive, or delete** a signup.
+- **Publish, close, reopen, archive, or delete** a signup.
 
 Try: "Build me a snack rota for six Saturday games starting 3 October, two
 families per game." Then: "Publish it and give me the link to share."

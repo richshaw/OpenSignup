@@ -4,9 +4,6 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 vi.mock('@/db/client', () => ({ getDb: () => ({}) as unknown }));
 // The session module drags in Auth.js, which does not load under vitest.
 vi.mock('./organizer-session', () => ({ loadOrganizerSessionById: vi.fn(), toActor: vi.fn() }));
-vi.mock('@/lib/env', () => ({
-  getEnv: () => ({ AUTH_URL: 'https://signup.example.org', AUTH_SECRET: 'x'.repeat(32) }),
-}));
 
 const ISSUER = 'https://signup.example.org';
 const RESOURCE = `${ISSUER}/api/mcp`;

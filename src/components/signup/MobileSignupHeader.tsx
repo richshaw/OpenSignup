@@ -1,32 +1,53 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { MoreHorizontal } from 'lucide-react';
-import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
 import type { SignupStatus } from '@/schemas/signups';
-import type { StatusAction } from './StatusActionForm';
+import { useCloseQuestion, type CloseQuestionAction } from './CloseSignupConfirm';
+import type { StatusChangeAction } from './StatusActionForm';
 import { MobileMoreMenuSheet } from './MobileMoreMenuSheet';
+import { PhoneBar } from './PhoneBar';
 
 interface MobileSignupHeaderProps {
-  signupId: string;
   title: string;
   status: SignupStatus;
-  publicUrl: string;
-  publishAction: StatusAction;
-  closeAction: StatusAction;
+  /** `PhoneStanding`, rendered on the server: the draft line, or the link. */
+  standing: ReactNode;
+  /** `PhonePreviewItem`, rendered on the server, for the More actions sheet. */
+  previewItem: ReactNode;
+  /** From `spotsTakenLine`, for the bar; null for a draft. */
+  spotsTaken: string | null;
+  closeQuestion: string;
+  closeQuestionAction: CloseQuestionAction;
+  closeAction: StatusChangeAction;
+  reopenAction: StatusChangeAction;
 }
 
+/**
+ * The phone's header, and the bar at the bottom of the screen that holds
+ * Publish and share, or Share. Publish runs in `SignupHeader`'s scope, Close
+ * signup in the More actions sheet's, and Reopen signup in its own there.
+ */
 export function MobileSignupHeader({
-  signupId,
   title,
   status,
-  publicUrl,
-  publishAction,
+  standing,
+  previewItem,
+  spotsTaken,
+  closeQuestion,
+  closeQuestionAction,
   closeAction,
+  reopenAction,
 }: MobileSignupHeaderProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const hasActions = status === 'draft' || status === 'open';
+  const [question, askAgain] = useCloseQuestion(closeQuestion, closeQuestionAction);
+  // The status the More actions sheet was opened on. Close signup and Reopen
+  // signup change the status, which closes the sheet rather than leaving it
+  // open on what the signup can do next. Forgotten as soon as the status
+  // changes, so a change back made anywhere doesn't open the sheet again.
+  const [menuFor, setMenuFor] = useState<SignupStatus | null>(null);
+  if (menuFor !== null && menuFor !== status) setMenuFor(null);
+  const menuOpen = menuFor === status;
 
   return (
     <>
@@ -36,15 +57,27 @@ export function MobileSignupHeader({
             <div className="mb-1">
               <StatusPill status={status} />
             </div>
-            <h1 className="truncate text-xl font-semibold tracking-tight text-ink">{title}</h1>
+            <h1
+              tabIndex={-1}
+              data-signup-title
+              className="truncate text-xl font-semibold tracking-tight text-ink"
+            >
+              {title}
+            </h1>
           </div>
-          {/* The menu holds Publish or Close signup. A closed or archived
-              signup has neither, so there's no menu to open. */}
-          {hasActions ? (
+          {/* The menu holds Preview, with Close signup once it's open and
+              Reopen signup once it's closed. An archived signup has none of
+              them. */}
+          {status !== 'archived' ? (
             <button
               type="button"
-              onClick={() => setMenuOpen(true)}
+              onClick={() => {
+                setMenuFor(status);
+                if (status === 'open') askAgain();
+              }}
               aria-label="More actions"
+              aria-haspopup="dialog"
+              aria-expanded={menuOpen}
               className="-mr-1.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-raised"
             >
               <MoreHorizontal size={20} aria-hidden="true" />
@@ -52,16 +85,20 @@ export function MobileSignupHeader({
           ) : null}
         </div>
 
-        <PublicLinkChip url={publicUrl} signupId={signupId} />
+        {standing}
       </header>
+
+      <PhoneBar status={status} spotsTaken={spotsTaken} />
 
       <MobileMoreMenuSheet
         open={menuOpen}
-        onClose={() => setMenuOpen(false)}
+        onClose={() => setMenuFor(null)}
         status={status}
         title={title}
-        publishAction={publishAction}
+        previewItem={previewItem}
+        closeQuestion={question}
         closeAction={closeAction}
+        reopenAction={reopenAction}
       />
     </>
   );

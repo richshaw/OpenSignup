@@ -13,7 +13,7 @@ import { DEFAULT_TEMPLATE, EMPTY_TEMPLATE, type SignupTemplate } from '@/lib/sig
 import { listFieldsForSignup } from '@/services/slot-fields';
 import { addSlot, deleteSlot } from '@/services/slots';
 import { settle, untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
-import { commitToSlot } from '@/services/commitments';
+import { commitToSlot, committedBySlot } from '@/services/commitments';
 import { getSignupRowForOrganizer } from '@/services/locks';
 import {
   archiveSignup,
@@ -24,6 +24,8 @@ import {
   getSignupForOrganizer,
   listSignupsForWorkspace,
   publishSignup,
+  recordPublishCheck,
+  reopenSignup,
   updateSignup,
 } from '@/services/signups';
 
@@ -741,6 +743,18 @@ describe('signups service (db)', () => {
       return rows.map((r) => r.payload);
     }
 
+    it('recordPublishCheck never fails the publish it describes, even when its read does', async () => {
+      // Telemetry: a database that won't answer leaves the check to show.
+      const down = {
+        select: () => {
+          throw new Error('connection lost');
+        },
+      } as unknown as Db;
+      await expect(
+        recordPublishCheck(down, fx.actor, 'sig_any', { kind: 'no_slots' }),
+      ).resolves.toEqual({ ok: true, value: null });
+    });
+
     it('publishSignup moves draft → open and stamps opensAt', async () => {
       const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Pub'));
       if (!created.ok) throw new Error('setup failed');
@@ -767,7 +781,8 @@ describe('signups service (db)', () => {
       expect(r.ok).toBe(false);
       if (r.ok) return;
       expect(r.error.code).toBe('conflict');
-      expect(r.error.message).toMatch(/at least one slot/);
+      expect(r.error.message).toBe('publish requires at least one slot');
+      expect(r.error.suggestion).toBe('add a slot before publishing');
       expect(await refusedPublishes(created.value.id)).toEqual([
         { code: 'conflict', reason: 'no_slots' },
       ]);
@@ -912,6 +927,191 @@ describe('signups service (db)', () => {
 
       const acts = await fx.db.select().from(activity).where(eq(activity.signupId, signupId));
       expect(acts.filter((a) => a.eventType === 'signup.closed')).toHaveLength(1);
+    });
+
+    describe('reopenSignup', () => {
+      async function closedWithOneSlot(title: string): Promise<{ signupId: string; slotId: string }> {
+        const made = await draftWithOneSlot(title);
+        if (!(await publishSignup(fx.db, fx.actor, made.signupId)).ok) throw new Error('setup failed');
+        if (!(await closeSignup(fx.db, fx.actor, made.signupId)).ok) throw new Error('setup failed');
+        return made;
+      }
+
+      async function reopenedRows(signupId: string) {
+        const rows = await fx.db
+          .select({ payload: activity.payload })
+          .from(activity)
+          .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.reopened')));
+        return rows.map((r) => r.payload);
+      }
+
+      it('moves closed → open, keeping opensAt and the people signed up', async () => {
+        const { signupId, slotId } = await draftWithOneSlot('Reopen me');
+        const pub = await publishSignup(fx.db, fx.actor, signupId);
+        if (!pub.ok) throw new Error('setup failed');
+        const signedUp = await commitToSlot(fx.db, slotId, {
+          name: 'Pat Example',
+          email: 'pat@example.com',
+          quantity: 1,
+        });
+        if (!signedUp.ok) throw new Error(`sign-up failed: ${signedUp.error.message}`);
+        if (!(await closeSignup(fx.db, fx.actor, signupId)).ok) throw new Error('setup failed');
+
+        const r = await reopenSignup(fx.db, fx.actor, signupId);
+        expect(r.ok, JSON.stringify(r)).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.status).toBe('open');
+        expect(r.value.opensAt).toEqual(pub.value.opensAt);
+        expect(await reopenedRows(signupId)).toEqual([{ from: 'closed', to: 'open' }]);
+        expect(await committedBySlot(fx.db, signupId)).toEqual({ [slotId]: 1 });
+      });
+
+      it('refuses a draft, an open signup and an archived one, and writes no row', async () => {
+        const draft = await draftWithOneSlot('Reopen a draft');
+        const open = await draftWithOneSlot('Reopen an open one');
+        if (!(await publishSignup(fx.db, fx.actor, open.signupId)).ok) throw new Error('setup failed');
+        const archived = await closedWithOneSlot('Reopen an archived one');
+        if (!(await archiveSignup(fx.db, fx.actor, archived.signupId)).ok) {
+          throw new Error('setup failed');
+        }
+
+        const cases = [
+          [draft.signupId, 'draft'],
+          [open.signupId, 'open'],
+          [archived.signupId, 'archived'],
+        ] as const;
+        for (const [signupId, status] of cases) {
+          const r = await reopenSignup(fx.db, fx.actor, signupId);
+          expect(r.ok, status).toBe(false);
+          if (r.ok) continue;
+          expect(r.error.code, status).toBe('conflict');
+          expect(r.error.field, status).toBe('status');
+          expect(r.error.received, status).toBe(status);
+          expect(r.error.expected, status).toBe('closed');
+          expect(r.error.message, status).toBe(`cannot reopen a signup that is ${status}`);
+          expect(await statusOf(signupId)).toBe(status);
+          expect(await reopenedRows(signupId)).toEqual([]);
+        }
+      });
+
+      it('says a deleted signup is not found, and refuses a viewer', async () => {
+        const gone = await closedWithOneSlot('Reopen a deleted one');
+        if (!(await deleteSignup(fx.db, fx.actor, gone.signupId)).ok) throw new Error('setup failed');
+        const r = await reopenSignup(fx.db, fx.actor, gone.signupId);
+        expect(!r.ok && r.error.code).toBe('not_found');
+
+        const kept = await closedWithOneSlot('Reopen as a viewer');
+        const viewer: Actor = {
+          kind: 'organizer',
+          id: makeId('org'),
+          email: 'viewer@example.test',
+          workspaceIds: [fx.workspaceId],
+          workspaceRoles: { [fx.workspaceId]: 'viewer' },
+        };
+        await expect(reopenSignup(fx.db, viewer, kept.signupId)).rejects.toThrow(/cannot modify/);
+        expect(await statusOf(kept.signupId)).toBe('closed');
+        expect(await reopenedRows(kept.signupId)).toEqual([]);
+      });
+
+      it('removes a closing time that has passed, keeps it in the row, and takes sign-ups again', async () => {
+        const { signupId, slotId } = await closedWithOneSlot('Reopen past its closing time');
+        const passed = new Date(Date.now() - 60 * 60 * 1000);
+        const set = await updateSignup(fx.db, fx.actor, signupId, { closesAt: passed.toISOString() });
+        if (!set.ok) throw new Error('setup failed');
+
+        const r = await reopenSignup(fx.db, fx.actor, signupId);
+        expect(r.ok, JSON.stringify(r)).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.closesAt).toBeNull();
+        expect(await reopenedRows(signupId)).toEqual([
+          { from: 'closed', to: 'open', clearedClosesAt: passed.toISOString() },
+        ]);
+        const signedUp = await commitToSlot(fx.db, slotId, {
+          name: 'Sam Example',
+          email: 'sam@example.com',
+          quantity: 1,
+        });
+        expect(signedUp.ok, JSON.stringify(signedUp)).toBe(true);
+      });
+
+      it('keeps a closing time that is still to come', async () => {
+        const { signupId } = await closedWithOneSlot('Reopen before its closing time');
+        const later = new Date(Date.now() + 60 * 60 * 1000);
+        const set = await updateSignup(fx.db, fx.actor, signupId, { closesAt: later.toISOString() });
+        if (!set.ok) throw new Error('setup failed');
+
+        const r = await reopenSignup(fx.db, fx.actor, signupId);
+        expect(r.ok, JSON.stringify(r)).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.closesAt).toEqual(later);
+        expect(await reopenedRows(signupId)).toEqual([{ from: 'closed', to: 'open' }]);
+      });
+
+      it('refuses a signup with no slots left, saying reopen, and records no refused publish', async () => {
+        const { signupId, slotId } = await closedWithOneSlot('Reopen with no slots');
+        const deleted = await deleteSlot(fx.db, fx.actor, slotId, { force: true });
+        if (!deleted.ok) throw new Error(`slot delete failed: ${deleted.error.message}`);
+
+        const r = await reopenSignup(fx.db, fx.actor, signupId);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.code).toBe('conflict');
+        expect(r.error.field).toBe('slots');
+        expect(r.error.message).toBe('reopen requires at least one slot');
+        expect(r.error.suggestion).toBe('add a slot before reopening');
+        expect(await statusOf(signupId)).toBe('closed');
+        expect(await refusedPublishes(signupId)).toEqual([]);
+      });
+
+      it('close, reopen and close again each work, and are logged in that order', async () => {
+        const { signupId } = await closedWithOneSlot('Round trip');
+        expect((await reopenSignup(fx.db, fx.actor, signupId)).ok).toBe(true);
+        expect((await closeSignup(fx.db, fx.actor, signupId)).ok).toBe(true);
+
+        const rows = await fx.db
+          .select({ eventType: activity.eventType, payload: activity.payload })
+          .from(activity)
+          .where(eq(activity.signupId, signupId))
+          .orderBy(activity.occurredAt);
+        expect(
+          rows
+            .filter((r) => r.eventType !== 'signup.created' && r.eventType !== 'slot.created')
+            .map((r) => [r.eventType, r.payload]),
+        ).toEqual([
+          ['signup.published', { from: 'draft', to: 'open' }],
+          ['signup.closed', { from: 'open', to: 'closed' }],
+          ['signup.reopened', { from: 'closed', to: 'open' }],
+          ['signup.closed', { from: 'open', to: 'closed' }],
+        ]);
+        expect(await statusOf(signupId)).toBe('closed');
+      });
+
+      it('two reopens at once: one succeeds, one conflicts, one signup.reopened row', async () => {
+        const { signupId } = await closedWithOneSlot('Double reopen');
+        const results = await Promise.all([
+          reopenSignup(fx.db, fx.actor, signupId),
+          reopenSignup(fx.db, fx.actor, signupId),
+        ]);
+        expect(results.filter((r) => r.ok)).toHaveLength(1);
+        const refused = results.find((r) => !r.ok);
+        expect(refused && !refused.ok && refused.error.code).toBe('conflict');
+        expect(await reopenedRows(signupId)).toHaveLength(1);
+      });
+
+      it('a reopen racing an archive always ends archived', async () => {
+        for (let i = 0; i < 10; i++) {
+          const { signupId } = await closedWithOneSlot(`Reopen vs archive ${i}`);
+          const [archived, reopened] = await Promise.all([
+            archiveSignup(fx.db, fx.actor, signupId),
+            reopenSignup(fx.db, fx.actor, signupId),
+          ]);
+          expect(archived.ok).toBe(true);
+          // Reopen first, then archive: both succeed. Archive first: the
+          // reopen finds an archived signup and is refused.
+          if (!reopened.ok) expect(reopened.error.code).toBe('conflict');
+          expect(await statusOf(signupId)).toBe('archived');
+        }
+      });
     });
 
     it('a publish waiting on the delete of the last slot is refused', async () => {

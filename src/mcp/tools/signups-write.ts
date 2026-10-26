@@ -12,6 +12,7 @@ import {
   deleteSignup,
   getSignupForOrganizer,
   publishSignup,
+  reopenSignup,
   updateSignup,
 } from '@/services/signups';
 import { resolveWorkspaceId } from '../context';
@@ -151,9 +152,19 @@ export const publishSignupTool = statusTool(
 export const closeSignupTool = statusTool(
   'close_signup',
   'Close signup',
-  'Stop taking signups. Existing commitments stay. This cannot be undone from here.',
+  'Stop taking signups. Existing commitments stay. reopen_signup starts taking signups again.',
   true,
   closeSignup,
+);
+export const reopenSignupTool = statusTool(
+  'reopen_signup',
+  'Reopen signup',
+  'Start taking signups again on a closed signup, at the same public link. Existing commitments stay. Only a closed signup can be reopened, not a draft or an archived one. A closing time that has already passed is removed, so people can sign up straight away, and the result then shows closesAt as null; a later closing time stays.',
+  // Not in the ask-first line: a reopen only ever follows the organizer asking
+  // for one, and close_signup undoes it. The line also sits in the part of the
+  // instructions some clients cut off at 2048 bytes, which has little room left.
+  false,
+  reopenSignup,
 );
 export const archiveSignupTool = statusTool(
   'archive_signup',

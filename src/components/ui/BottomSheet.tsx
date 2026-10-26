@@ -14,6 +14,14 @@ type BottomSheetProps = {
    */
   title?: ReactNode;
   /**
+   * A line above the title that says where its subject sits, such as a slot's
+   * date and time. Hidden from assistive tech, so it is for a sighted reader
+   * only: put anything a screen reader needs in the title's `sr-only` part.
+   * Outside the heading, so the heading's two-line clamp never trades the
+   * title for it.
+   */
+  eyebrow?: ReactNode;
+  /**
    * A short line beside the title, such as "2 of 4 spots left". It sits
    * outside the heading, so the dialog's name stays the title's, and it
    * becomes the dialog's accessible description, read out when it opens.
@@ -24,6 +32,11 @@ type BottomSheetProps = {
    * described by it too. The dialog's own link to it is Radix's.
    */
   descriptionId?: string;
+  /**
+   * The id of text in the sheet's body that describes it, for a description
+   * too long to sit beside the title. Ignored when `description` is given.
+   */
+  describedBy?: string;
   /** When true, omit the bottom border under the title (matches design's `compact` sheet). */
   compact?: boolean;
   /**
@@ -38,6 +51,12 @@ type BottomSheetProps = {
    * land the caret on a particular field instead.
    */
   onOpenAutoFocus?: (event: Event) => void;
+  /**
+   * Radix hands focus back, on close, to whatever had it when the sheet
+   * opened. Pass a handler that calls `preventDefault()` and focuses
+   * something else when that might be gone by then.
+   */
+  onCloseAutoFocus?: (event: Event) => void;
   children: ReactNode;
 };
 
@@ -54,23 +73,32 @@ export function BottomSheet({
   open,
   onClose,
   title,
+  eyebrow,
   description,
   descriptionId,
+  describedBy,
   compact = false,
   busy = false,
   onOpenAutoFocus,
+  onCloseAutoFocus,
   children,
 }: BottomSheetProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[rgb(11_18_32/0.35)] backdrop-blur-sm" />
         <Dialog.Content
-          // With no description, say so; with one, Radix links it.
-          {...(description ? {} : { 'aria-describedby': undefined })}
+          // With a description Radix links it; otherwise the body's text, or none.
+          {...(description ? {} : { 'aria-describedby': describedBy })}
           {...(onOpenAutoFocus ? { onOpenAutoFocus } : {})}
+          {...(onCloseAutoFocus ? { onCloseAutoFocus } : {})}
           className={[
-            'fixed z-50 bg-white flex flex-col overflow-hidden',
+            'fixed z-50 flex flex-col overflow-hidden bg-white',
             // mobile: bottom sheet
             'inset-x-0 bottom-0 max-h-[85vh] rounded-t-3xl',
             'pb-[calc(env(safe-area-inset-bottom)+16px)]',
@@ -83,11 +111,16 @@ export function BottomSheet({
           {title ? (
             <div
               className={[
-                'flex items-center justify-between px-4 pt-5 pb-2.5 md:px-5 md:pb-3',
+                'flex items-center justify-between px-4 pb-2.5 pt-5 md:px-5 md:pb-3',
                 compact ? '' : 'border-b border-surface-sunk',
               ].join(' ')}
             >
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                {eyebrow ? (
+                  <p aria-hidden="true" className="basis-full text-sm text-ink-muted">
+                    {eyebrow}
+                  </p>
+                ) : null}
                 {/* Wraps to two lines rather than truncating: this heading is
                     often the only place the sheet names what it is acting on,
                     and one clipped line at 390px loses the end of it. */}
@@ -113,9 +146,7 @@ export function BottomSheet({
             </div>
           ) : null}
 
-          <div className="min-h-0 flex-1 overflow-auto px-4 pb-5 pt-3 md:px-5">
-            {children}
-          </div>
+          <div className="min-h-0 flex-1 overflow-auto px-4 pb-5 pt-3 md:px-5">{children}</div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

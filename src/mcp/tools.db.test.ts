@@ -157,7 +157,7 @@ describe('signup write tools on Postgres', () => {
     expect((r.structuredContent as { error: { code: string } }).error.code).toBe('forbidden');
   });
 
-  it('publish then close, and a second publish is a conflict', async () => {
+  it('publish, close and reopen, and a second publish or reopen is a conflict', async () => {
     const client = await connectTestClient(ctx, TOOLS);
     const created = await client.callTool({
       name: 'create_signup',
@@ -170,6 +170,10 @@ describe('signup write tools on Postgres', () => {
     expect((again.structuredContent as { error: { code: string } }).error.code).toBe('conflict');
     const closed = await client.callTool({ name: 'close_signup', arguments: { signupId: id } });
     expect((closed.structuredContent as { signup: { status: string } }).signup.status).toBe('closed');
+    const reopened = await client.callTool({ name: 'reopen_signup', arguments: { signupId: id } });
+    expect((reopened.structuredContent as { signup: { status: string } }).signup.status).toBe('open');
+    const twice = await client.callTool({ name: 'reopen_signup', arguments: { signupId: id } });
+    expect((twice.structuredContent as { error: { code: string } }).error.code).toBe('conflict');
   });
 
   it('create_signup refuses a value that does not fit and writes nothing', async () => {

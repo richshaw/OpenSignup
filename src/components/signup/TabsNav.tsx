@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
+import { useDropPendingFix } from './BuildBridge';
 
 interface TabsNavProps {
   signupId: string;
@@ -22,7 +23,13 @@ type TabId = (typeof TABS)[number]['id'];
 
 export function TabsNav({ signupId, counts }: TabsNavProps) {
   const pathname = usePathname();
+  const stripRef = useRef<HTMLDivElement | null>(null);
   const activeRef = useRef<HTMLAnchorElement | null>(null);
+  // A plain primary click on a tab other than Build, even the one showing,
+  // means the organizer has moved on from a check's fix still on its way to
+  // Build. A Ctrl, Cmd, Shift or Alt click doesn't navigate this window, and
+  // a middle click never reaches onClick, so those leave it be.
+  const dropPendingFix = useDropPendingFix();
 
   const activeTab: TabId = (() => {
     const segment = pathname.split('/').pop() ?? '';
@@ -30,12 +37,21 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
     return match ? match.id : 'build';
   })();
 
+  // Keeps the current tab in view when the strip scrolls sideways on a phone.
+  // This scrolls the strip itself: scrollIntoView would also move where the
+  // browser starts the next Tab from, so a keyboard user's first Tab would
+  // skip the whole header and land on the tab after this one.
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ inline: 'center', block: 'nearest' });
+    const strip = stripRef.current;
+    const tab = activeRef.current;
+    if (!strip || !tab) return;
+    strip.scrollLeft =
+      tab.offsetLeft - strip.offsetLeft - (strip.clientWidth - tab.offsetWidth) / 2;
   }, [activeTab]);
 
   return (
     <div
+      ref={stripRef}
       role="tablist"
       aria-label="Signup sections"
       className="-mx-4 mb-2 flex overflow-x-auto border-b border-surface-sunk px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -53,10 +69,21 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
             key={t.id}
             ref={active ? activeRef : null}
             href={`/app/signups/${signupId}/${t.id}`}
+            {...(t.id === 'build'
+              ? {}
+              : {
+                  // Not a modified click (a new tab or window, or a
+                  // download): this window still goes on to Build.
+                  onClick: (e: React.MouseEvent) => {
+                    if (e.button === 0 && !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)) {
+                      dropPendingFix();
+                    }
+                  },
+                })}
             role="tab"
             aria-selected={active}
             aria-current={active ? 'page' : undefined}
-            className={`-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm transition ${
+            className={`-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm transition focus-visible:outline-offset-[-3px] ${
               active
                 ? 'border-brand text-ink font-semibold'
                 : 'text-ink-muted hover:text-ink border-transparent font-medium'

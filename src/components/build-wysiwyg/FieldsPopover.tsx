@@ -7,9 +7,9 @@ import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
 import { useReorderable } from '../build-shared/useReorderable';
 import type { BuildField } from '../build-shared/useBuildState';
 import type { SlotFieldConfig } from '@/schemas/slot-fields';
+import { useOutsideClose } from '@/hooks/useOutsideClose';
 import { InlineFieldForm, type InlineFieldFormMode } from './InlineFieldForm';
 import { PickerOption } from './PickerOption';
-import { useOutsideClose } from './useOutsideClose';
 
 type FieldsPopoverProps = {
   open: boolean;

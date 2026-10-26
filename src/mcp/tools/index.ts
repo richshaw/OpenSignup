@@ -8,6 +8,7 @@ import {
   createSignupTool,
   deleteSignupTool,
   publishSignupTool,
+  reopenSignupTool,
   updateSignupTool,
 } from './signups-write';
 import { addSlotsTool, deleteSlotTool, reorderSlotsTool, updateSlotTool } from './slots';
@@ -22,6 +23,7 @@ export const TOOLS: readonly ToolDefinition[] = [
   updateSignupTool,
   publishSignupTool,
   closeSignupTool,
+  reopenSignupTool,
   archiveSignupTool,
   deleteSignupTool,
   addFieldTool,

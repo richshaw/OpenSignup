@@ -133,6 +133,11 @@ describe('MagicComposeDraftSchema', () => {
     expect(r.success).toBe(false);
   });
 
+  it('rejects a title of only spaces', () => {
+    const r = MagicComposeDraftSchema.safeParse({ ...valid, title: '   ' });
+    expect(r.success).toBe(false);
+  });
+
   it('accepts a structured refusal payload (no fields or slots required)', () => {
     const r = MagicComposeDraftSchema.safeParse({
       refusalReason: 'OpenSignup does not draft data-harvesting forms.',
