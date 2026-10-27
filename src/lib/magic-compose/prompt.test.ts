@@ -81,10 +81,12 @@ describe('system prompt', () => {
     expect(sys).toContain(`"${label}" is never answered with questions.`);
   });
 
-  it('reads "no limit", as an answer puts it, as a null capacity', () => {
+  it('reads "no limit", as an answer puts it, as a null capacity, and nothing else', () => {
     expect(followUp).toContain('"Staff the table": no limit');
-    expect(sys).toContain('"capacity": <integer, 1 by default, or null for no limit>');
-    expect(sys).toContain('"No limit" means null.');
+    expect(sys).toContain(
+      '"capacity": <integer, 1 by default; null only if the prompt or answers say "no limit">',
+    );
+    expect(sys).toContain('"No limit" means null; a count that isn\'t given is 1, never null.');
   });
 
   // Each worked example's OUTPUT is a reply the server would take as it stands.
@@ -92,8 +94,8 @@ describe('system prompt', () => {
     ...sys.matchAll(/^Example ([A-Z]) — [^\n]*\n\nUSER: "([^"]*)"\n\nOUTPUT:\n(\{[\s\S]*?\n\})$/gm),
   ].map(([, name, user, output]) => ({ name, user, reply: JSON.parse(output!) as unknown }));
 
-  it('has worked examples A to D, each a reply MagicComposeDraftSchema takes', () => {
-    expect(examples.map((e) => e.name)).toEqual(['A', 'B', 'C', 'D']);
+  it('has worked examples A to E, each a reply MagicComposeDraftSchema takes', () => {
+    expect(examples.map((e) => e.name)).toEqual(['A', 'B', 'C', 'D', 'E']);
     for (const e of examples) expect(MagicComposeDraftSchema.safeParse(e.reply).success).toBe(true);
   });
 
@@ -112,6 +114,19 @@ describe('system prompt', () => {
       'TBD: performance 3',
     ]);
     expect(draft.slots.every((s) => s.capacity === 2)).toBe(true);
+  });
+
+  it('drafts the item list in Example E as it stands: no date field, no placeholders, capacity 1', () => {
+    const e = examples.find((x) => x.name === 'E')!;
+    const draft = FullDraftSchema.parse(e.reply);
+    expect(draft.fields.map((f) => f.fieldType)).toEqual(['text']);
+    expect(draft.slots.map((s) => s.values.item)).toEqual([
+      'Canopy tent',
+      'Camp stove',
+      'Cooler',
+      'Lantern',
+    ]);
+    expect(draft.slots.every((s) => s.capacity === 1)).toBe(true);
   });
 });
 

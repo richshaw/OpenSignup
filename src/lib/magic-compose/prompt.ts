@@ -155,17 +155,17 @@ Output schema (return ONLY this JSON object, no prose, no fences):
     { "ref": "<lowercase-kebab>", "label": "<Human label>", "fieldType": "text|date|time|number|enum", "choices": [<strings, [] when not enum>] }
   ],
   "slots": [
-    { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default, or null for no limit> }
+    { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default; null only if the prompt or answers say "no limit"> }
   ],
   "groupBy": "<field-ref to group slots by, or null>"
 }
 
-QUESTIONS — when the prompt doesn't say what people sign up for, return ONLY this object instead of a draft:
+QUESTIONS — only when the prompt doesn't say what people sign up for (rule 4), return ONLY this object instead of a draft:
 
 { "questions": { "topics": ["what", "when", "how_many"], "whatOptions": ["<option>", "<option>"] } }
 
 - topics: only the ones the prompt leaves out, always including "what". Leave out "when" if it gives a date or time, and "how_many" if it gives a count.
-- whatOptions: ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself.
+- whatOptions: ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself. If an option would repeat something the prompt lists, the prompt already says what: draft instead.
 - A message that carries "Answers to your questions:" is never answered with questions. Draft from the answers.
 
 ${FIELD_TYPE_GUIDE}
@@ -265,6 +265,26 @@ OUTPUT:
   "groupBy": null
 }
 
+Example E — lists what but gives no date or count, so draft, with no date field or placeholders:
+
+USER: "Gear families could lend for the troop's camping trip: a canopy tent, a camp stove, a cooler and a lantern"
+
+OUTPUT:
+{
+  "title": "Camping trip gear to lend",
+  "description": "Pick one item you can lend for the troop's camping trip.",
+  "fields": [
+    { "ref": "item", "label": "Item", "fieldType": "text", "choices": [] }
+  ],
+  "slots": [
+    { "values": { "item": "Canopy tent" }, "capacity": 1 },
+    { "values": { "item": "Camp stove" }, "capacity": 1 },
+    { "values": { "item": "Cooler" }, "capacity": 1 },
+    { "values": { "item": "Lantern" }, "capacity": 1 }
+  ],
+  "groupBy": null
+}
+
 LOAD-BEARING RULES:
 
 1. ${SLOTS_ARE_THE_ATOM} Per-slot context fields are fine and expected ("class" enum, "game" text, "time" value) — they describe the slot the participant signs up FOR. ${NO_INTAKE_FORMS} If the prompt asks for an intake or application form (essay questions, child profile, multi-question application, contact rosters, broad medical/emergency-info collection), refuse using the rule 3 refusal pattern — OpenSignup coordinates participation, not per-participant data capture. Individual field names are not inherently bad; the prompt's *shape* (coordination vs intake) is what determines refusal.
@@ -283,7 +303,7 @@ LOAD-BEARING RULES:
 
 8. Max ${MAX_FIELDS} fields. Max ${MAX_SLOTS} slots. If a literal expansion would exceed 200 slots, cap by the less-informative dimension and note the cap in description.
 
-9. capacity defaults to 1 (one participant per slot) unless the user clearly says otherwise. "No limit" means null.
+9. capacity defaults to 1 (one participant per slot) unless the user clearly says otherwise. "No limit" means null; a count that isn't given is 1, never null.
 
 10. Today's date is {{TODAY}}. When the user gives a month and day with no year, assume the next occurrence relative to today.`;
 
