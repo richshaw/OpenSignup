@@ -58,7 +58,7 @@ by `clientDomain` instead.
 | `signup.publish_refused` | organizer | `{ code: 'conflict', reason }`: `no_slots`, `no_fields` (slots but no fields) or `all_blank` (no slot has a value in any field), or `not_draft` with `status`, the status it had by then (`closed` or `archived` in another tab). `{ reason: 'placeholder', warning: true }` when Publish warned that a slot still says TBD, TBC or TBA. A warning doesn't stop anyone, so count real refusals as the rows whose payload has `code`. After a warning, a `signup.published` with `acknowledged: 'placeholder'` means the organizer chose Publish anyway; one without it means they fixed the slots first (Name it first, then Publish and share again), or that it was published another way, which doesn't check: `POST /api/signups/[id]/publish`, or a connected AI assistant's `publish_signup` (whose row also carries `viaClientId`). A publish of a signup that's already open (a second click, or a retry after one that worked) isn't recorded | the header's Publish and share: `recordPublishCheck` (`services/signups.ts`), from the publish action, for what its check stops or warns about (`no_slots`, `no_fields`, `all_blank`, `placeholder`) before the service sees it. The MCP tool and the REST API publish through the service alone: `publishSignup` writes `no_slots` and `not_draft` after its transaction. A viewer's publish is refused by the policy guard before either and writes nothing |
 | `signup.link_copied` | organizer | `{ surface, status }`: where the link was copied from, `header` (the public link chip), `share_panel` (the share panel's Copy link, or the chip it shows when its code couldn't load) or `share_message` (the share panel's Copy message, which copies the message with the link), and the signup's status then. A draft shows no link to copy, so only rows written before drafts lost theirs can carry `draft`. Recorded once the clipboard has taken it; a refused copy writes nothing | client beacon from the organizer's pages, via `POST /api/signups/[id]/link-events?event=copied&surface=…`, metered per organizer (60 an hour, copies and shares together; past that, they go uncounted) |
 | `signup.link_shared` | organizer | `{ surface, status }`: how the share panel sent the link on, `share_menu` (the phone's own share menu, once it says it sent; closing it without sending writes nothing), `email` (the click on Email it, which opens the organizer's email app) or `qr_code` (the QR code, at most once each time the panel is opened: the first time a phone shows it large, or the first Download or Save image once the picture is drawn), and the signup's status then. Never the message or who it went to: the app can't see either | client beacon from the share panel, via `POST /api/signups/[id]/link-events?event=shared&surface=…`, on the same meter. An event names only its own surfaces: a copy from `email` or a share from `header` is refused |
-| `magic_compose.failed` | organizer | `{ code }`: the AI client's `not_configured` \| `rate_limited` \| `upstream` \| `invalid_json` \| `schema_mismatch` \| `timeout` \| `aborted`; `schema_mismatch` too for a draft of the wrong shape; `refusal` when the model declined; `not_saved` when the draft couldn't be saved; `over_limit` when the organizer had used up this instance's Magic Compose quota for the hour. Never the prompt or the model's words | `POST /api/signups/magic-compose`. `signup_id` is `NULL`: no signup was made |
+| `magic_compose.failed` | organizer | `{ code }`: the AI client's `not_configured` \| `rate_limited` \| `upstream` \| `invalid_json` \| `schema_mismatch` \| `timeout` \| `aborted`; `schema_mismatch` too for a draft of the wrong shape; `refusal` when the model declined; `not_saved` when the draft couldn't be saved; `over_limit` when the organizer had used up this instance's Magic Compose quota for the hour; `asked_again` when the model asked questions again after the organizer's answers, even after one firmer retry (or with no time left for one). A first call the model answers with questions isn't a failure and records none of these. Never the prompt or the model's words | `POST /api/signups/magic-compose`. `signup_id` is `NULL`: no signup was made |
 
 `device` is `'phone'`, `'computer'` or `'unknown'`, from the browser's
 `Sec-CH-UA-Mobile` hint when it sends one, otherwise from "Mobi" in its
@@ -89,6 +89,49 @@ outside any transaction, and a failed write never fails the request.
 
 `reminderFromFieldRef` is present only when the change moved the date field
 reminders are timed from (`null` when none is left).
+
+### Magic Compose (AI drafting)
+
+A draft that fails, for whatever reason, is `magic_compose.failed` under
+Signup lifecycle above. These two count the questions round.
+
+| event | actor | payload | fired from |
+|---|---|---|---|
+| `magic_compose.asked` | organizer | `{ topics, options }`: the topics the model asked about (`what`, `when`, `how_many`; always `what`) and how many options it offered for "what" (2 to 4), never the options themselves | `POST /api/signups/magic-compose`, on a first call the model answered with questions instead of a draft, unless the organizer had already left |
+| `magic_compose.answered` | organizer | `{ answered, skipped, picked, added, limits, placeholders, retried, gaveUp }`, described below | `POST /api/signups/magic-compose`, once a follow-up (a call carrying the organizer's answers) has ended, however it ended: a draft, a refusal, an error or `asked_again`. One row per follow-up the hourly quota was charged for |
+
+In `magic_compose.answered`:
+
+- `answered` and `skipped` list which of `what` and `when` the organizer
+  answered or left blank, for the ones they were asked. "How many" has no
+  blank state (an empty box means no limit), so it is in neither.
+- `picked` is how many of the model's options the organizer picked, and
+  `added` how many things of their own they added. These are the browser's
+  claim: it sends the two lists apart, and the server can't check which items
+  came from the options.
+- `limits` is how many of those things were given a number of people (`0`
+  when "how many" wasn't asked).
+- `placeholders` is `true` when the organizer pressed Draft with placeholders
+  without answering anything. Every answer is then blank; the flag tells it
+  apart from leaving them all blank by hand. With any answer given, that
+  button sends the answers as Draft my signup does, so the flag is `false`.
+- `retried` is `true` when the model answered with questions again and the
+  server asked it once more, more firmly, without charging the quota again:
+  one more call to the AI.
+- `gaveUp` is `true` when that retry asked too, or there was no time left for
+  one (then `retried` is `false`), and the organizer was told the AI couldn't
+  draft from their answers. An organizer who had already left was told
+  nothing, so that's `false`.
+
+Both rows have `signup_id` set to `NULL` and `workspace_id` set to the
+organizer's default workspace. They describe no change, so each is written on
+its own, outside any transaction, and a failed write never fails the request.
+Payloads hold codes and counts only: never the description, the options or the
+answers. A first call that drafts writes neither (its `signup.created` has
+`templateId: 'magic-compose'`). An organizer who was asked and then left the
+questions screen, or went Back to rewrite the description, shows up as a
+`magic_compose.asked` with no `magic_compose.answered` after it; there is no
+event for leaving.
 
 ### Participant funnel
 

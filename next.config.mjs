@@ -1,3 +1,24 @@
+import { execFileSync } from 'node:child_process';
+
+/**
+ * The commit this build is made from, for the site footer and the MCP
+ * server's version. A `GIT_COMMIT_SHA` env var or Docker build arg wins,
+ * since the Docker build has no `.git`; otherwise ask git, quietly, so a
+ * build from a downloaded zip still succeeds. Empty when neither knows.
+ * `src/lib/build-info.ts` checks it looks like a hash before showing it.
+ */
+function commitSha() {
+  if (process.env.GIT_COMMIT_SHA) return process.env.GIT_COMMIT_SHA.trim();
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Whether this build serves production traffic.
  *
@@ -13,14 +34,10 @@ const nextConfig = {
   output: 'standalone',
   // Don't announce the framework in an `X-Powered-By` header on every page.
   poweredByHeader: false,
-  // Inline package.json version into the client bundle. `npm_package_version`
-  // is only set when the process is started via pnpm/npm scripts, so reading
-  // it at runtime from `node server.js` (as the Docker image does) returns
-  // undefined. Wiring it through `env` resolves it at build time instead.
-  // Fall back to '0.0.0' so a bare `next build` invocation doesn't inline the
-  // literal string 'undefined' (which Next.js does for undefined env values).
+  // Inline the build's commit. The home page is prerendered, so this has to
+  // be decided at build time, not read from the server's env per request.
   env: {
-    NEXT_PUBLIC_APP_VERSION: process.env.npm_package_version ?? '0.0.0',
+    NEXT_PUBLIC_COMMIT_SHA: commitSha(),
   },
   eslint: {
     ignoreDuringBuilds: true,

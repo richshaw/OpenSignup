@@ -815,6 +815,38 @@ test.describe('Publish’s check, around the Build tab', () => {
   });
 });
 
+// A reload doesn't unmount the builder, so its edits go out on pagehide (#598).
+test.describe('a Build edit and a reload', () => {
+  test.beforeEach(async ({ context }) => {
+    await loginAsSeededOrganizer(context);
+  });
+
+  const storedValues = async (page: Page, id: string) =>
+    ((await (await page.request.get(`/api/signups/${id}/slots`)).json()).data as {
+      values: Record<string, unknown>;
+    }[])[0]?.values ?? {};
+
+  test('an edit typed just before a reload is kept', async ({ page }) => {
+    const draft = await createDraft(page.request, {
+      title: `Typed then reloaded ${Date.now()}`,
+      values: { what: 'Juice', date: '2030-04-06' },
+    });
+    await page.goto(`/app/signups/${draft.id}/build`);
+    await page.getByRole('button', { name: /^Edit slot .*Juice/ }).click();
+    // Well inside the 800 ms a cell waits before it saves.
+    await page.getByRole('textbox', { name: 'What value' }).fill('Juice boxes');
+    await expect(page.getByText('Saving…').locator('visible=true')).toBeVisible();
+    await page.reload();
+    // The edit goes out on pagehide, alongside the reload's own request, so
+    // the reloaded page can be drawn before it lands; the server has it.
+    await expect
+      .poll(async () => (await storedValues(page, draft.id)).what)
+      .toBe('Juice boxes');
+    await page.reload();
+    await expect(page.getByRole('button', { name: /^Edit slot .*Juice boxes/ })).toBeVisible();
+  });
+});
+
 test.describe('signed-out organizer links', () => {
   test('a deep link goes to sign-in and comes back to the same page', async ({ page, context }) => {
     const deepLink = `/app/signups/${seed.draftSignupId}/build?from=email`;

@@ -46,6 +46,8 @@ export const ACTIVITY_EVENTS = [
   'signup.link_copied',
   'signup.link_shared',
   'magic_compose.failed',
+  'magic_compose.asked',
+  'magic_compose.answered',
   'slot.created',
   'slot.updated',
   'slot.deleted',

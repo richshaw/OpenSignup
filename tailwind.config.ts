@@ -65,10 +65,28 @@ export default {
           from: { strokeDashoffset: '24' },
           to: { strokeDashoffset: '0' },
         },
+        rise: {
+          from: { opacity: '0', transform: 'translateY(10px)' },
+          to: { opacity: '1', transform: 'none' },
+        },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'grow-in': {
+          from: { opacity: '0', maxHeight: '0' },
+          // In rem, so the cap grows with the text and never clips the row mid-animation.
+          to: { opacity: '1', maxHeight: '3.5rem' },
+        },
       },
       animation: {
         'spin-720': 'spin 720ms linear infinite',
         'check-draw': 'check-draw 360ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards',
+        // Magic Compose's questions arriving in the drafting frame.
+        rise: 'rise 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both',
+        'fade-in': 'fade-in 240ms ease-out both',
+        // backwards, not both: the row's height cap goes once it has grown in.
+        'grow-in': 'grow-in 280ms ease-out backwards',
       },
     },
   },

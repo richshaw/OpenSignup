@@ -1336,6 +1336,194 @@ describe('useBuildState unmount flush', () => {
 });
 
 // ---------------------------------------------------------------------------
+// useBuildState page-hide flush: a reload or closed tab doesn't unmount (#598)
+// ---------------------------------------------------------------------------
+
+describe('useBuildState flush as the page goes away', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+  });
+
+  function renderWithSlot() {
+    const field = makeApiField({ id: 'f1', ref: 'name', label: 'Name', fieldType: 'text' });
+    return renderHook(() =>
+      useBuildState(
+        'sig_test',
+        [field],
+        [{ id: 'r1', capacity: 1, sortOrder: 0, values: { name: '' } }],
+        defaultSettings,
+        { title: 'Old', description: '' },
+      ),
+    );
+  }
+
+  function patches(fetchMock: ReturnType<typeof vi.fn>): [string, RequestInit][] {
+    return (fetchMock.mock.calls as [string, RequestInit][]).filter(([, init]) => init?.method === 'PATCH');
+  }
+
+  it.each([
+    ['pagehide', () => window.dispatchEvent(new Event('pagehide'))],
+    [
+      'visibilitychange to hidden',
+      () => {
+        Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+        document.dispatchEvent(new Event('visibilitychange'));
+      },
+    ],
+  ])('sends every waiting save at once, with keepalive, on %s', async (_name, leave) => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderWithSlot();
+    act(() => {
+      result.current.editCell('r1', 'name', 'Pending');
+      result.current.setCapacity('r1', 4);
+      result.current.updateSignupMeta({ title: 'New title' });
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      leave();
+      await Promise.resolve();
+    });
+
+    const sent = patches(fetchMock);
+    expect(sent.map(([url, init]) => [url, JSON.parse(String(init.body))])).toEqual([
+      ['/api/slots/r1', { values: { name: 'Pending' } }],
+      ['/api/slots/r1', { capacity: 4 }],
+      ['/api/signups/sig_test', { title: 'New title' }],
+    ]);
+    for (const [, init] of sent) expect(init.keepalive).toBe(true);
+
+    // Nothing is sent a second time when the debounce would have run.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(patches(fetchMock)).toHaveLength(3);
+  });
+
+  it('sends nothing on a tab going visible, or with nothing waiting', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderWithSlot();
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('pagehide'));
+      await Promise.resolve();
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('stops listening once the builder unmounts', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result, unmount } = renderWithSlot();
+    act(() => {
+      result.current.editCell('r1', 'name', 'Pending');
+    });
+    unmount();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(patches(fetchMock)).toHaveLength(1);
+    await act(async () => {
+      window.dispatchEvent(new Event('pagehide'));
+      await Promise.resolve();
+    });
+    expect(patches(fetchMock)).toHaveLength(1);
+  });
+});
+
+describe('useBuildState rail while an edit waits', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('shows "Saving…" from the edit, and "Saved" only once nothing is waiting', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const field = makeApiField({ id: 'f1', ref: 'name', label: 'Name', fieldType: 'text' });
+    const { result } = renderHook(() =>
+      useBuildState(
+        'sig_test',
+        [field],
+        [{ id: 'r1', capacity: 1, sortOrder: 0, values: { name: '' } }],
+        defaultSettings,
+      ),
+    );
+
+    act(() => {
+      result.current.editCell('r1', 'name', 'A');
+    });
+    expect(result.current.state.saveStatus.kind).toBe('saving');
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // The first edit's save lands while a second edit, made in "Saved"'s
+    // window on main, is still waiting: the rail stays on "Saving…".
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+      result.current.setCapacity('r1', 3);
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.state.saveStatus.kind).toBe('saving');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('shows "Saving…" while a title edit waits, then "Saved"', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderBuildWithMeta({ title: 'Old', description: '' });
+    act(() => {
+      result.current.updateSignupMeta({ title: 'New' });
+    });
+    expect(result.current.state.saveStatus.kind).toBe('saving');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+  });
+
+  it('does not stay on "Saving…" when the edited slot was deleted before its save', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const field = makeApiField({ id: 'f1', ref: 'name', label: 'Name', fieldType: 'text' });
+    const { result } = renderHook(() =>
+      useBuildState(
+        'sig_test',
+        [field],
+        [{ id: 'r1', capacity: 1, sortOrder: 0, values: { name: '' } }],
+        defaultSettings,
+      ),
+    );
+    act(() => {
+      result.current.editCell('r1', 'name', 'A');
+    });
+    await act(async () => {
+      await result.current.deleteRow('r1');
+    });
+    expect(result.current.state.saveStatus.kind).toBe('saving');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+    expect(fetchMock.mock.calls.filter(([, init]) => (init as RequestInit)?.method === 'PATCH')).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // setReminderField + reminder state mirroring
 // ---------------------------------------------------------------------------
 

@@ -9,10 +9,13 @@ export function Compose({
   prompt,
   setPrompt,
   onDraft,
+  focusAtEnd = false,
 }: {
   prompt: string;
   setPrompt: (value: string) => void;
   onDraft: () => void;
+  /** Back from the questions: focus the description, with the caret after the answers. */
+  focusAtEnd?: boolean;
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null);
 
@@ -22,6 +25,13 @@ export function Compose({
     ta.style.height = 'auto';
     ta.style.height = `${Math.max(160, ta.scrollHeight)}px`;
   }, [prompt]);
+
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!focusAtEnd || !ta) return;
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }, [focusAtEnd]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -41,13 +51,17 @@ export function Compose({
           What are you organizing?
         </h1>
         <p className="text-ink-muted text-base leading-relaxed md:text-lg">
-          The more detail you share, the better the draft. We&apos;ll turn it into a title, blurb, and slots for you to edit.
+          <span className="text-ink font-medium">
+            Say what people sign up for, when, and how many of each.
+          </span>{' '}
+          We&apos;ll turn it into a title, blurb, and slots for you to edit.
         </p>
       </header>
 
       <div className="border-surface-sunk overflow-hidden rounded-2xl border bg-white shadow-sm transition focus-within:border-brand">
         <textarea
           ref={taRef}
+          aria-label="Describe your signup"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={onKeyDown}

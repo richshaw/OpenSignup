@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, act, within } from '@testing-library/react';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
+import type { FollowUp } from '@/lib/magic-compose/questions';
 import { Drafting, VISIBLE_FIELD_CAP, VISIBLE_SLOT_CAP } from './Drafting';
 
 function makeDraft(fieldCount: number, slotCount: number): DraftPreview {
@@ -19,6 +20,11 @@ function makeDraft(fieldCount: number, slotCount: number): DraftPreview {
   return { title: 'Test Draft Title', description: 'Test description.', fields, slots };
 }
 
+// A test that spies on window.scrollTo can't leak it into the next, even when it fails.
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('<Drafting />', () => {
   it('renders skeletons and no SAMPLE text when draft is null (pending phase)', () => {
     render(
@@ -27,10 +33,93 @@ describe('<Drafting />', () => {
     expect(screen.queryByText(/Snack duty, U9 Eagles/)).toBeNull();
     expect(screen.queryByText(/Spring season/)).toBeNull();
     expect(screen.queryByText(/Snack \+ drinks/)).toBeNull();
-    // The user's prompt is still rendered in the blockquote.
-    expect(screen.getByText('anything')).toBeInTheDocument();
-    // Step 1 is the active step while pending.
-    expect(screen.getByText('Reading your description')).toBeInTheDocument();
+    // The user's prompt is quoted back to them.
+    expect(screen.getByText('“anything”')).toBeInTheDocument();
+    // A first call may get questions back, so the heading doesn't promise a draft yet.
+    expect(screen.getByRole('heading', { name: 'Reading your description' })).toBeInTheDocument();
+    expect(
+      screen.getByText("You'll get a draft, or a few quick questions if it needs more to go on."),
+    ).toBeInTheDocument();
+  });
+
+  it('drafts from the answers on the call after the questions, a blank one marked', async () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    render(
+      <Drafting
+        prompt="Bake sale"
+        followUp={{
+          what: { picked: ['Staff the table'], added: [] },
+          when: { kind: 'not_decided' },
+          howMany: [2],
+        }}
+        draft={null}
+        onCancel={() => {}}
+        onAnimationDone={() => {}}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'Drafting your signup' })).toBeInTheDocument();
+    const card = await screen.findByRole('region', { name: 'Drafting from' });
+    expect(card).toHaveTextContent('“Bake sale”');
+    expect(card).toHaveTextContent('One left blank');
+    expect(card).toHaveTextContent('Staff the table2 people');
+    expect(card).toHaveTextContent(
+      'Not decided. The draft will use placeholder dates you can fill in later.',
+    );
+    // The questions were a step: reading and the details are done, the title is next.
+    for (const done of screen.getAllByText('A few details')) {
+      expect(done.closest('li')).not.toHaveAttribute('aria-current');
+    }
+    expect(screen.getByText('Drafting a title').closest('li')).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
+    // Draft my signup sat at the foot of the questions: the drafting screen starts at the top.
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+    scrollTo.mockRestore();
+  });
+
+  it('keeps the steps it always had for a description that drafts at once', () => {
+    render(<Drafting prompt="hello" draft={null} onCancel={() => {}} onAnimationDone={() => {}} />);
+    expect(screen.queryByText('A few details')).toBeNull();
+    const steps = screen.getByRole('list', { name: 'Progress' });
+    expect(within(steps).getByText('Reading your description').closest('li')).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
+  });
+
+  it('starts at the title after the questions, rather than spending reading’s time first', () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    vi.useFakeTimers();
+    // How long the steps take to finish, from a draft arriving.
+    const finishes = (followUp?: FollowUp) => {
+      const done = vi.fn();
+      const { unmount } = render(
+        <Drafting
+          prompt="Bake sale"
+          followUp={followUp}
+          draft={makeDraft(2, 3)}
+          onCancel={() => {}}
+          onAnimationDone={done}
+        />,
+      );
+      let ms = 0;
+      while (!done.mock.calls.length && ms < 20_000) {
+        act(() => {
+          vi.advanceTimersByTime(100);
+        });
+        ms += 100;
+      }
+      unmount();
+      return ms;
+    };
+    try {
+      const atOnce = finishes();
+      const afterQuestions = finishes({ what: { picked: ['Staff the table'], added: [] } });
+      expect(atOnce - afterQuestions).toBe(700);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders real title, labels, and slot rows for a small draft', () => {

@@ -39,8 +39,13 @@ export function CreateAndPublishASignup() {
             <Note>
               <p>
                 Some sites can fill in a signup for you. If you see <Ui>{UI.composeHeading}</Ui>,
-                describe your signup in a few sentences. Then choose <Ui>{UI.draftCompose}</Ui>, and
-                check every slot before you publish.
+                say what people sign up for, when, and how many of each. Then choose{' '}
+                <Ui>{UI.draftCompose}</Ui>, and check every slot before you publish.
+              </p>
+              <p>
+                If you see <Ui>{UI.questionsHeading}</Ui>, your site is asking a few questions
+                before it fills in your signup. Pick what fits, add your own, or choose{' '}
+                <Ui>{UI.draftWithPlaceholders}</Ui>.
               </p>
               <p>
                 To follow the steps here instead, choose <Ui>{UI.skipCompose}</Ui>.

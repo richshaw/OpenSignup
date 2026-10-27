@@ -24,6 +24,8 @@ vi.mock('@/auth/session', () => ({
 vi.mock('@/lib/env', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/env')>()),
   magicComposeEnabled: () => true,
+  // The route reads the AI's time budget; nothing else of the env.
+  getEnv: () => ({ LLM_TIMEOUT_MS: 180_000 }),
 }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) as unknown }));
 vi.mock('@/lib/rate-limit', async (importOriginal) => ({
@@ -55,19 +57,26 @@ const goodDraft = {
   slots: [{ values: { what: 'Fruit' } }],
 };
 
-function compose(prompt = 'Snack duty for six Saturday games', init: { signal?: AbortSignal } = {}) {
+function compose(
+  prompt = 'Snack duty for six Saturday games',
+  init: { signal?: AbortSignal } = {},
+  extra: Record<string, unknown> = {},
+) {
   return POST(
     new NextRequest('http://localhost/api/signups/magic-compose', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ prompt, ...extra }),
       ...init,
     }),
   );
 }
 
+/** The magic_compose.failed rows; the questions round's own rows are tested elsewhere. */
 function recordedCodes() {
-  return vi.mocked(recordActivityBestEffort).mock.calls.map(([, row]) => ({
+  return vi.mocked(recordActivityBestEffort).mock.calls
+    .filter(([, row]) => row.eventType === 'magic_compose.failed')
+    .map(([, row]) => ({
     eventType: row.eventType,
     workspaceId: row.workspaceId,
     actorId: row.actor.actorId,
@@ -96,6 +105,20 @@ describe('POST /api/signups/magic-compose records magic_compose.failed', () => {
     llm.result = ok({ title: 'x' });
     expect((await compose()).status).toBe(500);
     expect(recordedCodes().map((r) => r.payload)).toEqual([{ code: 'schema_mismatch' }]);
+  });
+
+  it('records schema_mismatch once for questions of the wrong shape, retry included', async () => {
+    llm.result = ok({ questions: { topics: ['when'] } });
+    expect((await compose('Bake sale')).status).toBe(500);
+    expect(recordedCodes().map((r) => r.payload)).toEqual([{ code: 'schema_mismatch' }]);
+  });
+
+  it('records aborted, not schema_mismatch, for questions of the wrong shape once the organizer left', async () => {
+    llm.result = ok({ questions: { topics: ['when'] } });
+    const controller = new AbortController();
+    controller.abort();
+    expect((await compose('Bake sale', { signal: controller.signal })).status).toBe(500);
+    expect(recordedCodes().map((r) => r.payload)).toEqual([{ code: 'aborted' }]);
   });
 
   it('records a refusal without the model’s reason', async () => {
@@ -127,6 +150,21 @@ describe('POST /api/signups/magic-compose records magic_compose.failed', () => {
     );
     expect((await compose()).status).toBe(429);
     expect(recordedCodes().map((r) => r.payload)).toEqual([{ code: 'over_limit' }]);
+  });
+
+  it('records asked_again when the answers get questions back, even after the retry', async () => {
+    llm.result = ok({ questions: { topics: ['when'] } });
+    const followUp = { what: { picked: ['Staff the table'], added: [] } };
+    expect((await compose('Bake sale', {}, { followUp })).status).toBe(400);
+    expect(recordedCodes().map((r) => r.payload)).toEqual([{ code: 'asked_again' }]);
+  });
+
+  it('records no failure for a first call the model answers with questions', async () => {
+    llm.result = ok({
+      questions: { topics: ['what'], whatOptions: ['Bake something to sell', 'Staff the table'] },
+    });
+    expect((await compose('Bake sale')).status).toBe(200);
+    expect(recordedCodes()).toEqual([]);
   });
 
   it('records nothing for a prompt it refuses before calling the AI', async () => {
