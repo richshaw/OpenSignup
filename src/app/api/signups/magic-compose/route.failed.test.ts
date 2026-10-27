@@ -107,6 +107,20 @@ describe('POST /api/signups/magic-compose records magic_compose.failed', () => {
     expect(recordedCodes().map((r) => r.payload)).toEqual([{ code: 'schema_mismatch' }]);
   });
 
+  it('records schema_mismatch once for questions of the wrong shape, retry included', async () => {
+    llm.result = ok({ questions: { topics: ['when'] } });
+    expect((await compose('Bake sale')).status).toBe(500);
+    expect(recordedCodes().map((r) => r.payload)).toEqual([{ code: 'schema_mismatch' }]);
+  });
+
+  it('records aborted, not schema_mismatch, for questions of the wrong shape once the organizer left', async () => {
+    llm.result = ok({ questions: { topics: ['when'] } });
+    const controller = new AbortController();
+    controller.abort();
+    expect((await compose('Bake sale', { signal: controller.signal })).status).toBe(500);
+    expect(recordedCodes().map((r) => r.payload)).toEqual([{ code: 'aborted' }]);
+  });
+
   it('records a refusal without the model’s reason', async () => {
     llm.result = ok({ refusalReason: 'That asks for home addresses.' });
     expect((await compose()).status).toBe(400);

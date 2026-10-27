@@ -111,9 +111,12 @@ const SKIPPED = 'not given, use a TBD: placeholder';
 
 const DRAFT_NOW = "Use these exact values. Draft the signup now. Don't ask questions.";
 
+/** A retry's last line: a draft or a refusal, never questions again. */
+const REPLY_NOW =
+  "Reply with a draft or a refusal now: questions can't be answered here. Use a TBD: placeholder for anything missing.";
+
 /** The retry's last line, when the model asked again after the answers. */
-const DRAFT_NOW_FIRMLY =
-  "Use these exact values. Reply with a draft or a refusal now: questions can't be answered here. Use a TBD: placeholder for anything missing.";
+const DRAFT_NOW_FIRMLY = `Use these exact values. ${REPLY_NOW}`;
 
 function describeWhen(when: WhenAnswer): string {
   switch (when.kind) {
@@ -160,4 +163,13 @@ export function buildFollowUpMessages(
     firmly ? DRAFT_NOW_FIRMLY : DRAFT_NOW,
   ].join('\n');
   return buildMessages(content, now);
+}
+
+/**
+ * A first call's one retry, when the model asked questions in a shape the
+ * page can't ask (no "what", one option): the description again, then the
+ * firm line, so the model drafts with placeholders instead.
+ */
+export function buildReplyNowMessages(prompt: string, { now }: { now?: Date } = {}): ChatMessage[] {
+  return buildMessages([prompt, '', REPLY_NOW].join('\n'), now);
 }

@@ -4,16 +4,12 @@ import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
-import { recordActivity } from '@/lib/activity';
 import { log } from '@/lib/log';
-import { commitmentEditUrl, reminderUnsubscribePostUrl, reminderUnsubscribeUrl } from '@/lib/links';
 import { SLOT_CHANGE_SETTLE_MINUTES } from '@/lib/reminder-eligibility';
-import { editTokenFor } from '@/lib/token';
-import { reminderOptOutTokenFor } from '@/services/reminder-optout';
-import { loadCommitmentRow, slotText } from '@/email/commitment-row';
 import { sendSlotChanged } from '@/email/send';
-import { allOf, notifiableRules, skipReasons, toldDifferentTime } from './notify-rules';
+import { allOf, notifiableRules, toldDifferentTime } from './notify-rules';
 import { getBoss, QUEUES, type SlotChangeSendPayload } from './queue';
+import { loadDueRow, recordWorkerEmailSent, workerEmailParts } from './worker-email';
 
 /**
  * Moves older than this are not looked for. An email about a slot that moved
@@ -113,58 +109,25 @@ export async function dispatchSlotChanges(): Promise<{ enqueued: number }> {
 
 export async function sendSlotChangeJob(payload: SlotChangeSendPayload): Promise<void> {
   const db = getDb();
-  const row = await loadCommitmentRow(db, payload.commitmentId, slotChangeDueCondition);
-
   // The scan's rules asked again, and the only send guard: a second job for
   // the same commitment finds the slot.change_sent row the first one recorded
   // and its time the slot's own. A check, not a lock, so it holds while the
   // instance runs one worker, as for reminders.
-  if (!row) {
-    const reasons = await skipReasons(db, payload.commitmentId, slotChangeDueRules);
-    if (reasons === null) {
-      log.warn({ commitmentId: payload.commitmentId }, 'commitment not found for slot change');
-    } else {
-      log.info(
-        { commitmentId: payload.commitmentId, reasons },
-        'slot-change email no longer due; skipping',
-      );
-    }
-    return;
-  }
-  // The rules require an email and a slot time, so this only narrows the types.
-  const to = row.participant.email;
-  const slotAt = row.slot.slotAt;
-  if (to === null || slotAt === null) return;
-
-  const optOutToken = reminderOptOutTokenFor(row.participant.id);
-
-  await sendSlotChanged(
-    to,
+  const due = await loadDueRow(
+    db,
+    payload.commitmentId,
+    slotChangeDueRules,
+    slotChangeDueCondition,
     {
-      participantName: row.participant.name,
-      signupTitle: row.signup.title,
-      manageUrl: commitmentEditUrl(
-        row.signup.slug,
-        row.commitment.id,
-        editTokenFor(row.commitment.id),
-      ),
-      unsubscribeUrl: reminderUnsubscribeUrl(row.signup.slug, row.participant.id, optOutToken),
-      ...(await slotText(db, row.signup.id, row.slot.values)),
-      notes: row.commitment.notes,
+      notFound: 'commitment not found for slot change',
+      notDue: 'slot-change email no longer due; skipping',
     },
-    { unsubscribePostUrl: reminderUnsubscribePostUrl(row.participant.id, optOutToken) },
   );
+  if (!due) return;
+  const { row, to, slotAt } = due;
 
-  await recordActivity(db, {
-    signupId: row.signup.id,
-    workspaceId: row.signup.workspaceId,
-    actor: { actorId: null, actorType: 'system' },
-    eventType: 'slot.change_sent',
-    payload: {
-      commitmentId: row.commitment.id,
-      participantId: row.participant.id,
-      channel: 'email',
-      slotAt: slotAt.toISOString(),
-    },
-  });
+  const { props, unsubscribePostUrl } = await workerEmailParts(db, row);
+  await sendSlotChanged(to, props, { unsubscribePostUrl });
+
+  await recordWorkerEmailSent(db, row, 'slot.change_sent', slotAt);
 }

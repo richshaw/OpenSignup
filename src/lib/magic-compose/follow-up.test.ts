@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildFollowUpMessages, FollowUpSchema } from './follow-up';
+import { buildFollowUpMessages, buildReplyNowMessages, FollowUpSchema } from './follow-up';
+import { buildMessages } from './prompt';
 import type { FollowUp } from './questions';
 
 const NOW = new Date('2026-10-24T12:00:00Z');
@@ -189,5 +190,17 @@ describe('buildFollowUpMessages', () => {
       /Reply with a draft or a refusal now: questions can't be answered here\.[^\n]*$/,
     );
     expect(text).not.toContain("Don't ask questions.");
+  });
+});
+
+describe('buildReplyNowMessages', () => {
+  it('sends the description again with the firm line, under the same system prompt', () => {
+    const messages = buildReplyNowMessages('Bake sale for the PTA', { now: NOW });
+    expect(messages[0]).toEqual(buildMessages('x', NOW)[0]);
+    expect(messages[1]).toEqual({
+      role: 'user',
+      content:
+        "Bake sale for the PTA\n\nReply with a draft or a refusal now: questions can't be answered here. Use a TBD: placeholder for anything missing.",
+    });
   });
 });

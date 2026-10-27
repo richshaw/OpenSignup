@@ -81,10 +81,14 @@ describe('system prompt', () => {
     expect(sys).toContain(`"${label}" is never answered with questions.`);
   });
 
-  it('reads "no limit", as an answer puts it, as a null capacity', () => {
+  it('reads "no limit", as an answer puts it, as a null capacity, and nothing else', () => {
     expect(followUp).toContain('"Staff the table": no limit');
-    expect(sys).toContain('"capacity": <integer, 1 by default, or null for no limit>');
-    expect(sys).toContain('"No limit" means null.');
+    expect(sys).toContain(
+      `"capacity": <integer, 1 by default; null only if the prompt or answers say there's no limit>`,
+    );
+    expect(sys).toContain(
+      'No limit ("unlimited", "as many as want") means null; never null as a guess.',
+    );
   });
 
   // Each worked example's OUTPUT is a reply the server would take as it stands.
@@ -92,9 +96,40 @@ describe('system prompt', () => {
     ...sys.matchAll(/^Example ([A-Z]) — [^\n]*\n\nUSER: "([^"]*)"\n\nOUTPUT:\n(\{[\s\S]*?\n\})$/gm),
   ].map(([, name, user, output]) => ({ name, user, reply: JSON.parse(output!) as unknown }));
 
-  it('has worked examples A to D, each a reply MagicComposeDraftSchema takes', () => {
-    expect(examples.map((e) => e.name)).toEqual(['A', 'B', 'C', 'D']);
+  it('has worked examples A to E, each a reply MagicComposeDraftSchema takes', () => {
+    expect(examples.map((e) => e.name)).toEqual(['A', 'B', 'C', 'D', 'E']);
     for (const e of examples) expect(MagicComposeDraftSchema.safeParse(e.reply).success).toBe(true);
+  });
+
+  // ev_008 was Example C word for word, and ev_034 held rule 4's "e.g.", so each scored
+  // recall of the prompt's own words, not the rules.
+  it("has no worked example or e.g. whose words are, or hold, an eval case's", () => {
+    const file = path.join(__dirname, '../../../evals/magic-compose/dev-evals.json');
+    const { cases } = JSON.parse(readFileSync(file, 'utf8')) as {
+      cases: { id: string; prompt: string }[];
+    };
+    // Whole words only, with a space either side, so "art" doesn't match inside "party".
+    const words = (s: string) =>
+      ` ${s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()} `;
+    const system = buildMessages('x')[0]!.content;
+    const quoted = [...system.matchAll(/e\.g\. "([^"]+)"/g)].map((m) => m[1]!);
+    expect(quoted.length).toBeGreaterThan(0);
+    const texts = [
+      ...examples.map((e) => ({ name: `Example ${e.name}`, text: e.user! })),
+      ...quoted.map((q) => ({ name: `e.g. "${q}"`, text: q })),
+    ];
+    for (const t of texts) {
+      const own = words(t.text);
+      for (const c of cases) {
+        const prompt = words(c.prompt);
+        // A prompt with no Latin letters or digits (ev_014's empty one) has nothing to compare.
+        if (prompt.trim() === '') continue;
+        expect(own.includes(prompt) || prompt.includes(own), `${t.name} vs ${c.id}`).toBe(false);
+      }
+    }
   });
 
   it('asks about the vague soccer prompt in Example C', () => {
@@ -112,6 +147,19 @@ describe('system prompt', () => {
       'TBD: performance 3',
     ]);
     expect(draft.slots.every((s) => s.capacity === 2)).toBe(true);
+  });
+
+  it('drafts the item list in Example E as it stands: no date field, no placeholders, capacity 1', () => {
+    const e = examples.find((x) => x.name === 'E')!;
+    const draft = FullDraftSchema.parse(e.reply);
+    expect(draft.fields.map((f) => f.fieldType)).toEqual(['text']);
+    expect(draft.slots.map((s) => s.values.item)).toEqual([
+      'Canopy tent',
+      'Camp stove',
+      'Cooler',
+      'Lantern',
+    ]);
+    expect(draft.slots.every((s) => s.capacity === 1)).toBe(true);
   });
 });
 
@@ -312,14 +360,25 @@ describe('QuestionsSchema', () => {
     expect(r.success && r.data.questions.whatOptions).toEqual(['A', 'B', 'C', 'D']);
   });
 
+  it('drops a repeated or unknown topic, and a blank or over-long option, as the page can still ask', () => {
+    const r = QuestionsSchema.safeParse(
+      ask({
+        topics: ['what', 'what', 'where', 'when'],
+        whatOptions: ['A', '  ', 'x'.repeat(41), 'B'],
+      }),
+    );
+    expect(r.success && r.data.questions).toEqual({
+      topics: ['what', 'when'],
+      whatOptions: ['A', 'B'],
+    });
+  });
+
   it.each([
     ['without what', { topics: ['when', 'how_many'], whatOptions: ['A', 'B'] }],
-    ['with a repeated topic', { topics: ['what', 'what'], whatOptions: ['A', 'B'] }],
-    ['with an unknown topic', { topics: ['what', 'where'], whatOptions: ['A', 'B'] }],
+    ['with only an unknown topic', { topics: ['where'], whatOptions: ['A', 'B'] }],
     ['with no topics', { topics: [], whatOptions: ['A', 'B'] }],
     ['with one option', { topics: ['what'], whatOptions: ['A'] }],
-    ['with five options', { topics: ['what'], whatOptions: ['A', 'B', 'C', 'D', 'E'] }],
-    ['with the same option twice', { topics: ['what'], whatOptions: ['Bake', 'bake'] }],
+    ['with one option, offered twice', { topics: ['what'], whatOptions: ['Bake', 'bake'] }],
     ['with a blank option', { topics: ['what'], whatOptions: ['A', '  '] }],
     ['with an option over 40 characters', { topics: ['what'], whatOptions: ['A', 'x'.repeat(41)] }],
     ['with an extra key inside', { topics: ['what'], whatOptions: ['A', 'B'], wording: 'What?' }],
@@ -369,9 +428,32 @@ describe('QuestionsSchema', () => {
     );
     expect(r.questions.whatOptions).toEqual(['Staff the table', 'Bake']);
     expect(
-      parse(ask({ topics: ['what'], whatOptions: ['Staff  the table', 'staff the table'] }))
-        .success,
-    ).toBe(false);
+      QuestionsSchema.parse(
+        ask({ topics: ['what'], whatOptions: ['Staff  the table', 'Bake', 'staff the table'] }),
+      ).questions.whatOptions,
+    ).toEqual(['Staff the table', 'Bake']);
+  });
+
+  it('keeps the first four options, so five still ask a question', () => {
+    const r = QuestionsSchema.safeParse(
+      ask({ topics: ['what'], whatOptions: ['A', 'B', 'C', 'D', 'E'] }),
+    );
+    expect(r.success && r.data.questions.whatOptions).toEqual(['A', 'B', 'C', 'D']);
+  });
+
+  it('drops an option offered twice, case aside, before it keeps four', () => {
+    const r = QuestionsSchema.safeParse(
+      ask({ topics: ['what'], whatOptions: ['Bake', 'Staff', 'BAKE', 'Set up', 'Clean', 'Pack'] }),
+    );
+    expect(r.success && r.data.questions.whatOptions).toEqual(['Bake', 'Staff', 'Set up', 'Clean']);
+  });
+
+  it('skips an option too long to show and takes the next', () => {
+    const long = 'x'.repeat(41);
+    const r = QuestionsSchema.safeParse(
+      ask({ topics: ['what'], whatOptions: ['A', 'B', long, 'C', 'D', 'E'] }),
+    );
+    expect(r.success && r.data.questions.whatOptions).toEqual(['A', 'B', 'C', 'D']);
   });
 
   it('lets a refusal win over anything beside it, as before', () => {

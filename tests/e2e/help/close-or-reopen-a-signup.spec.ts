@@ -6,41 +6,15 @@
  * HELP_SCREENSHOTS=1 (`pnpm help:screenshots`) the computer's run also
  * refreshes the article's pictures.
  */
-import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { UI } from '@/help/articles/close-or-reopen-a-signup.ui';
 import { loginAsSeededOrganizer } from '../helpers/auth';
+import { helpShot } from '../helpers/help-shots';
 import { createPublishedSignup } from '../helpers/signups';
 
 const SLUG = 'close-or-reopen-a-signup';
 const CAPTURE = process.env.HELP_SCREENSHOTS === '1';
-const SHOT_DIR = `public/help/${SLUG}`;
 const TITLE = 'Snack duty — Spring season';
-
-type Pad = number | { top: number; right: number; bottom: number; left: number };
-
-/**
- * The part of the page that holds every one of `targets`, with `pad` pixels
- * of the page around it (the same on every side, or each side's own), in
- * whole pixels, so the file is exactly twice the size the article gives.
- */
-async function shot(page: Page, targets: Locator[], name: string, pad: Pad = 16): Promise<void> {
-  if (!CAPTURE) return;
-  const around = typeof pad === 'number' ? { top: pad, right: pad, bottom: pad, left: pad } : pad;
-  // Fonts and focus settle after the last action.
-  await page.waitForTimeout(300);
-  const boxes = await Promise.all(targets.map((target) => target.boundingBox()));
-  const found = boxes.filter((box) => box !== null);
-  if (found.length !== targets.length) throw new Error(`${name}: not on the page`);
-  const x = Math.floor(Math.min(...found.map((b) => b.x))) - around.left;
-  const y = Math.floor(Math.min(...found.map((b) => b.y))) - around.top;
-  const right = Math.ceil(Math.max(...found.map((b) => b.x + b.width))) + around.right;
-  const bottom = Math.ceil(Math.max(...found.map((b) => b.y + b.height))) + around.bottom;
-  await page.screenshot({
-    path: `${SHOT_DIR}/${name}.png`,
-    clip: { x, y, width: right - x, height: bottom - y },
-    animations: 'disabled',
-  });
-}
 
 /**
  * The signup the pictures show, published: two slots of two spots each. A new
@@ -150,7 +124,7 @@ test.describe('help: close or reopen a signup', () => {
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
         // Flush with the panel's left and bottom edges: the page under it
         // shows there otherwise.
-        await shot(page, [more, panel], 'close-question', {
+        await helpShot(page, SLUG, [more, panel], 'close-question', {
           top: 16,
           right: 16,
           bottom: 0,
@@ -192,7 +166,7 @@ test.describe('help: close or reopen a signup', () => {
           await expect(row.getByText(UI.closedForPeople, { exact: true })).toBeVisible();
         }
         await expect(visitor.getByRole('button', { name: /^Sign up/ })).toHaveCount(0);
-        await shot(visitor, [closedBox, rows.last()], 'what-people-see');
+        await helpShot(visitor, SLUG, [closedBox, rows.last()], 'what-people-see');
       } finally {
         await visitor.close();
       }
@@ -232,7 +206,7 @@ test.describe('help: close or reopen a signup', () => {
       expect(reopenGap).toBeGreaterThanOrEqual(0);
       expect(reopenGap).toBeLessThan(16);
       expect(reopenBox.y).toBeLessThan(150);
-      await shot(page, [preview, reopen], 'reopen-button');
+      await helpShot(page, SLUG, [preview, reopen], 'reopen-button');
       await reopen.click();
 
       await expect(banner).toHaveCount(0);

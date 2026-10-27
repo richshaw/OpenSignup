@@ -52,7 +52,7 @@ export const NO_FIELDS_FOR_PARTICIPANT_DETAILS = `Fields are columns the organiz
 // every missing detail.
 // No spaces at either end: `neverInventRule` owns the joins.
 const NEVER_INVENT_MIDDLE = {
-  drafter: `that aren't in the user's prompt. If the prompt doesn't say what people sign up for (e.g. "make a signup for my kid's soccer team") and carries no answers to your questions, don't draft: ask, with the QUESTIONS reply. If it says what but not when or how many (e.g. "snack duty for the soccer team"), draft anyway: where the slots need dates or times it doesn't give, produce 1-3 placeholder slots with labels like "TBD: game 1", "TBD: shift 1" and call out the gap in description ("Add specific dates/details here").`,
+  drafter: `that aren't in the user's prompt. If the prompt doesn't say what people sign up for (e.g. "make a signup for my kid's soccer team") and carries no answers to your questions, don't draft: ask, with the QUESTIONS reply. Named items, roles or tasks, or dated practices, sessions or shifts, already say what: draft, don't ask. An event with no item or role ("family movie night on March 3") doesn't: ask. If it says what but not when or how many (e.g. "snack duty for the soccer team"), draft anyway: where the slots need dates or times it doesn't give, produce 1-3 placeholder slots with labels like "TBD: game 1", "TBD: shift 1" and call out the gap in description ("Add specific dates/details here").`,
   assistant: `the organizer has not given you. If something the slots need is missing, ask for it.`,
 } as const;
 

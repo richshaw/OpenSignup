@@ -93,7 +93,7 @@ A case expects a questions reply when it says `"questions.must_ask": true`, or, 
 - `questions.topics_must_include` / `questions.topics_must_not_include` / `questions.topics_must_equal` — the topics asked (`what`, `when`, `how_many`); `must_equal` ignores order.
 - `questions.options_count_range: [min, max]` — how many options for "what".
 - `questions.options_must_not_contain_date_or_number: true` — no option holds a digit, or a month, a weekday or a number word in English or French, accents ignored (the app asks for dates and counts itself). Not the French "un" and "une", which are also articles.
-- `questions.options_must_mention_any` / `questions.options_must_not_mention_any` — whole words, case and accents ignored, in some option / in no option. The French case uses both to check the options are in French.
+- `questions.options_must_mention_any` / `questions.options_must_not_mention_any` — whole words, case and accents ignored, in some option / in no option. The French case uses both to check the options are in French and about its bake sale: articles, verbs that fit any signup and words that are English too don't count.
 
 ### Answers
 
@@ -123,7 +123,7 @@ Per-run JSON snapshots are written to `evals/magic-compose/snapshots/` for local
 - The arguments of its `create_signup` call are the draft that gets scored. Arguments `create_signup` would refuse go back to the model as the same `invalid_input` error the server sends, so it can retry; the snapshot's `trace.rejectedCreates` counts them.
 - `list_workspaces` and `list_signups` answer as a new account with one workspace and no signups; any other tool says nothing matches. Nothing touches a database.
 - A reply with no `create_signup` call is scored as the refusal arm, so `ev_013` passes when the assistant declines. On most other cases it fails as `unexpected_refusal`, with the reply as its detail: an assistant that asks a question first did not build anything.
-- Where Magic Compose would ask (a case that expects questions, as above), asking the organizer is right for an assistant too, so a reply that asks passes as `asked_before_creating` and a create fails as `expected_questions_but_drafted`. A reply counts as asking when it holds a `?`, a deliberately simple heuristic: an empty reply, or one with no `?` (a refusal, say), fails `asked_before_creating` with a detail saying which. A case can also say `"assistant_may_ask": true` where Magic Compose drafts "TBD:" rows but an assistant, told to ask for what the slots need, may ask for the dates instead (`ev_034`, `ev_035`).
+- Where Magic Compose would ask (a case that expects questions, as above), asking the organizer is right for an assistant too, so a reply that asks passes as `asked_before_creating` and a create fails as `expected_questions_but_drafted`. A reply counts as asking when it holds a `?` or asks for details in so many words ("Let me know the dates", "Please share…", "I'll need the dates"; `askedBeforeCreating` in `scripts/lib/eval-harness.ts`), a deliberately simple heuristic: an empty reply, or one that asks for nothing (a refusal, say, even one ending "Let me know if there's anything else"), fails `asked_before_creating` with a detail saying which. A case can also say `"assistant_may_ask": true` where Magic Compose drafts "TBD:" rows but an assistant, told to ask for what the slots need, may ask for the dates instead (`ev_034`, `ev_035`).
 - Cases with `answers` are skipped: they answer Magic Compose's own questions, which an assistant never asks.
 
 ### Follow-up cases
@@ -143,6 +143,7 @@ Snapshots go to `evals/mcp/snapshots/` (gitignored).
 When adding a case:
 
 - Write the prompt the way a real organizer would type it. Slightly run-on sentences and parentheticals are fine; clean marketing prose makes the generator look better than it is.
+- Don't reuse a worked example's prompt from `prompt.ts`: a case that matches one scores recall of the example, not the rules. `prompt.test.ts` fails when a case's prompt is, or holds, an example's.
 - Cover at least one `fieldType`, edge case, or principle that existing cases don't.
 - Prefer machine-checkable expectations (`slots.count`, `fields.field_types_subset_of`, regex patterns) over prose. A `groupBy_should_be_null` boolean is easier to assert than "the grouping should be reasonable".
 - Include the regression context in `rationale` when the case targets a specific past bug.

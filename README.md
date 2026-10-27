@@ -74,6 +74,12 @@ The easiest way to run your own OpenSignup is Docker Compose. It runs the web ap
    docker compose -f docker-compose.prod.yml up -d --build
    ```
 
+   To show the commit you're running in the site footer, put `GIT_COMMIT_SHA` in front:
+
+   ```bash
+   GIT_COMMIT_SHA=$(git rev-parse HEAD) docker compose -f docker-compose.prod.yml up -d --build
+   ```
+
 The site runs on port 3000. To use a different port, set `PORT` in `.env`. If people open the site on that port, put the port in `AUTH_URL` and `NEXT_PUBLIC_APP_URL` too. Compose does not set up HTTPS, so for a public site put a reverse proxy (for example Caddy or nginx) in front of it.
 
 When you change `.env`, run the same command again. Values that start with `NEXT_PUBLIC_` are built into the app, and `--build` picks up the new ones.

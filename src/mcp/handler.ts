@@ -1,4 +1,5 @@
 import { createMcpHandler, McpServer, type AuthInfo, type McpHttpHandler } from '@modelcontextprotocol/server';
+import { shortCommit } from '@/lib/build-info';
 import { log } from '@/lib/log';
 import type { ToolContext } from './context';
 import { buildInstructions } from './instructions';
@@ -6,10 +7,9 @@ import { registerAll } from './registry';
 import { COMPILED_TOOLS, TOOLS } from './tools';
 
 const CONTEXT_KEY = 'opensignup';
-// Stamped at build time by next.config.mjs, like the site footer; '0.0.0' when
-// the build ran without it.
-const rawVersion = process.env.NEXT_PUBLIC_APP_VERSION;
-const SERVER_INFO = { name: 'opensignup', version: rawVersion && rawVersion !== 'undefined' ? rawVersion : '0.0.0' };
+// The build's short commit, as the site footer shows it. MCP requires a
+// version, so a build that didn't know its commit says 'unknown'.
+const SERVER_INFO = { name: 'opensignup', version: shortCommit() ?? 'unknown' };
 // Built once: the factory below runs on every request.
 const INSTRUCTIONS = buildInstructions(TOOLS);
 

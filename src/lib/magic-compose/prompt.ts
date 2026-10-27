@@ -69,29 +69,57 @@ const RefusalSchema = z.object({
 });
 
 /**
+ * The topics the page can ask about, each once. A model that adds one the page
+ * doesn't know ("where") has still asked the ones it does.
+ */
+function knownTopics(topics: string[]): string[] {
+  const known: readonly string[] = QUESTION_TOPICS;
+  return [...new Set(topics.filter((t) => known.includes(t)))];
+}
+
+/**
+ * The options the page offers: each once, case aside, none blank or over
+ * `WHAT_OPTION_MAX_LENGTH`, and the first `WHAT_OPTIONS_MAX` of those. A model
+ * that offers five, one twice, or one too long has still asked a question the
+ * page can show.
+ */
+function firstDistinctOptions(options: string[]): string[] {
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  for (const option of options) {
+    if (kept.length === WHAT_OPTIONS_MAX) break;
+    const key = option.toLowerCase();
+    if (option.length === 0 || option.length > WHAT_OPTION_MAX_LENGTH || seen.has(key)) continue;
+    seen.add(key);
+    kept.push(option);
+  }
+  return kept;
+}
+
+/**
  * The model's answer when the description doesn't say what people sign up
  * for: which topics are missing, and a few options for "what". Strict at both
  * levels, because `z.object` drops keys it doesn't know: a reply mixing
- * questions with half a draft must fail, not pass as whichever arm fits.
+ * questions with half a draft must fail, not pass as whichever arm fits. The
+ * topics and options are cut to the ones the page can show before they're
+ * checked, so only those have to be right.
  */
 export const QuestionsSchema = z
   .object({
     questions: z
       .object({
         topics: z
-          .array(z.enum(QUESTION_TOPICS))
-          .min(1)
-          .max(QUESTION_TOPICS.length)
-          .refine((t) => new Set(t).size === t.length, 'each topic at most once')
-          .refine((t) => t.includes('what'), 'questions always ask what people sign up for'),
-        whatOptions: z
-          .array(z.string().transform(tidyText).pipe(z.string().min(1).max(WHAT_OPTION_MAX_LENGTH)))
-          .min(WHAT_OPTIONS_MIN)
-          .max(WHAT_OPTIONS_MAX)
-          .refine(
-            (o) => new Set(o.map((x) => x.toLowerCase())).size === o.length,
-            'options must differ',
+          .array(z.string())
+          .transform(knownTopics)
+          .pipe(
+            z
+              .array(z.enum(QUESTION_TOPICS))
+              .refine((t) => t.includes('what'), 'questions always ask what people sign up for'),
           ),
+        whatOptions: z
+          .array(z.string().transform(tidyText))
+          .transform(firstDistinctOptions)
+          .pipe(z.array(z.string()).min(WHAT_OPTIONS_MIN)),
       })
       .strict(),
   })
@@ -127,7 +155,9 @@ export type MagicComposeParsed = z.infer<typeof MagicComposeDraftSchema>;
  * `MagicComposeDraftSchema` reads it (null keys dropped, a refusal winning).
  * After the answers, a model that asks again most likely asks about less than
  * the first time (only "when", say, with no options), which `QuestionsSchema`
- * would reject as malformed and the organizer would see as a broken draft.
+ * would reject as malformed and the organizer would see as a broken draft. A
+ * first call's questions that `QuestionsSchema` rejects (no "what", one
+ * option) are caught the same way.
  */
 export function asksQuestions(value: unknown): boolean {
   const reply = withoutNullKeys(value);
@@ -155,17 +185,17 @@ Output schema (return ONLY this JSON object, no prose, no fences):
     { "ref": "<lowercase-kebab>", "label": "<Human label>", "fieldType": "text|date|time|number|enum", "choices": [<strings, [] when not enum>] }
   ],
   "slots": [
-    { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default, or null for no limit> }
+    { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default; null only if the prompt or answers say there's no limit> }
   ],
   "groupBy": "<field-ref to group slots by, or null>"
 }
 
-QUESTIONS — when the prompt doesn't say what people sign up for, return ONLY this object instead of a draft:
+QUESTIONS — only when the prompt doesn't say what people sign up for (rule 4), return ONLY this object instead of a draft:
 
 { "questions": { "topics": ["what", "when", "how_many"], "whatOptions": ["<option>", "<option>"] } }
 
 - topics: only the ones the prompt leaves out, always including "what". Leave out "when" if it gives a date or time, and "how_many" if it gives a count.
-- whatOptions: ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself.
+- whatOptions: ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself. If the options would be the prompt's own items or roles, it already says what: draft instead.
 - A message that carries "Answers to your questions:" is never answered with questions. Draft from the answers.
 
 ${FIELD_TYPE_GUIDE}
@@ -265,6 +295,26 @@ OUTPUT:
   "groupBy": null
 }
 
+Example E — lists what but gives no date or count, so draft, with no date field or placeholders:
+
+USER: "Gear families could lend for the troop's camping trip: a canopy tent, a camp stove, a cooler and a lantern"
+
+OUTPUT:
+{
+  "title": "Camping trip gear to lend",
+  "description": "Pick one item you can lend for the troop's camping trip.",
+  "fields": [
+    { "ref": "item", "label": "Item", "fieldType": "text", "choices": [] }
+  ],
+  "slots": [
+    { "values": { "item": "Canopy tent" }, "capacity": 1 },
+    { "values": { "item": "Camp stove" }, "capacity": 1 },
+    { "values": { "item": "Cooler" }, "capacity": 1 },
+    { "values": { "item": "Lantern" }, "capacity": 1 }
+  ],
+  "groupBy": null
+}
+
 LOAD-BEARING RULES:
 
 1. ${SLOTS_ARE_THE_ATOM} Per-slot context fields are fine and expected ("class" enum, "game" text, "time" value) — they describe the slot the participant signs up FOR. ${NO_INTAKE_FORMS} If the prompt asks for an intake or application form (essay questions, child profile, multi-question application, contact rosters, broad medical/emergency-info collection), refuse using the rule 3 refusal pattern — OpenSignup coordinates participation, not per-participant data capture. Individual field names are not inherently bad; the prompt's *shape* (coordination vs intake) is what determines refusal.
@@ -283,7 +333,7 @@ LOAD-BEARING RULES:
 
 8. Max ${MAX_FIELDS} fields. Max ${MAX_SLOTS} slots. If a literal expansion would exceed 200 slots, cap by the less-informative dimension and note the cap in description.
 
-9. capacity defaults to 1 (one participant per slot) unless the user clearly says otherwise. "No limit" means null.
+9. capacity is 1 (one participant per slot) unless the user gives a count. No limit ("unlimited", "as many as want") means null; never null as a guess.
 
 10. Today's date is {{TODAY}}. When the user gives a month and day with no year, assume the next occurrence relative to today.`;
 

@@ -208,7 +208,7 @@ describe('<MagicComposeRoot /> questions', () => {
 
   it('shows an error on the questions, with every answer kept', async () => {
     const message =
-      "Couldn't draft from these answers. Add a little more, or draft with placeholders.";
+      "Couldn't draft from these answers. Add a little more, or fill it in by hand.";
     stubReplies(asks(), {
       status: 400,
       body: { error: { code: 'invalid_input', message, details: { reason: 'asked_again' } } },
@@ -239,10 +239,9 @@ describe('<MagicComposeRoot /> questions', () => {
     );
   });
 
-  it('sends no answers for Draft with placeholders', async () => {
+  it('sends no answers for Draft with placeholders when nothing is answered', async () => {
     const sent = stubReplies(asks(), 'hang');
     await openQuestions();
-    answerEverything();
     fireEvent.click(screen.getByRole('button', { name: 'Draft with placeholders' }));
     const card = await screen.findByRole('region', { name: 'Drafting from' });
     expect(sent(1)).toEqual({
@@ -256,9 +255,70 @@ describe('<MagicComposeRoot /> questions', () => {
     expect(within(card).getByText('Two left blank')).toBeInTheDocument();
     expect(
       within(card).getByText(
+        'Left blank. The draft will use placeholder slots you can fill in later.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(card).getByText(
         'Not decided. The draft will use placeholder dates you can fill in later.',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('sends the answers given for Draft with placeholders, as Draft my signup would', async () => {
+    const sent = stubReplies(asks(), 'hang');
+    await openQuestions();
+    answerEverything();
+    fireEvent.click(screen.getByRole('button', { name: 'Draft with placeholders' }));
+    await screen.findByRole('region', { name: 'Drafting from' });
+    expect(sent(1)).toEqual({ prompt: 'Bake sale', followUp: ANSWERED });
+  });
+
+  it('keeps a single pick, or words left in "Add your own", for Draft with placeholders', async () => {
+    const sent = stubReplies(asks(), 'hang');
+    await openQuestions();
+    fireEvent.click(screen.getByRole('button', { name: 'Bake something to sell' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Draft with placeholders' }));
+    const card = await screen.findByRole('region', { name: 'Drafting from' });
+    expect(sent(1)).toEqual({
+      prompt: 'Bake sale',
+      followUp: {
+        what: { picked: ['Bake something to sell'], added: [] },
+        when: { kind: 'not_decided' },
+        howMany: [null],
+      },
+    });
+    expect(within(card).getByText('One left blank')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await screen.findByRole('heading', { name: 'A few details first' });
+    fireEvent.click(screen.getByRole('button', { name: 'Bake something to sell' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Add your own, then press Enter' }), {
+      target: { value: 'Bring drinks' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Draft with placeholders' }));
+    await screen.findByRole('region', { name: 'Drafting from' });
+    expect(sent(2)).toEqual({
+      prompt: 'Bake sale',
+      followUp: {
+        what: { picked: [], added: ['Bring drinks'] },
+        when: { kind: 'not_decided' },
+        howMany: [null],
+      },
+    });
+  });
+
+  it('stops for Draft with placeholders what it stops for Draft my signup', async () => {
+    const sent = stubReplies(asks());
+    await openQuestions();
+    fireEvent.change(screen.getByLabelText('Start time (optional)'), {
+      target: { value: '09:00' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Draft with placeholders' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Add a date, or leave the times empty.',
+    );
+    expect(() => sent(1)).toThrow();
   });
 
   it('adds words left in "Add your own" rather than dropping them', async () => {
@@ -290,22 +350,6 @@ describe('<MagicComposeRoot /> questions', () => {
     expect(() => sent(1)).toThrow();
   });
 
-  it("brings the page's own message into view, as Draft my signup can be far below it", async () => {
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
-    try {
-      stubReplies(asks());
-      await openQuestions();
-      fireEvent.change(screen.getByLabelText('Date'), { target: { value: '0202-11-14' } });
-      fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
-      const alert = await screen.findByRole('alert');
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' });
-      expect(scrollIntoView.mock.contexts.at(-1)).toContainElement(alert);
-    } finally {
-      delete (Element.prototype as Partial<Element>).scrollIntoView;
-    }
-  });
-
   it("doesn't send a date with a short year, and stops it on the page", async () => {
     const sent = stubReplies(asks());
     await openQuestions();
@@ -315,6 +359,68 @@ describe('<MagicComposeRoot /> questions', () => {
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent("Check the date's year.");
     expect(() => sent(1)).toThrow();
+  });
+
+  it('asks for a date rather than dropping times typed without one', async () => {
+    const sent = stubReplies(asks());
+    await openQuestions();
+    fireEvent.change(screen.getByLabelText('Start time (optional)'), {
+      target: { value: '09:00' },
+    });
+    fireEvent.change(screen.getByLabelText('End time (optional)'), { target: { value: '13:00' } });
+    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Add a date, or leave the times empty.',
+    );
+    expect(() => sent(1)).toThrow();
+  });
+
+  it("doesn't round a count, and stops one that isn't a whole number", async () => {
+    const sent = stubReplies(asks());
+    await openQuestions();
+    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
+    const count = screen.getByRole('spinbutton', { name: 'People for Staff the table' });
+    fireEvent.change(count, { target: { value: '2.5' } });
+    fireEvent.blur(count);
+    expect(count).toHaveValue(2.5);
+    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Use whole numbers for how many people.',
+    );
+    expect(() => sent(1)).toThrow();
+  });
+
+  it("brings this page's error into view and moves focus to it, each time", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      stubReplies(asks());
+      await openQuestions();
+      fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-14' } });
+      fireEvent.change(screen.getByLabelText('Start time (optional)'), {
+        target: { value: '13:00' },
+      });
+      fireEvent.change(screen.getByLabelText('End time (optional)'), {
+        target: { value: '09:00' },
+      });
+      const button = screen.getByRole('button', { name: /Draft my signup/ });
+      button.focus();
+      fireEvent.click(button);
+      const alert = screen.getByRole('alert');
+      expect(alert).toHaveTextContent('The end time must be after the start time.');
+      expect(alert.parentElement).toHaveFocus();
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(scrollIntoView.mock.contexts[0]).toBe(alert.parentElement);
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' });
+
+      // Again with the same error already showing, which nothing would read out.
+      button.focus();
+      fireEvent.click(button);
+      expect(screen.getByRole('alert').parentElement).toHaveFocus();
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
   });
 
   it('takes the error away once an answer changes, not before', async () => {
@@ -373,6 +479,26 @@ describe('<MagicComposeRoot /> questions', () => {
     );
   });
 
+  it("says only to try again when the server times out on the answers, as there's no prompt to change", async () => {
+    stubReplies(asks(), {
+      status: 500,
+      body: {
+        error: {
+          code: 'internal',
+          message: 'AI drafting timed out. Try a simpler prompt.',
+          details: { llmErrorCode: 'timeout' },
+        },
+      },
+    });
+    await openQuestions();
+    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
+    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^AI drafting timed out\. Try again\.$/,
+    );
+    expect(screen.getByRole('heading', { name: 'A few details first' })).toBeInTheDocument();
+  });
+
   it('goes Back to compose with the answers added to the description, then starts fresh', async () => {
     const sent = stubReplies(asks(), asks());
     await openQuestions('Bake sale for the PTA');
@@ -380,10 +506,6 @@ describe('<MagicComposeRoot /> questions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(screen.getByRole('heading', { name: 'What are you organizing?' })).toBeInTheDocument();
     const description = screen.getByRole('textbox');
-    // Focus goes on in the rewritten description, caret at its end.
-    expect(description).toHaveFocus();
-    const length = (description as HTMLTextAreaElement).value.length;
-    expect((description as HTMLTextAreaElement).selectionStart).toBe(length);
     expect((description as HTMLTextAreaElement).value).toMatch(
       new RegExp(
         [
@@ -400,6 +522,51 @@ describe('<MagicComposeRoot /> questions', () => {
       'aria-pressed',
       'false',
     );
+  });
+
+  it('keeps times typed without a date when going Back', async () => {
+    stubReplies(asks());
+    await openQuestions();
+    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
+    fireEvent.change(screen.getByLabelText('Start time (optional)'), {
+      target: { value: '09:00' },
+    });
+    fireEvent.change(screen.getByLabelText('End time (optional)'), { target: { value: '13:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('textbox')).toHaveValue(
+      'Bake sale\nWhat: Staff the table (no limit)\nWhen: 9am to 1pm',
+    );
+  });
+});
+
+describe('<MagicComposeRoot /> focus after Back', () => {
+  it('puts focus in the description, after the answers written into it', async () => {
+    stubReplies(asks());
+    await openQuestions();
+    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    const description = screen.getByRole('textbox', { name: 'Describe your signup' });
+    expect(description).toHaveFocus();
+    const end = (description as HTMLTextAreaElement).value.length;
+    expect(end).toBe('Bake sale\nWhat: Staff the table (no limit)'.length);
+    expect(description).toHaveProperty('selectionStart', end);
+    expect(description).toHaveProperty('selectionEnd', end);
+  });
+
+  it('leaves focus alone on compose otherwise, even after a Back', async () => {
+    stubReplies(asks(), { status: 500, body: { error: { code: 'internal', message: 'No.' } } });
+    render(<MagicComposeRoot />);
+    const description = () => screen.getByRole('textbox', { name: 'Describe your signup' });
+    expect(description()).not.toHaveFocus();
+    fireEvent.change(description(), { target: { value: 'Bake sale' } });
+    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
+    await screen.findByRole('heading', { name: 'A few details first' });
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(description()).toHaveFocus();
+
+    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('No.');
+    expect(description()).not.toHaveFocus();
   });
 });
 

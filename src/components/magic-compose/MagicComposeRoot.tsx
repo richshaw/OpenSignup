@@ -44,10 +44,11 @@ interface ApiBody {
  * Compose (`idle`, or `error` after a failed first call) → `drafting` → the
  * builder, or → `questions` → `drafting` with the answers → the builder. A call
  * with answers that fails or is cancelled comes back to `questions`, never to
- * compose, so every answer stays in front of the organizer.
+ * compose, so every answer stays in front of the organizer. Back from the
+ * questions is `idle` with `back`, which focuses the description.
  */
 type Phase =
-  | { kind: 'idle' }
+  | { kind: 'idle'; back?: true }
   | {
       kind: 'drafting';
       followUp: FollowUp | null;
@@ -86,9 +87,6 @@ export function MagicComposeRoot() {
   const [questions, setQuestions] = useState<MagicComposeQuestions | null>(null);
   // Held here, not by the questions screen, so they outlive a Cancel or an error.
   const [answers, setAnswers] = useState<Answers | null>(null);
-  // Set by Back, which rewrites the description with the answers: from then
-  // on the box takes focus when it comes back, where the organizer goes on.
-  const [focusPrompt, setFocusPrompt] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -150,7 +148,8 @@ export function MagicComposeRoot() {
           return;
         }
         if (!res.ok || !data?.id || !data.draft) {
-          setPhase(failed(followUp, explainDraftFailure(res.status, body?.error)));
+          const withAnswers = followUp !== null;
+          setPhase(failed(followUp, explainDraftFailure(res.status, body?.error, { withAnswers })));
           return;
         }
 
@@ -175,13 +174,13 @@ export function MagicComposeRoot() {
   }, []);
 
   // Back to compose with the answers written into the description, so it can
-  // all be changed as one text. The next Draft my signup is a first call again.
+  // all be changed as one text, and focus at its end. The next Draft my signup
+  // is a first call again.
   const onBack = useCallback((description: string) => {
     setPrompt(description);
-    setFocusPrompt(true);
     setQuestions(null);
     setAnswers(null);
-    setPhase({ kind: 'idle' });
+    setPhase({ kind: 'idle', back: true });
   }, []);
 
   // The questions can't show: back to compose, with the description in its
@@ -260,7 +259,12 @@ export function MagicComposeRoot() {
           </FormError>
         </div>
       )}
-      <Compose prompt={prompt} setPrompt={setPrompt} onDraft={onDraft} focusOnMount={focusPrompt} />
+      <Compose
+        prompt={prompt}
+        setPrompt={setPrompt}
+        onDraft={onDraft}
+        focusAtEnd={phase.kind === 'idle' && phase.back === true}
+      />
     </>
   );
 }

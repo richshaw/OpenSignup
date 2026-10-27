@@ -16,6 +16,7 @@ import { magicComposeEnabled } from '@/lib/env';
 import { FollowUpSchema } from '@/lib/magic-compose/follow-up';
 import type { MagicComposeDraft } from '@/lib/magic-compose/prompt';
 import type { FollowUp, MagicComposeQuestions } from '@/lib/magic-compose/questions';
+import { isRealDate } from '@/lib/reminder-fields';
 
 const REPO_ROOT = process.cwd();
 export const DEV_EVALS_FILE = path.join(REPO_ROOT, 'evals/magic-compose/dev-evals.json');
@@ -126,13 +127,18 @@ function looseIncludes(haystack: string, needle: string): boolean {
   return loose(haystack).includes(loose(needle));
 }
 
+/**
+ * The date fields' values that are real days, as the converter keeps them: a
+ * "TBD: date 1" placeholder, a weekday or "TBD (2026-06-06)" is dropped there,
+ * so the signup has no date for it.
+ */
 function dateValues(draft: MagicComposeDraft): string[] {
   const dateRefs = draft.fields.filter((f) => f.fieldType === 'date').map((f) => f.ref);
   const out: string[] = [];
   for (const slot of draft.slots) {
     for (const ref of dateRefs) {
       const v = slot.values[ref];
-      if (typeof v === 'string') out.push(v);
+      if (typeof v === 'string' && isRealDate(v.trim())) out.push(v.trim());
     }
   }
   return out;
@@ -831,6 +837,36 @@ function expectsOtherThanDraft(expect: Record<string, unknown>): {
 /** Whether Magic Compose should ask before it drafts, as the case's `questions.*` checks say. */
 export function asksFirst(c: EvalCase): boolean {
   return expectsOtherThanDraft(c.expect).questions;
+}
+
+/**
+ * Ways to ask the organizer for details without a "?", read on the reply in
+ * lower case: "Let me know the dates", "Please share…", "I'll need the
+ * dates". Each asks for something, so a refusal's "Let me know if there's
+ * anything else" isn't one. A short list on purpose, not a classifier.
+ */
+const ASKS_FOR_DETAILS = [
+  /\b(?:let me know|tell me|send me|share|give me|confirm)\s+(?:what(?!\s+else)|when|which|who|where|how|the|your)\b/,
+  /\bplease\s+(?:share|send|provide|tell me\s+(?:what(?!\s+else)|when|which|who|where|how|the|your)|confirm|give|list)\b/,
+  /\bi(?:'ll| will|'d| would)? need (?:to know|a few|some|more|the|your)\b/,
+];
+
+/**
+ * Scores an eval:mcp reply that created nothing, on a case where asking the
+ * organizer is right. It asked when it holds a "?" or asks for details in so
+ * many words (`ASKS_FOR_DETAILS`); an empty reply fails, and so does one
+ * that asks nothing, such as a refusal. A create never gets here: it is
+ * scored as a draft.
+ */
+export function askedBeforeCreating(reply: string): CheckResult {
+  const key = 'asked_before_creating';
+  const text = reply.trim();
+  if (text === '') return fail(key, 'empty reply: neither asked nor created');
+  const plain = text.toLowerCase().replace(/[‘’]/g, "'");
+  if (plain.includes('?') || ASKS_FOR_DETAILS.some((re) => re.test(plain))) {
+    return { key, outcome: 'pass', detail: text.slice(0, 200) };
+  }
+  return fail(key, `replied without asking for anything: ${text.slice(0, 200)}`);
 }
 
 /** What a reply that asked again asked about: its topics, or its `questions` as sent. */

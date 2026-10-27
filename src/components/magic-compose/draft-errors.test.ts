@@ -71,6 +71,31 @@ describe('explainDraftFailure', () => {
     });
   });
 
+  const timeout = {
+    code: 'internal',
+    message: 'AI drafting timed out. Try a simpler prompt.',
+    details: { llmErrorCode: 'timeout' },
+  };
+
+  it("keeps the route's timeout advice on a first call", () => {
+    expect(explainDraftFailure(500, timeout)).toEqual({ kind: 'message', text: timeout.message });
+  });
+
+  it('says only to try again when a call with answers times out', () => {
+    expect(explainDraftFailure(500, timeout, { withAnswers: true })).toEqual({
+      kind: 'message',
+      text: 'AI drafting timed out. Try again.',
+    });
+    const other = {
+      code: 'internal',
+      message: 'AI provider is unavailable right now (HTTP 503). Try again.',
+    };
+    expect(explainDraftFailure(500, other, { withAnswers: true })).toEqual({
+      kind: 'message',
+      text: other.message,
+    });
+  });
+
   it('falls back to the status when there is no error body', () => {
     expect(explainDraftFailure(502, undefined)).toEqual({
       kind: 'message',

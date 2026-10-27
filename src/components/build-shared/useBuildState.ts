@@ -297,14 +297,18 @@ async function savedSettings(res: Response): Promise<SignupSettings | null> {
 /**
  * Sends a request, JSON-encoding `body` when there is one. A non-OK answer
  * throws the server's `{ code, message }`, which `withSave` shows on the rail.
+ * `keepalive` lets the browser finish the request after the page unloads, for
+ * the debounced saves a reload or a closed tab sends on its way out (#598).
  */
-async function send(method: string, url: string, body?: unknown): Promise<Response> {
-  const res = await fetch(
-    url,
-    body === undefined
-      ? { method }
-      : { method, headers: JSON_HEADERS, body: JSON.stringify(body) },
-  );
+async function send(
+  method: string,
+  url: string,
+  body?: unknown,
+  { keepalive = false }: { keepalive?: boolean } = {},
+): Promise<Response> {
+  const init: RequestInit =
+    body === undefined ? { method } : { method, headers: JSON_HEADERS, body: JSON.stringify(body) };
+  const res = await fetch(url, keepalive ? { ...init, keepalive } : init);
   if (!res.ok) throw await parseErrorEnvelope(res);
   return res;
 }
@@ -433,7 +437,12 @@ export function useBuildState(
     dispatch({ type: 'SET_SAVE_STATUS', status: SAVING });
   }
 
+  /**
+   * Shows "Saved", unless an edit is still waiting out its debounce: the rail
+   * went to "Saving…" when that edit was made, and stays there until it is sent.
+   */
   function markSaved() {
+    if (timersRef.current.size > 0) return;
     dispatch({ type: 'SET_SAVE_STATUS', status: SAVED });
     if (savedTimerRef.current !== null) clearTimeout(savedTimerRef.current);
     savedTimerRef.current = setTimeout(() => dispatch({ type: 'SET_SAVE_STATUS', status: IDLE }), SAVED_CLEAR_MS);
@@ -688,9 +697,12 @@ export function useBuildState(
 
   /** PATCHes every value `row` holds, so the slot ends up as the row shows it. */
   async function saveRowValues(row: BuildRow): Promise<void> {
-    await send('PATCH', `/api/slots/${row.id}`, {
-      values: toTypedValues(stateRef.current.fields, row.values),
-    });
+    await send(
+      'PATCH',
+      `/api/slots/${row.id}`,
+      { values: toTypedValues(stateRef.current.fields, row.values) },
+      { keepalive: true },
+    );
     savedValues.set(row.id, { ...row.values });
   }
 
@@ -712,7 +724,13 @@ export function useBuildState(
     }
   }
 
+  /**
+   * Waits `DEBOUNCE_MS` for more edits to `key`, then runs `saveFn`. The rail
+   * says "Saving…" from now, not from when the request goes, so a reload in
+   * the wait never sees "Saved" over an edit that hasn't been sent.
+   */
   function flushTimer(key: string, saveFn: () => Promise<void>) {
+    markSaving();
     const timers = timersRef.current;
     const existing = timers.get(key);
     if (existing !== undefined) clearTimeout(existing.timeoutId);
@@ -727,7 +745,11 @@ export function useBuildState(
     dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId, fieldRef, value });
     flushTimer(`${rowId}:${fieldRef}`, async () => {
       const row = stateRef.current.rows.find((r) => r.id === rowId);
-      if (!row) return;
+      if (!row) {
+        // Deleted while the edit waited: nothing left to save.
+        markSaved();
+        return;
+      }
       await withSave(async () => {
         try {
           await saveRowValues(row);
@@ -771,7 +793,7 @@ export function useBuildState(
     dispatch({ type: 'OPTIMISTIC_SET_CAPACITY', rowId, capacity });
     flushTimer(`${rowId}:capacity`, () =>
       withSave(async () => {
-        await send('PATCH', `/api/slots/${rowId}`, { capacity });
+        await send('PATCH', `/api/slots/${rowId}`, { capacity }, { keepalive: true });
       }),
     );
   };
@@ -818,6 +840,27 @@ export function useBuildState(
       await Promise.allSettled(saves);
     }
   };
+
+  // A reload, a closed tab or leaving the site doesn't unmount React, so the
+  // cleanup above never runs then: send what's waiting as the page goes away
+  // (#598). `visibilitychange` covers a phone that drops a background tab
+  // without `pagehide`. Not `unload` or `beforeunload`, which keep the page
+  // out of the back-forward cache in some browsers; after a `pagehide` that
+  // keeps it there, the builder carries on as before.
+  const flushRef = useRef(flushPendingSaves);
+  flushRef.current = flushPendingSaves;
+  useEffect(() => {
+    const flush = () => void flushRef.current();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Signup title, description and settings
@@ -867,10 +910,11 @@ export function useBuildState(
       }
       if (Object.keys(body).length === 0) {
         if (titleTooShort) markError(TITLE_TOO_SHORT);
+        else markSaved();
         return;
       }
       await withSave(async () => {
-        await send('PATCH', `/api/signups/${signupId}`, body);
+        await send('PATCH', `/api/signups/${signupId}`, body, { keepalive: true });
         if (body['title'] !== undefined) lastCommittedMetaRef.current.title = body['title'];
         if (body['description'] !== undefined) lastCommittedMetaRef.current.description = body['description'];
         // Description saved but title was rejected client-side — surface

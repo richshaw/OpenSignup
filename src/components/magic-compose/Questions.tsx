@@ -26,6 +26,7 @@ import {
   answersProblem,
   appendAnswers,
   buildFollowUp,
+  hasAnswers,
   isFull,
   NO_ANSWERS,
   parseCount,
@@ -98,6 +99,7 @@ export function Questions({
   // The next try brings its own: `onInvalid` below, or a failed call, which
   // comes back to a new screen.
   const [edited, setEdited] = useState(false);
+  const errorRef = useRef<HTMLDivElement>(null);
 
   const answers = held ?? NO_ANSWERS;
   const update = (change: (a: Answers) => Answers) => {
@@ -109,25 +111,29 @@ export function Questions({
   // Words left in "Add your own" go as an item: nothing typed is dropped.
   const committed = () => addPending(answers, questions.whatOptions);
 
-  // A refused Draft my signup keeps the screen as it is, and on a phone the
-  // button sits well below the panel's top: bring its message into view, on
-  // every press (counted, as the message itself may not change).
-  const errorRef = useRef<HTMLDivElement>(null);
-  const [refused, setRefused] = useState(0);
-  useEffect(() => {
-    if (refused) errorRef.current?.scrollIntoView?.({ block: 'center' });
-  }, [refused]);
-
   const draft = () => {
     const done = committed();
-    setAnswers(done);
-    const followUp = buildFollowUp(questions, done);
-    const problem = answersProblem(followUp);
-    if (problem) {
+    const problem = answersProblem(questions, done);
+    if (!problem) {
+      setAnswers(done);
+      onSend(buildFollowUp(questions, done));
+      return;
+    }
+    flushSync(() => {
+      setAnswers(done);
       setEdited(false);
-      setRefused((n) => n + 1);
       onInvalid(problem);
-    } else onSend(followUp);
+    });
+    // The error shows above the card, which on a long list is far above the
+    // buttons. Focus brings it into view and has it read out, even unchanged.
+    errorRef.current?.scrollIntoView?.({ block: 'center' });
+    errorRef.current?.focus({ preventScroll: true });
+  };
+  // With nothing answered, every topic goes as a placeholder. Any answer goes
+  // as Draft my signup sends it, checks and all, rather than being dropped.
+  const draftWithPlaceholders = () => {
+    if (hasAnswers(questions, answers)) draft();
+    else onSend(buildFollowUp(questions, answers, { placeholders: true }));
   };
 
   const parts = [
@@ -158,7 +164,7 @@ export function Questions({
         {/* First in the page so a phone shows it top left; under the steps on a wider screen. */}
         <button
           type="button"
-          onClick={() => onBack(appendAnswers(prompt, buildFollowUp(questions, committed())))}
+          onClick={() => onBack(appendAnswers(prompt, questions, committed()))}
           className="-mb-2 -ml-1.5 inline-flex min-h-11 items-center gap-1 self-start rounded-[10px] pl-1 pr-2.5 text-[15px] font-medium text-ink-muted hover:text-ink md:order-last md:mb-0 md:ml-0 md:rounded-xl md:px-3 md:text-sm"
         >
           <ChevronLeft className="h-[18px] w-[18px]" aria-hidden="true" />
@@ -191,7 +197,11 @@ export function Questions({
 
         <div className="flex flex-col gap-4 p-4 pb-2 sm:p-6 sm:pb-2">
           <YouWrote prompt={prompt} variant="box" />
-          {!edited && error && <div ref={errorRef}>{error}</div>}
+          {!edited && error && (
+            <div ref={errorRef} tabIndex={-1} className="outline-none">
+              {error}
+            </div>
+          )}
         </div>
 
         <div className="divide-y divide-surface-sunk border-t border-surface-sunk">
@@ -215,7 +225,7 @@ export function Questions({
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap">
             <button
               type="button"
-              onClick={() => onSend(buildFollowUp(questions, answers, { placeholders: true }))}
+              onClick={draftWithPlaceholders}
               className="inline-flex min-h-11 items-center justify-center rounded-xl border border-surface-sunk bg-white px-4 text-[15px] font-medium text-ink hover:bg-surface-raised sm:text-sm"
             >
               Draft with placeholders
@@ -527,7 +537,8 @@ function HowMany({ answers, update }: Part) {
                     placeholder="No limit"
                     value={count}
                     onChange={(e) => setCount(item, e.target.value)}
-                    // Show what will be sent: a whole number, or empty for no limit.
+                    // Show what will be sent: the number, or empty for no limit. A
+                    // fraction stays as typed, for Draft my signup to stop.
                     onBlur={() => setCount(item, String(parseCount(count) ?? ''))}
                     className="h-11 w-[72px] border-x border-surface-sunk bg-transparent px-0.5 text-center text-[15px] tabular-nums outline-none [appearance:textfield] placeholder:text-ink-soft sm:w-[76px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />

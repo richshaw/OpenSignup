@@ -28,9 +28,18 @@ function minutesToWait(details: Record<string, unknown> | undefined): number | u
  * endpoint, so its "too many requests" and "wait Ns and retry" stay as they
  * are, and only this screen knows the bucket means "this hour's AI drafts".
  * The provider's own 429 is the route's `llmErrorCode: 'rate_limited'`, and
- * says how long the provider asked for when that's more than a minute.
+ * says how long the provider asked for when that's more than a minute. The
+ * route's timeout says to try a simpler prompt, but a call with answers comes
+ * back to the questions, where there's no prompt to simplify.
  */
-export function explainDraftFailure(status: number, error: DraftErrorBody | undefined): DraftError {
+export function explainDraftFailure(
+  status: number,
+  error: DraftErrorBody | undefined,
+  { withAnswers = false }: { withAnswers?: boolean } = {},
+): DraftError {
+  if (withAnswers && error?.details?.llmErrorCode === 'timeout') {
+    return { kind: 'message', text: 'AI drafting timed out. Try again.' };
+  }
   if (error?.code === 'rate_limited') {
     if (error.details?.bucket === MAGIC_COMPOSE_BUCKET) {
       return { kind: 'hourly_limit', minutes: minutesToWait(error.details) ?? 60 };

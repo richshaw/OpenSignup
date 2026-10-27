@@ -43,6 +43,13 @@ describe('neverInventRule', () => {
     );
   });
 
+  it('tells the drafter that a list or a schedule already says what, so it drafts', () => {
+    // Without this, models asked about item lists and handed the items back as options.
+    expect(neverInventRule('drafter')).toContain(
+      `Named items, roles or tasks, or dated practices, sessions or shifts, already say what: draft, don't ask. An event with no item or role ("family movie night on March 3") doesn't: ask.`,
+    );
+  });
+
   it('keeps placeholder slots for a prompt that says what but not when', () => {
     const rule = neverInventRule('drafter');
     expect(rule).toContain('If it says what but not when or how many');

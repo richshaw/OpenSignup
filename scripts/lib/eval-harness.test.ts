@@ -1,8 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import type { MagicComposeDraft } from '@/lib/magic-compose/prompt';
 import type { FollowUp, MagicComposeQuestions } from '@/lib/magic-compose/questions';
 import {
+  askedBeforeCreating,
   asksFirst,
+  DEV_EVALS_FILE,
   runOneCase,
   type EvalCase,
   type EvalRunner,
@@ -48,6 +51,19 @@ function runner(first: Produced, second?: Produced) {
 
 const failed = (checks: { key: string; outcome: string }[]) =>
   checks.filter((c) => c.outcome === 'fail').map((c) => c.key);
+
+/** A case from dev-evals.json as it stands, by the start of its id. */
+function devCase(idPrefix: string): EvalCase {
+  const { cases } = JSON.parse(readFileSync(DEV_EVALS_FILE, 'utf8')) as { cases: EvalCase[] };
+  const c = cases.find((x) => x.id.startsWith(idPrefix));
+  if (!c) throw new Error(`no case ${idPrefix} in dev-evals.json`);
+  return c;
+}
+
+const draftOf = (over: Partial<MagicComposeDraft>): Produced => {
+  const draft = { ...DRAFT, ...over };
+  return { status: 'draft', raw: draft, draft, ms: 1 };
+};
 
 describe('questions.must_ask', () => {
   it('expects questions when true, a draft when false, and decides over other questions keys', () => {
@@ -176,5 +192,119 @@ describe('questions.options_must_not_contain_date_or_number', () => {
 
   it('lets French articles through', async () => {
     expect((await check(['Faire un gâteau', 'Tenir une table']))?.outcome).toBe('pass');
+  });
+});
+
+describe('slot_dates.*', () => {
+  const dated = (date: string) =>
+    draftOf({
+      title: 'Class picnic',
+      fields: [
+        { ref: 'what', label: 'What', fieldType: 'text', choices: undefined },
+        { ref: 'date', label: 'Date', fieldType: 'date', choices: undefined },
+      ],
+      slots: [{ values: { what: 'TBD: item 1', date }, capacity: 1 }],
+    });
+  const setCheck = async (date: string) => {
+    const c = evalCase({ expect: { 'slot_dates.set_must_equal': [] } });
+    const run = await runOneCase(runner(dated(date)), c);
+    return run.checks.find((ch) => ch.key === 'slot_dates.set_must_equal')?.outcome;
+  };
+
+  it('counts only real days, as the converter keeps only those', async () => {
+    expect(await setCheck('TBD: date 1')).toBe('pass');
+    expect(await setCheck('tbd')).toBe('pass');
+    expect(await setCheck('Saturday')).toBe('pass');
+    expect(await setCheck('TBD (2027-06-05)')).toBe('pass');
+    expect(await setCheck('2027-06-05')).toBe('fail');
+    expect(await setCheck(' 2027-06-05 ')).toBe('fail');
+  });
+
+  it('passes ev_037 on a placeholder draft whose date field says TBD', async () => {
+    const run = await runOneCase(runner(asks(ASKS_ALL), dated('TBD: date 1')), devCase('ev_037'));
+    expect(run.status).toBe('ok');
+    expect(failed(run.checks)).toEqual([]);
+  });
+});
+
+describe('must_express_target_via_one_of', () => {
+  it('takes a quantity field for ev_002, the bake sale with 80 cookies, 40 brownies and 30 cupcakes', async () => {
+    const quantities = draftOf({
+      title: 'Bake sale for the 5th grade trip',
+      description: 'Bring your batch by 8am on Friday, May 22, 2026.',
+      fields: [
+        { ref: 'item', label: 'Item', fieldType: 'text', choices: undefined },
+        { ref: 'quantity', label: 'Quantity', fieldType: 'number', choices: undefined },
+      ],
+      slots: [
+        { values: { item: 'Cookies', quantity: 80 }, capacity: 1 },
+        { values: { item: 'Brownies', quantity: 40 }, capacity: 1 },
+        { values: { item: 'Cupcakes', quantity: 30 }, capacity: 1 },
+      ],
+    });
+    const run = await runOneCase(runner(quantities), devCase('ev_002'));
+    expect(failed(run.checks)).toEqual([]);
+    expect(run.checks.find((ch) => ch.key === 'must_express_target_via_one_of')?.outcome).toBe(
+      'pass',
+    );
+  });
+});
+
+describe('ev_031, the French bake sale', () => {
+  const options = async (whatOptions: string[]) => {
+    const run = await runOneCase(
+      runner(asks({ topics: ['what', 'when', 'how_many'], whatOptions })),
+      devCase('ev_031'),
+    );
+    return failed(run.checks);
+  };
+
+  it('passes options in French about the bake sale', async () => {
+    expect(await options(['Faire un gâteau', 'Tenir le stand'])).toEqual([]);
+    expect(await options(['Préparer des crêpes', 'Aider à la vente'])).toEqual([]);
+  });
+
+  it('fails options in French about something else, articles and all', async () => {
+    expect(
+      await options(['Apporter des collations', 'Conduire aux matchs', "Aider à l'entraînement"]),
+    ).toEqual(['questions.options_must_mention_any']);
+  });
+
+  it('fails options in English, even with words French shares', async () => {
+    expect(await options(['Run the stand', 'Drinks table'])).toContain(
+      'questions.options_must_mention_any',
+    );
+  });
+});
+
+describe('askedBeforeCreating', () => {
+  it('passes a reply that asks, with a "?" or by asking for details', () => {
+    for (const reply of [
+      'What will people sign up for, and when?',
+      "Let me know what people will sign up for and the dates, and I'll set it up.",
+      'Please share the game dates and how many families you need for each.',
+      'Please tell me the dates and how many people you need.',
+      'Before I create it, I’ll need the dates of the games.',
+      'I need a few details first: what people sign up for, when, and how many.',
+    ]) {
+      expect(askedBeforeCreating(reply).outcome, reply).toBe('pass');
+    }
+  });
+
+  it('fails an empty reply, and one that asks for nothing, such as a refusal', () => {
+    expect(askedBeforeCreating(' \n')).toEqual({
+      key: 'asked_before_creating',
+      outcome: 'fail',
+      detail: 'empty reply: neither asked nor created',
+    });
+    for (const reply of [
+      "I can't help with that.",
+      "I can't create that signup. Let me know if there's anything else.",
+      "I can't set that up. Let me know what else I can help with.",
+      "Please tell me if you'd like something different.",
+      'Done: the signup is ready.',
+    ]) {
+      expect(askedBeforeCreating(reply).outcome, reply).toBe('fail');
+    }
   });
 });
