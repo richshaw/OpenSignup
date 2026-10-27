@@ -402,14 +402,19 @@ function When({ answers, update }: Part) {
       <p id={`${id}q`} className={QUESTION}>
         When is it?
       </p>
-      {/* Native radios, so arrow keys move between them, drawn as a segmented control. */}
+      {/* Native radios, so arrow keys move between them, drawn as a segmented control.
+          In a narrow panel or at large text the choices wrap onto more rows, whole,
+          rather than run past the panel. */}
       <div
         role="radiogroup"
         aria-labelledby={`${id}q`}
-        className="grid h-11 grid-cols-3 gap-0.5 rounded-lg bg-surface-sunk px-1 sm:inline-flex sm:self-start"
+        className="grid min-h-11 grid-cols-[repeat(auto-fit,minmax(min(100%,6.5rem),1fr))] gap-0.5 rounded-lg bg-surface-sunk px-1 sm:inline-flex sm:max-w-full sm:flex-wrap sm:self-start"
       >
         {WHEN_CHOICES.map((choice) => (
-          <label key={choice.kind} className="relative flex h-11 cursor-pointer items-center">
+          <label
+            key={choice.kind}
+            className="relative flex min-h-11 min-w-0 cursor-pointer items-center"
+          >
             <input
               type="radio"
               name={`${id}when`}
@@ -418,7 +423,7 @@ function When({ answers, update }: Part) {
               onChange={() => set({ when: choice.kind })}
               className="peer sr-only"
             />
-            <span className="inline-flex h-9 flex-1 items-center justify-center whitespace-nowrap rounded-[9px] px-3.5 text-sm font-medium text-ink-muted peer-checked:bg-white peer-checked:font-semibold peer-checked:text-ink peer-checked:shadow peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand">
+            <span className="inline-flex min-h-9 flex-1 items-center justify-center rounded-[9px] px-2 py-1 text-center text-sm font-medium leading-tight text-ink-muted peer-checked:bg-white peer-checked:font-semibold peer-checked:text-ink peer-checked:shadow peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand sm:px-3.5">
               {choice.label}
             </span>
           </label>

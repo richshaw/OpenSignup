@@ -26,12 +26,12 @@ export function DraftingFrom({ prompt, followUp }: { prompt: string; followUp: F
       aria-label="Drafting from"
       className="overflow-hidden rounded-lg border border-surface-sunk bg-white shadow-sm"
     >
-      <div className="flex items-center justify-between gap-3 border-b border-surface-sunk bg-surface-raised px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-surface-sunk bg-surface-raised px-4 py-2.5">
         <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
           Drafting from
         </span>
         <span
-          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+          className={`inline-flex max-w-full items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
             blanks === 0 ? 'bg-success/10 text-success' : 'bg-surface-sunk text-ink-muted'
           }`}
         >

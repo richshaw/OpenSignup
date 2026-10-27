@@ -75,7 +75,8 @@ export default {
         },
         'grow-in': {
           from: { opacity: '0', maxHeight: '0' },
-          to: { opacity: '1', maxHeight: '52px' },
+          // In rem, so the cap grows with the text and never clips the row mid-animation.
+          to: { opacity: '1', maxHeight: '3.5rem' },
         },
       },
       animation: {
