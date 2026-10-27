@@ -1,0 +1,1 @@
+ALTER TABLE "oauth_signing_keys" ADD COLUMN "signing_since" timestamp with time zone;

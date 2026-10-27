@@ -59,5 +59,7 @@ export const oauthSigningKeys = pgTable('oauth_signing_keys', {
   alg: text('alg').notNull(),
   jwk: jsonb('jwk').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  /** When an instance first built its provider with this key as the signer. */
+  signingSince: timestamp('signing_since', { withTimezone: true }),
   retiredAt: timestamp('retired_at', { withTimezone: true }),
 });

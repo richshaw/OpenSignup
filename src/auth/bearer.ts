@@ -10,8 +10,13 @@ import { createLocalJWKSet, errors as joseErrors, jwtVerify, type JSONWebKeySet 
 import { getDb } from '@/db/client';
 import { log } from '@/lib/log';
 import type { Actor, WorkspaceRole } from '@/lib/policy';
-import { mcpResourceUrl, oauthIssuer } from '@/oauth/config';
-import { getSigningKeys, resetSigningKeysCache } from '@/oauth/instance';
+import {
+  ACCESS_TOKEN_CLOCK_TOLERANCE,
+  SIGNING_KEY_CACHE_MAX_AGE,
+  mcpResourceUrl,
+  oauthIssuer,
+} from '@/oauth/config';
+import { keyErrorSummary, loadOrCreateSigningKeys } from '@/oauth/keys';
 import { protectedResourceMetadataUrl } from '@/oauth/resource-metadata';
 import { parseScopeString, type Scope } from '@/oauth/scopes';
 import { loadOrganizerSessionById, toActor, type OrganizerSession } from './organizer-session';
@@ -119,32 +124,70 @@ function getVerifier(): OAuthTokenVerifier {
  * HTTP round trip to our own JWKS endpoint. Issuer and audience are
  * non-negotiable: a token minted for any other resource is rejected. On an
  * unknown `kid` the key set is re-read once, which is how a key rotated by
- * another instance becomes visible here.
+ * another instance becomes visible here. It is also re-read once it is
+ * `SIGNING_KEY_CACHE_MAX_AGE` old, which is how a retired key stops being
+ * trusted: a token signed with it carries a `kid` we already know, so the
+ * unknown-`kid` path alone would trust it until a restart. Keys are read from
+ * the table, not from the copy the provider was built with, so a retired key
+ * can't come back from there.
  */
 export function createVerifier(opts: {
   issuer: string;
   resource: string;
   loadKeys?: () => Promise<JSONWebKeySet>;
-  reload?: () => void;
 }): OAuthTokenVerifier {
   const loadKeys =
-    opts.loadKeys ?? (async () => ({ keys: (await getSigningKeys()).publicKeys }));
-  const reload = opts.reload ?? resetSigningKeysCache;
-  let keySet: ReturnType<typeof createLocalJWKSet> | null = null;
+    opts.loadKeys ?? (async () => ({ keys: (await loadOrCreateSigningKeys(getDb())).publicKeys }));
+  type KeySet = ReturnType<typeof createLocalJWKSet>;
+  let keySet: KeySet | null = null;
+  let reading: Promise<KeySet> | null = null;
+  let staleAt = 0;
   let lastReloadAt = 0;
+
+  /**
+   * One read at a time. Requests that need keys while a read runs share it,
+   * so a cold start's burst sends one query, and an older read can't finish
+   * after a newer one and bring back a key retired in between.
+   */
+  function readKeys(): Promise<KeySet> {
+    reading ??= (async () => {
+      try {
+        const fresh = createLocalJWKSet(await loadKeys());
+        keySet = fresh;
+        staleAt = Date.now() + SIGNING_KEY_CACHE_MAX_AGE * 1000;
+        return fresh;
+      } finally {
+        reading = null;
+      }
+    })();
+    return reading;
+  }
 
   /**
    * A forged token with a random `kid` must not be able to flush the key
    * cache on every request, so reloads are limited to one per interval; a
    * genuinely rotated key still shows up within that interval.
    */
-  async function keys(force = false) {
-    if (force && Date.now() - lastReloadAt >= RELOAD_INTERVAL_MS) {
-      lastReloadAt = Date.now();
-      reload();
-      keySet = null;
+  async function keys(force = false): Promise<KeySet> {
+    const now = Date.now();
+    if (!keySet) return readKeys();
+    if (force && now - lastReloadAt >= RELOAD_INTERVAL_MS) {
+      lastReloadAt = now;
+      return readKeys();
     }
-    if (!keySet) keySet = createLocalJWKSet(await loadKeys());
+    if (now >= staleAt) {
+      // Re-read in the background: the keys we hold verify this request as
+      // well as they did the last one, so it shouldn't wait on the database.
+      // A failed read keeps them too, and is tried again after the reload
+      // interval rather than on every request.
+      staleAt = now + RELOAD_INTERVAL_MS;
+      readKeys().catch((err: unknown) =>
+        log.warn(
+          { reason: keyErrorSummary(err) },
+          'oauth: signing keys re-read failed; keeping the cached set',
+        ),
+      );
+    }
     return keySet;
   }
 
@@ -156,7 +199,8 @@ export function createVerifier(opts: {
     try {
       keySetNow = await keys(!retry);
     } catch (err) {
-      log.error({ err }, 'oauth: signing keys unavailable');
+      // Not `err` itself: a failed key insert's message carries the private key.
+      log.error({ reason: keyErrorSummary(err) }, 'oauth: signing keys unavailable');
       throw new OAuthError(OAuthErrorCode.ServerError, 'token verification unavailable');
     }
     try {
@@ -165,7 +209,7 @@ export function createVerifier(opts: {
         audience: opts.resource,
         typ: 'at+jwt',
         requiredClaims: ['sub', 'exp', 'client_id'],
-        clockTolerance: 15,
+        clockTolerance: ACCESS_TOKEN_CLOCK_TOLERANCE,
       });
       return {
         token,
