@@ -35,6 +35,8 @@ import {
   togglePick,
   type Answers,
 } from './answers';
+import { DETAILS_STEP, DRAFT_STEPS, FRAME, PulseMark, StepList, type StepRow } from './Steps';
+import { HereDot, StepLine } from './StepLine';
 import { YouWrote } from './YouWrote';
 
 const WHEN_CHOICES: Array<{ kind: WhenAnswer['kind']; label: string }> = [
@@ -107,6 +109,15 @@ export function Questions({
   // Words left in "Add your own" go as an item: nothing typed is dropped.
   const committed = () => addPending(answers, questions.whatOptions);
 
+  // A refused Draft my signup keeps the screen as it is, and on a phone the
+  // button sits well below the panel's top: bring its message into view, on
+  // every press (counted, as the message itself may not change).
+  const errorRef = useRef<HTMLDivElement>(null);
+  const [refused, setRefused] = useState(0);
+  useEffect(() => {
+    if (refused) errorRef.current?.scrollIntoView?.({ block: 'center' });
+  }, [refused]);
+
   const draft = () => {
     const done = committed();
     setAnswers(done);
@@ -114,46 +125,87 @@ export function Questions({
     const problem = answersProblem(followUp);
     if (problem) {
       setEdited(false);
+      setRefused((n) => n + 1);
       onInvalid(problem);
     } else onSend(followUp);
   };
 
+  const parts = [
+    <What key="what" options={questions.whatOptions} answers={answers} update={update} />,
+    asks('when') && <When key="when" answers={answers} update={update} />,
+    asks('how_many') && <HowMany key="how_many" answers={answers} update={update} />,
+  ].filter(Boolean);
+
+  const rows = DRAFT_STEPS.flatMap((s, i): StepRow[] =>
+    i === 0
+      ? [
+          { id: s.id, label: s.label, state: 'done' },
+          {
+            ...DETAILS_STEP,
+            state: 'active',
+            icon: <HereDot />,
+            className: 'animate-grow-in overflow-hidden',
+          },
+        ]
+      : [{ id: s.id, label: s.label, state: 'todo' }],
+  );
+
+  // The drafting frame, with the questions in its panel: the steps keep their
+  // place, and the panel's placeholders give way to the questions.
   return (
-    <div className="mx-auto flex max-w-[680px] flex-col gap-3.5 sm:gap-4">
-      <button
-        type="button"
-        onClick={() => onBack(appendAnswers(prompt, buildFollowUp(questions, committed())))}
-        className="-mb-2.5 -ml-1.5 inline-flex min-h-11 items-center gap-1 self-start rounded-[10px] pl-1 pr-2.5 text-[15px] font-medium text-ink-muted hover:text-ink sm:-mb-3 sm:text-sm"
-      >
-        <ChevronLeft className="h-[18px] w-[18px]" aria-hidden="true" />
-        Back
-      </button>
-
-      <header className="flex flex-col gap-1 sm:gap-1.5">
-        <h1
-          ref={headingRef}
-          tabIndex={-1}
-          className="text-[26px] font-semibold leading-tight tracking-tight outline-none sm:text-[32px]"
+    <div className={FRAME}>
+      <aside className="flex flex-col gap-4 md:sticky md:top-6">
+        {/* First in the page so a phone shows it top left; under the steps on a wider screen. */}
+        <button
+          type="button"
+          onClick={() => onBack(appendAnswers(prompt, buildFollowUp(questions, committed())))}
+          className="-mb-2 -ml-1.5 inline-flex min-h-11 items-center gap-1 self-start rounded-[10px] pl-1 pr-2.5 text-[15px] font-medium text-ink-muted hover:text-ink md:order-last md:mb-0 md:ml-0 md:rounded-xl md:px-3 md:text-sm"
         >
-          A few details first
-        </h1>
-        <p className="text-[15px] leading-normal text-ink-muted sm:text-base">
-          Pick what fits. Anything you skip becomes a placeholder you can fill in later.
-        </p>
-      </header>
+          <ChevronLeft className="h-[18px] w-[18px]" aria-hidden="true" />
+          Back
+        </button>
+        <PulseMark still />
+        <div>
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="animate-fade-in text-2xl font-semibold tracking-tight outline-none"
+          >
+            A few details first
+          </h1>
+          <p className="mt-1.5 animate-fade-in text-sm leading-relaxed text-ink-muted">
+            Pick what fits. Anything you skip becomes a placeholder you can fill in later.
+          </p>
+        </div>
+        <StepLine details="here" draft="todo" />
+        <StepList rows={rows} className="hidden md:flex" />
+      </aside>
 
-      <YouWrote prompt={prompt} variant="line" />
-
-      {!edited && error}
-
-      <div className="overflow-hidden rounded-lg border border-surface-sunk bg-white shadow-card">
-        <div className="divide-y divide-surface-sunk">
-          <What options={questions.whatOptions} answers={answers} update={update} />
-          {asks('when') && <When answers={answers} update={update} />}
-          {asks('how_many') && <HowMany answers={answers} update={update} />}
+      <section className="overflow-hidden rounded-2xl border border-surface-sunk bg-white">
+        <div className="flex items-center justify-between border-b border-surface-sunk bg-surface-raised px-4 py-3 text-xs font-medium text-ink-muted">
+          <span className="flex animate-fade-in items-center gap-2">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand" />
+            Your answers
+          </span>
         </div>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-surface-sunk bg-surface-raised/50 px-4 pb-1.5 pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:py-3 sm:pl-5 sm:pr-4">
+        <div className="flex flex-col gap-4 p-4 pb-2 sm:p-6 sm:pb-2">
+          <YouWrote prompt={prompt} variant="box" />
+          {!edited && error && <div ref={errorRef}>{error}</div>}
+        </div>
+
+        <div className="divide-y divide-surface-sunk border-t border-surface-sunk">
+          {parts.map((part, i) => (
+            <div key={i} className="animate-rise" style={{ animationDelay: `${80 + i * 70}ms` }}>
+              {part}
+            </div>
+          ))}
+        </div>
+
+        <div
+          className="flex animate-rise flex-col-reverse gap-2 border-t border-surface-sunk bg-surface-raised/50 px-4 pb-1.5 pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:py-3 sm:pl-5 sm:pr-4"
+          style={{ animationDelay: `${80 + parts.length * 70}ms` }}
+        >
           <Link
             href="/app/signups/new?manual=1"
             className="inline-flex min-h-11 items-center self-center text-sm text-ink-muted underline hover:text-ink sm:self-auto"
@@ -178,7 +230,7 @@ export function Questions({
             </button>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

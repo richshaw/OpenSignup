@@ -42,6 +42,11 @@
     animation: none;
     stroke-dashoffset: 0;
   }
+  .animate-rise,
+  .animate-fade-in,
+  .animate-grow-in {
+    animation: none;
+  }
 }
 
 @layer components {

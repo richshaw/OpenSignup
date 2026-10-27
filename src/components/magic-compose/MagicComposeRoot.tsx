@@ -86,6 +86,9 @@ export function MagicComposeRoot() {
   const [questions, setQuestions] = useState<MagicComposeQuestions | null>(null);
   // Held here, not by the questions screen, so they outlive a Cancel or an error.
   const [answers, setAnswers] = useState<Answers | null>(null);
+  // Set by Back, which rewrites the description with the answers: from then
+  // on the box takes focus when it comes back, where the organizer goes on.
+  const [focusPrompt, setFocusPrompt] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -175,6 +178,7 @@ export function MagicComposeRoot() {
   // all be changed as one text. The next Draft my signup is a first call again.
   const onBack = useCallback((description: string) => {
     setPrompt(description);
+    setFocusPrompt(true);
     setQuestions(null);
     setAnswers(null);
     setPhase({ kind: 'idle' });
@@ -256,7 +260,7 @@ export function MagicComposeRoot() {
           </FormError>
         </div>
       )}
-      <Compose prompt={prompt} setPrompt={setPrompt} onDraft={onDraft} />
+      <Compose prompt={prompt} setPrompt={setPrompt} onDraft={onDraft} focusOnMount={focusPrompt} />
     </>
   );
 }

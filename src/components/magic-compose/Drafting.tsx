@@ -1,11 +1,20 @@
 'use client';
 
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Check, Sparkles } from 'lucide-react';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { useTypewriter } from '@/hooks/useTypewriter';
 import type { FollowUp } from '@/lib/magic-compose/questions';
 import { ChunkBoundary } from './ChunkBoundary';
+import {
+  DETAILS_STEP,
+  DRAFT_STEPS,
+  FRAME,
+  PulseMark,
+  StepList,
+  type DraftStep,
+  type StepRow,
+  type StepState,
+} from './Steps';
 import { YouWrote } from './YouWrote';
 
 // Only a call with answers shows it, so it loads with the questions rather
@@ -14,24 +23,10 @@ import { YouWrote } from './YouWrote';
 const DraftingFrom = lazy(() =>
   import('./DraftingFrom').then((m) => ({ default: m.DraftingFrom })),
 );
+// The phone's one-line steps, likewise only after the questions.
+const StepLine = lazy(() => import('./StepLine').then((m) => ({ default: m.StepLine })));
 
 type RevealKind = 'fields' | 'slots';
-
-interface DraftStep {
-  id: string;
-  label: string;
-  /** Fixed time on this step; the fields and slots steps take `revealDuration` instead. */
-  duration?: number;
-}
-
-const DRAFT_STEPS: DraftStep[] = [
-  { id: 'read', label: 'Reading your description', duration: 700 },
-  { id: 'title', label: 'Drafting a title', duration: 700 },
-  { id: 'desc', label: 'Writing a short blurb', duration: 900 },
-  { id: 'fields', label: 'Choosing columns for each slot' },
-  { id: 'slots', label: 'Generating slots' },
-  { id: 'check', label: 'Tidying up', duration: 600 },
-];
 
 export const VISIBLE_FIELD_CAP = 4;
 export const VISIBLE_SLOT_CAP = 10;
@@ -105,6 +100,12 @@ export function Drafting({
 }) {
   const [stepIdx, setStepIdx] = useState(0);
 
+  // From the questions, Draft my signup is pressed at the foot of a long
+  // screen: start at the top, so the heading and the answers are in view.
+  useEffect(() => {
+    if (followUp) window.scrollTo({ top: 0 });
+  }, [followUp]);
+
   useEffect(() => {
     if (!draft) return;
     const durations = DRAFT_STEPS.map((s) => stepDuration(s, draft));
@@ -174,12 +175,25 @@ export function Drafting({
   // one arrives the screen doesn't promise one. A call with answers always drafts.
   const reading = !draft && !followUp;
 
+  // After the questions, reading and the details are done and the spinner
+  // waits on the title until the draft arrives.
+  const current = followUp ? Math.max(stepIdx, 1) : stepIdx;
+  const rows: StepRow[] = DRAFT_STEPS.flatMap((s, i) => {
+    const state: StepState =
+      i < stepIdx || (followUp && i === 0) ? 'done' : i === current ? 'active' : 'todo';
+    const row = { id: s.id, label: s.label, state };
+    return followUp && i === 0 ? [row, { ...DETAILS_STEP, state: 'done' as const }] : [row];
+  });
+
   return (
-    <div className="mx-auto mt-10 grid max-w-[1080px] grid-cols-1 items-start gap-7 md:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]">
+    <div className={FRAME}>
       <aside className="flex flex-col gap-4 md:sticky md:top-6">
         <PulseMark />
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1
+            key={reading ? 'reading' : 'drafting'}
+            className="animate-fade-in text-2xl font-semibold tracking-tight"
+          >
             {reading ? 'Reading your description' : 'Drafting your signup'}
           </h1>
           <p className="text-ink-muted mt-1.5 text-sm leading-relaxed">
@@ -189,33 +203,17 @@ export function Drafting({
           </p>
         </div>
 
-        <ul className="border-surface-sunk flex flex-col gap-0.5 rounded-2xl border bg-white p-1.5">
-          {DRAFT_STEPS.map((s, i) => {
-            const done = i < stepIdx;
-            const active = i === stepIdx;
-            return (
-              <li
-                key={s.id}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${
-                  active ? 'bg-surface-raised' : ''
-                } ${!done && !active ? 'opacity-50' : ''}`}
-              >
-                <StepIcon done={done} active={active} />
-                <div
-                  className={`text-sm ${
-                    done
-                      ? 'text-ink-muted'
-                      : active
-                        ? 'text-ink font-medium'
-                        : 'text-ink-soft'
-                  }`}
-                >
-                  {s.label}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        {followUp && (
+          <ChunkBoundary fallback={null}>
+            <Suspense fallback={null}>
+              <StepLine
+                details="done"
+                draft={stepIdx >= DRAFT_STEPS.length ? 'done' : 'active'}
+              />
+            </Suspense>
+          </ChunkBoundary>
+        )}
+        <StepList rows={rows} className={followUp ? 'hidden md:flex' : ''} />
 
         <button
           type="button"
@@ -413,34 +411,5 @@ function Caret() {
       aria-hidden="true"
       className="bg-brand ml-0.5 inline-block h-[1em] w-[2px] animate-pulse align-text-bottom"
     />
-  );
-}
-
-function StepIcon({ done, active }: { done: boolean; active: boolean }) {
-  if (done) {
-    return (
-      <span className="bg-success inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-white">
-        <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
-      </span>
-    );
-  }
-  if (active) {
-    return (
-      <span className="relative h-5 w-5 flex-shrink-0">
-        <span className="border-surface-sunk border-t-brand absolute inset-0 animate-spin rounded-full border-2" />
-      </span>
-    );
-  }
-  return (
-    <span className="border-surface-sunk inline-block h-5 w-5 flex-shrink-0 rounded-full border-[1.5px] bg-white" />
-  );
-}
-
-function PulseMark() {
-  return (
-    <div className="bg-brand/10 text-brand relative flex h-14 w-14 items-center justify-center rounded-2xl">
-      <Sparkles className="h-6 w-6" aria-hidden="true" />
-      <span className="absolute inset-0 animate-ping rounded-2xl border-2 border-brand opacity-50" />
-    </div>
   );
 }

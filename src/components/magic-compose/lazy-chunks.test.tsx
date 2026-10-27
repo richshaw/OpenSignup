@@ -24,6 +24,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   consoleError.mockRestore();
+  vi.restoreAllMocks();
 });
 
 describe('lazy parts of Magic Compose that fail to load', () => {
@@ -45,6 +46,8 @@ describe('lazy parts of Magic Compose that fail to load', () => {
   });
 
   it("shows the description in place of the Drafting from card when that can't load", async () => {
+    // Drafting from answers starts at the top of the page; jsdom has no scrolling.
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
     render(
       <Drafting
         prompt="Bake sale"

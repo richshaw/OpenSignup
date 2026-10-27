@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { WHAT_ITEMS_MAX } from '@/lib/magic-compose/limits';
 import type { MagicComposeQuestions } from '@/lib/magic-compose/questions';
@@ -9,8 +9,14 @@ import { MagicComposeRoot } from './MagicComposeRoot';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
+// Drafting from the answers starts at the top of the page; jsdom has no scrolling.
+beforeEach(() => {
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+});
+
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -128,6 +134,22 @@ describe('<MagicComposeRoot /> questions', () => {
     expect(screen.getByRole('radiogroup', { name: 'When is it?' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'One day' })).toBeChecked();
     expect(screen.getByText('Pick or add something above first.')).toBeInTheDocument();
+  });
+
+  it('shows the questions as the step after reading, with Back ahead of everything', async () => {
+    stubReplies(asks());
+    const heading = await openQuestions();
+    // The list and the phone's one-line version both mark it; CSS shows one.
+    const current = screen.getAllByText('A few details').map((label) => label.closest('li'));
+    expect(current.length).toBeGreaterThan(0);
+    for (const step of current) expect(step).toHaveAttribute('aria-current', 'step');
+    expect(screen.getByText('Reading your description').closest('li')).not.toHaveAttribute(
+      'aria-current',
+    );
+    expect(screen.getByText('Your answers')).toBeInTheDocument();
+    // First in the page, so Shift+Tab from the heading reaches it, and a phone shows it top left.
+    const back = screen.getByRole('button', { name: 'Back' });
+    expect(back.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('shows only the questions that were asked', async () => {
@@ -268,6 +290,22 @@ describe('<MagicComposeRoot /> questions', () => {
     expect(() => sent(1)).toThrow();
   });
 
+  it("brings the page's own message into view, as Draft my signup can be far below it", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      stubReplies(asks());
+      await openQuestions();
+      fireEvent.change(screen.getByLabelText('Date'), { target: { value: '0202-11-14' } });
+      fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
+      const alert = await screen.findByRole('alert');
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' });
+      expect(scrollIntoView.mock.contexts.at(-1)).toContainElement(alert);
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
+  });
+
   it("doesn't send a date with a short year, and stops it on the page", async () => {
     const sent = stubReplies(asks());
     await openQuestions();
@@ -342,6 +380,10 @@ describe('<MagicComposeRoot /> questions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(screen.getByRole('heading', { name: 'What are you organizing?' })).toBeInTheDocument();
     const description = screen.getByRole('textbox');
+    // Focus goes on in the rewritten description, caret at its end.
+    expect(description).toHaveFocus();
+    const length = (description as HTMLTextAreaElement).value.length;
+    expect((description as HTMLTextAreaElement).selectionStart).toBe(length);
     expect((description as HTMLTextAreaElement).value).toMatch(
       new RegExp(
         [

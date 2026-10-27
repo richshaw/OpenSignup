@@ -9,12 +9,22 @@ export function Compose({
   prompt,
   setPrompt,
   onDraft,
+  focusOnMount = false,
 }: {
   prompt: string;
   setPrompt: (value: string) => void;
   onDraft: () => void;
+  /** Focus the box, caret at the end, when it appears (after the questions' Back). */
+  focusOnMount?: boolean;
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!focusOnMount || !ta) return;
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }, [focusOnMount]);
 
   useEffect(() => {
     const ta = taRef.current;

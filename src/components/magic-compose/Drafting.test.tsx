@@ -2,7 +2,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, within } from '@testing-library/react';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { Drafting, VISIBLE_FIELD_CAP, VISIBLE_SLOT_CAP } from './Drafting';
 
@@ -37,6 +37,7 @@ describe('<Drafting />', () => {
   });
 
   it('drafts from the answers on the call after the questions, a blank one marked', async () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
     render(
       <Drafting
         prompt="Bake sale"
@@ -57,6 +58,27 @@ describe('<Drafting />', () => {
     expect(card).toHaveTextContent('Staff the table2 people');
     expect(card).toHaveTextContent(
       'Not decided. The draft will use placeholder dates you can fill in later.',
+    );
+    // The questions were a step: reading and the details are done, the title is next.
+    for (const done of screen.getAllByText('A few details')) {
+      expect(done.closest('li')).not.toHaveAttribute('aria-current');
+    }
+    expect(screen.getByText('Drafting a title').closest('li')).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
+    // Draft my signup sat at the foot of the questions: the drafting screen starts at the top.
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+    scrollTo.mockRestore();
+  });
+
+  it('keeps the steps it always had for a description that drafts at once', () => {
+    render(<Drafting prompt="hello" draft={null} onCancel={() => {}} onAnimationDone={() => {}} />);
+    expect(screen.queryByText('A few details')).toBeNull();
+    const steps = screen.getByRole('list', { name: 'Progress' });
+    expect(within(steps).getByText('Reading your description').closest('li')).toHaveAttribute(
+      'aria-current',
+      'step',
     );
   });
 
