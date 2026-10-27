@@ -1,7 +1,7 @@
 /**
- * What the confirmation email (`notify.ts`) and the reminder job
- * (`src/jobs/reminders.ts`) both read about a commitment before emailing its
- * participant.
+ * What the confirmation email (`notify.ts`) and the worker's reminder and
+ * slot-change jobs (`src/jobs/reminders.ts`, `src/jobs/slot-changes.ts`) read
+ * about a commitment before emailing its participant.
  */
 import { and, eq, sql, type SQL } from 'drizzle-orm';
 import type { Db } from '@/db/client';
