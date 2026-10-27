@@ -2,25 +2,12 @@ import { Text as TextIcon } from 'lucide-react';
 
 /**
  * The organizer's description, quoted back to them: in a box while the first
- * reply comes (`box`), as one line above the questions (`line`), and at the
- * top of the Drafting from card (`plain`). One component so the three can't
- * drift apart.
+ * reply comes and above the questions (`box`), and at the top of the Drafting
+ * from card (`plain`). One component so the two can't drift apart.
  */
-export function YouWrote({
-  prompt,
-  variant,
-}: {
-  prompt: string;
-  variant: 'box' | 'line' | 'plain';
-}) {
+export function YouWrote({ prompt, variant }: { prompt: string; variant: 'box' | 'plain' }) {
   const quoted = `“${prompt.trim()}”`;
-  const line = variant === 'line';
-  const text = line ? (
-    <p className="line-clamp-2 min-w-0 text-[15px] leading-snug">
-      <span className="text-ink-muted">You wrote </span>
-      <span className="font-semibold">{quoted}</span>
-    </p>
-  ) : (
+  const text = (
     <div className="flex min-w-0 flex-col gap-1">
       <span className="text-xs font-medium text-ink-muted">You wrote</span>
       <p className="line-clamp-3 text-lg font-semibold leading-snug tracking-tight">{quoted}</p>
@@ -32,17 +19,11 @@ export function YouWrote({
   return (
     <section
       aria-label="Your description"
-      className={`flex items-center rounded-lg border border-brand-soft bg-brand/5 ${
-        line ? 'gap-3 px-3 py-2' : 'gap-3.5 px-3.5 py-3'
-      }`}
+      className="flex items-center gap-3.5 rounded-lg border border-brand-soft bg-brand/5 px-3.5 py-3"
     >
       <span
         aria-hidden="true"
-        className={`flex-shrink-0 items-center justify-center border border-brand-soft bg-white text-brand ${
-          line
-            ? 'hidden h-8 w-8 rounded-[9px] sm:inline-flex'
-            : 'inline-flex h-10 w-10 rounded-[11px]'
-        }`}
+        className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[11px] border border-brand-soft bg-white text-brand"
       >
         <TextIcon className="h-4 w-4" />
       </span>

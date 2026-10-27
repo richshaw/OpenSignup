@@ -124,8 +124,9 @@ export function Questions({
       setEdited(false);
       onInvalid(problem);
     });
-    // The error shows above the card, which on a long list is far above the
-    // buttons. Focus brings it into view and has it read out, even unchanged.
+    // The error shows at the top of the panel, which on a long list is far
+    // above the buttons. Focus brings it into view and has it read out, even
+    // unchanged.
     errorRef.current?.scrollIntoView?.({ block: 'center' });
     errorRef.current?.focus({ preventScroll: true });
   };

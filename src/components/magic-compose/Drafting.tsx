@@ -98,7 +98,9 @@ export function Drafting({
   onCancel: () => void;
   onAnimationDone: () => void;
 }) {
-  const [stepIdx, setStepIdx] = useState(0);
+  // After the questions, reading is long done: the steps start at the title.
+  const firstStep = followUp ? 1 : 0;
+  const [stepIdx, setStepIdx] = useState(firstStep);
 
   // From the questions, Draft my signup is pressed at the foot of a long
   // screen: start at the top, so the heading and the answers are in view.
@@ -109,7 +111,7 @@ export function Drafting({
   useEffect(() => {
     if (!draft) return;
     const durations = DRAFT_STEPS.map((s) => stepDuration(s, draft));
-    let i = 0;
+    let i = firstStep;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const next = () => {
       setStepIdx(i);
@@ -126,7 +128,7 @@ export function Drafting({
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [draft, onAnimationDone]);
+  }, [draft, firstStep, onAnimationDone]);
 
   const reached = (id: string) =>
     DRAFT_STEPS.findIndex((s) => s.id === id) <= stepIdx;
@@ -177,10 +179,8 @@ export function Drafting({
 
   // After the questions, reading and the details are done and the spinner
   // waits on the title until the draft arrives.
-  const current = followUp ? Math.max(stepIdx, 1) : stepIdx;
   const rows: StepRow[] = DRAFT_STEPS.flatMap((s, i) => {
-    const state: StepState =
-      i < stepIdx || (followUp && i === 0) ? 'done' : i === current ? 'active' : 'todo';
+    const state: StepState = i < stepIdx ? 'done' : i === stepIdx ? 'active' : 'todo';
     const row = { id: s.id, label: s.label, state };
     return followUp && i === 0 ? [row, { ...DETAILS_STEP, state: 'done' as const }] : [row];
   });

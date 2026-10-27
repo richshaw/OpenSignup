@@ -84,7 +84,8 @@ export default {
         // Magic Compose's questions arriving in the drafting frame.
         rise: 'rise 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both',
         'fade-in': 'fade-in 240ms ease-out both',
-        'grow-in': 'grow-in 280ms ease-out both',
+        // backwards, not both: the row's height cap goes once it has grown in.
+        'grow-in': 'grow-in 280ms ease-out backwards',
       },
     },
   },

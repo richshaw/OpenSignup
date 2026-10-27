@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, act, within } from '@testing-library/react';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
+import type { FollowUp } from '@/lib/magic-compose/questions';
 import { Drafting, VISIBLE_FIELD_CAP, VISIBLE_SLOT_CAP } from './Drafting';
 
 function makeDraft(fieldCount: number, slotCount: number): DraftPreview {
@@ -18,6 +19,11 @@ function makeDraft(fieldCount: number, slotCount: number): DraftPreview {
   }));
   return { title: 'Test Draft Title', description: 'Test description.', fields, slots };
 }
+
+// A test that spies on window.scrollTo can't leak it into the next, even when it fails.
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('<Drafting />', () => {
   it('renders skeletons and no SAMPLE text when draft is null (pending phase)', () => {
@@ -80,6 +86,40 @@ describe('<Drafting />', () => {
       'aria-current',
       'step',
     );
+  });
+
+  it('starts at the title after the questions, rather than spending reading’s time first', () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    vi.useFakeTimers();
+    // How long the steps take to finish, from a draft arriving.
+    const finishes = (followUp?: FollowUp) => {
+      const done = vi.fn();
+      const { unmount } = render(
+        <Drafting
+          prompt="Bake sale"
+          followUp={followUp}
+          draft={makeDraft(2, 3)}
+          onCancel={() => {}}
+          onAnimationDone={done}
+        />,
+      );
+      let ms = 0;
+      while (!done.mock.calls.length && ms < 20_000) {
+        act(() => {
+          vi.advanceTimersByTime(100);
+        });
+        ms += 100;
+      }
+      unmount();
+      return ms;
+    };
+    try {
+      const atOnce = finishes();
+      const afterQuestions = finishes({ what: { picked: ['Staff the table'], added: [] } });
+      expect(atOnce - afterQuestions).toBe(700);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders real title, labels, and slot rows for a small draft', () => {
