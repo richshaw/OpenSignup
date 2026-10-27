@@ -137,6 +137,26 @@ describe('/api/mcp', () => {
     expect(text.slice(toolsLineAt)).toContain('create_signup');
   });
 
+  it.each([
+    ['the build commit, short', '1d4ff3a9c0b2e8f7a6d5c4b3a2918070f6e5d4c3', '1d4ff3a'],
+    ['unknown when the build had no commit', '', 'unknown'],
+  ])('reports %s as serverInfo.version on initialize', async (_name, sha, expected) => {
+    // SERVER_INFO is built at module load, so each case loads the route afresh.
+    vi.resetModules();
+    vi.stubEnv('NEXT_PUBLIC_COMMIT_SHA', sha);
+    try {
+      const { POST } = await import('./route');
+      resolve.mockResolvedValue(okResolution);
+      const params = { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } };
+      const r = await POST(post(rpc('initialize', params)));
+      const body = (await readRpc(r)) as { result: { serverInfo: { name: string; version: string } } };
+      expect(body.result.serverInfo).toMatchObject({ name: 'opensignup', version: expected });
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  });
+
   it('answers GET with 405 without metering or reading a token, since there are no sessions', async () => {
     const { GET } = await import('./route');
     consume.mockClear();

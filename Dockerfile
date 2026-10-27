@@ -35,6 +35,11 @@ ENV NEXT_PUBLIC_SOURCE_URL=$NEXT_PUBLIC_SOURCE_URL
 ENV NEXT_PUBLIC_GOVERNING_LAW=$NEXT_PUBLIC_GOVERNING_LAW
 ENV NEXT_PUBLIC_OPERATOR_NAME=$NEXT_PUBLIC_OPERATOR_NAME
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+# The commit the footer and the MCP server report. `.git` isn't copied into
+# the image, so next.config.mjs can't ask git here; optional, and left empty
+# the footer shows no version.
+ARG GIT_COMMIT_SHA
+ENV GIT_COMMIT_SHA=$GIT_COMMIT_SHA
 
 RUN pnpm build
 

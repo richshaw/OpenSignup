@@ -5,21 +5,15 @@
  * fails here and points at the article. With HELP_SCREENSHOTS=1
  * (`pnpm help:screenshots`) it also refreshes the article's pictures.
  */
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { UI } from '@/help/articles/create-and-publish-a-signup.ui';
 import { loginAsSeededOrganizer } from '../helpers/auth';
+import { helpElementShot } from '../helpers/help-shots';
 import { createPublishedSignup } from '../helpers/signups';
 
 const SLUG = 'create-and-publish-a-signup';
 const CAPTURE = process.env.HELP_SCREENSHOTS === '1';
 const SHOT_DIR = `public/help/${SLUG}`;
-
-async function shot(page: Page, target: Locator, name: string): Promise<void> {
-  if (!CAPTURE) return;
-  // Fonts and the save indicator settle after the last action.
-  await page.waitForTimeout(300);
-  await target.screenshot({ path: `${SHOT_DIR}/${name}.png`, animations: 'disabled' });
-}
 
 test.describe('help: create and publish your first signup', () => {
   // Screenshots at 2x so text stays sharp; the article sizes them in CSS pixels.
@@ -45,7 +39,12 @@ test.describe('help: create and publish your first signup', () => {
     }
     await page.getByLabel(UI.title).fill('Snack duty — Spring season');
     await expect(page.getByLabel(UI.description)).toBeVisible();
-    await shot(page, page.locator('form', { has: page.getByLabel(UI.title) }), 'new-signup');
+    await helpElementShot(
+      page,
+      SLUG,
+      page.locator('form', { has: page.getByLabel(UI.title) }),
+      'new-signup',
+    );
     await page.getByRole('button', { name: UI.createSignup }).click();
     await page.waitForURL(/\/build$/);
     await expect(page.getByText('draft', { exact: true }).locator('visible=true')).toBeVisible();
@@ -67,7 +66,7 @@ test.describe('help: create and publish your first signup', () => {
     await slotEditor.getByLabel(`${UI.date} value`).fill('2030-04-06');
     await slotEditor.getByRole('spinbutton', { name: UI.spots }).fill('2');
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
-    await shot(page, slotEditor, 'slot');
+    await helpElementShot(page, SLUG, slotEditor, 'slot');
     await slotEditor.getByRole('button', { name: UI.done }).click();
     await expect(page.getByRole('button', { name: /Fruit and water/ })).toBeVisible();
 
@@ -165,7 +164,7 @@ test.describe('help: create and publish your first signup', () => {
           name: 'QR code for the sign-up link to Snack duty — Spring season',
         }),
       ).toBeVisible();
-      await shot(page, panel, 'share-panel');
+      await helpElementShot(page, SLUG, panel, 'share-panel');
     }
     // The clipboard is written after the click returns, so wait for it.
     const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
@@ -275,7 +274,7 @@ test.describe('help: create and publish your first signup', () => {
     await form.getByRole('button', { name: UI.save }).click();
     await expect(form.getByRole('status')).toHaveText(UI.saved);
     await expect(ask.getByRole('radio', { name: UI.emailOptional })).toBeChecked();
-    await shot(page, form, 'email-setting');
+    await helpElementShot(page, SLUG, form, 'email-setting');
 
     // Someone who leaves it blank sees their link on screen, and no email.
     const blank = await browser.newPage();

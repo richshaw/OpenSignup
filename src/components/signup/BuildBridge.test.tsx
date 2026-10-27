@@ -11,9 +11,6 @@ vi.mock('next/navigation', () => ({ useRouter: () => router, usePathname: () => 
 
 const BUILD = '/app/signups/sig_1/build';
 
-// TabsNav scrolls its tab into view, which jsdom can't.
-Element.prototype.scrollIntoView = () => {};
-
 type Bridge = ReturnType<typeof useBuildBridge>;
 type Tab = Parameters<typeof useRegisterBuildTab>[0];
 
