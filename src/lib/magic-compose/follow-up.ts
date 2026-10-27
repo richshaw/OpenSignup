@@ -167,8 +167,9 @@ export function buildFollowUpMessages(
 
 /**
  * A first call's one retry, when the model asked questions in a shape the
- * page can't ask (no "what", one option): the description again, then the
- * firm line, so the model drafts with placeholders instead.
+ * page can't ask (neither "what" nor "when", one option for "what"): the
+ * description again, then the firm line, so the model drafts with
+ * placeholders instead.
  */
 export function buildReplyNowMessages(prompt: string, { now }: { now?: Date } = {}): ChatMessage[] {
   return buildMessages([prompt, '', REPLY_NOW].join('\n'), now);

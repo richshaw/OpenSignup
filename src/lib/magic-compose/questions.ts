@@ -14,9 +14,12 @@ export const QUESTION_TOPICS = ['what', 'when', 'how_many'] as const;
 type QuestionTopic = (typeof QUESTION_TOPICS)[number];
 
 /**
- * The model's reply when the description doesn't say what people sign up for.
- * `topics` always includes `what`, each topic once; `whatOptions` holds two to
- * four distinct things people could sign up for.
+ * The model's reply when it can't draft real slots, each topic once. Asking
+ * `what` (the description doesn't say what people sign up for),
+ * `whatOptions` holds two to four distinct things people could sign up for.
+ * Not asking it (the description says what, but every slot would be a "TBD:"
+ * placeholder), `topics` includes `when`, and `whatOptions` holds one to four
+ * things the description names, which the page shows already picked.
  */
 export interface MagicComposeQuestions {
   topics: QuestionTopic[];

@@ -575,30 +575,33 @@
       }
     },
     {
-      "id": "ev_034_what_without_when_drafts_placeholders",
+      "id": "ev_034_what_without_when_asks_when",
       "tags": ["questions", "near_miss", "no_invention", "edge:capacity_gt_1"],
       "runner": "llm",
       "prompt": "Snack duty for the basketball team, two families per game",
       "expect": {
-        "slots.count_range": [1, 3],
-        "slots.all_capacities_equal": 2,
-        "slot_values_must_cover_all": ["tbd"],
-        "slot_dates.set_must_equal": [],
-        "assistant_may_ask": true,
-        "rationale": "#570: it says what but not when, so it still drafts \"TBD: game 1\"… with 2 spots each, and invents no dates. An assistant may ask for the dates instead, as its own instructions say."
+        "questions.must_ask": true,
+        "questions.topics_must_include": ["when"],
+        "questions.topics_must_not_include": ["what", "how_many"],
+        "questions.options_count_range": [1, 4],
+        "questions.options_must_not_contain_date_or_number": true,
+        "questions.options_must_mention_any": ["snack", "snacks"],
+        "rationale": "#687: it says what (snacks) and how many (two families) but not when, and nothing else in it makes a real slot, so every slot would be \"TBD: game 1\". It asks when, with the snacks read from the prompt as the list, rather than drafting placeholder rows. Until #687 it drafted 1-3 \"TBD:\" rows with 2 spots each."
       }
     },
     {
-      "id": "ev_035_conference_slots_without_times_drafts_placeholders",
+      "id": "ev_035_conference_slots_without_times_asks_when",
       "tags": ["questions", "near_miss", "no_invention"],
       "runner": "llm",
       "prompt": "Parent-teacher conferences, 15-minute slots",
       "expect": {
-        "slots.count_range": [1, 3],
-        "slot_values_must_cover_all": ["tbd"],
-        "slot_dates.set_must_equal": [],
-        "assistant_may_ask": true,
-        "rationale": "#570: it says what but not when, so it drafts \"TBD:\" times rather than asking or inventing a schedule."
+        "questions.must_ask": true,
+        "questions.topics_must_include": ["when"],
+        "questions.topics_must_not_include": ["what"],
+        "questions.options_count_range": [1, 4],
+        "questions.options_must_not_contain_date_or_number": true,
+        "questions.options_must_mention_any": ["conference", "conferences", "meeting", "meet"],
+        "rationale": "#687: it says what (a conference slot) but gives no day or times, so every slot would be a \"TBD:\" time. It asks when, not what. Until #687 it drafted 1-3 \"TBD:\" rows."
       }
     },
     {
@@ -644,6 +647,43 @@
         "slot_values_must_cover_all": ["tbd"],
         "slot_dates.set_must_equal": [],
         "rationale": "#570: Draft with placeholders. Every answer is skipped, so the second call drafts \"TBD:\" rows and invents nothing, and never asks again."
+      }
+    },
+    {
+      "id": "ev_040_what_only_name_asks_when",
+      "tags": ["questions", "edge:vague", "no_invention"],
+      "runner": "llm",
+      "prompt": "Snack sign up",
+      "expect": {
+        "questions.must_ask": true,
+        "questions.topics_must_include": ["when", "how_many"],
+        "questions.topics_must_not_include": ["what"],
+        "questions.options_count_range": [1, 4],
+        "questions.options_must_not_contain_date_or_number": true,
+        "questions.options_must_mention_any": ["snack", "snacks"],
+        "rationale": "#687: a name that says what (snacks) and nothing else. Every slot would be a \"TBD:\" row, so it asks when and how many, with the snacks read from the prompt as the list, not options to pick. Until #687 it drafted three \"TBD: Event\" rows. Numbered from ev_040 so it can't collide with the ev_038 and ev_039 that #693 adds."
+      }
+    },
+    {
+      "id": "ev_041_role_without_when_asks_when",
+      "tags": ["questions", "no_invention"],
+      "runner": "llm",
+      "prompt": "Need drivers for the choir's away concerts",
+      "expect": {
+        "questions.must_ask": true,
+        "questions.topics_must_include": ["when"],
+        "questions.topics_must_not_include": ["what"],
+        "questions.options_count_range": [1, 4],
+        "questions.options_must_not_contain_date_or_number": true,
+        "questions.options_must_mention_any": [
+          "drive",
+          "driver",
+          "drivers",
+          "driving",
+          "carpool",
+          "ride"
+        ],
+        "rationale": "#687: a role (drivers) with no concert dates. Every slot would be \"TBD: concert 1\", so it asks when, reading the role from the prompt, rather than drafting placeholders or asking what."
       }
     }
   ]

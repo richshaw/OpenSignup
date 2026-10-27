@@ -28,10 +28,10 @@ import {
   buildFollowUp,
   hasAnswers,
   isFull,
-  NO_ANSWERS,
   parseCount,
-  removeAdded,
+  removeItem,
   sameAnswers,
+  startingAnswers,
   stepCount,
   togglePick,
   type Answers,
@@ -61,11 +61,13 @@ const HINT = 'text-ink-muted text-[13px]';
 type Topic = MagicComposeQuestions['topics'][number];
 
 /**
- * "A few details first": the questions Magic Compose asks when a description
- * doesn't say what people sign up for. Only the asked topics show. The model
- * offers the "what" options; the date and the counts use the page's own
- * controls, so the answers are exact values. Every box lives in `answers`,
- * held by the page, so nothing typed is lost to Cancel or an error.
+ * "A few details first": the questions Magic Compose asks when it can't draft
+ * real slots from a description. Only the asked topics show, but the "what"
+ * list always does: asked, with the model's options to pick from; not asked,
+ * with the things the description names already picked. The date and the
+ * counts use the page's own controls, so the answers are exact values. Every
+ * box lives in `answers`, held by the page, so nothing typed is lost to Cancel
+ * or an error.
  */
 export function Questions({
   prompt,
@@ -101,11 +103,11 @@ export function Questions({
   const [edited, setEdited] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
 
-  const answers = held ?? NO_ANSWERS;
+  const answers = held ?? startingAnswers(questions);
   const update = (change: (a: Answers) => Answers) => {
     // Only a real change: − at 1, or a count box left as it was, isn't one.
     if (!sameAnswers(change(answers), answers)) setEdited(true);
-    setAnswers((a) => change(a ?? NO_ANSWERS));
+    setAnswers((a) => change(a ?? startingAnswers(questions)));
   };
   const asks = (topic: Topic) => questions.topics.includes(topic);
   // Words left in "Add your own" go as an item: nothing typed is dropped.
@@ -138,7 +140,13 @@ export function Questions({
   };
 
   const parts = [
-    <What key="what" options={questions.whatOptions} answers={answers} update={update} />,
+    <What
+      key="what"
+      asked={asks('what')}
+      options={questions.whatOptions}
+      answers={answers}
+      update={update}
+    />,
     asks('when') && <When key="when" answers={answers} update={update} />,
     asks('how_many') && <HowMany key="how_many" answers={answers} update={update} />,
   ].filter(Boolean);
@@ -251,8 +259,20 @@ interface Part {
   update: (change: (answers: Answers) => Answers) => void;
 }
 
-function What({ options, answers, update }: Part & { options: string[] }) {
+function What({
+  asked,
+  options,
+  answers,
+  update,
+}: Part & {
+  /** False when the description already says what: `options` are its things, picked to start. */
+  asked: boolean;
+  options: string[];
+}) {
   const id = useId();
+  // Asked, the model's options are pills to pick and only the organizer's own
+  // items are chips. Not asked, everything on the list is a chip to remove.
+  const chips = asked ? answers.added : answeredItems(answers);
   const full = isFull(answers);
   // Add and a chip's × go away once used, so each hands focus on rather than
   // dropping it to the page.
@@ -266,12 +286,12 @@ function What({ options, answers, update }: Part & { options: string[] }) {
   };
   // To the next chip's ×, or to the box when it was the last chip.
   const remove = (item: string) => {
-    const next = answers.added[answers.added.indexOf(item) + 1];
-    flushSync(() => update((a) => removeAdded(a, item)));
+    const next = chips[chips.indexOf(item) + 1];
+    flushSync(() => update((a) => removeItem(a, item)));
     const nextChip = next === undefined ? undefined : removeRefs.current.get(next);
     (nextChip ?? inputRef.current)?.focus();
   };
-  const placeholder = answers.added.length > 0 ? 'Add another' : 'Add your own';
+  const placeholder = chips.length > 0 ? 'Add another' : 'Add your own';
   // Size the box to what it shows, so the pill ends where the words do.
   const chars = Math.min(40, Math.max(answers.pending.length, placeholder.length));
 
@@ -279,40 +299,45 @@ function What({ options, answers, update }: Part & { options: string[] }) {
     <section className="flex flex-col gap-2.5 p-4 sm:gap-3 sm:px-6 sm:py-5">
       <div>
         <p id={id} className={QUESTION}>
-          What do people sign up for?
+          {asked ? 'What do people sign up for?' : 'What people sign up for'}
         </p>
-        <p className={`${HINT} mt-0.5`}>Pick any that apply, or add your own.</p>
+        <p className={`${HINT} mt-0.5`}>
+          {asked
+            ? 'Pick any that apply, or add your own.'
+            : "From your description. Remove any that don't fit, or add your own."}
+        </p>
       </div>
       <div
         role="group"
         aria-labelledby={id}
         className="-my-[5px] flex flex-wrap items-center gap-x-1.5"
       >
-        {options.map((option) => {
-          const on = answers.picked.includes(option);
-          return (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={on}
-              disabled={!on && full}
-              onClick={() => update((a) => togglePick(a, option, options))}
-              className="group inline-flex min-h-11 items-center focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span
-                className={`${PILL} ${FOCUS_INSIDE} ${
-                  on
-                    ? PILL_ON
-                    : 'border-surface-sunk bg-white shadow-sm group-hover:bg-surface-raised'
-                }`}
+        {asked &&
+          options.map((option) => {
+            const on = answers.picked.includes(option);
+            return (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={on}
+                disabled={!on && full}
+                onClick={() => update((a) => togglePick(a, option, options))}
+                className="group inline-flex min-h-11 items-center focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {on && <Tick />}
-                {option}
-              </span>
-            </button>
-          );
-        })}
-        {answers.added.map((item) => (
+                <span
+                  className={`${PILL} ${FOCUS_INSIDE} ${
+                    on
+                      ? PILL_ON
+                      : 'border-surface-sunk bg-white shadow-sm group-hover:bg-surface-raised'
+                  }`}
+                >
+                  {on && <Tick />}
+                  {option}
+                </span>
+              </button>
+            );
+          })}
+        {chips.map((item) => (
           <span key={item} className={`${PILL} ${PILL_ON} my-[5px] pr-0`}>
             <Tick />
             {item}

@@ -34,7 +34,7 @@ interface ApiBody {
     id?: string;
     draft?: DraftPreview;
     warnings?: string[];
-    /** A first call whose description doesn't say what people sign up for. */
+    /** A first call the model answered with questions instead of a draft. */
     questions?: MagicComposeQuestions;
   };
   error?: DraftErrorBody;

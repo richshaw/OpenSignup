@@ -86,8 +86,9 @@ const PLACEHOLDERS: FollowUp = {
 };
 
 /** Questions the page can't ask: "what" was already known, so it's left out. */
-const NO_WHAT = {
-  questions: { topics: ['when', 'how_many'], whatOptions: QUESTIONS.questions.whatOptions },
+/** Questions the page can't ask: neither what nor when. */
+const CANT_ASK = {
+  questions: { topics: ['how_many'], whatOptions: QUESTIONS.questions.whatOptions },
 };
 
 /** The first call's retry line, after the description. */
@@ -233,8 +234,19 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
     expect(llm.calls).toHaveLength(1);
   });
 
-  it('retries once when the first call asks without what, and saves the draft', async () => {
-    llm.replies = [ok(NO_WHAT), ok(DRAFT)];
+  it('shows questions about when, with what the description names, in one call', async () => {
+    const known = { questions: { topics: ['when', 'how_many'], whatOptions: ['Bring snacks'] } };
+    llm.replies = [ok(known)];
+    const res = await compose({ prompt: 'Snack sign up' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ data: known });
+    expect(await signupsMade()).toBe(0);
+    expect(llm.calls).toHaveLength(1);
+    expect(await quotaUsed()).toBe(1);
+  });
+
+  it('retries once when the first call asks neither what nor when, and saves the draft', async () => {
+    llm.replies = [ok(CANT_ASK), ok(DRAFT)];
     const res = await compose({ prompt: 'Bake sale' });
     expect(res.status).toBe(200);
     expect(await signupsMade()).toBe(1);
@@ -282,7 +294,7 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
   });
 
   it('says the draft didn’t match when the retry is the wrong shape too', async () => {
-    llm.replies = [ok(NO_WHAT), ok(NO_WHAT), ok(DRAFT)];
+    llm.replies = [ok(CANT_ASK), ok(CANT_ASK), ok(DRAFT)];
     const res = await compose({ prompt: 'Bake sale' });
     expect(res.status).toBe(500);
     const body = (await res.json()) as { error: { message: string } };
@@ -293,7 +305,7 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
   });
 
   it('skips the first call’s retry when the organizer has already left', async () => {
-    llm.replies = [ok(NO_WHAT), ok(DRAFT)];
+    llm.replies = [ok(CANT_ASK), ok(DRAFT)];
     const controller = new AbortController();
     controller.abort();
     const res = await compose({ prompt: 'Bake sale' }, { signal: controller.signal });
@@ -452,7 +464,7 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
 
     it('skips a first call’s retry with under 15 seconds left', async () => {
       took = getEnv().LLM_TIMEOUT_MS - 14_000;
-      llm.replies = [ok(NO_WHAT), ok(DRAFT)];
+      llm.replies = [ok(CANT_ASK), ok(DRAFT)];
       const res = await compose({ prompt: 'Bake sale' });
       expect(res.status).toBe(500);
       const body = (await res.json()) as { error: { message: string } };
@@ -463,7 +475,7 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
 
     it('still retries a first call with 16 seconds left', async () => {
       took = getEnv().LLM_TIMEOUT_MS - 16_000;
-      llm.replies = [ok(NO_WHAT), ok(DRAFT)];
+      llm.replies = [ok(CANT_ASK), ok(DRAFT)];
       const res = await compose({ prompt: 'Bake sale' });
       expect(res.status).toBe(200);
       expect(llm.calls[1]?.options?.timeoutMs).toBe(16_000);

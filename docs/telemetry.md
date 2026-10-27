@@ -97,7 +97,7 @@ Signup lifecycle above. These two count the questions round.
 
 | event | actor | payload | fired from |
 |---|---|---|---|
-| `magic_compose.asked` | organizer | `{ topics, options }`: the topics the model asked about (`what`, `when`, `how_many`; always `what`) and how many options it offered for "what" (2 to 4), never the options themselves | `POST /api/signups/magic-compose`, on a first call the model answered with questions instead of a draft, unless the organizer had already left |
+| `magic_compose.asked` | organizer | `{ topics, options }`: the topics the model asked about (`what`, `when`, `how_many`; `what` or `when` or both) and how many options it offered for "what" (2 to 4), or, without `what`, how many things it read from the description (1 to 4), which the page shows already picked; never the options themselves | `POST /api/signups/magic-compose`, on a first call the model answered with questions instead of a draft, unless the organizer had already left |
 | `magic_compose.answered` | organizer | `{ answered, skipped, picked, added, limits, placeholders, retried, gaveUp }`, described below | `POST /api/signups/magic-compose`, once a follow-up (a call carrying the organizer's answers) has ended, however it ended: a draft, a refusal, an error or `asked_again`. One row per follow-up the hourly quota was charged for |
 
 In `magic_compose.answered`:
@@ -105,7 +105,9 @@ In `magic_compose.answered`:
 - `answered` and `skipped` list which of `what` and `when` the organizer
   answered or left blank, for the ones they were asked. "How many" has no
   blank state (an empty box means no limit), so it is in neither.
-- `picked` is how many of the model's options the organizer picked, and
+- `picked` is how many of the model's options the organizer picked (when
+  "what" wasn't asked, how many of the things read from the description they
+  kept), and
   `added` how many things of their own they added. These are the browser's
   claim: it sends the two lists apart, and the server can't check which items
   came from the options.
