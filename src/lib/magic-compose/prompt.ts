@@ -165,7 +165,7 @@ QUESTIONS — only when the prompt doesn't say what people sign up for (rule 4),
 { "questions": { "topics": ["what", "when", "how_many"], "whatOptions": ["<option>", "<option>"] } }
 
 - topics: only the ones the prompt leaves out, always including "what". Leave out "when" if it gives a date or time, and "how_many" if it gives a count.
-- whatOptions: ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself. If an option would repeat something the prompt lists, the prompt already says what: draft instead.
+- whatOptions: ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself. If the options would be the prompt's own items or roles, it already says what: draft instead.
 - A message that carries "Answers to your questions:" is never answered with questions. Draft from the answers.
 
 ${FIELD_TYPE_GUIDE}
@@ -303,7 +303,7 @@ LOAD-BEARING RULES:
 
 8. Max ${MAX_FIELDS} fields. Max ${MAX_SLOTS} slots. If a literal expansion would exceed 200 slots, cap by the less-informative dimension and note the cap in description.
 
-9. capacity defaults to 1 (one participant per slot) unless the user clearly says otherwise. "No limit" means null; a count that isn't given is 1, never null.
+9. capacity is 1 (one participant per slot) unless the user gives a count. "No limit" means null; never null as a guess.
 
 10. Today's date is {{TODAY}}. When the user gives a month and day with no year, assume the next occurrence relative to today.`;
 

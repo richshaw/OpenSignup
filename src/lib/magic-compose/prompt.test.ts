@@ -86,7 +86,7 @@ describe('system prompt', () => {
     expect(sys).toContain(
       '"capacity": <integer, 1 by default; null only if the prompt or answers say "no limit">',
     );
-    expect(sys).toContain('"No limit" means null; a count that isn\'t given is 1, never null.');
+    expect(sys).toContain('"No limit" means null; never null as a guess.');
   });
 
   // Each worked example's OUTPUT is a reply the server would take as it stands.
