@@ -5,6 +5,7 @@ import { render, screen, within } from '@testing-library/react';
 afterEach(() => {
   vi.resetModules();
   vi.doUnmock('@/lib/footer-links');
+  vi.unstubAllEnvs();
 });
 
 // Mocks the list rather than reading src/lib/footer-links.ts, which a
@@ -34,5 +35,21 @@ describe('SiteFooter', () => {
     const links = nav.getAllByRole('link');
     expect(links.map((a) => a.textContent).slice(0, 2)).toEqual(['Guides', 'Help']);
     expect(links[0]?.getAttribute('href')).toBe('/guides');
+  });
+
+  it.each([
+    ['empty', ''],
+    ['the literal undefined', 'undefined'],
+    ['not a hash', '0.1.0'],
+  ])('shows no version when the commit is %s', async (_name, sha) => {
+    vi.stubEnv('NEXT_PUBLIC_COMMIT_SHA', sha);
+    await renderFooter([]);
+    expect(screen.getByRole('contentinfo').querySelector('span')?.textContent).toMatch(/^[^·]+ · AGPL-3\.0$/);
+  });
+
+  it('shows the build’s short commit before the instance name', async () => {
+    vi.stubEnv('NEXT_PUBLIC_COMMIT_SHA', '1d4ff3a9c0b2e8f7a6d5c4b3a2918070f6e5d4c3');
+    await renderFooter([]);
+    expect(screen.getByRole('contentinfo').querySelector('span')?.textContent).toMatch(/^1d4ff3a · .+ · AGPL-3\.0$/);
   });
 });
