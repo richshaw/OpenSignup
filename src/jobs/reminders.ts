@@ -5,17 +5,14 @@ import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
-import { recordActivity } from '@/lib/activity';
 import { log } from '@/lib/log';
-import { commitmentEditUrl, reminderUnsubscribePostUrl, reminderUnsubscribeUrl } from '@/lib/links';
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
-import { editTokenFor } from '@/lib/token';
 import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
-import { reminderOptOutTokenFor } from '@/services/reminder-optout';
-import { alreadyRecorded, loadCommitmentRow, slotText } from '@/email/commitment-row';
+import { alreadyRecorded } from '@/email/commitment-row';
 import { sendReminder } from '@/email/send';
-import { allOf, notifiableRules, skipReasons, wasToldDifferentTime } from './notify-rules';
+import { allOf, notifiableRules, wasToldDifferentTime } from './notify-rules';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
+import { loadDueRow, recordWorkerEmailSent, workerEmailParts } from './worker-email';
 
 /** The reminder lead time as a SQL interval. Fixed for every signup. */
 const leadInterval = sql`make_interval(hours => ${REMINDER_LEAD_HOURS})`;
@@ -121,26 +118,16 @@ export async function dispatchReminders(): Promise<{ enqueued: number }> {
 
 export async function sendReminderJob(payload: ReminderSendPayload): Promise<void> {
   const db = getDb();
-  const row = await loadCommitmentRow(db, payload.commitmentId, reminderDueCondition);
-
   // The scan's own rules, asked again of the row as it is now (see
   // reminderDueRules): anything that changed while the job waited, from an
   // archived signup to an unsubscribe to a slot moved later, shows up here as
-  // no row. A second query then names the rules it failed, for the log.
-  if (!row) {
-    const reasons = await skipReasons(db, payload.commitmentId, reminderDueRules);
-    if (reasons === null) {
-      log.warn({ commitmentId: payload.commitmentId }, 'commitment not found for reminder');
-    } else {
-      log.info({ commitmentId: payload.commitmentId, reasons }, 'reminder no longer due; skipping');
-    }
-    return;
-  }
-  // reminderDueRules requires an email and a slot time, so this only narrows
-  // the types.
-  const to = row.participant.email;
-  const slotAt = row.slot.slotAt;
-  if (to === null || slotAt === null) return;
+  // no row, logged with the rules it failed.
+  const due = await loadDueRow(db, payload.commitmentId, reminderDueRules, reminderDueCondition, {
+    notFound: 'commitment not found for reminder',
+    notDue: 'reminder no longer due; skipping',
+  });
+  if (!due) return;
+  const { row, to, slotAt } = due;
 
   // Idempotency guard, and the only one: the queue does not dedupe (see
   // dispatchReminders), so a commitment can have several jobs, and the first
@@ -169,38 +156,8 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   // change email reads as a normal reminder.
   const changed = await wasToldDifferentTime(db, payload.commitmentId);
 
-  const optOutToken = reminderOptOutTokenFor(row.participant.id);
+  const { props, unsubscribePostUrl } = await workerEmailParts(db, row);
+  await sendReminder(to, { ...props, changed }, { unsubscribePostUrl });
 
-  await sendReminder(
-    to,
-    {
-      participantName: row.participant.name,
-      signupTitle: row.signup.title,
-      // Edit tokens are HMAC(secret, commitment_id), so the job can re-derive the
-      // participant's own link without storing anything recoverable.
-      manageUrl: commitmentEditUrl(
-        row.signup.slug,
-        row.commitment.id,
-        editTokenFor(row.commitment.id),
-      ),
-      unsubscribeUrl: reminderUnsubscribeUrl(row.signup.slug, row.participant.id, optOutToken),
-      ...(await slotText(db, row.signup.id, row.slot.values)),
-      notes: row.commitment.notes,
-      changed,
-    },
-    { unsubscribePostUrl: reminderUnsubscribePostUrl(row.participant.id, optOutToken) },
-  );
-
-  await recordActivity(db, {
-    signupId: row.signup.id,
-    workspaceId: row.signup.workspaceId,
-    actor: { actorId: null, actorType: 'system' },
-    eventType: 'reminder.sent',
-    payload: {
-      commitmentId: row.commitment.id,
-      participantId: row.participant.id,
-      channel: 'email',
-      slotAt: slotAt.toISOString(),
-    },
-  });
+  await recordWorkerEmailSent(db, row, 'reminder.sent', slotAt);
 }

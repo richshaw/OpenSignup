@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { NextResponse } from 'next/server';
+import { shortCommit } from '@/lib/build-info';
 import { log } from '@/lib/log';
 import { getWorkerStatus } from '@/lib/worker-health';
 
@@ -19,5 +20,7 @@ export async function GET() {
   // Informational only — a stale worker must not fail the HTTP check, or the
   // platform would restart the healthy web process to fix the worker.
   const worker = await getWorkerStatus(db);
-  return NextResponse.json({ ok: true, status: 'healthy', worker });
+  // The deployed commit, which the footer already shows, so a deploy can be
+  // checked with curl. null when the build didn't know it.
+  return NextResponse.json({ ok: true, status: 'healthy', worker, commit: shortCommit() });
 }

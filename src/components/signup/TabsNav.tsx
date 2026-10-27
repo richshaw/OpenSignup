@@ -23,6 +23,7 @@ type TabId = (typeof TABS)[number]['id'];
 
 export function TabsNav({ signupId, counts }: TabsNavProps) {
   const pathname = usePathname();
+  const stripRef = useRef<HTMLDivElement | null>(null);
   const activeRef = useRef<HTMLAnchorElement | null>(null);
   // A plain primary click on a tab other than Build, even the one showing,
   // means the organizer has moved on from a check's fix still on its way to
@@ -36,12 +37,21 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
     return match ? match.id : 'build';
   })();
 
+  // Keeps the current tab in view when the strip scrolls sideways on a phone.
+  // This scrolls the strip itself: scrollIntoView would also move where the
+  // browser starts the next Tab from, so a keyboard user's first Tab would
+  // skip the whole header and land on the tab after this one.
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ inline: 'center', block: 'nearest' });
+    const strip = stripRef.current;
+    const tab = activeRef.current;
+    if (!strip || !tab) return;
+    strip.scrollLeft =
+      tab.offsetLeft - strip.offsetLeft - (strip.clientWidth - tab.offsetWidth) / 2;
   }, [activeTab]);
 
   return (
     <div
+      ref={stripRef}
       role="tablist"
       aria-label="Signup sections"
       className="-mx-4 mb-2 flex overflow-x-auto border-b border-surface-sunk px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
