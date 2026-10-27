@@ -2,24 +2,21 @@ import { placeholderIn } from '@/lib/placeholder-text';
 import type { SignupStatus } from '@/schemas/signups';
 
 /**
- * The tag on a slot row whose values still hold TBD, TBC or TBA, by the test
- * Publish's check uses, naming the first one in the fields' order: "Still
- * says “TBD”" on a draft; "People can see “TBD”" once people can open the
- * page, while it's open or closed (an archived signup shows them none of it).
- * Null when the slot holds none.
+ * The tag on a draft's slot row whose values still hold TBD, TBC or TBA,
+ * naming the first one in the fields' order: "Still says “TBD”". A nudge
+ * that blocks nothing, and only before publishing: once the signup is
+ * published, a TBD people see is taken as meant. Null when the slot holds
+ * none, or the signup isn't a draft.
  */
 export function placeholderMark(
   values: Record<string, unknown>,
   fields: readonly { ref: string }[],
   status: SignupStatus,
 ): string | null {
+  if (status !== 'draft') return null;
   for (const { ref } of fields) {
     const word = placeholderIn(values[ref]);
-    if (word) {
-      return status === 'open' || status === 'closed'
-        ? `People can see “${word}”`
-        : `Still says “${word}”`;
-    }
+    if (word) return `Still says “${word}”`;
   }
   return null;
 }

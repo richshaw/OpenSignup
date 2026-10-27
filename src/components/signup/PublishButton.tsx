@@ -46,8 +46,7 @@ interface Publish {
   unsaved: boolean;
   /** What Publish's check found, while its panel is open. */
   check: PublishCheckAnswer | null;
-  /** `anyway`: the organizer chose Publish anyway, past a warning. */
-  publish: (anyway?: boolean) => void;
+  publish: () => void;
   closeCheck: () => void;
   /** Opens the slot the check is about, on the Build tab; false when it can't. */
   fix: () => boolean;
@@ -84,7 +83,7 @@ export function PublishState({ children }: { children: ReactNode }) {
   const check = result && 'check' in result && result !== closedOn ? result : null;
   const close = () => setClosedOn(result);
 
-  async function publish(anyway = false) {
+  async function publish() {
     close();
     setUnsaved(false);
     setPressedWith(result);
@@ -103,9 +102,7 @@ export function PublishState({ children }: { children: ReactNode }) {
       setUnsaved(true);
       return;
     }
-    const form = new FormData();
-    if (anyway) form.set('acknowledge', 'placeholder');
-    startTransition(() => dispatch?.(form));
+    startTransition(() => dispatch?.(new FormData()));
   }
 
   const busy = saving || pending;
@@ -120,12 +117,12 @@ export function PublishState({ children }: { children: ReactNode }) {
     showBusy,
     unsaved,
     check,
-    publish: (anyway) => void publish(anyway),
+    publish: () => void publish(),
     closeCheck: close,
     fix: () => {
       close();
       const target = check?.target;
-      return target ? build.openSlot(target.slotId, target.fieldRef) : false;
+      return target ? build.openSlot(target.slotId) : false;
     },
   };
   return <PublishContext.Provider value={value}>{children}</PublishContext.Provider>;
@@ -231,7 +228,7 @@ export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
       triggerRef={trigger}
       onClose={closeCheck}
       onFix={fix}
-      onSecondary={() => (answer?.copy.blocking ? closeCheck() : publish(true))}
+      onSecondary={closeCheck}
     />
   );
 

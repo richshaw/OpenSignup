@@ -44,11 +44,12 @@ export async function createClosedSignup(
 /**
  * A fresh draft made through the API, as the organizer `request` is signed in
  * as. It has the default template's fields, `what` and `date`, and its one
- * slot, which starts empty, as a new signup's does, unless `values` fills it.
+ * slot, which starts empty, as a new signup's does, unless `values` fills it
+ * (and `capacity` sets its spots).
  */
 export async function createDraft(
   request: APIRequestContext,
-  opts: { title: string; values?: Record<string, string> },
+  opts: { title: string; values?: Record<string, string>; capacity?: number },
 ): Promise<{ id: string; slotId: string }> {
   const signup = await post(request, '/api/signups', {
     title: opts.title,
@@ -61,8 +62,10 @@ export async function createDraft(
   expect(slots.ok()).toBe(true);
   const slotId = ((await slots.json()).data as { id: string }[])[0]?.id;
   if (!slotId) throw new Error('a new signup should start with one slot');
-  if (opts.values) {
-    const filled = await request.patch(`/api/slots/${slotId}`, { data: { values: opts.values } });
+  if (opts.values || opts.capacity) {
+    const filled = await request.patch(`/api/slots/${slotId}`, {
+      data: { values: opts.values, capacity: opts.capacity },
+    });
     expect(filled.ok(), await filled.text()).toBe(true);
   }
   return { id: signup.id, slotId };

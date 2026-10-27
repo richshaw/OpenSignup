@@ -65,13 +65,13 @@ describe('create-and-publish-a-signup: a phone’s share menu', () => {
   });
 });
 
-// The walkthrough publishes once the slot is named, so the mark a published
-// signup's slot gets is checked here, with a draft's.
+// The walkthrough names the slot before it publishes, so that a published
+// signup's slot has no mark is checked here, with a draft's.
 describe('create-and-publish-a-signup: a slot that still says TBD', () => {
   it.each([
     ['draft', UI.stillSays],
-    ['open', UI.peopleCanSee],
-  ] as const)('is marked on a signup that is %s', (status, mark) => {
+    ['open', null],
+  ] as const)('is marked only on a draft: here one that is %s', (status, mark) => {
     const what = {
       id: 'f-what',
       ref: 'what',
@@ -97,6 +97,7 @@ describe('create-and-publish-a-signup: a slot that still says TBD', () => {
         onDelete={() => {}}
       />,
     );
-    expect(screen.getByText(mark, { exact: true })).toBeInTheDocument();
+    if (mark) expect(screen.getByText(mark, { exact: true })).toBeInTheDocument();
+    else expect(screen.queryByText(UI.stillSays, { exact: true })).toBeNull();
   });
 });

@@ -502,72 +502,41 @@ for (const [device, viewport] of [
       expect(await storedStatus(page, draft.id)).toBe('draft');
     });
 
-    test('a slot that says TBD warns, from another tab too, and Publish anyway publishes', async ({
-      page,
-    }) => {
+    test('a slot that says TBD publishes without a stop, and its mark goes', async ({ page }) => {
       const draft = await createDraft(page.request, {
         title: `Still TBD ${Date.now()}`,
         values: { what: 'Cashier TBD', date: '2030-04-06' },
       });
-      await page.goto(`/app/signups/${draft.id}/responses`);
-      const publish = publishButton(page);
-      await publish.click();
-      const check = page.getByRole('dialog', { name: 'Before people see it' });
-      await expect(check).toContainText('Cashier TBD · Sat, Apr 6 still says “TBD”.');
-      expect(await storedStatus(page, draft.id)).toBe('draft');
-
-      // Name it first goes to Build, with that slot open and focus on the TBD.
-      await check.getByRole('button', { name: 'Name it first' }).click();
-      await expect(page).toHaveURL(new RegExp(`/app/signups/${draft.id}/build$`));
-      const what = page
-        .getByTestId(`slot-editor-${draft.slotId}`)
-        .getByRole('textbox', { name: 'What value' });
-      await expect(what).toBeFocused();
-      await expect(what).toHaveValue('Cashier TBD');
-
-      // Publish anyway publishes it as it is, and the share panel opens.
-      await publish.click();
-      await check.getByRole('button', { name: 'Publish anyway' }).click();
-      await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
-      expect(await storedStatus(page, draft.id)).toBe('open');
-
-      // With no Publish and share left to go back to, Enter in the slot's box
-      // leaves it open, and Done closes it, saying nothing. The slot's mark
-      // now says people can see it.
-      await page.keyboard.press('Escape');
-      await what.press('Enter');
-      await expect(what).toBeFocused();
-      await page
-        .getByTestId(`slot-editor-${draft.slotId}`)
-        .getByRole('button', { name: 'Done' })
-        .click();
-      await expect(
-        page.getByRole('button', { name: 'Edit slot — Cashier TBD, people can see “TBD”' }),
-      ).toBeVisible();
-      await expect(page.getByText('People can see “TBD”', { exact: true })).toBeVisible();
-      await expect(ready(page)).toHaveCount(0);
-    });
-
-    test('a slot that says TBD is marked, and Enter after Name it first goes back to Publish and share', async ({
-      page,
-    }) => {
-      const draft = await createDraft(page.request, {
-        title: `Marked TBD ${Date.now()}`,
-        values: { what: 'Cashier TBD', date: '2030-04-06' },
-      });
       await page.goto(`/app/signups/${draft.id}/build`);
       const slot = page.getByTestId(`wysiwyg-slot-${draft.slotId}`);
-      const mark = slot.getByText('Still says “TBD”', { exact: true });
-      await expect(mark).toBeVisible();
+      // A draft's slot is marked: a reminder, which Publish doesn't stop for.
+      await expect(slot.getByText('Still says “TBD”', { exact: true })).toBeVisible();
       await expect(
         slot.getByRole('button', { name: 'Edit slot — Cashier TBD, still says “TBD”' }),
       ).toBeVisible();
 
+      await publishButton(page).click();
+      await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
+      expect(await storedStatus(page, draft.id)).toBe('open');
+
+      // Published, the TBD is taken as meant: no mark, and none in the row's name.
+      await page.keyboard.press('Escape');
+      await expect(slot.getByRole('button', { name: 'Edit slot — Cashier TBD' })).toBeVisible();
+      await expect(slot.getByText(/“TBD”/)).toHaveCount(0);
+    });
+
+    test('Enter after Fill it in goes back to Publish and share, which publishes', async ({
+      page,
+    }) => {
+      const draft = await createDraft(page.request, { title: `Filled in ${Date.now()}` });
+      await page.goto(`/app/signups/${draft.id}/build`);
+      const slot = page.getByTestId(`wysiwyg-slot-${draft.slotId}`);
+
       const publish = publishButton(page);
       await publish.click();
       await page
-        .getByRole('dialog', { name: 'Before people see it' })
-        .getByRole('button', { name: 'Name it first' })
+        .getByRole('dialog', { name: 'Nothing to sign up for yet' })
+        .getByRole('button', { name: 'Fill it in' })
         .click();
       const editor = page.getByTestId(`slot-editor-${draft.slotId}`);
       const what = editor.getByRole('textbox', { name: 'What value' });
@@ -579,12 +548,10 @@ for (const [device, viewport] of [
 
       // Focus is back on Publish and share, ringed for a moment (as after a
       // click on Done, where no focus ring would show), and the header says
-      // it can be published. The mark has gone with the TBD, before the edit
-      // has saved.
+      // it can be published.
       await expect(publish).toBeFocused();
       await expect(publish).toHaveCSS('outline-offset', '3px');
       await expect(ready(page)).toHaveCount(1);
-      await expect(mark).toHaveCount(0);
       await expect(slot.getByRole('button', { name: 'Edit slot — Cashier' })).toBeVisible();
       await expect(publish).not.toHaveCSS('outline-offset', '3px');
       await expect(publish).toBeFocused();
@@ -616,7 +583,7 @@ for (const [device, viewport] of [
   });
 }
 
-// A slot still saying TBD is marked on the Build tab. On a phone the tag
+// A draft's slot still saying TBD is marked on the Build tab. On a phone the tag
 // has a line of its own, under the slot's values: beside them it ran over
 // the spots count and left the values no room.
 test.describe('the TBD mark on a phone', () => {
@@ -627,15 +594,16 @@ test.describe('the TBD mark on a phone', () => {
     context,
   }) => {
     await loginAsSeededOrganizer(context);
-    const signup = await createPublishedSignup(page.request, {
+    const signup = await createDraft(page.request, {
       title: `Mark on a phone ${Date.now()}`,
-      slot: { values: { what: 'Bake stall: TBD', date: '2030-04-06' }, capacity: 3 },
+      values: { what: 'Bake stall: TBD', date: '2030-04-06' },
+      capacity: 3,
     });
     await page.goto(`/app/signups/${signup.id}/build`);
     const row = page.getByRole('button', {
-      name: 'Edit slot — Bake stall: TBD, people can see “TBD”',
+      name: 'Edit slot — Bake stall: TBD, still says “TBD”',
     });
-    const tag = row.getByText('People can see “TBD”', { exact: true });
+    const tag = row.getByText('Still says “TBD”', { exact: true });
     const anchor = row.getByText('Bake stall: TBD', { exact: true });
     const summary = row.getByText(/^Sat, Apr 6/);
     const count = row.getByText('0 of 3 taken', { exact: true });
@@ -662,16 +630,14 @@ test.describe('the TBD mark on a computer', () => {
 
   test('drops under a long name, keeping the date beside it whole', async ({ page, context }) => {
     await loginAsSeededOrganizer(context);
-    const signup = await createPublishedSignup(page.request, {
+    const signup = await createDraft(page.request, {
       title: `Long mark ${Date.now()}`,
-      slot: {
-        values: { what: 'Cashier for the whole long afternoon shift TBD', date: '2030-04-06' },
-        capacity: 3,
-      },
+      values: { what: 'Cashier for the whole long afternoon shift TBD', date: '2030-04-06' },
+      capacity: 3,
     });
     await page.goto(`/app/signups/${signup.id}/build`);
-    const row = page.getByRole('button', { name: /people can see “TBD”$/ });
-    const tag = row.getByText('People can see “TBD”', { exact: true });
+    const row = page.getByRole('button', { name: /still says “TBD”$/ });
+    const tag = row.getByText('Still says “TBD”', { exact: true });
     const anchor = row.getByText(/^Cashier for the whole/);
     const summary = row.getByText(/^Sat, Apr 6/);
     const count = row.getByText('0 of 3 taken', { exact: true });
@@ -692,13 +658,14 @@ test.describe('the TBD mark on a computer', () => {
 
   test('follows a short slot’s values, not the count', async ({ page, context }) => {
     await loginAsSeededOrganizer(context);
-    const signup = await createPublishedSignup(page.request, {
+    const signup = await createDraft(page.request, {
       title: `Short mark ${Date.now()}`,
-      slot: { values: { what: 'Juice TBD', date: '2030-04-06' }, capacity: 3 },
+      values: { what: 'Juice TBD', date: '2030-04-06' },
+      capacity: 3,
     });
     await page.goto(`/app/signups/${signup.id}/build`);
-    const row = page.getByRole('button', { name: 'Edit slot — Juice TBD, people can see “TBD”' });
-    const tag = row.getByText('People can see “TBD”', { exact: true });
+    const row = page.getByRole('button', { name: 'Edit slot — Juice TBD, still says “TBD”' });
+    const tag = row.getByText('Still says “TBD”', { exact: true });
     const summary = row.getByText(/^Sat, Apr 6/);
     const count = row.getByText('0 of 3 taken', { exact: true });
     for (const part of [tag, summary, count]) await expect(part).toBeVisible();
@@ -799,18 +766,18 @@ test.describe('Publish’s check, around the Build tab', () => {
   }) => {
     const draft = await createDraft(page.request, {
       title: `Typed then left ${Date.now()}`,
-      values: { what: 'Juice', date: '2030-04-06' },
+      values: { what: 'Juice' },
     });
     await page.goto(`/app/signups/${draft.id}/build`);
     await page.getByRole('button', { name: /^Edit slot .*Juice/ }).click();
     // Well inside the 800 ms a cell waits before it saves.
-    await page.getByRole('textbox', { name: 'What value' }).fill('TBD');
+    await page.getByRole('textbox', { name: 'What value' }).fill('');
     await page.getByRole('tab', { name: 'Responses' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/signups/${draft.id}/responses$`));
     await publishButton(page).click();
-    const check = page.getByRole('dialog', { name: 'Before people see it' });
-    await expect(check).toContainText('Sat, Apr 6 still says “TBD”.');
-    expect((await storedSlots(page, draft.id))[0]?.values.what).toBe('TBD');
+    const check = page.getByRole('dialog', { name: 'Nothing to sign up for yet' });
+    await expect(check).toContainText('The slot is empty.');
+    expect((await storedSlots(page, draft.id))[0]?.values.what ?? '').toBe('');
     expect(await storedStatus(page, draft.id)).toBe('draft');
   });
 });

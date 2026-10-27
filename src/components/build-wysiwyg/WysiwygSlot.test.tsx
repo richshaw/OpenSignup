@@ -286,15 +286,14 @@ describe('WysiwygSlot — a slot that still says TBD', () => {
     expect(summary.closest('button')?.firstElementChild?.className).toMatch(/\bmd:flex-nowrap\b/);
   });
 
-  it('says people can see it once published', () => {
+  it('drops the tag, its tint and its words once published', () => {
     renderSlot({ row: marked('tba'), status: 'open' });
-    expect(screen.getByText('People can see “TBA”')).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Edit slot at 1:00\u00a0PM, people can see “TBA”' }),
-    ).toBeTruthy();
+    expect(screen.queryByText(/“TBA”/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Edit slot at 1:00\u00a0PM' })).toBeTruthy();
+    expect(screen.getByTestId('wysiwyg-slot-r1').className).not.toMatch(/\bbg-warn\/5\b/);
   });
 
-  it('counts the group’s field too, as Publish’s check does', () => {
+  it('counts the group’s field too', () => {
     const where = makeField({
       id: 'f3',
       ref: 'where',

@@ -11,11 +11,10 @@ interface BuildTab {
    */
   flushPendingSaves: () => Promise<boolean>;
   /**
-   * Opens a slot's editor, with focus in `fieldRef` (the first field when
-   * null), and says whether it could: not a slot it hasn't loaded. A null
-   * slot adds one and opens that.
+   * Opens a slot's editor, with focus in its first field, and says whether it
+   * could: not a slot it hasn't loaded. A null slot adds one and opens that.
    */
-  openSlot: (slotId: string | null, fieldRef: string | null) => boolean;
+  openSlot: (slotId: string | null) => boolean;
 }
 
 /** What the header reaches the Build tab with. */
@@ -77,7 +76,8 @@ const SAVED = Promise.resolve(true);
  */
 export function BuildBridge({ buildHref, children }: { buildHref: string; children: ReactNode }) {
   const tab = useRef<BuildTab | null>(null);
-  const pending = useRef<[string | null, string | null] | null>(null);
+  // The slot a fix asked Build to open, in a box: null itself means "add one".
+  const pending = useRef<{ slotId: string | null } | null>(null);
   const leaving = useRef(SAVED);
   const focusPublish = useRef<(() => void) | null>(null);
   const router = useRouter();
@@ -103,7 +103,7 @@ export function BuildBridge({ buildHref, children }: { buildHref: string; childr
         leaving.current = leaving.current.then(() => true);
         const request = pending.current;
         pending.current = null;
-        if (request) next.openSlot(...request);
+        if (request) next.openSlot(request.slotId);
         return () => {
           if (tab.current === next) tab.current = null;
           const left = Promise.all([leaving.current, next.flushPendingSaves()]);
@@ -119,9 +119,9 @@ export function BuildBridge({ buildHref, children }: { buildHref: string; childr
         if (leaving.current === left) leaving.current = SAVED;
         return saved.every(Boolean);
       },
-      openSlot: (slotId, fieldRef) => {
-        if (tab.current) return tab.current.openSlot(slotId, fieldRef);
-        pending.current = [slotId, fieldRef];
+      openSlot: (slotId) => {
+        if (tab.current) return tab.current.openSlot(slotId);
+        pending.current = { slotId };
         router.push(buildHref);
         return true;
       },
@@ -167,7 +167,7 @@ export function useRegisterBuildTab(tab: BuildTab): () => boolean {
     () =>
       register({
         flushPendingSaves: () => latest.current.flushPendingSaves(),
-        openSlot: (slotId, fieldRef) => latest.current.openSlot(slotId, fieldRef),
+        openSlot: (slotId) => latest.current.openSlot(slotId),
       }),
     [register],
   );

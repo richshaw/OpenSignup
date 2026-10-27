@@ -19,7 +19,7 @@ type WysiwygSlotProps = {
   taken: number;
   /** Whether the signup sends reminders, and so emails about a moved slot. */
   remindersOn: boolean;
-  /** The signup's, for what a slot still saying "TBD" is marked with. */
+  /** The signup's: only a draft's slots are marked for still saying "TBD". */
   status: SignupStatus;
   fields: BuildField[];
   /**

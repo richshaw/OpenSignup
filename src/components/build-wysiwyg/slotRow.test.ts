@@ -11,13 +11,10 @@ describe('placeholderMark', () => {
     expect(placeholderMark({ job: 'Cashier (TBC)' }, fields, 'draft')).toBe('Still says “TBC”');
   });
 
-  it('says people can see it once the page is open, or closed', () => {
-    expect(placeholderMark({ job: 'TBA' }, fields, 'open')).toBe('People can see “TBA”');
-    expect(placeholderMark({ job: 'TBA' }, fields, 'closed')).toBe('People can see “TBA”');
-  });
-
-  it('says what it still says on an archived signup, whose page shows people none of it', () => {
-    expect(placeholderMark({ job: 'TBD' }, fields, 'archived')).toBe('Still says “TBD”');
+  it('marks nothing once the signup is published: a TBD people see is taken as meant', () => {
+    for (const status of ['open', 'closed', 'archived'] as const) {
+      expect(placeholderMark({ job: 'TBA' }, fields, status)).toBeNull();
+    }
   });
 
   it('names the first word in the fields’ order, not the values’', () => {
@@ -26,9 +23,9 @@ describe('placeholderMark', () => {
     );
   });
 
-  it('marks nothing without one, by the check’s own test', () => {
+  it('marks nothing without one', () => {
     expect(placeholderMark({ time: '13:00', job: 'Cashier' }, fields, 'draft')).toBeNull();
-    // Near-misses, as in Publish's check, and a value under no field of the signup.
+    // Near-misses, and a value under no field of the signup.
     for (const job of ['TBDX', 'Tbacco', 'ÉTBA', 'TBD1', 'to be decided']) {
       expect(placeholderMark({ job }, fields, 'draft')).toBeNull();
     }
@@ -58,9 +55,9 @@ describe('slotRowLabel', () => {
         anchor: 'Cashier TBD',
         time: false,
         prompt: null,
-        mark: 'People can see “TBD”',
+        mark: 'Still says “TBD”',
       }),
-    ).toBe('Edit slot — Cashier TBD, people can see “TBD”');
+    ).toBe('Edit slot — Cashier TBD, still says “TBD”');
     expect(slotRowLabel({ ...none, prompt: 'Set what', mark: 'Still says “TBA”' })).toBe(
       'Edit slot — Set what, still says “TBA”',
     );
