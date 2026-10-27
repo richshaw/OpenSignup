@@ -331,10 +331,9 @@ export function BuildWysiwyg({
                   const field = state.fields.find((f) => f.id === fieldId);
                   if (!field || field.config.fieldType !== 'enum') return;
                   if (field.config.choices.includes(value)) return;
-                  // Return the in-flight promise so the EnumPicker can await
-                  // it before committing the cell value — keeps the slot PATCH
-                  // from racing the field-config update on slow networks.
-                  return updateField(fieldId, {
+                  // Slot saves wait for this one, so the server never sees
+                  // the new value before it is in `choices`.
+                  void updateField(fieldId, {
                     config: { fieldType: 'enum', choices: [...field.config.choices, value] },
                   });
                 }}

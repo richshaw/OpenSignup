@@ -111,4 +111,61 @@ test.describe('list field picker', () => {
       expect(kind?.config.choices).toEqual([...CHOICES, 'Snacks']);
     });
   }
+
+  // A choice typed after "Add to list" used to be thrown away by any click
+  // outside the box (#656). Duplicate is the hard case: the click that adds
+  // the choice also copies the slot, so the copy must carry the new choice,
+  // and neither slot's save may reach the server before the field has it.
+  test('a click on Duplicate adds the typed choice and copies it', async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    const created = await page.request.post('/api/signups', {
+      data: {
+        title: `List picker click ${Date.now()}`,
+        description: '',
+        tags: [],
+        visibility: 'unlisted',
+        settings: {},
+      },
+    });
+    expect(created.ok()).toBe(true);
+    const signupId = (await created.json()).data.id as string;
+    const field = await page.request.post(`/api/signups/${signupId}/fields`, {
+      data: {
+        ref: 'kind',
+        label: 'Kind',
+        fieldType: 'enum',
+        config: { fieldType: 'enum', choices: CHOICES },
+      },
+    });
+    expect(field.ok()).toBe(true);
+    const slot = await page.request.post(`/api/signups/${signupId}/slots`, {
+      data: { capacity: 1, values: { what: 'Juice' } },
+    });
+    expect(slot.ok()).toBe(true);
+
+    await page.goto(`/app/signups/${signupId}/build`);
+    await page.getByRole('button', { name: 'Edit slot — Juice' }).click();
+    await page.getByRole('button', { name: 'Kind value' }).click();
+    await page.getByRole('listbox', { name: 'Kind value' }).getByRole('button', { name: 'Add to list' }).click();
+    await page.getByRole('textbox', { name: 'New option name' }).fill('Snacks');
+    const copied = page.waitForResponse(
+      (r) => r.request().method() === 'POST' && r.url().endsWith(`/api/signups/${signupId}/slots/bulk`),
+    );
+    await page.locator('[data-testid^="slot-editor-"]').getByRole('button', { name: 'Duplicate' }).click();
+    expect((await copied).ok()).toBe(true);
+
+    // The original's value saves after its debounce, so wait for it.
+    await expect
+      .poll(async () => {
+        const res = await page.request.get(`/api/signups/${signupId}/slots`);
+        const slots = (await res.json()).data as { values: Record<string, unknown> }[];
+        return slots.filter((s) => s.values['what'] === 'Juice').map((s) => s.values['kind']);
+      })
+      .toEqual(['Snacks', 'Snacks']);
+    const fields = await page.request.get(`/api/signups/${signupId}/fields`);
+    const kind = ((await fields.json()).data as { ref: string; config: { choices?: string[] } }[]).find(
+      (f) => f.ref === 'kind',
+    );
+    expect(kind?.config.choices).toEqual([...CHOICES, 'Snacks']);
+  });
 });

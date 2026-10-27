@@ -24,12 +24,8 @@ type SlotEditorProps = {
   remindersOn: boolean;
   onCellChange: (fieldRef: string, value: string) => void;
   onCapacity: (capacity: number | null) => void;
-  /**
-   * Append `value` to the field's enum choices config. Only called for enum
-   * cells. May return a promise; EnumPicker awaits it before committing the
-   * cell value so the field-config PATCH always lands first.
-   */
-  onAddEnumOption: (fieldId: string, value: string) => void | Promise<void>;
+  /** Append `value` to the field's enum choices config. Only called for enum cells. */
+  onAddEnumOption: (fieldId: string, value: string) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onClose: () => void;

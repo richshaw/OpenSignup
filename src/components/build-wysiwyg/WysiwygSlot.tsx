@@ -37,8 +37,8 @@ type WysiwygSlotProps = {
   onCollapse: () => void;
   onEditCell: (fieldRef: string, value: string) => void;
   onSetCapacity: (capacity: number | null) => void;
-  /** Threaded through to EnumPicker; may return a promise the picker awaits. */
-  onAddEnumOption: (fieldId: string, value: string) => void | Promise<void>;
+  /** Threaded through to EnumPicker. */
+  onAddEnumOption: (fieldId: string, value: string) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   /** Optional drag-reorder bindings. When omitted, the grip is hidden. */

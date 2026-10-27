@@ -368,6 +368,9 @@ export function useBuildState(
   // how many have failed since the page opened, which it compares.
   const inFlightRef = useRef<Set<Promise<unknown>>>(new Set());
   const failuresRef = useRef(0);
+  // Field saves under way, which every slot write waits for (see
+  // afterFieldSaves).
+  const fieldSavesRef = useRef<Set<Promise<void>>>(new Set());
   // Each row's values as the server last accepted them, which a refused cell
   // edit is put back to (#514). Rows the server sends (the first load, a new
   // slot, a refetch) and every values save that succeeds keep it current.
@@ -538,8 +541,8 @@ export function useBuildState(
   const updateField = (
     fieldId: string,
     patch: { name?: string; config?: SlotFieldConfig },
-  ): Promise<void> =>
-    withSave(async () => {
+  ): Promise<void> => {
+    const save = withSave(async () => {
       const body: Record<string, unknown> = {};
       if (patch.name !== undefined) body['label'] = patch.name;
       if (patch.config !== undefined) {
@@ -551,6 +554,22 @@ export function useBuildState(
       dispatch({ type: 'REPLACE_FIELD', field: updated });
       mirrorFieldChange(stateRef.current.fields.map((f) => (f.id === updated.id ? updated : f)));
     });
+    const saves = fieldSavesRef.current;
+    saves.add(save);
+    void save.then(() => saves.delete(save));
+    return save;
+  };
+
+  /**
+   * Waits for the field saves under way. A list choice added in the picker
+   * is on the slot at once (#656), so the slot's save waits here for the
+   * choice to reach the field: the server refuses a value not in `choices`.
+   * Returns nothing, and so goes on in the same tick, when none is under way.
+   */
+  function afterFieldSaves(): Promise<unknown> | undefined {
+    const saves = fieldSavesRef.current;
+    return saves.size > 0 ? Promise.allSettled([...saves]) : undefined;
+  }
 
   const deleteField = async (fieldId: string): Promise<void> => {
     const field = stateRef.current.fields.find((f) => f.id === fieldId);
@@ -620,6 +639,7 @@ export function useBuildState(
     const next = rows[at + 1];
     let copyId: string | null = null;
     await withSave(async () => {
+      await afterFieldSaves();
       // Capacity falls back to 1 when the source was uncapped — the grid uses
       // null to mean "no limit", but new slots ship with capacity 1 to stay
       // safe and consistent with addRow.
@@ -697,6 +717,8 @@ export function useBuildState(
 
   /** PATCHes every value `row` holds, so the slot ends up as the row shows it. */
   async function saveRowValues(row: BuildRow): Promise<void> {
+    const waiting = afterFieldSaves();
+    if (waiting) await waiting;
     await send(
       'PATCH',
       `/api/slots/${row.id}`,

@@ -41,8 +41,8 @@ type WysiwygGroupProps = {
   onExpandRow: (rowId: string | null) => void;
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;
   onSetCapacity: (rowId: string, capacity: number | null) => void;
-  /** Threaded through to EnumPicker; may return a promise the picker awaits. */
-  onAddEnumOption: (fieldId: string, value: string) => void | Promise<void>;
+  /** Threaded through to EnumPicker. */
+  onAddEnumOption: (fieldId: string, value: string) => void;
   onDuplicateRow: (rowId: string) => void;
   onDeleteRow: (rowId: string) => void;
   onAddSlot: (groupKey: string) => void;
