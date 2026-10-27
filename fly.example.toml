@@ -8,6 +8,11 @@
 # then `fly postgres create` + `fly postgres attach`, then set secrets (see below),
 # then `fly deploy`.
 #
+# To show the deployed commit in the site footer, deploy with
+#   fly deploy --build-arg GIT_COMMIT_SHA=$(git rev-parse HEAD)
+# It changes every deploy, so it can't go in [build.args] below. Without it
+# the footer shows no version.
+#
 # Required secrets (set via `fly secrets set KEY=value`):
 #   AUTH_SECRET   — 32+ char random string (e.g. `openssl rand -base64 32`)
 #   AUTH_URL      — public app URL, e.g. https://signup.example.com. Used as

@@ -27,6 +27,7 @@ import {
 } from './locks';
 import { isActiveCommitment, placesTaken } from './commitments';
 import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
+import { everyIdOnceError } from './reorder-ids';
 
 export async function addSlot(
   db: Db,
@@ -274,28 +275,12 @@ export async function reorderSlots(
   // the signup really has.
   return withSignupWriteLock(db, actor, signupId, async (tx, locked) => {
     const current = await lockSlotsForSignup(tx, signupId, locked.workspaceId);
-    const known = new Set(current.map((s) => s.id));
-
-    const seen = new Set<string>();
-    const duplicates = new Set<string>();
-    for (const id of slotIds) (seen.has(id) ? duplicates : seen).add(id);
-    const unknown = [...seen].filter((id) => !known.has(id));
-    const missing = current.filter((s) => !seen.has(s.id)).map((s) => s.id);
-    if (duplicates.size > 0 || unknown.length > 0 || missing.length > 0) {
-      return err(
-        serviceError('invalid_input', 'slotIds must list every slot of the signup exactly once', {
-          field: 'slotIds',
-          details: {
-            ...(missing.length > 0 ? { missing } : {}),
-            ...(unknown.length > 0 ? { unknown } : {}),
-            ...(duplicates.size > 0 ? { duplicates: [...duplicates] } : {}),
-          },
-          suggestion:
-            'call get_signup to see the ids of its slots, then send every one of them once, ' +
-            'in the order you want them shown',
-        }),
-      );
-    }
+    const bad = everyIdOnceError(
+      slotIds,
+      current.map((s) => s.id),
+      'slot',
+    );
+    if (bad) return err(bad);
 
     await writeSlotOrder(tx, signupId, slotIds);
 

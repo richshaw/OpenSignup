@@ -18,31 +18,27 @@ function ctx(defaultWorkspaceId: string | null): ToolContext {
   };
 }
 
+// The rule itself is tested in src/lib/workspace-choice.test.ts; these check
+// that tools get it with suggestions that name the MCP tools.
 describe('resolveWorkspaceId', () => {
-  it('uses the workspace it was given', () => {
-    const r = resolveWorkspaceId(ctx('ws_default'), 'ws_2');
-    expect(r).toEqual({ ok: true, value: 'ws_2' });
+  it('uses the workspace it was given, else the default', () => {
+    expect(resolveWorkspaceId(ctx('ws_default'), 'ws_2')).toEqual({ ok: true, value: 'ws_2' });
+    expect(resolveWorkspaceId(ctx('ws_default'), undefined)).toEqual({ ok: true, value: 'ws_default' });
   });
 
-  it('falls back to the default workspace when none is given', () => {
-    const r = resolveWorkspaceId(ctx('ws_default'), undefined);
-    expect(r).toEqual({ ok: true, value: 'ws_default' });
+  it('points a blank workspaceId at list_workspaces', () => {
+    const r = resolveWorkspaceId(ctx('ws_default'), '   ');
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.code).toBe('invalid_input');
+    expect(r.error.suggestion).toContain('list_workspaces');
   });
 
-  it('refuses an empty workspaceId instead of quietly using the default', () => {
-    for (const empty of ['', '   ']) {
-      const r = resolveWorkspaceId(ctx('ws_default'), empty);
-      expect(r.ok).toBe(false);
-      if (r.ok) continue;
-      expect(r.error.code).toBe('invalid_input');
-      expect(r.error.field).toBe('workspaceId');
-    }
-  });
-
-  it('explains itself when there is no default workspace either', () => {
+  it('points at list_workspaces when there is no default workspace either', () => {
     const r = resolveWorkspaceId(ctx(null), undefined);
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.error.code).toBe('invalid_input');
+    expect(r.error.suggestion).toContain('list_workspaces');
   });
 });
