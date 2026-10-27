@@ -23,7 +23,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 24 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 27 October 2026</p>
       </header>
 
       <section className="space-y-3">

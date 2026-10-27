@@ -9,7 +9,11 @@ import { serviceError, ServiceException } from '@/lib/errors';
 import { link, publicSignupUrl } from '@/lib/links';
 import { log } from '@/lib/log';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
-import { buildFollowUpMessages, FollowUpSchema } from '@/lib/magic-compose/follow-up';
+import {
+  buildFollowUpMessages,
+  buildReplyNowMessages,
+  FollowUpSchema,
+} from '@/lib/magic-compose/follow-up';
 import { defaultLlmClient, type MagicComposeErrorCode } from '@/lib/magic-compose/llm-client';
 import type { Actor } from '@/lib/policy';
 import {
@@ -54,12 +58,18 @@ async function recordFailed(
 }
 
 /**
- * The least time worth giving the one retry after the model asked again. With
- * less of the request's budget left, the retry would most likely time out, so
- * the organizer is told straight away instead. Never more than half the
- * budget, so a short LLM_TIMEOUT_MS still leaves room for a retry.
+ * The least time worth giving a request's one retry (after the model asked
+ * again, or asked in a shape the page can't show). With less of the request's
+ * budget left, the retry would most likely time out, so the organizer is told
+ * straight away instead. Never more than half the budget, so a short
+ * LLM_TIMEOUT_MS still leaves room for a retry.
  */
 const RETRY_MIN_MS = 15_000;
+
+/** Whether the one retry is worth making, with `left` ms of the budget to go. */
+function worthRetrying(left: number, signal: AbortSignal): boolean {
+  return !signal.aborted && left >= Math.min(RETRY_MIN_MS, getEnv().LLM_TIMEOUT_MS / 2);
+}
 
 /**
  * The model asked again after the answers, even after the firmer retry (or
@@ -71,7 +81,7 @@ function askedAgain(followUp: FollowUp) {
       'invalid_input',
       followUp.placeholders
         ? "Couldn't draft this. Try again, or fill it in by hand."
-        : "Couldn't draft from these answers. Add a little more, or draft with placeholders.",
+        : "Couldn't draft from these answers. Add a little more, or fill it in by hand.",
       { details: { reason: 'asked_again' } },
     ),
   );
@@ -150,8 +160,8 @@ export async function POST(req: NextRequest) {
     }
 
     const client = defaultLlmClient();
-    // One time budget for the whole request: a follow-up's retry gets what the
-    // first call left, so the organizer never waits twice LLM_TIMEOUT_MS.
+    // One time budget for the whole request: a retry gets what the first call
+    // left, so the organizer never waits twice LLM_TIMEOUT_MS.
     const deadline = Date.now() + getEnv().LLM_TIMEOUT_MS;
     let raw = await client.generateDraft(
       followUp ? buildFollowUpMessages(userPrompt, followUp) : buildMessages(userPrompt),
@@ -163,7 +173,7 @@ export async function POST(req: NextRequest) {
     // say how long the description was, never what the answers were.
     if (followUp && raw.ok && asksQuestions(raw.value)) {
       const left = deadline - Date.now();
-      if (req.signal.aborted || left < Math.min(RETRY_MIN_MS, getEnv().LLM_TIMEOUT_MS / 2)) {
+      if (!worthRetrying(left, req.signal)) {
         // An organizer who has left isn't told anything, so it isn't a give-up.
         outcome.gaveUp = !req.signal.aborted;
         log.warn(
@@ -193,6 +203,38 @@ export async function POST(req: NextRequest) {
         log.warn({ promptLength: userPrompt.length }, 'magic-compose asked again after the retry');
         await recordFailed(db, actor, session.defaultWorkspaceId, 'asked_again');
         return askedAgain(followUp);
+      }
+    }
+
+    // A first call's questions must be ones the page can ask. Asked in another
+    // shape (no "what", one option), they get one firmer retry for a draft, on
+    // the same quota and budget, and its reply goes the usual way below. With
+    // no time for it, the reply fails as any other of the wrong shape does;
+    // with the organizer gone, it's recorded as that.
+    if (
+      !followUp &&
+      raw.ok &&
+      asksQuestions(raw.value) &&
+      !MagicComposeDraftSchema.safeParse(raw.value).success
+    ) {
+      const left = deadline - Date.now();
+      if (worthRetrying(left, req.signal)) {
+        log.info(
+          { promptLength: userPrompt.length },
+          'magic-compose asked questions in a shape the page cannot ask; retrying once',
+        );
+        raw = await client.generateDraft(buildReplyNowMessages(userPrompt), req.signal, {
+          timeoutMs: left,
+        });
+      } else {
+        log.warn(
+          { promptLength: userPrompt.length, msLeft: left, aborted: req.signal.aborted },
+          'magic-compose asked questions in a shape the page cannot ask, with no time to retry',
+        );
+        if (req.signal.aborted) {
+          await recordFailed(db, actor, session.defaultWorkspaceId, 'aborted');
+          return fail(serviceError('internal', 'request cancelled'));
+        }
       }
     }
 
