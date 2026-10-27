@@ -80,7 +80,7 @@ function askedAgain(followUp: FollowUp) {
       'invalid_input',
       followUp.placeholders
         ? "Couldn't draft this. Try again, or fill it in by hand."
-        : "Couldn't draft from these answers. Add a little more, or draft with placeholders.",
+        : "Couldn't draft from these answers. Add a little more, or fill it in by hand.",
       { details: { reason: 'asked_again' } },
     ),
   );

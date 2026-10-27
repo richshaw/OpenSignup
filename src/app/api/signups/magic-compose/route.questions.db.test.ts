@@ -300,7 +300,7 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
       error: {
         code: 'invalid_input',
         message:
-          "Couldn't draft from these answers. Add a little more, or draft with placeholders.",
+          "Couldn't draft from these answers. Add a little more, or fill it in by hand.",
         details: { reason: 'asked_again' },
       },
     });
