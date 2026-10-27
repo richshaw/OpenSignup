@@ -1,17 +1,22 @@
 /**
  * What the eval runners share: the cases in evals/magic-compose/dev-evals.json,
- * the DSL that scores a draft against a case's `expect`, and the CLI around
- * it (flags, per-case output, summary, snapshot). Each runner supplies only
- * how a case's prompt becomes a draft: eval-magic-compose.ts asks the Magic
- * Compose prompt, eval-mcp.ts asks a tool-calling model through the MCP tools.
- * A runner can also load more case files and score a case itself (`scored`),
- * as eval-mcp.ts does for its follow-up cases.
+ * the DSL that scores a draft (or the questions Magic Compose asks instead)
+ * against a case's `expect`, and the CLI around it (flags, per-case output,
+ * summary, snapshot). Each runner supplies only how a case's prompt becomes a
+ * draft: eval-magic-compose.ts asks the Magic Compose prompt, eval-mcp.ts asks
+ * a tool-calling model through the MCP tools. A runner can also load more case
+ * files and score a case itself (`scored`), as eval-mcp.ts does for its
+ * follow-up cases, and send a case's `answers` to its questions (`answer`), as
+ * eval-magic-compose.ts does.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { z } from 'zod';
 import { magicComposeEnabled } from '@/lib/env';
+import { FollowUpSchema } from '@/lib/magic-compose/follow-up';
 import type { MagicComposeDraft } from '@/lib/magic-compose/prompt';
+import type { FollowUp, MagicComposeQuestions } from '@/lib/magic-compose/questions';
+import { isRealDate } from '@/lib/reminder-fields';
 
 const REPO_ROOT = process.cwd();
 export const DEV_EVALS_FILE = path.join(REPO_ROOT, 'evals/magic-compose/dev-evals.json');
@@ -24,6 +29,14 @@ export interface EvalCase {
   prompt: string;
   /** Organizer messages sent after `prompt`, one turn each. */
   followUps?: string[];
+  /**
+   * The organizer's answers to Magic Compose's questions, checked with
+   * `FollowUpSchema` before any call. The first call must ask; then the
+   * prompt goes back with these, as the page sends them (only the topics it
+   * asked about), and that draft is scored. `questions.*` checks score the
+   * first call.
+   */
+  answers?: FollowUp;
   expect: Record<string, unknown>;
 }
 
@@ -39,12 +52,19 @@ interface CaseRun {
   runner: Runner;
   tags: string[];
   prompt: string;
-  status: 'ok' | 'parse_failed' | 'llm_failed' | 'skipped';
+  /** `broken`: the case itself is wrong (its answers fail `FollowUpSchema`, say), so nothing was sent. */
+  status: 'ok' | 'parse_failed' | 'llm_failed' | 'skipped' | 'broken';
   llmErrorCode?: string;
   llmErrorMessage?: string;
   rawOutput?: unknown;
   draft?: MagicComposeDraft;
   refusalReason?: string;
+  /** What Magic Compose asked: the whole reply, or the first call of a case with `answers`. */
+  questions?: MagicComposeQuestions;
+  /** The first call's reply in a case with `answers`; `rawOutput` is the reply to the answers. */
+  firstRawOutput?: unknown;
+  /** The answers the second call sent: the case's, less the topics the first call didn't ask about. */
+  answersSent?: FollowUp;
   /** Runner-specific detail kept in the snapshot, such as the tools a model called. */
   trace?: Record<string, unknown>;
   checks: CheckResult[];
@@ -76,10 +96,7 @@ async function loadCases(files: readonly string[]): Promise<EvalCase[]> {
   return cases;
 }
 
-function filterCases(
-  cases: EvalCase[],
-  opts: { caseId?: string; tag?: string },
-): EvalCase[] {
+function filterCases(cases: EvalCase[], opts: { caseId?: string; tag?: string }): EvalCase[] {
   return cases.filter((c) => {
     if (opts.caseId && c.id !== opts.caseId) return false;
     if (opts.tag && !c.tags.includes(opts.tag)) return false;
@@ -99,20 +116,29 @@ function lower(s: string): string {
  * date checks — dates legitimately contain hyphens.
  */
 function loose(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function looseIncludes(haystack: string, needle: string): boolean {
   return loose(haystack).includes(loose(needle));
 }
 
+/**
+ * The date fields' values that are real days, as the converter keeps them: a
+ * "TBD: date 1" placeholder, a weekday or "TBD (2026-06-06)" is dropped there,
+ * so the signup has no date for it.
+ */
 function dateValues(draft: MagicComposeDraft): string[] {
   const dateRefs = draft.fields.filter((f) => f.fieldType === 'date').map((f) => f.ref);
   const out: string[] = [];
   for (const slot of draft.slots) {
     for (const ref of dateRefs) {
       const v = slot.values[ref];
-      if (typeof v === 'string') out.push(v);
+      if (typeof v === 'string' && isRealDate(v.trim())) out.push(v.trim());
     }
   }
   return out;
@@ -120,7 +146,11 @@ function dateValues(draft: MagicComposeDraft): string[] {
 
 function slotValuesText(draft: MagicComposeDraft): string {
   return draft.slots
-    .map((s) => Object.values(s.values).map((v) => String(v)).join(' '))
+    .map((s) =>
+      Object.values(s.values)
+        .map((v) => String(v))
+        .join(' '),
+    )
     .join(' ')
     .toLowerCase();
 }
@@ -129,6 +159,63 @@ function fullText(draft: MagicComposeDraft): string {
   const fieldText = draft.fields.map((f) => `${f.ref} ${f.label}`).join(' ');
   return [draft.title, draft.description, fieldText, slotValuesText(draft)].join(' ').toLowerCase();
 }
+
+/** Lowercase with accents dropped, so "Gâteau" and "gateau" compare equal. */
+function fold(s: string): string {
+  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
+/**
+ * Whether `text` holds `needle` as whole words, both folded. Whole words, so
+ * "sell" doesn't hit inside another word; Unicode-aware, since `\b` isn't.
+ */
+function hasWords(text: string, needle: string): boolean {
+  const escaped = fold(needle).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u').test(fold(text));
+}
+
+/**
+ * Months, weekdays and number words, in English and in French for the French
+ * case: with any digit, what an option for "what" must never carry, because
+ * the app asks for the date and the counts itself. Written without accents,
+ * since `hasWords` folds them. Not "un" or "une", which are also French
+ * articles. A heuristic that errs towards flagging ("Help with the May fair"
+ * counts, and so does "neuf", which is also "new").
+ */
+const DATE_OR_NUMBER_WORDS = `
+  january february march april may june july august september october november december
+  monday tuesday wednesday thursday friday saturday sunday today tomorrow tonight
+  one two three four five six seven eight nine ten eleven twelve twenty dozen
+  janvier fevrier mars avril mai juin juillet aout septembre octobre novembre decembre
+  lundi mardi mercredi jeudi vendredi samedi dimanche
+  deux trois quatre cinq six sept huit neuf dix onze douze
+  vingt trente quarante cinquante cent mille
+`
+  .trim()
+  .split(/\s+/);
+
+function dateOrNumberIn(option: string): string | null {
+  const digits = /\d+/.exec(option);
+  if (digits) return digits[0];
+  return DATE_OR_NUMBER_WORDS.find((w) => hasWords(option, w)) ?? null;
+}
+
+/** One reply as the checks see it: at most one of draft, refusalReason and questions is set. */
+interface Reply {
+  kind: Reached['status'];
+  raw: unknown;
+  draft: MagicComposeDraft | null;
+  refusalReason: string | null;
+  questions: MagicComposeQuestions | null;
+}
+
+/** What a check that needs a draft says it was given instead. */
+const REPLY_NAME: Record<Reached['status'], string> = {
+  draft: 'a draft',
+  refusal: 'a refusal payload',
+  questions: 'a questions reply',
+  asked_again: 'a reply that asked again',
+};
 
 function fail(key: string, detail: string): CheckResult {
   return { key, outcome: 'fail', detail };
@@ -146,14 +233,9 @@ function normalizeKey(key: string): string {
   return key.replace(/\.[a-z]$/, '');
 }
 
-function runCheck(
-  rawKey: string,
-  expected: unknown,
-  draft: MagicComposeDraft | null,
-  rawOutput: unknown,
-  refusalReason: string | null = null,
-): CheckResult {
+function runCheck(rawKey: string, expected: unknown, reply: Reply): CheckResult {
   const key = normalizeKey(rawKey);
+  const { raw: rawOutput, refusalReason, questions } = reply;
   const arr = (v: unknown): string[] | null =>
     Array.isArray(v) && v.every((x) => typeof x === 'string') ? (v as string[]) : null;
   const num = (v: unknown): number | null =>
@@ -177,10 +259,88 @@ function runCheck(
     }
   }
 
-  // Every check below needs a full draft (the refusal arm has no fields/slots).
-  if (draft === null) {
-    return skip(rawKey, 'not applicable to a refusal payload');
+  // true expects questions, false a draft. A reply the other way already
+  // fails as expected_questions_but_drafted or unexpected_questions, so this
+  // check only passes or skips.
+  if (key === 'questions.must_ask') {
+    if (expected === true) return questions ? pass(rawKey) : skip(rawKey, 'no questions reply');
+    if (expected === false) {
+      return questions ? skip(rawKey, 'the reply asks: see unexpected_questions') : pass(rawKey);
+    }
+    return skip(rawKey, 'expected true or false');
   }
+
+  // Questions-only check keys: what Magic Compose asked instead of drafting.
+  if (key.startsWith('questions.')) {
+    if (questions === null) return skip(rawKey, 'no questions reply');
+    const topics: readonly string[] = questions.topics;
+    const options = questions.whatOptions;
+    switch (key) {
+      case 'questions.topics_must_include': {
+        const a = arr(expected);
+        if (!a) return skip(rawKey, 'expected string[]');
+        const missing = a.filter((t) => !topics.includes(t));
+        return missing.length === 0
+          ? pass(rawKey)
+          : fail(rawKey, `asked about ${JSON.stringify(topics)}, without ${missing.join(', ')}`);
+      }
+      case 'questions.topics_must_not_include': {
+        const a = arr(expected);
+        if (!a) return skip(rawKey, 'expected string[]');
+        const hits = a.filter((t) => topics.includes(t));
+        return hits.length === 0 ? pass(rawKey) : fail(rawKey, `asked about ${hits.join(', ')}`);
+      }
+      case 'questions.topics_must_equal': {
+        const a = arr(expected);
+        if (!a) return skip(rawKey, 'expected string[]');
+        const got = [...topics].sort();
+        const want = [...a].sort();
+        return JSON.stringify(got) === JSON.stringify(want)
+          ? pass(rawKey)
+          : fail(rawKey, `asked about ${JSON.stringify(got)} ≠ ${JSON.stringify(want)}`);
+      }
+      case 'questions.options_count_range': {
+        const a = expected as unknown[];
+        if (!Array.isArray(a) || a.length !== 2) return skip(rawKey, 'expected [min,max]');
+        const [min, max] = a as [number, number];
+        const n = options.length;
+        return n >= min && n <= max
+          ? pass(rawKey)
+          : fail(rawKey, `${n} options not in [${min},${max}]`);
+      }
+      case 'questions.options_must_not_contain_date_or_number': {
+        if (expected !== true) return skip(rawKey, 'expected true');
+        const hits = options.flatMap((o) => {
+          const hit = dateOrNumberIn(o);
+          return hit === null ? [] : [`"${o}" (${hit})`];
+        });
+        return hits.length === 0
+          ? pass(rawKey)
+          : fail(rawKey, `options with a date or number: ${hits.join(', ')}`);
+      }
+      case 'questions.options_must_mention_any': {
+        const a = arr(expected);
+        if (!a) return skip(rawKey, 'expected string[]');
+        return options.some((o) => a.some((w) => hasWords(o, w)))
+          ? pass(rawKey)
+          : fail(rawKey, `options ${JSON.stringify(options)} mention none of ${JSON.stringify(a)}`);
+      }
+      case 'questions.options_must_not_mention_any': {
+        const a = arr(expected);
+        if (!a) return skip(rawKey, 'expected string[]');
+        const hits = options.filter((o) => a.some((w) => hasWords(o, w)));
+        return hits.length === 0
+          ? pass(rawKey)
+          : fail(rawKey, `options with forbidden words: ${JSON.stringify(hits)}`);
+      }
+      default:
+        return skip(rawKey, `unsupported key (extend runner if you need it)`);
+    }
+  }
+
+  // Every check below needs a full draft (no other kind of reply has fields/slots).
+  const draft = reply.draft;
+  if (draft === null) return skip(rawKey, `not applicable to ${REPLY_NAME[reply.kind]}`);
 
   switch (key) {
     case 'title_must_match_any': {
@@ -212,7 +372,10 @@ function runCheck(
       const bad = draft.fields.filter((f) => !a.includes(f.fieldType));
       return bad.length === 0
         ? pass(rawKey)
-        : fail(rawKey, `fieldTypes outside ${JSON.stringify(a)}: ${bad.map((f) => f.fieldType).join(',')}`);
+        : fail(
+            rawKey,
+            `fieldTypes outside ${JSON.stringify(a)}: ${bad.map((f) => f.fieldType).join(',')}`,
+          );
     }
     case 'fields.must_include_field_type': {
       const t = typeof expected === 'string' ? expected : null;
@@ -245,9 +408,10 @@ function runCheck(
     case 'fields.labels_must_not_match_any': {
       const a = arr(expected);
       if (!a) return skip(rawKey, 'expected string[]');
-      const pick = key === 'fields.refs_must_not_match_any'
-        ? (f: { ref: string }) => f.ref
-        : (f: { label: string }) => f.label;
+      const pick =
+        key === 'fields.refs_must_not_match_any'
+          ? (f: { ref: string }) => f.ref
+          : (f: { label: string }) => f.label;
       const haystack = draft.fields.map(pick);
       const hits: string[] = [];
       for (const needle of a) {
@@ -286,17 +450,13 @@ function runCheck(
       const n = num(expected);
       if (n === null) return skip(rawKey, 'expected number');
       const cap = draft.slots[0]?.capacity;
-      return cap === n
-        ? pass(rawKey)
-        : fail(rawKey, `slots[0].capacity=${cap} ≠ ${n}`);
+      return cap === n ? pass(rawKey) : fail(rawKey, `slots[0].capacity=${cap} ≠ ${n}`);
     }
 
     case 'every_slot.values_non_empty': {
       if (expected !== true) return skip(rawKey, 'expected true');
       const empty = draft.slots.findIndex((s) => Object.keys(s.values).length === 0);
-      return empty === -1
-        ? pass(rawKey)
-        : fail(rawKey, `slot[${empty}].values is empty`);
+      return empty === -1 ? pass(rawKey) : fail(rawKey, `slot[${empty}].values is empty`);
     }
     case 'every_slot.values_keys_must_match_declared_field_refs': {
       if (expected !== true) return skip(rawKey, 'expected true');
@@ -372,9 +532,7 @@ function runCheck(
       // For "must_include_starts" semantics, all must hit. For others, any.
       const requireAll = key === 'slot_times_or_labels.must_include_starts';
       if (requireAll) {
-        return missing.length === 0
-          ? pass(rawKey)
-          : fail(rawKey, `missing: ${missing.join(', ')}`);
+        return missing.length === 0 ? pass(rawKey) : fail(rawKey, `missing: ${missing.join(', ')}`);
       }
       return missing.length < a.length
         ? pass(rawKey)
@@ -438,9 +596,7 @@ function runCheck(
       if (invalid.length > 0) {
         return fail(rawKey, `invalid regex pattern(s): ${invalid.join(', ')}`);
       }
-      return hits.length === 0
-        ? pass(rawKey)
-        : fail(rawKey, `output matched: ${hits.join(', ')}`);
+      return hits.length === 0 ? pass(rawKey) : fail(rawKey, `output matched: ${hits.join(', ')}`);
     }
     case 'must_not_exceed_limits': {
       const v = expected as { max_fields?: number; max_slots?: number };
@@ -466,7 +622,10 @@ function runCheck(
       }
       return missing.length === 0
         ? pass(rawKey)
-        : fail(rawKey, `no slot covered any of: ${missing.map((g) => JSON.stringify(g)).join('; ')}`);
+        : fail(
+            rawKey,
+            `no slot covered any of: ${missing.map((g) => JSON.stringify(g)).join('; ')}`,
+          );
     }
 
     case 'fields.must_not_capture_any': {
@@ -490,7 +649,8 @@ function runCheck(
     }
 
     case 'slots.capacity_for_label': {
-      const a = expected as Array<{ label_match: string; capacity: number }> | undefined;
+      // capacity null is no limit, as an answer of "no limit" asks for.
+      const a = expected as Array<{ label_match: string; capacity: number | null }> | undefined;
       if (!Array.isArray(a)) return skip(rawKey, 'expected array');
       for (const req of a) {
         const match = draft.slots.find((s) =>
@@ -498,7 +658,10 @@ function runCheck(
         );
         if (!match) return fail(rawKey, `no slot values include "${req.label_match}"`);
         if (match.capacity !== req.capacity) {
-          return fail(rawKey, `slot for "${req.label_match}" cap=${match.capacity} ≠ ${req.capacity}`);
+          return fail(
+            rawKey,
+            `slot for "${req.label_match}" cap=${match.capacity} ≠ ${req.capacity}`,
+          );
         }
       }
       return pass(rawKey);
@@ -563,6 +726,8 @@ function runCheck(
     case 'rationale':
     case 'robustness':
       return skip(rawKey, 'prose-only — not machine-checkable');
+    case 'assistant_may_ask':
+      return skip(rawKey, 'read by eval:mcp, where a reply that asks passes');
 
     default:
       return skip(rawKey, `unsupported key (extend runner if you need it)`);
@@ -572,16 +737,59 @@ function runCheck(
 /**
  * What a runner hands back for one case. `draft` is what gets scored;
  * `refusalReason` takes the refusal arm instead (for Magic Compose its
- * `{ refusalReason }` payload, for the MCP evals a reply with no create).
+ * `{ refusalReason }` payload, for the MCP evals a reply with no create), and
+ * `questions` the questions Magic Compose asks instead of drafting.
+ * `asked_again` is a reply to the answers that asks questions again, in any
+ * shape, even one `QuestionsSchema` would reject (`asksQuestions`).
  * `scored` carries checks the runner ran itself, for cases the draft DSL
  * can't describe (the MCP follow-up cases).
  */
 export type Produced =
-  | { status: 'llm_failed'; code: string; message: string; ms: number; trace?: Record<string, unknown> }
-  | { status: 'parse_failed'; raw: unknown; issues: z.ZodIssue[]; ms: number; trace?: Record<string, unknown> }
-  | { status: 'draft'; raw: unknown; draft: MagicComposeDraft; ms: number; trace?: Record<string, unknown> }
-  | { status: 'refusal'; raw: unknown; refusalReason: string; ms: number; trace?: Record<string, unknown> }
-  | { status: 'scored'; raw: unknown; checks: CheckResult[]; ms: number; trace?: Record<string, unknown> };
+  | {
+      status: 'llm_failed';
+      code: string;
+      message: string;
+      ms: number;
+      trace?: Record<string, unknown>;
+    }
+  | {
+      status: 'parse_failed';
+      raw: unknown;
+      issues: z.ZodIssue[];
+      ms: number;
+      trace?: Record<string, unknown>;
+    }
+  | {
+      status: 'draft';
+      raw: unknown;
+      draft: MagicComposeDraft;
+      ms: number;
+      trace?: Record<string, unknown>;
+    }
+  | {
+      status: 'refusal';
+      raw: unknown;
+      refusalReason: string;
+      ms: number;
+      trace?: Record<string, unknown>;
+    }
+  | {
+      status: 'questions';
+      raw: unknown;
+      questions: MagicComposeQuestions;
+      ms: number;
+      trace?: Record<string, unknown>;
+    }
+  | { status: 'asked_again'; raw: unknown; ms: number; trace?: Record<string, unknown> }
+  | {
+      status: 'scored';
+      raw: unknown;
+      checks: CheckResult[];
+      ms: number;
+      trace?: Record<string, unknown>;
+    };
+
+type Reached = Extract<Produced, { status: 'draft' | 'refusal' | 'questions' | 'asked_again' }>;
 
 export interface EvalRunner {
   /** Where per-run snapshots go (gitignored by evals/**\/snapshots/). */
@@ -591,9 +799,238 @@ export interface EvalRunner {
   /** Case files to run. Defaults to dev-evals.json alone. */
   caseFiles?: readonly string[];
   produce(c: EvalCase): Promise<Produced>;
+  /**
+   * Sends a case's prompt back with its `answers`, as the second call does:
+   * already checked with `FollowUpSchema`, and holding only the topics the
+   * first call asked about. A reply that asks again, in any shape, comes
+   * back as `asked_again`. A runner without it skips the cases that have
+   * answers.
+   */
+  answer?(c: EvalCase, answers: FollowUp): Promise<Produced>;
 }
 
-async function runOneCase(runner: EvalRunner, c: EvalCase): Promise<CaseRun> {
+/** The value of `questions.must_ask` in `expect`, or undefined without that key. */
+function mustAsk(expect: Record<string, unknown>): unknown {
+  return Object.entries(expect).find(([k]) => normalizeKey(k) === 'questions.must_ask')?.[1];
+}
+
+/**
+ * Which way a case's `expect` says the model should go, other than drafting.
+ * `questions.must_ask` decides questions when the case has it (`false`
+ * expects a draft); without it, any other `questions.*` key expects them.
+ */
+function expectsOtherThanDraft(expect: Record<string, unknown>): {
+  refusal: boolean;
+  questions: boolean;
+} {
+  const keys = Object.keys(expect).map(normalizeKey);
+  return {
+    refusal: keys.some(
+      (k) => k === 'refusalReason_must_be_present' || k === 'refusalReason_must_mention_any',
+    ),
+    questions: keys.includes('questions.must_ask')
+      ? mustAsk(expect) === true
+      : keys.some((k) => k.startsWith('questions.')),
+  };
+}
+
+/** Whether Magic Compose should ask before it drafts, as the case's `questions.*` checks say. */
+export function asksFirst(c: EvalCase): boolean {
+  return expectsOtherThanDraft(c.expect).questions;
+}
+
+/**
+ * Ways to ask the organizer for details without a "?", read on the reply in
+ * lower case: "Let me know the dates", "Please share…", "I'll need the
+ * dates". Each asks for something, so a refusal's "Let me know if there's
+ * anything else" isn't one. A short list on purpose, not a classifier.
+ */
+const ASKS_FOR_DETAILS = [
+  /\b(?:let me know|tell me|send me|share|give me|confirm)\s+(?:what(?!\s+else)|when|which|who|where|how|the|your)\b/,
+  /\bplease\s+(?:share|send|provide|tell me\s+(?:what(?!\s+else)|when|which|who|where|how|the|your)|confirm|give|list)\b/,
+  /\bi(?:'ll| will|'d| would)? need (?:to know|a few|some|more|the|your)\b/,
+];
+
+/**
+ * Scores an eval:mcp reply that created nothing, on a case where asking the
+ * organizer is right. It asked when it holds a "?" or asks for details in so
+ * many words (`ASKS_FOR_DETAILS`); an empty reply fails, and so does one
+ * that asks nothing, such as a refusal. A create never gets here: it is
+ * scored as a draft.
+ */
+export function askedBeforeCreating(reply: string): CheckResult {
+  const key = 'asked_before_creating';
+  const text = reply.trim();
+  if (text === '') return fail(key, 'empty reply: neither asked nor created');
+  const plain = text.toLowerCase().replace(/[‘’]/g, "'");
+  if (plain.includes('?') || ASKS_FOR_DETAILS.some((re) => re.test(plain))) {
+    return { key, outcome: 'pass', detail: text.slice(0, 200) };
+  }
+  return fail(key, `replied without asking for anything: ${text.slice(0, 200)}`);
+}
+
+/** What a reply that asked again asked about: its topics, or its `questions` as sent. */
+function askedAbout(raw: unknown): string {
+  const field = (v: unknown, key: string): unknown =>
+    typeof v === 'object' && v !== null ? (v as Record<string, unknown>)[key] : undefined;
+  const questions = field(raw, 'questions');
+  const topics = field(questions, 'topics');
+  if (Array.isArray(topics) && topics.length > 0) return topics.map(String).join(', ');
+  return (JSON.stringify(questions) ?? 'nothing').slice(0, 120);
+}
+
+/**
+ * Scores one reply against `expect`. A refusal or questions where `expect`
+ * wants neither fails as unexpected, and a draft where it wants questions
+ * fails too. A reply to the organizer's answers that asks again fails as
+ * `asked_again`, since questions are never right there.
+ */
+function scoreReply(expect: Record<string, unknown>, res: Reached): CheckResult[] {
+  const wants = expectsOtherThanDraft(expect);
+  const reply: Reply = {
+    kind: res.status,
+    raw: res.raw,
+    draft: res.status === 'draft' ? res.draft : null,
+    refusalReason: res.status === 'refusal' ? res.refusalReason : null,
+    questions: res.status === 'questions' ? res.questions : null,
+  };
+  const checks: CheckResult[] = [];
+  if (res.status === 'refusal' && !wants.refusal) {
+    checks.push(
+      fail(
+        'unexpected_refusal',
+        `model refused on a happy-path case: "${res.refusalReason.slice(0, 120)}"`,
+      ),
+    );
+  }
+  if (res.status === 'questions' && !wants.questions) {
+    checks.push(
+      fail(
+        'unexpected_questions',
+        `asked about ${res.questions.topics.join(', ')} instead of drafting`,
+      ),
+    );
+  }
+  if (res.status === 'asked_again') {
+    checks.push(fail('asked_again', `asked about ${askedAbout(res.raw)} instead of drafting`));
+  }
+  if (res.status === 'draft' && wants.questions) {
+    checks.push(
+      fail(
+        'expected_questions_but_drafted',
+        `drafted "${res.draft.title.slice(0, 60)}" with ${res.draft.slots.length} slot(s)`,
+      ),
+    );
+  }
+  for (const [k, v] of Object.entries(expect)) {
+    checks.push(runCheck(k, v, reply));
+  }
+  return checks;
+}
+
+/** A case run from what the runner produced, scored against `expect`. */
+function toRun(base: CaseRun, expect: Record<string, unknown>, res: Produced): CaseRun {
+  const run: CaseRun = { ...base, tokens: { ms: res.ms } };
+  if (res.trace) run.trace = res.trace;
+
+  if (res.status === 'llm_failed') {
+    return { ...run, status: 'llm_failed', llmErrorCode: res.code, llmErrorMessage: res.message };
+  }
+
+  if (res.status === 'parse_failed') {
+    return {
+      ...run,
+      status: 'parse_failed',
+      rawOutput: res.raw,
+      checks: res.issues.slice(0, 5).map((i) => ({
+        key: `schema:${i.path.join('.') || '(root)'}`,
+        outcome: 'fail' as const,
+        detail: i.message,
+      })),
+    };
+  }
+
+  if (res.status === 'scored') {
+    return { ...run, rawOutput: res.raw, checks: res.checks };
+  }
+
+  const checks = scoreReply(expect, res);
+  if (res.status === 'refusal') {
+    return { ...run, rawOutput: res.raw, refusalReason: res.refusalReason, checks };
+  }
+  if (res.status === 'questions') {
+    return { ...run, rawOutput: res.raw, questions: res.questions, checks };
+  }
+  if (res.status === 'asked_again') return { ...run, rawOutput: res.raw, checks };
+  return { ...run, rawOutput: res.raw, draft: res.draft, checks };
+}
+
+/**
+ * The answers as the page sends them after `topics`: `what` always, `when`
+ * and `howMany` only when the first call asked about them.
+ */
+function askedOnly(answers: FollowUp, topics: readonly string[]): FollowUp {
+  const { when, howMany, ...rest } = answers;
+  return {
+    ...rest,
+    ...(when !== undefined && topics.includes('when') ? { when } : {}),
+    ...(howMany !== undefined && topics.includes('how_many') ? { howMany } : {}),
+  };
+}
+
+/**
+ * A case with `answers`, run as the page runs it: the first call must ask,
+ * then the prompt goes back with the answers to the topics it asked about,
+ * and that reply is scored. When the first call didn't ask, the answers go
+ * back as written, since they test the second prompt on its own. The first
+ * call's checks are marked `first:`, and a second call that fails says so.
+ */
+async function runWithAnswers(
+  runner: EvalRunner & { answer: NonNullable<EvalRunner['answer']> },
+  base: CaseRun,
+  c: EvalCase,
+  answers: FollowUp,
+): Promise<CaseRun> {
+  const firstExpect: Record<string, unknown> = { 'questions.must_ask': true };
+  const draftExpect: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(c.expect)) {
+    if (normalizeKey(k).startsWith('questions.')) firstExpect[k] = v;
+    else draftExpect[k] = v;
+  }
+  const first = await runner.produce(c);
+  const markFirst = (checks: CheckResult[]) =>
+    checks.map((ch) => ({ ...ch, key: `first:${ch.key}` }));
+  if (first.status !== 'draft' && first.status !== 'refusal' && first.status !== 'questions') {
+    const run = toRun(base, firstExpect, first);
+    return {
+      ...run,
+      checks: markFirst(run.checks),
+      ...(run.llmErrorMessage ? { llmErrorMessage: `first call: ${run.llmErrorMessage}` } : {}),
+    };
+  }
+
+  const firstChecks = markFirst(scoreReply(firstExpect, first));
+  const sent = first.status === 'questions' ? askedOnly(answers, first.questions.topics) : answers;
+  const second = await runner.answer(c, sent);
+  const run = toRun(base, draftExpect, second);
+  return {
+    ...run,
+    checks: [...firstChecks, ...run.checks],
+    ...(run.llmErrorMessage ? { llmErrorMessage: `second call: ${run.llmErrorMessage}` } : {}),
+    ...(first.status === 'questions' ? { questions: first.questions } : {}),
+    firstRawOutput: first.raw,
+    answersSent: sent,
+    tokens: { ms: first.ms + second.ms },
+  };
+}
+
+/** A case that can't run as written; nothing is sent. */
+function broken(base: CaseRun, detail: string): CaseRun {
+  return { ...base, status: 'broken', checks: [fail('broken_case', detail)] };
+}
+
+/** Runs and scores one case. Exported for the harness's own tests. */
+export async function runOneCase(runner: EvalRunner, c: EvalCase): Promise<CaseRun> {
   const base: CaseRun = {
     caseId: c.id,
     runner: c.runner,
@@ -611,75 +1048,35 @@ async function runOneCase(runner: EvalRunner, c: EvalCase): Promise<CaseRun> {
     };
   }
 
-  const res = await runner.produce(c);
-  const tokens = { ms: res.ms };
-  if (res.trace) base.trace = res.trace;
-
-  if (res.status === 'llm_failed') {
+  if (c.answers === undefined) return toRun(base, c.expect, await runner.produce(c));
+  // Checked as the route checks them, before any call, so a case can't send
+  // answers the page never would, and a broken one costs nothing.
+  const answers = FollowUpSchema.safeParse(c.answers);
+  if (!answers.success) {
+    const issue = answers.error.issues[0];
+    return broken(
+      base,
+      `the case's answers fail FollowUpSchema at ${issue?.path.join('.') || '(root)'}: ${issue?.message}`,
+    );
+  }
+  const ask = mustAsk(c.expect);
+  if (ask !== undefined && ask !== true) {
+    return broken(
+      base,
+      'a case with answers must ask first, so "questions.must_ask" can only be true',
+    );
+  }
+  const { answer } = runner;
+  if (!answer) {
     return {
       ...base,
-      status: 'llm_failed',
-      llmErrorCode: res.code,
-      llmErrorMessage: res.message,
-      tokens,
+      status: 'skipped',
+      checks: [
+        skip('answers', 'answers Magic Compose questions; only eval:magic-compose sends them'),
+      ],
     };
   }
-
-  if (res.status === 'parse_failed') {
-    return {
-      ...base,
-      status: 'parse_failed',
-      rawOutput: res.raw,
-      tokens,
-      checks: res.issues.slice(0, 5).map((i) => ({
-        key: `schema:${i.path.join('.') || '(root)'}`,
-        outcome: 'fail' as const,
-        detail: i.message,
-      })),
-    };
-  }
-
-  if (res.status === 'scored') {
-    return { ...base, rawOutput: res.raw, checks: res.checks, tokens };
-  }
-
-  if (res.status === 'refusal') {
-    const refusalReason = res.refusalReason;
-    const checks: CheckResult[] = [];
-    const expectedRefusal = Object.keys(c.expect).some((k) => {
-      const nk = normalizeKey(k);
-      return (
-        nk === 'refusalReason_must_be_present' ||
-        nk === 'refusalReason_must_mention_any'
-      );
-    });
-    if (!expectedRefusal) {
-      checks.push(
-        fail(
-          'unexpected_refusal',
-          `model refused on a happy-path case: "${refusalReason.slice(0, 120)}"`,
-        ),
-      );
-    }
-    for (const [k, v] of Object.entries(c.expect)) {
-      checks.push(runCheck(k, v, null, res.raw, refusalReason));
-    }
-    return { ...base, rawOutput: res.raw, refusalReason, checks, tokens };
-  }
-
-  const draft = res.draft;
-  const checks: CheckResult[] = [];
-  for (const [k, v] of Object.entries(c.expect)) {
-    checks.push(runCheck(k, v, draft, res.raw));
-  }
-
-  return {
-    ...base,
-    rawOutput: res.raw,
-    draft,
-    checks,
-    tokens,
-  };
+  return runWithAnswers({ ...runner, answer }, base, c, answers.data);
 }
 
 // ── Output ─────────────────────────────────────────────────────────────────
@@ -692,8 +1089,16 @@ function printCase(run: CaseRun, schemaName: string): void {
     console.log(`\n${head}\n  · skipped (${run.checks[0]?.detail ?? 'server invariant'})`);
     return;
   }
+  if (run.status === 'broken') {
+    console.log(`\n${head}\n  ✗ broken case: ${run.checks[0]?.detail}`);
+    return;
+  }
   if (run.status === 'llm_failed') {
     console.log(`\n${head}\n  ✗ LLM error: ${run.llmErrorCode} — ${run.llmErrorMessage}`);
+    // A second call that failed still has the first call's checks.
+    for (const c of run.checks) {
+      console.log(`    ${ICON[c.outcome]} ${c.key}${c.detail ? `: ${c.detail}` : ''}`);
+    }
     return;
   }
   if (run.status === 'parse_failed') {
@@ -708,6 +1113,10 @@ function printCase(run: CaseRun, schemaName: string): void {
   const fail = run.checks.filter((c) => c.outcome === 'fail').length;
   const skipN = run.checks.filter((c) => c.outcome === 'skip').length;
   console.log(`\n${head}  (${run.tokens?.ms}ms)  ${pass}✓ ${fail}✗ ${skipN}·`);
+  if (run.questions) {
+    const options = run.questions.whatOptions.map((o) => JSON.stringify(o)).join(', ');
+    console.log(`  asked: ${run.questions.topics.join(', ')}  options: ${options}`);
+  }
   if (run.draft) {
     console.log(
       `  title="${run.draft.title.slice(0, 60)}"  fields=${run.draft.fields.length}  slots=${run.draft.slots.length}  groupBy=${run.draft.groupBy ?? 'null'}`,
@@ -730,13 +1139,17 @@ function printSummary(runs: CaseRun[]): void {
   const skipped = runs.filter((r) => r.status === 'skipped').length;
   const llmFailed = runs.filter((r) => r.status === 'llm_failed').length;
   const parseFailed = runs.filter((r) => r.status === 'parse_failed').length;
+  const brokenN = runs.filter((r) => r.status === 'broken').length;
   const allChecks = runs.flatMap((r) => r.checks);
   const totalPass = allChecks.filter((c) => c.outcome === 'pass').length;
   const totalFail = allChecks.filter((c) => c.outcome === 'fail').length;
   const totalSkip = allChecks.filter((c) => c.outcome === 'skip').length;
 
   console.log('\n──────────────────────────────────────────────');
-  console.log(`Cases: ${total}  ran=${llmOk}  skipped=${skipped}  llm_failed=${llmFailed}  parse_failed=${parseFailed}`);
+  console.log(
+    `Cases: ${total}  ran=${llmOk}  skipped=${skipped}  llm_failed=${llmFailed}  parse_failed=${parseFailed}` +
+      (brokenN > 0 ? `  broken=${brokenN}` : ''),
+  );
   console.log(`Checks: ${totalPass}✓  ${totalFail}✗  ${totalSkip}·`);
   console.log('──────────────────────────────────────────────');
 }
@@ -774,7 +1187,9 @@ export async function runEvalCli(runner: EvalRunner): Promise<void> {
     process.exit(2);
   }
 
-  console.log(`Running ${cases.length} case(s) (${llmCount} llm, ${cases.length - llmCount} server)…`);
+  console.log(
+    `Running ${cases.length} case(s) (${llmCount} llm, ${cases.length - llmCount} server)…`,
+  );
   const runs: CaseRun[] = [];
   for (const c of cases) {
     const run = await runOneCase(runner, c);
@@ -791,8 +1206,8 @@ export async function runEvalCli(runner: EvalRunner): Promise<void> {
   const anyFail = runs.some(
     (r) =>
       r.status === 'llm_failed' ||
+      r.status === 'broken' ||
       (r.status !== 'skipped' && r.checks.some((c) => c.outcome === 'fail')),
   );
   process.exit(anyFail ? 1 : 0);
 }
-

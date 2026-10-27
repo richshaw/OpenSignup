@@ -17,6 +17,8 @@ import {
   USE_CAPACITY_NOT_DUPLICATE_ROWS,
   neverInventRule,
 } from '@/lib/signup-rules';
+import { WHAT_OPTION_MAX_LENGTH, WHAT_OPTIONS_MAX, WHAT_OPTIONS_MIN } from './limits';
+import { QUESTION_TOPICS, tidyText, type MagicComposeQuestions } from './questions';
 
 export type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -66,10 +68,111 @@ const RefusalSchema = z.object({
   refusalReason: z.string().min(1).max(500),
 });
 
-export const MagicComposeDraftSchema = z.union([RefusalSchema, FullDraftSchema]);
+/**
+ * The topics the page can ask about, each once. A model that adds one the page
+ * doesn't know ("where") has still asked the ones it does.
+ */
+function knownTopics(topics: string[]): string[] {
+  const known: readonly string[] = QUESTION_TOPICS;
+  return [...new Set(topics.filter((t) => known.includes(t)))];
+}
+
+/**
+ * The options the page offers: each once, case aside, none blank or over
+ * `WHAT_OPTION_MAX_LENGTH`, and the first `WHAT_OPTIONS_MAX` of those. A model
+ * that offers five, one twice, or one too long has still asked a question the
+ * page can show.
+ */
+function firstDistinctOptions(options: string[]): string[] {
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  for (const option of options) {
+    if (kept.length === WHAT_OPTIONS_MAX) break;
+    const key = option.toLowerCase();
+    if (option.length === 0 || option.length > WHAT_OPTION_MAX_LENGTH || seen.has(key)) continue;
+    seen.add(key);
+    kept.push(option);
+  }
+  return kept;
+}
+
+/**
+ * The model's answer when the description doesn't say what people sign up
+ * for: which topics are missing, and a few options for "what". Strict at both
+ * levels, because `z.object` drops keys it doesn't know: a reply mixing
+ * questions with half a draft must fail, not pass as whichever arm fits. The
+ * topics and options are cut to the ones the page can show before they're
+ * checked, so only those have to be right.
+ */
+export const QuestionsSchema = z
+  .object({
+    questions: z
+      .object({
+        topics: z
+          .array(z.string())
+          .transform(knownTopics)
+          .pipe(
+            z
+              .array(z.enum(QUESTION_TOPICS))
+              .refine((t) => t.includes('what'), 'questions always ask what people sign up for'),
+          ),
+        whatOptions: z
+          .array(z.string().transform(tidyText))
+          .transform(firstDistinctOptions)
+          .pipe(z.array(z.string()).min(WHAT_OPTIONS_MIN)),
+      })
+      .strict(),
+  })
+  .strict();
+
+/**
+ * The reply without its null top-level keys. Models in json_object mode often
+ * send null for a key they don't use (as `choices` and `groupBy` already
+ * allow), so a draft with `"questions": null` is a draft, and questions with
+ * `"refusalReason": null` are questions.
+ */
+function withoutNullKeys(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return value;
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== null));
+}
+
+/**
+ * A refusal still wins, as it always has (`RefusalSchema` isn't strict). A
+ * reply carrying `questions` is a questions reply and nothing else, so the
+ * draft arm refuses that key; `FullDraftSchema` itself stays as it is, since
+ * the MCP `create_signup` tool validates with it.
+ */
+export const MagicComposeDraftSchema = z.preprocess(
+  withoutNullKeys,
+  z.union([RefusalSchema, QuestionsSchema, FullDraftSchema.extend({ questions: z.undefined() })]),
+);
 
 export type MagicComposeDraft = z.infer<typeof FullDraftSchema>;
 export type MagicComposeParsed = z.infer<typeof MagicComposeDraftSchema>;
+
+/**
+ * Whether a raw reply asks questions, in any shape, read as
+ * `MagicComposeDraftSchema` reads it (null keys dropped, a refusal winning).
+ * After the answers, a model that asks again most likely asks about less than
+ * the first time (only "when", say, with no options), which `QuestionsSchema`
+ * would reject as malformed and the organizer would see as a broken draft. A
+ * first call's questions that `QuestionsSchema` rejects (no "what", one
+ * option) are caught the same way.
+ */
+export function asksQuestions(value: unknown): boolean {
+  const reply = withoutNullKeys(value);
+  return (
+    typeof reply === 'object' &&
+    reply !== null &&
+    'questions' in reply &&
+    !('refusalReason' in reply)
+  );
+}
+
+/** A parsed reply that asks questions instead of drafting. */
+export function isQuestionsReply(p: MagicComposeParsed): p is { questions: MagicComposeQuestions } {
+  return 'questions' in p && p.questions !== undefined;
+}
 
 const SYSTEM_PROMPT = `You are OpenSignup's signup drafter. OpenSignup is a coordination tool where organizers create signups containing slots, and participants commit to slots without ever creating an account.
 
@@ -82,10 +185,18 @@ Output schema (return ONLY this JSON object, no prose, no fences):
     { "ref": "<lowercase-kebab>", "label": "<Human label>", "fieldType": "text|date|time|number|enum", "choices": [<strings, [] when not enum>] }
   ],
   "slots": [
-    { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default> }
+    { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default; null only if the prompt or answers say there's no limit> }
   ],
   "groupBy": "<field-ref to group slots by, or null>"
 }
+
+QUESTIONS — only when the prompt doesn't say what people sign up for (rule 4), return ONLY this object instead of a draft:
+
+{ "questions": { "topics": ["what", "when", "how_many"], "whatOptions": ["<option>", "<option>"] } }
+
+- topics: only the ones the prompt leaves out, always including "what". Leave out "when" if it gives a date or time, and "how_many" if it gives a count.
+- whatOptions: ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself. If the options would be the prompt's own items or roles, it already says what: draft instead.
+- A message that carries "Answers to your questions:" is never answered with questions. Draft from the answers.
 
 ${FIELD_TYPE_GUIDE}
 
@@ -153,21 +264,53 @@ OUTPUT:
   "groupBy": null
 }
 
-Example C — vague prompt, no invention:
+Example C — doesn't say what people sign up for, so ask:
 
 USER: "Make a signup for my kid's soccer team"
 
 OUTPUT:
 {
-  "title": "Soccer team signup",
-  "description": "Replace these placeholder slots with the real games, snack duties, or carpool shifts.",
+  "questions": {
+    "topics": ["what", "when", "how_many"],
+    "whatOptions": ["Bring snacks", "Drive to away games", "Help at practice"]
+  }
+}
+
+Example D — says what but not when, so draft with placeholders:
+
+USER: "Ushers for the school play, two parents per performance"
+
+OUTPUT:
+{
+  "title": "School play ushers",
+  "description": "Two parents usher at each performance. Replace these placeholder performances with the real dates.",
   "fields": [
-    { "ref": "what", "label": "What", "fieldType": "text", "choices": [] }
+    { "ref": "performance", "label": "Performance", "fieldType": "text", "choices": [] }
   ],
   "slots": [
-    { "values": { "what": "TBD: game 1" }, "capacity": 1 },
-    { "values": { "what": "TBD: game 2" }, "capacity": 1 },
-    { "values": { "what": "TBD: game 3" }, "capacity": 1 }
+    { "values": { "performance": "TBD: performance 1" }, "capacity": 2 },
+    { "values": { "performance": "TBD: performance 2" }, "capacity": 2 },
+    { "values": { "performance": "TBD: performance 3" }, "capacity": 2 }
+  ],
+  "groupBy": null
+}
+
+Example E — lists what but gives no date or count, so draft, with no date field or placeholders:
+
+USER: "Gear families could lend for the troop's camping trip: a canopy tent, a camp stove, a cooler and a lantern"
+
+OUTPUT:
+{
+  "title": "Camping trip gear to lend",
+  "description": "Pick one item you can lend for the troop's camping trip.",
+  "fields": [
+    { "ref": "item", "label": "Item", "fieldType": "text", "choices": [] }
+  ],
+  "slots": [
+    { "values": { "item": "Canopy tent" }, "capacity": 1 },
+    { "values": { "item": "Camp stove" }, "capacity": 1 },
+    { "values": { "item": "Cooler" }, "capacity": 1 },
+    { "values": { "item": "Lantern" }, "capacity": 1 }
   ],
   "groupBy": null
 }
@@ -190,7 +333,7 @@ LOAD-BEARING RULES:
 
 8. Max ${MAX_FIELDS} fields. Max ${MAX_SLOTS} slots. If a literal expansion would exceed 200 slots, cap by the less-informative dimension and note the cap in description.
 
-9. capacity defaults to 1 (one participant per slot) unless the user clearly says otherwise.
+9. capacity is 1 (one participant per slot) unless the user gives a count. No limit ("unlimited", "as many as want") means null; never null as a guess.
 
 10. Today's date is {{TODAY}}. When the user gives a month and day with no year, assume the next occurrence relative to today.`;
 

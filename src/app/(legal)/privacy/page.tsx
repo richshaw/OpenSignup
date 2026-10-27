@@ -23,7 +23,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 24 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 27 October 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -58,17 +58,17 @@ export default function PrivacyPage() {
             An append-only activity log of organizer actions (sign-ins, creating and editing
             signups, sending magic links, copying a signup&rsquo;s link, or from the share panel
             sending it by your phone&rsquo;s share menu, choosing Email it, or showing or saving
-            the QR code, a publish or an AI
-            draft that didn&rsquo;t go through), which of your own pages you open and whether on a phone
-            or a computer (never the browser&rsquo;s full identifying string), participant
-            commitments on your signups, and reminder dispatches. For a copy or a share it records
-            only which button it was and the signup&rsquo;s status: never the message, and nothing
-            about who the link went to. This exists so an organizer can
-            audit what happened in their own workspace, so the operator can investigate abuse, and
-            so the operator can count, in aggregate, where organizers get stuck between starting a
-            signup and sharing it. The same log records anonymous view telemetry
-            on the marketing home page and on your public signup pages (see &ldquo;Logs and
-            rate-limiting&rdquo; below).
+            the QR code, a publish or an AI draft that didn&rsquo;t go through, and whether AI
+            drafting asked you questions and how you answered them, in counts only, never what you
+            or the AI wrote), which of your own pages you open and whether on a phone or a computer
+            (never the browser&rsquo;s full identifying string), participant commitments on your
+            signups, and reminder dispatches. For a copy or a share it records only which button
+            it was and the signup&rsquo;s status: never the message, and nothing about who the
+            link went to. This exists so an organizer can audit what happened in their own
+            workspace, so the operator can investigate abuse, and so the operator can count, in
+            aggregate, where organizers get stuck between starting a signup and sharing it. The
+            same log records anonymous view telemetry on the marketing home page and on your
+            public signup pages (see &ldquo;Logs and rate-limiting&rdquo; below).
           </li>
           <li>
             After a sign-in email is sent, the sign-in link&apos;s token (stored as a hash, next to
@@ -198,8 +198,9 @@ export default function PrivacyPage() {
         </p>
         <p>
           Whatever a connected assistant reads under the permissions you approved is then processed
-          by that assistant&apos;s vendor under their own terms and privacy policy, not ours. By
-          itself, {INSTANCE_NAME} sends nothing to an AI vendor: only an app you connected, acting
+          by that assistant&apos;s vendor under their own terms and privacy policy, not ours. Apart
+          from AI drafting, described under &ldquo;Third parties&rdquo; below,{' '}
+          {INSTANCE_NAME} sends nothing to an AI vendor itself: only an app you connected, acting
           on your instructions, can pull data out.
         </p>
       </section>
@@ -214,6 +215,15 @@ export default function PrivacyPage() {
           any such integration, the operator will list it on request. Separately from anything the
           operator configures, an organizer can connect an app or AI assistant to their own account.
           See &ldquo;Connected apps and AI assistants&rdquo; above.
+        </p>
+        <p>
+          If the operator has turned on AI drafting, what an organizer types into it to describe
+          their signup, along with any answers they give to the questions it asks, is sent to the AI
+          provider the operator configured, which turns it into a draft. It goes as typed, so leave
+          out anything you wouldn&apos;t want the provider to see; nothing else about you, your
+          signups or the people on them goes with it. The provider handles it under its own terms.
+          To keep a description away from the provider, skip AI drafting and fill the signup in by
+          hand.
         </p>
         <p>
           If third-party sign-in (for example, Google) is enabled and you choose it, you

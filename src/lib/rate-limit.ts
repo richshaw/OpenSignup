@@ -101,7 +101,10 @@ export const RateLimits = {
   // and unmetered DB hits.
   commitmentTokenOpsPerIp: { bucket: 'commit.token.ip', max: 30, windowSeconds: 60 },
   signupCreatePerOrganizer: { bucket: 'signup.create', max: 60, windowSeconds: 3600 },
-  magicComposePerOrganizer: { bucket: 'magic.compose', max: 10, windowSeconds: 3600 },
+  // Every call to the AI counts, so a description that gets questions takes
+  // two: the first call and the one with the answers (the route's retry after
+  // the answers is free). 12 rather than 10 makes up for a couple of those.
+  magicComposePerOrganizer: { bucket: 'magic.compose', max: 12, windowSeconds: 3600 },
   // The organizer's link beacon (copies and shares). Signed in, but a viewer
   // can send it too, and each one is a row in the append-only activity log, so
   // it is metered. Far above a person sharing a link: past it, they go uncounted.

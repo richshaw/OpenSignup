@@ -10,7 +10,7 @@
     "/": 134,
     "/login": 110,
     "/help/[slug]": 113,
-    "/app/signups/new": 114,
+    "/app/signups/new": 116,
     "/app/signups/[id]": 130,
     "/app/signups/[id]/build": 161,
     "/app/signups/[id]/edit": 130,
