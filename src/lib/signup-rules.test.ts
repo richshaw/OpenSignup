@@ -36,8 +36,24 @@ describe('neverInventRule', () => {
     expect(rule).not.toContain('  ');
   });
 
-  it('tells the drafter to fall back to placeholder slots', () => {
-    expect(neverInventRule('drafter')).toContain('produce 1-3 placeholder slots');
+  it('tells the drafter to ask when the prompt does not say what people sign up for', () => {
+    // The vague soccer prompt used to get placeholder slots; it gets questions now.
+    expect(neverInventRule('drafter')).toContain(
+      `If the prompt doesn't say what people sign up for (e.g. "make a signup for my kid's soccer team") and carries no answers to your questions, don't draft: ask, with the QUESTIONS reply.`,
+    );
+  });
+
+  it('tells the drafter that a list or a schedule already says what, so it drafts', () => {
+    // Without this, models asked about item lists and handed the items back as options.
+    expect(neverInventRule('drafter')).toContain(
+      `Named items, roles or tasks, or dated practices, sessions or shifts, already say what: draft, don't ask. An event with no item or role ("family movie night on March 3") doesn't: ask.`,
+    );
+  });
+
+  it('keeps placeholder slots for a prompt that says what but not when', () => {
+    const rule = neverInventRule('drafter');
+    expect(rule).toContain('If it says what but not when or how many');
+    expect(rule).toContain('produce 1-3 placeholder slots');
   });
 
   it('tells the assistant to ask for what the slots need, since it can', () => {

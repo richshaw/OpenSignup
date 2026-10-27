@@ -5,7 +5,12 @@
  * against a tool-calling model. The model gets the server instructions and the
  * tools as tools/list describes them, plus one organizer message; the arguments
  * of its create_signup call are scored with the same checks. A reply with no
- * create counts as a refusal, so the refusal cases still mean something. No
+ * create counts as a refusal, so the refusal cases still mean something, except
+ * on a case where Magic Compose would ask (or that says `assistant_may_ask`):
+ * there a reply that asks something (a "?", or a request for details such as
+ * "Let me know the dates") passes, since asking the organizer is right, and
+ * any other reply fails. Cases with
+ * `answers` are skipped: they answer Magic Compose's own questions. No
  * database: the read tools answer as an empty account (src/mcp/evals/assistant.ts).
  *
  * Also runs the follow-up cases in evals/mcp/followup-evals.json, where the
@@ -42,7 +47,7 @@ import { scoreFollowup } from '@/mcp/evals/followup-checks';
 import { runFollowupCase } from '@/mcp/evals/followups';
 import { buildInstructions } from '@/mcp/instructions';
 import { TOOLS } from '@/mcp/tools';
-import { DEV_EVALS_FILE, runEvalCli } from './lib/eval-harness';
+import { askedBeforeCreating, asksFirst, DEV_EVALS_FILE, runEvalCli } from './lib/eval-harness';
 
 const INSTRUCTIONS = buildInstructions(TOOLS);
 
@@ -55,7 +60,13 @@ const send: SendChat = async (messages, tools) => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${env.LLM_API_KEY ?? 'dummy'}`,
       },
-      body: JSON.stringify({ model: env.LLM_MODEL, messages, tools, temperature: 0, max_tokens: 16_000 }),
+      body: JSON.stringify({
+        model: env.LLM_MODEL,
+        messages,
+        tools,
+        temperature: 0,
+        max_tokens: 16_000,
+      }),
       signal: AbortSignal.timeout(env.LLM_TIMEOUT_MS),
     });
     if (!res.ok) {
@@ -64,8 +75,13 @@ const send: SendChat = async (messages, tools) => {
     }
     const body = (await res.json()) as { choices?: { message?: AssistantMessage }[] };
     const message = body.choices?.[0]?.message;
-    if (!message) return err({ code: 'schema_mismatch', message: 'no choices[0].message in the response' });
-    return ok({ role: 'assistant', content: message.content ?? null, ...(message.tool_calls ? { tool_calls: message.tool_calls } : {}) });
+    if (!message)
+      return err({ code: 'schema_mismatch', message: 'no choices[0].message in the response' });
+    return ok({
+      role: 'assistant',
+      content: message.content ?? null,
+      ...(message.tool_calls ? { tool_calls: message.tool_calls } : {}),
+    });
   } catch (e) {
     if (e instanceof DOMException && e.name === 'TimeoutError') {
       return err({ code: 'timeout', message: `no answer after ${env.LLM_TIMEOUT_MS}ms` });
@@ -82,12 +98,16 @@ runEvalCli({
     const t0 = Date.now();
     if (c.followUps) {
       // Without Postgres only these cases fail; the single-message ones still run.
-      const run = await runFollowupCase(getDb(), { prompt: c.prompt, followUps: c.followUps }, {
-        send,
-        tools: TOOLS,
-        instructions: INSTRUCTIONS,
-        now: new Date(),
-      }).catch((e: unknown) => ({
+      const run = await runFollowupCase(
+        getDb(),
+        { prompt: c.prompt, followUps: c.followUps },
+        {
+          send,
+          tools: TOOLS,
+          instructions: INSTRUCTIONS,
+          now: new Date(),
+        },
+      ).catch((e: unknown) => ({
         ok: false as const,
         code: 'error',
         message: e instanceof Error ? e.message : String(e),
@@ -95,21 +115,51 @@ runEvalCli({
       }));
       const ms = Date.now() - t0;
       const turns = run.turns.map((t) => ({ message: t.message, ...t.outcome }));
-      const trace = { toolCalls: run.turns.flatMap((t) => t.outcome.toolCalls.map((tc) => tc.name)), turns };
+      const trace = {
+        toolCalls: run.turns.flatMap((t) => t.outcome.toolCalls.map((tc) => tc.name)),
+        turns,
+      };
       if (!run.ok) return { status: 'llm_failed', code: run.code, message: run.message, ms, trace };
-      return { status: 'scored', raw: run.state, checks: scoreFollowup(c.expect, run.state), ms, trace };
+      return {
+        status: 'scored',
+        raw: run.state,
+        checks: scoreFollowup(c.expect, run.state),
+        ms,
+        trace,
+      };
     }
-    const out = await runAssistant(c.prompt, { send, tools: TOOLS, instructions: INSTRUCTIONS, now: new Date() });
+    const out = await runAssistant(c.prompt, {
+      send,
+      tools: TOOLS,
+      instructions: INSTRUCTIONS,
+      now: new Date(),
+    });
     const ms = Date.now() - t0;
     const trace = { toolCalls: out.toolCalls, rejectedCreates: out.rejectedCreates };
-    if (out.kind === 'failed') return { status: 'llm_failed', code: out.code, message: out.message, ms, trace };
+    if (out.kind === 'failed')
+      return { status: 'llm_failed', code: out.code, message: out.message, ms, trace };
     if (out.kind === 'replied') {
-      return { status: 'refusal', raw: out.text, refusalReason: out.text || '(empty reply)', ms, trace };
+      // Where Magic Compose would ask, an assistant that asks the organizer
+      // instead of creating is right (`askedBeforeCreating`); an empty reply,
+      // or one that asks nothing, such as a refusal, fails. Elsewhere a reply
+      // is scored as a refusal.
+      if (asksFirst(c) || c.expect.assistant_may_ask === true) {
+        const checks = [askedBeforeCreating(out.text)];
+        return { status: 'scored', raw: out.text, checks, ms, trace };
+      }
+      return {
+        status: 'refusal',
+        raw: out.text,
+        refusalReason: out.text || '(empty reply)',
+        ms,
+        trace,
+      };
     }
     // runAssistant already checked the arguments against create_signup's own
     // schema; this parse drops workspaceId and types the draft.
     const parsed = FullDraftSchema.safeParse(out.args);
-    if (!parsed.success) return { status: 'parse_failed', raw: out.args, issues: parsed.error.issues, ms, trace };
+    if (!parsed.success)
+      return { status: 'parse_failed', raw: out.args, issues: parsed.error.issues, ms, trace };
     return { status: 'draft', raw: out.args, draft: parsed.data, ms, trace };
   },
 }).catch((e) => {

@@ -160,6 +160,36 @@ derives everything from `AUTH_URL`:
 - Signing keys generate themselves on first use and live in the database, so
   every instance behind a load balancer verifies the others' tokens and a
   redeploy does not disconnect anyone.
+- To rotate the signing key (say, because a database backup that holds it
+  leaked):
+  1. Run `pnpm oauth:keys rotate` (in the Docker setup,
+     `docker compose exec web pnpm oauth:keys rotate`). It adds a key and
+     lists the active ones, newest first, with each one's id.
+  2. Restart every web instance. An instance signs with the newest key there
+     was when it first handled an OAuth request (a sign-in, a token refresh
+     or discovery) after it started. One that handled any before the rotate
+     keeps signing with the old key until it restarts.
+  3. Wait 16 minutes (the access-token lifetime, plus the 15 seconds of
+     clock skew the verifier allows), so every token the old key signed has
+     expired.
+  4. Run `pnpm oauth:keys retire <kid>` with the old key's id. It refuses
+     while no newer key has been signing for that long, which catches a
+     forgotten restart, though it can only see that one instance has moved
+     to the new key, not that every one has. An instance you didn't restart
+     would go on issuing tokens with the retired key, and they would fail.
+     Every instance stops trusting the retired key within 5 minutes, when it
+     next re-reads the keys, with no restart.
+
+  If the old key leaked, don't wait: after steps 1 and 2, run
+  `pnpm oauth:keys retire --force <kid>`. Whoever holds a leaked key can sign
+  tokens of their own, so the cost of retiring it at once is worth paying:
+  real tokens it signed in the last 15 minutes fail, and each connected
+  assistant refreshes once to get a new one. `--force` still refuses the
+  newest key.
+
+  Nobody is disconnected: assistants refresh their tokens on their own. The
+  provider's own JWKS endpoint keeps listing the retired public key until the
+  instance restarts; nothing here reads it to verify tokens.
 
 Discovery is served at `/.well-known/oauth-authorization-server` (and the
 identical `/.well-known/openid-configuration`) plus

@@ -25,7 +25,6 @@ import { POST as mcpRoute } from '@/app/api/mcp/route';
 import { createVerifier, resolveBearerActor } from '@/auth/bearer';
 import { TOOLS } from '@/mcp/tools';
 import { readRpc } from '@/mcp/testing/rpc';
-import { resetSigningKeysCache } from '@/oauth/instance';
 import { createSignup } from '@/services/signups';
 import { loadOrganizerSessionById, toActor } from '@/auth/organizer-session';
 import { DrizzleOidcAdapter } from './adapter';
@@ -203,13 +202,12 @@ describe('authorization code flow on Postgres', () => {
     expect(decodeJwt(tokens.access_token).sub).toBe(organizerId);
 
     // The verifier alone maps the token to the organizer…
-    const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys: async () => ({ keys: (await loadOrCreateSigningKeys(db)).publicKeys }), reload() {} });
+    const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys: async () => ({ keys: (await loadOrCreateSigningKeys(db)).publicKeys }) });
     const info = await v.verifyAccessToken(tokens.access_token);
     expect(toActor(await loadOrganizerSessionById(db, String(info.extra?.sub)))).toEqual(organizerActor);
 
     // …and the seam itself, given a real request, yields the same Actor the
     // cookie path builds, the token's scopes, and the SDK's challenges.
-    resetSigningKeysCache();
     const bearer = (token?: string) =>
       new Request(RESOURCE, { headers: token ? { authorization: `Bearer ${token}` } : {} });
     const seam = await resolveBearerActor(bearer(tokens.access_token));

@@ -155,6 +155,41 @@ describe('defaultLlmClient.generateDraft', () => {
     if (!r.ok) expect(r.error.code).toBe('timeout');
   });
 
+  it('returns timeout, not aborted, when a call outlives its own shorter timeoutMs', async () => {
+    process.env.LLM_TIMEOUT_MS = '60000';
+    mockFetch(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          );
+        }),
+    );
+    const r = await defaultLlmClient().generateDraft([], new AbortController().signal, {
+      timeoutMs: 20,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.code).toBe('timeout');
+      expect(r.error.message).toMatch(/after 20ms/);
+    }
+  });
+
+  it('never waits longer than LLM_TIMEOUT_MS, whatever timeoutMs asks for', async () => {
+    process.env.LLM_TIMEOUT_MS = '20';
+    mockFetch(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          );
+        }),
+    );
+    const r = await defaultLlmClient().generateDraft([], undefined, { timeoutMs: 60_000 });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toMatch(/after 20ms/);
+  });
+
   it('returns timeout when the body stalls past LLM_TIMEOUT_MS', async () => {
     process.env.LLM_TIMEOUT_MS = '20';
     mockFetch(async (_url, init) => {

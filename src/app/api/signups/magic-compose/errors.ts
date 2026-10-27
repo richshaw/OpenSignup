@@ -31,7 +31,7 @@ export function mapMagicComposeError(e: MagicComposeError): MappedMagicComposeEr
       return { code: 'internal', message: 'request cancelled' };
     case 'timeout':
       // Organizers read this. The limit that ran out is in the route's
-      // log.warn (llm-client's message names LLM_TIMEOUT_MS's value).
+      // log.warn (llm-client's message names how long it waited).
       return {
         code: 'internal',
         message: 'AI drafting timed out. Try a simpler prompt.',

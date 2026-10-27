@@ -38,6 +38,7 @@
     "eval:mcp": "tsx scripts/eval-mcp.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "oauth:keys": "tsx src/oauth/keys-cli.ts",
     "reminders:due": "tsx scripts/dev-reminders.ts"
   },
   "dependencies": {
