@@ -697,7 +697,9 @@ test.describe('the TBD mark on a computer', () => {
       slot: { values: { what: 'Juice TBD', date: '2030-04-06' }, capacity: 3 },
     });
     await page.goto(`/app/signups/${signup.id}/build`);
-    const row = page.getByRole('button', { name: /^Edit slot — Juice TBD, people can see “TBD”, / });
+    const row = page.getByRole('button', {
+      name: /^Edit slot — Juice TBD, people can see “TBD”, /,
+    });
     const tag = row.getByText('People can see “TBD”', { exact: true });
     const summary = row.getByText(/^Sat, Apr 6/);
     const count = row.getByText('0 of 3 taken', { exact: true });
@@ -822,9 +824,11 @@ test.describe('a Build edit and a reload', () => {
   });
 
   const storedValues = async (page: Page, id: string) =>
-    ((await (await page.request.get(`/api/signups/${id}/slots`)).json()).data as {
-      values: Record<string, unknown>;
-    }[])[0]?.values ?? {};
+    (
+      (await (await page.request.get(`/api/signups/${id}/slots`)).json()).data as {
+        values: Record<string, unknown>;
+      }[]
+    )[0]?.values ?? {};
 
   test('an edit typed just before a reload is kept', async ({ page }) => {
     const draft = await createDraft(page.request, {
@@ -832,18 +836,18 @@ test.describe('a Build edit and a reload', () => {
       values: { what: 'Juice', date: '2030-04-06' },
     });
     await page.goto(`/app/signups/${draft.id}/build`);
-    await page.getByRole('button', { name: /^Edit slot .*Juice/ }).click();
+    await page.getByRole('button', { name: /^Edit slot .*Juice.*taken$/ }).click();
     // Well inside the 800 ms a cell waits before it saves.
     await page.getByRole('textbox', { name: 'What value' }).fill('Juice boxes');
     await expect(page.getByText('Saving…').locator('visible=true')).toBeVisible();
     await page.reload();
     // The edit goes out on pagehide, alongside the reload's own request, so
     // the reloaded page can be drawn before it lands; the server has it.
-    await expect
-      .poll(async () => (await storedValues(page, draft.id)).what)
-      .toBe('Juice boxes');
+    await expect.poll(async () => (await storedValues(page, draft.id)).what).toBe('Juice boxes');
     await page.reload();
-    await expect(page.getByRole('button', { name: /^Edit slot .*Juice boxes/ })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^Edit slot .*Juice boxes.*taken$/ }),
+    ).toBeVisible();
   });
 });
 
