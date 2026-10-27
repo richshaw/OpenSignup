@@ -614,6 +614,7 @@ export function useBuildState(
   const addRow = async (seed?: { values?: Record<string, unknown> }): Promise<string | null> => {
     let added: string | null = null;
     await withSave(async () => {
+      await afterFieldSaves();
       const slot = await sendForData<BuildSlot>('POST', slotsUrl, {
         values: toTypedValues(stateRef.current.fields, seed?.values ?? {}),
         capacity: 1,

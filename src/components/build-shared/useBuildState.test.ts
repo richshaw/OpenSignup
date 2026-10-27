@@ -2642,4 +2642,35 @@ describe('useBuildState slot writes behind a list choice being added', () => {
       await copied;
     });
   });
+
+  it("holds Add a slot's POST until the field has the new choice", async () => {
+    const server = stubSlowServer();
+    const { result } = render();
+
+    let added: Promise<string | null> = Promise.resolve(null);
+    act(() => {
+      void result.current.updateField('f-course', { config: withDessert.config });
+    });
+    act(() => {
+      added = result.current.addRow({ values: { course: 'Dessert' } });
+    });
+    await settle();
+    expect(server.fetchMock).toHaveBeenCalledTimes(1);
+    expect(server.fetchMock.mock.calls[0]![0]).toBe('/api/signups/sig_test/fields/f-course');
+
+    await act(async () => {
+      server.answer(jsonResponse({ data: withDessert }));
+    });
+    await settle();
+    expect(server.fetchMock).toHaveBeenCalledTimes(2);
+    const [url, init] = server.fetchMock.mock.calls[1]!;
+    expect(url).toBe('/api/signups/sig_test/slots');
+    expect(JSON.parse(String(init?.body)).values).toEqual({ course: 'Dessert' });
+    await act(async () => {
+      server.answer(
+        jsonResponse({ data: { id: 'r2', capacity: 1, sortOrder: 1, values: { course: 'Dessert' } } }, { status: 201 }),
+      );
+      await added;
+    });
+  });
 });
