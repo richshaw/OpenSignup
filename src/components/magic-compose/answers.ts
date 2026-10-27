@@ -91,7 +91,8 @@ export function parseCount(raw: string | undefined): number | null {
   if (!raw?.trim()) return null;
   const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.min(n, HOW_MANY_MAX);
+  // A fraction is left as typed, however large, for `answersProblem` to stop.
+  return Number.isInteger(n) ? Math.min(n, HOW_MANY_MAX) : n;
 }
 
 /**
@@ -192,11 +193,13 @@ export function answersProblem(questions: MagicComposeQuestions, answers: Answer
     if (from && to && from >= to) return 'The end time must be after the start time.';
   }
   // A count isn't rounded, so 2.5 is stopped here rather than sent as 3.
-  const fraction = answeredItems(answers).some((item) => {
-    const count = parseCount(answers.counts[item]);
-    return count !== null && !Number.isInteger(count);
-  });
-  if (questions.topics.includes('how_many') && fraction) {
+  if (
+    questions.topics.includes('how_many') &&
+    answeredItems(answers).some((item) => {
+      const count = parseCount(answers.counts[item]);
+      return count !== null && !Number.isInteger(count);
+    })
+  ) {
     return 'Use whole numbers for how many people.';
   }
   return null;

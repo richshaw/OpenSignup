@@ -186,7 +186,7 @@ describe('<MagicComposeRoot /> questions', () => {
 
   it('shows an error on the questions, with every answer kept', async () => {
     const message =
-      "Couldn't draft from these answers. Add a little more, or draft with placeholders.";
+      "Couldn't draft from these answers. Add a little more, or fill it in by hand.";
     stubReplies(asks(), {
       status: 400,
       body: { error: { code: 'invalid_input', message, details: { reason: 'asked_again' } } },

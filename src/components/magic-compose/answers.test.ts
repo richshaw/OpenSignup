@@ -148,6 +148,10 @@ describe('answersProblem', () => {
     expect(answersProblem(ALL, { ...answered, counts: { 'Staff the table': '0.4' } })).toBe(
       'Use whole numbers for how many people.',
     );
+    // Past the largest count too, rather than sent as the largest.
+    expect(answersProblem(ALL, { ...answered, counts: { 'Staff the table': '100000.5' } })).toBe(
+      'Use whole numbers for how many people.',
+    );
     // A count for an item no longer on the list, or with how many not asked, isn't sent.
     expect(
       answersProblem(ALL, { ...answered, counts: { 'Set up or clean up': '2.5' } }),
