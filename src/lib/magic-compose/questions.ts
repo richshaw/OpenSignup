@@ -51,8 +51,10 @@ export interface FollowUp {
    */
   howMany?: Array<number | null>;
   /**
-   * The organizer pressed Draft with placeholders. Every answer is then in its
-   * skipped form; the flag only tells that apart from leaving everything blank.
+   * The organizer pressed Draft with placeholders with nothing answered (with
+   * answers, the page sends them as Draft my signup does). Every answer is then
+   * in its skipped form; the flag only tells that apart from leaving
+   * everything blank.
    */
   placeholders?: true;
 }

@@ -72,9 +72,13 @@ describe('<MagicComposeRoot /> errors', () => {
     expect(alert).not.toHaveTextContent(/30s/);
   });
 
-  it('keeps the description after an error', async () => {
+  it("keeps the description, and the route's advice, after a first call times out", async () => {
     stubFetch(500, {
-      error: { code: 'internal', message: 'AI drafting timed out. Try a simpler prompt.' },
+      error: {
+        code: 'internal',
+        message: 'AI drafting timed out. Try a simpler prompt.',
+        details: { llmErrorCode: 'timeout' },
+      },
     });
     expect(await draft('Bake sale')).toHaveTextContent(
       'AI drafting timed out. Try a simpler prompt.',

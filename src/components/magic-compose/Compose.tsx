@@ -9,10 +9,13 @@ export function Compose({
   prompt,
   setPrompt,
   onDraft,
+  focusAtEnd = false,
 }: {
   prompt: string;
   setPrompt: (value: string) => void;
   onDraft: () => void;
+  /** Back from the questions: focus the description, with the caret after the answers. */
+  focusAtEnd?: boolean;
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null);
 
@@ -22,6 +25,13 @@ export function Compose({
     ta.style.height = 'auto';
     ta.style.height = `${Math.max(160, ta.scrollHeight)}px`;
   }, [prompt]);
+
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!focusAtEnd || !ta) return;
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }, [focusAtEnd]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {

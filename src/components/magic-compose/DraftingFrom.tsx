@@ -41,9 +41,9 @@ export function DraftingFrom({ prompt, followUp }: { prompt: string; followUp: F
       </div>
       <YouWrote prompt={prompt} variant="plain" />
       <dl className="flex flex-col px-4 pb-1.5">
-        <Row icon={<ListChecks className="h-4 w-4" />} term="What">
+        <Row icon={<ListChecks className="h-4 w-4" />} term="What" blank={items.length === 0}>
           {items.length === 0 ? (
-            <Blank>Not decided. The draft will use placeholder slots you can fill in later.</Blank>
+            <Blank>Left blank. The draft will use placeholder slots you can fill in later.</Blank>
           ) : (
             <ul className="flex flex-col gap-1.5">
               {items.map((item, i) => (
@@ -63,7 +63,11 @@ export function DraftingFrom({ prompt, followUp }: { prompt: string; followUp: F
           )}
         </Row>
         {when && (
-          <Row icon={<Calendar className="h-4 w-4" />} term="When">
+          <Row
+            icon={<Calendar className="h-4 w-4" />}
+            term="When"
+            blank={when.kind === 'not_decided'}
+          >
             {when.kind === 'not_decided' ? (
               <Blank>
                 Not decided. The draft will use placeholder dates you can fill in later.
@@ -85,13 +89,28 @@ function oneDay(when: Parameters<typeof formatOneDay>[0]): string {
   return times ? `${day} · ${times}` : day;
 }
 
-function Row({ icon, term, children }: { icon: ReactNode; term: string; children: ReactNode }) {
+function Row({
+  icon,
+  term,
+  blank,
+  children,
+}: {
+  icon: ReactNode;
+  term: string;
+  /** Left blank: the icon is a grey dashed outline, as "Add your own" is, rather than filled. */
+  blank: boolean;
+  children: ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-2 border-t border-surface-sunk py-2.5 sm:grid sm:grid-cols-[136px_minmax(0,1fr)] sm:items-center sm:gap-3">
       <dt className="flex items-center gap-2.5 text-[13px] font-medium text-ink-muted">
         <span
           aria-hidden="true"
-          className="inline-flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-[9px] bg-brand-soft text-brand"
+          className={`inline-flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-[9px] ${
+            blank
+              ? 'border-[1.5px] border-dashed border-ink-soft/50 text-ink-soft'
+              : 'bg-brand-soft text-brand'
+          }`}
         >
           {icon}
         </span>
