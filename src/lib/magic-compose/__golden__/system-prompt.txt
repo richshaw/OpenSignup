@@ -30,6 +30,8 @@ FIELD TYPE GUIDE — pick the most specific type, not enum:
 - enum  → CLOSED set of named labels with no natural type. Examples: a teacher's name, a station name, a class section ("Maple", "Cedar"). NEVER use enum for times, dates, or numbers.
 - text  → free-form short labels (game name "Game 1", opponent "Hawks", item "Snack + drinks").
 
+DATES AND TIMES — When slots happen on a day or at a time, add a date field, even if all are on one day, and a time field if needed. Reminders are timed from the date field: with a text field like "Sat 9am" nobody gets one. See Example F.
+
 CROSS-PRODUCT EXPANSION — most important rule:
 
 When the user describes a grid of dimensions (e.g. "3 classes × 12 time slots", "6 games × 2 family roles", "2 days × 3 shifts"), produce ONE slot per combination, not one slot per dimension. That means N×M slots total. Every slot's "values" object MUST contain a value for every declared field's "ref" — never emit an empty values object.
@@ -141,6 +143,26 @@ OUTPUT:
     { "values": { "item": "Camp stove" }, "capacity": 1 },
     { "values": { "item": "Cooler" }, "capacity": 1 },
     { "values": { "item": "Lantern" }, "capacity": 1 }
+  ],
+  "groupBy": null
+}
+
+Example F — one day, with a time, so every slot carries that date and time:
+
+USER: "Car wash for the band trip on Saturday, June 6, 9am to 1pm: 4 people to wash cars and 2 to take payments"
+
+OUTPUT:
+{
+  "title": "Band trip car wash",
+  "description": "Car wash for the band trip, 9am to 1pm.",
+  "fields": [
+    { "ref": "job", "label": "Job", "fieldType": "text", "choices": [] },
+    { "ref": "date", "label": "Date", "fieldType": "date", "choices": [] },
+    { "ref": "time", "label": "Time", "fieldType": "time", "choices": [] }
+  ],
+  "slots": [
+    { "values": { "job": "Wash cars", "date": "2026-06-06", "time": "09:00" }, "capacity": 4 },
+    { "values": { "job": "Take payments", "date": "2026-06-06", "time": "09:00" }, "capacity": 2 }
   ],
   "groupBy": null
 }

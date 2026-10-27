@@ -35,12 +35,12 @@ export const NEVER_INVENT_HEAD = `Never invent dates, locations, opponents, sche
 
 export const NEVER_INVENT_TAIL = `Do not fabricate a season's worth of games, opponents, or shifts just to fill the signup.`;
 
-// The next two are for assistants only, for now, and so are not in
-// `RULES_IN_BOTH`: adding one to the Magic Compose prompt changes what that
-// model reads, which needs an eval run first.
+// Near the instructions' byte budget (`src/mcp/instructions.ts`): every word here counts there.
+export const USE_DATE_AND_TIME_FIELDS = `When slots happen on a day or at a time, add a date field, even if all are on one day, and a time field if needed. Reminders are timed from the date field: with a text field like "Sat 9am" nobody gets one.`;
 
-export const USE_DATE_AND_TIME_FIELDS = `When slots happen on a day or at a time, add a date field, and a time field if needed. Reminder emails are timed from the date field: with a text field like "Sat 9am" nobody gets one.`;
-
+// For assistants only, for now, and so not in `RULES_IN_BOTH`: adding it to
+// the Magic Compose prompt changes what that model reads, which needs an eval
+// run first.
 export const NO_FIELDS_FOR_PARTICIPANT_DETAILS = `Fields are columns the organizer fills in. People who sign up give a name, email and optional note, so add no fields for those.`;
 
 // The middle differs by reader. The drafter asks only when the prompt doesn't
@@ -72,6 +72,7 @@ export const RULES_IN_BOTH: readonly string[] = [
   SLOTS_ARE_THE_ATOM,
   NO_INTAKE_FORMS,
   NO_PERSONAL_DATA,
+  USE_DATE_AND_TIME_FIELDS,
   NEVER_INVENT_HEAD,
   NEVER_INVENT_TAIL,
 ];

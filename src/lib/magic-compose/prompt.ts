@@ -15,6 +15,7 @@ import {
   ONE_SLOT_PER_COMBINATION,
   SLOTS_ARE_THE_ATOM,
   USE_CAPACITY_NOT_DUPLICATE_ROWS,
+  USE_DATE_AND_TIME_FIELDS,
   neverInventRule,
 } from '@/lib/signup-rules';
 import { WHAT_OPTION_MAX_LENGTH, WHAT_OPTIONS_MAX, WHAT_OPTIONS_MIN } from './limits';
@@ -200,6 +201,8 @@ QUESTIONS — only when the prompt doesn't say what people sign up for (rule 4),
 
 ${FIELD_TYPE_GUIDE}
 
+DATES AND TIMES — ${USE_DATE_AND_TIME_FIELDS} See Example F.
+
 CROSS-PRODUCT EXPANSION — most important rule:
 
 When the user describes a grid of dimensions (e.g. "3 classes × 12 time slots", "6 games × 2 family roles", "2 days × 3 shifts"), ${ONE_SLOT_PER_COMBINATION} Every slot's "values" object MUST contain a value for every declared field's "ref" — never emit an empty values object.
@@ -311,6 +314,26 @@ OUTPUT:
     { "values": { "item": "Camp stove" }, "capacity": 1 },
     { "values": { "item": "Cooler" }, "capacity": 1 },
     { "values": { "item": "Lantern" }, "capacity": 1 }
+  ],
+  "groupBy": null
+}
+
+Example F — one day, with a time, so every slot carries that date and time:
+
+USER: "Car wash for the band trip on Saturday, June 6, 9am to 1pm: 4 people to wash cars and 2 to take payments"
+
+OUTPUT:
+{
+  "title": "Band trip car wash",
+  "description": "Car wash for the band trip, 9am to 1pm.",
+  "fields": [
+    { "ref": "job", "label": "Job", "fieldType": "text", "choices": [] },
+    { "ref": "date", "label": "Date", "fieldType": "date", "choices": [] },
+    { "ref": "time", "label": "Time", "fieldType": "time", "choices": [] }
+  ],
+  "slots": [
+    { "values": { "job": "Wash cars", "date": "2026-06-06", "time": "09:00" }, "capacity": 4 },
+    { "values": { "job": "Take payments", "date": "2026-06-06", "time": "09:00" }, "capacity": 2 }
   ],
   "groupBy": null
 }
