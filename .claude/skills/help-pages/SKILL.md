@@ -167,8 +167,9 @@ sees), not just that a button exists. Patterns that save time here:
 
 ## Screenshots
 
-The walkthrough takes them when `HELP_SCREENSHOTS=1`, through its `shot()`
-helper or a `page.screenshot({ clip })`, at `deviceScaleFactor: 2`.
+The walkthrough takes them when `HELP_SCREENSHOTS=1`, through `helpShot` or
+`helpElementShot` in `tests/e2e/helpers/help-shots.ts`, or a
+`page.screenshot({ clip })`, at `deviceScaleFactor: 2`.
 
 - Crop to the part the step is about. A full-width header shrinks to
   unreadable text in the article column.

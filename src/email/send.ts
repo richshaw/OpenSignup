@@ -9,6 +9,14 @@ import { ReminderEmail, type ReminderEmailProps } from './templates/reminder';
 import { SlotChangedEmail, type SlotChangedEmailProps } from './templates/slot-changed';
 import { renderEmail } from './render';
 
+/** RFC 8058 one-click unsubscribe headers, POSTing to `unsubscribePostUrl`. */
+function unsubscribeHeaders(unsubscribePostUrl: string) {
+  return {
+    'List-Unsubscribe': `<${unsubscribePostUrl}>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
+}
+
 export async function sendCommitmentConfirmation(
   to: string,
   props: CommitmentConfirmationEmailProps,
@@ -39,14 +47,7 @@ export async function sendReminder(
     subject: reminderSubject(props.signupTitle, props.slotSummary, props.changed),
     html,
     text,
-    ...(opts.unsubscribePostUrl
-      ? {
-          headers: {
-            'List-Unsubscribe': `<${opts.unsubscribePostUrl}>`,
-            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-          },
-        }
-      : {}),
+    ...(opts.unsubscribePostUrl ? { headers: unsubscribeHeaders(opts.unsubscribePostUrl) } : {}),
   });
 }
 
@@ -62,9 +63,6 @@ export async function sendSlotChanged(
     subject: slotChangedSubject(props.signupTitle, props.slotSummary),
     html,
     text,
-    headers: {
-      'List-Unsubscribe': `<${opts.unsubscribePostUrl}>`,
-      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-    },
+    headers: unsubscribeHeaders(opts.unsubscribePostUrl),
   });
 }
