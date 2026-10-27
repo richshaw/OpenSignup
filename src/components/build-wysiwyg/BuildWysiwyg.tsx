@@ -147,6 +147,16 @@ export function BuildWysiwyg({
   const displayFields = state.fields.filter((f) => f.ref !== groupField?.ref);
 
   const groups = useMemo(() => partitionRows(state.rows, groupField), [state.rows, groupField]);
+  // Groups are keyed by their value, so a heading rename would remount the
+  // group. A click outside the heading's picker commits it on mousedown, and
+  // the remount before mouseup lost the click: Add a slot under the renamed
+  // group did nothing. So a renamed group keeps the React key it had, by
+  // mapping each new value to the key it started under.
+  const [renamedFrom, setRenamedFrom] = useState<Record<string, string>>({});
+  const groupKey = (key: string) => {
+    const from = renamedFrom[key];
+    return from && !groups.some((g) => g.key === from) ? from : key;
+  };
 
   const slotReorder = useReorderable<BuildRow>({
     items: state.rows,
@@ -269,6 +279,12 @@ export function BuildWysiwyg({
       })
       .map((r) => r.id);
     setFailedRenameKey(null);
+    setRenamedFrom((prev) => {
+      const from = prev[oldKey] ?? oldKey;
+      const next = Object.fromEntries(Object.entries(prev).filter(([, k]) => k !== from));
+      if (from !== newKey) next[newKey] = from;
+      return next;
+    });
     void renameGroup(ref, rowIds, newKey).then((saved) => {
       if (!saved) setFailedRenameKey(oldKey);
     });
@@ -313,7 +329,7 @@ export function BuildWysiwyg({
           <div className="mt-5 flex flex-col gap-4 md:mt-6 md:gap-5">
             {groups.map((g) => (
               <WysiwygGroup
-                key={g.key}
+                key={groupKey(g.key)}
                 group={g}
                 groupField={groupField}
                 displayFields={displayFields}
