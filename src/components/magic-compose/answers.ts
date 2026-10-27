@@ -83,19 +83,26 @@ export function removeAdded(answers: Answers, item: string): Answers {
   return { ...answers, added: answers.added.filter((a) => a !== item) };
 }
 
-/** A count box's number: a whole number of people, or null for no limit. */
+/**
+ * A count box's number of people, or null for no limit (empty, zero or below,
+ * or unreadable). Not rounded: `answersProblem` asks for a whole number instead.
+ */
 export function parseCount(raw: string | undefined): number | null {
   if (!raw?.trim()) return null;
-  const n = Math.round(Number(raw));
-  if (!Number.isFinite(n) || n < 1) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
   return Math.min(n, HOW_MANY_MAX);
 }
 
-/** What − or + leaves in a count box. From no limit, either one starts at 1. */
+/**
+ * What − or + leaves in a count box: the next whole number down or up. From
+ * no limit, either one starts at 1.
+ */
 export function stepCount(raw: string | undefined, by: 1 | -1): string {
   const n = parseCount(raw);
   if (n === null) return '1';
-  return String(Math.min(HOW_MANY_MAX, Math.max(1, n + by)));
+  const next = by > 0 ? Math.floor(n) + 1 : Math.ceil(n) - 1;
+  return String(Math.min(HOW_MANY_MAX, Math.max(1, next)));
 }
 
 function whenAnswer(answers: Answers): WhenAnswer {
@@ -115,8 +122,10 @@ function whenAnswer(answers: Answers): WhenAnswer {
 
 /**
  * The answers as the server takes them (see `FollowUp`): one key per topic
- * that was asked, every value in its tidy or skipped form. Draft with
- * placeholders sends every asked topic skipped, whatever the boxes hold.
+ * that was asked, every value in its tidy or skipped form. `placeholders` is
+ * for Draft with placeholders when nothing is answered (see `hasAnswers`): it
+ * sends every asked topic skipped, whatever the boxes hold, as the server
+ * refuses the flag beside any answer.
  */
 export function buildFollowUp(
   questions: MagicComposeQuestions,
@@ -154,17 +163,41 @@ export function sameAnswers(a: Answers, b: Answers): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** Why these answers can't go yet, in the words the screen shows, or null. */
-export function answersProblem(followUp: FollowUp): string | null {
-  const when = followUp.when;
-  if (when?.kind !== 'one_day') return null;
-  // A short year is an easy slip in a date box (202 becomes 0202), and the
-  // server refuses a year before EARLIEST_DATE_YEAR, or one that isn't four
-  // digits, as not a real day.
-  const year = when.date.split('-')[0] ?? '';
-  if (year.length !== 4 || Number(year) < EARLIEST_DATE_YEAR) return "Check the date's year.";
-  if (when.from && when.to && when.from >= when.to) {
-    return 'The end time must be after the start time.';
+/**
+ * Whether any box holds an answer: an item (words still in "Add your own"
+ * included), a day or days, or a time. Draft with placeholders then drafts
+ * from them, as Draft my signup does, rather than dropping them.
+ */
+export function hasAnswers(questions: MagicComposeQuestions, answers: Answers): boolean {
+  if (answeredItems(answers).length > 0 || tidyText(answers.pending)) return true;
+  if (!questions.topics.includes('when')) return false;
+  if (answers.when === 'one_day') return Boolean(answers.date || answers.from || answers.to);
+  return answers.when === 'several' && tidyText(answers.several) !== '';
+}
+
+/**
+ * Why these answers can't go yet, in the words the screen shows, or null. It
+ * reads the boxes rather than `buildFollowUp`, which drops times with no date.
+ */
+export function answersProblem(questions: MagicComposeQuestions, answers: Answers): string | null {
+  const { date, from, to } = answers;
+  if (questions.topics.includes('when') && answers.when === 'one_day' && (date || from || to)) {
+    // With no date the answer would go as "not decided", and the times with it.
+    if (!date) return 'Add a date, or leave the times empty.';
+    // A short year is an easy slip in a date box (202 becomes 0202), and the
+    // server refuses a year before EARLIEST_DATE_YEAR, or one that isn't four
+    // digits, as not a real day.
+    const year = date.split('-')[0] ?? '';
+    if (year.length !== 4 || Number(year) < EARLIEST_DATE_YEAR) return "Check the date's year.";
+    if (from && to && from >= to) return 'The end time must be after the start time.';
+  }
+  // A count isn't rounded, so 2.5 is stopped here rather than sent as 3.
+  const fraction = answeredItems(answers).some((item) => {
+    const count = parseCount(answers.counts[item]);
+    return count !== null && !Number.isInteger(count);
+  });
+  if (questions.topics.includes('how_many') && fraction) {
+    return 'Use whole numbers for how many people.';
   }
   return null;
 }
@@ -174,6 +207,13 @@ function formatTime(hhmm: string): string {
   const [h = 0, m = 0] = hhmm.split(':').map(Number);
   const hour = h % 12 || 12;
   return `${hour}${m ? `:${String(m).padStart(2, '0')}` : ''}${h < 12 ? 'am' : 'pm'}`;
+}
+
+/** "9am to 1pm", "from 9am" or "until 1pm", or null with neither time. */
+function formatTimes({ from, to }: { from?: string; to?: string }): string | null {
+  if (from && to) return `${formatTime(from)} to ${formatTime(to)}`;
+  if (from) return `from ${formatTime(from)}`;
+  return to ? `until ${formatTime(to)}` : null;
 }
 
 /**
@@ -195,16 +235,7 @@ export function formatOneDay(
     timeZone: 'UTC',
     ...(y === now.getFullYear() ? {} : { year: 'numeric' }),
   });
-  const { from, to } = when;
-  const times =
-    from && to
-      ? `${formatTime(from)} to ${formatTime(to)}`
-      : from
-        ? `from ${formatTime(from)}`
-        : to
-          ? `until ${formatTime(to)}`
-          : null;
-  return { day, times };
+  return { day, times: formatTimes(when) };
 }
 
 /**
@@ -214,10 +245,17 @@ export function formatOneDay(
  *   What: Bake something to sell (no limit), Staff the table (2)
  *   When: Saturday, November 14, 9am to 1pm
  *
- * Items keep their case as typed, so a name like "Maple class" survives. A
- * skipped topic adds no line, so the next draft can ask about it again.
+ * Items keep their case as typed, so a name like "Maple class" survives, and
+ * times with no date yet go alone ("When: 9am to 1pm"). A skipped topic adds
+ * no line, so the next draft can ask about it again.
  */
-export function appendAnswers(prompt: string, followUp: FollowUp, now?: Date): string {
+export function appendAnswers(
+  prompt: string,
+  questions: MagicComposeQuestions,
+  answers: Answers,
+  now?: Date,
+): string {
+  const followUp = buildFollowUp(questions, answers);
   const lines: string[] = [];
   const items = followUpItems(followUp);
   if (items.length > 0) {
@@ -233,6 +271,9 @@ export function appendAnswers(prompt: string, followUp: FollowUp, now?: Date): s
     lines.push(`When: ${times ? `${day}, ${times}` : day}`);
   } else if (when?.kind === 'several') {
     lines.push(`When: ${when.text}`);
+  } else if (when && answers.when === 'one_day') {
+    const times = formatTimes(answers);
+    if (times) lines.push(`When: ${times}`);
   }
   if (lines.length === 0) return prompt;
   return [prompt.trimEnd(), ...lines].join('\n');

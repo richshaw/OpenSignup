@@ -111,9 +111,10 @@ In `magic_compose.answered`:
   came from the options.
 - `limits` is how many of those things were given a number of people (`0`
   when "how many" wasn't asked).
-- `placeholders` is `true` when the organizer pressed Draft with placeholders.
-  Every answer is then blank; the flag tells it apart from leaving them all
-  blank by hand.
+- `placeholders` is `true` when the organizer pressed Draft with placeholders
+  without answering anything. Every answer is then blank; the flag tells it
+  apart from leaving them all blank by hand. With any answer given, that
+  button sends the answers as Draft my signup does, so the flag is `false`.
 - `retried` is `true` when the model answered with questions again and the
   server asked it once more, more firmly, without charging the quota again:
   one more call to the AI.

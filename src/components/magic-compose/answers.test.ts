@@ -7,6 +7,7 @@ import {
   answersProblem,
   appendAnswers,
   buildFollowUp,
+  hasAnswers,
   NO_ANSWERS,
   parseCount,
   sameAnswers,
@@ -74,12 +75,12 @@ describe('buildFollowUp', () => {
     ).toEqual({ kind: 'several', text: 'every Saturday in May' });
   });
 
-  it('turns an empty, zero or unreadable count into no limit, and rounds the rest', () => {
+  it('turns an empty, zero or unreadable count into no limit, and rounds none', () => {
     const counts = { 'Bake something to sell': '0', 'Staff the table': '2.4', 'Bring drinks': '' };
-    expect(buildFollowUp(ALL, { ...answered, counts }).howMany).toEqual([null, 2, null]);
+    expect(buildFollowUp(ALL, { ...answered, counts }).howMany).toEqual([null, 2.4, null]);
   });
 
-  it('sends every asked topic skipped for Draft with placeholders, whatever the boxes hold', () => {
+  it('sends every asked topic skipped with placeholders, whatever the boxes hold', () => {
     expect(buildFollowUp(ALL, answered, { placeholders: true })).toEqual({
       what: { picked: [], added: [] },
       when: { kind: 'not_decided' },
@@ -93,23 +94,67 @@ describe('buildFollowUp', () => {
   });
 });
 
+describe('hasAnswers', () => {
+  it('counts an item, words left in "Add your own", a day, days or a time', () => {
+    expect(hasAnswers(ALL, NO_ANSWERS)).toBe(false);
+    expect(hasAnswers(ALL, { ...NO_ANSWERS, picked: ['Staff the table'] })).toBe(true);
+    expect(hasAnswers(ALL, { ...NO_ANSWERS, added: ['Bring drinks'] })).toBe(true);
+    expect(hasAnswers(ALL, { ...NO_ANSWERS, pending: 'Bring drinks' })).toBe(true);
+    expect(hasAnswers(ALL, { ...NO_ANSWERS, date: '2026-11-14' })).toBe(true);
+    expect(hasAnswers(ALL, { ...NO_ANSWERS, from: '09:00' })).toBe(true);
+    expect(hasAnswers(ALL, { ...NO_ANSWERS, when: 'several', several: 'Saturdays' })).toBe(true);
+  });
+
+  it('counts no blank boxes, and no day picked before switching away from One day', () => {
+    expect(hasAnswers(ALL, { ...NO_ANSWERS, pending: '  ' })).toBe(false);
+    expect(hasAnswers(ALL, { ...NO_ANSWERS, when: 'several', several: ' \n ' })).toBe(false);
+    const dated = { ...NO_ANSWERS, date: '2026-11-14', from: '09:00' };
+    expect(hasAnswers(ALL, { ...dated, when: 'not_decided' })).toBe(false);
+    expect(hasAnswers({ topics: ['what'], whatOptions: OPTIONS }, dated)).toBe(false);
+  });
+});
+
 describe('answersProblem', () => {
   it('stops an end time that is not after the start time', () => {
-    expect(answersProblem(buildFollowUp(ALL, { ...answered, from: '13:00', to: '09:00' }))).toBe(
+    expect(answersProblem(ALL, { ...answered, from: '13:00', to: '09:00' })).toBe(
       'The end time must be after the start time.',
     );
-    expect(answersProblem(buildFollowUp(ALL, answered))).toBeNull();
+    expect(answersProblem(ALL, answered)).toBeNull();
   });
 
   it('stops a date the server would refuse for its year, as a short year typed in', () => {
     for (const date of ['0202-11-14', '1899-12-31', '20260-11-14']) {
-      expect(answersProblem(buildFollowUp(ALL, { ...answered, date }))).toBe(
-        "Check the date's year.",
-      );
+      expect(answersProblem(ALL, { ...answered, date })).toBe("Check the date's year.");
       expect(isRealDate(date)).toBe(false);
     }
-    expect(answersProblem(buildFollowUp(ALL, { ...answered, date: '1900-01-01' }))).toBeNull();
+    expect(answersProblem(ALL, { ...answered, date: '1900-01-01' })).toBeNull();
     expect(isRealDate('1900-01-01')).toBe(true);
+  });
+
+  it('stops times with no date, which would go as not decided', () => {
+    const noDate = 'Add a date, or leave the times empty.';
+    expect(answersProblem(ALL, { ...answered, date: '' })).toBe(noDate);
+    expect(answersProblem(ALL, { ...answered, date: '', from: '' })).toBe(noDate);
+    expect(answersProblem(ALL, { ...answered, date: '', from: '', to: '' })).toBeNull();
+    // Times left behind under One day don't count once another answer is chosen.
+    expect(answersProblem(ALL, { ...answered, date: '', when: 'not_decided' })).toBeNull();
+  });
+
+  it('stops a count that is not a whole number, rather than rounding it', () => {
+    const counts = { ...answered.counts, 'Staff the table': '2.5' };
+    expect(answersProblem(ALL, { ...answered, counts })).toBe(
+      'Use whole numbers for how many people.',
+    );
+    expect(answersProblem(ALL, { ...answered, counts: { 'Staff the table': '0.4' } })).toBe(
+      'Use whole numbers for how many people.',
+    );
+    // A count for an item no longer on the list, or with how many not asked, isn't sent.
+    expect(
+      answersProblem(ALL, { ...answered, counts: { 'Set up or clean up': '2.5' } }),
+    ).toBeNull();
+    expect(
+      answersProblem({ topics: ['what', 'when'], whatOptions: OPTIONS }, { ...answered, counts }),
+    ).toBeNull();
   });
 
   it("takes the server's earliest year", () => {
@@ -130,7 +175,7 @@ describe('sameAnswers', () => {
 
 describe('appendAnswers', () => {
   it('adds the answers to the description as plain lines, items as typed', () => {
-    expect(appendAnswers('Bake sale for the PTA\n', buildFollowUp(ALL, answered), NOW)).toBe(
+    expect(appendAnswers('Bake sale for the PTA\n', ALL, answered, NOW)).toBe(
       [
         'Bake sale for the PTA',
         'What: Bake something to sell (no limit), Staff the table (2), Bring drinks (1)',
@@ -143,15 +188,8 @@ describe('appendAnswers', () => {
     const when = (from: string, to: string, date = '2026-11-14') =>
       appendAnswers(
         'x',
-        buildFollowUp(
-          { topics: ['what', 'when'], whatOptions: OPTIONS },
-          {
-            ...NO_ANSWERS,
-            date,
-            from,
-            to,
-          },
-        ),
+        { topics: ['what', 'when'], whatOptions: OPTIONS },
+        { ...NO_ANSWERS, date, from, to },
         NOW,
       );
     expect(when('09:30', '')).toBe('x\nWhen: Saturday, November 14, from 9:30am');
@@ -159,12 +197,34 @@ describe('appendAnswers', () => {
     expect(when('', '', '2027-01-02')).toBe('x\nWhen: Saturday, January 2, 2027');
   });
 
+  it('keeps times that have no date yet, with no day', () => {
+    const when = (from: string, to: string) =>
+      appendAnswers('x', ALL, { ...NO_ANSWERS, from, to }, NOW);
+    expect(when('09:00', '13:00')).toBe('x\nWhen: 9am to 1pm');
+    expect(when('09:30', '')).toBe('x\nWhen: from 9:30am');
+    expect(when('', '12:00')).toBe('x\nWhen: until 12pm');
+    // Not once another answer is chosen for When.
+    expect(
+      appendAnswers('x', ALL, { ...NO_ANSWERS, from: '09:00', when: 'not_decided' }, NOW),
+    ).toBe('x');
+  });
+
+  it('writes a count as typed, not rounded', () => {
+    const counts = { 'Staff the table': '2.5' };
+    expect(
+      appendAnswers('x', ALL, { ...NO_ANSWERS, picked: ['Staff the table'], counts }, NOW),
+    ).toBe('x\nWhat: Staff the table (2.5)');
+  });
+
   it('writes several days as typed, and no counts when how many was not asked', () => {
-    const followUp = buildFollowUp(
-      { topics: ['what', 'when'], whatOptions: OPTIONS },
-      { ...answered, when: 'several', several: 'every Saturday in May, 9 to 11' },
-    );
-    expect(appendAnswers('Bake sale', followUp, NOW)).toBe(
+    const several: Answers = {
+      ...answered,
+      when: 'several',
+      several: 'every Saturday in May, 9 to 11',
+    };
+    expect(
+      appendAnswers('Bake sale', { topics: ['what', 'when'], whatOptions: OPTIONS }, several, NOW),
+    ).toBe(
       [
         'Bake sale',
         'What: Bake something to sell, Staff the table, Bring drinks',
@@ -174,7 +234,7 @@ describe('appendAnswers', () => {
   });
 
   it('adds nothing for skipped questions', () => {
-    expect(appendAnswers('Bake sale ', buildFollowUp(ALL, NO_ANSWERS), NOW)).toBe('Bake sale ');
+    expect(appendAnswers('Bake sale ', ALL, NO_ANSWERS, NOW)).toBe('Bake sale ');
   });
 });
 
@@ -220,5 +280,13 @@ describe('counts', () => {
     expect(stepCount('1', -1)).toBe('1');
     expect(stepCount('2', 1)).toBe('3');
     expect(stepCount('9999', 1)).toBe('9999');
+  });
+
+  it('keeps a fraction as typed, and steps from it to the next whole number', () => {
+    expect(parseCount('2.5')).toBe(2.5);
+    expect(parseCount('0.4')).toBe(0.4);
+    expect(stepCount('2.5', 1)).toBe('3');
+    expect(stepCount('2.5', -1)).toBe('2');
+    expect(stepCount('0.4', -1)).toBe('1');
   });
 });
