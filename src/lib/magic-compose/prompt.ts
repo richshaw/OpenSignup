@@ -155,7 +155,7 @@ Output schema (return ONLY this JSON object, no prose, no fences):
     { "ref": "<lowercase-kebab>", "label": "<Human label>", "fieldType": "text|date|time|number|enum", "choices": [<strings, [] when not enum>] }
   ],
   "slots": [
-    { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default; null only if the prompt or answers say "no limit"> }
+    { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default; null only if the prompt or answers say there's no limit> }
   ],
   "groupBy": "<field-ref to group slots by, or null>"
 }
@@ -303,7 +303,7 @@ LOAD-BEARING RULES:
 
 8. Max ${MAX_FIELDS} fields. Max ${MAX_SLOTS} slots. If a literal expansion would exceed 200 slots, cap by the less-informative dimension and note the cap in description.
 
-9. capacity is 1 (one participant per slot) unless the user gives a count. "No limit" means null; never null as a guess.
+9. capacity is 1 (one participant per slot) unless the user gives a count. No limit ("unlimited", "as many as want") means null; never null as a guess.
 
 10. Today's date is {{TODAY}}. When the user gives a month and day with no year, assume the next occurrence relative to today.`;
 

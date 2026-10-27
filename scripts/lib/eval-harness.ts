@@ -16,6 +16,7 @@ import { magicComposeEnabled } from '@/lib/env';
 import { FollowUpSchema } from '@/lib/magic-compose/follow-up';
 import type { MagicComposeDraft } from '@/lib/magic-compose/prompt';
 import type { FollowUp, MagicComposeQuestions } from '@/lib/magic-compose/questions';
+import { isRealDate } from '@/lib/reminder-fields';
 
 const REPO_ROOT = process.cwd();
 export const DEV_EVALS_FILE = path.join(REPO_ROOT, 'evals/magic-compose/dev-evals.json');
@@ -127,8 +128,9 @@ function looseIncludes(haystack: string, needle: string): boolean {
 }
 
 /**
- * The date fields' values, less "TBD: date 1"-style placeholders: a slot
- * that waits for its date has none, and the converter drops the value too.
+ * The date fields' values that are real days, as the converter keeps them: a
+ * "TBD: date 1" placeholder, a weekday or "TBD (2026-06-06)" is dropped there,
+ * so the signup has no date for it.
  */
 function dateValues(draft: MagicComposeDraft): string[] {
   const dateRefs = draft.fields.filter((f) => f.fieldType === 'date').map((f) => f.ref);
@@ -136,7 +138,7 @@ function dateValues(draft: MagicComposeDraft): string[] {
   for (const slot of draft.slots) {
     for (const ref of dateRefs) {
       const v = slot.values[ref];
-      if (typeof v === 'string' && !/^\s*tbd\b/i.test(v)) out.push(v);
+      if (typeof v === 'string' && isRealDate(v.trim())) out.push(v.trim());
     }
   }
   return out;
@@ -844,8 +846,8 @@ export function asksFirst(c: EvalCase): boolean {
  * anything else" isn't one. A short list on purpose, not a classifier.
  */
 const ASKS_FOR_DETAILS = [
-  /\b(?:let me know|tell me|send me|share|give me|confirm)\s+(?:what|when|which|who|where|how|the|your)\b/,
-  /\bplease\s+(?:share|send|provide|tell|confirm|give|list)\b/,
+  /\b(?:let me know|tell me|send me|share|give me|confirm)\s+(?:what(?!\s+else)|when|which|who|where|how|the|your)\b/,
+  /\bplease\s+(?:share|send|provide|tell me\s+(?:what(?!\s+else)|when|which|who|where|how|the|your)|confirm|give|list)\b/,
   /\bi(?:'ll| will|'d| would)? need (?:to know|a few|some|more|the|your)\b/,
 ];
 

@@ -84,9 +84,11 @@ describe('system prompt', () => {
   it('reads "no limit", as an answer puts it, as a null capacity, and nothing else', () => {
     expect(followUp).toContain('"Staff the table": no limit');
     expect(sys).toContain(
-      '"capacity": <integer, 1 by default; null only if the prompt or answers say "no limit">',
+      `"capacity": <integer, 1 by default; null only if the prompt or answers say there's no limit>`,
     );
-    expect(sys).toContain('"No limit" means null; never null as a guess.');
+    expect(sys).toContain(
+      'No limit ("unlimited", "as many as want") means null; never null as a guess.',
+    );
   });
 
   // Each worked example's OUTPUT is a reply the server would take as it stands.
@@ -99,25 +101,33 @@ describe('system prompt', () => {
     for (const e of examples) expect(MagicComposeDraftSchema.safeParse(e.reply).success).toBe(true);
   });
 
-  // ev_008 was Example C word for word, so it scored recall of the example, not the rules.
-  it("has no worked example whose prompt is, or holds, an eval case's", () => {
+  // ev_008 was Example C word for word, and ev_034 held rule 4's "e.g.", so each scored
+  // recall of the prompt's own words, not the rules.
+  it("has no worked example or e.g. whose words are, or hold, an eval case's", () => {
     const file = path.join(__dirname, '../../../evals/magic-compose/dev-evals.json');
     const { cases } = JSON.parse(readFileSync(file, 'utf8')) as {
       cases: { id: string; prompt: string }[];
     };
+    // Whole words only, with a space either side, so "art" doesn't match inside "party".
     const words = (s: string) =>
-      s
+      ` ${s
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, ' ')
-        .trim();
-    for (const e of examples) {
-      const example = words(e.user!);
+        .trim()} `;
+    const system = buildMessages('x')[0]!.content;
+    const quoted = [...system.matchAll(/e\.g\. "([^"]+)"/g)].map((m) => m[1]!);
+    expect(quoted.length).toBeGreaterThan(0);
+    const texts = [
+      ...examples.map((e) => ({ name: `Example ${e.name}`, text: e.user! })),
+      ...quoted.map((q) => ({ name: `e.g. "${q}"`, text: q })),
+    ];
+    for (const t of texts) {
+      const own = words(t.text);
       for (const c of cases) {
         const prompt = words(c.prompt);
-        if (prompt === '') continue; // ev_014, the empty prompt
-        expect(example.includes(prompt) || prompt.includes(example), `${e.name} vs ${c.id}`).toBe(
-          false,
-        );
+        // A prompt with no Latin letters or digits (ev_014's empty one) has nothing to compare.
+        if (prompt.trim() === '') continue;
+        expect(own.includes(prompt) || prompt.includes(own), `${t.name} vs ${c.id}`).toBe(false);
       }
     }
   });

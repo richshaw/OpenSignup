@@ -211,10 +211,13 @@ describe('slot_dates.*', () => {
     return run.checks.find((ch) => ch.key === 'slot_dates.set_must_equal')?.outcome;
   };
 
-  it('reads a "TBD: date 1" placeholder in a date field as no date', async () => {
+  it('counts only real days, as the converter keeps only those', async () => {
     expect(await setCheck('TBD: date 1')).toBe('pass');
     expect(await setCheck('tbd')).toBe('pass');
+    expect(await setCheck('Saturday')).toBe('pass');
+    expect(await setCheck('TBD (2027-06-05)')).toBe('pass');
     expect(await setCheck('2027-06-05')).toBe('fail');
+    expect(await setCheck(' 2027-06-05 ')).toBe('fail');
   });
 
   it('passes ev_037 on a placeholder draft whose date field says TBD', async () => {
@@ -266,6 +269,12 @@ describe('ev_031, the French bake sale', () => {
       await options(['Apporter des collations', 'Conduire aux matchs', "Aider à l'entraînement"]),
     ).toEqual(['questions.options_must_mention_any']);
   });
+
+  it('fails options in English, even with words French shares', async () => {
+    expect(await options(['Run the stand', 'Drinks table'])).toContain(
+      'questions.options_must_mention_any',
+    );
+  });
 });
 
 describe('askedBeforeCreating', () => {
@@ -274,6 +283,7 @@ describe('askedBeforeCreating', () => {
       'What will people sign up for, and when?',
       "Let me know what people will sign up for and the dates, and I'll set it up.",
       'Please share the game dates and how many families you need for each.',
+      'Please tell me the dates and how many people you need.',
       'Before I create it, I’ll need the dates of the games.',
       'I need a few details first: what people sign up for, when, and how many.',
     ]) {
@@ -290,6 +300,8 @@ describe('askedBeforeCreating', () => {
     for (const reply of [
       "I can't help with that.",
       "I can't create that signup. Let me know if there's anything else.",
+      "I can't set that up. Let me know what else I can help with.",
+      "Please tell me if you'd like something different.",
       'Done: the signup is ready.',
     ]) {
       expect(askedBeforeCreating(reply).outcome, reply).toBe('fail');

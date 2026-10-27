@@ -527,14 +527,9 @@
           "patisseries",
           "tarte",
           "tartes",
-          "crepes",
-          "biscuits",
           "cuisiner",
           "vente",
           "vendre",
-          "stand",
-          "table",
-          "tables",
           "caisse",
           "buvette",
           "boissons"
@@ -551,7 +546,7 @@
           "set up",
           "and"
         ],
-        "rationale": "#570: options for what are in the description's language, like \"Faire un gâteau\", and about a bake sale: some option names cakes, the sale, its stand or its drinks. French articles and verbs that fit any signup (\"aider\", \"apporter\") don't count, so options in French for another signup fail. Words are matched whole and without accents."
+        "rationale": "#570: options for what are in the description's language, like \"Faire un gâteau\", and about a bake sale: some option names cakes, the sale, its till or its drinks. French articles, verbs that fit any signup (\"aider\", \"apporter\") and words that are English too (\"stand\", \"table\") don't count, so options in French for another signup, or in English, fail. Words are matched whole and without accents."
       }
     },
     {
@@ -583,7 +578,7 @@
       "id": "ev_034_what_without_when_drafts_placeholders",
       "tags": ["questions", "near_miss", "no_invention", "edge:capacity_gt_1"],
       "runner": "llm",
-      "prompt": "Snack duty for the soccer team, two families per game",
+      "prompt": "Snack duty for the basketball team, two families per game",
       "expect": {
         "slots.count_range": [1, 3],
         "slots.all_capacities_equal": 2,

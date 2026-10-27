@@ -93,7 +93,7 @@ A case expects a questions reply when it says `"questions.must_ask": true`, or, 
 - `questions.topics_must_include` / `questions.topics_must_not_include` / `questions.topics_must_equal` — the topics asked (`what`, `when`, `how_many`); `must_equal` ignores order.
 - `questions.options_count_range: [min, max]` — how many options for "what".
 - `questions.options_must_not_contain_date_or_number: true` — no option holds a digit, or a month, a weekday or a number word in English or French, accents ignored (the app asks for dates and counts itself). Not the French "un" and "une", which are also articles.
-- `questions.options_must_mention_any` / `questions.options_must_not_mention_any` — whole words, case and accents ignored, in some option / in no option. The French case uses both to check the options are in French and about its bake sale: articles and verbs that fit any signup don't count.
+- `questions.options_must_mention_any` / `questions.options_must_not_mention_any` — whole words, case and accents ignored, in some option / in no option. The French case uses both to check the options are in French and about its bake sale: articles, verbs that fit any signup and words that are English too don't count.
 
 ### Answers
 
