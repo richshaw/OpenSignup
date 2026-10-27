@@ -65,7 +65,6 @@
   },
   "pnpm": {
     "overrides": {
-      "next": "15.5.28",
       "shell-quote": "1.11.0",
       "next>postcss": "^8.5.23",
       "@react-email/code-block>prismjs": "^1.30.0",

@@ -14,7 +14,7 @@ import { emailSamples } from './lib/email-samples';
 
 const PORT = 3001;
 
-const samples = new Map(emailSamples);
+const samples = new Map(emailSamples.map(({ name, element }) => [name, element]));
 
 const index = `<!doctype html>
 <meta charset="utf-8">
@@ -23,13 +23,15 @@ const index = `<!doctype html>
 <h1>Email previews</h1>
 <ul>
 ${emailSamples
-  .map(([name]) => `<li><a href="/${name}">${name}</a> · <a href="/${name}.txt">text</a></li>`)
+  .map(({ name }) => `<li><a href="/${name}">${name}</a> · <a href="/${name}.txt">text</a></li>`)
   .join('\n')}
 </ul>
 </body>`;
 
 const server = createServer((req, res) => {
-  const path = new URL(req.url ?? '/', 'http://localhost').pathname.slice(1);
+  // Split rather than `new URL()`, which throws on a target like `//[` and
+  // would take the server down.
+  const path = ((req.url ?? '/').split('?')[0] ?? '').slice(1);
   if (path === '') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(index);
     return;
@@ -56,6 +58,9 @@ const server = createServer((req, res) => {
   );
 });
 
-server.listen(PORT, 'localhost', () => {
+// Every interface, as react-email's preview did, so a phone on the same
+// network or a browser outside a container can open it. It serves only the
+// samples.
+server.listen(PORT, () => {
   console.log(`Email previews at http://localhost:${PORT}`);
 });
