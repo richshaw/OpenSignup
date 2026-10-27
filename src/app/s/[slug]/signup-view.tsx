@@ -95,9 +95,28 @@ interface SignupViewProps {
    */
   mode: 'live' | 'preview' | 'showcase';
   ownCommitments?: OwnCommitment[];
+  /** The signup's id, set only when the viewer is a member of its workspace:
+   *  the live page then shows the organizer bar, with links to the signup's
+   *  Responses and Build tabs. Ignored outside 'live' mode. */
+  organizerSignupId?: string;
   /** Show the preview/closed status banner. Default true; set false when the
    *  surrounding context already conveys preview state (e.g. the build rail). */
   showStateBanner?: boolean;
+}
+
+/** A line of text with links, above the signup's title: the organizer bar and
+ *  the signed-up bar. One look, so the two can't drift; the signed-up bar is
+ *  tinted green. A brand tint would put the brand-blue links under 4.5:1. */
+function PageNote({ tint, children }: { tint: 'plain' | 'success'; children: React.ReactNode }) {
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-surface-sunk px-4 py-3 text-sm ${
+        tint === 'success' ? 'bg-success/5' : 'bg-white'
+      }`}
+    >
+      {children}
+    </div>
+  );
 }
 
 interface SlotGroup {
@@ -159,6 +178,7 @@ export function SignupViewBody({
   slug,
   mode,
   ownCommitments,
+  organizerSignupId,
   showStateBanner = true,
 }: SignupViewProps) {
   const isPreview = mode === 'preview';
@@ -196,7 +216,7 @@ export function SignupViewBody({
   // change or cancel it, so a returning participant sees this bar under the
   // Closed banner too.
   const signedUpBar = firstOwn ? (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-surface-sunk bg-success/5 px-4 py-3 text-sm">
+    <PageNote tint="success">
       <span>
         <span className="font-medium">You&apos;re signed up</span> for{' '}
         <span className="font-medium text-ink">
@@ -210,11 +230,38 @@ export function SignupViewBody({
       >
         {ownCount === 1 ? 'Edit or cancel' : 'Manage'}
       </Link>
-    </div>
+    </PageNote>
   ) : null;
+
+  // Only a member of the signup's workspace gets an id here (see
+  // `organizerBarSignupId`); participants never see this bar.
+  const organizerBar =
+    mode === 'live' && organizerSignupId ? (
+      <PageNote tint="plain">
+        <span>
+          <span className="font-medium">This is your signup.</span> People who open the link see
+          this page without this bar.
+        </span>
+        <span className="flex shrink-0 gap-4">
+          <Link
+            href={`/app/signups/${organizerSignupId}/responses`}
+            className="font-medium text-brand hover:underline"
+          >
+            See responses
+          </Link>
+          <Link
+            href={`/app/signups/${organizerSignupId}/build`}
+            className="font-medium text-brand hover:underline"
+          >
+            Edit signup
+          </Link>
+        </span>
+      </PageNote>
+    ) : null;
 
   return (
     <>
+      {organizerBar}
       {!showStateBanner ? null : isPreview ? (
         <Banner kind="preview" title="Preview" body={previewCopy} />
       ) : effectiveStatus === 'closed' ? (

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
+import { getOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
 import { commitmentEditUrl } from '@/lib/links';
 import {
@@ -13,6 +14,7 @@ import { INSTANCE_NAME } from '@/lib/site-config';
 import { readRequestSignals, recordPublicView } from '@/lib/view-tracker';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { loadPublicSignup } from '@/services/signups.cached';
+import { organizerBarSignupId } from './organizer-bar';
 import SignupView, {
   toSignupViewProps,
 } from './signup-view';
@@ -89,7 +91,14 @@ export default async function PublicSignupPage({ params }: PageParams) {
   const candidates = parseReturningCommits(returningRaw).filter(
     (e) => !e.signupId || e.signupId === sig.id,
   );
-  const found = await getOwnCommitmentsForSignup(getDb(), sig.id, candidates);
+  // The session read costs a visitor nothing: with no session cookie Auth.js
+  // answers without touching the database. Only a signed-in organizer pays
+  // for it, and it runs alongside the commitments read.
+  const [found, session] = await Promise.all([
+    getOwnCommitmentsForSignup(getDb(), sig.id, candidates),
+    getOrganizerSession(),
+  ]);
+  const organizerSignupId = organizerBarSignupId(toActor(session), sig);
   const tokenById = new Map(candidates.map((c) => [c.commitmentId, c.token]));
   const ownCommitments = found.map((c) => ({
     slotId: c.slotId,
@@ -139,6 +148,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
         {...toSignupViewProps(sig, sig.committedBySlot)}
         mode="live"
         ownCommitments={ownCommitments}
+        {...(organizerSignupId ? { organizerSignupId } : {})}
       />
     </main>
   );

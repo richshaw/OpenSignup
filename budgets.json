@@ -1,6 +1,7 @@
 {
   "queries": {
     "GET /s/[slug]": 5,
+    "GET /s/[slug], signed in as its organizer": 6,
     "POST /api/slots/[id]/commitments": 14,
     "POST /api/slots/[id]/commitments, without an email": 12
   },
