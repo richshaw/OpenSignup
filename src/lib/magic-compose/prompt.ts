@@ -69,9 +69,19 @@ const RefusalSchema = z.object({
 });
 
 /**
- * The options the page offers: each once, case aside, and the first
- * `WHAT_OPTIONS_MAX` of those. A model that offers five, or one twice, has
- * still asked a question the page can show.
+ * The topics the page can ask about, each once. A model that adds one the page
+ * doesn't know ("where") has still asked the ones it does.
+ */
+function knownTopics(topics: string[]): string[] {
+  const known: readonly string[] = QUESTION_TOPICS;
+  return [...new Set(topics.filter((t) => known.includes(t)))];
+}
+
+/**
+ * The options the page offers: each once, case aside, none blank or over
+ * `WHAT_OPTION_MAX_LENGTH`, and the first `WHAT_OPTIONS_MAX` of those. A model
+ * that offers five, one twice, or one too long has still asked a question the
+ * page can show.
  */
 function firstDistinctOptions(options: string[]): string[] {
   const seen = new Set<string>();
@@ -79,7 +89,7 @@ function firstDistinctOptions(options: string[]): string[] {
   for (const option of options) {
     if (kept.length === WHAT_OPTIONS_MAX) break;
     const key = option.toLowerCase();
-    if (seen.has(key)) continue;
+    if (option.length === 0 || option.length > WHAT_OPTION_MAX_LENGTH || seen.has(key)) continue;
     seen.add(key);
     kept.push(option);
   }
@@ -91,7 +101,7 @@ function firstDistinctOptions(options: string[]): string[] {
  * for: which topics are missing, and a few options for "what". Strict at both
  * levels, because `z.object` drops keys it doesn't know: a reply mixing
  * questions with half a draft must fail, not pass as whichever arm fits. The
- * options are tidied and cut to the ones the page shows before they're
+ * topics and options are cut to the ones the page can show before they're
  * checked, so only those have to be right.
  */
 export const QuestionsSchema = z
@@ -99,15 +109,17 @@ export const QuestionsSchema = z
     questions: z
       .object({
         topics: z
-          .array(z.enum(QUESTION_TOPICS))
-          .min(1)
-          .max(QUESTION_TOPICS.length)
-          .refine((t) => new Set(t).size === t.length, 'each topic at most once')
-          .refine((t) => t.includes('what'), 'questions always ask what people sign up for'),
+          .array(z.string())
+          .transform(knownTopics)
+          .pipe(
+            z
+              .array(z.enum(QUESTION_TOPICS))
+              .refine((t) => t.includes('what'), 'questions always ask what people sign up for'),
+          ),
         whatOptions: z
           .array(z.string().transform(tidyText))
           .transform(firstDistinctOptions)
-          .pipe(z.array(z.string().min(1).max(WHAT_OPTION_MAX_LENGTH)).min(WHAT_OPTIONS_MIN)),
+          .pipe(z.array(z.string()).min(WHAT_OPTIONS_MIN)),
       })
       .strict(),
   })

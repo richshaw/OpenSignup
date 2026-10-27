@@ -255,10 +255,22 @@ describe('QuestionsSchema', () => {
     expect(r.success && r.data.questions.whatOptions).toEqual(['A', 'B', 'C', 'D']);
   });
 
+  it('drops a repeated or unknown topic, and a blank or over-long option, as the page can still ask', () => {
+    const r = QuestionsSchema.safeParse(
+      ask({
+        topics: ['what', 'what', 'where', 'when'],
+        whatOptions: ['A', '  ', 'x'.repeat(41), 'B'],
+      }),
+    );
+    expect(r.success && r.data.questions).toEqual({
+      topics: ['what', 'when'],
+      whatOptions: ['A', 'B'],
+    });
+  });
+
   it.each([
     ['without what', { topics: ['when', 'how_many'], whatOptions: ['A', 'B'] }],
-    ['with a repeated topic', { topics: ['what', 'what'], whatOptions: ['A', 'B'] }],
-    ['with an unknown topic', { topics: ['what', 'where'], whatOptions: ['A', 'B'] }],
+    ['with only an unknown topic', { topics: ['where'], whatOptions: ['A', 'B'] }],
     ['with no topics', { topics: [], whatOptions: ['A', 'B'] }],
     ['with one option', { topics: ['what'], whatOptions: ['A'] }],
     ['with one option, offered twice', { topics: ['what'], whatOptions: ['Bake', 'bake'] }],
@@ -331,14 +343,12 @@ describe('QuestionsSchema', () => {
     expect(r.success && r.data.questions.whatOptions).toEqual(['Bake', 'Staff', 'Set up', 'Clean']);
   });
 
-  it('checks only the options it keeps', () => {
+  it('skips an option too long to show and takes the next', () => {
     const long = 'x'.repeat(41);
-    expect(parse(ask({ topics: ['what'], whatOptions: ['A', 'B', 'C', 'D', long] })).success).toBe(
-      true,
+    const r = QuestionsSchema.safeParse(
+      ask({ topics: ['what'], whatOptions: ['A', 'B', long, 'C', 'D', 'E'] }),
     );
-    expect(parse(ask({ topics: ['what'], whatOptions: ['A', 'B', 'C', long, 'D'] })).success).toBe(
-      false,
-    );
+    expect(r.success && r.data.questions.whatOptions).toEqual(['A', 'B', 'C', 'D']);
   });
 
   it('lets a refusal win over anything beside it, as before', () => {

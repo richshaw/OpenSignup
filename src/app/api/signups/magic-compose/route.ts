@@ -194,7 +194,8 @@ export async function POST(req: NextRequest) {
     // A first call's questions must be ones the page can ask. Asked in another
     // shape (no "what", one option), they get one firmer retry for a draft, on
     // the same quota and budget, and its reply goes the usual way below. With
-    // no time for it, the reply fails as any other of the wrong shape does.
+    // no time for it, the reply fails as any other of the wrong shape does;
+    // with the organizer gone, it's recorded as that.
     if (
       !followUp &&
       raw.ok &&
@@ -215,6 +216,10 @@ export async function POST(req: NextRequest) {
           { promptLength: userPrompt.length, msLeft: left, aborted: req.signal.aborted },
           'magic-compose asked questions in a shape the page cannot ask, with no time to retry',
         );
+        if (req.signal.aborted) {
+          await recordFailed(db, actor, session.defaultWorkspaceId, 'aborted');
+          return fail(serviceError('internal', 'request cancelled'));
+        }
       }
     }
 

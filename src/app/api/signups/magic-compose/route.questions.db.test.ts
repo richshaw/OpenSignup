@@ -226,9 +226,17 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
     expect(retryMs).toBeLessThanOrEqual(getEnv().LLM_TIMEOUT_MS);
   });
 
+  it('shows questions with an unknown topic or a blank option dropped, in one call', async () => {
+    llm.replies = [ok({ questions: { topics: ['what', 'where'], whatOptions: ['A', ' ', 'B'] } })];
+    const res = await compose({ prompt: 'Bake sale' });
+    const body = (await res.json()) as { data: { questions: unknown } };
+    expect(body.data.questions).toEqual({ topics: ['what'], whatOptions: ['A', 'B'] });
+    expect(llm.calls).toHaveLength(1);
+  });
+
   it.each([
-    ['with an unknown topic', { topics: ['what', 'where'], whatOptions: ['A', 'B'] }],
-    ['with a blank option', { topics: ['what'], whatOptions: ['A', ' '] }],
+    ['with only an unknown topic', { topics: ['where'], whatOptions: ['A', 'B'] }],
+    ['with one usable option', { topics: ['what'], whatOptions: ['A', ' '] }],
   ])('retries once when the first call asks %s', async (_name, questions) => {
     llm.replies = [ok({ questions }), ok(DRAFT)];
     const res = await compose({ prompt: 'Bake sale' });
@@ -267,7 +275,7 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
     controller.abort();
     const res = await compose({ prompt: 'Bake sale' }, { signal: controller.signal });
     const body = (await res.json()) as { error: { message: string } };
-    expect(body.error.message).toBe('AI draft did not match expected shape');
+    expect(body.error.message).toBe('request cancelled');
     expect(llm.calls).toHaveLength(1);
   });
 
