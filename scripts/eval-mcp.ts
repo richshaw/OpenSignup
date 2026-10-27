@@ -7,8 +7,9 @@
  * of its create_signup call are scored with the same checks. A reply with no
  * create counts as a refusal, so the refusal cases still mean something, except
  * on a case where Magic Compose would ask (or that says `assistant_may_ask`):
- * there a reply that asks something (holds a "?") passes, since asking the
- * organizer is right, and any other reply fails. Cases with
+ * there a reply that asks something (a "?", or a request for details such as
+ * "Let me know the dates") passes, since asking the organizer is right, and
+ * any other reply fails. Cases with
  * `answers` are skipped: they answer Magic Compose's own questions. No
  * database: the read tools answer as an empty account (src/mcp/evals/assistant.ts).
  *
@@ -46,7 +47,7 @@ import { scoreFollowup } from '@/mcp/evals/followup-checks';
 import { runFollowupCase } from '@/mcp/evals/followups';
 import { buildInstructions } from '@/mcp/instructions';
 import { TOOLS } from '@/mcp/tools';
-import { asksFirst, DEV_EVALS_FILE, runEvalCli } from './lib/eval-harness';
+import { askedBeforeCreating, asksFirst, DEV_EVALS_FILE, runEvalCli } from './lib/eval-harness';
 
 const INSTRUCTIONS = buildInstructions(TOOLS);
 
@@ -139,21 +140,12 @@ runEvalCli({
       return { status: 'llm_failed', code: out.code, message: out.message, ms, trace };
     if (out.kind === 'replied') {
       // Where Magic Compose would ask, an assistant that asks the organizer
-      // instead of creating is right. A reply asks when it holds a "?" (a
-      // heuristic); an empty one, or one that asks nothing, such as a
-      // refusal, fails. Elsewhere a reply is scored as a refusal.
+      // instead of creating is right (`askedBeforeCreating`); an empty reply,
+      // or one that asks nothing, such as a refusal, fails. Elsewhere a reply
+      // is scored as a refusal.
       if (asksFirst(c) || c.expect.assistant_may_ask === true) {
-        const text = out.text.trim();
-        const asked = text.includes('?')
-          ? { key: 'asked_before_creating', outcome: 'pass' as const, detail: text.slice(0, 200) }
-          : {
-              key: 'asked_before_creating',
-              outcome: 'fail' as const,
-              detail: text
-                ? `replied without asking anything (no "?"): ${text.slice(0, 200)}`
-                : 'empty reply: neither asked nor created',
-            };
-        return { status: 'scored', raw: out.text, checks: [asked], ms, trace };
+        const checks = [askedBeforeCreating(out.text)];
+        return { status: 'scored', raw: out.text, checks, ms, trace };
       }
       return {
         status: 'refusal',

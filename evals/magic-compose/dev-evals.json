@@ -75,7 +75,7 @@
         "slots.count": 3,
         "must_express_target_via_one_of": [
           { "strategy": "capacity", "values": [80, 40, 30] },
-          { "strategy": "number_field", "field_ref_must_match_any": ["target", "qty", "count", "needed"], "values": [80, 40, 30] }
+          { "strategy": "number_field", "field_ref_must_match_any": ["target", "qty", "quantity", "amount", "count", "needed"], "values": [80, 40, 30] }
         ],
         "description_or_field_must_mention_any": ["2026-05-22", "may 22", "friday"],
         "must_not_invent": ["dates other than 2026-05-22", "locations not in prompt"]
@@ -525,27 +525,19 @@
           "gateaux",
           "patisserie",
           "patisseries",
-          "faire",
-          "preparer",
-          "apporter",
+          "tarte",
+          "tartes",
+          "crepes",
+          "biscuits",
+          "cuisiner",
+          "vente",
           "vendre",
-          "tenir",
-          "aider",
-          "installer",
-          "ranger",
-          "boissons",
+          "stand",
+          "table",
+          "tables",
           "caisse",
-          "le",
-          "la",
-          "les",
-          "des",
-          "du",
-          "un",
-          "une",
-          "et",
-          "pour",
-          "au",
-          "aux"
+          "buvette",
+          "boissons"
         ],
         "questions.options_must_not_mention_any": [
           "bake",
@@ -559,7 +551,7 @@
           "set up",
           "and"
         ],
-        "rationale": "#570: options for what are in the description's language, like \"Faire un gâteau\". Words are matched whole and without accents."
+        "rationale": "#570: options for what are in the description's language, like \"Faire un gâteau\", and about a bake sale: some option names cakes, the sale, its stand or its drinks. French articles and verbs that fit any signup (\"aider\", \"apporter\") don't count, so options in French for another signup fail. Words are matched whole and without accents."
       }
     },
     {
