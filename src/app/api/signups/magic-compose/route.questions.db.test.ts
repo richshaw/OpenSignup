@@ -85,7 +85,6 @@ const PLACEHOLDERS: FollowUp = {
   placeholders: true,
 };
 
-/** Questions the page can't ask: "what" was already known, so it's left out. */
 /** Questions the page can't ask: neither what nor when. */
 const CANT_ASK = {
   questions: { topics: ['how_many'], whatOptions: QUESTIONS.questions.whatOptions },

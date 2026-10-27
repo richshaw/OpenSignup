@@ -103,8 +103,12 @@ Signup lifecycle above. These two count the questions round.
 In `magic_compose.answered`:
 
 - `answered` and `skipped` list which of `what` and `when` the organizer
-  answered or left blank, for the ones they were asked. "How many" has no
-  blank state (an empty box means no limit), so it is in neither.
+  answered or left blank. `when` is there only if it was asked. `what` is
+  always there: when it wasn't asked, it is in `answered` if any of the
+  things read from the description (or the organizer's own) went back, and
+  in `skipped` if all were removed, so a count of `what` answers has to be
+  read alongside `magic_compose.asked`'s topics. "How many" has no blank
+  state (an empty box means no limit), so it is in neither.
 - `picked` is how many of the model's options the organizer picked (when
   "what" wasn't asked, how many of the things read from the description they
   kept), and
