@@ -99,6 +99,29 @@ describe('system prompt', () => {
     for (const e of examples) expect(MagicComposeDraftSchema.safeParse(e.reply).success).toBe(true);
   });
 
+  // ev_008 was Example C word for word, so it scored recall of the example, not the rules.
+  it("has no worked example whose prompt is, or holds, an eval case's", () => {
+    const file = path.join(__dirname, '../../../evals/magic-compose/dev-evals.json');
+    const { cases } = JSON.parse(readFileSync(file, 'utf8')) as {
+      cases: { id: string; prompt: string }[];
+    };
+    const words = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    for (const e of examples) {
+      const example = words(e.user!);
+      for (const c of cases) {
+        const prompt = words(c.prompt);
+        if (prompt === '') continue; // ev_014, the empty prompt
+        expect(example.includes(prompt) || prompt.includes(example), `${e.name} vs ${c.id}`).toBe(
+          false,
+        );
+      }
+    }
+  });
+
   it('asks about the vague soccer prompt in Example C', () => {
     const c = examples.find((e) => e.name === 'C')!;
     expect(c.user).toBe("Make a signup for my kid's soccer team");

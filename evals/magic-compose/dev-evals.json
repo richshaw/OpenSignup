@@ -168,13 +168,15 @@
       "id": "ev_008_vague_prompt_no_invention",
       "tags": ["edge:vague", "ux", "no_invention", "questions"],
       "runner": "llm",
-      "prompt": "Make a signup for my kid's soccer team",
+      "prompt": "Can you set up a sign-up sheet for my daughter's swim club?",
       "expect": {
         "behavior": "Ask instead of drafting: the prompt doesn't say what people sign up for. Ask about what, when and how many, with two to four options for what and no dates or counts in them. Until #570 this case drafted 1-6 placeholder slots.",
         "questions.must_ask": true,
         "questions.topics_must_equal": ["what", "when", "how_many"],
         "questions.options_count_range": [2, 4],
-        "questions.options_must_not_contain_date_or_number": true
+        "questions.options_must_not_contain_date_or_number": true,
+        "questions.options_must_not_mention_any": ["soccer", "away games"],
+        "rationale": "Until the review of #577 the prompt was Example C's soccer team word for word, so the case scored recall: most replies that asked copied Example C's options. A swim club has meets, not away games, so those options show copying."
       }
     },
     {

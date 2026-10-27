@@ -143,6 +143,7 @@ Snapshots go to `evals/mcp/snapshots/` (gitignored).
 When adding a case:
 
 - Write the prompt the way a real organizer would type it. Slightly run-on sentences and parentheticals are fine; clean marketing prose makes the generator look better than it is.
+- Don't reuse a worked example's prompt from `prompt.ts`: a case that matches one scores recall of the example, not the rules. `prompt.test.ts` fails when a case's prompt is, or holds, an example's.
 - Cover at least one `fieldType`, edge case, or principle that existing cases don't.
 - Prefer machine-checkable expectations (`slots.count`, `fields.field_types_subset_of`, regex patterns) over prose. A `groupBy_should_be_null` boolean is easier to assert than "the grouping should be reasonable".
 - Include the regression context in `rationale` when the case targets a specific past bug.
