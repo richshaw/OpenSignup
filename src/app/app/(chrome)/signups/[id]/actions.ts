@@ -51,7 +51,7 @@ async function requireActor() {
  * Publish first checks a draft as it's stored (the header has saved the Build
  * tab's edits by then): no slots, no fields or every slot empty answers with
  * the check and publishes nothing. A slot saying "TBD" publishes: the
- * organizer may mean it, and the Build tab has already marked it. The check
+ * organizer may mean it. The check
  * reads without a lock, so an edit landing between it and the publish (from
  * another tab, or an AI assistant) isn't checked: a narrow
  * race, and what's published is what the page then shows. A viewer is

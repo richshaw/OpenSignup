@@ -489,7 +489,6 @@ describe('Done after the check’s fix', () => {
         sendReminders: true,
         groupByFieldRefs: [],
       }}
-      status="draft"
       committedBySlot={{}}
     />
   );

@@ -130,12 +130,6 @@ export function CreateAndPublishASignup() {
           <Ui>{UI.delete}</Ui>. Don&apos;t leave a slot empty: people see it as{' '}
           <Ui>{UI.untitledSlot}</Ui>.
         </p>
-        <p>
-          Before you publish, a slot that still says &ldquo;TBD&rdquo;, &ldquo;TBC&rdquo; or
-          &ldquo;TBA&rdquo; is marked <Ui>{UI.stillSays}</Ui> on the <Ui>{UI.build}</Ui> tab, with
-          its own word. It&apos;s only a reminder. If you mean it, leave it, and people will see it
-          as you wrote it.
-        </p>
       </section>
 
       <section className="space-y-4">

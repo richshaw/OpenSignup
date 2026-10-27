@@ -10,7 +10,7 @@ import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
-import type { SignupSettings, SignupStatus } from '@/schemas/signups';
+import type { SignupSettings } from '@/schemas/signups';
 
 /** Server-loaded chrome snapshot. Title + description are then edited in-place via updateSignupMeta. */
 type SignupMeta = {
@@ -24,11 +24,6 @@ type BuildWysiwygProps = {
   initialFields: SlotFieldDefinition[];
   initialSlots: BuildSlot[];
   initialSettings: SignupSettings;
-  /**
-   * The signup's status, which a slot still saying "TBD" is marked by. It
-   * follows Publish, which renders the page again.
-   */
-  status: SignupStatus;
   /**
    * Spots taken per slot id when the page loaded; a slot with none is absent.
    * Slots added in this session start empty, so they read 0 without an entry.
@@ -84,7 +79,6 @@ export function BuildWysiwyg({
   initialFields,
   initialSlots,
   initialSettings,
-  status,
   committedBySlot,
 }: BuildWysiwygProps) {
   const {
@@ -316,7 +310,6 @@ export function BuildWysiwyg({
                 fields={state.fields}
                 takenBySlot={committedBySlot}
                 remindersOn={state.reminderFieldRef !== null}
-                status={status}
                 expandedRowId={expandedRowId}
                 focusRowId={focusRowId}
                 onRowFocused={clearFocusRow}

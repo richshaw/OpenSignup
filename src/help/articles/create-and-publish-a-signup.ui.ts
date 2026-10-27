@@ -39,9 +39,6 @@ export const UI = {
   // What Publish says, by its heading, when every slot is empty, and its fix.
   nothingYet: 'Nothing to sign up for yet',
   fillItIn: 'Fill it in',
-  // By a draft's slot that still says TBD (or TBC, TBA, with that word) on the
-  // Build tab. Gone once the signup is published.
-  stillSays: 'Still says “TBD”',
   // The tab a signup opens on, where its slots are.
   build: 'Build',
   // Phones: the three-dot button's accessible name.

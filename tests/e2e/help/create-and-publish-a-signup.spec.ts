@@ -374,7 +374,7 @@ test.describe('help: create and publish your first signup', () => {
       const slotEditor = page.locator('[data-testid^="slot-editor-"]');
       const what = slotEditor.getByRole('textbox', { name: `${UI.what} value` });
       await expect(what).toBeFocused();
-      await what.fill('TBD');
+      await what.fill('Fruit and water');
       // Done hands the focus back to Publish and share, as the fix opened it,
       // and the header says it can be published.
       await slotEditor.getByRole('button', { name: UI.done }).click();
@@ -382,20 +382,6 @@ test.describe('help: create and publish your first signup', () => {
       await expect(
         page.getByRole('status').filter({ hasText: 'Publish and share when you’re ready.' }),
       ).toHaveCount(1);
-
-      // A draft's slot that still says "TBD" is marked on the Build tab. It's
-      // only a reminder: Publish wouldn't stop for it. Named, the mark goes.
-      await expect(page.getByRole('tab', { name: UI.build })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      );
-      const mark = page.getByText(UI.stillSays, { exact: true });
-      await expect(mark).toBeVisible();
-      await mark.click();
-      await expect(what).toHaveValue('TBD');
-      await what.fill('Fruit and water');
-      await slotEditor.getByRole('button', { name: UI.done }).click();
-      await expect(mark).toHaveCount(0);
 
       await publish.click();
       const sheet = page.getByRole('dialog', { name: UI.sendTheLink });

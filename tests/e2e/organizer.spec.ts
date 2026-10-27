@@ -502,27 +502,22 @@ for (const [device, viewport] of [
       expect(await storedStatus(page, draft.id)).toBe('draft');
     });
 
-    test('a slot that says TBD publishes without a stop, and its mark goes', async ({ page }) => {
+    test('a slot that says TBD is not marked, and publishes without a stop', async ({ page }) => {
       const draft = await createDraft(page.request, {
         title: `Still TBD ${Date.now()}`,
         values: { what: 'Cashier TBD', date: '2030-04-06' },
       });
       await page.goto(`/app/signups/${draft.id}/build`);
       const slot = page.getByTestId(`wysiwyg-slot-${draft.slotId}`);
-      // A draft's slot is marked: a reminder, which Publish doesn't stop for.
-      await expect(slot.getByText('Still says “TBD”', { exact: true })).toBeVisible();
+      // Organizers often mean TBD, so the row reads like any other.
       await expect(
-        slot.getByRole('button', { name: 'Edit slot — Cashier TBD, still says “TBD”' }),
+        slot.getByRole('button', { name: 'Edit slot — Cashier TBD', exact: true }),
       ).toBeVisible();
+      await expect(slot.getByText(/still says/i)).toHaveCount(0);
 
       await publishButton(page).click();
       await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
       expect(await storedStatus(page, draft.id)).toBe('open');
-
-      // Published, the TBD is taken as meant: no mark, and none in the row's name.
-      await page.keyboard.press('Escape');
-      await expect(slot.getByRole('button', { name: 'Edit slot — Cashier TBD' })).toBeVisible();
-      await expect(slot.getByText(/“TBD”/)).toHaveCount(0);
     });
 
     test('Enter after Fill it in goes back to Publish and share, which publishes', async ({
@@ -582,104 +577,6 @@ for (const [device, viewport] of [
     });
   });
 }
-
-// A draft's slot still saying TBD is marked on the Build tab. On a phone the tag
-// has a line of its own, under the slot's values: beside them it ran over
-// the spots count and left the values no room.
-test.describe('the TBD mark on a phone', () => {
-  test.use({ viewport: { width: 390, height: 844 } });
-
-  test('sits clear of the spots count, and the slot’s values still show', async ({
-    page,
-    context,
-  }) => {
-    await loginAsSeededOrganizer(context);
-    const signup = await createDraft(page.request, {
-      title: `Mark on a phone ${Date.now()}`,
-      values: { what: 'Bake stall: TBD', date: '2030-04-06' },
-      capacity: 3,
-    });
-    await page.goto(`/app/signups/${signup.id}/build`);
-    const row = page.getByRole('button', {
-      name: 'Edit slot — Bake stall: TBD, still says “TBD”',
-    });
-    const tag = row.getByText('Still says “TBD”', { exact: true });
-    const anchor = row.getByText('Bake stall: TBD', { exact: true });
-    const summary = row.getByText(/^Sat, Apr 6/);
-    const count = row.getByText('0 of 3 taken', { exact: true });
-    for (const part of [tag, anchor, summary, count]) await expect(part).toBeVisible();
-
-    const [t, a, s, c] = await Promise.all(
-      [tag, anchor, summary, count].map((l) => l.boundingBox()),
-    );
-    if (!t || !a || !s || !c) throw new Error('a part of the row is not on screen');
-    // Nothing runs over the count: toBeVisible() alone passes on an overlap.
-    for (const box of [t, a, s]) expect(box.x + box.width).toBeLessThanOrEqual(c.x);
-    // The tag is under the values, and they aren't cut short.
-    expect(t.y).toBeGreaterThanOrEqual(a.y + a.height);
-    for (const part of [anchor, summary]) {
-      expect(await part.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-    }
-  });
-});
-
-// On a computer the tag follows the slot's values, and drops under them
-// when a long name leaves no room, rather than squeeze the summary away.
-test.describe('the TBD mark on a computer', () => {
-  test.use({ viewport: { width: 1280, height: 900 } });
-
-  test('drops under a long name, keeping the date beside it whole', async ({ page, context }) => {
-    await loginAsSeededOrganizer(context);
-    const signup = await createDraft(page.request, {
-      title: `Long mark ${Date.now()}`,
-      values: { what: 'Cashier for the whole long afternoon shift TBD', date: '2030-04-06' },
-      capacity: 3,
-    });
-    await page.goto(`/app/signups/${signup.id}/build`);
-    const row = page.getByRole('button', { name: /still says “TBD”$/ });
-    const tag = row.getByText('Still says “TBD”', { exact: true });
-    const anchor = row.getByText(/^Cashier for the whole/);
-    const summary = row.getByText(/^Sat, Apr 6/);
-    const count = row.getByText('0 of 3 taken', { exact: true });
-    for (const part of [tag, anchor, summary, count]) await expect(part).toBeVisible();
-
-    const [t, a, s, c] = await Promise.all(
-      [tag, anchor, summary, count].map((l) => l.boundingBox()),
-    );
-    if (!t || !a || !s || !c) throw new Error('a part of the row is not on screen');
-    for (const box of [t, a, s]) expect(box.x + box.width).toBeLessThanOrEqual(c.x);
-    // The date keeps its 10ch and isn't cut short; the tag went under.
-    const tenCh = await summary.evaluate((el) => parseFloat(getComputedStyle(el).minWidth));
-    expect(tenCh).toBeGreaterThan(0);
-    expect(s.width).toBeGreaterThanOrEqual(tenCh - 0.5);
-    expect(await summary.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-    expect(t.y).toBeGreaterThanOrEqual(a.y + a.height);
-  });
-
-  test('follows a short slot’s values, not the count', async ({ page, context }) => {
-    await loginAsSeededOrganizer(context);
-    const signup = await createDraft(page.request, {
-      title: `Short mark ${Date.now()}`,
-      values: { what: 'Juice TBD', date: '2030-04-06' },
-      capacity: 3,
-    });
-    await page.goto(`/app/signups/${signup.id}/build`);
-    const row = page.getByRole('button', { name: 'Edit slot — Juice TBD, still says “TBD”' });
-    const tag = row.getByText('Still says “TBD”', { exact: true });
-    const summary = row.getByText(/^Sat, Apr 6/);
-    const count = row.getByText('0 of 3 taken', { exact: true });
-    for (const part of [tag, summary, count]) await expect(part).toBeVisible();
-
-    const [t, s, c] = await Promise.all([tag, summary, count].map((l) => l.boundingBox()));
-    if (!t || !s || !c) throw new Error('a part of the row is not on screen');
-    // On the same line, right after the date (the 10px gap), and well clear
-    // of the count rather than pushed against it.
-    expect(Math.abs(t.y + t.height / 2 - (s.y + s.height / 2))).toBeLessThan(4);
-    expect(t.x - (s.x + s.width)).toBeGreaterThanOrEqual(0);
-    expect(t.x - (s.x + s.width)).toBeLessThanOrEqual(14);
-    expect(c.x - (t.x + t.width)).toBeGreaterThan(40);
-  });
-});
 
 // What Publish waits for and where its fix goes, at a computer's size.
 test.describe('Publish’s check, around the Build tab', () => {
