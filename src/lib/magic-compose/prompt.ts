@@ -69,10 +69,30 @@ const RefusalSchema = z.object({
 });
 
 /**
+ * The options the page offers: each once, case aside, and the first
+ * `WHAT_OPTIONS_MAX` of those. A model that offers five, or one twice, has
+ * still asked a question the page can show.
+ */
+function firstDistinctOptions(options: string[]): string[] {
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  for (const option of options) {
+    if (kept.length === WHAT_OPTIONS_MAX) break;
+    const key = option.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    kept.push(option);
+  }
+  return kept;
+}
+
+/**
  * The model's answer when the description doesn't say what people sign up
  * for: which topics are missing, and a few options for "what". Strict at both
  * levels, because `z.object` drops keys it doesn't know: a reply mixing
- * questions with half a draft must fail, not pass as whichever arm fits.
+ * questions with half a draft must fail, not pass as whichever arm fits. The
+ * options are tidied and cut to the ones the page shows before they're
+ * checked, so only those have to be right.
  */
 export const QuestionsSchema = z
   .object({
@@ -85,13 +105,9 @@ export const QuestionsSchema = z
           .refine((t) => new Set(t).size === t.length, 'each topic at most once')
           .refine((t) => t.includes('what'), 'questions always ask what people sign up for'),
         whatOptions: z
-          .array(z.string().transform(tidyText).pipe(z.string().min(1).max(WHAT_OPTION_MAX_LENGTH)))
-          .min(WHAT_OPTIONS_MIN)
-          .max(WHAT_OPTIONS_MAX)
-          .refine(
-            (o) => new Set(o.map((x) => x.toLowerCase())).size === o.length,
-            'options must differ',
-          ),
+          .array(z.string().transform(tidyText))
+          .transform(firstDistinctOptions)
+          .pipe(z.array(z.string().min(1).max(WHAT_OPTION_MAX_LENGTH)).min(WHAT_OPTIONS_MIN)),
       })
       .strict(),
   })
@@ -127,7 +143,9 @@ export type MagicComposeParsed = z.infer<typeof MagicComposeDraftSchema>;
  * `MagicComposeDraftSchema` reads it (null keys dropped, a refusal winning).
  * After the answers, a model that asks again most likely asks about less than
  * the first time (only "when", say, with no options), which `QuestionsSchema`
- * would reject as malformed and the organizer would see as a broken draft.
+ * would reject as malformed and the organizer would see as a broken draft. A
+ * first call's questions that `QuestionsSchema` rejects (no "what", one
+ * option) are caught the same way.
  */
 export function asksQuestions(value: unknown): boolean {
   const reply = withoutNullKeys(value);

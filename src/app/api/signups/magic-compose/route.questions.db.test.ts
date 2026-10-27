@@ -83,6 +83,15 @@ const PLACEHOLDERS: FollowUp = {
   placeholders: true,
 };
 
+/** Questions the page can't ask: "what" was already known, so it's left out. */
+const NO_WHAT = {
+  questions: { topics: ['when', 'how_many'], whatOptions: QUESTIONS.questions.whatOptions },
+};
+
+/** The first call's retry line, after the description. */
+const REPLY_NOW =
+  /^Bake sale\n\nReply with a draft or a refusal now: questions can't be answered here\. Use a TBD: placeholder for anything missing\.$/;
+
 let organizerId: string;
 let workspaceId: string;
 
@@ -172,6 +181,94 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
     expect(await signupsMade()).toBe(0);
     expect(llm.calls).toHaveLength(1);
     expect(await quotaUsed()).toBe(1);
+  });
+
+  it('shows the first four of five options, in one call', async () => {
+    const whatOptions = ['Bake', 'Staff the table', 'Set up', 'Clean up', 'Bring drinks'];
+    llm.replies = [ok({ questions: { topics: ['what'], whatOptions } })];
+    const res = await compose({ prompt: 'Bake sale' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      data: { questions: { topics: ['what'], whatOptions: whatOptions.slice(0, 4) } },
+    });
+    expect(llm.calls).toHaveLength(1);
+  });
+
+  it('drops an option offered twice, in one call', async () => {
+    llm.replies = [
+      ok({
+        questions: {
+          topics: ['what', 'when'],
+          whatOptions: ['Bake something to sell', 'Staff the table', 'bake  something to sell'],
+        },
+      }),
+    ];
+    const res = await compose({ prompt: 'Bake sale' });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { questions: { whatOptions: string[] } } };
+    expect(body.data.questions.whatOptions).toEqual(['Bake something to sell', 'Staff the table']);
+    expect(llm.calls).toHaveLength(1);
+  });
+
+  it('retries once when the first call asks without what, and saves the draft', async () => {
+    llm.replies = [ok(NO_WHAT), ok(DRAFT)];
+    const res = await compose({ prompt: 'Bake sale' });
+    expect(res.status).toBe(200);
+    expect(await signupsMade()).toBe(1);
+    expect(llm.calls).toHaveLength(2);
+    expect(await quotaUsed()).toBe(1);
+    expect(sent(1)).toMatch(REPLY_NOW);
+    // The same system prompt, and what's left of the one budget.
+    expect(llm.calls[1]?.messages[0]).toEqual(llm.calls[0]?.messages[0]);
+    expect(llm.calls[0]?.options).toBeUndefined();
+    const retryMs = llm.calls[1]?.options?.timeoutMs ?? 0;
+    expect(retryMs).toBeGreaterThan(15_000);
+    expect(retryMs).toBeLessThanOrEqual(getEnv().LLM_TIMEOUT_MS);
+  });
+
+  it.each([
+    ['with an unknown topic', { topics: ['what', 'where'], whatOptions: ['A', 'B'] }],
+    ['with a blank option', { topics: ['what'], whatOptions: ['A', ' '] }],
+  ])('retries once when the first call asks %s', async (_name, questions) => {
+    llm.replies = [ok({ questions }), ok(DRAFT)];
+    const res = await compose({ prompt: 'Bake sale' });
+    expect(res.status).toBe(200);
+    expect(llm.calls).toHaveLength(2);
+    expect(await signupsMade()).toBe(1);
+  });
+
+  it('shows the questions when the retry after one option asks properly', async () => {
+    llm.replies = [
+      ok({ questions: { topics: ['what'], whatOptions: ['Bake something to sell'] } }),
+      ok(QUESTIONS),
+    ];
+    const res = await compose({ prompt: 'Bake sale' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ data: QUESTIONS });
+    expect(llm.calls).toHaveLength(2);
+    expect(await signupsMade()).toBe(0);
+    expect(await quotaUsed()).toBe(1);
+  });
+
+  it('says the draft didn’t match when the retry is the wrong shape too', async () => {
+    llm.replies = [ok(NO_WHAT), ok(NO_WHAT), ok(DRAFT)];
+    const res = await compose({ prompt: 'Bake sale' });
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error: { message: string } };
+    expect(body.error.message).toBe('AI draft did not match expected shape');
+    expect(llm.calls).toHaveLength(2);
+    expect(await quotaUsed()).toBe(1);
+    expect(await signupsMade()).toBe(0);
+  });
+
+  it('skips the first call’s retry when the organizer has already left', async () => {
+    llm.replies = [ok(NO_WHAT), ok(DRAFT)];
+    const controller = new AbortController();
+    controller.abort();
+    const res = await compose({ prompt: 'Bake sale' }, { signal: controller.signal });
+    const body = (await res.json()) as { error: { message: string } };
+    expect(body.error.message).toBe('AI draft did not match expected shape');
+    expect(llm.calls).toHaveLength(1);
   });
 
   it('drafts from a follow-up, sending the model the description and the answers', async () => {
@@ -318,6 +415,25 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
       took = getEnv().LLM_TIMEOUT_MS - 16_000;
       llm.replies = [ok(QUESTIONS), ok(DRAFT)];
       const res = await compose({ prompt: 'Bake sale', followUp: ANSWERS });
+      expect(res.status).toBe(200);
+      expect(llm.calls[1]?.options?.timeoutMs).toBe(16_000);
+    });
+
+    it('skips a first call’s retry with under 15 seconds left', async () => {
+      took = getEnv().LLM_TIMEOUT_MS - 14_000;
+      llm.replies = [ok(NO_WHAT), ok(DRAFT)];
+      const res = await compose({ prompt: 'Bake sale' });
+      expect(res.status).toBe(500);
+      const body = (await res.json()) as { error: { message: string } };
+      expect(body.error.message).toBe('AI draft did not match expected shape');
+      expect(llm.calls).toHaveLength(1);
+      expect(await signupsMade()).toBe(0);
+    });
+
+    it('still retries a first call with 16 seconds left', async () => {
+      took = getEnv().LLM_TIMEOUT_MS - 16_000;
+      llm.replies = [ok(NO_WHAT), ok(DRAFT)];
+      const res = await compose({ prompt: 'Bake sale' });
       expect(res.status).toBe(200);
       expect(llm.calls[1]?.options?.timeoutMs).toBe(16_000);
     });

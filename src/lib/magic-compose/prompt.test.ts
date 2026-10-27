@@ -261,8 +261,7 @@ describe('QuestionsSchema', () => {
     ['with an unknown topic', { topics: ['what', 'where'], whatOptions: ['A', 'B'] }],
     ['with no topics', { topics: [], whatOptions: ['A', 'B'] }],
     ['with one option', { topics: ['what'], whatOptions: ['A'] }],
-    ['with five options', { topics: ['what'], whatOptions: ['A', 'B', 'C', 'D', 'E'] }],
-    ['with the same option twice', { topics: ['what'], whatOptions: ['Bake', 'bake'] }],
+    ['with one option, offered twice', { topics: ['what'], whatOptions: ['Bake', 'bake'] }],
     ['with a blank option', { topics: ['what'], whatOptions: ['A', '  '] }],
     ['with an option over 40 characters', { topics: ['what'], whatOptions: ['A', 'x'.repeat(41)] }],
     ['with an extra key inside', { topics: ['what'], whatOptions: ['A', 'B'], wording: 'What?' }],
@@ -312,9 +311,34 @@ describe('QuestionsSchema', () => {
     );
     expect(r.questions.whatOptions).toEqual(['Staff the table', 'Bake']);
     expect(
-      parse(ask({ topics: ['what'], whatOptions: ['Staff  the table', 'staff the table'] }))
-        .success,
-    ).toBe(false);
+      QuestionsSchema.parse(
+        ask({ topics: ['what'], whatOptions: ['Staff  the table', 'Bake', 'staff the table'] }),
+      ).questions.whatOptions,
+    ).toEqual(['Staff the table', 'Bake']);
+  });
+
+  it('keeps the first four options, so five still ask a question', () => {
+    const r = QuestionsSchema.safeParse(
+      ask({ topics: ['what'], whatOptions: ['A', 'B', 'C', 'D', 'E'] }),
+    );
+    expect(r.success && r.data.questions.whatOptions).toEqual(['A', 'B', 'C', 'D']);
+  });
+
+  it('drops an option offered twice, case aside, before it keeps four', () => {
+    const r = QuestionsSchema.safeParse(
+      ask({ topics: ['what'], whatOptions: ['Bake', 'Staff', 'BAKE', 'Set up', 'Clean', 'Pack'] }),
+    );
+    expect(r.success && r.data.questions.whatOptions).toEqual(['Bake', 'Staff', 'Set up', 'Clean']);
+  });
+
+  it('checks only the options it keeps', () => {
+    const long = 'x'.repeat(41);
+    expect(parse(ask({ topics: ['what'], whatOptions: ['A', 'B', 'C', 'D', long] })).success).toBe(
+      true,
+    );
+    expect(parse(ask({ topics: ['what'], whatOptions: ['A', 'B', 'C', long, 'D'] })).success).toBe(
+      false,
+    );
   });
 
   it('lets a refusal win over anything beside it, as before', () => {
