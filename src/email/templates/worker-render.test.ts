@@ -31,7 +31,7 @@ function workerScript(): string {
  *
  * So this test shells out to the worker's real toolchain rather than importing
  * the templates directly. The set it covers is whatever
- * scripts/render-email-templates.ts lists — the sendable templates, plus the
+ * scripts/lib/email-samples.ts lists — the sendable templates, plus the
  * shared layout they all compose. If it fails, reminder emails are broken in
  * production even though every other email test is green.
  */

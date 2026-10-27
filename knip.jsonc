@@ -11,7 +11,5 @@
     // src/lib/log.ts names pino-pretty as a transport target.
     "eslint-config-next",
     "pino-pretty",
-    // knip assumes `email dev` needs it; react-email 3 ships its own.
-    "@react-email/preview-server",
   ],
 }
