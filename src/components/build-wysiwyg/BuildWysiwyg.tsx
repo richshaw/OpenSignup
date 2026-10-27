@@ -219,7 +219,7 @@ export function BuildWysiwyg({
   // the signup is published, the slot's row does. Deleting the slot, or
   // Duplicate opening its copy, closes it some other way and hands nothing
   // back.
-  const rowAsks = (rowId: string | null, byKeyboard = false) => {
+  const rowAsks = (rowId: string | null, byKeyboard?: boolean) => {
     if (rowId === null) {
       const closing = expandedRowId;
       if (!(fixRow.current === closing && handBack())) setRowToRefocus(closing);
