@@ -128,8 +128,7 @@ export function EnumPicker({
           ))}
           {options.length > 0 && <div className="my-1 h-px bg-surface-sunk" />}
           {adding ? (
-            <div className="flex items-center gap-1 rounded-md bg-brand-soft px-1.5 py-1">
-              <Plus size={11} className="shrink-0 text-brand" />
+            <div className="flex items-center gap-1 px-1 py-1">
               <input
                 autoFocus
                 value={draft}
@@ -145,16 +144,16 @@ export function EnumPicker({
                   }
                 }}
                 onBlur={commitNew}
-                placeholder="New item name"
+                placeholder="Type a new item"
                 aria-label="New option name"
-                className="min-w-0 flex-1 border-none bg-transparent px-0 py-1 text-xs text-ink outline-none"
+                className="min-w-0 flex-1 rounded border border-surface-sunk bg-white px-2 py-1.5 text-xs text-ink outline-none focus:border-brand"
               />
               <button
                 type="button"
                 // Keeps focus in the box, so its blur doesn't add first.
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={commitNew}
-                className="shrink-0 rounded border-none bg-brand px-2 py-0.5 text-[11px] font-semibold text-white cursor-pointer hover:brightness-110"
+                className="shrink-0 rounded border-none bg-brand px-2.5 py-1.5 text-xs font-semibold text-white cursor-pointer hover:brightness-110"
               >
                 Add
               </button>
