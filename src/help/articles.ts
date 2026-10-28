@@ -42,9 +42,9 @@ export const HELP_ARTICLES = [
     slug: 'close-or-reopen-a-signup',
     title: 'Close or reopen a signup',
     summary:
-      "Stop anyone new signing up, and let people sign up again at the same link when you're ready.",
+      "Pause or stop sign-ups, and let people sign up again at the same link when you're ready.",
     description:
-      'Close your signup so nobody new can sign up, and everyone already signed up keeps their spot. Reopen it later, at the same link.',
+      'Pause or close your signup so nobody new can sign up, and everyone already signed up keeps their spot. Reopen it later, at the same link.',
   },
   {
     slug: 'connect-an-ai-assistant',

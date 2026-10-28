@@ -21,14 +21,13 @@ export interface SmtpConfig {
   from: string;
 }
 
-// A mail host that is down or firewalled has to fail in seconds, not
-// nodemailer's 30 s for DNS and 2 min for the connect. The connect limit is
-// per address: nodemailer tries each address the host's name resolves to in
-// turn and starts the limit again for each, so with three addresses down the
-// sign-in request's own 30 s limit (src/auth/magic-link-send.ts) runs out
-// first. Once a server answers, its pace is left to nodemailer's defaults
-// (30 s for the greeting, 10 min idle): a reminder that times out after the
-// relay took it is retried, and the participant gets it twice.
+// A mail host that is down or firewalled has to fail in seconds, within the
+// sign-in request's 30 s limit (src/auth/magic-link-send.ts). In nodemailer
+// 10.1, one 10 s connection deadline covers DNS, every address tried, TCP,
+// TLS, the greeting and STARTTLS. The DNS lookup uses the smaller of dnsTimeout
+// and connectionTimeout. Leave socketTimeout at nodemailer's default (10
+// minutes): a reminder that times out after the relay took it is retried, and
+// the participant gets it twice.
 const SMTP_DNS_TIMEOUT_MS = 10_000;
 const SMTP_CONNECTION_TIMEOUT_MS = 10_000;
 
@@ -38,6 +37,7 @@ const SMTP_CONNECTION_TIMEOUT_MS = 10_000;
 // worker sends one reminder at a time, so it seldom needs a second connection;
 // sign-in emails in the web server can overlap. A connection the server closes
 // while idle is dropped from the pool, and the next email opens a fresh one.
+// Nodemailer also closes a pooled connection after 4 minutes idle by default.
 const SMTP_MAX_CONNECTIONS = 3;
 const SMTP_MAX_MESSAGES_PER_CONNECTION = 100;
 

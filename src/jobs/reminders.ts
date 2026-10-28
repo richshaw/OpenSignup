@@ -10,7 +10,7 @@ import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
 import { alreadyRecorded } from '@/email/commitment-row';
 import { sendReminder } from '@/email/send';
-import { allOf, notifiableRules, wasToldDifferentTime } from './notify-rules';
+import { allOf, notifiableRules, slotSettled, wasToldDifferentTime } from './notify-rules';
 import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
 import { loadDueRow, recordWorkerEmailSent, workerEmailParts } from './worker-email';
 
@@ -36,6 +36,9 @@ const reminderDueRules = {
   'slot beyond the lead time': sql`${slots.slotAt} <= now() + ${leadInterval}`,
   // Not still in the afterglow of their own confirmation (see selectDueReminders).
   'signed up too recently': sql`${commitments.createdAt} < now() - make_interval(hours => ${REMINDER_SETTLE_HOURS})`,
+  // Not while the organizer may still be moving the slot, as for slot-change
+  // emails: a reminder between two saves would name a time that never stuck.
+  'slot still moving': slotSettled,
 } satisfies Record<string, SQL>;
 
 /**
