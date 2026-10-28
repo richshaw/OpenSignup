@@ -1,5 +1,10 @@
 import type { SignupStatus } from '@/schemas/signups';
 
+/** "1 spot" or "N spots". */
+export function spotCount(n: number): string {
+  return n === 1 ? '1 spot' : `${n} spots`;
+}
+
 /** A signup's spots, all slots together. */
 export interface SpotCounts {
   /** Spots confirmed and tentative sign-ups hold, as the public page counts them. */
@@ -66,10 +71,10 @@ export function closeSignupQuestion(counts: SpotCounts): string {
 
 function standing({ taken, total, open, allSlotsOpen }: SpotCounts): string {
   if (taken === 0) return 'Nobody has signed up yet.';
-  if (open === null) return taken === 1 ? '1 spot is taken.' : `${taken} spots are taken.`;
+  if (open === null) return `${spotCount(taken)} ${taken === 1 ? 'is' : 'are'} taken.`;
   if (open === 0) return allSlotsOpen ? 'Every spot is taken.' : 'No spots are open.';
   const verb = open === 1 ? 'is' : 'are';
-  if (total === null) return `${open} ${open === 1 ? 'spot' : 'spots'} ${verb} still open.`;
+  if (total === null) return `${spotCount(open)} ${verb} still open.`;
   return `${open} of ${total} spots ${verb} still open.`;
 }
 
@@ -83,8 +88,8 @@ function standing({ taken, total, open, allSlotsOpen }: SpotCounts): string {
 export function spotsTakenLine({ taken, total }: SpotCounts, status: SignupStatus): string {
   const counted =
     total === null || total === 0
-      ? `${taken} ${taken === 1 ? 'spot' : 'spots'} taken`
-      : `${taken} of ${total} ${total === 1 ? 'spot' : 'spots'} taken`;
+      ? `${spotCount(taken)} taken`
+      : `${taken} of ${spotCount(total)} taken`;
   if (status === 'closed') return `Closed · ${counted}`;
   if (status === 'archived') return `Archived · ${counted}`;
   return counted;

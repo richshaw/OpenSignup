@@ -106,6 +106,30 @@ describe('<EditForm /> quantity', () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  // Someone else took spots since the page loaded, leaving room for only the
+  // one the participant already holds.
+  it('says "up to 1 spot" after a refusal that leaves 1', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({
+        error: {
+          code: 'capacity_full',
+          message: 'only 1 left — you asked for 3',
+          suggestion: 'x',
+          details: { remaining: 1, requested: 3, capacity: 3 },
+        },
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(3, 1);
+
+    fireEvent.change(screen.getByLabelText('Spots'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Keep your 1 spot.');
+    expect(screen.getByText('You can have up to 1 spot on this slot.')).toBeInTheDocument();
+  });
+
   // The organizer deleted the signup, or the slot, while this page was open.
   it('says the signup is no longer available rather than "not found"', async () => {
     const fetchMock = vi.fn(async () => ({
