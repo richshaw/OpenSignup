@@ -168,15 +168,18 @@ describe('query budgets for the participant hot path (db)', () => {
       },
     ])}`;
 
-    const count = await countStatements(() =>
-      PublicSignupPage({ params: Promise.resolve({ slug }) }),
-    );
+    let page: unknown;
+    const count = await countStatements(async () => {
+      page = await PublicSignupPage({ params: Promise.resolve({ slug }) });
+    });
+    // A participant gets no organizer strip.
+    expect((page as { props: { children: unknown[] } }).props.children[0]).toBeNull();
     expectWithinBudget('GET /s/[slug]', count);
   });
 
   // A visitor without a session cookie costs the session read nothing (the
   // case above); an organizer opening their own signup's link pays for it, and
-  // gets the organizer bar.
+  // gets the organizer strip.
   it('GET /s/[slug], signed in as its organizer', async () => {
     const sessionToken = randomBytes(32).toString('hex');
     await getDb()
@@ -195,9 +198,10 @@ describe('query budgets for the participant hot path (db)', () => {
       page = await PublicSignupPage({ params: Promise.resolve({ slug }) });
     });
     cookieHeader = '';
-    const view = (page as { props: { children: { props: Record<string, unknown> }[] } }).props
-      .children[1];
-    expect(view?.props.organizerSignupId).toBe(signupId);
+    // The page is a fragment: the organizer strip, then <main>.
+    const strip = (page as { props: { children: ({ props: Record<string, unknown> } | null)[] } })
+      .props.children[0];
+    expect(strip?.props.signupId).toBe(signupId);
     expectWithinBudget('GET /s/[slug], signed in as its organizer', count);
   });
 

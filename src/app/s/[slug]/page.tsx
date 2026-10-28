@@ -6,18 +6,14 @@ import { after } from 'next/server';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
 import { commitmentEditUrl } from '@/lib/links';
-import {
-  COMMIT_COOKIE_NAME,
-  parseReturningCommits,
-} from '@/lib/returning-participant';
+import { COMMIT_COOKIE_NAME, parseReturningCommits } from '@/lib/returning-participant';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { readRequestSignals, recordPublicView } from '@/lib/view-tracker';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { loadPublicSignup } from '@/services/signups.cached';
 import { organizerBarSignupId } from './organizer-bar';
-import SignupView, {
-  toSignupViewProps,
-} from './signup-view';
+import { OrganizerStrip } from './organizer-strip';
+import SignupView, { toSignupViewProps } from './signup-view';
 import { SignupStateMessage } from './state-message';
 
 type PageParams = { params: Promise<{ slug: string }> };
@@ -119,9 +115,13 @@ export default async function PublicSignupPage({ params }: PageParams) {
     }),
   );
 
+  // The organizer strip sits above <main>, so the page under it is exactly
+  // what participants see.
   return (
-    <main className="flex min-h-[100svh] flex-col pb-24 pt-10 sm:pt-14">
-      {/* Brand mark only. The old "· Public signup" segment told participants
+    <>
+      {organizerSignupId ? <OrganizerStrip signupId={organizerSignupId} /> : null}
+      <main className="flex min-h-[100svh] flex-col pb-24 pt-10 sm:pt-14">
+        {/* Brand mark only. The old "· Public signup" segment told participants
           nothing actionable — they arrive from a shared link, and the title and
           Sign-up buttons already say what the page is. "Public" was also
           ambiguous: it is true in the sense the product means it (no account,
@@ -135,21 +135,21 @@ export default async function PublicSignupPage({ params }: PageParams) {
           or PPR, and the repo has neither — but this link is a one-off brand
           mark nobody races to follow, so there is no reason to leave the
           coupling in place. */}
-      <div className="container-tight mb-7 text-[13px]">
-        <Link
-          href="/"
-          prefetch={false}
-          className="font-semibold tracking-tight text-ink hover:underline"
-        >
-          {INSTANCE_NAME}
-        </Link>
-      </div>
-      <SignupView
-        {...toSignupViewProps(sig, sig.committedBySlot)}
-        mode="live"
-        ownCommitments={ownCommitments}
-        {...(organizerSignupId ? { organizerSignupId } : {})}
-      />
-    </main>
+        <div className="container-tight mb-7 text-[13px]">
+          <Link
+            href="/"
+            prefetch={false}
+            className="font-semibold tracking-tight text-ink hover:underline"
+          >
+            {INSTANCE_NAME}
+          </Link>
+        </div>
+        <SignupView
+          {...toSignupViewProps(sig, sig.committedBySlot)}
+          mode="live"
+          ownCommitments={ownCommitments}
+        />
+      </main>
+    </>
   );
 }
