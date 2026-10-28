@@ -50,11 +50,10 @@ async function requireActor() {
  *
  * Publish first checks a draft as it's stored (the header has saved the Build
  * tab's edits by then): no slots, no fields or every slot empty answers with
- * the check and publishes nothing, and so does a slot still saying "TBD"
- * unless `form` says the organizer chose Publish anyway
- * (`acknowledge=placeholder`). The form can't wave a blocking problem
- * through. The check reads without a lock, so an edit landing between it and
- * the publish (from another tab, or an AI assistant) isn't checked: a narrow
+ * the check and publishes nothing. A slot saying "TBD" publishes: the
+ * organizer may mean it. The check
+ * reads without a lock, so an edit landing between it and the publish (from
+ * another tab, or an AI assistant) isn't checked: a narrow
  * race, and what's published is what the page then shows. A viewer is
  * refused before anything is checked. A signup that isn't a draft goes
  * straight to the service, which says it changed since the page loaded. The
@@ -62,7 +61,6 @@ async function requireActor() {
  */
 export async function publishAction(
   signupId: string,
-  form?: FormData,
 ): Promise<{ error: string } | { published: true } | PublishCheckAnswer> {
   const actor = await requireActor();
   const db = getDb();
@@ -72,20 +70,15 @@ export async function publishAction(
     return loaded;
   });
   if (!read.ok) return { error: statusRefusal(read.error, 'publish') };
-  // Publish anyway past a slot still saying TBD, which signup.published records.
-  let anyway = false;
   if (read.value.status === 'draft') {
     const check = checkBeforePublish(read.value);
-    anyway = check?.kind === 'placeholder' && form?.get('acknowledge') === 'placeholder';
-    if (check && !anyway) {
+    if (check) {
       // #525's count of refused publishes, now that the service doesn't see these.
       await refusalAsResult(() => recordPublishCheck(db, actor, signupId, check));
       return { check, copy: publishCheckCopy(check), target: publishCheckTarget(check) };
     }
   }
-  const result = await refusalAsResult(() =>
-    publishSignup(db, actor, signupId, anyway ? { acknowledged: 'placeholder' } : {}),
-  );
+  const result = await refusalAsResult(() => publishSignup(db, actor, signupId));
   if (!result.ok) return { error: statusRefusal(result.error, 'publish') };
   revalidateSignup(signupId);
   return { published: true };

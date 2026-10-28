@@ -10,11 +10,8 @@ import type { PublishCheckAnswer } from '@/lib/publish-check';
  * found (which opens its panel), or nothing.
  */
 type StatusActionState = { error: string } | { published: true } | PublishCheckAnswer | null;
-/**
- * Publish takes a form saying the organizer chose Publish anyway; Close
- * signup and Reopen signup take none.
- */
-export type StatusAction = (form?: FormData) => Promise<StatusActionState>;
+/** Publish, Close signup or Reopen signup, none of which reads a form. */
+export type StatusAction = () => Promise<StatusActionState>;
 /**
  * An action that only changes the signup's status, as Close signup does: it
  * takes no form, and answers null once the status has changed or why it
@@ -42,10 +39,7 @@ export function StatusActionScope({
   action: StatusAction;
   children: ReactNode;
 }) {
-  const scope = useActionState(
-    (_previous: StatusActionState, form: FormData) => action(form),
-    null,
-  );
+  const scope = useActionState<StatusActionState, FormData>(() => action(), null);
   return <StatusActionContext.Provider value={scope}>{children}</StatusActionContext.Provider>;
 }
 
