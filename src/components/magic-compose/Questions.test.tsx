@@ -72,8 +72,8 @@ function answerEverything() {
     target: { value: '1' },
   });
   fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-14' } });
-  fireEvent.change(screen.getByLabelText('Start time (optional)'), { target: { value: '09:00' } });
-  fireEvent.change(screen.getByLabelText('End time (optional)'), { target: { value: '13:00' } });
+  fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '09:00' } });
+  fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '13:00' } });
 }
 
 const ANSWERED = {
@@ -100,8 +100,8 @@ function expectEveryAnswerKept() {
   expect(screen.getByRole('spinbutton', { name: 'People for Bring drinks' })).toHaveValue(1);
   expect(screen.getByRole('spinbutton', { name: 'People for Clean up after' })).toHaveValue(null);
   expect(screen.getByLabelText('Date')).toHaveValue('2026-11-14');
-  expect(screen.getByLabelText('Start time (optional)')).toHaveValue('09:00');
-  expect(screen.getByLabelText('End time (optional)')).toHaveValue('13:00');
+  expect(screen.getByLabelText('Starts')).toHaveValue('09:00');
+  expect(screen.getByLabelText('Ends')).toHaveValue('13:00');
 }
 
 describe('<MagicComposeRoot /> questions', () => {
@@ -311,7 +311,7 @@ describe('<MagicComposeRoot /> questions', () => {
   it('stops for Draft with placeholders what it stops for Draft my signup', async () => {
     const sent = stubReplies(asks());
     await openQuestions();
-    fireEvent.change(screen.getByLabelText('Start time (optional)'), {
+    fireEvent.change(screen.getByLabelText('Starts'), {
       target: { value: '09:00' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Draft with placeholders' }));
@@ -335,19 +335,28 @@ describe('<MagicComposeRoot /> questions', () => {
     });
   });
 
-  it("doesn't send an end time before the start time", async () => {
-    const sent = stubReplies(asks());
+  it('lists only end times after the start, and clears the end when the start passes it', async () => {
+    stubReplies(asks());
     await openQuestions();
-    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-14' } });
-    fireEvent.change(screen.getByLabelText('Start time (optional)'), {
-      target: { value: '13:00' },
-    });
-    fireEvent.change(screen.getByLabelText('End time (optional)'), { target: { value: '09:00' } });
-    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'The end time must be after the start time.',
-    );
-    expect(() => sent(1)).toThrow();
+    const starts = screen.getByLabelText('Starts');
+    const ends = screen.getByLabelText('Ends');
+    expect(within(starts).getByRole('option', { name: 'No time' })).toBeInTheDocument();
+    fireEvent.change(starts, { target: { value: '09:00' } });
+    const endTimes = within(ends)
+      .getAllByRole('option')
+      .map((o) => (o as HTMLOptionElement).value)
+      .filter(Boolean);
+    expect(endTimes[0]).toBe('09:15');
+    expect(within(ends).getByRole('option', { name: '1:00\u00a0PM (4 hr)' })).toBeInTheDocument();
+    fireEvent.change(ends, { target: { value: '13:00' } });
+    expect(ends).toHaveValue('13:00');
+
+    // An earlier start keeps the end.
+    fireEvent.change(starts, { target: { value: '08:00' } });
+    expect(ends).toHaveValue('13:00');
+    // A start at or past it clears it.
+    fireEvent.change(starts, { target: { value: '13:00' } });
+    expect(ends).toHaveValue('');
   });
 
   it("doesn't send a date with a short year, and stops it on the page", async () => {
@@ -364,10 +373,10 @@ describe('<MagicComposeRoot /> questions', () => {
   it('asks for a date rather than dropping times typed without one', async () => {
     const sent = stubReplies(asks());
     await openQuestions();
-    fireEvent.change(screen.getByLabelText('Start time (optional)'), {
+    fireEvent.change(screen.getByLabelText('Starts'), {
       target: { value: '09:00' },
     });
-    fireEvent.change(screen.getByLabelText('End time (optional)'), { target: { value: '13:00' } });
+    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '13:00' } });
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Add a date, or leave the times empty.',
@@ -396,18 +405,14 @@ describe('<MagicComposeRoot /> questions', () => {
     try {
       stubReplies(asks());
       await openQuestions();
-      fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-14' } });
-      fireEvent.change(screen.getByLabelText('Start time (optional)'), {
+      fireEvent.change(screen.getByLabelText('Starts'), {
         target: { value: '13:00' },
-      });
-      fireEvent.change(screen.getByLabelText('End time (optional)'), {
-        target: { value: '09:00' },
       });
       const button = screen.getByRole('button', { name: /Draft my signup/ });
       button.focus();
       fireEvent.click(button);
       const alert = screen.getByRole('alert');
-      expect(alert).toHaveTextContent('The end time must be after the start time.');
+      expect(alert).toHaveTextContent('Add a date, or leave the times empty.');
       expect(alert.parentElement).toHaveFocus();
       expect(scrollIntoView).toHaveBeenCalledTimes(1);
       expect(scrollIntoView.mock.contexts[0]).toBe(alert.parentElement);
@@ -428,14 +433,12 @@ describe('<MagicComposeRoot /> questions', () => {
     await openQuestions();
     fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
     fireEvent.click(screen.getByRole('button', { name: 'More people for Staff the table' }));
-    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-14' } });
-    fireEvent.change(screen.getByLabelText('Start time (optional)'), {
+    fireEvent.change(screen.getByLabelText('Starts'), {
       target: { value: '13:00' },
     });
-    fireEvent.change(screen.getByLabelText('End time (optional)'), { target: { value: '09:00' } });
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'The end time must be after the start time.',
+      'Add a date, or leave the times empty.',
     );
 
     // − at 1, and a count box left as it was, change nothing.
@@ -443,7 +446,7 @@ describe('<MagicComposeRoot /> questions', () => {
     fireEvent.blur(screen.getByRole('spinbutton', { name: 'People for Staff the table' }));
     expect(screen.getByRole('alert')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('End time (optional)'), { target: { value: '14:00' } });
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-14' } });
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -528,10 +531,10 @@ describe('<MagicComposeRoot /> questions', () => {
     stubReplies(asks());
     await openQuestions();
     fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
-    fireEvent.change(screen.getByLabelText('Start time (optional)'), {
+    fireEvent.change(screen.getByLabelText('Starts'), {
       target: { value: '09:00' },
     });
-    fireEvent.change(screen.getByLabelText('End time (optional)'), { target: { value: '13:00' } });
+    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '13:00' } });
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(screen.getByRole('textbox')).toHaveValue(
       'Bake sale\nWhat: Staff the table (no limit)\nWhen: 9am to 1pm',

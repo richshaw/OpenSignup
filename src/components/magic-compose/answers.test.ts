@@ -12,6 +12,7 @@ import {
   parseCount,
   sameAnswers,
   stepCount,
+  timeLength,
   togglePick,
   type Answers,
 } from './answers';
@@ -292,5 +293,14 @@ describe('counts', () => {
     expect(stepCount('2.5', 1)).toBe('3');
     expect(stepCount('2.5', -1)).toBe('2');
     expect(stepCount('0.4', -1)).toBe('1');
+  });
+});
+
+describe('timeLength', () => {
+  it('says how long, in hours and minutes', () => {
+    expect(timeLength('09:00', '09:15')).toBe('15 min');
+    expect(timeLength('09:00', '13:00')).toBe('4 hr');
+    expect(timeLength('09:00', '10:30')).toBe('1 hr 30 min');
+    expect(timeLength('09:10', '09:15')).toBe('5 min');
   });
 });

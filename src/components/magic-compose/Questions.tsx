@@ -34,11 +34,13 @@ import {
   sameAnswers,
   stepCount,
   togglePick,
+  timeLength,
   type Answers,
 } from './answers';
 import { DETAILS_STEP, DRAFT_STEPS, FRAME, PulseMark, StepList, type StepRow } from './Steps';
 import { HereDot, StepLine } from './StepLine';
 import { YouWrote } from './YouWrote';
+import { TimeSelect } from '@/components/build-shared/TimeSelect';
 
 const WHEN_CHOICES: Array<{ kind: WhenAnswer['kind']; label: string }> = [
   { kind: 'one_day', label: 'One day' },
@@ -444,34 +446,35 @@ function When({ answers, update }: Part) {
             onChange={(e) => set({ date: e.target.value })}
             className={`${BOX} ${BOX_FOCUS} px-3`}
           />
-          {/* The times run a pixel past the border each way, so each is a 44px target. */}
-          <span
-            className={`${BOX} flex items-center gap-1.5 px-3 focus-within:border-brand sm:pl-2.5 sm:pr-1`}
-          >
-            <label htmlFor={`${id}from`} className="sr-only">
-              Start time (optional)
+          <div className="flex items-center gap-2">
+            <label htmlFor={`${id}from`} className="text-[15px] font-medium">
+              Starts
             </label>
-            <input
+            <TimeSelect
               id={`${id}from`}
-              type="time"
               value={answers.from}
-              onChange={(e) => set({ from: e.target.value })}
-              className="h-11 min-w-0 flex-1 border-0 bg-transparent p-0 outline-none"
+              // A start at or past the chosen end clears the end, so the pair
+              // stays in order.
+              onChange={(from) =>
+                set(from && answers.to && answers.to <= from ? { from, to: '' } : { from })
+              }
+              className={`${BOX} ${BOX_FOCUS} min-w-0 flex-1 px-3 sm:flex-none`}
             />
-            <span aria-hidden="true" className="text-ink-soft">
-              –
-            </span>
-            <label htmlFor={`${id}to`} className="sr-only">
-              End time (optional)
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor={`${id}to`} className="text-[15px] font-medium">
+              Ends
             </label>
-            <input
+            <TimeSelect
               id={`${id}to`}
-              type="time"
               value={answers.to}
-              onChange={(e) => set({ to: e.target.value })}
-              className="h-11 min-w-0 flex-1 border-0 bg-transparent p-0 outline-none"
+              onChange={(to) => set({ to })}
+              {...(answers.from
+                ? { after: answers.from, note: (t: string) => timeLength(answers.from, t) }
+                : {})}
+              className={`${BOX} ${BOX_FOCUS} min-w-0 flex-1 px-3 sm:flex-none`}
             />
-          </span>
+          </div>
           <span className="text-[13px] text-ink-soft">Times are optional.</span>
         </div>
       )}

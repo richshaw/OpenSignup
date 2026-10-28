@@ -190,7 +190,7 @@ describe('SlotEditor', () => {
     expect(onFocused).toHaveBeenCalledTimes(1);
   });
 
-  it('renders native input types for date / time / number fields', () => {
+  it('renders native input types for date and number fields, and a select for time', () => {
     renderEditor({
       fields: [
         makeField({ id: 'f1', ref: 'date', name: 'Date', config: { fieldType: 'date' } }),
@@ -203,10 +203,34 @@ describe('SlotEditor', () => {
     expect(date.type).toBe('date');
     // The services refuse a date before 1900.
     expect(date.min).toBe('1900-01-01');
-    expect((screen.getByLabelText('Time value') as HTMLInputElement).type).toBe('time');
+    expect(screen.getByLabelText('Time value').tagName).toBe('SELECT');
     const qty = screen.getByLabelText('Quantity value') as HTMLInputElement;
     expect(qty.type).toBe('number');
     expect(qty.inputMode).toBe('numeric');
+  });
+
+  it('saves a time picked from the Time cell', () => {
+    const { onCellChange } = renderEditor({
+      fields: [makeField({ ref: 'time', name: 'Time', config: { fieldType: 'time' } })],
+      row: makeRow({ values: {} }),
+    });
+    const time = screen.getByLabelText('Time value');
+    expect(time).toHaveValue('');
+    expect(screen.getByRole('option', { name: 'No time' })).toBeInTheDocument();
+    fireEvent.change(time, { target: { value: '18:30' } });
+    expect(onCellChange).toHaveBeenCalledWith('time', '18:30');
+  });
+
+  it('keeps a time off the 15-minute grid through opening and closing the editor', () => {
+    const fields = [makeField({ ref: 'time', name: 'Time', config: { fieldType: 'time' } })];
+    const row = makeRow({ values: { time: '09:10' } });
+    const { onCellChange, unmount } = renderEditor({ fields, row });
+    expect(screen.getByLabelText('Time value')).toHaveValue('09:10');
+    expect(screen.getByRole('option', { name: '9:10\u00a0AM' })).toBeInTheDocument();
+    unmount();
+    renderEditor({ fields, row, onCellChange });
+    expect(screen.getByLabelText('Time value')).toHaveValue('09:10');
+    expect(onCellChange).not.toHaveBeenCalled();
   });
 
   // A label around the picker passes each click inside the menu on to the

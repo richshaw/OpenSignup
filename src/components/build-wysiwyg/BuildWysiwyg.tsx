@@ -222,7 +222,7 @@ export function BuildWysiwyg({
       !e.defaultPrevented &&
       !e.nativeEvent.isComposing &&
       e.nativeEvent.keyCode !== 229 &&
-      /^(text|number|date|time)$/.test(box.type) &&
+      /^(text|number|date)$/.test(box.type) &&
       box.closest<HTMLElement>('[data-slot-editor]')?.dataset.slotEditor === fixRow.current &&
       handBack()
     ) {
@@ -241,7 +241,7 @@ export function BuildWysiwyg({
     if (!editor) return;
     const box = editor.querySelector<HTMLElement>('[data-field-ref]');
     const control = box
-      ? box.querySelector<HTMLElement>('input, button')
+      ? box.querySelector<HTMLElement>('input, select, button')
       : editor.querySelector<HTMLElement>('input');
     editor.scrollIntoView?.({ block: 'center' });
     control?.focus({ preventScroll: true });
