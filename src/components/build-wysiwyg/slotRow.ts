@@ -1,29 +1,3 @@
-import { placeholderIn } from '@/lib/placeholder-text';
-import type { SignupStatus } from '@/schemas/signups';
-
-/**
- * The tag on a slot row whose values still hold TBD, TBC or TBA, by the test
- * Publish's check uses, naming the first one in the fields' order: "Still
- * says “TBD”" on a draft; "People can see “TBD”" once people can open the
- * page, while it's open or closed (an archived signup shows them none of it).
- * Null when the slot holds none.
- */
-export function placeholderMark(
-  values: Record<string, unknown>,
-  fields: readonly { ref: string }[],
-  status: SignupStatus,
-): string | null {
-  for (const { ref } of fields) {
-    const word = placeholderIn(values[ref]);
-    if (word) {
-      return status === 'open' || status === 'closed'
-        ? `People can see “${word}”`
-        : `Still says “${word}”`;
-    }
-  }
-  return null;
-}
-
 type SlotNameParts = {
   anchor: string;
   time: boolean;
@@ -64,17 +38,11 @@ export function slotActionLabels(parts: SlotNameParts): {
 }
 
 /**
- * A collapsed slot row's accessible name: "Edit" and the slot's name, then
- * what else the row shows, in its order: its tag, if it has one ("still says
- * “TBD”"), and the spots taken ("0 of 6 taken").
+ * A collapsed slot row's accessible name: "Edit" and the slot's name, then the
+ * spots taken the row shows ("0 of 6 taken").
  */
-export function slotRowLabel({
-  mark,
-  count,
-  ...parts
-}: SlotNameParts & { mark: string | null; count: string }): string {
-  const tag = mark ? `, ${mark.charAt(0).toLowerCase()}${mark.slice(1)}` : '';
-  return `Edit ${slotName(parts)}${tag}, ${count}`;
+export function slotRowLabel({ count, ...parts }: SlotNameParts & { count: string }): string {
+  return `Edit ${slotName(parts)}, ${count}`;
 }
 
 /** The spots a slot row says are taken: "2 of 6 taken", or "2 taken" with no limit. */

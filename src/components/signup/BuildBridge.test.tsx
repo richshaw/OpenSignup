@@ -61,21 +61,21 @@ describe('BuildBridge', () => {
   it('asks the Build tab while it shows, and passes on whether it could open the slot', () => {
     const tab = { ...idleTab(), openSlot: vi.fn(() => false) };
     const { bridge } = renderBridge(tab);
-    expect(bridge().openSlot('slot_a', 'what')).toBe(false);
-    expect(tab.openSlot).toHaveBeenCalledWith('slot_a', 'what');
+    expect(bridge().openSlot('slot_a')).toBe(false);
+    expect(tab.openSlot).toHaveBeenCalledWith('slot_a');
     expect(router.push).not.toHaveBeenCalled();
   });
 
   it('from another tab goes to Build, which takes the request once as it mounts', () => {
     const { bridge, show } = renderBridge(null);
-    expect(bridge().openSlot(null, null)).toBe(true);
+    expect(bridge().openSlot(null)).toBe(true);
     expect(router.push).toHaveBeenCalledWith('/app/signups/sig_1/build');
 
     const tab = idleTab();
     nav.pathname = BUILD;
     show(tab);
     expect(tab.openSlot).toHaveBeenCalledOnce();
-    expect(tab.openSlot).toHaveBeenCalledWith(null, null);
+    expect(tab.openSlot).toHaveBeenCalledWith(null);
 
     // Mounted again, as Back and then Forward would: no second slot.
     show(null);
@@ -86,7 +86,7 @@ describe('BuildBridge', () => {
 
   it('drops the request when the organizer ends up on another tab instead', () => {
     const { bridge, show } = renderBridge(null);
-    bridge().openSlot(null, null);
+    bridge().openSlot(null);
     // They went to Settings rather than waiting for Build.
     nav.pathname = '/app/signups/sig_1/settings';
     show(null);
@@ -107,7 +107,7 @@ describe('BuildBridge', () => {
     function pressedOnSettings() {
       nav.pathname = '/app/signups/sig_1/settings';
       const view = renderBridge(null);
-      view.bridge().openSlot(null, null);
+      view.bridge().openSlot(null);
       return view;
     }
 
@@ -122,7 +122,7 @@ describe('BuildBridge', () => {
     it('is kept through a re-render on the same page', () => {
       const { show } = pressedOnSettings();
       show(null);
-      expect(buildArrives(show)).toHaveBeenCalledWith(null, null);
+      expect(buildArrives(show)).toHaveBeenCalledWith(null);
     });
 
     it('is kept when the organizer chooses Build themselves', () => {
