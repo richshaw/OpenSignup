@@ -30,16 +30,8 @@ vi.mock('@/components/share/load-share-panel', async (importOriginal) => {
 });
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
-const LATER = 'People will see that, and a published signup can’t go back to being a draft.';
 
 const EMPTY: PublishCheck = { kind: 'all_blank', slotId: 'slot_a', slotCount: 1 };
-const TBD: PublishCheck = {
-  kind: 'placeholder',
-  slotIds: ['slot_b'],
-  words: ['TBD'],
-  fieldRef: 'what',
-  slotLabel: 'Sat, Nov 14',
-};
 
 /** What the action answers for `check`, with the words the server puts with it. */
 const answer = (check: PublishCheck) => ({
@@ -185,7 +177,6 @@ describe('Publish and share', () => {
 
     await act(async () => saved(true));
     expect(publish).toHaveBeenCalledOnce();
-    expect(publish.mock.calls[0]?.[0]?.get('acknowledge')).toBeNull();
     expect(await screen.findByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
   });
 
@@ -370,29 +361,13 @@ describe('the check on a computer', () => {
   });
 
   it('closes when Publish and share is pressed again, without publishing', async () => {
-    const publish = vi.fn<StatusAction>(async () => answer(TBD));
+    const publish = vi.fn<StatusAction>(async () => answer(EMPTY));
     render(<Header action={publish} />);
     await press(publishIn('desktop'));
-    expect(screen.getByRole('dialog', { name: 'Before people see it' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Nothing to sign up for yet' })).toBeInTheDocument();
     await press(publishIn('desktop'));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(publish).toHaveBeenCalledOnce();
-  });
-
-  it('warns about a placeholder, and Publish anyway publishes past it', async () => {
-    const publish = vi.fn<StatusAction>(async (form) =>
-      form?.get('acknowledge') === 'placeholder' ? { published: true } : answer(TBD),
-    );
-    render(<Header action={publish} />);
-    await press(publishIn('desktop'));
-    const panel = screen.getByRole('dialog', { name: 'Before people see it' });
-    expect(panel).toHaveAccessibleDescription(`Sat, Nov 14 still says “TBD”. ${LATER}`);
-    expect(within(panel).getByRole('button', { name: 'Name it first' })).toHaveFocus();
-
-    await press(within(panel).getByRole('button', { name: 'Publish anyway' }));
-    expect(publish).toHaveBeenCalledTimes(2);
-    expect(publish.mock.calls[1]?.[0]?.get('acknowledge')).toBe('placeholder');
-    expect(await screen.findByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
   });
 
   it('offers only Not now when there are no fields, with the focus on it', async () => {
@@ -407,11 +382,10 @@ describe('the check on a computer', () => {
     expect(within(panel).getByRole('button', { name: 'Not now' })).toHaveFocus();
   });
 
-  it.each<[string, PublishCheck, string | null, string | null]>([
-    ['an empty slot opens it, focus in its first field', EMPTY, 'slot_a', null],
-    ['a placeholder opens its slot, focus in its field', TBD, 'slot_b', 'what'],
-    ['no slots adds one and opens it', { kind: 'no_slots' }, null, null],
-  ])('the fix for %s on the Build tab', async (_name, check, slotId, fieldRef) => {
+  it.each<[string, PublishCheck, string | null]>([
+    ['an empty slot opens it', EMPTY, 'slot_a'],
+    ['no slots adds one and opens it', { kind: 'no_slots' }, null],
+  ])('the fix for %s on the Build tab', async (_name, check, slotId) => {
     const openSlot = vi.fn(() => true);
     render(
       <Header
@@ -422,14 +396,14 @@ describe('the check on a computer', () => {
     await press(publishIn('desktop'));
     fireEvent.click(screen.getByRole('button', { name: publishCheckCopy(check).fix ?? '' }));
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(openSlot).toHaveBeenCalledWith(slotId, fieldRef);
+    expect(openSlot).toHaveBeenCalledWith(slotId);
     expect(router.push).not.toHaveBeenCalled();
   });
 
   it('the fix on another tab goes to Build, with nothing in the address', async () => {
-    render(<Header action={async () => answer(TBD)} />);
+    render(<Header action={async () => answer(EMPTY)} />);
     await press(publishIn('desktop'));
-    fireEvent.click(screen.getByRole('button', { name: 'Name it first' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fill it in' }));
     expect(router.push).toHaveBeenCalledWith('/app/signups/sig_1/build');
   });
 });
@@ -438,19 +412,21 @@ describe('the check on a phone', () => {
   beforeEach(() => windowWidth(390));
 
   it('opens a sheet over the bar, the fix first, and ✕ puts focus back on Publish and share', async () => {
-    render(<Header action={async () => answer(TBD)} />);
+    render(<Header action={async () => answer(EMPTY)} />);
     const publish = publishIn('phone');
     await press(publish);
 
-    const sheet = await screen.findByRole('dialog', { name: 'Before people see it' });
-    expect(sheet).toHaveAccessibleDescription(`Sat, Nov 14 still says “TBD”. ${LATER}`);
+    const sheet = await screen.findByRole('dialog', { name: 'Nothing to sign up for yet' });
+    expect(sheet).toHaveAccessibleDescription(
+      'The slot is empty. Say what people sign up for, then publish.',
+    );
     expect(
       within(sheet)
         .getAllByRole('button')
         .map((b) => b.getAttribute('aria-label') ?? b.textContent),
-    ).toEqual(['Close', 'Name it first', 'Publish anyway']);
+    ).toEqual(['Close', 'Fill it in', 'Not now']);
     await waitFor(() =>
-      expect(within(sheet).getByRole('button', { name: 'Name it first' })).toHaveFocus(),
+      expect(within(sheet).getByRole('button', { name: 'Fill it in' })).toHaveFocus(),
     );
 
     fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
@@ -461,14 +437,14 @@ describe('the check on a phone', () => {
   it('gives focus back to Publish and share when the slot isn’t one this page has', async () => {
     render(
       <Header
-        action={async () => answer(TBD)}
+        action={async () => answer(EMPTY)}
         buildTab={{ flushPendingSaves: async () => true, openSlot: () => false }}
       />,
     );
     const publish = publishIn('phone');
     await press(publish);
-    const sheet = await screen.findByRole('dialog', { name: 'Before people see it' });
-    fireEvent.click(within(sheet).getByRole('button', { name: 'Name it first' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Nothing to sign up for yet' });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Fill it in' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(publish).toHaveFocus());
   });
@@ -489,7 +465,7 @@ describe('Done after the check’s fix', () => {
   const READY = 'Publish and share when you’re ready.';
   const RING = /\boutline-brand\b/;
 
-  /** The Build tab, its one slot still saying TBD: the slot `TBD`'s fix opens. */
+  /** The Build tab, its one slot empty: the slot `EMPTY`'s fix opens. */
   const buildTab = (
     <BuildWysiwyg
       signupId="sig_1"
@@ -504,7 +480,7 @@ describe('Done after the check’s fix', () => {
           config: { fieldType: 'text', maxLength: 200 },
         },
       ]}
-      initialSlots={[{ id: 'slot_b', capacity: 1, sortOrder: 0, values: { what: 'Cashier TBD' } }]}
+      initialSlots={[{ id: 'slot_a', capacity: 1, sortOrder: 0, values: {} }]}
       initialSettings={{
         requireEmail: true,
         allowNotes: true,
@@ -513,7 +489,6 @@ describe('Done after the check’s fix', () => {
         sendReminders: true,
         groupByFieldRefs: [],
       }}
-      status="draft"
       committedBySlot={{}}
     />
   );
@@ -540,10 +515,10 @@ describe('Done after the check’s fix', () => {
 
   it('on a computer, puts focus on Publish and share, rings it for a moment, and says so', async () => {
     windowWidth(1280);
-    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    render(<Header action={async () => answer(EMPTY)} page={buildTab} />);
     const publish = publishIn('desktop');
     await press(publish);
-    fireEvent.click(screen.getByRole('button', { name: 'Name it first' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fill it in' }));
     expect(what()).toHaveFocus();
     fireEvent.change(what(), { target: { value: 'Cashier' } });
     expect(publish.className).not.toMatch(RING);
@@ -554,7 +529,7 @@ describe('Done after the check’s fix', () => {
     expect(publish.className).toMatch(RING);
     expect(publishIn('phone').className).not.toMatch(RING);
     expect(screen.getByRole('status')).toHaveTextContent(READY);
-    // The slot is named now, and its mark has gone.
+    // The slot is named now.
     expect(screen.getByRole('button', { name: 'Edit slot — Cashier' })).toBeInTheDocument();
 
     act(() => vi.advanceTimersByTime(1_599));
@@ -566,11 +541,11 @@ describe('Done after the check’s fix', () => {
 
   it('on a phone, puts focus on the bar’s Publish and share', async () => {
     windowWidth(390);
-    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    render(<Header action={async () => answer(EMPTY)} page={buildTab} />);
     const publish = publishIn('phone');
     await press(publish);
-    const sheet = await screen.findByRole('dialog', { name: 'Before people see it' });
-    fireEvent.click(within(sheet).getByRole('button', { name: 'Name it first' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Nothing to sign up for yet' });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Fill it in' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
     expect(what()).toHaveFocus();
@@ -584,10 +559,10 @@ describe('Done after the check’s fix', () => {
 
   it('takes Enter in the field the fix put focus in as Done', async () => {
     windowWidth(1280);
-    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    render(<Header action={async () => answer(EMPTY)} page={buildTab} />);
     const publish = publishIn('desktop');
     await press(publish);
-    fireEvent.click(screen.getByRole('button', { name: 'Name it first' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fill it in' }));
     fireEvent.change(what(), { target: { value: 'Cashier' } });
     fireEvent.keyDown(what(), { key: 'Enter' });
     expect(screen.queryByRole('textbox', { name: 'What value' })).toBeNull();
@@ -598,11 +573,11 @@ describe('Done after the check’s fix', () => {
 
   it('ignores a held Enter’s repeats, so holding it after the slot doesn’t publish', async () => {
     windowWidth(1280);
-    const action = vi.fn(async () => answer(TBD));
+    const action = vi.fn(async () => answer(EMPTY));
     render(<Header action={action} page={buildTab} />);
     const publish = publishIn('desktop');
     await press(publish);
-    fireEvent.click(screen.getByRole('button', { name: 'Name it first' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fill it in' }));
     fireEvent.keyDown(what(), { key: 'Enter' });
     expect(publish).toHaveFocus();
     // fireEvent says false when the default was prevented: no click follows.
@@ -615,7 +590,7 @@ describe('Done after the check’s fix', () => {
 
   it('lets a held Tab move on past it, either way, on a computer and a phone', () => {
     windowWidth(1280);
-    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    render(<Header action={async () => answer(EMPTY)} page={buildTab} />);
     // fireEvent says true when nothing prevented the default: focus moves on.
     for (const button of [publishIn('desktop'), publishIn('phone')]) {
       expect(fireEvent.keyDown(button, { key: 'Tab', repeat: true })).toBe(true);
@@ -625,10 +600,10 @@ describe('Done after the check’s fix', () => {
 
   it('drops the ring early when focus moves on', async () => {
     windowWidth(1280);
-    render(<Header action={async () => answer(TBD)} page={buildTab} />);
+    render(<Header action={async () => answer(EMPTY)} page={buildTab} />);
     const publish = publishIn('desktop');
     await press(publish);
-    fireEvent.click(screen.getByRole('button', { name: 'Name it first' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fill it in' }));
     done();
     expect(publish.className).toMatch(RING);
     act(() => publish.blur());
@@ -637,10 +612,8 @@ describe('Done after the check’s fix', () => {
 
   it('leaves focus alone after a slot the organizer opened', () => {
     windowWidth(1280);
-    render(<Header action={async () => answer(TBD)} page={buildTab} />);
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Edit slot — Cashier TBD, still says “TBD”' }),
-    );
+    render(<Header action={async () => answer(EMPTY)} page={buildTab} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Set what' }));
     what().focus();
     // Enter does nothing new here: the slot stays open.
     fireEvent.keyDown(what(), { key: 'Enter' });

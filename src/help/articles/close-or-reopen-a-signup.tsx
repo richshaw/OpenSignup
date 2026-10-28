@@ -9,8 +9,8 @@ export function CloseOrReopenASignup() {
     <>
       <p>
         Once your signup is published, you can close it when you have enough people, or when
-        it&apos;s too late to sign up. Nobody new can sign up, and you can reopen it later at the
-        same link.
+        it&apos;s too late to sign up. You can also close it to pause sign-ups for a while. Nobody
+        new can sign up, and you can reopen it later at the same link.
       </p>
       <p>
         A slot is one thing people can sign up for, like snacks for one game. Each slot has one or
