@@ -1209,6 +1209,23 @@ describe('useBuildState updateSignupMeta', () => {
     expect(body.description).toBe('2');
   });
 
+  // An Editable commits on pagehide and useBuildState flushes straight after,
+  // with no render between (#699).
+  it('sends the new title when a flush follows the edit before any render', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderBuildWithMeta({ title: 'Old', description: 'desc' });
+    await act(async () => {
+      result.current.updateSignupMeta({ title: 'New title' });
+      await result.current.flushPendingSaves();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
+      title?: string;
+    };
+    expect(body.title).toBe('New title');
+  });
+
   it('reverts the title and surfaces an invalid_input error when the user clears it', async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
