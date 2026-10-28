@@ -4,6 +4,7 @@ import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
+import { SLOT_CHANGE_SETTLE_MINUTES } from '@/lib/reminder-eligibility';
 import { holdsPlace } from '@/services/commitments';
 
 /**
@@ -36,6 +37,24 @@ export const notifiableRules = {
   // Participants who gave no email: there is nowhere to send one.
   'participant has no email': isNotNull(participants.email),
 } satisfies Record<string, SQL>;
+
+/** A `slot.rescheduled` row, aliased `m`, for the slot in the joined query. */
+export const moveOfThisSlot = sql`m.event_type = 'slot.rescheduled'
+  AND m.signup_id = ${commitments.signupId}
+  AND (m.payload->>'slotId') = ${slots.id}`;
+
+/**
+ * The slot has sat still for `SLOT_CHANGE_SETTLE_MINUTES` since its last move.
+ * One move by the organizer is often several saves, so an email about the
+ * slot's time waits for it to settle: a slot-change email, and a reminder too,
+ * or a reminder sent between two saves names a time that never stuck and a
+ * change email for the real one follows.
+ */
+export const slotSettled: SQL = sql`NOT EXISTS (
+  SELECT 1 FROM activity m
+  WHERE ${moveOfThisSlot}
+    AND m.occurred_at > now() - make_interval(mins => ${SLOT_CHANGE_SETTLE_MINUTES})
+)`;
 
 /**
  * The names of the rules in `rules` a commitment fails right now, or null when
