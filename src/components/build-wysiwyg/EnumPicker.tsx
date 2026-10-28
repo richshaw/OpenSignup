@@ -141,7 +141,9 @@ export function EnumPicker({
           ))}
           {options.length > 0 && <div className="my-1 h-px bg-surface-sunk" />}
           {adding ? (
-            <div className="flex items-center gap-1 px-1 py-1">
+            // The input's left padding puts typed text in the options' label
+            // column: 4px menu + 1px border + 29px = 4 + px-2.5 + w-3 + gap-2.
+            <div className="flex items-center gap-1 py-1 pr-1">
               <input
                 autoFocus
                 value={draft}
@@ -160,7 +162,7 @@ export function EnumPicker({
                 onBlur={commitNew}
                 placeholder="Type a new item"
                 aria-label="New option name"
-                className="min-w-0 flex-1 rounded border border-surface-sunk bg-white px-2 py-1.5 text-xs text-ink outline-none focus:border-brand"
+                className="min-w-0 flex-1 rounded border border-surface-sunk bg-white py-1.5 pl-[29px] pr-2 text-xs text-ink outline-none focus:border-brand"
               />
               <button
                 type="button"
