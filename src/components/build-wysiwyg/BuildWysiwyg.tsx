@@ -231,7 +231,7 @@ export function BuildWysiwyg({
       !e.defaultPrevented &&
       !e.nativeEvent.isComposing &&
       e.nativeEvent.keyCode !== 229 &&
-      /^(text|number|date|time)$/.test(box.type) &&
+      /^(text|number|date)$/.test(box.type) &&
       box.closest<HTMLElement>('[data-slot-editor]')?.dataset.slotEditor === fixRow.current &&
       handBack()
     ) {
@@ -251,7 +251,7 @@ export function BuildWysiwyg({
     const boxes = Array.from(editor.querySelectorAll<HTMLElement>('[data-field-ref]'));
     const box = boxes.find((b) => b.dataset.fieldRef === focusRequest.fieldRef) ?? boxes[0];
     const control = box
-      ? box.querySelector<HTMLElement>('input, button')
+      ? box.querySelector<HTMLElement>('input, select, button')
       : editor.querySelector<HTMLElement>('input');
     editor.scrollIntoView?.({ block: 'center' });
     control?.focus({ preventScroll: true });

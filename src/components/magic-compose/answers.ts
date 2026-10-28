@@ -212,6 +212,15 @@ function formatTime(hhmm: string): string {
   return `${hour}${m ? `:${String(m).padStart(2, '0')}` : ''}${h < 12 ? 'am' : 'pm'}`;
 }
 
+/** How long from `start` to `end`, both "HH:MM": "15 min", "4 hr", "1 hr 30 min". */
+export function timeLength(start: string, end: string): string {
+  const minutes = (hhmm: string) => +hhmm.slice(0, 2) * 60 + +hhmm.slice(3);
+  const length = minutes(end) - minutes(start);
+  const h = Math.floor(length / 60);
+  const m = length % 60;
+  return [h && `${h} hr`, m && `${m} min`].filter(Boolean).join(' ');
+}
+
 /** "9am to 1pm", "from 9am" or "until 1pm", or null with neither time. */
 function formatTimes({ from, to }: { from?: string; to?: string }): string | null {
   if (from && to) return `${formatTime(from)} to ${formatTime(to)}`;

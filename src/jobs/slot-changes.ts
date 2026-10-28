@@ -5,9 +5,14 @@ import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { log } from '@/lib/log';
-import { SLOT_CHANGE_SETTLE_MINUTES } from '@/lib/reminder-eligibility';
 import { sendSlotChanged } from '@/email/send';
-import { allOf, notifiableRules, toldDifferentTime } from './notify-rules';
+import {
+  allOf,
+  moveOfThisSlot,
+  notifiableRules,
+  slotSettled,
+  toldDifferentTime,
+} from './notify-rules';
 import { getBoss, QUEUES, type SlotChangeSendPayload } from './queue';
 import { loadDueRow, recordWorkerEmailSent, workerEmailParts } from './worker-email';
 
@@ -18,11 +23,6 @@ import { loadDueRow, recordWorkerEmailSent, workerEmailParts } from './worker-em
  * says it changed. It also keeps the scan off the whole history of moves.
  */
 const LOOKBACK_DAYS = 7;
-
-/** A `slot.rescheduled` row for the slot in the joined query. */
-const moveOfThisSlot = sql`m.event_type = 'slot.rescheduled'
-  AND m.signup_id = ${commitments.signupId}
-  AND (m.payload->>'slotId') = ${slots.id}`;
 
 /**
  * When a commitment's slot-change email is due: the participant could get a
@@ -43,11 +43,7 @@ const slotChangeDueRules = {
     WHERE ${moveOfThisSlot}
       AND m.occurred_at > now() - make_interval(days => ${LOOKBACK_DAYS})
   )`,
-  'slot still moving': sql`NOT EXISTS (
-    SELECT 1 FROM activity m
-    WHERE ${moveOfThisSlot}
-      AND m.occurred_at > now() - make_interval(mins => ${SLOT_CHANGE_SETTLE_MINUTES})
-  )`,
+  'slot still moving': slotSettled,
   // A field change re-times slots (`rebuildSlotAt`) without moving them, and
   // records no move. Without this, a slot moved in the last week and then
   // re-timed that way would pass the two rules above, and everyone holding it
