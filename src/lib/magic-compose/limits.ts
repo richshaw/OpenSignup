@@ -11,6 +11,13 @@
  */
 export const MAGIC_COMPOSE_BUCKET = 'magic.compose';
 
+/**
+ * `LLM_TIMEOUT_MS` when an instance leaves it unset: the server's budget for
+ * one draft, retries included. The page reads the configured value, and falls
+ * back to this one.
+ */
+export const LLM_TIMEOUT_DEFAULT_MS = 180_000;
+
 /** How many options the model offers for "what do people sign up for?". */
 export const WHAT_OPTIONS_MIN = 2;
 export const WHAT_OPTIONS_MAX = 4;

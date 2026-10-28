@@ -104,6 +104,27 @@ describe('<MagicComposeRoot /> errors', () => {
     );
     expect(screen.getByRole('textbox')).toHaveValue('Bake sale');
   });
+
+  it("waits out the instance's own LLM_TIMEOUT_MS before giving up", () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise<Response>(() => {})),
+    );
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    render(<MagicComposeRoot llmTimeoutMs={300_000} />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bake sale' } });
+    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
+    act(() => {
+      vi.advanceTimersByTime(210_000);
+    });
+    expect(screen.queryByText(/taking longer than expected/)).not.toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(120_000);
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'AI drafting is taking longer than expected. Try again or simplify your prompt.',
+    );
+  });
 });
 
 describe('explainFetchError', () => {
