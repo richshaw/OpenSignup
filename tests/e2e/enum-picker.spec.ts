@@ -144,7 +144,7 @@ test.describe('list field picker', () => {
     expect(slot.ok()).toBe(true);
 
     await page.goto(`/app/signups/${signupId}/build`);
-    await page.getByRole('button', { name: 'Edit slot — Juice' }).click();
+    await page.getByRole('button', { name: /^Edit slot — Juice, / }).click();
     await page.getByRole('button', { name: 'Kind value' }).click();
     await page.getByRole('listbox', { name: 'Kind value' }).getByRole('button', { name: 'Add to list' }).click();
     await page.getByRole('textbox', { name: 'New option name' }).fill('Snacks');
