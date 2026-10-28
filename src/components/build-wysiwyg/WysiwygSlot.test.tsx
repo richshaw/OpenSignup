@@ -32,7 +32,7 @@ type RenderProps = {
   displayFields?: BuildField[];
   /** Every field, the group's too; the display fields when not given. */
   fields?: BuildField[];
-  onExpand?: Mock<() => void>;
+  onExpand?: Mock<(byKeyboard: boolean) => void>;
   onCollapse?: Mock<() => void>;
   onEditCell?: Mock<(fieldRef: string, value: string) => void>;
   onSetCapacity?: Mock<(capacity: number | null) => void>;
@@ -42,7 +42,7 @@ type RenderProps = {
 };
 
 function renderSlot(overrides: RenderProps = {}) {
-  const onExpand = overrides.onExpand ?? vi.fn<() => void>();
+  const onExpand = overrides.onExpand ?? vi.fn<(byKeyboard: boolean) => void>();
   const onCollapse = overrides.onCollapse ?? vi.fn<() => void>();
   const onEditCell = overrides.onEditCell ?? vi.fn<(fieldRef: string, value: string) => void>();
   const onSetCapacity = overrides.onSetCapacity ?? vi.fn<(capacity: number | null) => void>();
@@ -108,28 +108,32 @@ describe('WysiwygSlot — collapsed', () => {
     expect(screen.getByText('0 taken')).toBeTruthy();
   });
 
-  it('clicking the row body calls onExpand', () => {
+  it('clicking the row body calls onExpand, saying whether the keyboard pressed it', () => {
     const { onExpand } = renderSlot();
-    fireEvent.click(screen.getByRole('button', { name: /Edit slot at 9:00\u00a0AM/ }));
-    expect(onExpand).toHaveBeenCalled();
+    const row = screen.getByRole('button', { name: 'Edit slot at 9:00\u00a0AM, 0 of 2 taken' });
+    fireEvent.click(row, { detail: 0 });
+    fireEvent.click(row, { detail: 1 });
+    expect(onExpand.mock.calls).toEqual([[true], [false]]);
   });
 
-  it('toolbar Edit button calls onExpand', () => {
+  it('toolbar Edit button calls onExpand, saying whether the keyboard pressed it', () => {
     const { onExpand } = renderSlot();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    expect(onExpand).toHaveBeenCalled();
+    const edit = screen.getByRole('button', { name: 'Edit slot at 9:00\u00a0AM' });
+    fireEvent.click(edit, { detail: 0 });
+    fireEvent.click(edit, { detail: 1 });
+    expect(onExpand.mock.calls).toEqual([[true], [false]]);
   });
 
   it('toolbar Duplicate calls onDuplicate and stops propagation (no expand)', () => {
     const { onExpand, onDuplicate } = renderSlot();
-    fireEvent.click(screen.getByRole('button', { name: 'Duplicate' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate slot at 9:00\u00a0AM' }));
     expect(onDuplicate).toHaveBeenCalled();
     expect(onExpand).not.toHaveBeenCalled();
   });
 
   it('toolbar Delete calls onDelete and stops propagation', () => {
     const { onExpand, onDelete } = renderSlot();
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete slot at 9:00\u00a0AM' }));
     expect(onDelete).toHaveBeenCalled();
     expect(onExpand).not.toHaveBeenCalled();
   });
@@ -251,7 +255,7 @@ describe('WysiwygSlot — collapsed', () => {
 describe('WysiwygSlot — a slot that says TBD', () => {
   it('reads like any other row: no tag, no tint, and nothing added to its name', () => {
     renderSlot({ row: makeRow({ values: { shift: '13:00', notes: 'Job TBD' } }) });
-    const button = screen.getByRole('button', { name: 'Edit slot at 1:00\u00a0PM' });
+    const button = screen.getByRole('button', { name: 'Edit slot at 1:00\u00a0PM, 0 of 2 taken' });
     expect(button.textContent).toBe('1:00\u00a0PMJob TBD0 of 2 taken');
     expect(screen.queryByText(/still says/i)).toBeNull();
     expect(screen.getByTestId('wysiwyg-slot-r1').className).not.toMatch(/bg-warn/);

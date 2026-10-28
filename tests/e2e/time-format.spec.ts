@@ -42,7 +42,7 @@ test.describe('time field display', () => {
     await post(page.request, `/api/signups/${signup.id}/publish`);
 
     await page.goto(`/app/signups/${signup.id}/build`);
-    const builderRow = page.getByRole('button', { name: /Edit slot .*Snacks/ });
+    const builderRow = page.getByRole('button', { name: /^Edit slot .*Snacks.*taken$/ });
     await expect(builderRow).toContainText('6:30 PM');
     await expect(builderRow).not.toContainText('18:30');
 

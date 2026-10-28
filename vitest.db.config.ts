@@ -20,6 +20,10 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 30_000,
     fileParallelism: false,
+    // Bundled rather than loaded by Node, which cannot resolve its bare
+    // `next/server` import, and so that a test's vi.mock('next/headers')
+    // reaches it. Lets query-budget.db.test.ts count a real session read.
+    server: { deps: { inline: ['next-auth'] } },
   },
   resolve: {
     alias: {
