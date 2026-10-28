@@ -6,7 +6,7 @@ import {
   type AnchorCandidate,
 } from '@/lib/reminder-fields';
 import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
-import { spotCounts } from '@/lib/spot-counts';
+import { spotCount, spotCounts } from '@/lib/spot-counts';
 
 /** What the share message reads from a signup. `SignupWithSlots` has it all. */
 export interface ShareMessageSignup {
@@ -46,7 +46,7 @@ export function shareMessage(
   url: string,
   committedBySlot: Record<string, number> = {},
 ): string {
-  const facts = [dateSpan(signup, committedBySlot), spotCount(signup, committedBySlot)].filter(
+  const facts = [dateSpan(signup, committedBySlot), spotsOpen(signup, committedBySlot)].filter(
     (part): part is string => part !== null,
   );
   return [signup.title.trim(), facts.join(' · '), `Sign up here, no account needed: ${url}`]
@@ -134,14 +134,13 @@ function nextDay(day: string): string {
  * before anyone has signed up, "18 spots left" after. Null when an open
  * slot has no limit, or when no spot is left to offer.
  */
-function spotCount(
+function spotsOpen(
   { slots }: ShareMessageSignup,
   committedBySlot: Record<string, number>,
 ): string | null {
   const { taken, open } = spotCounts(slots, committedBySlot);
   if (open === null || open === 0) return null;
-  const spots = open === 1 ? '1 spot' : `${open} spots`;
-  return `${spots} ${taken === 0 ? 'open' : 'left'}`;
+  return `${spotCount(open)} ${taken === 0 ? 'open' : 'left'}`;
 }
 
 /**

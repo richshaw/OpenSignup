@@ -58,7 +58,7 @@ test.describe('list field picker', () => {
       expect(slot.ok()).toBe(true);
 
       await page.goto(`/app/signups/${signupId}/build`);
-      await page.getByRole('button', { name: 'Edit slot — Juice' }).click();
+      await page.getByRole('button', { name: /^Edit slot — Juice, / }).click();
 
       const trigger = page.getByRole('button', { name: 'Kind value' });
       const menu = page.getByRole('listbox', { name: 'Kind value' });

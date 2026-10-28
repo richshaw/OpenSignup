@@ -261,7 +261,7 @@ test.describe('organizer flow', () => {
       );
 
     await page.goto(`/app/signups/${signupId}/build`);
-    await page.getByRole('button', { name: /Edit slot .*Juice/ }).click();
+    await page.getByRole('button', { name: /^Edit slot .*Juice.*taken$/ }).click();
     const date = page.getByLabel('Date value');
     // The picker starts where the services do.
     await expect(date).toHaveAttribute('min', '1900-01-01');
@@ -511,7 +511,7 @@ for (const [device, viewport] of [
       const slot = page.getByTestId(`wysiwyg-slot-${draft.slotId}`);
       // Organizers often mean TBD, so the row reads like any other.
       await expect(
-        slot.getByRole('button', { name: 'Edit slot — Cashier TBD', exact: true }),
+        slot.getByRole('button', { name: /^Edit slot — Cashier TBD, \d+ of \d+ taken$/ }),
       ).toBeVisible();
       await expect(slot.getByText(/still says/i)).toHaveCount(0);
 
@@ -547,7 +547,7 @@ for (const [device, viewport] of [
       await expect(publish).toBeFocused();
       await expect(publish).toHaveCSS('outline-offset', '3px');
       await expect(ready(page)).toHaveCount(1);
-      await expect(slot.getByRole('button', { name: 'Edit slot — Cashier' })).toBeVisible();
+      await expect(slot.getByRole('button', { name: /^Edit slot — Cashier, / })).toBeVisible();
       await expect(publish).not.toHaveCSS('outline-offset', '3px');
       await expect(publish).toBeFocused();
 
@@ -565,7 +565,7 @@ for (const [device, viewport] of [
         values: { what: 'Cashier TBD', date: '2030-04-06' },
       });
       await page.goto(`/app/signups/${draft.id}/build`);
-      await page.getByRole('button', { name: /^Edit slot — Cashier TBD/ }).click();
+      await page.getByRole('button', { name: /^Edit slot — Cashier TBD, / }).click();
       const editor = page.getByTestId(`slot-editor-${draft.slotId}`);
       // Enter does nothing new in a slot opened by hand.
       await editor.getByRole('textbox', { name: 'What value' }).press('Enter');
@@ -636,7 +636,7 @@ test.describe('Publish’s check, around the Build tab', () => {
       values: { what: 'Juice', date: '2030-04-06' },
     });
     await page.goto(`/app/signups/${draft.id}/build`);
-    await page.getByRole('button', { name: /^Edit slot .*Juice/ }).click();
+    await page.getByRole('button', { name: /^Edit slot .*Juice.*taken$/ }).click();
     // The server refuses every slot save from here on.
     await page.route(`**/api/slots/${draft.slotId}`, (route) =>
       route.request().method() === 'PATCH'
@@ -666,7 +666,7 @@ test.describe('Publish’s check, around the Build tab', () => {
       values: { what: 'Juice' },
     });
     await page.goto(`/app/signups/${draft.id}/build`);
-    await page.getByRole('button', { name: /^Edit slot .*Juice/ }).click();
+    await page.getByRole('button', { name: /^Edit slot .*Juice.*taken$/ }).click();
     // Well inside the 800 ms a cell waits before it saves.
     await page.getByRole('textbox', { name: 'What value' }).fill('');
     await page.getByRole('tab', { name: 'Responses' }).click();
@@ -686,9 +686,11 @@ test.describe('a Build edit and a reload', () => {
   });
 
   const storedValues = async (page: Page, id: string) =>
-    ((await (await page.request.get(`/api/signups/${id}/slots`)).json()).data as {
-      values: Record<string, unknown>;
-    }[])[0]?.values ?? {};
+    (
+      (await (await page.request.get(`/api/signups/${id}/slots`)).json()).data as {
+        values: Record<string, unknown>;
+      }[]
+    )[0]?.values ?? {};
 
   test('an edit typed just before a reload is kept', async ({ page }) => {
     const draft = await createDraft(page.request, {
@@ -696,18 +698,18 @@ test.describe('a Build edit and a reload', () => {
       values: { what: 'Juice', date: '2030-04-06' },
     });
     await page.goto(`/app/signups/${draft.id}/build`);
-    await page.getByRole('button', { name: /^Edit slot .*Juice/ }).click();
+    await page.getByRole('button', { name: /^Edit slot .*Juice.*taken$/ }).click();
     // Well inside the 800 ms a cell waits before it saves.
     await page.getByRole('textbox', { name: 'What value' }).fill('Juice boxes');
     await expect(page.getByText('Saving…').locator('visible=true')).toBeVisible();
     await page.reload();
     // The edit goes out on pagehide, alongside the reload's own request, so
     // the reloaded page can be drawn before it lands; the server has it.
-    await expect
-      .poll(async () => (await storedValues(page, draft.id)).what)
-      .toBe('Juice boxes');
+    await expect.poll(async () => (await storedValues(page, draft.id)).what).toBe('Juice boxes');
     await page.reload();
-    await expect(page.getByRole('button', { name: /^Edit slot .*Juice boxes/ })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^Edit slot .*Juice boxes.*taken$/ }),
+    ).toBeVisible();
   });
 
   // The title and description keep their text in the field until it blurs,

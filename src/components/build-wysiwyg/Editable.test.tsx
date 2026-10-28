@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { Editable } from './Editable';
 
 function renderEditable(props: Partial<React.ComponentProps<typeof Editable>> = {}) {
@@ -117,6 +117,38 @@ describe('Editable', () => {
     fireEvent.keyDown(input, { key: 'Escape' });
     fireEvent.blur(input);
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('puts focus back on the value after Enter or Escape ends the edit', () => {
+    renderEditable({ value: 'hello' });
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    expect(screen.getByRole('button', { name: 'Editable' })).toHaveFocus();
+
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
+    expect(screen.getByRole('button', { name: 'Editable' })).toHaveFocus();
+  });
+
+  it('puts focus back after Escape in a description', () => {
+    renderEditable({ value: 'hello', multiline: true });
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
+    expect(screen.getByRole('button', { name: 'Editable' })).toHaveFocus();
+  });
+
+  it('leaves focus where a click put it when the edit ends by blur', () => {
+    render(
+      <>
+        <Editable value="hello" onChange={vi.fn()} ariaLabel="Editable" />
+        <button type="button">Elsewhere</button>
+      </>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editable' }));
+    const elsewhere = screen.getByRole('button', { name: 'Elsewhere' });
+    act(() => elsewhere.focus());
+    expect(elsewhere).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Editable' })).not.toHaveFocus();
   });
 
   // A reload or a closed tab doesn't blur the field (#699).
