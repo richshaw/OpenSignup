@@ -10,7 +10,7 @@ import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
-import type { SignupSettings, SignupStatus } from '@/schemas/signups';
+import type { SignupSettings } from '@/schemas/signups';
 
 /** Server-loaded chrome snapshot. Title + description are then edited in-place via updateSignupMeta. */
 type SignupMeta = {
@@ -24,11 +24,6 @@ type BuildWysiwygProps = {
   initialFields: SlotFieldDefinition[];
   initialSlots: BuildSlot[];
   initialSettings: SignupSettings;
-  /**
-   * The signup's status, which a slot still saying "TBD" is marked by. It
-   * follows Publish, which renders the page again.
-   */
-  status: SignupStatus;
   /**
    * Spots taken per slot id when the page loaded; a slot with none is absent.
    * Slots added in this session start empty, so they read 0 without an entry.
@@ -84,7 +79,6 @@ export function BuildWysiwyg({
   initialFields,
   initialSlots,
   initialSettings,
-  status,
   committedBySlot,
 }: BuildWysiwygProps) {
   const {
@@ -114,11 +108,8 @@ export function BuildWysiwyg({
 
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
-  // The slot whose editor gets focus once it's open, and in which field.
-  const [focusRequest, setFocusRequest] = useState<{
-    rowId: string;
-    fieldRef: string | null;
-  } | null>(null);
+  // The slot whose editor gets focus once it's open.
+  const [focusRequest, setFocusRequest] = useState<{ rowId: string } | null>(null);
   // The slot Publish's check opened, until any other editor opens or this
   // one closes: Done on it, or Enter, hands focus back to Publish and share.
   const fixRow = useRef<string | null>(null);
@@ -180,26 +171,26 @@ export function BuildWysiwyg({
     void addRow({ values: {} });
   };
 
-  const showSlot = (rowId: string, fieldRef: string | null) => {
+  const showSlot = (rowId: string) => {
     expandRow(rowId);
     fixRow.current = rowId;
-    setFocusRequest({ rowId, fieldRef });
+    setFocusRequest({ rowId });
   };
 
   /**
-   * Opens a slot's editor (a new slot when `slotId` is null), focus in
-   * `fieldRef`, and says whether it could: a slot added elsewhere since the
+   * Opens a slot's editor (a new slot when `slotId` is null), focus in its
+   * first field, and says whether it could: a slot added elsewhere since the
    * page loaded isn't here to open.
    */
-  const openSlot = (slotId: string | null, fieldRef: string | null): boolean => {
+  const openSlot = (slotId: string | null): boolean => {
     if (slotId === null) {
       void addRow().then((id) => {
-        if (id) showSlot(id, null);
+        if (id) showSlot(id);
       });
       return true;
     }
     if (!state.rows.some((r) => r.id === slotId)) return false;
-    showSlot(slotId, fieldRef);
+    showSlot(slotId);
     return true;
   };
 
@@ -240,16 +231,15 @@ export function BuildWysiwyg({
     }
   };
 
-  // Focus goes in the field asked for, or the slot's first, once its editor
-  // is open; with no fields, in Spots.
+  // Focus goes in the slot's first field once its editor is open; with no
+  // fields, in Spots.
   useEffect(() => {
     if (!focusRequest) return;
     const editor = Array.from(
       sheetRef.current?.querySelectorAll<HTMLElement>('[data-slot-editor]') ?? [],
     ).find((el) => el.dataset.slotEditor === focusRequest.rowId);
     if (!editor) return;
-    const boxes = Array.from(editor.querySelectorAll<HTMLElement>('[data-field-ref]'));
-    const box = boxes.find((b) => b.dataset.fieldRef === focusRequest.fieldRef) ?? boxes[0];
+    const box = editor.querySelector<HTMLElement>('[data-field-ref]');
     const control = box
       ? box.querySelector<HTMLElement>('input, select, button')
       : editor.querySelector<HTMLElement>('input');
@@ -320,7 +310,6 @@ export function BuildWysiwyg({
                 fields={state.fields}
                 takenBySlot={committedBySlot}
                 remindersOn={state.reminderFieldRef !== null}
-                status={status}
                 expandedRowId={expandedRowId}
                 focusRowId={focusRowId}
                 onRowFocused={clearFocusRow}

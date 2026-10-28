@@ -881,7 +881,13 @@ export function useBuildState(
     // not just whichever one was passed in the final call.
     if (patch.title !== undefined) touchedMetaRef.current.add('title');
     if (patch.description !== undefined) touchedMetaRef.current.add('description');
-    dispatch({ type: 'OPTIMISTIC_UPDATE_META', patch });
+    const action = { type: 'OPTIMISTIC_UPDATE_META', patch } as const;
+    dispatch(action);
+    // The save reads stateRef, which only catches up on the next render. An
+    // Editable committing on pagehide is followed at once by the flush, with
+    // no render between, so apply the patch here too or the flush sends the
+    // old value (#699).
+    stateRef.current = buildReducer(stateRef.current, action);
     flushTimer('signup-meta', async () => {
       const touched = Array.from(touchedMetaRef.current);
       touchedMetaRef.current = new Set();

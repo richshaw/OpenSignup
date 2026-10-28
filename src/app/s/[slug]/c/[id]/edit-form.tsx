@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FormError, SuccessNotice } from '@/components/ui/form-error';
+import { spotCount } from '@/lib/spot-counts';
 import { wasCancelled } from '../../cancelled-message';
 import { errorCopyText, participantErrorCopy } from '../../participant-error';
 import { Field, NotesAndSpots } from '../../participant-fields';
@@ -149,7 +150,7 @@ export default function EditForm({
     <form onSubmit={handleSave} className="space-y-5 rounded-xl border border-surface-sunk bg-white p-6">
       {showSpotsMax ? (
         <p id={spotsMaxId} className="text-sm text-ink-muted">
-          You can have up to {spotsMax} spots on this slot.
+          You can have up to {spotCount(spotsMax)} on this slot.
         </p>
       ) : null}
       <Field label="Your name" type="text" name="name" required defaultValue={initialName} />

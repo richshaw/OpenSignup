@@ -130,11 +130,6 @@ export function CreateAndPublishASignup() {
           <Ui>{UI.delete}</Ui>. Don&apos;t leave a slot empty: people see it as{' '}
           <Ui>{UI.untitledSlot}</Ui>.
         </p>
-        <p>
-          A slot that still says &ldquo;TBD&rdquo;, &ldquo;TBC&rdquo; or &ldquo;TBA&rdquo; is
-          marked <Ui>{UI.stillSays}</Ui> on the <Ui>{UI.build}</Ui> tab, with its own word. Once
-          your signup is published, the mark says <Ui>{UI.peopleCanSee}</Ui>.
-        </p>
       </section>
 
       <section className="space-y-4">
@@ -157,12 +152,6 @@ export function CreateAndPublishASignup() {
                 If every slot is empty, you&apos;ll see <Ui>{UI.nothingYet}</Ui>, and your signup
                 isn&apos;t published. Choose <Ui>{UI.fillItIn}</Ui> to open the first slot. Fill it
                 in, then choose <Ui>{UI.publish}</Ui> again.
-              </p>
-              <p>
-                If a slot still says &ldquo;TBD&rdquo;, you&apos;ll see{' '}
-                <Ui>{UI.beforePeopleSee}</Ui>. Choose <Ui>{UI.nameItFirst}</Ui> to open that slot
-                and change it. Or choose <Ui>{UI.publishAnyway}</Ui>, and people will see
-                &ldquo;TBD&rdquo; until you change it.
               </p>
             </Note>
             <p>

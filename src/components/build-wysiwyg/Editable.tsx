@@ -62,6 +62,26 @@ export function Editable({
     setEditing(false);
   };
 
+  // A reload, a closed tab or leaving the site doesn't blur the field, so
+  // commit what's typed as the page goes away (#699). Capture, so this runs
+  // before useBuildState's own listener on the same target flushes the queue
+  // this commit adds to.
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
+  useEffect(() => {
+    if (!editing) return;
+    const onPageHide = () => commitRef.current();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') commitRef.current();
+    };
+    window.addEventListener('pagehide', onPageHide, { capture: true });
+    document.addEventListener('visibilitychange', onVisibilityChange, { capture: true });
+    return () => {
+      window.removeEventListener('pagehide', onPageHide, { capture: true });
+      document.removeEventListener('visibilitychange', onVisibilityChange, { capture: true });
+    };
+  }, [editing]);
+
   const cancel = () => {
     if (settledRef.current) return;
     settledRef.current = true;
