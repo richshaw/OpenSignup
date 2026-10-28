@@ -10,6 +10,11 @@ import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
 type SlotEditorProps = {
   row: BuildRow;
+  /**
+   * The editor's accessible name, for the slot it edits ("Editing slot —
+   * Cupcakes"), so its Duplicate, Delete and Done are heard with their slot.
+   */
+  label: string;
   fields: BuildField[];
   /** Focus the first field's control when the editor opens. */
   focusOnOpen?: boolean;
@@ -33,6 +38,7 @@ type SlotEditorProps = {
   onAddEnumOption: (fieldId: string, value: string) => void | Promise<void>;
   onDuplicate: () => void;
   onDelete: () => void;
+  /** Done, or Escape in any of the editor's boxes. */
   onClose: () => void;
 };
 
@@ -43,6 +49,7 @@ type SlotEditorProps = {
  */
 export function SlotEditor({
   row,
+  label,
   fields,
   focusOnOpen = false,
   onFocused,
@@ -65,6 +72,16 @@ export function SlotEditor({
   const spotsHelpId = useId();
   return (
     <div
+      role="group"
+      aria-label={label}
+      // Escape closes the editor as Done does, its edits kept: they save as
+      // they're typed. Not when a control inside has used the key itself, as
+      // a list's menu or its box for a new item does to close only that.
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape' || e.defaultPrevented) return;
+        e.preventDefault();
+        onClose();
+      }}
       className="px-3.5 pb-3.5 pt-3"
       data-testid={`slot-editor-${row.id}`}
       // Where BuildWysiwyg finds the editor, and each field's box in it, to

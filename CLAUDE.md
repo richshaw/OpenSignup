@@ -41,7 +41,7 @@ pnpm db:generate        # drizzle-kit: generate SQL migrations from schema/*.ts
 pnpm db:migrate         # apply migrations via tsx src/db/migrate.ts
 pnpm db:push            # drizzle-kit push (dev-only; bypass migrations)
 pnpm db:studio
-pnpm email:dev          # react-email preview server on :3001
+pnpm email:dev          # every email with sample data on :3001 (scripts/lib/email-samples.ts)
 pnpm eval:magic-compose # offline eval of Magic Compose drafts (needs LLM_* env)
 pnpm eval:mcp           # the same cases through the MCP tools and a tool-calling model (needs LLM_* env; follow-up cases need Postgres)
 ```

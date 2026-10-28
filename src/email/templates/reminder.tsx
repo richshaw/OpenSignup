@@ -75,5 +75,3 @@ export function ReminderEmail({
     </EmailLayout>
   );
 }
-
-export default ReminderEmail;

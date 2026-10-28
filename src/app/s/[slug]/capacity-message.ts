@@ -1,3 +1,5 @@
+import { spotCount } from '@/lib/spot-counts';
+
 /**
  * Participant-facing copy for a `capacity_full` error.
  *
@@ -31,10 +33,6 @@ interface ApiErrorLike {
   details?: { remaining?: unknown; requested?: unknown; alternatives?: unknown };
 }
 
-function spots(n: number): string {
-  return n === 1 ? '1 spot' : `${n} spots`;
-}
-
 /**
  * Returns null for any other error, or a `capacity_full` without the numbers,
  * so callers fall back to the server's text rather than guess.
@@ -60,7 +58,7 @@ export function capacityMessage(
     }
     const verb = remaining === 1 ? 'is' : 'are';
     return {
-      message: `Only ${spots(remaining)} ${verb} left, and you asked for ${requested}.`,
+      message: `Only ${spotCount(remaining)} ${verb} left, and you asked for ${requested}.`,
       suggestion: remaining === 1 ? 'Ask for 1 instead.' : `Ask for ${remaining} or fewer.`,
     };
   }
@@ -75,7 +73,7 @@ export function capacityMessage(
     };
   }
   return {
-    message: `You can have at most ${spots(remaining)} on this slot, and you asked for ${requested}.`,
+    message: `You can have at most ${spotCount(remaining)} on this slot, and you asked for ${requested}.`,
     // At 1 the participant already holds that one spot, so there is nothing
     // to ask for instead.
     suggestion: remaining === 1 ? 'Keep your 1 spot.' : `Ask for ${remaining} or fewer.`,

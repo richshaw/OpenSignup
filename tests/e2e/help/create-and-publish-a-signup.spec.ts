@@ -68,10 +68,10 @@ test.describe('help: create and publish your first signup', () => {
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
     await helpElementShot(page, SLUG, slotEditor, 'slot');
     await slotEditor.getByRole('button', { name: UI.done }).click();
-    await expect(page.getByRole('button', { name: /Fruit and water/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Edit slot — Fruit and water, / })).toBeVisible();
 
     await page.getByRole('button', { name: UI.addSlot }).click();
-    await expect(page.getByRole('button', { name: /^Edit slot/ })).toHaveCount(2);
+    await expect(page.getByRole('button', { name: /^Edit slot.*taken$/ })).toHaveCount(2);
     // The article warns that a slot left empty reaches people as "Untitled slot".
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
     const [withEmpty] = await Promise.all([
@@ -81,14 +81,14 @@ test.describe('help: create and publish your first signup', () => {
     await expect(withEmpty.getByText(UI.untitledSlot)).toBeVisible();
     await withEmpty.close();
 
-    await page.getByRole('button', { name: /Fruit and water/ }).click();
+    await page.getByRole('button', { name: /^Edit slot — Fruit and water, / }).click();
     const original = await slotEditor.getAttribute('data-testid');
     await slotEditor.getByRole('button', { name: UI.duplicate }).click();
     // "The copy opens below it": the original closes and the copy's editor
     // opens in its place, directly under the original's row, with focus in it.
     await expect(slotEditor).not.toHaveAttribute('data-testid', original!);
     await expect(slotEditor.getByRole('textbox', { name: `${UI.what} value` })).toBeFocused();
-    await expect(page.getByRole('button', { name: /Fruit and water/ })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: /^Edit slot — Fruit and water, / })).toHaveCount(1);
     const rows = page.locator('[data-testid^="wysiwyg-slot-"]');
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(1).locator('[data-testid^="slot-editor-"]')).toBeVisible();
@@ -108,7 +108,7 @@ test.describe('help: create and publish your first signup', () => {
     await expect(rows.nth(1)).toContainText('Apr 13');
     await page.getByText(UI.emptySlot, { exact: true }).click();
     await slotEditor.getByRole('button', { name: UI.delete }).click();
-    await expect(page.getByRole('button', { name: /^Edit slot/ })).toHaveCount(2);
+    await expect(page.getByRole('button', { name: /^Edit slot.*taken$/ })).toHaveCount(2);
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
 
     // Reminders: on for a new signup, switched off from the date field.

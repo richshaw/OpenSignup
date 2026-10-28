@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, type Mock } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { SlotEditor } from './SlotEditor';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
@@ -48,6 +48,7 @@ function renderEditor(overrides: {
   const utils = render(
     <SlotEditor
       row={overrides.row ?? makeRow({ values: { name: 'Existing' } })}
+      label="Editing slot — Existing"
       fields={overrides.fields ?? [makeField()]}
       {...(overrides.focusOnOpen !== undefined ? { focusOnOpen: overrides.focusOnOpen } : {})}
       {...(overrides.onFocused ? { onFocused: overrides.onFocused } : {})}
@@ -158,6 +159,65 @@ describe('SlotEditor', () => {
     const { onClose } = renderEditor();
     fireEvent.click(screen.getByRole('button', { name: /Done/ }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('is a group named for its slot, so its buttons are heard with it', () => {
+    renderEditor();
+    const group = screen.getByRole('group', { name: 'Editing slot — Existing' });
+    expect(within(group).getByRole('button', { name: /Done/ })).toBeTruthy();
+  });
+
+  it('Escape in any box closes it, as Done does', () => {
+    const { onClose, onCellChange } = renderEditor();
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Name value' }), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(screen.getByLabelText('Spots'), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(2);
+    // Nothing typed is undone.
+    expect(onCellChange).not.toHaveBeenCalled();
+  });
+
+  it('other keys leave it open', () => {
+    const { onClose } = renderEditor();
+    fireEvent.keyDown(screen.getByLabelText('Spots'), { key: 'Enter' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  describe('Escape in a list', () => {
+    const listFields = () => [
+      makeField({
+        id: 'f2',
+        ref: 'kind',
+        name: 'Kind',
+        config: { fieldType: 'enum', choices: ['Option 1'] },
+      }),
+    ];
+
+    it('closes only an open menu, and focus goes back to its trigger', () => {
+      const { onClose } = renderEditor({ fields: listFields(), row: makeRow({ values: {} }) });
+      const trigger = screen.getByRole('button', { name: 'Kind value' });
+      fireEvent.click(trigger);
+      fireEvent.keyDown(screen.getByRole('option', { name: /Option 1/ }), { key: 'Escape' });
+      expect(screen.queryByRole('listbox')).toBeNull();
+      expect(trigger).toHaveFocus();
+      expect(onClose).not.toHaveBeenCalled();
+      // With the menu closed, the next Escape closes the editor.
+      fireEvent.keyDown(trigger, { key: 'Escape' });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('closes only the box for a new item', () => {
+      const { onClose } = renderEditor({ fields: listFields(), row: makeRow({ values: {} }) });
+      const trigger = screen.getByRole('button', { name: 'Kind value' });
+      fireEvent.click(trigger);
+      fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+      fireEvent.keyDown(screen.getByRole('textbox', { name: 'New option name' }), {
+        key: 'Escape',
+      });
+      expect(screen.queryByRole('textbox', { name: 'New option name' })).toBeNull();
+      expect(trigger).toHaveFocus();
+      expect(onClose).not.toHaveBeenCalled();
+    });
   });
 
   it('Delete button calls onDelete', () => {

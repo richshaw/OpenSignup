@@ -86,7 +86,20 @@ export function EnumPicker({
   };
 
   return (
-    <div className={triggerClassName ? 'relative inline-block' : 'relative'} data-testid="enum-picker">
+    <div
+      className={triggerClassName ? 'relative inline-block' : 'relative'}
+      data-testid="enum-picker"
+      // Escape closes an open menu, and only the menu: the slot editor around
+      // it leaves a key that's been used alone. Focus goes back to the trigger,
+      // as the options it was on are gone. The box for a new item handles
+      // Escape itself first.
+      onKeyDown={(e) => {
+        if (!open || e.key !== 'Escape' || e.defaultPrevented) return;
+        e.preventDefault();
+        close();
+        triggerRef.current?.focus();
+      }}
+    >
       <button
         ref={triggerRef}
         type="button"
@@ -145,6 +158,7 @@ export function EnumPicker({
                   if (e.key === 'Escape') {
                     e.preventDefault();
                     close();
+                    triggerRef.current?.focus();
                   }
                 }}
                 onBlur={commitNew}

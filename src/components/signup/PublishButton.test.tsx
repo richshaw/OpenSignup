@@ -530,7 +530,7 @@ describe('Done after the check’s fix', () => {
     expect(publishIn('phone').className).not.toMatch(RING);
     expect(screen.getByRole('status')).toHaveTextContent(READY);
     // The slot is named now.
-    expect(screen.getByRole('button', { name: 'Edit slot — Cashier' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Edit slot — Cashier, / })).toBeInTheDocument();
 
     act(() => vi.advanceTimersByTime(1_599));
     expect(publish.className).toMatch(RING);
@@ -613,7 +613,7 @@ describe('Done after the check’s fix', () => {
   it('leaves focus alone after a slot the organizer opened', () => {
     windowWidth(1280);
     render(<Header action={async () => answer(EMPTY)} page={buildTab} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Set what' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Set what, / }));
     what().focus();
     // Enter does nothing new here: the slot stays open.
     fireEvent.keyDown(what(), { key: 'Enter' });
