@@ -709,6 +709,41 @@ test.describe('a Build edit and a reload', () => {
     await page.reload();
     await expect(page.getByRole('button', { name: /^Edit slot .*Juice boxes/ })).toBeVisible();
   });
+
+  // The title and description keep their text in the field until it blurs,
+  // and a reload blurs nothing (#699).
+  const storedMeta = async (page: Page, id: string) =>
+    ((await (await page.request.get(`/api/signups/${id}`)).json()).data as {
+      title: string;
+      description: string | null;
+    });
+
+  test('a title typed just before a reload is kept', async ({ page }) => {
+    const draft = await createDraft(page.request, {
+      title: `Title then reloaded ${Date.now()}`,
+      values: { what: 'Juice', date: '2030-04-06' },
+    });
+    const title = `Renamed then reloaded ${Date.now()}`;
+    await page.goto(`/app/signups/${draft.id}/build`);
+    await page.getByRole('button', { name: 'Signup title' }).click();
+    await page.getByRole('textbox', { name: 'Signup title' }).fill(title);
+    await page.reload();
+    await expect.poll(async () => (await storedMeta(page, draft.id)).title).toBe(title);
+  });
+
+  test('a description typed just before a reload is kept', async ({ page }) => {
+    const draft = await createDraft(page.request, {
+      title: `Description then reloaded ${Date.now()}`,
+      values: { what: 'Juice', date: '2030-04-06' },
+    });
+    await page.goto(`/app/signups/${draft.id}/build`);
+    await page.getByRole('button', { name: 'Signup description' }).click();
+    await page.getByRole('textbox', { name: 'Signup description' }).fill('Bring a reusable cup.');
+    await page.reload();
+    await expect
+      .poll(async () => (await storedMeta(page, draft.id)).description)
+      .toBe('Bring a reusable cup.');
+  });
 });
 
 test.describe('signed-out organizer links', () => {

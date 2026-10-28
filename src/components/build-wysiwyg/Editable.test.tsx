@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { Editable } from './Editable';
 
 function renderEditable(props: Partial<React.ComponentProps<typeof Editable>> = {}) {
@@ -116,6 +116,58 @@ describe('Editable', () => {
     fireEvent.change(input, { target: { value: 'world' } });
     fireEvent.keyDown(input, { key: 'Escape' });
     fireEvent.blur(input);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  // A reload or a closed tab doesn't blur the field (#699).
+  it('commits on pagehide while editing', () => {
+    const { onChange } = renderEditable({ value: 'hello', multiline: true });
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'world' } });
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('world');
+  });
+
+  it('commits when the page is hidden while editing', () => {
+    const { onChange } = renderEditable({ value: 'hello' });
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'world' } });
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    try {
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+    } finally {
+      visibility.mockRestore();
+    }
+    expect(onChange).toHaveBeenCalledWith('world');
+  });
+
+  it('commits on pagehide before a bubbling-phase listener on window runs', () => {
+    const order: string[] = [];
+    const later = () => order.push('flush');
+    window.addEventListener('pagehide', later);
+    try {
+      renderEditable({ value: 'hello', onChange: () => order.push('commit') });
+      fireEvent.click(screen.getByRole('button'));
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'world' } });
+      act(() => {
+        window.dispatchEvent(new Event('pagehide'));
+      });
+    } finally {
+      window.removeEventListener('pagehide', later);
+    }
+    expect(order).toEqual(['commit', 'flush']);
+  });
+
+  it('does nothing on pagehide when not editing', () => {
+    const { onChange } = renderEditable({ value: 'hello' });
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
     expect(onChange).not.toHaveBeenCalled();
   });
 });
