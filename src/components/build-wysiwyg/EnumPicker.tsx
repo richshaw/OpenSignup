@@ -141,9 +141,10 @@ export function EnumPicker({
           ))}
           {options.length > 0 && <div className="my-1 h-px bg-surface-sunk" />}
           {adding ? (
-            // The input's left padding puts typed text in the options' label
-            // column: 4px menu + 1px border + 29px = 4 + px-2.5 + w-3 + gap-2.
-            <div className="flex items-center gap-1 py-1 pr-1">
+            // The box and Add span the row, edge to edge like an option's
+            // highlight, and the input's left padding puts typed text where the
+            // option labels start: 1px border + 9px = px-2.5.
+            <div className="flex items-center gap-1 py-1">
               <input
                 autoFocus
                 value={draft}
@@ -162,14 +163,15 @@ export function EnumPicker({
                 onBlur={commitNew}
                 placeholder="Type a new item"
                 aria-label="New option name"
-                className="min-w-0 flex-1 rounded border border-surface-sunk bg-white py-1.5 pl-[29px] pr-2 text-xs text-ink outline-none focus:border-brand"
+                className="min-w-0 flex-1 rounded border border-surface-sunk bg-white py-1.5 pl-[9px] pr-2 text-xs text-ink outline-none placeholder:text-ink-soft focus:border-brand"
               />
               <button
                 type="button"
                 // Keeps focus in the box, so its blur doesn't add first.
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={commitNew}
-                className="shrink-0 rounded border-none bg-brand px-2.5 py-1.5 text-xs font-semibold text-white cursor-pointer hover:brightness-110"
+                // The same 1px border as the box, so the two stay the same height.
+                className="shrink-0 rounded border border-brand bg-brand px-2.5 py-1.5 text-xs font-semibold text-white cursor-pointer hover:brightness-110"
               >
                 Add
               </button>

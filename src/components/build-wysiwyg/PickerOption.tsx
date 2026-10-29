@@ -7,8 +7,10 @@ type PickerOptionProps = {
   label: string;
   onClick: () => void;
   /**
-   * Shown before the label. Without one the option keeps a slot for a check
-   * mark, shown when active, and the active option is bold and truncates.
+   * Shown before the label. Without one the option keeps a slot after the
+   * label for a check mark, shown when active, and the active option is bold
+   * and truncates. The slot sits at the end so the label starts at the row's
+   * padding, where a menu's other rows can line up with it.
    */
   icon?: React.ReactNode;
 };
@@ -29,12 +31,9 @@ export function PickerOption({ active, label, onClick, icon }: PickerOptionProps
           : 'bg-transparent font-medium text-ink hover:bg-surface-raised')
       }
     >
-      {checkStyle ? (
-        <span className="inline-flex w-3 shrink-0">{active && <Check size={11} />}</span>
-      ) : (
-        <span className="inline-flex">{icon}</span>
-      )}
+      {!checkStyle && <span className="inline-flex">{icon}</span>}
       <span className={checkStyle ? 'flex-1 truncate' : 'flex-1'}>{label}</span>
+      {checkStyle && <span className="inline-flex w-3 shrink-0">{active && <Check size={11} />}</span>}
     </button>
   );
 }
