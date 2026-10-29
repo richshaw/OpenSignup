@@ -7,6 +7,8 @@ import budgets from '../../budgets.json';
 import { getDb, SESSION_SETTINGS } from '@/db/client';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
+import { SESSION_MAX_AGE_SECONDS } from '@/auth/session-lifetime';
+import { sessions } from '@/db/schema/auth';
 import { participants } from '@/db/schema/participants';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { workspaces } from '@/db/schema/workspaces';
@@ -34,7 +36,7 @@ vi.mock('next/headers', () => ({
     const { RequestCookies } = await import('next/dist/compiled/@edge-runtime/cookies');
     return new RequestCookies(new Headers({ cookie: cookieHeader }));
   },
-  headers: async () => new Headers(),
+  headers: async () => new Headers({ cookie: cookieHeader }),
 }));
 
 // Every statement the app sends goes through the client cached on globalThis,
@@ -79,6 +81,7 @@ describe('query budgets for the participant hot path (db)', () => {
   let workspaceId: string;
   let organizerId: string;
   let slug: string;
+  let signupId: string;
   let slotId: string;
   let optionalEmailSlotId: string;
   // The sign-up request charges both commit limits. A fresh documentation
@@ -128,9 +131,9 @@ describe('query budgets for the participant hot path (db)', () => {
       if (!slot.ok) throw new Error(slot.error.message);
       const published = await publishSignup(db, actor, signup.value.id);
       if (!published.ok) throw new Error(published.error.message);
-      return { slug: signup.value.slug, slotId: slot.value.id };
+      return { id: signup.value.id, slug: signup.value.slug, slotId: slot.value.id };
     }
-    ({ slug, slotId } = await publishedWithSlot({}));
+    ({ id: signupId, slug, slotId } = await publishedWithSlot({}));
     optionalEmailSlotId = (await publishedWithSlot({ requireEmail: false })).slotId;
   });
 
@@ -165,10 +168,41 @@ describe('query budgets for the participant hot path (db)', () => {
       },
     ])}`;
 
-    const count = await countStatements(() =>
-      PublicSignupPage({ params: Promise.resolve({ slug }) }),
-    );
+    let page: unknown;
+    const count = await countStatements(async () => {
+      page = await PublicSignupPage({ params: Promise.resolve({ slug }) });
+    });
+    // A participant gets no organizer strip.
+    expect((page as { props: { children: unknown[] } }).props.children[0]).toBeNull();
     expectWithinBudget('GET /s/[slug]', count);
+  });
+
+  // A visitor without a session cookie costs the session read nothing (the
+  // case above); an organizer opening their own signup's link pays for it, and
+  // gets the organizer strip.
+  it('GET /s/[slug], signed in as its organizer', async () => {
+    const sessionToken = randomBytes(32).toString('hex');
+    await getDb()
+      .insert(sessions)
+      // Signed in just now, so Auth.js has no reason to push the expiry on
+      // (it does that at most once a day) and the count is the read alone.
+      .values({
+        sessionToken,
+        userId: organizerId,
+        expires: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000),
+      });
+    cookieHeader = `authjs.session-token=${sessionToken}`;
+
+    let page: unknown;
+    const count = await countStatements(async () => {
+      page = await PublicSignupPage({ params: Promise.resolve({ slug }) });
+    });
+    cookieHeader = '';
+    // The page is a fragment: the organizer strip, then <main>.
+    const strip = (page as { props: { children: ({ props: Record<string, unknown> } | null)[] } })
+      .props.children[0];
+    expect(strip?.props.signupId).toBe(signupId);
+    expectWithinBudget('GET /s/[slug], signed in as its organizer', count);
   });
 
   it('POST /api/slots/[id]/commitments, for a new participant', async () => {

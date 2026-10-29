@@ -30,7 +30,6 @@ const baseProps = {
   initialFields: [],
   initialSlots: [],
   initialSettings: settings,
-  status: 'draft' as const,
   committedBySlot: {},
 };
 
@@ -187,7 +186,7 @@ describe('BuildWysiwyg — duplicate', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Duplicate' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate slot — Fruit' }));
     const editor = await screen.findByTestId('slot-editor-slot_copy');
     const name = () =>
       screen
@@ -202,6 +201,61 @@ describe('BuildWysiwyg — duplicate', () => {
 
     expect(screen.getByRole('button', { name: /Group header.*Sat, Nov 21/ })).toBeTruthy();
     expect(name()).not.toHaveFocus();
+  });
+});
+
+describe('BuildWysiwyg — opened from its row', () => {
+  it("focuses the editor once, so moving the slot to another date's group leaves focus alone", () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ data: {} }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        ),
+      ),
+    );
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        initialFields={[
+          {
+            id: 'f-name',
+            ref: 'name',
+            label: 'Name',
+            fieldType: 'text',
+            sortOrder: 0,
+            config: { fieldType: 'text', maxLength: 200 },
+          },
+          {
+            id: 'f-date',
+            ref: 'date',
+            label: 'Date',
+            fieldType: 'date',
+            sortOrder: 1,
+            config: { fieldType: 'date' },
+          },
+        ]}
+        initialSettings={{ ...settings, groupByFieldRefs: ['date'] }}
+        initialSlots={[
+          { id: 'slot_a', capacity: 2, sortOrder: 0, values: { name: 'Fruit', date: '2026-11-14' } },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Fruit, / }));
+    const editor = () => screen.getByTestId('slot-editor-slot_a');
+    const name = () => editor().querySelector<HTMLInputElement>('input[aria-label="Name value"]')!;
+    expect(name()).toHaveFocus();
+
+    const date = editor().querySelector<HTMLInputElement>('input[aria-label="Date value"]')!;
+    date.focus();
+    fireEvent.change(date, { target: { value: '2026-11-21' } });
+
+    expect(screen.getByRole('button', { name: /Group header.*Sat, Nov 21/ })).toBeTruthy();
+    expect(name()).not.toHaveFocus();
+    vi.unstubAllGlobals();
   });
 });
 
@@ -293,24 +347,24 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
       within(screen.getByTestId(`slot-editor-${slotId}`)).getByRole('button', { name: 'Done' }),
     );
 
-  it('opens the slot it’s about, with focus in the field asked for', () => {
+  it('opens the slot it’s about, with focus in its first field', () => {
     const { bridge } = renderBuild();
     let opened = false;
     act(() => {
-      opened = bridge().openSlot('slot_b', 'where');
+      opened = bridge().openSlot('slot_b');
     });
     expect(opened).toBe(true);
     expect(screen.getByTestId('slot-editor-slot_b')).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'Where value' })).toHaveFocus();
+    expect(screen.getByRole('textbox', { name: 'What value' })).toHaveFocus();
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it('puts focus in the first field when none is named, also on a slot already open', () => {
+  it('puts focus in the first field again on a slot already open', () => {
     const { bridge } = renderBuild();
-    act(() => bridge().openSlot('slot_a', null));
+    act(() => bridge().openSlot('slot_a'));
     expect(screen.getByRole('textbox', { name: 'What value' })).toHaveFocus();
     act(() => screen.getByRole('textbox', { name: 'What value' }).blur());
-    act(() => bridge().openSlot('slot_a', null));
+    act(() => bridge().openSlot('slot_a'));
     expect(screen.getByRole('textbox', { name: 'What value' })).toHaveFocus();
   });
 
@@ -326,7 +380,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
     const { bridge } = renderBuild();
-    await act(async () => bridge().openSlot(null, null));
+    await act(async () => bridge().openSlot(null));
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/signups/sig_t/slots',
       expect.objectContaining({ method: 'POST' }),
@@ -339,7 +393,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     const { bridge } = renderBuild();
     let opened = true;
     act(() => {
-      opened = bridge().openSlot('slot_added_elsewhere', null);
+      opened = bridge().openSlot('slot_added_elsewhere');
     });
     expect(opened).toBe(false);
     expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
@@ -348,12 +402,14 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
   it('opens the slot a fix on another tab asked for once Build shows, and only once', () => {
     const { bridge, showBuild } = renderBuild({ build: false });
     act(() => {
-      bridge().openSlot('slot_b', 'where');
+      bridge().openSlot('slot_b');
     });
     // Nothing goes in the address: the Build tab takes it as it mounts.
     expect(router.push).toHaveBeenCalledWith('/app/signups/sig_t/build');
     showBuild(true);
-    expect(screen.getByRole('textbox', { name: 'Where value' })).toHaveFocus();
+    expect(
+      within(screen.getByTestId('slot-editor-slot_b')).getByRole('textbox', { name: 'What value' }),
+    ).toHaveFocus();
 
     // Back to another tab, and Forward to Build again: nothing opens.
     showBuild(false);
@@ -370,7 +426,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
     const { bridge } = renderBuild();
-    act(() => bridge().openSlot('slot_a', null));
+    act(() => bridge().openSlot('slot_a'));
     fireEvent.change(screen.getByRole('textbox', { name: 'What value' }), {
       target: { value: 'Set up tables' },
     });
@@ -385,7 +441,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
   it('hands the focus back to Publish and share when Done closes the slot it opened', () => {
     const { bridge } = renderBuild();
     act(() => {
-      bridge().openSlot('slot_b', 'where');
+      bridge().openSlot('slot_b');
     });
     expect(handBack).not.toHaveBeenCalled();
     done('slot_b');
@@ -393,14 +449,14 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
 
     // Once: opened again by the organizer, Done just closes it.
-    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Cleanup/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Cleanup, / }));
     done('slot_b');
     expect(handBack).toHaveBeenCalledOnce();
   });
 
   it('hands nothing back after a slot the organizer opened', () => {
     renderBuild();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Setup, / }));
     done('slot_a');
     expect(handBack).not.toHaveBeenCalled();
   });
@@ -408,9 +464,9 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
   it('hands nothing back once the organizer has opened another slot', () => {
     const { bridge } = renderBuild();
     act(() => {
-      bridge().openSlot('slot_b', 'where');
+      bridge().openSlot('slot_b');
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Setup, / }));
     done('slot_a');
     expect(handBack).not.toHaveBeenCalled();
   });
@@ -418,7 +474,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
   it('hands it back for a slot a fix on another tab opened, and for one it added', async () => {
     const { bridge, showBuild } = renderBuild({ build: false });
     act(() => {
-      bridge().openSlot('slot_b', 'where');
+      bridge().openSlot('slot_b');
     });
     showBuild(true);
     done('slot_b');
@@ -433,7 +489,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
         ),
       ),
     );
-    await act(async () => bridge().openSlot(null, null));
+    await act(async () => bridge().openSlot(null));
     done('slot_new');
     expect(handBack).toHaveBeenCalledTimes(2);
   });
@@ -441,7 +497,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
   it('lets Enter in a one-line box do what Done does, in the slot it opened', () => {
     const { bridge } = renderBuild();
     act(() => {
-      bridge().openSlot('slot_b', 'where');
+      bridge().openSlot('slot_b');
     });
     const where = screen.getByRole('textbox', { name: 'Where value' });
     // Mid-composition, Enter is the input method's; Safari ends the
@@ -456,7 +512,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
 
     // Spots is one of its boxes too.
     act(() => {
-      bridge().openSlot('slot_a', null);
+      bridge().openSlot('slot_a');
     });
     fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Spots' }), { key: 'Enter' });
     expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
@@ -465,14 +521,14 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
 
   it('leaves Enter as it was in a slot the organizer opened, or once they open one', () => {
     const { bridge } = renderBuild();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Setup, / }));
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'What value' }), { key: 'Enter' });
     expect(screen.getByTestId('slot-editor-slot_a')).toBeInTheDocument();
 
     act(() => {
-      bridge().openSlot('slot_b', 'where');
+      bridge().openSlot('slot_b');
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Setup, / }));
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'What value' }), { key: 'Enter' });
     expect(screen.getByTestId('slot-editor-slot_a')).toBeInTheDocument();
     expect(handBack).not.toHaveBeenCalled();
@@ -483,15 +539,72 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     // Published with the slot still open: the header has Share now.
     render(<Layout onReady={(b) => (bridge = b)} build takesFocus={false} />);
     act(() => {
-      bridge!.openSlot('slot_b', 'where');
+      bridge!.openSlot('slot_b');
     });
-    const where = screen.getByRole('textbox', { name: 'Where value' });
-    expect(fireEvent.keyDown(where, { key: 'Enter' })).toBe(true);
+    const box = screen.getByRole('textbox', { name: 'What value' });
+    expect(fireEvent.keyDown(box, { key: 'Enter' })).toBe(true);
     expect(screen.getByTestId('slot-editor-slot_b')).toBeInTheDocument();
-    expect(where).toHaveFocus();
-    // Done still closes it.
+    expect(box).toHaveFocus();
+    // Done still closes it, and the slot's row takes the focus.
     done('slot_b');
     expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+    expect(handBack).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /^Edit slot — Cleanup, / })).toHaveFocus();
+  });
+
+  it('lets Escape do what Done does, in the slot it opened', () => {
+    const { bridge } = renderBuild();
+    act(() => {
+      bridge().openSlot('slot_b');
+    });
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Where value' }), { key: 'Escape' });
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+    expect(handBack).toHaveBeenCalledOnce();
+  });
+
+  // A click that Enter or Space fires on a button has a detail of 0; a mouse
+  // click or a tap counts its clicks, from 1.
+  it('puts focus in the first box of a slot opened from its row by keyboard', () => {
+    renderBuild();
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Cleanup, / }), { detail: 0 });
+    expect(screen.getByRole('textbox', { name: 'What value' })).toHaveFocus();
+    // The toolbar's Edit does the same.
+    done('slot_b');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }), { detail: 0 });
+    expect(
+      within(screen.getByTestId('slot-editor-slot_a')).getByRole('textbox', { name: 'What value' }),
+    ).toHaveFocus();
+  });
+
+  it('leaves focus alone when a click or tap opens a slot, so a phone keeps its keyboard down', () => {
+    renderBuild();
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Cleanup, / }), { detail: 1 });
+    const editor = screen.getByTestId('slot-editor-slot_b');
+    expect(within(editor).getByRole('textbox', { name: 'What value' })).not.toHaveFocus();
+    expect(editor).not.toContainElement(document.activeElement as HTMLElement);
+    // The toolbar's Edit too.
+    done('slot_b');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot — Setup' }), { detail: 1 });
+    expect(screen.getByTestId('slot-editor-slot_a')).not.toContainElement(
+      document.activeElement as HTMLElement,
+    );
+  });
+
+  it('puts focus back on the slot’s row after Done or Escape in a slot the organizer opened', () => {
+    renderBuild();
+    const row = () => screen.getByRole('button', { name: /^Edit slot — Setup, / });
+    fireEvent.click(row());
+    done('slot_a');
+    expect(row()).toHaveFocus();
+
+    fireEvent.click(row());
+    const spots = within(screen.getByTestId('slot-editor-slot_a')).getByLabelText('Spots');
+    fireEvent.change(spots, { target: { value: '3' } });
+    fireEvent.keyDown(spots, { key: 'Escape' });
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+    // The edit is kept, as Done keeps it.
+    expect(row()).toHaveAccessibleName('Edit slot — Setup, 0 of 3 taken');
+    expect(row()).toHaveFocus();
     expect(handBack).not.toHaveBeenCalled();
   });
 
@@ -515,7 +628,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     );
     const { bridge } = renderBuild();
     act(() => {
-      bridge().openSlot('slot_b', 'where');
+      bridge().openSlot('slot_b');
     });
     fireEvent.click(
       within(screen.getByTestId('slot-editor-slot_b')).getByRole('button', { name: 'Duplicate' }),
@@ -531,7 +644,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     expect(handBack).not.toHaveBeenCalled();
 
     act(() => {
-      bridge().openSlot('slot_a', null);
+      bridge().openSlot('slot_a');
     });
     fireEvent.click(
       within(screen.getByTestId('slot-editor-slot_a')).getByRole('button', { name: 'Delete' }),
@@ -571,7 +684,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
       </BuildBridge>,
     );
     act(() => {
-      bridge!.openSlot('slot_a', 'what');
+      bridge!.openSlot('slot_a');
     });
     fireEvent.click(screen.getByRole('button', { name: 'Kind value' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add to list' }));
@@ -590,56 +703,24 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
   });
 });
 
-describe('BuildWysiwyg — a slot that still says TBD', () => {
-  const what = {
-    id: 'f-what',
-    ref: 'what',
-    label: 'What',
-    fieldType: 'text' as const,
-    sortOrder: 0,
-    config: { fieldType: 'text' as const, maxLength: 200 },
-  };
-  const slots = [
-    { id: 'slot_a', capacity: 1, sortOrder: 0, values: { what: 'Setup' } },
-    { id: 'slot_b', capacity: 1, sortOrder: 1, values: { what: 'Cashier TBD' } },
-  ];
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it('is marked as it reads now, and in words for whether people can see it', () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ data: {} }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
+describe('BuildWysiwyg — a slot that says TBD', () => {
+  it('is not marked, even on a draft', () => {
+    const what = {
+      id: 'f-what',
+      ref: 'what',
+      label: 'What',
+      fieldType: 'text' as const,
+      sortOrder: 0,
+      config: { fieldType: 'text' as const, maxLength: 200 },
+    };
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        initialFields={[what]}
+        initialSlots={[{ id: 'slot_b', capacity: 1, sortOrder: 0, values: { what: 'Cashier TBD' } }]}
+      />,
     );
-    const page = (status: 'draft' | 'open') => (
-      <BuildWysiwyg {...baseProps} status={status} initialFields={[what]} initialSlots={slots} />
-    );
-    const { rerender, unmount } = render(page('draft'));
-    expect(screen.getAllByText(/^Still says/)).toHaveLength(1);
-    const marked = screen.getByRole('button', {
-      name: 'Edit slot — Cashier TBD, still says “TBD”',
-    });
-
-    // Published: the Publish action renders the page again with its status.
-    rerender(page('open'));
-    expect(screen.getByText('People can see “TBD”')).toBeTruthy();
-    expect(screen.queryByText(/^Still says/)).toBeNull();
-
-    // Named, the mark goes as it's typed, before it has saved.
-    fireEvent.click(marked);
-    fireEvent.change(screen.getByRole('textbox', { name: 'What value' }), {
-      target: { value: 'Cashier' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    expect(screen.getByRole('button', { name: 'Edit slot — Cashier' })).toBeTruthy();
-    expect(screen.queryByText(/can see/)).toBeNull();
-    unmount();
+    expect(screen.queryByText(/still says/i)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Edit slot — Cashier TBD, 0 of 1 taken' })).toBeTruthy();
   });
 });

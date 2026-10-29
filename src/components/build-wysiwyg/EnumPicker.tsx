@@ -13,12 +13,12 @@ type EnumPickerProps = {
   /**
    * Called when the user adds a brand-new option from inside the picker.
    * Implementations should append the value to the field's `choices` config.
-   * May return a promise; the picker awaits it before committing the cell
-   * value so the field-config PATCH always lands before the slot PATCH that
-   * sets the new value (otherwise the server can see a value that is not yet
-   * in `choices` and reject it as `invalid_input`).
+   * The picker calls `onChange` with the new value straight after, without
+   * waiting, so a click that lands on Duplicate copies it. The builder holds
+   * back slot saves until the field's `choices` save lands (otherwise the
+   * server could see a value not yet in `choices` and refuse it).
    */
-  onAddOption: (value: string) => void | Promise<void>;
+  onAddOption: (value: string) => void;
   /** Shown when nothing is chosen. */
   placeholder?: string;
   /**
@@ -53,40 +53,50 @@ export function EnumPicker({
   const settledRef = useRef(false);
 
   const close = () => {
-    // Mark settled so any blur fired during unmount (Escape, click-outside)
-    // doesn't fall into commitNew and add the draft as a new option.
+    // Mark settled so any blur fired during unmount (Escape, or picking an
+    // option) doesn't fall into commitNew and add the draft as a new option.
     settledRef.current = true;
     setOpen(false);
     setAdding(false);
     setDraft('');
   };
 
-  useOutsideClose(open, [menuRef, triggerRef], close);
+  // A click outside adds what's typed, as Tab does (#656); only Escape cancels.
+  useOutsideClose(open, [menuRef, triggerRef], () => (adding ? commitNew() : close()));
 
   const startAdding = () => {
     settledRef.current = false;
     setAdding(true);
   };
 
-  const commitNew = async () => {
+  function commitNew() {
     if (settledRef.current) return;
     settledRef.current = true;
     const v = draft.trim();
-    // Close the picker first so the UI stays snappy while the field PATCH is
-    // in flight. `onAddOption` may persist asynchronously; we await it before
-    // calling `onChange` so the cell value commit can never race the field's
-    // `choices` update on slow networks.
     setOpen(false);
     setAdding(false);
     setDraft('');
     if (v) {
-      await onAddOption(v);
+      onAddOption(v);
       onChange(v);
     }
-  };
+  }
 
   return (
-    <div className={triggerClassName ? 'relative inline-block' : 'relative'} data-testid="enum-picker">
+    <div
+      className={triggerClassName ? 'relative inline-block' : 'relative'}
+      data-testid="enum-picker"
+      // Escape closes an open menu, and only the menu: the slot editor around
+      // it leaves a key that's been used alone. Focus goes back to the trigger,
+      // as the options it was on are gone. The box for a new item handles
+      // Escape itself first.
+      onKeyDown={(e) => {
+        if (!open || e.key !== 'Escape' || e.defaultPrevented) return;
+        e.preventDefault();
+        close();
+        triggerRef.current?.focus();
+      }}
+    >
       <button
         ref={triggerRef}
         type="button"
@@ -131,8 +141,10 @@ export function EnumPicker({
           ))}
           {options.length > 0 && <div className="my-1 h-px bg-surface-sunk" />}
           {adding ? (
-            <div className="flex items-center gap-1 rounded-md bg-brand-soft px-1.5 py-1">
-              <Plus size={11} className="shrink-0 text-brand" />
+            // The box and Add span the row, edge to edge like an option's
+            // highlight, and the input's left padding puts typed text where the
+            // option labels start: 1px border + 9px = px-2.5.
+            <div className="flex items-center gap-1 py-1">
               <input
                 autoFocus
                 value={draft}
@@ -145,13 +157,24 @@ export function EnumPicker({
                   if (e.key === 'Escape') {
                     e.preventDefault();
                     close();
+                    triggerRef.current?.focus();
                   }
                 }}
                 onBlur={commitNew}
-                placeholder="New item name"
+                placeholder="Type a new item"
                 aria-label="New option name"
-                className="min-w-0 flex-1 border-none bg-transparent px-0 py-1 text-xs text-ink outline-none"
+                className="min-w-0 flex-1 rounded border border-surface-sunk bg-white py-1.5 pl-[9px] pr-2 text-xs text-ink outline-none placeholder:text-ink-soft focus:border-brand"
               />
+              <button
+                type="button"
+                // Keeps focus in the box, so its blur doesn't add first.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={commitNew}
+                // The same 1px border as the box, so the two stay the same height.
+                className="shrink-0 rounded border border-brand bg-brand px-2.5 py-1.5 text-xs font-semibold text-white cursor-pointer hover:brightness-110"
+              >
+                Add
+              </button>
             </div>
           ) : (
             <button

@@ -68,10 +68,10 @@ test.describe('help: create and publish your first signup', () => {
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
     await helpElementShot(page, SLUG, slotEditor, 'slot');
     await slotEditor.getByRole('button', { name: UI.done }).click();
-    await expect(page.getByRole('button', { name: /Fruit and water/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Edit slot — Fruit and water, / })).toBeVisible();
 
     await page.getByRole('button', { name: UI.addSlot }).click();
-    await expect(page.getByRole('button', { name: /^Edit slot/ })).toHaveCount(2);
+    await expect(page.getByRole('button', { name: /^Edit slot.*taken$/ })).toHaveCount(2);
     // The article warns that a slot left empty reaches people as "Untitled slot".
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
     const [withEmpty] = await Promise.all([
@@ -81,14 +81,14 @@ test.describe('help: create and publish your first signup', () => {
     await expect(withEmpty.getByText(UI.untitledSlot)).toBeVisible();
     await withEmpty.close();
 
-    await page.getByRole('button', { name: /Fruit and water/ }).click();
+    await page.getByRole('button', { name: /^Edit slot — Fruit and water, / }).click();
     const original = await slotEditor.getAttribute('data-testid');
     await slotEditor.getByRole('button', { name: UI.duplicate }).click();
     // "The copy opens below it": the original closes and the copy's editor
     // opens in its place, directly under the original's row, with focus in it.
     await expect(slotEditor).not.toHaveAttribute('data-testid', original!);
     await expect(slotEditor.getByRole('textbox', { name: `${UI.what} value` })).toBeFocused();
-    await expect(page.getByRole('button', { name: /Fruit and water/ })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: /^Edit slot — Fruit and water, / })).toHaveCount(1);
     const rows = page.locator('[data-testid^="wysiwyg-slot-"]');
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(1).locator('[data-testid^="slot-editor-"]')).toBeVisible();
@@ -108,7 +108,7 @@ test.describe('help: create and publish your first signup', () => {
     await expect(rows.nth(1)).toContainText('Apr 13');
     await page.getByText(UI.emptySlot, { exact: true }).click();
     await slotEditor.getByRole('button', { name: UI.delete }).click();
-    await expect(page.getByRole('button', { name: /^Edit slot/ })).toHaveCount(2);
+    await expect(page.getByRole('button', { name: /^Edit slot.*taken$/ })).toHaveCount(2);
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
 
     // Reminders: on for a new signup, switched off from the date field.
@@ -374,33 +374,11 @@ test.describe('help: create and publish your first signup', () => {
       const slotEditor = page.locator('[data-testid^="slot-editor-"]');
       const what = slotEditor.getByRole('textbox', { name: `${UI.what} value` });
       await expect(what).toBeFocused();
-      await what.fill('TBD');
-      // Done hands the focus back to Publish and share, as the fix opened it.
-      await slotEditor.getByRole('button', { name: UI.done }).click();
-      await expect(publish).toBeFocused();
-
-      // A slot that still says "TBD" is marked on the Build tab, and is
-      // something people would see. Name it first opens it again, focus on
-      // the TBD.
-      await expect(page.getByRole('tab', { name: UI.build })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      );
-      const mark = page.getByText(UI.stillSays, { exact: true });
-      await expect(mark).toBeVisible();
-      await publish.click();
-      const beforePeopleSee = page.getByRole('dialog', { name: UI.beforePeopleSee });
-      await expect(beforePeopleSee).toBeVisible();
-      await expect(beforePeopleSee.getByRole('button', { name: UI.publishAnyway })).toBeVisible();
-      await beforePeopleSee.getByRole('button', { name: UI.nameItFirst }).click();
-      await expect(what).toBeFocused();
-      await expect(what).toHaveValue('TBD');
       await what.fill('Fruit and water');
+      // Done hands the focus back to Publish and share, as the fix opened it,
+      // and the header says it can be published.
       await slotEditor.getByRole('button', { name: UI.done }).click();
-      // Named, the mark goes; focus is back on Publish and share, and the
-      // header says it can be published.
       await expect(publish).toBeFocused();
-      await expect(mark).toHaveCount(0);
       await expect(
         page.getByRole('status').filter({ hasText: 'Publish and share when you’re ready.' }),
       ).toHaveCount(1);

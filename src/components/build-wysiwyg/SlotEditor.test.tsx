@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, type Mock } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { SlotEditor } from './SlotEditor';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
@@ -48,6 +48,7 @@ function renderEditor(overrides: {
   const utils = render(
     <SlotEditor
       row={overrides.row ?? makeRow({ values: { name: 'Existing' } })}
+      label="Editing slot — Existing"
       fields={overrides.fields ?? [makeField()]}
       {...(overrides.focusOnOpen !== undefined ? { focusOnOpen: overrides.focusOnOpen } : {})}
       {...(overrides.onFocused ? { onFocused: overrides.onFocused } : {})}
@@ -160,6 +161,65 @@ describe('SlotEditor', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('is a group named for its slot, so its buttons are heard with it', () => {
+    renderEditor();
+    const group = screen.getByRole('group', { name: 'Editing slot — Existing' });
+    expect(within(group).getByRole('button', { name: /Done/ })).toBeTruthy();
+  });
+
+  it('Escape in any box closes it, as Done does', () => {
+    const { onClose, onCellChange } = renderEditor();
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Name value' }), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(screen.getByLabelText('Spots'), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(2);
+    // Nothing typed is undone.
+    expect(onCellChange).not.toHaveBeenCalled();
+  });
+
+  it('other keys leave it open', () => {
+    const { onClose } = renderEditor();
+    fireEvent.keyDown(screen.getByLabelText('Spots'), { key: 'Enter' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  describe('Escape in a list', () => {
+    const listFields = () => [
+      makeField({
+        id: 'f2',
+        ref: 'kind',
+        name: 'Kind',
+        config: { fieldType: 'enum', choices: ['Option 1'] },
+      }),
+    ];
+
+    it('closes only an open menu, and focus goes back to its trigger', () => {
+      const { onClose } = renderEditor({ fields: listFields(), row: makeRow({ values: {} }) });
+      const trigger = screen.getByRole('button', { name: 'Kind value' });
+      fireEvent.click(trigger);
+      fireEvent.keyDown(screen.getByRole('option', { name: /Option 1/ }), { key: 'Escape' });
+      expect(screen.queryByRole('listbox')).toBeNull();
+      expect(trigger).toHaveFocus();
+      expect(onClose).not.toHaveBeenCalled();
+      // With the menu closed, the next Escape closes the editor.
+      fireEvent.keyDown(trigger, { key: 'Escape' });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('closes only the box for a new item', () => {
+      const { onClose } = renderEditor({ fields: listFields(), row: makeRow({ values: {} }) });
+      const trigger = screen.getByRole('button', { name: 'Kind value' });
+      fireEvent.click(trigger);
+      fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+      fireEvent.keyDown(screen.getByRole('textbox', { name: 'New option name' }), {
+        key: 'Escape',
+      });
+      expect(screen.queryByRole('textbox', { name: 'New option name' })).toBeNull();
+      expect(trigger).toHaveFocus();
+      expect(onClose).not.toHaveBeenCalled();
+    });
+  });
+
   it('Delete button calls onDelete', () => {
     const { onDelete } = renderEditor();
     fireEvent.click(screen.getByRole('button', { name: /Delete/ }));
@@ -190,7 +250,7 @@ describe('SlotEditor', () => {
     expect(onFocused).toHaveBeenCalledTimes(1);
   });
 
-  it('renders native input types for date / time / number fields', () => {
+  it('renders native input types for date and number fields, and a select for time', () => {
     renderEditor({
       fields: [
         makeField({ id: 'f1', ref: 'date', name: 'Date', config: { fieldType: 'date' } }),
@@ -203,10 +263,34 @@ describe('SlotEditor', () => {
     expect(date.type).toBe('date');
     // The services refuse a date before 1900.
     expect(date.min).toBe('1900-01-01');
-    expect((screen.getByLabelText('Time value') as HTMLInputElement).type).toBe('time');
+    expect(screen.getByLabelText('Time value').tagName).toBe('SELECT');
     const qty = screen.getByLabelText('Quantity value') as HTMLInputElement;
     expect(qty.type).toBe('number');
     expect(qty.inputMode).toBe('numeric');
+  });
+
+  it('saves a time picked from the Time cell', () => {
+    const { onCellChange } = renderEditor({
+      fields: [makeField({ ref: 'time', name: 'Time', config: { fieldType: 'time' } })],
+      row: makeRow({ values: {} }),
+    });
+    const time = screen.getByLabelText('Time value');
+    expect(time).toHaveValue('');
+    expect(screen.getByRole('option', { name: 'No time' })).toBeInTheDocument();
+    fireEvent.change(time, { target: { value: '18:30' } });
+    expect(onCellChange).toHaveBeenCalledWith('time', '18:30');
+  });
+
+  it('keeps a time off the 15-minute grid through opening and closing the editor', () => {
+    const fields = [makeField({ ref: 'time', name: 'Time', config: { fieldType: 'time' } })];
+    const row = makeRow({ values: { time: '09:10' } });
+    const { onCellChange, unmount } = renderEditor({ fields, row });
+    expect(screen.getByLabelText('Time value')).toHaveValue('09:10');
+    expect(screen.getByRole('option', { name: '9:10\u00a0AM' })).toBeInTheDocument();
+    unmount();
+    renderEditor({ fields, row, onCellChange });
+    expect(screen.getByLabelText('Time value')).toHaveValue('09:10');
+    expect(onCellChange).not.toHaveBeenCalled();
   });
 
   // A label around the picker passes each click inside the menu on to the

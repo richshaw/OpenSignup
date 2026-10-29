@@ -3,19 +3,17 @@ import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
+import { getOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
 import { commitmentEditUrl } from '@/lib/links';
-import {
-  COMMIT_COOKIE_NAME,
-  parseReturningCommits,
-} from '@/lib/returning-participant';
+import { COMMIT_COOKIE_NAME, parseReturningCommits } from '@/lib/returning-participant';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { readRequestSignals, recordPublicView } from '@/lib/view-tracker';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { loadPublicSignup } from '@/services/signups.cached';
-import SignupView, {
-  toSignupViewProps,
-} from './signup-view';
+import { organizerBarSignupId } from './organizer-bar';
+import { OrganizerStrip } from './organizer-strip';
+import SignupView, { toSignupViewProps } from './signup-view';
 import { SignupStateMessage } from './state-message';
 
 type PageParams = { params: Promise<{ slug: string }> };
@@ -89,7 +87,14 @@ export default async function PublicSignupPage({ params }: PageParams) {
   const candidates = parseReturningCommits(returningRaw).filter(
     (e) => !e.signupId || e.signupId === sig.id,
   );
-  const found = await getOwnCommitmentsForSignup(getDb(), sig.id, candidates);
+  // The session read costs a visitor nothing: with no session cookie Auth.js
+  // answers without touching the database. Only a signed-in organizer pays
+  // for it, and it runs alongside the commitments read.
+  const [found, session] = await Promise.all([
+    getOwnCommitmentsForSignup(getDb(), sig.id, candidates),
+    getOrganizerSession(),
+  ]);
+  const organizerSignupId = organizerBarSignupId(toActor(session), sig);
   const tokenById = new Map(candidates.map((c) => [c.commitmentId, c.token]));
   const ownCommitments = found.map((c) => ({
     slotId: c.slotId,
@@ -110,9 +115,13 @@ export default async function PublicSignupPage({ params }: PageParams) {
     }),
   );
 
+  // The organizer strip sits above <main>, so the page under it is exactly
+  // what participants see.
   return (
-    <main className="flex min-h-[100svh] flex-col pb-24 pt-10 sm:pt-14">
-      {/* Brand mark only. The old "· Public signup" segment told participants
+    <>
+      {organizerSignupId ? <OrganizerStrip signupId={organizerSignupId} /> : null}
+      <main className="flex min-h-[100svh] flex-col pb-24 pt-10 sm:pt-14">
+        {/* Brand mark only. The old "· Public signup" segment told participants
           nothing actionable — they arrive from a shared link, and the title and
           Sign-up buttons already say what the page is. "Public" was also
           ambiguous: it is true in the sense the product means it (no account,
@@ -126,20 +135,21 @@ export default async function PublicSignupPage({ params }: PageParams) {
           or PPR, and the repo has neither — but this link is a one-off brand
           mark nobody races to follow, so there is no reason to leave the
           coupling in place. */}
-      <div className="container-tight mb-7 text-[13px]">
-        <Link
-          href="/"
-          prefetch={false}
-          className="font-semibold tracking-tight text-ink hover:underline"
-        >
-          {INSTANCE_NAME}
-        </Link>
-      </div>
-      <SignupView
-        {...toSignupViewProps(sig, sig.committedBySlot)}
-        mode="live"
-        ownCommitments={ownCommitments}
-      />
-    </main>
+        <div className="container-tight mb-7 text-[13px]">
+          <Link
+            href="/"
+            prefetch={false}
+            className="font-semibold tracking-tight text-ink hover:underline"
+          >
+            {INSTANCE_NAME}
+          </Link>
+        </div>
+        <SignupView
+          {...toSignupViewProps(sig, sig.committedBySlot)}
+          mode="live"
+          ownCommitments={ownCommitments}
+        />
+      </main>
+    </>
   );
 }

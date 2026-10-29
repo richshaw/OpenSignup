@@ -8,7 +8,6 @@ import { prettyHeader, emptyHeaderCopy } from './prettyHeader';
 import { FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
 import type { UseReorderableResult } from '../build-shared/useReorderable';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
-import type { SignupStatus } from '@/schemas/signups';
 
 export type SlotGroup = {
   /** Stable key — group field value, or `'__empty__'` for the no-value bucket. */
@@ -31,18 +30,17 @@ type WysiwygGroupProps = {
   takenBySlot: Record<string, number>;
   /** Whether the signup sends reminders, and so emails about a moved slot. */
   remindersOn: boolean;
-  /** The signup's, for what a slot still saying "TBD" is marked with. */
-  status: SignupStatus;
   expandedRowId: string | null;
   /** The row whose editor takes focus when it opens: a copy just made by Duplicate. */
   focusRowId?: string | null;
   /** Called once that row's editor has taken focus. */
   onRowFocused?: () => void;
-  onExpandRow: (rowId: string | null) => void;
+  /** Opens a row's editor (`byKeyboard` as `WysiwygSlot`'s `onExpand`), or closes it with null. */
+  onExpandRow: (rowId: string | null, byKeyboard?: boolean) => void;
   onEditCell: (rowId: string, fieldRef: string, value: string) => void;
   onSetCapacity: (rowId: string, capacity: number | null) => void;
-  /** Threaded through to EnumPicker; may return a promise the picker awaits. */
-  onAddEnumOption: (fieldId: string, value: string) => void | Promise<void>;
+  /** Threaded through to EnumPicker. */
+  onAddEnumOption: (fieldId: string, value: string) => void;
   onDuplicateRow: (rowId: string) => void;
   onDeleteRow: (rowId: string) => void;
   onAddSlot: (groupKey: string) => void;
@@ -60,7 +58,6 @@ export function WysiwygGroup({
   fields,
   takenBySlot,
   remindersOn,
-  status,
   expandedRowId,
   focusRowId = null,
   onRowFocused,
@@ -112,13 +109,12 @@ export function WysiwygGroup({
             row={row}
             taken={takenBySlot[row.id] ?? 0}
             remindersOn={remindersOn}
-            status={status}
             fields={fields}
             displayFields={displayFields}
             expanded={expandedRowId === row.id}
             focusOnOpen={focusRowId === row.id}
             {...(onRowFocused ? { onFocused: onRowFocused } : {})}
-            onExpand={() => onExpandRow(row.id)}
+            onExpand={(byKeyboard) => onExpandRow(row.id, byKeyboard)}
             onCollapse={() => onExpandRow(null)}
             onEditCell={(ref, v) => onEditCell(row.id, ref, v)}
             onSetCapacity={(c) => onSetCapacity(row.id, c)}

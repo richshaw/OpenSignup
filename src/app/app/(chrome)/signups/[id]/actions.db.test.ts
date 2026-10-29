@@ -13,7 +13,7 @@ import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/p
 import { EMPTY_TEMPLATE } from '@/lib/signup-templates';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
-import { addSlot, updateSlot } from '@/services/slots';
+import { addSlot } from '@/services/slots';
 import {
   closeAction,
   closeQuestionAction,
@@ -402,11 +402,6 @@ describe('Publish’s check (db)', () => {
     )
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((s) => s.id);
-  const anyway = () => {
-    const form = new FormData();
-    form.set('acknowledge', 'placeholder');
-    return form;
-  };
   const answer = (check: PublishCheck) => ({
     check,
     copy: publishCheckCopy(check),
@@ -459,38 +454,14 @@ describe('Publish’s check (db)', () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it('warns about a slot that still says TBD, and leaves it a draft', async () => {
-    const { id, slotIds } = await draft([
+  it('publishes a draft whose slots say TBD, with no stop: the organizer may mean it', async () => {
+    const { id } = await draft([
       { what: 'Setup', date: '2026-11-14' },
       { what: 'Cashier TBD', date: '2026-11-14' },
     ]);
-    expect(await publishAction(id)).toEqual(
-      answer({
-        kind: 'placeholder',
-        slotIds: [slotIds[1]!],
-        words: ['TBD'],
-        fieldRef: 'what',
-        slotLabel: 'Cashier TBD · Sat, Nov 14',
-      }),
-    );
-    expect(await statusOf(id)).toBe('draft');
-    expect(revalidatePath).not.toHaveBeenCalled();
-  });
-
-  it('publishes past the warning once the organizer chooses Publish anyway', async () => {
-    const { id } = await draft([{ what: 'Cashier TBD' }]);
-    expect(await publishAction(id, anyway())).toEqual({ published: true });
+    expect(await publishAction(id)).toEqual({ published: true });
     expect(await statusOf(id)).toBe('open');
     expect(revalidatePath).toHaveBeenCalledWith(`/app/signups/${id}`, 'layout');
-  });
-
-  it('still stops a blocking problem when the form says Publish anyway', async () => {
-    const { id } = await draft();
-    const [first] = await slotsOf(id);
-    expect(await publishAction(id, anyway())).toEqual(
-      answer({ kind: 'all_blank', slotId: first!, slotCount: 1 }),
-    );
-    expect(await statusOf(id)).toBe('draft');
   });
 
   it('refuses a viewer before checking anything', async () => {
@@ -525,11 +496,6 @@ describe('Publish’s check (db)', () => {
       ['no slots', () => draft([], { empty: true }), { code: 'conflict', reason: 'no_slots' }],
       ['no fields', () => draft([{}], { empty: true }), { code: 'conflict', reason: 'no_fields' }],
       ['every slot empty', () => draft(), { code: 'conflict', reason: 'all_blank' }],
-      [
-        'a slot still saying TBD',
-        () => draft([{ what: 'Cashier TBD' }]),
-        { reason: 'placeholder', warning: true },
-      ],
     ])('writes one row when the check stops %s', async (_name, make, payload) => {
       const { id } = await make();
       await publishAction(id);
@@ -537,11 +503,10 @@ describe('Publish’s check (db)', () => {
       expect(await refusalRows(id)).toEqual([{ payload, actorId: organizerId }]);
     });
 
-    it('writes no more once the organizer chooses Publish anyway', async () => {
+    it('writes nothing for a slot still saying TBD, which publishes', async () => {
       const { id } = await draft([{ what: 'Cashier TBD' }]);
-      await publishAction(id);
-      expect(await publishAction(id, anyway())).toEqual({ published: true });
-      expect(await refusals(id)).toEqual([{ reason: 'placeholder', warning: true }]);
+      expect(await publishAction(id)).toEqual({ published: true });
+      expect(await refusals(id)).toEqual([]);
     });
 
     it('writes nothing for a viewer, who is refused before the check', async () => {
@@ -560,44 +525,14 @@ describe('Publish’s check (db)', () => {
     });
   });
 
-  // After a warning, signup.published says whether the organizer chose
-  // Publish anyway, or fixed the slot first.
-  describe('signup.published after a warning', () => {
-    const published = async (id: string) =>
-      (
-        await db
-          .select({ payload: activity.payload })
-          .from(activity)
-          .where(and(eq(activity.signupId, id), eq(activity.eventType, 'signup.published')))
-      ).map((row) => row.payload);
-
-    it('says acknowledged: placeholder when Publish anyway published past it', async () => {
-      const { id } = await draft([{ what: 'Cashier TBD' }]);
-      await publishAction(id);
-      await publishAction(id, anyway());
-      expect(await published(id)).toEqual([
-        { from: 'draft', to: 'open', acknowledged: 'placeholder' },
-      ]);
-    });
-
-    it('says nothing more when the organizer named the slot first', async () => {
-      const { id, slotIds } = await draft([{ what: 'Cashier TBD' }]);
-      await publishAction(id);
-      const named = await updateSlot(db, owner, slotIds[0]!, { values: { what: 'Cashier' } });
-      if (!named.ok) throw new Error(named.error.message);
-      expect(await publishAction(id)).toEqual({ published: true });
-      expect(await published(id)).toEqual([{ from: 'draft', to: 'open' }]);
-    });
-
-    it('says nothing more when the slot was named before Publish anyway reached the server', async () => {
-      // The form still says Publish anyway, but there's nothing to publish past.
-      const { id, slotIds } = await draft([{ what: 'Cashier TBD' }]);
-      await publishAction(id);
-      const named = await updateSlot(db, owner, slotIds[0]!, { values: { what: 'Cashier' } });
-      if (!named.ok) throw new Error(named.error.message);
-      await publishAction(id, anyway());
-      expect(await published(id)).toEqual([{ from: 'draft', to: 'open' }]);
-    });
+  it('records a slot still saying TBD’s publish as any other', async () => {
+    const { id } = await draft([{ what: 'Cashier TBD' }]);
+    await publishAction(id);
+    const published = await db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, id), eq(activity.eventType, 'signup.published')));
+    expect(published.map((row) => row.payload)).toEqual([{ from: 'draft', to: 'open' }]);
   });
 });
 

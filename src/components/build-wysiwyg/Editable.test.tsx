@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { Editable } from './Editable';
 
 function renderEditable(props: Partial<React.ComponentProps<typeof Editable>> = {}) {
@@ -116,6 +116,90 @@ describe('Editable', () => {
     fireEvent.change(input, { target: { value: 'world' } });
     fireEvent.keyDown(input, { key: 'Escape' });
     fireEvent.blur(input);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('puts focus back on the value after Enter or Escape ends the edit', () => {
+    renderEditable({ value: 'hello' });
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    expect(screen.getByRole('button', { name: 'Editable' })).toHaveFocus();
+
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
+    expect(screen.getByRole('button', { name: 'Editable' })).toHaveFocus();
+  });
+
+  it('puts focus back after Escape in a description', () => {
+    renderEditable({ value: 'hello', multiline: true });
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
+    expect(screen.getByRole('button', { name: 'Editable' })).toHaveFocus();
+  });
+
+  it('leaves focus where a click put it when the edit ends by blur', () => {
+    render(
+      <>
+        <Editable value="hello" onChange={vi.fn()} ariaLabel="Editable" />
+        <button type="button">Elsewhere</button>
+      </>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editable' }));
+    const elsewhere = screen.getByRole('button', { name: 'Elsewhere' });
+    act(() => elsewhere.focus());
+    expect(elsewhere).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Editable' })).not.toHaveFocus();
+  });
+
+  // A reload or a closed tab doesn't blur the field (#699).
+  it('commits on pagehide while editing', () => {
+    const { onChange } = renderEditable({ value: 'hello', multiline: true });
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'world' } });
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('world');
+  });
+
+  it('commits when the page is hidden while editing', () => {
+    const { onChange } = renderEditable({ value: 'hello' });
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'world' } });
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    try {
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+    } finally {
+      visibility.mockRestore();
+    }
+    expect(onChange).toHaveBeenCalledWith('world');
+  });
+
+  it('commits on pagehide before a bubbling-phase listener on window runs', () => {
+    const order: string[] = [];
+    const later = () => order.push('flush');
+    window.addEventListener('pagehide', later);
+    try {
+      renderEditable({ value: 'hello', onChange: () => order.push('commit') });
+      fireEvent.click(screen.getByRole('button'));
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'world' } });
+      act(() => {
+        window.dispatchEvent(new Event('pagehide'));
+      });
+    } finally {
+      window.removeEventListener('pagehide', later);
+    }
+    expect(order).toEqual(['commit', 'flush']);
+  });
+
+  it('does nothing on pagehide when not editing', () => {
+    const { onChange } = renderEditable({ value: 'hello' });
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
     expect(onChange).not.toHaveBeenCalled();
   });
 });

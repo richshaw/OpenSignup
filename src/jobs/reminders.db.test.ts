@@ -17,6 +17,7 @@ import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot, updateSlot } from '@/services/slots';
 import { removeParticipantEmail } from '@/services/testing/participants';
+import { SLOT_CHANGE_SETTLE_MINUTES } from '@/lib/reminder-eligibility';
 import { selectDueReminders, sendReminderJob } from './reminders';
 
 interface Fixture {
@@ -148,6 +149,27 @@ async function makeScenario(
     commitmentId: commit.value.commitment.id,
     participantId: commit.value.commitment.participantId,
   };
+}
+
+/**
+ * Moves the slot the way the organizer does, through `updateSlot`, which
+ * records the move, then places its new time `hoursAhead` from now.
+ */
+async function moveSlotTo(fx: Fixture, slotId: string, day: string, hoursAhead: number) {
+  const moved = await updateSlot(fx.db, fx.actor, slotId, { values: { day } });
+  if (!moved.ok) throw new Error(`updateSlot failed: ${moved.error.message}`);
+  await fx.db
+    .update(slots)
+    .set({ slotAt: sql`now() + make_interval(mins => ${Math.round(hoursAhead * 60)})` })
+    .where(eq(slots.id, slotId));
+}
+
+/** Pushes the signup's recorded slot moves `minutes` into the past, as if time passed. */
+async function ageMoves(db: Db, signupId: string, minutes: number) {
+  await db
+    .update(activity)
+    .set({ occurredAt: sql`${activity.occurredAt} - make_interval(mins => ${minutes})` })
+    .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'slot.rescheduled')));
 }
 
 async function reminderSentRows(db: Db, commitmentId: string): Promise<number> {
@@ -397,6 +419,40 @@ describe('selectDueReminders (db)', () => {
     expect(await reminderSentRows(fx.db, commitmentId)).toBe(1);
   });
 
+  it('waits for a slot moved into the lead time to settle before reminding', async () => {
+    // One move by the organizer is often several saves. A reminder sent
+    // between them names a time that never stuck.
+    const { commitmentId, signupId, slotId } = await makeScenario(fx, 'Moved into the lead', {
+      slotInHours: 24 * 20,
+      dated: true,
+    });
+    expect(await dueIds()).not.toContain(commitmentId);
+    const tomorrow = new Date(Date.now() + 24 * 3600_000).toISOString().slice(0, 10);
+    await moveSlotTo(fx, slotId, tomorrow, 20);
+
+    expect(await dueIds()).not.toContain(commitmentId);
+    await ageMoves(fx.db, signupId, SLOT_CHANGE_SETTLE_MINUTES - 1);
+    expect(await dueIds()).not.toContain(commitmentId);
+    await ageMoves(fx.db, signupId, 2);
+    expect(await dueIds()).toContain(commitmentId);
+  });
+
+  it('skips the send when the slot moved again after being enqueued', async () => {
+    const { commitmentId, signupId, slotId } = await makeScenario(fx, 'Moved after enqueue', {
+      slotInHours: 24 * 20,
+      dated: true,
+    });
+    const tomorrow = new Date(Date.now() + 24 * 3600_000).toISOString().slice(0, 10);
+    await moveSlotTo(fx, slotId, tomorrow, 20);
+    await ageMoves(fx.db, signupId, SLOT_CHANGE_SETTLE_MINUTES + 1);
+    expect(await dueIds()).toContain(commitmentId);
+
+    // The organizer corrects the time while the job waits in the queue.
+    const later = new Date(Date.now() + 3 * 24 * 3600_000).toISOString().slice(0, 10);
+    await moveSlotTo(fx, slotId, later, 18);
+    await expectNoSend(commitmentId, 'slot still moving');
+  });
+
   it('sends once when a second job for the same commitment runs after the first', async () => {
     // The queue does not dedupe, so a commitment still due at the next scan
     // gets another job; the reminder.sent row the first one records stops it.
@@ -413,7 +469,7 @@ describe('selectDueReminders (db)', () => {
   });
 
   it('reminds again when the organizer moves the slot after its reminder went out', async () => {
-    const { commitmentId, slotId } = await makeScenario(fx, 'Moved after its reminder', {
+    const { commitmentId, slotId, signupId } = await makeScenario(fx, 'Moved after its reminder', {
       slotInHours: 20,
       dated: true,
     });
@@ -453,6 +509,8 @@ describe('selectDueReminders (db)', () => {
             sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
           ),
         );
+
+      await ageMoves(fx.db, signupId, 7 * 24 * 60);
 
       expect(await dueIds()).toContain(commitmentId);
       await sendReminderJob({ commitmentId });
