@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AuthError } from 'next-auth';
+import pino from 'pino';
+import { ResendTransport } from '@/email/resend';
 import type { EmailResult } from '@/email/transport';
 import { log } from '@/lib/log';
+import { authLogger } from './logger';
 import { MAGIC_LINK_SEND_TIMEOUT_MS, sendMagicLinkEmail } from './magic-link-send';
 
 const token = 'not-a-real-token';
@@ -45,6 +49,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('sendMagicLinkEmail', () => {
@@ -185,5 +190,118 @@ describe('sendMagicLinkEmail', () => {
     expect(info).toHaveBeenCalledOnce();
     expect(warn).not.toHaveBeenCalled();
     expect(error).not.toHaveBeenCalled();
+  });
+});
+
+// Auth.js hands a failed sendVerificationRequest to its logger wrapped in an
+// error of its own, with the thrown one as the cause.
+class EmailSignInError extends AuthError {
+  static type = 'EmailSignInError';
+}
+
+/** What authLogger writes for each error, through pino's own serializers. */
+function loggedByAuth(...failures: unknown[]) {
+  const lines: string[] = [];
+  const capture = pino({ level: 'debug' }, { write: (line: string) => void lines.push(line) });
+  error.mockImplementation((obj: object, msg: string) => capture.error(obj, msg));
+  warn.mockImplementation((msg: string) => capture.warn(msg));
+  for (const failure of failures) {
+    authLogger.error(failure as Error);
+    authLogger.error(
+      new EmailSignInError('Read more at https://errors.authjs.dev', { cause: failure as Error }),
+    );
+  }
+  return lines.join('');
+}
+
+/** Sends with a transport that refuses at once, and returns what it rejected with. */
+async function refusedInTime(send: () => Promise<EmailResult>) {
+  const rejection = await sendMagicLinkEmail({ send }, message).catch((e: unknown) => e);
+  expect(rejection).toBeInstanceOf(Error);
+  return rejection as Error;
+}
+
+describe('sendMagicLinkEmail, when the mail server refuses in time', () => {
+  it('rejects with the refusal, but not the recipient nodemailer hangs on it', async () => {
+    const refusal = await refusedInTime(async () => {
+      throw Object.assign(
+        new Error(
+          "Can't send mail - all recipients were rejected: 550 5.1.1 <pat@example.com>: Recipient address rejected",
+        ),
+        {
+          code: 'EENVELOPE',
+          responseCode: 550,
+          command: 'RCPT TO',
+          response: '550 5.1.1 <pat@example.com>: Recipient address rejected: User unknown',
+          rejected: ['pat@example.com'],
+          rejectedErrors: [new Error('Recipient command failed: 550 5.1.1 <pat@example.com>')],
+        },
+      );
+    });
+
+    expect(refusal.message).toBe(
+      "Can't send mail - all recipients were rejected: 550 5.1.1 <[email]>: Recipient address rejected",
+    );
+    expect({ ...refusal }).toEqual({ code: 'EENVELOPE', responseCode: 550 });
+    const logged = loggedByAuth(refusal);
+    expect(logged).toContain('EENVELOPE');
+    expect(logged).not.toContain('pat@example.com');
+  });
+
+  it("rejects with Resend's refusal, without the address its body names", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              statusCode: 422,
+              name: 'validation_error',
+              message:
+                'Invalid `to` field. The email address needs to follow the `email@example.com` format: pat@example.com',
+            }),
+            { status: 422 },
+          ),
+      ),
+    );
+    const resend = new ResendTransport('re_not_a_real_key', 'OpenSignup <noreply@example.org>');
+    const refusal = await refusedInTime(() => resend.send(message));
+
+    expect(refusal.message).toMatch(/^resend send failed \(422\): /);
+    const logged = loggedByAuth(refusal);
+    expect(logged).toContain('validation_error');
+    expect(logged).not.toContain('pat@example.com');
+  });
+
+  it('keeps the code of the cause a failed fetch hides the reason in', async () => {
+    const refusal = await refusedInTime(async () => {
+      throw new TypeError('fetch failed', {
+        cause: Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:443'), {
+          code: 'ECONNREFUSED',
+        }),
+      });
+    });
+
+    expect(refusal.message).toBe('fetch failed');
+    expect(refusal.cause).toMatchObject({
+      message: 'connect ECONNREFUSED 127.0.0.1:443',
+      code: 'ECONNREFUSED',
+    });
+  });
+
+  it('blanks an address in a late failure too', async () => {
+    const { transport, fail } = slowTransport();
+    await timeOut(transport);
+
+    fail(new Error('550 5.1.1 <pat@example.com>... User unknown'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(error).toHaveBeenCalledExactlyOnceWith(
+      {
+        emailDomain: 'example.com',
+        sendError: { message: '550 5.1.1 <[email]>... User unknown' },
+        elapsedMs: MAGIC_LINK_SEND_TIMEOUT_MS,
+      },
+      'magic link send failed after it timed out',
+    );
   });
 });
