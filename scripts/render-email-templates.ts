@@ -1,109 +1,34 @@
 /**
  * Renders each sendable email template and exits non-zero if any of them
  * throws. Shared pieces under src/email/templates (layout.tsx) are covered
- * transitively, since every sendable template composes them; add a case here
- * whenever a new template gains a `send*` function.
+ * transitively, since every sendable template composes them. The templates,
+ * their props and what each must render are in scripts/lib/email-samples.ts.
  *
  * Exists to be run under the *worker's* toolchain (`tsx --tsconfig
  * tsconfig.worker.json`), which is the only place templates are compiled
  * outside Next.js. See src/email/templates/worker-render.test.ts for why that
  * distinction matters.
  */
-import { createElement, type ReactElement } from 'react';
 import { renderEmail } from '@/email/render';
-import { CommitmentConfirmationEmail } from '@/email/templates/commitment-confirmation';
-import { MagicLinkEmail } from '@/email/templates/magic-link';
-import { ReminderEmail } from '@/email/templates/reminder';
-import { SlotChangedEmail } from '@/email/templates/slot-changed';
-
-const cases: Array<[string, ReactElement]> = [
-  [
-    'magic-link',
-    createElement(MagicLinkEmail, {
-      url: 'https://example.test/login/confirm?token=abc',
-      email: 'organizer@example.test',
-      expiresInMinutes: 60,
-      codeExpiresInMinutes: 15,
-    }),
-  ],
-  [
-    'commitment-confirmation',
-    createElement(CommitmentConfirmationEmail, {
-      participantName: 'Dana',
-      signupTitle: 'Saturday Snack Rotation',
-      manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
-      slotDetails: [
-        { label: 'Date', value: 'Sat, Sep 5' },
-        { label: 'Time', value: '09:00' },
-        { label: 'Snack', value: 'Fruit' },
-      ],
-      slotSummary: 'Sat, Sep 5 · 09:00 · Fruit',
-      notes: 'Bringing grapes',
-      quantity: 2,
-      promisesReminder: true,
-    }),
-  ],
-  [
-    'reminder',
-    createElement(ReminderEmail, {
-      participantName: 'Dana',
-      signupTitle: 'Saturday Snack Rotation',
-      manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
-      unsubscribeUrl: 'https://example.test/s/snacks/unsubscribe?p=par_1&token=abc',
-      slotDetails: [
-        { label: 'Date', value: 'Sat, Sep 5' },
-        { label: 'Snack', value: 'Fruit' },
-      ],
-      slotSummary: 'Sat, Sep 5 · Fruit',
-      notes: 'Bringing grapes',
-    }),
-  ],
-  [
-    'slot-changed',
-    createElement(SlotChangedEmail, {
-      participantName: 'Dana',
-      signupTitle: 'Saturday Snack Rotation',
-      manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
-      unsubscribeUrl: 'https://example.test/s/snacks/unsubscribe?p=par_1&token=abc',
-      slotDetails: [
-        { label: 'Date', value: 'Sun, Sep 6' },
-        { label: 'Snack', value: 'Fruit' },
-      ],
-      slotSummary: 'Sun, Sep 6 · Fruit',
-      notes: null,
-    }),
-  ],
-];
-
-/**
- * A distinctive string each template must put in its output. Asserting on real
- * rendered content rather than "not empty" is what makes the guard notice a
- * template that renders but drops a section — e.g. after gaining a prop the
- * fixture above does not supply.
- */
-const expected: Record<string, string> = {
-  'magic-link': 'https://example.test/login/confirm?token=abc',
-  'commitment-confirmation': 'https://example.test/s/snacks/c/com_1?token=abc',
-  reminder: 'Sat, Sep 5',
-  'slot-changed': 'Sun, Sep 6',
-};
+import { emailSamples } from './lib/email-samples';
 
 async function main(): Promise<void> {
-  for (const [name, node] of cases) {
-    const { html, text } = await renderEmail(node);
+  for (const { name, element, expect } of emailSamples) {
+    const { html, text } = await renderEmail(element);
     if (!html.trim() || !text.trim()) {
       throw new Error(`${name} rendered empty output`);
     }
-    const needle = expected[name];
-    if (needle === undefined) {
-      throw new Error(`${name} has no expected-content entry; add one`);
+    if (expect.length === 0) {
+      throw new Error(`${name} has no expected content; add some`);
     }
-    for (const [format, body] of [
-      ['html', html],
-      ['text', text],
-    ] as const) {
-      if (!body.includes(needle)) {
-        throw new Error(`${name} ${format} output is missing ${JSON.stringify(needle)}`);
+    for (const needle of expect) {
+      for (const [format, body] of [
+        ['html', html],
+        ['text', text],
+      ] as const) {
+        if (!body.includes(needle)) {
+          throw new Error(`${name} ${format} output is missing ${JSON.stringify(needle)}`);
+        }
       }
     }
     console.log(`ok ${name}`);

@@ -8,13 +8,17 @@ const run = promisify(execFile);
 
 const repoRoot = resolve(import.meta.dirname, '../../..');
 
-function workerScript(): string {
+function packageScript(name: string): string {
   const pkg = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8')) as {
     scripts?: Record<string, string>;
   };
-  const script = pkg.scripts?.worker;
-  if (!script) throw new Error('package.json has no "worker" script');
+  const script = pkg.scripts?.[name];
+  if (!script) throw new Error(`package.json has no "${name}" script`);
   return script;
+}
+
+function workerScript(): string {
+  return packageScript('worker');
 }
 
 /**
@@ -31,7 +35,7 @@ function workerScript(): string {
  *
  * So this test shells out to the worker's real toolchain rather than importing
  * the templates directly. The set it covers is whatever
- * scripts/render-email-templates.ts lists — the sendable templates, plus the
+ * scripts/lib/email-samples.ts lists — the sendable templates, plus the
  * shared layout they all compose. If it fails, reminder emails are broken in
  * production even though every other email test is green.
  */
@@ -53,6 +57,13 @@ describe('email templates under the worker toolchain', () => {
     expect(stdout).toContain('ok reminder');
     expect(stdout).toContain('ok slot-changed');
   }, 60_000);
+
+  it('previews emails under the flags the worker script uses', () => {
+    // `pnpm email:dev` promises that what renders there renders in the worker,
+    // which holds only while it compiles templates the same way.
+    const flags = workerScript().split(/\s+/).slice(1, -1).join(' ');
+    expect(packageScript('email:dev')).toContain(` ${flags} `);
+  });
 
   it('ships every tsconfig the worker script needs in the runner image', async () => {
     // CI has no docker build step, so nothing else catches a tsconfig that the

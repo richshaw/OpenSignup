@@ -32,7 +32,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "email:dev": "email dev --dir src/email/templates --port 3001",
+    "email:dev": "tsx watch --tsconfig tsconfig.worker.json scripts/email-preview.ts",
     "worker": "tsx --tsconfig tsconfig.worker.json src/jobs/worker.ts",
     "eval:magic-compose": "tsx scripts/eval-magic-compose.ts",
     "eval:mcp": "tsx scripts/eval-mcp.ts",
@@ -60,15 +60,16 @@
     "postgres": "^3.4.5",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "react-email": "^3.0.4",
     "uuidv7": "^1.0.2",
     "zod": "^3.24.1",
     "zod-to-json-schema": "3.25.2"
   },
   "pnpm": {
     "overrides": {
-      "next": "15.5.28",
-      "shell-quote": "1.11.0"
+      "shell-quote": "1.11.0",
+      "next>postcss": "^8.5.23",
+      "@react-email/code-block>prismjs": "^1.30.0",
+      "@esbuild-kit/core-utils>esbuild": "^0.25.0"
     },
     "peerDependencyRules": {
       "allowedVersions": {
@@ -79,7 +80,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.10.1",
     "@eslint/eslintrc": "^3.2.0",
-    "@modelcontextprotocol/client": "2.2.0",
+    "@modelcontextprotocol/client": "2.3.0",
     "@playwright/test": "^1.49.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
@@ -91,19 +92,19 @@
     "@typescript-eslint/parser": "^8.19.1",
     "@vitejs/plugin-react": "^5.2.0",
     "autoprefixer": "^10.4.20",
-    "drizzle-kit": "^0.30.1",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^9.17.0",
     "eslint-config-next": "15.5.27",
     "jsdom": "^25.0.1",
-    "knip": "^6.39.0",
+    "knip": "^6.43.0",
     "pino-pretty": "^13.0.0",
     "postcss": "^8.5.23",
     "prettier": "^3.4.2",
     "prettier-plugin-tailwindcss": "^0.6.9",
     "tailwindcss": "^3.4.17",
-    "tsx": "^4.19.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.7.2",
     "vite": "^7.3.7",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }

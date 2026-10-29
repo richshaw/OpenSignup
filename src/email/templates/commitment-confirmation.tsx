@@ -50,5 +50,3 @@ export function CommitmentConfirmationEmail({
     </EmailLayout>
   );
 }
-
-export default CommitmentConfirmationEmail;

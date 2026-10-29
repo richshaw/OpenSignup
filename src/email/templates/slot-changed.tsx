@@ -53,5 +53,3 @@ export function SlotChangedEmail({
     </EmailLayout>
   );
 }
-
-export default SlotChangedEmail;
