@@ -154,7 +154,9 @@ export async function removeCommitmentAction(
   commitmentId: string,
 ): Promise<{ error: string } | null> {
   const actor = await requireActor();
-  const result = await refusalAsResult(() => removeCommitment(getDb(), actor, commitmentId));
+  const result = await refusalAsResult(() =>
+    removeCommitment(getDb(), actor, commitmentId, signupId),
+  );
   if (!result.ok) return { error: removeRefusal(result.error.code) };
   // The public page and the edit link are dynamic, so they read the change on
   // their next request.
