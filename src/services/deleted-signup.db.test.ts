@@ -224,7 +224,7 @@ const CALLS: Array<[string, Call]> = [
   ],
   ['cancelOwnCommitment', (fx, s) => cancelOwnCommitment(fx.db, s.commitmentId, s.editToken)],
   // The organizer taking them off the slot instead.
-  ['removeCommitment', (fx, s) => removeCommitment(fx.db, fx.actor, s.commitmentId)],
+  ['removeCommitment', (fx, s) => removeCommitment(fx.db, fx.actor, s.commitmentId, s.signupId)],
   ['addSlot', (fx, s) => addSlot(fx.db, fx.actor, s.signupId, { values: { day: '2030-05-03' } })],
   [
     'addSlotsBulk',
@@ -351,7 +351,7 @@ describe('a service queued behind a signup delete (db)', () => {
       (fx, s) => updateOwnCommitment(fx.db, s.commitmentId, s.editToken, { quantity: 3 }),
     ],
     ['cancelOwnCommitment', (fx, s) => cancelOwnCommitment(fx.db, s.commitmentId, s.editToken)],
-    ['removeCommitment', (fx, s) => removeCommitment(fx.db, fx.actor, s.commitmentId)],
+    ['removeCommitment', (fx, s) => removeCommitment(fx.db, fx.actor, s.commitmentId, s.signupId)],
   ];
 
   it.each(QUEUED_ON_COMMITMENT)('%s is not_found and writes nothing', async (name, call) => {

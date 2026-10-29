@@ -386,7 +386,9 @@ async function commitParticipantToSlot(
       const alts = await tx
         .select({ id: slots.id, ref: slots.ref, slotAt: slots.slotAt })
         .from(slots)
-        .where(and(eq(slots.signupId, slot.signupId), eq(slots.status, 'open'), ne(slots.id, slotId)))
+        .where(
+          and(eq(slots.signupId, slot.signupId), eq(slots.status, 'open'), ne(slots.id, slotId)),
+        )
         .orderBy(asc(slots.slotAt), asc(slots.sortOrder))
         .limit(3);
       await refused({ slotId, reason: 'capacity_full', requested: data.quantity, remaining });
@@ -602,86 +604,88 @@ export async function updateOwnCommitment(
     // A refusal as closed or full rolls the whole move back, so its
     // attempt_failed row is written after, by the participant who tried.
     let refusal: Record<string, unknown> | undefined;
-    return db.transaction(async (tx) => {
-      const target = await tx
-        .select({ signupId: slots.signupId })
-        .from(slots)
-        .where(eq(slots.id, swapToSlotId))
-        .limit(1);
-      const targetRow = target[0];
-      if (!targetRow) return err(serviceError('not_found', 'target slot not found'));
-      if (targetRow.signupId !== current.signupId) {
-        return err(serviceError('forbidden', 'cannot swap to a slot in a different signup'));
-      }
-
-      // The cancel locks the row, and what it returns is the commitment as it
-      // stands now: `getOwnCommitment` read before this transaction, and a
-      // quantity or notes change in another tab may have landed since.
-      const [cancelled] = await tx
-        .update(commitments)
-        .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() })
-        .where(and(eq(commitments.id, commitmentId), isActiveCommitment))
-        .returning({
-          id: commitments.id,
-          quantity: commitments.quantity,
-          notes: commitments.notes,
-        });
-      if (!cancelled) {
-        // Nothing was mutated (the UPDATE matched no active row), so there is
-        // no work to roll back. Return the error like the guards above, matching
-        // cancelOwnCommitment's handling of the same condition, with the status
-        // re-read inside the tx rather than taken from the pre-flight read.
-        // Gone altogether when its slot was deleted since then.
-        const [row] = await tx
-          .select({ status: commitments.status })
-          .from(commitments)
-          .where(eq(commitments.id, commitmentId))
+    return db
+      .transaction(async (tx) => {
+        const target = await tx
+          .select({ signupId: slots.signupId })
+          .from(slots)
+          .where(eq(slots.id, swapToSlotId))
           .limit(1);
-        if (!row) return err(serviceError('not_found', 'commitment not found'));
-        return err(notActive(row.status));
-      }
+        const targetRow = target[0];
+        if (!targetRow) return err(serviceError('not_found', 'target slot not found'));
+        if (targetRow.signupId !== current.signupId) {
+          return err(serviceError('forbidden', 'cannot swap to a slot in a different signup'));
+        }
 
-      const newCommit = await commitParticipantToSlot(
-        tx,
-        swapToSlotId,
-        { participantId: current.participantId },
-        {
-          name: data.name,
-          notes: data.notes ?? cancelled.notes,
-          quantity: data.quantity ?? cancelled.quantity,
-        },
-        (payload) => {
-          refusal = payload;
-        },
-      );
-      if (!newCommit.ok) {
-        // Rolls back the transaction while preserving the structured error
-        // (capacity_full / closed / conflict / forbidden, with its details and
-        // suggestion) rather than degrading to a generic 500.
-        throw new ServiceException(newCommit.error);
-      }
+        // The cancel locks the row, and what it returns is the commitment as it
+        // stands now: `getOwnCommitment` read before this transaction, and a
+        // quantity or notes change in another tab may have landed since.
+        const [cancelled] = await tx
+          .update(commitments)
+          .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() })
+          .where(and(eq(commitments.id, commitmentId), isActiveCommitment))
+          .returning({
+            id: commitments.id,
+            quantity: commitments.quantity,
+            notes: commitments.notes,
+          });
+        if (!cancelled) {
+          // Nothing was mutated (the UPDATE matched no active row), so there is
+          // no work to roll back. Return the error like the guards above, matching
+          // cancelOwnCommitment's handling of the same condition, with the status
+          // re-read inside the tx rather than taken from the pre-flight read.
+          // Gone altogether when its slot was deleted since then.
+          const [row] = await tx
+            .select({ status: commitments.status })
+            .from(commitments)
+            .where(eq(commitments.id, commitmentId))
+            .limit(1);
+          if (!row) return err(serviceError('not_found', 'commitment not found'));
+          return err(notActive(row.status));
+        }
 
-      await recordActivity(tx, {
-        signupId: current.signupId,
-        workspaceId: current.workspaceId,
-        actor: { actorId: current.participantId, actorType: 'participant' },
-        eventType: 'commitment.swapped',
-        payload: { from: current.id, to: newCommit.value.commitment.id },
-      });
-      const { commitment, editToken, signupSlug, slotAt } = newCommit.value;
-      return ok({ ...commitment, moved: { editToken, signupSlug, slotAt } });
-    }).catch(async (e: unknown) => {
-      if (refusal) {
-        await safeRecordAttemptFailed(db, {
+        const newCommit = await commitParticipantToSlot(
+          tx,
+          swapToSlotId,
+          { participantId: current.participantId },
+          {
+            name: data.name,
+            notes: data.notes ?? cancelled.notes,
+            quantity: data.quantity ?? cancelled.quantity,
+          },
+          (payload) => {
+            refusal = payload;
+          },
+        );
+        if (!newCommit.ok) {
+          // Rolls back the transaction while preserving the structured error
+          // (capacity_full / closed / conflict / forbidden, with its details and
+          // suggestion) rather than degrading to a generic 500.
+          throw new ServiceException(newCommit.error);
+        }
+
+        await recordActivity(tx, {
           signupId: current.signupId,
           workspaceId: current.workspaceId,
-          actorId: current.participantId,
-          actorType: 'participant',
-          payload: { ...refusal, source: 'move' },
+          actor: { actorId: current.participantId, actorType: 'participant' },
+          eventType: 'commitment.swapped',
+          payload: { from: current.id, to: newCommit.value.commitment.id },
         });
-      }
-      throw e;
-    });
+        const { commitment, editToken, signupSlug, slotAt } = newCommit.value;
+        return ok({ ...commitment, moved: { editToken, signupSlug, slotAt } });
+      })
+      .catch(async (e: unknown) => {
+        if (refusal) {
+          await safeRecordAttemptFailed(db, {
+            signupId: current.signupId,
+            workspaceId: current.workspaceId,
+            actorId: current.participantId,
+            actorType: 'participant',
+            payload: { ...refusal, source: 'move' },
+          });
+        }
+        throw e;
+      });
   }
 
   return db.transaction(async (tx) => {
@@ -928,12 +932,15 @@ export async function cancelOwnCommitment(
  * places go back to the slot. Editors and above; a viewer is refused by the
  * guard. Nobody is emailed. Removing a commitment that is already cancelled
  * succeeds and changes nothing; `no_show` is a conflict, as in
- * `cancelOwnCommitment`.
+ * `cancelOwnCommitment`. A commitment that isn't on `expectedSignupId`, the
+ * signup the Responses tab named, is not found, as the field services refuse a
+ * field from another signup.
  */
 export async function removeCommitment(
   db: Db,
   actor: Actor,
   commitmentId: string,
+  expectedSignupId: string,
 ): Promise<Result<{ cancelled: true }, ServiceError>> {
   // Which signup, and so which workspace, to judge the actor against. Read
   // unscoped, as `deleteSlot` reads its slot, and judged straight after.
@@ -942,7 +949,9 @@ export async function removeCommitment(
     .from(commitments)
     .where(eq(commitments.id, commitmentId))
     .limit(1);
-  if (!found) return err(serviceError('not_found', 'commitment not found'));
+  if (!found || found.signupId !== expectedSignupId) {
+    return err(serviceError('not_found', 'commitment not found'));
+  }
   const signup = await readLiveSignup(db, found.signupId);
   if (!signup) return err(serviceError('not_found', 'commitment not found'));
   requireWorkspaceWrite(actor, signup.workspaceId);

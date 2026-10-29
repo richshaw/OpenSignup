@@ -184,10 +184,7 @@ describe('updateOwnCommitment swap (db)', () => {
     expect(stillThere[0]?.status).toBe('confirmed');
 
     // No commitment row was created in signup B.
-    const inB = await fx.db
-      .select()
-      .from(commitments)
-      .where(eq(commitments.signupId, b.signupId));
+    const inB = await fx.db.select().from(commitments).where(eq(commitments.signupId, b.signupId));
     expect(inB.length).toBe(0);
   });
 
@@ -1085,10 +1082,7 @@ describe('cancelOwnCommitment (db)', () => {
       .select()
       .from(activity)
       .where(
-        and(
-          eq(activity.signupId, a.signupId),
-          eq(activity.eventType, 'commitment.cancelled'),
-        ),
+        and(eq(activity.signupId, a.signupId), eq(activity.eventType, 'commitment.cancelled')),
       );
     expect(events.length).toBe(1);
   });
@@ -1140,10 +1134,7 @@ describe('cancelOwnCommitment (db)', () => {
       .select()
       .from(activity)
       .where(
-        and(
-          eq(activity.signupId, a.signupId),
-          eq(activity.eventType, 'commitment.cancelled'),
-        ),
+        and(eq(activity.signupId, a.signupId), eq(activity.eventType, 'commitment.cancelled')),
       );
     expect(events.length).toBe(1);
   });
@@ -1200,10 +1191,7 @@ describe('cancelOwnCommitment (db)', () => {
       .select()
       .from(activity)
       .where(
-        and(
-          eq(activity.signupId, a.signupId),
-          eq(activity.eventType, 'commitment.cancelled'),
-        ),
+        and(eq(activity.signupId, a.signupId), eq(activity.eventType, 'commitment.cancelled')),
       );
     expect(events.length).toBe(1);
   });
@@ -1247,7 +1235,7 @@ describe('removeCommitment (db)', () => {
     const s = await signedUp('Remove', 2);
     expect((await committedBySlot(fx.db, s.signupId))[s.slotId]).toBe(2);
 
-    const r = await removeCommitment(fx.db, fx.actor, s.commitment.id);
+    const r = await removeCommitment(fx.db, fx.actor, s.commitment.id, s.signupId);
     expect(r).toEqual({ ok: true, value: { cancelled: true } });
 
     const row = await commitmentRow(s.commitment.id);
@@ -1279,10 +1267,10 @@ describe('removeCommitment (db)', () => {
 
   it('changes nothing when the commitment is already cancelled', async () => {
     const s = await signedUp('Remove twice');
-    expect((await removeCommitment(fx.db, fx.actor, s.commitment.id)).ok).toBe(true);
+    expect((await removeCommitment(fx.db, fx.actor, s.commitment.id, s.signupId)).ok).toBe(true);
     const first = await commitmentRow(s.commitment.id);
 
-    const again = await removeCommitment(fx.db, fx.actor, s.commitment.id);
+    const again = await removeCommitment(fx.db, fx.actor, s.commitment.id, s.signupId);
     expect(again).toEqual({ ok: true, value: { cancelled: true } });
     expect(await commitmentRow(s.commitment.id)).toEqual(first);
     expect(await removedRows(s.signupId)).toHaveLength(1);
@@ -1290,7 +1278,7 @@ describe('removeCommitment (db)', () => {
     // Someone who cancelled themselves first: no removal is logged.
     const t = await signedUp('Cancelled first');
     expect((await cancelOwnCommitment(fx.db, t.commitment.id, t.editToken)).ok).toBe(true);
-    expect((await removeCommitment(fx.db, fx.actor, t.commitment.id)).ok).toBe(true);
+    expect((await removeCommitment(fx.db, fx.actor, t.commitment.id, t.signupId)).ok).toBe(true);
     expect(await removedRows(t.signupId)).toHaveLength(0);
   });
 
@@ -1301,7 +1289,7 @@ describe('removeCommitment (db)', () => {
       .set({ status: 'no_show' })
       .where(eq(commitments.id, s.commitment.id));
 
-    const r = await removeCommitment(fx.db, fx.actor, s.commitment.id);
+    const r = await removeCommitment(fx.db, fx.actor, s.commitment.id, s.signupId);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.code).toBe('conflict');
     // The same conflict as the participant's own cancel, status and all.
@@ -1320,7 +1308,7 @@ describe('removeCommitment (db)', () => {
       workspaceRoles: { [fx.workspaceId]: 'viewer' },
     };
 
-    await expect(removeCommitment(fx.db, viewer, s.commitment.id)).rejects.toThrow(
+    await expect(removeCommitment(fx.db, viewer, s.commitment.id, s.signupId)).rejects.toThrow(
       /your role cannot modify this workspace/,
     );
     expect((await commitmentRow(s.commitment.id))?.status).toBe('confirmed');
@@ -1333,9 +1321,9 @@ describe('removeCommitment (db)', () => {
     const s = await signedUp('Remove from elsewhere');
     const other = await setupWorkspace();
     try {
-      await expect(removeCommitment(other.db, other.actor, s.commitment.id)).rejects.toThrow(
-        /not a member/,
-      );
+      await expect(
+        removeCommitment(other.db, other.actor, s.commitment.id, s.signupId),
+      ).rejects.toThrow(/not a member/);
     } finally {
       await teardownWorkspace(other.db, other.workspaceId, other.organizerId);
     }
@@ -1344,9 +1332,24 @@ describe('removeCommitment (db)', () => {
   });
 
   it('is not_found for an unknown commitment', async () => {
-    const r = await removeCommitment(fx.db, fx.actor, makeId('com'));
+    const s = await makeOpenSignupWithSlot(fx, 'Remove unknown');
+    const r = await removeCommitment(fx.db, fx.actor, makeId('com'), s.signupId);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.code).toBe('not_found');
+  });
+
+  // The Responses tab names the signup in its URL; a commitment from another
+  // signup, even one the organizer can write to, is not found under it.
+  it("is not_found for another signup's commitment, and leaves it alone", async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Remove under A');
+    const b = await signedUp('Remove from B');
+
+    const r = await removeCommitment(fx.db, fx.actor, b.commitment.id, a.signupId);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('not_found');
+    expect((await commitmentRow(b.commitment.id))?.status).toBe('confirmed');
+    expect(await removedRows(b.signupId)).toHaveLength(0);
+    expect(await removedRows(a.signupId)).toHaveLength(0);
   });
 
   // `recordActivity` stamps the organizer's lastActiveAt after inserting the
@@ -1357,7 +1360,7 @@ describe('removeCommitment (db)', () => {
     let running: ReturnType<typeof removeCommitment> | undefined;
     const held = fx.db.transaction(async (tx) => {
       await tx.select().from(organizers).where(eq(organizers.id, fx.organizerId)).for('update');
-      running = removeCommitment(fx.db, fx.actor, s.commitment.id);
+      running = removeCommitment(fx.db, fx.actor, s.commitment.id, s.signupId);
       await untilServiceBlockedOn(fx.db, tx, running);
       // Read from outside both transactions: neither change shows yet.
       expect((await commitmentRow(s.commitment.id))?.status).toBe('confirmed');
@@ -1757,7 +1760,11 @@ describe('signing up again with the same idempotency key (db)', () => {
   // So a client that picks a guessable key can't hand one person's edit link
   // to someone else who sends the same key.
   it('makes a new sign-up, not the earlier one, for the same key with other details', async () => {
-    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, 'Same key, new details', optional);
+    const { signupId, slotId } = await makeOpenSignupWithSlot(
+      fx,
+      'Same key, new details',
+      optional,
+    );
     const key = newKey();
 
     const sam = await mustSignUp(slotId, key);
@@ -2185,7 +2192,7 @@ describe('cancelledCommitmentState (db)', () => {
 
   it('says an organizer removed it', async () => {
     const s = await signedUp('Removed');
-    expect((await removeCommitment(fx.db, fx.actor, s.commitment.id)).ok).toBe(true);
+    expect((await removeCommitment(fx.db, fx.actor, s.commitment.id, s.signupId)).ok).toBe(true);
     expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
       movedTo: null,
       removed: true,
@@ -2196,7 +2203,7 @@ describe('cancelledCommitmentState (db)', () => {
   it('follows a move to the sign-up an organizer then removed', async () => {
     const s = await signedUp('Moved, then removed');
     const first = await moved(s.commitment.id, s.editToken, s.otherSlotId);
-    expect((await removeCommitment(fx.db, fx.actor, first.id)).ok).toBe(true);
+    expect((await removeCommitment(fx.db, fx.actor, first.id, s.signupId)).ok).toBe(true);
     // Named for the slot it was taken off, the one it moved to.
     expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
       movedTo: null,
@@ -2214,7 +2221,7 @@ describe('cancelledCommitmentState (db)', () => {
   it('is not a removal when the participant cancelled first', async () => {
     const s = await signedUp('Cancelled, then removed');
     expect((await cancelOwnCommitment(fx.db, s.commitment.id, s.editToken)).ok).toBe(true);
-    expect((await removeCommitment(fx.db, fx.actor, s.commitment.id)).ok).toBe(true);
+    expect((await removeCommitment(fx.db, fx.actor, s.commitment.id, s.signupId)).ok).toBe(true);
     expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
       movedTo: null,
       removed: false,
@@ -2276,7 +2283,9 @@ describe('the Responses tab: its count and its Status (db)', () => {
 
     const own = await cancelOwnCommitment(fx.db, cancels.commitment.id, cancels.editToken);
     expect(own.ok).toBe(true);
-    expect((await removeCommitment(fx.db, fx.actor, removed.commitment.id)).ok).toBe(true);
+    expect((await removeCommitment(fx.db, fx.actor, removed.commitment.id, a.signupId)).ok).toBe(
+      true,
+    );
     const move = await updateOwnCommitment(fx.db, moves.commitment.id, moves.editToken, {
       swapToSlotId: other.value.id,
     });
