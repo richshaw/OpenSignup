@@ -1,3 +1,5 @@
+import { STARTER_PROMPTS } from '@/lib/magic-compose/templates';
+
 /** The longest one-line description that comes over as the title. */
 const TITLE_LIKE_MAX_LENGTH = 60;
 
@@ -26,12 +28,13 @@ function fitEncoded(text: string, max: number): string {
  * The manual New signup form, with what the organizer typed carried over, so
  * leaving Magic Compose doesn't drop it: a short line ("Pumpkin carving") as
  * the title, anything longer as the description. The form cuts each to its
- * limit.
+ * limit. A starter example nobody changed isn't the organizer's own words, so
+ * it opens the blank form, as it did before anything was carried.
  */
 export function handFillHref(prompt: string): string {
   const text = prompt.trim();
   const params = new URLSearchParams({ manual: '1' });
-  if (text) {
+  if (text && !STARTER_PROMPTS.some((s) => s.body.trim() === text)) {
     const titleLike = !text.includes('\n') && text.length <= TITLE_LIKE_MAX_LENGTH;
     params.set(titleLike ? 'title' : 'description', fitEncoded(text, CARRIED_MAX_ENCODED_LENGTH));
   }
