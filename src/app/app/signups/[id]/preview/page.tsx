@@ -1,6 +1,5 @@
-import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { getSignupForOrganizer } from '@/services/signups';
+import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { SignupLoadError } from '@/components/signup/SignupLoadError';
 import SignupView, { toSignupViewProps } from '@/app/s/[slug]/signup-view';
@@ -15,11 +14,15 @@ export default async function SignupPreviewPage({ params }: PageParams) {
   const { id } = await params;
   const session = await requireOrganizerSession();
   const actor = toActor(session);
-  const result = await getSignupForOrganizer(getDb(), actor, id, { includeFilled: true });
+  const result = await loadSignupForOrganizer(actor, id);
   if (!result.ok) {
     return <SignupLoadError message={result.error.message} />;
   }
   const sig = result.value;
+  const filled = await loadCommittedBySlotForOrganizer(actor, id);
+  if (!filled.ok) {
+    return <SignupLoadError message={filled.error.message} />;
+  }
 
   await trackOrganizerView({
     actor: { actorId: session.organizerId, actorType: 'organizer' },
@@ -30,7 +33,7 @@ export default async function SignupPreviewPage({ params }: PageParams) {
 
   return (
     <main className="flex min-h-[100svh] flex-col py-8">
-      <SignupView {...toSignupViewProps(sig, sig.committedBySlot)} mode="preview" />
+      <SignupView {...toSignupViewProps(sig, filled.value)} mode="preview" />
     </main>
   );
 }
