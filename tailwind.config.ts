@@ -20,6 +20,9 @@ export default {
         },
         brand: {
           DEFAULT: '#1f6feb',
+          // Blue buttons darken to this on hover: white on it is 6.5:1.
+          // Brightening them instead drops white text below 4.5:1.
+          hover: '#1658c4',
           soft: '#dbe7ff',
         },
         surface: {

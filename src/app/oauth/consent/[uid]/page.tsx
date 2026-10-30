@@ -1,11 +1,10 @@
 import Link from 'next/link';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { signOut } from '@/auth/config';
 import { getOrganizerSession } from '@/auth/session';
+import { signOutOrganizer } from '@/auth/sign-out';
 import { SiteFooter } from '@/components/site-footer';
 import { INSTANCE_NAME } from '@/lib/site-config';
-import { OAUTH_COOKIES, OAUTH_SESSION_COOKIE_PATH, consentPath, isInteractionUid } from '@/oauth/config';
+import { consentPath, isInteractionUid } from '@/oauth/config';
 import { ConsentUnavailable, loadConsentContext, type ConsentContext } from '@/oauth/consent';
 import { ConsentForm } from './consent-form';
 
@@ -37,11 +36,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
   // session cookie goes too, so the next organizer's decision is theirs.
   async function switchAccount() {
     'use server';
-    const jar = await cookies();
-    for (const name of [OAUTH_COOKIES.session, `${OAUTH_COOKIES.session}.sig`]) {
-      jar.delete({ name, path: OAUTH_SESSION_COOKIE_PATH });
-    }
-    await signOut({ redirectTo: `/login?callbackUrl=${encodeURIComponent(consentPath(uid))}` });
+    await signOutOrganizer(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
   }
 
   return (

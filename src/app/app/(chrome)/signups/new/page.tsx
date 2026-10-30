@@ -72,7 +72,7 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
           </a>
           <AsyncSubmitButton
             loadingLabel="Creating…"
-            className="bg-brand rounded-lg px-5 py-2 font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
+            className="bg-brand rounded-lg px-5 py-2 font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:brightness-90"
           >
             Create signup
           </AsyncSubmitButton>

@@ -1,9 +1,7 @@
 import Link from 'next/link';
-import { cookies } from 'next/headers';
-import { signOut } from '@/auth/config';
 import { requireOrganizerSession } from '@/auth/session';
+import { signOutOrganizer } from '@/auth/sign-out';
 import { INSTANCE_NAME } from '@/lib/site-config';
-import { OAUTH_COOKIES, OAUTH_SESSION_COOKIE_PATH } from '@/oauth/config';
 
 export const metadata = {
   title: { default: 'Dashboard', template: `%s · ${INSTANCE_NAME}` },
@@ -20,14 +18,7 @@ export default async function OrganizerLayout({
 
   async function handleSignOut() {
     'use server';
-    // The OAuth authorization server keeps its own record of who is signed
-    // in; drop it too so a later "connect an app" on this browser starts
-    // from whoever signs in next, not from this organizer.
-    const jar = await cookies();
-    for (const name of [OAUTH_COOKIES.session, `${OAUTH_COOKIES.session}.sig`]) {
-      jar.delete({ name, path: OAUTH_SESSION_COOKIE_PATH });
-    }
-    await signOut({ redirectTo: '/' });
+    await signOutOrganizer('/');
   }
 
   return (
@@ -48,13 +39,14 @@ export default async function OrganizerLayout({
               Help
             </Link>
             {/* The account itself is the way into settings; on narrow screens the
-                address would not fit, so the link reads "Settings" there. */}
+                address would not fit, so the link reads "Account" there, not
+                "Settings", which a signup's own tab is called. */}
             <Link
               href="/app/settings"
               className="text-ink-muted hover:text-ink max-w-[16rem] truncate text-sm transition"
               title="Settings"
             >
-              <span className="sm:hidden">Settings</span>
+              <span className="sm:hidden">Account</span>
               <span className="hidden sm:inline">{session.email}</span>
             </Link>
             <form action={handleSignOut}>

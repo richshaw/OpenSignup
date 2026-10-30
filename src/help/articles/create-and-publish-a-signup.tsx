@@ -281,9 +281,7 @@ export function CreateAndPublishASignup() {
         <Steps>
           <Step>
             <p>
-              On a phone, the <Ui>{UI.settings}</Ui> link at the very top of the page is for your
-              account, so skip it. Under your signup&apos;s title, choose the <Ui>{UI.settings}</Ui>{' '}
-              tab.
+              Under your signup&apos;s title, choose the <Ui>{UI.settings}</Ui> tab.
             </p>
           </Step>
           <Step>

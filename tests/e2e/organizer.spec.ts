@@ -782,3 +782,20 @@ test.describe('signed-out organizer links', () => {
     );
   });
 });
+
+test.describe('the header on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('names the account link Account, so Settings is only the signup’s tab', async ({
+    page,
+    context,
+  }) => {
+    await loginAsSeededOrganizer(context);
+    await page.goto(`/app/signups/${seed.draftSignupId}/build`);
+    await expect(page.getByRole('tab', { name: /^Settings/ })).toBeVisible();
+    // The tabs have role="tab", so the header link is the only link that could match.
+    await expect(page.getByRole('link', { name: 'Settings' })).toHaveCount(0);
+    await page.locator('header').getByRole('link', { name: 'Account', exact: true }).click();
+    await expect(page).toHaveURL(`${BASE_URL}/app/settings`);
+  });
+});

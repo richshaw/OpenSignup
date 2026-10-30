@@ -204,10 +204,10 @@ test.describe('help: connect an AI assistant', () => {
   test.describe('on a phone', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
-    test('the header link says Settings', async ({ page, context }) => {
+    test('the header link says Account', async ({ page, context }) => {
       await loginAsSeededOrganizer(context);
       await page.goto('/app');
-      await page.getByRole('link', { name: UI.settings, exact: true }).click();
+      await page.getByRole('link', { name: UI.account, exact: true }).click();
       await expect(page.getByRole('heading', { name: UI.settings, level: 1 })).toBeVisible();
       await page.getByRole('link', { name: new RegExp(`^${UI.connectedApps}`) }).click();
       await expect(page.getByRole('heading', { name: UI.connectedApps, level: 1 })).toBeVisible();
