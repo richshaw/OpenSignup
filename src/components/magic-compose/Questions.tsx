@@ -26,7 +26,6 @@ import {
   answersProblem,
   appendAnswers,
   buildFollowUp,
-  hasAnswers,
   isFull,
   NO_ANSWERS,
   parseCount,
@@ -37,6 +36,7 @@ import {
   timeLength,
   type Answers,
 } from './answers';
+import { handFillHref } from './hand-fill';
 import { DETAILS_STEP, DRAFT_STEPS, FRAME, PulseMark, StepList, type StepRow } from './Steps';
 import { HereDot, StepLine } from './StepLine';
 import { YouWrote } from './YouWrote';
@@ -133,12 +133,6 @@ export function Questions({
     errorRef.current?.scrollIntoView?.({ block: 'center' });
     errorRef.current?.focus({ preventScroll: true });
   };
-  // With nothing answered, every topic goes as a placeholder. Any answer goes
-  // as Draft my signup sends it, checks and all, rather than being dropped.
-  const draftWithPlaceholders = () => {
-    if (hasAnswers(questions, answers)) draft();
-    else onSend(buildFollowUp(questions, answers, { placeholders: true }));
-  };
 
   const parts = [
     <What key="what" options={questions.whatOptions} answers={answers} update={update} />,
@@ -192,13 +186,6 @@ export function Questions({
       </aside>
 
       <section className="overflow-hidden rounded-2xl border border-surface-sunk bg-white">
-        <div className="flex items-center justify-between border-b border-surface-sunk bg-surface-raised px-4 py-3 text-xs font-medium text-ink-muted">
-          <span className="flex animate-fade-in items-center gap-2">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand" />
-            Your answers
-          </span>
-        </div>
-
         <div className="flex flex-col gap-4 p-4 sm:px-6 sm:py-5">
           <YouWrote prompt={prompt} variant="plain" />
           {!edited && error && (
@@ -221,28 +208,20 @@ export function Questions({
           style={{ animationDelay: `${80 + parts.length * 70}ms` }}
         >
           <Link
-            href="/app/signups/new?manual=1"
+            href={handFillHref(prompt)}
             className="inline-flex min-h-11 items-center self-center text-[15px] text-ink-muted underline hover:text-ink sm:self-auto"
           >
             Fill in by hand instead
           </Link>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap">
-            <button
-              type="button"
-              onClick={draftWithPlaceholders}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-surface-sunk bg-white px-4 text-[15px] font-medium text-ink hover:bg-surface-raised"
-            >
-              Draft with placeholders
-            </button>
-            <button
-              type="button"
-              onClick={draft}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-[15px] font-semibold text-white shadow-sm transition hover:brightness-110"
-            >
-              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              Draft my signup
-            </button>
-          </div>
+          {/* Anything skipped goes as a placeholder, as the heading's line says. */}
+          <button
+            type="button"
+            onClick={draft}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-[15px] font-semibold text-white shadow-sm transition hover:brightness-110"
+          >
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+            Draft my signup
+          </button>
         </div>
       </section>
     </div>

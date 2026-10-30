@@ -33,7 +33,6 @@ describe('create-and-publish-a-signup: drafting screen names', () => {
       />,
     );
     expect(screen.getByRole('heading', { name: UI.questionsHeading })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: UI.draftWithPlaceholders })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: UI.draftCompose })).toBeInTheDocument();
   });
 });

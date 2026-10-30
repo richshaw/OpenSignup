@@ -24,7 +24,7 @@ import {
 } from '@/lib/magic-compose/prompt';
 import { fitDraftText } from '@/lib/magic-compose/fit-text';
 import { persistDraft } from '@/lib/magic-compose/persist';
-import type { FollowUp } from '@/lib/magic-compose/questions';
+import { answeredNothing, type FollowUp } from '@/lib/magic-compose/questions';
 import { mapMagicComposeError } from './errors';
 import { buildDraftPreview } from './preview';
 import { recordAnswered, recordAsked, type FollowUpOutcome } from './telemetry';
@@ -79,7 +79,7 @@ function askedAgain(followUp: FollowUp) {
   return fail(
     serviceError(
       'invalid_input',
-      followUp.placeholders
+      answeredNothing(followUp)
         ? "Couldn't draft this. Try again, or fill it in by hand."
         : "Couldn't draft from these answers. Add a little more, or fill it in by hand.",
       { details: { reason: 'asked_again' } },

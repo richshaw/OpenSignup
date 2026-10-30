@@ -50,13 +50,6 @@ export interface FollowUp {
    * when "how many" was asked and there are items to count.
    */
   howMany?: Array<number | null>;
-  /**
-   * The organizer pressed Draft with placeholders with nothing answered (with
-   * answers, the page sends them as Draft my signup does). Every answer is then
-   * in its skipped form; the flag only tells that apart from leaving
-   * everything blank.
-   */
-  placeholders?: true;
 }
 
 /**
@@ -71,4 +64,14 @@ export function tidyText(text: string): string {
 /** The items a follow-up drafts from, in the order `howMany` counts them. */
 export function followUpItems(followUp: FollowUp): string[] {
   return [...followUp.what.picked, ...followUp.what.added];
+}
+
+/**
+ * Every answer in its skipped form: nothing to sign up for and no day, so the
+ * draft is all placeholders. (`howMany` comes only with items.)
+ */
+export function answeredNothing(followUp: FollowUp): boolean {
+  return (
+    followUpItems(followUp).length === 0 && (!followUp.when || followUp.when.kind === 'not_decided')
+  );
 }

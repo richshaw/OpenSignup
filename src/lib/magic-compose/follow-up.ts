@@ -62,7 +62,6 @@ export const FollowUpSchema: z.ZodType<FollowUp, z.ZodTypeDef, unknown> = z
       .strict(),
     when: WhenSchema.optional(),
     howMany: z.array(CountSchema).optional(),
-    placeholders: z.literal(true).optional(),
   })
   .strict()
   .superRefine((f, ctx) => {
@@ -93,16 +92,6 @@ export const FollowUpSchema: z.ZodType<FollowUp, z.ZodTypeDef, unknown> = z
         code: z.ZodIssueCode.custom,
         path: ['howMany'],
         message: 'Give one count for each thing people sign up for',
-      });
-    }
-    if (
-      f.placeholders &&
-      (items.length > 0 || f.howMany !== undefined || (f.when && f.when.kind !== 'not_decided'))
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['placeholders'],
-        message: 'Draft with placeholders sends no answers',
       });
     }
   });

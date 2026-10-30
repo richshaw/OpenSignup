@@ -12,6 +12,7 @@ import { ChunkBoundary } from './ChunkBoundary';
 import { Compose } from './Compose';
 import { Drafting } from './Drafting';
 import { explainDraftFailure, type DraftError, type DraftErrorBody } from './draft-errors';
+import { handFillHref } from './hand-fill';
 import { writeAiDraftWarnings } from './ai-draft-warnings';
 
 // The questions, and the Drafting from card after them, show only once the AI
@@ -244,7 +245,7 @@ export function MagicComposeRoot({
             error={
               phase.error && (
                 <FormError>
-                  <DraftErrorText error={phase.error} />
+                  <DraftErrorText error={phase.error} prompt={prompt} />
                 </FormError>
               )
             }
@@ -262,7 +263,7 @@ export function MagicComposeRoot({
       {phase.kind === 'error' && (
         <div className="mx-auto mt-6 max-w-[760px]">
           <FormError>
-            <DraftErrorText error={phase.error} />
+            <DraftErrorText error={phase.error} prompt={prompt} />
           </FormError>
         </div>
       )}
@@ -276,13 +277,13 @@ export function MagicComposeRoot({
   );
 }
 
-function DraftErrorText({ error }: { error: DraftError }) {
+function DraftErrorText({ error, prompt }: { error: DraftError; prompt: string }) {
   if (error.kind === 'message') return <>{error.text}</>;
   return (
     <>
       You&apos;ve used this hour&apos;s AI drafts. Try again in {error.minutes}{' '}
       {error.minutes === 1 ? 'minute' : 'minutes'}, or{' '}
-      <Link href="/app/signups/new?manual=1" className="font-medium underline">
+      <Link href={handFillHref(prompt)} className="font-medium underline">
         fill it in by hand
       </Link>
       .

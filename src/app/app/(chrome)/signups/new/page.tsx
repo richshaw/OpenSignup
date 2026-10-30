@@ -4,16 +4,24 @@ import { FormError } from '@/components/ui/form-error';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { getEnv, magicComposeEnabled } from '@/lib/env';
 import { MagicComposeRoot } from '@/components/magic-compose/MagicComposeRoot';
+import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH } from '@/schemas/signups';
 import { createSignupAction } from './actions';
 
 export const metadata = { title: 'New signup' };
 
-type PageProps = { searchParams: Promise<{ manual?: string; error?: string }> };
+type PageProps = {
+  searchParams: Promise<{ manual?: string; error?: string; title?: string; description?: string }>;
+};
+
+/** A box's starting text, from Magic Compose's "fill in by hand" links (see `handFillHref`). */
+function carried(value: unknown, max: number): string | undefined {
+  return typeof value === 'string' ? value.slice(0, max) : undefined;
+}
 
 export default async function NewSignupPage({ searchParams }: PageProps) {
   const session = await requireOrganizerSession();
 
-  const { manual, error } = await searchParams;
+  const { manual, error, title, description } = await searchParams;
   const useMagic = magicComposeEnabled() && manual !== '1';
 
   if (session.defaultWorkspaceId) {
@@ -48,7 +56,8 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
             name="title"
             required
             minLength={2}
-            maxLength={120}
+            maxLength={TITLE_MAX_LENGTH}
+            defaultValue={carried(title, TITLE_MAX_LENGTH)}
             placeholder="Snack duty — Spring season"
             className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk bg-white px-4 py-3 shadow-sm focus:outline-none focus:ring-1"
           />
@@ -58,7 +67,8 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
           <textarea
             name="description"
             rows={4}
-            maxLength={2000}
+            maxLength={DESCRIPTION_MAX_LENGTH}
+            defaultValue={carried(description, DESCRIPTION_MAX_LENGTH)}
             placeholder="One paragraph that shows up at the top of your signup page."
             className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk bg-white px-4 py-3 shadow-sm focus:outline-none focus:ring-1"
           />
