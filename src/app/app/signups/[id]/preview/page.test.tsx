@@ -9,9 +9,11 @@ const committedBySlot = vi.fn();
 vi.mock('next/server', () => ({ after: vi.fn() }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) }));
 vi.mock('@/auth/session', () => ({
-  requireOrganizerSession: async () => ({ organizerId: 'org_1' }),
+  getOrganizerSession: async () => ({ organizerId: 'org_1', email: 'pat@example.com' }),
+  requireOrganizerSession: async () => ({ organizerId: 'org_1', email: 'pat@example.com' }),
   toActor: () => ({ kind: 'organizer', organizerId: 'org_1' }),
 }));
+vi.mock('@/auth/sign-out', () => ({ signOutOrganizer: vi.fn() }));
 vi.mock('@/services/signups', () => ({
   getSignupForOrganizer: (...args: unknown[]) => getSignupForOrganizer(...args),
   getPublicSignup: vi.fn(),
@@ -21,7 +23,7 @@ vi.mock('@/services/commitments', () => ({
 }));
 vi.mock('@/lib/view-tracker', () => ({ trackOrganizerView: vi.fn() }));
 
-const { default: SignupPreviewPage } = await import('./page');
+const { default: SignupPreviewPage, generateMetadata } = await import('./page');
 
 const signup = {
   id: 'sig_1',
@@ -62,15 +64,29 @@ describe('organizer preview page', () => {
     ]);
   });
 
-  it('shows "signup not found" for a signup in a workspace the organizer is not in', async () => {
+  it('shows the not-found card for a signup in a workspace the organizer is not in', async () => {
     getSignupForOrganizer.mockRejectedValue(
       new ServiceException(serviceError('forbidden', 'not a member of that workspace')),
     );
     const page = (await SignupPreviewPage({
       params: Promise.resolve({ id: 'sig_theirs' }),
-    })) as ReactElement<{ message: string }>;
+    })) as ReactElement<{ error: { code: string }; email: string }>;
 
-    expect(page.props.message).toBe('signup not found');
+    expect(page.props.error.code).toBe('not_found');
+    expect(page.props.email).toBe('pat@example.com');
     expect(committedBySlot).not.toHaveBeenCalled();
+  });
+
+  it('titles the tab "Signup not found" when the signup cannot be loaded', async () => {
+    getSignupForOrganizer.mockRejectedValue(
+      new ServiceException(serviceError('forbidden', 'not a member of that workspace')),
+    );
+    const params = Promise.resolve({ id: 'sig_theirs' });
+    expect(await generateMetadata({ params })).toEqual({ title: 'Signup not found' });
+  });
+
+  it('titles the tab "Preview" for the organizer\'s own signup', async () => {
+    const params = Promise.resolve({ id: 'sig_1' });
+    expect(await generateMetadata({ params })).toEqual({ title: 'Preview' });
   });
 });

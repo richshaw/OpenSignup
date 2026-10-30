@@ -1,9 +1,7 @@
 import Link from 'next/link';
-import { cookies } from 'next/headers';
-import { signOut } from '@/auth/config';
 import { requireOrganizerSession } from '@/auth/session';
+import { signOutOrganizer } from '@/auth/sign-out';
 import { INSTANCE_NAME } from '@/lib/site-config';
-import { OAUTH_COOKIES, OAUTH_SESSION_COOKIE_PATH } from '@/oauth/config';
 
 export const metadata = {
   title: { default: 'Dashboard', template: `%s · ${INSTANCE_NAME}` },
@@ -20,14 +18,7 @@ export default async function OrganizerLayout({
 
   async function handleSignOut() {
     'use server';
-    // The OAuth authorization server keeps its own record of who is signed
-    // in; drop it too so a later "connect an app" on this browser starts
-    // from whoever signs in next, not from this organizer.
-    const jar = await cookies();
-    for (const name of [OAUTH_COOKIES.session, `${OAUTH_COOKIES.session}.sig`]) {
-      jar.delete({ name, path: OAUTH_SESSION_COOKIE_PATH });
-    }
-    await signOut({ redirectTo: '/' });
+    await signOutOrganizer('/');
   }
 
   return (
