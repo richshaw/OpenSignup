@@ -69,6 +69,11 @@ describe('system prompt', () => {
     expect(sys).toContain('Never a date, a time or a count');
   });
 
+  it('counts a day of the week as a when, so "Saturday cleanup crew" has nothing to ask', () => {
+    // Without it, "Saturday" read as no when and the prompt asked instead of drafting (#696 evals).
+    expect(sys).toContain('Leave out "when" if it gives a date, a day of the week or a time');
+  });
+
   // follow-up.ts words the second call's message; these hold the prompt to its words.
   const followUp = buildFollowUpMessages('Bake sale', {
     what: { picked: ['Staff the table'], added: [] },
@@ -138,15 +143,12 @@ describe('system prompt', () => {
     expect(QuestionsSchema.parse(c.reply).questions.topics).toEqual(['what', 'when', 'how_many']);
   });
 
-  it('drafts placeholder performances in Example D, which says what but not when', () => {
+  it('asks when, not what, in Example D, which says what but would be all placeholders', () => {
     const d = examples.find((e) => e.name === 'D')!;
-    const draft = FullDraftSchema.parse(d.reply);
-    expect(draft.slots.map((s) => s.values.performance)).toEqual([
-      'TBD: performance 1',
-      'TBD: performance 2',
-      'TBD: performance 3',
-    ]);
-    expect(draft.slots.every((s) => s.capacity === 2)).toBe(true);
+    expect(QuestionsSchema.parse(d.reply).questions).toEqual({
+      topics: ['when'],
+      whatOptions: ['Usher at the play'],
+    });
   });
 
   it('drafts the item list in Example E as it stands: no date field, no placeholders, capacity 1', () => {
@@ -384,7 +386,10 @@ describe('QuestionsSchema', () => {
   });
 
   it.each([
-    ['without what', { topics: ['when', 'how_many'], whatOptions: ['A', 'B'] }],
+    ['without what or when', { topics: ['how_many'], whatOptions: ['A', 'B'] }],
+    ['without what, and with no items', { topics: ['when'], whatOptions: [] }],
+    ['without what, and with only a blank item', { topics: ['when'], whatOptions: [' '] }],
+    ['without what, and with no whatOptions key', { topics: ['when'] }],
     ['with only an unknown topic', { topics: ['where'], whatOptions: ['A', 'B'] }],
     ['with no topics', { topics: [], whatOptions: ['A', 'B'] }],
     ['with one option', { topics: ['what'], whatOptions: ['A'] }],
@@ -392,8 +397,26 @@ describe('QuestionsSchema', () => {
     ['with a blank option', { topics: ['what'], whatOptions: ['A', '  '] }],
     ['with an option over 40 characters', { topics: ['what'], whatOptions: ['A', 'x'.repeat(41)] }],
     ['with an extra key inside', { topics: ['what'], whatOptions: ['A', 'B'], wording: 'What?' }],
+    [
+      'without what, with an extra key inside',
+      { topics: ['when'], whatOptions: ['Bring snacks'], wording: 'When?' },
+    ],
   ])('rejects one %s', (_, questions) => {
     expect(parse(ask(questions)).success).toBe(false);
+  });
+
+  it('accepts questions without what when they ask when, with one item or up to four', () => {
+    const one = QuestionsSchema.safeParse(
+      ask({ topics: ['when', 'how_many'], whatOptions: [' Bring  snacks '] }),
+    );
+    expect(one.success && one.data.questions).toEqual({
+      topics: ['when', 'how_many'],
+      whatOptions: ['Bring snacks'],
+    });
+    const five = QuestionsSchema.safeParse(
+      ask({ topics: ['when'], whatOptions: ['A', 'B', 'C', 'D', 'E'] }),
+    );
+    expect(five.success && five.data.questions.whatOptions).toEqual(['A', 'B', 'C', 'D']);
   });
 
   it('rejects a reply that mixes questions with a draft', () => {
@@ -406,6 +429,9 @@ describe('QuestionsSchema', () => {
       parse({ ...draft, questions: { topics: ['what'], whatOptions: ['A', 'B'] } }).success,
     ).toBe(false);
     expect(parse({ ...draft, questions: { topics: ['when'] } }).success).toBe(false);
+    expect(
+      parse({ ...draft, questions: { topics: ['when'], whatOptions: ['Bring snacks'] } }).success,
+    ).toBe(false);
     expect(parse(draft).success).toBe(true);
   });
 

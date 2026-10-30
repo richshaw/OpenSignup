@@ -207,10 +207,11 @@ export async function POST(req: NextRequest) {
     }
 
     // A first call's questions must be ones the page can ask. Asked in another
-    // shape (no "what", one option), they get one firmer retry for a draft, on
-    // the same quota and budget, and its reply goes the usual way below. With
-    // no time for it, the reply fails as any other of the wrong shape does;
-    // with the organizer gone, it's recorded as that.
+    // shape (neither "what" nor "when", one option for "what"), they get one
+    // firmer retry for a draft, on the same quota and budget, and its reply
+    // goes the usual way below. With no time for it, the reply fails as any
+    // other of the wrong shape does; with the organizer gone, it's recorded as
+    // that.
     if (
       !followUp &&
       raw.ok &&
@@ -295,11 +296,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Questions: the description doesn't say what people sign up for, so the
-    // model asks instead of drafting. A normal answer, not a failure: no
-    // signup, and the log line says which topics and how many options, never
-    // the options themselves. Only a first call gets here: a follow-up's
-    // questions were dealt with above.
+    // Questions: the description doesn't say what people sign up for, or says
+    // it but gives nothing to make a real slot from, so the model asks
+    // instead of drafting. A normal answer, not a failure: no signup, and the
+    // log line says which topics and how many options, never the options
+    // themselves. Only a first call gets here: a follow-up's questions were
+    // dealt with above.
     if (isQuestionsReply(draft.data)) {
       const { questions } = draft.data;
       log.info(

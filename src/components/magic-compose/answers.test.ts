@@ -9,7 +9,9 @@ import {
   buildFollowUp,
   NO_ANSWERS,
   parseCount,
+  removeItem,
   sameAnswers,
+  startingAnswers,
   stepCount,
   timeLength,
   togglePick,
@@ -259,6 +261,32 @@ describe('counts', () => {
     expect(stepCount('2.5', 1)).toBe('3');
     expect(stepCount('2.5', -1)).toBe('2');
     expect(stepCount('0.4', -1)).toBe('1');
+  });
+});
+
+describe('when the description already says what', () => {
+  const KNOWN: MagicComposeQuestions = { topics: ['when'], whatOptions: ['Bring snacks'] };
+
+  it('starts with what the description names picked, and asking what, with nothing picked', () => {
+    expect(startingAnswers(KNOWN)).toEqual({ ...NO_ANSWERS, picked: ['Bring snacks'] });
+    expect(startingAnswers(ALL)).toBe(NO_ANSWERS);
+  });
+
+  it('sends those items as picked, with no howMany when how many was not asked', () => {
+    expect(buildFollowUp(KNOWN, startingAnswers(KNOWN))).toEqual({
+      what: { picked: ['Bring snacks'], added: [] },
+      when: { kind: 'not_decided' },
+    });
+  });
+
+  it('takes an item off whichever list holds it, and typing it back picks it again', () => {
+    const start = { ...startingAnswers(KNOWN), added: ['Bring drinks'] };
+    const gone = removeItem(removeItem(start, 'Bring snacks'), 'Bring drinks');
+    expect(gone.picked).toEqual([]);
+    expect(gone.added).toEqual([]);
+    expect(addPending({ ...gone, pending: 'bring snacks' }, KNOWN.whatOptions).picked).toEqual([
+      'Bring snacks',
+    ]);
   });
 });
 

@@ -46,6 +46,17 @@ export const NO_ANSWERS: Answers = {
   counts: {},
 };
 
+/**
+ * The boxes as the screen first shows them. When the model didn't ask "what"
+ * (the description already says it), the things it read from the description
+ * start out picked, for the organizer to keep, remove or add to.
+ */
+export function startingAnswers(questions: MagicComposeQuestions): Answers {
+  return questions.topics.includes('what')
+    ? NO_ANSWERS
+    : { ...NO_ANSWERS, picked: [...questions.whatOptions] };
+}
+
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 export function answeredItems(answers: Answers): string[] {
@@ -79,8 +90,13 @@ export function addPending(answers: Answers, options: string[]): Answers {
   return { ...cleared, added: [...answers.added, text] };
 }
 
-export function removeAdded(answers: Answers, item: string): Answers {
-  return { ...answers, added: answers.added.filter((a) => a !== item) };
+/** Takes an item off the list, whether it was picked or added. */
+export function removeItem(answers: Answers, item: string): Answers {
+  return {
+    ...answers,
+    picked: answers.picked.filter((p) => p !== item),
+    added: answers.added.filter((a) => a !== item),
+  };
 }
 
 /**

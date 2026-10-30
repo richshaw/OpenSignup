@@ -57,6 +57,17 @@ async function openQuestions(prompt = 'Bake sale') {
   return screen.findByRole('heading', { name: 'A few details first' });
 }
 
+const addBox = () => screen.getByRole('textbox', { name: 'Add your own, then press Enter' });
+
+/** Adds each item from "Add your own" with Enter, as a keyboard user would. */
+function addWithEnter(...items: string[]) {
+  for (const item of items) {
+    addBox().focus();
+    fireEvent.change(addBox(), { target: { value: item } });
+    fireEvent.keyDown(addBox(), { key: 'Enter' });
+  }
+}
+
 /** Picks two options, adds two of their own (Enter, then Add), counts, and a day. */
 function answerEverything() {
   fireEvent.click(screen.getByRole('button', { name: 'Bake something to sell' }));
@@ -522,17 +533,6 @@ describe('<MagicComposeRoot /> focus after Back', () => {
 });
 
 describe('<MagicComposeRoot /> questions focus', () => {
-  const addBox = () => screen.getByRole('textbox', { name: 'Add your own, then press Enter' });
-
-  /** Adds each item from "Add your own" with Enter, as a keyboard user would. */
-  function addWithEnter(...items: string[]) {
-    for (const item of items) {
-      addBox().focus();
-      fireEvent.change(addBox(), { target: { value: item } });
-      fireEvent.keyDown(addBox(), { key: 'Enter' });
-    }
-  }
-
   it('stays in "Add your own" after Add, which goes away, and after Enter', async () => {
     stubReplies(asks());
     await openQuestions();
@@ -578,5 +578,81 @@ describe('<MagicComposeRoot /> questions focus', () => {
     remove.focus();
     fireEvent.click(remove);
     expect(addBox()).toHaveFocus();
+  });
+});
+
+// "Snack sign up" says what but gives nothing to make a real slot from, so the
+// model asks when, and reads what from the description instead of asking it.
+describe('<MagicComposeRoot /> questions when the description says what', () => {
+  const KNOWN: MagicComposeQuestions = {
+    topics: ['when', 'how_many'],
+    whatOptions: ['Bring snacks'],
+  };
+
+  it('shows what the description names as picked chips, with a heading that tells rather than asks', async () => {
+    stubReplies(asks(KNOWN));
+    await openQuestions('Snack sign up');
+    expect(screen.getByText('What people sign up for')).toBeInTheDocument();
+    expect(screen.queryByText('What do people sign up for?')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Remove Bring snacks' })).toBeInTheDocument();
+    // No options to pick: the chip is the only button for it.
+    expect(screen.queryByRole('button', { name: 'Bring snacks' })).toBeNull();
+    expect(screen.getByText('When is it?')).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'People for Bring snacks' })).toBeInTheDocument();
+  });
+
+  it('sends the chips in what.picked, as Draft my signup does for picked options', async () => {
+    const sent = stubReplies(asks(KNOWN), 'hang');
+    await openQuestions('Snack sign up');
+    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
+    await screen.findByRole('heading', { name: 'Drafting your signup' });
+    expect(sent(1)).toEqual({
+      prompt: 'Snack sign up',
+      followUp: {
+        what: { picked: ['Bring snacks'], added: [] },
+        when: { kind: 'not_decided' },
+        howMany: [null],
+      },
+    });
+  });
+
+  it('lets a chip be removed, your own added, and the removed one typed back', async () => {
+    const sent = stubReplies(asks(KNOWN), 'hang');
+    await openQuestions('Snack sign up');
+    const remove = screen.getByRole('button', { name: 'Remove Bring snacks' });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(screen.queryByRole('button', { name: 'Remove Bring snacks' })).toBeNull();
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0);
+    expect(addBox()).toHaveFocus();
+
+    addWithEnter('Bring drinks', 'bring snacks');
+    expect(screen.getAllByRole('spinbutton').map((r) => r.getAttribute('aria-label'))).toEqual([
+      'People for Bring snacks',
+      'People for Bring drinks',
+    ]);
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'People for Bring drinks' }), {
+      target: { value: '2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
+    await screen.findByRole('heading', { name: 'Drafting your signup' });
+    expect(sent(1)).toEqual({
+      prompt: 'Snack sign up',
+      followUp: {
+        what: { picked: ['Bring snacks'], added: ['Bring drinks'] },
+        when: { kind: 'not_decided' },
+        howMany: [null, 2],
+      },
+    });
+  });
+
+  it('moves focus from a removed chip to the next one, picked or added', async () => {
+    stubReplies(asks({ topics: ['when'], whatOptions: ['Bring snacks', 'Bring drinks'] }));
+    await openQuestions('Snack sign up');
+    addWithEnter('Set up');
+    const first = screen.getByRole('button', { name: 'Remove Bring drinks' });
+    first.focus();
+    fireEvent.click(first);
+    expect(screen.getByRole('button', { name: 'Remove Set up' })).toHaveFocus();
   });
 });

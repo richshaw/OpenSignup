@@ -44,9 +44,9 @@ export function CreateAndPublishASignup() {
               </p>
               <p>
                 If you see <Ui>{UI.questionsHeading}</Ui>, your site is asking a few questions
-                before it fills in your signup. Pick what fits and add your own. Then choose{' '}
-                <Ui>{UI.draftCompose}</Ui>. Anything you skip becomes a placeholder you can fill in
-                later.
+                before it fills in your signup. Pick what fits, remove what doesn&apos;t and add
+                your own. Then choose <Ui>{UI.draftCompose}</Ui>. Anything you skip becomes a
+                placeholder you can fill in later.
               </p>
               <p>
                 To follow the steps here instead, choose <Ui>{UI.skipCompose}</Ui>. Anything

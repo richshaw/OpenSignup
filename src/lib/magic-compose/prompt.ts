@@ -98,12 +98,15 @@ function firstDistinctOptions(options: string[]): string[] {
 }
 
 /**
- * The model's answer when the description doesn't say what people sign up
- * for: which topics are missing, and a few options for "what". Strict at both
- * levels, because `z.object` drops keys it doesn't know: a reply mixing
- * questions with half a draft must fail, not pass as whichever arm fits. The
- * topics and options are cut to the ones the page can show before they're
- * checked, so only those have to be right.
+ * The model's answer when it can't draft real slots: which topics are
+ * missing, and the "what" list. Asking "what", it offers a few options for it.
+ * Not asking it (the description says what, but every slot would be a "TBD:"
+ * placeholder), it must ask "when", and the list holds the things the
+ * description names, at least one. Strict at both levels, because `z.object`
+ * drops keys it doesn't know: a reply mixing questions with half a draft must
+ * fail, not pass as whichever arm fits. The topics and options are cut to the
+ * ones the page can show before they're checked, so only those have to be
+ * right.
  */
 export const QuestionsSchema = z
   .object({
@@ -115,14 +118,21 @@ export const QuestionsSchema = z
           .pipe(
             z
               .array(z.enum(QUESTION_TOPICS))
-              .refine((t) => t.includes('what'), 'questions always ask what people sign up for'),
+              .refine(
+                (t) => t.includes('what') || t.includes('when'),
+                'questions ask what people sign up for, or when',
+              ),
           ),
         whatOptions: z
           .array(z.string().transform(tidyText))
           .transform(firstDistinctOptions)
-          .pipe(z.array(z.string()).min(WHAT_OPTIONS_MIN)),
+          .pipe(z.array(z.string()).min(1)),
       })
-      .strict(),
+      .strict()
+      .refine((q) => !q.topics.includes('what') || q.whatOptions.length >= WHAT_OPTIONS_MIN, {
+        message: `asking what people sign up for takes at least ${WHAT_OPTIONS_MIN} options`,
+        path: ['whatOptions'],
+      }),
   })
   .strict();
 
@@ -157,8 +167,8 @@ export type MagicComposeParsed = z.infer<typeof MagicComposeDraftSchema>;
  * After the answers, a model that asks again most likely asks about less than
  * the first time (only "when", say, with no options), which `QuestionsSchema`
  * would reject as malformed and the organizer would see as a broken draft. A
- * first call's questions that `QuestionsSchema` rejects (no "what", one
- * option) are caught the same way.
+ * first call's questions that `QuestionsSchema` rejects (neither "what" nor
+ * "when", one option for "what") are caught the same way.
  */
 export function asksQuestions(value: unknown): boolean {
   const reply = withoutNullKeys(value);
@@ -191,12 +201,13 @@ Output schema (return ONLY this JSON object, no prose, no fences):
   "groupBy": "<field-ref to group slots by, or null>"
 }
 
-QUESTIONS — only when the prompt doesn't say what people sign up for (rule 4), return ONLY this object instead of a draft:
+QUESTIONS — only when the prompt doesn't say what people sign up for, or every slot would be a "TBD:" placeholder (rule 4), return ONLY this object instead of a draft:
 
 { "questions": { "topics": ["what", "when", "how_many"], "whatOptions": ["<option>", "<option>"] } }
 
-- topics: only the ones the prompt leaves out, always including "what". Leave out "when" if it gives a date or time, and "how_many" if it gives a count.
-- whatOptions: ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself. If the options would be the prompt's own items or roles, it already says what: draft instead.
+- topics: only the ones the prompt leaves out. "what" when it doesn't say what people sign up for; when it does, leave "what" out and include "when". Leave out "when" if it gives a date, a day of the week or a time, and "how_many" if it gives a count.
+- whatOptions, asking "what": ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself. If the options would be the prompt's own items or roles, it already says what: don't ask about it (rule 4: ask "when" if every slot would be a "TBD:" placeholder, otherwise draft).
+- whatOptions, not asking "what": 1 to ${WHAT_OPTIONS_MAX} things people sign up for, read from the prompt, in its language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count.
 - A message that carries "Answers to your questions:" is never answered with questions. Draft from the answers.
 
 ${FIELD_TYPE_GUIDE}
@@ -279,23 +290,16 @@ OUTPUT:
   }
 }
 
-Example D — says what but not when, so draft with placeholders:
+Example D — says what but not when, so every slot would be a placeholder: ask about when, not what:
 
 USER: "Ushers for the school play, two parents per performance"
 
 OUTPUT:
 {
-  "title": "School play ushers",
-  "description": "Two parents usher at each performance. Replace these placeholder performances with the real dates.",
-  "fields": [
-    { "ref": "performance", "label": "Performance", "fieldType": "text", "choices": [] }
-  ],
-  "slots": [
-    { "values": { "performance": "TBD: performance 1" }, "capacity": 2 },
-    { "values": { "performance": "TBD: performance 2" }, "capacity": 2 },
-    { "values": { "performance": "TBD: performance 3" }, "capacity": 2 }
-  ],
-  "groupBy": null
+  "questions": {
+    "topics": ["when"],
+    "whatOptions": ["Usher at the play"]
+  }
 }
 
 Example E — lists what but gives no date or count, so draft, with no date field or placeholders:

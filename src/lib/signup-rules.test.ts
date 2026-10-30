@@ -45,15 +45,26 @@ describe('neverInventRule', () => {
 
   it('tells the drafter that a list or a schedule already says what, so it drafts', () => {
     // Without this, models asked about item lists and handed the items back as options.
-    expect(neverInventRule('drafter')).toContain(
-      `Named items, roles or tasks, or dated practices, sessions or shifts, already say what: draft, don't ask. An event with no item or role ("family movie night on March 3") doesn't: ask.`,
+    const rule = neverInventRule('drafter');
+    expect(rule).toContain(
+      `Named items, roles or tasks, or dated practices, sessions or shifts, already say what: don't ask about it. An event with no item or role ("family movie night on March 3") doesn't: ask.`,
+    );
+    expect(rule).toContain('A prompt that lists items or roles drafts, with or without dates.');
+  });
+
+  it('asks when, not what, for a prompt whose every slot would be a placeholder', () => {
+    // "Snack sign up" got three "TBD: Event" rows and nothing usable (#687).
+    const rule = neverInventRule('drafter');
+    expect(rule).toContain(
+      'so every slot would be a "TBD:" placeholder (e.g. "snack duty for the soccer team"), ask about "when", not "what".',
     );
   });
 
-  it('keeps placeholder slots for a prompt that says what but not when', () => {
+  it('keeps placeholder slots for answers that leave the dates out', () => {
     const rule = neverInventRule('drafter');
-    expect(rule).toContain('If it says what but not when or how many');
-    expect(rule).toContain('produce 1-3 placeholder slots');
+    expect(rule).toContain(
+      'Where the answers leave the dates or times out, produce 1-3 placeholder slots',
+    );
   });
 
   it('tells the assistant to ask for what the slots need, since it can', () => {
