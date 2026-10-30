@@ -39,13 +39,14 @@ export default async function OrganizerLayout({
               Help
             </Link>
             {/* The account itself is the way into settings; on narrow screens the
-                address would not fit, so the link reads "Settings" there. */}
+                address would not fit, so the link reads "Account" there, not
+                "Settings", which a signup's own tab is called. */}
             <Link
               href="/app/settings"
               className="text-ink-muted hover:text-ink max-w-[16rem] truncate text-sm transition"
               title="Settings"
             >
-              <span className="sm:hidden">Settings</span>
+              <span className="sm:hidden">Account</span>
               <span className="hidden sm:inline">{session.email}</span>
             </Link>
             <form action={handleSignOut}>
