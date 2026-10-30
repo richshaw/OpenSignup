@@ -2,7 +2,7 @@ import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Db } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
-import { slots, type Slot as SlotRow } from '@/db/schema/slots';
+import type { Slot as SlotRow } from '@/db/schema/slots';
 import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
@@ -32,12 +32,7 @@ import {
   SignupUpdateInputSchema,
 } from '@/schemas/signups';
 import { type SlotCreateInput, SlotCreateInputSchema } from '@/schemas/slots';
-import {
-  extractSlotAt,
-  listFieldsForSignup,
-  rebuildSlotAt,
-  validateSlotValues,
-} from './slot-fields';
+import { listFieldsForSignup, rebuildSlotAt, validateSlotValues } from './slot-fields';
 import { committedBySlot } from './commitments';
 import {
   getSignupRowForOrganizer,
@@ -45,7 +40,7 @@ import {
   readLiveSignup,
   withSignupWriteLock,
 } from './locks';
-import { listSlotsForSignup, pickAvailableRef, summarizeValues } from './slots';
+import { insertSlots, listSlotsForSignup } from './slots';
 
 /**
  * Every group-by ref must name one of the signup's fields. The public page
@@ -182,34 +177,34 @@ export async function createSignup(
       .returning();
     if (!inserted) throw new Error('insert failed');
 
-    for (const [index, field] of parsedFields.entries()) {
-      await tx.insert(slotFields).values({
-        id: makeId('fld'),
-        signupId: inserted.id,
-        workspaceId,
-        ref: field.ref,
-        label: field.label,
-        fieldType: field.fieldType,
-        sortOrder: field.sortOrder ?? index,
-        config: field.config,
-      });
+    if (parsedFields.length > 0) {
+      await tx.insert(slotFields).values(
+        parsedFields.map((field, index) => ({
+          id: makeId('fld'),
+          signupId: inserted.id,
+          workspaceId,
+          ref: field.ref,
+          label: field.label,
+          fieldType: field.fieldType,
+          sortOrder: field.sortOrder ?? index,
+          config: field.config,
+        })),
+      );
     }
 
-    for (const [index, slot] of parsedSlots.entries()) {
-      const ref = await pickAvailableRef(tx, inserted.id, summarizeValues(slot.values));
-      const slotAt = extractSlotAt(settings, fieldDefs, slot.values);
-      await tx.insert(slots).values({
-        id: makeId('slot'),
-        signupId: inserted.id,
-        workspaceId,
-        ref,
+    // Nobody else can see the signup yet, so it has no refs to clash with.
+    await insertSlots(tx, {
+      signupId: inserted.id,
+      workspaceId,
+      settings,
+      fields: fieldDefs,
+      takenRefs: new Set(),
+      rows: parsedSlots.map((slot, index) => ({
         values: slot.values,
         capacity: slot.capacity,
         sortOrder: slot.sortOrder ?? index,
-        slotAt,
-        status: 'open',
-      });
-    }
+      })),
+    });
 
     await recordActivity(tx, {
       signupId: inserted.id,
