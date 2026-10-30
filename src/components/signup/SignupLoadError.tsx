@@ -62,7 +62,7 @@ export function SignupLoadError({ error, email }: { error: ServiceError; email: 
       <div className="flex flex-col items-center gap-3 pt-2 sm:flex-row sm:justify-center sm:gap-5">
         <Link
           href="/app"
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover"
         >
           Go to your signups
         </Link>
