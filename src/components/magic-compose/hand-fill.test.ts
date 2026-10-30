@@ -24,4 +24,19 @@ describe('handFillHref', () => {
       description: 'Bake sale\nBring a tray',
     });
   });
+
+  it('cuts a long description to fit the URL, at a whole character', () => {
+    const href = handFillHref('一'.repeat(2000));
+    expect(href.length).toBeLessThan(8100);
+    expect(params(href).description).toBe('一'.repeat(888));
+
+    const emoji = params(handFillHref('🎃'.repeat(1000))).description ?? '';
+    expect(emoji.length).toBeGreaterThan(0);
+    expect(emoji).toBe('🎃'.repeat(emoji.length / 2));
+  });
+
+  it('carries a long plain-English description past the form limit untouched', () => {
+    const long = 'Bring snacks. '.repeat(150).trim();
+    expect(params(handFillHref(long)).description).toBe(long);
+  });
 });
