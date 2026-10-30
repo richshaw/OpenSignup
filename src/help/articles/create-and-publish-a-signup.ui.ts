@@ -39,15 +39,6 @@ export const UI = {
   // What Publish says, by its heading, when every slot is empty, and its fix.
   nothingYet: 'Nothing to sign up for yet',
   fillItIn: 'Fill it in',
-  // What Publish says when a slot still says TBD, by its heading, and its two choices.
-  beforePeopleSee: 'Before people see it',
-  nameItFirst: 'Name it first',
-  publishAnyway: 'Publish anyway',
-  // By a slot that still says TBD (or TBC, TBA, with that word) on the Build
-  // tab: on a draft, then once it's published. Only the first is in the
-  // walkthrough; a unit test checks both.
-  stillSays: 'Still says “TBD”',
-  peopleCanSee: 'People can see “TBD”',
   // The tab a signup opens on, where its slots are.
   build: 'Build',
   // Phones: the three-dot button's accessible name.

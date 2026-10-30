@@ -51,5 +51,3 @@ export function MagicLinkEmail({
     </EmailLayout>
   );
 }
-
-export default MagicLinkEmail;

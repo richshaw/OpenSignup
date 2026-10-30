@@ -1209,6 +1209,23 @@ describe('useBuildState updateSignupMeta', () => {
     expect(body.description).toBe('2');
   });
 
+  // An Editable commits on pagehide and useBuildState flushes straight after,
+  // with no render between (#699).
+  it('sends the new title when a flush follows the edit before any render', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderBuildWithMeta({ title: 'Old', description: 'desc' });
+    await act(async () => {
+      result.current.updateSignupMeta({ title: 'New title' });
+      await result.current.flushPendingSaves();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
+      title?: string;
+    };
+    expect(body.title).toBe('New title');
+  });
+
   it('reverts the title and surfaces an invalid_input error when the user clears it', async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: {} }));
@@ -2538,5 +2555,139 @@ describe('useBuildState addRow', () => {
     });
     expect(id).toBeNull();
     expect(result.current.state.saveStatus).toEqual({ kind: 'error', code: 'forbidden' });
+  });
+});
+
+describe('useBuildState slot writes behind a list choice being added', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  const courseField = makeApiField({
+    id: 'f-course',
+    ref: 'course',
+    label: 'Course',
+    fieldType: 'enum',
+    config: { fieldType: 'enum', choices: ['Main'] },
+  });
+  const withDessert = { ...courseField, config: { fieldType: 'enum' as const, choices: ['Main', 'Dessert'] } };
+
+  // Answers each request only when told to, oldest first.
+  function stubSlowServer() {
+    const waiting: ((res: Response) => void)[] = [];
+    const fetchMock = vi.fn(
+      (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Promise<Response>((resolve) => {
+          waiting.push(resolve);
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    return { fetchMock, answer: (res: Response) => waiting.shift()?.(res) };
+  }
+
+  function render() {
+    return renderHook(() =>
+      useBuildState(
+        'sig_test',
+        [courseField],
+        [{ id: 'r1', capacity: 2, sortOrder: 0, values: { course: 'Main' } }],
+        defaultSettings,
+      ),
+    );
+  }
+
+  async function settle() {
+    await act(async () => {
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+    });
+  }
+
+  it("holds a cell's save until the field has the new choice", async () => {
+    vi.useFakeTimers();
+    const server = stubSlowServer();
+    const { result } = render();
+
+    act(() => {
+      void result.current.updateField('f-course', { config: withDessert.config });
+      result.current.editCell('r1', 'course', 'Dessert');
+    });
+    expect(result.current.state.rows[0]!.values['course']).toBe('Dessert');
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    await settle();
+    expect(server.fetchMock).toHaveBeenCalledTimes(1);
+    expect(server.fetchMock.mock.calls[0]![0]).toBe('/api/signups/sig_test/fields/f-course');
+
+    await act(async () => {
+      server.answer(jsonResponse({ data: withDessert }));
+    });
+    await settle();
+    expect(server.fetchMock).toHaveBeenCalledTimes(2);
+    const [url, init] = server.fetchMock.mock.calls[1]!;
+    expect(url).toBe('/api/slots/r1');
+    expect(JSON.parse(String(init?.body))).toEqual({ values: { course: 'Dessert' } });
+  });
+
+  it('copies the new choice on a Duplicate, sent once the field has it', async () => {
+    const server = stubSlowServer();
+    const { result } = render();
+
+    let copied: Promise<string | null> = Promise.resolve(null);
+    act(() => {
+      void result.current.updateField('f-course', { config: withDessert.config });
+      result.current.editCell('r1', 'course', 'Dessert');
+    });
+    act(() => {
+      copied = result.current.duplicateRow('r1');
+    });
+    await settle();
+    expect(server.fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      server.answer(jsonResponse({ data: withDessert }));
+    });
+    await settle();
+    const [url, init] = server.fetchMock.mock.calls[1]!;
+    expect(url).toBe('/api/signups/sig_test/slots/bulk');
+    expect(JSON.parse(String(init?.body)).rows[0].values).toEqual({ course: 'Dessert' });
+    await act(async () => {
+      server.answer(
+        jsonResponse({ data: [{ id: 'r2', capacity: 2, sortOrder: 1, values: { course: 'Dessert' } }] }, { status: 201 }),
+      );
+      await copied;
+    });
+  });
+
+  it("holds Add a slot's POST until the field has the new choice", async () => {
+    const server = stubSlowServer();
+    const { result } = render();
+
+    let added: Promise<string | null> = Promise.resolve(null);
+    act(() => {
+      void result.current.updateField('f-course', { config: withDessert.config });
+    });
+    act(() => {
+      added = result.current.addRow({ values: { course: 'Dessert' } });
+    });
+    await settle();
+    expect(server.fetchMock).toHaveBeenCalledTimes(1);
+    expect(server.fetchMock.mock.calls[0]![0]).toBe('/api/signups/sig_test/fields/f-course');
+
+    await act(async () => {
+      server.answer(jsonResponse({ data: withDessert }));
+    });
+    await settle();
+    expect(server.fetchMock).toHaveBeenCalledTimes(2);
+    const [url, init] = server.fetchMock.mock.calls[1]!;
+    expect(url).toBe('/api/signups/sig_test/slots');
+    expect(JSON.parse(String(init?.body)).values).toEqual({ course: 'Dessert' });
+    await act(async () => {
+      server.answer(
+        jsonResponse({ data: { id: 'r2', capacity: 1, sortOrder: 1, values: { course: 'Dessert' } } }, { status: 201 }),
+      );
+      await added;
+    });
   });
 });

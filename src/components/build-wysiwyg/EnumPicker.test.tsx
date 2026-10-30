@@ -114,4 +114,57 @@ describe('EnumPicker', () => {
     expect(onAddOption).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('a click outside adds the typed choice once, and sets it straight away', () => {
+    const { onChange, onAddOption } = renderPicker({ options: ['Main'] });
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: ' Dessert ' } });
+    fireEvent.mouseDown(document.body);
+    // Simulates the blur React fires when the focused input unmounts on close.
+    fireEvent.blur(input);
+    expect(onAddOption).toHaveBeenCalledTimes(1);
+    expect(onAddOption).toHaveBeenCalledWith('Dessert');
+    // Not after the field saves: a click on Duplicate must copy the new value.
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('Dessert');
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('a click outside with nothing typed closes without adding', () => {
+    const { onChange, onAddOption } = renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    fireEvent.change(screen.getByLabelText('New option name'), { target: { value: '   ' } });
+    fireEvent.mouseDown(document.body);
+    expect(onAddOption).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('the Add button adds the typed choice once', () => {
+    const { onChange, onAddOption } = renderPicker({ options: ['Main'] });
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Dessert' } });
+    const add = screen.getByRole('button', { name: 'Add' });
+    // The button keeps focus in the box, so its mousedown is not a blur.
+    expect(fireEvent.mouseDown(add)).toBe(false);
+    fireEvent.click(add);
+    fireEvent.blur(input);
+    expect(onAddOption).toHaveBeenCalledTimes(1);
+    expect(onAddOption).toHaveBeenCalledWith('Dessert');
+    expect(onChange).toHaveBeenCalledWith('Dessert');
+  });
+
+  it('a click outside with the menu open but not adding just closes it', () => {
+    const { onChange, onAddOption } = renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(onAddOption).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

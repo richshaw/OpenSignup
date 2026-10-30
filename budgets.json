@@ -1,21 +1,22 @@
 {
   "queries": {
     "GET /s/[slug]": 5,
+    "GET /s/[slug], signed in as its organizer": 6,
     "POST /api/slots/[id]/commitments": 14,
     "POST /api/slots/[id]/commitments, without an email": 12
   },
   "firstLoadJsKb": {
-    "/s/[slug]": 132,
+    "/s/[slug]": 133,
     "/s/[slug]/c/[id]": 110,
-    "/": 133,
-    "/login": 109,
+    "/": 134,
+    "/login": 110,
     "/help/[slug]": 113,
     "/app/signups/new": 116,
     "/app/signups/[id]": 130,
-    "/app/signups/[id]/build": 160,
+    "/app/signups/[id]/build": 161,
     "/app/signups/[id]/edit": 130,
-    "/app/signups/[id]/preview": 132,
-    "/app/signups/[id]/responses": 131,
+    "/app/signups/[id]/preview": 133,
+    "/app/signups/[id]/responses": 132,
     "/app/signups/[id]/settings": 131,
     "*": 108
   }

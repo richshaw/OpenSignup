@@ -10,7 +10,7 @@ import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
-import type { SignupSettings, SignupStatus } from '@/schemas/signups';
+import type { SignupSettings } from '@/schemas/signups';
 
 /** Server-loaded chrome snapshot. Title + description are then edited in-place via updateSignupMeta. */
 type SignupMeta = {
@@ -24,11 +24,6 @@ type BuildWysiwygProps = {
   initialFields: SlotFieldDefinition[];
   initialSlots: BuildSlot[];
   initialSettings: SignupSettings;
-  /**
-   * The signup's status, which a slot still saying "TBD" is marked by. It
-   * follows Publish, which renders the page again.
-   */
-  status: SignupStatus;
   /**
    * Spots taken per slot id when the page loaded; a slot with none is absent.
    * Slots added in this session start empty, so they read 0 without an entry.
@@ -84,7 +79,6 @@ export function BuildWysiwyg({
   initialFields,
   initialSlots,
   initialSettings,
-  status,
   committedBySlot,
 }: BuildWysiwygProps) {
   const {
@@ -114,18 +108,16 @@ export function BuildWysiwyg({
 
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
-  // The slot whose editor gets focus once it's open, and in which field.
-  const [focusRequest, setFocusRequest] = useState<{
-    rowId: string;
-    fieldRef: string | null;
-  } | null>(null);
+  // The slot whose editor gets focus once it's open.
+  const [focusRequest, setFocusRequest] = useState<{ rowId: string } | null>(null);
   // The slot Publish's check opened, until any other editor opens or this
   // one closes: Done on it, or Enter, hands focus back to Publish and share.
   const fixRow = useRef<string | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
-  // A copy just made by Duplicate, whose editor takes focus when it opens.
-  // Cleared once it has: in a signup grouped by date, changing the copy's
-  // date remounts its editor in the new group, which must not take focus again.
+  // A slot whose editor takes focus when it opens: a copy just made by
+  // Duplicate, or a slot opened from its row. Cleared once it has: in a signup
+  // grouped by date, changing the slot's date remounts its editor in the new
+  // group, which must not take focus again.
   const [focusRowId, setFocusRowId] = useState<string | null>(null);
   const clearFocusRow = useCallback(() => setFocusRowId(null), []);
   // Opens a slot's editor, or with null closes the one open, as the
@@ -135,6 +127,9 @@ export function BuildWysiwyg({
     setFocusRowId(null);
     setExpandedRowId(rowId);
   };
+  // The slot whose row takes focus back once Done or Escape has closed its
+  // editor, which took the focused control with it.
+  const [rowToRefocus, setRowToRefocus] = useState<string | null>(null);
   // The group whose header change the server refused; its rows are back
   // under their saved value, so this is that value's key.
   const [failedRenameKey, setFailedRenameKey] = useState<string | null>(null);
@@ -147,6 +142,16 @@ export function BuildWysiwyg({
   const displayFields = state.fields.filter((f) => f.ref !== groupField?.ref);
 
   const groups = useMemo(() => partitionRows(state.rows, groupField), [state.rows, groupField]);
+  // Groups are keyed by their value, so a heading rename would remount the
+  // group. A click outside the heading's picker commits it on mousedown, and
+  // the remount before mouseup lost the click: Add a slot under the renamed
+  // group did nothing. So a renamed group keeps the React key it had, by
+  // mapping each new value to the key it started under.
+  const [renamedFrom, setRenamedFrom] = useState<Record<string, string>>({});
+  const groupKey = (key: string) => {
+    const from = renamedFrom[key];
+    return from && !groups.some((g) => g.key === from) ? from : key;
+  };
 
   const slotReorder = useReorderable<BuildRow>({
     items: state.rows,
@@ -180,26 +185,26 @@ export function BuildWysiwyg({
     void addRow({ values: {} });
   };
 
-  const showSlot = (rowId: string, fieldRef: string | null) => {
+  const showSlot = (rowId: string) => {
     expandRow(rowId);
     fixRow.current = rowId;
-    setFocusRequest({ rowId, fieldRef });
+    setFocusRequest({ rowId });
   };
 
   /**
-   * Opens a slot's editor (a new slot when `slotId` is null), focus in
-   * `fieldRef`, and says whether it could: a slot added elsewhere since the
+   * Opens a slot's editor (a new slot when `slotId` is null), focus in its
+   * first field, and says whether it could: a slot added elsewhere since the
    * page loaded isn't here to open.
    */
-  const openSlot = (slotId: string | null, fieldRef: string | null): boolean => {
+  const openSlot = (slotId: string | null): boolean => {
     if (slotId === null) {
       void addRow().then((id) => {
-        if (id) showSlot(id, null);
+        if (id) showSlot(id);
       });
       return true;
     }
     if (!state.rows.some((r) => r.id === slotId)) return false;
-    showSlot(slotId, fieldRef);
+    showSlot(slotId);
     return true;
   };
 
@@ -207,15 +212,32 @@ export function BuildWysiwyg({
   // opens the slot it's about, here or once this tab has loaded.
   const handBack = useRegisterBuildTab({ flushPendingSaves, openSlot });
 
-  // What a row asks for: its own editor, or null when Done closes it, the
-  // one that's open. When that's the slot the check opened, Publish and share
-  // takes the focus, without waiting for the slot's last edits to save:
-  // Publish sends them first. Deleting the slot, or Duplicate opening its
-  // copy, closes it some other way and hands nothing back.
-  const rowAsks = (rowId: string | null) => {
-    if (rowId === null && fixRow.current === expandedRowId) handBack();
+  // What a row asks for: its own editor, or null when Done or Escape closes
+  // the one that's open. An editor opened by Enter or Space takes the focus;
+  // one opened by a click or tap doesn't, so a phone's keyboard stays down. When that's the slot the
+  // check opened, Publish and share takes the focus, without waiting for the
+  // slot's last edits to save: Publish sends them first. Otherwise, as once
+  // the signup is published, the slot's row does. Deleting the slot, or
+  // Duplicate opening its copy, closes it some other way and hands nothing
+  // back.
+  const rowAsks = (rowId: string | null, byKeyboard?: boolean) => {
+    if (rowId === null) {
+      const closing = expandedRowId;
+      if (!(fixRow.current === closing && handBack())) setRowToRefocus(closing);
+      expandRow(null);
+      return;
+    }
     expandRow(rowId);
+    if (byKeyboard) setFocusRowId(rowId);
   };
+
+  useEffect(() => {
+    if (!rowToRefocus) return;
+    setRowToRefocus(null);
+    Array.from(sheetRef.current?.querySelectorAll<HTMLElement>('[data-slot-row]') ?? [])
+      .find((el) => el.dataset.slotRow === rowToRefocus)
+      ?.focus();
+  }, [rowToRefocus]);
 
   // In the editor the check opened, Enter in a one-line box (text, number,
   // date, time) does what Done does, as the design has it, as long as Publish
@@ -231,7 +253,7 @@ export function BuildWysiwyg({
       !e.defaultPrevented &&
       !e.nativeEvent.isComposing &&
       e.nativeEvent.keyCode !== 229 &&
-      /^(text|number|date|time)$/.test(box.type) &&
+      /^(text|number|date)$/.test(box.type) &&
       box.closest<HTMLElement>('[data-slot-editor]')?.dataset.slotEditor === fixRow.current &&
       handBack()
     ) {
@@ -240,18 +262,17 @@ export function BuildWysiwyg({
     }
   };
 
-  // Focus goes in the field asked for, or the slot's first, once its editor
-  // is open; with no fields, in Spots.
+  // Focus goes in the slot's first field once its editor is open; with no
+  // fields, in Spots.
   useEffect(() => {
     if (!focusRequest) return;
     const editor = Array.from(
       sheetRef.current?.querySelectorAll<HTMLElement>('[data-slot-editor]') ?? [],
     ).find((el) => el.dataset.slotEditor === focusRequest.rowId);
     if (!editor) return;
-    const boxes = Array.from(editor.querySelectorAll<HTMLElement>('[data-field-ref]'));
-    const box = boxes.find((b) => b.dataset.fieldRef === focusRequest.fieldRef) ?? boxes[0];
+    const box = editor.querySelector<HTMLElement>('[data-field-ref]');
     const control = box
-      ? box.querySelector<HTMLElement>('input, button')
+      ? box.querySelector<HTMLElement>('input, select, button')
       : editor.querySelector<HTMLElement>('input');
     editor.scrollIntoView?.({ block: 'center' });
     control?.focus({ preventScroll: true });
@@ -269,6 +290,12 @@ export function BuildWysiwyg({
       })
       .map((r) => r.id);
     setFailedRenameKey(null);
+    setRenamedFrom((prev) => {
+      const from = prev[oldKey] ?? oldKey;
+      const next = Object.fromEntries(Object.entries(prev).filter(([, k]) => k !== from));
+      if (from !== newKey) next[newKey] = from;
+      return next;
+    });
     void renameGroup(ref, rowIds, newKey).then((saved) => {
       if (!saved) setFailedRenameKey(oldKey);
     });
@@ -313,14 +340,13 @@ export function BuildWysiwyg({
           <div className="mt-5 flex flex-col gap-4 md:mt-6 md:gap-5">
             {groups.map((g) => (
               <WysiwygGroup
-                key={g.key}
+                key={groupKey(g.key)}
                 group={g}
                 groupField={groupField}
                 displayFields={displayFields}
                 fields={state.fields}
                 takenBySlot={committedBySlot}
                 remindersOn={state.reminderFieldRef !== null}
-                status={status}
                 expandedRowId={expandedRowId}
                 focusRowId={focusRowId}
                 onRowFocused={clearFocusRow}
@@ -331,10 +357,9 @@ export function BuildWysiwyg({
                   const field = state.fields.find((f) => f.id === fieldId);
                   if (!field || field.config.fieldType !== 'enum') return;
                   if (field.config.choices.includes(value)) return;
-                  // Return the in-flight promise so the EnumPicker can await
-                  // it before committing the cell value — keeps the slot PATCH
-                  // from racing the field-config update on slow networks.
-                  return updateField(fieldId, {
+                  // Slot saves wait for this one, so the server never sees
+                  // the new value before it is in `choices`.
+                  void updateField(fieldId, {
                     config: { fieldType: 'enum', choices: [...field.config.choices, value] },
                   });
                 }}

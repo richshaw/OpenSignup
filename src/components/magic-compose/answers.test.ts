@@ -14,6 +14,7 @@ import {
   sameAnswers,
   startingAnswers,
   stepCount,
+  timeLength,
   togglePick,
   type Answers,
 } from './answers';
@@ -320,5 +321,14 @@ describe('when the description already says what', () => {
     expect(addPending({ ...gone, pending: 'bring snacks' }, KNOWN.whatOptions).picked).toEqual([
       'Bring snacks',
     ]);
+  });
+});
+
+describe('timeLength', () => {
+  it('says how long, in hours and minutes', () => {
+    expect(timeLength('09:00', '09:15')).toBe('15 min');
+    expect(timeLength('09:00', '13:00')).toBe('4 hr');
+    expect(timeLength('09:00', '10:30')).toBe('1 hr 30 min');
+    expect(timeLength('09:10', '09:15')).toBe('5 min');
   });
 });

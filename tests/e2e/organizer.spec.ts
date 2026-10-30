@@ -261,7 +261,7 @@ test.describe('organizer flow', () => {
       );
 
     await page.goto(`/app/signups/${signupId}/build`);
-    await page.getByRole('button', { name: /Edit slot .*Juice/ }).click();
+    await page.getByRole('button', { name: /^Edit slot .*Juice.*taken$/ }).click();
     const date = page.getByLabel('Date value');
     // The picker starts where the services do.
     await expect(date).toHaveAttribute('min', '1900-01-01');
@@ -502,72 +502,36 @@ for (const [device, viewport] of [
       expect(await storedStatus(page, draft.id)).toBe('draft');
     });
 
-    test('a slot that says TBD warns, from another tab too, and Publish anyway publishes', async ({
-      page,
-    }) => {
+    test('a slot that says TBD is not marked, and publishes without a stop', async ({ page }) => {
       const draft = await createDraft(page.request, {
         title: `Still TBD ${Date.now()}`,
         values: { what: 'Cashier TBD', date: '2030-04-06' },
       });
-      await page.goto(`/app/signups/${draft.id}/responses`);
-      const publish = publishButton(page);
-      await publish.click();
-      const check = page.getByRole('dialog', { name: 'Before people see it' });
-      await expect(check).toContainText('Cashier TBD · Sat, Apr 6 still says “TBD”.');
-      expect(await storedStatus(page, draft.id)).toBe('draft');
-
-      // Name it first goes to Build, with that slot open and focus on the TBD.
-      await check.getByRole('button', { name: 'Name it first' }).click();
-      await expect(page).toHaveURL(new RegExp(`/app/signups/${draft.id}/build$`));
-      const what = page
-        .getByTestId(`slot-editor-${draft.slotId}`)
-        .getByRole('textbox', { name: 'What value' });
-      await expect(what).toBeFocused();
-      await expect(what).toHaveValue('Cashier TBD');
-
-      // Publish anyway publishes it as it is, and the share panel opens.
-      await publish.click();
-      await check.getByRole('button', { name: 'Publish anyway' }).click();
-      await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
-      expect(await storedStatus(page, draft.id)).toBe('open');
-
-      // With no Publish and share left to go back to, Enter in the slot's box
-      // leaves it open, and Done closes it, saying nothing. The slot's mark
-      // now says people can see it.
-      await page.keyboard.press('Escape');
-      await what.press('Enter');
-      await expect(what).toBeFocused();
-      await page
-        .getByTestId(`slot-editor-${draft.slotId}`)
-        .getByRole('button', { name: 'Done' })
-        .click();
-      await expect(
-        page.getByRole('button', { name: 'Edit slot — Cashier TBD, people can see “TBD”' }),
-      ).toBeVisible();
-      await expect(page.getByText('People can see “TBD”', { exact: true })).toBeVisible();
-      await expect(ready(page)).toHaveCount(0);
-    });
-
-    test('a slot that says TBD is marked, and Enter after Name it first goes back to Publish and share', async ({
-      page,
-    }) => {
-      const draft = await createDraft(page.request, {
-        title: `Marked TBD ${Date.now()}`,
-        values: { what: 'Cashier TBD', date: '2030-04-06' },
-      });
       await page.goto(`/app/signups/${draft.id}/build`);
       const slot = page.getByTestId(`wysiwyg-slot-${draft.slotId}`);
-      const mark = slot.getByText('Still says “TBD”', { exact: true });
-      await expect(mark).toBeVisible();
+      // Organizers often mean TBD, so the row reads like any other.
       await expect(
-        slot.getByRole('button', { name: 'Edit slot — Cashier TBD, still says “TBD”' }),
+        slot.getByRole('button', { name: /^Edit slot — Cashier TBD, \d+ of \d+ taken$/ }),
       ).toBeVisible();
+      await expect(slot.getByText(/still says/i)).toHaveCount(0);
+
+      await publishButton(page).click();
+      await expect(page.getByRole('dialog', { name: 'Now send people the link' })).toBeVisible();
+      expect(await storedStatus(page, draft.id)).toBe('open');
+    });
+
+    test('Enter after Fill it in goes back to Publish and share, which publishes', async ({
+      page,
+    }) => {
+      const draft = await createDraft(page.request, { title: `Filled in ${Date.now()}` });
+      await page.goto(`/app/signups/${draft.id}/build`);
+      const slot = page.getByTestId(`wysiwyg-slot-${draft.slotId}`);
 
       const publish = publishButton(page);
       await publish.click();
       await page
-        .getByRole('dialog', { name: 'Before people see it' })
-        .getByRole('button', { name: 'Name it first' })
+        .getByRole('dialog', { name: 'Nothing to sign up for yet' })
+        .getByRole('button', { name: 'Fill it in' })
         .click();
       const editor = page.getByTestId(`slot-editor-${draft.slotId}`);
       const what = editor.getByRole('textbox', { name: 'What value' });
@@ -579,13 +543,11 @@ for (const [device, viewport] of [
 
       // Focus is back on Publish and share, ringed for a moment (as after a
       // click on Done, where no focus ring would show), and the header says
-      // it can be published. The mark has gone with the TBD, before the edit
-      // has saved.
+      // it can be published.
       await expect(publish).toBeFocused();
       await expect(publish).toHaveCSS('outline-offset', '3px');
       await expect(ready(page)).toHaveCount(1);
-      await expect(mark).toHaveCount(0);
-      await expect(slot.getByRole('button', { name: 'Edit slot — Cashier' })).toBeVisible();
+      await expect(slot.getByRole('button', { name: /^Edit slot — Cashier, / })).toBeVisible();
       await expect(publish).not.toHaveCSS('outline-offset', '3px');
       await expect(publish).toBeFocused();
 
@@ -603,7 +565,7 @@ for (const [device, viewport] of [
         values: { what: 'Cashier TBD', date: '2030-04-06' },
       });
       await page.goto(`/app/signups/${draft.id}/build`);
-      await page.getByRole('button', { name: /^Edit slot — Cashier TBD/ }).click();
+      await page.getByRole('button', { name: /^Edit slot — Cashier TBD, / }).click();
       const editor = page.getByTestId(`slot-editor-${draft.slotId}`);
       // Enter does nothing new in a slot opened by hand.
       await editor.getByRole('textbox', { name: 'What value' }).press('Enter');
@@ -615,104 +577,6 @@ for (const [device, viewport] of [
     });
   });
 }
-
-// A slot still saying TBD is marked on the Build tab. On a phone the tag
-// has a line of its own, under the slot's values: beside them it ran over
-// the spots count and left the values no room.
-test.describe('the TBD mark on a phone', () => {
-  test.use({ viewport: { width: 390, height: 844 } });
-
-  test('sits clear of the spots count, and the slot’s values still show', async ({
-    page,
-    context,
-  }) => {
-    await loginAsSeededOrganizer(context);
-    const signup = await createPublishedSignup(page.request, {
-      title: `Mark on a phone ${Date.now()}`,
-      slot: { values: { what: 'Bake stall: TBD', date: '2030-04-06' }, capacity: 3 },
-    });
-    await page.goto(`/app/signups/${signup.id}/build`);
-    const row = page.getByRole('button', {
-      name: 'Edit slot — Bake stall: TBD, people can see “TBD”',
-    });
-    const tag = row.getByText('People can see “TBD”', { exact: true });
-    const anchor = row.getByText('Bake stall: TBD', { exact: true });
-    const summary = row.getByText(/^Sat, Apr 6/);
-    const count = row.getByText('0 of 3 taken', { exact: true });
-    for (const part of [tag, anchor, summary, count]) await expect(part).toBeVisible();
-
-    const [t, a, s, c] = await Promise.all(
-      [tag, anchor, summary, count].map((l) => l.boundingBox()),
-    );
-    if (!t || !a || !s || !c) throw new Error('a part of the row is not on screen');
-    // Nothing runs over the count: toBeVisible() alone passes on an overlap.
-    for (const box of [t, a, s]) expect(box.x + box.width).toBeLessThanOrEqual(c.x);
-    // The tag is under the values, and they aren't cut short.
-    expect(t.y).toBeGreaterThanOrEqual(a.y + a.height);
-    for (const part of [anchor, summary]) {
-      expect(await part.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-    }
-  });
-});
-
-// On a computer the tag follows the slot's values, and drops under them
-// when a long name leaves no room, rather than squeeze the summary away.
-test.describe('the TBD mark on a computer', () => {
-  test.use({ viewport: { width: 1280, height: 900 } });
-
-  test('drops under a long name, keeping the date beside it whole', async ({ page, context }) => {
-    await loginAsSeededOrganizer(context);
-    const signup = await createPublishedSignup(page.request, {
-      title: `Long mark ${Date.now()}`,
-      slot: {
-        values: { what: 'Cashier for the whole long afternoon shift TBD', date: '2030-04-06' },
-        capacity: 3,
-      },
-    });
-    await page.goto(`/app/signups/${signup.id}/build`);
-    const row = page.getByRole('button', { name: /people can see “TBD”$/ });
-    const tag = row.getByText('People can see “TBD”', { exact: true });
-    const anchor = row.getByText(/^Cashier for the whole/);
-    const summary = row.getByText(/^Sat, Apr 6/);
-    const count = row.getByText('0 of 3 taken', { exact: true });
-    for (const part of [tag, anchor, summary, count]) await expect(part).toBeVisible();
-
-    const [t, a, s, c] = await Promise.all(
-      [tag, anchor, summary, count].map((l) => l.boundingBox()),
-    );
-    if (!t || !a || !s || !c) throw new Error('a part of the row is not on screen');
-    for (const box of [t, a, s]) expect(box.x + box.width).toBeLessThanOrEqual(c.x);
-    // The date keeps its 10ch and isn't cut short; the tag went under.
-    const tenCh = await summary.evaluate((el) => parseFloat(getComputedStyle(el).minWidth));
-    expect(tenCh).toBeGreaterThan(0);
-    expect(s.width).toBeGreaterThanOrEqual(tenCh - 0.5);
-    expect(await summary.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-    expect(t.y).toBeGreaterThanOrEqual(a.y + a.height);
-  });
-
-  test('follows a short slot’s values, not the count', async ({ page, context }) => {
-    await loginAsSeededOrganizer(context);
-    const signup = await createPublishedSignup(page.request, {
-      title: `Short mark ${Date.now()}`,
-      slot: { values: { what: 'Juice TBD', date: '2030-04-06' }, capacity: 3 },
-    });
-    await page.goto(`/app/signups/${signup.id}/build`);
-    const row = page.getByRole('button', { name: 'Edit slot — Juice TBD, people can see “TBD”' });
-    const tag = row.getByText('People can see “TBD”', { exact: true });
-    const summary = row.getByText(/^Sat, Apr 6/);
-    const count = row.getByText('0 of 3 taken', { exact: true });
-    for (const part of [tag, summary, count]) await expect(part).toBeVisible();
-
-    const [t, s, c] = await Promise.all([tag, summary, count].map((l) => l.boundingBox()));
-    if (!t || !s || !c) throw new Error('a part of the row is not on screen');
-    // On the same line, right after the date (the 10px gap), and well clear
-    // of the count rather than pushed against it.
-    expect(Math.abs(t.y + t.height / 2 - (s.y + s.height / 2))).toBeLessThan(4);
-    expect(t.x - (s.x + s.width)).toBeGreaterThanOrEqual(0);
-    expect(t.x - (s.x + s.width)).toBeLessThanOrEqual(14);
-    expect(c.x - (t.x + t.width)).toBeGreaterThan(40);
-  });
-});
 
 // What Publish waits for and where its fix goes, at a computer's size.
 test.describe('Publish’s check, around the Build tab', () => {
@@ -772,7 +636,7 @@ test.describe('Publish’s check, around the Build tab', () => {
       values: { what: 'Juice', date: '2030-04-06' },
     });
     await page.goto(`/app/signups/${draft.id}/build`);
-    await page.getByRole('button', { name: /^Edit slot .*Juice/ }).click();
+    await page.getByRole('button', { name: /^Edit slot .*Juice.*taken$/ }).click();
     // The server refuses every slot save from here on.
     await page.route(`**/api/slots/${draft.slotId}`, (route) =>
       route.request().method() === 'PATCH'
@@ -799,18 +663,18 @@ test.describe('Publish’s check, around the Build tab', () => {
   }) => {
     const draft = await createDraft(page.request, {
       title: `Typed then left ${Date.now()}`,
-      values: { what: 'Juice', date: '2030-04-06' },
+      values: { what: 'Juice' },
     });
     await page.goto(`/app/signups/${draft.id}/build`);
-    await page.getByRole('button', { name: /^Edit slot .*Juice/ }).click();
+    await page.getByRole('button', { name: /^Edit slot .*Juice.*taken$/ }).click();
     // Well inside the 800 ms a cell waits before it saves.
-    await page.getByRole('textbox', { name: 'What value' }).fill('TBD');
+    await page.getByRole('textbox', { name: 'What value' }).fill('');
     await page.getByRole('tab', { name: 'Responses' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/signups/${draft.id}/responses$`));
     await publishButton(page).click();
-    const check = page.getByRole('dialog', { name: 'Before people see it' });
-    await expect(check).toContainText('Sat, Apr 6 still says “TBD”.');
-    expect((await storedSlots(page, draft.id))[0]?.values.what).toBe('TBD');
+    const check = page.getByRole('dialog', { name: 'Nothing to sign up for yet' });
+    await expect(check).toContainText('The slot is empty.');
+    expect((await storedSlots(page, draft.id))[0]?.values.what ?? '').toBe('');
     expect(await storedStatus(page, draft.id)).toBe('draft');
   });
 });
@@ -822,9 +686,11 @@ test.describe('a Build edit and a reload', () => {
   });
 
   const storedValues = async (page: Page, id: string) =>
-    ((await (await page.request.get(`/api/signups/${id}/slots`)).json()).data as {
-      values: Record<string, unknown>;
-    }[])[0]?.values ?? {};
+    (
+      (await (await page.request.get(`/api/signups/${id}/slots`)).json()).data as {
+        values: Record<string, unknown>;
+      }[]
+    )[0]?.values ?? {};
 
   test('an edit typed just before a reload is kept', async ({ page }) => {
     const draft = await createDraft(page.request, {
@@ -832,18 +698,53 @@ test.describe('a Build edit and a reload', () => {
       values: { what: 'Juice', date: '2030-04-06' },
     });
     await page.goto(`/app/signups/${draft.id}/build`);
-    await page.getByRole('button', { name: /^Edit slot .*Juice/ }).click();
+    await page.getByRole('button', { name: /^Edit slot .*Juice.*taken$/ }).click();
     // Well inside the 800 ms a cell waits before it saves.
     await page.getByRole('textbox', { name: 'What value' }).fill('Juice boxes');
     await expect(page.getByText('Saving…').locator('visible=true')).toBeVisible();
     await page.reload();
     // The edit goes out on pagehide, alongside the reload's own request, so
     // the reloaded page can be drawn before it lands; the server has it.
-    await expect
-      .poll(async () => (await storedValues(page, draft.id)).what)
-      .toBe('Juice boxes');
+    await expect.poll(async () => (await storedValues(page, draft.id)).what).toBe('Juice boxes');
     await page.reload();
-    await expect(page.getByRole('button', { name: /^Edit slot .*Juice boxes/ })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^Edit slot .*Juice boxes.*taken$/ }),
+    ).toBeVisible();
+  });
+
+  // The title and description keep their text in the field until it blurs,
+  // and a reload blurs nothing (#699).
+  const storedMeta = async (page: Page, id: string) =>
+    ((await (await page.request.get(`/api/signups/${id}`)).json()).data as {
+      title: string;
+      description: string | null;
+    });
+
+  test('a title typed just before a reload is kept', async ({ page }) => {
+    const draft = await createDraft(page.request, {
+      title: `Title then reloaded ${Date.now()}`,
+      values: { what: 'Juice', date: '2030-04-06' },
+    });
+    const title = `Renamed then reloaded ${Date.now()}`;
+    await page.goto(`/app/signups/${draft.id}/build`);
+    await page.getByRole('button', { name: 'Signup title' }).click();
+    await page.getByRole('textbox', { name: 'Signup title' }).fill(title);
+    await page.reload();
+    await expect.poll(async () => (await storedMeta(page, draft.id)).title).toBe(title);
+  });
+
+  test('a description typed just before a reload is kept', async ({ page }) => {
+    const draft = await createDraft(page.request, {
+      title: `Description then reloaded ${Date.now()}`,
+      values: { what: 'Juice', date: '2030-04-06' },
+    });
+    await page.goto(`/app/signups/${draft.id}/build`);
+    await page.getByRole('button', { name: 'Signup description' }).click();
+    await page.getByRole('textbox', { name: 'Signup description' }).fill('Bring a reusable cup.');
+    await page.reload();
+    await expect
+      .poll(async () => (await storedMeta(page, draft.id)).description)
+      .toBe('Bring a reusable cup.');
   });
 });
 

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { FormError } from '@/components/ui/form-error';
+import { LLM_TIMEOUT_DEFAULT_MS } from '@/lib/magic-compose/limits';
 import type { FollowUp, MagicComposeQuestions } from '@/lib/magic-compose/questions';
 import type { Answers } from './answers';
 import { ChunkBoundary } from './ChunkBoundary';
@@ -65,11 +66,12 @@ function failed(followUp: FollowUp | null, error: DraftError): Phase {
 }
 
 /**
- * Hard ceiling on the drafting phase. The LLM timeout is 180s server-side
- * and the animation adds ~6s. We give it generous headroom and then surface
- * an error rather than spinning forever if the response never arrives.
+ * How long past the server's `LLM_TIMEOUT_MS` the drafting phase waits before
+ * giving up. The animation adds ~6s; the rest is headroom, so the page never
+ * gives up before the server does, and still shows an error rather than
+ * spinning forever if the response never arrives.
  */
-const DRAFTING_WATCHDOG_MS = 210_000;
+const DRAFTING_WATCHDOG_HEADROOM_MS = 30_000;
 
 /**
  * When the questions can't show: their code won't load, most likely because a
@@ -80,7 +82,12 @@ const QUESTIONS_UNAVAILABLE: DraftError = {
   text: "The questions couldn't be shown. Reload the page and try again; copy your description first if you want to keep it.",
 };
 
-export function MagicComposeRoot() {
+export function MagicComposeRoot({
+  llmTimeoutMs = LLM_TIMEOUT_DEFAULT_MS,
+}: {
+  /** The instance's `LLM_TIMEOUT_MS`. */
+  llmTimeoutMs?: number;
+}) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [prompt, setPrompt] = useState('');
@@ -111,9 +118,9 @@ export function MagicComposeRoot() {
             : 'AI drafting is taking longer than expected. Try again or simplify your prompt.',
         });
       });
-    }, DRAFTING_WATCHDOG_MS);
+    }, llmTimeoutMs + DRAFTING_WATCHDOG_HEADROOM_MS);
     return () => clearTimeout(timer);
-  }, [phase.kind]);
+  }, [phase.kind, llmTimeoutMs]);
 
   const request = useCallback(
     async (followUp: FollowUp | null) => {

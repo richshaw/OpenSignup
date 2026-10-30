@@ -113,7 +113,7 @@ async function setupFixture(): Promise<Fixture> {
     notes: 'Bringing cups',
   });
   if (!sam.ok) throw new Error(sam.error.message);
-  const removed = await removeCommitment(db, actor, sam.value.commitment.id);
+  const removed = await removeCommitment(db, actor, sam.value.commitment.id, signupId);
   if (!removed.ok) throw new Error(removed.error.message);
 
   return { db, workspaceId, organizerId, signupId, slug: created.value.slug };
