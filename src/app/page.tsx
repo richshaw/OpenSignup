@@ -82,7 +82,7 @@ export default async function LandingPage() {
           <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap">
             <StartSignupCta
               href="/app/signups/new"
-              className="bg-brand inline-flex items-center justify-center gap-2 rounded-[14px] px-5 py-3 text-base font-semibold text-white transition hover:brightness-110 lg:text-[15px]"
+              className="bg-brand inline-flex items-center justify-center gap-2 rounded-[14px] px-5 py-3 text-base font-semibold text-white transition hover:bg-brand-hover lg:text-[15px]"
             >
               Start a signup
               <svg
