@@ -15,7 +15,7 @@ export const BAR_BUTTON =
  * it's open, and Reopen signup once it's closed.
  */
 export const PRIMARY =
-  'bg-brand font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90';
+  'bg-brand font-semibold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:brightness-90';
 
 /** Preview and ⋯. */
 export const OUTLINED = 'border border-surface-sunk bg-white font-medium hover:bg-surface-raised';

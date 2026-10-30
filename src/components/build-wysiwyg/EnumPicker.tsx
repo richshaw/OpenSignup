@@ -171,7 +171,7 @@ export function EnumPicker({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={commitNew}
                 // The same 1px border as the box, so the two stay the same height.
-                className="shrink-0 rounded border border-brand bg-brand px-2.5 py-1.5 text-xs font-semibold text-white cursor-pointer hover:brightness-110"
+                className="shrink-0 rounded border border-brand bg-brand px-2.5 py-1.5 text-xs font-semibold text-white cursor-pointer hover:bg-brand-hover"
               >
                 Add
               </button>

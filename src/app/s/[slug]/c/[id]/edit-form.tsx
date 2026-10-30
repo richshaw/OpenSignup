@@ -212,7 +212,7 @@ export default function EditForm({
             <button
               type="submit"
               disabled={saving}
-              className="bg-brand rounded-lg px-5 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
+              className="bg-brand rounded-lg px-5 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>

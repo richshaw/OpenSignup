@@ -100,7 +100,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
           <div className="flex flex-wrap items-center gap-3">
             <AsyncSubmitButton
               loadingLabel="Saving…"
-              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-90"
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:brightness-90"
             >
               Save
             </AsyncSubmitButton>

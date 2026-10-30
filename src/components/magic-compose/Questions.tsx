@@ -225,7 +225,7 @@ export function Questions({
           <button
             type="button"
             onClick={draft}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-[15px] font-semibold text-white shadow-sm transition hover:brightness-110"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-brand-hover"
           >
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             Draft my signup
