@@ -96,8 +96,8 @@ describe('system prompt', () => {
     ...sys.matchAll(/^Example ([A-Z]) — [^\n]*\n\nUSER: "([^"]*)"\n\nOUTPUT:\n(\{[\s\S]*?\n\})$/gm),
   ].map(([, name, user, output]) => ({ name, user, reply: JSON.parse(output!) as unknown }));
 
-  it('has worked examples A to E, each a reply MagicComposeDraftSchema takes', () => {
-    expect(examples.map((e) => e.name)).toEqual(['A', 'B', 'C', 'D', 'E']);
+  it('has worked examples A to F, each a reply MagicComposeDraftSchema takes', () => {
+    expect(examples.map((e) => e.name)).toEqual(['A', 'B', 'C', 'D', 'E', 'F']);
     for (const e of examples) expect(MagicComposeDraftSchema.safeParse(e.reply).success).toBe(true);
   });
 
@@ -160,6 +160,16 @@ describe('system prompt', () => {
       'Lantern',
     ]);
     expect(draft.slots.every((s) => s.capacity === 1)).toBe(true);
+  });
+
+  // A one-day draft with its date only in the description gets no reminders (#685).
+  it('puts the one day of Example F in a date field on every slot, with its start time', () => {
+    const f = examples.find((x) => x.name === 'F')!;
+    const draft = FullDraftSchema.parse(f.reply);
+    expect(draft.fields.map((x) => x.fieldType)).toEqual(['text', 'date', 'time']);
+    expect(draft.slots.length).toBeGreaterThan(1);
+    expect(draft.slots.every((s) => s.values.date === '2026-06-06')).toBe(true);
+    expect(draft.slots.every((s) => s.values.time === '09:00')).toBe(true);
   });
 });
 

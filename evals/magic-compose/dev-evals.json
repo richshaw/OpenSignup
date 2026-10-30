@@ -44,7 +44,8 @@
       "groupBy_null_when_pure_date",
       "capacity_not_duplicate_rows",
       "questions_when_what_is_missing",
-      "follow_up_with_answers"
+      "follow_up_with_answers",
+      "single_day_date_field"
     ]
   },
   "runner_legend": {
@@ -644,6 +645,31 @@
         "slot_values_must_cover_all": ["tbd"],
         "slot_dates.set_must_equal": [],
         "rationale": "#570: Draft with placeholders. Every answer is skipped, so the second call drafts \"TBD:\" rows and invents nothing, and never asks again."
+      }
+    },
+    {
+      "id": "ev_038_one_day_event_with_times_gets_date_field",
+      "tags": ["community", "field_type:date", "field_type:time", "edge:single_day_date_field"],
+      "runner": "llm",
+      "prompt": "Spring fair at the school on Saturday, May 16, 2026, 10am to 3pm. We need 3 people for the ticket booth, 2 for face painting, and any number to help with setup.",
+      "expect": {
+        "fields.must_include_field_type": "date",
+        "slot_dates.set_must_equal": ["2026-05-16"],
+        "slot_values_must_cover_all": ["ticket", "face paint", "setup"],
+        "slot_times_or_description_must_mention": ["10:00", "10am", "10 am"],
+        "rationale": "#685: a one-day event still gets a date field, holding that date in every slot, or its reminders never go out. The time range needs only a start time."
+      }
+    },
+    {
+      "id": "ev_039_one_day_item_list_gets_date_field",
+      "tags": ["community", "field_type:date", "edge:single_day_date_field"],
+      "runner": "llm",
+      "prompt": "Block party on Sunday, August 23, 2026. Bring one of: salads, burgers, desserts, lemonade.",
+      "expect": {
+        "fields.must_include_field_type": "date",
+        "slot_dates.set_must_equal": ["2026-08-23"],
+        "slot_values_must_cover_all": ["salad", "burger", "dessert", "lemonade"],
+        "rationale": "#685: an item list for one day gets a date field with that date in every slot, not the date in the description only."
       }
     }
   ]
