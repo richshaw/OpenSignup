@@ -17,7 +17,10 @@ import {
   SlotUpdateInputSchema,
 } from '@/schemas/slots';
 import { MAX_SORT_ORDER } from '@/schemas/common';
+import type { StoredSignupSettings } from '@/schemas/signups';
+import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import {
+  inWorkspace,
   lockSignupForWrite,
   lockSlot,
   lockSlotsForSignup,
@@ -50,8 +53,6 @@ export async function addSlot(
     const valid = validateSlotValues(fields, data.values);
     if (!valid.ok) return valid;
 
-    const slotAt = extractSlotAt(locked.settings, fields, data.values);
-
     // An omitted sortOrder appends (`nextSlotSortOrder`), read under the
     // signup lock so two adds cannot land on the same number. It was epoch
     // seconds, from before this held the lock: two slots added in the same
@@ -60,21 +61,14 @@ export async function addSlot(
     // also overflow the int column in 2038.
     const sortOrder = data.sortOrder ?? (await nextSlotSortOrder(tx, signupId));
 
-    const ref = await pickAvailableRef(tx, signupId, summarizeValues(data.values));
-    const [inserted] = await tx
-      .insert(slots)
-      .values({
-        id: makeId('slot'),
-        signupId,
-        workspaceId: locked.workspaceId,
-        ref,
-        values: data.values,
-        capacity: data.capacity ?? null,
-        sortOrder,
-        slotAt,
-        status: 'open',
-      })
-      .returning();
+    const [inserted] = await insertSlots(tx, {
+      signupId,
+      workspaceId: locked.workspaceId,
+      settings: locked.settings,
+      fields,
+      takenRefs: await readTakenRefs(tx, signupId, locked.workspaceId),
+      rows: [{ values: data.values, capacity: data.capacity ?? null, sortOrder }],
+    });
     if (!inserted) throw new Error('slot insert failed');
 
     await recordActivity(tx, {
@@ -151,26 +145,22 @@ export async function addSlotsBulk(
       // index did, and what `addField` had to fix for fields).
       base = await nextSlotSortOrder(tx, signupId);
     }
-    const out: SlotRow[] = [];
-    for (const [index, row] of data.rows.entries()) {
-      const slotAt = extractSlotAt(settings, fields, row.values);
-      const ref = await pickAvailableRef(tx, signupId, summarizeValues(row.values));
-      const [created] = await tx
-        .insert(slots)
-        .values({
-          id: makeId('slot'),
-          signupId,
-          workspaceId: locked.workspaceId,
-          ref,
-          values: row.values,
-          capacity: row.capacity ?? null,
-          sortOrder: row.sortOrder ?? Math.min(base + index, MAX_SORT_ORDER),
-          slotAt,
-          status: 'open',
-        })
-        .returning();
-      if (created) out.push(created);
-    }
+    const out = await insertSlots(tx, {
+      signupId,
+      workspaceId: locked.workspaceId,
+      settings,
+      fields,
+      // The renumbering below locked every slot row already, so their refs
+      // come from those; otherwise one read, under the signup lock.
+      takenRefs: shown
+        ? new Set(shown.map((s) => s.ref))
+        : await readTakenRefs(tx, signupId, locked.workspaceId),
+      rows: data.rows.map((row, index) => ({
+        values: row.values,
+        capacity: row.capacity ?? null,
+        sortOrder: row.sortOrder ?? Math.min(base + index, MAX_SORT_ORDER),
+      })),
+    });
 
     if (shown) {
       // The new rows already sit at the position they were given, base onwards.
@@ -486,7 +476,7 @@ export async function listSlotsForSignup(db: Queryable, signupId: string) {
     .orderBy(...SLOT_DISPLAY_ORDER);
 }
 
-export function summarizeValues(values: Record<string, unknown>): string {
+function summarizeValues(values: Record<string, unknown>): string {
   const parts: string[] = [];
   for (const val of Object.values(values)) {
     if (val === undefined || val === null || val === '') continue;
@@ -496,22 +486,69 @@ export function summarizeValues(values: Record<string, unknown>): string {
   return parts.join('-') || 'slot';
 }
 
-export async function pickAvailableRef(
-  db: Queryable,
+/**
+ * Insert a signup's new slots in one statement, and return them in the order
+ * given. The caller has passed the policy guard and holds whatever lock keeps
+ * other writers to this signup out (the signup lock, or a signup nobody else
+ * can see yet), so the refs in `takenRefs` are every ref the signup has. Each
+ * row's ref is picked against that set, and added to it, so rows with the same
+ * values in one call get `-2`, `-3` and so on. Takes no locks of its own.
+ */
+export async function insertSlots(
+  tx: Queryable,
+  opts: {
+    signupId: string;
+    workspaceId: string | null;
+    settings: StoredSignupSettings;
+    fields: SlotFieldDefinition[];
+    takenRefs: Set<string>;
+    rows: { values: Record<string, unknown>; capacity: number | null; sortOrder: number }[];
+  },
+): Promise<SlotRow[]> {
+  const { signupId, workspaceId, settings, fields, takenRefs, rows } = opts;
+  // drizzle refuses values([]).
+  if (rows.length === 0) return [];
+  const values = rows.map((row) => ({
+    id: makeId('slot'),
+    signupId,
+    workspaceId,
+    ref: pickRef(takenRefs, summarizeValues(row.values)),
+    values: row.values,
+    capacity: row.capacity,
+    sortOrder: row.sortOrder,
+    slotAt: extractSlotAt(settings, fields, row.values),
+    status: 'open',
+  }));
+  const inserted = await tx.insert(slots).values(values).returning();
+  // RETURNING's order isn't guaranteed, so match the rows by the ids made here.
+  const byId = new Map(inserted.map((row) => [row.id, row]));
+  return values.map(({ id }) => {
+    const row = byId.get(id);
+    if (!row) throw new Error('slot insert failed');
+    return row;
+  });
+}
+
+/** Every ref a signup's slots already use, for `insertSlots`. */
+async function readTakenRefs(
+  tx: Queryable,
   signupId: string,
-  seed: string,
-): Promise<string> {
+  workspaceId: string | null,
+): Promise<Set<string>> {
+  const rows = await tx
+    .select({ ref: slots.ref })
+    .from(slots)
+    .where(and(eq(slots.signupId, signupId), inWorkspace(slots.workspaceId, workspaceId)));
+  return new Set(rows.map((r) => r.ref));
+}
+
+/** The slug of `seed`, or the first of `-2`, `-3`, … that `taken` hasn't got. */
+function pickRef(taken: Set<string>, seed: string): string {
   const base = toSlug(seed, { suffix: false, fallback: 'slot' });
-  for (let i = 0; i < 6; i++) {
-    const candidate = i === 0 ? base : `${base}-${toSlug(`${Date.now()}-${i}`, { suffix: false })}`;
-    const collision = await db
-      .select({ id: slots.id })
-      .from(slots)
-      .where(and(eq(slots.signupId, signupId), eq(slots.ref, candidate)))
-      .limit(1);
-    if (collision.length === 0) return candidate;
-  }
-  return `${base}-${Date.now()}`;
+  let ref = base;
+  for (let n = 2; taken.has(ref); n++) ref = `${base}-${n}`;
+  taken.add(ref);
+  return ref;
 }
 
 function sameInstant(a: Date | null, b: Date | null): boolean {

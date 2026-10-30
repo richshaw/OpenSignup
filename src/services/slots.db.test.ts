@@ -1,11 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { getDb, type Db } from '@/db/client';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { getDb, SESSION_SETTINGS, type Db } from '@/db/client';
+import * as schema from '@/db/schema';
 import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { getEnv } from '@/lib/env';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
@@ -1026,5 +1030,121 @@ describe('slot writes and the signup lock (db)', () => {
     );
     expect(r.ok, JSON.stringify(r)).toBe(true);
     if (r.ok) expect(r.value.capacity).toBe(4);
+  });
+});
+
+describe('adding slots in one insert (db)', () => {
+  let fx: Fixture;
+  // A client of its own with a debug hook, as in src/app/query-budget.db.test.ts,
+  // so the count is every statement the service sends, BEGIN and COMMIT
+  // included. The array-type lookup postgres.js runs once per connection is
+  // left out, so the count doesn't depend on how warm the pool is.
+  let statements = 0;
+  const countingClient = postgres(getEnv().DATABASE_URL, {
+    max: 1,
+    prepare: false,
+    connection: SESSION_SETTINGS,
+    debug: (_connection, query) => {
+      if (!query.includes('pg_catalog.pg_type')) statements += 1;
+    },
+  });
+  const countingDb: Db = drizzle(countingClient, { schema, casing: 'snake_case' });
+
+  async function countStatements(run: () => Promise<unknown>): Promise<number> {
+    statements = 0;
+    await run();
+    return statements;
+  }
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await countingClient.end();
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  it('addSlotsBulk sends as many statements for 500 rows as for 1', async () => {
+    const { signupId } = await makeSignup(fx, 'Bulk statement count', [0]);
+    const rows = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ values: { what: `row ${i}` } }));
+
+    let one: Awaited<ReturnType<typeof addSlotsBulk>> | undefined;
+    const forOne = await countStatements(async () => {
+      one = await addSlotsBulk(countingDb, fx.actor, signupId, { rows: rows(1) });
+    });
+    let many: Awaited<ReturnType<typeof addSlotsBulk>> | undefined;
+    const forMany = await countStatements(async () => {
+      many = await addSlotsBulk(countingDb, fx.actor, signupId, { rows: rows(500) });
+    });
+    expect(one?.ok, JSON.stringify(one)).toBe(true);
+    expect(many?.ok).toBe(true);
+    if (many?.ok) expect(many.value).toHaveLength(500);
+    expect(forMany).toBe(forOne);
+  });
+
+  it('gives rows with the same values different refs, in one add and the next', async () => {
+    const { signupId } = await makeSignup(fx, 'Clashing refs', []);
+    const bulk = await addSlotsBulk(fx.db, fx.actor, signupId, {
+      rows: [
+        { values: { what: 'Snacks' } },
+        { values: { what: 'Snacks' } },
+        { values: { what: 'Snacks' } },
+      ],
+    });
+    if (!bulk.ok) throw new Error(JSON.stringify(bulk));
+    expect(bulk.value.map((s) => s.ref)).toEqual(['snacks', 'snacks-2', 'snacks-3']);
+
+    const single = await addSlot(fx.db, fx.actor, signupId, { values: { what: 'Snacks' } });
+    if (!single.ok) throw new Error(JSON.stringify(single));
+    expect(single.value.ref).toBe('snacks-4');
+  });
+
+  it('returns the bulk rows in the order given, and splices them in front of beforeSlotId', async () => {
+    const { signupId, idOf } = await makeSignup(fx, 'Bulk splice', [0, 1]);
+    const r = await addSlotsBulk(fx.db, fx.actor, signupId, {
+      beforeSlotId: idOf('b'),
+      rows: ['x', 'y', 'z'].map((name) => ({ values: { what: name } })),
+    });
+    if (!r.ok) throw new Error(JSON.stringify(r));
+    expect(r.value.map(what)).toEqual(['x', 'y', 'z']);
+    expect((await shown(fx, signupId)).names).toEqual(['a', 'x', 'y', 'z', 'b']);
+  });
+
+  it('createSignup with a 200-slot template creates every slot, in template order', async () => {
+    const created = await createSignup(
+      fx.db,
+      fx.actor,
+      fx.workspaceId,
+      { title: 'Big template' },
+      {
+        template: {
+          id: 'big-template',
+          fields: [
+            {
+              ref: 'what',
+              label: 'What',
+              fieldType: 'text',
+              sortOrder: 0,
+              config: { fieldType: 'text', maxLength: 200 },
+            },
+          ],
+          // Every other slot has the same name, so half the refs clash.
+          slots: Array.from({ length: 200 }, (_, i) => ({
+            capacity: 1,
+            values: { what: i % 2 === 0 ? 'Same' : `Slot ${i}` },
+          })),
+        },
+      },
+    );
+    if (!created.ok) throw new Error(JSON.stringify(created));
+    const rows = await listSlotsForSignup(fx.db, created.value.id);
+    expect(rows).toHaveLength(200);
+    expect(rows.map((r) => r.sortOrder)).toEqual(Array.from({ length: 200 }, (_, i) => i));
+    expect(rows.map(what)).toEqual(
+      Array.from({ length: 200 }, (_, i) => (i % 2 === 0 ? 'Same' : `Slot ${i}`)),
+    );
+    expect(new Set(rows.map((r) => r.ref)).size).toBe(200);
   });
 });
