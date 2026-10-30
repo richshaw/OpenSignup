@@ -69,6 +69,11 @@ describe('system prompt', () => {
     expect(sys).toContain('Never a date, a time or a count');
   });
 
+  it('counts a day of the week as a when, so "Saturday cleanup crew" has nothing to ask', () => {
+    // Without it, "Saturday" read as no when and the prompt asked instead of drafting (#696 evals).
+    expect(sys).toContain('Leave out "when" if it gives a date, a day of the week or a time');
+  });
+
   // follow-up.ts words the second call's message; these hold the prompt to its words.
   const followUp = buildFollowUpMessages('Bake sale', {
     what: { picked: ['Staff the table'], added: [] },

@@ -204,7 +204,7 @@ QUESTIONS — only when the prompt doesn't say what people sign up for, or every
 
 { "questions": { "topics": ["what", "when", "how_many"], "whatOptions": ["<option>", "<option>"] } }
 
-- topics: only the ones the prompt leaves out. "what" when it doesn't say what people sign up for; when it does, leave "what" out and include "when". Leave out "when" if it gives a date or time, and "how_many" if it gives a count.
+- topics: only the ones the prompt leaves out. "what" when it doesn't say what people sign up for; when it does, leave "what" out and include "when". Leave out "when" if it gives a date, a day of the week or a time, and "how_many" if it gives a count.
 - whatOptions, asking "what": ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself. If the options would be the prompt's own items or roles, it already says what: don't ask about it (rule 4: ask "when" if every slot would be a "TBD:" placeholder, otherwise draft).
 - whatOptions, not asking "what": 1 to ${WHAT_OPTIONS_MAX} things people sign up for, read from the prompt, in its language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count.
 - A message that carries "Answers to your questions:" is never answered with questions. Draft from the answers.
