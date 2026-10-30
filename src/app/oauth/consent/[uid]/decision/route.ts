@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation';
 import { requireActor } from '@/auth/session';
 import { getDb } from '@/db/client';
+import { waitInMinutes } from '@/lib/format-duration';
 import { log } from '@/lib/log';
 import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
 import { consentPath, isInteractionUid, oauthIssuer } from '@/oauth/config';
 import { ConsentUnavailable, decideConsent, type Decision } from '@/oauth/consent';
-import { describeWait, renderErrorPage } from '@/oauth/provider';
+import { renderErrorPage } from '@/oauth/provider';
 
 /**
  * Receives the Allow / Don't allow submit from the consent page.
@@ -38,7 +39,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
   try {
     const retryAfter = await chargeRateLimit(getDb(), RateLimits.oauthConsentPerOrganizer, actor.id);
     if (retryAfter !== null) {
-      const description = `Too many connection attempts. Wait ${describeWait(retryAfter)} and try again.`;
+      const description = `Too many connection attempts. Wait ${waitInMinutes(retryAfter)} and try again.`;
       return html(429, 'too_many_requests', description, { 'Retry-After': String(retryAfter) });
     }
     return await decideConsent(uid, actor, decision);
