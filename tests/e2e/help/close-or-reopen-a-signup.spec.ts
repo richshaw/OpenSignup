@@ -151,8 +151,13 @@ test.describe('help: close or reopen a signup', () => {
 
       // People who open the link see Closed at the top and on each slot that
       // isn't full (neither is), and can't sign up. A browser of its own,
-      // which has signed up for nothing.
-      const visitor = await browser.newPage({ deviceScaleFactor: 2 });
+      // which has signed up for nothing, at phone size: most people read this
+      // article on a phone, where a computer-wide picture shrinks too small
+      // to read.
+      const visitor = await browser.newPage({
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 2,
+      });
       try {
         await visitor.goto(`/s/${signup.slug}`);
         await expect(visitor.getByRole('heading', { name: TITLE })).toBeVisible();
