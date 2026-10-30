@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { listSignupsForWorkspace } from '@/services/signups';
+import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { StatusPill } from '@/components/status-pill';
 
 export const metadata = { title: 'Your signups' };
@@ -62,7 +63,13 @@ export default async function DashboardPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <p className="truncate font-medium">{r.title}</p>
-                    <p className="text-ink-muted truncate font-mono text-sm">/s/{r.slug}</p>
+                    {/* A draft's address only says it isn't ready yet, so there's
+                        nothing to send until it's published. */}
+                    {r.status === 'draft' ? (
+                      <p className="truncate text-sm text-ink-muted">{DRAFT_ONLY_YOU}</p>
+                    ) : (
+                      <p className="text-ink-muted truncate font-mono text-sm">/s/{r.slug}</p>
+                    )}
                   </div>
                   <StatusPill status={r.status} />
                 </div>

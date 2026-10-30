@@ -15,6 +15,16 @@ test.describe('organizer flow', () => {
     await expect(page.getByRole('heading', { name: 'Your signups' })).toBeVisible();
     await expect(page.getByText(seed.publicTitle)).toBeVisible();
     await expect(page.getByText(seed.draftTitle)).toBeVisible();
+
+    // A published row shows its address; a draft's would only say it isn't
+    // ready, so it says who can see it instead.
+    const published = page
+      .locator(`a[href^="/app/signups/"]`, { hasText: seed.publicTitle })
+      .first();
+    await expect(published.getByText(`/s/${seed.publicSlug}`, { exact: true })).toBeVisible();
+    const draft = page.locator(`a[href="/app/signups/${seed.draftSignupId}"]`);
+    await expect(draft.getByText('Only you can see this draft', { exact: true })).toBeVisible();
+    await expect(draft.getByText(/\/s\//)).toHaveCount(0);
   });
 
   test('organizer publishes a draft signup', async ({ page }) => {
