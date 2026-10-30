@@ -33,10 +33,11 @@ describe('blue buttons', () => {
   });
 
   it('darken on hover rather than brighten', () => {
-    // Brightening #1f6feb by 10% gives about 3.97:1 against white.
+    // Brightening #1f6feb by 10%, or fading it to 90% over white, gives
+    // about 3.96:1 against white.
     const offenders = sourceFiles(path.join(__dirname)).filter((file) => {
       const text = readFileSync(file, 'utf8');
-      return /\bbg-brand\b/.test(text) && text.includes('hover:brightness-110');
+      return /\bbg-brand\b/.test(text) && /hover:(brightness-1\d\d|bg-brand\/\d+)/.test(text);
     });
     expect(offenders).toEqual([]);
   });
