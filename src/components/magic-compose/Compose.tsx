@@ -3,7 +3,12 @@
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, Sparkles } from 'lucide-react';
+import { PROMPT_MAX_LENGTH } from '@/lib/magic-compose/limits';
 import { STARTER_PROMPTS } from '@/lib/magic-compose/templates';
+
+/** The count shows from this many characters, so it's there before Back's answers tip it over. */
+const COUNT_FROM = Math.round(PROMPT_MAX_LENGTH * 0.9);
+const COUNT_ID = 'compose-count';
 
 export function Compose({
   prompt,
@@ -18,6 +23,11 @@ export function Compose({
   focusAtEnd?: boolean;
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null);
+  // A hard maxLength would cut off the answers Back adds, so the box takes
+  // any length and Draft waits until it's short enough.
+  const over = prompt.length - PROMPT_MAX_LENGTH;
+  const canDraft = prompt.trim() !== '' && over <= 0;
+  const showCount = prompt.length >= COUNT_FROM;
 
   useEffect(() => {
     const ta = taRef.current;
@@ -36,7 +46,7 @@ export function Compose({
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
-      if (prompt.trim()) onDraft();
+      if (canDraft) onDraft();
     }
   };
 
@@ -65,10 +75,21 @@ export function Compose({
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={onKeyDown}
+          aria-describedby={showCount ? COUNT_ID : undefined}
           placeholder="e.g. Snack duty for our U9 soccer team. 6 Saturday games starting April 25, two families per game, no nuts please."
           className="text-ink min-h-[160px] w-full resize-none border-0 bg-white px-6 pt-5 pb-3 text-base leading-relaxed outline-none"
         />
         <div className="flex flex-wrap items-center justify-end gap-2 px-4 pt-2 pb-3">
+          {showCount && (
+            <p
+              id={COUNT_ID}
+              className={`mr-auto px-2 text-[13px] ${over > 0 ? 'text-danger font-medium' : 'text-ink-muted'}`}
+            >
+              {prompt.length.toLocaleString('en-US')} / {PROMPT_MAX_LENGTH.toLocaleString('en-US')}{' '}
+              characters
+              {over > 0 && `. Shorten it by ${over.toLocaleString('en-US')} to draft.`}
+            </p>
+          )}
           <Link
             href="/app/signups/new?manual=1"
             className="text-ink border-surface-sunk hover:bg-surface-raised inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-medium"
@@ -78,7 +99,7 @@ export function Compose({
           <button
             type="button"
             onClick={onDraft}
-            disabled={!prompt.trim()}
+            disabled={!canDraft}
             className="bg-brand inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
