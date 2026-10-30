@@ -828,6 +828,51 @@ describe('signups service (db)', () => {
       expect(await refusedPublishes(created.value.id)).toEqual([]);
     });
 
+    describe('publishSignup and closesAt', () => {
+      async function publishedRows(signupId: string) {
+        const rows = await fx.db
+          .select({ payload: activity.payload })
+          .from(activity)
+          .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.published')));
+        return rows.map((r) => r.payload);
+      }
+
+      it('removes a closing time that has passed, keeps it in the row, and takes sign-ups', async () => {
+        const { signupId, slotId } = await draftWithOneSlot('Publish past its closing time');
+        const passed = new Date(Date.now() - 60 * 1000);
+        const set = await updateSignup(fx.db, fx.actor, signupId, { closesAt: passed.toISOString() });
+        if (!set.ok) throw new Error('setup failed');
+
+        const r = await publishSignup(fx.db, fx.actor, signupId);
+        expect(r.ok, JSON.stringify(r)).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.status).toBe('open');
+        expect(r.value.closesAt).toBeNull();
+        expect(await publishedRows(signupId)).toEqual([
+          { from: 'draft', to: 'open', clearedClosesAt: passed.toISOString() },
+        ]);
+        const signedUp = await commitToSlot(fx.db, slotId, {
+          name: 'Pat Example',
+          email: 'pat@example.com',
+          quantity: 1,
+        });
+        expect(signedUp.ok, JSON.stringify(signedUp)).toBe(true);
+      });
+
+      it('keeps a closing time that is still to come', async () => {
+        const { signupId } = await draftWithOneSlot('Publish before its closing time');
+        const later = new Date(Date.now() + 60 * 60 * 1000);
+        const set = await updateSignup(fx.db, fx.actor, signupId, { closesAt: later.toISOString() });
+        if (!set.ok) throw new Error('setup failed');
+
+        const r = await publishSignup(fx.db, fx.actor, signupId);
+        expect(r.ok, JSON.stringify(r)).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.closesAt).toEqual(later);
+        expect(await publishedRows(signupId)).toEqual([{ from: 'draft', to: 'open' }]);
+      });
+    });
+
     it('closeSignup moves open → closed', async () => {
       const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Close me'));
       if (!created.ok) throw new Error('setup failed');
