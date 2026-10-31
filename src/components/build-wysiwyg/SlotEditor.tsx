@@ -40,8 +40,9 @@ type SlotEditorProps = {
 
 /**
  * Inline accordion editor for a single slot. Auto-fit grid keeps small
- * schemas tight while letting wider schemas wrap naturally; spots ride
- * along as the trailing cell so it lives in the same visual band.
+ * schemas tight while letting wider schemas wrap naturally. Spots takes a
+ * row of its own, so its hint can sit on one line beside the box rather
+ * than wrapping in whatever part of a row the fields leave over.
  */
 export function SlotEditor({
   row,
@@ -172,31 +173,33 @@ export function SlotEditor({
             </Cell>
           );
         })}
-        <label className="flex flex-col gap-1 text-[11px] text-ink-muted">
+        <label className="col-span-full flex flex-col gap-1 text-[11px] text-ink-muted">
           <span className="inline-flex items-center gap-1">
             <Hash size={10} className="text-ink-soft" />
             Spots
           </span>
-          <input
-            type="number"
-            min={1}
-            value={row.capacity ?? ''}
-            placeholder="No limit"
-            onChange={(e) => {
-              const raw = e.target.value;
-              if (raw === '') {
-                onCapacity(null);
-                return;
-              }
-              const parsed = parseInt(raw, 10);
-              onCapacity(Math.max(1, Number.isFinite(parsed) ? parsed : 1));
-            }}
-            aria-label="Spots"
-            aria-describedby={spotsHelpId}
-            className="w-20 rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand"
-          />
-          <span id={spotsHelpId} className="text-[11px] text-ink-soft">
-            How many places people can take. Leave blank for no limit.
+          <span className="flex items-center gap-2">
+            <input
+              type="number"
+              min={1}
+              value={row.capacity ?? ''}
+              placeholder="No limit"
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') {
+                  onCapacity(null);
+                  return;
+                }
+                const parsed = parseInt(raw, 10);
+                onCapacity(Math.max(1, Number.isFinite(parsed) ? parsed : 1));
+              }}
+              aria-label="Spots"
+              aria-describedby={spotsHelpId}
+              className="w-20 shrink-0 rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand"
+            />
+            <span id={spotsHelpId} className="min-w-0 text-[11px] text-ink-soft">
+              How many spots this slot has. Leave blank for no limit.
+            </span>
           </span>
         </label>
       </div>
