@@ -73,6 +73,38 @@ describe('<EditForm /> quantity', () => {
     expect(body).toEqual({ name: 'Pat Example', notes: 'Bringing oranges' });
   });
 
+  // NameSchema checks its 100 characters before trimming, so the spaces have
+  // to go before the name is sent, as the sign-up dialog does.
+  it('sends the name without spaces after it', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ data: {} }) }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(1);
+
+    const name = 'a'.repeat(99);
+    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: `${name}  ` } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body)).name).toBe(name);
+  });
+
+  it('still refuses a name of only spaces', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({ error: { code: 'invalid_input', message: 'name is required', field: 'name' } }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm(1);
+
+    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByText('Enter your name, up to 100 characters.')).toBeInTheDocument();
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body)).name).toBe('');
+  });
+
   // On this page `remaining` is the most the commitment can hold, spots already
   // held included, so it needs the edit page's wording rather than "left".
   it("explains a capacity error in the edit page's own words", async () => {
