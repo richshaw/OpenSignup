@@ -12,6 +12,12 @@
 export const MAGIC_COMPOSE_BUCKET = 'magic.compose';
 
 /**
+ * The longest description a draft takes, answers added by Back included. The
+ * route refuses a longer one; the compose box counts toward it.
+ */
+export const PROMPT_MAX_LENGTH = 4000;
+
+/**
  * `LLM_TIMEOUT_MS` when an instance leaves it unset: the server's budget for
  * one draft, retries included. The page reads the configured value, and falls
  * back to this one.
