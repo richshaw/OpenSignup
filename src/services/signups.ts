@@ -633,6 +633,31 @@ export async function getPublicSignup(
   return ok({ ...row, slots: signupSlots, fields, committedBySlot: committedBySlotMap });
 }
 
+/**
+ * The id of the live draft at `slug`, for a member of its workspace (any
+ * role), so a draft's public link can tell its own organizer it's theirs and
+ * link to it. A published, archived, deleted or missing signup is not_found;
+ * someone outside the workspace gets the guard's `forbidden`. Kept apart from
+ * `getPublicSignup`, whose error the public API hands back unchanged, so the
+ * id never reaches a visitor.
+ */
+export async function findDraftForOrganizer(
+  db: Db,
+  actor: Actor,
+  slug: string,
+): Promise<Result<{ id: string }, ServiceError>> {
+  requireOrganizer(actor);
+  const found = await db
+    .select({ id: signups.id, workspaceId: signups.workspaceId })
+    .from(signups)
+    .where(and(eq(signups.slug, slug), eq(signups.status, 'draft'), isNull(signups.deletedAt)))
+    .limit(1);
+  const row = found[0];
+  if (!row) return err(serviceError('not_found', 'draft not found'));
+  requireWorkspaceAccess(actor, row.workspaceId);
+  return ok({ id: row.id });
+}
+
 async function pickAvailableSlug(db: Db, title: string): Promise<string> {
   for (let i = 0; i < 6; i++) {
     const candidate = toSlug(title, { suffix: true });
