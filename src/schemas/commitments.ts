@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { NOTES_MAX_LENGTH, QUANTITY_MAX } from '@/lib/participant-limits';
 import { idOf, NameSchema } from './common';
 
 // Participants keep their user-entered casing in `participants.email` for
@@ -17,8 +18,8 @@ export const CommitmentCreateInputSchema = z.object({
   name: NameSchema,
   email: ParticipantEmailSchema,
   phone: z.string().min(4).max(40).optional(),
-  notes: z.string().max(500).optional(),
-  quantity: z.number().int().positive().max(999).default(1),
+  notes: z.string().max(NOTES_MAX_LENGTH).optional(),
+  quantity: z.number().int().positive().max(QUANTITY_MAX).default(1),
   /**
    * Random, made by the client for one sign-up and sent again with any retry
    * of it. A sign-up sent with the key and details of one already made on the
@@ -34,8 +35,8 @@ export type CommitmentCreateInput = z.infer<typeof CommitmentCreateInputSchema>;
 
 export const CommitmentUpdateInputSchema = z.object({
   name: NameSchema.optional(),
-  notes: z.string().max(500).optional(),
-  quantity: z.number().int().positive().max(999).optional(),
+  notes: z.string().max(NOTES_MAX_LENGTH).optional(),
+  quantity: z.number().int().positive().max(QUANTITY_MAX).optional(),
   swapToSlotId: idOf('slot').optional(),
 });
 export type CommitmentUpdateInput = z.infer<typeof CommitmentUpdateInputSchema>;
