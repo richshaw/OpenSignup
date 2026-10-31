@@ -8,11 +8,13 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
+import { DESCRIPTION_MAX_LENGTH } from '@/schemas/signups';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, getPublicSignup, publishSignup } from '@/services/signups';
 import type { ToolContext } from './context';
 import { connectTestClient } from './testing/client';
 import { contextForOrganizer } from './testing/context';
+import { signupLinks } from './links';
 import { TOOLS } from './tools';
 
 const db = getDb();
@@ -94,6 +96,34 @@ describe('read tools on Postgres', () => {
     expect(body.slots[0]!.filled).toBe(1);
     expect(JSON.stringify(body)).not.toContain('pat@example.com');
     expect(JSON.stringify(body)).not.toContain('Pat');
+  });
+
+  it('list_signups returns the summary shape, without the description, settings or tags', async () => {
+    const created = await createSignup(db, ctx.actor, workspaceId, {
+      title: 'Long description',
+      description: 'x'.repeat(DESCRIPTION_MAX_LENGTH),
+      tags: ['school'],
+    });
+    if (!created.ok) throw new Error(JSON.stringify(created.error));
+    const row = created.value;
+
+    const client = await connectTestClient(ctx, TOOLS);
+    const r = await client.callTool({ name: 'list_signups', arguments: {} });
+    expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    const listed = (r.structuredContent as { signups: { id: string }[] }).signups;
+    // Same keys in the same order as when the list read whole rows.
+    expect(JSON.stringify(listed.find((s) => s.id === row.id))).toBe(
+      JSON.stringify({
+        id: row.id,
+        slug: row.slug,
+        title: row.title,
+        status: row.status,
+        closesAt: null,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+        links: signupLinks(row),
+      }),
+    );
   });
 
   it('list_signups sees the workspace and a foreign workspace is forbidden', async () => {

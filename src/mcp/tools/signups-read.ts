@@ -2,7 +2,12 @@ import { z } from 'zod';
 import { ok } from '@/lib/result';
 import { SIGNUP_STATUSES, type SignupSettings } from '@/schemas/signups';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
-import { getSignupForOrganizer, listSignupsForWorkspace, type SignupWithSlots } from '@/services/signups';
+import {
+  getSignupForOrganizer,
+  listSignupSummariesForWorkspace,
+  type SignupSummary,
+  type SignupWithSlots,
+} from '@/services/signups';
 import { resolveWorkspaceId } from '../context';
 import { signupLinks } from '../links';
 import { defineTool } from '../registry';
@@ -20,7 +25,7 @@ export function slotOut(s: SlotRow) {
   return { id: s.id, values: s.values, capacity: s.capacity, status: s.status, sortOrder: s.sortOrder };
 }
 
-function signupCore(row: SignupRow) {
+function signupCore(row: SignupSummary) {
   return {
     id: row.id,
     slug: row.slug,
@@ -33,7 +38,7 @@ function signupCore(row: SignupRow) {
 }
 
 /** The list shape: enough to pick a signup, small enough for 200 rows. */
-function signupSummary(row: SignupRow) {
+function signupSummary(row: SignupSummary) {
   return { ...signupCore(row), links: signupLinks(row) };
 }
 
@@ -105,7 +110,7 @@ export const listSignups = defineTool({
   handler: async (ctx, input) => {
     const ws = resolveWorkspaceId(ctx, input.workspaceId);
     if (!ws.ok) return ws;
-    const rows = await listSignupsForWorkspace(
+    const rows = await listSignupSummariesForWorkspace(
       ctx.db,
       ctx.actor,
       ws.value,

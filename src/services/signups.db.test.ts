@@ -23,6 +23,7 @@ import {
   findDraftForOrganizer,
   getPublicSignup,
   getSignupForOrganizer,
+  listSignupSummariesForWorkspace,
   listSignupsForWorkspace,
   publishSignup,
   recordPublishCheck,
@@ -502,6 +503,65 @@ describe('signups service (db)', () => {
       } finally {
         await teardownWorkspace(listFx.db, listFx.workspaceId, listFx.organizerId);
       }
+    });
+  });
+
+  describe('listSignupSummariesForWorkspace', () => {
+    it('lists the same signups as listSignupsForWorkspace, reading only the summary columns', async () => {
+      const listFx = await setupWorkspace();
+      try {
+        const a = await createSignup(listFx.db, listFx.actor, listFx.workspaceId, validCreateInput('Alpha'));
+        const b = await createSignup(listFx.db, listFx.actor, listFx.workspaceId, validCreateInput('Beta'));
+        const gone = await createSignup(listFx.db, listFx.actor, listFx.workspaceId, validCreateInput('Gone'));
+        if (!a.ok || !b.ok || !gone.ok) throw new Error('setup failed');
+        if (!(await publishSignup(listFx.db, listFx.actor, b.value.id)).ok) throw new Error('publish failed');
+        if (!(await deleteSignup(listFx.db, listFx.actor, gone.value.id)).ok) throw new Error('delete failed');
+
+        for (const filter of [{}, { status: 'draft' as const }, { status: 'open' as const }]) {
+          const full = await listSignupsForWorkspace(listFx.db, listFx.actor, listFx.workspaceId, filter);
+          const summaries = await listSignupSummariesForWorkspace(
+            listFx.db,
+            listFx.actor,
+            listFx.workspaceId,
+            filter,
+          );
+          if (!full.ok || !summaries.ok) throw new Error('list failed');
+          expect(summaries.value).toEqual(
+            full.value.map((r) => ({
+              id: r.id,
+              slug: r.slug,
+              title: r.title,
+              status: r.status,
+              closesAt: r.closesAt,
+              createdAt: r.createdAt,
+              updatedAt: r.updatedAt,
+            })),
+          );
+        }
+
+        const all = await listSignupSummariesForWorkspace(listFx.db, listFx.actor, listFx.workspaceId);
+        if (!all.ok) throw new Error('list failed');
+        expect(all.value.map((r) => r.id).sort()).toEqual([a.value.id, b.value.id].sort());
+        for (const row of all.value) {
+          expect(Object.keys(row).sort()).toEqual([
+            'closesAt',
+            'createdAt',
+            'id',
+            'slug',
+            'status',
+            'title',
+            'updatedAt',
+          ]);
+        }
+      } finally {
+        await teardownWorkspace(listFx.db, listFx.workspaceId, listFx.organizerId);
+      }
+    });
+
+    it('refuses a workspace the actor is not a member of', async () => {
+      await expect(listSignupSummariesForWorkspace(fx.db, fx.actor, makeId('ws'))).rejects.toThrow(
+        /not a member/,
+      );
     });
   });
 
