@@ -46,6 +46,32 @@ test.describe('organizer flow', () => {
     await expect(page.getByRole('dialog').getByRole('button', { name: 'Copy link' })).toBeVisible();
   });
 
+  test("a renamed draft publishes at its new title's address", async ({ page }) => {
+    const stamp = Date.now();
+    const { id: draftId } = await createDraft(page.request, {
+      title: `Bake sail ${stamp}`,
+      values: { what: 'Juice', date: '2030-04-06' },
+    });
+    const storedSlug = async () =>
+      ((await (await page.request.get(`/api/signups/${draftId}`)).json()).data as { slug: string }).slug;
+    const before = await storedSlug();
+
+    await page.goto(`/app/signups/${draftId}/build`);
+    await page.getByRole('button', { name: 'Signup title' }).click();
+    await page.getByRole('textbox', { name: 'Signup title' }).fill(`Bake sale ${stamp}`);
+    await page.getByRole('textbox', { name: 'Signup title' }).blur();
+    await expect.poll(storedSlug).toMatch(new RegExp(`^bake-sale-${stamp}-[0-9a-z]{5}$`));
+    const after = await storedSlug();
+    expect(after).not.toBe(before);
+
+    await page.getByRole('button', { name: 'Publish and share', exact: true }).click();
+    const panel = page.getByRole('dialog', { name: 'Now send people the link' });
+    await expect(panel).toBeVisible();
+    await expect(panel.getByRole('textbox', { name: 'Public link' }).first()).toHaveValue(
+      `${BASE_URL}/s/${after}`,
+    );
+  });
+
   test('Close signup asks first, and Not yet leaves the signup open', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     const signup = await createPublishedSignup(page.request, {

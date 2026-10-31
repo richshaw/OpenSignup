@@ -11,6 +11,17 @@ export function randomSuffix(length = 5): string {
   return out;
 }
 
+const SUFFIX = new RegExp(`-[${CROCKFORD}]{5}$`);
+
+/**
+ * A slug without the suffix `toSlug(…, { suffix: true })` added, so two
+ * titles can be compared by the words their slugs keep. A slug without one
+ * comes back as it is.
+ */
+export function slugBase(slug: string): string {
+  return slug.replace(SUFFIX, '');
+}
+
 export interface SlugOptions {
   suffix?: boolean;
   fallback?: string;

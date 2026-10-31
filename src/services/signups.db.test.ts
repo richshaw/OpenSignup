@@ -586,6 +586,74 @@ describe('signups service (db)', () => {
       expect(acts.some((a) => a.eventType === 'signup.updated')).toBe(true);
     });
 
+    describe("a draft's web address follows its title", () => {
+      const base = (slug: string) => slug.replace(/-[0-9a-z]{5}$/, '');
+
+      it('gives a renamed draft a slug from the new title, which the public page finds once published', async () => {
+        const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Bake sail'));
+        if (!created.ok) throw new Error('setup failed');
+        expect(base(created.value.slug)).toBe('bake-sail');
+
+        const r = await updateSignup(fx.db, fx.actor, created.value.id, { title: 'Bake sale' });
+        if (!r.ok) throw new Error(JSON.stringify(r.error));
+        expect(base(r.value.slug)).toBe('bake-sale');
+        expect(r.value.slug).toMatch(/^bake-sale-[0-9a-z]{5}$/);
+
+        const acts = await fx.db
+          .select()
+          .from(activity)
+          .where(and(eq(activity.signupId, created.value.id), eq(activity.eventType, 'signup.updated')));
+        expect(acts.at(-1)?.payload).toMatchObject({ changed: expect.arrayContaining(['title', 'slug']) });
+
+        if (!(await publishSignup(fx.db, fx.actor, created.value.id)).ok) throw new Error('publish failed');
+        const pub = await getPublicSignup(fx.db, r.value.slug);
+        expect(pub.ok).toBe(true);
+        const old = await getPublicSignup(fx.db, created.value.slug);
+        expect(old.ok).toBe(false);
+      });
+
+      it('keeps the slug when only case or punctuation changes', async () => {
+        const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Bake sale'));
+        if (!created.ok) throw new Error('setup failed');
+        const r = await updateSignup(fx.db, fx.actor, created.value.id, { title: 'BAKE SALE!' });
+        if (!r.ok) throw new Error(JSON.stringify(r.error));
+        expect(r.value.slug).toBe(created.value.slug);
+
+        const acts = await fx.db
+          .select()
+          .from(activity)
+          .where(and(eq(activity.signupId, created.value.id), eq(activity.eventType, 'signup.updated')));
+        expect(acts.at(-1)?.payload).toEqual({ changed: ['title'] });
+      });
+
+      it('keeps the slug on an update that leaves the title alone', async () => {
+        const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Bake sale'));
+        if (!created.ok) throw new Error('setup failed');
+        const r = await updateSignup(fx.db, fx.actor, created.value.id, { description: 'Bring a plate.' });
+        if (!r.ok) throw new Error(JSON.stringify(r.error));
+        expect(r.value.slug).toBe(created.value.slug);
+      });
+
+      it('keeps the slug of an open, closed or archived signup', async () => {
+        const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Car wash'));
+        if (!created.ok) throw new Error('setup failed');
+        const id = created.value.id;
+        const slug = created.value.slug;
+        if (!(await publishSignup(fx.db, fx.actor, id)).ok) throw new Error('publish failed');
+
+        const renamed = async (title: string) => {
+          const r = await updateSignup(fx.db, fx.actor, id, { title });
+          if (!r.ok) throw new Error(JSON.stringify(r.error));
+          return r.value;
+        };
+        expect((await renamed('Open rename')).slug).toBe(slug);
+        if (!(await closeSignup(fx.db, fx.actor, id)).ok) throw new Error('close failed');
+        expect((await renamed('Closed rename')).slug).toBe(slug);
+        if (!(await archiveSignup(fx.db, fx.actor, id)).ok) throw new Error('archive failed');
+        expect((await renamed('Archived rename')).slug).toBe(slug);
+      });
+    });
+
     it('refuses a visibility change, which nothing reads', async () => {
       const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Before'));
       if (!created.ok) throw new Error('setup failed');

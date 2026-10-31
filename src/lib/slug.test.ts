@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { randomSuffix, toSlug } from './slug';
+import { randomSuffix, slugBase, toSlug } from './slug';
 
 describe('toSlug', () => {
   it('lowercases and kebab-cases', () => {
@@ -67,5 +67,27 @@ describe('randomSuffix', () => {
   it('only contains crockford base32 chars', () => {
     const s = randomSuffix(100);
     expect(s).toMatch(/^[0-9abcdefghjkmnpqrstvwxyz]+$/);
+  });
+});
+
+describe('slugBase', () => {
+  it('drops the suffix toSlug added', () => {
+    const slug = toSlug('Bake sale', { suffix: true });
+    expect(slugBase(slug)).toBe('bake-sale');
+  });
+
+  it('gives the base toSlug makes without a suffix, for a long title', () => {
+    const title = 'A very long title '.repeat(10);
+    expect(slugBase(toSlug(title, { suffix: true }))).toBe(toSlug(title));
+  });
+
+  it('leaves a slug without a suffix as it is', () => {
+    expect(slugBase('bake-sale')).toBe('bake-sale');
+    expect(slugBase('team-potluck')).toBe('team-potluck');
+  });
+
+  it('does not take a final word that has letters outside the suffix alphabet', () => {
+    // "lunch" has a "u", which Crockford base32 leaves out.
+    expect(slugBase('school-lunch')).toBe('school-lunch');
   });
 });
