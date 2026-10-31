@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDuration } from './format-duration';
+import { formatDuration, waitInMinutes } from './format-duration';
 
 describe('formatDuration', () => {
   it('formats sub-hour values in minutes with pluralization', () => {
@@ -32,5 +32,15 @@ describe('formatDuration', () => {
 
   it('drops sub-hour leftovers in the day branch so we never overstate', () => {
     expect(formatDuration(1470)).toBe('1 day');
+  });
+});
+
+describe('waitInMinutes', () => {
+  it('rounds a wait in seconds up to whole minutes, never under one', () => {
+    expect(waitInMinutes(1)).toBe('1 minute');
+    expect(waitInMinutes(60)).toBe('1 minute');
+    expect(waitInMinutes(61)).toBe('2 minutes');
+    expect(waitInMinutes(119)).toBe('2 minutes');
+    expect(waitInMinutes(3412)).toBe('57 minutes');
   });
 });

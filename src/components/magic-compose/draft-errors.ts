@@ -1,3 +1,4 @@
+import { waitMinutes } from '@/lib/format-duration';
 import { MAGIC_COMPOSE_BUCKET } from '@/lib/magic-compose/limits';
 
 /** The `error` of the API's envelope, as far as the drafting screen reads it. */
@@ -19,7 +20,7 @@ export type DraftError =
 /** Whole minutes in a 429's `retryAfterSeconds`, rounded up, or undefined when it has none. */
 function minutesToWait(details: Record<string, unknown> | undefined): number | undefined {
   const wait = details?.retryAfterSeconds;
-  return typeof wait === 'number' && wait > 0 ? Math.ceil(wait / 60) : undefined;
+  return typeof wait === 'number' && wait > 0 ? waitMinutes(wait) : undefined;
 }
 
 /**
