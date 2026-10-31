@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { DESCRIPTION_MAX_LENGTH, TitleSchema } from '@/schemas/signups';
+import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH, TitleSchema } from '@/schemas/signups';
 import {
   ChoiceSchema,
   FIELD_TYPES,
   LabelSchema,
   MAX_CHOICES,
+  REF_MAX_LENGTH,
   RefSchema,
 } from '@/schemas/slot-fields';
 import {
@@ -190,8 +191,8 @@ const SYSTEM_PROMPT = `You are OpenSignup's signup drafter. OpenSignup is a coor
 Output schema (return ONLY this JSON object, no prose, no fences):
 
 {
-  "title": "<short signup title, 2-120 chars>",
-  "description": "<one short paragraph, max 2000 chars; OK to be empty>",
+  "title": "<short signup title, ${TITLE_MIN_LENGTH}-${TITLE_MAX_LENGTH} chars>",
+  "description": "<one short paragraph, max ${DESCRIPTION_MAX_LENGTH} chars; OK to be empty>",
   "fields": [
     { "ref": "<lowercase-kebab>", "label": "<Human label>", "fieldType": "text|date|time|number|enum", "choices": [<strings, [] when not enum>] }
   ],
@@ -352,13 +353,13 @@ LOAD-BEARING RULES:
 
 4. ${neverInventRule('drafter')}
 
-5. ref must be lowercase-kebab-case, max 40 chars. One ref per field, unique.
+5. ref must be lowercase-kebab-case, max ${REF_MAX_LENGTH} chars. One ref per field, unique.
 
 6. Every slot's "values" MUST be non-empty and MUST contain a value for every declared field "ref". Date values use YYYY-MM-DD. Time values use 24-hour HH:MM. Enum values must match one of the declared choices exactly.
 
 7. Do not emit slugs, IDs, workspace IDs, organizer IDs (sig_…, ws_…, org_…, mem_…), or a status field. The server generates IDs and always sets status to draft.
 
-8. Max ${MAX_FIELDS} fields. Max ${MAX_SLOTS} slots. If a literal expansion would exceed 200 slots, cap by the less-informative dimension and note the cap in description.
+8. Max ${MAX_FIELDS} fields. Max ${MAX_SLOTS} slots. If a literal expansion would exceed ${MAX_SLOTS} slots, cap by the less-informative dimension and note the cap in description.
 
 9. capacity is 1 (one participant per slot) unless the user gives a count. No limit ("unlimited", "as many as want") means null; never null as a guess.
 

@@ -1,5 +1,8 @@
 import { z } from 'zod';
+import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } from '@/lib/signup-limits';
 import { NameSchema, TagsSchema } from './common';
+
+export { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH };
 
 export const SIGNUP_STATUSES = ['draft', 'open', 'closed', 'archived'] as const;
 export type SignupStatus = (typeof SIGNUP_STATUSES)[number];
@@ -74,10 +77,6 @@ export function sendsReminders(settings: unknown): boolean {
   const parsed = SignupSettingsSchema.safeParse(settings ?? {});
   return parsed.success ? parsed.data.sendReminders : true;
 }
-
-const TITLE_MIN_LENGTH = 2;
-export const TITLE_MAX_LENGTH = 120;
-export const DESCRIPTION_MAX_LENGTH = 2000;
 
 /**
  * Trimmed before the min check, like NameSchema, so a title of only spaces is

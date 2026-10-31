@@ -1,11 +1,12 @@
 import { extractClientIp } from '@/auth/request-context';
 import { getDb } from '@/db/client';
+import { waitInMinutes } from '@/lib/format-duration';
 import { log } from '@/lib/log';
 import { RateLimits, chargeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
 import { OAUTH_ROUTES, oauthIssuer } from './config';
 import { getProvider } from './instance';
 import { invokeNodeHandler } from './node-shim';
-import { describeWait, renderErrorPage } from './provider';
+import { renderErrorPage } from './provider';
 
 /**
  * The one entry point every OAuth route handler calls. Meters the request,
@@ -63,7 +64,7 @@ function rateLimited(request: Request, retryAfterSeconds: number): Response {
   const headers: Record<string, string> = { 'Retry-After': String(retryAfterSeconds), 'Cache-Control': 'no-store' };
   const wantsHtml = (request.headers.get('accept') ?? '').includes('text/html');
   if (wantsHtml) {
-    const wait = describeWait(retryAfterSeconds);
+    const wait = waitInMinutes(retryAfterSeconds);
     return new Response(
       renderErrorPage({ error: 'too_many_requests', error_description: `Too many requests. Wait ${wait} and try again.` }),
       { status: 429, headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } },

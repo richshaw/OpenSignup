@@ -20,6 +20,7 @@ import {
   closeSignup,
   createSignup,
   deleteSignup,
+  findDraftForOrganizer,
   getPublicSignup,
   getSignupForOrganizer,
   listSignupSummariesForWorkspace,
@@ -1247,6 +1248,70 @@ describe('signups service (db)', () => {
         publishSignup(fx.db, fx.actor, signupId),
       );
       expect(r.ok, JSON.stringify(r)).toBe(true);
+    });
+  });
+
+  describe('findDraftForOrganizer', () => {
+    it("returns a live draft's id to a member of its workspace", async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('My draft'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const r = await findDraftForOrganizer(fx.db, fx.actor, created.value.slug);
+      expect(r).toEqual({ ok: true, value: { id: created.value.id } });
+    });
+
+    it('finds the draft for a viewer too', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Viewed'));
+      if (!created.ok) throw new Error('setup failed');
+      const viewer: Actor = {
+        kind: 'organizer',
+        id: makeId('org'),
+        email: 'viewer@example.com',
+        workspaceIds: [fx.workspaceId],
+        workspaceRoles: { [fx.workspaceId]: 'viewer' },
+      };
+
+      const r = await findDraftForOrganizer(fx.db, viewer, created.value.slug);
+      expect(r.ok).toBe(true);
+    });
+
+    it('refuses an organizer from another workspace', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Not yours'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const otherFx = await setupWorkspace();
+      try {
+        await expect(
+          findDraftForOrganizer(otherFx.db, otherFx.actor, created.value.slug),
+        ).rejects.toThrow(/not a member/);
+      } finally {
+        await teardownWorkspace(otherFx.db, otherFx.workspaceId, otherFx.organizerId);
+      }
+    });
+
+    it('returns not_found for a published signup', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Out there'));
+      if (!created.ok) throw new Error('setup failed');
+      await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 1 });
+      const pub = await publishSignup(fx.db, fx.actor, created.value.id);
+      if (!pub.ok) throw new Error('setup failed');
+
+      const r = await findDraftForOrganizer(fx.db, fx.actor, created.value.slug);
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('not_found');
+    });
+
+    it('returns not_found for a deleted draft', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Binned'));
+      if (!created.ok) throw new Error('setup failed');
+      const del = await deleteSignup(fx.db, fx.actor, created.value.id);
+      if (!del.ok) throw new Error('setup failed');
+
+      const r = await findDraftForOrganizer(fx.db, fx.actor, created.value.slug);
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('not_found');
     });
   });
 

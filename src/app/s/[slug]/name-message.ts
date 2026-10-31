@@ -1,3 +1,5 @@
+import { NAME_MAX_LENGTH } from '@/lib/participant-limits';
+
 /**
  * Participant-facing copy for an `invalid_input` on `name`, from signing up or
  * from the edit page: the name was blank once trimmed, or longer than
@@ -5,7 +7,7 @@
  * of \"name\".") is written for API callers, not participants.
  */
 export const NAME_INVALID = {
-  message: 'Enter your name, up to 100 characters.',
+  message: `Enter your name, up to ${NAME_MAX_LENGTH} characters.`,
 } as const;
 
 /** `NAME_INVALID` for an `invalid_input` on `name`, null for anything else. */

@@ -803,3 +803,61 @@ describe('naming the slot once its row is out of sight', () => {
     ).toBeInTheDocument();
   });
 });
+
+describe('"You\'re in." and the address the link went to', () => {
+  const settle = { timeout: 5000 };
+
+  async function signUpWith(email: string, requireEmail: boolean) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          data: { commitment: { id: 'com_1' }, editUrl: 'https://example.test/s/example/c/com_1' },
+        }),
+      })),
+    );
+    try {
+      render(
+        <SignupViewBody
+          signup={{ ...SIGNUP, requireEmail }}
+          fields={FIELDS}
+          groupByRef={null}
+          slots={[SLOTS[0]!]}
+          slug="example"
+          mode="live"
+          showStateBanner={false}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Pat Example' } });
+      fireEvent.change(screen.getByLabelText(requireEmail ? 'Email' : 'Email (optional)'), {
+        target: { value: email },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      return await screen.findByRole('heading', { name: "You're in." }, settle);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  }
+
+  it('names the address the link was emailed to', async () => {
+    await signUpWith('  pat@exmaple.com ', true);
+    const address = screen.getByText('pat@exmaple.com', { selector: 'strong' });
+    expect(address).toHaveClass('break-words');
+    expect(address.closest('p')).toHaveTextContent(
+      /^We've saved your spot for .+ and emailed this link to pat@exmaple\.com\. Bookmark it to edit or cancel later:$/,
+    );
+  });
+
+  it('reads as before when an optional email is left blank', async () => {
+    await signUpWith('', false);
+    expect(screen.queryByText(/emailed this link/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Save this link now: we won't email it, and only this browser remembers it.",
+      ),
+    ).toBeInTheDocument();
+  });
+});
