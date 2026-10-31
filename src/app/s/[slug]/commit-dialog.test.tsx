@@ -551,7 +551,11 @@ describe('<CommitDialog /> sheet', () => {
     it('reads as usual when they give an email after all', async () => {
       const body = await signUpWithEmail('jordan@example.test');
       expect(body).toMatchObject({ email: 'jordan@example.test' });
-      expect(screen.getByText(/Bookmark this link to edit or cancel later/)).toBeInTheDocument();
+      expect(
+        screen.getByText('jordan@example.test', { selector: 'strong' }).closest('p'),
+      ).toHaveTextContent(
+        /and emailed this link to jordan@example\.test\. Bookmark it to edit or cancel later:$/,
+      );
       expect(screen.queryByText(/we won't email it/)).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Share link' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Copy link' })).not.toBeInTheDocument();
