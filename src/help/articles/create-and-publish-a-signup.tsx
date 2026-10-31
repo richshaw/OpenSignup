@@ -44,11 +44,13 @@ export function CreateAndPublishASignup() {
               </p>
               <p>
                 If you see <Ui>{UI.questionsHeading}</Ui>, your site is asking a few questions
-                before it fills in your signup. Pick what fits, remove what doesn&rsquo;t, add your
-                own, or choose <Ui>{UI.draftWithPlaceholders}</Ui>.
+                before it fills in your signup. Pick what fits, remove what doesn&apos;t and add
+                your own. Then choose <Ui>{UI.draftCompose}</Ui>. Anything you skip becomes a
+                placeholder you can fill in later.
               </p>
               <p>
-                To follow the steps here instead, choose <Ui>{UI.skipCompose}</Ui>.
+                To follow the steps here instead, choose <Ui>{UI.skipCompose}</Ui>. Anything
+                you&apos;ve already typed comes with you.
               </p>
             </Note>
           </Step>
@@ -281,9 +283,7 @@ export function CreateAndPublishASignup() {
         <Steps>
           <Step>
             <p>
-              On a phone, the <Ui>{UI.settings}</Ui> link at the very top of the page is for your
-              account, so skip it. Under your signup&apos;s title, choose the <Ui>{UI.settings}</Ui>{' '}
-              tab.
+              Under your signup&apos;s title, choose the <Ui>{UI.settings}</Ui> tab.
             </p>
           </Step>
           <Step>

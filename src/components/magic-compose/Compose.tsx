@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowRight, Check, Sparkles } from 'lucide-react';
 import { PROMPT_MAX_LENGTH } from '@/lib/magic-compose/limits';
 import { STARTER_PROMPTS } from '@/lib/magic-compose/templates';
+import { handFillHref } from './hand-fill';
 
 /** The count shows from this many characters, so it's there before Back's answers tip it over. */
 const COUNT_FROM = Math.round(PROMPT_MAX_LENGTH * 0.9);
@@ -91,7 +92,7 @@ export function Compose({
             </p>
           )}
           <Link
-            href="/app/signups/new?manual=1"
+            href={handFillHref(prompt)}
             className="text-ink border-surface-sunk hover:bg-surface-raised inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-medium"
           >
             Skip, fill in by hand
@@ -100,7 +101,7 @@ export function Compose({
             type="button"
             onClick={onDraft}
             disabled={!canDraft}
-            className="bg-brand inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            className="bg-brand inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             Draft my signup

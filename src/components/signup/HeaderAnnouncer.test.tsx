@@ -2,7 +2,12 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import type { SignupStatus } from '@/schemas/signups';
-import { HeaderAnnouncer, useAnnounce, useAnnouncedStatusChange } from './HeaderAnnouncer';
+import {
+  HeaderAnnouncer,
+  SAID_FOR_MS,
+  useAnnounce,
+  useAnnouncedStatusChange,
+} from './HeaderAnnouncer';
 import type { StatusAction, StatusChangeAction } from './StatusActionForm';
 
 const CLOSED = 'Closed. People can’t sign up now.';
@@ -187,6 +192,89 @@ describe('HeaderAnnouncer', () => {
     expect(region).toHaveTextContent('Saved.');
     expect(region.firstElementChild).not.toBe(first);
     expect(region.children).toHaveLength(1);
+  });
+});
+
+describe('HeaderAnnouncer, once a message has been read', () => {
+  /** A button that has the header say `message` through `useAnnounce`. */
+  function Say({ message }: { message: string }) {
+    const say = useAnnounce();
+    return (
+      <button type="button" onClick={() => say(message)}>
+        {message}
+      </button>
+    );
+  }
+
+  function renderSay() {
+    render(
+      <HeaderAnnouncer status="draft">
+        <Say message="Published." />
+        <Say message="Publish and share when you’re ready." />
+      </HeaderAnnouncer>,
+    );
+    return (message: string) => act(() => screen.getByRole('button', { name: message }).click());
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('empties the region SAID_FOR_MS after a message, so reading on doesn’t meet it again', () => {
+    const press = renderSay();
+    const region = screen.getByRole('status');
+    press('Published.');
+    act(() => vi.advanceTimersByTime(SAID_FOR_MS - 1));
+    expect(region).toHaveTextContent('Published.');
+    act(() => vi.advanceTimersByTime(1));
+    expect(region).toHaveTextContent('');
+  });
+
+  it('empties the region after Close signup’s message too', async () => {
+    const { show, press } = renderHeader(async () => null);
+    await press();
+    show('closed');
+    expect(screen.getByRole('status')).toHaveTextContent(CLOSED);
+    act(() => vi.advanceTimersByTime(SAID_FOR_MS));
+    expect(screen.getByRole('status')).toHaveTextContent('');
+  });
+
+  it('starts the wait again for a new message', () => {
+    const press = renderSay();
+    const region = screen.getByRole('status');
+    press('Published.');
+    act(() => vi.advanceTimersByTime(SAID_FOR_MS - 1000));
+    press('Publish and share when you’re ready.');
+    act(() => vi.advanceTimersByTime(SAID_FOR_MS - 1));
+    expect(region).toHaveTextContent('Publish and share when you’re ready.');
+    act(() => vi.advanceTimersByTime(1));
+    expect(region).toHaveTextContent('');
+  });
+
+  it('says the same words again as a new node after the region has emptied', () => {
+    const press = renderSay();
+    const region = screen.getByRole('status');
+    press('Published.');
+    const first = region.firstElementChild;
+    act(() => vi.advanceTimersByTime(SAID_FOR_MS));
+    press('Published.');
+    expect(region).toHaveTextContent('Published.');
+    expect(region.firstElementChild).not.toBe(first);
+  });
+
+  it('leaves no timer behind when it unmounts', () => {
+    const { unmount } = render(
+      <HeaderAnnouncer status="draft">
+        <Say message="Published." />
+      </HeaderAnnouncer>,
+    );
+    act(() => screen.getByRole('button', { name: 'Published.' }).click());
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 

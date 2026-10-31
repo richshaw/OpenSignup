@@ -24,10 +24,6 @@ describe('FollowUpSchema', () => {
   it('accepts every answer left blank', () => {
     const blank = { what: { picked: [], added: [] }, when: { kind: 'not_decided' } };
     expect(FollowUpSchema.parse(blank)).toEqual(blank);
-    expect(FollowUpSchema.parse({ ...blank, placeholders: true })).toEqual({
-      ...blank,
-      placeholders: true,
-    });
   });
 
   it('accepts several days as text, and a day with only a date or one time', () => {
@@ -102,17 +98,6 @@ describe('FollowUpSchema', () => {
     expect(issue({ what: { picked: ['A', 'B', 'C', 'D', 'E'], added: [] } })).toBeDefined();
     expect(issue({ what: { picked: [], added: ['x'.repeat(81)] } })).toMatch(/80/);
     expect(issue({ what: { picked: [], added: ['   '] } })).toMatch(/blank/);
-  });
-
-  it('rejects placeholders that carry answers', () => {
-    expect(issue({ ...answers, placeholders: true })).toMatch(/no answers/);
-    expect(
-      issue({
-        what: { picked: [], added: [] },
-        when: { kind: 'several', text: 'May' },
-        placeholders: true,
-      }),
-    ).toMatch(/no answers/);
   });
 
   it('rejects keys it does not know, and a body without what', () => {

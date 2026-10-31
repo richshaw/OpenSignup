@@ -548,13 +548,15 @@ async function transitionStatus(
     }
 
     const now = new Date();
-    // A reopen takes sign-ups again straight away, so a closing time that has
-    // passed goes: kept, it would go on refusing everyone (`signupShutReason`),
-    // and the web app has no way to change it. At now as well as before it,
-    // since a millisecond later it would have passed. The activity row keeps
-    // the time, as nothing else records it.
+    // A publish or a reopen takes sign-ups straight away, so a closing time
+    // that has passed goes: kept, it would refuse everyone from the start
+    // (`signupShutReason`), and the web app has no way to change it. At now as
+    // well as before it, since a millisecond later it would have passed. The
+    // activity row keeps the time, as nothing else records it.
     const clearedClosesAt =
-      eventType === 'signup.reopened' && row.closesAt && row.closesAt.getTime() <= now.getTime()
+      (eventType === 'signup.published' || eventType === 'signup.reopened') &&
+      row.closesAt &&
+      row.closesAt.getTime() <= now.getTime()
         ? row.closesAt
         : null;
     const [next] = await tx

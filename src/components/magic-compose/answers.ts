@@ -139,24 +139,11 @@ function whenAnswer(answers: Answers): WhenAnswer {
 
 /**
  * The answers as the server takes them (see `FollowUp`): one key per topic
- * that was asked, every value in its tidy or skipped form. `placeholders` is
- * for Draft with placeholders when nothing is answered (see `hasAnswers`): it
- * sends every asked topic skipped, whatever the boxes hold, as the server
- * refuses the flag beside any answer.
+ * that was asked, every value in its tidy or skipped form. With nothing
+ * answered, every topic goes skipped and the draft uses placeholders.
  */
-export function buildFollowUp(
-  questions: MagicComposeQuestions,
-  answers: Answers,
-  { placeholders = false }: { placeholders?: boolean } = {},
-): FollowUp {
+export function buildFollowUp(questions: MagicComposeQuestions, answers: Answers): FollowUp {
   const asks = (topic: MagicComposeQuestions['topics'][number]) => questions.topics.includes(topic);
-  if (placeholders) {
-    return {
-      what: { picked: [], added: [] },
-      ...(asks('when') ? { when: { kind: 'not_decided' as const } } : {}),
-      placeholders: true,
-    };
-  }
   const what = {
     picked: answers.picked.filter((p) => questions.whatOptions.includes(p)),
     added: answers.added,
@@ -178,18 +165,6 @@ export function buildFollowUp(
  */
 export function sameAnswers(a: Answers, b: Answers): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
-}
-
-/**
- * Whether any box holds an answer: an item (words still in "Add your own"
- * included), a day or days, or a time. Draft with placeholders then drafts
- * from them, as Draft my signup does, rather than dropping them.
- */
-export function hasAnswers(questions: MagicComposeQuestions, answers: Answers): boolean {
-  if (answeredItems(answers).length > 0 || tidyText(answers.pending)) return true;
-  if (!questions.topics.includes('when')) return false;
-  if (answers.when === 'one_day') return Boolean(answers.date || answers.from || answers.to);
-  return answers.when === 'several' && tidyText(answers.several) !== '';
 }
 
 /**

@@ -9,7 +9,9 @@ export const UI = {
   // Where a signup the assistant made shows up, marked draft.
   yourSignups: 'Your signups',
   // The header link reads as your email address on a wide screen and as this
-  // on a phone. Both open the same page, whose heading is also this.
+  // on a phone.
+  account: 'Account',
+  // The page that link opens, by its heading.
   settings: 'Settings',
   connectedApps: 'Connected apps',
   disconnect: 'Disconnect',
