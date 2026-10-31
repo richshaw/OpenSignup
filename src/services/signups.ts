@@ -590,6 +590,17 @@ async function transitionStatus(
   return result;
 }
 
+/** A workspace's live signups, optionally only those of one status. */
+function workspaceSignupsWhere(workspaceId: string, filter: { status?: SignupStatus }) {
+  return and(
+    eq(signups.workspaceId, workspaceId),
+    filter.status ? eq(signups.status, filter.status) : undefined,
+    isNull(signups.deletedAt),
+  );
+}
+
+const WORKSPACE_LIST_LIMIT = 200;
+
 export async function listSignupsForWorkspace(
   db: Db,
   actor: Actor,
@@ -597,15 +608,46 @@ export async function listSignupsForWorkspace(
   filter: { status?: SignupStatus } = {},
 ): Promise<Result<SignupRow[], ServiceError>> {
   requireWorkspaceAccess(actor, workspaceId);
-  const where = filter.status
-    ? and(eq(signups.workspaceId, workspaceId), eq(signups.status, filter.status))
-    : eq(signups.workspaceId, workspaceId);
   const rows = await db
     .select()
     .from(signups)
-    .where(and(where, isNull(signups.deletedAt)))
+    .where(workspaceSignupsWhere(workspaceId, filter))
     .orderBy(desc(signups.createdAt))
-    .limit(200);
+    .limit(WORKSPACE_LIST_LIMIT);
+  return ok(rows);
+}
+
+const signupSummaryColumns = {
+  id: signups.id,
+  slug: signups.slug,
+  title: signups.title,
+  status: signups.status,
+  closesAt: signups.closesAt,
+  createdAt: signups.createdAt,
+  updatedAt: signups.updatedAt,
+};
+
+/** A signup as a list shows it: no description, settings, theme or tags. */
+export type SignupSummary = Pick<SignupRow, keyof typeof signupSummaryColumns>;
+
+/**
+ * The same rows as listSignupsForWorkspace, reading only the columns a list
+ * shows, so up to 200 long descriptions aren't read from Postgres and thrown
+ * away.
+ */
+export async function listSignupSummariesForWorkspace(
+  db: Db,
+  actor: Actor,
+  workspaceId: string,
+  filter: { status?: SignupStatus } = {},
+): Promise<Result<SignupSummary[], ServiceError>> {
+  requireWorkspaceAccess(actor, workspaceId);
+  const rows = await db
+    .select(signupSummaryColumns)
+    .from(signups)
+    .where(workspaceSignupsWhere(workspaceId, filter))
+    .orderBy(desc(signups.createdAt))
+    .limit(WORKSPACE_LIST_LIMIT);
   return ok(rows);
 }
 

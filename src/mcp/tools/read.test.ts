@@ -8,10 +8,10 @@ import { listWorkspaces } from './workspaces';
 
 const READ_TOOLS = [listWorkspaces, listSignups, getSignup];
 
-const listSignupsForWorkspace = vi.fn();
+const listSignupSummariesForWorkspace = vi.fn();
 const getSignupForOrganizer = vi.fn();
 vi.mock('@/services/signups', () => ({
-  listSignupsForWorkspace: (...a: unknown[]) => listSignupsForWorkspace(...a),
+  listSignupSummariesForWorkspace: (...a: unknown[]) => listSignupSummariesForWorkspace(...a),
   getSignupForOrganizer: (...a: unknown[]) => getSignupForOrganizer(...a),
 }));
 vi.mock('@/mcp/links', () => ({
@@ -41,7 +41,7 @@ const ctx = unitContext({
 const row = signupRow();
 
 beforeEach(() => {
-  listSignupsForWorkspace.mockReset();
+  listSignupSummariesForWorkspace.mockReset();
   getSignupForOrganizer.mockReset();
 });
 
@@ -69,10 +69,10 @@ describe('read tools', () => {
   });
 
   it('list_signups defaults to the default workspace and returns summaries without descriptions', async () => {
-    listSignupsForWorkspace.mockResolvedValueOnce(ok([row]));
+    listSignupSummariesForWorkspace.mockResolvedValueOnce(ok([row]));
     const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'list_signups', arguments: {} });
-    expect(listSignupsForWorkspace).toHaveBeenCalledWith(ctx.db, ctx.actor, 'ws_1', {});
+    expect(listSignupSummariesForWorkspace).toHaveBeenCalledWith(ctx.db, ctx.actor, 'ws_1', {});
     const body = r.structuredContent as { signups: Record<string, unknown>[] };
     expect(body.signups[0]).toEqual({
       id: 'sig_1',
@@ -92,10 +92,10 @@ describe('read tools', () => {
   });
 
   it('list_signups passes an explicit workspace and status through', async () => {
-    listSignupsForWorkspace.mockResolvedValueOnce(ok([]));
+    listSignupSummariesForWorkspace.mockResolvedValueOnce(ok([]));
     const client = await connectTestClient(ctx, READ_TOOLS);
     await client.callTool({ name: 'list_signups', arguments: { workspaceId: 'ws_2', status: 'open' } });
-    expect(listSignupsForWorkspace).toHaveBeenCalledWith(ctx.db, ctx.actor, 'ws_2', { status: 'open' });
+    expect(listSignupSummariesForWorkspace).toHaveBeenCalledWith(ctx.db, ctx.actor, 'ws_2', { status: 'open' });
   });
 
   it('get_signup returns fields, slots with filled counts, and links', async () => {
