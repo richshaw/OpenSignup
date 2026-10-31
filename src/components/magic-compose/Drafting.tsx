@@ -269,7 +269,7 @@ export function Drafting({
           </DraftField>
 
           <DraftField
-            label="Columns"
+            label="Fields"
             meta={fieldsRevealed > 0 ? `${fieldsRevealed} of ${fields.length}` : undefined}
           >
             <div className="flex flex-wrap gap-2">

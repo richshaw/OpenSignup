@@ -71,9 +71,7 @@ describe('magicComposeToTemplate', () => {
         { ref: 'time', label: 'Time', fieldType: 'time' },
         { ref: 'team', label: 'Team', fieldType: 'enum', choices: ['Red'] },
       ],
-      slots: [
-        { values: { date: '04/25/2026', time: '25:00', team: 'Green' } },
-      ],
+      slots: [{ values: { date: '04/25/2026', time: '25:00', team: 'Green' } }],
     });
     expect(t.slots[0]?.values).toEqual({});
   });
@@ -348,15 +346,32 @@ describe('buildWarnings', () => {
     ).toEqual([]);
   });
 
-  it('surfaces coercion failures with cell counts', () => {
+  it('words one coercion failure in the singular', () => {
     const out = buildWarnings({
       duplicateRefs: [],
       strayValueKeys: [],
       coercionFailures: [{ slot: 0, ref: 'date', reason: 'date' }],
       emptyEnumFields: [],
     });
-    expect(out).toHaveLength(1);
-    expect(out[0]).toMatch(/cell was left blank/);
+    expect(out).toEqual([
+      "1 value was left blank because it didn't fit its field. Fill it in below.",
+    ]);
+  });
+
+  it('counts several coercion failures in the plural', () => {
+    const out = buildWarnings({
+      duplicateRefs: [],
+      strayValueKeys: [],
+      coercionFailures: [
+        { slot: 0, ref: 'date', reason: 'date' },
+        { slot: 1, ref: 'date', reason: 'date' },
+        { slot: 2, ref: 'time', reason: 'time' },
+      ],
+      emptyEnumFields: [],
+    });
+    expect(out).toEqual([
+      "3 values were left blank because they didn't fit their fields. Fill them in below.",
+    ]);
   });
 
   it('describes a demoted enum field by ref', () => {
@@ -366,8 +381,43 @@ describe('buildWarnings', () => {
       coercionFailures: [],
       emptyEnumFields: ['role'],
     });
-    expect(out[0]).toMatch(/role/);
-    expect(out[0]).toMatch(/free text/);
+    expect(out).toEqual([
+      'Field role arrived without a fixed list of options, so it was switched to free text.',
+    ]);
+  });
+
+  it('names several demoted enum fields in the plural', () => {
+    const out = buildWarnings({
+      duplicateRefs: [],
+      strayValueKeys: [],
+      coercionFailures: [],
+      emptyEnumFields: ['Shift', 'Role'],
+    });
+    expect(out).toEqual([
+      'Fields Shift, Role arrived without a fixed list of options, so they were switched to free text.',
+    ]);
+  });
+
+  it('words duplicate fields and stray values as fields, not columns', () => {
+    expect(
+      buildWarnings({
+        duplicateRefs: ['date'],
+        strayValueKeys: [],
+        coercionFailures: [],
+        emptyEnumFields: [],
+      }),
+    ).toEqual(['Removed 1 duplicate field the AI tried to add twice.']);
+    expect(
+      buildWarnings({
+        duplicateRefs: ['date', 'time'],
+        strayValueKeys: ['a', 'b'],
+        coercionFailures: [],
+        emptyEnumFields: [],
+      }),
+    ).toEqual([
+      'Removed 2 duplicate fields the AI tried to add twice.',
+      "Ignored 2 stray values that didn't match any field.",
+    ]);
   });
 
   it('concatenates multiple categories of warning', () => {
