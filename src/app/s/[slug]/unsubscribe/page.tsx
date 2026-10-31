@@ -155,7 +155,7 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
         {credentials}
         <button
           type="submit"
-          className="rounded-lg bg-brand px-5 py-2 font-medium text-white transition hover:brightness-110"
+          className="rounded-lg bg-brand px-5 py-2 font-medium text-white transition hover:bg-brand-hover"
         >
           Stop reminders
         </button>

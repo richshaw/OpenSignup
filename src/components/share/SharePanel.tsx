@@ -334,7 +334,7 @@ function fitToMessage(box: HTMLTextAreaElement): string {
 }
 
 const DESKTOP_PRIMARY =
-  'inline-flex h-10 items-center justify-center gap-1.5 rounded-[10px] bg-brand px-4 text-[13.5px] font-semibold text-white transition hover:brightness-110';
+  'inline-flex h-10 items-center justify-center gap-1.5 rounded-[10px] bg-brand px-4 text-[13.5px] font-semibold text-white transition hover:bg-brand-hover';
 
 // Copy message and Email it.
 const SECONDARY =
@@ -346,6 +346,6 @@ const REFUSED = 'text-[13px] font-medium leading-snug text-danger';
 const PHONE_BUTTON =
   'inline-flex items-center justify-center gap-2 rounded-[12px] font-semibold transition';
 
-const PHONE_PRIMARY = 'bg-brand text-white hover:brightness-110';
+const PHONE_PRIMARY = 'bg-brand text-white hover:bg-brand-hover';
 
 const PHONE_SECONDARY = 'border border-surface-sunk bg-white text-ink hover:bg-surface-raised';

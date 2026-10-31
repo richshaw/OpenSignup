@@ -35,7 +35,7 @@ export default async function DashboardPage() {
         </div>
         <Link
           href="/app/signups/new"
-          className="bg-brand rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
+          className="bg-brand rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover"
         >
           New signup
         </Link>
@@ -47,7 +47,7 @@ export default async function DashboardPage() {
           </p>
           <Link
             href="/app/signups/new"
-            className="bg-brand mt-4 inline-flex items-center rounded-lg px-5 py-3 font-medium text-white transition hover:brightness-110"
+            className="bg-brand mt-4 inline-flex items-center rounded-lg px-5 py-3 font-medium text-white transition hover:bg-brand-hover"
           >
             Create your first signup
           </Link>

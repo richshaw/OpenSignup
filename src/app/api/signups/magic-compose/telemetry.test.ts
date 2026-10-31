@@ -17,17 +17,15 @@ describe('answeredPayload', () => {
       picked: 2,
       added: 1,
       limits: 2,
-      placeholders: false,
       retried: false,
       gaveUp: false,
     });
   });
 
-  it('marks every topic skipped after Draft with placeholders', () => {
+  it('marks every topic skipped when nothing was answered', () => {
     const followUp: FollowUp = {
       what: { picked: [], added: [] },
       when: { kind: 'not_decided' },
-      placeholders: true,
     };
     expect(answeredPayload(followUp, { retried: true, gaveUp: true })).toEqual({
       answered: [],
@@ -35,7 +33,6 @@ describe('answeredPayload', () => {
       picked: 0,
       added: 0,
       limits: 0,
-      placeholders: true,
       retried: true,
       gaveUp: true,
     });

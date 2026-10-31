@@ -104,7 +104,7 @@ test.describe('OAuth consent', () => {
 
     // The account link in the header opens the settings hub, which lists this section.
     await page.goto(`${BASE_URL}/app`);
-    // Its accessible name is the email on wide screens and "Settings" on narrow ones.
+    // Its accessible name is the email on wide screens and "Account" on narrow ones.
     await page.locator('header a[href="/app/settings"]').click();
     await expect(page).toHaveURL(/\/app\/settings$/);
     await page.getByRole('link', { name: /Connected apps/ }).click();
