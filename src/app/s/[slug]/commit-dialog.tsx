@@ -137,6 +137,8 @@ export default function CommitDialog({
     editUrl: string;
     /** False when they left the email blank, so nothing will send them the link. */
     emailed: boolean;
+    /** The address the link went to, as they typed it, or '' when blank. */
+    email: string;
   } | null>(null);
   const [prefill, setPrefill] = useState<PrefillState | null>(null);
   const [emailValue, setEmailValue] = useState('');
@@ -265,6 +267,7 @@ export default function CommitDialog({
         commitmentId: payload.data.commitment.id,
         editUrl: payload.data.editUrl,
         emailed: email !== '',
+        email,
       });
       // Don't refresh server state yet — that would re-render the parent and
       // replace this dialog (slot row swaps to "Edit" once cookie is read),
@@ -413,11 +416,18 @@ export default function CommitDialog({
         {success ? (
           <div className="space-y-4">
             <p className="text-ink-muted text-sm">
-              We&apos;ve saved your spot for <strong className="text-ink">{slotName}</strong>.{' '}
               {success.emailed ? (
-                'Bookmark this link to edit or cancel later:'
+                // Named so a typo the suggestion list doesn't know is seen
+                // here, not when no confirmation ever arrives.
+                <>
+                  We&apos;ve saved your spot for <strong className="text-ink">{slotName}</strong>{' '}
+                  and emailed this link to{' '}
+                  <strong className="break-words text-ink">{success.email}</strong>. Bookmark it to
+                  edit or cancel later:
+                </>
               ) : (
                 <>
+                  We&apos;ve saved your spot for <strong className="text-ink">{slotName}</strong>.{' '}
                   <strong className="text-ink">
                     Save this link now: we won&apos;t email it, and only this browser remembers it.
                   </strong>
