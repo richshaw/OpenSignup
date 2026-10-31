@@ -15,6 +15,16 @@ test.describe('organizer flow', () => {
     await expect(page.getByRole('heading', { name: 'Your signups' })).toBeVisible();
     await expect(page.getByText(seed.publicTitle)).toBeVisible();
     await expect(page.getByText(seed.draftTitle)).toBeVisible();
+
+    // A published row shows its address; a draft's would only say it isn't
+    // ready, so it says who can see it instead.
+    const published = page
+      .locator(`a[href^="/app/signups/"]`, { hasText: seed.publicTitle })
+      .first();
+    await expect(published.getByText(`/s/${seed.publicSlug}`, { exact: true })).toBeVisible();
+    const draft = page.locator(`a[href="/app/signups/${seed.draftSignupId}"]`);
+    await expect(draft.getByText('Only you can see this draft', { exact: true })).toBeVisible();
+    await expect(draft.getByText(/\/s\//)).toHaveCount(0);
   });
 
   test('organizer publishes a draft signup', async ({ page }) => {
@@ -780,5 +790,22 @@ test.describe('signed-out organizer links', () => {
     await expect(page).toHaveURL(
       `${BASE_URL}/login?callbackUrl=${encodeURIComponent('/app/settings')}`,
     );
+  });
+});
+
+test.describe('the header on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('names the account link Account, so Settings is only the signup’s tab', async ({
+    page,
+    context,
+  }) => {
+    await loginAsSeededOrganizer(context);
+    await page.goto(`/app/signups/${seed.draftSignupId}/build`);
+    await expect(page.getByRole('tab', { name: /^Settings/ })).toBeVisible();
+    // The tabs have role="tab", so the header link is the only link that could match.
+    await expect(page.getByRole('link', { name: 'Settings' })).toHaveCount(0);
+    await page.locator('header').getByRole('link', { name: 'Account', exact: true }).click();
+    await expect(page).toHaveURL(`${BASE_URL}/app/settings`);
   });
 });

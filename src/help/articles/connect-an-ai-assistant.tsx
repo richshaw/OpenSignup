@@ -242,7 +242,7 @@ export function ConnectAnAiAssistant() {
           <Step>
             <p>
               Choose your email address at the top of any page in your account. On a phone, it says{' '}
-              <Ui>{UI.settings}</Ui>.
+              <Ui>{UI.account}</Ui>.
             </p>
           </Step>
           <Step>

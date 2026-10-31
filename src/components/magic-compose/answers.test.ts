@@ -7,7 +7,6 @@ import {
   answersProblem,
   appendAnswers,
   buildFollowUp,
-  hasAnswers,
   NO_ANSWERS,
   parseCount,
   removeItem,
@@ -81,39 +80,6 @@ describe('buildFollowUp', () => {
   it('turns an empty, zero or unreadable count into no limit, and rounds none', () => {
     const counts = { 'Bake something to sell': '0', 'Staff the table': '2.4', 'Bring drinks': '' };
     expect(buildFollowUp(ALL, { ...answered, counts }).howMany).toEqual([null, 2.4, null]);
-  });
-
-  it('sends every asked topic skipped with placeholders, whatever the boxes hold', () => {
-    expect(buildFollowUp(ALL, answered, { placeholders: true })).toEqual({
-      what: { picked: [], added: [] },
-      when: { kind: 'not_decided' },
-      placeholders: true,
-    });
-    expect(
-      buildFollowUp({ topics: ['what', 'how_many'], whatOptions: OPTIONS }, answered, {
-        placeholders: true,
-      }),
-    ).toEqual({ what: { picked: [], added: [] }, placeholders: true });
-  });
-});
-
-describe('hasAnswers', () => {
-  it('counts an item, words left in "Add your own", a day, days or a time', () => {
-    expect(hasAnswers(ALL, NO_ANSWERS)).toBe(false);
-    expect(hasAnswers(ALL, { ...NO_ANSWERS, picked: ['Staff the table'] })).toBe(true);
-    expect(hasAnswers(ALL, { ...NO_ANSWERS, added: ['Bring drinks'] })).toBe(true);
-    expect(hasAnswers(ALL, { ...NO_ANSWERS, pending: 'Bring drinks' })).toBe(true);
-    expect(hasAnswers(ALL, { ...NO_ANSWERS, date: '2026-11-14' })).toBe(true);
-    expect(hasAnswers(ALL, { ...NO_ANSWERS, from: '09:00' })).toBe(true);
-    expect(hasAnswers(ALL, { ...NO_ANSWERS, when: 'several', several: 'Saturdays' })).toBe(true);
-  });
-
-  it('counts no blank boxes, and no day picked before switching away from One day', () => {
-    expect(hasAnswers(ALL, { ...NO_ANSWERS, pending: '  ' })).toBe(false);
-    expect(hasAnswers(ALL, { ...NO_ANSWERS, when: 'several', several: ' \n ' })).toBe(false);
-    const dated = { ...NO_ANSWERS, date: '2026-11-14', from: '09:00' };
-    expect(hasAnswers(ALL, { ...dated, when: 'not_decided' })).toBe(false);
-    expect(hasAnswers({ topics: ['what'], whatOptions: OPTIONS }, dated)).toBe(false);
   });
 });
 

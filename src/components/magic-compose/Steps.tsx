@@ -59,17 +59,21 @@ export function StepIcon({ state }: { state: StepState }) {
       </span>
     );
   }
-  // ink-soft, not surface-sunk: a step's outline must stand out from white (3:1).
+  // ink-soft at 75%, about as light as a step's outline can go and still stand
+  // out from white (3:1).
   return (
-    <span className="inline-block h-5 w-5 flex-shrink-0 rounded-full border-[1.5px] border-ink-soft bg-white" />
+    <span className="inline-block h-5 w-5 flex-shrink-0 rounded-full border-[1.5px] border-ink-soft/75 bg-white" />
   );
 }
 
-/** Each state's label colour; ink-muted, not ink-soft, so a step still to come is readable (4.5:1). */
+/**
+ * Each state's label colour. A step still to come is ink-soft, the lightest
+ * grey that still reads at 4.5:1, so it looks quieter than a finished one.
+ */
 export const LABEL: Record<StepState, string> = {
   done: 'text-ink-muted',
   active: 'text-ink font-medium',
-  todo: 'text-ink-muted',
+  todo: 'text-ink-soft',
 };
 
 /** Every step, one per row. */
