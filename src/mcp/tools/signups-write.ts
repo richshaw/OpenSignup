@@ -144,7 +144,7 @@ function statusTool(
 export const publishSignupTool = statusTool(
   'publish_signup',
   'Publish signup',
-  'Make a draft signup live so participants can sign up at the public link. Only a draft can be published. Once it is published, links.public is the link to share with participants.',
+  'Make a draft signup live so participants can sign up at the public link. Only a draft can be published. Once it is published, links.public is the link to share with participants. A closing time that has already passed is removed, so people can sign up straight away, and the result then shows closesAt as null; a later closing time stays.',
   // Not in the ask-first line: the instructions give publishing a sentence of its own.
   false,
   publishSignup,

@@ -45,7 +45,7 @@ by `clientDomain` instead.
 |---|---|---|---|
 | `signup.created` | organizer | `{ templateId, fieldsAdded, slotsAdded }` — `templateId` is `default`, `magic-compose`, or `mcp` (created by a connected assistant) | `services/signups.ts` |
 | `signup.updated` | organizer | `{ changed }` (the keys the update sent, changed or not) | `services/signups.ts` |
-| `signup.published` | organizer | `{ from, to }`. Rows written before Publish stopped warning about slots that say TBD, TBC or TBA can also carry `acknowledged: 'placeholder'`: the organizer chose Publish anyway past that warning. New rows never do | `services/signups.ts` (`publishSignup`) |
+| `signup.published` | organizer | `{ from, to }`, plus `clearedClosesAt` (the closing time it removed, as an ISO string) when the signup's closing time had already passed. Rows written before Publish stopped warning about slots that say TBD, TBC or TBA can also carry `acknowledged: 'placeholder'`: the organizer chose Publish anyway past that warning. New rows never do | `services/signups.ts` (`publishSignup`) |
 | `signup.closed` | organizer | `{ from, to }` | `services/signups.ts` |
 | `signup.reopened` | organizer | `{ from, to }`, plus `clearedClosesAt` (the closing time it removed, as an ISO string) when the signup's closing time had already passed | `services/signups.ts` |
 | `signup.archived` | organizer | `{ from, to }` | `services/signups.ts` |
