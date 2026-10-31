@@ -90,6 +90,20 @@ describe('Editable', () => {
     expect(btn.textContent).toBe('THU, MAY 21');
   });
 
+  it('wraps a word too long for the card, and keeps a description\'s line breaks', () => {
+    renderEditable({ value: 'first\nsecond', multiline: true });
+    const btn = screen.getByRole('button', { name: 'Editable' });
+    expect(btn.className).toContain('[overflow-wrap:anywhere]');
+    expect(btn.className).toContain('whitespace-pre-line');
+  });
+
+  it('wraps a long single-line value without keeping line breaks', () => {
+    renderEditable({ value: 'a'.repeat(400) });
+    const btn = screen.getByRole('button', { name: 'Editable' });
+    expect(btn.className).toContain('[overflow-wrap:anywhere]');
+    expect(btn.className).not.toContain('whitespace-pre-line');
+  });
+
   it('multiline renders a textarea on edit', () => {
     renderEditable({ value: 'line1', multiline: true });
     fireEvent.click(screen.getByRole('button'));
