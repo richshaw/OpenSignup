@@ -20,7 +20,7 @@ export const DRAFT_STEPS: DraftStep[] = [
   { id: 'read', label: 'Reading your description', duration: 700 },
   { id: 'title', label: 'Drafting a title', duration: 700 },
   { id: 'desc', label: 'Writing a short blurb', duration: 900 },
-  { id: 'fields', label: 'Choosing columns for each slot' },
+  { id: 'fields', label: 'Choosing fields for each slot' },
   { id: 'slots', label: 'Generating slots' },
   { id: 'check', label: 'Tidying up', duration: 600 },
 ];

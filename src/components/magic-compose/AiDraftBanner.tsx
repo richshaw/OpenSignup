@@ -40,7 +40,7 @@ export function AiDraftBanner({
       <Banner
         kind="aiDraft"
         title={`Here's your draft, ${fieldsCount} ${
-          fieldsCount === 1 ? 'column' : 'columns'
+          fieldsCount === 1 ? 'field' : 'fields'
         } and ${slotsCount} ${slotsCount === 1 ? 'slot' : 'slots'}`}
         body="Edit anything below, then publish when you're ready."
         onDismiss={onDismiss}

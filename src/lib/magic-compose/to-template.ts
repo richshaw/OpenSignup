@@ -96,23 +96,25 @@ export function buildWarnings(dropped: DroppedSummary): string[] {
   if (dropped.coercionFailures.length > 0) {
     const n = dropped.coercionFailures.length;
     out.push(
-      `${n} ${n === 1 ? 'cell was' : 'cells were'} left blank because the AI's value didn't match the column's format. Fill them in below.`,
+      n === 1
+        ? "1 value was left blank because it didn't fit its field. Fill it in below."
+        : `${n} values were left blank because they didn't fit their fields. Fill them in below.`,
     );
   }
   if (dropped.emptyEnumFields.length > 0) {
     const labels = dropped.emptyEnumFields.join(', ');
     out.push(
-      `Column${dropped.emptyEnumFields.length === 1 ? '' : 's'} ${labels} arrived without a fixed list of options, so ${dropped.emptyEnumFields.length === 1 ? 'it was' : 'they were'} switched to free text.`,
+      `Field${dropped.emptyEnumFields.length === 1 ? '' : 's'} ${labels} arrived without a fixed list of options, so ${dropped.emptyEnumFields.length === 1 ? 'it was' : 'they were'} switched to free text.`,
     );
   }
   if (dropped.duplicateRefs.length > 0) {
     out.push(
-      `Removed ${dropped.duplicateRefs.length} duplicate column${dropped.duplicateRefs.length === 1 ? '' : 's'} the AI tried to add twice.`,
+      `Removed ${dropped.duplicateRefs.length} duplicate field${dropped.duplicateRefs.length === 1 ? '' : 's'} the AI tried to add twice.`,
     );
   }
   if (dropped.strayValueKeys.length > 0) {
     out.push(
-      `Ignored ${dropped.strayValueKeys.length} stray value${dropped.strayValueKeys.length === 1 ? '' : 's'} that didn't match any column.`,
+      `Ignored ${dropped.strayValueKeys.length} stray value${dropped.strayValueKeys.length === 1 ? '' : 's'} that didn't match any field.`,
     );
   }
   return out;
@@ -176,8 +178,7 @@ export function magicComposeToTemplate(
         if (!dropped.strayValueKeys.includes(ref)) dropped.strayValueKeys.push(ref);
         continue;
       }
-      const enumChoices =
-        field.config.fieldType === 'enum' ? field.config.choices : undefined;
+      const enumChoices = field.config.fieldType === 'enum' ? field.config.choices : undefined;
       const coerced = coerceValue(field.fieldType, raw, enumChoices);
       if (coerced !== undefined) {
         values[ref] = coerced;
