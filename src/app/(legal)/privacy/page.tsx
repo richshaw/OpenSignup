@@ -23,7 +23,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 27 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 30 October 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -53,6 +53,10 @@ export default function PrivacyPage() {
         <ul className="list-disc space-y-1 pl-6">
           <li>Email address (used to send magic-link sign-in emails).</li>
           <li>Optional display name and organization name.</li>
+          <li>
+            If your account was created by signing in with a third-party provider such as Google,
+            the web address of the profile picture that provider returned.
+          </li>
           <li>The signups, slots, and settings you create.</li>
           <li>
             An append-only activity log of organizer actions (sign-ins, creating and editing
@@ -115,14 +119,23 @@ export default function PrivacyPage() {
           </Link>{' '}
           for details.
         </p>
+        <p>
+          After you sign up, your browser also keeps the name and email address you entered, so the
+          form is filled in for you the next time you sign up for anything on {INSTANCE_NAME}. That
+          copy stays in your browser and is never sent to us on its own. Clearing this site&apos;s
+          data in your browser removes it.
+        </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Logs and rate-limiting</h2>
         <p>
-          To prevent abuse, the server records request IP addresses in short-lived rate-limit
-          records (e.g. to throttle magic-link sends). These rows are scoped to individual buckets
-          and are not joined to your account or commitment for analytics. Server-side application
+          To prevent abuse, the server keeps short-lived rate-limit records. They hold request IP
+          addresses, the email address a sign-in link, sign-in code or sign-up is for (so a
+          participant&apos;s address too), and, for some organizer actions such as creating a
+          signup, the organizer&apos;s account identifier. Each record is deleted within a few
+          hours. These rows are scoped to individual buckets and are not joined to your account or
+          commitment for analytics. Server-side application
           logs are standard request/error logs and do not include cookies, tokens, magic-link
           URLs, or email addresses; sign-in log lines name only the part of the address after the
           @.
@@ -230,7 +243,8 @@ export default function PrivacyPage() {
           authenticate on the provider&apos;s own site and they return your email, name, avatar, and
           a unique account identifier. We store the link between that provider account and your
           organizer record — along with the standard sign-in tokens the provider issues — so we can
-          recognise you on future sign-ins. We do not use those tokens to access anything on the
+          recognise you on future sign-ins. If that sign-in created your account, we also keep the
+          web address of the avatar the provider returned. We do not use those tokens to access anything on the
           provider beyond the basic profile needed to sign you in.
         </p>
       </section>
