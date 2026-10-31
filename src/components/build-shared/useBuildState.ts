@@ -2,6 +2,7 @@ import { useReducer, useRef, useEffect, useState } from 'react';
 import { toFieldRef } from '@/schemas/slot-fields';
 import type { SlotFieldDefinition, SlotFieldConfig } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
+import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } from '@/lib/signup-limits';
 import type { ErrorCode } from '@/lib/errors';
 import { resolveAnchorRef } from '@/lib/reminder-fields';
 
@@ -196,7 +197,10 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 // The reorder route refuses a list that isn't every slot exactly once, which from
 // the builder means another window changed the slots. Its own message is for API callers.
 const STALE_REORDER_MESSAGE = "The slots changed in another window, so your move wasn't saved. Drag it again.";
-const TITLE_TOO_SHORT: SaveError = { code: 'invalid_input', message: 'Title must be at least 2 characters.' };
+const TITLE_TOO_SHORT: SaveError = {
+  code: 'invalid_input',
+  message: `Title must be at least ${TITLE_MIN_LENGTH} characters.`,
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -921,17 +925,18 @@ export function useBuildState(
         const raw = stateRef.current[key];
         const trimmed = raw.trim();
         if (key === 'title') {
-          if (trimmed.length < 2) {
-            // Server requires min(2). Revert the optimistic value and surface
-            // the validation error so the user knows why their edit didn't
-            // stick — otherwise the title just snaps back with no explanation.
+          if (trimmed.length < TITLE_MIN_LENGTH) {
+            // Server requires min(TITLE_MIN_LENGTH). Revert the optimistic
+            // value and surface the validation error so the user knows why
+            // their edit didn't stick — otherwise the title just snaps back
+            // with no explanation.
             revert.title = lastCommittedMetaRef.current.title;
             titleTooShort = true;
             continue;
           }
-          body['title'] = trimmed.slice(0, 120);
+          body['title'] = trimmed.slice(0, TITLE_MAX_LENGTH);
         } else {
-          body['description'] = trimmed.slice(0, 2000);
+          body['description'] = trimmed.slice(0, DESCRIPTION_MAX_LENGTH);
         }
       }
       if (Object.keys(revert).length > 0) {

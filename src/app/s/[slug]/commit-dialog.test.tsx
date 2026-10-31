@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
+import { QUANTITY_MAX } from '@/lib/participant-limits';
 import { urlBreakSegments } from './url-breaks';
 
 // The row-level tests all run in `mode="preview"`, which renders a *disabled*
@@ -201,13 +202,18 @@ describe('<CommitDialog /> sheet', () => {
     expect(await screen.findByLabelText('Spots', {}, settle)).toHaveValue(1);
   });
 
-  it('caps the spots at what is left, and not at all on an unlimited slot', async () => {
+  it('caps the spots at what is left, and at the shared maximum on an unlimited slot', async () => {
     openSheet({ spotsLeft: 3, capacity: 5 });
     expect(await screen.findByLabelText('Spots', {}, settle)).toHaveAttribute('max', '3');
     cleanup();
 
+    // An unlimited slot has no spots left to cap at, so the shared QUANTITY_MAX
+    // is the cap — the server enforces the same number (commitments.ts).
     openSheet({ spotsLeft: null, capacity: null });
-    expect(await screen.findByLabelText('Spots', {}, settle)).not.toHaveAttribute('max');
+    expect(await screen.findByLabelText('Spots', {}, settle)).toHaveAttribute(
+      'max',
+      String(QUANTITY_MAX),
+    );
   });
 
   // The row's own count is behind the sheet and hidden from assistive tech
