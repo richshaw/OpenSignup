@@ -2,6 +2,19 @@ function pluralize(n: number, unit: 'minute' | 'hour' | 'day'): string {
   return `${n} ${n === 1 ? unit : `${unit}s`}`;
 }
 
+/**
+ * Whole minutes to wait out a rate limit's `retryAfterSeconds`. Rounds UP and
+ * never says under one, so nobody is told to come back before the limit lifts.
+ */
+export function waitMinutes(seconds: number): number {
+  return Math.max(1, Math.ceil(seconds / 60));
+}
+
+/** A rate limit's wait in words: "1 minute", "57 minutes". */
+export function waitInMinutes(seconds: number): string {
+  return pluralize(waitMinutes(seconds), 'minute');
+}
+
 // Never overstates: an expiration deadline must round DOWN, so a link advertised
 // as "1 hour 30 minutes" never expires before that claim.
 export function formatDuration(minutes: number): string {

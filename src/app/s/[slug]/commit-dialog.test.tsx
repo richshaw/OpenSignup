@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
+import { QUANTITY_MAX } from '@/lib/participant-limits';
 import { urlBreakSegments } from './url-breaks';
 
 // The row-level tests all run in `mode="preview"`, which renders a *disabled*
@@ -201,13 +202,18 @@ describe('<CommitDialog /> sheet', () => {
     expect(await screen.findByLabelText('Spots', {}, settle)).toHaveValue(1);
   });
 
-  it('caps the spots at what is left, and not at all on an unlimited slot', async () => {
+  it('caps the spots at what is left, and at the shared maximum on an unlimited slot', async () => {
     openSheet({ spotsLeft: 3, capacity: 5 });
     expect(await screen.findByLabelText('Spots', {}, settle)).toHaveAttribute('max', '3');
     cleanup();
 
+    // An unlimited slot has no spots left to cap at, so the shared QUANTITY_MAX
+    // is the cap — the server enforces the same number (commitments.ts).
     openSheet({ spotsLeft: null, capacity: null });
-    expect(await screen.findByLabelText('Spots', {}, settle)).not.toHaveAttribute('max');
+    expect(await screen.findByLabelText('Spots', {}, settle)).toHaveAttribute(
+      'max',
+      String(QUANTITY_MAX),
+    );
   });
 
   // The row's own count is behind the sheet and hidden from assistive tech
@@ -551,7 +557,11 @@ describe('<CommitDialog /> sheet', () => {
     it('reads as usual when they give an email after all', async () => {
       const body = await signUpWithEmail('jordan@example.test');
       expect(body).toMatchObject({ email: 'jordan@example.test' });
-      expect(screen.getByText(/Bookmark this link to edit or cancel later/)).toBeInTheDocument();
+      expect(
+        screen.getByText('jordan@example.test', { selector: 'strong' }).closest('p'),
+      ).toHaveTextContent(
+        /and emailed this link to jordan@example\.test\. Bookmark it to edit or cancel later:$/,
+      );
       expect(screen.queryByText(/we won't email it/)).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Share link' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Copy link' })).not.toBeInTheDocument();

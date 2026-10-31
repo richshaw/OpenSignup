@@ -4,12 +4,15 @@ import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
 import { getOrganizerSession, toActor } from '@/auth/session';
+import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { getDb } from '@/db/client';
+import { ServiceException } from '@/lib/errors';
 import { commitmentEditUrl } from '@/lib/links';
 import { COMMIT_COOKIE_NAME, parseReturningCommits } from '@/lib/returning-participant';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { readRequestSignals, recordPublicView } from '@/lib/view-tracker';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
+import { findDraftForOrganizer } from '@/services/signups';
 import { loadPublicSignup } from '@/services/signups.cached';
 import { organizerBarSignupId } from './organizer-bar';
 import { OrganizerStrip } from './organizer-strip';
@@ -53,16 +56,47 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   };
 }
 
+const DRAFT_TITLE = 'This signup isn’t ready yet';
+
+/**
+ * The draft's id when the signed-in organizer is a member of its workspace,
+ * so its own organizer gets a note and a way back to it; null for everyone
+ * else, who sees the visitor message. Only the draft branch asks, so an open
+ * signup's page never pays for this read.
+ */
+async function ownDraftId(slug: string): Promise<string | null> {
+  const actor = toActor(await getOrganizerSession());
+  if (actor.kind !== 'organizer') return null;
+  try {
+    const found = await findDraftForOrganizer(getDb(), actor, slug);
+    return found.ok ? found.value.id : null;
+  } catch (e) {
+    // Another workspace's draft: the guard refuses, and they're a visitor here.
+    if (e instanceof ServiceException) return null;
+    throw e;
+  }
+}
+
 export default async function PublicSignupPage({ params }: PageParams) {
   const { slug } = await params;
   const result = await loadPublicSignup(slug);
   if (!result.ok) {
     const received = result.error.received;
     if (received === 'draft') {
+      const draftId = await ownDraftId(slug);
+      if (draftId) {
+        return (
+          <SignupStateMessage
+            title={DRAFT_ONLY_YOU}
+            body={`People who open this link see “${DRAFT_TITLE}” until you publish it. The link stays the same.`}
+            action={{ label: 'Open your draft', href: `/app/signups/${draftId}/build` }}
+          />
+        );
+      }
       return (
         <SignupStateMessage
-          title="This signup isn’t ready yet"
-          body="The organizer hasn’t published this signup yet. Check back soon or ask them for an updated link."
+          title={DRAFT_TITLE}
+          body="The organizer hasn’t published it yet. This link will work once they do, so check back later."
         />
       );
     }

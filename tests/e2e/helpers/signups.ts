@@ -49,7 +49,7 @@ export async function createClosedSignup(
 export async function createDraft(
   request: APIRequestContext,
   opts: { title: string; values?: Record<string, string> },
-): Promise<{ id: string; slotId: string }> {
+): Promise<{ id: string; slug: string; slotId: string }> {
   const signup = await post(request, '/api/signups', {
     title: opts.title,
     description: '',
@@ -65,5 +65,5 @@ export async function createDraft(
     const filled = await request.patch(`/api/slots/${slotId}`, { data: { values: opts.values } });
     expect(filled.ok(), await filled.text()).toBe(true);
   }
-  return { id: signup.id, slotId };
+  return { id: signup.id, slug: signup.slug, slotId };
 }

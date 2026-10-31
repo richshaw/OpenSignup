@@ -81,6 +81,10 @@ describe('<Drafting />', () => {
   it('keeps the steps it always had for a description that drafts at once', () => {
     render(<Drafting prompt="hello" draft={null} onCancel={() => {}} onAnimationDone={() => {}} />);
     expect(screen.queryByText('A few details')).toBeNull();
+    // Organizers read "fields" on the Build tab, so the drafting screen says the same.
+    expect(screen.getByText('Fields')).toBeInTheDocument();
+    expect(screen.getAllByText('Choosing fields for each slot').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/column/i)).toBeNull();
     const steps = screen.getByRole('list', { name: 'Progress' });
     expect(within(steps).getByText('Reading your description').closest('li')).toHaveAttribute(
       'aria-current',
@@ -144,7 +148,7 @@ describe('<Drafting />', () => {
     }
   });
 
-  it('caps visible columns and slots and shows overflow indicators for a large draft', () => {
+  it('caps visible fields and slots and shows overflow indicators for a large draft', () => {
     vi.useFakeTimers();
     try {
       const draft = makeDraft(12, 50);

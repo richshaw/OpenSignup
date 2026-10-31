@@ -1,4 +1,5 @@
 import type { InputHTMLAttributes, ReactNode, Ref } from 'react';
+import { NOTES_MAX_LENGTH, QUANTITY_MAX } from '@/lib/participant-limits';
 
 const INPUT_CLASS =
   'focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk px-4 py-3 focus:outline-none focus:ring-1';
@@ -40,9 +41,16 @@ export function NotesAndSpots({
   notes: { defaultValue?: string; placeholder?: string };
   spots?: { max: number | undefined; defaultValue: number; describedBy: string | undefined };
 }) {
+  const quantityMax = spots?.max === undefined ? QUANTITY_MAX : Math.min(spots.max, QUANTITY_MAX);
   return (
     <div className={spots ? 'grid grid-cols-[1fr_auto] gap-3' : undefined}>
-      <Field label="Notes (optional)" type="text" name="notes" maxLength={500} {...notes} />
+      <Field
+        label="Notes (optional)"
+        type="text"
+        name="notes"
+        maxLength={NOTES_MAX_LENGTH}
+        {...notes}
+      />
       {spots ? (
         <Field
           label="Spots"
@@ -51,7 +59,7 @@ export function NotesAndSpots({
           name="quantity"
           required
           min={1}
-          max={spots.max}
+          max={quantityMax}
           defaultValue={spots.defaultValue}
           aria-describedby={spots.describedBy}
         />

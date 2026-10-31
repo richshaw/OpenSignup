@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SESSION_MAX_AGE_DAYS } from '@/auth/session-lifetime';
+import { PREFILL_KEY } from '@/app/s/[slug]/prefill-key';
 import { pageMetadata } from '@/lib/seo';
 import { INSTANCE_NAME } from '@/lib/site-config';
 
@@ -16,7 +17,7 @@ export default function CookiesPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Cookies</h1>
-        <p className="text-ink-muted text-sm">Last updated: 17 October 2026</p>
+        <p className="text-ink-muted text-sm">Last updated: 31 October 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -133,6 +134,21 @@ export default function CookiesPage() {
             privacy policy
           </Link>{' '}
           for what a connected app can reach and how to disconnect it.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">Other storage in your browser</h2>
+        <p>
+          After you sign up for a slot, the sign-up form saves the name and email address you
+          entered in your browser&apos;s local storage, under the key{' '}
+          <code>{PREFILL_KEY}</code>, and uses it to fill in the form the next time you sign up for
+          anything on {INSTANCE_NAME}. It is not a cookie and is not sent to us on its own; we only
+          see it when you send the form again. It has no expiry: it stays until you clear this
+          site&apos;s data in your browser, and each sign-up updates it. On a shared or public
+          computer, the next person to sign up for anything on {INSTANCE_NAME} in the same browser
+          will see your name and email address filled in, so clear this site&apos;s data when you
+          have finished.
         </p>
       </section>
 
