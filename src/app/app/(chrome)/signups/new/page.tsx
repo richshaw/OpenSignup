@@ -4,7 +4,7 @@ import { FormError } from '@/components/ui/form-error';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { getEnv, magicComposeEnabled } from '@/lib/env';
 import { MagicComposeRoot } from '@/components/magic-compose/MagicComposeRoot';
-import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH } from '@/schemas/signups';
+import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } from '@/schemas/signups';
 import { createSignupAction } from './actions';
 
 export const metadata = { title: 'New signup' };
@@ -55,7 +55,7 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
             type="text"
             name="title"
             required
-            minLength={2}
+            minLength={TITLE_MIN_LENGTH}
             maxLength={TITLE_MAX_LENGTH}
             defaultValue={carried(title, TITLE_MAX_LENGTH)}
             placeholder="Snack duty — Spring season"

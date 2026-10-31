@@ -41,4 +41,14 @@ describe('blue buttons', () => {
     });
     expect(offenders).toEqual([]);
   });
+
+  it('uses brand tokens instead of hard-coded blue Tailwind values', () => {
+    const offenders = sourceFiles(path.join(__dirname)).filter((file) => {
+      const relative = path.relative(__dirname, file).split(path.sep).join('/');
+      if (relative.startsWith('email/')) return false;
+
+      return /\[(?:#1f6feb|#1658c4)\]/i.test(readFileSync(file, 'utf8'));
+    });
+    expect(offenders.map((file) => path.relative(__dirname, file))).toEqual([]);
+  });
 });
