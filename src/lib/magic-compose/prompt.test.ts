@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { RULES_IN_BOTH } from '@/lib/signup-rules';
 import { SignupCreateInputSchema } from '@/schemas/signups';
-import { SlotFieldInputSchema } from '@/schemas/slot-fields';
+import { REF_MAX_LENGTH, SlotFieldInputSchema } from '@/schemas/slot-fields';
 import { buildFollowUpMessages } from './follow-up';
 import { WHAT_OPTION_MAX_LENGTH, WHAT_OPTIONS_MAX, WHAT_OPTIONS_MIN } from './limits';
 import {
@@ -50,6 +50,8 @@ describe('system prompt', () => {
   it('caps fields and slots', () => {
     expect(sys).toContain(String(MAX_FIELDS));
     expect(sys).toContain(String(MAX_SLOTS));
+    expect(sys).toContain(`max ${REF_MAX_LENGTH} chars`);
+    expect(sys).toContain(`exceed ${MAX_SLOTS} slots`);
   });
 
   it('describes the structured refusal pattern', () => {
