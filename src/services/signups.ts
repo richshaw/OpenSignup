@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import type { Db } from '@/db/client';
+import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
@@ -18,7 +18,7 @@ import {
 import { err, ok, type Result } from '@/lib/result';
 import { chooseAnchorRef } from '@/lib/reminder-fields';
 import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
-import { toSlug } from '@/lib/slug';
+import { slugBase, toSlug } from '@/lib/slug';
 import {
   type SlotFieldDefinition,
   type SlotFieldInput,
@@ -312,11 +312,20 @@ export async function updateSignup(
     const reminderRefChanged =
       data.settings !== undefined &&
       mergedSettings.reminderFromFieldRef !== prevSettings.reminderFromFieldRef;
+    // A draft's web address follows its title, so a fixed typo doesn't stay
+    // in the link (#252). Nobody can open a draft's link yet, so nothing that
+    // was shared breaks; once published, the address never changes. Only a
+    // change to the words counts: case and punctuation give the same slug.
+    const slug =
+      data.title !== undefined && row.status === 'draft' && slugBase(row.slug) !== toSlug(data.title)
+        ? await pickAvailableSlug(tx, data.title)
+        : undefined;
 
     const [updated] = await tx
       .update(signups)
       .set({
         ...(data.title !== undefined ? { title: data.title } : {}),
+        ...(slug !== undefined ? { slug } : {}),
         ...(data.description !== undefined ? { description: data.description } : {}),
         ...(data.tags !== undefined ? { tags: data.tags } : {}),
         ...(data.closesAt !== undefined
@@ -338,7 +347,7 @@ export async function updateSignup(
       workspaceId: row.workspaceId,
       actor: activityActor(actor),
       eventType: 'signup.updated',
-      payload: { changed: Object.keys(data) },
+      payload: { changed: slug !== undefined ? [...Object.keys(data), 'slug'] : Object.keys(data) },
     });
     return ok(updated);
   });
@@ -700,7 +709,7 @@ export async function findDraftForOrganizer(
   return ok({ id: row.id });
 }
 
-async function pickAvailableSlug(db: Db, title: string): Promise<string> {
+async function pickAvailableSlug(db: Queryable, title: string): Promise<string> {
   for (let i = 0; i < 6; i++) {
     const candidate = toSlug(title, { suffix: true });
     // Deleted signups included: the unique index on slug covers them, so

@@ -297,6 +297,21 @@ describe('signup write tools on Postgres', () => {
     expect((pub.structuredContent as { error: { code: string } }).error.code).toBe('not_found');
   });
 
+  it("update_signup on a draft returns links.public with the new title's address", async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const created = await client.callTool({
+      name: 'create_signup',
+      arguments: { title: 'Bake sail', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
+    });
+    const before = (created.structuredContent as { signup: { id: string; slug: string } }).signup;
+    const upd = await client.callTool({ name: 'update_signup', arguments: { signupId: before.id, title: 'Bake sale' } });
+    expect(upd.isError, JSON.stringify(upd.structuredContent)).toBeFalsy();
+    const after = upd.structuredContent as { signup: { slug: string }; links: { public: string } };
+    expect(after.signup.slug).toMatch(/^bake-sale-[0-9a-z]{5}$/);
+    expect(after.signup.slug).not.toBe(before.slug);
+    expect(after.links.public).toMatch(new RegExp(`/s/${after.signup.slug}$`));
+  });
+
   it('update_signup changes one setting and keeps the rest', async () => {
     const client = await connectTestClient(ctx, TOOLS);
     const created = await client.callTool({
