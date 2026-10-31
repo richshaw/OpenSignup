@@ -62,7 +62,11 @@ export default function EditForm({
     const data = new FormData(e.currentTarget);
     const quantity = data.get('quantity');
     const body = {
-      name: String(data.get('name') ?? ''),
+      // Trimmed as the sign-up dialog trims it: NameSchema checks its 100
+      // characters before trimming, so spaces after a name near the limit
+      // would otherwise get it refused. Only spaces still arrive empty and
+      // are refused.
+      name: String(data.get('name') ?? '').trim(),
       notes: String(data.get('notes') ?? ''),
       // With no quantity field, send none, so saving a name or notes change
       // leaves the quantity exactly as it is.
