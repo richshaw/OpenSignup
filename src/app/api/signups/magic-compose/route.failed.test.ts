@@ -171,4 +171,13 @@ describe('POST /api/signups/magic-compose records magic_compose.failed', () => {
     expect((await compose('')).status).toBe(400);
     expect(recordedCodes()).toEqual([]);
   });
+
+  it('refuses a description over the limit in plain words, before charging the quota', async () => {
+    const res = await compose('a'.repeat(4001));
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { message: string; field?: string } };
+    expect(body.error.message).toBe('Keep the description to 4,000 characters or fewer.');
+    expect(consumeRateLimit).not.toHaveBeenCalled();
+    expect(recordedCodes()).toEqual([]);
+  });
 });

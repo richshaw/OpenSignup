@@ -23,6 +23,7 @@ import {
   MagicComposeDraftSchema,
 } from '@/lib/magic-compose/prompt';
 import { fitDraftText } from '@/lib/magic-compose/fit-text';
+import { PROMPT_MAX_LENGTH } from '@/lib/magic-compose/limits';
 import { persistDraft } from '@/lib/magic-compose/persist';
 import { answeredNothing, type FollowUp } from '@/lib/magic-compose/questions';
 import { mapMagicComposeError } from './errors';
@@ -30,7 +31,12 @@ import { buildDraftPreview } from './preview';
 import { recordAnswered, recordAsked, type FollowUpOutcome } from './telemetry';
 
 const PromptBodySchema = z.object({
-  prompt: z.string().min(1).max(4000),
+  prompt: z
+    .string()
+    .min(1)
+    .max(PROMPT_MAX_LENGTH, {
+      message: `Keep the description to ${PROMPT_MAX_LENGTH.toLocaleString('en-US')} characters or fewer.`,
+    }),
   // The answers to a questions reply. Parsed on its own below, so a bad one
   // is reported against `followUp` rather than the prompt.
   followUp: z.unknown().optional(),
