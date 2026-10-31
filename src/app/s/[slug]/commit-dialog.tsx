@@ -368,7 +368,7 @@ export default function CommitDialog({
         // user swiping the list hears the same name N times with no way to tell
         // which slot they are committing to.
         aria-label={`Sign up for ${actionName}`}
-        className={`${ACTION_SIZING} bg-brand font-medium text-white transition hover:brightness-110`}
+        className={`${ACTION_SIZING} bg-brand font-medium text-white transition hover:bg-brand-hover`}
       >
         Sign up
       </button>
@@ -577,7 +577,7 @@ export default function CommitDialog({
               <button
                 type="submit"
                 disabled={submitting}
-                className="bg-brand flex-1 rounded-lg px-4 py-3 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-50"
+                className="bg-brand flex-1 rounded-lg px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-hover disabled:opacity-50"
               >
                 {submitting ? 'Signing up…' : 'Confirm'}
               </button>

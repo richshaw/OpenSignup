@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, Sparkles } from 'lucide-react';
 import { STARTER_PROMPTS } from '@/lib/magic-compose/templates';
+import { handFillHref } from './hand-fill';
 
 export function Compose({
   prompt,
@@ -70,7 +71,7 @@ export function Compose({
         />
         <div className="flex flex-wrap items-center justify-end gap-2 px-4 pt-2 pb-3">
           <Link
-            href="/app/signups/new?manual=1"
+            href={handFillHref(prompt)}
             className="text-ink border-surface-sunk hover:bg-surface-raised inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-medium"
           >
             Skip, fill in by hand
@@ -79,7 +80,7 @@ export function Compose({
             type="button"
             onClick={onDraft}
             disabled={!prompt.trim()}
-            className="bg-brand inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            className="bg-brand inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             Draft my signup

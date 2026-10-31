@@ -218,7 +218,7 @@ export function InlineFieldForm({
           <button
             type="button"
             onClick={save}
-            className="rounded-md border border-brand bg-brand px-3 py-1 text-[11px] font-medium text-white hover:bg-brand/90"
+            className="rounded-md border border-brand bg-brand px-3 py-1 text-[11px] font-medium text-white hover:bg-brand-hover"
           >
             {isEdit ? 'Save' : 'Add field'}
           </button>

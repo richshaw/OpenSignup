@@ -1,12 +1,27 @@
 import { cache } from 'react';
 import { getDb } from '@/db/client';
+import { ServiceException, serviceError } from '@/lib/errors';
 import type { Actor } from '@/lib/policy';
-import { ok } from '@/lib/result';
+import { err, ok } from '@/lib/result';
 import { committedBySlot } from '@/services/commitments';
 import { getPublicSignup, getSignupForOrganizer } from '@/services/signups';
 
+/**
+ * The signup an organizer page shows. A signup in a workspace the organizer
+ * isn't in comes back as not found, the same as an id that doesn't exist:
+ * the policy guard throws `forbidden`, which a page would otherwise turn into
+ * a server error, and the page shouldn't say whether that id exists in
+ * someone else's workspace. The REST API and MCP tools still answer 403.
+ */
 export const loadSignupForOrganizer = cache(async (actor: Actor, signupId: string) => {
-  return getSignupForOrganizer(getDb(), actor, signupId);
+  try {
+    return await getSignupForOrganizer(getDb(), actor, signupId);
+  } catch (e) {
+    if (e instanceof ServiceException && e.serviceError.code === 'forbidden') {
+      return err(serviceError('not_found', 'signup not found'));
+    }
+    throw e;
+  }
 });
 
 /**

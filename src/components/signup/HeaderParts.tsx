@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Eye } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
 import type { SignupStatus } from '@/schemas/signups';
+import { DRAFT_ONLY_YOU } from './draft-copy';
 import { SHEET_ITEM } from './header-buttons';
 
 /**
@@ -14,9 +15,7 @@ import { SHEET_ITEM } from './header-buttons';
  * to send until it's published.
  */
 export function DraftLine() {
-  return (
-    <p className="text-[13px] text-ink-muted">Only you can see this draft until you publish it.</p>
-  );
+  return <p className="text-[13px] text-ink-muted">{DRAFT_ONLY_YOU} until you publish it.</p>;
 }
 
 /**

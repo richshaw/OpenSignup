@@ -31,7 +31,6 @@ export function answeredPayload(followUp: FollowUp, outcome: FollowUpOutcome) {
     picked: picked.length,
     added: added.length,
     limits: followUp.howMany?.filter((count) => count !== null).length ?? 0,
-    placeholders: followUp.placeholders === true,
     retried: outcome.retried,
     gaveUp: outcome.gaveUp,
   };
