@@ -151,7 +151,7 @@ describe('SlotEditor', () => {
     const helperId = cap.getAttribute('aria-describedby');
     expect(helperId).toBeTruthy();
     expect(document.getElementById(helperId!)?.textContent).toBe(
-      'How many places people can take. Leave blank for no limit.',
+      'How many spots this slot has. Leave blank for no limit.',
     );
   });
 
