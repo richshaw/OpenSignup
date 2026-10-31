@@ -639,15 +639,14 @@
       "prompt": "Class picnic",
       "answers": {
         "what": { "picked": [], "added": [] },
-        "when": { "kind": "not_decided" },
-        "placeholders": true
+        "when": { "kind": "not_decided" }
       },
       "expect": {
         "title_must_match_any": ["picnic"],
         "slots.count_range": [1, 6],
         "slot_values_must_cover_all": ["tbd"],
         "slot_dates.set_must_equal": [],
-        "rationale": "#570: Draft with placeholders. Every answer is skipped, so the second call drafts \"TBD:\" rows and invents nothing, and never asks again."
+        "rationale": "#570: Draft my signup with nothing answered. Every answer is skipped, so the second call drafts \"TBD:\" rows and invents nothing, and never asks again."
       }
     },
     {

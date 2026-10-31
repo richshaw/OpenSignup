@@ -44,7 +44,7 @@ describe('<MagicComposeRoot /> errors', () => {
     expect(alert).not.toHaveTextContent(/wait 700s/);
     expect(screen.getByRole('link', { name: 'fill it in by hand' })).toHaveAttribute(
       'href',
-      '/app/signups/new?manual=1',
+      '/app/signups/new?manual=1&title=Bake+sale',
     );
   });
 
