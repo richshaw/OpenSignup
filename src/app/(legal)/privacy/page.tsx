@@ -23,23 +23,49 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 30 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 31 October 2026</p>
       </header>
 
       <section className="space-y-3">
         <p>
-          This page describes what data {INSTANCE_NAME} collects and how it is used. It is written
-          in plain English and reflects what the code actually does — the source is open and you can
-          verify any claim here against the schema at{' '}
+          This page describes, in plain English, what data {INSTANCE_NAME} collects and how it is
+          used. We keep it in line with what the code does, and the code is open: you can read it,
+          database schema included, at{' '}
           <a href={SOURCE_URL} className="text-brand underline">
             {SOURCE_DISPLAY}
           </a>
-          .
+          . If you find something this page gets wrong, tell us at{' '}
+          <a href={SUPPORT_MAILTO} className="text-brand underline">
+            {SUPPORT_EMAIL}
+          </a>{' '}
+          so we can correct it.
         </p>
         <p>
           The OpenSignup <em>project</em> is an open-source coordination tool released under
-          AGPL-3.0. This page applies to <em>this instance</em> — the deployment you are currently
-          using. The data controller for this instance is {operator}.
+          AGPL-3.0. This page applies to <em>this instance</em>, the deployment you are using now,
+          which {operator} runs. &ldquo;We&rdquo; and &ldquo;us&rdquo; on this page mean {operator}.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">Who is responsible for your data</h2>
+        <p>
+          We are the data controller for organizers&apos; accounts, and for what this instance does
+          with anyone&apos;s details to run the service and keep it safe: sending the emails
+          described below, preventing abuse, and keeping the records this page lists.
+        </p>
+        <p>
+          When you sign up for a slot, you are giving your details to the organizer who runs that
+          signup. The organizer decides what their signup is for and what they do with the list of
+          people on it, such as contacting you about it, sharing it with others, or downloading it.
+          They are responsible for those choices, and for telling you about any use beyond running
+          the signup. We store your details and run the signup for them.
+        </p>
+        <p>
+          The organizer can see the name, email address and note you gave, and can download them,
+          and so can an app they connect and allow to see participant details (see &ldquo;Connected
+          apps and AI assistants&rdquo; below). People who open the signup&apos;s page see how many
+          spots are taken, not who took them.
         </p>
       </section>
 
@@ -122,8 +148,9 @@ export default function PrivacyPage() {
         <p>
           After you sign up, your browser also keeps the name and email address you entered, so the
           form is filled in for you the next time you sign up for anything on {INSTANCE_NAME}. That
-          copy stays in your browser and is never sent to us on its own. Clearing this site&apos;s
-          data in your browser removes it.
+          copy stays in your browser and is never sent to us on its own. On a shared or public
+          computer, the next person to sign up in that browser will see your details filled in, so
+          clear this site&apos;s data in the browser when you have finished; that removes it.
         </p>
       </section>
 
@@ -133,12 +160,12 @@ export default function PrivacyPage() {
           To prevent abuse, the server keeps short-lived rate-limit records. They hold request IP
           addresses, the email address a sign-in link, sign-in code or sign-up is for (so a
           participant&apos;s address too), and, for some organizer actions such as creating a
-          signup, the organizer&apos;s account identifier. Each record is deleted within a few
-          hours. These rows are scoped to individual buckets and are not joined to your account or
-          commitment for analytics. Server-side application
-          logs are standard request/error logs and do not include cookies, tokens, magic-link
-          URLs, or email addresses; sign-in log lines name only the part of the address after the
-          @.
+          signup, the organizer&apos;s account identifier. An hourly cleanup deletes each record,
+          normally within a few hours of it being written. These rows are scoped to individual
+          buckets and are not joined to your account or commitment for analytics. Server-side
+          application logs are standard request/error logs and do not include cookies, tokens,
+          magic-link URLs, or email addresses; sign-in log lines name only the part of the address
+          after the @.
         </p>
         <p>
           For each view of a public signup page, the server writes a single activity entry
@@ -250,18 +277,107 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">Why we use your data</h2>
+        <p>Data protection law asks us to say what allows us to use your data. For each use:</p>
+        <ul className="list-disc space-y-1 pl-6">
+          <li>
+            To provide what you asked for: an organizer&apos;s account, sign-in, signups, and the AI
+            drafting and connected apps an organizer chooses to use; a participant&apos;s place on a
+            slot, the confirmation email, and the link to change or cancel it. (In GDPR terms, this
+            is necessary to provide the service you asked for.)
+          </li>
+          <li>
+            To send reminders and moved-slot emails, when the organizer has them on, so people turn
+            up at the right time. (Our and the organizer&apos;s legitimate interests. Every one of
+            these emails has a link that stops them.)
+          </li>
+          <li>
+            To keep the service safe and working: the rate-limit records, the activity log, and
+            server logs. (Our legitimate interest in preventing abuse and fixing problems.)
+          </li>
+          <li>
+            To count, in total, how the service is used: the page-view entries and where organizers
+            get stuck, described above. (Our legitimate interest in improving the service.)
+          </li>
+          <li>Where the law requires it, for example to answer a valid legal request.</li>
+        </ul>
+        <p>Where we rely on legitimate interests, you can object by emailing us.</p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">How long we keep it</h2>
+        <ul className="list-disc space-y-1 pl-6">
+          <li>
+            Organizer accounts, signups, slots, participants&apos; sign-ups and the activity log:
+            nothing deletes these automatically yet. They stay until someone asks us to erase them
+            (see &ldquo;Your rights&rdquo;), including after an organizer deletes a signup.
+          </li>
+          <li>
+            Sign-in links and codes: until they are used or expire, then an hourly cleanup deletes
+            them.
+          </li>
+          <li>Rate-limit records: normally a few hours.</li>
+          <li>
+            Connected-app approvals and tokens: until they expire or the organizer disconnects the
+            app, as described under &ldquo;Connected apps and AI assistants&rdquo;.
+          </li>
+          <li>Server logs: as long as the hosting this instance runs on keeps them.</li>
+          <li>
+            What your browser keeps: see the{' '}
+            <Link href="/cookies" className="text-brand underline">
+              cookies page
+            </Link>
+            .
+          </li>
+        </ul>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">Where your data is stored</h2>
+        <p>
+          Your data is kept in this instance&apos;s database, on servers we run or rent. If those
+          servers, or a provider under &ldquo;Third parties&rdquo; that this instance has turned on,
+          are in another country, your data goes to that country. Email{' '}
+          <a href={SUPPORT_MAILTO} className="text-brand underline">
+            {SUPPORT_EMAIL}
+          </a>{' '}
+          to find out where this instance and its providers are.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">Children</h2>
+        <p>
+          {INSTANCE_NAME} is not meant for children to use on their own. When a signup is for a
+          child, such as a class rota or a team&apos;s snack list, a parent or guardian should sign
+          up for them, with their own email address. If you think a child has given us their
+          details, email{' '}
+          <a href={SUPPORT_MAILTO} className="text-brand underline">
+            {SUPPORT_EMAIL}
+          </a>{' '}
+          and we will delete them.
+        </p>
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Your rights</h2>
         <p>
-          You can request a copy of the data we hold about you, or ask us to delete it, by emailing{' '}
+          You can ask us for a copy of the data we hold about you, or ask us to correct it, delete
+          it, or stop a use you object to, by emailing{' '}
           <a href={SUPPORT_MAILTO} className="text-brand underline">
             {SUPPORT_EMAIL}
           </a>
           . Today this is a manual process — self-service export and deletion endpoints are on the
-          roadmap. Organizers can already delete a signup from its settings. That takes the signup
+          roadmap. If you signed up for a slot, you can also ask the organizer about their own use
+          of your details. Organizers can already delete a signup from its settings. That takes the signup
           and everyone&apos;s commitments to it off the site at once: its page and everyone&apos;s
           edit links stop working, lists and exports stop showing them, and nobody can sign up to
           it. The records themselves stay in our database until someone asks us to erase them, as
           above.
+        </p>
+        <p>
+          If you are not happy with how we handle a request, you can complain to the data
+          protection authority where you live or work.
         </p>
       </section>
 

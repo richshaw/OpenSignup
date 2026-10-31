@@ -17,7 +17,7 @@ export default function CookiesPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Cookies</h1>
-        <p className="text-ink-muted text-sm">Last updated: 30 October 2026</p>
+        <p className="text-ink-muted text-sm">Last updated: 31 October 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -145,7 +145,10 @@ export default function CookiesPage() {
           <code>{PREFILL_KEY}</code>, and uses it to fill in the form the next time you sign up for
           anything on {INSTANCE_NAME}. It is not a cookie and is not sent to us on its own; we only
           see it when you send the form again. It has no expiry: it stays until you clear this
-          site&apos;s data in your browser, and each sign-up updates it.
+          site&apos;s data in your browser, and each sign-up updates it. On a shared or public
+          computer, the next person to sign up for anything on {INSTANCE_NAME} in the same browser
+          will see your name and email address filled in, so clear this site&apos;s data when you
+          have finished.
         </p>
       </section>
 
@@ -157,11 +160,6 @@ export default function CookiesPage() {
           connection an organizer asked for. Under
           GDPR/ePrivacy, strictly-necessary cookies do not require a consent banner.
           That is why you don&apos;t see a popup.
-        </p>
-        <p>
-          The saved name and email address described above are not something we rely on as
-          strictly necessary. They are written only after you sign up, hold the details you
-          just typed in yourself, and stay in your browser to save you typing them again.
         </p>
       </section>
 
