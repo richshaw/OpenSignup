@@ -2,19 +2,21 @@ import { Text as TextIcon } from 'lucide-react';
 
 /**
  * The organizer's description, quoted back to them: in a box while the first
- * reply comes and above the questions (`box`), and at the top of the Drafting
- * from card (`plain`). One component so the two can't drift apart.
+ * reply comes (`box`), and as plain text above the questions and at the top of
+ * the Drafting from card (`plain`), where lines already divide the panel and a
+ * box inside them would read as a banner. The caller pads `plain`. One
+ * component so the two can't drift apart.
  */
 export function YouWrote({ prompt, variant }: { prompt: string; variant: 'box' | 'plain' }) {
   const quoted = `“${prompt.trim()}”`;
   const text = (
     <div className="flex min-w-0 flex-col gap-1">
-      <span className="text-xs font-medium text-ink-muted">You wrote</span>
+      <span className="text-[13px] font-medium text-ink-muted">You wrote</span>
       <p className="line-clamp-3 text-lg font-semibold leading-snug tracking-tight">{quoted}</p>
     </div>
   );
 
-  if (variant === 'plain') return <div className="px-4 pb-3.5 pt-4">{text}</div>;
+  if (variant === 'plain') return text;
 
   return (
     <section

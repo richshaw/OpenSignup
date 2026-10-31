@@ -41,7 +41,7 @@ export function SignInLink({ href }: { href: string }) {
       referrerPolicy="no-referrer"
       onClick={onClick}
       aria-disabled={pending || undefined}
-      className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1f6feb] px-5 py-3 text-center font-medium text-white no-underline transition-colors hover:bg-[#1658c4] aria-disabled:cursor-default aria-disabled:opacity-80 aria-disabled:hover:bg-[#1f6feb]"
+      className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1f6feb] px-5 py-3 text-center font-medium text-white no-underline transition-colors hover:bg-brand-hover aria-disabled:cursor-default aria-disabled:opacity-80 aria-disabled:hover:bg-[#1f6feb]"
     >
       {pending ? (
         <>

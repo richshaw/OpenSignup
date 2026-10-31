@@ -79,7 +79,7 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
 
   const buttonBg =
     state === 'success' ? 'bg-success' : state === 'error' ? 'bg-danger' : 'bg-brand';
-  const buttonHover = state === 'idle' ? 'hover:brightness-110' : '';
+  const buttonHover = state === 'idle' ? 'hover:bg-brand-hover' : '';
   const buttonLoading = state === 'loading' ? 'brightness-90' : '';
   const buttonLocked = locked ? 'cursor-not-allowed opacity-60' : '';
 

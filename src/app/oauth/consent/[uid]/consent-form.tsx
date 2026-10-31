@@ -14,7 +14,7 @@ export function ConsentForm({ action }: { action: string }) {
         <input type="hidden" name="decision" value="approve" />
         <AsyncSubmitButton
           loadingLabel="Connecting…"
-          className="w-full rounded-lg bg-brand px-5 py-3 font-medium text-white transition-colors hover:bg-[#1658c4] disabled:opacity-60"
+          className="w-full rounded-lg bg-brand px-5 py-3 font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-60"
         >
           Allow
         </AsyncSubmitButton>
