@@ -88,7 +88,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
         return (
           <SignupStateMessage
             title={DRAFT_ONLY_YOU}
-            body={`People who open this link see “${DRAFT_TITLE}” until you publish it. The link stays the same.`}
+            body={`People who open this link see “${DRAFT_TITLE}” until you publish it. Renaming the draft gives it a new link, so share it after you publish.`}
             action={{ label: 'Open your draft', href: `/app/signups/${draftId}/build` }}
           />
         );
