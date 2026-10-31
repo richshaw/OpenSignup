@@ -79,10 +79,9 @@ const ANSWERS: FollowUp = {
   howMany: [null, 2],
 };
 
-const PLACEHOLDERS: FollowUp = {
+const NOTHING_ANSWERED: FollowUp = {
   what: { picked: [], added: [] },
   when: { kind: 'not_decided' },
-  placeholders: true,
 };
 
 /** Questions the page can't ask: neither what nor when. */
@@ -386,9 +385,9 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
     expect(await quotaUsed()).toBe(1);
   });
 
-  it('after Draft with placeholders, says to try again or fill it in by hand', async () => {
+  it('with nothing answered, says to try again or fill it in by hand', async () => {
     llm.replies = [ok(QUESTIONS), ok(QUESTIONS)];
-    const res = await compose({ prompt: 'Bake sale', followUp: PLACEHOLDERS });
+    const res = await compose({ prompt: 'Bake sale', followUp: NOTHING_ANSWERED });
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { message: string; details: unknown } };
     expect(body.error.message).toBe("Couldn't draft this. Try again, or fill it in by hand.");
@@ -573,7 +572,6 @@ describe('POST /api/signups/magic-compose: what the activity log records (db)', 
           picked: 2,
           added: 0,
           limits: 1,
-          placeholders: false,
           retried: false,
           gaveUp: false,
         },
@@ -632,9 +630,9 @@ describe('POST /api/signups/magic-compose: what the activity log records (db)', 
     expect(await composeRows()).toEqual([]);
   });
 
-  it('records Draft with placeholders as every topic skipped', async () => {
+  it('records nothing answered as every topic skipped', async () => {
     llm.replies = [ok(DRAFT)];
-    await compose({ prompt: 'Bake sale', followUp: PLACEHOLDERS });
+    await compose({ prompt: 'Bake sale', followUp: NOTHING_ANSWERED });
     const rows = await composeRows();
     expect(rows[0]?.payload).toEqual({
       answered: [],
@@ -642,7 +640,6 @@ describe('POST /api/signups/magic-compose: what the activity log records (db)', 
       picked: 0,
       added: 0,
       limits: 0,
-      placeholders: true,
       retried: false,
       gaveUp: false,
     });

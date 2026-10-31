@@ -157,7 +157,6 @@ describe('<MagicComposeRoot /> questions', () => {
     expect(screen.getByText('Reading your description').closest('li')).not.toHaveAttribute(
       'aria-current',
     );
-    expect(screen.getByText('Your answers')).toBeInTheDocument();
     // First in the page, so Shift+Tab from the heading reaches it, and a phone shows it top left.
     const back = screen.getByRole('button', { name: 'Back' });
     expect(back.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -250,18 +249,14 @@ describe('<MagicComposeRoot /> questions', () => {
     );
   });
 
-  it('sends no answers for Draft with placeholders when nothing is answered', async () => {
+  it('drafts every topic as a placeholder when nothing is answered', async () => {
     const sent = stubReplies(asks(), 'hang');
     await openQuestions();
-    fireEvent.click(screen.getByRole('button', { name: 'Draft with placeholders' }));
+    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
     const card = await screen.findByRole('region', { name: 'Drafting from' });
     expect(sent(1)).toEqual({
       prompt: 'Bake sale',
-      followUp: {
-        what: { picked: [], added: [] },
-        when: { kind: 'not_decided' },
-        placeholders: true,
-      },
+      followUp: { what: { picked: [], added: [] }, when: { kind: 'not_decided' } },
     });
     expect(within(card).getByText('Two left blank')).toBeInTheDocument();
     expect(
@@ -276,60 +271,13 @@ describe('<MagicComposeRoot /> questions', () => {
     ).toBeInTheDocument();
   });
 
-  it('sends the answers given for Draft with placeholders, as Draft my signup would', async () => {
-    const sent = stubReplies(asks(), 'hang');
+  it('carries the description over to the form for filling in by hand', async () => {
+    stubReplies(asks());
     await openQuestions();
-    answerEverything();
-    fireEvent.click(screen.getByRole('button', { name: 'Draft with placeholders' }));
-    await screen.findByRole('region', { name: 'Drafting from' });
-    expect(sent(1)).toEqual({ prompt: 'Bake sale', followUp: ANSWERED });
-  });
-
-  it('keeps a single pick, or words left in "Add your own", for Draft with placeholders', async () => {
-    const sent = stubReplies(asks(), 'hang');
-    await openQuestions();
-    fireEvent.click(screen.getByRole('button', { name: 'Bake something to sell' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Draft with placeholders' }));
-    const card = await screen.findByRole('region', { name: 'Drafting from' });
-    expect(sent(1)).toEqual({
-      prompt: 'Bake sale',
-      followUp: {
-        what: { picked: ['Bake something to sell'], added: [] },
-        when: { kind: 'not_decided' },
-        howMany: [null],
-      },
-    });
-    expect(within(card).getByText('One left blank')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    await screen.findByRole('heading', { name: 'A few details first' });
-    fireEvent.click(screen.getByRole('button', { name: 'Bake something to sell' }));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Add your own, then press Enter' }), {
-      target: { value: 'Bring drinks' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Draft with placeholders' }));
-    await screen.findByRole('region', { name: 'Drafting from' });
-    expect(sent(2)).toEqual({
-      prompt: 'Bake sale',
-      followUp: {
-        what: { picked: [], added: ['Bring drinks'] },
-        when: { kind: 'not_decided' },
-        howMany: [null],
-      },
-    });
-  });
-
-  it('stops for Draft with placeholders what it stops for Draft my signup', async () => {
-    const sent = stubReplies(asks());
-    await openQuestions();
-    fireEvent.change(screen.getByLabelText('Starts'), {
-      target: { value: '09:00' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Draft with placeholders' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Add a date, or leave the times empty.',
+    expect(screen.getByRole('link', { name: 'Fill in by hand instead' })).toHaveAttribute(
+      'href',
+      '/app/signups/new?manual=1&title=Bake+sale',
     );
-    expect(() => sent(1)).toThrow();
   });
 
   it('adds words left in "Add your own" rather than dropping them', async () => {

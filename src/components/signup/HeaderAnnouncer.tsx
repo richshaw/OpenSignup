@@ -53,6 +53,13 @@ const ANNOUNCED: Partial<Record<SignupStatus, Partial<Record<SignupStatus, strin
 const Say = createContext<(message: string) => void>(() => {});
 
 /**
+ * How long the region holds a message before it empties: long enough for a
+ * screen reader to finish a one-line message, short enough that someone
+ * reading the page line by line afterwards doesn't meet it a second time.
+ */
+export const SAID_FOR_MS = 5000;
+
+/**
  * The last status change the page has shown: the status the signup changed
  * to, whether a button on this page made it (`here`; not when another tab or
  * an AI assistant did), and a number so each change is its own. Null until
@@ -108,6 +115,13 @@ export function HeaderAnnouncer({
   // new node in it, so a screen reader reads the same words again.
   const [said, setSaid] = useState<[string, number]>(['', 0]);
   const say = useCallback((message: string) => setSaid(([, n]) => [message, n + 1]), []);
+  // Each message empties the region SAID_FOR_MS later; a new one starts the
+  // wait again.
+  useEffect(() => {
+    if (!said[0]) return;
+    const timer = setTimeout(() => setSaid(([, n]) => ['', n]), SAID_FOR_MS);
+    return () => clearTimeout(timer);
+  }, [said]);
   const previous = useRef(status);
   const askedFor = useRef<SignupStatus | null>(null);
   const [changed, setChanged] = useState<StatusChange>(null);

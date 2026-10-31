@@ -12,7 +12,7 @@ import { SignupHeader } from '@/components/signup/SignupHeader';
 import { hasPhoneBar, PHONE_BAR_ROOM } from '@/components/signup/phone-bar';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
-import { SignupLoadError } from '@/components/signup/SignupLoadError';
+import { SIGNUP_NOT_FOUND_TITLE, SignupLoadError } from '@/components/signup/SignupLoadError';
 import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, closeQuestionAction, publishAction, reopenAction } from './actions';
 
@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const session = await getOrganizerSession();
   if (!session) return { title: 'OpenSignup' };
   const result = await loadSignupForOrganizer(toActor(session), id);
-  if (!result.ok) return { title: 'OpenSignup' };
+  if (!result.ok) return { title: SIGNUP_NOT_FOUND_TITLE };
   return { title: result.value.title };
 }
 
@@ -36,7 +36,11 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   const actor = toActor(session);
   const result = await loadSignupForOrganizer(actor, id);
   if (!result.ok) {
-    return <SignupLoadError message={result.error.message} />;
+    return (
+      <div className="sm:py-8">
+        <SignupLoadError error={result.error} email={session.email} />
+      </div>
+    );
   }
   const sig = result.value;
   // Spots taken, which a draft's header doesn't show. The Build tab reads
@@ -46,7 +50,11 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
     sig.status === 'draft' ? null : loadCommittedBySlotForOrganizer(actor, id),
   ]);
   if (filled && !filled.ok) {
-    return <SignupLoadError message={filled.error.message} />;
+    return (
+      <div className="sm:py-8">
+        <SignupLoadError error={filled.error} email={session.email} />
+      </div>
+    );
   }
   const publicUrl = publicSignupUrl(sig.slug);
   const status = sig.status as SignupStatus;

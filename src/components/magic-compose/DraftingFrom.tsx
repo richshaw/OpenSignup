@@ -39,7 +39,9 @@ export function DraftingFrom({ prompt, followUp }: { prompt: string; followUp: F
           {LEFT_BLANK[blanks]}
         </span>
       </div>
-      <YouWrote prompt={prompt} variant="plain" />
+      <div className="px-4 pb-3.5 pt-4">
+        <YouWrote prompt={prompt} variant="plain" />
+      </div>
       <dl className="flex flex-col px-4 pb-1.5">
         <Row icon={<ListChecks className="h-4 w-4" />} term="What" blank={items.length === 0}>
           {items.length === 0 ? (
