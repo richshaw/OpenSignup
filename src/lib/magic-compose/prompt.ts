@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DESCRIPTION_MAX_LENGTH, TitleSchema } from '@/schemas/signups';
+import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH, TitleSchema } from '@/schemas/signups';
 import {
   ChoiceSchema,
   FIELD_TYPES,
@@ -191,8 +191,8 @@ const SYSTEM_PROMPT = `You are OpenSignup's signup drafter. OpenSignup is a coor
 Output schema (return ONLY this JSON object, no prose, no fences):
 
 {
-  "title": "<short signup title, 2-120 chars>",
-  "description": "<one short paragraph, max 2000 chars; OK to be empty>",
+  "title": "<short signup title, ${TITLE_MIN_LENGTH}-${TITLE_MAX_LENGTH} chars>",
+  "description": "<one short paragraph, max ${DESCRIPTION_MAX_LENGTH} chars; OK to be empty>",
   "fields": [
     { "ref": "<lowercase-kebab>", "label": "<Human label>", "fieldType": "text|date|time|number|enum", "choices": [<strings, [] when not enum>] }
   ],

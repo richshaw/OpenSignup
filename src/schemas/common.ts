@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { NAME_MAX_LENGTH } from '@/lib/participant-limits';
 
 export function idOf<P extends string>(prefix: P) {
   const re = new RegExp(`^${prefix}_[A-Za-z0-9]{22}$`);
@@ -19,10 +20,10 @@ export const EmailSchema = z
   .pipe(z.string().email());
 
 // Trimmed before the min(1) check, like EmailSchema, so a name of only spaces
-// is refused rather than stored blank. max(100) is on the raw string.
+// is refused rather than stored blank. max(NAME_MAX_LENGTH) is on the raw string.
 export const NameSchema = z
   .string()
-  .max(100)
+  .max(NAME_MAX_LENGTH)
   .transform((v) => v.trim())
   .pipe(z.string().min(1, 'name is required'));
 
