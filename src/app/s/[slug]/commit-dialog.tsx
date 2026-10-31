@@ -7,6 +7,7 @@ import { buildIcs } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { FormError } from '@/components/ui/form-error';
 import { participantErrorCopy } from './participant-error';
+import { PREFILL_KEY } from './prefill-key';
 import { Field, NotesAndSpots } from './participant-fields';
 import { ACTION_SIZING } from './slot-format';
 import { urlBreakSegments } from './url-breaks';
@@ -79,8 +80,6 @@ interface PrefillState {
   name: string;
   email: string;
 }
-
-const PREFILL_KEY = 'opensignup:lastCommit';
 
 /**
  * 128 random bits, URL-safe. `getRandomValues` rather than `randomUUID`,

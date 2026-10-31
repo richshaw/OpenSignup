@@ -4,6 +4,7 @@ import path from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { SESSION_MAX_AGE_SECONDS } from '@/auth/session-lifetime';
+import { PREFILL_KEY } from '@/app/s/[slug]/prefill-key';
 import CookiesPage from './page';
 
 // The text of each cell in the table row whose first cell names `cookie`.
@@ -31,5 +32,11 @@ describe('cookies page', () => {
     const [name, , lifetime] = rowFor('authjs.pkce.code_verifier');
     expect(name).toContain('__Secure-authjs.pkce.code_verifier');
     expect(lifetime).toBe('15 minutes');
+  });
+
+  it("names the sign-up form's saved details by their real key", () => {
+    render(<CookiesPage />);
+    expect(PREFILL_KEY).toBe('opensignup:lastCommit');
+    expect(screen.getByText(PREFILL_KEY).tagName).toBe('CODE');
   });
 });
