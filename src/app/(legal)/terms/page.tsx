@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import {
   GOVERNING_LAW,
   INSTANCE_NAME,
@@ -58,6 +59,11 @@ export default function TermsPage() {
           OpenSignup be liable for any claim, damages, or other liability arising from
           your use of the service. This mirrors the disclaimer in the AGPL-3.0 license.
         </p>
+        <p>
+          Nothing in these terms excludes or limits our liability for death or personal injury
+          caused by our negligence, for fraud, or for anything else the law does not let us
+          exclude or limit.
+        </p>
       </section>
 
       <section className="space-y-3">
@@ -93,14 +99,25 @@ export default function TermsPage() {
         <p>
           If someone makes a claim against us because of a signup you ran, what you put in it, or
           your breaking these terms, you agree to cover our reasonable costs of dealing with that
-          claim, as far as the law allows.
+          claim, as far as the law allows. This does not apply to the extent the claim was caused
+          by something we did.
+        </p>
+        <p>
+          We hold participants&apos; details on your behalf to run your signup. We use them only as
+          the{' '}
+          <Link href="/privacy" className="text-brand underline">
+            privacy policy
+          </Link>{' '}
+          describes, keep them confidential, tell you if we learn of a breach affecting them,
+          delete them when you ask, and tell you on request which providers handle them.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">If you sign up for a slot</h2>
         <p>
-          Use your own name and an email address that is yours or that you have permission to use.
+          Give a name the organizer will recognise, and an email address that is yours or that you
+          have permission to use.
           Your link to change or cancel works like a password: anyone who has it can change or
           cancel your place, so don&apos;t share it.
         </p>

@@ -62,10 +62,9 @@ export default function PrivacyPage() {
           the signup. We store your details and run the signup for them.
         </p>
         <p>
-          The organizer can see the name, email address and note you gave, and can download them,
-          and so can an app they connect and allow to see participant details (see &ldquo;Connected
-          apps and AI assistants&rdquo; below). People who open the signup&apos;s page see how many
-          spots are taken, not who took them.
+          The organizer can see your name and email address, and can download them along with your
+          note. People who open the signup&apos;s page see how many spots are taken, not who took
+          them.
         </p>
       </section>
 
@@ -120,7 +119,7 @@ export default function PrivacyPage() {
         <h2 className="text-xl font-semibold tracking-tight">What we collect from participants</h2>
         <p>
           Participants (people signing up for a slot) never create an account. When you commit to a
-          slot we store only what is needed to honour your commitment:
+          slot we store:
         </p>
         <ul className="list-disc space-y-1 pl-6">
           <li>Display name.</li>
@@ -132,7 +131,10 @@ export default function PrivacyPage() {
             emails. Your link is then shown on screen after you sign up, and only that browser
             remembers it: for 60 days, or until a week after your slot if that is later.
           </li>
-          <li>Your slot selection, quantity, and any optional notes.</li>
+          <li>
+            Your slot selection, quantity, and any optional notes. The organizer sees your note, so
+            put in it only what they need to know.
+          </li>
           <li>
             Whether you have opted out of reminder emails for that signup, and when.
           </li>
@@ -148,7 +150,7 @@ export default function PrivacyPage() {
         <p>
           After you sign up, your browser also keeps the name and email address you entered, so the
           form is filled in for you the next time you sign up for anything on {INSTANCE_NAME}. That
-          copy stays in your browser and is never sent to us on its own. On a shared or public
+          copy stays in your browser and is not sent to us on its own. On a shared or public
           computer, the next person to sign up in that browser will see your details filled in, so
           clear this site&apos;s data in the browser when you have finished; that removes it.
         </p>
@@ -165,7 +167,10 @@ export default function PrivacyPage() {
           buckets and are not joined to your account or commitment for analytics. Server-side
           application logs are standard request/error logs and do not include cookies, tokens,
           magic-link URLs, or email addresses; sign-in log lines name only the part of the address
-          after the @.
+          after the @. The exception is an instance set to print emails to its log instead of
+          sending them, a setting meant for development: there, each email&apos;s address, subject
+          and the start of its text are logged, with the private part of its links and any sign-in
+          code removed.
         </p>
         <p>
           For each view of a public signup page, the server writes a single activity entry
@@ -195,7 +200,7 @@ export default function PrivacyPage() {
           Every reminder and moved-slot email carries a link that stops both for that signup; we record only the time you opted out, and it does not affect
           any other signup or your slot itself. Delivery uses whichever transport the operator has
           configured (SMTP, a transactional provider, or local console output in
-          development). No marketing email is ever sent.
+          development). {INSTANCE_NAME} sends no marketing email.
         </p>
       </section>
 
@@ -367,8 +372,8 @@ export default function PrivacyPage() {
           <a href={SUPPORT_MAILTO} className="text-brand underline">
             {SUPPORT_EMAIL}
           </a>
-          . Today this is a manual process — self-service export and deletion endpoints are on the
-          roadmap. If you signed up for a slot, you can also ask the organizer about their own use
+          . Today this is a manual process — self-service export and deletion may be added
+          later. If you signed up for a slot, you can also ask the organizer about their own use
           of your details. Organizers can already delete a signup from its settings. That takes the signup
           and everyone&apos;s commitments to it off the site at once: its page and everyone&apos;s
           edit links stop working, lists and exports stop showing them, and nobody can sign up to
