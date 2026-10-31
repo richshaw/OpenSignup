@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
+import { waitInMinutes } from '@/lib/format-duration';
 import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { createSignup } from '@/services/signups';
 
@@ -20,8 +21,7 @@ export async function createSignupAction(formData: FormData) {
   const db = getDb();
   const retryAfter = await chargeRateLimit(db, RateLimits.signupCreatePerOrganizer, s.organizerId);
   if (retryAfter !== null) {
-    const minutes = Math.max(1, Math.ceil(retryAfter / 60));
-    const message = `You’ve created a lot of signups in the last hour. Try again in about ${minutes} minute${minutes === 1 ? '' : 's'}.`;
+    const message = `You’ve created a lot of signups in the last hour. Try again in about ${waitInMinutes(retryAfter)}.`;
     redirect(`${NEW_PATH}&error=${encodeURIComponent(message)}`);
   }
   const result = await createSignup(db, toActor(s), s.defaultWorkspaceId, {

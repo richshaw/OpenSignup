@@ -8,7 +8,6 @@ vi.mock('@/auth/session', () => ({
 vi.mock('@/oauth/provider', () => ({
   renderErrorPage: ({ error, error_description }: { error: string; error_description: string }) =>
     `<p>${error} — ${error_description}</p>`,
-  describeWait: (seconds: number) => `${seconds} seconds`,
 }));
 const decide = vi.fn(async (..._args: unknown[]) => new Response(null, { status: 303 }));
 vi.mock('@/oauth/consent', () => ({
@@ -52,7 +51,7 @@ describe('POST /oauth/consent/[uid]/decision', () => {
     expect(r.headers.get('cache-control')).toBe('no-store');
     const page = await r.text();
     expect(page).toContain('too_many_requests');
-    expect(page).toContain('Too many connection attempts. Wait 600 seconds and try again.');
+    expect(page).toContain('Too many connection attempts. Wait 10 minutes and try again.');
     expect(decide).not.toHaveBeenCalled();
   });
 });
