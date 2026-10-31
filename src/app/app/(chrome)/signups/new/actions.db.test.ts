@@ -10,6 +10,7 @@ import { ServiceException } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { chargeRateLimit, consumeRateLimit, RateLimits } from '@/lib/rate-limit';
+import { DESCRIPTION_MAX_LENGTH } from '@/schemas/signups';
 import { createSignupAction } from './actions';
 
 const organizerId = makeId('org');
@@ -43,10 +44,10 @@ vi.mock('next/navigation', () => ({
   },
 }));
 
-async function submit(title: string): Promise<string> {
+async function submit(title: string, description = ''): Promise<string> {
   const form = new FormData();
   form.set('title', title);
-  form.set('description', '');
+  form.set('description', description);
   try {
     await createSignupAction(form);
   } catch (e) {
@@ -118,6 +119,19 @@ describe('createSignupAction (db)', () => {
       .from(signups)
       .where(eq(signups.workspaceId, workspaceId));
     expect(rows.map((r) => r.title)).toEqual(['Bake sale']);
+  });
+
+  it('takes a full description with line breaks, sent as \\r\\n, and saves \\n', async () => {
+    // 1,996 letters and 4 line breaks fill the 2,000-character textarea. The
+    // browser sends each break as \r\n, so 2,004 characters arrive.
+    const sent = `${'a'.repeat(499)}\r\n`.repeat(4);
+    expect(sent).toHaveLength(DESCRIPTION_MAX_LENGTH + 4);
+    expect(await submit('Bake sale', sent)).toMatch(/^\/app\/signups\/[^?]+$/);
+    const [row] = await db
+      .select({ description: signups.description })
+      .from(signups)
+      .where(eq(signups.workspaceId, workspaceId));
+    expect(row?.description).toBe(`${'a'.repeat(499)}\n`.repeat(4));
   });
 
   it('refuses a create past the limit, back on the form with a plain message', async () => {

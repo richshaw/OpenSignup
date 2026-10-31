@@ -6,6 +6,7 @@ import { requireOrganizerSession, toActor } from '@/auth/session';
 import { waitInMinutes } from '@/lib/format-duration';
 import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { createSignup } from '@/services/signups';
+import { lfLineBreaks } from './line-breaks';
 
 const NEW_PATH = '/app/signups/new?manual=1';
 
@@ -26,7 +27,7 @@ export async function createSignupAction(formData: FormData) {
   }
   const result = await createSignup(db, toActor(s), s.defaultWorkspaceId, {
     title: String(formData.get('title') ?? ''),
-    description: String(formData.get('description') ?? ''),
+    description: lfLineBreaks(String(formData.get('description') ?? '')),
     visibility: 'unlisted',
   });
   if (!result.ok) {
