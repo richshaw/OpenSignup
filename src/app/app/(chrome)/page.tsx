@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { listSignupsForWorkspace } from '@/services/signups';
+import { listSignupSummariesForWorkspace } from '@/services/signups';
 import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { StatusPill } from '@/components/status-pill';
 
@@ -21,7 +21,7 @@ export default async function DashboardPage() {
       </div>
     );
   }
-  const result = await listSignupsForWorkspace(getDb(), actor, workspaceId);
+  const result = await listSignupSummariesForWorkspace(getDb(), actor, workspaceId);
   const rows = result.ok ? result.value : [];
 
   return (
