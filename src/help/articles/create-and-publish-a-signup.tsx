@@ -107,7 +107,7 @@ export function CreateAndPublishASignup() {
               src="/help/create-and-publish-a-signup/slot.png"
               alt="A slot being edited, with What set to Fruit and water, a date set, and Spots set to 2."
               width={520}
-              height={219}
+              height={181}
             />
           </Step>
           <Step>
