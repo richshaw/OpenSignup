@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import EditForm from './edit-form';
+import { QUANTITY_MAX } from '@/lib/participant-limits';
 
 const router = vi.hoisted(() => ({ refresh: vi.fn(), push: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => router }));
@@ -50,11 +51,13 @@ describe('<EditForm /> quantity', () => {
     expect(spots).toHaveAttribute('max', '2');
   });
 
-  it('shows the quantity on an unlimited slot, with no cap', () => {
+  it('shows the quantity on an unlimited slot, capped at the shared maximum', () => {
     renderForm(null);
     const spots = screen.getByLabelText('Spots');
     expect(spots).toHaveValue(1);
-    expect(spots).not.toHaveAttribute('max');
+    // No spots left to cap at, so the shared QUANTITY_MAX is the cap — the same
+    // number commitments.ts enforces on the server.
+    expect(spots).toHaveAttribute('max', String(QUANTITY_MAX));
   });
 
   // Sending the default 1 would be harmless today, but leaving it out means a
@@ -64,7 +67,9 @@ describe('<EditForm /> quantity', () => {
     vi.stubGlobal('fetch', fetchMock);
     renderForm(1);
 
-    fireEvent.change(screen.getByLabelText('Notes (optional)'), { target: { value: 'Bringing oranges' } });
+    fireEvent.change(screen.getByLabelText('Notes (optional)'), {
+      target: { value: 'Bringing oranges' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
@@ -164,9 +169,7 @@ describe('<EditForm /> quantity', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(
-      "You can't add more spots now. Keep the number you have.",
-    );
+    expect(alert).toHaveTextContent("You can't add more spots now. Keep the number you have.");
     expect(alert).not.toHaveTextContent('not accepting commitments');
     expect(router.refresh).not.toHaveBeenCalled();
   });
@@ -284,7 +287,10 @@ describe('<EditForm /> quantity', () => {
   });
   // Offline, or a dropped connection: fetch itself rejects.
   it('says nothing was saved, and lets the participant try again, when the save never reaches the server', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))),
+    );
     renderForm(4, 2);
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
@@ -316,7 +322,10 @@ describe('<EditForm /> quantity', () => {
   });
 
   it('says the sign-up was not cancelled when the cancel never reaches the server', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))),
+    );
     renderForm(4, 2);
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel signup' }));
