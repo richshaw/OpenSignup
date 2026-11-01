@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 import type { LinkObject } from './links';
-import { httpStatusFor, INTERNAL_ERROR, serviceErrorFromThrown, type ServiceError } from './errors';
+import {
+  httpStatusFor,
+  INTERNAL_ERROR,
+  ServiceException,
+  serviceError,
+  serviceErrorFromThrown,
+  type ServiceError,
+} from './errors';
 import { log } from './log';
+import { BodyTooLarge, MAX_JSON_BODY_BYTES, readRequestBody } from './request-body';
 import type { Result } from './result';
 
 export type Links = Record<string, LinkObject | string>;
@@ -54,7 +62,8 @@ export function errorEnvelope(error: ServiceError): ErrorEnvelope {
 /** A rate-limited error that knows its wait also tells the client in `Retry-After`. */
 export function fail(error: ServiceError): NextResponse {
   const retryAfter = error.code === 'rate_limited' ? error.details?.retryAfterSeconds : undefined;
-  const headers = typeof retryAfter === 'number' ? { 'Retry-After': String(retryAfter) } : undefined;
+  const headers =
+    typeof retryAfter === 'number' ? { 'Retry-After': String(retryAfter) } : undefined;
   return NextResponse.json(errorEnvelope(error), { status: httpStatusFor(error.code), headers });
 }
 
@@ -67,9 +76,34 @@ export function respond<T>(
   return ok(result.value, { links: typeof links === 'function' ? links(result.value) : links });
 }
 
-/** The JSON body, or `{}` when it is missing or malformed; the service's Zod parse judges it. */
+/**
+ * The JSON body, or `{}` when it is missing or malformed; the service's Zod
+ * parse judges it. A body over `MAX_JSON_BODY_BYTES` is refused as
+ * `invalid_input` before any of it is parsed, and stops being read there:
+ * `req.json()` would buffer whatever arrives, so one unauthenticated sign-up
+ * request could otherwise make the server hold any amount.
+ */
 export async function readJson(req: Request): Promise<unknown> {
-  return req.json().catch(() => ({}));
+  let raw: Buffer;
+  try {
+    raw = await readRequestBody(req, MAX_JSON_BODY_BYTES);
+  } catch (e) {
+    if (e instanceof BodyTooLarge) {
+      throw new ServiceException(
+        serviceError('invalid_input', 'request body too large', {
+          details: { maxBytes: MAX_JSON_BODY_BYTES },
+          suggestion: 'Send a smaller request.',
+        }),
+      );
+    }
+    return {};
+  }
+  try {
+    // TextDecoder drops a leading BOM, as `req.json()` did; Buffer#toString keeps it.
+    return JSON.parse(new TextDecoder().decode(raw)) as unknown;
+  } catch {
+    return {};
+  }
 }
 
 /** Wraps a route handler so any ZodError or thrown ServiceException becomes a proper response. */

@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 import { ServiceException, serviceError } from './errors';
 import { fail, handle, readJson, respond } from './api-response';
+import { MAX_JSON_BODY_BYTES } from './request-body';
 import { err, ok } from './result';
 
 describe('handle()', () => {
@@ -99,5 +100,45 @@ describe('readJson()', () => {
   it('returns {} for a missing or malformed body', async () => {
     expect(await readJson(new Request('http://localhost/x', { method: 'POST' }))).toEqual({});
     expect(await readJson(new Request('http://localhost/x', { method: 'POST', body: '{nope' }))).toEqual({});
+  });
+
+  it('drops a leading byte order mark, as req.json() did', async () => {
+    const req = new Request('http://localhost/x', { method: 'POST', body: '\ufeff{"a":1}' });
+    expect(await readJson(req)).toEqual({ a: 1 });
+  });
+
+  it('reads a body right at the cap', async () => {
+    const body = JSON.stringify({ a: 'x'.repeat(MAX_JSON_BODY_BYTES - 8) });
+    expect(body.length).toBe(MAX_JSON_BODY_BYTES);
+    const req = new Request('http://localhost/x', { method: 'POST', body });
+    expect(await readJson(req)).toEqual({ a: 'x'.repeat(MAX_JSON_BODY_BYTES - 8) });
+  });
+
+  it('refuses a body over the cap as a 400, even with no content-length', async () => {
+    const chunk = new TextEncoder().encode('x'.repeat(64 * 1024));
+    let sent = 0;
+    const cancel = vi.fn();
+    const stream = new ReadableStream<Uint8Array>({
+      pull: (controller) => {
+        sent += chunk.byteLength;
+        controller.enqueue(chunk);
+      },
+      cancel,
+    });
+    const req = new Request('http://localhost/x', {
+      method: 'POST',
+      body: stream,
+      duplex: 'half',
+    } as RequestInit);
+    const res = await handle(async () => {
+      await readJson(req);
+      return expect.unreachable('an oversize body must not be parsed');
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      error: { code: 'invalid_input', message: 'request body too large' },
+    });
+    expect(cancel).toHaveBeenCalled();
+    expect(sent).toBeLessThan(MAX_JSON_BODY_BYTES + 2 * chunk.byteLength);
   });
 });

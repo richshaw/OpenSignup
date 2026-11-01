@@ -1,4 +1,10 @@
 /**
+ * The most a JSON request body may be, on REST (`readJson`) and MCP alike,
+ * which take the same inputs. Next.js puts no limit on a route handler's body.
+ */
+export const MAX_JSON_BODY_BYTES = 1_000_000;
+
+/**
  * Read a request body into memory with a hard byte cap. The declared
  * `content-length` is checked first (free), then the stream is read chunk
  * by chunk and abandoned the moment it passes the limit, so a chunked or
@@ -16,7 +22,11 @@ export class BodyTooLarge extends Error {
 export async function readRequestBody(request: Request, limit: number): Promise<Buffer> {
   if (request.method === 'GET' || request.method === 'HEAD') return Buffer.alloc(0);
   const declared = Number(request.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > limit) throw new BodyTooLarge();
+  if (Number.isFinite(declared) && declared > limit) {
+    // Cancelled rather than left unread, so the upload stops here too.
+    await request.body?.cancel().catch(() => {});
+    throw new BodyTooLarge();
+  }
   if (!request.body) return Buffer.alloc(0);
   const chunks: Buffer[] = [];
   let total = 0;
@@ -40,4 +50,20 @@ export async function readRequestBody(request: Request, limit: number): Promise<
     reader.releaseLock();
   }
   return Buffer.concat(chunks);
+}
+
+/**
+ * A form body read under the same kind of cap, or null when it is too large,
+ * missing or not a form. `request.formData()` itself would buffer any amount.
+ */
+export async function readFormData(request: Request, limit: number): Promise<FormData | null> {
+  try {
+    const raw = await readRequestBody(request, limit);
+    const contentType = request.headers.get('content-type') ?? '';
+    return await new Response(new Uint8Array(raw), {
+      headers: { 'content-type': contentType },
+    }).formData();
+  } catch {
+    return null;
+  }
 }
