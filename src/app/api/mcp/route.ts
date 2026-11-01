@@ -1,6 +1,7 @@
 import { resolveBearerActor } from '@/auth/bearer';
 import { extractClientIp } from '@/auth/request-context';
 import { getDb } from '@/db/client';
+import { MAX_JSON_BODY_BYTES } from '@/lib/api-response';
 import { RateLimits, chargeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
 import { BodyTooLarge, readRequestBody } from '@/lib/request-body';
 import type { ToolContext } from '@/mcp/context';
@@ -23,7 +24,7 @@ import { toolScope } from '@/mcp/tools';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const MAX_BODY_BYTES = 1_000_000;
+const MAX_BODY_BYTES = MAX_JSON_BODY_BYTES;
 /** A 2025-era client may batch JSON-RPC messages; each tools/call is a DB round trip. */
 const MAX_BATCH = 20;
 
@@ -111,5 +112,8 @@ export async function POST(request: Request): Promise<Response> {
     workspaces: auth.workspaces,
   };
   // The body is already consumed; the SDK never reads it when parsedBody is given.
-  return getMcpHandler().fetch(request, { authInfo: attachContext(auth.authInfo, ctx), parsedBody });
+  return getMcpHandler().fetch(request, {
+    authInfo: attachContext(auth.authInfo, ctx),
+    parsedBody,
+  });
 }
