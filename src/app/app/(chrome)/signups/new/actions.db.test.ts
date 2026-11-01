@@ -10,7 +10,7 @@ import { ServiceException } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { chargeRateLimit, consumeRateLimit, RateLimits } from '@/lib/rate-limit';
-import { createSignupAction } from './actions';
+import { createSignupAction, type NewSignupFormState } from './actions';
 
 const organizerId = makeId('org');
 const workspaceId = makeId('ws');
@@ -43,17 +43,20 @@ vi.mock('next/navigation', () => ({
   },
 }));
 
-async function submit(title: string): Promise<string> {
+type Answer = { redirect: string } | { refused: NonNullable<NewSignupFormState> };
+
+async function submit(title: string, description = ''): Promise<Answer> {
   const form = new FormData();
   form.set('title', title);
-  form.set('description', '');
+  form.set('description', description);
   try {
-    await createSignupAction(form);
+    const state = await createSignupAction(null, form);
+    if (state) return { refused: state };
   } catch (e) {
-    if (e instanceof Redirected) return e.url;
+    if (e instanceof Redirected) return { redirect: e.url };
     throw e;
   }
-  throw new Error('the action did not redirect');
+  throw new Error('the action neither redirected nor refused');
 }
 
 describe('createSignupAction (db)', () => {
@@ -95,19 +98,28 @@ describe('createSignupAction (db)', () => {
   });
 
   it('creates the signup and charges the per-organizer create quota', async () => {
-    const url = await submit('Snack duty');
+    const answer = await submit('Snack duty');
     const rows = await created();
     expect(rows).toHaveLength(1);
-    expect(url).toBe(`/app/signups/${rows[0]!.id}`);
+    expect(answer).toEqual({ redirect: `/app/signups/${rows[0]!.id}` });
     const [charged] = await db.select({ count: rateLimits.count }).from(rateLimits).where(bucket);
     expect(charged?.count).toBe(1);
   });
 
-  it('refuses a title of only spaces, back on the form with the Build tab’s message', async () => {
-    const url = await submit('   ');
-    expect(url.startsWith('/app/signups/new?manual=1&error=')).toBe(true);
-    const message = new URL(url, 'http://localhost').searchParams.get('error');
-    expect(message).toBe('Title must be at least 2 characters.');
+  it('refuses a title of only spaces with the Build tab’s message', async () => {
+    expect(await submit('   ')).toEqual({
+      refused: { error: 'Title must be at least 2 characters.', title: '   ', description: '' },
+    });
+    expect(await created()).toHaveLength(0);
+  });
+
+  it('hands back the title and description as typed when it refuses', async () => {
+    // One letter with spaces round it passes the browser's minLength of 2,
+    // then the server trims it and refuses.
+    const description = 'Bring a plate.\r\nNuts are fine.';
+    expect(await submit(' a ', description)).toEqual({
+      refused: { error: 'Title must be at least 2 characters.', title: ' a ', description },
+    });
     expect(await created()).toHaveLength(0);
   });
 
@@ -123,12 +135,16 @@ describe('createSignupAction (db)', () => {
   it('refuses a create past the limit, back on the form with a plain message', async () => {
     // Everything but the last unit of this hour's quota is already spent.
     await chargeRateLimit(db, policy, organizerId, policy.max - 1);
-    expect(await submit('Last one')).toMatch(/^\/app\/signups\/[^?]+$/);
+    expect(await submit('Last one')).toEqual({
+      redirect: expect.stringMatching(/^\/app\/signups\/[^?]+$/),
+    });
 
-    const url = await submit('One too many');
-    expect(url.startsWith('/app/signups/new?manual=1&error=')).toBe(true);
-    const message = new URL(url, 'http://localhost').searchParams.get('error');
-    expect(message).toMatch(/^You’ve created a lot of signups in the last hour\. Try again in about \d+ minutes?\.$/);
+    const answer = await submit('One too many', 'Kept');
+    if (!('refused' in answer)) throw new Error('expected a refusal');
+    expect(answer.refused).toMatchObject({ title: 'One too many', description: 'Kept' });
+    expect(answer.refused.error).toMatch(
+      /^You’ve created a lot of signups in the last hour\. Try again in about \d+ minutes?\.$/,
+    );
     expect(await created()).toHaveLength(1);
   });
 
@@ -143,6 +159,6 @@ describe('createSignupAction (db)', () => {
     // And the other way round: spent by the route, refused on the form.
     await db.delete(rateLimits).where(bucket);
     await chargeRateLimit(db, policy, organizerId, policy.max);
-    expect(await submit('Refused')).toContain('error=');
+    expect(await submit('Refused')).toHaveProperty('refused');
   });
 });
