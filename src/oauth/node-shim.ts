@@ -212,7 +212,6 @@ class ShimResponse extends EventEmitter {
  */
 export const MAX_BODY_BYTES = 64 * 1024;
 
-
 function tooLarge(): Response {
   return Response.json(
     { error: 'invalid_request', error_description: 'request body too large' },

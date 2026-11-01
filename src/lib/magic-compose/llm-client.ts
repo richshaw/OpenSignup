@@ -80,7 +80,10 @@ export function defaultLlmClient(): LlmClient {
         if (!res.ok) {
           const status = res.status;
           const upstreamBody = await safeReadBodyText(res, 4096);
-          log.warn({ status, model: env.LLM_MODEL, upstreamBody }, 'magic-compose upstream non-2xx');
+          log.warn(
+            { status, model: env.LLM_MODEL, upstreamBody },
+            'magic-compose upstream non-2xx',
+          );
           if (status === 429) {
             const retryAfterSeconds = parseRetryAfter(res.headers.get('retry-after'));
             return err({
@@ -124,7 +127,10 @@ export function defaultLlmClient(): LlmClient {
         const content = extractChoiceContent(body);
         if (content === null) {
           const truncated = JSON.stringify(body).slice(0, 500);
-          log.warn({ upstreamBody: truncated }, 'magic-compose upstream missing choices[0].message.content');
+          log.warn(
+            { upstreamBody: truncated },
+            'magic-compose upstream missing choices[0].message.content',
+          );
           return err({
             code: 'schema_mismatch',
             message: 'LLM response did not contain choices[0].message.content',

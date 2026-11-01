@@ -14,7 +14,8 @@ const SECTIONS = [
   {
     href: '/app/settings/connected-apps',
     title: 'Connected apps',
-    description: 'AI assistants and other apps you have allowed to use your account, and how to disconnect them.',
+    description:
+      'AI assistants and other apps you have allowed to use your account, and how to disconnect them.',
   },
 ] as const;
 
@@ -25,8 +26,8 @@ export default async function SettingsPage() {
     <section className="space-y-6">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-ink-muted text-sm">
-          Signed in as <span className="text-ink font-medium">{session.email}</span>.
+        <p className="text-sm text-ink-muted">
+          Signed in as <span className="font-medium text-ink">{session.email}</span>.
         </p>
       </div>
       <ul className="divide-y divide-surface-sunk rounded-xl border border-surface-sunk bg-white">
@@ -38,9 +39,9 @@ export default async function SettingsPage() {
             >
               <span className="space-y-1">
                 <span className="block font-medium">{s.title}</span>
-                <span className="text-ink-muted block text-sm">{s.description}</span>
+                <span className="block text-sm text-ink-muted">{s.description}</span>
               </span>
-              <span aria-hidden="true" className="text-ink-soft shrink-0">
+              <span aria-hidden="true" className="shrink-0 text-ink-soft">
                 →
               </span>
             </Link>

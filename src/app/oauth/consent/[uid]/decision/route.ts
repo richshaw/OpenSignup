@@ -4,6 +4,7 @@ import { getDb } from '@/db/client';
 import { waitInMinutes } from '@/lib/format-duration';
 import { log } from '@/lib/log';
 import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
+import { readFormData } from '@/lib/request-body';
 import { consentPath, isInteractionUid, oauthIssuer } from '@/oauth/config';
 import { ConsentUnavailable, decideConsent, type Decision } from '@/oauth/consent';
 import { renderErrorPage } from '@/oauth/provider';
@@ -32,12 +33,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
     redirect(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
   }
 
-  const form = await request.formData().catch(() => null);
+  // The consent page posts one field; a bigger body is not from it.
+  const form = await readFormData(request, 16 * 1024);
   const raw = form?.get('decision');
   const decision: Decision = raw === 'approve' ? 'approve' : 'deny';
 
   try {
-    const retryAfter = await chargeRateLimit(getDb(), RateLimits.oauthConsentPerOrganizer, actor.id);
+    const retryAfter = await chargeRateLimit(
+      getDb(),
+      RateLimits.oauthConsentPerOrganizer,
+      actor.id,
+    );
     if (retryAfter !== null) {
       const description = `Too many connection attempts. Wait ${waitInMinutes(retryAfter)} and try again.`;
       return html(429, 'too_many_requests', description, { 'Retry-After': String(retryAfter) });
@@ -48,7 +54,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
       redirect(consentPath(uid));
     }
     log.error({ err }, 'oauth: consent decision failed');
-    return html(500, 'server_error', 'Something went wrong recording your decision. Nothing was connected.');
+    return html(
+      500,
+      'server_error',
+      'Something went wrong recording your decision. Nothing was connected.',
+    );
   }
 }
 
@@ -65,7 +75,12 @@ function sameOrigin(request: Request): boolean {
   }
 }
 
-function html(status: number, error: string, description: string, extra: Record<string, string> = {}): Response {
+function html(
+  status: number,
+  error: string,
+  description: string,
+  extra: Record<string, string> = {},
+): Response {
   return new Response(renderErrorPage({ error, error_description: description }), {
     status,
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...extra },

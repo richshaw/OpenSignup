@@ -18,7 +18,10 @@ export interface ClientDisplay {
   isUrl: boolean;
 }
 
-export function describeClient(clientId: string, clientName: string | null | undefined): ClientDisplay {
+export function describeClient(
+  clientId: string,
+  clientName: string | null | undefined,
+): ClientDisplay {
   const name = clientName?.trim() ? clientName.trim().slice(0, 100) : null;
   try {
     const url = new URL(clientId);

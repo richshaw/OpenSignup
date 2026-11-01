@@ -48,7 +48,7 @@ export function AiDraftBanner({
       {warnings.length > 0 && (
         <div
           role="status"
-          className="border-warn/30 bg-warn/10 text-ink rounded-lg border px-5 py-4 text-sm"
+          className="rounded-lg border border-warn/30 bg-warn/10 px-5 py-4 text-sm text-ink"
         >
           <p className="mb-1 font-semibold">A few things to double-check</p>
           <ul className="list-inside list-disc space-y-1">

@@ -15,7 +15,10 @@ import { renderErrorPage } from './provider';
  * `path` overrides what the provider's router sees; the well-known routes use
  * it so the same document can be served under both discovery names.
  */
-export async function handleOAuthRequest(request: Request, opts: { path?: string } = {}): Promise<Response> {
+export async function handleOAuthRequest(
+  request: Request,
+  opts: { path?: string } = {},
+): Promise<Response> {
   const ip = extractClientIp(request.headers);
   const path = opts.path ?? new URL(request.url).pathname;
   // Only an explicit override changes what the provider's router sees; the
@@ -61,12 +64,18 @@ export function policyFor(rawPath: string): RateLimitPolicy {
 }
 
 function rateLimited(request: Request, retryAfterSeconds: number): Response {
-  const headers: Record<string, string> = { 'Retry-After': String(retryAfterSeconds), 'Cache-Control': 'no-store' };
+  const headers: Record<string, string> = {
+    'Retry-After': String(retryAfterSeconds),
+    'Cache-Control': 'no-store',
+  };
   const wantsHtml = (request.headers.get('accept') ?? '').includes('text/html');
   if (wantsHtml) {
     const wait = waitInMinutes(retryAfterSeconds);
     return new Response(
-      renderErrorPage({ error: 'too_many_requests', error_description: `Too many requests. Wait ${wait} and try again.` }),
+      renderErrorPage({
+        error: 'too_many_requests',
+        error_description: `Too many requests. Wait ${wait} and try again.`,
+      }),
       { status: 429, headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } },
     );
   }

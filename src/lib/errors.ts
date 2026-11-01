@@ -81,6 +81,21 @@ export class ServiceException extends Error {
   }
 }
 
+/** What REST and MCP both answer for an error they can't explain, with no stack or database message. */
+export const INTERNAL_ERROR: ServiceError = { code: 'internal', message: 'something went wrong' };
+
+/**
+ * The one mapping from a thrown error to a ServiceError, shared by `handle()`
+ * for REST and `runTool()` for MCP so both answer the same way. Null means it
+ * is a real failure: the caller logs it, in its own words, and answers
+ * INTERNAL_ERROR.
+ */
+export function serviceErrorFromThrown(e: unknown): ServiceError | null {
+  if (e instanceof ZodError) return fromZodError(e);
+  if (e instanceof ServiceException) return e.serviceError;
+  return null;
+}
+
 /**
  * Runs a service call for a server action, so a refusal comes back the same
  * way however the service made it: a policy guard throws a ServiceException (a

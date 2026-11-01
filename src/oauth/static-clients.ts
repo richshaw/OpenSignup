@@ -38,7 +38,8 @@ export function parseStaticClients(raw: string | undefined): StaticClient[] {
   }
   const ids = new Set<string>();
   for (const c of parsed.data) {
-    if (ids.has(c.client_id)) throw new Error(`OAUTH_STATIC_CLIENTS: duplicate client_id ${c.client_id}`);
+    if (ids.has(c.client_id))
+      throw new Error(`OAUTH_STATIC_CLIENTS: duplicate client_id ${c.client_id}`);
     ids.add(c.client_id);
   }
   return parsed.data;

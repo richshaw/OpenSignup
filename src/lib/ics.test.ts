@@ -71,7 +71,9 @@ describe('buildIcs', () => {
       now: new Date('2026-04-30T12:00:00Z'),
     });
     const lines = ics.split('\r\n');
-    expect(lines.filter((l) => l.startsWith('UID:'))).toEqual(['UID:com_x@opensignup.orgUID:forged']);
+    expect(lines.filter((l) => l.startsWith('UID:'))).toEqual([
+      'UID:com_x@opensignup.orgUID:forged',
+    ]);
     expect(lines.filter((l) => l.startsWith('URL:'))).toEqual([
       'URL:https://opensignup.org/aATTENDEE:forged',
     ]);

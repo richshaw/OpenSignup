@@ -48,7 +48,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
       </header>
       <main className="container-tight flex flex-1 flex-col justify-center gap-8 py-8">
         <div className="space-y-3">
-          <p className="text-ink-muted text-sm">Connection request</p>
+          <p className="text-sm text-ink-muted">Connection request</p>
           <h1 className="text-3xl font-semibold tracking-tight">
             Allow <span className="break-all">{ctx.client.domain}</span> to use your {INSTANCE_NAME}{' '}
             account?
@@ -68,15 +68,18 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
               </>
             ) : (
               <>
-                <strong className="text-ink">{ctx.client.name ?? ctx.client.domain}</strong> was set up
-                by the people who run this site.
+                <strong className="text-ink">{ctx.client.name ?? ctx.client.domain}</strong> was set
+                up by the people who run this site.
               </>
             )}
           </p>
         </div>
 
         <section aria-labelledby="permissions-heading" className="space-y-3">
-          <h2 id="permissions-heading" className="text-sm font-semibold uppercase tracking-wide text-ink-soft">
+          <h2
+            id="permissions-heading"
+            className="text-sm font-semibold uppercase tracking-wide text-ink-soft"
+          >
             It will be able to
           </h2>
           <ul className="divide-y divide-surface-sunk rounded-xl border border-surface-sunk bg-white">
@@ -86,7 +89,9 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
                   {p.sensitive ? '!' : '✓'}
                 </span>
                 <div className="space-y-1">
-                  <p className={p.sensitive ? 'font-medium text-warn' : 'font-medium'}>{p.description}</p>
+                  <p className={p.sensitive ? 'font-medium text-warn' : 'font-medium'}>
+                    {p.description}
+                  </p>
                   {p.sensitive ? (
                     <p className="text-sm text-ink-muted">
                       Participants gave these details to you, not to this app. Only approve if you
@@ -129,7 +134,9 @@ function Unavailable() {
     <div className="flex min-h-[100svh] flex-col">
       <main className="container-tight flex flex-1 flex-col justify-center gap-6 py-16">
         <div className="space-y-3">
-          <h1 className="text-3xl font-semibold tracking-tight">This connection request has expired</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            This connection request has expired
+          </h1>
           <p className="text-ink-muted">
             Connection requests are only valid for a few minutes, and only in the browser that
             started them. Nothing was connected. Go back to the application and start again.

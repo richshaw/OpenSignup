@@ -267,7 +267,10 @@ export async function POST(req: NextRequest) {
     const fitted = fitDraftText(raw.value);
     const draft = MagicComposeDraftSchema.safeParse(fitted.value);
     if (!draft.success) {
-      log.warn({ issues: draft.error.issues.slice(0, 5), raw: raw.value }, 'magic-compose draft failed Zod');
+      log.warn(
+        { issues: draft.error.issues.slice(0, 5), raw: raw.value },
+        'magic-compose draft failed Zod',
+      );
       await recordFailed(db, actor, session.defaultWorkspaceId, 'schema_mismatch');
       // Drop `received` and `path` from issues before returning to the client.
       // `received` echoes the raw LLM output back into the response envelope,

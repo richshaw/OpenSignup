@@ -1,37 +1,12 @@
 import type { SignupTemplate, SignupTemplateSlot } from '@/lib/signup-templates';
 import { isRealDate, isRealTime } from '@/lib/reminder-fields';
 import {
-  MAX_CHOICES,
   TEXT_DEFAULT_MAX_LENGTH,
-  type SlotFieldConfig,
+  configFor,
+  sanitizeEnumChoices,
   type SlotFieldInput,
 } from '@/schemas/slot-fields';
 import type { MagicComposeDraft } from './prompt';
-
-function sanitizeEnumChoices(choices: string[] | undefined): string[] {
-  return (choices ?? [])
-    .map((c) => c.trim())
-    .filter((c) => c.length > 0)
-    .slice(0, MAX_CHOICES);
-}
-
-export function configFor(
-  fieldType: SlotFieldInput['fieldType'],
-  choices: string[] | undefined,
-): SlotFieldConfig {
-  switch (fieldType) {
-    case 'text':
-      return { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH };
-    case 'date':
-      return { fieldType: 'date' };
-    case 'time':
-      return { fieldType: 'time' };
-    case 'number':
-      return { fieldType: 'number' };
-    case 'enum':
-      return { fieldType: 'enum', choices: sanitizeEnumChoices(choices) };
-  }
-}
 
 type CoercedValue = string | number;
 

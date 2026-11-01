@@ -1,7 +1,12 @@
 import type { CallToolResult } from '@modelcontextprotocol/server';
-import { ZodError } from 'zod';
 import { errorEnvelope } from '@/lib/api-response';
-import { fromZodError, serviceError, ServiceException, type ServiceError } from '@/lib/errors';
+import {
+  fromZodError,
+  INTERNAL_ERROR,
+  serviceError,
+  serviceErrorFromThrown,
+  type ServiceError,
+} from '@/lib/errors';
 import { log } from '@/lib/log';
 import type { ToolContext } from './context';
 import type { ToolDefinition } from './registry';
@@ -18,7 +23,11 @@ export function toolSuccess(value: Record<string, unknown>): CallToolResult {
  */
 export function toolFailure(error: ServiceError): CallToolResult {
   const body = errorEnvelope(error);
-  return { isError: true, content: [{ type: 'text', text: JSON.stringify(body) }], structuredContent: body };
+  return {
+    isError: true,
+    content: [{ type: 'text', text: JSON.stringify(body) }],
+    structuredContent: body,
+  };
 }
 
 /**
@@ -34,11 +43,21 @@ export function toolFailure(error: ServiceError): CallToolResult {
  * so any other way in (a test client, a future transport) cannot run a
  * write tool for a read-only token.
  */
-export async function runTool(def: ToolDefinition, ctx: ToolContext, args: unknown): Promise<CallToolResult> {
+export async function runTool(
+  def: ToolDefinition,
+  ctx: ToolContext,
+  args: unknown,
+): Promise<CallToolResult> {
   const started = Date.now();
   const finish = (outcome: string, result: CallToolResult) => {
     log.info(
-      { tool: def.name, organizerId: ctx.actor.id, clientId: ctx.clientId, outcome, ms: Date.now() - started },
+      {
+        tool: def.name,
+        organizerId: ctx.actor.id,
+        clientId: ctx.clientId,
+        outcome,
+        ms: Date.now() - started,
+      },
       'mcp tool call',
     );
     return result;
@@ -58,11 +77,13 @@ export async function runTool(def: ToolDefinition, ctx: ToolContext, args: unkno
   if (!parsed.success) return finish('invalid_input', toolFailure(fromZodError(parsed.error)));
   try {
     const result = await def.handler(ctx, parsed.data);
-    return result.ok ? finish('ok', toolSuccess(result.value)) : finish(result.error.code, toolFailure(result.error));
+    return result.ok
+      ? finish('ok', toolSuccess(result.value))
+      : finish(result.error.code, toolFailure(result.error));
   } catch (error) {
-    if (error instanceof ServiceException) return finish(error.serviceError.code, toolFailure(error.serviceError));
-    if (error instanceof ZodError) return finish('invalid_input', toolFailure(fromZodError(error)));
+    const se = serviceErrorFromThrown(error);
+    if (se) return finish(se.code, toolFailure(se));
     log.error({ err: error, tool: def.name }, 'mcp tool threw');
-    return finish('internal', toolFailure({ code: 'internal', message: 'something went wrong' }));
+    return finish('internal', toolFailure(INTERNAL_ERROR));
   }
 }

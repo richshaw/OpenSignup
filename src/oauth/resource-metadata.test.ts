@@ -3,7 +3,10 @@ import { protectedResourceMetadata, protectedResourceMetadataUrl } from './resou
 
 describe('protected resource metadata', () => {
   it('binds the resource to the issuer and advertises only the non-sensitive scopes', () => {
-    const doc = protectedResourceMetadata('https://signup.example.org', 'https://signup.example.org/api/mcp');
+    const doc = protectedResourceMetadata(
+      'https://signup.example.org',
+      'https://signup.example.org/api/mcp',
+    );
     expect(doc).toEqual({
       resource: 'https://signup.example.org/api/mcp',
       authorization_servers: ['https://signup.example.org'],
@@ -18,7 +21,11 @@ describe('protected resource metadata', () => {
     );
   });
   it('allows a plain-http issuer only for local development', () => {
-    expect(() => protectedResourceMetadata('http://localhost:3000', 'http://localhost:3000/api/mcp')).not.toThrow();
-    expect(() => protectedResourceMetadata('http://example.org', 'http://example.org/api/mcp')).toThrow();
+    expect(() =>
+      protectedResourceMetadata('http://localhost:3000', 'http://localhost:3000/api/mcp'),
+    ).not.toThrow();
+    expect(() =>
+      protectedResourceMetadata('http://example.org', 'http://example.org/api/mcp'),
+    ).toThrow();
   });
 });

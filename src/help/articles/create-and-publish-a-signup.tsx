@@ -196,12 +196,12 @@ export function CreateAndPublishASignup() {
           <Step>
             <p>
               To send the link again later, choose <Ui>{UI.share}</Ui>. It&apos;s at the top of the
-              page, or at the bottom of the screen on a phone. Or, next to{' '}
-              <Ui>{UI.publicLink}</Ui>, choose the copy button.
+              page, or at the bottom of the screen on a phone. Or, next to <Ui>{UI.publicLink}</Ui>,
+              choose the copy button.
             </p>
             <p>
-              Next to the link, you can see how many spots are taken. On a phone, that&apos;s
-              beside <Ui>{UI.share}</Ui>.
+              Next to the link, you can see how many spots are taken. On a phone, that&apos;s beside{' '}
+              <Ui>{UI.share}</Ui>.
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/published.png"

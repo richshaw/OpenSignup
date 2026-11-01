@@ -2,10 +2,7 @@ import { isIP } from 'node:net';
 import { headers } from 'next/headers';
 
 export function extractClientIp(h: Headers): string | null {
-  const raw =
-    h.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    h.get('x-real-ip')?.trim() ||
-    null;
+  const raw = h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip')?.trim() || null;
   return raw && isIP(raw) ? raw : null;
 }
 

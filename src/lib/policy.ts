@@ -38,7 +38,9 @@ export function workspaceRole(actor: Actor, workspaceId: string): WorkspaceRole 
   return actor.workspaceRoles[workspaceId] ?? null;
 }
 
-export function requireOrganizer(actor: Actor): asserts actor is Extract<Actor, { kind: 'organizer' }> {
+export function requireOrganizer(
+  actor: Actor,
+): asserts actor is Extract<Actor, { kind: 'organizer' }> {
   if (actor.kind !== 'organizer') {
     throw new ServiceException(serviceError('unauthorized', 'sign in required'));
   }

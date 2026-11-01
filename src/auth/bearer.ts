@@ -94,9 +94,12 @@ export async function resolveBearerActor(
     // narrows the type for the return below.
     return {
       ok: false,
-      response: bearerAuthChallengeResponse(new OAuthError(OAuthErrorCode.InvalidToken, 'unknown account'), {
-        resourceMetadataUrl,
-      }),
+      response: bearerAuthChallengeResponse(
+        new OAuthError(OAuthErrorCode.InvalidToken, 'unknown account'),
+        {
+          resourceMetadataUrl,
+        },
+      ),
     };
   }
   return {
@@ -224,7 +227,10 @@ export function createVerifier(opts: {
       if (err instanceof joseErrors.JWKSNoMatchingKey && retry) {
         return verify(token, false);
       }
-      log.debug({ reason: err instanceof Error ? err.name : 'unknown' }, 'oauth: bearer token rejected');
+      log.debug(
+        { reason: err instanceof Error ? err.name : 'unknown' },
+        'oauth: bearer token rejected',
+      );
       // Any other failure — bad signature, wrong audience, expired — is one
       // error to the client. Raw jose errors must not escape: the SDK turns
       // anything that is not an OAuthError into a 500 with no challenge.

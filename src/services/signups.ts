@@ -269,7 +269,9 @@ export async function updateSignup(
     // Only a group-by the caller sent is checked: a row saved with a stale ref
     // must not make every unrelated settings save fail.
     const sentGroupBy =
-      isObject(rawInput) && isObject(rawInput.settings) && rawInput.settings.groupByFieldRefs != null;
+      isObject(rawInput) &&
+      isObject(rawInput.settings) &&
+      rawInput.settings.groupByFieldRefs != null;
     if (isObject(rawInput) && isObject(rawInput.settings)) {
       // The anchor stays out of the merge, so below it is only ever what the
       // caller sent.

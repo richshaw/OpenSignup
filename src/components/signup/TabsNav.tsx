@@ -54,16 +54,12 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
       ref={stripRef}
       role="tablist"
       aria-label="Signup sections"
-      className="-mx-4 mb-2 flex overflow-x-auto border-b border-surface-sunk px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="-mx-4 mb-2 flex overflow-x-auto border-b border-surface-sunk px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
     >
       {TABS.map((t) => {
         const active = t.id === activeTab;
         const count =
-          t.id === 'build'
-            ? counts.build
-            : t.id === 'responses'
-              ? counts.responses
-              : null;
+          t.id === 'build' ? counts.build : t.id === 'responses' ? counts.responses : null;
         return (
           <Link
             key={t.id}
@@ -85,8 +81,8 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
             aria-current={active ? 'page' : undefined}
             className={`-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm transition focus-visible:outline-offset-[-3px] ${
               active
-                ? 'border-brand text-ink font-semibold'
-                : 'text-ink-muted hover:text-ink border-transparent font-medium'
+                ? 'border-brand font-semibold text-ink'
+                : 'border-transparent font-medium text-ink-muted hover:text-ink'
             }`}
           >
             {t.label}

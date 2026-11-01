@@ -2,7 +2,7 @@ import { resolveBearerActor } from '@/auth/bearer';
 import { extractClientIp } from '@/auth/request-context';
 import { getDb } from '@/db/client';
 import { RateLimits, chargeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
-import { BodyTooLarge, readRequestBody } from '@/lib/request-body';
+import { BodyTooLarge, MAX_JSON_BODY_BYTES, readRequestBody } from '@/lib/request-body';
 import type { ToolContext } from '@/mcp/context';
 import { attachContext, getMcpHandler } from '@/mcp/handler';
 import { countToolCalls, requiredScopesFor } from '@/mcp/scope-gate';
@@ -23,7 +23,6 @@ import { toolScope } from '@/mcp/tools';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const MAX_BODY_BYTES = 1_000_000;
 /** A 2025-era client may batch JSON-RPC messages; each tools/call is a DB round trip. */
 const MAX_BATCH = 20;
 
@@ -63,14 +62,18 @@ export function GET(): Response {
 
 export async function POST(request: Request): Promise<Response> {
   const declared = Number(request.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return tooLarge();
+  if (Number.isFinite(declared) && declared > MAX_JSON_BODY_BYTES) {
+    // Cancelled rather than left unread, so the upload stops here.
+    await request.body?.cancel().catch(() => {});
+    return tooLarge();
+  }
 
   const ipLimited = await meter(RateLimits.mcpPerIp, extractClientIp(request.headers) ?? 'unknown');
   if (ipLimited) return ipLimited;
 
   let raw: Buffer;
   try {
-    raw = await readRequestBody(request, MAX_BODY_BYTES);
+    raw = await readRequestBody(request, MAX_JSON_BODY_BYTES);
   } catch (err) {
     if (err instanceof BodyTooLarge) return tooLarge();
     throw err;
@@ -111,5 +114,8 @@ export async function POST(request: Request): Promise<Response> {
     workspaces: auth.workspaces,
   };
   // The body is already consumed; the SDK never reads it when parsedBody is given.
-  return getMcpHandler().fetch(request, { authInfo: attachContext(auth.authInfo, ctx), parsedBody });
+  return getMcpHandler().fetch(request, {
+    authInfo: attachContext(auth.authInfo, ctx),
+    parsedBody,
+  });
 }

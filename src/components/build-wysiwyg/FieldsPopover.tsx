@@ -38,11 +38,11 @@ export function FieldsPopover({ open, onOpenChange, ...body }: FieldsPopoverProp
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/30 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <Dialog.Overlay className="data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-40 bg-ink/30 backdrop-blur-[2px]" />
         <Dialog.Content
           aria-label="Fields"
           aria-describedby={undefined}
-          className="fixed left-1/2 top-[10vh] z-50 w-[420px] max-w-[calc(100%-2rem)] max-h-[80vh] -translate-x-1/2 overflow-y-auto rounded-xl border border-surface-sunk bg-white p-4 shadow-card focus:outline-none"
+          className="fixed left-1/2 top-[10vh] z-50 max-h-[80vh] w-[420px] max-w-[calc(100%-2rem)] -translate-x-1/2 overflow-y-auto rounded-xl border border-surface-sunk bg-white p-4 shadow-card focus:outline-none"
         >
           <FieldsPopoverBody {...body} />
         </Dialog.Content>
@@ -186,11 +186,7 @@ function FieldsListView({
     <>
       <div className="mb-3 flex items-center justify-between gap-2.5 border-b border-surface-sunk pb-3">
         <span className="text-xs font-medium text-ink-muted">Group slots by</span>
-        <GroupByInlinePicker
-          fields={fields}
-          value={groupByFieldRef}
-          onChange={onGroupByChange}
-        />
+        <GroupByInlinePicker fields={fields} value={groupByFieldRef} onChange={onGroupByChange} />
       </div>
 
       <div className="mb-2 flex items-center justify-between">
@@ -218,8 +214,7 @@ function FieldsListView({
           const TypeIcon = FIELD_TYPE_META[fieldType].icon;
           const isDragging = reorder.dragId === f.id;
           const isDropTarget = reorder.overId === f.id && reorder.dragId && reorder.dragId !== f.id;
-          const enumChoiceCount =
-            f.config.fieldType === 'enum' ? f.config.choices.length : 0;
+          const enumChoiceCount = f.config.fieldType === 'enum' ? f.config.choices.length : 0;
           return (
             <div
               key={f.id}
@@ -231,7 +226,7 @@ function FieldsListView({
                   ? 'bg-brand-soft opacity-50'
                   : isDropTarget
                     ? 'border border-brand bg-surface-raised'
-                    : 'bg-surface-raised border border-transparent')
+                    : 'border border-transparent bg-surface-raised')
               }
             >
               <span
@@ -247,7 +242,7 @@ function FieldsListView({
               <button
                 type="button"
                 onClick={() => onEdit(f)}
-                className="flex-1 truncate text-left text-[13px] font-medium text-ink border-none bg-transparent cursor-pointer p-0"
+                className="flex-1 cursor-pointer truncate border-none bg-transparent p-0 text-left text-[13px] font-medium text-ink"
               >
                 {f.name}
               </button>
@@ -310,11 +305,7 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
 
   const activeField = value ? fields.find((f) => f.ref === value) : null;
   const label =
-    value === null
-      ? 'Don\u2019t group'
-      : activeField
-        ? activeField.name
-        : 'Don\u2019t group';
+    value === null ? 'Don\u2019t group' : activeField ? activeField.name : 'Don\u2019t group';
 
   return (
     <div className="relative">
@@ -340,7 +331,10 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
             active={value === null}
             icon={<List size={12} />}
             label={'Don\u2019t group'}
-            onClick={() => { onChange(null); setOpen(false); }}
+            onClick={() => {
+              onChange(null);
+              setOpen(false);
+            }}
           />
           {groupable.length > 0 && <div className="my-1 h-px bg-surface-sunk" />}
           {groupable.map((f) => {
@@ -351,7 +345,10 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
                 active={value === f.ref}
                 icon={<TypeIcon size={12} />}
                 label={f.name}
-                onClick={() => { onChange(f.ref); setOpen(false); }}
+                onClick={() => {
+                  onChange(f.ref);
+                  setOpen(false);
+                }}
               />
             );
           })}

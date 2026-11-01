@@ -38,13 +38,18 @@ export class ConsentUnavailable extends Error {
 async function browserRequest(uid: string, suffix = '', method = 'GET'): Promise<Request> {
   const h = await headers();
   const cookie = h.get('cookie') ?? '';
-  return new Request(`${oauthIssuer()}${consentPath(uid)}${suffix}`, { method, headers: { cookie } });
+  return new Request(`${oauthIssuer()}${consentPath(uid)}${suffix}`, {
+    method,
+    headers: { cookie },
+  });
 }
 
 async function details(provider: Provider, request: Request) {
   try {
-    const { value } = await withNodePair(request, { origin: oauthIssuer(), clientIp: null }, (req, res) =>
-      provider.interactionDetails(req, res),
+    const { value } = await withNodePair(
+      request,
+      { origin: oauthIssuer(), clientIp: null },
+      (req, res) => provider.interactionDetails(req, res),
     );
     return value;
   } catch (err) {
@@ -99,15 +104,24 @@ export type Decision = 'approve' | 'deny';
  * authorization. Approving creates (or extends) the Grant for this
  * organizer + client; denying returns `access_denied` to the client.
  */
-export async function decideConsent(uid: string, actor: Actor, decision: Decision): Promise<Response> {
+export async function decideConsent(
+  uid: string,
+  actor: Actor,
+  decision: Decision,
+): Promise<Response> {
   const organizerId = requireOrganizerId(actor);
   const db = getDb();
-  const { provider, request, clientId, client: display, scope, requestedScopes: requested } = await openInteraction(
-    uid,
-    '/decision',
-    'POST',
+  const {
+    provider,
+    request,
+    clientId,
+    client: display,
+    scope,
+    requestedScopes: requested,
+  } = await openInteraction(uid, '/decision', 'POST');
+  const resourceScopes = requested.filter((s) =>
+    (RESOURCE_SCOPES as readonly string[]).includes(s),
   );
-  const resourceScopes = requested.filter((s) => (RESOURCE_SCOPES as readonly string[]).includes(s));
 
   let result: Record<string, unknown>;
   if (decision === 'deny') {
@@ -144,8 +158,11 @@ export async function decideConsent(uid: string, actor: Actor, decision: Decisio
     });
   }
 
-  const { response, ended } = await withNodePair(request, { origin: oauthIssuer(), clientIp: null }, (req, res) =>
-    provider.interactionFinished(req, res, result, { mergeWithLastSubmission: false }),
+  const { response, ended } = await withNodePair(
+    request,
+    { origin: oauthIssuer(), clientIp: null },
+    (req, res) =>
+      provider.interactionFinished(req, res, result, { mergeWithLastSubmission: false }),
   );
   if (!ended) throw new ServiceException(serviceError('internal', 'consent could not be recorded'));
   return response;
