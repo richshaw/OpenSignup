@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Calendar, Check, ListChecks } from 'lucide-react';
 import { followUpItems, type FollowUp } from '@/lib/magic-compose/questions';
 import { formatOneDay } from './answers';
-import { DESCRIPTION_CARD, YOU_WROTE_PADDING, YouWrote } from './YouWrote';
+import { BAND_DIVIDER, YOU_WROTE_BAND, YouWrote } from './YouWrote';
 
 const LEFT_BLANK = ['All answered', 'One left blank', 'Two left blank'];
 
@@ -14,7 +14,8 @@ function countLabel(count: number | null): string {
 /**
  * What a draft from answers is being made from: the description, each thing
  * with its count, and the day. Shown while the second call runs, so the
- * organizer can see their answers went with it.
+ * organizer can see their answers went with it. It's the panel's first band,
+ * the one the description has on every screen, with the answers under the quote.
  */
 export function DraftingFrom({ prompt, followUp }: { prompt: string; followUp: FollowUp }) {
   const items = followUpItems(followUp);
@@ -22,24 +23,22 @@ export function DraftingFrom({ prompt, followUp }: { prompt: string; followUp: F
   const blanks = (items.length === 0 ? 1 : 0) + (when?.kind === 'not_decided' ? 1 : 0);
 
   return (
-    <section aria-label="Drafting from" className={DESCRIPTION_CARD}>
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-surface-sunk bg-surface-raised px-4 py-2.5">
-        <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          Drafting from
-        </span>
-        <span
-          className={`inline-flex max-w-full items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-            blanks === 0 ? 'bg-success/10 text-success' : 'bg-surface-sunk text-ink-muted'
-          }`}
-        >
-          {blanks === 0 && <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />}
-          {LEFT_BLANK[blanks]}
-        </span>
-      </div>
-      <div className={YOU_WROTE_PADDING}>
-        <YouWrote prompt={prompt} variant="plain" />
-      </div>
-      <dl className="flex flex-col px-4 pb-1.5">
+    <section aria-label="Drafting from" className={`${YOU_WROTE_BAND} ${BAND_DIVIDER}`}>
+      <YouWrote
+        prompt={prompt}
+        variant="plain"
+        aside={
+          <span
+            className={`inline-flex max-w-full items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              blanks === 0 ? 'bg-success/10 text-success' : 'bg-surface-sunk text-ink-muted'
+            }`}
+          >
+            {blanks === 0 && <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />}
+            {LEFT_BLANK[blanks]}
+          </span>
+        }
+      />
+      <dl className="-mb-2.5 mt-2 flex flex-col">
         <Row icon={<ListChecks className="h-4 w-4" />} term="What" blank={items.length === 0}>
           {items.length === 0 ? (
             <Blank>Left blank. The draft will use placeholder slots you can fill in later.</Blank>
