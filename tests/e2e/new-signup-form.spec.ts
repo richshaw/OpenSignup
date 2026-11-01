@@ -25,6 +25,24 @@ test.describe('the New signup form', () => {
     await expect(page).toHaveURL(/\/app\/signups\/new\?manual=1$/);
   });
 
+  test('puts Title at the top of the card, with no gap from the action’s hidden inputs', async ({
+    page,
+  }) => {
+    await page.goto('/app/signups/new?manual=1');
+    // useActionState puts hidden inputs at the start of the <form>; spacing
+    // that counts them as children pushed Title down by an extra gap.
+    const gap = await page.locator('form:has(input[name="title"])').evaluate((form) => {
+      const label = form.querySelector('label');
+      if (!label) return null;
+      const padding = parseFloat(getComputedStyle(form).paddingTop);
+      const borderTop = parseFloat(getComputedStyle(form).borderTopWidth);
+      return (
+        label.getBoundingClientRect().top - form.getBoundingClientRect().top - borderTop - padding
+      );
+    });
+    expect(gap).toBe(0);
+  });
+
   test('lands on the Build page of a signup it creates', async ({ page }) => {
     await page.goto('/app/signups/new?manual=1');
     await page.getByLabel('Title').fill(`Snack duty ${Date.now()}`);

@@ -31,7 +31,7 @@ export function NewSignupForm({
       {state ? <FormError>{state.error}</FormError> : null}
       <form
         action={formAction}
-        className="space-y-5 rounded-xl border border-surface-sunk bg-white p-6"
+        className="flex flex-col gap-5 rounded-xl border border-surface-sunk bg-white p-6"
       >
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Title</span>
