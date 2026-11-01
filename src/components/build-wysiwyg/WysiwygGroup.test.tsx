@@ -117,6 +117,14 @@ describe('WysiwygGroup', () => {
     expect(onAddSlot).toHaveBeenCalledWith('2026-05-21');
   });
 
+  it('"Add a slot" below rows keeps its hover colour and its dashed top border', () => {
+    renderGroup({ group: { key: '2026-05-21', rawValue: '2026-05-21', rows: [makeRow()] } });
+    const classes = screen.getByRole('button', { name: 'Add a slot' }).className.split(/\s+/);
+    expect(classes).toEqual(
+      expect.arrayContaining(['hover:text-brand', 'border-t', 'border-dashed']),
+    );
+  });
+
   it('edits a date header in a date input that starts where the services do', () => {
     const { onRenameGroup } = renderGroup({
       group: { key: '2026-05-21', rawValue: '2026-05-21', rows: [makeRow()] },

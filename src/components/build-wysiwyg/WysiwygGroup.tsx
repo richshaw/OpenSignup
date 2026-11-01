@@ -129,7 +129,7 @@ export function WysiwygGroup({
           onClick={() => onAddSlot(group.key)}
           className={
             'inline-flex w-full items-center gap-1.5 rounded-b-[11px] px-3.5 py-2.5 text-left text-xs font-medium text-ink-muted first:rounded-t-[11px] ' +
-            'transition-colors duration-180 hover:bg-brand-soft hover:text-brand' +
+            'transition-colors duration-180 hover:bg-brand-soft hover:text-brand ' +
             (group.rows.length > 0 ? 'border-t border-dashed border-surface-sunk' : '')
           }
         >
