@@ -59,11 +59,10 @@ export function toSignupViewProps(
     Parameters<typeof toSignupViewSignup>[0] & { slug: string },
   committedBySlot?: Record<string, number>,
 ): Pick<SignupViewProps, 'signup' | 'fields' | 'groupByRef' | 'slots' | 'slug'> {
-  const settings = (signup.settings ?? {}) as { groupByFieldRefs?: string[] };
   return {
     signup: toSignupViewSignup(signup),
     fields: signup.fields,
-    groupByRef: settings.groupByFieldRefs?.[0] ?? null,
+    groupByRef: signup.settings.groupByFieldRefs?.[0] ?? null,
     slots: toSignupViewSlots(signup, committedBySlot),
     slug: signup.slug,
   };
