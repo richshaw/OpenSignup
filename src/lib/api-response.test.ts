@@ -61,9 +61,7 @@ describe('handle()', () => {
 
 describe('fail()', () => {
   it('sets Retry-After for a returned rate_limited error, not only a thrown one', () => {
-    const res = fail(
-      serviceError('rate_limited', 'slow down', { details: { retryAfterSeconds: 42 } }),
-    );
+    const res = fail(serviceError('rate_limited', 'slow down', { details: { retryAfterSeconds: 42 } }));
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('42');
   });
@@ -79,10 +77,7 @@ describe('respond()', () => {
   it('builds links from the value when given a function', async () => {
     const res = respond(ok({ id: 'slot_1' }), (v) => ({ self: `/api/slots/${v.id}` }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      data: { id: 'slot_1' },
-      _links: { self: '/api/slots/slot_1' },
-    });
+    expect(await res.json()).toEqual({ data: { id: 'slot_1' }, _links: { self: '/api/slots/slot_1' } });
   });
 
   it('never calls the links function for an error', async () => {
@@ -104,9 +99,7 @@ describe('readJson()', () => {
 
   it('returns {} for a missing or malformed body', async () => {
     expect(await readJson(new Request('http://localhost/x', { method: 'POST' }))).toEqual({});
-    expect(
-      await readJson(new Request('http://localhost/x', { method: 'POST', body: '{nope' })),
-    ).toEqual({});
+    expect(await readJson(new Request('http://localhost/x', { method: 'POST', body: '{nope' }))).toEqual({});
   });
 
   it('drops a leading byte order mark, as req.json() did', async () => {

@@ -1,4 +1,10 @@
 /**
+ * The most a JSON request body may be, on REST (`readJson`) and MCP alike,
+ * which take the same inputs. Next.js puts no limit on a route handler's body.
+ */
+export const MAX_JSON_BODY_BYTES = 1_000_000;
+
+/**
  * Read a request body into memory with a hard byte cap. The declared
  * `content-length` is checked first (free), then the stream is read chunk
  * by chunk and abandoned the moment it passes the limit, so a chunked or
@@ -6,12 +12,6 @@
  * Shared by the OAuth shim and the MCP endpoint, which both have to
  * materialise a body before an unauthenticated caller has proven anything.
  */
-/**
- * The most a JSON request body may be, on REST (`readJson`) and MCP alike,
- * which take the same inputs. Next.js puts no limit on a route handler's body.
- */
-export const MAX_JSON_BODY_BYTES = 1_000_000;
-
 export class BodyTooLarge extends Error {
   constructor() {
     super('request body too large');

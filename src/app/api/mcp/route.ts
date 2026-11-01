@@ -62,7 +62,11 @@ export function GET(): Response {
 
 export async function POST(request: Request): Promise<Response> {
   const declared = Number(request.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > MAX_JSON_BODY_BYTES) return tooLarge();
+  if (Number.isFinite(declared) && declared > MAX_JSON_BODY_BYTES) {
+    // Cancelled rather than left unread, so the upload stops here.
+    await request.body?.cancel().catch(() => {});
+    return tooLarge();
+  }
 
   const ipLimited = await meter(RateLimits.mcpPerIp, extractClientIp(request.headers) ?? 'unknown');
   if (ipLimited) return ipLimited;
@@ -110,8 +114,5 @@ export async function POST(request: Request): Promise<Response> {
     workspaces: auth.workspaces,
   };
   // The body is already consumed; the SDK never reads it when parsedBody is given.
-  return getMcpHandler().fetch(request, {
-    authInfo: attachContext(auth.authInfo, ctx),
-    parsedBody,
-  });
+  return getMcpHandler().fetch(request, { authInfo: attachContext(auth.authInfo, ctx), parsedBody });
 }

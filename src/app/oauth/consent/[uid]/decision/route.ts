@@ -4,6 +4,7 @@ import { getDb } from '@/db/client';
 import { waitInMinutes } from '@/lib/format-duration';
 import { log } from '@/lib/log';
 import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
+import { readFormData } from '@/lib/request-body';
 import { consentPath, isInteractionUid, oauthIssuer } from '@/oauth/config';
 import { ConsentUnavailable, decideConsent, type Decision } from '@/oauth/consent';
 import { renderErrorPage } from '@/oauth/provider';
@@ -32,7 +33,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
     redirect(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
   }
 
-  const form = await request.formData().catch(() => null);
+  // The consent page posts one field; a bigger body is not from it.
+  const form = await readFormData(request, 16 * 1024);
   const raw = form?.get('decision');
   const decision: Decision = raw === 'approve' ? 'approve' : 'deny';
 
