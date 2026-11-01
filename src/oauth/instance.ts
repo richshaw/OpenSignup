@@ -56,7 +56,9 @@ export function getProvider(): Promise<Provider> {
  * from sharing raw key material without asking operators for another secret.
  */
 function cookieSigningKey(authSecret: string): string {
-  return Buffer.from(hkdfSync('sha256', authSecret, 'opensignup-oauth', 'oauth-cookie-signing', 32)).toString('base64url');
+  return Buffer.from(
+    hkdfSync('sha256', authSecret, 'opensignup-oauth', 'oauth-cookie-signing', 32),
+  ).toString('base64url');
 }
 
 /** Whether a client's metadata document may be fetched now: false for a bad URL or an origin over its limit. */
@@ -106,6 +108,9 @@ async function build(): Promise<Provider> {
     allowCimdFetch: (clientId) => allowCimdFetch(db, clientId),
     onGrantUsed: (grantId) => touchGrantUsed(db, grantId),
   });
-  log.info({ issuer: oauthIssuer(), resource: mcpResourceUrl(), keys: keys.privateKeys.length }, 'oauth: provider ready');
+  log.info(
+    { issuer: oauthIssuer(), resource: mcpResourceUrl(), keys: keys.privateKeys.length },
+    'oauth: provider ready',
+  );
   return provider;
 }

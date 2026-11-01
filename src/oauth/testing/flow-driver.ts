@@ -41,7 +41,11 @@ export interface Driver {
   jar: CookieJar;
   clientIp: string;
   get(path: string, headers?: Record<string, string>): Promise<Response>;
-  post(path: string, form: Record<string, string>, headers?: Record<string, string>): Promise<Response>;
+  post(
+    path: string,
+    form: Record<string, string>,
+    headers?: Record<string, string>,
+  ): Promise<Response>;
 }
 
 export function createDriver(provider: Provider, issuer: string): Driver {
@@ -86,7 +90,10 @@ export interface AuthorizeParams {
 }
 
 /** Start an authorization; returns the interaction uid from the redirect. */
-export async function startAuthorization(d: Driver, p: AuthorizeParams): Promise<{ uid: string; response: Response }> {
+export async function startAuthorization(
+  d: Driver,
+  p: AuthorizeParams,
+): Promise<{ uid: string; response: Response }> {
   const q = new URLSearchParams({
     client_id: p.clientId,
     redirect_uri: p.redirectUri,
@@ -105,9 +112,13 @@ export async function startAuthorization(d: Driver, p: AuthorizeParams): Promise
 
 /** What the consent page would read. */
 export async function interactionDetails(d: Driver, uid: string) {
-  const request = new Request(`${d.issuer}${consentPath(uid)}`, { headers: { cookie: d.jar.header() } });
-  const { value } = await withNodePair(request, { origin: d.issuer, clientIp: d.clientIp }, (req, res) =>
-    d.provider.interactionDetails(req, res),
+  const request = new Request(`${d.issuer}${consentPath(uid)}`, {
+    headers: { cookie: d.jar.header() },
+  });
+  const { value } = await withNodePair(
+    request,
+    { origin: d.issuer, clientIp: d.clientIp },
+    (req, res) => d.provider.interactionDetails(req, res),
   );
   return value;
 }
@@ -122,8 +133,11 @@ export async function finishInteraction(
     method: 'POST',
     headers: { cookie: d.jar.header() },
   });
-  const { response } = await withNodePair(request, { origin: d.issuer, clientIp: d.clientIp }, (req, res) =>
-    d.provider.interactionFinished(req, res, result, { mergeWithLastSubmission: false }),
+  const { response } = await withNodePair(
+    request,
+    { origin: d.issuer, clientIp: d.clientIp },
+    (req, res) =>
+      d.provider.interactionFinished(req, res, result, { mergeWithLastSubmission: false }),
   );
   d.jar.absorb(response);
   return response;
@@ -134,7 +148,11 @@ export async function resume(d: Driver, uid: string): Promise<Response> {
   return d.get(`${OAUTH_ROUTES.authorization}/${uid}`, { accept: 'text/html' });
 }
 
-export function codeFromRedirect(response: Response): { code: string; iss: string | null; state: string | null } {
+export function codeFromRedirect(response: Response): {
+  code: string;
+  iss: string | null;
+  state: string | null;
+} {
   const location = new URL(response.headers.get('location') ?? 'http://invalid/');
   return {
     code: location.searchParams.get('code') ?? '',

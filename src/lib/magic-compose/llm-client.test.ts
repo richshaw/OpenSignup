@@ -50,14 +50,14 @@ describe('resolveChatCompletionsUrl', () => {
     );
   });
   it('returns full URLs unchanged', () => {
-    expect(
-      resolveChatCompletionsUrl('https://openrouter.ai/api/v1/chat/completions'),
-    ).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect(resolveChatCompletionsUrl('https://openrouter.ai/api/v1/chat/completions')).toBe(
+      'https://openrouter.ai/api/v1/chat/completions',
+    );
   });
   it('handles full URL with trailing slash', () => {
-    expect(
-      resolveChatCompletionsUrl('https://openrouter.ai/api/v1/chat/completions/'),
-    ).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect(resolveChatCompletionsUrl('https://openrouter.ai/api/v1/chat/completions/')).toBe(
+      'https://openrouter.ai/api/v1/chat/completions',
+    );
   });
 });
 
@@ -99,10 +99,11 @@ describe('defaultLlmClient.generateDraft', () => {
   });
 
   it('flags invalid inner JSON content', async () => {
-    mockFetch(async () =>
-      new Response(JSON.stringify({ choices: [{ message: { content: 'oops' } }] }), {
-        status: 200,
-      }),
+    mockFetch(
+      async () =>
+        new Response(JSON.stringify({ choices: [{ message: { content: 'oops' } }] }), {
+          status: 200,
+        }),
     );
     const r = await defaultLlmClient().generateDraft([]);
     expect(r.ok).toBe(false);

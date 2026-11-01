@@ -90,7 +90,11 @@ describe('recordActivity → organizers.last_active_at', () => {
     await recordActivity(fx.db, {
       signupId: null,
       workspaceId: fx.workspaceId,
-      actor: { actorId: fx.organizerId, actorType: 'organizer', clientId: 'https://client.example/meta.json' },
+      actor: {
+        actorId: fx.organizerId,
+        actorType: 'organizer',
+        clientId: 'https://client.example/meta.json',
+      },
       eventType: 'signup.updated',
       payload: { changed: ['title'] },
     });
@@ -109,7 +113,10 @@ describe('recordActivity → organizers.last_active_at', () => {
       changed: ['title'],
       viaClientId: 'https://client.example/meta.json',
     });
-    expect(rows.find((r) => r.eventType === 'signup.published')?.payload).toEqual({ from: 'draft', to: 'open' });
+    expect(rows.find((r) => r.eventType === 'signup.published')?.payload).toEqual({
+      from: 'draft',
+      to: 'open',
+    });
   });
 
   it('never stores a viaClientId the caller put in the payload', async () => {

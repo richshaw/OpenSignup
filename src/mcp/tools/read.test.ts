@@ -50,7 +50,9 @@ describe('read tools', () => {
     const client = await connectTestClient(ctx, READ_TOOLS);
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['list_workspaces', 'list_signups', 'get_signup']));
+    expect(names).toEqual(
+      expect.arrayContaining(['list_workspaces', 'list_signups', 'get_signup']),
+    );
     for (const t of tools) {
       expect(t.annotations?.readOnlyHint).toBe(true);
       expect(t.inputSchema.type).toBe('object');
@@ -94,8 +96,13 @@ describe('read tools', () => {
   it('list_signups passes an explicit workspace and status through', async () => {
     listSignupSummariesForWorkspace.mockResolvedValueOnce(ok([]));
     const client = await connectTestClient(ctx, READ_TOOLS);
-    await client.callTool({ name: 'list_signups', arguments: { workspaceId: 'ws_2', status: 'open' } });
-    expect(listSignupSummariesForWorkspace).toHaveBeenCalledWith(ctx.db, ctx.actor, 'ws_2', { status: 'open' });
+    await client.callTool({
+      name: 'list_signups',
+      arguments: { workspaceId: 'ws_2', status: 'open' },
+    });
+    expect(listSignupSummariesForWorkspace).toHaveBeenCalledWith(ctx.db, ctx.actor, 'ws_2', {
+      status: 'open',
+    });
   });
 
   it('get_signup returns fields, slots with filled counts, and links', async () => {
@@ -103,7 +110,14 @@ describe('read tools', () => {
       ok({
         ...row,
         fields: [
-          { id: 'fld_1', ref: 'what', label: 'What', fieldType: 'text', sortOrder: 0, config: { fieldType: 'text', maxLength: 200 } },
+          {
+            id: 'fld_1',
+            ref: 'what',
+            label: 'What',
+            fieldType: 'text',
+            sortOrder: 0,
+            config: { fieldType: 'text', maxLength: 200 },
+          },
         ],
         slots: [
           {
@@ -124,16 +138,29 @@ describe('read tools', () => {
     );
     const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 'sig_1' } });
-    expect(getSignupForOrganizer).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', { includeFilled: true });
+    expect(getSignupForOrganizer).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
+      includeFilled: true,
+    });
     const body = r.structuredContent as {
       signup: Record<string, unknown>;
       slots: Record<string, unknown>[];
       fields: unknown[];
       links: unknown;
     };
-    expect(body.signup).toMatchObject({ id: 'sig_1', description: 'Bring cakes', settings: { groupByFieldRefs: [] } });
+    expect(body.signup).toMatchObject({
+      id: 'sig_1',
+      description: 'Bring cakes',
+      settings: { groupByFieldRefs: [] },
+    });
     expect(body.signup).not.toHaveProperty('links');
-    expect(body.slots[0]).toEqual({ id: 'slot_1', values: { what: 'Cake' }, capacity: 3, filled: 2, status: 'open', sortOrder: 0 });
+    expect(body.slots[0]).toEqual({
+      id: 'slot_1',
+      values: { what: 'Cake' },
+      capacity: 3,
+      filled: 2,
+      status: 'open',
+      sortOrder: 0,
+    });
     expect(body.fields).toHaveLength(1);
     expect(body.links).toEqual({
       edit: 'https://x/app/signups/sig_1/build',
@@ -180,7 +207,9 @@ describe('read tools', () => {
     const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 5 } });
     expect(r.isError).toBe(true);
-    expect((r.structuredContent as { error: { code: string; field?: string } }).error).toMatchObject({
+    expect(
+      (r.structuredContent as { error: { code: string; field?: string } }).error,
+    ).toMatchObject({
       code: 'invalid_input',
       field: 'signupId',
     });
@@ -192,6 +221,8 @@ describe('read tools', () => {
     const client = await connectTestClient(ctx, READ_TOOLS);
     const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 'sig_9' } });
     expect(r.isError).toBe(true);
-    expect(r.structuredContent).toEqual({ error: { code: 'not_found', message: 'signup not found' } });
+    expect(r.structuredContent).toEqual({
+      error: { code: 'not_found', message: 'signup not found' },
+    });
   });
 });

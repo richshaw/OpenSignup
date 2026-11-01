@@ -33,9 +33,7 @@ describe('SlotFieldConfigSchema', () => {
   });
 
   it('rejects text maxLength exceeding 2000', () => {
-    expect(() =>
-      SlotFieldConfigSchema.parse({ fieldType: 'text', maxLength: 5000 }),
-    ).toThrow();
+    expect(() => SlotFieldConfigSchema.parse({ fieldType: 'text', maxLength: 5000 })).toThrow();
   });
 
   it('accepts empty date config', () => {
@@ -47,15 +45,18 @@ describe('SlotFieldConfigSchema', () => {
   });
 
   it('accepts number config with unit and target', () => {
-    expect(
-      SlotFieldConfigSchema.parse({ fieldType: 'number', unit: 'lbs', target: 50 }),
-    ).toEqual({ fieldType: 'number', unit: 'lbs', target: 50 });
+    expect(SlotFieldConfigSchema.parse({ fieldType: 'number', unit: 'lbs', target: 50 })).toEqual({
+      fieldType: 'number',
+      unit: 'lbs',
+      target: 50,
+    });
   });
 
   it('accepts enum config with choices', () => {
-    expect(
-      SlotFieldConfigSchema.parse({ fieldType: 'enum', choices: ['A', 'B', 'C'] }),
-    ).toEqual({ fieldType: 'enum', choices: ['A', 'B', 'C'] });
+    expect(SlotFieldConfigSchema.parse({ fieldType: 'enum', choices: ['A', 'B', 'C'] })).toEqual({
+      fieldType: 'enum',
+      choices: ['A', 'B', 'C'],
+    });
   });
 
   it('rejects enum with more than 20 choices', () => {

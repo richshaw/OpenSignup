@@ -46,7 +46,8 @@ function renderSlot(overrides: RenderProps = {}) {
   const onCollapse = overrides.onCollapse ?? vi.fn<() => void>();
   const onEditCell = overrides.onEditCell ?? vi.fn<(fieldRef: string, value: string) => void>();
   const onSetCapacity = overrides.onSetCapacity ?? vi.fn<(capacity: number | null) => void>();
-  const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
+  const onAddEnumOption =
+    overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
   const onDuplicate = overrides.onDuplicate ?? vi.fn<() => void>();
   const onDelete = overrides.onDelete ?? vi.fn<() => void>();
   const defaultDisplayFields: BuildField[] = [
@@ -76,7 +77,16 @@ function renderSlot(overrides: RenderProps = {}) {
       onDelete={onDelete}
     />,
   );
-  return { ...utils, onExpand, onCollapse, onEditCell, onSetCapacity, onAddEnumOption, onDuplicate, onDelete };
+  return {
+    ...utils,
+    onExpand,
+    onCollapse,
+    onEditCell,
+    onSetCapacity,
+    onAddEnumOption,
+    onDuplicate,
+    onDelete,
+  };
 }
 
 describe('WysiwygSlot — collapsed', () => {
@@ -263,11 +273,13 @@ describe('WysiwygSlot — a slot that says TBD', () => {
 });
 
 describe('WysiwygSlot — expanded', () => {
-  it('renders a SlotEditor with the row\'s values', () => {
+  it("renders a SlotEditor with the row's values", () => {
     renderSlot({ expanded: true });
     expect(screen.getByText('Editing slot')).toBeTruthy();
     expect((screen.getByLabelText('Shift value') as HTMLInputElement).value).toBe('09:00');
-    expect((screen.getByLabelText('Notes value') as HTMLInputElement).value).toBe('Bring sunscreen');
+    expect((screen.getByLabelText('Notes value') as HTMLInputElement).value).toBe(
+      'Bring sunscreen',
+    );
   });
 
   it('Done in the expanded editor calls onCollapse', () => {

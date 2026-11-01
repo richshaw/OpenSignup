@@ -43,8 +43,7 @@ describe('buildConfirmationUrl', () => {
   });
 
   it('uses the authUrl origin for the confirmation page', () => {
-    const callback =
-      'https://opensignup.org/api/auth/callback/nodemailer?token=t&email=a%40b.com';
+    const callback = 'https://opensignup.org/api/auth/callback/nodemailer?token=t&email=a%40b.com';
     const result = buildConfirmationUrl(callback, 'https://opensignup.org');
     expect(result.startsWith('https://opensignup.org/login/confirm')).toBe(true);
   });

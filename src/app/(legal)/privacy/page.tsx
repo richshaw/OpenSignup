@@ -86,18 +86,18 @@ export default function PrivacyPage() {
           <li>
             An append-only activity log of organizer actions (sign-ins, creating and editing
             signups, sending magic links, copying a signup&rsquo;s link, or from the share panel
-            sending it by your phone&rsquo;s share menu, choosing Email it, or showing or saving
-            the QR code, a publish or an AI draft that didn&rsquo;t go through, and whether AI
-            drafting asked you questions and how you answered them, in counts only, never what you
-            or the AI wrote), which of your own pages you open and whether on a phone or a computer
-            (never the browser&rsquo;s full identifying string), participant commitments on your
-            signups, and reminder dispatches. For a copy or a share it records only which button
-            it was and the signup&rsquo;s status: never the message, and nothing about who the
-            link went to. This exists so an organizer can audit what happened in their own
-            workspace, so the operator can investigate abuse, and so the operator can count, in
-            aggregate, where organizers get stuck between starting a signup and sharing it. The
-            same log records anonymous view telemetry on the marketing home page and on your
-            public signup pages (see &ldquo;Logs and rate-limiting&rdquo; below).
+            sending it by your phone&rsquo;s share menu, choosing Email it, or showing or saving the
+            QR code, a publish or an AI draft that didn&rsquo;t go through, and whether AI drafting
+            asked you questions and how you answered them, in counts only, never what you or the AI
+            wrote), which of your own pages you open and whether on a phone or a computer (never the
+            browser&rsquo;s full identifying string), participant commitments on your signups, and
+            reminder dispatches. For a copy or a share it records only which button it was and the
+            signup&rsquo;s status: never the message, and nothing about who the link went to. This
+            exists so an organizer can audit what happened in their own workspace, so the operator
+            can investigate abuse, and so the operator can count, in aggregate, where organizers get
+            stuck between starting a signup and sharing it. The same log records anonymous view
+            telemetry on the marketing home page and on your public signup pages (see &ldquo;Logs
+            and rate-limiting&rdquo; below).
           </li>
           <li>
             After a sign-in email is sent, the sign-in link&apos;s token (stored as a hash, next to
@@ -126,18 +126,16 @@ export default function PrivacyPage() {
           <li>
             Email address, if you give one. The organizer decides whether a signup requires it. We
             use it to send you a confirmation with your link to change or cancel, and, if the
-            organizer has reminders on, reminders and an email when your slot moves to a new date
-            or time. If you leave it blank where that is allowed, we send you no
-            emails. Your link is then shown on screen after you sign up, and only that browser
-            remembers it: for 60 days, or until a week after your slot if that is later.
+            organizer has reminders on, reminders and an email when your slot moves to a new date or
+            time. If you leave it blank where that is allowed, we send you no emails. Your link is
+            then shown on screen after you sign up, and only that browser remembers it: for 60 days,
+            or until a week after your slot if that is later.
           </li>
           <li>
             Your slot selection, quantity, and any optional notes. The organizer sees your note, so
             put in it only what they need to know.
           </li>
-          <li>
-            Whether you have opted out of reminder emails for that signup, and when.
-          </li>
+          <li>Whether you have opted out of reminder emails for that signup, and when.</li>
         </ul>
         <p>
           A browser cookie keeps your link to change or cancel, so you can come back to your own
@@ -188,19 +186,20 @@ export default function PrivacyPage() {
         <h2 className="text-xl font-semibold tracking-tight">Email delivery</h2>
         <p>
           {INSTANCE_NAME} sends four kinds of email: organizer magic-link sign-in emails, a
-          confirmation to a participant when they commit to a slot, a reminder before a dated
-          slot, and an email when the organizer moves a participant&apos;s slot to a new date or
-          time. A participant gets these only if they gave an email address. Moving to a different
-          slot gives your spot a new private link, and sends a fresh confirmation with it. The
-          old link then leads to the new one. Each of these participant emails contains a private
-          link that lets you change or cancel that commitment without signing in, so treat them as
-          you would a password and don&apos;t forward them. Reminders go out the day before the slot,
-          and a moved-slot email about 10 minutes after the organizer&apos;s last change to its date
-          or time; organizers can turn both off for a signup entirely, with the reminders setting.
-          Every reminder and moved-slot email carries a link that stops both for that signup; we record only the time you opted out, and it does not affect
-          any other signup or your slot itself. Delivery uses whichever transport the operator has
-          configured (SMTP, a transactional provider, or local console output in
-          development). {INSTANCE_NAME} sends no marketing email.
+          confirmation to a participant when they commit to a slot, a reminder before a dated slot,
+          and an email when the organizer moves a participant&apos;s slot to a new date or time. A
+          participant gets these only if they gave an email address. Moving to a different slot
+          gives your spot a new private link, and sends a fresh confirmation with it. The old link
+          then leads to the new one. Each of these participant emails contains a private link that
+          lets you change or cancel that commitment without signing in, so treat them as you would a
+          password and don&apos;t forward them. Reminders go out the day before the slot, and a
+          moved-slot email about 10 minutes after the organizer&apos;s last change to its date or
+          time; organizers can turn both off for a signup entirely, with the reminders setting.
+          Every reminder and moved-slot email carries a link that stops both for that signup; we
+          record only the time you opted out, and it does not affect any other signup or your slot
+          itself. Delivery uses whichever transport the operator has configured (SMTP, a
+          transactional provider, or local console output in development). {INSTANCE_NAME} sends no
+          marketing email.
         </p>
       </section>
 
@@ -211,28 +210,29 @@ export default function PrivacyPage() {
           app, Claude Code, or ChatGPT, to their {INSTANCE_NAME} account. Nothing is connected
           unless the organizer approves it on a consent screen that names the domain the app
           identified itself from (or, for an app the operator of this instance registered in
-          advance, the name the operator gave it) and lists exactly what it will be able to do. Participants are
-          never asked to sign in and cannot connect anything.
+          advance, the name the operator gave it) and lists exactly what it will be able to do.
+          Participants are never asked to sign in and cannot connect anything.
         </p>
         <p>
           A connected app acts as the organizer who approved it, across every workspace that
           organizer belongs to, with the same role and never more access than the organizer has
           themselves. Permissions are approved individually: seeing your signups and their slots,
-          and creating, editing, publishing and deleting signups. Participant names and email addresses sit behind a
-          separate permission an app has to ask for explicitly; the consent screen flags it in amber
-          and says plainly that participants gave those details to you, not to the app. An app that
-          was not granted that permission cannot read participant details at all.
+          and creating, editing, publishing and deleting signups. Participant names and email
+          addresses sit behind a separate permission an app has to ask for explicitly; the consent
+          screen flags it in amber and says plainly that participants gave those details to you, not
+          to the app. An app that was not granted that permission cannot read participant details at
+          all.
         </p>
         <p>
           For each connected app we store the approval (which organizer, which app, which
           permissions, when it was approved, when it was last used, and when it expires), the
           app&apos;s identifier and the name it reports about itself, the refresh tokens that keep
-          the connection alive, and, for the minute it takes to set a connection up, the
-          single-use code that establishes it. Access tokens themselves are not stored. The
-          activity log records that a connection was approved, declined, or disconnected,
-          together with the app&apos;s domain (or its configured identifier, for a
-          pre-registered app), and, for every change a connected app makes on your behalf,
-          which app made it. It never records a token or an email address.
+          the connection alive, and, for the minute it takes to set a connection up, the single-use
+          code that establishes it. Access tokens themselves are not stored. The activity log
+          records that a connection was approved, declined, or disconnected, together with the
+          app&apos;s domain (or its configured identifier, for a pre-registered app), and, for every
+          change a connected app makes on your behalf, which app made it. It never records a token
+          or an email address.
         </p>
         <p>
           You can see and end every connection from <strong>Connected apps</strong> in your account
@@ -244,9 +244,9 @@ export default function PrivacyPage() {
         <p>
           Whatever a connected assistant reads under the permissions you approved is then processed
           by that assistant&apos;s vendor under their own terms and privacy policy, not ours. Apart
-          from AI drafting, described under &ldquo;Third parties&rdquo; below,{' '}
-          {INSTANCE_NAME} sends nothing to an AI vendor itself: only an app you connected, acting
-          on your instructions, can pull data out.
+          from AI drafting, described under &ldquo;Third parties&rdquo; below, {INSTANCE_NAME} sends
+          nothing to an AI vendor itself: only an app you connected, acting on your instructions,
+          can pull data out.
         </p>
       </section>
 
@@ -276,8 +276,8 @@ export default function PrivacyPage() {
           a unique account identifier. We store the link between that provider account and your
           organizer record — along with the standard sign-in tokens the provider issues — so we can
           recognise you on future sign-ins. If that sign-in created your account, we also keep the
-          web address of the avatar the provider returned. We do not use those tokens to access anything on the
-          provider beyond the basic profile needed to sign you in.
+          web address of the avatar the provider returned. We do not use those tokens to access
+          anything on the provider beyond the basic profile needed to sign you in.
         </p>
       </section>
 
@@ -372,17 +372,17 @@ export default function PrivacyPage() {
           <a href={SUPPORT_MAILTO} className="text-brand underline">
             {SUPPORT_EMAIL}
           </a>
-          . Today this is a manual process — self-service export and deletion may be added
-          later. If you signed up for a slot, you can also ask the organizer about their own use
-          of your details. Organizers can already delete a signup from its settings. That takes the signup
+          . Today this is a manual process — self-service export and deletion may be added later. If
+          you signed up for a slot, you can also ask the organizer about their own use of your
+          details. Organizers can already delete a signup from its settings. That takes the signup
           and everyone&apos;s commitments to it off the site at once: its page and everyone&apos;s
           edit links stop working, lists and exports stop showing them, and nobody can sign up to
           it. The records themselves stay in our database until someone asks us to erase them, as
           above.
         </p>
         <p>
-          If you are not happy with how we handle a request, you can complain to the data
-          protection authority where you live or work.
+          If you are not happy with how we handle a request, you can complain to the data protection
+          authority where you live or work.
         </p>
       </section>
 

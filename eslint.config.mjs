@@ -8,7 +8,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const compat = new FlatCompat({ baseDirectory: __dirname });
 
 const config = [
-  { ignores: ['.next', 'node_modules', 'dist', 'src/db/migrations', 'playwright-report', '.claude'] },
+  {
+    ignores: ['.next', 'node_modules', 'dist', 'src/db/migrations', 'playwright-report', '.claude'],
+  },
   ...compat.extends('next/core-web-vitals'),
   {
     files: ['**/*.{ts,tsx}'],
@@ -16,7 +18,10 @@ const config = [
     plugins: { '@typescript-eslint': tseslint },
     rules: {
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
 ];

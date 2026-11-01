@@ -71,27 +71,24 @@ describe('buildMetaSegments', () => {
   const slot = { values: { game: 'Game 1', opponent: 'vs Hawks', field: 'Field B' } };
 
   it('includes every value with no labels', () => {
-    expect(
-      buildMetaSegments({ fields, slot }),
-    ).toEqual(['Game 1', 'vs Hawks', 'Field B']);
+    expect(buildMetaSegments({ fields, slot })).toEqual(['Game 1', 'vs Hawks', 'Field B']);
   });
 
   it('skips the primary field', () => {
-    expect(
-      buildMetaSegments({ fields, slot, primaryRef: 'game' }),
-    ).toEqual(['vs Hawks', 'Field B']);
+    expect(buildMetaSegments({ fields, slot, primaryRef: 'game' })).toEqual([
+      'vs Hawks',
+      'Field B',
+    ]);
   });
 
   it('skips the group field', () => {
-    expect(
-      buildMetaSegments({ fields, slot, groupRef: 'field' }),
-    ).toEqual(['Game 1', 'vs Hawks']);
+    expect(buildMetaSegments({ fields, slot, groupRef: 'field' })).toEqual(['Game 1', 'vs Hawks']);
   });
 
   it('skips both primary and group', () => {
-    expect(
-      buildMetaSegments({ fields, slot, primaryRef: 'game', groupRef: 'field' }),
-    ).toEqual(['vs Hawks']);
+    expect(buildMetaSegments({ fields, slot, primaryRef: 'game', groupRef: 'field' })).toEqual([
+      'vs Hawks',
+    ]);
   });
 
   it('omits empty values', () => {
@@ -101,18 +98,18 @@ describe('buildMetaSegments', () => {
 
   it('preserves field-definition order regardless of values key order', () => {
     const reordered = { values: { field: 'Field B', opponent: 'vs Hawks', game: 'Game 1' } };
-    expect(
-      buildMetaSegments({ fields, slot: reordered }),
-    ).toEqual(['Game 1', 'vs Hawks', 'Field B']);
+    expect(buildMetaSegments({ fields, slot: reordered })).toEqual([
+      'Game 1',
+      'vs Hawks',
+      'Field B',
+    ]);
   });
 });
 
 describe('formatGroupLabel', () => {
   it('formats the value via renderFieldValue (date stays a date)', () => {
     const date: SignupViewField = { ref: 'd', label: 'Date', fieldType: 'date' };
-    expect(formatGroupLabel(date, '2026-04-25')).toMatch(
-      /^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}$/,
-    );
+    expect(formatGroupLabel(date, '2026-04-25')).toMatch(/^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}$/);
   });
 
   it('passes text values through', () => {
@@ -166,7 +163,9 @@ describe('slotDisplayName', () => {
   });
 
   it('names an ungrouped slot by its title and the rest', () => {
-    expect(slotDisplayName(null, 'Bring a dish', ['Sat, Nov 14'])).toBe('Bring a dish · Sat, Nov 14');
+    expect(slotDisplayName(null, 'Bring a dish', ['Sat, Nov 14'])).toBe(
+      'Bring a dish · Sat, Nov 14',
+    );
   });
 
   it('is the title alone when there is nothing else', () => {
@@ -176,7 +175,9 @@ describe('slotDisplayName', () => {
 
 describe('slotContext', () => {
   it('is everything but the title: the group, then the rest', () => {
-    expect(slotContext('Sat, Nov 7', ['9:00 AM', '12:00 PM'])).toBe('Sat, Nov 7 · 9:00 AM · 12:00 PM');
+    expect(slotContext('Sat, Nov 7', ['9:00 AM', '12:00 PM'])).toBe(
+      'Sat, Nov 7 · 9:00 AM · 12:00 PM',
+    );
     expect(slotContext(null, ['Sat, Nov 14'])).toBe('Sat, Nov 14');
   });
 

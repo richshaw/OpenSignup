@@ -17,22 +17,22 @@ export default function CookiesPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Cookies</h1>
-        <p className="text-ink-muted text-sm">Last updated: 31 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 31 October 2026</p>
       </header>
 
       <section className="space-y-3">
         <p>
-          {INSTANCE_NAME} sets only the cookies it needs to operate. It sets no
-          analytics, advertising, or cross-site tracking cookies. If the operator has
-          enabled third-party sign-in (for example, Google) and you use it, that
-          provider may set cookies on its own domain when you sign in there; those are
-          governed by the provider&apos;s policies, not ours.
+          {INSTANCE_NAME} sets only the cookies it needs to operate. It sets no analytics,
+          advertising, or cross-site tracking cookies. If the operator has enabled third-party
+          sign-in (for example, Google) and you use it, that provider may set cookies on its own
+          domain when you sign in there; those are governed by the provider&apos;s policies, not
+          ours.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Cookies we set</h2>
-        <div className="border-surface-sunk overflow-hidden rounded-lg border">
+        <div className="overflow-hidden rounded-lg border border-surface-sunk">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-raised text-ink-muted">
               <tr>
@@ -41,17 +41,13 @@ export default function CookiesPage() {
                 <th className="px-4 py-3 font-medium">Lifetime</th>
               </tr>
             </thead>
-            <tbody className="divide-surface-sunk divide-y">
+            <tbody className="divide-y divide-surface-sunk">
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">
                   authjs.session-token (or __Secure-authjs.session-token over HTTPS)
                 </td>
-                <td className="px-4 py-3">
-                  Keeps organizers signed in after they sign in.
-                </td>
-                <td className="px-4 py-3">
-                  {SESSION_MAX_AGE_DAYS} days from when you sign in
-                </td>
+                <td className="px-4 py-3">Keeps organizers signed in after they sign in.</td>
+                <td className="px-4 py-3">{SESSION_MAX_AGE_DAYS} days from when you sign in</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">
@@ -76,60 +72,57 @@ export default function CookiesPage() {
                   authjs.pkce.code_verifier (__Secure-authjs.pkce.code_verifier over HTTPS)
                 </td>
                 <td className="px-4 py-3">
-                  Checks that a Google sign-in finishing here is the one this browser
-                  started. Set only if this site has Google sign-in turned on and you use
-                  it.
+                  Checks that a Google sign-in finishing here is the one this browser started. Set
+                  only if this site has Google sign-in turned on and you use it.
                 </td>
                 <td className="px-4 py-3">15 minutes</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">os_commit</td>
                 <td className="px-4 py-3">
-                  Keeps the private link to change or cancel each slot a participant
-                  signed up for, so they can come back from the same browser without
-                  finding the link again, whether or not they gave an email.{' '}
-                  <code>httpOnly</code>; not readable from JavaScript.
+                  Keeps the private link to change or cancel each slot a participant signed up for,
+                  so they can come back from the same browser without finding the link again,
+                  whether or not they gave an email. <code>httpOnly</code>; not readable from
+                  JavaScript.
                 </td>
                 <td className="px-4 py-3">
-                  60 days, or until a week after the latest slot it holds if that is later (at
-                  most 400 days)
+                  60 days, or until a week after the latest slot it holds if that is later (at most
+                  400 days)
                 </td>
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">os_oauth_session</td>
                 <td className="px-4 py-3">
-                  Records which organizer is signed in while connecting an app or AI
-                  assistant to their account. Sent only to the connection endpoints
-                  under <code>/api/oauth</code>.
+                  Records which organizer is signed in while connecting an app or AI assistant to
+                  their account. Sent only to the connection endpoints under <code>/api/oauth</code>
+                  .
                 </td>
                 <td className="px-4 py-3">24 hours</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">os_oauth_interaction</td>
                 <td className="px-4 py-3">
-                  Ties a pending connection request to the browser that started it, so
-                  only that browser can approve it.
+                  Ties a pending connection request to the browser that started it, so only that
+                  browser can approve it.
                 </td>
                 <td className="px-4 py-3">15 minutes</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">os_oauth_resume</td>
                 <td className="px-4 py-3">
-                  Carries your allow-or-decline answer back to finish (or cancel) the
-                  connection.
+                  Carries your allow-or-decline answer back to finish (or cancel) the connection.
                 </td>
                 <td className="px-4 py-3">15 minutes</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p className="text-ink-muted text-sm">
-          The three <code>os_oauth_*</code> cookies are set only when an organizer
-          connects an app or AI assistant to their account, and each one is paired with
-          a <code>.sig</code> cookie of the same name and lifetime holding the signature
-          that proves we set it. All of them are <code>httpOnly</code>, limited to the
-          page or endpoint that needs them, and marked <code>Secure</code> over HTTPS.
-          See the{' '}
+        <p className="text-sm text-ink-muted">
+          The three <code>os_oauth_*</code> cookies are set only when an organizer connects an app
+          or AI assistant to their account, and each one is paired with a <code>.sig</code> cookie
+          of the same name and lifetime holding the signature that proves we set it. All of them are{' '}
+          <code>httpOnly</code>, limited to the page or endpoint that needs them, and marked{' '}
+          <code>Secure</code> over HTTPS. See the{' '}
           <Link href="/privacy" className="text-brand underline">
             privacy policy
           </Link>{' '}
@@ -141,25 +134,23 @@ export default function CookiesPage() {
         <h2 className="text-xl font-semibold tracking-tight">Other storage in your browser</h2>
         <p>
           After you sign up for a slot, the sign-up form saves the name and email address you
-          entered in your browser&apos;s local storage, under the key{' '}
-          <code>{PREFILL_KEY}</code>, and uses it to fill in the form the next time you sign up for
-          anything on {INSTANCE_NAME}. It is not a cookie and is not sent to us on its own; we only
-          see it when you send the form again. It has no expiry: it stays until you clear this
-          site&apos;s data in your browser, and each sign-up updates it. On a shared or public
-          computer, the next person to sign up for anything on {INSTANCE_NAME} in the same browser
-          will see your name and email address filled in, so clear this site&apos;s data when you
-          have finished.
+          entered in your browser&apos;s local storage, under the key <code>{PREFILL_KEY}</code>,
+          and uses it to fill in the form the next time you sign up for anything on {INSTANCE_NAME}.
+          It is not a cookie and is not sent to us on its own; we only see it when you send the form
+          again. It has no expiry: it stays until you clear this site&apos;s data in your browser,
+          and each sign-up updates it. On a shared or public computer, the next person to sign up
+          for anything on {INSTANCE_NAME} in the same browser will see your name and email address
+          filled in, so clear this site&apos;s data when you have finished.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Why there is no cookie banner</h2>
         <p>
-          Every cookie above is strictly necessary to make the service work — for
-          sign-in, to let a participant edit their own commitment, or to complete a
-          connection an organizer asked for. Under
-          GDPR/ePrivacy, strictly-necessary cookies do not require a consent banner.
-          That is why you don&apos;t see a popup.
+          Every cookie above is strictly necessary to make the service work — for sign-in, to let a
+          participant edit their own commitment, or to complete a connection an organizer asked for.
+          Under GDPR/ePrivacy, strictly-necessary cookies do not require a consent banner. That is
+          why you don&apos;t see a popup.
         </p>
       </section>
 

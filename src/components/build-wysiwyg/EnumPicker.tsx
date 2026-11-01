@@ -124,9 +124,7 @@ export function EnumPicker({
           className={`absolute left-0 ${triggerClassName ? 'min-w-[200px]' : 'right-0'} top-[calc(100%+4px)] z-50 max-h-[240px] overflow-y-auto rounded-lg border border-surface-sunk bg-white p-1 shadow-card`}
         >
           {options.length === 0 && !adding && (
-            <div className="px-2.5 py-1.5 text-[11px] italic text-ink-soft">
-              No items yet.
-            </div>
+            <div className="px-2.5 py-1.5 text-[11px] italic text-ink-soft">No items yet.</div>
           )}
           {options.map((opt) => (
             <PickerOption
@@ -171,7 +169,7 @@ export function EnumPicker({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={commitNew}
                 // The same 1px border as the box, so the two stay the same height.
-                className="shrink-0 rounded border border-brand bg-brand px-2.5 py-1.5 text-xs font-semibold text-white cursor-pointer hover:bg-brand-hover"
+                className="shrink-0 cursor-pointer rounded border border-brand bg-brand px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover"
               >
                 Add
               </button>
@@ -180,7 +178,7 @@ export function EnumPicker({
             <button
               type="button"
               onClick={startAdding}
-              className="flex w-full items-center gap-2 rounded-md border-none bg-transparent px-2.5 py-1.5 text-left text-xs font-medium text-brand cursor-pointer hover:bg-brand-soft"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-md border-none bg-transparent px-2.5 py-1.5 text-left text-xs font-medium text-brand hover:bg-brand-soft"
             >
               <Plus size={12} />
               <span>Add to list</span>

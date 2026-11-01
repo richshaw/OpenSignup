@@ -1,4 +1,9 @@
-import { createMcpHandler, McpServer, type AuthInfo, type McpHttpHandler } from '@modelcontextprotocol/server';
+import {
+  createMcpHandler,
+  McpServer,
+  type AuthInfo,
+  type McpHttpHandler,
+} from '@modelcontextprotocol/server';
 import { shortCommit } from '@/lib/build-info';
 import { log } from '@/lib/log';
 import type { ToolContext } from './context';

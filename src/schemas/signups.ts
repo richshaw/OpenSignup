@@ -112,6 +112,10 @@ export const SignupUpdateInputSchema = SignupCreateInputSchema.partial().extend(
   // none is listed or indexed. Refused rather than stripped, so a caller is not
   // told a change worked when nothing changed.
   visibility: z
-    .undefined({ errorMap: () => ({ message: "visibility can't be changed: anyone with a signup's link can open it" }) })
+    .undefined({
+      errorMap: () => ({
+        message: "visibility can't be changed: anyone with a signup's link can open it",
+      }),
+    })
     .optional(),
 });

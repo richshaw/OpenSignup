@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Plus } from 'lucide-react';
 import { useRegisterBuildTab } from '@/components/signup/BuildBridge';
-import { useBuildState, type BuildField, type BuildRow, type BuildSlot } from '../build-shared/useBuildState';
+import {
+  useBuildState,
+  type BuildField,
+  type BuildRow,
+  type BuildSlot,
+} from '../build-shared/useBuildState';
 import { useReorderable } from '../build-shared/useReorderable';
 import { Editable } from './Editable';
 import { EditingRail } from './EditingRail';
@@ -98,13 +103,10 @@ export function BuildWysiwyg({
     setCapacity,
     moveRow,
     flushPendingSaves,
-  } = useBuildState(
-    signupId,
-    initialFields,
-    initialSlots,
-    initialSettings,
-    { title: signupMeta.title, description: signupMeta.description },
-  );
+  } = useBuildState(signupId, initialFields, initialSlots, initialSettings, {
+    title: signupMeta.title,
+    description: signupMeta.description,
+  });
 
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
@@ -135,7 +137,7 @@ export function BuildWysiwyg({
   const [failedRenameKey, setFailedRenameKey] = useState<string | null>(null);
 
   const groupField = state.groupByFieldRef
-    ? state.fields.find((f) => f.ref === state.groupByFieldRef) ?? null
+    ? (state.fields.find((f) => f.ref === state.groupByFieldRef) ?? null)
     : null;
   // Non-group fields in organizer order. WysiwygSlot treats index 0 as the
   // collapsed row's anchor — order matters, no type-based promotion here.
@@ -155,7 +157,9 @@ export function BuildWysiwyg({
 
   const slotReorder = useReorderable<BuildRow>({
     items: state.rows,
-    onReorder: (fromIdx, toIdx) => { void moveRow(fromIdx, toIdx); },
+    onReorder: (fromIdx, toIdx) => {
+      void moveRow(fromIdx, toIdx);
+    },
     ...(groupField
       ? {
           getGroupKey: (row) => {
@@ -305,10 +309,10 @@ export function BuildWysiwyg({
     <div
       ref={sheetRef}
       onKeyDown={enterIsDone}
-      className="-mt-6 -mb-8 min-h-[calc(100vh-12rem)] bg-surface-raised pt-6 pb-24 md:pt-10 md:pb-32"
+      className="-mb-8 -mt-6 min-h-[calc(100vh-12rem)] bg-surface-raised pb-24 pt-6 md:pb-32 md:pt-10"
     >
       <div
-        className={`mx-auto w-full rounded-none border border-surface-sunk border-t-[3px] border-t-brand bg-white shadow-card transition-[max-width] duration-180 ease-emphasized md:rounded-xl ${sheetMaxWidthClass(state.fields.length)}`}
+        className={`mx-auto w-full rounded-none border border-t-[3px] border-surface-sunk border-t-brand bg-white shadow-card transition-[max-width] duration-180 ease-emphasized md:rounded-xl ${sheetMaxWidthClass(state.fields.length)}`}
       >
         <EditingRail
           fieldCount={state.fields.length}
@@ -317,13 +321,13 @@ export function BuildWysiwyg({
           saveStatus={state.saveStatus}
         />
 
-        <div className="px-4 pt-4 pb-5 md:px-7 md:pt-5 md:pb-6">
+        <div className="px-4 pb-5 pt-4 md:px-7 md:pb-6 md:pt-5">
           <Editable
             value={state.title}
             onChange={(next) => updateSignupMeta({ title: next })}
             placeholder="Untitled signup"
             ariaLabel="Signup title"
-            className="block text-[22px] font-bold tracking-[-0.02em] text-ink px-1 py-0.5 -mx-1 -my-0.5"
+            className="-mx-1 -my-0.5 block px-1 py-0.5 text-[22px] font-bold tracking-[-0.02em] text-ink"
           />
 
           <div className="mt-2">
@@ -333,7 +337,7 @@ export function BuildWysiwyg({
               placeholder="Add a short description for volunteers"
               multiline
               ariaLabel="Signup description"
-              className="block text-[13px] leading-snug text-ink-muted px-1 py-0.5 -mx-1 -my-0.5"
+              className="-mx-1 -my-0.5 block px-1 py-0.5 text-[13px] leading-snug text-ink-muted"
             />
           </div>
 
@@ -402,12 +406,22 @@ export function BuildWysiwyg({
         fields={state.fields}
         groupByFieldRef={state.groupByFieldRef}
         reminderFieldRef={state.reminderFieldRef}
-        onAddField={(name, config) => { void addField(name, config); }}
+        onAddField={(name, config) => {
+          void addField(name, config);
+        }}
         onUpdateField={(fieldId, patch) => updateField(fieldId, patch)}
-        onDeleteField={(fieldId) => { void deleteField(fieldId); }}
-        onMoveField={(fieldId, toIdx) => { void moveField(fieldId, toIdx); }}
-        onGroupByChange={(ref) => { void setGroupBy(ref); }}
-        onSetReminder={(ref) => { void setReminderField(ref); }}
+        onDeleteField={(fieldId) => {
+          void deleteField(fieldId);
+        }}
+        onMoveField={(fieldId, toIdx) => {
+          void moveField(fieldId, toIdx);
+        }}
+        onGroupByChange={(ref) => {
+          void setGroupBy(ref);
+        }}
+        onSetReminder={(ref) => {
+          void setReminderField(ref);
+        }}
       />
     </div>
   );

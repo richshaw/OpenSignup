@@ -27,15 +27,15 @@ export default async function OrganizerLayout({
         <div className="mx-auto flex w-full max-w-[1100px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <nav
             aria-label="Breadcrumb"
-            className="text-ink-muted flex min-w-0 items-center gap-2 text-sm"
+            className="flex min-w-0 items-center gap-2 text-sm text-ink-muted"
           >
-            <Link href="/app" className="text-ink font-semibold tracking-tight">
+            <Link href="/app" className="font-semibold tracking-tight text-ink">
               OpenSignup
             </Link>
             {crumbs}
           </nav>
           <nav className="flex shrink-0 items-center gap-4">
-            <Link href="/help" className="text-ink-muted hover:text-ink text-sm transition">
+            <Link href="/help" className="text-sm text-ink-muted transition hover:text-ink">
               Help
             </Link>
             {/* The account itself is the way into settings; on narrow screens the
@@ -43,17 +43,14 @@ export default async function OrganizerLayout({
                 "Settings", which a signup's own tab is called. */}
             <Link
               href="/app/settings"
-              className="text-ink-muted hover:text-ink max-w-[16rem] truncate text-sm transition"
+              className="max-w-[16rem] truncate text-sm text-ink-muted transition hover:text-ink"
               title="Settings"
             >
               <span className="sm:hidden">Account</span>
               <span className="hidden sm:inline">{session.email}</span>
             </Link>
             <form action={handleSignOut}>
-              <button
-                type="submit"
-                className="text-ink-muted hover:text-ink text-sm transition"
-              >
+              <button type="submit" className="text-sm text-ink-muted transition hover:text-ink">
                 Sign out
               </button>
             </form>

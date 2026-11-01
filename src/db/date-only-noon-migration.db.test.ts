@@ -303,7 +303,7 @@ describe('migration 0006_date_only_slots_at_noon (db)', () => {
     );
   });
 
-  it('leaves a slot alone when its signup\'s ref names no date field', async () => {
+  it("leaves a slot alone when its signup's ref names no date field", async () => {
     // 0005 leaves every ref valid or absent, so this cannot happen in a normal
     // deploy — but a dangling ref must never turn into a wiped slot_at. The
     // field services repair the ref on the next change; the migration only
