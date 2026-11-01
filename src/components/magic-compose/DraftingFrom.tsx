@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Calendar, Check, ListChecks } from 'lucide-react';
 import { followUpItems, type FollowUp } from '@/lib/magic-compose/questions';
 import { formatOneDay } from './answers';
-import { YouWrote } from './YouWrote';
+import { DESCRIPTION_CARD, YOU_WROTE_PADDING, YouWrote } from './YouWrote';
 
 const LEFT_BLANK = ['All answered', 'One left blank', 'Two left blank'];
 
@@ -22,10 +22,7 @@ export function DraftingFrom({ prompt, followUp }: { prompt: string; followUp: F
   const blanks = (items.length === 0 ? 1 : 0) + (when?.kind === 'not_decided' ? 1 : 0);
 
   return (
-    <section
-      aria-label="Drafting from"
-      className="overflow-hidden rounded-lg border border-surface-sunk bg-white shadow-sm"
-    >
+    <section aria-label="Drafting from" className={DESCRIPTION_CARD}>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-surface-sunk bg-surface-raised px-4 py-2.5">
         <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
           Drafting from
@@ -39,7 +36,7 @@ export function DraftingFrom({ prompt, followUp }: { prompt: string; followUp: F
           {LEFT_BLANK[blanks]}
         </span>
       </div>
-      <div className="px-4 pb-3.5 pt-4">
+      <div className={YOU_WROTE_PADDING}>
         <YouWrote prompt={prompt} variant="plain" />
       </div>
       <dl className="flex flex-col px-4 pb-1.5">

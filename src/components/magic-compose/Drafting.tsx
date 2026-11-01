@@ -234,13 +234,13 @@ export function Drafting({
 
         <div className="flex flex-col gap-5 p-6">
           {followUp ? (
-            <ChunkBoundary fallback={<YouWrote prompt={prompt} variant="box" />}>
-              <Suspense fallback={<YouWrote prompt={prompt} variant="box" />}>
+            <ChunkBoundary fallback={<YouWrote prompt={prompt} variant="card" />}>
+              <Suspense fallback={<YouWrote prompt={prompt} variant="card" />}>
                 <DraftingFrom prompt={prompt} followUp={followUp} />
               </Suspense>
             </ChunkBoundary>
           ) : (
-            <YouWrote prompt={prompt} variant="box" />
+            <YouWrote prompt={prompt} variant="card" />
           )}
 
           <DraftField label="Title">

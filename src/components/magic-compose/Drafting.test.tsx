@@ -33,8 +33,12 @@ describe('<Drafting />', () => {
     expect(screen.queryByText(/Snack duty, U9 Eagles/)).toBeNull();
     expect(screen.queryByText(/Spring season/)).toBeNull();
     expect(screen.queryByText(/Snack \+ drinks/)).toBeNull();
-    // The user's prompt is quoted back to them.
-    expect(screen.getByText('“anything”')).toBeInTheDocument();
+    // The user's prompt is quoted back to them, in the white card Drafting from uses, not a
+    // blue box that reads as a notice.
+    const quote = screen.getByRole('region', { name: 'Your description' });
+    expect(quote).toHaveTextContent('You wrote“anything”');
+    expect(quote).toHaveClass('border-surface-sunk', 'bg-white');
+    expect(quote.className).not.toMatch(/brand/);
     // A first call may get questions back, so the heading doesn't promise a draft yet.
     expect(screen.getByRole('heading', { name: 'Reading your description' })).toBeInTheDocument();
     expect(
