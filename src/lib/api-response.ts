@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { ZodError } from 'zod';
 import type { LinkObject } from './links';
-import { fromZodError, httpStatusFor, ServiceException, type ServiceError } from './errors';
+import { httpStatusFor, INTERNAL_ERROR, serviceErrorFromThrown, type ServiceError } from './errors';
 import { log } from './log';
 import type { Result } from './result';
 
@@ -78,9 +77,9 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
   try {
     return await fn();
   } catch (e) {
-    if (e instanceof ZodError) return fail(fromZodError(e));
-    if (e instanceof ServiceException) return fail(e.serviceError);
+    const se = serviceErrorFromThrown(e);
+    if (se) return fail(se);
     log.error({ err: e }, 'unhandled route error');
-    return fail({ code: 'internal', message: 'something went wrong' });
+    return fail(INTERNAL_ERROR);
   }
 }

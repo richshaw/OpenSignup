@@ -4,8 +4,10 @@ import { err, ok } from './result';
 import {
   fromZodError,
   httpStatusFor,
+  INTERNAL_ERROR,
   refusalAsResult,
   serviceError,
+  serviceErrorFromThrown,
   ServiceException,
 } from './errors';
 
@@ -75,5 +77,26 @@ describe('refusalAsResult', () => {
         throw boom;
       }),
     ).rejects.toBe(boom);
+  });
+});
+
+describe('serviceErrorFromThrown', () => {
+  it('turns a ZodError into the same invalid_input fromZodError gives', () => {
+    const parsed = z.object({ title: z.string() }).safeParse({ title: 1 });
+    if (parsed.success) throw new Error('expected a parse failure');
+    expect(serviceErrorFromThrown(parsed.error)).toEqual(fromZodError(parsed.error));
+    expect(serviceErrorFromThrown(parsed.error)?.code).toBe('invalid_input');
+  });
+
+  it("returns a ServiceException's own error", () => {
+    const se = serviceError('forbidden', 'read-only');
+    expect(serviceErrorFromThrown(new ServiceException(se))).toBe(se);
+  });
+
+  it('returns null for anything else, so the caller logs it and answers INTERNAL_ERROR', () => {
+    expect(serviceErrorFromThrown(new Error('db down'))).toBeNull();
+    expect(serviceErrorFromThrown('a string')).toBeNull();
+    expect(serviceErrorFromThrown(undefined)).toBeNull();
+    expect(INTERNAL_ERROR).toEqual({ code: 'internal', message: 'something went wrong' });
   });
 });
