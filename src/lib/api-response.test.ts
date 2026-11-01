@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 import { ServiceException, serviceError } from './errors';
-import { fail, handle, MAX_JSON_BODY_BYTES, readJson, respond } from './api-response';
+import { fail, handle, readJson, respond } from './api-response';
+import { MAX_JSON_BODY_BYTES } from './request-body';
 import { err, ok } from './result';
 
 describe('handle()', () => {
@@ -106,6 +107,11 @@ describe('readJson()', () => {
     expect(
       await readJson(new Request('http://localhost/x', { method: 'POST', body: '{nope' })),
     ).toEqual({});
+  });
+
+  it('drops a leading byte order mark, as req.json() did', async () => {
+    const req = new Request('http://localhost/x', { method: 'POST', body: '\ufeff{"a":1}' });
+    expect(await readJson(req)).toEqual({ a: 1 });
   });
 
   it('reads a body right at the cap', async () => {

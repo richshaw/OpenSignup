@@ -9,7 +9,7 @@ import {
   type ServiceError,
 } from './errors';
 import { log } from './log';
-import { BodyTooLarge, readRequestBody } from './request-body';
+import { BodyTooLarge, MAX_JSON_BODY_BYTES, readRequestBody } from './request-body';
 import type { Result } from './result';
 
 export type Links = Record<string, LinkObject | string>;
@@ -77,17 +77,11 @@ export function respond<T>(
 }
 
 /**
- * The most a JSON request body may be, the same cap the MCP endpoint uses for
- * the same inputs. Next.js puts no limit on a route handler's body, and
- * `req.json()` would buffer and parse whatever arrives, so without this one
- * unauthenticated sign-up request could make the server hold any amount.
- */
-export const MAX_JSON_BODY_BYTES = 1_000_000;
-
-/**
  * The JSON body, or `{}` when it is missing or malformed; the service's Zod
  * parse judges it. A body over `MAX_JSON_BODY_BYTES` is refused as
- * `invalid_input` before any of it is parsed, and stops being read there.
+ * `invalid_input` before any of it is parsed, and stops being read there:
+ * `req.json()` would buffer whatever arrives, so one unauthenticated sign-up
+ * request could otherwise make the server hold any amount.
  */
 export async function readJson(req: Request): Promise<unknown> {
   let raw: Buffer;
@@ -105,7 +99,8 @@ export async function readJson(req: Request): Promise<unknown> {
     return {};
   }
   try {
-    return JSON.parse(raw.toString('utf8')) as unknown;
+    // TextDecoder drops a leading BOM, as `req.json()` did; Buffer#toString keeps it.
+    return JSON.parse(new TextDecoder().decode(raw)) as unknown;
   } catch {
     return {};
   }
