@@ -24,19 +24,19 @@ export default function TermsPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Terms of service</h1>
-        <p className="text-ink-muted text-sm">Last updated: 31 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 31 October 2026</p>
       </header>
 
       <section className="space-y-3">
         <p>
-          {INSTANCE_NAME} is a deployment of the OpenSignup project, released under the
-          GNU AGPL-3.0 license. The source code is available at{' '}
+          {INSTANCE_NAME} is a deployment of the OpenSignup project, released under the GNU AGPL-3.0
+          license. The source code is available at{' '}
           <a href={SOURCE_URL} className="text-brand underline">
             {SOURCE_DISPLAY}
           </a>
-          . By using this site you agree to the terms below. If you do not agree, do
-          not use the service. In these terms, &ldquo;we&rdquo; and &ldquo;us&rdquo; mean{' '}
-          {operator}, who runs this instance.
+          . By using this site you agree to the terms below. If you do not agree, do not use the
+          service. In these terms, &ldquo;we&rdquo; and &ldquo;us&rdquo; mean {operator}, who runs
+          this instance.
         </p>
       </section>
 
@@ -52,17 +52,17 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">No warranty</h2>
         <p>
-          The software is provided &ldquo;as is&rdquo;, without warranty of any kind,
-          express or implied, including but not limited to merchantability, fitness for
-          a particular purpose, and non-infringement. To the maximum extent permitted
-          by applicable law, in no event shall {operator} or any contributor to
-          OpenSignup be liable for any claim, damages, or other liability arising from
-          your use of the service. This mirrors the disclaimer in the AGPL-3.0 license.
+          The software is provided &ldquo;as is&rdquo;, without warranty of any kind, express or
+          implied, including but not limited to merchantability, fitness for a particular purpose,
+          and non-infringement. To the maximum extent permitted by applicable law, in no event shall{' '}
+          {operator} or any contributor to OpenSignup be liable for any claim, damages, or other
+          liability arising from your use of the service. This mirrors the disclaimer in the
+          AGPL-3.0 license.
         </p>
         <p>
           Nothing in these terms excludes or limits our liability for death or personal injury
-          caused by our negligence, for fraud, or for anything else the law does not let us
-          exclude or limit.
+          caused by our negligence, for fraud, or for anything else the law does not let us exclude
+          or limit.
         </p>
       </section>
 
@@ -74,7 +74,10 @@ export default function TermsPage() {
           <li>Collect signups for illegal activity.</li>
           <li>Send unsolicited bulk messages or spam.</li>
           <li>Attempt to access data belonging to other organizers or workspaces.</li>
-          <li>Interfere with the service&apos;s normal operation, including by automated abuse, rate-limit evasion, or denial-of-service.</li>
+          <li>
+            Interfere with the service&apos;s normal operation, including by automated abuse,
+            rate-limit evasion, or denial-of-service.
+          </li>
         </ul>
       </section>
 
@@ -99,8 +102,8 @@ export default function TermsPage() {
         <p>
           If someone makes a claim against us because of a signup you ran, what you put in it, or
           your breaking these terms, you agree to cover our reasonable costs of dealing with that
-          claim, as far as the law allows. This does not apply to the extent the claim was caused
-          by something we did.
+          claim, as far as the law allows. This does not apply to the extent the claim was caused by
+          something we did.
         </p>
         <p>
           We hold participants&apos; details on your behalf to run your signup. We use them only as
@@ -108,8 +111,8 @@ export default function TermsPage() {
           <Link href="/privacy" className="text-brand underline">
             privacy policy
           </Link>{' '}
-          describes, keep them confidential, tell you if we learn of a breach affecting them,
-          delete them when you ask, and tell you on request which providers handle them.
+          describes, keep them confidential, tell you if we learn of a breach affecting them, delete
+          them when you ask, and tell you on request which providers handle them.
         </p>
       </section>
 
@@ -117,24 +120,22 @@ export default function TermsPage() {
         <h2 className="text-xl font-semibold tracking-tight">If you sign up for a slot</h2>
         <p>
           Give a name the organizer will recognise, and an email address that is yours or that you
-          have permission to use.
-          Your link to change or cancel works like a password: anyone who has it can change or
-          cancel your place, so don&apos;t share it.
+          have permission to use. Your link to change or cancel works like a password: anyone who
+          has it can change or cancel your place, so don&apos;t share it.
         </p>
         <p>
           What you arrange through a signup is between you and its organizer. We are not part of
-          that arrangement, and we are not responsible for whether an event happens, or for what
-          the organizer or other participants do.
+          that arrangement, and we are not responsible for whether an event happens, or for what the
+          organizer or other participants do.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Third-party sign-in</h2>
         <p>
-          If this instance offers sign-in through a third-party provider (for example,
-          Google) and you choose it, your use of that provider is also governed by that
-          provider&apos;s own terms and privacy policy.{' '}
-          {INSTANCE_NAME} is not responsible for third-party services.
+          If this instance offers sign-in through a third-party provider (for example, Google) and
+          you choose it, your use of that provider is also governed by that provider&apos;s own
+          terms and privacy policy. {INSTANCE_NAME} is not responsible for third-party services.
         </p>
       </section>
 
@@ -154,18 +155,18 @@ export default function TermsPage() {
           participant list any other way applies here.
         </p>
         <p>
-          We may refuse, block, or revoke a client that abuses the service, misrepresents who it
-          is, or is used to break the acceptable use rules above. You can revoke any connection
-          yourself at any time from Connected apps in your settings.
+          We may refuse, block, or revoke a client that abuses the service, misrepresents who it is,
+          or is used to break the acceptable use rules above. You can revoke any connection yourself
+          at any time from Connected apps in your settings.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Availability and emails</h2>
         <p>
-          We try to keep {INSTANCE_NAME} running, but we do not promise it will always be
-          available or free of errors, and we may change it or stop running it. If we plan to stop,
-          we will try to tell organizers first so they can download their signups.
+          We try to keep {INSTANCE_NAME} running, but we do not promise it will always be available
+          or free of errors, and we may change it or stop running it. If we plan to stop, we will
+          try to tell organizers first so they can download their signups.
         </p>
         <p>
           Emails, including confirmations, reminders and moved-slot emails, are sent on a
@@ -189,18 +190,18 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Changes to these terms</h2>
         <p>
-          These terms may be updated as the service evolves. The &ldquo;last updated&rdquo;
-          date at the top of this page will reflect any change. Continued use of the
-          service after an update constitutes acceptance of the revised terms.
+          These terms may be updated as the service evolves. The &ldquo;last updated&rdquo; date at
+          the top of this page will reflect any change. Continued use of the service after an update
+          constitutes acceptance of the revised terms.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Governing law</h2>
         <p>
-          These terms are governed by the laws of {GOVERNING_LAW}, without regard to
-          conflict-of-law principles. Nothing in these terms limits any non-waivable
-          rights you have under the law of the place where you live.
+          These terms are governed by the laws of {GOVERNING_LAW}, without regard to conflict-of-law
+          principles. Nothing in these terms limits any non-waivable rights you have under the law
+          of the place where you live.
         </p>
       </section>
 

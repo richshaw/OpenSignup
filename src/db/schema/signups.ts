@@ -1,11 +1,4 @@
-import {
-  index,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-} from 'drizzle-orm/pg-core';
+import { index, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { StoredSignupSettings } from '@/schemas/signups';
 import { organizers } from './organizers';
 import { workspaces } from './workspaces';

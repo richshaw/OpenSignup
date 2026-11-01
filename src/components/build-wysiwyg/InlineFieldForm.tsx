@@ -12,9 +12,7 @@ import {
 } from '@/schemas/slot-fields';
 import type { BuildField } from '../build-shared/useBuildState';
 
-export type InlineFieldFormMode =
-  | { mode: 'edit'; field: BuildField }
-  | { mode: 'create' };
+export type InlineFieldFormMode = { mode: 'edit'; field: BuildField } | { mode: 'create' };
 
 type InlineFieldFormProps = {
   formMode: InlineFieldFormMode;
@@ -92,7 +90,7 @@ export function InlineFieldForm({
 
   return (
     <div>
-      <div className="mb-2.5 -mt-1">
+      <div className="-mt-1 mb-2.5">
         <button
           type="button"
           onClick={onCancel}
@@ -154,11 +152,11 @@ export function InlineFieldForm({
       </div>
 
       {showReminder && (
-        <div className="border-t border-surface-sunk pt-2.5 mb-2.5">
+        <div className="mb-2.5 border-t border-surface-sunk pt-2.5">
           <label
             className={
               'flex items-start gap-2 ' +
-              (reminderBlocked ? 'opacity-[0.55] cursor-not-allowed' : 'cursor-pointer')
+              (reminderBlocked ? 'cursor-not-allowed opacity-[0.55]' : 'cursor-pointer')
             }
           >
             {/*
@@ -180,8 +178,8 @@ export function InlineFieldForm({
               </span>
               {!reminderBlocked && (
                 <span id={reminderHelpId} className="text-[11px] leading-[1.35] text-ink-muted">
-                  Sent the day before. One date field per signup drives reminders, and
-                  participants can opt out of any reminder they get.
+                  Sent the day before. One date field per signup drives reminders, and participants
+                  can opt out of any reminder they get.
                 </span>
               )}
             </span>
@@ -201,7 +199,7 @@ export function InlineFieldForm({
             <button
               type="button"
               onClick={onDelete}
-              className="bg-transparent border-none cursor-pointer text-[11px] font-medium text-danger hover:underline"
+              className="cursor-pointer border-none bg-transparent text-[11px] font-medium text-danger hover:underline"
             >
               Remove field
             </button>

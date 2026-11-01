@@ -7,7 +7,7 @@ export function SiteFooter() {
   // The build's commit, or nothing when the build didn't know it.
   const commit = shortCommit();
   return (
-    <footer className="text-ink-soft border-surface-sunk flex flex-col items-center justify-between gap-3 border-t px-5 py-5 text-sm lg:flex-row lg:gap-4 lg:px-12">
+    <footer className="flex flex-col items-center justify-between gap-3 border-t border-surface-sunk px-5 py-5 text-sm text-ink-soft lg:flex-row lg:gap-4 lg:px-12">
       <span>
         {commit ? `${commit} · ` : ''}
         {INSTANCE_NAME} · AGPL-3.0

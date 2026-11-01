@@ -23,7 +23,10 @@ function ctx(defaultWorkspaceId: string | null): ToolContext {
 describe('resolveWorkspaceId', () => {
   it('uses the workspace it was given, else the default', () => {
     expect(resolveWorkspaceId(ctx('ws_default'), 'ws_2')).toEqual({ ok: true, value: 'ws_2' });
-    expect(resolveWorkspaceId(ctx('ws_default'), undefined)).toEqual({ ok: true, value: 'ws_default' });
+    expect(resolveWorkspaceId(ctx('ws_default'), undefined)).toEqual({
+      ok: true,
+      value: 'ws_default',
+    });
   });
 
   it('points a blank workspaceId at list_workspaces', () => {

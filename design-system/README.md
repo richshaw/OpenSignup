@@ -25,10 +25,10 @@ The product name is **OpenSignup** (one word). Lowercase `signup` is fine in cod
 
 OpenSignup is a single Next.js app with three distinct surfaces — design accordingly:
 
-| Surface | Path | Audience | Vibe |
-|---|---|---|---|
-| **Marketing / landing** | `/` | Curious organizers | Quiet, confident, no hype |
-| **Organizer app** | `/app/...` | Logged‑in organizers | Functional admin chrome |
+| Surface                     | Path        | Audience             | Vibe                      |
+| --------------------------- | ----------- | -------------------- | ------------------------- |
+| **Marketing / landing**     | `/`         | Curious organizers   | Quiet, confident, no hype |
+| **Organizer app**           | `/app/...`  | Logged‑in organizers | Functional admin chrome   |
 | **Public participant page** | `/s/[slug]` | Anyone with the link | Frictionless, single‑task |
 
 The participant surface is sacred — it must work for a grandparent on a phone link from a school WhatsApp group. No login, no sidebar, no tabs.
@@ -105,17 +105,17 @@ Calm, dry, anti‑hype. The product respects the reader's time and never asks th
 
 ### Specific examples lifted from the codebase
 
-| Surface | Copy |
-|---|---|
-| Landing hero subtitle | "Ad‑free, open‑source coordination for school parents, coaches, and community organizers. A calm, modern way to coordinate sign‑ups." |
-| Login | "Enter your email and we'll send you a magic link. No passwords." |
-| New signup placeholder | "Snack duty — Spring season" |
-| New signup helper | "You can add slots after it's created. Nothing is visible until you publish." |
-| Empty dashboard | "Coordinate snacks, carpool, potluck, volunteer shifts, or anything else." |
-| Confirmation modal | "You're in." / "We've saved your spot for X. Bookmark this link to edit or cancel later:" |
-| Footer | "Ad‑free · Run by OpenSignup · About" |
-| Closed banner | "This signup is no longer collecting responses." |
-| Preview banner | "This is what people will see once you publish. No signups will be saved." |
+| Surface                | Copy                                                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Landing hero subtitle  | "Ad‑free, open‑source coordination for school parents, coaches, and community organizers. A calm, modern way to coordinate sign‑ups." |
+| Login                  | "Enter your email and we'll send you a magic link. No passwords."                                                                     |
+| New signup placeholder | "Snack duty — Spring season"                                                                                                          |
+| New signup helper      | "You can add slots after it's created. Nothing is visible until you publish."                                                         |
+| Empty dashboard        | "Coordinate snacks, carpool, potluck, volunteer shifts, or anything else."                                                            |
+| Confirmation modal     | "You're in." / "We've saved your spot for X. Bookmark this link to edit or cancel later:"                                             |
+| Footer                 | "Ad‑free · Run by OpenSignup · About"                                                                                                 |
+| Closed banner          | "This signup is no longer collecting responses."                                                                                      |
+| Preview banner         | "This is what people will see once you publish. No signups will be saved."                                                            |
 
 ### Punctuation tics
 
@@ -140,19 +140,19 @@ OpenSignup's visual language is **deliberately quiet**. It looks like a well‑m
 
 The whole system runs on a 13‑swatch palette. There are no off‑palette colors anywhere in the codebase.
 
-| Token | Hex | Used for |
-|---|---|---|
-| `--ink` | `#0b1220` | Body text, headings, dark UI |
-| `--ink-muted` | `#5b6474` | Secondary text, helper copy |
-| `--ink-soft` | `#8a93a4` | Tertiary, footer, separators |
-| `--brand` | `#1f6feb` | Primary buttons, links, focus ring |
-| `--brand-soft` | `#dbe7ff` | Available; rarely used in v1 |
-| `--surface` | `#ffffff` | Page background |
-| `--surface-raised` | `#f7f8fa` | Hover, table headers |
-| `--surface-sunk` | `#eef1f5` | Borders, dividers |
-| `--success` | `#1a7f4a` | Open status, success states |
-| `--warn` | `#b45309` | Draft status, warnings |
-| `--danger` | `#be123c` | Errors, destructive actions |
+| Token              | Hex       | Used for                           |
+| ------------------ | --------- | ---------------------------------- |
+| `--ink`            | `#0b1220` | Body text, headings, dark UI       |
+| `--ink-muted`      | `#5b6474` | Secondary text, helper copy        |
+| `--ink-soft`       | `#8a93a4` | Tertiary, footer, separators       |
+| `--brand`          | `#1f6feb` | Primary buttons, links, focus ring |
+| `--brand-soft`     | `#dbe7ff` | Available; rarely used in v1       |
+| `--surface`        | `#ffffff` | Page background                    |
+| `--surface-raised` | `#f7f8fa` | Hover, table headers               |
+| `--surface-sunk`   | `#eef1f5` | Borders, dividers                  |
+| `--success`        | `#1a7f4a` | Open status, success states        |
+| `--warn`           | `#b45309` | Draft status, warnings             |
+| `--danger`         | `#be123c` | Errors, destructive actions        |
 
 **Status pills use a `color/10` tinted background + the same color for text** — see `--brand-tint`, `--success-tint`, etc. in `colors_and_type.css`. Don't invent new tints.
 
@@ -160,7 +160,7 @@ The whole system runs on a 13‑swatch palette. There are no off‑palette color
 
 ### Typography
 
-- **One family: Inter.** The codebase declares `ui-sans-serif/system-ui` as the stack but enables Inter‑specific stylistic sets (`ss01`, `cv02`, `cv11`) via `font-feature-settings` on `<body>`. Read: the system was *designed for Inter* — render that whenever possible.
+- **One family: Inter.** The codebase declares `ui-sans-serif/system-ui` as the stack but enables Inter‑specific stylistic sets (`ss01`, `cv02`, `cv11`) via `font-feature-settings` on `<body>`. Read: the system was _designed for Inter_ — render that whenever possible.
   - **Fonts that ship here:** Inter is bundled as a self-hosted variable font in `fonts/` (`InterVariable.ttf` + `InterVariable-Italic.ttf`, licensed under the [SIL Open Font License 1.1](https://openfontlicense.org/) — see `fonts/InterVariable-OFL.txt`). JetBrains Mono is still pulled from Google Fonts (used only for code/kbd accents); swap in a self-hosted file if you need fully offline rendering. The OpenSignup app proper does not currently bundle fonts — it relies on the system stack — so this folder is a small superset.
 - **Weights used:** 400 (body), 500 (labels, secondary buttons), 600 (headings, primary buttons), 700 only for emphasis runs in body copy.
 - **Tracking:** all headings carry `tracking-tight` (`-0.02em`). Body is normal.
@@ -198,7 +198,7 @@ There are exactly **two shadow recipes** in the codebase:
 
 ```css
 --shadow-card: 0 1px 2px rgb(11 18 32 / 0.04), 0 4px 16px rgb(11 18 32 / 0.06);
---shadow-sm:   0 1px 2px rgb(11 18 32 / 0.04);
+--shadow-sm: 0 1px 2px rgb(11 18 32 / 0.04);
 ```
 
 Use `shadow-card` for dialogs and floating panels. Use `shadow-sm` on inputs (very subtle, almost imperceptible). **No glow, no inner shadow, no colored shadows.**

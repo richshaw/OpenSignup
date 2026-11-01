@@ -128,7 +128,9 @@ describe('createSignupAction (db)', () => {
     const url = await submit('One too many');
     expect(url.startsWith('/app/signups/new?manual=1&error=')).toBe(true);
     const message = new URL(url, 'http://localhost').searchParams.get('error');
-    expect(message).toMatch(/^You’ve created a lot of signups in the last hour\. Try again in about \d+ minutes?\.$/);
+    expect(message).toMatch(
+      /^You’ve created a lot of signups in the last hour\. Try again in about \d+ minutes?\.$/,
+    );
     expect(await created()).toHaveLength(1);
   });
 

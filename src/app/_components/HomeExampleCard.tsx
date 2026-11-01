@@ -42,9 +42,9 @@ const SIGNUP = {
 export function HomeExampleCard() {
   return (
     <div className="relative">
-      <div className="bg-white rounded-2xl border border-surface-sunk shadow-card overflow-hidden">
-        <div className="text-ink-soft px-6 pt-5 text-xs">
-          <span className="text-ink font-semibold">{INSTANCE_NAME}</span>
+      <div className="overflow-hidden rounded-2xl border border-surface-sunk bg-white shadow-card">
+        <div className="px-6 pt-5 text-xs text-ink-soft">
+          <span className="font-semibold text-ink">{INSTANCE_NAME}</span>
         </div>
         <div className="flex flex-col gap-7 px-6 pb-6 pt-3">
           <SignupViewBody
@@ -57,11 +57,11 @@ export function HomeExampleCard() {
             showStateBanner={false}
           />
         </div>
-        <div className="text-ink-soft border-t border-surface-sunk px-6 py-4 text-center text-xs">
+        <div className="border-t border-surface-sunk px-6 py-4 text-center text-xs text-ink-soft">
           Ad-free · Run by {INSTANCE_NAME}
         </div>
       </div>
-      <span className="bg-ink text-white absolute -top-3 right-4 rounded-full px-3 py-1.5 text-[11px] font-medium">
+      <span className="absolute -top-3 right-4 rounded-full bg-ink px-3 py-1.5 text-[11px] font-medium text-white">
         Example
       </span>
     </div>

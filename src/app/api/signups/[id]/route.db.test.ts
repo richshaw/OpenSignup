@@ -164,7 +164,10 @@ describe('GET /api/signups/[id] signed out (db)', () => {
     for (const id of [real, makeId('sig')]) {
       const res = await get(id);
       expect(res.status).toBe(401);
-      expect((await res.json()).error).toEqual({ code: 'unauthorized', message: 'sign in required' });
+      expect((await res.json()).error).toEqual({
+        code: 'unauthorized',
+        message: 'sign in required',
+      });
     }
   });
 });

@@ -184,7 +184,10 @@ export function buildProvider(deps: ProviderDeps): Provider {
     );
   });
   provider.on('grant.error', (_ctx: KoaContextWithOIDC, err: OidcError) => {
-    log.warn({ error: err.error, description: err.error_description, detail: err.error_detail }, 'oauth: token error');
+    log.warn(
+      { error: err.error, description: err.error_description, detail: err.error_detail },
+      'oauth: token error',
+    );
   });
   provider.on('grant.success', (ctx: KoaContextWithOIDC) => {
     const grantId = ctx.oidc.entities.Grant?.jti;
@@ -213,7 +216,10 @@ function alwaysConsentPolicy() {
       'always_prompt',
       'every connection needs the organizer to approve it',
       'interaction_required',
-      (ctx) => (ctx.oidc.result?.consent ? interactionPolicy.Check.NO_NEED_TO_PROMPT : interactionPolicy.Check.REQUEST_PROMPT),
+      (ctx) =>
+        ctx.oidc.result?.consent
+          ? interactionPolicy.Check.NO_NEED_TO_PROMPT
+          : interactionPolicy.Check.REQUEST_PROMPT,
     ),
   );
   return policy;
@@ -232,7 +238,12 @@ function alwaysConsentPolicy() {
  * and a client switched here that still sends one is rejected, as is a
  * `none` client whose document carries `token_endpoint_auth_signing_alg`.
  */
-function publicIfNoneSupported(_ctx: unknown, key: string, value: unknown, metadata: ClientMetadata): void {
+function publicIfNoneSupported(
+  _ctx: unknown,
+  key: string,
+  value: unknown,
+  metadata: ClientMetadata,
+): void {
   if (key !== 'token_endpoint_auth_methods_supported' || !Array.isArray(value)) return;
   if (value.includes('none')) metadata.token_endpoint_auth_method = 'none';
 }
@@ -257,7 +268,10 @@ function toClientMetadata(c: StaticClient): ClientMetadata {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
+  );
 }
 
 /**
@@ -296,4 +310,3 @@ export function renderErrorPage(out: OidcError): string {
 </body>
 </html>`;
 }
-

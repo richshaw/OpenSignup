@@ -57,9 +57,7 @@ describe('consumeRateLimit (db)', () => {
       await consumeRateLimit(db, RateLimits.magicLinkPerEmail, a);
     }
     // Subject `b` is still under the limit and should not throw.
-    await expect(
-      consumeRateLimit(db, RateLimits.magicLinkPerEmail, b),
-    ).resolves.toBeUndefined();
+    await expect(consumeRateLimit(db, RateLimits.magicLinkPerEmail, b)).resolves.toBeUndefined();
   });
 
   it('treats null-IP commitment traffic as a shared "unknown" bucket', async () => {
@@ -69,17 +67,19 @@ describe('consumeRateLimit (db)', () => {
       await consumeRateLimit(db, RateLimits.commitmentPerIp, 'unknown');
     }
 
-    await expect(
-      consumeRateLimit(db, RateLimits.commitmentPerIp, 'unknown'),
-    ).rejects.toMatchObject({
-      serviceError: { code: 'rate_limited' },
-    });
+    await expect(consumeRateLimit(db, RateLimits.commitmentPerIp, 'unknown')).rejects.toMatchObject(
+      {
+        serviceError: { code: 'rate_limited' },
+      },
+    );
   });
 });
 
 describe('chargeRateLimit (db)', () => {
   afterEach(async () => {
-    await getDb().delete(rateLimits).where(eq(rateLimits.bucket, RateLimits.magicLinkPerEmail.bucket));
+    await getDb()
+      .delete(rateLimits)
+      .where(eq(rateLimits.bucket, RateLimits.magicLinkPerEmail.bucket));
   });
 
   it('returns null while under the limit, then the seconds left in the window', async () => {
@@ -114,11 +114,19 @@ describe('sweepExpiredRateLimits', () => {
     // Clear anything already expired, so the count below is this test's alone.
     await sweepExpiredRateLimits(db);
     await db.insert(rateLimits).values([
-      { bucket: 'sweep.test', subject: 'old', windowStart: new Date(Date.now() - 3 * 24 * 3600 * 1000), count: 1 },
+      {
+        bucket: 'sweep.test',
+        subject: 'old',
+        windowStart: new Date(Date.now() - 3 * 24 * 3600 * 1000),
+        count: 1,
+      },
       { bucket: 'sweep.test', subject: 'fresh', windowStart: new Date(), count: 1 },
     ]);
     expect(await sweepExpiredRateLimits(db)).toBe(1);
-    const rows = await db.select({ subject: rateLimits.subject }).from(rateLimits).where(eq(rateLimits.bucket, 'sweep.test'));
+    const rows = await db
+      .select({ subject: rateLimits.subject })
+      .from(rateLimits)
+      .where(eq(rateLimits.bucket, 'sweep.test'));
     expect(rows.map((r) => r.subject)).toEqual(['fresh']);
     await db.delete(rateLimits).where(eq(rateLimits.bucket, 'sweep.test'));
   });

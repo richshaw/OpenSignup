@@ -34,7 +34,12 @@ describe('signing keys', () => {
     const kids = new Set(results.flatMap((r) => r.privateKeys.map((k) => k.kid)));
     expect(kids.size).toBe(1);
     const first = results[0]!;
-    expect(first.privateKeys[0]).toMatchObject({ kty: 'EC', crv: 'P-256', alg: 'ES256', use: 'sig' });
+    expect(first.privateKeys[0]).toMatchObject({
+      kty: 'EC',
+      crv: 'P-256',
+      alg: 'ES256',
+      use: 'sig',
+    });
     expect(first.privateKeys[0]?.d).toBeDefined();
     expect(first.publicKeys[0]?.d).toBeUndefined();
     expect(first.publicKeys[0]?.kid).toBe(first.privateKeys[0]?.kid);

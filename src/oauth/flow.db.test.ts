@@ -29,7 +29,14 @@ import { createSignup } from '@/services/signups';
 import { loadOrganizerSessionById, toActor } from '@/auth/organizer-session';
 import { DrizzleOidcAdapter } from './adapter';
 import { OAUTH_TTL } from './config';
-import { ensureGrant, findGrantIdFor, labelGrant, listConnectedApps, revokeConnectedApp, touchGrantUsed } from './grants';
+import {
+  ensureGrant,
+  findGrantIdFor,
+  labelGrant,
+  listConnectedApps,
+  revokeConnectedApp,
+  touchGrantUsed,
+} from './grants';
 import { loadOrCreateSigningKeys } from './keys';
 import { buildProvider } from './provider';
 import {
@@ -95,9 +102,21 @@ beforeAll(async () => {
   await db.delete(oauthSigningKeys);
   organizerId = makeId('org');
   workspaceId = makeId('ws');
-  await db.insert(organizers).values({ id: organizerId, email: `${organizerId}@example.com`, defaultWorkspaceId: workspaceId });
-  await db.insert(workspaces).values({ id: workspaceId, slug: organizerId.toLowerCase(), name: 'Flow', type: 'personal', plan: 'free' });
-  await db.insert(workspaceMembers).values({ id: makeId('mem'), workspaceId, organizerId, role: 'owner', status: 'active' });
+  await db.insert(organizers).values({
+    id: organizerId,
+    email: `${organizerId}@example.com`,
+    defaultWorkspaceId: workspaceId,
+  });
+  await db.insert(workspaces).values({
+    id: workspaceId,
+    slug: organizerId.toLowerCase(),
+    name: 'Flow',
+    type: 'personal',
+    plan: 'free',
+  });
+  await db
+    .insert(workspaceMembers)
+    .values({ id: makeId('mem'), workspaceId, organizerId, role: 'owner', status: 'active' });
   organizerActor = toActor(await loadOrganizerSessionById(db, organizerId));
 
   const keys = await loadOrCreateSigningKeys(db);
@@ -108,7 +127,10 @@ beforeAll(async () => {
     cookieKeys: ['test'],
     adapter: DrizzleOidcAdapter,
     staticClients: [],
-    organizerExists: async (id) => Boolean((await db.select({ id: organizers.id }).from(organizers).where(eq(organizers.id, id)))[0]),
+    organizerExists: async (id) =>
+      Boolean(
+        (await db.select({ id: organizers.id }).from(organizers).where(eq(organizers.id, id)))[0],
+      ),
     findGrantId: (a, c) => findGrantIdFor(db, a, c),
     allowCimdFetch: async () => true,
     onGrantUsed: (g) => touchGrantUsed(db, g),
@@ -118,10 +140,16 @@ beforeAll(async () => {
     fetch: async (url, init) => {
       fetchDispatchers.set(String(url), (init as { dispatcher?: unknown } | undefined)?.dispatcher);
       if (String(url) === CLIENT || String(url) === MISMATCHED_CLIENT) {
-        return new Response(JSON.stringify(cimdDocument), { status: 200, headers: { 'content-type': 'application/json' } });
+        return new Response(JSON.stringify(cimdDocument), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
       }
       if (String(url) === CHATGPT) {
-        return new Response(JSON.stringify(chatgptDocument), { status: 200, headers: { 'content-type': 'application/json' } });
+        return new Response(JSON.stringify(chatgptDocument), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
       }
       return new Response('not found', { status: 404 });
     },
@@ -142,7 +170,9 @@ afterAll(async () => {
 });
 
 /** Run a full authorization for `scopes` and return the token response. */
-async function mintToken(scopes: string[]): Promise<{ access_token: string; refresh_token?: string }> {
+async function mintToken(
+  scopes: string[],
+): Promise<{ access_token: string; refresh_token?: string }> {
   const { verifier, challenge } = pkcePair();
   const started = await startAuthorization(d, {
     clientId: CLIENT,
@@ -153,7 +183,13 @@ async function mintToken(scopes: string[]): Promise<{ access_token: string; refr
   });
   await approve(started.uid, scopes);
   const { code } = codeFromRedirect(await resume(d, started.uid));
-  const res = await exchangeCode(d, { clientId: CLIENT, redirectUri: REDIRECT, code, verifier, resource: RESOURCE });
+  const res = await exchangeCode(d, {
+    clientId: CLIENT,
+    redirectUri: REDIRECT,
+    code,
+    verifier,
+    resource: RESOURCE,
+  });
   expect(res.status, await res.clone().text()).toBe(200);
   return res.json();
 }
@@ -177,12 +213,17 @@ async function approve(uid: string, scopes: string[]): Promise<string> {
   const details = await interactionDetails(d, uid);
   const clientId = String(details.params.client_id);
   const existing = await findGrantIdFor(db, organizerId, clientId);
-  const grant = (existing && (await d.provider.Grant.find(existing))) || new d.provider.Grant({ accountId: organizerId, clientId });
+  const grant =
+    (existing && (await d.provider.Grant.find(existing))) ||
+    new d.provider.Grant({ accountId: organizerId, clientId });
   grant.addOIDCScope(scopes.join(' '));
   grant.addResourceScope(RESOURCE, scopes.filter((s) => s !== 'offline_access').join(' '));
   const grantId = await grant.save();
   await labelGrant(db, grantId, 'Example Assistant');
-  const r = await finishInteraction(d, uid, { login: { accountId: organizerId }, consent: { grantId } });
+  const r = await finishInteraction(d, uid, {
+    login: { accountId: organizerId },
+    consent: { grantId },
+  });
   expect(r.status).toBe(303);
   return grantId;
 }
@@ -190,21 +231,39 @@ async function approve(uid: string, scopes: string[]): Promise<string> {
 describe('authorization code flow on Postgres', () => {
   it('identifies a CIMD client with no pre-registration and fetches its document once', async () => {
     const { verifier, challenge } = pkcePair();
-    const first = await startAuthorization(d, { clientId: CLIENT, redirectUri: 'http://localhost:61000/callback', scope: 'signups:read signups:write', resource: RESOURCE, challenge });
+    const first = await startAuthorization(d, {
+      clientId: CLIENT,
+      redirectUri: 'http://localhost:61000/callback',
+      scope: 'signups:read signups:write',
+      resource: RESOURCE,
+      challenge,
+    });
     expect(first.response.status).toBe(303);
     expect(first.response.headers.get('location')).toMatch(/^\/oauth\/consent\//);
 
     const grantId = await approve(first.uid, ['signups:read', 'signups:write']);
     const { code } = codeFromRedirect(await resume(d, first.uid));
-    const tokenRes = await exchangeCode(d, { clientId: CLIENT, redirectUri: 'http://localhost:61000/callback', code, verifier, resource: RESOURCE });
+    const tokenRes = await exchangeCode(d, {
+      clientId: CLIENT,
+      redirectUri: 'http://localhost:61000/callback',
+      code,
+      verifier,
+      resource: RESOURCE,
+    });
     expect(tokenRes.status, await tokenRes.clone().text()).toBe(200);
     const tokens = await tokenRes.json();
     expect(decodeJwt(tokens.access_token).sub).toBe(organizerId);
 
     // The verifier alone maps the token to the organizer…
-    const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys: async () => ({ keys: (await loadOrCreateSigningKeys(db)).publicKeys }) });
+    const v = createVerifier({
+      issuer: ISSUER,
+      resource: RESOURCE,
+      loadKeys: async () => ({ keys: (await loadOrCreateSigningKeys(db)).publicKeys }),
+    });
     const info = await v.verifyAccessToken(tokens.access_token);
-    expect(toActor(await loadOrganizerSessionById(db, String(info.extra?.sub)))).toEqual(organizerActor);
+    expect(toActor(await loadOrganizerSessionById(db, String(info.extra?.sub)))).toEqual(
+      organizerActor,
+    );
 
     // …and the seam itself, given a real request, yields the same Actor the
     // cookie path builds, the token's scopes, and the SDK's challenges.
@@ -221,7 +280,11 @@ describe('authorization code flow on Postgres', () => {
       expect(seam.workspaces).toEqual([
         { id: workspaceId, slug: organizerId.toLowerCase(), name: 'Flow', role: 'owner' },
       ]);
-      expect(seam.authInfo).toMatchObject({ token: tokens.access_token, clientId: CLIENT, scopes: ['signups:read', 'signups:write'] });
+      expect(seam.authInfo).toMatchObject({
+        token: tokens.access_token,
+        clientId: CLIENT,
+        scopes: ['signups:read', 'signups:write'],
+      });
     }
     const noHeader = await resolveBearerActor(bearer());
     expect(noHeader.ok).toBe(false);
@@ -234,7 +297,9 @@ describe('authorization code flow on Postgres', () => {
     const garbage = await resolveBearerActor(bearer('not.a.jwt'));
     expect(garbage.ok).toBe(false);
     if (!garbage.ok) expect(garbage.response.status).toBe(401);
-    const stepUp = await resolveBearerActor(bearer(tokens.access_token), { requiredScopes: ['commitments:read'] });
+    const stepUp = await resolveBearerActor(bearer(tokens.access_token), {
+      requiredScopes: ['commitments:read'],
+    });
     expect(stepUp.ok).toBe(false);
     if (!stepUp.ok) {
       expect(stepUp.response.status).toBe(403);
@@ -257,15 +322,33 @@ describe('authorization code flow on Postgres', () => {
     // `onGrantUsed` runs off the provider's grant.success event without
     // being awaited by the token response; give it a moment.
     await expect
-      .poll(async () => (await listConnectedApps(db, organizerActor))[0]?.lastUsedAt, { timeout: 2000 })
+      .poll(async () => (await listConnectedApps(db, organizerActor))[0]?.lastUsedAt, {
+        timeout: 2000,
+      })
       .toBeInstanceOf(Date);
-    expect(apps[0]!.expiresAt!.getTime() - Date.now()).toBeGreaterThan((OAUTH_TTL.GRANT_MAX - 60) * 1000);
+    expect(apps[0]!.expiresAt!.getTime() - Date.now()).toBeGreaterThan(
+      (OAUTH_TTL.GRANT_MAX - 60) * 1000,
+    );
 
     // Re-approving extends the same grant rather than creating a second one.
-    const second = await startAuthorization(d, { clientId: CLIENT, redirectUri: REDIRECT, scope: 'signups:read signups:write commitments:read', resource: RESOURCE, challenge: pkcePair().challenge });
-    const sameGrant = await approve(second.uid, ['signups:read', 'signups:write', 'commitments:read']);
+    const second = await startAuthorization(d, {
+      clientId: CLIENT,
+      redirectUri: REDIRECT,
+      scope: 'signups:read signups:write commitments:read',
+      resource: RESOURCE,
+      challenge: pkcePair().challenge,
+    });
+    const sameGrant = await approve(second.uid, [
+      'signups:read',
+      'signups:write',
+      'commitments:read',
+    ]);
     expect(sameGrant).toBe(grantId);
-    expect((await listConnectedApps(db, organizerActor))[0]?.scopes).toEqual(['signups:read', 'signups:write', 'commitments:read']);
+    expect((await listConnectedApps(db, organizerActor))[0]?.scopes).toEqual([
+      'signups:read',
+      'signups:write',
+      'commitments:read',
+    ]);
 
     // The earlier refresh token does not gain the new scope.
     const r1 = await refresh(d, { clientId: CLIENT, refreshToken: tokens.refresh_token });
@@ -273,29 +356,56 @@ describe('authorization code flow on Postgres', () => {
     expect(decodeJwt((await r1.json()).access_token).scope).toBe('signups:read signups:write');
 
     // Nobody else can see or revoke it.
-    const stranger: Actor = { kind: 'organizer', id: makeId('org'), email: 'x@example.com', workspaceIds: [], workspaceRoles: {} };
+    const stranger: Actor = {
+      kind: 'organizer',
+      id: makeId('org'),
+      email: 'x@example.com',
+      workspaceIds: [],
+      workspaceRoles: {},
+    };
     expect(await listConnectedApps(db, stranger)).toEqual([]);
-    await expect(revokeConnectedApp(db, d.provider, stranger, grantId)).rejects.toMatchObject({ serviceError: { code: 'not_found' } });
-    await expect(revokeConnectedApp(db, d.provider, { kind: 'anonymous' }, grantId)).rejects.toMatchObject({ serviceError: { code: 'unauthorized' } });
+    await expect(revokeConnectedApp(db, d.provider, stranger, grantId)).rejects.toMatchObject({
+      serviceError: { code: 'not_found' },
+    });
+    await expect(
+      revokeConnectedApp(db, d.provider, { kind: 'anonymous' }, grantId),
+    ).rejects.toMatchObject({ serviceError: { code: 'unauthorized' } });
 
     // Disconnect: grant gone, refresh tokens gone, activity written.
     await revokeConnectedApp(db, d.provider, organizerActor, grantId);
     expect(await listConnectedApps(db, organizerActor)).toEqual([]);
     // Only the consumed Interaction (a 15-minute record) may still carry the grant id.
-    const rows = await db.select({ model: oauthRecords.model }).from(oauthRecords).where(eq(oauthRecords.grantId, grantId));
+    const rows = await db
+      .select({ model: oauthRecords.model })
+      .from(oauthRecords)
+      .where(eq(oauthRecords.grantId, grantId));
     expect(rows.filter((r) => r.model !== 'Interaction')).toEqual([]);
-    expect(await db.select({ id: oauthRecords.id }).from(oauthRecords).where(eq(oauthRecords.id, grantId))).toEqual([]);
-    const events = await db.select({ e: activity.eventType }).from(activity).where(eq(activity.actorId, organizerId));
+    expect(
+      await db
+        .select({ id: oauthRecords.id })
+        .from(oauthRecords)
+        .where(eq(oauthRecords.id, grantId)),
+    ).toEqual([]);
+    const events = await db
+      .select({ e: activity.eventType })
+      .from(activity)
+      .where(eq(activity.actorId, organizerId));
     expect(events.map((r) => r.e)).toContain('oauth.grant_revoked');
   });
 
   it('serves the MCP tools over the real endpoint with a real token', async () => {
     const tokens = await mintToken(['signups:read', 'signups:write']);
 
-    const listed = await callMcp(tokens.access_token, { jsonrpc: '2.0', id: 1, method: 'tools/list' });
+    const listed = await callMcp(tokens.access_token, {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/list',
+    });
     expect(listed.status).toBe(200);
     const listedBody = await readRpc<{ result: { tools: { name: string }[] } }>(listed);
-    expect(listedBody?.result.tools.map((t) => t.name).sort()).toEqual(TOOLS.map((t) => t.name).sort());
+    expect(listedBody?.result.tools.map((t) => t.name).sort()).toEqual(
+      TOOLS.map((t) => t.name).sort(),
+    );
 
     const created = await callMcp(tokens.access_token, {
       jsonrpc: '2.0',
@@ -303,13 +413,19 @@ describe('authorization code flow on Postgres', () => {
       method: 'tools/call',
       params: {
         name: 'create_signup',
-        arguments: { title: 'Token test', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
+        arguments: {
+          title: 'Token test',
+          fields: [{ ref: 'a', label: 'A', fieldType: 'text' }],
+          slots: [{ values: { a: 'x' } }],
+        },
       },
     });
     expect(created.status).toBe(200);
-    const createdResult = (await readRpc<{
-      result: { isError?: boolean; structuredContent: { signup: { id: string } } };
-    }>(created))?.result;
+    const createdResult = (
+      await readRpc<{
+        result: { isError?: boolean; structuredContent: { signup: { id: string } } };
+      }>(created)
+    )?.result;
     expect(createdResult?.isError, JSON.stringify(createdResult)).toBeFalsy();
     const signupId = createdResult!.structuredContent.signup.id;
     expect(signupId).toMatch(/^sig_/);
@@ -325,7 +441,9 @@ describe('authorization code flow on Postgres', () => {
   it('answers a read-only token with the step-up challenge for a write tool, and still serves reads', async () => {
     // Seed the row this test reads back. Asserting on a signup an earlier test
     // happened to create made this one fail when run alone or reordered.
-    const seeded = await createSignup(db, organizerActor, workspaceId, { title: 'Read-only listing' });
+    const seeded = await createSignup(db, organizerActor, workspaceId, {
+      title: 'Read-only listing',
+    });
     expect(seeded.ok, JSON.stringify(seeded)).toBe(true);
 
     // The grant already carries write from the tests above; the issued
@@ -349,22 +467,38 @@ describe('authorization code flow on Postgres', () => {
       params: { name: 'list_signups', arguments: {} },
     });
     expect(read.status).toBe(200);
-    const readResult = (await readRpc<{
-      result: { isError?: boolean; structuredContent: { signups: { title: string }[] } };
-    }>(read))?.result;
+    const readResult = (
+      await readRpc<{
+        result: { isError?: boolean; structuredContent: { signups: { title: string }[] } };
+      }>(read)
+    )?.result;
     expect(readResult?.isError, JSON.stringify(readResult)).toBeFalsy();
-    expect(readResult!.structuredContent.signups.map((s) => s.title)).toContain('Read-only listing');
+    expect(readResult!.structuredContent.signups.map((s) => s.title)).toContain(
+      'Read-only listing',
+    );
   });
 
   it('connects a ChatGPT-shaped CIMD client as a public client', async () => {
     const { verifier, challenge } = pkcePair();
-    const started = await startAuthorization(d, { clientId: CHATGPT, redirectUri: CHATGPT_REDIRECT, scope: 'signups:read', resource: RESOURCE, challenge });
+    const started = await startAuthorization(d, {
+      clientId: CHATGPT,
+      redirectUri: CHATGPT_REDIRECT,
+      scope: 'signups:read',
+      resource: RESOURCE,
+      challenge,
+    });
     expect(started.response.status, await started.response.clone().text()).toBe(303);
     expect(started.response.headers.get('location')).toMatch(/^\/oauth\/consent\//);
 
     await approve(started.uid, ['signups:read']);
     const { code } = codeFromRedirect(await resume(d, started.uid));
-    const tokenRes = await exchangeCode(d, { clientId: CHATGPT, redirectUri: CHATGPT_REDIRECT, code, verifier, resource: RESOURCE });
+    const tokenRes = await exchangeCode(d, {
+      clientId: CHATGPT,
+      redirectUri: CHATGPT_REDIRECT,
+      code,
+      verifier,
+      resource: RESOURCE,
+    });
     expect(tokenRes.status, await tokenRes.clone().text()).toBe(200);
     const tokens = await tokenRes.json();
     expect(decodeJwt(tokens.access_token)).toMatchObject({ sub: organizerId, client_id: CHATGPT });
@@ -442,7 +576,9 @@ describe('ensureGrant', () => {
     expect(rows).toHaveLength(1);
     const apps = await listConnectedApps(db, organizerActor);
     // Which racer wins decides the order; only the union is deterministic.
-    expect([...(apps.find((a) => a.client.domain === 'racer.example')?.scopes ?? [])].sort()).toEqual(['signups:read', 'signups:write']);
+    expect(
+      [...(apps.find((a) => a.client.domain === 'racer.example')?.scopes ?? [])].sort(),
+    ).toEqual(['signups:read', 'signups:write']);
     await revokeConnectedApp(db, d.provider, organizerActor, [...ids][0]!);
   });
 });
@@ -454,24 +590,41 @@ describe('resolveBearerActor for an organizer that no longer exists', () => {
     // A fresh browser: the shared jar carries the first organizer's provider session.
     const g = createDriver(d.provider, ISSUER);
     const { verifier, challenge } = pkcePair();
-    const { uid } = await startAuthorization(g, { clientId: CLIENT, redirectUri: REDIRECT, scope: 'signups:read', challenge });
+    const { uid } = await startAuthorization(g, {
+      clientId: CLIENT,
+      redirectUri: REDIRECT,
+      scope: 'signups:read',
+      challenge,
+    });
     const details = await interactionDetails(g, uid);
-    const grant = new g.provider.Grant({ accountId: ghostId, clientId: String(details.params.client_id) });
+    const grant = new g.provider.Grant({
+      accountId: ghostId,
+      clientId: String(details.params.client_id),
+    });
     grant.addOIDCScope('signups:read');
     grant.addResourceScope(RESOURCE, 'signups:read');
     const grantId = await grant.save();
     await finishInteraction(g, uid, { login: { accountId: ghostId }, consent: { grantId } });
     const { code } = codeFromRedirect(await resume(g, uid));
-    const exchanged = await exchangeCode(g, { clientId: CLIENT, redirectUri: REDIRECT, code, verifier });
+    const exchanged = await exchangeCode(g, {
+      clientId: CLIENT,
+      redirectUri: REDIRECT,
+      code,
+      verifier,
+    });
     const tokens = await exchanged.json();
     expect(exchanged.status, JSON.stringify(tokens)).toBe(200);
     await db.delete(organizers).where(eq(organizers.id, ghostId));
-    const r = await resolveBearerActor(new Request(RESOURCE, { headers: { authorization: `Bearer ${tokens.access_token}` } }));
+    const r = await resolveBearerActor(
+      new Request(RESOURCE, { headers: { authorization: `Bearer ${tokens.access_token}` } }),
+    );
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.response.status).toBe(401);
-      expect(r.response.headers.get('www-authenticate'), r.response.headers.get('www-authenticate') ?? '').toContain('unknown account');
+      expect(
+        r.response.headers.get('www-authenticate'),
+        r.response.headers.get('www-authenticate') ?? '',
+      ).toContain('unknown account');
     }
   });
 });
-

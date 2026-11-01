@@ -30,7 +30,7 @@ export const SCOPE_DESCRIPTIONS: Record<Scope, string> = {
   'signups:read': 'See your signups and their slots',
   'signups:write': 'Create and edit signups',
   'commitments:read': 'See who has signed up, including their names and email addresses',
-  'offline_access': 'Stay connected without asking you to sign in again',
+  offline_access: 'Stay connected without asking you to sign in again',
 };
 
 const SCOPE_SET: ReadonlySet<string> = new Set(ALL_SCOPES);

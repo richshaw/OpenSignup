@@ -111,5 +111,8 @@ export async function POST(request: Request): Promise<Response> {
     workspaces: auth.workspaces,
   };
   // The body is already consumed; the SDK never reads it when parsedBody is given.
-  return getMcpHandler().fetch(request, { authInfo: attachContext(auth.authInfo, ctx), parsedBody });
+  return getMcpHandler().fetch(request, {
+    authInfo: attachContext(auth.authInfo, ctx),
+    parsedBody,
+  });
 }

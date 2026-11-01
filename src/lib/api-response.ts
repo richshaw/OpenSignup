@@ -55,7 +55,8 @@ export function errorEnvelope(error: ServiceError): ErrorEnvelope {
 /** A rate-limited error that knows its wait also tells the client in `Retry-After`. */
 export function fail(error: ServiceError): NextResponse {
   const retryAfter = error.code === 'rate_limited' ? error.details?.retryAfterSeconds : undefined;
-  const headers = typeof retryAfter === 'number' ? { 'Retry-After': String(retryAfter) } : undefined;
+  const headers =
+    typeof retryAfter === 'number' ? { 'Retry-After': String(retryAfter) } : undefined;
   return NextResponse.json(errorEnvelope(error), { status: httpStatusFor(error.code), headers });
 }
 

@@ -97,7 +97,9 @@ describe('<EditForm /> quantity', () => {
   it('still refuses a name of only spaces', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,
-      json: async () => ({ error: { code: 'invalid_input', message: 'name is required', field: 'name' } }),
+      json: async () => ({
+        error: { code: 'invalid_input', message: 'name is required', field: 'name' },
+      }),
     }));
     vi.stubGlobal('fetch', fetchMock);
     renderForm(1);

@@ -32,7 +32,11 @@ export type FollowupRun =
 async function withEvalOrganizer<T>(db: Db, fn: (organizerId: string) => Promise<T>): Promise<T> {
   const organizerId = makeId('org');
   const workspaceId = makeId('ws');
-  await db.insert(organizers).values({ id: organizerId, email: `${organizerId}@example.com`, defaultWorkspaceId: workspaceId });
+  await db.insert(organizers).values({
+    id: organizerId,
+    email: `${organizerId}@example.com`,
+    defaultWorkspaceId: workspaceId,
+  });
   await db.insert(workspaces).values({
     id: workspaceId,
     slug: organizerId.toLowerCase(),
@@ -40,7 +44,9 @@ async function withEvalOrganizer<T>(db: Db, fn: (organizerId: string) => Promise
     type: 'personal',
     plan: 'free',
   });
-  await db.insert(workspaceMembers).values({ id: makeId('mem'), workspaceId, organizerId, role: 'owner', status: 'active' });
+  await db
+    .insert(workspaceMembers)
+    .values({ id: makeId('mem'), workspaceId, organizerId, role: 'owner', status: 'active' });
   try {
     return await fn(organizerId);
   } finally {
@@ -61,9 +67,12 @@ function callThrough(client: Client): CallTool {
 }
 
 /** The one signup in the case's workspace, read through the tools. */
-async function readSignup(client: Client): Promise<{ slots: SlotState[]; editLink: string } | null> {
+async function readSignup(
+  client: Client,
+): Promise<{ slots: SlotState[]; editLink: string } | null> {
   const list = await client.callTool({ name: 'list_signups', arguments: {} });
-  const signups = (list.structuredContent as { signups?: { id: string }[] } | undefined)?.signups ?? [];
+  const signups =
+    (list.structuredContent as { signups?: { id: string }[] } | undefined)?.signups ?? [];
   const id = signups[0]?.id;
   if (!id) return null;
   const got = await client.callTool({ name: 'get_signup', arguments: { signupId: id } });
@@ -93,19 +102,32 @@ export async function runFollowupCase(
     };
 
     const first = await say(c.prompt);
-    if (first.kind === 'failed') return { ok: false, code: first.code, message: first.message, turns };
+    if (first.kind === 'failed')
+      return { ok: false, code: first.code, message: first.message, turns };
     const before = await readSignup(client);
     if (!before) {
-      return { ok: false, code: 'no_signup', message: `no signup after the first message: "${first.text.slice(0, 200)}"`, turns };
+      return {
+        ok: false,
+        code: 'no_signup',
+        message: `no signup after the first message: "${first.text.slice(0, 200)}"`,
+        turns,
+      };
     }
 
     let last: TurnOutcome = first;
     for (const message of c.followUps) {
       last = await say(message);
-      if (last.kind === 'failed') return { ok: false, code: last.code, message: last.message, turns };
+      if (last.kind === 'failed')
+        return { ok: false, code: last.code, message: last.message, turns };
     }
     const after = await readSignup(client);
-    if (!after) return { ok: false, code: 'no_signup', message: 'the signup was gone after the follow-ups', turns };
+    if (!after)
+      return {
+        ok: false,
+        code: 'no_signup',
+        message: 'the signup was gone after the follow-ups',
+        turns,
+      };
 
     return {
       ok: true,

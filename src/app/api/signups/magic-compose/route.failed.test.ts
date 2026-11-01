@@ -74,14 +74,15 @@ function compose(
 
 /** The magic_compose.failed rows; the questions round's own rows are tested elsewhere. */
 function recordedCodes() {
-  return vi.mocked(recordActivityBestEffort).mock.calls
-    .filter(([, row]) => row.eventType === 'magic_compose.failed')
+  return vi
+    .mocked(recordActivityBestEffort)
+    .mock.calls.filter(([, row]) => row.eventType === 'magic_compose.failed')
     .map(([, row]) => ({
-    eventType: row.eventType,
-    workspaceId: row.workspaceId,
-    actorId: row.actor.actorId,
-    payload: row.payload,
-  }));
+      eventType: row.eventType,
+      workspaceId: row.workspaceId,
+      actorId: row.actor.actorId,
+      payload: row.payload,
+    }));
 }
 
 describe('POST /api/signups/magic-compose records magic_compose.failed', () => {
@@ -96,7 +97,12 @@ describe('POST /api/signups/magic-compose records magic_compose.failed', () => {
       const res = await compose();
       expect(res.ok).toBe(false);
       expect(recordedCodes()).toEqual([
-        { eventType: 'magic_compose.failed', workspaceId: 'ws_test', actorId: 'org_test', payload: { code } },
+        {
+          eventType: 'magic_compose.failed',
+          workspaceId: 'ws_test',
+          actorId: 'org_test',
+          payload: { code },
+        },
       ]);
     },
   );

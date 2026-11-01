@@ -91,14 +91,14 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   return (
     <main className="container-tight flex min-h-[100svh] flex-col gap-6 py-8">
       <header className="space-y-1">
-        <a href={`/s/${slug}`} className="text-ink-muted text-sm hover:underline">
+        <a href={`/s/${slug}`} className="text-sm text-ink-muted hover:underline">
           ← Back to signup
         </a>
         <h1 className="text-2xl font-semibold tracking-tight">Your spot</h1>
         {/* Which slot this is, as the cancelled page and the emails name it,
             for someone with more than one sign-up or no email to check. */}
         {slotName ? <p className="text-balance text-sm font-medium">{slotName}</p> : null}
-        <p className="text-ink-muted text-sm">
+        <p className="text-sm text-ink-muted">
           You&apos;re editing this as {c.participantName}
           {c.participantEmail ? ` (${c.participantEmail})` : null}.
         </p>

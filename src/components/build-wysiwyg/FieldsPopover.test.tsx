@@ -37,7 +37,8 @@ type RenderProps = {
 
 function renderPopover(overrides: RenderProps = {}) {
   const onOpenChange = overrides.onOpenChange ?? vi.fn<(open: boolean) => void>();
-  const onAddField = overrides.onAddField ?? vi.fn<(name: string, config: SlotFieldConfig) => void>();
+  const onAddField =
+    overrides.onAddField ?? vi.fn<(name: string, config: SlotFieldConfig) => void>();
   const onUpdateField = overrides.onUpdateField ?? vi.fn<UpdateFieldFn>(async () => {});
   const onDeleteField = overrides.onDeleteField ?? vi.fn<(fieldId: string) => void>();
   const onMoveField = overrides.onMoveField ?? vi.fn<(fieldId: string, toIdx: number) => void>();
@@ -82,7 +83,9 @@ beforeEach(() => {
 
 describe('FieldsPopover', () => {
   it('renders a dialog titled "Fields · N" when open', () => {
-    renderPopover({ fields: [makeField({ id: 'a' }), makeField({ id: 'b', ref: 'name', name: 'Name' })] });
+    renderPopover({
+      fields: [makeField({ id: 'a' }), makeField({ id: 'b', ref: 'name', name: 'Name' })],
+    });
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeTruthy();
     expect(screen.getByText('Fields · 2')).toBeTruthy();
@@ -140,12 +143,20 @@ describe('FieldsPopover', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add field' }));
     fireEvent.change(screen.getByLabelText('Field name'), { target: { value: 'Teacher' } });
     fireEvent.click(screen.getByRole('button', { name: /^Add field$/ }));
-    expect(onAddField).toHaveBeenCalledWith('Teacher', expect.objectContaining({ fieldType: 'text' }));
+    expect(onAddField).toHaveBeenCalledWith(
+      'Teacher',
+      expect.objectContaining({ fieldType: 'text' }),
+    );
     expect(screen.getByText(/Fields · 1/)).toBeTruthy();
   });
 
   it('clicking a field name opens the edit form for that field', () => {
-    const field = makeField({ id: 'x', name: 'Subject', ref: 'subject', config: { fieldType: 'text', maxLength: 200 } });
+    const field = makeField({
+      id: 'x',
+      name: 'Subject',
+      ref: 'subject',
+      config: { fieldType: 'text', maxLength: 200 },
+    });
     renderPopover({ fields: [field] });
     fireEvent.click(screen.getByRole('button', { name: 'Subject' }));
     expect(screen.getByText('Edit field')).toBeTruthy();
@@ -164,7 +175,12 @@ describe('FieldsPopover', () => {
       fields: [
         makeField({ id: 'd', name: 'StartDate', ref: 'startdate' }),
         makeField({ id: 't', name: 'Shift', ref: 'shift', config: { fieldType: 'time' } }),
-        makeField({ id: 'e', name: 'Course', ref: 'course', config: { fieldType: 'enum', choices: [] } }),
+        makeField({
+          id: 'e',
+          name: 'Course',
+          ref: 'course',
+          config: { fieldType: 'enum', choices: [] },
+        }),
       ],
     });
     // The trigger button's name matches the current selection — "Don't group" by default.
@@ -242,15 +258,24 @@ describe('FieldsPopover', () => {
     const CHECKBOX = 'Send a reminder email before this date';
     const dateField = makeField({ id: 'f-date', ref: 'date', name: 'Date' });
     const setupDay = makeField({ id: 'f-setup', ref: 'setup-day', name: 'Setup day' });
-    const what = makeField({ id: 'f-what', ref: 'what', name: 'What', config: { fieldType: 'text', maxLength: 200 } });
+    const what = makeField({
+      id: 'f-what',
+      ref: 'what',
+      name: 'What',
+      config: { fieldType: 'text', maxLength: 200 },
+    });
 
     it('marks only the reminder field with the bell', () => {
       renderPopover({ fields: [what, dateField, setupDay], reminderFieldRef: 'date' });
       const bells = screen.getAllByLabelText(BELL);
       expect(bells).toHaveLength(1);
       expect(screen.getByTestId('fields-row-f-date').contains(bells[0]!)).toBe(true);
-      expect(screen.getByTestId('fields-row-f-setup').querySelector(`[aria-label="${BELL}"]`)).toBeNull();
-      expect(screen.getByTestId('fields-row-f-what').querySelector(`[aria-label="${BELL}"]`)).toBeNull();
+      expect(
+        screen.getByTestId('fields-row-f-setup').querySelector(`[aria-label="${BELL}"]`),
+      ).toBeNull();
+      expect(
+        screen.getByTestId('fields-row-f-what').querySelector(`[aria-label="${BELL}"]`),
+      ).toBeNull();
     });
 
     it('shows no bell while reminders are off', () => {
@@ -261,7 +286,10 @@ describe('FieldsPopover', () => {
     it('ticking in the editor sets the reminder only after the field update has resolved', async () => {
       let resolveUpdate!: () => void;
       const onUpdateField = vi.fn<UpdateFieldFn>(
-        () => new Promise<void>((resolve) => { resolveUpdate = resolve; }),
+        () =>
+          new Promise<void>((resolve) => {
+            resolveUpdate = resolve;
+          }),
       );
       const { onSetReminder } = renderPopover({
         fields: [what, dateField],
@@ -272,7 +300,10 @@ describe('FieldsPopover', () => {
       fireEvent.click(screen.getByRole('checkbox', { name: CHECKBOX }));
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-      expect(onUpdateField).toHaveBeenCalledWith('f-date', { name: 'Date', config: { fieldType: 'date' } });
+      expect(onUpdateField).toHaveBeenCalledWith('f-date', {
+        name: 'Date',
+        config: { fieldType: 'date' },
+      });
       // The editor closes straight away; the settings PATCH waits for the field save.
       expect(screen.getByText(/Fields · 2/)).toBeTruthy();
       await Promise.resolve();
@@ -306,7 +337,10 @@ describe('FieldsPopover', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Date' }));
       fireEvent.change(screen.getByLabelText('Field name'), { target: { value: 'When' } });
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-      expect(onUpdateField).toHaveBeenCalledWith('f-date', { name: 'When', config: { fieldType: 'date' } });
+      expect(onUpdateField).toHaveBeenCalledWith('f-date', {
+        name: 'When',
+        config: { fieldType: 'date' },
+      });
       await Promise.resolve();
       await Promise.resolve();
       expect(onSetReminder).not.toHaveBeenCalled();
@@ -315,7 +349,9 @@ describe('FieldsPopover', () => {
     it('passes the blocking field\u2019s label into the editor', () => {
       renderPopover({ fields: [what, dateField, setupDay], reminderFieldRef: 'date' });
       fireEvent.click(screen.getByRole('button', { name: 'Setup day' }));
-      expect((screen.getByRole('checkbox', { name: CHECKBOX }) as HTMLInputElement).disabled).toBe(true);
+      expect((screen.getByRole('checkbox', { name: CHECKBOX }) as HTMLInputElement).disabled).toBe(
+        true,
+      );
       expect(screen.getByRole('note').textContent).toContain('Date is already the reminder field');
     });
   });

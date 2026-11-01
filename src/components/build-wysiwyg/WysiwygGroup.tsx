@@ -83,7 +83,7 @@ export function WysiwygGroup({
   return (
     <div>
       {showHeader && groupField && (
-        <div className="mb-2 -ml-1.5">
+        <div className="-ml-1.5 mb-2">
           <GroupHeader
             group={group}
             groupField={groupField}
@@ -93,7 +93,7 @@ export function WysiwygGroup({
             onAddEnumOption={onAddEnumOption}
           />
           {renameFailed && (
-            <p role="alert" className="mt-1 ml-1.5 text-[11px] text-danger">
+            <p role="alert" className="ml-1.5 mt-1 text-[11px] text-danger">
               That change didn&rsquo;t save, so this heading is back to what it was. Try again.
             </p>
           )}
@@ -128,8 +128,8 @@ export function WysiwygGroup({
           type="button"
           onClick={() => onAddSlot(group.key)}
           className={
-            'inline-flex w-full items-center gap-1.5 rounded-b-[11px] first:rounded-t-[11px] px-3.5 py-2.5 text-left text-xs font-medium text-ink-muted ' +
-            'transition-colors duration-180 hover:bg-brand-soft hover:text-brand ' +
+            'inline-flex w-full items-center gap-1.5 rounded-b-[11px] px-3.5 py-2.5 text-left text-xs font-medium text-ink-muted first:rounded-t-[11px] ' +
+            'transition-colors duration-180 hover:bg-brand-soft hover:text-brand' +
             (group.rows.length > 0 ? 'border-t border-dashed border-surface-sunk' : '')
           }
         >
@@ -197,7 +197,9 @@ function GroupHeader({
       ariaLabel={ariaLabel}
       className={`${HEADER_CLASSES} inline-block`}
       {...(isDate ? { input: FIELD_VALUE_INPUTS.date } : {})}
-      {...(groupField.config.fieldType === 'text' ? { maxLength: groupField.config.maxLength } : {})}
+      {...(groupField.config.fieldType === 'text'
+        ? { maxLength: groupField.config.maxLength }
+        : {})}
     />
   );
 }

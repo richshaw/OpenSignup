@@ -66,7 +66,10 @@ function buildConfig(): NextAuthConfig {
             url: confirmUrl,
             email: identifier,
             expiresInMinutes,
-            codeExpiresInMinutes: Math.max(1, Math.ceil((codeExpiresAt.getTime() - Date.now()) / 60_000)),
+            codeExpiresInMinutes: Math.max(
+              1,
+              Math.ceil((codeExpiresAt.getTime() - Date.now()) / 60_000),
+            ),
             code,
           });
           const { html, text } = await renderEmail(node);

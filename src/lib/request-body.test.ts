@@ -22,9 +22,9 @@ describe('readRequestBody', () => {
       pull: () => expect.unreachable('must not read a body the header already ruled out'),
       cancel,
     });
-    await expect(readRequestBody(streamRequest(stream, { 'content-length': '999' }), 10)).rejects.toBeInstanceOf(
-      BodyTooLarge,
-    );
+    await expect(
+      readRequestBody(streamRequest(stream, { 'content-length': '999' }), 10),
+    ).rejects.toBeInstanceOf(BodyTooLarge);
   });
 
   it('cancels the stream when a chunked body crosses the cap, so the upload stops', async () => {

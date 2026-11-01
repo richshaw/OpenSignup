@@ -102,7 +102,13 @@ describe('/api/mcp', () => {
     await POST(post(rpc('tools/call', { name: 'list_signups', arguments: {} })));
     expect(resolve.mock.calls.at(-1)?.[1]).toEqual({ requiredScopes: ['signups:read'] });
     await POST(
-      post(rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } })),
+      post(
+        rpc('initialize', {
+          protocolVersion: '2025-06-18',
+          capabilities: {},
+          clientInfo: { name: 't', version: '0' },
+        }),
+      ),
     );
     expect(resolve.mock.calls.at(-1)?.[1]).toEqual({ requiredScopes: [] });
   });
@@ -147,9 +153,15 @@ describe('/api/mcp', () => {
     try {
       const { POST } = await import('./route');
       resolve.mockResolvedValue(okResolution);
-      const params = { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } };
+      const params = {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 't', version: '0' },
+      };
       const r = await POST(post(rpc('initialize', params)));
-      const body = (await readRpc(r)) as { result: { serverInfo: { name: string; version: string } } };
+      const body = (await readRpc(r)) as {
+        result: { serverInfo: { name: string; version: string } };
+      };
       expect(body.result.serverInfo).toMatchObject({ name: 'opensignup', version: expected });
     } finally {
       vi.unstubAllEnvs();
@@ -206,7 +218,11 @@ describe('/api/mcp', () => {
   it('refuses a batch larger than the cap', async () => {
     const { POST } = await import('./route');
     resolve.mockClear();
-    const batch = Array.from({ length: 21 }, (_, i) => ({ jsonrpc: '2.0', id: i, method: 'tools/list' }));
+    const batch = Array.from({ length: 21 }, (_, i) => ({
+      jsonrpc: '2.0',
+      id: i,
+      method: 'tools/list',
+    }));
     const r = await POST(post(JSON.stringify(batch)));
     expect(r.status).toBe(400);
     expect(((await readRpc(r)) as { error: { code: number } }).error.code).toBe(-32600);

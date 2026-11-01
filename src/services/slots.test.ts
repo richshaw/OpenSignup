@@ -66,11 +66,9 @@ describe('extractSlotAt', () => {
   });
 
   it('returns null when reminderFromFieldRef points at a non-existent ref', () => {
-    const at = extractSlotAt(
-      { groupByFieldRefs: [], reminderFromFieldRef: 'nope' },
-      [dateField],
-      { date: '2026-05-15' },
-    );
+    const at = extractSlotAt({ groupByFieldRefs: [], reminderFromFieldRef: 'nope' }, [dateField], {
+      date: '2026-05-15',
+    });
     expect(at).toBeNull();
   });
 

@@ -22,9 +22,9 @@ describe('parseStaticClients', () => {
   it('rejects malformed JSON, bad shapes and duplicates with a pointed message', () => {
     expect(() => parseStaticClients('{')).toThrow(/JSON array/);
     expect(() => parseStaticClients('[{"client_id":"a"}]')).toThrow(/0\.client_name/);
-    expect(() => parseStaticClients('[{"client_id":"a","client_name":"A","redirect_uris":["nope"]}]')).toThrow(
-      /redirect_uris/,
-    );
+    expect(() =>
+      parseStaticClients('[{"client_id":"a","client_name":"A","redirect_uris":["nope"]}]'),
+    ).toThrow(/redirect_uris/);
     const dup =
       '[{"client_id":"a","client_name":"A","redirect_uris":["https://a/cb"]},{"client_id":"a","client_name":"B","redirect_uris":["https://b/cb"]}]';
     expect(() => parseStaticClients(dup)).toThrow(/duplicate/);

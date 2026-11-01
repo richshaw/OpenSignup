@@ -78,7 +78,10 @@ export const deleteSlotTool = defineTool({
   askFirst: true,
   inputSchema: z.object({
     slotId: z.string(),
-    force: z.boolean().default(false).describe('Remove the slot even if people have signed up for it.'),
+    force: z
+      .boolean()
+      .default(false)
+      .describe('Remove the slot even if people have signed up for it.'),
   }),
   handler: (ctx, input) => deleteSlot(ctx.db, ctx.actor, input.slotId, { force: input.force }),
 });

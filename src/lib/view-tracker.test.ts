@@ -18,9 +18,7 @@ describe('classifyUa', () => {
 
   it('returns browser for a real Firefox UA', () => {
     expect(
-      classifyUa(
-        'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
-      ),
+      classifyUa('Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0'),
     ).toBe('browser');
   });
 

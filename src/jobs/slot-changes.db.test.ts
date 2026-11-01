@@ -195,7 +195,9 @@ describe('slot-change emails (db)', () => {
     const before = await fx.db.select().from(slots).where(eq(slots.id, s.slotId));
     const capacityOnly = await updateSlot(fx.db, fx.actor, s.slotId, { capacity: 6 });
     expect(capacityOnly.ok).toBe(true);
-    const sameDay = await updateSlot(fx.db, fx.actor, s.slotId, { values: { day: dayFromNow(20) } });
+    const sameDay = await updateSlot(fx.db, fx.actor, s.slotId, {
+      values: { day: dayFromNow(20) },
+    });
     expect(sameDay.ok).toBe(true);
     const moved = await moveSlot(fx, s.slotId, dayFromNow(21));
 
@@ -440,9 +442,7 @@ describe('slot-change emails (db)', () => {
             ((${activity.payload}->>'slotAt')::timestamptz - make_interval(secs => ${shift / 1000}))
           ))`,
         })
-        .where(
-          and(eq(activity.signupId, s.signupId), eq(activity.eventType, 'slot.change_sent')),
-        );
+        .where(and(eq(activity.signupId, s.signupId), eq(activity.eventType, 'slot.change_sent')));
       // And the move that put it there, so the slot is still where it was moved to.
       await fx.db
         .update(activity)
@@ -451,9 +451,7 @@ describe('slot-change emails (db)', () => {
             ((${activity.payload}->>'to')::timestamptz - make_interval(secs => ${shift / 1000}))
           ))`,
         })
-        .where(
-          and(eq(activity.signupId, s.signupId), eq(activity.eventType, 'slot.rescheduled')),
-        );
+        .where(and(eq(activity.signupId, s.signupId), eq(activity.eventType, 'slot.rescheduled')));
     }
 
     it('reads as a normal reminder once the participant was told the new time', async () => {

@@ -93,8 +93,9 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
           {done === 'off' ? (
             <>
               You won&apos;t get any more reminders for <strong>{target.signupTitle}</strong>, or
-              emails when the organizer changes your slot&apos;s date or time. Your slot is unchanged — if you also want to give it up, open the link in your
-              confirmation email and cancel there.
+              emails when the organizer changes your slot&apos;s date or time. Your slot is
+              unchanged — if you also want to give it up, open the link in your confirmation email
+              and cancel there.
             </>
           ) : (
             <>
@@ -137,9 +138,8 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
         {done === 'on' ? (
           <>
             You&apos;ll get reminders for <strong>{target.signupTitle}</strong> again
-            {target.participantEmail ? ` at ${target.participantEmail}` : null}, and emails when your
-            slot&apos;s date or time changes. You can stop them
-            any time from the link in one.
+            {target.participantEmail ? ` at ${target.participantEmail}` : null}, and emails when
+            your slot&apos;s date or time changes. You can stop them any time from the link in one.
           </>
         ) : (
           <>

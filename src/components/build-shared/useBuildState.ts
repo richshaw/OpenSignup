@@ -160,7 +160,9 @@ export function buildReducer(state: BuildState, action: BuildAction): BuildState
       return {
         ...state,
         ...(action.patch.title !== undefined ? { title: action.patch.title } : {}),
-        ...(action.patch.description !== undefined ? { description: action.patch.description } : {}),
+        ...(action.patch.description !== undefined
+          ? { description: action.patch.description }
+          : {}),
       };
 
     case 'APPEND_FIELD':
@@ -196,7 +198,8 @@ const SAVED_CLEAR_MS = 3000;
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 // The reorder route refuses a list that isn't every slot exactly once, which from
 // the builder means another window changed the slots. Its own message is for API callers.
-const STALE_REORDER_MESSAGE = "The slots changed in another window, so your move wasn't saved. Drag it again.";
+const STALE_REORDER_MESSAGE =
+  "The slots changed in another window, so your move wasn't saved. Drag it again.";
 const TITLE_TOO_SHORT: SaveError = {
   code: 'invalid_input',
   message: `Title must be at least ${TITLE_MIN_LENGTH} characters.`,
@@ -260,7 +263,11 @@ function toStringValues(values: Record<string, unknown>): Record<string, string>
  * `list` with the item at `fromIdx` moved to `toIdx` (clamped to the list) and
  * every `sortOrder` renumbered from 0, or null when nothing would move.
  */
-function moveItem<T extends { sortOrder: number }>(list: T[], fromIdx: number, toIdx: number): T[] | null {
+function moveItem<T extends { sortOrder: number }>(
+  list: T[],
+  fromIdx: number,
+  toIdx: number,
+): T[] | null {
   if (fromIdx < 0 || fromIdx >= list.length) return null;
   const clamped = Math.max(0, Math.min(list.length - 1, toIdx));
   if (clamped === fromIdx) return null;
@@ -326,7 +333,9 @@ async function sendForData<T>(method: string, url: string, body?: unknown): Prom
 function asErr(e: unknown): SaveError {
   if (e && typeof e === 'object' && 'code' in e) {
     const obj = e as SaveError;
-    return obj.message !== undefined ? { code: obj.code, message: obj.message } : { code: obj.code };
+    return obj.message !== undefined
+      ? { code: obj.code, message: obj.message }
+      : { code: obj.code };
   }
   return { code: 'internal' };
 }
@@ -452,7 +461,10 @@ export function useBuildState(
     if (timersRef.current.size > 0) return;
     dispatch({ type: 'SET_SAVE_STATUS', status: SAVED });
     if (savedTimerRef.current !== null) clearTimeout(savedTimerRef.current);
-    savedTimerRef.current = setTimeout(() => dispatch({ type: 'SET_SAVE_STATUS', status: IDLE }), SAVED_CLEAR_MS);
+    savedTimerRef.current = setTimeout(
+      () => dispatch({ type: 'SET_SAVE_STATUS', status: IDLE }),
+      SAVED_CLEAR_MS,
+    );
   }
 
   function markError(err: SaveError = { code: 'internal' }) {
@@ -462,9 +474,10 @@ export function useBuildState(
     }
     dispatch({
       type: 'SET_SAVE_STATUS',
-      status: err.message !== undefined
-        ? { kind: 'error', code: err.code, message: err.message }
-        : { kind: 'error', code: err.code },
+      status:
+        err.message !== undefined
+          ? { kind: 'error', code: err.code, message: err.message }
+          : { kind: 'error', code: err.code },
     });
   }
 
@@ -532,7 +545,10 @@ export function useBuildState(
   const addField = (name: string, config: SlotFieldConfig): Promise<void> =>
     withSave(async () => {
       const created = await sendForData<SlotFieldDefinition>('POST', fieldsUrl, {
-        ref: toFieldRef(name, stateRef.current.fields.map((f) => f.ref)),
+        ref: toFieldRef(
+          name,
+          stateRef.current.fields.map((f) => f.ref),
+        ),
         label: name,
         fieldType: config.fieldType,
         config,
@@ -553,7 +569,11 @@ export function useBuildState(
         body['fieldType'] = patch.config.fieldType;
         body['config'] = patch.config;
       }
-      const saved = await sendForData<SlotFieldDefinition>('PATCH', `${fieldsUrl}/${fieldId}`, body);
+      const saved = await sendForData<SlotFieldDefinition>(
+        'PATCH',
+        `${fieldsUrl}/${fieldId}`,
+        body,
+      );
       const updated = toBuildFields([saved])[0]!;
       dispatch({ type: 'REPLACE_FIELD', field: updated });
       mirrorFieldChange(stateRef.current.fields.map((f) => (f.id === updated.id ? updated : f)));
@@ -590,7 +610,11 @@ export function useBuildState(
   // them moved; the refetch then shows the order it holds.
   const moveField = async (fieldId: string, toIdx: number): Promise<void> => {
     const previous = stateRef.current.fields;
-    const next = moveItem(previous, previous.findIndex((f) => f.id === fieldId), toIdx);
+    const next = moveItem(
+      previous,
+      previous.findIndex((f) => f.id === fieldId),
+      toIdx,
+    );
     if (!next) return;
     await saveMove(
       previous,
@@ -690,7 +714,9 @@ export function useBuildState(
     const previous = stateRef.current.rows;
     const row = previous[fromIdx];
     if (!row) return;
-    const moved = group ? { ...row, values: { ...row.values, [group.fieldRef]: group.value } } : row;
+    const moved = group
+      ? { ...row, values: { ...row.values, [group.fieldRef]: group.value } }
+      : row;
     const edited = previous.map((r) => (r === row ? moved : r));
     const reordered = moveItem(edited, fromIdx, toIdx);
     if (!group && !reordered) return;
@@ -705,7 +731,9 @@ export function useBuildState(
           await send('PUT', `${slotsUrl}/order`, { slotIds: reordered.map((r) => r.id) });
         } catch (e) {
           const err = asErr(e);
-          throw err.code === 'invalid_input' ? { code: 'invalid_input', message: STALE_REORDER_MESSAGE } : err;
+          throw err.code === 'invalid_input'
+            ? { code: 'invalid_input', message: STALE_REORDER_MESSAGE }
+            : err;
         }
       },
       async () => {
@@ -794,11 +822,17 @@ export function useBuildState(
    * calls this once the organizer has finished choosing. A row the server
    * refuses goes back to the value it had. Resolves to whether every row saved.
    */
-  const renameGroup = async (fieldRef: string, rowIds: string[], value: string): Promise<boolean> => {
+  const renameGroup = async (
+    fieldRef: string,
+    rowIds: string[],
+    value: string,
+  ): Promise<boolean> => {
     const rows = stateRef.current.rows.filter((r) => rowIds.includes(r.id));
     for (const r of rows) dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId: r.id, fieldRef, value });
     markSaving();
-    const saves = rows.map((r) => saveRowValues({ ...r, values: { ...r.values, [fieldRef]: value } }));
+    const saves = rows.map((r) =>
+      saveRowValues({ ...r, values: { ...r.values, [fieldRef]: value } }),
+    );
     void track(Promise.all(saves));
     const results = await Promise.allSettled(saves);
     let failure: SaveError | null = null;
@@ -806,7 +840,12 @@ export function useBuildState(
       const row = rows[i];
       if (result.status === 'fulfilled' || !row) continue;
       failure ??= asErr(result.reason);
-      dispatch({ type: 'OPTIMISTIC_EDIT_CELL', rowId: row.id, fieldRef, value: row.values[fieldRef] ?? '' });
+      dispatch({
+        type: 'OPTIMISTIC_EDIT_CELL',
+        rowId: row.id,
+        fieldRef,
+        value: row.values[fieldRef] ?? '',
+      });
     }
     if (failure) {
       markError(failure);
@@ -950,7 +989,8 @@ export function useBuildState(
       await withSave(async () => {
         await send('PATCH', `/api/signups/${signupId}`, body, { keepalive: true });
         if (body['title'] !== undefined) lastCommittedMetaRef.current.title = body['title'];
-        if (body['description'] !== undefined) lastCommittedMetaRef.current.description = body['description'];
+        if (body['description'] !== undefined)
+          lastCommittedMetaRef.current.description = body['description'];
         // Description saved but title was rejected client-side — surface
         // the validation message anyway so the user gets the feedback.
         if (titleTooShort) throw TITLE_TOO_SHORT;
@@ -993,7 +1033,10 @@ export function useBuildState(
    * failed fetch leaves the list as it was rather than reporting an error.
    */
   async function catchUpOnFields(next: SignupSettings): Promise<void> {
-    const named = [...next.groupByFieldRefs, ...(next.reminderFromFieldRef ? [next.reminderFromFieldRef] : [])];
+    const named = [
+      ...next.groupByFieldRefs,
+      ...(next.reminderFromFieldRef ? [next.reminderFromFieldRef] : []),
+    ];
     const loaded = new Set(stateRef.current.fields.map((f) => f.ref));
     if (named.every((ref) => loaded.has(ref))) return;
     try {
@@ -1013,7 +1056,9 @@ export function useBuildState(
    * links, date order), only the switch flips.
    */
   const setReminderField = (ref: string | null): Promise<void> =>
-    saveSettings(ref ? { sendReminders: true, reminderFromFieldRef: ref } : { sendReminders: false });
+    saveSettings(
+      ref ? { sendReminders: true, reminderFromFieldRef: ref } : { sendReminders: false },
+    );
 
   return {
     state,

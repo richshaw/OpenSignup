@@ -26,27 +26,33 @@ function makeField(overrides: Partial<BuildField> = {}): BuildField {
   };
 }
 
-function renderGroup(overrides: {
-  group?: Partial<SlotGroup>;
-  groupField?: BuildField | null;
-  displayFields?: BuildField[];
-  fields?: BuildField[];
-  expandedRowId?: string | null;
-  onExpandRow?: Mock<(rowId: string | null) => void>;
-  onEditCell?: Mock<(rowId: string, fieldRef: string, value: string) => void>;
-  onSetCapacity?: Mock<(rowId: string, capacity: number | null) => void>;
-  onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;
-  onDuplicateRow?: Mock<(rowId: string) => void>;
-  onDeleteRow?: Mock<(rowId: string) => void>;
-  onAddSlot?: Mock<(groupKey: string) => void>;
-  onRenameGroup?: Mock<(oldKey: string, newKey: string) => void>;
-} = {}) {
+function renderGroup(
+  overrides: {
+    group?: Partial<SlotGroup>;
+    groupField?: BuildField | null;
+    displayFields?: BuildField[];
+    fields?: BuildField[];
+    expandedRowId?: string | null;
+    onExpandRow?: Mock<(rowId: string | null) => void>;
+    onEditCell?: Mock<(rowId: string, fieldRef: string, value: string) => void>;
+    onSetCapacity?: Mock<(rowId: string, capacity: number | null) => void>;
+    onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;
+    onDuplicateRow?: Mock<(rowId: string) => void>;
+    onDeleteRow?: Mock<(rowId: string) => void>;
+    onAddSlot?: Mock<(groupKey: string) => void>;
+    onRenameGroup?: Mock<(oldKey: string, newKey: string) => void>;
+  } = {},
+) {
   const onAddSlot = overrides.onAddSlot ?? vi.fn<(groupKey: string) => void>();
-  const onRenameGroup = overrides.onRenameGroup ?? vi.fn<(oldKey: string, newKey: string) => void>();
+  const onRenameGroup =
+    overrides.onRenameGroup ?? vi.fn<(oldKey: string, newKey: string) => void>();
   const onExpandRow = overrides.onExpandRow ?? vi.fn<(rowId: string | null) => void>();
-  const onEditCell = overrides.onEditCell ?? vi.fn<(rowId: string, fieldRef: string, value: string) => void>();
-  const onSetCapacity = overrides.onSetCapacity ?? vi.fn<(rowId: string, capacity: number | null) => void>();
-  const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
+  const onEditCell =
+    overrides.onEditCell ?? vi.fn<(rowId: string, fieldRef: string, value: string) => void>();
+  const onSetCapacity =
+    overrides.onSetCapacity ?? vi.fn<(rowId: string, capacity: number | null) => void>();
+  const onAddEnumOption =
+    overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
   const onDuplicateRow = overrides.onDuplicateRow ?? vi.fn<(rowId: string) => void>();
   const onDeleteRow = overrides.onDeleteRow ?? vi.fn<(rowId: string) => void>();
   const group: SlotGroup = {
@@ -55,8 +61,7 @@ function renderGroup(overrides: {
     rows: [makeRow({ id: 'r1' }), makeRow({ id: 'r2' })],
     ...overrides.group,
   };
-  const groupField =
-    'groupField' in overrides ? overrides.groupField ?? null : makeField();
+  const groupField = 'groupField' in overrides ? (overrides.groupField ?? null) : makeField();
   const utils = render(
     <WysiwygGroup
       group={group}
@@ -76,7 +81,17 @@ function renderGroup(overrides: {
       onRenameGroup={onRenameGroup}
     />,
   );
-  return { ...utils, onAddSlot, onRenameGroup, onExpandRow, onEditCell, onSetCapacity, onAddEnumOption, onDuplicateRow, onDeleteRow };
+  return {
+    ...utils,
+    onAddSlot,
+    onRenameGroup,
+    onExpandRow,
+    onEditCell,
+    onSetCapacity,
+    onAddEnumOption,
+    onDuplicateRow,
+    onDeleteRow,
+  };
 }
 
 describe('WysiwygGroup', () => {
@@ -116,7 +131,7 @@ describe('WysiwygGroup', () => {
     expect(onRenameGroup).toHaveBeenCalledWith('2026-05-21', '2026-05-22');
   });
 
-  it('boxes a date header\'s input as the slot editor does, not in the header\'s small caps', () => {
+  it("boxes a date header's input as the slot editor does, not in the header's small caps", () => {
     renderGroup({ group: { key: '2026-05-21', rawValue: '2026-05-21', rows: [makeRow()] } });
     fireEvent.click(screen.getByRole('button', { name: /Group header.*Thu, May 21/ }));
     const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
@@ -149,7 +164,7 @@ describe('WysiwygGroup', () => {
     expect(onRenameGroup).toHaveBeenCalledWith('__empty__', '2026-11-14');
   });
 
-  it('offers only the list\'s choices for a List header', () => {
+  it("offers only the list's choices for a List header", () => {
     const { onRenameGroup } = renderGroup({
       group: { key: 'Cups', rawValue: 'Cups', rows: [makeRow()] },
       groupField: makeField({
@@ -167,7 +182,9 @@ describe('WysiwygGroup', () => {
   });
 
   it('adds a new choice to the list before renaming a List header to it', async () => {
-    const onAddEnumOption = vi.fn<(fieldId: string, value: string) => Promise<void>>().mockResolvedValue();
+    const onAddEnumOption = vi
+      .fn<(fieldId: string, value: string) => Promise<void>>()
+      .mockResolvedValue();
     const { onRenameGroup } = renderGroup({
       group: { key: 'Cups', rawValue: 'Cups', rows: [makeRow()] },
       groupField: makeField({
@@ -190,7 +207,11 @@ describe('WysiwygGroup', () => {
   it('keeps free text for a Short text header', () => {
     const { onRenameGroup } = renderGroup({
       group: { key: 'Snacks', rawValue: 'Snacks', rows: [makeRow()] },
-      groupField: makeField({ ref: 'what', name: 'What', config: { fieldType: 'text', maxLength: 200 } }),
+      groupField: makeField({
+        ref: 'what',
+        name: 'What',
+        config: { fieldType: 'text', maxLength: 200 },
+      }),
     });
     fireEvent.click(screen.getByRole('button', { name: /Group header.*Snacks/ }));
     const input = screen.getByRole('textbox') as HTMLInputElement;
@@ -202,7 +223,11 @@ describe('WysiwygGroup', () => {
   it("stops a Short text header at its field's maxLength", () => {
     renderGroup({
       group: { key: 'Snacks', rawValue: 'Snacks', rows: [makeRow()] },
-      groupField: makeField({ ref: 'what', name: 'What', config: { fieldType: 'text', maxLength: 40 } }),
+      groupField: makeField({
+        ref: 'what',
+        name: 'What',
+        config: { fieldType: 'text', maxLength: 40 },
+      }),
     });
     fireEvent.click(screen.getByRole('button', { name: /Group header.*Snacks/ }));
     expect((screen.getByRole('textbox') as HTMLInputElement).maxLength).toBe(40);

@@ -93,7 +93,9 @@ test.describe('help: take someone off a slot', () => {
 
       await visitor.goto(editUrl);
       await expect(visitor.getByRole('heading', { name: UI.removedPage })).toBeVisible();
-      await expect(visitor.getByText('Fruit and water · Sat, Apr 6', { exact: true })).toBeVisible();
+      await expect(
+        visitor.getByText('Fruit and water · Sat, Apr 6', { exact: true }),
+      ).toBeVisible();
     } finally {
       await participant.close();
     }
