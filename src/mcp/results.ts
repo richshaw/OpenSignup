@@ -1,7 +1,12 @@
 import type { CallToolResult } from '@modelcontextprotocol/server';
-import { ZodError } from 'zod';
 import { errorEnvelope } from '@/lib/api-response';
-import { fromZodError, serviceError, ServiceException, type ServiceError } from '@/lib/errors';
+import {
+  fromZodError,
+  INTERNAL_ERROR,
+  serviceError,
+  serviceErrorFromThrown,
+  type ServiceError,
+} from '@/lib/errors';
 import { log } from '@/lib/log';
 import type { ToolContext } from './context';
 import type { ToolDefinition } from './registry';
@@ -76,10 +81,9 @@ export async function runTool(
       ? finish('ok', toolSuccess(result.value))
       : finish(result.error.code, toolFailure(result.error));
   } catch (error) {
-    if (error instanceof ServiceException)
-      return finish(error.serviceError.code, toolFailure(error.serviceError));
-    if (error instanceof ZodError) return finish('invalid_input', toolFailure(fromZodError(error)));
+    const se = serviceErrorFromThrown(error);
+    if (se) return finish(se.code, toolFailure(se));
     log.error({ err: error, tool: def.name }, 'mcp tool threw');
-    return finish('internal', toolFailure({ code: 'internal', message: 'something went wrong' }));
+    return finish('internal', toolFailure(INTERNAL_ERROR));
   }
 }

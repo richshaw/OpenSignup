@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } from '@/lib/signup-limits';
+import {
+  DESCRIPTION_MAX_LENGTH,
+  TITLE_MAX_LENGTH,
+  TITLE_MIN_LENGTH,
+  TITLE_TOO_SHORT_MESSAGE,
+} from '@/lib/signup-limits';
 import { NameSchema, TagsSchema } from './common';
 
 export { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH };
@@ -88,7 +93,7 @@ export const TitleSchema = z
   .string()
   .max(TITLE_MAX_LENGTH)
   .trim()
-  .min(TITLE_MIN_LENGTH, `Title must be at least ${TITLE_MIN_LENGTH} characters.`);
+  .min(TITLE_MIN_LENGTH, TITLE_TOO_SHORT_MESSAGE);
 
 export const SignupCreateInputSchema = z.object({
   title: TitleSchema,

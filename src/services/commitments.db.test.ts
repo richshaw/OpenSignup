@@ -2494,3 +2494,139 @@ describe('a refused sign-up or move leaves no trace but its attempt_failed row (
     ]);
   });
 });
+
+// Signing up and raising a quantity both refuse with `capacity_full`. REST and
+// MCP callers read the message, suggestion and details as they are, so pin
+// every byte, key order included, for both callers in both cases.
+describe('the capacity_full error (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  async function signupWithSmallSlot(title: string) {
+    const a = await makeOpenSignupWithSlot(fx, title);
+    const small = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 3 });
+    if (!small.ok) throw new Error(`addSlot failed: ${small.error.message}`);
+    // The signup's other open slots, in sortOrder: none of them has a date.
+    const others = await fx.db
+      .select({ id: slots.id, ref: slots.ref })
+      .from(slots)
+      .where(and(eq(slots.signupId, a.signupId), sql`${slots.id} <> ${small.value.id}`))
+      .orderBy(slots.sortOrder);
+    expect(others.length).toBeGreaterThan(0);
+    return {
+      smallId: small.value.id,
+      alternatives: others.map((o) => ({ id: o.id, ref: o.ref, slotAt: null })),
+    };
+  }
+
+  async function take(slotId: string, who: string, quantity: number) {
+    const r = await commitToSlot(fx.db, slotId, {
+      name: `${who} Example`,
+      email: `${who.toLowerCase()}@example.com`,
+      quantity,
+    });
+    if (!r.ok) throw new Error(`commitToSlot failed: ${r.error.message}`);
+    return r.value;
+  }
+
+  it('signing up for more places than are left', async () => {
+    const s = await signupWithSmallSlot('Capacity error, sign-up over');
+    await take(s.smallId, 'Filler', 1);
+
+    const r = await commitToSlot(fx.db, s.smallId, {
+      name: 'Pat Example',
+      email: 'pat@example.com',
+      quantity: 3,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toEqual({
+      code: 'capacity_full',
+      message: 'only 2 left — you asked for 3',
+      details: { remaining: 2, requested: 3, capacity: 3, alternatives: s.alternatives },
+      suggestion: 'lower the quantity to 2 or fewer',
+    });
+    expect(Object.keys(r.error)).toEqual(['code', 'message', 'details', 'suggestion']);
+    expect(Object.keys(r.error.details ?? {})).toEqual([
+      'remaining',
+      'requested',
+      'capacity',
+      'alternatives',
+    ]);
+  });
+
+  it('signing up for a slot with none left', async () => {
+    const s = await signupWithSmallSlot('Capacity error, sign-up full');
+    await take(s.smallId, 'Filler', 3);
+
+    const r = await commitToSlot(fx.db, s.smallId, {
+      name: 'Pat Example',
+      email: 'pat@example.com',
+      quantity: 1,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toEqual({
+      code: 'capacity_full',
+      message: 'that slot just filled',
+      details: { remaining: 0, requested: 1, capacity: 3, alternatives: s.alternatives },
+      suggestion: 'pick one of the suggested open slots',
+    });
+    expect(Object.keys(r.error)).toEqual(['code', 'message', 'details', 'suggestion']);
+    expect(Object.keys(r.error.details ?? {})).toEqual([
+      'remaining',
+      'requested',
+      'capacity',
+      'alternatives',
+    ]);
+  });
+
+  it('raising a quantity past what is left', async () => {
+    const s = await signupWithSmallSlot('Capacity error, edit over');
+    await take(s.smallId, 'Filler', 1);
+    const mine = await take(s.smallId, 'Pat', 1);
+
+    const r = await updateOwnCommitment(fx.db, mine.commitment.id, mine.editToken, {
+      quantity: 3,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toEqual({
+      code: 'capacity_full',
+      message: 'only 2 left — you asked for 3',
+      details: { remaining: 2, requested: 3, capacity: 3 },
+      suggestion: 'lower the quantity to 2 or fewer',
+    });
+    expect(Object.keys(r.error)).toEqual(['code', 'message', 'details', 'suggestion']);
+    expect(Object.keys(r.error.details ?? {})).toEqual(['remaining', 'requested', 'capacity']);
+  });
+
+  it('raising a quantity when none are left', async () => {
+    const s = await signupWithSmallSlot('Capacity error, edit full');
+    await take(s.smallId, 'Filler', 2);
+    const mine = await take(s.smallId, 'Pat', 1);
+    // The others already hold every place once the cap drops to 2.
+    await fx.db.update(slots).set({ capacity: 2 }).where(eq(slots.id, s.smallId));
+
+    const r = await updateOwnCommitment(fx.db, mine.commitment.id, mine.editToken, {
+      quantity: 2,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toEqual({
+      code: 'capacity_full',
+      message: 'no spots left for additional quantity',
+      details: { remaining: 0, requested: 2, capacity: 2 },
+      suggestion: 'lower the quantity',
+    });
+    expect(Object.keys(r.error)).toEqual(['code', 'message', 'details', 'suggestion']);
+    expect(Object.keys(r.error.details ?? {})).toEqual(['remaining', 'requested', 'capacity']);
+  });
+});

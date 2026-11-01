@@ -2,7 +2,12 @@ import { useReducer, useRef, useEffect, useState } from 'react';
 import { toFieldRef } from '@/schemas/slot-fields';
 import type { SlotFieldDefinition, SlotFieldConfig } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
-import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } from '@/lib/signup-limits';
+import {
+  DESCRIPTION_MAX_LENGTH,
+  TITLE_MAX_LENGTH,
+  TITLE_MIN_LENGTH,
+  TITLE_TOO_SHORT_MESSAGE,
+} from '@/lib/signup-limits';
 import type { ErrorCode } from '@/lib/errors';
 import { resolveAnchorRef } from '@/lib/reminder-fields';
 
@@ -202,7 +207,7 @@ const STALE_REORDER_MESSAGE =
   "The slots changed in another window, so your move wasn't saved. Drag it again.";
 const TITLE_TOO_SHORT: SaveError = {
   code: 'invalid_input',
-  message: `Title must be at least ${TITLE_MIN_LENGTH} characters.`,
+  message: TITLE_TOO_SHORT_MESSAGE,
 };
 
 // ---------------------------------------------------------------------------

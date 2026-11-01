@@ -6,7 +6,7 @@ import { InlineNote } from '@/components/ui/inline-note';
 import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
 import {
   FIELD_TYPES,
-  TEXT_DEFAULT_MAX_LENGTH,
+  configFor,
   type FieldType,
   type SlotFieldConfig,
 } from '@/schemas/slot-fields';
@@ -28,23 +28,6 @@ type InlineFieldFormProps = {
   onCancel: () => void;
   onDelete?: () => void;
 };
-
-function defaultConfigFor(type: FieldType): SlotFieldConfig {
-  switch (type) {
-    case 'text':
-      return { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH };
-    case 'date':
-      return { fieldType: 'date' };
-    case 'time':
-      return { fieldType: 'time' };
-    case 'number':
-      return { fieldType: 'number' };
-    case 'enum':
-      // Server schema requires choices.min(1); seed a placeholder option that
-      // the organizer renames (or replaces) via the inline EnumPicker.
-      return { fieldType: 'enum', choices: ['Option 1'] };
-  }
-}
 
 export function InlineFieldForm({
   formMode,
@@ -80,11 +63,13 @@ export function InlineFieldForm({
   const save = () => {
     const trimmed = name.trim() || 'Untitled';
     // When the type changes on an existing field, reset its config to the
-    // type's default. Enum options land via the inline EnumPicker, not here.
+    // type's default. Enum options land via the inline EnumPicker, not here:
+    // the server schema requires choices.min(1), so an enum field starts with
+    // a placeholder option that the organizer renames (or replaces).
     const config: SlotFieldConfig =
       isEdit && formMode.field.config.fieldType === type
         ? formMode.field.config
-        : defaultConfigFor(type);
+        : configFor(type, ['Option 1']);
     onSave(showReminder ? { name: trimmed, config, reminder } : { name: trimmed, config });
   };
 

@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import { DraftFieldSchema } from '@/lib/magic-compose/prompt';
-import { configFor } from '@/lib/magic-compose/to-template';
 import { ok } from '@/lib/result';
-import { SlotFieldReorderInputSchema, SlotFieldUpdateInputSchema } from '@/schemas/slot-fields';
+import {
+  SlotFieldReorderInputSchema,
+  SlotFieldUpdateInputSchema,
+  configFor,
+} from '@/schemas/slot-fields';
 import { addField, deleteField, reorderFields, updateField } from '@/services/slot-fields';
 import { defineTool } from '../registry';
 import { fieldOut } from './signups-read';

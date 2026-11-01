@@ -3,12 +3,11 @@ import type { Config } from 'tailwindcss';
 export default {
   content: ['./src/**/*.{ts,tsx,mdx}'],
   darkMode: ['class'],
+  // No element uses Tailwind's `container`; pages size themselves with
+  // `container-tight` (globals.css). Off, so test code that names a
+  // `container` variable doesn't put an unused rule in the stylesheet.
+  corePlugins: { container: false },
   theme: {
-    container: {
-      center: true,
-      padding: '1rem',
-      screens: { lg: '960px' },
-    },
     extend: {
       colors: {
         ink: {

@@ -33,7 +33,8 @@ export const SlotBulkInputSchema = z.object({
 
 // Every slot id of the signup, in the order they should be shown. No maximum:
 // nothing caps slots per signup, so any ceiling here would make a signup above
-// it impossible to reorder. The MCP route's body cap is what bounds a request.
+// it impossible to reorder. The 1 MB body cap (`MAX_JSON_BODY_BYTES`, on REST
+// and MCP) is what bounds a request: some 30,000 ids.
 export const SlotReorderInputSchema = z.object({
   slotIds: z.array(z.string()).min(1),
 });
