@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   FIELD_TYPES,
+  MAX_CHOICES,
   REF_MAX_LENGTH,
   RefSchema,
   SlotFieldConfigSchema,
   SlotFieldInputSchema,
   SlotFieldUpdateInputSchema,
+  TEXT_DEFAULT_MAX_LENGTH,
+  configFor,
+  sanitizeEnumChoices,
   toFieldRef,
 } from './slot-fields';
 
@@ -233,5 +237,34 @@ describe('toFieldRef', () => {
       expect(RefSchema.safeParse(second).success).toBe(true);
       expect(second).not.toBe(first);
     }
+  });
+});
+
+describe('sanitizeEnumChoices', () => {
+  it('trims, drops blank choices and caps the list at MAX_CHOICES', () => {
+    expect(sanitizeEnumChoices([' Snacks ', '', '   ', 'Drinks'])).toEqual(['Snacks', 'Drinks']);
+    expect(sanitizeEnumChoices(undefined)).toEqual([]);
+    const many = Array.from({ length: MAX_CHOICES + 5 }, (_, i) => `Choice ${i + 1}`);
+    expect(sanitizeEnumChoices(many)).toHaveLength(MAX_CHOICES);
+  });
+});
+
+describe('configFor', () => {
+  it('gives each field type its starting config', () => {
+    const configs = FIELD_TYPES.map((type) => configFor(type, ['Option 1']));
+    expect(configs).toEqual([
+      { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH },
+      { fieldType: 'date' },
+      { fieldType: 'time' },
+      { fieldType: 'number' },
+      { fieldType: 'enum', choices: ['Option 1'] },
+    ]);
+    for (const config of configs) {
+      expect(SlotFieldConfigSchema.parse(config)).toEqual(config);
+    }
+  });
+
+  it('cleans the choices it is given for an enum field', () => {
+    expect(configFor('enum', [' Snacks ', ''])).toEqual({ fieldType: 'enum', choices: ['Snacks'] });
   });
 });
