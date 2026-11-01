@@ -97,6 +97,39 @@ function notActive(status: CommitmentRow['status']): ServiceError {
   return serviceError('conflict', 'commitment is not active', { details: { status } });
 }
 
+type SlotAlternative = { id: string; ref: string; slotAt: string | null };
+
+/**
+ * The `capacity_full` refusal for asking `requested` places when `remaining`
+ * are left. Signing up and raising a quantity share the over-limit wording;
+ * the none-left wording differs on purpose (signing up can offer other slots,
+ * changing a quantity can't), so each caller passes its own. `alternatives`
+ * goes last in `details`, and only when given, so every response stays
+ * byte-identical to what both callers built by hand.
+ */
+function capacityFull(
+  remaining: number,
+  requested: number,
+  capacity: number,
+  whenNone: { message: string; suggestion: string },
+  alternatives?: SlotAlternative[],
+): ServiceError {
+  return serviceError(
+    'capacity_full',
+    remaining === 0 ? whenNone.message : `only ${remaining} left — you asked for ${requested}`,
+    {
+      details: {
+        remaining,
+        requested,
+        capacity,
+        ...(alternatives !== undefined ? { alternatives } : {}),
+      },
+      suggestion:
+        remaining === 0 ? whenNone.suggestion : `lower the quantity to ${remaining} or fewer`,
+    },
+  );
+}
+
 // Telemetry write inside an outer tx where a raw INSERT would otherwise abort
 // the surrounding transaction on failure. Uses a SAVEPOINT (Drizzle's nested
 // `tx.transaction`) so a failed activity insert rolls back only the savepoint,
@@ -393,27 +426,15 @@ async function commitParticipantToSlot(
         .limit(3);
       await refused({ slotId, reason: 'capacity_full', requested: data.quantity, remaining });
       return err(
-        serviceError(
-          'capacity_full',
-          remaining === 0
-            ? 'that slot just filled'
-            : `only ${remaining} left — you asked for ${data.quantity}`,
+        capacityFull(
+          remaining,
+          data.quantity,
+          slot.capacity,
           {
-            details: {
-              remaining,
-              requested: data.quantity,
-              capacity: slot.capacity,
-              alternatives: alts.map((a) => ({
-                id: a.id,
-                ref: a.ref,
-                slotAt: a.slotAt?.toISOString() ?? null,
-              })),
-            },
-            suggestion:
-              remaining === 0
-                ? 'pick one of the suggested open slots'
-                : `lower the quantity to ${remaining} or fewer`,
+            message: 'that slot just filled',
+            suggestion: 'pick one of the suggested open slots',
           },
+          alts.map((a) => ({ id: a.id, ref: a.ref, slotAt: a.slotAt?.toISOString() ?? null })),
         ),
       );
     }
@@ -797,19 +818,10 @@ export async function updateOwnCommitment(
             },
           });
           return err(
-            serviceError(
-              'capacity_full',
-              remaining === 0
-                ? 'no spots left for additional quantity'
-                : `only ${remaining} left — you asked for ${data.quantity}`,
-              {
-                details: { remaining, requested: data.quantity, capacity: cap },
-                suggestion:
-                  remaining === 0
-                    ? 'lower the quantity'
-                    : `lower the quantity to ${remaining} or fewer`,
-              },
-            ),
+            capacityFull(remaining, data.quantity, cap, {
+              message: 'no spots left for additional quantity',
+              suggestion: 'lower the quantity',
+            }),
           );
         }
       }
