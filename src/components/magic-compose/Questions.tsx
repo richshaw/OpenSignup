@@ -39,7 +39,7 @@ import {
 import { handFillHref } from './hand-fill';
 import { DETAILS_STEP, DRAFT_STEPS, FRAME, PulseMark, StepList, type StepRow } from './Steps';
 import { HereDot, StepLine } from './StepLine';
-import { YouWrote } from './YouWrote';
+import { YOU_WROTE_BAND, YouWrote } from './YouWrote';
 import { TimeSelect } from '@/components/build-shared/TimeSelect';
 
 const WHEN_CHOICES: Array<{ kind: WhenAnswer['kind']; label: string }> = [
@@ -194,7 +194,7 @@ export function Questions({
       </aside>
 
       <section className="overflow-hidden rounded-2xl border border-surface-sunk bg-white">
-        <div className="flex flex-col gap-4 p-4 sm:px-6 sm:py-5">
+        <div className={`flex flex-col gap-4 ${YOU_WROTE_BAND}`}>
           <YouWrote prompt={prompt} variant="plain" />
           {!edited && error && (
             <div ref={errorRef} tabIndex={-1} className="outline-none">
