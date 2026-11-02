@@ -31,8 +31,7 @@ describe('unsubscribe footer', () => {
     const { text, html } = await renderEmail(email);
     const footer = `You'll still get a confirmation if you sign up for something new. ${label} ${unsubscribeUrl}`;
     // Plaintext wraps at 80 columns, so any space may come out as a newline.
-    const words = footer.split(' ').map((w) => w.replace(/[.?]/g, '\\$&'));
-    expect(text.trimEnd()).toMatch(new RegExp(`${words.join('\\s+')}$`));
+    expect(text.replace(/\s+/g, ' ').trimEnd().endsWith(footer)).toBe(true);
     expect(html).toContain(`href="${unsubscribeUrl}"`);
   });
 });
