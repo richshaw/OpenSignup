@@ -4,6 +4,13 @@ import { SESSION_MAX_AGE_DAYS } from '@/auth/session-lifetime';
 import { PREFILL_KEY } from '@/app/s/[slug]/prefill-key';
 import { pageMetadata } from '@/lib/seo';
 import { INSTANCE_NAME } from '@/lib/site-config';
+import {
+  COMMIT_COOKIE_AFTER_SLOT,
+  COMMIT_COOKIE_MAX,
+  COMMIT_COOKIE_MIN,
+  OAUTH_INTERACTION_LIFETIME,
+  OAUTH_SESSION_LIFETIME,
+} from '../lifetimes';
 
 export const metadata: Metadata = pageMetadata({
   path: '/cookies',
@@ -86,8 +93,8 @@ export default function CookiesPage() {
                   JavaScript.
                 </td>
                 <td className="px-4 py-3">
-                  60 days, or until a week after the latest slot it holds if that is later (at most
-                  400 days)
+                  {COMMIT_COOKIE_MIN}, or until {COMMIT_COOKIE_AFTER_SLOT} after the latest slot it
+                  holds if that is later (at most {COMMIT_COOKIE_MAX})
                 </td>
               </tr>
               <tr>
@@ -97,7 +104,7 @@ export default function CookiesPage() {
                   their account. Sent only to the connection endpoints under <code>/api/oauth</code>
                   .
                 </td>
-                <td className="px-4 py-3">24 hours</td>
+                <td className="px-4 py-3">{OAUTH_SESSION_LIFETIME}</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">os_oauth_interaction</td>
@@ -105,14 +112,14 @@ export default function CookiesPage() {
                   Ties a pending connection request to the browser that started it, so only that
                   browser can approve it.
                 </td>
-                <td className="px-4 py-3">15 minutes</td>
+                <td className="px-4 py-3">{OAUTH_INTERACTION_LIFETIME}</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs">os_oauth_resume</td>
                 <td className="px-4 py-3">
                   Carries your allow-or-decline answer back to finish (or cancel) the connection.
                 </td>
-                <td className="px-4 py-3">15 minutes</td>
+                <td className="px-4 py-3">{OAUTH_INTERACTION_LIFETIME}</td>
               </tr>
             </tbody>
           </table>

@@ -9,6 +9,14 @@ import {
   operatorLabel,
 } from '@/lib/site-config';
 import { pageMetadata } from '@/lib/seo';
+import {
+  ACCESS_TOKEN_LIFETIME,
+  COMMIT_COOKIE_AFTER_SLOT,
+  COMMIT_COOKIE_MIN,
+  GRANT_LIFETIME,
+  LOGIN_CODE_LIFETIME,
+  SLOT_CHANGE_DELAY,
+} from '../lifetimes';
 
 export const metadata: Metadata = pageMetadata({
   path: '/privacy',
@@ -102,10 +110,10 @@ export default function PrivacyPage() {
           <li>
             After a sign-in email is sent, the sign-in link&apos;s token (stored as a hash, next to
             your email address), kept until the link expires (an hour by default, or as long as the
-            operator sets it). For up to 15 minutes, the six-digit code printed in the email (stored
-            as a keyed hash) with the encrypted sign-in link it stands for, so you can finish
-            signing in from the window you started in. Both are single use. A used or expired one
-            cannot be redeemed, and an hourly cleanup deletes any that are left.
+            operator sets it). For up to {LOGIN_CODE_LIFETIME}, the six-digit code printed in the
+            email (stored as a keyed hash) with the encrypted sign-in link it stands for, so you can
+            finish signing in from the window you started in. Both are single use. A used or expired
+            one cannot be redeemed, and an hourly cleanup deletes any that are left.
           </li>
           <li>
             If you connect an app or AI assistant to your account, a record of that approval and the
@@ -128,8 +136,9 @@ export default function PrivacyPage() {
             use it to send you a confirmation with your link to change or cancel, and, if the
             organizer has reminders on, reminders and an email when your slot moves to a new date or
             time. If you leave it blank where that is allowed, we send you no emails. Your link is
-            then shown on screen after you sign up, and only that browser remembers it: for 60 days,
-            or until a week after your slot if that is later.
+            then shown on screen after you sign up, and only that browser remembers it: for{' '}
+            {COMMIT_COOKIE_MIN}, or until {COMMIT_COOKIE_AFTER_SLOT} after your slot if that is
+            later.
           </li>
           <li>
             Your slot selection, quantity, and any optional notes. The organizer sees your note, so
@@ -193,11 +202,11 @@ export default function PrivacyPage() {
           then leads to the new one. Each of these participant emails contains a private link that
           lets you change or cancel that commitment without signing in, so treat them as you would a
           password and don&apos;t forward them. Reminders go out the day before the slot, and a
-          moved-slot email about 10 minutes after the organizer&apos;s last change to its date or
-          time; organizers can turn both off for a signup entirely, with the reminders setting.
-          Every reminder and moved-slot email carries a link that stops both for that signup; we
-          record only the time you opted out, and it does not affect any other signup or your slot
-          itself. Delivery uses whichever transport the operator has configured (SMTP, a
+          moved-slot email about {SLOT_CHANGE_DELAY} after the organizer&apos;s last change to its
+          date or time; organizers can turn both off for a signup entirely, with the reminders
+          setting. Every reminder and moved-slot email carries a link that stops both for that
+          signup; we record only the time you opted out, and it does not affect any other signup or
+          your slot itself. Delivery uses whichever transport the operator has configured (SMTP, a
           transactional provider, or local console output in development). {INSTANCE_NAME} sends no
           marketing email.
         </p>
@@ -238,8 +247,8 @@ export default function PrivacyPage() {
           You can see and end every connection from <strong>Connected apps</strong> in your account
           settings. Disconnecting deletes the approval and every refresh token under it at once, so
           the app can get no new access; an access token it already holds keeps working until it
-          expires, which is at most 15 minutes. No approval survives longer than 90 days without you
-          approving the app again.
+          expires, which is at most {ACCESS_TOKEN_LIFETIME}. No approval survives longer than{' '}
+          {GRANT_LIFETIME} without you approving the app again.
         </p>
         <p>
           Whatever a connected assistant reads under the permissions you approved is then processed
