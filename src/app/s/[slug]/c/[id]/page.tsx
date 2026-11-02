@@ -9,7 +9,7 @@ import {
   editLimitsForCommitment,
   getOwnCommitment,
 } from '@/services/commitments';
-import { commitmentEditUrl } from '@/lib/links';
+import { commitmentEditPath, commitmentEditUrl } from '@/lib/links';
 import { editTokenFor } from '@/lib/token';
 import { readRequestSignals, recordEditLinkFollowed } from '@/lib/view-tracker';
 import { CANCELLED_PAGE } from '../../cancelled-message';
@@ -37,7 +37,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   // a wrong one would point the back link at an unrelated signup. Send them
   // to the right address instead, as the unsubscribe page does.
   if (slug !== c.signupSlug) {
-    redirect(`/s/${c.signupSlug}/c/${encodeURIComponent(c.id)}?token=${encodeURIComponent(token)}`);
+    redirect(commitmentEditPath(c.signupSlug, c.id, token));
   }
 
   // Read headers in the request context — `after(...)` runs outside it and
