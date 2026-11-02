@@ -1,8 +1,7 @@
 import type { Config } from 'tailwindcss';
 
 export default {
-  content: ['./src/**/*.{ts,tsx,mdx}'],
-  darkMode: ['class'],
+  content: ['./src/**/*.{ts,tsx}'],
   // No element uses Tailwind's `container`; pages size themselves with
   // `container-tight` (globals.css). Off, so test code that names a
   // `container` variable doesn't put an unused rule in the stylesheet.
@@ -92,5 +91,4 @@ export default {
       },
     },
   },
-  plugins: [],
 } satisfies Config;
