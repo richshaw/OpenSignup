@@ -25,8 +25,14 @@ import { runTool } from './results';
  * from the tool's own `title`. Nor is `openWorldHint`: `compileTools` sets it
  * false for every tool.
  */
-type ToolHints = Omit<ToolAnnotations, 'title' | 'readOnlyHint' | 'destructiveHint' | 'openWorldHint'> &
-  ({ readOnlyHint: true; destructiveHint?: never } | { readOnlyHint: false; destructiveHint: boolean });
+type ToolHints = Omit<
+  ToolAnnotations,
+  'title' | 'readOnlyHint' | 'destructiveHint' | 'openWorldHint'
+> &
+  (
+    | { readOnlyHint: true; destructiveHint?: never }
+    | { readOnlyHint: false; destructiveHint: boolean }
+  );
 
 export interface ToolDefinition<S extends z.ZodTypeAny = z.ZodTypeAny> {
   /** snake_case, stable: clients cache it. */
@@ -48,7 +54,10 @@ export interface ToolDefinition<S extends z.ZodTypeAny = z.ZodTypeAny> {
   // Method syntax on purpose: a `ToolDefinition<SpecificSchema>` must be
   // assignable to `ToolDefinition<ZodTypeAny>` for the registry list, and a
   // property-typed function would make the input parameter contravariant.
-  handler(ctx: ToolContext, input: z.output<S>): Promise<Result<Record<string, unknown>, ServiceError>>;
+  handler(
+    ctx: ToolContext,
+    input: z.output<S>,
+  ): Promise<Result<Record<string, unknown>, ServiceError>>;
 }
 
 /** Identity function that pins the generic so `input` is typed in the handler. */
@@ -62,7 +71,9 @@ export function defineTool<S extends z.ZodTypeAny>(def: ToolDefinition<S>): Tool
  * is dropped because the SDK advertises its own dialect.
  */
 export function toJsonSchema(schema: z.ZodTypeAny): JsonSchemaType {
-  const { $schema: _dialect, ...rest } = zodToJsonSchema(schema, { $refStrategy: 'none' }) as Record<string, unknown>;
+  const { $schema: _dialect, ...rest } = zodToJsonSchema(schema, {
+    $refStrategy: 'none',
+  }) as Record<string, unknown>;
   return rest as JsonSchemaType;
 }
 
@@ -98,7 +109,10 @@ export function compileTools(tools: readonly ToolDefinition[]): CompiledTool[] {
     config: {
       title: def.title,
       description: def.description,
-      inputSchema: fromJsonSchema<Record<string, unknown>>(toJsonSchema(def.inputSchema), zodDoesTheValidating),
+      inputSchema: fromJsonSchema<Record<string, unknown>>(
+        toJsonSchema(def.inputSchema),
+        zodDoesTheValidating,
+      ),
       // `title` repeated for clients that only read it from the annotations.
       // Closed world: every tool acts on this service's own data only.
       annotations: { ...def.annotations, title: def.title, openWorldHint: false },
@@ -106,7 +120,11 @@ export function compileTools(tools: readonly ToolDefinition[]): CompiledTool[] {
   }));
 }
 
-export function registerAll(server: McpServer, ctx: ToolContext, tools: readonly CompiledTool[]): void {
+export function registerAll(
+  server: McpServer,
+  ctx: ToolContext,
+  tools: readonly CompiledTool[],
+): void {
   for (const { def, config } of tools) {
     server.registerTool(def.name, config, async (args) => runTool(def, ctx, args));
   }

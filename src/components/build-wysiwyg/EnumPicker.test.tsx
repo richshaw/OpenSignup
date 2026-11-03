@@ -3,12 +3,14 @@ import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { EnumPicker } from './EnumPicker';
 
-function renderPicker(overrides: {
-  value?: string;
-  options?: string[];
-  onChange?: Mock<(next: string) => void>;
-  onAddOption?: Mock<(value: string) => void | Promise<void>>;
-} = {}) {
+function renderPicker(
+  overrides: {
+    value?: string;
+    options?: string[];
+    onChange?: Mock<(next: string) => void>;
+    onAddOption?: Mock<(value: string) => void | Promise<void>>;
+  } = {},
+) {
   const onChange = overrides.onChange ?? vi.fn<(next: string) => void>();
   const onAddOption = overrides.onAddOption ?? vi.fn<(value: string) => void | Promise<void>>();
   const utils = render(

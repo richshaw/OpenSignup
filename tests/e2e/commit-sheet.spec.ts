@@ -44,9 +44,10 @@ test.describe('commit sheet on a phone', () => {
     const room = await page.evaluate(
       () => document.documentElement.scrollHeight - window.innerHeight - window.scrollY,
     );
-    expect(room, 'needs room below to scroll into, or the lock assertion is vacuous').toBeGreaterThan(
-      RESTING_OFFSET,
-    );
+    expect(
+      room,
+      'needs room below to scroll into, or the lock assertion is vacuous',
+    ).toBeGreaterThan(RESTING_OFFSET);
 
     const row = page.locator('li').filter({ hasText: seed.openSlotLabel });
     await row.getByRole('button', { name: 'Sign up' }).click();

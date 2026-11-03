@@ -34,7 +34,9 @@ export async function findGrantIdFor(
   const [row] = await db
     .select({ id: oauthRecords.id })
     .from(oauthRecords)
-    .where(and(liveGrant(), eq(oauthRecords.accountId, accountId), eq(oauthRecords.clientId, clientId)))
+    .where(
+      and(liveGrant(), eq(oauthRecords.accountId, accountId), eq(oauthRecords.clientId, clientId)),
+    )
     .orderBy(desc(oauthRecords.createdAt))
     .limit(1);
   return row?.id;
@@ -67,12 +69,19 @@ export interface EnsureGrantInput {
  * the provider writes through its own connection, which is fine because
  * the second caller cannot look until the first has saved.
  */
-export async function ensureGrant(db: Db, provider: Provider, input: EnsureGrantInput): Promise<{ grantId: string; extended: boolean }> {
+export async function ensureGrant(
+  db: Db,
+  provider: Provider,
+  input: EnsureGrantInput,
+): Promise<{ grantId: string; extended: boolean }> {
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`oauth-grant:${input.accountId}:${input.clientId}`}))`);
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`oauth-grant:${input.accountId}:${input.clientId}`}))`,
+    );
     const existingId = await findGrantIdFor(tx, input.accountId, input.clientId);
     const existing = existingId ? await provider.Grant.find(existingId) : undefined;
-    const grant = existing ?? new provider.Grant({ accountId: input.accountId, clientId: input.clientId });
+    const grant =
+      existing ?? new provider.Grant({ accountId: input.accountId, clientId: input.clientId });
     if (input.oidcScopes.length > 0) grant.addOIDCScope(input.oidcScopes.join(' '));
     grant.addResourceScope(input.resource, input.resourceScopes.join(' '));
     const grantId = await grant.save();
@@ -90,7 +99,11 @@ export async function ensureGrant(db: Db, provider: Provider, input: EnsureGrant
 }
 
 /** Remember how the client introduced itself, for the connected-apps page. */
-export async function labelGrant(db: Queryable, grantId: string, clientName: string | null): Promise<void> {
+export async function labelGrant(
+  db: Queryable,
+  grantId: string,
+  clientName: string | null,
+): Promise<void> {
   await db
     .update(oauthRecords)
     .set({ clientName })
@@ -143,9 +156,19 @@ export async function revokeConnectedApp(
 ): Promise<void> {
   const organizerId = requireOrganizerId(actor);
   const [row] = await db
-    .select({ id: oauthRecords.id, clientId: oauthRecords.clientId, clientName: oauthRecords.clientName })
+    .select({
+      id: oauthRecords.id,
+      clientId: oauthRecords.clientId,
+      clientName: oauthRecords.clientName,
+    })
     .from(oauthRecords)
-    .where(and(eq(oauthRecords.model, GRANT), eq(oauthRecords.id, grantId), eq(oauthRecords.accountId, organizerId)))
+    .where(
+      and(
+        eq(oauthRecords.model, GRANT),
+        eq(oauthRecords.id, grantId),
+        eq(oauthRecords.accountId, organizerId),
+      ),
+    )
     .limit(1);
   if (!row) throw new ServiceException(serviceError('not_found', 'no such connected app'));
 

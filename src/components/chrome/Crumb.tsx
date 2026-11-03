@@ -10,17 +10,11 @@ export function Crumb({
   truncate?: boolean;
 }) {
   const label = href ? (
-    <Link
-      href={href}
-      className={`hover:text-ink hover:underline ${truncate ? 'truncate' : ''}`}
-    >
+    <Link href={href} className={`hover:text-ink hover:underline ${truncate ? 'truncate' : ''}`}>
       {children}
     </Link>
   ) : (
-    <span
-      className={`text-ink font-medium ${truncate ? 'truncate' : ''}`}
-      aria-current="page"
-    >
+    <span className={`font-medium text-ink ${truncate ? 'truncate' : ''}`} aria-current="page">
       {children}
     </span>
   );

@@ -79,7 +79,11 @@ export function toChatTools(tools: readonly ToolDefinition[]): ChatTool[] {
  * MCP clients put the server instructions in the model's context and tell
  * it the date; the system message stands in for the client doing both.
  */
-export function buildAssistantMessages(prompt: string, instructions: string, now: Date): ToolChatMessage[] {
+export function buildAssistantMessages(
+  prompt: string,
+  instructions: string,
+  now: Date,
+): ToolChatMessage[] {
   const today = now.toISOString().slice(0, 10);
   return [
     {
@@ -153,7 +157,12 @@ export async function runAssistant(
       messages.push({ role: 'tool', tool_call_id: c.id, content: JSON.stringify(result) });
     }
   }
-  return { kind: 'failed', code: 'too_many_rounds', message: `no create after ${maxRounds} rounds`, ...trace };
+  return {
+    kind: 'failed',
+    code: 'too_many_rounds',
+    message: `no create after ${maxRounds} rounds`,
+    ...trace,
+  };
 }
 
 /** Runs one tool call for the model and returns the text a client would hand back. */
@@ -187,7 +196,8 @@ export function openConversation(opts: {
 
   return {
     async say(message) {
-      if (messages.length === 0) messages = buildAssistantMessages(message, opts.instructions, opts.now);
+      if (messages.length === 0)
+        messages = buildAssistantMessages(message, opts.instructions, opts.now);
       else messages.push({ role: 'user', content: message });
       const toolCalls: ToolCallRecord[] = [];
 
@@ -204,14 +214,24 @@ export function openConversation(opts: {
         messages.push({ role: 'assistant', content: reply.content, tool_calls: calls });
         for (const c of calls) {
           const args = parseArguments(c.function.arguments);
-          toolCalls.push({ name: c.function.name, args: args.ok ? args.value : c.function.arguments });
+          toolCalls.push({
+            name: c.function.name,
+            args: args.ok ? args.value : c.function.arguments,
+          });
           const content = args.ok
             ? await opts.callTool(c.function.name, args.value)
-            : JSON.stringify({ error: { code: 'invalid_input', message: 'arguments were not valid JSON' } });
+            : JSON.stringify({
+                error: { code: 'invalid_input', message: 'arguments were not valid JSON' },
+              });
           messages.push({ role: 'tool', tool_call_id: c.id, content });
         }
       }
-      return { kind: 'failed', code: 'too_many_rounds', message: `no reply after ${maxRounds} rounds`, toolCalls };
+      return {
+        kind: 'failed',
+        code: 'too_many_rounds',
+        message: `no reply after ${maxRounds} rounds`,
+        toolCalls,
+      };
     },
   };
 }

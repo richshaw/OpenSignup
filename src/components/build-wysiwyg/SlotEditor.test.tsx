@@ -25,23 +25,26 @@ function makeRow(overrides: Partial<BuildRow> = {}): BuildRow {
   };
 }
 
-function renderEditor(overrides: {
-  row?: BuildRow;
-  fields?: BuildField[];
-  taken?: number;
-  remindersOn?: boolean;
-  onCellChange?: Mock<(fieldRef: string, value: string) => void>;
-  onCapacity?: Mock<(capacity: number | null) => void>;
-  onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;
-  onDuplicate?: Mock<() => void>;
-  onDelete?: Mock<() => void>;
-  onClose?: Mock<() => void>;
-  focusOnOpen?: boolean;
-  onFocused?: Mock<() => void>;
-} = {}) {
+function renderEditor(
+  overrides: {
+    row?: BuildRow;
+    fields?: BuildField[];
+    taken?: number;
+    remindersOn?: boolean;
+    onCellChange?: Mock<(fieldRef: string, value: string) => void>;
+    onCapacity?: Mock<(capacity: number | null) => void>;
+    onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;
+    onDuplicate?: Mock<() => void>;
+    onDelete?: Mock<() => void>;
+    onClose?: Mock<() => void>;
+    focusOnOpen?: boolean;
+    onFocused?: Mock<() => void>;
+  } = {},
+) {
   const onCellChange = overrides.onCellChange ?? vi.fn<(fieldRef: string, value: string) => void>();
   const onCapacity = overrides.onCapacity ?? vi.fn<(capacity: number | null) => void>();
-  const onAddEnumOption = overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
+  const onAddEnumOption =
+    overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
   const onDuplicate = overrides.onDuplicate ?? vi.fn<() => void>();
   const onDelete = overrides.onDelete ?? vi.fn<() => void>();
   const onClose = overrides.onClose ?? vi.fn<() => void>();
@@ -88,7 +91,12 @@ describe('SlotEditor', () => {
   it("stops a text value at its field's maxLength", () => {
     renderEditor({
       fields: [
-        makeField({ id: 'f1', ref: 'name', name: 'Name', config: { fieldType: 'text', maxLength: 40 } }),
+        makeField({
+          id: 'f1',
+          ref: 'name',
+          name: 'Name',
+          config: { fieldType: 'text', maxLength: 40 },
+        }),
         makeField({ id: 'f2', ref: 'date', name: 'Date', config: { fieldType: 'date' } }),
       ],
     });

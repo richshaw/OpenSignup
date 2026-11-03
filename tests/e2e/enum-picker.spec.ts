@@ -96,7 +96,8 @@ test.describe('list field picker', () => {
       // "Add to list" opens a box for the new item.
       await menu.getByRole('button', { name: 'Add to list' }).click();
       const fieldSaved = page.waitForResponse(
-        (r) => r.request().method() === 'PATCH' && r.url().includes(`/api/signups/${signupId}/fields/`),
+        (r) =>
+          r.request().method() === 'PATCH' && r.url().includes(`/api/signups/${signupId}/fields/`),
       );
       await page.getByRole('textbox', { name: 'New option name' }).fill('Snacks');
       await page.keyboard.press('Enter');
@@ -105,9 +106,9 @@ test.describe('list field picker', () => {
       await expect(trigger).toHaveText('Snacks');
 
       const fields = await page.request.get(`/api/signups/${signupId}/fields`);
-      const kind = ((await fields.json()).data as { ref: string; config: { choices?: string[] } }[]).find(
-        (f) => f.ref === 'kind',
-      );
+      const kind = (
+        (await fields.json()).data as { ref: string; config: { choices?: string[] } }[]
+      ).find((f) => f.ref === 'kind');
       expect(kind?.config.choices).toEqual([...CHOICES, 'Snacks']);
     });
   }
@@ -146,12 +147,19 @@ test.describe('list field picker', () => {
     await page.goto(`/app/signups/${signupId}/build`);
     await page.getByRole('button', { name: /^Edit slot — Juice, / }).click();
     await page.getByRole('button', { name: 'Kind value' }).click();
-    await page.getByRole('listbox', { name: 'Kind value' }).getByRole('button', { name: 'Add to list' }).click();
+    await page
+      .getByRole('listbox', { name: 'Kind value' })
+      .getByRole('button', { name: 'Add to list' })
+      .click();
     await page.getByRole('textbox', { name: 'New option name' }).fill('Snacks');
     const copied = page.waitForResponse(
-      (r) => r.request().method() === 'POST' && r.url().endsWith(`/api/signups/${signupId}/slots/bulk`),
+      (r) =>
+        r.request().method() === 'POST' && r.url().endsWith(`/api/signups/${signupId}/slots/bulk`),
     );
-    await page.locator('[data-testid^="slot-editor-"]').getByRole('button', { name: 'Duplicate' }).click();
+    await page
+      .locator('[data-testid^="slot-editor-"]')
+      .getByRole('button', { name: 'Duplicate' })
+      .click();
     expect((await copied).ok()).toBe(true);
 
     // The original's value saves after its debounce, so wait for it.
@@ -163,9 +171,9 @@ test.describe('list field picker', () => {
       })
       .toEqual(['Snacks', 'Snacks']);
     const fields = await page.request.get(`/api/signups/${signupId}/fields`);
-    const kind = ((await fields.json()).data as { ref: string; config: { choices?: string[] } }[]).find(
-      (f) => f.ref === 'kind',
-    );
+    const kind = (
+      (await fields.json()).data as { ref: string; config: { choices?: string[] } }[]
+    ).find((f) => f.ref === 'kind');
     expect(kind?.config.choices).toEqual([...CHOICES, 'Snacks']);
   });
   // A group heading's picker renames the group on the same mousedown that

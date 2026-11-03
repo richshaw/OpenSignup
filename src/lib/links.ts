@@ -30,8 +30,13 @@ export function previewPageUrl(signupId: string): string {
   return absoluteUrl(`/app/signups/${signupId}/preview`);
 }
 
+/** A sign-up's edit page path, relative so a redirect stays on the origin the person came in on. */
+export function commitmentEditPath(slug: string, commitmentId: string, token: string): string {
+  return `/s/${slug}/c/${encodeURIComponent(commitmentId)}?token=${encodeURIComponent(token)}`;
+}
+
 export function commitmentEditUrl(slug: string, commitmentId: string, token: string): string {
-  return absoluteUrl(`/s/${slug}/c/${commitmentId}?token=${token}`);
+  return absoluteUrl(commitmentEditPath(slug, commitmentId, token));
 }
 
 /**
@@ -55,9 +60,26 @@ export function commitmentLinks(
   };
 }
 
-/** The reminder opt-out confirm page's path, which the email links to and the redirects send people back to. */
-export function unsubscribePath(slug: string, participantId: string, token: string): string {
-  return `/s/${slug}/unsubscribe?p=${encodeURIComponent(participantId)}&token=${encodeURIComponent(token)}`;
+/** The credentials every reminder opt-out link carries, encoded so neither can add a parameter. */
+function optOutQuery(participantId: string, token: string): string {
+  return `p=${encodeURIComponent(participantId)}&token=${encodeURIComponent(token)}`;
+}
+
+/** What the opt-out route tells the confirm page after a submit. */
+export type UnsubscribeStatus = 'done=on' | 'done=off' | 'error=1';
+
+/**
+ * The reminder opt-out confirm page's path, which the email links to and the
+ * redirects send people back to, with the outcome of a submit when there is one.
+ */
+export function unsubscribePath(
+  slug: string,
+  participantId: string,
+  token: string,
+  status?: UnsubscribeStatus,
+): string {
+  const query = optOutQuery(participantId, token);
+  return `/s/${slug}/unsubscribe?${status ? `${query}&${status}` : query}`;
 }
 
 /** Human-visible link: lands on a confirm page, opts out only on submit. */
@@ -75,5 +97,5 @@ export function reminderUnsubscribeUrl(slug: string, participantId: string, toke
  * reputation at exactly the providers that offer the button.
  */
 export function reminderUnsubscribePostUrl(participantId: string, token: string): string {
-  return absoluteUrl(`/api/public/reminder-optout?p=${participantId}&token=${token}`);
+  return absoluteUrl(`/api/public/reminder-optout?${optOutQuery(participantId, token)}`);
 }

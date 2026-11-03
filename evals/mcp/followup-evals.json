@@ -22,7 +22,9 @@
       "tags": ["follow_up", "capacity"],
       "runner": "llm",
       "prompt": "Please create a potluck signup for the class picnic on Sunday 6 June 2027. People can bring a main, a side or a dessert.",
-      "followUps": ["Each dish needs to feed 20 people, and we're expecting about 200 people in total."],
+      "followUps": [
+        "Each dish needs to feed 20 people, and we're expecting about 200 people in total."
+      ],
       "expect": {
         "followups.tools_must_not_include": ["add_slots"],
         "slots.added_count": 0,
@@ -39,7 +41,12 @@
       "prompt": "Please create a snack duty signup for our under-9s football games on Saturday 3, 10 and 17 April 2027, one family per game.",
       "followUps": ["Show me what you made."],
       "expect": {
-        "followups.tools_must_not_include": ["create_signup", "add_slots", "update_slot", "delete_slot"],
+        "followups.tools_must_not_include": [
+          "create_signup",
+          "add_slots",
+          "update_slot",
+          "delete_slot"
+        ],
         "slots.added_count": 0,
         "slots.removed_count": 0,
         "reply.table_row_per_slot": true,

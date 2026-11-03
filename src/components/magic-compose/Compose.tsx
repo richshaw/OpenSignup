@@ -54,22 +54,22 @@ export function Compose({
   return (
     <div className="mx-auto mt-6 flex max-w-[760px] flex-col gap-7">
       <header className="flex flex-col items-start gap-2.5">
-        <span className="bg-brand/10 text-brand inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium tracking-wide">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-3 py-1 text-xs font-medium tracking-wide text-brand">
           <Sparkles className="h-3 w-3" aria-hidden="true" />
           New signup
         </span>
         <h1 className="text-4xl font-semibold leading-tight tracking-tight md:text-[44px]">
           What are you organizing?
         </h1>
-        <p className="text-ink-muted text-base leading-relaxed md:text-lg">
-          <span className="text-ink font-medium">
+        <p className="text-base leading-relaxed text-ink-muted md:text-lg">
+          <span className="font-medium text-ink">
             Say what people sign up for, when, and how many of each.
           </span>{' '}
           We&apos;ll turn it into a title, blurb, and slots for you to edit.
         </p>
       </header>
 
-      <div className="border-surface-sunk overflow-hidden rounded-2xl border bg-white shadow-sm transition focus-within:border-brand">
+      <div className="overflow-hidden rounded-2xl border border-surface-sunk bg-white shadow-sm transition focus-within:border-brand">
         <textarea
           ref={taRef}
           aria-label="Describe your signup"
@@ -78,13 +78,13 @@ export function Compose({
           onKeyDown={onKeyDown}
           aria-describedby={showCount ? COUNT_ID : undefined}
           placeholder="e.g. Snack duty for our U9 soccer team. 6 Saturday games starting April 25, two families per game, no nuts please."
-          className="text-ink min-h-[160px] w-full resize-none border-0 bg-white px-6 pt-5 pb-3 text-base leading-relaxed outline-none"
+          className="min-h-[160px] w-full resize-none border-0 bg-white px-6 pb-3 pt-5 text-base leading-relaxed text-ink outline-none"
         />
-        <div className="flex flex-wrap items-center justify-end gap-2 px-4 pt-2 pb-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-3 pt-2">
           {showCount && (
             <p
               id={COUNT_ID}
-              className={`mr-auto px-2 text-[13px] ${over > 0 ? 'text-danger font-medium' : 'text-ink-muted'}`}
+              className={`mr-auto px-2 text-[13px] ${over > 0 ? 'font-medium text-danger' : 'text-ink-muted'}`}
             >
               {prompt.length.toLocaleString('en-US')} / {PROMPT_MAX_LENGTH.toLocaleString('en-US')}{' '}
               characters
@@ -93,7 +93,7 @@ export function Compose({
           )}
           <Link
             href={handFillHref(prompt)}
-            className="text-ink border-surface-sunk hover:bg-surface-raised inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-medium"
+            className="inline-flex items-center gap-2 rounded-xl border border-surface-sunk bg-white px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface-raised"
           >
             Skip, fill in by hand
           </Link>
@@ -101,7 +101,7 @@ export function Compose({
             type="button"
             onClick={onDraft}
             disabled={!canDraft}
-            className="bg-brand inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             Draft my signup
@@ -110,7 +110,7 @@ export function Compose({
       </div>
 
       <section className="flex flex-col gap-3">
-        <div className="text-ink-muted text-sm font-medium">Or start from an example</div>
+        <div className="text-sm font-medium text-ink-muted">Or start from an example</div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           {STARTER_PROMPTS.map((s) => {
             const isCurrent = prompt === s.body;
@@ -119,14 +119,14 @@ export function Compose({
                 key={s.id}
                 type="button"
                 onClick={() => setPrompt(s.body)}
-                className={`group flex flex-col items-start gap-1.5 rounded-2xl border bg-white px-4 pt-4 pb-3.5 text-left transition ${
+                className={`group flex flex-col items-start gap-1.5 rounded-2xl border bg-white px-4 pb-3.5 pt-4 text-left transition ${
                   isCurrent
                     ? 'border-brand shadow-[0_0_0_3px_rgb(31_111_235_/_0.1)]'
                     : 'border-surface-sunk hover:bg-surface-raised'
                 }`}
               >
-                <div className="text-ink text-sm font-semibold">{s.label}</div>
-                <div className="text-ink-muted min-h-[38px] text-[13px] leading-snug">
+                <div className="text-sm font-semibold text-ink">{s.label}</div>
+                <div className="min-h-[38px] text-[13px] leading-snug text-ink-muted">
                   {s.blurb}
                 </div>
                 <div
@@ -150,16 +150,20 @@ export function Compose({
         </div>
       </section>
 
-      <section className="border-surface-sunk flex flex-col gap-3.5 border-t pt-5">
-        <div className="text-ink-muted text-sm font-medium">Tips for a better draft</div>
+      <section className="flex flex-col gap-3.5 border-t border-surface-sunk pt-5">
+        <div className="text-sm font-medium text-ink-muted">Tips for a better draft</div>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
           <Tip
             title="Mention dates"
-            body={'A range like \u201CSaturdays Apr 25 to May 30\u201D lets us generate one slot per date.'}
+            body={
+              'A range like \u201CSaturdays Apr 25 to May 30\u201D lets us generate one slot per date.'
+            }
           />
           <Tip
             title="Say how many"
-            body={'\u201CTwo families per game\u201D or \u201Csix volunteers per shift\u201D, so we can set capacity.'}
+            body={
+              '\u201CTwo families per game\u201D or \u201Csix volunteers per shift\u201D, so we can set capacity.'
+            }
           />
           <Tip
             title="Flag the gotchas"
@@ -174,8 +178,8 @@ export function Compose({
 function Tip({ title, body }: { title: string; body: string }) {
   return (
     <div>
-      <div className="text-ink mb-1 text-[13px] font-semibold">{title}</div>
-      <div className="text-ink-muted text-[13px] leading-relaxed">{body}</div>
+      <div className="mb-1 text-[13px] font-semibold text-ink">{title}</div>
+      <div className="text-[13px] leading-relaxed text-ink-muted">{body}</div>
     </div>
   );
 }

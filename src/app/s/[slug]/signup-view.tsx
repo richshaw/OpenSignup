@@ -16,11 +16,7 @@ import {
   pickPrimaryField,
   renderFieldValue,
 } from './slot-format';
-import type {
-  OwnCommitment,
-  SignupViewField,
-  SignupViewSlot,
-} from './signup-view-types';
+import type { OwnCommitment, SignupViewField, SignupViewSlot } from './signup-view-types';
 
 export type { SignupViewField, SignupViewSlot };
 
@@ -59,11 +55,10 @@ export function toSignupViewProps(
     Parameters<typeof toSignupViewSignup>[0] & { slug: string },
   committedBySlot?: Record<string, number>,
 ): Pick<SignupViewProps, 'signup' | 'fields' | 'groupByRef' | 'slots' | 'slug'> {
-  const settings = (signup.settings ?? {}) as { groupByFieldRefs?: string[] };
   return {
     signup: toSignupViewSignup(signup),
     fields: signup.fields,
-    groupByRef: settings.groupByFieldRefs?.[0] ?? null,
+    groupByRef: signup.settings.groupByFieldRefs?.[0] ?? null,
     slots: toSignupViewSlots(signup, committedBySlot),
     slug: signup.slug,
   };
@@ -106,10 +101,7 @@ interface SlotGroup {
   slots: SignupViewSlot[];
 }
 
-function groupSlots(
-  slots: SignupViewSlot[],
-  groupField: SignupViewField | null,
-): SlotGroup[] {
+function groupSlots(slots: SignupViewSlot[], groupField: SignupViewField | null): SlotGroup[] {
   if (!groupField) return [{ key: '__all__', label: '', slots }];
   // A Map keeps its keys in the order they were first set, so the groups come
   // out in the order of their first slot.
@@ -143,10 +135,7 @@ function nameGroupFor(slot: SignupViewSlot, groupField: SignupViewField | null):
   return isUnsetValue(raw) ? null : formatGroupLabel(groupField, raw);
 }
 
-function titleFor(
-  slot: SignupViewSlot,
-  primary: SignupViewField | null,
-): string {
+function titleFor(slot: SignupViewSlot, primary: SignupViewField | null): string {
   const value = primary ? renderFieldValue(primary, slot.values[primary.ref]) : null;
   return value || 'Untitled slot';
 }
@@ -162,10 +151,8 @@ export function SignupViewBody({
   showStateBanner = true,
 }: SignupViewProps) {
   const isPreview = mode === 'preview';
-  const effectiveStatus =
-    isPreview && signup.status === 'draft' ? 'open' : signup.status;
-  const groupField =
-    groupByRef ? fields.find((f) => f.ref === groupByRef) ?? null : null;
+  const effectiveStatus = isPreview && signup.status === 'draft' ? 'open' : signup.status;
+  const groupField = groupByRef ? (fields.find((f) => f.ref === groupByRef) ?? null) : null;
   const groupRef = groupField?.ref ?? null;
   const primary = pickPrimaryField(fields, groupRef);
   const primaryRef = primary?.ref;
@@ -173,7 +160,7 @@ export function SignupViewBody({
   const ownBySlot = new Map((ownCommitments ?? []).map((c) => [c.slotId, c]));
   const firstOwn = ownCommitments?.[0] ?? null;
   const ownCount = ownCommitments?.length ?? 0;
-  const firstOwnSlot = firstOwn ? slots.find((s) => s.id === firstOwn.slotId) ?? null : null;
+  const firstOwnSlot = firstOwn ? (slots.find((s) => s.id === firstOwn.slotId) ?? null) : null;
   const firstOwnName = firstOwnSlot
     ? slotDisplayName(
         nameGroupFor(firstOwnSlot, groupField),
@@ -204,10 +191,7 @@ export function SignupViewBody({
         </span>
         .
       </span>
-      <Link
-        href={firstOwn.editUrl}
-        className="shrink-0 font-medium text-brand hover:underline"
-      >
+      <Link href={firstOwn.editUrl} className="shrink-0 font-medium text-brand hover:underline">
         {ownCount === 1 ? 'Edit or cancel' : 'Manage'}
       </Link>
     </div>
@@ -241,7 +225,7 @@ export function SignupViewBody({
             demote to h2 there. Styling is identical either way. */}
         <Title className="text-3xl font-semibold tracking-tight">{signup.title}</Title>
         {signup.description ? (
-          <p className="text-ink-muted whitespace-pre-line">{signup.description}</p>
+          <p className="whitespace-pre-line text-ink-muted">{signup.description}</p>
         ) : null}
       </header>
 
@@ -280,9 +264,7 @@ export function SignupViewBody({
                     } ${isOwn ? 'bg-success/5' : ''}`}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-medium tracking-tight">
-                        {title}
-                      </p>
+                      <p className="truncate text-[15px] font-medium tracking-tight">{title}</p>
                       {meta.length ? (
                         // Wrapped, not `truncate`. The fixed right rail left
                         // ~160px for text at 390px, so one clamped line dropped
@@ -331,9 +313,7 @@ export function SignupViewBody({
                             Sign up
                           </button>
                         ) : mode === 'showcase' ? (
-                          <span
-                            className={`${ACTION_SIZING} bg-brand font-medium text-white`}
-                          >
+                          <span className={`${ACTION_SIZING} bg-brand font-medium text-white`}>
                             Sign up
                           </span>
                         ) : (

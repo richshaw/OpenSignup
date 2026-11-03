@@ -16,7 +16,10 @@ describe('toNodeRequest', () => {
       },
       body: 'a=b',
     });
-    const req = toNodeRequest(request, Buffer.from('a=b'), { origin: ORIGIN, clientIp: '203.0.113.7' });
+    const req = toNodeRequest(request, Buffer.from('a=b'), {
+      origin: ORIGIN,
+      clientIp: '203.0.113.7',
+    });
     expect(req.headers.host).toBe('signup.example.org');
     expect(req.headers['x-forwarded-host']).toBe('signup.example.org');
     expect(req.headers['x-forwarded-proto']).toBe('https');
@@ -105,10 +108,14 @@ describe('invokeNodeHandler', () => {
 
 describe('withNodePair', () => {
   it('returns the function value and whether the response was ended', async () => {
-    const out = await withNodePair(new Request('https://x.test/p'), { origin: ORIGIN, clientIp: null }, async (_req, res) => {
-      res.setHeader('x-test', '1');
-      return 42;
-    });
+    const out = await withNodePair(
+      new Request('https://x.test/p'),
+      { origin: ORIGIN, clientIp: null },
+      async (_req, res) => {
+        res.setHeader('x-test', '1');
+        return 42;
+      },
+    );
     expect(out.value).toBe(42);
     expect(out.ended).toBe(false);
     expect(out.response.headers.get('x-test')).toBe('1');

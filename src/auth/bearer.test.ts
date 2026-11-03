@@ -38,8 +38,18 @@ beforeAll(async () => {
 describe('createVerifier', () => {
   it('accepts a token for our issuer and audience and maps the claims', async () => {
     const { createVerifier } = await import('./bearer');
-    const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys: async () => ({ keys: [publicJwk] }) });
-    const token = await mint(signer, 'k1', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c', scope: 'signups:read signups:write' });
+    const v = createVerifier({
+      issuer: ISSUER,
+      resource: RESOURCE,
+      loadKeys: async () => ({ keys: [publicJwk] }),
+    });
+    const token = await mint(signer, 'k1', {
+      iss: ISSUER,
+      aud: RESOURCE,
+      sub: 'org_1',
+      client_id: 'c',
+      scope: 'signups:read signups:write',
+    });
     const info = await v.verifyAccessToken(token);
     expect(info.clientId).toBe('c');
     expect(info.scopes).toEqual(['signups:read', 'signups:write']);
@@ -49,26 +59,52 @@ describe('createVerifier', () => {
   });
 
   it.each([
-    ['wrong audience', { iss: ISSUER, aud: `${ISSUER}/api/other`, sub: 'org_1', client_id: 'c' }, {}],
-    ['wrong issuer', { iss: 'https://evil.example', aud: RESOURCE, sub: 'org_1', client_id: 'c' }, {}],
+    [
+      'wrong audience',
+      { iss: ISSUER, aud: `${ISSUER}/api/other`, sub: 'org_1', client_id: 'c' },
+      {},
+    ],
+    [
+      'wrong issuer',
+      { iss: 'https://evil.example', aud: RESOURCE, sub: 'org_1', client_id: 'c' },
+      {},
+    ],
     ['missing sub', { iss: ISSUER, aud: RESOURCE, client_id: 'c' }, {}],
     ['wrong typ', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c' }, { typ: 'JWT' }],
     ['expired', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c' }, { exp: '-1h' }],
-  ])('rejects %s as an OAuth invalid_token error, never a raw jose error', async (_name, claims, opts) => {
-    const { createVerifier } = await import('./bearer');
-    const { OAuthError } = await import('@modelcontextprotocol/server');
-    const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys: async () => ({ keys: [publicJwk] }) });
-    const token = await mint(signer, 'k1', claims, opts);
-    await expect(v.verifyAccessToken(token)).rejects.toSatisfy(
-      (e: unknown) => OAuthError.isInstance(e) && (e as InstanceType<typeof OAuthError>).code === 'invalid_token',
-    );
-  });
+  ])(
+    'rejects %s as an OAuth invalid_token error, never a raw jose error',
+    async (_name, claims, opts) => {
+      const { createVerifier } = await import('./bearer');
+      const { OAuthError } = await import('@modelcontextprotocol/server');
+      const v = createVerifier({
+        issuer: ISSUER,
+        resource: RESOURCE,
+        loadKeys: async () => ({ keys: [publicJwk] }),
+      });
+      const token = await mint(signer, 'k1', claims, opts);
+      await expect(v.verifyAccessToken(token)).rejects.toSatisfy(
+        (e: unknown) =>
+          OAuthError.isInstance(e) &&
+          (e as InstanceType<typeof OAuthError>).code === 'invalid_token',
+      );
+    },
+  );
 
   it('rejects a token signed by an unknown key', async () => {
     const { createVerifier } = await import('./bearer');
     const other = await generateKeyPair('ES256');
-    const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys: async () => ({ keys: [publicJwk] }) });
-    const token = await mint(other.privateKey, 'k1', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c' });
+    const v = createVerifier({
+      issuer: ISSUER,
+      resource: RESOURCE,
+      loadKeys: async () => ({ keys: [publicJwk] }),
+    });
+    const token = await mint(other.privateKey, 'k1', {
+      iss: ISSUER,
+      aud: RESOURCE,
+      sub: 'org_1',
+      client_id: 'c',
+    });
     await expect(v.verifyAccessToken(token)).rejects.toMatchObject({ code: 'invalid_token' });
   });
 
@@ -77,17 +113,32 @@ describe('createVerifier', () => {
     let table = [publicJwk];
     const loadKeys = vi.fn(async () => ({ keys: table }));
     const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys });
-    const old = await mint(signer, 'k1', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c' });
+    const old = await mint(signer, 'k1', {
+      iss: ISSUER,
+      aud: RESOURCE,
+      sub: 'org_1',
+      client_id: 'c',
+    });
     await v.verifyAccessToken(old);
     expect(loadKeys).toHaveBeenCalledTimes(1);
     table = [rotatedJwk, publicJwk]; // another instance rotated
-    const fresh = await mint(rotatedSigner, 'k2', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c' });
+    const fresh = await mint(rotatedSigner, 'k2', {
+      iss: ISSUER,
+      aud: RESOURCE,
+      sub: 'org_1',
+      client_id: 'c',
+    });
     await expect(v.verifyAccessToken(fresh)).resolves.toMatchObject({ clientId: 'c' });
     expect(loadKeys).toHaveBeenCalledTimes(2);
     // A genuinely unknown kid does not loop, and within the reload interval a
     // second unknown kid cannot flush the cache again (a forged token must not
     // be able to force a key-store read per request).
-    const bogus = await mint((await generateKeyPair('ES256')).privateKey, 'k3', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c' });
+    const bogus = await mint((await generateKeyPair('ES256')).privateKey, 'k3', {
+      iss: ISSUER,
+      aud: RESOURCE,
+      sub: 'org_1',
+      client_id: 'c',
+    });
     await expect(v.verifyAccessToken(bogus)).rejects.toMatchObject({ code: 'invalid_token' });
     expect(loadKeys).toHaveBeenCalledTimes(2);
   });
@@ -96,7 +147,12 @@ describe('createVerifier', () => {
     const { createVerifier } = await import('./bearer');
     const loadKeys = vi.fn(async () => ({ keys: [publicJwk] }));
     const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys });
-    const token = await mint(signer, 'k1', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c' });
+    const token = await mint(signer, 'k1', {
+      iss: ISSUER,
+      aud: RESOURCE,
+      sub: 'org_1',
+      client_id: 'c',
+    });
     const results = await Promise.all([1, 2, 3, 4, 5].map(() => v.verifyAccessToken(token)));
     expect(results.map((r) => r.clientId)).toEqual(['c', 'c', 'c', 'c', 'c']);
     expect(loadKeys).toHaveBeenCalledTimes(1);
@@ -106,8 +162,19 @@ describe('createVerifier', () => {
 describe('createVerifier infrastructure failures', () => {
   it('reports a key-store outage as server_error, not invalid_token', async () => {
     const { createVerifier } = await import('./bearer');
-    const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys: async () => { throw new Error('db down'); } });
-    const token = await mint(signer, 'k1', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c' });
+    const v = createVerifier({
+      issuer: ISSUER,
+      resource: RESOURCE,
+      loadKeys: async () => {
+        throw new Error('db down');
+      },
+    });
+    const token = await mint(signer, 'k1', {
+      iss: ISSUER,
+      aud: RESOURCE,
+      sub: 'org_1',
+      client_id: 'c',
+    });
     await expect(v.verifyAccessToken(token)).rejects.toMatchObject({ code: 'server_error' });
   });
 
@@ -193,7 +260,12 @@ describe('createVerifier timed re-read', () => {
         hang ? new Promise<never>(() => {}) : Promise.resolve({ keys: [publicJwk] }),
       );
       const v = createVerifier({ issuer: ISSUER, resource: RESOURCE, loadKeys });
-      const token = await mint(signer, 'k1', { iss: ISSUER, aud: RESOURCE, sub: 'org_1', client_id: 'c' });
+      const token = await mint(signer, 'k1', {
+        iss: ISSUER,
+        aud: RESOURCE,
+        sub: 'org_1',
+        client_id: 'c',
+      });
       await v.verifyAccessToken(token);
       hang = true; // the database stops answering
       vi.setSystemTime(Date.now() + SIGNING_KEY_CACHE_MAX_AGE * 1000);

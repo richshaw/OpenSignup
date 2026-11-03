@@ -1,7 +1,14 @@
-import { Link, Text } from '@react-email/components';
+import { Text } from '@react-email/components';
 import { slotChangedSubject } from '../subjects';
 import type { SlotDetail } from '@/lib/slot-label';
-import { EmailButton, EmailHeading, EmailIntro, EmailLayout, NotesText } from './layout';
+import {
+  EmailButton,
+  EmailHeading,
+  EmailIntro,
+  EmailLayout,
+  NotesText,
+  UnsubscribeFooter,
+} from './layout';
 import { SlotDetailsText } from './slot-details';
 
 export interface SlotChangedEmailProps {
@@ -43,13 +50,9 @@ export function SlotChangedEmail({
         directly, no password needed. Keep this email to yourself: anyone with the link can change
         your slot.
       </Text>
-      <Text className="mt-4 text-xs text-[#8a93a4]">
-        You&apos;ll still get a confirmation if you sign up for something new.{' '}
-        {/* Nothing may follow this link in the sentence: see reminder.tsx. */}
-        <Link href={unsubscribeUrl} className="text-[#8a93a4] underline">
-          Stop reminders and updates for {signupTitle}
-        </Link>
-      </Text>
+      <UnsubscribeFooter href={unsubscribeUrl}>
+        Stop reminders and updates for {signupTitle}
+      </UnsubscribeFooter>
     </EmailLayout>
   );
 }

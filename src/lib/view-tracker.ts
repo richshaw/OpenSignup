@@ -37,7 +37,9 @@ export type DeviceClass = 'phone' | 'computer' | 'unknown';
  * iPad is a computer first, as tablets are. `uaClass` can't tell phones from
  * computers: it only sorts browsers from bots.
  */
-export function classifyDevice(signals: Pick<RequestSignals, 'userAgent' | 'mobileHint'>): DeviceClass {
+export function classifyDevice(
+  signals: Pick<RequestSignals, 'userAgent' | 'mobileHint'>,
+): DeviceClass {
   if (signals.mobileHint === '?1') return 'phone';
   if (signals.mobileHint === '?0') return 'computer';
   if (!signals.userAgent) return 'unknown';
@@ -45,9 +47,7 @@ export function classifyDevice(signals: Pick<RequestSignals, 'userAgent' | 'mobi
   return /Mobi/i.test(signals.userAgent) ? 'phone' : 'computer';
 }
 
-export function isDoNotTrack(headerMap: {
-  get: (name: string) => string | null;
-}): boolean {
+export function isDoNotTrack(headerMap: { get: (name: string) => string | null }): boolean {
   return headerMap.get('dnt') === '1' || headerMap.get('sec-gpc') === '1';
 }
 
@@ -118,9 +118,7 @@ export async function recordPublicView(args: {
   }));
 }
 
-export async function recordLandingView(args: {
-  signals: RequestSignals;
-}): Promise<void> {
+export async function recordLandingView(args: { signals: RequestSignals }): Promise<void> {
   await trackVisitor(args.signals, (uaClass, refererHost) => ({
     signupId: null,
     workspaceId: null,

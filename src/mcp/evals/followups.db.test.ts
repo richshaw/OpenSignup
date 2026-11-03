@@ -67,7 +67,12 @@ describe('runFollowupCase on Postgres', () => {
     const run = await runFollowupCase(
       db,
       { prompt: 'Make a book fair signup', followUps: ['Add an earlier slot for setup'] },
-      { send, tools: TOOLS, instructions: 'server instructions', now: new Date('2026-10-23T12:00:00Z') },
+      {
+        send,
+        tools: TOOLS,
+        instructions: 'server instructions',
+        now: new Date('2026-10-23T12:00:00Z'),
+      },
     );
     expect(run.ok, JSON.stringify(run)).toBe(true);
     if (!run.ok) return;
@@ -77,16 +82,27 @@ describe('runFollowupCase on Postgres', () => {
       ['list_signups', 'get_signup', 'add_slots'],
     ]);
     expect(run.state.before.map((s) => s.values)).toEqual([{ start: '10:00' }, { start: '12:00' }]);
-    expect(run.state.after.map((s) => s.values)).toEqual([{ start: '09:00' }, { start: '10:00' }, { start: '12:00' }]);
+    expect(run.state.after.map((s) => s.values)).toEqual([
+      { start: '09:00' },
+      { start: '10:00' },
+      { start: '12:00' },
+    ]);
     expect(run.state.editLink).toMatch(/\/app\/signups\/sig_\w+\/build$/);
     expect(run.state.followUpToolCalls).toEqual(['list_signups', 'get_signup', 'add_slots']);
     expect(run.state.reply).toBe('Added setup at 9:00, first in the list.');
 
     const checks = scoreFollowup(
-      { 'followups.tools_must_include': ['add_slots'], 'slots.added_count': 1, 'slots.first_is_new': true },
+      {
+        'followups.tools_must_include': ['add_slots'],
+        'slots.added_count': 1,
+        'slots.first_is_new': true,
+      },
       run.state,
     );
-    expect(checks.every((c) => c.outcome === 'pass'), JSON.stringify(checks)).toBe(true);
+    expect(
+      checks.every((c) => c.outcome === 'pass'),
+      JSON.stringify(checks),
+    ).toBe(true);
 
     // The case's organizer, workspace and signup are gone again.
     const after = await db.select({ id: organizers.id }).from(organizers);
@@ -94,7 +110,8 @@ describe('runFollowupCase on Postgres', () => {
   });
 
   it('fails the case when the first message made no signup', async () => {
-    const replyOnly: SendChat = async () => ok({ role: 'assistant', content: 'Which date is the fair?' });
+    const replyOnly: SendChat = async () =>
+      ok({ role: 'assistant', content: 'Which date is the fair?' });
     const run = await runFollowupCase(
       db,
       { prompt: 'Make a book fair signup', followUps: ['Add setup'] },

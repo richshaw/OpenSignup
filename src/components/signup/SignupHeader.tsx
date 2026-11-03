@@ -86,62 +86,62 @@ export function SignupHeader({
           the header, not by the buttons, and so does Reopen signup's; Close
           signup's shows in its panel, which runs it. */}
       <header className="hidden space-y-3 md:block">
-      <ReopenScope reopenAction={reopenAction} active={status === 'closed'}>
-      <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
-        <div className="min-w-0 flex-1 space-y-3">
-          <div className="flex min-h-[1.875rem] flex-wrap items-center gap-3">
-            {/* Focusable, to take focus once Close signup's ⋯ is gone. */}
-            <h1
-              tabIndex={-1}
-              data-signup-title
-              className="truncate text-2xl font-semibold tracking-tight"
-            >
-              {title}
-            </h1>
-            <StatusPill status={status} />
-          </div>
-          {status === 'draft' ? (
-            <DraftLine />
-          ) : (
-            <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
-              <PublicLinkChip
-                url={publicUrl}
-                signupId={signupId}
-                className="inline-flex max-w-md"
-              />
-              {spotsTaken ? (
-                <span className="text-[13px] text-ink-muted">{spotsTaken}</span>
-              ) : null}
+        <ReopenScope reopenAction={reopenAction} active={status === 'closed'}>
+          <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="flex min-h-[1.875rem] flex-wrap items-center gap-3">
+                {/* Focusable, to take focus once Close signup's ⋯ is gone. */}
+                <h1
+                  tabIndex={-1}
+                  data-signup-title
+                  className="truncate text-2xl font-semibold tracking-tight"
+                >
+                  {title}
+                </h1>
+                <StatusPill status={status} />
+              </div>
+              {status === 'draft' ? (
+                <DraftLine />
+              ) : (
+                <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
+                  <PublicLinkChip
+                    url={publicUrl}
+                    signupId={signupId}
+                    className="inline-flex max-w-md"
+                  />
+                  {spotsTaken ? (
+                    <span className="text-[13px] text-ink-muted">{spotsTaken}</span>
+                  ) : null}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Link
-            href={previewHref}
-            target="_blank"
-            rel="noreferrer"
-            className={`${HEADER_BUTTON} ${OUTLINED}`}
-          >
-            <Eye size={15} aria-hidden="true" />
-            Preview
-          </Link>
-          {status === 'draft' ? <PublishButton variant="desktop" /> : null}
-          {status === 'open' ? (
-            <>
-              <ShareButton variant="desktop" />
-              <MoreActionsMenu
-                closeQuestion={closeQuestion}
-                closeQuestionAction={closeQuestionAction}
-                closeAction={closeAction}
-              />
-            </>
-          ) : null}
-          {status === 'closed' ? <ReopenButton /> : null}
-        </div>
-      </div>
-      {status === 'draft' ? <PublishRefusal /> : null}
-      {status === 'closed' ? <ReopenRefusal /> : null}
-      </ReopenScope>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href={previewHref}
+                target="_blank"
+                rel="noreferrer"
+                className={`${HEADER_BUTTON} ${OUTLINED}`}
+              >
+                <Eye size={15} aria-hidden="true" />
+                Preview
+              </Link>
+              {status === 'draft' ? <PublishButton variant="desktop" /> : null}
+              {status === 'open' ? (
+                <>
+                  <ShareButton variant="desktop" />
+                  <MoreActionsMenu
+                    closeQuestion={closeQuestion}
+                    closeQuestionAction={closeQuestionAction}
+                    closeAction={closeAction}
+                  />
+                </>
+              ) : null}
+              {status === 'closed' ? <ReopenButton /> : null}
+            </div>
+          </div>
+          {status === 'draft' ? <PublishRefusal /> : null}
+          {status === 'closed' ? <ReopenRefusal /> : null}
+        </ReopenScope>
       </header>
     </ShareScope>
   );

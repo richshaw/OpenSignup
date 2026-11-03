@@ -2,7 +2,11 @@
 
 import { useEffect, useId, useRef } from 'react';
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
-import { FIELD_TYPE_META, FIELD_VALUE_INPUT_CLASS, FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
+import {
+  FIELD_TYPE_META,
+  FIELD_VALUE_INPUT_CLASS,
+  FIELD_VALUE_INPUTS,
+} from '../build-shared/fieldTypes';
 import { InlineNote } from '@/components/ui/inline-note';
 import { TimeSelect } from '../build-shared/TimeSelect';
 import { EnumPicker } from './EnumPicker';

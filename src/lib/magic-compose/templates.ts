@@ -10,7 +10,7 @@ export const STARTER_PROMPTS: MagicComposeStarter[] = [
     id: 'sports',
     label: 'Sports team',
     blurb: 'Snack, treat, or carpool rosters across a season of games',
-    body: "Snack duty for our soccer team. We have 6 Saturday games starting next Saturday. Two families bring snacks plus drinks per game. No nuts please.",
+    body: 'Snack duty for our soccer team. We have 6 Saturday games starting next Saturday. Two families bring snacks plus drinks per game. No nuts please.',
   },
   {
     id: 'classroom',
@@ -22,6 +22,6 @@ export const STARTER_PROMPTS: MagicComposeStarter[] = [
     id: 'community',
     label: 'Community shifts',
     blurb: 'Volunteer shifts, event setup, or rotating roles',
-    body: "Volunteers for our spring book fair. Thursday and Friday next week, three 2-hour shifts each day (9 to 11, 11 to 1, 1 to 3). 2 volunteers per shift.",
+    body: 'Volunteers for our spring book fair. Thursday and Friday next week, three 2-hour shifts each day (9 to 11, 11 to 1, 1 to 3). 2 volunteers per shift.',
   },
 ];

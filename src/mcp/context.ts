@@ -28,7 +28,10 @@ export interface ToolContext {
 }
 
 /** The workspace a tool acts in: the argument if given, else the organizer's default. */
-export function resolveWorkspaceId(ctx: ToolContext, requested?: string): Result<string, ServiceError> {
+export function resolveWorkspaceId(
+  ctx: ToolContext,
+  requested?: string,
+): Result<string, ServiceError> {
   return chooseWorkspaceId(requested, ctx.defaultWorkspaceId, {
     invalid: 'omit workspaceId to use the default workspace, or pass an id from list_workspaces',
     noDefault: 'call list_workspaces and pass one of the ids as workspaceId',

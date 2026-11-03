@@ -1,7 +1,14 @@
-import { Link, Text } from '@react-email/components';
+import { Text } from '@react-email/components';
 import { reminderSubject } from '../subjects';
 import type { SlotDetail } from '@/lib/slot-label';
-import { EmailButton, EmailHeading, EmailIntro, EmailLayout, NotesText } from './layout';
+import {
+  EmailButton,
+  EmailHeading,
+  EmailIntro,
+  EmailLayout,
+  NotesText,
+  UnsubscribeFooter,
+} from './layout';
 import { SlotDetailsText } from './slot-details';
 
 export interface ReminderEmailProps {
@@ -59,19 +66,7 @@ export function ReminderEmail({
         Need to change or cancel? Tap the button above. It opens your spot directly, no password
         needed. Keep this email to yourself: anyone with the link can change your slot.
       </Text>
-      <Text className="mt-4 text-xs text-[#8a93a4]">
-        You&apos;ll still get a confirmation if you sign up for something new.{' '}
-        {/*
-          Nothing may follow this link in the sentence. react-email renders a
-          <Link> in plaintext as "label\nURL", so trailing punctuation lands
-          hard against the bare URL and clients that autolink plaintext
-          commonly swallow it into the href — which would break the one link
-          that must never break.
-        */}
-        <Link href={unsubscribeUrl} className="text-[#8a93a4] underline">
-          Stop reminders for {signupTitle}
-        </Link>
-      </Text>
+      <UnsubscribeFooter href={unsubscribeUrl}>Stop reminders for {signupTitle}</UnsubscribeFooter>
     </EmailLayout>
   );
 }

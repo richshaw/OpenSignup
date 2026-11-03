@@ -9,7 +9,7 @@ import {
   editLimitsForCommitment,
   getOwnCommitment,
 } from '@/services/commitments';
-import { commitmentEditUrl } from '@/lib/links';
+import { commitmentEditPath, commitmentEditUrl } from '@/lib/links';
 import { editTokenFor } from '@/lib/token';
 import { readRequestSignals, recordEditLinkFollowed } from '@/lib/view-tracker';
 import { CANCELLED_PAGE } from '../../cancelled-message';
@@ -37,7 +37,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   // a wrong one would point the back link at an unrelated signup. Send them
   // to the right address instead, as the unsubscribe page does.
   if (slug !== c.signupSlug) {
-    redirect(`/s/${c.signupSlug}/c/${encodeURIComponent(c.id)}?token=${encodeURIComponent(token)}`);
+    redirect(commitmentEditPath(c.signupSlug, c.id, token));
   }
 
   // Read headers in the request context — `after(...)` runs outside it and
@@ -91,14 +91,14 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   return (
     <main className="container-tight flex min-h-[100svh] flex-col gap-6 py-8">
       <header className="space-y-1">
-        <a href={`/s/${slug}`} className="text-ink-muted text-sm hover:underline">
+        <a href={`/s/${slug}`} className="text-sm text-ink-muted hover:underline">
           ← Back to signup
         </a>
         <h1 className="text-2xl font-semibold tracking-tight">Your spot</h1>
         {/* Which slot this is, as the cancelled page and the emails name it,
             for someone with more than one sign-up or no email to check. */}
         {slotName ? <p className="text-balance text-sm font-medium">{slotName}</p> : null}
-        <p className="text-ink-muted text-sm">
+        <p className="text-sm text-ink-muted">
           You&apos;re editing this as {c.participantName}
           {c.participantEmail ? ` (${c.participantEmail})` : null}.
         </p>

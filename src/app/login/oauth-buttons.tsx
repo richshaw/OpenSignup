@@ -26,17 +26,17 @@ export function OAuthButtons({ providers, callbackUrl }: Props) {
           >
             <button
               type="submit"
-              className="border-surface-sunk text-ink hover:bg-surface-raised flex w-full items-center justify-center gap-2 rounded-lg border bg-white px-5 py-3 font-medium shadow-sm transition"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-surface-sunk bg-white px-5 py-3 font-medium text-ink shadow-sm transition hover:bg-surface-raised"
             >
               Continue with {provider.label}
             </button>
           </form>
         ))}
       </div>
-      <div className="text-ink-muted flex items-center gap-3 text-xs">
-        <span className="bg-surface-sunk h-px flex-1" />
+      <div className="flex items-center gap-3 text-xs text-ink-muted">
+        <span className="h-px flex-1 bg-surface-sunk" />
         or
-        <span className="bg-surface-sunk h-px flex-1" />
+        <span className="h-px flex-1 bg-surface-sunk" />
       </div>
     </div>
   );

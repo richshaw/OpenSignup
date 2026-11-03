@@ -26,7 +26,11 @@ import { POST } from './route';
 
 // For the tests that drive POST itself: the session and the model are
 // stubbed, everything from the draft's parse to the database is real.
-const route = vi.hoisted(() => ({ actor: undefined as unknown, workspaceId: '', llmResult: undefined as unknown }));
+const route = vi.hoisted(() => ({
+  actor: undefined as unknown,
+  workspaceId: '',
+  llmResult: undefined as unknown,
+}));
 vi.mock('@/auth/session', () => ({
   requireActor: async () => route.actor,
   getOrganizerSession: async () => ({ defaultWorkspaceId: route.workspaceId }),
@@ -160,9 +164,7 @@ describe('magic-compose route chain (db)', () => {
     const acts = await fx.db.select().from(activity).where(eq(activity.signupId, r.value.id));
     const created = acts.find((a) => a.eventType === 'signup.created');
     expect(created).toBeDefined();
-    expect((created?.payload as { templateId?: string } | null)?.templateId).toBe(
-      'magic-compose',
-    );
+    expect((created?.payload as { templateId?: string } | null)?.templateId).toBe('magic-compose');
     expect((created?.payload as { fieldsAdded?: number } | null)?.fieldsAdded).toBe(2);
     expect((created?.payload as { slotsAdded?: number } | null)?.slotsAdded).toBe(3);
 

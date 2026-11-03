@@ -54,8 +54,8 @@ give it the URL above.
 
 **Claude app** — Customize → Connectors → **Add** → **Add custom connector**,
 then name it and paste the MCP endpoint URL. Keep the sign-in settings Claude
-detects. Under **OAuth client**, *Use Claude's published identity* is the one
-that works here (it is a client ID metadata document); *Register automatically*
+detects. Under **OAuth client**, _Use Claude's published identity_ is the one
+that works here (it is a client ID metadata document); _Register automatically_
 needs dynamic registration, which this server does not offer. On Team and
 Enterprise plans an Owner adds the connector under Organization settings →
 Connectors, and each member then chooses **Connect** next to it under
@@ -99,23 +99,23 @@ app if you trust the website. (If whoever runs your OpenSignup site set an app
 up for you with `OAUTH_STATIC_CLIENTS`, there is no website to check, and the
 screen shows the name they gave it.)
 
-A connected app acts as *you*, and it can't do anything you couldn't do
+A connected app acts as _you_, and it can't do anything you couldn't do
 yourself. If you belong to more than one workspace, it can reach all of them,
 with the same role you have in each.
 
 Permissions are approved individually:
 
-| Permission | What it unlocks |
-|---|---|
-| See your signups and their slots | Reading: workspaces, signups, fields, slots, and how full each slot is |
-| Create and edit signups | Everything that changes a signup, including publishing and deleting |
-| See who has signed up, including their names and email addresses | Participant contact details (no tool returns them yet) |
+| Permission                                                       | What it unlocks                                                        |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| See your signups and their slots                                 | Reading: workspaces, signups, fields, slots, and how full each slot is |
+| Create and edit signups                                          | Everything that changes a signup, including publishing and deleting    |
+| See who has signed up, including their names and email addresses | Participant contact details (no tool returns them yet)                 |
 
 The third one is deliberately harder to get. It is not advertised to clients,
 so an app does not receive it by default — it has to ask for it explicitly,
-and when it does, the consent screen flags it in amber and says: *participants
+and when it does, the consent screen flags it in amber and says: _participants
 gave these details to you, not to this app. Only approve if you are
-comfortable with that domain handling them.* Take that at face value. An app
+comfortable with that domain handling them._ Take that at face value. An app
 you did not grant it to cannot read participant details at all.
 
 Allow and Don't allow carry equal weight on the screen. Declining sends the

@@ -15,7 +15,6 @@ function messageFor(code: ErrorCode, override?: string): string {
 }
 
 export function SaveStatus({ status }: SaveStatusProps) {
-
   if (status.kind === 'idle') return null;
 
   if (status.kind === 'saving') {

@@ -45,7 +45,7 @@ export function DemoVideoCta({ videoUrl, posterUrl }: DemoVideoCtaProps) {
         ref={triggerRef}
         type="button"
         onClick={openModal}
-        className="bg-surface border-surface-sunk text-ink hover:bg-surface-raised inline-flex items-center justify-center gap-2 rounded-[14px] border px-5 py-3 text-base font-medium transition lg:text-[15px]"
+        className="inline-flex items-center justify-center gap-2 rounded-[14px] border border-surface-sunk bg-surface px-5 py-3 text-base font-medium text-ink transition hover:bg-surface-raised lg:text-[15px]"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
           <polygon points="6 4 20 12 6 20 6 4" fill="currentColor" />
@@ -58,7 +58,7 @@ export function DemoVideoCta({ videoUrl, posterUrl }: DemoVideoCtaProps) {
           role="dialog"
           aria-modal="true"
           aria-label="Product demo video"
-          className="bg-ink/60 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) close();
           }}
@@ -69,7 +69,7 @@ export function DemoVideoCta({ videoUrl, posterUrl }: DemoVideoCtaProps) {
               type="button"
               onClick={close}
               aria-label="Close video"
-              className="bg-surface text-ink hover:bg-surface-raised absolute -top-12 right-0 inline-flex h-9 w-9 items-center justify-center rounded-full shadow-md transition"
+              className="absolute -top-12 right-0 inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink shadow-md transition hover:bg-surface-raised"
             >
               <svg
                 width="16"

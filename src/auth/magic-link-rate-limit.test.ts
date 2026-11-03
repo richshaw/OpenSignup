@@ -48,7 +48,10 @@ describe('consumeMagicLinkRateLimits', () => {
     charge.mockImplementation(async (_db, p) => (p === policy ? 600 : null));
     const thrown = await consumeMagicLinkRateLimits(db, { email, ip }).catch((e: unknown) => e);
     expect(thrown).toBeInstanceOf(MagicLinkRateLimited);
-    expect((thrown as MagicLinkRateLimited).cause).toEqual({ bucket: policy.bucket, retryAfterSeconds: 600 });
+    expect((thrown as MagicLinkRateLimited).cause).toEqual({
+      bucket: policy.bucket,
+      retryAfterSeconds: 600,
+    });
     expect(logWarn).toHaveBeenCalledWith(
       { emailDomain: 'example.com', bucket: policy.bucket },
       'magic link rate-limited',
@@ -57,7 +60,9 @@ describe('consumeMagicLinkRateLimits', () => {
 
   it('leaves the address uncharged when the IP is over its limit', async () => {
     charge.mockImplementation(async (_db, p) => (p === RateLimits.magicLinkPerIp ? 600 : null));
-    await expect(consumeMagicLinkRateLimits(db, { email, ip })).rejects.toBeInstanceOf(MagicLinkRateLimited);
+    await expect(consumeMagicLinkRateLimits(db, { email, ip })).rejects.toBeInstanceOf(
+      MagicLinkRateLimited,
+    );
     expect(charge).toHaveBeenCalledTimes(1);
   });
 

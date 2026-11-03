@@ -10,7 +10,10 @@ import { compileTools, registerAll, type ToolDefinition } from '../registry';
  * tool modules it exercises (and mocks only their services); db tests pass
  * `TOOLS` from `../tools` for the full server.
  */
-export async function connectTestClient(ctx: ToolContext, tools: readonly ToolDefinition[]): Promise<Client> {
+export async function connectTestClient(
+  ctx: ToolContext,
+  tools: readonly ToolDefinition[],
+): Promise<Client> {
   const server = new McpServer(
     { name: 'opensignup-test', version: '0.0.0' },
     { instructions: buildInstructions(tools) },
