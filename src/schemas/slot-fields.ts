@@ -75,6 +75,33 @@ export const SlotFieldConfigSchema = z.discriminatedUnion('fieldType', [
 ]);
 export type SlotFieldConfig = z.infer<typeof SlotFieldConfigSchema>;
 
+/** A list of enum choices, trimmed, without blanks, and cut to `MAX_CHOICES`. */
+export function sanitizeEnumChoices(choices: string[] | undefined): string[] {
+  return (choices ?? [])
+    .map((c) => c.trim())
+    .filter((c) => c.length > 0)
+    .slice(0, MAX_CHOICES);
+}
+
+/**
+ * A new field's starting config for its type. The Build tab, Magic Compose and
+ * the MCP `add_field` tool all create fields through this, so they agree.
+ */
+export function configFor(fieldType: FieldType, choices: string[] | undefined): SlotFieldConfig {
+  switch (fieldType) {
+    case 'text':
+      return { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH };
+    case 'date':
+      return { fieldType: 'date' };
+    case 'time':
+      return { fieldType: 'time' };
+    case 'number':
+      return { fieldType: 'number' };
+    case 'enum':
+      return { fieldType: 'enum', choices: sanitizeEnumChoices(choices) };
+  }
+}
+
 export const SlotFieldInputSchema = z
   .object({
     ref: RefSchema,

@@ -20,7 +20,6 @@ import { defineTool } from '../registry';
 import { FIELD_GUIDE } from './guides';
 import { UNREAD_SETTINGS, signupDetail, signupWithContents, signupWithLinks } from './signups-read';
 
-
 export const createSignupTool = defineTool({
   name: 'create_signup',
   scope: 'signups:write',
@@ -28,7 +27,11 @@ export const createSignupTool = defineTool({
   description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see until publish_signup. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. If the result has a note instead of fields and slots, the signup was still created, and get_signup with its id returns it. The result includes links.edit to change the signup and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field, or a field with no value in any slot, makes the whole call fail with invalid_input and nothing is created, so fix the call and send it again.`,
   annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: FullDraftSchema.extend({
-    workspaceId: z.string().min(1).optional().describe('Defaults to the account default workspace.'),
+    workspaceId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Defaults to the account default workspace.'),
   }),
   handler: async (ctx, input) => {
     const { workspaceId, ...draft } = input;
@@ -105,7 +108,11 @@ export const updateSignupTool = defineTool({
   // organizerDisplayName and visibility are omitted on purpose: no column
   // stores the one and nothing reads the other, so accepting either would
   // report a change that never happened.
-  inputSchema: SignupUpdateInputSchema.omit({ settings: true, visibility: true, organizerDisplayName: true }).extend({
+  inputSchema: SignupUpdateInputSchema.omit({
+    settings: true,
+    visibility: true,
+    organizerDisplayName: true,
+  }).extend({
     signupId: z.string(),
     settings: SparseSettingsSchema.optional(),
   }),

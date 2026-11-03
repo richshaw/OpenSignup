@@ -3,12 +3,14 @@ import type { NextResponse } from 'next/server';
 export const COMMIT_COOKIE_NAME = 'os_commit';
 
 const DAY_SECONDS = 24 * 60 * 60;
+// The privacy and cookies pages print these three, so they are exported rather
+// than typed out there.
 /** Every sign-up is remembered for at least this long… */
-const MIN_DAYS = 60;
+export const MIN_DAYS = 60;
 /** …and until this long after its slot, for someone who signs up far ahead. */
-const DAYS_AFTER_SLOT = 7;
+export const DAYS_AFTER_SLOT = 7;
 /** The longest a browser keeps any cookie: it cuts a longer Max-Age to this. */
-const MAX_DAYS = 400;
+export const MAX_DAYS = 400;
 /**
  * An entry is 111 bytes as sent (two 26-character ids, a 43-character token, a
  * 10-digit expiry, three dots and a comma escaped as `%2C`), so 36 of them keep

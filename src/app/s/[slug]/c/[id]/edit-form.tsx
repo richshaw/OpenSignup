@@ -9,8 +9,10 @@ import { errorCopyText, participantErrorCopy } from '../../participant-error';
 import { Field, NotesAndSpots } from '../../participant-fields';
 
 // The request never reached the server (offline, or a dropped connection).
-const SAVE_UNREACHABLE = "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.";
-const CANCEL_UNREACHABLE = "Couldn't reach the server, so your spot wasn't cancelled. Check your connection and try again.";
+const SAVE_UNREACHABLE =
+  "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.";
+const CANCEL_UNREACHABLE =
+  "Couldn't reach the server, so your spot wasn't cancelled. Check your connection and try again.";
 // A refusal whose answer isn't ours to read, such as an error page from a proxy.
 const SAVE_UNREADABLE = "Something went wrong, so your changes weren't saved. Try again.";
 
@@ -151,7 +153,10 @@ export default function EditForm({
   }
 
   return (
-    <form onSubmit={handleSave} className="space-y-5 rounded-xl border border-surface-sunk bg-white p-6">
+    <form
+      onSubmit={handleSave}
+      className="space-y-5 rounded-xl border border-surface-sunk bg-white p-6"
+    >
       {showSpotsMax ? (
         <p id={spotsMaxId} className="text-sm text-ink-muted">
           You can have up to {spotCount(spotsMax)} on this slot.
@@ -182,7 +187,7 @@ export default function EditForm({
             aria-label="Confirm cancellation"
             className="flex flex-1 flex-wrap items-center gap-2 rounded-lg bg-danger/10 px-3 py-2 text-sm"
           >
-            <span className="text-danger font-medium">Cancel this signup?</span>
+            <span className="font-medium text-danger">Cancel this signup?</span>
             <div className="ml-auto flex gap-2">
               <button
                 type="button"
@@ -196,7 +201,7 @@ export default function EditForm({
                 type="button"
                 onClick={handleConfirmCancel}
                 disabled={saving}
-                className="bg-danger rounded-lg px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-50"
+                className="rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-50"
               >
                 {saving ? 'Cancelling…' : 'Yes, cancel'}
               </button>
@@ -208,7 +213,7 @@ export default function EditForm({
               type="button"
               onClick={() => setConfirmingCancel(true)}
               disabled={saving}
-              className="text-danger rounded-lg border border-surface-sunk px-4 py-2 text-sm font-medium transition disabled:opacity-50"
+              className="rounded-lg border border-surface-sunk px-4 py-2 text-sm font-medium text-danger transition disabled:opacity-50"
             >
               Cancel signup
             </button>
@@ -216,7 +221,7 @@ export default function EditForm({
             <button
               type="submit"
               disabled={saving}
-              className="bg-brand rounded-lg px-5 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:opacity-50"
+              className="rounded-lg bg-brand px-5 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>

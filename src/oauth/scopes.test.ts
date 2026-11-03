@@ -47,7 +47,12 @@ describe('scopes', () => {
 
   it('describeScopes orders participant-data access last and omits offline_access', () => {
     const scopes: Scope[] = ['offline_access', 'commitments:read', 'signups:read'];
-    expect(describeScopes(scopes).map((d) => d.scope)).toEqual(['signups:read', 'commitments:read']);
-    expect(describeScopes(scopes).find((d) => d.scope === 'commitments:read')?.sensitive).toBe(true);
+    expect(describeScopes(scopes).map((d) => d.scope)).toEqual([
+      'signups:read',
+      'commitments:read',
+    ]);
+    expect(describeScopes(scopes).find((d) => d.scope === 'commitments:read')?.sensitive).toBe(
+      true,
+    );
   });
 });

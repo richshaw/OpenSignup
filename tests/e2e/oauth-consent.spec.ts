@@ -41,10 +41,13 @@ function authorizeUrl(challenge: string, scope: string) {
 
 test.describe('OAuth consent', () => {
   test.beforeAll(async ({ request }) => {
-    const probe = await request.get(authorizeUrl('probe-only-not-a-real-challenge-value-0000000', 'signups:read'), {
-      maxRedirects: 0,
-      headers: { accept: 'text/html' },
-    });
+    const probe = await request.get(
+      authorizeUrl('probe-only-not-a-real-challenge-value-0000000', 'signups:read'),
+      {
+        maxRedirects: 0,
+        headers: { accept: 'text/html' },
+      },
+    );
     const body = await probe.text();
     test.skip(
       probe.status() === 400 && body.includes('invalid_client'),
@@ -56,7 +59,10 @@ test.describe('OAuth consent', () => {
     await loginAsSeededOrganizer(context);
   });
 
-  test('approve issues a code, the token reaches the MCP route, and disconnect revokes it', async ({ page, request }) => {
+  test('approve issues a code, the token reaches the MCP route, and disconnect revokes it', async ({
+    page,
+    request,
+  }) => {
     const { verifier, challenge } = pkce();
     await page.goto(authorizeUrl(challenge, 'signups:read signups:write offline_access'));
     await expect(page).toHaveURL(/\/oauth\/consent\//);
@@ -74,7 +80,14 @@ test.describe('OAuth consent', () => {
     expect(redirected.searchParams.get('iss')).toBe(BASE_URL);
 
     const tokenRes = await request.post(`${BASE_URL}/api/oauth/token`, {
-      form: { grant_type: 'authorization_code', client_id: CLIENT_ID, redirect_uri: REDIRECT_URI, code: code!, code_verifier: verifier, resource: RESOURCE },
+      form: {
+        grant_type: 'authorization_code',
+        client_id: CLIENT_ID,
+        redirect_uri: REDIRECT_URI,
+        code: code!,
+        code_verifier: verifier,
+        resource: RESOURCE,
+      },
     });
     expect(tokenRes.status()).toBe(200);
     const tokens = await tokenRes.json();
@@ -96,7 +109,10 @@ test.describe('OAuth consent', () => {
     expect(listed.result.tools.map((t) => t.name)).toContain('list_signups');
 
     const noToken = await request.post(`${BASE_URL}/api/mcp`, {
-      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      },
       data: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
     });
     expect(noToken.status()).toBe(401);
@@ -116,7 +132,11 @@ test.describe('OAuth consent', () => {
     await expect(page.getByText('No connected apps')).toBeVisible();
 
     const afterRevoke = await request.post(`${BASE_URL}/api/oauth/token`, {
-      form: { grant_type: 'refresh_token', client_id: CLIENT_ID, refresh_token: tokens.refresh_token },
+      form: {
+        grant_type: 'refresh_token',
+        client_id: CLIENT_ID,
+        refresh_token: tokens.refresh_token,
+      },
     });
     expect(afterRevoke.status()).toBe(400);
     expect((await afterRevoke.json()).error).toBe('invalid_grant');
@@ -142,9 +162,13 @@ test.describe('OAuth consent', () => {
     await page.waitForURL(/\/e2e\/oauth-callback\?/);
   });
 
-  test('"sign in as someone else" signs out and returns to the same consent request', async ({ browser }) => {
+  test('"sign in as someone else" signs out and returns to the same consent request', async ({
+    browser,
+  }) => {
     const context = await browser.newContext();
-    await loginAsSeededOrganizer(context, { sessionToken: await createDisposableSession(loadSeed().organizerId) });
+    await loginAsSeededOrganizer(context, {
+      sessionToken: await createDisposableSession(loadSeed().organizerId),
+    });
     const page = await context.newPage();
     const { challenge } = pkce();
     await page.goto(authorizeUrl(challenge, 'signups:read'));
@@ -158,7 +182,9 @@ test.describe('OAuth consent', () => {
     await context.close();
   });
 
-  test('the consent page without a session sends the organizer to log in and back', async ({ browser }) => {
+  test('the consent page without a session sends the organizer to log in and back', async ({
+    browser,
+  }) => {
     const fresh = await browser.newContext();
     const page = await fresh.newPage();
     const { challenge } = pkce();

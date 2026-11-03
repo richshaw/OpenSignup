@@ -53,7 +53,8 @@ test.describe('organizer flow', () => {
       values: { what: 'Juice', date: '2030-04-06' },
     });
     const storedSlug = async () =>
-      ((await (await page.request.get(`/api/signups/${draftId}`)).json()).data as { slug: string }).slug;
+      ((await (await page.request.get(`/api/signups/${draftId}`)).json()).data as { slug: string })
+        .slug;
     const before = await storedSlug();
 
     await page.goto(`/app/signups/${draftId}/build`);
@@ -751,10 +752,10 @@ test.describe('a Build edit and a reload', () => {
   // The title and description keep their text in the field until it blurs,
   // and a reload blurs nothing (#699).
   const storedMeta = async (page: Page, id: string) =>
-    ((await (await page.request.get(`/api/signups/${id}`)).json()).data as {
+    (await (await page.request.get(`/api/signups/${id}`)).json()).data as {
       title: string;
       description: string | null;
-    });
+    };
 
   test('a title typed just before a reload is kept', async ({ page }) => {
     const draft = await createDraft(page.request, {

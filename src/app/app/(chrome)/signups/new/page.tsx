@@ -43,12 +43,15 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
     <div className="mx-auto max-w-xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">New signup</h1>
-        <p className="text-ink-muted text-sm">
+        <p className="text-sm text-ink-muted">
           You can add slots after it&apos;s created. Nothing is visible until you publish.
         </p>
       </div>
       {error ? <FormError>{error}</FormError> : null}
-      <form action={createSignupAction} className="space-y-5 rounded-xl border border-surface-sunk bg-white p-6">
+      <form
+        action={createSignupAction}
+        className="space-y-5 rounded-xl border border-surface-sunk bg-white p-6"
+      >
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Title</span>
           <input
@@ -59,7 +62,7 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
             maxLength={TITLE_MAX_LENGTH}
             defaultValue={carried(title, TITLE_MAX_LENGTH)}
             placeholder="Snack duty — Spring season"
-            className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk bg-white px-4 py-3 shadow-sm focus:outline-none focus:ring-1"
+            className="w-full rounded-lg border border-surface-sunk bg-white px-4 py-3 shadow-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
           />
         </label>
         <label className="block">
@@ -70,19 +73,19 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
             maxLength={DESCRIPTION_MAX_LENGTH}
             defaultValue={carried(description, DESCRIPTION_MAX_LENGTH)}
             placeholder="One paragraph that shows up at the top of your signup page."
-            className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk bg-white px-4 py-3 shadow-sm focus:outline-none focus:ring-1"
+            className="w-full rounded-lg border border-surface-sunk bg-white px-4 py-3 shadow-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
           />
         </label>
         <div className="flex items-center justify-end gap-3">
           <a
             href="/app"
-            className="text-ink-muted hover:text-ink rounded-lg px-4 py-2 text-sm transition"
+            className="rounded-lg px-4 py-2 text-sm text-ink-muted transition hover:text-ink"
           >
             Cancel
           </a>
           <AsyncSubmitButton
             loadingLabel="Creating…"
-            className="bg-brand rounded-lg px-5 py-2 font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:brightness-90"
+            className="rounded-lg bg-brand px-5 py-2 font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:brightness-90"
           >
             Create signup
           </AsyncSubmitButton>

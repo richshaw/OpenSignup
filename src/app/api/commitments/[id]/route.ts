@@ -26,7 +26,9 @@ async function authorizeTokenOp(db: Db, req: NextRequest): Promise<string> {
   await consumeRateLimit(db, RateLimits.commitmentTokenOpsPerIp, clientIp ?? 'unknown');
   const token = readToken(req);
   if (!token) {
-    throw new ServiceException(serviceError('forbidden', 'edit token required', { field: 'token' }));
+    throw new ServiceException(
+      serviceError('forbidden', 'edit token required', { field: 'token' }),
+    );
   }
   return token;
 }

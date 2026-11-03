@@ -18,7 +18,11 @@ test.describe('a draft’s public link', () => {
 
     await page.goto(`/s/${draft.slug}`);
     await expect(page.getByRole('heading', { name: 'Only you can see this draft' })).toBeVisible();
-    await expect(page.getByText(/until you publish it\. Renaming the draft gives it a new link, so share it after you publish\./)).toBeVisible();
+    await expect(
+      page.getByText(
+        /until you publish it\. Renaming the draft gives it a new link, so share it after you publish\./,
+      ),
+    ).toBeVisible();
     await page.getByRole('link', { name: 'Open your draft' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/signups/${draft.id}/build$`));
 

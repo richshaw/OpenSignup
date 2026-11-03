@@ -92,9 +92,7 @@ describe('view-tracker (db)', () => {
       const rows = await db
         .select()
         .from(activity)
-        .where(
-          and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.viewed')),
-        );
+        .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.viewed')));
       expect(rows).toHaveLength(1);
       const row = rows[0]!;
       expect(row.actorType).toBe('system');
@@ -118,9 +116,7 @@ describe('view-tracker (db)', () => {
       const rows = await db
         .select()
         .from(activity)
-        .where(
-          and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.viewed')),
-        );
+        .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.viewed')));
       expect(rows).toHaveLength(1);
       expect((rows[0]!.payload as Record<string, unknown>).isReturning).toBe(true);
     });
@@ -133,10 +129,7 @@ describe('view-tracker (db)', () => {
         isReturning: false,
         signals: browserSignals({ dnt: true }),
       });
-      const rows = await db
-        .select()
-        .from(activity)
-        .where(eq(activity.signupId, signupId));
+      const rows = await db.select().from(activity).where(eq(activity.signupId, signupId));
       expect(rows).toHaveLength(0);
     });
 
@@ -147,14 +140,10 @@ describe('view-tracker (db)', () => {
         signupStatus: 'open',
         isReturning: false,
         signals: browserSignals({
-          userAgent:
-            'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+          userAgent: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
         }),
       });
-      const rows = await db
-        .select()
-        .from(activity)
-        .where(eq(activity.signupId, signupId));
+      const rows = await db.select().from(activity).where(eq(activity.signupId, signupId));
       expect(rows).toHaveLength(0);
     });
 
@@ -169,9 +158,7 @@ describe('view-tracker (db)', () => {
       const rows = await db
         .select()
         .from(activity)
-        .where(
-          and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.viewed')),
-        );
+        .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.viewed')));
       expect(rows).toHaveLength(1);
       const payload = rows[0]!.payload as Record<string, unknown>;
       expect(payload.uaClass).toBe('unknown');
@@ -215,10 +202,7 @@ describe('view-tracker (db)', () => {
         participantId: makeId('par'),
         signals: browserSignals({ dnt: true }),
       });
-      const rows = await db
-        .select()
-        .from(activity)
-        .where(eq(activity.signupId, signupId));
+      const rows = await db.select().from(activity).where(eq(activity.signupId, signupId));
       expect(rows).toHaveLength(0);
     });
   });
@@ -235,10 +219,7 @@ describe('view-tracker (db)', () => {
       await recordLandingView({
         signals: browserSignals({ referer: 'https://news.ycombinator.com/foo' }),
       });
-      const rows = await db
-        .select()
-        .from(activity)
-        .where(eq(activity.eventType, 'landing.viewed'));
+      const rows = await db.select().from(activity).where(eq(activity.eventType, 'landing.viewed'));
       expect(rows).toHaveLength(1);
       const row = rows[0]!;
       expect(row.actorType).toBe('system');
@@ -256,10 +237,7 @@ describe('view-tracker (db)', () => {
       await recordLandingView({
         signals: { userAgent: null, referer: null, dnt: false },
       });
-      const rows = await db
-        .select()
-        .from(activity)
-        .where(eq(activity.eventType, 'landing.viewed'));
+      const rows = await db.select().from(activity).where(eq(activity.eventType, 'landing.viewed'));
       expect(rows).toHaveLength(1);
       const payload = rows[0]!.payload as Record<string, unknown>;
       expect(payload.uaClass).toBe('unknown');
@@ -268,24 +246,17 @@ describe('view-tracker (db)', () => {
 
     it('does not write when DNT/GPC is set', async () => {
       await recordLandingView({ signals: browserSignals({ dnt: true }) });
-      const rows = await db
-        .select()
-        .from(activity)
-        .where(eq(activity.eventType, 'landing.viewed'));
+      const rows = await db.select().from(activity).where(eq(activity.eventType, 'landing.viewed'));
       expect(rows).toHaveLength(0);
     });
 
     it('does not write for a Googlebot UA', async () => {
       await recordLandingView({
         signals: browserSignals({
-          userAgent:
-            'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+          userAgent: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
         }),
       });
-      const rows = await db
-        .select()
-        .from(activity)
-        .where(eq(activity.eventType, 'landing.viewed'));
+      const rows = await db.select().from(activity).where(eq(activity.eventType, 'landing.viewed'));
       expect(rows).toHaveLength(0);
     });
   });
@@ -365,8 +336,7 @@ describe('view-tracker (db)', () => {
       await recordLandingCtaClicked({
         cta: 'start_signup',
         signals: browserSignals({
-          userAgent:
-            'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+          userAgent: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
         }),
       });
       const rows = await db
@@ -391,10 +361,7 @@ describe('view-tracker (db)', () => {
         .select()
         .from(activity)
         .where(
-          and(
-            eq(activity.signupId, signupId),
-            eq(activity.eventType, 'signup.editor_opened'),
-          ),
+          and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.editor_opened')),
         );
       expect(rows).toHaveLength(1);
       const row = rows[0]!;

@@ -414,7 +414,7 @@ export default function CommitDialog({
       >
         {success ? (
           <div className="space-y-4">
-            <p className="text-ink-muted text-sm">
+            <p className="text-sm text-ink-muted">
               {success.emailed ? (
                 // Named so a typo the suggestion list doesn't know is seen
                 // here, not when no confirmation ever arrives.
@@ -487,7 +487,7 @@ export default function CommitDialog({
             <button
               type="button"
               onClick={handleClose}
-              className="bg-brand w-full rounded-lg px-4 py-3 text-sm font-medium text-white"
+              className="w-full rounded-lg bg-brand px-4 py-3 text-sm font-medium text-white"
             >
               Done
             </button>
@@ -520,12 +520,12 @@ export default function CommitDialog({
                 onChange={(e) => setEmailValue(e.target.value)}
               >
                 {emailHint ? (
-                  <p className="text-ink-muted mt-1 text-xs">
+                  <p className="mt-1 text-xs text-ink-muted">
                     Did you mean{' '}
                     <button
                       type="button"
                       onClick={handleAcceptSuggestion}
-                      className="text-brand font-medium underline"
+                      className="font-medium text-brand underline"
                     >
                       {emailHint}
                     </button>
@@ -534,7 +534,7 @@ export default function CommitDialog({
                 ) : null}
               </Field>
               {emailRequired ? null : (
-                <p id={emailHelpId} className="text-ink-muted mt-1 text-xs">
+                <p id={emailHelpId} className="mt-1 text-xs text-ink-muted">
                   We&apos;ll email you your link to change or cancel
                   {sendsReminder ? ', and a reminder before your slot' : null}. Without an email,
                   save the link we show you after you sign up.
@@ -586,7 +586,7 @@ export default function CommitDialog({
               <button
                 type="submit"
                 disabled={submitting}
-                className="bg-brand flex-1 rounded-lg px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-hover disabled:opacity-50"
+                className="flex-1 rounded-lg bg-brand px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-hover disabled:opacity-50"
               >
                 {submitting ? 'Signing up…' : 'Confirm'}
               </button>

@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH, TitleSchema } from '@/schemas/signups';
+import {
+  DESCRIPTION_MAX_LENGTH,
+  TITLE_MAX_LENGTH,
+  TITLE_MIN_LENGTH,
+  TitleSchema,
+} from '@/schemas/signups';
 import {
   ChoiceSchema,
   FIELD_TYPES,
@@ -57,7 +62,11 @@ export const FullDraftSchema = z.object({
   fields: z.array(DraftFieldSchema).min(1).max(MAX_FIELDS),
   slots: z.array(DraftSlotSchema).min(1).max(MAX_SLOTS),
   /** Field ref to visually group slots by in the participant view. */
-  groupBy: z.string().nullable().optional().transform((v) => v ?? undefined),
+  groupBy: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => v ?? undefined),
 });
 
 /**

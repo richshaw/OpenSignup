@@ -6,7 +6,11 @@ import type { ToolContext } from './context';
 import { defineTool } from './registry';
 import { runTool, toolFailure, toolSuccess } from './results';
 
-const ctx = { actor: { id: 'org_1' }, clientId: 'c', scopes: ['signups:read', 'signups:write'] } as ToolContext;
+const ctx = {
+  actor: { id: 'org_1' },
+  clientId: 'c',
+  scopes: ['signups:read', 'signups:write'],
+} as ToolContext;
 
 describe('tool results', () => {
   it('success carries the value as structuredContent and as JSON text', () => {
@@ -18,16 +22,28 @@ describe('tool results', () => {
 
   it('failure keeps code, message, field, suggestion and details', () => {
     const r = toolFailure(
-      serviceError('invalid_input', 'bad', { field: 'title', suggestion: 'shorten it', details: { max: 120 } }),
+      serviceError('invalid_input', 'bad', {
+        field: 'title',
+        suggestion: 'shorten it',
+        details: { max: 120 },
+      }),
     );
     expect(r.isError).toBe(true);
     expect(r.structuredContent).toEqual({
-      error: { code: 'invalid_input', message: 'bad', field: 'title', suggestion: 'shorten it', details: { max: 120 } },
+      error: {
+        code: 'invalid_input',
+        message: 'bad',
+        field: 'title',
+        suggestion: 'shorten it',
+        details: { max: 120 },
+      },
     });
   });
 
   it('runTool parses arguments with the zod schema before calling the handler', async () => {
-    const handler = vi.fn(async (_c: ToolContext, input: { n: number }) => ok({ doubled: input.n * 2 }));
+    const handler = vi.fn(async (_c: ToolContext, input: { n: number }) =>
+      ok({ doubled: input.n * 2 }),
+    );
     const def = defineTool({
       name: 'double',
       scope: 'signups:read',
@@ -40,7 +56,9 @@ describe('tool results', () => {
     expect((await runTool(def, ctx, { n: 2 })).structuredContent).toEqual({ doubled: 4 });
     const bad = await runTool(def, ctx, { n: 'two' });
     expect(bad.isError).toBe(true);
-    expect((bad.structuredContent as { error: { code: string; field?: string } }).error).toMatchObject({
+    expect(
+      (bad.structuredContent as { error: { code: string; field?: string } }).error,
+    ).toMatchObject({
       code: 'invalid_input',
       field: 'n',
     });
@@ -60,7 +78,9 @@ describe('tool results', () => {
     });
     const r = await runTool(def, { ...ctx, scopes: ['signups:read'] }, {});
     expect(r.isError).toBe(true);
-    expect((r.structuredContent as { error: { code: string; details: unknown } }).error).toMatchObject({
+    expect(
+      (r.structuredContent as { error: { code: string; details: unknown } }).error,
+    ).toMatchObject({
       code: 'forbidden',
       details: { requiredScope: 'signups:write' },
     });
@@ -78,7 +98,11 @@ describe('tool results', () => {
         inputSchema: z.object({}),
         handler: h as never,
       });
-    const a = await runTool(mk(async () => err(serviceError('not_found', 'gone'))), ctx, {});
+    const a = await runTool(
+      mk(async () => err(serviceError('not_found', 'gone'))),
+      ctx,
+      {},
+    );
     expect((a.structuredContent as { error: { code: string } }).error.code).toBe('not_found');
     const b = await runTool(
       mk(async () => {
@@ -95,7 +119,9 @@ describe('tool results', () => {
       ctx,
       {},
     );
-    expect(c.structuredContent).toEqual({ error: { code: 'internal', message: 'something went wrong' } });
+    expect(c.structuredContent).toEqual({
+      error: { code: 'internal', message: 'something went wrong' },
+    });
     expect(JSON.stringify(c)).not.toContain('exploded');
   });
 });

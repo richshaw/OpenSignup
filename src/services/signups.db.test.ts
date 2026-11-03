@@ -111,10 +111,7 @@ describe('signups service (db)', () => {
       expect(r.value.workspaceId).toBe(fx.workspaceId);
       expect(r.value.organizerId).toBe(fx.organizerId);
 
-      const acts = await fx.db
-        .select()
-        .from(activity)
-        .where(eq(activity.signupId, r.value.id));
+      const acts = await fx.db.select().from(activity).where(eq(activity.signupId, r.value.id));
       expect(acts.some((a) => a.eventType === 'signup.created')).toBe(true);
     });
 
@@ -142,7 +139,12 @@ describe('signups service (db)', () => {
       const viewerFx = await setupWorkspace('viewer');
       try {
         await expect(
-          createSignup(viewerFx.db, viewerFx.actor, viewerFx.workspaceId, validCreateInput('Viewer attempt')),
+          createSignup(
+            viewerFx.db,
+            viewerFx.actor,
+            viewerFx.workspaceId,
+            validCreateInput('Viewer attempt'),
+          ),
         ).rejects.toThrow(/cannot modify/);
       } finally {
         await teardownWorkspace(viewerFx.db, viewerFx.workspaceId, viewerFx.organizerId);
@@ -150,7 +152,12 @@ describe('signups service (db)', () => {
     });
 
     it('applies DEFAULT_TEMPLATE when no opts.template is supplied', async () => {
-      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Default tmpl'));
+      const r = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Default tmpl'),
+      );
       expect(r.ok).toBe(true);
       if (!r.ok) return;
 
@@ -162,10 +169,7 @@ describe('signups service (db)', () => {
       expect(byRef.date?.fieldType).toBe('date');
       expect(byRef.date?.sortOrder).toBe(1);
 
-      const slotRows = await fx.db
-        .select()
-        .from(slots)
-        .where(eq(slots.signupId, r.value.id));
+      const slotRows = await fx.db.select().from(slots).where(eq(slots.signupId, r.value.id));
       expect(slotRows).toHaveLength(1);
       expect(slotRows[0]!.capacity).toBe(1);
       expect(slotRows[0]!.values).toEqual({});
@@ -219,10 +223,7 @@ describe('signups service (db)', () => {
       const fields = await listFieldsForSignup(fx.db, r.value.id);
       expect(fields.map((f) => f.ref)).toEqual(['date', 'item']);
 
-      const slotRows = await fx.db
-        .select()
-        .from(slots)
-        .where(eq(slots.signupId, r.value.id));
+      const slotRows = await fx.db.select().from(slots).where(eq(slots.signupId, r.value.id));
       expect(slotRows).toHaveLength(2);
       const capacities = slotRows.map((s) => s.capacity).sort();
       expect(capacities).toEqual([2, 5]);
@@ -256,13 +257,9 @@ describe('signups service (db)', () => {
         .where(eq(signups.workspaceId, fx.workspaceId));
       const beforeCount = before.length;
 
-      const r = await createSignup(
-        fx.db,
-        fx.actor,
-        fx.workspaceId,
-        validCreateInput('Dup ref'),
-        { template: broken },
-      );
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Dup ref'), {
+        template: broken,
+      });
       expect(r.ok).toBe(false);
       if (r.ok) return;
       expect(r.error.code).toBe('invalid_input');
@@ -281,13 +278,9 @@ describe('signups service (db)', () => {
         fields: [],
         slots: [{ capacity: 0, values: {}, sortOrder: 0 }],
       };
-      const r = await createSignup(
-        fx.db,
-        fx.actor,
-        fx.workspaceId,
-        validCreateInput('Zero cap'),
-        { template: bad },
-      );
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Zero cap'), {
+        template: bad,
+      });
       expect(r.ok).toBe(false);
       if (r.ok) return;
       expect(r.error.code).toBe('invalid_input');
@@ -345,10 +338,7 @@ describe('signups service (db)', () => {
       expect(r.ok).toBe(true);
       if (!r.ok) return;
 
-      const slotRows = await fx.db
-        .select()
-        .from(slots)
-        .where(eq(slots.signupId, r.value.id));
+      const slotRows = await fx.db.select().from(slots).where(eq(slots.signupId, r.value.id));
       expect(slotRows).toHaveLength(1);
       expect(slotRows[0]!.slotAt).toEqual(new Date('2027-01-15T12:00:00.000Z'));
     });
@@ -395,7 +385,12 @@ describe('signups service (db)', () => {
 
   describe('getSignupForOrganizer', () => {
     it('returns the signup with its slots for an authorized actor', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Reading'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Reading'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const r = await getSignupForOrganizer(fx.db, fx.actor, created.value.id);
@@ -413,7 +408,12 @@ describe('signups service (db)', () => {
     });
 
     it('rejects access from a different workspace', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Private'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Private'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const otherFx = await setupWorkspace();
@@ -453,7 +453,12 @@ describe('signups service (db)', () => {
     });
 
     it('rejects access from a different workspace', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Theirs'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Theirs'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const otherFx = await setupWorkspace();
@@ -471,8 +476,18 @@ describe('signups service (db)', () => {
     it('returns workspace signups newest-first and supports status filter', async () => {
       const listFx = await setupWorkspace();
       try {
-        const a = await createSignup(listFx.db, listFx.actor, listFx.workspaceId, validCreateInput('Alpha'));
-        const b = await createSignup(listFx.db, listFx.actor, listFx.workspaceId, validCreateInput('Beta'));
+        const a = await createSignup(
+          listFx.db,
+          listFx.actor,
+          listFx.workspaceId,
+          validCreateInput('Alpha'),
+        );
+        const b = await createSignup(
+          listFx.db,
+          listFx.actor,
+          listFx.workspaceId,
+          validCreateInput('Beta'),
+        );
         if (!a.ok || !b.ok) throw new Error('setup failed');
 
         const all = await listSignupsForWorkspace(listFx.db, listFx.actor, listFx.workspaceId);
@@ -510,15 +525,37 @@ describe('signups service (db)', () => {
     it('lists the same signups as listSignupsForWorkspace, reading only the summary columns', async () => {
       const listFx = await setupWorkspace();
       try {
-        const a = await createSignup(listFx.db, listFx.actor, listFx.workspaceId, validCreateInput('Alpha'));
-        const b = await createSignup(listFx.db, listFx.actor, listFx.workspaceId, validCreateInput('Beta'));
-        const gone = await createSignup(listFx.db, listFx.actor, listFx.workspaceId, validCreateInput('Gone'));
+        const a = await createSignup(
+          listFx.db,
+          listFx.actor,
+          listFx.workspaceId,
+          validCreateInput('Alpha'),
+        );
+        const b = await createSignup(
+          listFx.db,
+          listFx.actor,
+          listFx.workspaceId,
+          validCreateInput('Beta'),
+        );
+        const gone = await createSignup(
+          listFx.db,
+          listFx.actor,
+          listFx.workspaceId,
+          validCreateInput('Gone'),
+        );
         if (!a.ok || !b.ok || !gone.ok) throw new Error('setup failed');
-        if (!(await publishSignup(listFx.db, listFx.actor, b.value.id)).ok) throw new Error('publish failed');
-        if (!(await deleteSignup(listFx.db, listFx.actor, gone.value.id)).ok) throw new Error('delete failed');
+        if (!(await publishSignup(listFx.db, listFx.actor, b.value.id)).ok)
+          throw new Error('publish failed');
+        if (!(await deleteSignup(listFx.db, listFx.actor, gone.value.id)).ok)
+          throw new Error('delete failed');
 
         for (const filter of [{}, { status: 'draft' as const }, { status: 'open' as const }]) {
-          const full = await listSignupsForWorkspace(listFx.db, listFx.actor, listFx.workspaceId, filter);
+          const full = await listSignupsForWorkspace(
+            listFx.db,
+            listFx.actor,
+            listFx.workspaceId,
+            filter,
+          );
           const summaries = await listSignupSummariesForWorkspace(
             listFx.db,
             listFx.actor,
@@ -539,7 +576,11 @@ describe('signups service (db)', () => {
           );
         }
 
-        const all = await listSignupSummariesForWorkspace(listFx.db, listFx.actor, listFx.workspaceId);
+        const all = await listSignupSummariesForWorkspace(
+          listFx.db,
+          listFx.actor,
+          listFx.workspaceId,
+        );
         if (!all.ok) throw new Error('list failed');
         expect(all.value.map((r) => r.id).sort()).toEqual([a.value.id, b.value.id].sort());
         for (const row of all.value) {
@@ -567,7 +608,12 @@ describe('signups service (db)', () => {
 
   describe('updateSignup', () => {
     it('updates fields and records signup.updated', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Before'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Before'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const r = await updateSignup(fx.db, fx.actor, created.value.id, {
@@ -590,7 +636,12 @@ describe('signups service (db)', () => {
       const base = (slug: string) => slug.replace(/-[0-9a-z]{5}$/, '');
 
       it('gives a renamed draft a slug from the new title, which the public page finds once published', async () => {
-        const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Bake sail'));
+        const created = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput('Bake sail'),
+        );
         if (!created.ok) throw new Error('setup failed');
         expect(base(created.value.slug)).toBe('bake-sail');
 
@@ -602,10 +653,15 @@ describe('signups service (db)', () => {
         const acts = await fx.db
           .select()
           .from(activity)
-          .where(and(eq(activity.signupId, created.value.id), eq(activity.eventType, 'signup.updated')));
-        expect(acts.at(-1)?.payload).toMatchObject({ changed: expect.arrayContaining(['title', 'slug']) });
+          .where(
+            and(eq(activity.signupId, created.value.id), eq(activity.eventType, 'signup.updated')),
+          );
+        expect(acts.at(-1)?.payload).toMatchObject({
+          changed: expect.arrayContaining(['title', 'slug']),
+        });
 
-        if (!(await publishSignup(fx.db, fx.actor, created.value.id)).ok) throw new Error('publish failed');
+        if (!(await publishSignup(fx.db, fx.actor, created.value.id)).ok)
+          throw new Error('publish failed');
         const pub = await getPublicSignup(fx.db, r.value.slug);
         expect(pub.ok).toBe(true);
         const old = await getPublicSignup(fx.db, created.value.slug);
@@ -613,7 +669,12 @@ describe('signups service (db)', () => {
       });
 
       it('keeps the slug when only case or punctuation changes', async () => {
-        const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Bake sale'));
+        const created = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput('Bake sale'),
+        );
         if (!created.ok) throw new Error('setup failed');
         const r = await updateSignup(fx.db, fx.actor, created.value.id, { title: 'BAKE SALE!' });
         if (!r.ok) throw new Error(JSON.stringify(r.error));
@@ -622,20 +683,34 @@ describe('signups service (db)', () => {
         const acts = await fx.db
           .select()
           .from(activity)
-          .where(and(eq(activity.signupId, created.value.id), eq(activity.eventType, 'signup.updated')));
+          .where(
+            and(eq(activity.signupId, created.value.id), eq(activity.eventType, 'signup.updated')),
+          );
         expect(acts.at(-1)?.payload).toEqual({ changed: ['title'] });
       });
 
       it('keeps the slug on an update that leaves the title alone', async () => {
-        const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Bake sale'));
+        const created = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput('Bake sale'),
+        );
         if (!created.ok) throw new Error('setup failed');
-        const r = await updateSignup(fx.db, fx.actor, created.value.id, { description: 'Bring a plate.' });
+        const r = await updateSignup(fx.db, fx.actor, created.value.id, {
+          description: 'Bring a plate.',
+        });
         if (!r.ok) throw new Error(JSON.stringify(r.error));
         expect(r.value.slug).toBe(created.value.slug);
       });
 
       it('keeps the slug of an open, closed or archived signup', async () => {
-        const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Car wash'));
+        const created = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput('Car wash'),
+        );
         if (!created.ok) throw new Error('setup failed');
         const id = created.value.id;
         const slug = created.value.slug;
@@ -655,7 +730,12 @@ describe('signups service (db)', () => {
     });
 
     it('refuses a visibility change, which nothing reads', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Before'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Before'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const r = await updateSignup(fx.db, fx.actor, created.value.id, { visibility: 'password' });
@@ -676,10 +756,18 @@ describe('signups service (db)', () => {
     it('anchors a new signup on its template date field', async () => {
       // DEFAULT_TEMPLATE has one date field, `date`. Nothing else in settings
       // is touched.
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Anchor'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Anchor'),
+      );
       expect(created.ok).toBe(true);
       if (!created.ok) return;
-      const s = created.value.settings as { reminderFromFieldRef?: string; sendReminders?: boolean };
+      const s = created.value.settings as {
+        reminderFromFieldRef?: string;
+        sendReminders?: boolean;
+      };
       expect(s.reminderFromFieldRef).toBe('date');
       expect(s.sendReminders).toBe(true);
     });
@@ -708,7 +796,12 @@ describe('signups service (db)', () => {
     it('keeps reminderFromFieldRef when a settings update omits it', async () => {
       // The anchor must keep naming a date field for as long as the signup has
       // one, so omitting it cannot clear it.
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Reminder'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Reminder'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const updated = await updateSignup(fx.db, fx.actor, created.value.id, {
@@ -716,7 +809,10 @@ describe('signups service (db)', () => {
       });
       expect(updated.ok).toBe(true);
       if (!updated.ok) return;
-      const s = updated.value.settings as { reminderFromFieldRef?: string; sendReminders?: boolean };
+      const s = updated.value.settings as {
+        reminderFromFieldRef?: string;
+        sendReminders?: boolean;
+      };
       expect(s.reminderFromFieldRef).toBe('date');
       expect(s.sendReminders).toBe(false);
     });
@@ -730,7 +826,9 @@ describe('signups service (db)', () => {
         settings: { lockoutHoursBeforeSlot: 6, maxCommitmentsPerParticipant: 2 },
       });
       if (!created.ok) throw new Error('setup failed');
-      const off = await updateSignup(fx.db, fx.actor, created.value.id, { settings: { sendReminders: false } });
+      const off = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { sendReminders: false },
+      });
       if (!off.ok) throw new Error('reminders off failed');
 
       const grouped = await updateSignup(fx.db, fx.actor, created.value.id, {
@@ -753,7 +851,10 @@ describe('signups service (db)', () => {
         groupByFieldRefs: ['date'],
         sendReminders: true,
       });
-      expect(row?.settings).toMatchObject({ lockoutHoursBeforeSlot: 6, maxCommitmentsPerParticipant: 2 });
+      expect(row?.settings).toMatchObject({
+        lockoutHoursBeforeSlot: 6,
+        maxCommitmentsPerParticipant: 2,
+      });
     });
 
     it('clears a setting sent as null, and refills a defaulted one', async () => {
@@ -769,11 +870,19 @@ describe('signups service (db)', () => {
       expect(r.ok, JSON.stringify(r)).toBe(true);
       if (!r.ok) return;
       expect(r.value.settings).not.toHaveProperty('maxCommitmentsPerParticipant');
-      expect(r.value.settings).toMatchObject({ lockoutHoursBeforeSlot: 0, reminderFromFieldRef: 'date' });
+      expect(r.value.settings).toMatchObject({
+        lockoutHoursBeforeSlot: 0,
+        reminderFromFieldRef: 'date',
+      });
     });
 
     it('keeps the anchor when a settings update sends it as null', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Null anchor'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Null anchor'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const r = await updateSignup(fx.db, fx.actor, created.value.id, {
@@ -788,12 +897,19 @@ describe('signups service (db)', () => {
       // Each call merges over the row it locks, so the second sees the first
       // one's key. Merging from a snapshot read before the transaction let the
       // later write drop the earlier key.
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Concurrent'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Concurrent'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const [a, b] = await Promise.all([
         updateSignup(fx.db, fx.actor, created.value.id, { settings: { sendReminders: false } }),
-        updateSignup(fx.db, fx.actor, created.value.id, { settings: { groupByFieldRefs: ['date'] } }),
+        updateSignup(fx.db, fx.actor, created.value.id, {
+          settings: { groupByFieldRefs: ['date'] },
+        }),
       ]);
       expect(a.ok && b.ok).toBe(true);
 
@@ -810,7 +926,12 @@ describe('signups service (db)', () => {
     });
 
     it('refuses a reminderFromFieldRef that names anything but a date field', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Bad ref'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Bad ref'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       for (const bad of ['what', 'nope']) {
@@ -824,7 +945,12 @@ describe('signups service (db)', () => {
     });
 
     it('refuses a groupByFieldRefs entry that names no field (#516)', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Bad group ref'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Bad group ref'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const r = await updateSignup(fx.db, fx.actor, created.value.id, {
@@ -841,14 +967,26 @@ describe('signups service (db)', () => {
     it('saves an unrelated setting on a row that already holds a stale group-by ref', async () => {
       // Rows saved before #516 can hold a ref that names no field. Only a save
       // that sends groupByFieldRefs is checked, so they stay editable.
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Stale group ref'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Stale group ref'),
+      );
       if (!created.ok) throw new Error('setup failed');
       await fx.db
         .update(signups)
-        .set({ settings: { ...(created.value.settings as Record<string, unknown>), groupByFieldRefs: ['gone'] } })
+        .set({
+          settings: {
+            ...(created.value.settings as Record<string, unknown>),
+            groupByFieldRefs: ['gone'],
+          },
+        })
         .where(eq(signups.id, created.value.id));
 
-      const r = await updateSignup(fx.db, fx.actor, created.value.id, { settings: { sendReminders: false } });
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { sendReminders: false },
+      });
       expect(r.ok, JSON.stringify(r)).toBe(true);
       if (!r.ok) return;
       expect(r.value.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['gone'] });
@@ -868,7 +1006,9 @@ describe('signups service (db)', () => {
       const rows = await fx.db
         .select({ payload: activity.payload })
         .from(activity)
-        .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.publish_refused')));
+        .where(
+          and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.publish_refused')),
+        );
       return rows.map((r) => r.payload);
     }
 
@@ -918,7 +1058,12 @@ describe('signups service (db)', () => {
     });
 
     it('publishSignup rejects when not in draft', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Twice'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Twice'),
+      );
       if (!created.ok) throw new Error('setup failed');
       await withSlot(created.value.id);
       const first = await publishSignup(fx.db, fx.actor, created.value.id);
@@ -935,11 +1080,18 @@ describe('signups service (db)', () => {
     });
 
     it('records a publish refused because the signup was closed meanwhile', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Stale'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Stale'),
+      );
       if (!created.ok) throw new Error('setup failed');
       await withSlot(created.value.id);
-      if (!(await publishSignup(fx.db, fx.actor, created.value.id)).ok) throw new Error('setup failed');
-      if (!(await closeSignup(fx.db, fx.actor, created.value.id)).ok) throw new Error('setup failed');
+      if (!(await publishSignup(fx.db, fx.actor, created.value.id)).ok)
+        throw new Error('setup failed');
+      if (!(await closeSignup(fx.db, fx.actor, created.value.id)).ok)
+        throw new Error('setup failed');
 
       const r = await publishSignup(fx.db, fx.actor, created.value.id);
       expect(r.ok).toBe(false);
@@ -969,7 +1121,9 @@ describe('signups service (db)', () => {
       it('removes a closing time that has passed, keeps it in the row, and takes sign-ups', async () => {
         const { signupId, slotId } = await draftWithOneSlot('Publish past its closing time');
         const passed = new Date(Date.now() - 60 * 1000);
-        const set = await updateSignup(fx.db, fx.actor, signupId, { closesAt: passed.toISOString() });
+        const set = await updateSignup(fx.db, fx.actor, signupId, {
+          closesAt: passed.toISOString(),
+        });
         if (!set.ok) throw new Error('setup failed');
 
         const r = await publishSignup(fx.db, fx.actor, signupId);
@@ -991,7 +1145,9 @@ describe('signups service (db)', () => {
       it('keeps a closing time that is still to come', async () => {
         const { signupId } = await draftWithOneSlot('Publish before its closing time');
         const later = new Date(Date.now() + 60 * 60 * 1000);
-        const set = await updateSignup(fx.db, fx.actor, signupId, { closesAt: later.toISOString() });
+        const set = await updateSignup(fx.db, fx.actor, signupId, {
+          closesAt: later.toISOString(),
+        });
         if (!set.ok) throw new Error('setup failed');
 
         const r = await publishSignup(fx.db, fx.actor, signupId);
@@ -1003,7 +1159,12 @@ describe('signups service (db)', () => {
     });
 
     it('closeSignup moves open → closed', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Close me'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Close me'),
+      );
       if (!created.ok) throw new Error('setup failed');
       await withSlot(created.value.id);
       const pub = await publishSignup(fx.db, fx.actor, created.value.id);
@@ -1016,7 +1177,12 @@ describe('signups service (db)', () => {
     });
 
     it('closeSignup rejects from draft', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Still draft'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Still draft'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const r = await closeSignup(fx.db, fx.actor, created.value.id);
@@ -1027,7 +1193,12 @@ describe('signups service (db)', () => {
     });
 
     it('archiveSignup moves any status → archived (no `from` constraint)', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Archive me'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Archive me'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const r = await archiveSignup(fx.db, fx.actor, created.value.id);
@@ -1104,10 +1275,14 @@ describe('signups service (db)', () => {
     });
 
     describe('reopenSignup', () => {
-      async function closedWithOneSlot(title: string): Promise<{ signupId: string; slotId: string }> {
+      async function closedWithOneSlot(
+        title: string,
+      ): Promise<{ signupId: string; slotId: string }> {
         const made = await draftWithOneSlot(title);
-        if (!(await publishSignup(fx.db, fx.actor, made.signupId)).ok) throw new Error('setup failed');
-        if (!(await closeSignup(fx.db, fx.actor, made.signupId)).ok) throw new Error('setup failed');
+        if (!(await publishSignup(fx.db, fx.actor, made.signupId)).ok)
+          throw new Error('setup failed');
+        if (!(await closeSignup(fx.db, fx.actor, made.signupId)).ok)
+          throw new Error('setup failed');
         return made;
       }
 
@@ -1143,7 +1318,8 @@ describe('signups service (db)', () => {
       it('refuses a draft, an open signup and an archived one, and writes no row', async () => {
         const draft = await draftWithOneSlot('Reopen a draft');
         const open = await draftWithOneSlot('Reopen an open one');
-        if (!(await publishSignup(fx.db, fx.actor, open.signupId)).ok) throw new Error('setup failed');
+        if (!(await publishSignup(fx.db, fx.actor, open.signupId)).ok)
+          throw new Error('setup failed');
         const archived = await closedWithOneSlot('Reopen an archived one');
         if (!(await archiveSignup(fx.db, fx.actor, archived.signupId)).ok) {
           throw new Error('setup failed');
@@ -1170,7 +1346,8 @@ describe('signups service (db)', () => {
 
       it('says a deleted signup is not found, and refuses a viewer', async () => {
         const gone = await closedWithOneSlot('Reopen a deleted one');
-        if (!(await deleteSignup(fx.db, fx.actor, gone.signupId)).ok) throw new Error('setup failed');
+        if (!(await deleteSignup(fx.db, fx.actor, gone.signupId)).ok)
+          throw new Error('setup failed');
         const r = await reopenSignup(fx.db, fx.actor, gone.signupId);
         expect(!r.ok && r.error.code).toBe('not_found');
 
@@ -1190,7 +1367,9 @@ describe('signups service (db)', () => {
       it('removes a closing time that has passed, keeps it in the row, and takes sign-ups again', async () => {
         const { signupId, slotId } = await closedWithOneSlot('Reopen past its closing time');
         const passed = new Date(Date.now() - 60 * 60 * 1000);
-        const set = await updateSignup(fx.db, fx.actor, signupId, { closesAt: passed.toISOString() });
+        const set = await updateSignup(fx.db, fx.actor, signupId, {
+          closesAt: passed.toISOString(),
+        });
         if (!set.ok) throw new Error('setup failed');
 
         const r = await reopenSignup(fx.db, fx.actor, signupId);
@@ -1211,7 +1390,9 @@ describe('signups service (db)', () => {
       it('keeps a closing time that is still to come', async () => {
         const { signupId } = await closedWithOneSlot('Reopen before its closing time');
         const later = new Date(Date.now() + 60 * 60 * 1000);
-        const set = await updateSignup(fx.db, fx.actor, signupId, { closesAt: later.toISOString() });
+        const set = await updateSignup(fx.db, fx.actor, signupId, {
+          closesAt: later.toISOString(),
+        });
         if (!set.ok) throw new Error('setup failed');
 
         const r = await reopenSignup(fx.db, fx.actor, signupId);
@@ -1321,7 +1502,12 @@ describe('signups service (db)', () => {
 
   describe('findDraftForOrganizer', () => {
     it("returns a live draft's id to a member of its workspace", async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('My draft'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('My draft'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const r = await findDraftForOrganizer(fx.db, fx.actor, created.value.slug);
@@ -1329,7 +1515,12 @@ describe('signups service (db)', () => {
     });
 
     it('finds the draft for a viewer too', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Viewed'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Viewed'),
+      );
       if (!created.ok) throw new Error('setup failed');
       const viewer: Actor = {
         kind: 'organizer',
@@ -1344,7 +1535,12 @@ describe('signups service (db)', () => {
     });
 
     it('refuses an organizer from another workspace', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Not yours'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Not yours'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const otherFx = await setupWorkspace();
@@ -1358,7 +1554,12 @@ describe('signups service (db)', () => {
     });
 
     it('returns not_found for a published signup', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Out there'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Out there'),
+      );
       if (!created.ok) throw new Error('setup failed');
       await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 1 });
       const pub = await publishSignup(fx.db, fx.actor, created.value.id);
@@ -1371,7 +1572,12 @@ describe('signups service (db)', () => {
     });
 
     it('returns not_found for a deleted draft', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Binned'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Binned'),
+      );
       if (!created.ok) throw new Error('setup failed');
       const del = await deleteSignup(fx.db, fx.actor, created.value.id);
       if (!del.ok) throw new Error('setup failed');
@@ -1385,7 +1591,12 @@ describe('signups service (db)', () => {
 
   describe('getPublicSignup', () => {
     it('returns ok for an open signup', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Public open'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Public open'),
+      );
       if (!created.ok) throw new Error('setup failed');
       const slotR = await addSlot(fx.db, fx.actor, created.value.id, {
         values: {},
@@ -1403,7 +1614,12 @@ describe('signups service (db)', () => {
     });
 
     it('returns ok for a closed signup', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Public closed'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Public closed'),
+      );
       if (!created.ok) throw new Error('setup failed');
       await addSlot(fx.db, fx.actor, created.value.id, {
         values: {},
@@ -1421,7 +1637,12 @@ describe('signups service (db)', () => {
     });
 
     it('returns not_found with received=draft for a draft signup', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Still hidden'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Still hidden'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const r = await getPublicSignup(fx.db, created.value.slug);
@@ -1455,7 +1676,12 @@ describe('signups service (db)', () => {
     });
 
     it('rejects a single commit whose quantity exceeds capacity', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Cap qty'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Cap qty'),
+      );
       if (!created.ok) throw new Error('setup failed');
       const slotR = await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 1 });
       if (!slotR.ok) throw new Error('slot setup failed');
@@ -1486,7 +1712,12 @@ describe('signups service (db)', () => {
     });
 
     it('logs commitment.attempt_failed with reason=closed when committing to a closed signup', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Closed for commit'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Closed for commit'),
+      );
       if (!created.ok) throw new Error('setup failed');
       const slotR = await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 5 });
       if (!slotR.ok) throw new Error('slot setup failed');
@@ -1514,7 +1745,12 @@ describe('signups service (db)', () => {
     });
 
     it('reports committedBySlot as sum of quantities', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Qty sum'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Qty sum'),
+      );
       if (!created.ok) throw new Error('setup failed');
       const slotR = await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 10 });
       if (!slotR.ok) throw new Error('slot setup failed');
@@ -1549,7 +1785,12 @@ describe('signups service (db)', () => {
     });
 
     it('returns not_found without `received` when soft-deleted', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Deleted'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Deleted'),
+      );
       if (!created.ok) throw new Error('setup failed');
       await fx.db
         .update(signups)
@@ -1566,7 +1807,12 @@ describe('signups service (db)', () => {
 
   describe('deleteSignup', () => {
     it('soft-deletes the signup: sets deletedAt and records signup.deleted with the prior status in payload', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('To delete'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('To delete'),
+      );
       if (!created.ok) throw new Error('setup failed');
       expect(created.value.status).toBe('draft');
 
@@ -1594,7 +1840,12 @@ describe('signups service (db)', () => {
     });
 
     it('rejects a foreign-workspace actor before the idempotency branch', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Locked'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Locked'),
+      );
       if (!created.ok) throw new Error('setup failed');
       // Soft-delete first so we know the policy check still fires when the row is already deleted
       const first = await deleteSignup(fx.db, fx.actor, created.value.id);
@@ -1602,16 +1853,21 @@ describe('signups service (db)', () => {
 
       const otherFx = await setupWorkspace();
       try {
-        await expect(
-          deleteSignup(otherFx.db, otherFx.actor, created.value.id),
-        ).rejects.toThrow(/not a member/);
+        await expect(deleteSignup(otherFx.db, otherFx.actor, created.value.id)).rejects.toThrow(
+          /not a member/,
+        );
       } finally {
         await teardownWorkspace(otherFx.db, otherFx.workspaceId, otherFx.organizerId);
       }
     });
 
     it('rejects a viewer in the workspace (write guard fires)', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Viewer no-delete'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Viewer no-delete'),
+      );
       if (!created.ok) throw new Error('setup failed');
       // Synthesize a viewer-role actor scoped to the same workspace.
       // requireWorkspaceWrite reads actor.workspaceRoles, so no DB member row is needed.
@@ -1627,7 +1883,12 @@ describe('signups service (db)', () => {
     });
 
     it('is idempotent: second call returns ok and only one signup.deleted activity is written', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Twice gone'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Twice gone'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const first = await deleteSignup(fx.db, fx.actor, created.value.id);
@@ -1647,7 +1908,12 @@ describe('signups service (db)', () => {
     });
 
     it('is concurrency-safe: parallel deletes write a single signup.deleted activity', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Race delete'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Race delete'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const [a, b] = await Promise.all([
@@ -1666,7 +1932,12 @@ describe('signups service (db)', () => {
     });
 
     it('causes getSignupForOrganizer to return not_found (read-path guard)', async () => {
-      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Hidden after delete'));
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Hidden after delete'),
+      );
       if (!created.ok) throw new Error('setup failed');
 
       const before = await getSignupForOrganizer(fx.db, fx.actor, created.value.id);
@@ -1684,8 +1955,18 @@ describe('signups service (db)', () => {
     it('excludes deleted signups from listSignupsForWorkspace', async () => {
       const listFx = await setupWorkspace();
       try {
-        const keep = await createSignup(listFx.db, listFx.actor, listFx.workspaceId, validCreateInput('Keep'));
-        const gone = await createSignup(listFx.db, listFx.actor, listFx.workspaceId, validCreateInput('Gone'));
+        const keep = await createSignup(
+          listFx.db,
+          listFx.actor,
+          listFx.workspaceId,
+          validCreateInput('Keep'),
+        );
+        const gone = await createSignup(
+          listFx.db,
+          listFx.actor,
+          listFx.workspaceId,
+          validCreateInput('Gone'),
+        );
         if (!keep.ok || !gone.ok) throw new Error('setup failed');
 
         const del = await deleteSignup(listFx.db, listFx.actor, gone.value.id);
@@ -1703,4 +1984,3 @@ describe('signups service (db)', () => {
     });
   });
 });
-

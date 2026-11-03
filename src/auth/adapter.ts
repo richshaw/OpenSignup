@@ -12,7 +12,13 @@ import { normalizeEmail } from '@/schemas/common';
 import { toSlug } from '@/lib/slug';
 
 function toAdapterUser(row: typeof organizers.$inferSelect): AdapterUser {
-  return { id: row.id, email: row.email, emailVerified: row.emailVerified, name: row.name, image: row.image };
+  return {
+    id: row.id,
+    email: row.email,
+    emailVerified: row.emailVerified,
+    name: row.name,
+    image: row.image,
+  };
 }
 
 /**

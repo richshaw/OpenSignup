@@ -53,7 +53,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  serverExternalPackages: ['pg-boss', 'postgres', 'nodemailer', 'pino', 'pino-pretty', 'oidc-provider'],
+  serverExternalPackages: [
+    'pg-boss',
+    'postgres',
+    'nodemailer',
+    'pino',
+    'pino-pretty',
+    'oidc-provider',
+  ],
   async headers() {
     return [
       {

@@ -19,14 +19,21 @@ describe('toJsonSchema', () => {
 
   it('inlines a sub-schema that is reused, instead of a $ref pointer clients cannot follow', () => {
     const Values = z.object({ a: z.string() });
-    const json = toJsonSchema(z.object({ first: Values, second: Values, rows: SlotBulkInputSchema.shape.rows }));
+    const json = toJsonSchema(
+      z.object({ first: Values, second: Values, rows: SlotBulkInputSchema.shape.rows }),
+    );
     const text = JSON.stringify(json);
     expect(text).not.toContain('$ref');
-    expect((json as { properties: Record<string, { type?: string }> }).properties.second?.type).toBe('object');
+    expect(
+      (json as { properties: Record<string, { type?: string }> }).properties.second?.type,
+    ).toBe('object');
   });
 
   it('keeps strict objects closed when extended with an id', () => {
-    const json = toJsonSchema(SlotFieldUpdateInputSchema.extend({ fieldId: z.string() })) as Record<string, unknown>;
+    const json = toJsonSchema(SlotFieldUpdateInputSchema.extend({ fieldId: z.string() })) as Record<
+      string,
+      unknown
+    >;
     expect(json.additionalProperties).toBe(false);
     expect(Object.keys(json.properties as object)).toContain('fieldId');
   });
@@ -72,7 +79,8 @@ describe('the tool registry', () => {
     // The Claude connectors directory refuses descriptions that steer the
     // model or hide text. Ask-first, publish and show-as-a-table guidance
     // belongs in the server instructions, which build theirs from askFirst.
-    const directive = /\bask the organizer\b|\bconfirm with\b|\b(show|tell) the organizer\b|\bonly if they agree\b/i;
+    const directive =
+      /\bask the organizer\b|\bconfirm with\b|\b(show|tell) the organizer\b|\bonly if they agree\b/i;
     const hidden = /[\p{Cc}\p{Cf}]/u;
     const descriptions = (node: unknown): string[] =>
       node && typeof node === 'object'
@@ -81,7 +89,11 @@ describe('the tool registry', () => {
           )
         : [];
     for (const tool of TOOLS) {
-      for (const text of [tool.title, tool.description, ...descriptions(toJsonSchema(tool.inputSchema))]) {
+      for (const text of [
+        tool.title,
+        tool.description,
+        ...descriptions(toJsonSchema(tool.inputSchema)),
+      ]) {
         expect(text, tool.name).not.toMatch(directive);
         expect(text, tool.name).not.toMatch(hidden);
       }

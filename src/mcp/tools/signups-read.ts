@@ -17,12 +17,25 @@ type SlotRow = SignupWithSlots['slots'][number];
 
 /** A field as every tool shows it. */
 export function fieldOut(f: SlotFieldDefinition) {
-  return { id: f.id, ref: f.ref, label: f.label, fieldType: f.fieldType, sortOrder: f.sortOrder, config: f.config };
+  return {
+    id: f.id,
+    ref: f.ref,
+    label: f.label,
+    fieldType: f.fieldType,
+    sortOrder: f.sortOrder,
+    config: f.config,
+  };
 }
 
 /** A slot as every tool shows it; `filled` is added where the count is known. */
 export function slotOut(s: SlotRow) {
-  return { id: s.id, values: s.values, capacity: s.capacity, status: s.status, sortOrder: s.sortOrder };
+  return {
+    id: s.id,
+    values: s.values,
+    capacity: s.capacity,
+    status: s.status,
+    sortOrder: s.sortOrder,
+  };
 }
 
 function signupCore(row: SignupSummary) {
@@ -69,7 +82,9 @@ export const UNREAD_SETTINGS = {
 /** The settings a tool shows: everything but UNREAD_SETTINGS. */
 function settingsOut(settings: SignupRow['settings']) {
   if (!settings || typeof settings !== 'object') return settings;
-  return Object.fromEntries(Object.entries(settings).filter(([key]) => !Object.hasOwn(UNREAD_SETTINGS, key)));
+  return Object.fromEntries(
+    Object.entries(settings).filter(([key]) => !Object.hasOwn(UNREAD_SETTINGS, key)),
+  );
 }
 
 /** The detail shape: everything the organizer can edit. */
@@ -104,7 +119,11 @@ export const listSignups = defineTool({
     'Signups in a workspace, newest first, up to 200. Filter by status: draft (not yet visible to participants), open (taking signups), closed, archived. Use get_signup for fields, slots and the description.',
   annotations: { readOnlyHint: true },
   inputSchema: z.object({
-    workspaceId: z.string().min(1).optional().describe('Defaults to the account default workspace.'),
+    workspaceId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Defaults to the account default workspace.'),
     status: z.enum(SIGNUP_STATUSES).optional(),
   }),
   handler: async (ctx, input) => {
@@ -130,7 +149,9 @@ export const getSignup = defineTool({
   annotations: { readOnlyHint: true },
   inputSchema: z.object({ signupId: z.string() }),
   handler: async (ctx, input) => {
-    const found = await getSignupForOrganizer(ctx.db, ctx.actor, input.signupId, { includeFilled: true });
+    const found = await getSignupForOrganizer(ctx.db, ctx.actor, input.signupId, {
+      includeFilled: true,
+    });
     return found.ok ? ok(signupWithContents(found.value)) : found;
   },
 });

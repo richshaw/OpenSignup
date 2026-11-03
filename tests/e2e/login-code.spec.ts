@@ -8,7 +8,9 @@ import { mintLoginCodeForTest } from './helpers/seed';
  * transport, so this only checks the form appears and rejects a wrong code
  * with a real message; the code logic is covered by unit and db tests.
  */
-test('after sending a magic link, a code can be entered and a wrong code is rejected', async ({ page }) => {
+test('after sending a magic link, a code can be entered and a wrong code is rejected', async ({
+  page,
+}) => {
   const email = `e2e-code-${Date.now()}@example.com`;
   await page.goto(`${BASE_URL}/login?callbackUrl=%2Fapp`);
   await page.getByLabel('Email').fill(email);

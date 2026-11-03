@@ -260,17 +260,27 @@ describe('<SignupViewBody /> slot row', () => {
         showStateBanner={false}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17, 9:00\u00a0AM' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18, 9:00\u00a0AM' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Sign up for Sun, May 17, 9:00\u00a0AM' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Sign up for Mon, May 18, 9:00\u00a0AM' }),
+    ).toBeInTheDocument();
   });
 
   it('names each button after its own slot, not a bare "Sign up"', () => {
     // Sixteen identically-named buttons give a screen-reader user no way to
     // tell which slot they are committing to.
     renderRows();
-    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign up for Mon, May 18, Hawks' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign up for Tue, May 19, Hawks' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Sign up for Mon, May 18, Hawks' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Sign up for Tue, May 19, Hawks' }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sign up' })).toBeNull();
   });
 
@@ -635,7 +645,9 @@ describe('<SignupViewBody /> for a returning participant', () => {
   it('keeps the signed-up bar under the Closed banner, and says their spot is still theirs', () => {
     renderOwn('closed');
     expect(screen.getByText('Closed', { selector: 'p' })).toBeInTheDocument();
-    expect(screen.getByText('No one new can sign up, but your spot is still yours.')).toBeInTheDocument();
+    expect(
+      screen.getByText('No one new can sign up, but your spot is still yours.'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('This signup is no longer collecting responses.')).toBeNull();
     expect(screen.getByText("You're signed up")).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Edit or cancel' })).toHaveAttribute(
@@ -656,7 +668,9 @@ describe('<SignupViewBody /> for a returning participant', () => {
         ownCommitments={[...OWN, { ...OWN[0]!, slotId: 's2' }]}
       />,
     );
-    expect(screen.getByText('No one new can sign up, but your spots are still yours.')).toBeInTheDocument();
+    expect(
+      screen.getByText('No one new can sign up, but your spots are still yours.'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Manage' })).toBeInTheDocument();
   });
 
@@ -678,8 +692,16 @@ describe('naming the slot once its row is out of sight', () => {
     { ref: 'start', label: 'Start', fieldType: 'time' },
   ];
   const SHIFTS: SignupViewSlot[] = [
-    { ...SLOTS[0]!, id: 'am', values: { date: '2026-11-07', task: 'Sort and pack food', start: '09:00' } },
-    { ...SLOTS[0]!, id: 'pm', values: { date: '2026-11-07', task: 'Sort and pack food', start: '12:00' } },
+    {
+      ...SLOTS[0]!,
+      id: 'am',
+      values: { date: '2026-11-07', task: 'Sort and pack food', start: '09:00' },
+    },
+    {
+      ...SLOTS[0]!,
+      id: 'pm',
+      values: { date: '2026-11-07', task: 'Sort and pack food', start: '12:00' },
+    },
   ];
   // Not grouped: the same dish on two dates, with the date in the row's
   // second line.
@@ -692,7 +714,11 @@ describe('naming the slot once its row is out of sight', () => {
     { ...SLOTS[0]!, id: 'd2', values: { item: 'Bring a dish', date: '2026-11-14' } },
   ];
 
-  function renderLive(fields: SignupViewField[], groupByRef: string | null, slots: SignupViewSlot[]) {
+  function renderLive(
+    fields: SignupViewField[],
+    groupByRef: string | null,
+    slots: SignupViewSlot[],
+  ) {
     render(
       <SignupViewBody
         signup={SIGNUP}
@@ -744,7 +770,7 @@ describe('naming the slot once its row is out of sight', () => {
     );
   });
 
-  it("names a grouped slot's date and time in \"You're in.\"", async () => {
+  it('names a grouped slot\'s date and time in "You\'re in."', async () => {
     renderLive(SHIFT_FIELDS, 'date', SHIFTS);
     await signUp(/^Sign up for .*12:00/);
     expect(
@@ -752,7 +778,7 @@ describe('naming the slot once its row is out of sight', () => {
     ).toBeInTheDocument();
   });
 
-  it("shows an ungrouped slot's date in the sheet and in \"You're in.\"", async () => {
+  it('shows an ungrouped slot\'s date in the sheet and in "You\'re in."', async () => {
     renderLive(DISH_FIELDS, null, DISHES);
     fireEvent.click(screen.getByRole('button', { name: /^Sign up for .*Nov 14/ }));
     const dialog = await screen.findByRole('dialog', {}, settle);

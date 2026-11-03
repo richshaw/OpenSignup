@@ -41,8 +41,7 @@ function formatUtcDate(d: Date): string {
  */
 function formatFloating(d: Date): string {
   return (
-    formatUtcDate(d) +
-    `T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}`
+    formatUtcDate(d) + `T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}`
   );
 }
 
@@ -57,14 +56,16 @@ function nextUtcDay(d: Date): Date {
 }
 
 function escapeText(value: string): string {
-  return value
-    .replace(/\\/g, '\\\\')
-    // Collapse every line-break form (CRLF, lone CR, lone LF) into a single
-    // escaped newline. A raw CR left in a content line corrupts the file and
-    // lets attacker-controlled text forge ICS lines (calendar injection).
-    .replace(/\r\n|\r|\n/g, '\\n')
-    .replace(/,/g, '\\,')
-    .replace(/;/g, '\\;');
+  return (
+    value
+      .replace(/\\/g, '\\\\')
+      // Collapse every line-break form (CRLF, lone CR, lone LF) into a single
+      // escaped newline. A raw CR left in a content line corrupts the file and
+      // lets attacker-controlled text forge ICS lines (calendar injection).
+      .replace(/\r\n|\r|\n/g, '\\n')
+      .replace(/,/g, '\\,')
+      .replace(/;/g, '\\;')
+  );
 }
 
 /**

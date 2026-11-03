@@ -40,8 +40,7 @@ export function mapMagicComposeError(e: MagicComposeError): MappedMagicComposeEr
       if (e.status === 401 || e.status === 403) {
         return {
           code: 'internal',
-          message:
-            'AI provider rejected the API key. An operator needs to check LLM_API_KEY.',
+          message: 'AI provider rejected the API key. An operator needs to check LLM_API_KEY.',
         };
       }
       if (e.status !== undefined && e.status >= 500) {

@@ -40,4 +40,3 @@ export function makeId<P extends IdPrefix>(prefix: P): `${P}_${string}` {
   const body = toBase62(uuidToBigInt(uuid), 22);
   return `${prefix}_${body}` as `${P}_${string}`;
 }
-
