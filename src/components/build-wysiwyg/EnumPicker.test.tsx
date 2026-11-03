@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { CHOICE_MAX_LENGTH, MAX_CHOICES } from '@/schemas/slot-fields';
 import { EnumPicker } from './EnumPicker';
 
 function renderPicker(
@@ -168,5 +169,29 @@ describe('EnumPicker', () => {
     expect(screen.queryByRole('listbox')).toBeNull();
     expect(onAddOption).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('a full list offers no "Add to list" and says how many items a list holds', () => {
+    const full = Array.from({ length: MAX_CHOICES }, (_, i) => `Dish ${i + 1}`);
+    renderPicker({ options: full });
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    expect(screen.queryByRole('button', { name: /Add to list/ })).toBeNull();
+    expect(screen.getByText(`A list holds up to ${MAX_CHOICES} items.`)).toBeTruthy();
+  });
+
+  it('a list one short of full still offers "Add to list"', () => {
+    const almost = Array.from({ length: MAX_CHOICES - 1 }, (_, i) => `Dish ${i + 1}`);
+    renderPicker({ options: almost });
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    expect(screen.getByRole('button', { name: /Add to list/ })).toBeTruthy();
+    expect(screen.queryByText(`A list holds up to ${MAX_CHOICES} items.`)).toBeNull();
+  });
+
+  it('the new-item box takes no more characters than a list item can hold', () => {
+    renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name') as HTMLInputElement;
+    expect(input.maxLength).toBe(CHOICE_MAX_LENGTH);
   });
 });

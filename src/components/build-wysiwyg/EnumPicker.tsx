@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { ChevronDown, Plus } from 'lucide-react';
 import { useOutsideClose } from '@/hooks/useOutsideClose';
+import { CHOICE_MAX_LENGTH, MAX_CHOICES } from '@/schemas/slot-fields';
 import { PickerOption } from './PickerOption';
 
 type EnumPickerProps = {
@@ -159,6 +160,7 @@ export function EnumPicker({
                   }
                 }}
                 onBlur={commitNew}
+                maxLength={CHOICE_MAX_LENGTH}
                 placeholder="Type a new item"
                 aria-label="New option name"
                 className="min-w-0 flex-1 rounded border border-surface-sunk bg-white py-1.5 pl-[9px] pr-2 text-xs text-ink outline-none placeholder:text-ink-soft focus:border-brand"
@@ -173,6 +175,12 @@ export function EnumPicker({
               >
                 Add
               </button>
+            </div>
+          ) : options.length >= MAX_CHOICES ? (
+            // The server refuses a longer list, so say so rather than offer an
+            // add that would be rolled back (#784).
+            <div className="px-2.5 py-1.5 text-[11px] text-ink-soft">
+              A list holds up to {MAX_CHOICES} items.
             </div>
           ) : (
             <button

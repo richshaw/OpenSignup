@@ -6,7 +6,7 @@ export const FIELD_TYPES = ['text', 'date', 'time', 'number', 'enum'] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
 const LABEL_MAX_LENGTH = 80;
-const CHOICE_MAX_LENGTH = 60;
+export const CHOICE_MAX_LENGTH = 60;
 export const MAX_CHOICES = 20;
 /** A text field's `maxLength` when the organizer hasn't set one. */
 export const TEXT_DEFAULT_MAX_LENGTH = 200;
