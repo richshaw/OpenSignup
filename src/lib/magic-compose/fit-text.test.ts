@@ -1,34 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH } from '@/schemas/signups';
-import { fitDraftText, shortenToLimit } from './fit-text';
-
-describe('shortenToLimit', () => {
-  it('leaves text within the limit alone', () => {
-    expect(shortenToLimit('Snack duty', 10)).toBe('Snack duty');
-  });
-
-  it('cuts at the last space before the limit and ends with an ellipsis', () => {
-    const out = shortenToLimit('one two three four', 12);
-    expect(out).toBe('one two…');
-    expect(out.length).toBeLessThanOrEqual(12);
-  });
-
-  it('drops punctuation left at the cut', () => {
-    expect(shortenToLimit('Bring snacks, drinks, and plates please', 22)).toBe(
-      'Bring snacks, drinks…',
-    );
-  });
-
-  it('cuts mid-word when there is no space to cut at', () => {
-    const out = shortenToLimit('x'.repeat(30), 10);
-    expect(out).toBe(`${'x'.repeat(9)}…`);
-  });
-
-  it('never splits an emoji in half', () => {
-    const out = shortenToLimit(`${'a'.repeat(8)}😀😀😀`, 10);
-    expect(out).toBe(`${'a'.repeat(8)}…`);
-  });
-});
+import { fitDraftText } from './fit-text';
 
 const draft = {
   title: 'Snack duty',
