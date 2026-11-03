@@ -5,6 +5,8 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { SESSION_MAX_AGE_SECONDS } from '@/auth/session-lifetime';
 import { PREFILL_KEY } from '@/app/s/[slug]/prefill-key';
+import { DAYS_AFTER_SLOT, MAX_DAYS, MIN_DAYS } from '@/lib/returning-participant';
+import { OAUTH_TTL } from '@/oauth/config';
 import CookiesPage from './page';
 
 // The text of each cell in the table row whose first cell names `cookie`.
@@ -38,5 +40,22 @@ describe('cookies page', () => {
     render(<CookiesPage />);
     expect(PREFILL_KEY).toBe('opensignup:lastCommit');
     expect(screen.getByText(PREFILL_KEY).tagName).toBe('CODE');
+  });
+
+  it('gives os_commit the lifetime the participant cookie is written with', () => {
+    render(<CookiesPage />);
+    expect(DAYS_AFTER_SLOT).toBe(7); // the page says "a week"
+    expect(rowFor('os_commit')[2]).toBe(
+      `${MIN_DAYS} days, or until a week after the latest slot it holds if that is later (at most ${MAX_DAYS} days)`,
+    );
+  });
+
+  it('gives the OAuth cookies the lifetimes the provider is configured with', () => {
+    render(<CookiesPage />);
+    expect(rowFor('os_oauth_session')[2]).toBe(`${OAUTH_TTL.SESSION / 3600} hours`);
+    // oidc-provider sets the resume cookie with the interaction TTL too.
+    const interaction = `${OAUTH_TTL.INTERACTION / 60} minutes`;
+    expect(rowFor('os_oauth_interaction')[2]).toBe(interaction);
+    expect(rowFor('os_oauth_resume')[2]).toBe(interaction);
   });
 });

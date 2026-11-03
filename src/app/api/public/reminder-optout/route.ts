@@ -2,7 +2,7 @@ import { getDb } from '@/db/client';
 import { extractClientIp } from '@/auth/request-context';
 import { fail, handle } from '@/lib/api-response';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
-import { unsubscribePath } from '@/lib/links';
+import { unsubscribePath, type UnsubscribeStatus } from '@/lib/links';
 import { log } from '@/lib/log';
 import { readFormData } from '@/lib/request-body';
 import {
@@ -90,13 +90,14 @@ export async function POST(request: Request) {
   // one-click POST carries no form body and always means "stop".
   const turningOn = String(form?.get('action') ?? '') === 'start';
 
-  const toPage = (slug: string, query: string) =>
-    Response.redirect(new URL(`/s/${slug}/unsubscribe${query}`, url.origin), 303);
-
   return handle(async () => {
     const participantId = String(form?.get('p') ?? url.searchParams.get('p') ?? '');
     const token = String(form?.get('token') ?? url.searchParams.get('token') ?? '');
-    const credentials = `p=${encodeURIComponent(participantId)}&token=${encodeURIComponent(token)}`;
+    const toPage = (slug: string, status: UnsubscribeStatus) =>
+      Response.redirect(
+        new URL(unsubscribePath(slug, participantId, token, status), url.origin),
+        303,
+      );
 
     try {
       const clientIp = extractClientIp(new Headers(request.headers));
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
         ? await optInToReminders(getDb(), participantId, token)
         : await optOutOfReminders(getDb(), participantId, token);
       if (!result.ok) {
-        if (fromConfirmPage && fallbackSlug) return toPage(fallbackSlug, `?error=1&${credentials}`);
+        if (fromConfirmPage && fallbackSlug) return toPage(fallbackSlug, 'error=1');
         // One-click: a signup that no longer exists means there is nothing left
         // to unsubscribe from, which is the outcome the provider asked for.
         // RFC 8058 §3.2 expects 2xx, and a `List-Unsubscribe` URL that answers
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
         return fail(result.error);
       }
       if (fromConfirmPage) {
-        return toPage(result.value.signupSlug, `?done=${turningOn ? 'on' : 'off'}&${credentials}`);
+        return toPage(result.value.signupSlug, turningOn ? 'done=on' : 'done=off');
       }
       // One-click: the provider wants a bare success and ignores the body.
       return new Response(null, { status: 200 });
@@ -128,7 +129,7 @@ export async function POST(request: Request) {
       // without this every browser unsubscribe would render "That didn't work"
       // with not one line anywhere saying why.
       log.error({ err, participantId, turningOn }, 'reminder opt-out failed');
-      if (fromConfirmPage && fallbackSlug) return toPage(fallbackSlug, `?error=1&${credentials}`);
+      if (fromConfirmPage && fallbackSlug) return toPage(fallbackSlug, 'error=1');
       throw err;
     }
   });
