@@ -10,6 +10,7 @@ import { ServiceException } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { chargeRateLimit, consumeRateLimit, RateLimits } from '@/lib/rate-limit';
+import { DESCRIPTION_MAX_LENGTH } from '@/schemas/signups';
 import { createSignupAction, type NewSignupFormState } from './actions';
 
 const organizerId = makeId('org');
@@ -116,9 +117,13 @@ describe('createSignupAction (db)', () => {
   it('hands back the title and description as typed when it refuses', async () => {
     // One letter with spaces round it passes the browser's minLength of 2,
     // then the server trims it and refuses.
-    const description = 'Bring a plate.\r\nNuts are fine.';
-    expect(await submit(' a ', description)).toEqual({
-      refused: { error: 'Title must be at least 2 characters.', title: ' a ', description },
+    // The browser sends the line break as \r\n; the box held it as \n.
+    expect(await submit(' a ', 'Bring a plate.\r\nNuts are fine.')).toEqual({
+      refused: {
+        error: 'Title must be at least 2 characters.',
+        title: ' a ',
+        description: 'Bring a plate.\nNuts are fine.',
+      },
     });
     expect(await created()).toHaveLength(0);
   });
@@ -130,6 +135,21 @@ describe('createSignupAction (db)', () => {
       .from(signups)
       .where(eq(signups.workspaceId, workspaceId));
     expect(rows.map((r) => r.title)).toEqual(['Bake sale']);
+  });
+
+  it('takes a full description with line breaks, sent as \\r\\n, and saves \\n', async () => {
+    // 1,996 letters and 4 line breaks fill the 2,000-character textarea. The
+    // browser sends each break as \r\n, so 2,004 characters arrive.
+    const sent = `${'a'.repeat(499)}\r\n`.repeat(4);
+    expect(sent).toHaveLength(DESCRIPTION_MAX_LENGTH + 4);
+    expect(await submit('Bake sale', sent)).toEqual({
+      redirect: expect.stringMatching(/^\/app\/signups\/[^?]+$/),
+    });
+    const [row] = await db
+      .select({ description: signups.description })
+      .from(signups)
+      .where(eq(signups.workspaceId, workspaceId));
+    expect(row?.description).toBe(`${'a'.repeat(499)}\n`.repeat(4));
   });
 
   it('refuses a create past the limit, back on the form with a plain message', async () => {

@@ -6,6 +6,7 @@ import { requireOrganizerSession, toActor } from '@/auth/session';
 import { waitInMinutes } from '@/lib/format-duration';
 import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { createSignup } from '@/services/signups';
+import { lfLineBreaks } from './line-breaks';
 
 /**
  * Why the form was refused, with what was typed in each box, so the form can
@@ -29,7 +30,7 @@ export async function createSignupAction(
   const s = await requireOrganizerSession();
   if (!s.defaultWorkspaceId) redirect('/app');
   const title = String(formData.get('title') ?? '');
-  const description = String(formData.get('description') ?? '');
+  const description = lfLineBreaks(String(formData.get('description') ?? ''));
   const db = getDb();
   const retryAfter = await chargeRateLimit(db, RateLimits.signupCreatePerOrganizer, s.organizerId);
   if (retryAfter !== null) {
