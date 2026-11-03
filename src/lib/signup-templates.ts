@@ -32,9 +32,3 @@ export const DEFAULT_TEMPLATE: SignupTemplate = {
   ],
   slots: [{ capacity: 1, values: {}, sortOrder: 0 }],
 };
-
-export const EMPTY_TEMPLATE: SignupTemplate = {
-  id: 'empty',
-  fields: [],
-  slots: [],
-};

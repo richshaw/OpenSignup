@@ -9,7 +9,7 @@ import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor, WorkspaceRole } from '@/lib/policy';
-import { DEFAULT_TEMPLATE, EMPTY_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
+import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
 import { listFieldsForSignup } from '@/services/slot-fields';
 import { addSlot, deleteSlot } from '@/services/slots';
 import { settle, untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
@@ -945,7 +945,7 @@ describe('signups service (db)', () => {
         fx.actor,
         fx.workspaceId,
         validCreateInput('Empty'),
-        { template: EMPTY_TEMPLATE },
+        { template: { id: 'empty', fields: [], slots: [] } },
       );
       if (!created.ok) throw new Error('setup failed');
 
@@ -1112,7 +1112,7 @@ describe('signups service (db)', () => {
 
     async function draftWithOneSlot(title: string): Promise<{ signupId: string; slotId: string }> {
       const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput(title), {
-        template: EMPTY_TEMPLATE,
+        template: { id: 'empty', fields: [], slots: [] },
       });
       if (!created.ok) throw new Error('setup failed');
       const slot = await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 1 });
