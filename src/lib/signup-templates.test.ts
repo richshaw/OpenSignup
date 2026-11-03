@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SlotFieldInputSchema } from '@/schemas/slot-fields';
-import { DEFAULT_TEMPLATE, EMPTY_TEMPLATE } from './signup-templates';
+import { DEFAULT_TEMPLATE } from './signup-templates';
 
 describe('signup templates', () => {
   describe('DEFAULT_TEMPLATE', () => {
@@ -29,13 +29,6 @@ describe('signup templates', () => {
         const parsed = SlotFieldInputSchema.safeParse(field);
         expect(parsed.success).toBe(true);
       }
-    });
-  });
-
-  describe('EMPTY_TEMPLATE', () => {
-    it('contains no fields and no slots', () => {
-      expect(EMPTY_TEMPLATE.fields).toHaveLength(0);
-      expect(EMPTY_TEMPLATE.slots).toHaveLength(0);
     });
   });
 });

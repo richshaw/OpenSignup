@@ -10,7 +10,6 @@ import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/publish-check';
-import { EMPTY_TEMPLATE } from '@/lib/signup-templates';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
@@ -374,7 +373,7 @@ describe('Publish’s check (db)', () => {
         visibility: 'unlisted',
         settings: {},
       },
-      empty ? { template: EMPTY_TEMPLATE } : {},
+      empty ? { template: { id: 'empty', fields: [], slots: [] } } : {},
     );
     if (!created.ok) throw new Error(created.error.message);
     const slotIds: string[] = [];
