@@ -89,6 +89,9 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
         affirmative wording; without it we say only what the row shows.
       */
       <Shell title={done === 'off' ? 'Reminders turned off' : 'Reminders are off'}>
+        {error ? (
+          <FormError>That didn&apos;t work — nothing has changed. Try again below.</FormError>
+        ) : null}
         <p className="text-sm text-ink-muted">
           {done === 'off' ? (
             <>
