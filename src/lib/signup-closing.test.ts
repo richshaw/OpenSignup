@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { shownSignupStatus, signupShutReason, slotInLockout } from './signup-closing';
+import {
+  lockoutCutoff,
+  shownSignupStatus,
+  signupShutReason,
+  slotInLockout,
+} from './signup-closing';
 
 const NOW = Date.parse('2030-04-06T12:00:00Z');
 const PAST = new Date(NOW - 60_000);
@@ -57,5 +62,28 @@ describe('slotInLockout', () => {
     expect(slotInLockout({ lockoutHoursBeforeSlot: 0 }, soon, NOW)).toBe(false);
     expect(slotInLockout({ lockoutHoursBeforeSlot: null }, soon, NOW)).toBe(false);
     expect(slotInLockout(LOCKOUT, null, NOW)).toBe(false);
+  });
+});
+
+describe('lockoutCutoff', () => {
+  const HOUR = 3600 * 1000;
+  const LOCKOUT = { lockoutHoursBeforeSlot: 24 };
+
+  it('is that many hours from now', () => {
+    expect(lockoutCutoff(LOCKOUT, NOW)).toEqual(new Date(NOW + 24 * HOUR));
+  });
+
+  it('is null with no lockout set or a zero one', () => {
+    expect(lockoutCutoff({}, NOW)).toBeNull();
+    expect(lockoutCutoff(null, NOW)).toBeNull();
+    expect(lockoutCutoff({ lockoutHoursBeforeSlot: 0 }, NOW)).toBeNull();
+    expect(lockoutCutoff({ lockoutHoursBeforeSlot: null }, NOW)).toBeNull();
+  });
+
+  it('agrees with slotInLockout on either side of it', () => {
+    const cutoff = lockoutCutoff(LOCKOUT, NOW);
+    if (!cutoff) throw new Error('expected a cutoff');
+    expect(slotInLockout(LOCKOUT, new Date(cutoff.getTime() - 1), NOW)).toBe(true);
+    expect(slotInLockout(LOCKOUT, cutoff, NOW)).toBe(false);
   });
 });
