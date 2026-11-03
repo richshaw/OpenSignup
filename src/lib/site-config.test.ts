@@ -28,19 +28,19 @@ describe('parseSiteConfig', () => {
     expect(() => parseSiteConfig(rest)).toThrow(new RegExp(`${key} is required`));
   });
 
-  it.each([
-    'NEXT_PUBLIC_INSTANCE_NAME',
-    'NEXT_PUBLIC_GOVERNING_LAW',
-  ] as const)('reports empty %s with the same "is required" message', (key) => {
-    expect(() => parseSiteConfig({ ...base, [key]: '' })).toThrow(
-      new RegExp(`${key} is required`),
-    );
-  });
+  it.each(['NEXT_PUBLIC_INSTANCE_NAME', 'NEXT_PUBLIC_GOVERNING_LAW'] as const)(
+    'reports empty %s with the same "is required" message',
+    (key) => {
+      expect(() => parseSiteConfig({ ...base, [key]: '' })).toThrow(
+        new RegExp(`${key} is required`),
+      );
+    },
+  );
 
   it('rejects a malformed email', () => {
-    expect(() =>
-      parseSiteConfig({ ...base, NEXT_PUBLIC_SUPPORT_EMAIL: 'not-an-email' }),
-    ).toThrow(/NEXT_PUBLIC_SUPPORT_EMAIL/);
+    expect(() => parseSiteConfig({ ...base, NEXT_PUBLIC_SUPPORT_EMAIL: 'not-an-email' })).toThrow(
+      /NEXT_PUBLIC_SUPPORT_EMAIL/,
+    );
   });
 
   it('rejects a non-https source URL', () => {
@@ -65,13 +65,10 @@ describe('parseSiteConfig', () => {
     expect(config.OPERATOR_NAME).toBe('Acme Co.');
   });
 
-  it.each(['', '   ', '\t\n'])(
-    'normalises blank operator name %j to null',
-    (blank) => {
-      const config = parseSiteConfig({ ...base, NEXT_PUBLIC_OPERATOR_NAME: blank });
-      expect(config.OPERATOR_NAME).toBeNull();
-    },
-  );
+  it.each(['', '   ', '\t\n'])('normalises blank operator name %j to null', (blank) => {
+    const config = parseSiteConfig({ ...base, NEXT_PUBLIC_OPERATOR_NAME: blank });
+    expect(config.OPERATOR_NAME).toBeNull();
+  });
 
   describe('under pnpm dev', () => {
     const dev = { NODE_ENV: 'development' };

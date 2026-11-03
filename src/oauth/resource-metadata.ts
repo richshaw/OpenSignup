@@ -11,7 +11,10 @@ import { ADVERTISED_SCOPE_LIST, OAUTH_ROUTES } from './config';
  * official MCP SDK from the same constants the authorization server is
  * configured with, so the two cannot drift.
  */
-export function protectedResourceMetadata(issuer: string, resource: string): OAuthProtectedResourceMetadata {
+export function protectedResourceMetadata(
+  issuer: string,
+  resource: string,
+): OAuthProtectedResourceMetadata {
   return buildOAuthProtectedResourceMetadata({
     oauthMetadata: minimalAuthorizationServerMetadata(issuer),
     resourceServerUrl: new URL(resource),

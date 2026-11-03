@@ -52,7 +52,11 @@ vi.mock('@/lib/rate-limit', async (importOriginal) => {
   return { ...actual, consumeRateLimit: (...a: unknown[]) => consume(...a) };
 });
 vi.mock('@/mcp/links', () => ({
-  signupLinks: (r: { id: string; slug: string }) => ({ edit: `e/${r.id}`, preview: `v/${r.id}`, public: `p/${r.slug}` }),
+  signupLinks: (r: { id: string; slug: string }) => ({
+    edit: `e/${r.id}`,
+    preview: `v/${r.id}`,
+    public: `p/${r.slug}`,
+  }),
 }));
 
 const ctx = unitContext();
@@ -113,7 +117,12 @@ describe('create_signup', () => {
     ];
     expect(actor).toBe(ctx.actor);
     expect(ws).toBe('ws_1');
-    expect(input).toEqual({ title: 'Snack rota', description: '', visibility: 'unlisted', settings: {} });
+    expect(input).toEqual({
+      title: 'Snack rota',
+      description: '',
+      visibility: 'unlisted',
+      settings: {},
+    });
     expect(opts.template.id).toBe('mcp');
     expect(opts.template.fields).toHaveLength(2);
     expect(opts.template.slots).toHaveLength(2);
@@ -143,7 +152,11 @@ describe('create_signup', () => {
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const r = await client.callTool({
       name: 'create_signup',
-      arguments: { title: 'x y', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{ values: { a: 'x' } }] },
+      arguments: {
+        title: 'x y',
+        fields: [{ ref: 'a', label: 'A', fieldType: 'text' }],
+        slots: [{ values: { a: 'x' } }],
+      },
     });
     expect(r.isError).toBeFalsy();
     const body = r.structuredContent as { signup: { id: string }; links: unknown; note: string };
@@ -166,7 +179,9 @@ describe('create_signup', () => {
       },
     });
     expect(r.isError).toBe(true);
-    const body = r.structuredContent as { error: { code: string; suggestion: string; details: { dropped: unknown } } };
+    const body = r.structuredContent as {
+      error: { code: string; suggestion: string; details: { dropped: unknown } };
+    };
     expect(body.error.code).toBe('invalid_input');
     expect(body.error.suggestion).toMatch(/date/i);
     expect(body.error.details.dropped).toBeTruthy();
@@ -199,7 +214,11 @@ describe('create_signup', () => {
     const client = await connectTestClient(viewer, WRITE_TOOLS);
     const r = await client.callTool({
       name: 'create_signup',
-      arguments: { title: 'x y', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{}] },
+      arguments: {
+        title: 'x y',
+        fields: [{ ref: 'a', label: 'A', fieldType: 'text' }],
+        slots: [{}],
+      },
     });
     expect((r.structuredContent as { error: { code: string } }).error.code).toBe('forbidden');
     expect(consume).not.toHaveBeenCalled();
@@ -208,12 +227,18 @@ describe('create_signup', () => {
 
   it('turns the rate limit into a tool error', async () => {
     consume.mockImplementationOnce(async () => {
-      throw new ServiceException(serviceError('rate_limited', 'slow down', { details: { retryAfterSeconds: 30 } }));
+      throw new ServiceException(
+        serviceError('rate_limited', 'slow down', { details: { retryAfterSeconds: 30 } }),
+      );
     });
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const r = await client.callTool({
       name: 'create_signup',
-      arguments: { title: 'x y', fields: [{ ref: 'a', label: 'A', fieldType: 'text' }], slots: [{}] },
+      arguments: {
+        title: 'x y',
+        fields: [{ ref: 'a', label: 'A', fieldType: 'text' }],
+        slots: [{}],
+      },
     });
     expect(r.isError).toBe(true);
     expect((r.structuredContent as { error: { code: string } }).error.code).toBe('rate_limited');
@@ -223,20 +248,22 @@ describe('create_signup', () => {
 
 describe('update_signup', () => {
   it('hands sparse settings to the service to merge', async () => {
-    svc.updateSignup.mockResolvedValueOnce(ok({ ...row, settings: { ...row.settings, sendReminders: false } }));
+    svc.updateSignup.mockResolvedValueOnce(
+      ok({ ...row, settings: { ...row.settings, sendReminders: false } }),
+    );
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const r = await client.callTool({
       name: 'update_signup',
-      arguments: { signupId: 'sig_1', settings: { sendReminders: false, lockoutHoursBeforeSlot: 2 } },
+      arguments: {
+        signupId: 'sig_1',
+        settings: { sendReminders: false, lockoutHoursBeforeSlot: 2 },
+      },
     });
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
     expect(svc.getSignupForOrganizer).not.toHaveBeenCalled();
-    expect(svc.updateSignup).toHaveBeenCalledWith(
-      ctx.db,
-      ctx.actor,
-      'sig_1',
-      { settings: { sendReminders: false, lockoutHoursBeforeSlot: 2 } },
-    );
+    expect(svc.updateSignup).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
+      settings: { sendReminders: false, lockoutHoursBeforeSlot: 2 },
+    });
     // The stored row carries allowNotes, which nothing reads, so it is not shown.
     expect((r.structuredContent as { signup: { settings: unknown } }).signup.settings).toEqual({
       groupByFieldRefs: ['date'],
@@ -245,11 +272,15 @@ describe('update_signup', () => {
   });
 
   it('offers requireEmail, passes it through and shows it back', async () => {
-    svc.updateSignup.mockResolvedValueOnce(ok({ ...row, settings: { ...row.settings, requireEmail: false } }));
+    svc.updateSignup.mockResolvedValueOnce(
+      ok({ ...row, settings: { ...row.settings, requireEmail: false } }),
+    );
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const { tools } = await client.listTools();
     const tool = tools.find((t) => t.name === 'update_signup');
-    const settings = tool?.inputSchema.properties?.settings as { properties?: Record<string, unknown> } | undefined;
+    const settings = tool?.inputSchema.properties?.settings as
+      | { properties?: Record<string, unknown> }
+      | undefined;
     expect(settings?.properties).toHaveProperty('requireEmail');
     expect(tool?.description).toContain('settings.requireEmail');
     expect(tool?.description).not.toContain('make the email address optional');
@@ -259,7 +290,9 @@ describe('update_signup', () => {
       arguments: { signupId: 'sig_1', settings: { requireEmail: false } },
     });
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
-    expect(svc.updateSignup).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', { settings: { requireEmail: false } });
+    expect(svc.updateSignup).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
+      settings: { requireEmail: false },
+    });
     expect((r.structuredContent as { signup: { settings: unknown } }).signup.settings).toEqual({
       groupByFieldRefs: ['date'],
       sendReminders: true,
@@ -293,7 +326,9 @@ describe('update_signup', () => {
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const { tools } = await client.listTools();
     const tool = tools.find((t) => t.name === 'update_signup');
-    const settings = tool?.inputSchema.properties?.settings as { properties?: Record<string, unknown> } | undefined;
+    const settings = tool?.inputSchema.properties?.settings as
+      | { properties?: Record<string, unknown> }
+      | undefined;
     expect(settings?.properties).toHaveProperty('sendReminders');
     expect(settings?.properties).not.toHaveProperty(key);
     expect(tool?.description).not.toContain(key);
@@ -303,7 +338,9 @@ describe('update_signup', () => {
       arguments: { signupId: 'sig_1', settings: { sendReminders: false, [key]: value } },
     });
     expect(r.isError).toBe(true);
-    expect((r.structuredContent as { error: { code: string; field?: string } }).error).toMatchObject({
+    expect(
+      (r.structuredContent as { error: { code: string; field?: string } }).error,
+    ).toMatchObject({
       code: 'invalid_input',
       field: 'settings',
     });
@@ -317,12 +354,11 @@ describe('update_signup', () => {
       name: 'update_signup',
       arguments: { signupId: 'sig_1', title: 'New', description: 'Desc', closesAt: null },
     });
-    expect(svc.updateSignup).toHaveBeenCalledWith(
-      ctx.db,
-      ctx.actor,
-      'sig_1',
-      { title: 'New', description: 'Desc', closesAt: null },
-    );
+    expect(svc.updateSignup).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
+      title: 'New',
+      description: 'Desc',
+      closesAt: null,
+    });
   });
 
   it('does not offer visibility, which nothing reads', async () => {
@@ -334,7 +370,10 @@ describe('update_signup', () => {
     expect(tool?.description).not.toContain('visibility');
     expect(tool?.description).not.toContain('public or unlisted');
 
-    await client.callTool({ name: 'update_signup', arguments: { signupId: 'sig_1', title: 'New', visibility: 'public' } });
+    await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: 'sig_1', title: 'New', visibility: 'public' },
+    });
     expect(svc.updateSignup).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', { title: 'New' });
   });
 });
@@ -385,7 +424,9 @@ describe('status tools', () => {
       deleted: true,
       deletedAt: '2026-09-20T00:00:00.000Z',
     });
-    expect((r.structuredContent as { signup: Record<string, unknown> }).signup).not.toHaveProperty('links');
+    expect((r.structuredContent as { signup: Record<string, unknown> }).signup).not.toHaveProperty(
+      'links',
+    );
   });
 
   it('a wrong-state transition surfaces the conflict with its suggestion', async () => {

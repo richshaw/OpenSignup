@@ -85,45 +85,45 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
 
   return (
     <>
-    <form action={handleSubmit} className="space-y-4" noValidate>
-      <label className="block">
-        <span className="mb-1 block text-sm font-medium">Email</span>
-        <input
-          ref={inputRef}
-          type="email"
-          name="email"
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value);
-            // A changed address is a new request: drop the error, and with it
-            // the rate-limit lock.
-            if (view.kind === 'error') setView({ kind: 'idle' });
-          }}
-          required
-          autoComplete="email"
-          inputMode="email"
-          disabled={inert}
-          className="focus:border-brand focus:ring-brand w-full rounded-lg border border-surface-sunk bg-white px-4 py-3 text-base shadow-sm transition focus:outline-none focus:ring-1 disabled:bg-white disabled:opacity-100"
-          placeholder="you@example.com"
-        />
-      </label>
-      <button
-        type="submit"
-        aria-disabled={inert || locked}
-        aria-busy={state === 'loading'}
-        data-state={state}
-        className={`relative w-full rounded-lg px-5 py-3 font-medium text-white transition-colors duration-180 ease-emphasized ${buttonBg} ${buttonHover} ${buttonLoading} ${buttonLocked}`}
-      >
-        <ButtonLabel state={state} />
-      </button>
-      <HelperText state={state} view={view} onReset={reset} />
-    </form>
-    {state === 'success' && view.kind === 'success' ? (
-      <>
-        <CodeForm email={view.email} redeem={redeem} />
-        <SessionWatcher callbackUrl={callbackUrl} />
-      </>
-    ) : null}
+      <form action={handleSubmit} className="space-y-4" noValidate>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium">Email</span>
+          <input
+            ref={inputRef}
+            type="email"
+            name="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              // A changed address is a new request: drop the error, and with it
+              // the rate-limit lock.
+              if (view.kind === 'error') setView({ kind: 'idle' });
+            }}
+            required
+            autoComplete="email"
+            inputMode="email"
+            disabled={inert}
+            className="w-full rounded-lg border border-surface-sunk bg-white px-4 py-3 text-base shadow-sm transition focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand disabled:bg-white disabled:opacity-100"
+            placeholder="you@example.com"
+          />
+        </label>
+        <button
+          type="submit"
+          aria-disabled={inert || locked}
+          aria-busy={state === 'loading'}
+          data-state={state}
+          className={`relative w-full rounded-lg px-5 py-3 font-medium text-white transition-colors duration-180 ease-emphasized ${buttonBg} ${buttonHover} ${buttonLoading} ${buttonLocked}`}
+        >
+          <ButtonLabel state={state} />
+        </button>
+        <HelperText state={state} view={view} onReset={reset} />
+      </form>
+      {state === 'success' && view.kind === 'success' ? (
+        <>
+          <CodeForm email={view.email} redeem={redeem} />
+          <SessionWatcher callbackUrl={callbackUrl} />
+        </>
+      ) : null}
     </>
   );
 }
@@ -164,11 +164,14 @@ function CodeForm({
     });
   };
   return (
-    <form action={submit} className="space-y-3 rounded-xl border border-surface-sunk bg-surface-raised p-4">
+    <form
+      action={submit}
+      className="space-y-3 rounded-xl border border-surface-sunk bg-surface-raised p-4"
+    >
       <input type="hidden" name="email" value={email} />
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Opened the email on another device?</span>
-        <span className="text-ink-muted mb-2 block text-sm">
+        <span className="mb-2 block text-sm text-ink-muted">
           Type the six-digit code from the email to sign in here instead.
         </span>
         <input
@@ -272,7 +275,8 @@ function HelperText({ state, view, onReset }: HelperProps) {
     >
       {state === 'success' && view.kind === 'success' && (
         <>
-          Link sent to <strong className="text-ink font-medium">{view.email}</strong>. Check your inbox.{' '}
+          Link sent to <strong className="font-medium text-ink">{view.email}</strong>. Check your
+          inbox.{' '}
           <button
             type="button"
             onClick={onReset}

@@ -83,7 +83,9 @@ async function main(command: string | undefined, args: string[]): Promise<void> 
     console.log(
       `Retired ${kid}${force ? ' without waiting' : ''}. Running instances stop trusting it within ` +
         `${SIGNING_KEY_CACHE_MAX_AGE / 60} minutes, with no restart.\n` +
-        (force ? 'An instance that still signs with it issues tokens that fail until it restarts.\n' : ''),
+        (force
+          ? 'An instance that still signs with it issues tokens that fail until it restarts.\n'
+          : ''),
     );
     await printActiveKeys();
   } else {

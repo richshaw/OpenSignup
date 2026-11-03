@@ -3,11 +3,16 @@ import { describe, expect, it, vi } from 'vitest';
 const seen: { url?: string; method?: string }[] = [];
 vi.mock('./instance', () => ({
   getProvider: async () => ({
-    callback: () => (req: { url: string; method: string }, res: { statusCode: number; end: (b?: string) => void }) => {
-      seen.push({ url: req.url, method: req.method });
-      res.statusCode = 200;
-      res.end('ok');
-    },
+    callback:
+      () =>
+      (
+        req: { url: string; method: string },
+        res: { statusCode: number; end: (b?: string) => void },
+      ) => {
+        seen.push({ url: req.url, method: req.method });
+        res.statusCode = 200;
+        res.end('ok');
+      },
   }),
 }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) as unknown }));
@@ -22,7 +27,9 @@ describe('handleOAuthRequest', () => {
   it('forwards the query string to the provider — the authorization endpoint lives on it', async () => {
     const { handleOAuthRequest } = await import('./handler');
     const r = await handleOAuthRequest(
-      new Request('https://signup.example.org/api/oauth/authorize?client_id=abc&response_type=code'),
+      new Request(
+        'https://signup.example.org/api/oauth/authorize?client_id=abc&response_type=code',
+      ),
     );
     expect(r.status).toBe(200);
     expect(seen.at(-1)?.url).toBe('/api/oauth/authorize?client_id=abc&response_type=code');
@@ -30,17 +37,26 @@ describe('handleOAuthRequest', () => {
 
   it('lets a well-known route override the provider path', async () => {
     const { handleOAuthRequest } = await import('./handler');
-    await handleOAuthRequest(new Request('https://signup.example.org/.well-known/openid-configuration'), {
-      path: '/.well-known/oauth-authorization-server',
-    });
+    await handleOAuthRequest(
+      new Request('https://signup.example.org/.well-known/openid-configuration'),
+      {
+        path: '/.well-known/oauth-authorization-server',
+      },
+    );
     expect(seen.at(-1)?.url).toBe('/.well-known/oauth-authorization-server');
   });
 
   it('meters token, authorize and other paths in their own buckets, with unknown IPs pooled', async () => {
     const { handleOAuthRequest } = await import('./handler');
     consume.mockClear();
-    await handleOAuthRequest(new Request('https://signup.example.org/api/oauth/token', { method: 'POST' }));
-    await handleOAuthRequest(new Request('https://signup.example.org/api/oauth/authorize/abc', { headers: { 'x-forwarded-for': '203.0.113.5' } }));
+    await handleOAuthRequest(
+      new Request('https://signup.example.org/api/oauth/token', { method: 'POST' }),
+    );
+    await handleOAuthRequest(
+      new Request('https://signup.example.org/api/oauth/authorize/abc', {
+        headers: { 'x-forwarded-for': '203.0.113.5' },
+      }),
+    );
     await handleOAuthRequest(new Request('https://signup.example.org/api/oauth/jwks'));
     const calls = consume.mock.calls as unknown as [unknown, { bucket: string }, string][];
     expect(calls.map((c) => [c[1].bucket, c[2]])).toEqual([
@@ -53,20 +69,26 @@ describe('handleOAuthRequest', () => {
   it('answers a rate-limited request with 429 and Retry-After, as JSON or HTML by Accept', async () => {
     const { handleOAuthRequest } = await import('./handler');
     consume.mockResolvedValueOnce(42);
-    const json = await handleOAuthRequest(new Request('https://signup.example.org/api/oauth/token', { method: 'POST' }));
+    const json = await handleOAuthRequest(
+      new Request('https://signup.example.org/api/oauth/token', { method: 'POST' }),
+    );
     expect(json.status).toBe(429);
     expect(json.headers.get('retry-after')).toBe('42');
     expect((await json.json()).error).toBe('too_many_requests');
     consume.mockResolvedValueOnce(7);
     const html = await handleOAuthRequest(
-      new Request('https://signup.example.org/api/oauth/authorize?x=1', { headers: { accept: 'text/html' } }),
+      new Request('https://signup.example.org/api/oauth/authorize?x=1', {
+        headers: { accept: 'text/html' },
+      }),
     );
     expect(html.status).toBe(429);
     expect(html.headers.get('content-type')).toMatch(/text\/html/);
     expect(await html.text()).toContain('too_many_requests');
     consume.mockResolvedValueOnce(540);
     const long = await handleOAuthRequest(
-      new Request('https://signup.example.org/api/oauth/authorize?x=1', { headers: { accept: 'text/html' } }),
+      new Request('https://signup.example.org/api/oauth/authorize?x=1', {
+        headers: { accept: 'text/html' },
+      }),
     );
     expect(await long.text()).toContain('Wait 9 minutes');
   });

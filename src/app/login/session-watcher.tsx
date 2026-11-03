@@ -22,7 +22,10 @@ export function SessionWatcher({ callbackUrl }: { callbackUrl: string }) {
       if (cancelled) return;
       if (Date.now() - started > GIVE_UP_AFTER_MS) return;
       try {
-        const res = await fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' });
+        const res = await fetch('/api/auth/session', {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        });
         const body = (await res.json().catch(() => null)) as { user?: unknown } | null;
         if (body?.user) {
           router.replace(callbackUrl);

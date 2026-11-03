@@ -338,6 +338,10 @@ export async function mintLoginCodeForTest(email: string, callbackUrl: string): 
   authCallback.searchParams.set('callbackUrl', callbackUrl);
   authCallback.searchParams.set('token', token);
   authCallback.searchParams.set('email', email);
-  const { code } = await issueLoginCode(db, { email, callbackUrl: authCallback.toString(), expiresAt: expires });
+  const { code } = await issueLoginCode(db, {
+    email,
+    callbackUrl: authCallback.toString(),
+    expiresAt: expires,
+  });
   return code;
 }

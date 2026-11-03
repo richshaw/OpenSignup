@@ -5,7 +5,7 @@ used only by `scripts/generate-og-image.mjs` to render the committed social-shar
 images (`src/app/opengraph-image.png`, `twitter-image.png`, `apple-icon.png`).
 
 It exists because Satori (inside `@vercel/og`, which powers `next/og`) cannot parse
-the app's *variable* font `src/app/fonts/InterVariable.ttf` — its parser trips on the
+the app's _variable_ font `src/app/fonts/InterVariable.ttf` — its parser trips on the
 `fvar` table. A fully-instanced static face sidesteps that.
 
 It is **not** shipped to the browser or used by the running app; the app still uses

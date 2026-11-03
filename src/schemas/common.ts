@@ -13,11 +13,7 @@ export function normalizeEmail(v: string): string {
 // Normalize before validating so callers can pass raw input with surrounding
 // whitespace; max(254) is enforced on the raw string to reject pathologically
 // long inputs even when most of it is whitespace.
-export const EmailSchema = z
-  .string()
-  .max(254)
-  .transform(normalizeEmail)
-  .pipe(z.string().email());
+export const EmailSchema = z.string().max(254).transform(normalizeEmail).pipe(z.string().email());
 
 // Trimmed before the min(1) check, like EmailSchema, so a name of only spaces
 // is refused rather than stored blank. max(NAME_MAX_LENGTH) is on the raw string.

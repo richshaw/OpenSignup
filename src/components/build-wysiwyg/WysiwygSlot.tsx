@@ -116,7 +116,7 @@ export function WysiwygSlot({
     return (
       <div
         data-testid={`wysiwyg-slot-${row.id}`}
-        className="border-t border-b border-surface-sunk bg-surface-raised first:rounded-t-[11px] first:border-t-0"
+        className="border-b border-t border-surface-sunk bg-surface-raised first:rounded-t-[11px] first:border-t-0"
       >
         <SlotEditor
           row={row}
@@ -158,7 +158,7 @@ export function WysiwygSlot({
         }
       }}
       className={
-        'group relative border-t first:rounded-t-[11px] first:border-t-0 transition-colors duration-180 ' +
+        'group relative border-t transition-colors duration-180 first:rounded-t-[11px] first:border-t-0 ' +
         (isDragging
           ? 'border-transparent bg-brand-soft opacity-50'
           : isDropTarget
@@ -170,7 +170,7 @@ export function WysiwygSlot({
         <span
           {...reorder.source(row.id)}
           aria-hidden="true"
-          className="absolute -left-1 top-1/2 z-10 inline-flex h-6 w-4 -translate-y-1/2 cursor-grab items-center justify-center text-ink-soft opacity-0 transition-opacity duration-180 group-hover:opacity-95 group-focus-within:opacity-95"
+          className="absolute -left-1 top-1/2 z-10 inline-flex h-6 w-4 -translate-y-1/2 cursor-grab items-center justify-center text-ink-soft opacity-0 transition-opacity duration-180 group-focus-within:opacity-95 group-hover:opacity-95"
         >
           <GripVertical size={11} />
         </span>
@@ -196,24 +196,20 @@ export function WysiwygSlot({
               {anchorValue}
             </span>
           ) : placeholder ? (
-            <span className={`${anchorSizing} truncate text-sm italic font-normal text-ink-soft`}>
+            <span className={`${anchorSizing} truncate text-sm font-normal italic text-ink-soft`}>
               {placeholder}
             </span>
           ) : (
             <span className="shrink-0 text-sm font-semibold text-ink">Slot</span>
           )}
-          {summary && (
-            <span className="min-w-0 truncate text-xs text-ink-muted">{summary}</span>
-          )}
+          {summary && <span className="min-w-0 truncate text-xs text-ink-muted">{summary}</span>}
         </div>
         {/* Spots taken, not left: organizers want to know how many signed up.
             The public page counts what's left. */}
-        <span className="shrink-0 text-[11px] tabular-nums text-ink-soft">
-          {count}
-        </span>
+        <span className="shrink-0 text-[11px] tabular-nums text-ink-soft">{count}</span>
       </button>
       <div
-        className="absolute right-2 top-1.5 flex gap-px rounded-md border border-surface-sunk bg-white p-0.5 opacity-0 shadow-sm transition-opacity duration-180 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
+        className="pointer-events-none absolute right-2 top-1.5 flex gap-px rounded-md border border-surface-sunk bg-white p-0.5 opacity-0 shadow-sm transition-opacity duration-180 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
         inert={!interactive}
       >
         <ToolbarButton label={actions.edit} onClick={(e) => onExpand(e.detail === 0)}>

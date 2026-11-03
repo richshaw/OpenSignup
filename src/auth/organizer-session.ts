@@ -47,10 +47,7 @@ export async function loadOrganizerSessionById(
     .from(organizers)
     .leftJoin(
       workspaceMembers,
-      and(
-        eq(workspaceMembers.organizerId, organizers.id),
-        eq(workspaceMembers.status, 'active'),
-      ),
+      and(eq(workspaceMembers.organizerId, organizers.id), eq(workspaceMembers.status, 'active')),
     )
     .leftJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
     .where(eq(organizers.id, organizerId));
@@ -79,7 +76,9 @@ export async function loadOrganizerSessionById(
 export const toActor = cache((session: OrganizerSession | null): Actor => {
   if (!session) return { kind: 'anonymous' };
   const workspaceIds = session.memberships.map((m) => m.workspaceId);
-  const workspaceRoles = Object.fromEntries(session.memberships.map((m) => [m.workspaceId, m.role]));
+  const workspaceRoles = Object.fromEntries(
+    session.memberships.map((m) => [m.workspaceId, m.role]),
+  );
   return {
     kind: 'organizer',
     id: session.organizerId,

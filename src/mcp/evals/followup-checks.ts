@@ -40,7 +40,11 @@ function strings(v: unknown): string[] | null {
 
 /** A slot's values with keys sorted, so two slots with the same answers compare equal. */
 function valuesKey(s: SlotState): string {
-  return JSON.stringify(Object.keys(s.values).sort().map((k) => [k, s.values[k]]));
+  return JSON.stringify(
+    Object.keys(s.values)
+      .sort()
+      .map((k) => [k, s.values[k]]),
+  );
 }
 
 /**
@@ -61,7 +65,11 @@ export function markdownTableRows(text: string): number {
   return rows;
 }
 
-export function runFollowupCheck(key: string, expected: unknown, state: FollowupState): FollowupCheck {
+export function runFollowupCheck(
+  key: string,
+  expected: unknown,
+  state: FollowupState,
+): FollowupCheck {
   const beforeIds = new Set(state.before.map((s) => s.id));
   const afterIds = new Set(state.after.map((s) => s.id));
   const added = state.after.filter((s) => !beforeIds.has(s.id));
@@ -82,12 +90,16 @@ export function runFollowupCheck(key: string, expected: unknown, state: Followup
 
     case 'slots.added_count': {
       if (typeof expected !== 'number') return skip(key, 'expected number');
-      return added.length === expected ? pass(key) : fail(key, `${added.length} slots added, expected ${expected}`);
+      return added.length === expected
+        ? pass(key)
+        : fail(key, `${added.length} slots added, expected ${expected}`);
     }
     case 'slots.removed_count': {
       if (typeof expected !== 'number') return skip(key, 'expected number');
       const removed = state.before.filter((s) => !afterIds.has(s.id)).length;
-      return removed === expected ? pass(key) : fail(key, `${removed} slots removed, expected ${expected}`);
+      return removed === expected
+        ? pass(key)
+        : fail(key, `${removed} slots removed, expected ${expected}`);
     }
     case 'slots.first_is_new': {
       if (expected !== true) return skip(key, 'expected true');
@@ -105,7 +117,10 @@ export function runFollowupCheck(key: string, expected: unknown, state: Followup
       const text = Object.values(first.values).map(String).join(' ').toLowerCase();
       return a.some((s) => text.includes(s.toLowerCase()))
         ? pass(key)
-        : fail(key, `first slot ${JSON.stringify(first.values)} mentions none of ${JSON.stringify(a)}`);
+        : fail(
+            key,
+            `first slot ${JSON.stringify(first.values)} mentions none of ${JSON.stringify(a)}`,
+          );
     }
     case 'slots.no_duplicates': {
       if (expected !== true) return skip(key, 'expected true');
@@ -118,7 +133,10 @@ export function runFollowupCheck(key: string, expected: unknown, state: Followup
       });
       return dupes.length === 0
         ? pass(key)
-        : fail(key, `${dupes.length} slots repeat another's values, e.g. ${JSON.stringify(dupes[0]!.values)}`);
+        : fail(
+            key,
+            `${dupes.length} slots repeat another's values, e.g. ${JSON.stringify(dupes[0]!.values)}`,
+          );
     }
     case 'slots.capacities_changed': {
       if (expected !== true) return skip(key, 'expected true');
@@ -131,7 +149,9 @@ export function runFollowupCheck(key: string, expected: unknown, state: Followup
       const [min, max] = expected as [number, number];
       if (state.after.some((s) => s.capacity === null)) return fail(key, 'a slot has no limit');
       const sum = state.after.reduce((n, s) => n + (s.capacity ?? 0), 0);
-      return sum >= min && sum <= max ? pass(key) : fail(key, `capacities sum to ${sum}, not in [${min},${max}]`);
+      return sum >= min && sum <= max
+        ? pass(key)
+        : fail(key, `capacities sum to ${sum}, not in [${min},${max}]`);
     }
 
     case 'reply.table_row_per_slot': {
@@ -143,7 +163,9 @@ export function runFollowupCheck(key: string, expected: unknown, state: Followup
     }
     case 'reply.must_include_edit_link': {
       if (expected !== true) return skip(key, 'expected true');
-      return state.reply.includes(state.editLink) ? pass(key) : fail(key, `reply has no ${state.editLink}`);
+      return state.reply.includes(state.editLink)
+        ? pass(key)
+        : fail(key, `reply has no ${state.editLink}`);
     }
 
     case 'rationale':
@@ -153,6 +175,9 @@ export function runFollowupCheck(key: string, expected: unknown, state: Followup
   }
 }
 
-export function scoreFollowup(expect: Record<string, unknown>, state: FollowupState): FollowupCheck[] {
+export function scoreFollowup(
+  expect: Record<string, unknown>,
+  state: FollowupState,
+): FollowupCheck[] {
   return Object.entries(expect).map(([k, v]) => runFollowupCheck(k, v, state));
 }

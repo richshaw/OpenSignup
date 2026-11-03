@@ -47,7 +47,10 @@ const keyOnlyDocument = {
   redirect_uris: ['https://keyonly.example/cb'],
   token_endpoint_auth_methods_supported: ['private_key_jwt'],
 };
-const cimdDocuments: Record<string, object> = { [CHATGPT]: chatgptDocument, [KEY_ONLY]: keyOnlyDocument };
+const cimdDocuments: Record<string, object> = {
+  [CHATGPT]: chatgptDocument,
+  [KEY_ONLY]: keyOnlyDocument,
+};
 
 let d: Driver;
 const grantsUsed: string[] = [];
@@ -62,7 +65,12 @@ beforeAll(async () => {
     cookieKeys: ['test-cookie-secret'],
     staticClients: [
       { client_id: CLIENT, client_name: 'Test', redirect_uris: [REDIRECT] },
-      { client_id: 'web-client', client_name: 'Hosted', redirect_uris: ['https://hosted.example/cb'], application_type: 'web' },
+      {
+        client_id: 'web-client',
+        client_name: 'Hosted',
+        redirect_uris: ['https://hosted.example/cb'],
+        application_type: 'web',
+      },
     ],
     organizerExists: async (id) => id === ORG,
     findGrantId: async (a, c) => grantIndex.get(`${a}|${c}`),
@@ -73,7 +81,10 @@ beforeAll(async () => {
     fetch: async (url) => {
       const doc = cimdDocuments[String(url)];
       return doc
-        ? new Response(JSON.stringify(doc), { status: 200, headers: { 'content-type': 'application/json' } })
+        ? new Response(JSON.stringify(doc), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
         : new Response('not found', { status: 404 });
     },
   };
@@ -82,7 +93,10 @@ beforeAll(async () => {
 
 async function approve(uid: string, scopes: string[]): Promise<string> {
   const details = await interactionDetails(d, uid);
-  const grant = new d.provider.Grant({ accountId: ORG, clientId: String(details.params.client_id) });
+  const grant = new d.provider.Grant({
+    accountId: ORG,
+    clientId: String(details.params.client_id),
+  });
   grant.addOIDCScope(scopes.join(' '));
   grant.addResourceScope(RESOURCE, scopes.filter((s) => s !== 'offline_access').join(' '));
   const grantId = await grant.save();
@@ -104,9 +118,13 @@ describe('discovery', () => {
     expect(meta.revocation_endpoint).toBe(`${ISSUER}${OAUTH_ROUTES.revocation}`);
     expect(meta.code_challenge_methods_supported).toEqual(['S256']);
     expect(meta.token_endpoint_auth_methods_supported).toEqual(['none']);
-    expect(meta.grant_types_supported).toEqual(expect.arrayContaining(['authorization_code', 'refresh_token']));
+    expect(meta.grant_types_supported).toEqual(
+      expect.arrayContaining(['authorization_code', 'refresh_token']),
+    );
     expect(meta.client_id_metadata_document_supported).toBe(true);
-    expect(meta.scopes_supported).toEqual(expect.arrayContaining(['signups:read', 'signups:write', 'commitments:read']));
+    expect(meta.scopes_supported).toEqual(
+      expect.arrayContaining(['signups:read', 'signups:write', 'commitments:read']),
+    );
     expect(meta.userinfo_endpoint).toBeUndefined();
     expect(meta.end_session_endpoint).toBeUndefined();
     expect(meta.registration_endpoint).toBeUndefined();
@@ -192,10 +210,18 @@ describe('authorization code flow', () => {
     expect(state).toBe('xyz');
     expect(done.headers.get('location')!.startsWith(REDIRECT)).toBe(true);
     // The provider session cookie is scoped to the OAuth endpoints only.
-    const sessionCookie = done.headers.getSetCookie().find((c) => c.startsWith(`${OAUTH_COOKIES.session}=`));
+    const sessionCookie = done.headers
+      .getSetCookie()
+      .find((c) => c.startsWith(`${OAUTH_COOKIES.session}=`));
     expect(sessionCookie).toMatch(/path=\/api\/oauth/i);
 
-    const tokenRes = await exchangeCode(d, { clientId: CLIENT, redirectUri: REDIRECT, code, verifier, resource: RESOURCE });
+    const tokenRes = await exchangeCode(d, {
+      clientId: CLIENT,
+      redirectUri: REDIRECT,
+      code,
+      verifier,
+      resource: RESOURCE,
+    });
     expect(tokenRes.status).toBe(200);
     const tokens = await tokenRes.json();
     expect(tokens.token_type).toBe('Bearer');
@@ -222,7 +248,11 @@ describe('authorization code flow', () => {
     expect(decodeJwt(t1.access_token).scope).toBe('signups:read signups:write');
 
     // A refresh cannot widen scope.
-    const widen = await refresh(d, { clientId: CLIENT, refreshToken: t1.refresh_token, scope: 'signups:read signups:write commitments:read' });
+    const widen = await refresh(d, {
+      clientId: CLIENT,
+      refreshToken: t1.refresh_token,
+      scope: 'signups:read signups:write commitments:read',
+    });
     expect(widen.status).toBe(400);
     expect((await widen.json()).error).toBe('invalid_scope');
 
@@ -236,13 +266,28 @@ describe('authorization code flow', () => {
 
   it('a replayed authorization code revokes every token issued from it', async () => {
     const { verifier, challenge } = pkcePair();
-    const { uid } = await startAuthorization(d, { clientId: CLIENT, redirectUri: REDIRECT, scope: 'signups:read', challenge });
+    const { uid } = await startAuthorization(d, {
+      clientId: CLIENT,
+      redirectUri: REDIRECT,
+      scope: 'signups:read',
+      challenge,
+    });
     await approve(uid, ['signups:read']);
     const { code } = codeFromRedirect(await resume(d, uid));
-    const first = await exchangeCode(d, { clientId: CLIENT, redirectUri: REDIRECT, code, verifier });
+    const first = await exchangeCode(d, {
+      clientId: CLIENT,
+      redirectUri: REDIRECT,
+      code,
+      verifier,
+    });
     expect(first.status).toBe(200);
     const tokens = await first.json();
-    const again = await exchangeCode(d, { clientId: CLIENT, redirectUri: REDIRECT, code, verifier });
+    const again = await exchangeCode(d, {
+      clientId: CLIENT,
+      redirectUri: REDIRECT,
+      code,
+      verifier,
+    });
     expect(again.status).toBe(400);
     expect((await again.json()).error).toBe('invalid_grant');
     // RFC 6749 §4.1.2: the refresh token minted from the leaked code is dead too.
@@ -286,8 +331,16 @@ describe('authorization code flow', () => {
 
   it('a denied consent returns access_denied to the client, with no code', async () => {
     const { challenge } = pkcePair();
-    const { uid } = await startAuthorization(d, { clientId: CLIENT, redirectUri: REDIRECT, scope: 'signups:read', challenge });
-    await finishInteraction(d, uid, { error: 'access_denied', error_description: 'The organizer declined' });
+    const { uid } = await startAuthorization(d, {
+      clientId: CLIENT,
+      redirectUri: REDIRECT,
+      scope: 'signups:read',
+      challenge,
+    });
+    await finishInteraction(d, uid, {
+      error: 'access_denied',
+      error_description: 'The organizer declined',
+    });
     const done = await resume(d, uid);
     const loc = new URL(done.headers.get('location')!);
     expect(loc.origin + loc.pathname).toBe(REDIRECT);
@@ -296,7 +349,12 @@ describe('authorization code flow', () => {
   });
 
   it('renders a plain HTML error page for a browser when the client is unknown', async () => {
-    const q = new URLSearchParams({ client_id: 'nope', redirect_uri: REDIRECT, response_type: 'code', scope: 'x' });
+    const q = new URLSearchParams({
+      client_id: 'nope',
+      redirect_uri: REDIRECT,
+      response_type: 'code',
+      scope: 'x',
+    });
     const r = await d.get(`${OAUTH_ROUTES.authorization}?${q}`, { accept: 'text/html' });
     expect(r.status).toBe(400);
     expect(r.headers.get('content-type')).toMatch(/text\/html/);
@@ -327,12 +385,31 @@ describe('authorization code flow', () => {
 describe('consent is never skipped', () => {
   it('prompts a web client again even with a live provider session and an existing grant', async () => {
     const { verifier, challenge } = pkcePair();
-    const first = await startAuthorization(d, { clientId: 'web-client', redirectUri: 'https://hosted.example/cb', scope: 'signups:read', challenge });
+    const first = await startAuthorization(d, {
+      clientId: 'web-client',
+      redirectUri: 'https://hosted.example/cb',
+      scope: 'signups:read',
+      challenge,
+    });
     await approve(first.uid, ['signups:read']);
     const { code } = codeFromRedirect(await resume(d, first.uid));
-    expect((await exchangeCode(d, { clientId: 'web-client', redirectUri: 'https://hosted.example/cb', code, verifier })).status).toBe(200);
+    expect(
+      (
+        await exchangeCode(d, {
+          clientId: 'web-client',
+          redirectUri: 'https://hosted.example/cb',
+          code,
+          verifier,
+        })
+      ).status,
+    ).toBe(200);
     // Same browser (same cookie jar → provider session), same client, same scopes.
-    const second = await startAuthorization(d, { clientId: 'web-client', redirectUri: 'https://hosted.example/cb', scope: 'signups:read', challenge: pkcePair().challenge });
+    const second = await startAuthorization(d, {
+      clientId: 'web-client',
+      redirectUri: 'https://hosted.example/cb',
+      scope: 'signups:read',
+      challenge: pkcePair().challenge,
+    });
     expect(second.response.status).toBe(303);
     expect(second.response.headers.get('location')).toBe(consentPath(second.uid));
     const details = await interactionDetails(d, second.uid);
@@ -355,7 +432,13 @@ describe('a CIMD client that lists none among its token endpoint auth methods', 
 
     await approve(uid, ['signups:read', 'signups:write']);
     const { code } = codeFromRedirect(await resume(d, uid));
-    const tokenRes = await exchangeCode(d, { clientId: CHATGPT, redirectUri: CHATGPT_REDIRECT, code, verifier, resource: RESOURCE });
+    const tokenRes = await exchangeCode(d, {
+      clientId: CHATGPT,
+      redirectUri: CHATGPT_REDIRECT,
+      code,
+      verifier,
+      resource: RESOURCE,
+    });
     expect(tokenRes.status, await tokenRes.clone().text()).toBe(200);
     const tokens = await tokenRes.json();
     expect(decodeJwt(tokens.access_token).client_id).toBe(CHATGPT);

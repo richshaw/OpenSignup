@@ -3,7 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/env', () => ({ getEnv: () => ({ AUTH_URL: 'https://signup.example.org' }) }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) as unknown }));
 vi.mock('@/auth/session', () => ({
-  requireActor: async () => ({ kind: 'organizer', id: 'org_1', email: 'pat@example.com', workspaceIds: [], workspaceRoles: {} }),
+  requireActor: async () => ({
+    kind: 'organizer',
+    id: 'org_1',
+    email: 'pat@example.com',
+    workspaceIds: [],
+    workspaceRoles: {},
+  }),
 }));
 vi.mock('@/oauth/provider', () => ({
   renderErrorPage: ({ error, error_description }: { error: string; error_description: string }) =>
@@ -24,7 +30,10 @@ function submit(): Request {
   const body = new URLSearchParams({ decision: 'approve' });
   return new Request('https://signup.example.org/oauth/consent/abc/decision', {
     method: 'POST',
-    headers: { origin: 'https://signup.example.org', 'content-type': 'application/x-www-form-urlencoded' },
+    headers: {
+      origin: 'https://signup.example.org',
+      'content-type': 'application/x-www-form-urlencoded',
+    },
     body,
   });
 }

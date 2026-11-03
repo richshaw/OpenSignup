@@ -287,7 +287,12 @@ describe('findReminderFields', () => {
       config: { fieldType: 'time' },
       sortOrder: 2,
     });
-    const lateDate = def({ id: 'fld_iiiiiiiiiiiiiiiiiiiiii', ref: 'late', fieldType: 'date', sortOrder: 9 });
+    const lateDate = def({
+      id: 'fld_iiiiiiiiiiiiiiiiiiiiii',
+      ref: 'late',
+      fieldType: 'date',
+      sortOrder: 9,
+    });
     const r = findReminderFields({ groupByFieldRefs: [], reminderFromFieldRef: 'late' }, [
       lateDate,
       t1,

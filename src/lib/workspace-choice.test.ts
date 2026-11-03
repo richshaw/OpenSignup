@@ -10,7 +10,10 @@ describe('chooseWorkspaceId', () => {
 
   it('falls back to the default workspace when none is given', () => {
     for (const missing of [undefined, null]) {
-      expect(chooseWorkspaceId(missing, 'ws_default', hints)).toEqual({ ok: true, value: 'ws_default' });
+      expect(chooseWorkspaceId(missing, 'ws_default', hints)).toEqual({
+        ok: true,
+        value: 'ws_default',
+      });
     }
   });
 

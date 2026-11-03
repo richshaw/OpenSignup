@@ -76,7 +76,11 @@
         "slots.count": 3,
         "must_express_target_via_one_of": [
           { "strategy": "capacity", "values": [80, 40, 30] },
-          { "strategy": "number_field", "field_ref_must_match_any": ["target", "qty", "quantity", "amount", "count", "needed"], "values": [80, 40, 30] }
+          {
+            "strategy": "number_field",
+            "field_ref_must_match_any": ["target", "qty", "quantity", "amount", "count", "needed"],
+            "values": [80, 40, 30]
+          }
         ],
         "description_or_field_must_mention_any": ["2026-05-22", "may 22", "friday"],
         "must_not_invent": ["dates other than 2026-05-22", "locations not in prompt"]
@@ -307,7 +311,13 @@
       "expect": {
         "slots.count_range": [3, 6],
         "fields.must_not_include_field_type": "date",
-        "slot_values_must_cover_all": ["picture", "early-reader", "chapter", "middle-grade", "novel"],
+        "slot_values_must_cover_all": [
+          "picture",
+          "early-reader",
+          "chapter",
+          "middle-grade",
+          "novel"
+        ],
         "must_not_invent": ["specific drop-off dates", "specific deadlines"]
       }
     },
@@ -418,20 +428,37 @@
     },
     {
       "id": "ev_025_snack_parent_per_game_no_participant_fields",
-      "tags": ["principle:slots_are_atom", "field_type:date", "regression", "capacity_not_duplicate_rows"],
+      "tags": [
+        "principle:slots_are_atom",
+        "field_type:date",
+        "regression",
+        "capacity_not_duplicate_rows"
+      ],
       "runner": "llm",
       "prompt": "Need a parent to bring snacks to each of our six basketball games this season: Nov 7, Nov 14, Nov 21, Dec 5, Dec 12 and Dec 19, 2026.",
       "expect": {
         "slots.count": 6,
         "slots.all_capacities_equal": 1,
-        "slot_dates.set_must_equal": ["2026-11-07", "2026-11-14", "2026-11-21", "2026-12-05", "2026-12-12", "2026-12-19"],
+        "slot_dates.set_must_equal": [
+          "2026-11-07",
+          "2026-11-14",
+          "2026-11-21",
+          "2026-12-05",
+          "2026-12-12",
+          "2026-12-19"
+        ],
         "fields.labels_must_not_match_any": ["name", "email", "phone", "parent", "snack"],
         "rationale": "Regression (#475, #476): a connected assistant added fields for the parent's name, email and the snack they would bring. Fields are columns the organizer fills in; a sign-up already records a name, email and note."
       }
     },
     {
       "id": "ev_026_three_parents_per_game_capacity_not_name_fields",
-      "tags": ["principle:slots_are_atom", "edge:capacity_gt_1", "regression", "capacity_not_duplicate_rows"],
+      "tags": [
+        "principle:slots_are_atom",
+        "edge:capacity_gt_1",
+        "regression",
+        "capacity_not_duplicate_rows"
+      ],
       "runner": "llm",
       "prompt": "We need three parents at each home game to run the concession stand. Home games are Saturday Nov 7, Nov 21 and Dec 5, 2026.",
       "expect": {

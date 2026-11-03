@@ -8,7 +8,8 @@ import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { chooseWorkspaceId } from '@/lib/workspace-choice';
 
 const WORKSPACE_HINTS = {
-  invalid: 'omit workspaceId to use your default workspace, or pass the id of a workspace you belong to',
+  invalid:
+    'omit workspaceId to use your default workspace, or pass the id of a workspace you belong to',
   noDefault: 'pass the id of a workspace you belong to as workspaceId',
 };
 
@@ -17,8 +18,13 @@ export const POST = organizerRoute(async ({ req, db, actor }) => {
 
   const body = await readJson(req);
   const session = await getOrganizerSession();
-  const requested = body && typeof body === 'object' && 'workspaceId' in body ? body.workspaceId : undefined;
-  const workspace = chooseWorkspaceId(requested, session?.defaultWorkspaceId ?? null, WORKSPACE_HINTS);
+  const requested =
+    body && typeof body === 'object' && 'workspaceId' in body ? body.workspaceId : undefined;
+  const workspace = chooseWorkspaceId(
+    requested,
+    session?.defaultWorkspaceId ?? null,
+    WORKSPACE_HINTS,
+  );
   if (!workspace.ok) return fail(workspace.error);
 
   return respond(await createSignup(db, actor, workspace.value, body), (signup) => ({

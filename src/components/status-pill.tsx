@@ -11,7 +11,7 @@ const FALLBACK = 'bg-ink-soft/10 text-ink-muted';
 export function StatusPill({ status }: { status: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs leading-none font-medium ${STYLES[status] ?? FALLBACK}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium leading-none ${STYLES[status] ?? FALLBACK}`}
     >
       {status}
     </span>

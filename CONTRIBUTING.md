@@ -34,7 +34,7 @@ Run `pnpm test` for unit tests, `pnpm test:db` for integration tests against the
 
 - Keep PRs tight. One logical change per PR.
 - Include tests. For service logic, tests are required and go first (TDD).
-- `pnpm lint && pnpm typecheck && pnpm knip && pnpm test` must pass locally.
+- `pnpm lint && pnpm format:check && pnpm typecheck && pnpm knip && pnpm test` must pass locally. `pnpm format` fixes what `format:check` finds.
 - `pnpm knip` lists files, exports and dependencies that nothing uses. Delete them rather than ignoring them; an entry in `knip.jsonc` needs a comment saying why it has to stay.
 - [`budgets.json`](budgets.json) caps how much JavaScript each page loads (`pnpm budgets`, after `pnpm build`) and how many statements the public signup page and the sign-up request send to Postgres (`src/app/query-budget.db.test.ts`, in `pnpm test:db`). Going over fails CI. If a change really needs more, raise the number in the same PR and say why. If you come in under, lower it, so the saving stays saved.
 - UI changes should include a Playwright smoke or a screenshot.

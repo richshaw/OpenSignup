@@ -375,7 +375,10 @@ describe('slot-fields service (db)', () => {
 
     it('does not deadlock with someone signing up for a slot whose slot_at changes', async () => {
       const sigId = await createTestSignup(fx, 'Add commit race');
-      for (const [ref, fieldType] of [['doors', 'time'], ['day', 'date']] as const) {
+      for (const [ref, fieldType] of [
+        ['doors', 'time'],
+        ['day', 'date'],
+      ] as const) {
         const f = await addField(fx.db, fx.actor, sigId, {
           ref,
           label: ref,
@@ -409,7 +412,10 @@ describe('slot-fields service (db)', () => {
 
     it('rebuilds slot_at from the date a slot edit in flight ends up saving', async () => {
       const sigId = await createTestSignup(fx, 'Add slot-edit race');
-      for (const [ref, fieldType] of [['doors', 'time'], ['day', 'date']] as const) {
+      for (const [ref, fieldType] of [
+        ['doors', 'time'],
+        ['day', 'date'],
+      ] as const) {
         const f = await addField(fx.db, fx.actor, sigId, {
           ref,
           label: ref,
@@ -1547,7 +1553,13 @@ describe('slot-fields service (db)', () => {
         fx.db,
         fx.actor,
         fx.workspaceId,
-        { title: 'Template anchor', description: '', tags: [], visibility: 'unlisted', settings: {} },
+        {
+          title: 'Template anchor',
+          description: '',
+          tags: [],
+          visibility: 'unlisted',
+          settings: {},
+        },
         { template: DEFAULT_TEMPLATE },
       );
       expect(r.ok).toBe(true);

@@ -93,7 +93,10 @@ describe('recordActivityBestEffort', () => {
     // rules a Tx out. Checked by `pnpm typecheck`, not at run time.
     const insideTx = (tx: Tx) =>
       // @ts-expect-error a transaction is not a Db
-      recordActivityBestEffort(tx, { actor: { actorId: null, actorType: 'system' }, eventType: 'auth.magic_link_sent' });
+      recordActivityBestEffort(tx, {
+        actor: { actorId: null, actorType: 'system' },
+        eventType: 'auth.magic_link_sent',
+      });
     expect(insideTx).toBeTypeOf('function');
   });
 });

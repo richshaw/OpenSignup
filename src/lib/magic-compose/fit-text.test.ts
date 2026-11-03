@@ -14,7 +14,9 @@ describe('shortenToLimit', () => {
   });
 
   it('drops punctuation left at the cut', () => {
-    expect(shortenToLimit('Bring snacks, drinks, and plates please', 22)).toBe('Bring snacks, drinks…');
+    expect(shortenToLimit('Bring snacks, drinks, and plates please', 22)).toBe(
+      'Bring snacks, drinks…',
+    );
   });
 
   it('cuts mid-word when there is no space to cut at', () => {

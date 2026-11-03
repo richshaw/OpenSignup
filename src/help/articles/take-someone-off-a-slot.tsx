@@ -41,8 +41,8 @@ export function TakeSomeoneOffASlot() {
           </Step>
           <Step>
             <p>
-              You&apos;ll see a question naming them and their slot. Choose{' '}
-              <Ui>{UI.yesRemove}</Ui>. To leave them on the slot, choose <Ui>{UI.keep}</Ui> instead.
+              You&apos;ll see a question naming them and their slot. Choose <Ui>{UI.yesRemove}</Ui>.
+              To leave them on the slot, choose <Ui>{UI.keep}</Ui> instead.
             </p>
             <Screenshot
               src="/help/take-someone-off-a-slot/confirm.png"

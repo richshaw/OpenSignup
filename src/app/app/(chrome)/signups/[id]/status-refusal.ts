@@ -1,3 +1,4 @@
+import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
 import type { ServiceError } from '@/lib/errors';
 
 /**
@@ -11,7 +12,7 @@ import type { ServiceError } from '@/lib/errors';
 export function statusRefusal(error: ServiceError, change: 'publish' | 'close' | 'reopen'): string {
   switch (error.code) {
     case 'forbidden':
-      return 'You don’t have edit access.';
+      return SAVE_ERROR_MESSAGE.forbidden;
     case 'not_found':
       return 'This signup is no longer available.';
     case 'conflict':

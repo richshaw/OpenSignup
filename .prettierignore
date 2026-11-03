@@ -6,3 +6,7 @@ playwright-report
 test-results
 src/db/migrations
 pnpm-lock.yaml
+# Design mocks copied in from the design tool, not maintained here (knip ignores
+# design-system/** for the same reason).
+design-system/preview
+design-system/ui_kits

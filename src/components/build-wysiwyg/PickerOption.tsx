@@ -25,7 +25,7 @@ export function PickerOption({ active, label, onClick, icon }: PickerOptionProps
       aria-selected={active}
       onClick={onClick}
       className={
-        'flex w-full items-center gap-2 rounded-md border-none px-2.5 py-1.5 text-left text-xs cursor-pointer ' +
+        'flex w-full cursor-pointer items-center gap-2 rounded-md border-none px-2.5 py-1.5 text-left text-xs ' +
         (active
           ? `bg-brand-soft ${checkStyle ? 'font-semibold' : 'font-medium'} text-brand`
           : 'bg-transparent font-medium text-ink hover:bg-surface-raised')
@@ -33,7 +33,9 @@ export function PickerOption({ active, label, onClick, icon }: PickerOptionProps
     >
       {!checkStyle && <span className="inline-flex">{icon}</span>}
       <span className={checkStyle ? 'flex-1 truncate' : 'flex-1'}>{label}</span>
-      {checkStyle && <span className="inline-flex w-3 shrink-0">{active && <Check size={11} />}</span>}
+      {checkStyle && (
+        <span className="inline-flex w-3 shrink-0">{active && <Check size={11} />}</span>
+      )}
     </button>
   );
 }
