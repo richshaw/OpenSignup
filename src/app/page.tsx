@@ -52,7 +52,7 @@ export default async function LandingPage() {
   const jsonLd = serializeJsonLd(buildLandingJsonLd(APP_ORIGIN, INSTANCE_NAME, PAGE_DESCRIPTION));
 
   return (
-    <div className="bg-surface text-ink flex min-h-[100svh] flex-col">
+    <div className="flex min-h-[100svh] flex-col bg-surface text-ink">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
       <header className="flex items-center justify-between px-5 py-5 lg:px-12 lg:py-6">
         <span className="text-lg font-semibold tracking-tight lg:text-xl">{INSTANCE_NAME}</span>
@@ -63,8 +63,8 @@ export default async function LandingPage() {
 
       <main className="mx-auto grid w-full max-w-[1280px] flex-1 grid-cols-1 items-center gap-10 px-5 pb-12 pt-2 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:px-12 lg:pb-16 lg:pt-4">
         <div className="flex flex-col gap-6 lg:gap-7">
-          <span className="border-surface-sunk text-ink-muted inline-flex items-center gap-2 self-start rounded-full border px-3 py-1.5 text-xs font-medium">
-            <span aria-hidden="true" className="bg-success h-1.5 w-1.5 rounded-full" />
+          <span className="inline-flex items-center gap-2 self-start rounded-full border border-surface-sunk px-3 py-1.5 text-xs font-medium text-ink-muted">
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-success" />
             Ad-free · No accounts for participants
           </span>
 
@@ -74,7 +74,7 @@ export default async function LandingPage() {
             <span className="text-ink-muted">redone.</span>
           </h1>
 
-          <p className="text-ink-muted max-w-[520px] text-base leading-normal lg:text-lg">
+          <p className="max-w-[520px] text-base leading-normal text-ink-muted lg:text-lg">
             Coordinate snack rotations, potlucks, volunteer shifts, and carpools. Made for school
             parents, coaches, and community organizers.
           </p>
@@ -82,7 +82,7 @@ export default async function LandingPage() {
           <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap">
             <StartSignupCta
               href="/app/signups/new"
-              className="bg-brand inline-flex items-center justify-center gap-2 rounded-[14px] px-5 py-3 text-base font-semibold text-white transition hover:bg-brand-hover lg:text-[15px]"
+              className="inline-flex items-center justify-center gap-2 rounded-[14px] bg-brand px-5 py-3 text-base font-semibold text-white transition hover:bg-brand-hover lg:text-[15px]"
             >
               Start a signup
               <svg
@@ -104,7 +104,7 @@ export default async function LandingPage() {
             ) : demoUrl ? (
               <a
                 href={demoUrl}
-                className="bg-surface border-surface-sunk text-ink hover:bg-surface-raised inline-flex items-center justify-center gap-2 rounded-[14px] border px-5 py-3 text-base font-medium transition lg:text-[15px]"
+                className="inline-flex items-center justify-center gap-2 rounded-[14px] border border-surface-sunk bg-surface px-5 py-3 text-base font-medium text-ink transition hover:bg-surface-raised lg:text-[15px]"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
                   <polygon points="6 4 20 12 6 20 6 4" fill="currentColor" />
@@ -114,7 +114,7 @@ export default async function LandingPage() {
             ) : null}
           </div>
 
-          <p className="text-ink-soft text-center text-sm lg:text-left">
+          <p className="text-center text-sm text-ink-soft lg:text-left">
             Free · publish in minutes · no credit card.
           </p>
         </div>
@@ -122,7 +122,7 @@ export default async function LandingPage() {
         <div className="relative flex justify-center lg:justify-start">
           <div
             aria-hidden="true"
-            className="bg-surface-raised pointer-events-none absolute -inset-y-8 -left-4 -right-12 hidden rounded-full opacity-70 blur-2xl lg:block"
+            className="pointer-events-none absolute -inset-y-8 -left-4 -right-12 hidden rounded-full bg-surface-raised opacity-70 blur-2xl lg:block"
           />
           <div className="relative z-10 w-full max-w-[560px]">
             <HomeExampleCard />

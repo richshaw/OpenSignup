@@ -725,10 +725,10 @@ test.describe('a Build edit and a reload', () => {
   // The title and description keep their text in the field until it blurs,
   // and a reload blurs nothing (#699).
   const storedMeta = async (page: Page, id: string) =>
-    ((await (await page.request.get(`/api/signups/${id}`)).json()).data as {
+    (await (await page.request.get(`/api/signups/${id}`)).json()).data as {
       title: string;
       description: string | null;
-    });
+    };
 
   test('a title typed just before a reload is kept', async ({ page }) => {
     const draft = await createDraft(page.request, {

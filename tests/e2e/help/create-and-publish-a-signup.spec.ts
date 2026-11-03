@@ -68,7 +68,9 @@ test.describe('help: create and publish your first signup', () => {
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
     await helpElementShot(page, SLUG, slotEditor, 'slot');
     await slotEditor.getByRole('button', { name: UI.done }).click();
-    await expect(page.getByRole('button', { name: /^Edit slot — Fruit and water, / })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^Edit slot — Fruit and water, / }),
+    ).toBeVisible();
 
     await page.getByRole('button', { name: UI.addSlot }).click();
     await expect(page.getByRole('button', { name: /^Edit slot.*taken$/ })).toHaveCount(2);
@@ -88,7 +90,9 @@ test.describe('help: create and publish your first signup', () => {
     // opens in its place, directly under the original's row, with focus in it.
     await expect(slotEditor).not.toHaveAttribute('data-testid', original!);
     await expect(slotEditor.getByRole('textbox', { name: `${UI.what} value` })).toBeFocused();
-    await expect(page.getByRole('button', { name: /^Edit slot — Fruit and water, / })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: /^Edit slot — Fruit and water, / })).toHaveCount(
+      1,
+    );
     const rows = page.locator('[data-testid^="wysiwyg-slot-"]');
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(1).locator('[data-testid^="slot-editor-"]')).toBeVisible();

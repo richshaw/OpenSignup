@@ -1,3 +1,4 @@
+import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
 import type { ErrorCode } from '@/lib/errors';
 
 /**
@@ -12,7 +13,7 @@ export function removeRefusal(code: ErrorCode): string {
     case 'not_found':
       return 'This person is no longer on this signup. Reload to see the latest.';
     case 'forbidden':
-      return 'You don’t have edit access.';
+      return SAVE_ERROR_MESSAGE.forbidden;
     default:
       return 'Couldn’t remove them. Try again.';
   }

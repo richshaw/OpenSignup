@@ -61,7 +61,10 @@ export async function persistDraft(
       );
     }
   } else if (warnings.length > 0) {
-    log.warn({ dropped, ...(opts.logContext ?? {}) }, 'draft conversion adjusted or dropped values');
+    log.warn(
+      { dropped, ...(opts.logContext ?? {}) },
+      'draft conversion adjusted or dropped values',
+    );
   }
   const created = await createSignup(
     db,
@@ -97,13 +100,16 @@ function fieldsWithNoValue(template: SignupTemplate, d: DroppedSummary): string[
   const misformatted = new Set(d.coercionFailures.map((f) => f.ref));
   return template.fields
     .map((f) => f.ref)
-    .filter((ref) => !misformatted.has(ref) && !template.slots.some((s) => s.values[ref] !== undefined));
+    .filter(
+      (ref) => !misformatted.has(ref) && !template.slots.some((s) => s.values[ref] !== undefined),
+    );
 }
 
 /** What a deliberate caller has to change, one clause per problem. */
 function describeProblems(d: DroppedSummary, valuelessFields: string[]): string {
   const parts: string[] = [];
-  for (const f of d.coercionFailures) parts.push(`slot ${f.slot + 1} "${f.ref}" must be ${EXPECTED[f.reason]}`);
+  for (const f of d.coercionFailures)
+    parts.push(`slot ${f.slot + 1} "${f.ref}" must be ${EXPECTED[f.reason]}`);
   for (const ref of d.emptyEnumFields) parts.push(`enum field "${ref}" needs at least one choice`);
   for (const ref of d.duplicateRefs) parts.push(`field ref "${ref}" is used more than once`);
   for (const key of d.strayValueKeys) parts.push(`value key "${key}" matches no field ref`);

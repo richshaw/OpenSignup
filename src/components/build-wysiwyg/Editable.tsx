@@ -101,7 +101,8 @@ export function Editable({
   if (editing) {
     const sharedProps = {
       value: draft,
-      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setDraft(e.target.value),
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+        setDraft(e.target.value),
       onBlur: commit,
       placeholder,
       maxLength,
@@ -112,7 +113,9 @@ export function Editable({
       return (
         <textarea
           {...sharedProps}
-          ref={(el) => { inputRef.current = el; }}
+          ref={(el) => {
+            inputRef.current = el;
+          }}
           rows={Math.max(2, draft.split('\n').length)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
@@ -129,7 +132,9 @@ export function Editable({
         {...input}
         {...sharedProps}
         {...(input ? { className: FIELD_VALUE_INPUT_CLASS } : {})}
-        ref={(el) => { inputRef.current = el; }}
+        ref={(el) => {
+          inputRef.current = el;
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
@@ -162,10 +167,12 @@ export function Editable({
       // A word longer than the sheet is wide (a pasted link, a run of
       // letters) wraps rather than spilling out of the card. A multiline
       // value keeps its line breaks, as the public page shows them.
-      className={`${className} ${multiline ? 'whitespace-pre-line' : ''} [overflow-wrap:anywhere] cursor-text rounded transition-colors duration-180 hover:bg-brand-soft focus:bg-brand-soft focus:outline-none`}
+      className={`${className} ${multiline ? 'whitespace-pre-line' : ''} cursor-text rounded transition-colors duration-180 [overflow-wrap:anywhere] hover:bg-brand-soft focus:bg-brand-soft focus:outline-none`}
     >
-      {value ? (display ?? value) : (
-        <span className="text-ink-soft italic font-normal">{placeholder}</span>
+      {value ? (
+        (display ?? value)
+      ) : (
+        <span className="font-normal italic text-ink-soft">{placeholder}</span>
       )}
     </span>
   );

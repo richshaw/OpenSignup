@@ -70,11 +70,25 @@ beforeEach(() => {
 
 describe('field tools', () => {
   it('add_field takes the create_signup field shape and builds the config itself', async () => {
-    fields.addField.mockResolvedValueOnce(ok({ ...field, ref: 'day', label: 'Day', fieldType: 'enum', config: { fieldType: 'enum', choices: ['Sat', 'Sun'] } }));
+    fields.addField.mockResolvedValueOnce(
+      ok({
+        ...field,
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'enum',
+        config: { fieldType: 'enum', choices: ['Sat', 'Sun'] },
+      }),
+    );
     const client = await connectTestClient(ctx, TOOLS);
     const r = await client.callTool({
       name: 'add_field',
-      arguments: { signupId: 'sig_1', ref: 'day', label: 'Day', fieldType: 'enum', choices: ['Sat', 'Sun'] },
+      arguments: {
+        signupId: 'sig_1',
+        ref: 'day',
+        label: 'Day',
+        fieldType: 'enum',
+        choices: ['Sat', 'Sun'],
+      },
     });
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
     expect(fields.addField).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
@@ -83,13 +97,25 @@ describe('field tools', () => {
       fieldType: 'enum',
       config: { fieldType: 'enum', choices: ['Sat', 'Sun'] },
     });
-    expect((r.structuredContent as { field: { config: unknown } }).field.config).toEqual({ fieldType: 'enum', choices: ['Sat', 'Sun'] });
+    expect((r.structuredContent as { field: { config: unknown } }).field.config).toEqual({
+      fieldType: 'enum',
+      choices: ['Sat', 'Sun'],
+    });
   });
 
   it('add_field passes beforeFieldId through and defaults text to a 200-character config', async () => {
     fields.addField.mockResolvedValueOnce(ok(field));
     const client = await connectTestClient(ctx, TOOLS);
-    await client.callTool({ name: 'add_field', arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'text', beforeFieldId: 'fld_0' } });
+    await client.callTool({
+      name: 'add_field',
+      arguments: {
+        signupId: 'sig_1',
+        ref: 'what',
+        label: 'What',
+        fieldType: 'text',
+        beforeFieldId: 'fld_0',
+      },
+    });
     expect(fields.addField).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
       ref: 'what',
       label: 'What',
@@ -101,7 +127,10 @@ describe('field tools', () => {
 
   it('add_field refuses a sortOrder and points at beforeFieldId', async () => {
     const client = await connectTestClient(ctx, TOOLS);
-    const r = await client.callTool({ name: 'add_field', arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'text', sortOrder: 0 } });
+    const r = await client.callTool({
+      name: 'add_field',
+      arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'text', sortOrder: 0 },
+    });
     expect(r.isError).toBe(true);
     expect((r.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
     expect(JSON.stringify(r.structuredContent)).toContain('beforeFieldId');
@@ -112,19 +141,30 @@ describe('field tools', () => {
     const client = await connectTestClient(ctx, TOOLS);
     const r = await client.callTool({
       name: 'add_field',
-      arguments: { signupId: 'sig_1', ref: 'what', label: 'What', fieldType: 'enum', config: { fieldType: 'enum', choices: ['a'] } },
+      arguments: {
+        signupId: 'sig_1',
+        ref: 'what',
+        label: 'What',
+        fieldType: 'enum',
+        config: { fieldType: 'enum', choices: ['a'] },
+      },
     });
     expect(r.isError).toBe(true);
     const text = JSON.stringify(r.structuredContent);
     expect(text).toContain('invalid_input');
-    expect(text).toContain('add_field takes signupId, ref, label, fieldType, choices and beforeFieldId.');
+    expect(text).toContain(
+      'add_field takes signupId, ref, label, fieldType, choices and beforeFieldId.',
+    );
     expect(text).not.toContain('no sortOrder');
     expect(fields.addField).not.toHaveBeenCalled();
   });
 
   it('update_field refuses a sortOrder and points at reorder_fields', async () => {
     const client = await connectTestClient(ctx, TOOLS);
-    const r = await client.callTool({ name: 'update_field', arguments: { fieldId: 'fld_1', sortOrder: 0 } });
+    const r = await client.callTool({
+      name: 'update_field',
+      arguments: { fieldId: 'fld_1', sortOrder: 0 },
+    });
     expect(r.isError).toBe(true);
     expect((r.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
     expect(JSON.stringify(r.structuredContent)).toContain('reorder_fields');
@@ -134,20 +174,34 @@ describe('field tools', () => {
   it('reorder_fields passes the ids through and returns the fields', async () => {
     fields.reorderFields.mockResolvedValueOnce(ok([{ ...field, id: 'fld_2' }, field]));
     const client = await connectTestClient(ctx, TOOLS);
-    const r = await client.callTool({ name: 'reorder_fields', arguments: { signupId: 'sig_1', fieldIds: ['fld_2', 'fld_1'] } });
+    const r = await client.callTool({
+      name: 'reorder_fields',
+      arguments: { signupId: 'sig_1', fieldIds: ['fld_2', 'fld_1'] },
+    });
     expect(r.isError).toBeFalsy();
-    expect(fields.reorderFields).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', { fieldIds: ['fld_2', 'fld_1'] });
-    expect((r.structuredContent as { fields: { id: string }[] }).fields.map((f) => f.id)).toEqual(['fld_2', 'fld_1']);
+    expect(fields.reorderFields).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
+      fieldIds: ['fld_2', 'fld_1'],
+    });
+    expect((r.structuredContent as { fields: { id: string }[] }).fields.map((f) => f.id)).toEqual([
+      'fld_2',
+      'fld_1',
+    ]);
   });
 
   it('update_field keeps the strict schema closed', async () => {
     const client = await connectTestClient(ctx, TOOLS);
-    const r = await client.callTool({ name: 'update_field', arguments: { fieldId: 'fld_1', label: 'When', bogus: 1 } });
+    const r = await client.callTool({
+      name: 'update_field',
+      arguments: { fieldId: 'fld_1', label: 'When', bogus: 1 },
+    });
     expect(r.isError).toBe(true);
     expect((r.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
     expect(fields.updateField).not.toHaveBeenCalled();
     fields.updateField.mockResolvedValueOnce(ok({ ...field, label: 'When' }));
-    const good = await client.callTool({ name: 'update_field', arguments: { fieldId: 'fld_1', label: 'When' } });
+    const good = await client.callTool({
+      name: 'update_field',
+      arguments: { fieldId: 'fld_1', label: 'When' },
+    });
     expect(good.isError).toBeFalsy();
     expect(fields.updateField).toHaveBeenCalledWith(ctx.db, ctx.actor, 'fld_1', { label: 'When' });
   });
@@ -168,7 +222,10 @@ describe('slot tools', () => {
     const client = await connectTestClient(ctx, TOOLS);
     const r = await client.callTool({
       name: 'add_slots',
-      arguments: { signupId: 'sig_1', rows: [{ values: { what: 'x' } }, { values: { what: 'y' }, capacity: null }] },
+      arguments: {
+        signupId: 'sig_1',
+        rows: [{ values: { what: 'x' } }, { values: { what: 'y' }, capacity: null }],
+      },
     });
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
     expect(slots.addSlotsBulk).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
@@ -273,7 +330,10 @@ describe('slot tools', () => {
   it('update_slot addresses the slot by id', async () => {
     slots.updateSlot.mockResolvedValueOnce(ok({ ...slot, capacity: 4 }));
     const client = await connectTestClient(ctx, TOOLS);
-    const r = await client.callTool({ name: 'update_slot', arguments: { slotId: 'slot_1', capacity: 4 } });
+    const r = await client.callTool({
+      name: 'update_slot',
+      arguments: { slotId: 'slot_1', capacity: 4 },
+    });
     expect(slots.updateSlot).toHaveBeenCalledWith(ctx.db, ctx.actor, 'slot_1', { capacity: 4 });
     expect((r.structuredContent as { slot: { capacity: number } }).slot.capacity).toBe(4);
   });
@@ -298,13 +358,24 @@ describe('slot tools', () => {
   });
 
   it('delete_slot asks the service not to force unless told, and relays the conflict', async () => {
-    slots.deleteSlot.mockResolvedValueOnce(err(serviceError('conflict', '2 people have signed up for this slot', { details: { filled: 2 } })));
+    slots.deleteSlot.mockResolvedValueOnce(
+      err(
+        serviceError('conflict', '2 people have signed up for this slot', {
+          details: { filled: 2 },
+        }),
+      ),
+    );
     const client = await connectTestClient(ctx, TOOLS);
     const refused = await client.callTool({ name: 'delete_slot', arguments: { slotId: 'slot_1' } });
     expect(slots.deleteSlot).toHaveBeenCalledWith(ctx.db, ctx.actor, 'slot_1', { force: false });
-    expect((refused.structuredContent as { error: { code: string; details: { filled: number } } }).error).toMatchObject({ code: 'conflict', details: { filled: 2 } });
+    expect(
+      (refused.structuredContent as { error: { code: string; details: { filled: number } } }).error,
+    ).toMatchObject({ code: 'conflict', details: { filled: 2 } });
     slots.deleteSlot.mockResolvedValueOnce(ok({ deleted: true, commitmentsRemoved: 2 }));
-    const forced = await client.callTool({ name: 'delete_slot', arguments: { slotId: 'slot_1', force: true } });
+    const forced = await client.callTool({
+      name: 'delete_slot',
+      arguments: { slotId: 'slot_1', force: true },
+    });
     expect(slots.deleteSlot).toHaveBeenLastCalledWith(ctx.db, ctx.actor, 'slot_1', { force: true });
     expect(forced.structuredContent).toEqual({ deleted: true, commitmentsRemoved: 2 });
   });

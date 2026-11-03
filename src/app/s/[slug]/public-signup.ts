@@ -1,6 +1,6 @@
 import { slotTimeOfDay } from '@/lib/reminder-fields';
 import { slotInLockout } from '@/lib/signup-closing';
-import { requiresEmail, sendsReminders } from '@/schemas/signups';
+import { requiresEmail, sendsReminders, type StoredSignupSettings } from '@/schemas/signups';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SlotStatus } from '@/schemas/slots';
 import type { SignupViewSlot } from './signup-view-types';
@@ -15,7 +15,7 @@ interface SourceSlot {
 }
 
 interface SourceSignup {
-  settings: unknown;
+  settings: StoredSignupSettings;
   fields: SlotFieldDefinition[];
   slots: readonly SourceSlot[];
 }
@@ -33,7 +33,6 @@ export function toSignupViewSlots(
   committedBySlot?: Record<string, number>,
   now: number = Date.now(),
 ): SignupViewSlot[] {
-  const settings = (signup.settings ?? {}) as { reminderFromFieldRef?: string };
   return signup.slots.map((slot) => {
     const values = (slot.values as Record<string, unknown>) ?? {};
     return {
@@ -41,7 +40,8 @@ export function toSignupViewSlots(
       ref: slot.ref,
       values,
       slotAt: slot.slotAt ? slot.slotAt.toISOString() : null,
-      hasTime: slot.slotAt !== null && slotTimeOfDay(settings, signup.fields, values) !== null,
+      hasTime:
+        slot.slotAt !== null && slotTimeOfDay(signup.settings, signup.fields, values) !== null,
       capacity: slot.capacity,
       status: slotInLockout(signup.settings, slot.slotAt, now)
         ? 'closed'
@@ -69,7 +69,6 @@ export function toPublicSignup(
     committedBySlot: Record<string, number>;
   },
 ) {
-  const settings = (signup.settings ?? {}) as { groupByFieldRefs?: string[] };
   return {
     slug: signup.slug,
     title: signup.title,
@@ -80,7 +79,7 @@ export function toPublicSignup(
     settings: {
       requireEmail: requiresEmail(signup.settings),
       sendReminders: sendsReminders(signup.settings),
-      groupByFieldRefs: settings.groupByFieldRefs ?? [],
+      groupByFieldRefs: signup.settings.groupByFieldRefs ?? [],
     },
     fields: signup.fields.map(({ ref, label, fieldType, config }) => ({
       ref,

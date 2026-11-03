@@ -52,9 +52,9 @@ export default async function ConnectedAppsPage({
     <section className="space-y-6">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Connected apps</h1>
-        <p className="text-ink-muted text-sm">
-          Apps and AI assistants you have allowed to use your account. Each one acts as you, in every
-          workspace you belong to, with the permissions you approved.
+        <p className="text-sm text-ink-muted">
+          Apps and AI assistants you have allowed to use your account. Each one acts as you, in
+          every workspace you belong to, with the permissions you approved.
         </p>
       </div>
 
@@ -69,7 +69,7 @@ export default async function ConnectedAppsPage({
       {apps.length === 0 ? (
         <div className="rounded-xl border border-dashed border-surface-sunk px-6 py-10 text-center">
           <p className="font-medium">No connected apps</p>
-          <p className="text-ink-muted mt-1 text-sm">
+          <p className="mt-1 text-sm text-ink-muted">
             When you connect an AI assistant such as Claude or ChatGPT to your account, it will show
             up here.
           </p>
@@ -77,22 +77,27 @@ export default async function ConnectedAppsPage({
       ) : (
         <ul className="divide-y divide-surface-sunk rounded-xl border border-surface-sunk bg-white">
           {apps.map((app) => (
-            <li key={app.grantId} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+            <li
+              key={app.grantId}
+              className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between"
+            >
               <div className="min-w-0 space-y-1">
                 <p className="font-medium">
                   <span className="break-all">{app.client.domain}</span>
                   {app.client.name ? (
-                    <span className="text-ink-muted font-normal"> · {app.client.name}</span>
+                    <span className="font-normal text-ink-muted"> · {app.client.name}</span>
                   ) : null}
                 </p>
-                <ul className="text-ink-muted text-sm">
+                <ul className="text-sm text-ink-muted">
                   {app.scopes.map((s) => (
                     <li key={s}>{SCOPE_DESCRIPTIONS[s]}</li>
                   ))}
                 </ul>
-                <p className="text-ink-soft text-xs">
+                <p className="text-xs text-ink-soft">
                   Approved {formatDate(app.approvedAt)}
-                  {app.lastUsedAt ? ` · last used ${formatDate(app.lastUsedAt)}` : ' · not used yet'}
+                  {app.lastUsedAt
+                    ? ` · last used ${formatDate(app.lastUsedAt)}`
+                    : ' · not used yet'}
                   {app.expiresAt ? ` · expires ${formatDate(app.expiresAt)} unless renewed` : ''}
                 </p>
               </div>
@@ -105,7 +110,7 @@ export default async function ConnectedAppsPage({
         </ul>
       )}
 
-      <p className="text-ink-soft text-xs">
+      <p className="text-xs text-ink-soft">
         Disconnecting stops an app from getting new access straight away. Access it already holds
         expires on its own within {residualMinutes} minutes and cannot be cut short.
       </p>

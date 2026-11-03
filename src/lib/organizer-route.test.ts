@@ -19,7 +19,9 @@ const organizer: Actor = {
 };
 
 function call(route: ReturnType<typeof organizerRoute<{ id: string }>>) {
-  return route(new NextRequest('http://localhost/api/x'), { params: Promise.resolve({ id: 'sig_1' }) });
+  return route(new NextRequest('http://localhost/api/x'), {
+    params: Promise.resolve({ id: 'sig_1' }),
+  });
 }
 
 describe('organizerRoute()', () => {
@@ -34,7 +36,9 @@ describe('organizerRoute()', () => {
   it('hands the handler the organizer and params, and sends a Result through respond', async () => {
     session.actor = organizer;
     const res = await call(
-      organizerRoute<{ id: string }>(async ({ actor, params }) => ok({ actor: actor.id, id: params.id })),
+      organizerRoute<{ id: string }>(async ({ actor, params }) =>
+        ok({ actor: actor.id, id: params.id }),
+      ),
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ data: { actor: 'org_1', id: 'sig_1' } });
@@ -42,13 +46,17 @@ describe('organizerRoute()', () => {
 
   it('maps an error Result to its status', async () => {
     session.actor = organizer;
-    const res = await call(organizerRoute<{ id: string }>(async () => err(serviceError('not_found', 'missing'))));
+    const res = await call(
+      organizerRoute<{ id: string }>(async () => err(serviceError('not_found', 'missing'))),
+    );
     expect(res.status).toBe(404);
   });
 
   it('passes a returned Response through untouched', async () => {
     session.actor = organizer;
-    const res = await call(organizerRoute<{ id: string }>(async () => new Response('a,b', { status: 200 })));
+    const res = await call(
+      organizerRoute<{ id: string }>(async () => new Response('a,b', { status: 200 })),
+    );
     expect(await res.text()).toBe('a,b');
   });
 });

@@ -1,4 +1,11 @@
-import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes, randomInt } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHmac,
+  hkdfSync,
+  randomBytes,
+  randomInt,
+} from 'node:crypto';
 import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { magicLinks } from '@/db/schema/magic-links';
@@ -37,7 +44,9 @@ export function normalizeLoginCode(raw: string): string | null {
 }
 
 export function hashLoginCode(email: string, code: string, secret = getEnv().AUTH_SECRET): string {
-  return createHmac('sha256', secret).update(`${normalizeEmail(email)}:${code}`).digest('hex');
+  return createHmac('sha256', secret)
+    .update(`${normalizeEmail(email)}:${code}`)
+    .digest('hex');
 }
 
 function encryptionKey(secret: string): Buffer {
@@ -86,7 +95,13 @@ export async function issueLoginCode(
     await tx
       .update(magicLinks)
       .set({ consumedAt: new Date() })
-      .where(and(eq(magicLinks.email, email), eq(magicLinks.purpose, PURPOSE), isNull(magicLinks.consumedAt)));
+      .where(
+        and(
+          eq(magicLinks.email, email),
+          eq(magicLinks.purpose, PURPOSE),
+          isNull(magicLinks.consumedAt),
+        ),
+      );
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = generateLoginCode();
       const inserted = await tx
@@ -116,7 +131,12 @@ export async function issueLoginCode(
 export async function sweepExpiredLoginCodes(db: Queryable): Promise<number> {
   const { count } = await db
     .delete(magicLinks)
-    .where(and(eq(magicLinks.purpose, PURPOSE), or(lt(magicLinks.expiresAt, new Date()), sql`${magicLinks.consumedAt} is not null`)));
+    .where(
+      and(
+        eq(magicLinks.purpose, PURPOSE),
+        or(lt(magicLinks.expiresAt, new Date()), sql`${magicLinks.consumedAt} is not null`),
+      ),
+    );
   return count;
 }
 
@@ -131,13 +151,19 @@ export async function redeemLoginCode(
 ): Promise<Result<string, ServiceError>> {
   const email = normalizeEmail(input.email);
   const code = normalizeLoginCode(input.code);
-  if (!code) return err(serviceError('invalid_input', 'enter the six-digit code from the email', { field: 'code' }));
+  if (!code)
+    return err(
+      serviceError('invalid_input', 'enter the six-digit code from the email', { field: 'code' }),
+    );
   const [row] = await db
     .select()
     .from(magicLinks)
-    .where(and(eq(magicLinks.tokenHash, hashLoginCode(email, code)), eq(magicLinks.purpose, PURPOSE)))
+    .where(
+      and(eq(magicLinks.tokenHash, hashLoginCode(email, code)), eq(magicLinks.purpose, PURPOSE)),
+    )
     .limit(1);
-  if (!row || row.consumedAt) return err(serviceError('invalid_input', 'that code is not valid', { field: 'code' }));
+  if (!row || row.consumedAt)
+    return err(serviceError('invalid_input', 'that code is not valid', { field: 'code' }));
   if (row.expiresAt.getTime() <= Date.now()) {
     return err(serviceError('already_consumed', 'that code has expired — request a new link'));
   }
@@ -146,7 +172,8 @@ export async function redeemLoginCode(
     .set({ consumedAt: new Date() })
     .where(and(eq(magicLinks.id, row.id), isNull(magicLinks.consumedAt)))
     .returning({ id: magicLinks.id });
-  if (claimed.length === 0) return err(serviceError('invalid_input', 'that code is not valid', { field: 'code' }));
+  if (claimed.length === 0)
+    return err(serviceError('invalid_input', 'that code is not valid', { field: 'code' }));
   const url = row.payloadEncrypted ? decryptCallbackUrl(row.payloadEncrypted) : null;
   if (!url) return err(serviceError('internal', 'could not read the sign-in link for that code'));
   return ok(url);

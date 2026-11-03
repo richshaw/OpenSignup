@@ -24,8 +24,8 @@ export default async function CheckEmailPage({
           <h1 className="text-3xl font-semibold tracking-tight">Check your email</h1>
           <p className="text-ink-muted">
             We sent a sign-in link to your inbox. Click it to continue. The link expires in{' '}
-            {formatDuration(getMagicLinkMaxAgeMinutes())}. This page will move on by itself once
-            you have signed in.
+            {formatDuration(getMagicLinkMaxAgeMinutes())}. This page will move on by itself once you
+            have signed in.
           </p>
         </div>
       </main>

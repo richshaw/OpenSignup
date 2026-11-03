@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { SignupCreateInputSchema, SignupUpdateInputSchema, requiresEmail, sendsReminders } from './signups';
+import {
+  SignupCreateInputSchema,
+  SignupUpdateInputSchema,
+  requiresEmail,
+  sendsReminders,
+} from './signups';
 
 describe('requiresEmail', () => {
   it.each([

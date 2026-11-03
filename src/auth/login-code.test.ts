@@ -32,9 +32,15 @@ describe('normalizeLoginCode', () => {
 
 describe('hashLoginCode', () => {
   it('is keyed to the (normalised) email, so a code cannot be replayed for another address', () => {
-    expect(hashLoginCode('A@Example.com', '123456')).toBe(hashLoginCode(' a@example.com', '123456'));
-    expect(hashLoginCode('a@example.com', '123456')).not.toBe(hashLoginCode('b@example.com', '123456'));
-    expect(hashLoginCode('a@example.com', '123456')).not.toBe(hashLoginCode('a@example.com', '123457'));
+    expect(hashLoginCode('A@Example.com', '123456')).toBe(
+      hashLoginCode(' a@example.com', '123456'),
+    );
+    expect(hashLoginCode('a@example.com', '123456')).not.toBe(
+      hashLoginCode('b@example.com', '123456'),
+    );
+    expect(hashLoginCode('a@example.com', '123456')).not.toBe(
+      hashLoginCode('a@example.com', '123457'),
+    );
   });
 });
 

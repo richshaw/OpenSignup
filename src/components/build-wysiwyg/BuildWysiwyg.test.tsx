@@ -108,7 +108,14 @@ describe('BuildWysiwyg — group headers', () => {
       <BuildWysiwyg
         {...baseProps}
         initialFields={[
-          { id: 'f-date', ref: 'date', label: 'Date', fieldType: 'date', sortOrder: 0, config: { fieldType: 'date' } },
+          {
+            id: 'f-date',
+            ref: 'date',
+            label: 'Date',
+            fieldType: 'date',
+            sortOrder: 0,
+            config: { fieldType: 'date' },
+          },
         ]}
         initialSettings={{ ...settings, groupByFieldRefs: ['date'] }}
         initialSlots={[{ id: 'slot_a', capacity: 2, sortOrder: 0, values: { date: '2026-11-14' } }]}
@@ -240,7 +247,12 @@ describe('BuildWysiwyg — opened from its row', () => {
         ]}
         initialSettings={{ ...settings, groupByFieldRefs: ['date'] }}
         initialSlots={[
-          { id: 'slot_a', capacity: 2, sortOrder: 0, values: { name: 'Fruit', date: '2026-11-14' } },
+          {
+            id: 'slot_a',
+            capacity: 2,
+            sortOrder: 0,
+            values: { name: 'Fruit', date: '2026-11-14' },
+          },
         ]}
       />,
     );
@@ -482,12 +494,14 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
 
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({ data: { id: 'slot_new', capacity: 1, sortOrder: 2, values: {} } }),
-          { status: 201, headers: { 'Content-Type': 'application/json' } },
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ data: { id: 'slot_new', capacity: 1, sortOrder: 2, values: {} } }),
+            { status: 201, headers: { 'Content-Type': 'application/json' } },
+          ),
         ),
-      ),
     );
     await act(async () => bridge().openSlot(null));
     done('slot_new');
@@ -717,10 +731,14 @@ describe('BuildWysiwyg — a slot that says TBD', () => {
       <BuildWysiwyg
         {...baseProps}
         initialFields={[what]}
-        initialSlots={[{ id: 'slot_b', capacity: 1, sortOrder: 0, values: { what: 'Cashier TBD' } }]}
+        initialSlots={[
+          { id: 'slot_b', capacity: 1, sortOrder: 0, values: { what: 'Cashier TBD' } },
+        ]}
       />,
     );
     expect(screen.queryByText(/still says/i)).toBeNull();
-    expect(screen.getByRole('button', { name: 'Edit slot — Cashier TBD, 0 of 1 taken' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Edit slot — Cashier TBD, 0 of 1 taken' }),
+    ).toBeTruthy();
   });
 });

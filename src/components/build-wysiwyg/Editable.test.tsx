@@ -90,7 +90,7 @@ describe('Editable', () => {
     expect(btn.textContent).toBe('THU, MAY 21');
   });
 
-  it('wraps a word too long for the card, and keeps a description\'s line breaks', () => {
+  it("wraps a word too long for the card, and keeps a description's line breaks", () => {
     renderEditable({ value: 'first\nsecond', multiline: true });
     const btn = screen.getByRole('button', { name: 'Editable' });
     expect(btn.className).toContain('[overflow-wrap:anywhere]');

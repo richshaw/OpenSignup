@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } from '@/lib/signup-limits';
+import {
+  DESCRIPTION_MAX_LENGTH,
+  TITLE_MAX_LENGTH,
+  TITLE_MIN_LENGTH,
+  TITLE_TOO_SHORT_MESSAGE,
+} from '@/lib/signup-limits';
 import { NameSchema, TagsSchema } from './common';
 
 export { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH };
@@ -88,7 +93,7 @@ export const TitleSchema = z
   .string()
   .max(TITLE_MAX_LENGTH)
   .trim()
-  .min(TITLE_MIN_LENGTH, `Title must be at least ${TITLE_MIN_LENGTH} characters.`);
+  .min(TITLE_MIN_LENGTH, TITLE_TOO_SHORT_MESSAGE);
 
 export const SignupCreateInputSchema = z.object({
   title: TitleSchema,
@@ -107,6 +112,10 @@ export const SignupUpdateInputSchema = SignupCreateInputSchema.partial().extend(
   // none is listed or indexed. Refused rather than stripped, so a caller is not
   // told a change worked when nothing changed.
   visibility: z
-    .undefined({ errorMap: () => ({ message: "visibility can't be changed: anyone with a signup's link can open it" }) })
+    .undefined({
+      errorMap: () => ({
+        message: "visibility can't be changed: anyone with a signup's link can open it",
+      }),
+    })
     .optional(),
 });

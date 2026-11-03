@@ -1,3 +1,4 @@
+import { formatDuration } from '@/lib/format-duration';
 import { APP_ORIGIN, INSTANCE_NAME } from '@/lib/site-config';
 import { MCP_RESOURCE_PATH, OAUTH_TTL } from '@/oauth/config';
 import { CopyText, Screenshot, Step, Steps, Ui } from '../components';
@@ -8,15 +9,14 @@ export { UI };
 // Every site has its own address, so this is built, never typed.
 const MCP_ADDRESS = `${APP_ORIGIN}${MCP_RESOURCE_PATH}`;
 
-const DAY = 24 * 60 * 60;
-const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? '' : 's'}`;
+const fromSeconds = (seconds: number) => formatDuration(Math.floor(seconds / 60));
 // The longest a connection lasts, counted from the first time you choose
 // Allow: approving again keeps the connection's original end date.
-const MAX_CONNECTED = plural(Math.round(OAUTH_TTL.GRANT_MAX / DAY), 'day');
+const MAX_CONNECTED = fromSeconds(OAUTH_TTL.GRANT_MAX);
 // A connection nobody uses for this long has to be approved again.
-const IDLE_LIMIT = plural(Math.round(OAUTH_TTL.REFRESH_TOKEN / DAY), 'day');
+const IDLE_LIMIT = fromSeconds(OAUTH_TTL.REFRESH_TOKEN);
 // Access an assistant already holds can't be cut short; it runs out on its own.
-const AFTER_DISCONNECT = plural(Math.round(OAUTH_TTL.ACCESS_TOKEN / 60), 'minute');
+const AFTER_DISCONNECT = fromSeconds(OAUTH_TTL.ACCESS_TOKEN);
 
 export function ConnectAnAiAssistant() {
   return (

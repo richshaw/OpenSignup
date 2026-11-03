@@ -6,6 +6,7 @@ import {
   Heading,
   Hr,
   Html,
+  Link,
   Preview,
   Section,
   Tailwind,
@@ -65,6 +66,25 @@ export function NotesText({ notes }: { notes?: string | null | undefined }) {
   return (
     <Text className="mt-4 rounded-lg bg-[#f7f8fa] p-3 text-[#0b1220]">
       <strong>Your notes:</strong> {notes}
+    </Text>
+  );
+}
+
+/**
+ * The opt-out line at the foot of the reminder and slot-change emails.
+ *
+ * Nothing may follow the link in the sentence. react-email renders a <Link>
+ * in plaintext as "label\nURL", so trailing punctuation lands hard against the
+ * bare URL and clients that autolink plaintext commonly swallow it into the
+ * href — which would break the one link that must never break.
+ */
+export function UnsubscribeFooter({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Text className="mt-4 text-xs text-[#8a93a4]">
+      You&apos;ll still get a confirmation if you sign up for something new.{' '}
+      <Link href={href} className="text-[#8a93a4] underline">
+        {children}
+      </Link>
     </Text>
   );
 }

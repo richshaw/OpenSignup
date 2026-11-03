@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { listSignupsForWorkspace } from '@/services/signups';
+import { listSignupSummariesForWorkspace } from '@/services/signups';
 import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { StatusPill } from '@/components/status-pill';
 
@@ -21,7 +21,7 @@ export default async function DashboardPage() {
       </div>
     );
   }
-  const result = await listSignupsForWorkspace(getDb(), actor, workspaceId);
+  const result = await listSignupSummariesForWorkspace(getDb(), actor, workspaceId);
   const rows = result.ok ? result.value : [];
 
   return (
@@ -29,13 +29,13 @@ export default async function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Your signups</h1>
-          <p className="text-ink-muted text-sm">
+          <p className="text-sm text-ink-muted">
             {rows.length === 0 ? 'No signups yet. Start one below.' : `${rows.length} total`}
           </p>
         </div>
         <Link
           href="/app/signups/new"
-          className="bg-brand rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover"
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover"
         >
           New signup
         </Link>
@@ -47,7 +47,7 @@ export default async function DashboardPage() {
           </p>
           <Link
             href="/app/signups/new"
-            className="bg-brand mt-4 inline-flex items-center rounded-lg px-5 py-3 font-medium text-white transition hover:bg-brand-hover"
+            className="mt-4 inline-flex items-center rounded-lg bg-brand px-5 py-3 font-medium text-white transition hover:bg-brand-hover"
           >
             Create your first signup
           </Link>
@@ -68,7 +68,7 @@ export default async function DashboardPage() {
                     {r.status === 'draft' ? (
                       <p className="truncate text-sm text-ink-muted">{DRAFT_ONLY_YOU}</p>
                     ) : (
-                      <p className="text-ink-muted truncate font-mono text-sm">/s/{r.slug}</p>
+                      <p className="truncate font-mono text-sm text-ink-muted">/s/{r.slug}</p>
                     )}
                   </div>
                   <StatusPill status={r.status} />

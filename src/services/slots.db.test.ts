@@ -564,11 +564,11 @@ describe('reorderSlots (db)', () => {
   });
 
   it('closes the gaps when the starting orders are sparse', async () => {
-    const { signupId, idOf } = await makeSignup(fx, 'Reorder sparse', [
-      10,
-      1_700_000_000,
-      1_700_000_050,
-    ]);
+    const { signupId, idOf } = await makeSignup(
+      fx,
+      'Reorder sparse',
+      [10, 1_700_000_000, 1_700_000_050],
+    );
     const r = await reorderSlots(fx.db, fx.actor, signupId, {
       slotIds: [idOf('b'), idOf('c'), idOf('a')],
     });
@@ -822,12 +822,9 @@ describe('slot writes and the signup lock (db)', () => {
     const { signupId } = await makeDatedSignup(fx, 'Add during anchor move');
     let adding: ReturnType<typeof addSlot> | undefined;
     const held = fx.db.transaction(async (tx) => {
-      const moved = await updateSignup(
-        tx as unknown as Db,
-        colleague,
-        signupId,
-        { settings: { reminderFromFieldRef: 'day2' } },
-      );
+      const moved = await updateSignup(tx as unknown as Db, colleague, signupId, {
+        settings: { reminderFromFieldRef: 'day2' },
+      });
       expect(moved.ok, JSON.stringify(moved)).toBe(true);
       // Its rebuild of slot_at has run, and cannot see a row inserted from here.
       adding = addSlot(fx.db, fx.actor, signupId, {
@@ -846,12 +843,9 @@ describe('slot writes and the signup lock (db)', () => {
     const { signupId } = await makeDatedSignup(fx, 'Bulk add during anchor move');
     let adding: ReturnType<typeof addSlotsBulk> | undefined;
     const held = fx.db.transaction(async (tx) => {
-      const moved = await updateSignup(
-        tx as unknown as Db,
-        colleague,
-        signupId,
-        { settings: { reminderFromFieldRef: 'day2' } },
-      );
+      const moved = await updateSignup(tx as unknown as Db, colleague, signupId, {
+        settings: { reminderFromFieldRef: 'day2' },
+      });
       expect(moved.ok, JSON.stringify(moved)).toBe(true);
       adding = addSlotsBulk(fx.db, fx.actor, signupId, {
         rows: [
@@ -941,12 +935,9 @@ describe('slot writes and the signup lock (db)', () => {
     if (!slot.ok) throw new Error('slot setup failed');
     let editing: ReturnType<typeof updateSlot> | undefined;
     const held = fx.db.transaction(async (tx) => {
-      const moved = await updateSignup(
-        tx as unknown as Db,
-        colleague,
-        signupId,
-        { settings: { reminderFromFieldRef: 'day2' } },
-      );
+      const moved = await updateSignup(tx as unknown as Db, colleague, signupId, {
+        settings: { reminderFromFieldRef: 'day2' },
+      });
       expect(moved.ok, JSON.stringify(moved)).toBe(true);
       editing = updateSlot(fx.db, fx.actor, slot.value.id, {
         values: { day: '2026-05-11', day2: '2026-07-05' },
