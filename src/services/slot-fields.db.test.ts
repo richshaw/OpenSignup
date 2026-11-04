@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
@@ -1210,6 +1210,75 @@ describe('slot-fields service (db)', () => {
 
       const [after] = await fx.db.select().from(slots).where(eq(slots.id, slot.value.id)).limit(1);
       expect((after?.values ?? {}) as Record<string, unknown>).toEqual({});
+    });
+    it('returns not_found to a second delete of the same field that waited for the lock', async () => {
+      const sigId = await createTestSignup(fx, 'Delete delete race');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'teacher',
+        label: 'Teacher',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      let second: ReturnType<typeof deleteField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        const first = await deleteField(tx as unknown as Db, fx.actor, created.value.id);
+        expect(first.ok, JSON.stringify(first)).toBe(true);
+        // Still sees the field, since the first delete has not committed.
+        second = deleteField(fx.db, fx.actor, created.value.id);
+        await untilServiceBlockedOn(fx.db, tx, second);
+      });
+      await held.finally(() => settle(second));
+      const r = await second!;
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe('not_found');
+
+      const deletes = await fx.db
+        .select()
+        .from(activity)
+        .where(and(eq(activity.signupId, sigId), eq(activity.eventType, 'field.deleted')));
+      expect(deletes).toHaveLength(1);
+    });
+
+    it('leaves alone a field given the same ref while a stale delete waited', async () => {
+      const sigId = await createTestSignup(fx, 'Delete re-add race');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'teacher',
+        label: 'Teacher',
+        fieldType: 'text',
+        config: { fieldType: 'text' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      let slotId: string | undefined;
+      let second: ReturnType<typeof deleteField> | undefined;
+      const held = fx.db.transaction(async (tx) => {
+        const first = await deleteField(tx as unknown as Db, fx.actor, created.value.id);
+        expect(first.ok, JSON.stringify(first)).toBe(true);
+        const readded = await addField(tx as unknown as Db, fx.actor, sigId, {
+          ref: 'teacher',
+          label: 'Teacher',
+          fieldType: 'text',
+          config: { fieldType: 'text' },
+        });
+        if (!readded.ok) throw new Error('re-add failed');
+        const slot = await addSlot(tx as unknown as Db, fx.actor, sigId, {
+          values: { teacher: 'Ms. J' },
+        });
+        if (!slot.ok) throw new Error('slot setup failed');
+        slotId = slot.value.id;
+        // Started with the old field's id, which it can still see.
+        second = deleteField(fx.db, fx.actor, created.value.id);
+        await untilServiceBlockedOn(fx.db, tx, second);
+      });
+      await held.finally(() => settle(second));
+      const r = await second!;
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe('not_found');
+
+      const [after] = await fx.db.select().from(slots).where(eq(slots.id, slotId!)).limit(1);
+      expect(after?.values).toEqual({ teacher: 'Ms. J' });
     });
   });
 

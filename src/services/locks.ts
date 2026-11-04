@@ -75,11 +75,9 @@ export async function getSignupRowForOrganizer(
 /**
  * Runs `work` as a write to one signup, opened the way every such write
  * opens: find the live signup (not found when there is none, or it is
- * deleted), judge the actor against its workspace, start a transaction, lock
- * the row (`lockSignupForWrite`) and read it again under the lock, which is
- * not found too when a delete committed while this waited. `work` gets the
- * transaction and the row as read under the lock, so a write cannot forget
- * the check after the lock, which is the one that kept going missing.
+ * deleted), then `withLockedSignup` below. `work` gets the transaction and the
+ * row as read under the lock, so a write cannot forget the check after the
+ * lock, which is the one that kept going missing.
  */
 export async function withSignupWriteLock<T>(
   db: Db,
@@ -89,10 +87,41 @@ export async function withSignupWriteLock<T>(
 ): Promise<Result<T, ServiceError>> {
   const found = await readLiveSignup(db, signupId);
   if (!found) return err(serviceError('not_found', 'signup not found'));
-  requireWorkspaceWrite(actor, found.workspaceId);
+  return withLockedSignup(db, actor, { signupId, workspaceId: found.workspaceId }, work);
+}
+
+/**
+ * The second half of `withSignupWriteLock`, for a write that starts from a
+ * slot or field id and so already knows the signup and its workspace from
+ * that row: judge the actor against the workspace, start a transaction, lock
+ * the signup row (`lockSignupForWrite`) and read it under the lock, which is
+ * not found when there is no such signup, it is deleted, or a delete
+ * committed while this waited. A write that reads its own row before the lock
+ * (the slot or field) reads it again in `work`, since it can have changed or
+ * gone while this waited.
+ *
+ * `target.checkFirst` runs after the guard and before the transaction, for
+ * input checks that need the row read before the lock: after the guard, so an
+ * actor with no access is told `forbidden` rather than learning anything from
+ * an `invalid_input`, and before the transaction, so a bad request never
+ * waits for the lock. An error it returns is the result.
+ */
+export async function withLockedSignup<T>(
+  db: Db,
+  actor: Actor,
+  target: {
+    signupId: string;
+    workspaceId: string | null;
+    checkFirst?: () => ServiceError | null;
+  },
+  work: (tx: Tx, signup: SignupRow) => Promise<Result<T, ServiceError>>,
+): Promise<Result<T, ServiceError>> {
+  requireWorkspaceWrite(actor, target.workspaceId);
+  const refused = target.checkFirst?.();
+  if (refused) return err(refused);
 
   return db.transaction(async (tx) => {
-    const locked = await lockSignupForWrite(tx, signupId, found.workspaceId);
+    const locked = await lockSignupForWrite(tx, target.signupId, target.workspaceId);
     if (!locked) return err(serviceError('not_found', 'signup not found'));
     return work(tx, locked);
   });
