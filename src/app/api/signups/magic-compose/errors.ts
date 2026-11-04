@@ -9,8 +9,6 @@ export interface MappedMagicComposeError {
 
 export function mapMagicComposeError(e: MagicComposeError): MappedMagicComposeError {
   switch (e.code) {
-    case 'not_configured':
-      return { code: 'forbidden', message: 'Magic Compose is not enabled on this instance' };
     case 'rate_limited': {
       const details: Record<string, unknown> = {};
       if (typeof e.retryAfterSeconds === 'number') {
