@@ -24,12 +24,3 @@ export const magicLinks = pgTable(
     byExpiry: index('magic_links_by_expiry').on(t.expiresAt),
   }),
 );
-
-export const signupClaims = pgTable('signup_claims', {
-  id: text('id').primaryKey(),
-  signupId: text('signup_id').notNull(),
-  claimTokenHash: text('claim_token_hash').notNull().unique(),
-  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  claimedAt: timestamp('claimed_at', { withTimezone: true }),
-  claimedById: text('claimed_by_id'),
-});

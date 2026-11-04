@@ -99,6 +99,13 @@
       "when": 1792891594778,
       "tag": "0013_oauth_signing_since",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793811823228,
+      "tag": "0014_drop_signup_claims",
+      "breakpoints": true
     }
   ]
 }
