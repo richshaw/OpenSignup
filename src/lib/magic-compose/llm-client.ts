@@ -4,7 +4,6 @@ import { err, ok, type Result } from '@/lib/result';
 import type { ChatMessage } from './prompt';
 
 export type MagicComposeErrorCode =
-  | 'not_configured'
   | 'rate_limited'
   | 'upstream'
   | 'invalid_json'
@@ -42,10 +41,11 @@ export function defaultLlmClient(): LlmClient {
     async generateDraft(messages, signal, options = {}) {
       const env = getEnv();
       if (!env.LLM_BASE_URL || !env.LLM_MODEL) {
-        return err({
-          code: 'not_configured',
-          message: 'Magic Compose is not configured on this instance',
-        });
+        // Every caller gates on magicComposeEnabled() first (the route answers
+        // organizers with its own 403), so reaching here is a bug.
+        throw new Error(
+          'defaultLlmClient called without LLM_BASE_URL/LLM_MODEL; check magicComposeEnabled() first',
+        );
       }
 
       const url = resolveChatCompletionsUrl(env.LLM_BASE_URL);
