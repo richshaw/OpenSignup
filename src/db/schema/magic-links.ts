@@ -7,6 +7,8 @@ export const magicLinks = pgTable(
     tokenHash: text('token_hash').notNull().unique(),
     email: text('email').notNull(),
     purpose: text('purpose').notNull(), // 'login_code'
+    // Always null: meant for a signup-claim link that was never built.
+    scopeId: text('scope_id'),
     /**
      * For `login_code`: the Auth.js callback URL the code redeems, encrypted
      * (AES-256-GCM, key derived from AUTH_SECRET). The URL carries the

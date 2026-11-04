@@ -16,6 +16,7 @@ const ROW = {
   tags: ['internal-tag'],
   opensAt: null,
   closesAt: new Date('2030-05-01T00:00:00Z'),
+  claimTokenHash: 'hash',
   settings: {
     requireEmail: false,
     sendReminders: true,
