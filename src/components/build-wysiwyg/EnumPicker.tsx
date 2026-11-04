@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { ChevronDown, Plus } from 'lucide-react';
 import { useOutsideClose } from '@/hooks/useOutsideClose';
 import { CHOICE_MAX_LENGTH, MAX_CHOICES } from '@/schemas/slot-fields';
@@ -47,6 +47,7 @@ export function EnumPicker({
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
+  const lengthHintId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   // Prevents Enter committing and then the unmount-triggered onBlur committing
@@ -69,6 +70,8 @@ export function EnumPicker({
     settledRef.current = false;
     setAdding(true);
   };
+
+  const atLengthLimit = draft.length >= CHOICE_MAX_LENGTH;
 
   function commitNew() {
     if (settledRef.current) return;
@@ -143,39 +146,49 @@ export function EnumPicker({
             // The box and Add span the row, edge to edge like an option's
             // highlight, and the input's left padding puts typed text where the
             // option labels start: 1px border + 9px = px-2.5.
-            <div className="flex items-center gap-1 py-1">
-              <input
-                autoFocus
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    commitNew();
-                  }
-                  if (e.key === 'Escape') {
-                    e.preventDefault();
-                    close();
-                    triggerRef.current?.focus();
-                  }
-                }}
-                onBlur={commitNew}
-                maxLength={CHOICE_MAX_LENGTH}
-                placeholder="Type a new item"
-                aria-label="New option name"
-                className="min-w-0 flex-1 rounded border border-surface-sunk bg-white py-1.5 pl-[9px] pr-2 text-xs text-ink outline-none placeholder:text-ink-soft focus:border-brand"
-              />
-              <button
-                type="button"
-                // Keeps focus in the box, so its blur doesn't add first.
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={commitNew}
-                // The same 1px border as the box, so the two stay the same height.
-                className="shrink-0 cursor-pointer rounded border border-brand bg-brand px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover"
-              >
-                Add
-              </button>
-            </div>
+            <>
+              <div className="flex items-center gap-1 py-1">
+                <input
+                  autoFocus
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      commitNew();
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      close();
+                      triggerRef.current?.focus();
+                    }
+                  }}
+                  onBlur={commitNew}
+                  maxLength={CHOICE_MAX_LENGTH}
+                  placeholder="Type a new item"
+                  aria-label="New option name"
+                  aria-describedby={atLengthLimit ? lengthHintId : undefined}
+                  className="min-w-0 flex-1 rounded border border-surface-sunk bg-white py-1.5 pl-[9px] pr-2 text-xs text-ink outline-none placeholder:text-ink-soft focus:border-brand"
+                />
+                <button
+                  type="button"
+                  // Keeps focus in the box, so its blur doesn't add first.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={commitNew}
+                  // The same 1px border as the box, so the two stay the same height.
+                  className="shrink-0 cursor-pointer rounded border border-brand bg-brand px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover"
+                >
+                  Add
+                </button>
+              </div>
+              {atLengthLimit && (
+                // maxLength stops typing and cuts a paste short without a word,
+                // so say why the text stopped.
+                <div id={lengthHintId} className="px-2.5 pb-1.5 text-[11px] text-ink-soft">
+                  An item can be up to {CHOICE_MAX_LENGTH} characters.
+                </div>
+              )}
+            </>
           ) : options.length >= MAX_CHOICES ? (
             // The server refuses a longer list, so say so rather than offer an
             // add that would be rolled back (#784).

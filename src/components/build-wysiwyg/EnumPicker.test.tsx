@@ -194,4 +194,20 @@ describe('EnumPicker', () => {
     const input = screen.getByLabelText('New option name') as HTMLInputElement;
     expect(input.maxLength).toBe(CHOICE_MAX_LENGTH);
   });
+
+  it('says how long an item can be once the new-item box is full, and not before', () => {
+    renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name');
+    const hint = `An item can be up to ${CHOICE_MAX_LENGTH} characters.`;
+
+    fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH - 1) } });
+    expect(screen.queryByText(hint)).toBeNull();
+    expect(input.getAttribute('aria-describedby')).toBeNull();
+
+    fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH) } });
+    const shown = screen.getByText(hint);
+    expect(input.getAttribute('aria-describedby')).toBe(shown.id);
+  });
 });
