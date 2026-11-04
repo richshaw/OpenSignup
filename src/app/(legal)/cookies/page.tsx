@@ -50,14 +50,14 @@ export default function CookiesPage() {
             </thead>
             <tbody className="divide-y divide-surface-sunk">
               <tr>
-                <td className="px-4 py-3 font-mono text-xs">
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
                   authjs.session-token (or __Secure-authjs.session-token over HTTPS)
                 </td>
                 <td className="px-4 py-3">Keeps organizers signed in after they sign in.</td>
                 <td className="px-4 py-3">{SESSION_MAX_AGE_DAYS} days from when you sign in</td>
               </tr>
               <tr>
-                <td className="px-4 py-3 font-mono text-xs">
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
                   authjs.csrf-token (__Host-authjs.csrf-token over HTTPS)
                 </td>
                 <td className="px-4 py-3">
@@ -66,7 +66,7 @@ export default function CookiesPage() {
                 <td className="px-4 py-3">Short-lived</td>
               </tr>
               <tr>
-                <td className="px-4 py-3 font-mono text-xs">
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
                   authjs.callback-url (__Secure-authjs.callback-url over HTTPS)
                 </td>
                 <td className="px-4 py-3">
@@ -75,7 +75,7 @@ export default function CookiesPage() {
                 <td className="px-4 py-3">Short-lived</td>
               </tr>
               <tr>
-                <td className="px-4 py-3 font-mono text-xs">
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
                   authjs.pkce.code_verifier (__Secure-authjs.pkce.code_verifier over HTTPS)
                 </td>
                 <td className="px-4 py-3">
@@ -85,7 +85,9 @@ export default function CookiesPage() {
                 <td className="px-4 py-3">15 minutes</td>
               </tr>
               <tr>
-                <td className="px-4 py-3 font-mono text-xs">os_commit</td>
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
+                  os_commit
+                </td>
                 <td className="px-4 py-3">
                   Keeps the private link to change or cancel each slot a participant signed up for,
                   so they can come back from the same browser without finding the link again,
@@ -98,7 +100,9 @@ export default function CookiesPage() {
                 </td>
               </tr>
               <tr>
-                <td className="px-4 py-3 font-mono text-xs">os_oauth_session</td>
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
+                  os_oauth_session
+                </td>
                 <td className="px-4 py-3">
                   Records which organizer is signed in while connecting an app or AI assistant to
                   their account. Sent only to the connection endpoints under <code>/api/oauth</code>
@@ -107,7 +111,9 @@ export default function CookiesPage() {
                 <td className="px-4 py-3">{OAUTH_SESSION_LIFETIME}</td>
               </tr>
               <tr>
-                <td className="px-4 py-3 font-mono text-xs">os_oauth_interaction</td>
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
+                  os_oauth_interaction
+                </td>
                 <td className="px-4 py-3">
                   Ties a pending connection request to the browser that started it, so only that
                   browser can approve it.
@@ -115,7 +121,9 @@ export default function CookiesPage() {
                 <td className="px-4 py-3">{OAUTH_INTERACTION_LIFETIME}</td>
               </tr>
               <tr>
-                <td className="px-4 py-3 font-mono text-xs">os_oauth_resume</td>
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
+                  os_oauth_resume
+                </td>
                 <td className="px-4 py-3">
                   Carries your allow-or-decline answer back to finish (or cancel) the connection.
                 </td>
