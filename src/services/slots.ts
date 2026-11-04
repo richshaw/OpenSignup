@@ -194,10 +194,10 @@ export async function addSlotsBulk(
  * The order a slot appended to a signup takes: past every slot it has, and
  * never below how many it has. The caller holds the signup lock.
  *
- * Not max + 1 alone: the builder's drag reorder renumbers the slots 0..n-1 one
- * PATCH at a time, and an add landing between two of them reads a max from
- * half-renumbered rows that a later PATCH then writes too. At least the count
- * keeps it clear of 0..n-1. Worked out as a bigint and held at the column's
+ * Not max + 1 alone: a REST caller can renumber the slots 0..n-1 by PATCHing
+ * `sortOrder` one slot at a time, and an add landing between two of those
+ * PATCHes reads a max from half-renumbered rows that a later PATCH then
+ * writes too. At least the count keeps it clear of 0..n-1. Worked out as a bigint and held at the column's
  * top, where a slot sent there would otherwise make every later add fail the
  * insert; past it, appends tie instead.
  */

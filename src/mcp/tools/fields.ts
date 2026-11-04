@@ -52,8 +52,8 @@ export const addFieldTool = defineTool({
 
 /**
  * Like the REST update, without sortOrder, as update_slot has none: one
- * field's number set on its own can tie with another's. The Build tab sends a
- * whole renumbering; an assistant sent one number, so it gets reorder_fields.
+ * field's number set on its own can tie with another's. The Build tab sends the
+ * whole order to `reorderFields`, and an assistant gets reorder_fields for it.
  */
 const UpdateFieldSchema = SlotFieldUpdateInputSchema.omit({ sortOrder: true })
   .extend({ fieldId: z.string() })
