@@ -21,11 +21,11 @@ import type { StoredSignupSettings } from '@/schemas/signups';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import {
   inWorkspace,
-  lockSignupForWrite,
   lockSlot,
   lockSlotsForSignup,
   readLiveSignup,
   SLOT_DISPLAY_ORDER,
+  withLockedSignup,
   withSignupWriteLock,
 } from './locks';
 import { isActiveCommitment, placesTaken } from './commitments';
@@ -303,9 +303,8 @@ export async function updateSlot(
   const existing = await db.select().from(slots).where(eq(slots.id, slotId)).limit(1);
   const slotRow = existing[0];
   if (!slotRow) return err(serviceError('not_found', 'slot not found'));
-  requireWorkspaceWrite(actor, slotRow.workspaceId);
 
-  return db.transaction(async (tx) => {
+  return withLockedSignup(db, actor, slotRow, async (tx, signupRow) => {
     // Every check below reads under two locks, taken signup first, then the
     // slot (see src/services/locks.ts). The signup lock makes a field change
     // or an anchor move in flight finish first, so the values are checked
@@ -314,9 +313,8 @@ export async function updateSlot(
     // got its value written back, and the instant came from the old anchor.
     // The slot lock is the one `commitToSlot` takes, so the count of places
     // taken cannot go up between the capacity check and the write.
-    // Undefined for a soft delete that committed while this waited, too.
-    const signupRow = await lockSignupForWrite(tx, slotRow.signupId, slotRow.workspaceId);
-    if (!signupRow) return err(serviceError('not_found', 'signup not found'));
+    // The signup lock is `withLockedSignup`'s, which answers not found for a
+    // soft delete that committed while this waited, too.
     const locked = await lockSlot(tx, slotId, slotRow.workspaceId);
     // Deleted while this waited.
     if (!locked) return err(serviceError('not_found', 'slot not found'));
