@@ -184,7 +184,14 @@ export function EnumPicker({
               {atLengthLimit && (
                 // maxLength stops typing and cuts a paste short without a word,
                 // so say why the text stopped.
-                <div id={lengthHintId} className="px-2.5 pb-1.5 text-[11px] text-ink-soft">
+                <div
+                  // The menu scrolls, and opening the box scrolled it to the
+                  // box, so on a long list this line would land below the
+                  // menu's edge. Bring it into view as it appears.
+                  ref={(el) => el?.scrollIntoView?.({ block: 'nearest' })}
+                  id={lengthHintId}
+                  className="px-2.5 pb-1.5 text-[11px] text-ink-soft"
+                >
                   An item can be up to {CHOICE_MAX_LENGTH} characters.
                 </div>
               )}

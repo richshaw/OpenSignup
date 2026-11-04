@@ -210,4 +210,26 @@ describe('EnumPicker', () => {
     const shown = screen.getByText(hint);
     expect(input.getAttribute('aria-describedby')).toBe(shown.id);
   });
+
+  it('scrolls the length hint into view when it appears', () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      renderPicker();
+      fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+      fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+      const input = screen.getByLabelText('New option name');
+
+      fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH - 1) } });
+      expect(scrollIntoView).not.toHaveBeenCalled();
+
+      fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH) } });
+      const hint = screen.getByText(`An item can be up to ${CHOICE_MAX_LENGTH} characters.`);
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(scrollIntoView.mock.contexts[0]).toBe(hint);
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
+  });
 });
