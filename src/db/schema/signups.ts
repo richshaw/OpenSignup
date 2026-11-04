@@ -21,7 +21,6 @@ export const signups = pgTable(
     theme: jsonb('theme').notNull().default({}),
     opensAt: timestamp('opens_at', { withTimezone: true }),
     closesAt: timestamp('closes_at', { withTimezone: true }),
-    claimTokenHash: text('claim_token_hash'),
     tags: text('tags').array().notNull().default([]),
     settings: jsonb('settings').$type<StoredSignupSettings>().notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
