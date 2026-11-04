@@ -7,7 +7,7 @@ import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
-import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
+import type { Actor } from '@/lib/policy';
 import {
   findReminderFields,
   isCalendarDate,
@@ -33,6 +33,7 @@ import {
   getSignupRowForOrganizer,
   lockSignupForWrite,
   lockSlotsForSignup,
+  withLockedSignup,
   withSignupWriteLock,
 } from './locks';
 import { everyIdOnceError } from './reorder-ids';
@@ -408,21 +409,19 @@ export async function updateField(
   if (!existing || !inSignup(existing, expectedSignupId)) {
     return err(serviceError('not_found', 'field not found'));
   }
-  requireWorkspaceWrite(actor, existing.workspaceId);
 
-  if (data.fieldType !== undefined && data.config === undefined) {
-    return err(serviceError('invalid_input', 'fieldType change requires matching config'));
-  }
-  const mismatch = configMismatch(data, existing.fieldType);
-  if (mismatch) return err(mismatch);
+  // Checked after the guard and before the lock (see `withLockedSignup`).
+  const checkFirst = (): ServiceError | null => {
+    if (data.fieldType !== undefined && data.config === undefined) {
+      return serviceError('invalid_input', 'fieldType change requires matching config');
+    }
+    return configMismatch(data, existing.fieldType);
+  };
 
-  return db.transaction(async (tx) => {
-    // The re-anchor below reads settings and writes them back, and the rebuild
-    // writes slot rows: both need the signup lock, as in `addField`. Taken even
-    // when neither runs. It is cheap, and the order stays the same for all.
-    const locked = await lockSignupForWrite(tx, existing.signupId, existing.workspaceId);
-    if (!locked) return err(serviceError('not_found', 'signup not found'));
-
+  // The re-anchor below reads settings and writes them back, and the rebuild
+  // writes slot rows: both need the signup lock, as in `addField`. Taken even
+  // when neither runs. It is cheap, and the order stays the same for all.
+  return withLockedSignup(db, actor, { ...existing, checkFirst }, async (tx) => {
     // Read again under the lock. `deleteField` and another `updateField` take
     // it too, and either may have committed while this one waited: the field
     // can be gone, or be a type the config above was never checked against.
@@ -591,19 +590,23 @@ export async function deleteField(
   if (!existing || !inSignup(existing, expectedSignupId)) {
     return err(serviceError('not_found', 'field not found'));
   }
-  requireWorkspaceWrite(actor, existing.workspaceId);
 
-  return db.transaction(async (tx) => {
+  return withLockedSignup(db, actor, existing, async (tx, signupRow) => {
     // Settings are read and rewritten inside the transaction, under the
     // signup lock: read outside it, a settings save landing in between would
     // be overwritten here with a stale copy. The lock also serialises the
     // re-anchor below against a concurrent add, retype or delete of a field
     // on the same signup: all three take it.
-    const signupRow = await lockSignupForWrite(tx, existing.signupId, existing.workspaceId);
-    if (!signupRow) return err(serviceError('not_found', 'signup not found'));
+    //
+    // Read the field again under the lock. A delete of the same field that
+    // got in first has committed by now, and going on with the copy read
+    // before the lock would strip the values of a field given the same ref
+    // since, and log a second delete.
+    const current = await readField(tx, fieldId);
+    if (!current) return err(serviceError('not_found', 'field not found'));
     const currentSettings = signupRow.settings;
     const groupBy = currentSettings.groupByFieldRefs ?? [];
-    const removedFromGroupBy = groupBy.includes(existing.ref);
+    const removedFromGroupBy = groupBy.includes(current.ref);
 
     if (removedFromGroupBy) {
       await tx
@@ -611,7 +614,7 @@ export async function deleteField(
         .set({
           settings: {
             ...currentSettings,
-            groupByFieldRefs: groupBy.filter((ref) => ref !== existing.ref),
+            groupByFieldRefs: groupBy.filter((ref) => ref !== current.ref),
           },
           updatedAt: new Date(),
         })
@@ -622,7 +625,7 @@ export async function deleteField(
     await lockSlotsForSignup(tx, existing.signupId, existing.workspaceId);
     await tx
       .update(slots)
-      .set({ values: sql`${slots.values} - ${existing.ref}::text` })
+      .set({ values: sql`${slots.values} - ${current.ref}::text` })
       .where(eq(slots.signupId, existing.signupId));
     await tx.delete(slotFields).where(eq(slotFields.id, fieldId));
 
@@ -639,7 +642,7 @@ export async function deleteField(
       eventType: 'field.deleted',
       payload: {
         fieldId,
-        ref: existing.ref,
+        ref: current.ref,
         ...(moved !== undefined ? { reminderFromFieldRef: moved } : {}),
         ...(removedFromGroupBy ? { removedFromGroupByFieldRefs: true } : {}),
       },
