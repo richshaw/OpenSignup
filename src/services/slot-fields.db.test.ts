@@ -10,7 +10,7 @@ import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
-import { DEFAULT_TEMPLATE, EMPTY_TEMPLATE } from '@/lib/signup-templates';
+import { DEFAULT_TEMPLATE } from '@/lib/signup-templates';
 import {
   addField,
   deleteField,
@@ -94,7 +94,7 @@ async function createTestSignup(fx: Fixture, title = 'Field Test'): Promise<stri
       visibility: 'unlisted',
       settings: {},
     },
-    { template: EMPTY_TEMPLATE },
+    { template: { id: 'empty', fields: [], slots: [] } },
   );
   if (!r.ok) throw new Error('signup setup failed');
   return r.value.id;
