@@ -9,6 +9,7 @@ import { getDb } from '@/db/client';
 import { ServiceException } from '@/lib/errors';
 import { commitmentEditUrl } from '@/lib/links';
 import { COMMIT_COOKIE_NAME, parseReturningCommits } from '@/lib/returning-participant';
+import { shortenToLimit } from '@/lib/shorten';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { readRequestSignals, recordPublicView } from '@/lib/view-tracker';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
@@ -21,15 +22,6 @@ import { SignupStateMessage } from './state-message';
 
 type PageParams = { params: Promise<{ slug: string }> };
 
-function trimToBoundary(value: string | null | undefined, max: number): string | null {
-  if (!value) return null;
-  if (value.length <= max) return value;
-  const sliced = value.slice(0, max);
-  const lastSpace = sliced.search(/\s\S*$/);
-  const trimmed = (lastSpace > 0 ? sliced.slice(0, lastSpace) : sliced).trimEnd();
-  return trimmed.length > 0 ? `${trimmed}…` : sliced;
-}
-
 export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
   const { slug } = await params;
   const result = await loadPublicSignup(slug);
@@ -38,7 +30,9 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   const robots = { index: false, follow: false } as const;
   if (!result.ok) return { title: 'Sign up', robots };
   const sig = result.value;
-  const description = trimToBoundary(sig.description, 200) ?? `Sign up via ${INSTANCE_NAME}`;
+  const description = sig.description
+    ? shortenToLimit(sig.description, 200)
+    : `Sign up via ${INSTANCE_NAME}`;
   return {
     title: sig.title,
     description,
