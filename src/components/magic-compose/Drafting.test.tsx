@@ -6,6 +6,7 @@ import { render, screen, act, within } from '@testing-library/react';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import type { FollowUp } from '@/lib/magic-compose/questions';
 import { Drafting, VISIBLE_FIELD_CAP, VISIBLE_SLOT_CAP } from './Drafting';
+import { BAND_DIVIDER, YOU_WROTE_BAND } from './YouWrote';
 
 function makeDraft(fieldCount: number, slotCount: number): DraftPreview {
   const fields = Array.from({ length: fieldCount }).map((_, i) => ({
@@ -25,6 +26,14 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** Nothing in the band is drawn as a card: no bordered, rounded, shadowed or tinted box. */
+function expectNoCard(region: HTMLElement) {
+  for (const el of [region, ...region.querySelectorAll('*')]) {
+    const cls = typeof el.className === 'string' ? el.className : '';
+    expect(cls).not.toMatch(/(^|\s)(border|shadow-sm|rounded-lg)(\s|$)|bg-brand\/|border-brand/);
+  }
+}
+
 describe('<Drafting />', () => {
   it('renders skeletons and no SAMPLE text when draft is null (pending phase)', () => {
     render(
@@ -33,8 +42,12 @@ describe('<Drafting />', () => {
     expect(screen.queryByText(/Snack duty, U9 Eagles/)).toBeNull();
     expect(screen.queryByText(/Spring season/)).toBeNull();
     expect(screen.queryByText(/Snack \+ drinks/)).toBeNull();
-    // The user's prompt is quoted back to them.
-    expect(screen.getByText('“anything”')).toBeInTheDocument();
+    // The user's prompt is quoted back to them as the panel's first band, as on the questions
+    // screen: not a card inside the panel, and not a blue box that reads as a notice.
+    const quote = screen.getByRole('region', { name: 'Your description' });
+    expect(quote).toHaveTextContent('You wrote“anything”');
+    expect(quote).toHaveClass(...YOU_WROTE_BAND.split(' '), ...BAND_DIVIDER.split(' '));
+    expectNoCard(quote);
     // A first call may get questions back, so the heading doesn't promise a draft yet.
     expect(screen.getByRole('heading', { name: 'Reading your description' })).toBeInTheDocument();
     expect(
@@ -59,6 +72,9 @@ describe('<Drafting />', () => {
     );
     expect(screen.getByRole('heading', { name: 'Drafting your signup' })).toBeInTheDocument();
     const card = await screen.findByRole('region', { name: 'Drafting from' });
+    // The same flat band as the reading screen, with the answers under the quote.
+    expect(card).toHaveClass(...YOU_WROTE_BAND.split(' '), ...BAND_DIVIDER.split(' '));
+    expectNoCard(card);
     expect(card).toHaveTextContent('“Bake sale”');
     expect(card).toHaveTextContent('One left blank');
     expect(card).toHaveTextContent('Staff the table2 people');
