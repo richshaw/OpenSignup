@@ -14,6 +14,9 @@ export const SlotCreateInputSchema = z.object({
 
 export type SlotCreateInput = z.infer<typeof SlotCreateInputSchema>;
 
+/** The most slots one bulk add takes, over REST and through the MCP tool. */
+export const MAX_BULK_SLOT_ROWS = 500;
+
 export const SlotBulkInputSchema = z.object({
   rows: z
     .array(
@@ -24,7 +27,7 @@ export const SlotBulkInputSchema = z.object({
       }),
     )
     .min(1)
-    .max(500),
+    .max(MAX_BULK_SLOT_ROWS),
   // Put the rows in front of this slot instead of at the end. Not allowed
   // together with a row `sortOrder`; `addSlotsBulk` checks that, because a
   // refinement here would hide `.shape` from the MCP tool that builds on it.
