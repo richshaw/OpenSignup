@@ -21,6 +21,9 @@ export const signups = pgTable(
     theme: jsonb('theme').notNull().default({}),
     opensAt: timestamp('opens_at', { withTimezone: true }),
     closesAt: timestamp('closes_at', { withTimezone: true }),
+    // Unused: meant for a signup-claim link that was never built. To drop it,
+    // take it out of this schema first and drop the column a release later,
+    // since the build still serving during a migration selects it.
     claimTokenHash: text('claim_token_hash'),
     tags: text('tags').array().notNull().default([]),
     settings: jsonb('settings').$type<StoredSignupSettings>().notNull().default({}),
