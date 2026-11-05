@@ -223,9 +223,13 @@ export function SignupViewBody({
             'showcase' mode the card is embedded in a page that already has its
             own h1 (the marketing headline), and a second h1 is an SEO defect —
             demote to h2 there. Styling is identical either way. */}
-        <Title className="text-3xl font-semibold tracking-tight">{signup.title}</Title>
+        <Title className="text-3xl font-semibold tracking-tight [overflow-wrap:anywhere]">
+          {signup.title}
+        </Title>
         {signup.description ? (
-          <p className="whitespace-pre-line text-ink-muted">{signup.description}</p>
+          <p className="whitespace-pre-line text-ink-muted [overflow-wrap:anywhere]">
+            {signup.description}
+          </p>
         ) : null}
       </header>
 

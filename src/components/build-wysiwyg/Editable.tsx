@@ -164,7 +164,10 @@ export function Editable({
           startEditing();
         }
       }}
-      className={`${className} cursor-text rounded transition-colors duration-180 hover:bg-brand-soft focus:bg-brand-soft focus:outline-none`}
+      // A word longer than the sheet is wide (a pasted link, a run of
+      // letters) wraps rather than spilling out of the card. A multiline
+      // value keeps its line breaks, as the public page shows them.
+      className={`${className} ${multiline ? 'whitespace-pre-line' : ''} cursor-text rounded transition-colors duration-180 [overflow-wrap:anywhere] hover:bg-brand-soft focus:bg-brand-soft focus:outline-none`}
     >
       {value ? (
         (display ?? value)

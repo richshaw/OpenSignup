@@ -110,13 +110,13 @@ describe('defaultLlmClient.generateDraft', () => {
     if (!r.ok) expect(r.error.code).toBe('invalid_json');
   });
 
-  it('refuses when env is not configured', async () => {
+  // Every caller checks magicComposeEnabled() first, so this is a bug, not
+  // an error the route maps for organizers.
+  it('throws when called without LLM env', async () => {
     delete process.env.LLM_BASE_URL;
     delete process.env.LLM_MODEL;
     resetEnvCache();
-    const r = await defaultLlmClient().generateDraft([]);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error.code).toBe('not_configured');
+    await expect(defaultLlmClient().generateDraft([])).rejects.toThrow(/magicComposeEnabled/);
   });
 
   it('forwards the abort signal to the upstream fetch', async () => {

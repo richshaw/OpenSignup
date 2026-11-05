@@ -201,10 +201,13 @@ export function buildReducer(state: BuildState, action: BuildAction): BuildState
 const DEBOUNCE_MS = 800;
 const SAVED_CLEAR_MS = 3000;
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
-// The reorder route refuses a list that isn't every slot exactly once, which from
-// the builder means another window changed the slots. Its own message is for API callers.
+// The reorder routes refuse a list that isn't every slot (or field) exactly once,
+// which from the builder means another window changed them. Their own message
+// is for API callers.
 const STALE_REORDER_MESSAGE =
   "The slots changed in another window, so your move wasn't saved. Drag it again.";
+const STALE_FIELD_REORDER_MESSAGE =
+  "The fields changed in another window, so your move wasn't saved. Drag it again.";
 const TITLE_TOO_SHORT: SaveError = {
   code: 'invalid_input',
   message: TITLE_TOO_SHORT_MESSAGE,
@@ -333,6 +336,20 @@ async function send(
 async function sendForData<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await send(method, url, body);
   return ((await res.json()) as { data: T }).data;
+}
+
+/**
+ * PUTs a whole new order to a reorder route. The route answers a list that
+ * isn't every item exactly once with `invalid_input`, which from the builder
+ * means another window changed the list, so that answer shows `staleMessage`.
+ */
+async function putOrder(url: string, body: unknown, staleMessage: string): Promise<void> {
+  try {
+    await send('PUT', url, body);
+  } catch (e) {
+    const err = asErr(e);
+    throw err.code === 'invalid_input' ? { code: 'invalid_input', message: staleMessage } : err;
+  }
 }
 
 function asErr(e: unknown): SaveError {
@@ -610,9 +627,11 @@ export function useBuildState(
     });
   };
 
-  // Fields have no bulk-reorder route, so this PATCHes each field whose
-  // position changed. A failure part-way can leave the server with some of
-  // them moved; the refetch then shows the order it holds.
+  /**
+   * Moves a field to `toIdx`. The whole order goes in one request, which the
+   * server applies in one transaction or not at all; a list made stale by
+   * another window is refused, and the refetch shows the order it holds.
+   */
   const moveField = async (fieldId: string, toIdx: number): Promise<void> => {
     const previous = stateRef.current.fields;
     const next = moveItem(
@@ -625,14 +644,12 @@ export function useBuildState(
       previous,
       next,
       showFields,
-      async () => {
-        const changed = next.filter(
-          (f, i) => previous[i]?.id !== f.id || previous[i]?.sortOrder !== f.sortOrder,
-        );
-        for (const f of changed) {
-          await send('PATCH', `${fieldsUrl}/${f.id}`, { sortOrder: f.sortOrder });
-        }
-      },
+      () =>
+        putOrder(
+          `${fieldsUrl}/order`,
+          { fieldIds: next.map((f) => f.id) },
+          STALE_FIELD_REORDER_MESSAGE,
+        ),
       async () => toBuildFields(await sendForData<SlotFieldDefinition[]>('GET', fieldsUrl)),
     );
   };
@@ -732,14 +749,11 @@ export function useBuildState(
       async () => {
         if (group) await saveRowValues(moved);
         if (!reordered) return;
-        try {
-          await send('PUT', `${slotsUrl}/order`, { slotIds: reordered.map((r) => r.id) });
-        } catch (e) {
-          const err = asErr(e);
-          throw err.code === 'invalid_input'
-            ? { code: 'invalid_input', message: STALE_REORDER_MESSAGE }
-            : err;
-        }
+        await putOrder(
+          `${slotsUrl}/order`,
+          { slotIds: reordered.map((r) => r.id) },
+          STALE_REORDER_MESSAGE,
+        );
       },
       async () => {
         const rows = (await sendForData<BuildSlot[]>('GET', slotsUrl)).map(toBuildRow);

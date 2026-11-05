@@ -11,7 +11,6 @@ export type IdPrefix =
   | 'com' // Commitment
   | 'act' // Activity
   | 'ml' // MagicLink
-  | 'cla' // SignupClaim
   | 'rl' // Rate limit bucket
   | 'job'; // pg-boss helper (our own, not pg-boss internal)
 
