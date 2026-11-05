@@ -39,8 +39,6 @@ export const UI = {
   // What Publish says, by its heading, when every slot is empty, and its fix.
   nothingYet: 'Nothing to sign up for yet',
   fillItIn: 'Fill it in',
-  // The tab a signup opens on, where its slots are.
-  build: 'Build',
   // Phones: the three-dot button's accessible name.
   moreActions: 'More actions',
   publicLink: 'Public link',
