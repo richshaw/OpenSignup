@@ -30,6 +30,7 @@ import {
   type StoredSignupSettings,
   SignupCreateInputSchema,
   SignupUpdateInputSchema,
+  WORKSPACE_LIST_LIMIT,
 } from '@/schemas/signups';
 import { type SlotCreateInput, SlotCreateInputSchema } from '@/schemas/slots';
 import { listFieldsForSignup, rebuildSlotAt, validateSlotValues } from './slot-fields';
@@ -612,8 +613,6 @@ function workspaceSignupsWhere(workspaceId: string, filter: { status?: SignupSta
   );
 }
 
-const WORKSPACE_LIST_LIMIT = 200;
-
 export async function listSignupsForWorkspace(
   db: Db,
   actor: Actor,
@@ -645,7 +644,7 @@ export type SignupSummary = Pick<SignupRow, keyof typeof signupSummaryColumns>;
 
 /**
  * The same rows as listSignupsForWorkspace, reading only the columns a list
- * shows, so up to 200 long descriptions aren't read from Postgres and thrown
+ * shows, so up to WORKSPACE_LIST_LIMIT long descriptions aren't read from Postgres and thrown
  * away.
  */
 export async function listSignupSummariesForWorkspace(

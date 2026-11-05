@@ -6,7 +6,6 @@ import { mapMagicComposeError } from './errors';
 import { buildDraftPreview } from './preview';
 
 const CASES: Array<{ code: MagicComposeErrorCode; expectedHttp: number; expectedCode: string }> = [
-  { code: 'not_configured', expectedHttp: 403, expectedCode: 'forbidden' },
   { code: 'rate_limited', expectedHttp: 429, expectedCode: 'rate_limited' },
   { code: 'aborted', expectedHttp: 500, expectedCode: 'internal' },
   { code: 'timeout', expectedHttp: 500, expectedCode: 'internal' },

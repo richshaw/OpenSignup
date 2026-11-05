@@ -6,8 +6,11 @@ export const magicLinks = pgTable(
     id: text('id').primaryKey(),
     tokenHash: text('token_hash').notNull().unique(),
     email: text('email').notNull(),
-    purpose: text('purpose').notNull(), // 'login_code' | 'claim'
-    scopeId: text('scope_id'), // signup_id for claim, null for login
+    purpose: text('purpose').notNull(), // 'login_code'
+    // Always null: meant for a signup-claim link that was never built. Drop it
+    // the same way as signups.claimTokenHash: out of this schema (and the
+    // login-code insert) first, out of the database a release later.
+    scopeId: text('scope_id'),
     /**
      * For `login_code`: the Auth.js callback URL the code redeems, encrypted
      * (AES-256-GCM, key derived from AUTH_SECRET). The URL carries the
@@ -24,12 +27,3 @@ export const magicLinks = pgTable(
     byExpiry: index('magic_links_by_expiry').on(t.expiresAt),
   }),
 );
-
-export const signupClaims = pgTable('signup_claims', {
-  id: text('id').primaryKey(),
-  signupId: text('signup_id').notNull(),
-  claimTokenHash: text('claim_token_hash').notNull().unique(),
-  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  claimedAt: timestamp('claimed_at', { withTimezone: true }),
-  claimedById: text('claimed_by_id'),
-});

@@ -118,7 +118,7 @@ pg-boss runs against the same Postgres (schema `pgboss`). The Next.js server **d
 
 Optional feature: organizers paste a description and get a draft signup. Provider-agnostic — any OpenAI-compatible Chat Completions endpoint works (OpenRouter, OpenAI, Ollama). Disabled when `LLM_BASE_URL` is unset, so the "no vendor lock-in" rule still holds.
 
-- `src/lib/magic-compose/llm-client.ts` — single fetch-based client. Sends `response_format: { type: 'json_object' }` (not strict `json_schema`); server-side Zod validation in `prompt.ts` is the source of truth for shape. Surfaces a closed set of error codes (`not_configured | rate_limited | upstream | invalid_json | schema_mismatch | timeout | aborted`).
+- `src/lib/magic-compose/llm-client.ts` — single fetch-based client. Sends `response_format: { type: 'json_object' }` (not strict `json_schema`); server-side Zod validation in `prompt.ts` is the source of truth for shape. Surfaces a closed set of error codes (`rate_limited | upstream | invalid_json | schema_mismatch | timeout | aborted`).
 - `src/app/api/signups/magic-compose/route.ts` — POST endpoint; rate-limited per organizer, calls the LLM, then **persists** via `createSignup` and returns `{ id, slug, summary, warnings, draft }` plus build/self/public links. Errors are mapped through `mapMagicComposeError` (`./errors.ts`); structured refusals from the model surface as `invalid_input` with `details.reason: 'refusal'`.
 - `src/components/magic-compose/` — client UI; state machine drives loading/error/preview states.
 - Env: `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_TIMEOUT_MS` (default 180000 — structured outputs on large drafts can exceed 60s).

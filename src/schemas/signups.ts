@@ -29,6 +29,9 @@ const SIGNUP_VISIBILITIES = ['public', 'unlisted', 'password'] as const;
  */
 export const REMINDER_LEAD_HOURS = 24;
 
+/** The most signups a workspace list returns, newest first. */
+export const WORKSPACE_LIST_LIMIT = 200;
+
 export const SignupSettingsSchema = z
   .object({
     requireEmail: z.boolean().default(true),
