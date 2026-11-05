@@ -2588,6 +2588,83 @@ describe('the capacity_full error (db)', () => {
     ]);
   });
 
+  /** Fill every slot the signup has so far: one place each, all taken. */
+  async function fillEvery(signupId: string) {
+    const rows = await fx.db
+      .update(slots)
+      .set({ capacity: 1 })
+      .where(eq(slots.signupId, signupId))
+      .returning({ id: slots.id });
+    for (const [i, row] of rows.entries()) await take(row.id, `Filler${i}`, 1);
+  }
+
+  it('offers no alternatives when every other slot is full', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Capacity error, all full');
+    const target = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 1 });
+    if (!target.ok) throw new Error(`addSlot failed: ${target.error.message}`);
+    await fillEvery(a.signupId);
+
+    const r = await commitToSlot(fx.db, target.value.id, {
+      name: 'Pat Example',
+      email: 'pat@example.com',
+      quantity: 1,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.code).toBe('capacity_full');
+    expect(r.error.details).toMatchObject({ remaining: 0, alternatives: [] });
+  });
+
+  it('leaves full and locked-out slots out of the alternatives', async () => {
+    const a = await makeOpenSignupWithSlot(fx, 'Capacity error, mixed others');
+    const target = await addSlot(fx.db, fx.actor, a.signupId, { values: {}, capacity: 1 });
+    if (!target.ok) throw new Error(`addSlot failed: ${target.error.message}`);
+    // Every slot so far is full, the one Pat asks for included.
+    await fillEvery(a.signupId);
+    const day = 86_400_000;
+    const tomorrow = new Date(Date.now() + day).toISOString().slice(0, 10);
+    const later = new Date(Date.now() + 10 * day).toISOString().slice(0, 10);
+    // Tomorrow anchors at noon UTC, inside a 72-hour lockout; ten days out is not.
+    const locked = await addSlot(fx.db, fx.actor, a.signupId, {
+      values: { date: tomorrow },
+      capacity: 5,
+    });
+    if (!locked.ok) throw new Error(`addSlot failed: ${locked.error.message}`);
+    const roomy = await addSlot(fx.db, fx.actor, a.signupId, {
+      values: { date: later },
+      capacity: 5,
+    });
+    if (!roomy.ok) throw new Error(`addSlot failed: ${roomy.error.message}`);
+    // A cancelled sign-up on the roomy slot holds no place.
+    const gone = await take(roomy.value.id, 'Gone', 1);
+    await fx.db
+      .update(commitments)
+      .set({ status: 'cancelled' })
+      .where(eq(commitments.id, gone.commitment.id));
+    const shut = await updateSignup(fx.db, fx.actor, a.signupId, {
+      settings: { lockoutHoursBeforeSlot: 72 },
+    });
+    if (!shut.ok) throw new Error(`updateSignup failed: ${shut.error.message}`);
+
+    const [roomyRow] = await fx.db
+      .select({ slotAt: slots.slotAt })
+      .from(slots)
+      .where(eq(slots.id, roomy.value.id));
+    expect(roomyRow?.slotAt).toBeInstanceOf(Date);
+
+    const r = await commitToSlot(fx.db, target.value.id, {
+      name: 'Pat Example',
+      email: 'pat@example.com',
+      quantity: 1,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.code).toBe('capacity_full');
+    expect(r.error.details?.alternatives).toEqual([
+      { id: roomy.value.id, ref: roomy.value.ref, slotAt: roomyRow?.slotAt?.toISOString() },
+    ]);
+  });
+
   it('raising a quantity past what is left', async () => {
     const s = await signupWithSmallSlot('Capacity error, edit over');
     await take(s.smallId, 'Filler', 1);
