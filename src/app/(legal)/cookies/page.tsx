@@ -10,7 +10,7 @@ import {
   COMMIT_COOKIE_MIN,
   OAUTH_INTERACTION_LIFETIME,
   OAUTH_SESSION_LIFETIME,
-} from '../lifetimes';
+} from '@/lib/lifetimes';
 
 export const metadata: Metadata = pageMetadata({
   path: '/cookies',
