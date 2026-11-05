@@ -30,6 +30,15 @@ type EnumPickerProps = {
 };
 
 /**
+ * The menu scrolls, and focusing the new-item box scrolls it only as far as
+ * the box, which would leave the count under it below the menu's edge on a
+ * long list. Defined outside the component so React calls it once, when the
+ * count mounts, and never again while someone types.
+ */
+const scrollIntoViewOnMount = (el: HTMLElement | null) =>
+  el?.scrollIntoView?.({ block: 'nearest' });
+
+/**
  * Single-select dropdown with an inline "+ Add to list" footer. Designed to
  * replace the bare `<input>` for enum fields in SlotEditor — list options
  * grow as organizers fill in values, instead of needing a separate schema
@@ -167,7 +176,7 @@ export function EnumPicker({
                   maxLength={CHOICE_MAX_LENGTH}
                   placeholder="Type a new item"
                   aria-label="New option name"
-                  aria-describedby={atLengthLimit ? lengthHintId : undefined}
+                  aria-describedby={lengthHintId}
                   className="min-w-0 flex-1 rounded border border-surface-sunk bg-white py-1.5 pl-[9px] pr-2 text-xs text-ink outline-none placeholder:text-ink-soft focus:border-brand"
                 />
                 <button
@@ -181,20 +190,21 @@ export function EnumPicker({
                   Add
                 </button>
               </div>
-              {atLengthLimit && (
-                // maxLength stops typing and cuts a paste short without a word,
-                // so say why the text stopped.
-                <div
-                  // The menu scrolls, and opening the box scrolled it to the
-                  // box, so on a long list this line would land below the
-                  // menu's edge. Bring it into view as it appears.
-                  ref={(el) => el?.scrollIntoView?.({ block: 'nearest' })}
-                  id={lengthHintId}
-                  className="px-2.5 pb-1.5 text-[11px] text-ink-soft"
-                >
-                  An item can be up to {CHOICE_MAX_LENGTH} characters.
-                </div>
-              )}
+              {/* A live count, so a box that stops taking characters (or a
+                  paste cut short by maxLength) explains itself. It's there
+                  from the moment the box opens and never changes height, so
+                  nothing moves while someone types. It isn't read out on
+                  every keystroke: the box is described by the fixed limit. */}
+              <div
+                ref={scrollIntoViewOnMount}
+                aria-hidden="true"
+                className={`px-2.5 pb-1.5 text-right text-[11px] tabular-nums ${atLengthLimit ? 'text-ink-muted' : 'text-ink-soft'}`}
+              >
+                {draft.length}/{CHOICE_MAX_LENGTH}
+              </div>
+              <span id={lengthHintId} className="sr-only">
+                Up to {CHOICE_MAX_LENGTH} characters
+              </span>
             </>
           ) : options.length >= MAX_CHOICES ? (
             // The server refuses a longer list, so say so rather than offer an

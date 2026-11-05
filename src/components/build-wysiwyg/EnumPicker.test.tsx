@@ -195,23 +195,49 @@ describe('EnumPicker', () => {
     expect(input.maxLength).toBe(CHOICE_MAX_LENGTH);
   });
 
-  it('says how long an item can be once the new-item box is full, and not before', () => {
+  it('counts the new item against its limit, from the moment the box opens', () => {
     renderPicker();
     fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
     fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
     const input = screen.getByLabelText('New option name');
-    const hint = `An item can be up to ${CHOICE_MAX_LENGTH} characters.`;
+
+    const counter = screen.getByText(`0/${CHOICE_MAX_LENGTH}`);
+    expect(counter.getAttribute('aria-hidden')).toBe('true');
+    expect(counter.className).toContain('text-ink-soft');
+
+    fireEvent.change(input, { target: { value: 'Soup' } });
+    expect(counter.textContent).toBe(`4/${CHOICE_MAX_LENGTH}`);
 
     fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH - 1) } });
-    expect(screen.queryByText(hint)).toBeNull();
-    expect(input.getAttribute('aria-describedby')).toBeNull();
+    expect(counter.textContent).toBe(`${CHOICE_MAX_LENGTH - 1}/${CHOICE_MAX_LENGTH}`);
+    expect(counter.className).toContain('text-ink-soft');
 
+    // At the limit only the colour changes: the same element, the same classes
+    // for size and spacing.
+    const layout = counter.className.replace(/text-ink-(soft|muted)/, '');
     fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH) } });
-    const shown = screen.getByText(hint);
-    expect(input.getAttribute('aria-describedby')).toBe(shown.id);
+    expect(screen.getByText(`${CHOICE_MAX_LENGTH}/${CHOICE_MAX_LENGTH}`)).toBe(counter);
+    expect(counter.className).toContain('text-ink-muted');
+    expect(counter.className.replace(/text-ink-(soft|muted)/, '')).toBe(layout);
   });
 
-  it('scrolls the length hint into view when it appears', () => {
+  it('describes the new-item box by its limit, not by the live count', () => {
+    renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name');
+
+    const describedBy = input.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    const description = document.getElementById(describedBy!);
+    expect(description?.textContent).toBe(`Up to ${CHOICE_MAX_LENGTH} characters`);
+    expect(description?.getAttribute('aria-live')).toBeNull();
+
+    fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH) } });
+    expect(input.getAttribute('aria-describedby')).toBe(describedBy);
+  });
+
+  it('scrolls the counter into view once, when the box opens, and not while typing', () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
     try {
@@ -220,14 +246,14 @@ describe('EnumPicker', () => {
       fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
       const input = screen.getByLabelText('New option name');
 
-      fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH - 1) } });
-      expect(scrollIntoView).not.toHaveBeenCalled();
-
-      fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH) } });
-      const hint = screen.getByText(`An item can be up to ${CHOICE_MAX_LENGTH} characters.`);
+      const counter = screen.getByText(`0/${CHOICE_MAX_LENGTH}`);
       expect(scrollIntoView).toHaveBeenCalledTimes(1);
-      expect(scrollIntoView.mock.contexts[0]).toBe(hint);
+      expect(scrollIntoView.mock.contexts[0]).toBe(counter);
       expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+
+      fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH - 1) } });
+      fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH) } });
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
     } finally {
       delete (Element.prototype as Partial<Element>).scrollIntoView;
     }
