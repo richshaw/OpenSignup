@@ -1,4 +1,5 @@
-import { REMINDER_SETTLE_HOURS, SLOT_CHANGE_SETTLE_MINUTES } from '@/lib/reminder-eligibility';
+import { SLOT_CHANGE_DELAY } from '@/lib/lifetimes';
+import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
 import { Note, Screenshot, Step, Steps, Ui } from '../components';
@@ -11,9 +12,6 @@ const REMINDER_WHEN =
   REMINDER_LEAD_HOURS === 24 ? 'the day before' : `${REMINDER_LEAD_HOURS} hours before`;
 // A sign-up newer than this isn't picked up yet (src/jobs/reminders.ts).
 const SETTLE = REMINDER_SETTLE_HOURS === 1 ? 'an hour' : `${REMINDER_SETTLE_HOURS} hours`;
-
-// How long after an organizer's last change a moved-slot email goes (src/jobs/slot-changes.ts).
-const SETTLE_CHANGE = `${SLOT_CHANGE_SETTLE_MINUTES} minutes`;
 
 export function CreateAndPublishASignup() {
   return (
@@ -247,7 +245,7 @@ export function CreateAndPublishASignup() {
         </p>
         <p>
           If you change the date or time of a slot people have taken, they get an email. It comes
-          about {SETTLE_CHANGE} after your last change, with the new details. This goes with
+          about {SLOT_CHANGE_DELAY} after your last change, with the new details. This goes with
           reminders: if you turn reminders off, nobody is told when you move a slot.
         </p>
         <p>Reminders are on for every new signup. To turn them off:</p>

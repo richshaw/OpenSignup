@@ -1,6 +1,6 @@
-import { formatDuration } from '@/lib/format-duration';
+import { ACCESS_TOKEN_LIFETIME, CONNECTION_IDLE_LIMIT, GRANT_LIFETIME } from '@/lib/lifetimes';
 import { APP_ORIGIN, INSTANCE_NAME } from '@/lib/site-config';
-import { MCP_RESOURCE_PATH, OAUTH_TTL } from '@/oauth/config';
+import { MCP_RESOURCE_PATH } from '@/oauth/config';
 import { CopyText, Screenshot, Step, Steps, Ui } from '../components';
 import { UI } from './connect-an-ai-assistant.ui';
 
@@ -8,15 +8,6 @@ export { UI };
 
 // Every site has its own address, so this is built, never typed.
 const MCP_ADDRESS = `${APP_ORIGIN}${MCP_RESOURCE_PATH}`;
-
-const fromSeconds = (seconds: number) => formatDuration(Math.floor(seconds / 60));
-// The longest a connection lasts, counted from the first time you choose
-// Allow: approving again keeps the connection's original end date.
-const MAX_CONNECTED = fromSeconds(OAUTH_TTL.GRANT_MAX);
-// A connection nobody uses for this long has to be approved again.
-const IDLE_LIMIT = fromSeconds(OAUTH_TTL.REFRESH_TOKEN);
-// Access an assistant already holds can't be cut short; it runs out on its own.
-const AFTER_DISCONNECT = fromSeconds(OAUTH_TTL.ACCESS_TOKEN);
 
 export function ConnectAnAiAssistant() {
   return (
@@ -218,16 +209,16 @@ export function ConnectAnAiAssistant() {
         <h2 className="text-xl font-semibold tracking-tight">How long a connection lasts</h2>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            A connection lasts up to {MAX_CONNECTED} from the first time you choose{' '}
+            A connection lasts up to {GRANT_LIFETIME} from the first time you choose{' '}
             <Ui>{UI.allow}</Ui>. After that, you need to approve it again.
           </li>
           <li>
-            If your assistant doesn&apos;t work on your signups for {IDLE_LIMIT}, you need to
-            approve it again sooner.
+            If your assistant doesn&apos;t work on your signups for {CONNECTION_IDLE_LIMIT}, you
+            need to approve it again sooner.
           </li>
           <li>
             If you approve the same assistant again, it keeps the connection you have. It
-            doesn&apos;t add a second one, or restart the {MAX_CONNECTED}.
+            doesn&apos;t add a second one, or restart the {GRANT_LIFETIME}.
           </li>
         </ul>
       </section>
@@ -253,8 +244,9 @@ export function ConnectAnAiAssistant() {
           </Step>
           <Step>
             <p>
-              An assistant can keep working for up to {AFTER_DISCONNECT} after you disconnect it,
-              and nobody can cut that short. Next to the assistant, choose <Ui>{UI.disconnect}</Ui>.
+              An assistant can keep working for up to {ACCESS_TOKEN_LIFETIME} after you disconnect
+              it, and nobody can cut that short. Next to the assistant, choose{' '}
+              <Ui>{UI.disconnect}</Ui>.
             </p>
           </Step>
         </Steps>

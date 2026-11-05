@@ -5,9 +5,10 @@ import { DAYS_AFTER_SLOT, MAX_DAYS, MIN_DAYS } from '@/lib/returning-participant
 import { OAUTH_TTL } from '@/oauth/config';
 
 /**
- * The durations the privacy and cookies pages state, in words, built from the
- * constants that decide them so the pages can't go on saying an old number.
- * Everything imported here is safe at build time: the legal pages are static.
+ * The durations the legal pages, the help articles and the connected-apps page
+ * state, in words, built from the constants that decide them so no page can go
+ * on saying an old number. Everything imported here is safe at build time: the
+ * legal and help pages are static.
  */
 
 const fromSeconds = (seconds: number) => formatDuration(Math.floor(seconds / 60));
@@ -24,9 +25,16 @@ export const COMMIT_COOKIE_MAX = days(MAX_DAYS);
 /** How long after the organizer's last move a moved-slot email goes out. */
 export const SLOT_CHANGE_DELAY = formatDuration(SLOT_CHANGE_SETTLE_MINUTES);
 
-/** How long an access token outlives a disconnect, and the longest an approval lasts. */
+/**
+ * How long an access token outlives a disconnect (it can't be cut short; it
+ * runs out on its own), and the longest an approval lasts, counted from the
+ * first Allow: approving again keeps the connection's original end date.
+ */
 export const ACCESS_TOKEN_LIFETIME = fromSeconds(OAUTH_TTL.ACCESS_TOKEN);
 export const GRANT_LIFETIME = fromSeconds(OAUTH_TTL.GRANT_MAX);
+
+/** A connection nobody uses for this long has to be approved again. */
+export const CONNECTION_IDLE_LIMIT = fromSeconds(OAUTH_TTL.REFRESH_TOKEN);
 
 /** `os_oauth_session`, in hours as the page has always said ("24 hours", not "1 day"). */
 const sessionHours = OAUTH_TTL.SESSION / 3600;
