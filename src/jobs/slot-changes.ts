@@ -13,7 +13,8 @@ import {
   slotSettled,
   toldDifferentTime,
 } from './notify-rules';
-import { getBoss, QUEUES, type SlotChangeSendPayload } from './queue';
+import { getBoss, type SlotChangeSendPayload } from './queue';
+import { QUEUES } from './queue-names';
 import { loadDueRow, recordWorkerEmailSent, workerEmailParts } from './worker-email';
 
 /**

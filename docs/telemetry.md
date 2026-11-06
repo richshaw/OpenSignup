@@ -448,7 +448,5 @@ The public page's `signup.viewed` is system-actor and does not advance
   transport accepted a message: `auth.magic_link_sent`,
   `commitment.confirmation_sent` and `reminder.sent`. A send that fails
   writes no row and shows up only in the server or worker log.
-- HTTP errors and Web Vitals — these belong in pino + Sentry, not the
-  activity log. Sentry env stubs (`SENTRY_DSN`) exist in `src/lib/env.ts`
-  but are not yet wired up; see Task 2.8 in the internal v1 build plan
-  (`docs/plans/`, kept local).
+- HTTP errors and Web Vitals — these belong in the pino logs, not the
+  activity log. No error tracker is wired up.
