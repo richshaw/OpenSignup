@@ -38,6 +38,17 @@ type BuildWysiwygProps = {
 
 const EMPTY_GROUP_KEY = '__empty__';
 
+/** The group a row is in: its value for the group field, or `__empty__` when it has none. */
+function groupKeyOf(row: BuildRow, ref: string): string {
+  const raw = row.values[ref] ?? '';
+  return raw === '' ? EMPTY_GROUP_KEY : raw;
+}
+
+/** The group field value a group's rows have: `''` for `__empty__`. */
+function groupValueOf(key: string): string {
+  return key === EMPTY_GROUP_KEY ? '' : key;
+}
+
 /**
  * Maximum sheet width grows with field count above the `md` breakpoint —
  * keeps small schemas tight, wide ones legible. Below `md` the sheet goes
@@ -57,8 +68,7 @@ function partitionRows(rows: BuildRow[], groupField: BuildField | null): SlotGro
   const ref = groupField.ref;
   const buckets = new Map<string, BuildRow[]>();
   for (const r of rows) {
-    const raw = r.values[ref] ?? '';
-    const key = raw === '' ? EMPTY_GROUP_KEY : raw;
+    const key = groupKeyOf(r, ref);
     let bucket = buckets.get(key);
     if (!bucket) {
       bucket = [];
@@ -73,7 +83,7 @@ function partitionRows(rows: BuildRow[], groupField: BuildField | null): SlotGro
   });
   return keys.map((k) => ({
     key: k,
-    rawValue: k === EMPTY_GROUP_KEY ? '' : k,
+    rawValue: groupValueOf(k),
     rows: buckets.get(k) ?? [],
   }));
 }
@@ -162,12 +172,9 @@ export function BuildWysiwyg({
     },
     ...(groupField
       ? {
-          getGroupKey: (row) => {
-            const v = row.values[groupField.ref] ?? '';
-            return v === '' ? EMPTY_GROUP_KEY : v;
-          },
+          getGroupKey: (row) => groupKeyOf(row, groupField.ref),
           onTransfer: (rowId, toGroupKey, toIdx) => {
-            const newGroupValue = toGroupKey === EMPTY_GROUP_KEY ? '' : (toGroupKey ?? '');
+            const newGroupValue = groupValueOf(toGroupKey ?? '');
             const fromIdx = state.rows.findIndex((r) => r.id === rowId);
             void moveRow(fromIdx, toIdx, { fieldRef: groupField.ref, value: newGroupValue });
           },
@@ -177,8 +184,9 @@ export function BuildWysiwyg({
 
   const handleAddSlot = (groupKey: string) => {
     const seedValues: Record<string, string> = {};
-    if (groupField && groupKey !== EMPTY_GROUP_KEY && groupKey !== '__flat__') {
-      seedValues[groupField.ref] = groupKey;
+    const value = groupValueOf(groupKey);
+    if (groupField && value !== '' && groupKey !== '__flat__') {
+      seedValues[groupField.ref] = value;
     }
     void addRow({ values: seedValues });
   };
@@ -287,12 +295,7 @@ export function BuildWysiwyg({
     if (newKey === oldKey) return;
     // Every row in the group takes the new group value.
     const ref = groupField.ref;
-    const rowIds = state.rows
-      .filter((r) => {
-        const raw = r.values[ref] ?? '';
-        return oldKey === EMPTY_GROUP_KEY ? raw === '' : raw === oldKey;
-      })
-      .map((r) => r.id);
+    const rowIds = state.rows.filter((r) => groupKeyOf(r, ref) === oldKey).map((r) => r.id);
     setFailedRenameKey(null);
     setRenamedFrom((prev) => {
       const from = prev[oldKey] ?? oldKey;
