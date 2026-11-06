@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments, type Commitment as CommitmentRow } from '@/db/schema/commitments';
@@ -14,7 +14,7 @@ import { serviceError, ServiceException, type ServiceError } from '@/lib/errors'
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
 import { summarizeSlotValues } from '@/lib/slot-summary';
-import { signupShutReason, slotInLockout } from '@/lib/signup-closing';
+import { lockoutCutoff, signupShutReason, slotInLockout } from '@/lib/signup-closing';
 import { parseInputSafe } from '@/lib/parse';
 import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { toPublicCommitment, type PublicCommitment } from '@/lib/public-commitment';
@@ -416,11 +416,26 @@ async function commitParticipantToSlot(
 
     if (slot.capacity !== null && usedQty + data.quantity > slot.capacity) {
       const remaining = Math.max(0, slot.capacity - usedQty);
+      // Only slots that could take this sign-up, by the rules
+      // `whyNotTakingPlaces` refuses one by: open, outside the lockout, and
+      // with a place left. The signup is open, or we would not be here.
+      const cutoff = lockoutCutoff(signupRow.settings);
+      const othersTaken = tx
+        .select({ sum: sql`coalesce(sum(${commitments.quantity}), 0)` })
+        .from(commitments)
+        .where(and(eq(commitments.slotId, slots.id), holdsPlace));
       const alts = await tx
         .select({ id: slots.id, ref: slots.ref, slotAt: slots.slotAt })
         .from(slots)
         .where(
-          and(eq(slots.signupId, slot.signupId), eq(slots.status, 'open'), ne(slots.id, slotId)),
+          and(
+            eq(slots.signupId, slot.signupId),
+            inWorkspace(slots.workspaceId, slot.workspaceId),
+            eq(slots.status, 'open'),
+            ne(slots.id, slotId),
+            ...(cutoff ? [or(isNull(slots.slotAt), gte(slots.slotAt, cutoff))] : []),
+            or(isNull(slots.capacity), sql`${slots.capacity} > (${othersTaken})`),
+          ),
         )
         .orderBy(asc(slots.slotAt), asc(slots.sortOrder))
         .limit(3);

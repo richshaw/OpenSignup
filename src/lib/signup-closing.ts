@@ -42,8 +42,20 @@ export function slotInLockout(
   slotAt: Date | null,
   now: number = Date.now(),
 ): boolean {
+  const cutoff = lockoutCutoff(settings, now);
+  if (!slotAt || !cutoff) return false;
+  return slotAt.getTime() < cutoff.getTime();
+}
+
+/**
+ * The earliest slot instant still outside the signup's lockout, or null when
+ * it has none: a slot is in the lockout (`slotInLockout`) when it starts
+ * before this. For a query that must leave locked-out slots out in SQL, such
+ * as the alternatives a full slot's refusal offers.
+ */
+export function lockoutCutoff(settings: unknown, now: number = Date.now()): Date | null {
   const hours =
     (settings as { lockoutHoursBeforeSlot?: number | null } | null)?.lockoutHoursBeforeSlot ?? 0;
-  if (!slotAt || hours <= 0) return false;
-  return now > slotAt.getTime() - hours * 3600 * 1000;
+  if (hours <= 0) return null;
+  return new Date(now + hours * 3600 * 1000);
 }

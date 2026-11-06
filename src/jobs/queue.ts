@@ -1,19 +1,10 @@
 import PgBoss from 'pg-boss';
 import { getEnv } from '@/lib/env';
+import { QUEUES } from './queue-names';
 
 declare global {
   var __signup_pgboss__: PgBoss | undefined;
 }
-
-export const QUEUES = {
-  reminderDispatch: 'reminders.dispatch',
-  reminderSend: 'reminders.send',
-  /** Finds slots that moved and settled, and queues an email per participant. */
-  slotChangeDispatch: 'slot-changes.dispatch',
-  slotChangeSend: 'slot-changes.send',
-  /** Hourly deletion of expired OAuth records and closed rate-limit windows. */
-  housekeeping: 'housekeeping.sweep',
-} as const;
 
 export async function getBoss(): Promise<PgBoss> {
   if (!globalThis.__signup_pgboss__) {

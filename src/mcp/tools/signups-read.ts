@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ok } from '@/lib/result';
-import { SIGNUP_STATUSES, type SignupSettings } from '@/schemas/signups';
+import { SIGNUP_STATUSES, WORKSPACE_LIST_LIMIT, type SignupSettings } from '@/schemas/signups';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import {
   getSignupForOrganizer,
@@ -115,8 +115,7 @@ export const listSignups = defineTool({
   name: 'list_signups',
   scope: 'signups:read',
   title: 'List signups',
-  description:
-    'Signups in a workspace, newest first, up to 200. Filter by status: draft (not yet visible to participants), open (taking signups), closed, archived. Use get_signup for fields, slots and the description.',
+  description: `Signups in a workspace, newest first, up to ${WORKSPACE_LIST_LIMIT}. Filter by status: draft (not yet visible to participants), open (taking signups), closed, archived. Use get_signup for fields, slots and the description.`,
   annotations: { readOnlyHint: true },
   inputSchema: z.object({
     workspaceId: z

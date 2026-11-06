@@ -16,7 +16,7 @@ import {
   GRANT_LIFETIME,
   LOGIN_CODE_LIFETIME,
   SLOT_CHANGE_DELAY,
-} from '../lifetimes';
+} from '@/lib/lifetimes';
 
 export const metadata: Metadata = pageMetadata({
   path: '/privacy',
