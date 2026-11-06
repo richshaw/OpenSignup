@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capacityMessage } from './capacity-message';
+import { capacityMessage, offersAlternatives } from './capacity-message';
 
 const full = (remaining: unknown, requested: unknown, alternatives?: unknown) => ({
   code: 'capacity_full',
@@ -92,5 +92,43 @@ describe('capacityMessage fallbacks', () => {
     expect(capacityMessage(full(1, '2'), 'change')).toBeNull();
     expect(capacityMessage(full(null, 2), 'join')).toBeNull();
     expect(capacityMessage(full(Number.NaN, 2), 'join')).toBeNull();
+  });
+});
+
+describe('offersAlternatives', () => {
+  const alternatives = [{ id: 'slot_2', ref: 's2', slotAt: null }];
+
+  it('points at other slots when the slot filled and the server named some', () => {
+    expect(offersAlternatives(full(0, 1, alternatives))).toBe(true);
+  });
+
+  // The dialog's old inline check compared `remaining === 0`, so a negative
+  // count produced the words ("Pick another slot.") without the link.
+  it('agrees with the copy when remaining went negative', () => {
+    expect(offersAlternatives(full(-1, 2, alternatives))).toBe(true);
+  });
+
+  it('stays quiet when the slot still has room', () => {
+    expect(offersAlternatives(full(3, 2, alternatives))).toBe(false);
+  });
+
+  it('stays quiet without alternatives to show', () => {
+    expect(offersAlternatives(full(0, 1, []))).toBe(false);
+    expect(offersAlternatives(full(0, 1))).toBe(false);
+    expect(offersAlternatives(full(0, 1, 'slot_2'))).toBe(false);
+  });
+
+  // The dialog's old check never looked at the code, so any error carrying
+  // alternatives and `remaining === 0` rendered the link.
+  it('stays quiet for an error that is not a capacity refusal', () => {
+    expect(offersAlternatives({ code: 'gone', details: { remaining: 0, alternatives } })).toBe(
+      false,
+    );
+  });
+
+  it('stays quiet when the numbers are missing or not numbers', () => {
+    expect(offersAlternatives(full(undefined, 1, alternatives))).toBe(false);
+    expect(offersAlternatives(full('0', 1, alternatives))).toBe(false);
+    expect(offersAlternatives(null)).toBe(false);
   });
 });
