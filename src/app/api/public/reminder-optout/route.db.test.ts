@@ -186,10 +186,7 @@ describe('POST /api/public/reminder-optout', () => {
   it('redirects a failed Turn reminders back on with error=1', async () => {
     const p = await makeParticipant(fx, 'Route Forged Optin');
     const res = await POST(
-      postRequest(
-        { p: 'x&done=on', token: 'a+b/c=', slug: p.signupSlug, action: 'start' },
-        '*/*',
-      ),
+      postRequest({ p: 'x&done=on', token: 'a+b/c=', slug: p.signupSlug, action: 'start' }, '*/*'),
     );
 
     expect(res.status).toBe(303);
