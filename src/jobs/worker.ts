@@ -3,7 +3,8 @@ config({ path: '.env.local' });
 config({ path: '.env' });
 
 import { log } from '@/lib/log';
-import { getBoss, QUEUES, type ReminderSendPayload, type SlotChangeSendPayload } from './queue';
+import { getBoss, type ReminderSendPayload, type SlotChangeSendPayload } from './queue';
+import { QUEUES, REMINDER_DISPATCH_CRON } from './queue-names';
 import { dispatchReminders, sendReminderJob } from './reminders';
 import { dispatchSlotChanges, sendSlotChangeJob } from './slot-changes';
 import { runHousekeeping } from './housekeeping';
@@ -23,7 +24,7 @@ async function main() {
   });
 
   // Dispatcher: poll every 10 minutes for reminders that have come due.
-  await boss.schedule(QUEUES.reminderDispatch, '*/10 * * * *');
+  await boss.schedule(QUEUES.reminderDispatch, REMINDER_DISPATCH_CRON);
   await boss.work(QUEUES.reminderDispatch, async () => {
     try {
       await dispatchReminders();

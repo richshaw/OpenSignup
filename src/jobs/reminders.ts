@@ -11,7 +11,8 @@ import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
 import { alreadyRecorded } from '@/email/commitment-row';
 import { sendReminder } from '@/email/send';
 import { allOf, notifiableRules, slotSettled, wasToldDifferentTime } from './notify-rules';
-import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
+import { getBoss, type ReminderSendPayload } from './queue';
+import { QUEUES } from './queue-names';
 import { loadDueRow, recordWorkerEmailSent, workerEmailParts } from './worker-email';
 
 /** The reminder lead time as a SQL interval. Fixed for every signup. */

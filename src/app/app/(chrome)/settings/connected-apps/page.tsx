@@ -4,8 +4,8 @@ import { requireOrganizerSession, toActor } from '@/auth/session';
 import { FormError, SuccessNotice } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
 import { ServiceException } from '@/lib/errors';
+import { ACCESS_TOKEN_LIFETIME } from '@/lib/lifetimes';
 import { log } from '@/lib/log';
-import { OAUTH_TTL } from '@/oauth/config';
 import { listConnectedApps, revokeConnectedApp } from '@/oauth/grants';
 import { getProvider } from '@/oauth/instance';
 import { SCOPE_DESCRIPTIONS } from '@/oauth/scopes';
@@ -29,7 +29,6 @@ export default async function ConnectedAppsPage({
   const session = await requireOrganizerSession();
   const actor = toActor(session);
   const apps = await listConnectedApps(getDb(), actor);
-  const residualMinutes = Math.round(OAUTH_TTL.ACCESS_TOKEN / 60);
 
   async function disconnect(formData: FormData) {
     'use server';
@@ -62,7 +61,7 @@ export default async function ConnectedAppsPage({
       {disconnected ? (
         <SuccessNotice>
           Disconnected. It can no longer get new access, and any access it still holds ends within{' '}
-          {residualMinutes} minutes.
+          {ACCESS_TOKEN_LIFETIME}.
         </SuccessNotice>
       ) : null}
 
@@ -112,7 +111,7 @@ export default async function ConnectedAppsPage({
 
       <p className="text-xs text-ink-soft">
         Disconnecting stops an app from getting new access straight away. Access it already holds
-        expires on its own within {residualMinutes} minutes and cannot be cut short.
+        expires on its own within {ACCESS_TOKEN_LIFETIME} and cannot be cut short.
       </p>
     </section>
   );
