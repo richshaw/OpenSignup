@@ -183,6 +183,19 @@ describe('POST /api/public/reminder-optout', () => {
     expect(location.searchParams.has('done')).toBe(false);
   });
 
+  it('redirects a failed Turn reminders back on with error=1', async () => {
+    const p = await makeParticipant(fx, 'Route Forged Optin');
+    const res = await POST(
+      postRequest({ p: 'x&done=on', token: 'a+b/c=', slug: p.signupSlug, action: 'start' }, '*/*'),
+    );
+
+    expect(res.status).toBe(303);
+    const location = new URL(res.headers.get('location') ?? '');
+    expect(location.pathname).toBe(`/s/${p.signupSlug}/unsubscribe`);
+    expect(location.searchParams.get('error')).toBe('1');
+    expect(location.searchParams.has('done')).toBe(false);
+  });
+
   it('answers a one-click POST with a bare 200 and no redirect', async () => {
     const p = await makeParticipant(fx, 'Route OneClick Optout');
     // RFC 8058 §3.1: the body a provider sends, with no slug of ours in it.
