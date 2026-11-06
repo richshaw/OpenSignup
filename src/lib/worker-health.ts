@@ -1,14 +1,15 @@
 import { sql } from 'drizzle-orm';
 import type { Db } from '@/db/client';
+import { QUEUES, REMINDER_DISPATCH_EVERY_MINUTES } from '@/jobs/queue-names';
 import { log } from './log';
 
 export type WorkerStatus = 'ok' | 'stale' | 'unknown';
 
 /**
- * The reminder dispatch cron fires every 10 minutes (`src/jobs/worker.ts`);
- * three missed beats means the worker process is down or wedged.
+ * Three missed beats of the reminder dispatch cron means the worker process
+ * is down or wedged.
  */
-export const WORKER_STALE_AFTER_MS = 30 * 60 * 1000;
+export const WORKER_STALE_AFTER_MS = 3 * REMINDER_DISPATCH_EVERY_MINUTES * 60 * 1000;
 
 export function classifyWorkerStatus(
   lastCompletedAt: Date | null,
@@ -30,7 +31,7 @@ export async function getWorkerStatus(db: Db): Promise<WorkerStatus> {
     const rows = await db.execute<{ last: Date | string | null }>(
       sql`select max(completed_on) as last
           from pgboss.job
-          where name = 'reminders.dispatch' and state = 'completed'`,
+          where name = ${QUEUES.reminderDispatch} and state = 'completed'`,
     );
     const raw = rows[0]?.last ?? null;
     const last = raw === null ? null : new Date(raw);

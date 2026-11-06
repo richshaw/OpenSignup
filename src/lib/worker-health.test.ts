@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { REMINDER_DISPATCH_CRON, REMINDER_DISPATCH_EVERY_MINUTES } from '@/jobs/queue-names';
 import { classifyWorkerStatus, WORKER_STALE_AFTER_MS } from './worker-health';
 
 const now = new Date('2026-06-09T12:00:00Z');
@@ -21,5 +22,13 @@ describe('classifyWorkerStatus', () => {
 
   it('reports stale when the worker has never completed a dispatch', () => {
     expect(classifyWorkerStatus(null, now)).toBe('stale');
+  });
+});
+
+describe('WORKER_STALE_AFTER_MS', () => {
+  it('is three runs of the reminder dispatch cron the worker schedules', () => {
+    const minutes = Number(/^\*\/(\d+) \* \* \* \*$/.exec(REMINDER_DISPATCH_CRON)?.[1]);
+    expect(minutes).toBe(REMINDER_DISPATCH_EVERY_MINUTES);
+    expect(WORKER_STALE_AFTER_MS).toBe(3 * minutes * 60 * 1000);
   });
 });

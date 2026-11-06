@@ -30,9 +30,6 @@ const baseSchema = z.object({
   SMTP_SECURE: booleanFlag(),
   // Unset requires STARTTLS whenever a login is set (see src/email/smtp.ts).
   SMTP_REQUIRE_TLS: booleanFlag(),
-  SENTRY_DSN: z.string().optional(),
-  POSTHOG_KEY: z.string().optional(),
-  POSTHOG_HOST: z.string().url().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
