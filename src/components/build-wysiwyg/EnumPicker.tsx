@@ -3,7 +3,7 @@
 import { useId, useRef, useState } from 'react';
 import { ChevronDown, Plus } from 'lucide-react';
 import { useOutsideClose } from '@/hooks/useOutsideClose';
-import { CHOICE_MAX_LENGTH, MAX_CHOICES } from '@/schemas/slot-fields';
+import { CHOICE_COUNT_FROM, CHOICE_MAX_LENGTH, MAX_CHOICES } from '@/schemas/slot-fields';
 import { PickerOption } from './PickerOption';
 
 type EnumPickerProps = {
@@ -80,6 +80,7 @@ export function EnumPicker({
     setAdding(true);
   };
 
+  const showCount = draft.length >= CHOICE_COUNT_FROM;
   const atLengthLimit = draft.length >= CHOICE_MAX_LENGTH;
 
   function commitNew() {
@@ -156,29 +157,49 @@ export function EnumPicker({
             // highlight, and the input's left padding puts typed text where the
             // option labels start: 1px border + 9px = px-2.5.
             <>
-              <div className="flex items-center gap-1 py-1">
-                <input
-                  autoFocus
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      commitNew();
-                    }
-                    if (e.key === 'Escape') {
-                      e.preventDefault();
-                      close();
-                      triggerRef.current?.focus();
-                    }
-                  }}
-                  onBlur={commitNew}
-                  maxLength={CHOICE_MAX_LENGTH}
-                  placeholder="Type a new item"
-                  aria-label="New option name"
-                  aria-describedby={lengthHintId}
-                  className="min-w-0 flex-1 rounded border border-surface-sunk bg-white py-1.5 pl-[9px] pr-2 text-xs text-ink outline-none placeholder:text-ink-soft focus:border-brand"
-                />
+              <div className="flex items-start gap-1 py-1">
+                {/* The count sits in the box's own column, so its right edge
+                    lines up with the box's, not with Add. */}
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <input
+                    autoFocus
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        commitNew();
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault();
+                        close();
+                        triggerRef.current?.focus();
+                      }
+                    }}
+                    onBlur={commitNew}
+                    maxLength={CHOICE_MAX_LENGTH}
+                    placeholder="Type a new item"
+                    aria-label="New option name"
+                    aria-describedby={lengthHintId}
+                    className="min-w-0 rounded border border-surface-sunk bg-white py-1.5 pl-[9px] pr-2 text-xs text-ink outline-none placeholder:text-ink-soft focus:border-brand"
+                  />
+                  {/* A count near the limit, so a box that stops taking
+                      characters (or a paste cut short by maxLength) explains
+                      itself. Its row is there from the moment the box opens
+                      and holds a blank until the count shows, so nothing moves
+                      while someone types. It isn't read out on every
+                      keystroke: the box is described by the fixed limit. */}
+                  <div
+                    ref={scrollIntoViewOnMount}
+                    aria-hidden="true"
+                    data-testid="new-item-count"
+                    className={`whitespace-nowrap pt-1 text-right text-[11px] tabular-nums ${atLengthLimit ? 'text-warn' : 'text-ink-soft'}`}
+                  >
+                    {showCount
+                      ? `${draft.length}/${CHOICE_MAX_LENGTH}${atLengthLimit ? ' \u00b7 max' : ''}`
+                      : '\u00a0'}
+                  </div>
+                </div>
                 <button
                   type="button"
                   // Keeps focus in the box, so its blur doesn't add first.
@@ -189,18 +210,6 @@ export function EnumPicker({
                 >
                   Add
                 </button>
-              </div>
-              {/* A live count, so a box that stops taking characters (or a
-                  paste cut short by maxLength) explains itself. It's there
-                  from the moment the box opens and never changes height, so
-                  nothing moves while someone types. It isn't read out on
-                  every keystroke: the box is described by the fixed limit. */}
-              <div
-                ref={scrollIntoViewOnMount}
-                aria-hidden="true"
-                className={`px-2.5 pb-1.5 text-right text-[11px] tabular-nums ${atLengthLimit ? 'text-ink-muted' : 'text-ink-soft'}`}
-              >
-                {draft.length}/{CHOICE_MAX_LENGTH}
               </div>
               <span id={lengthHintId} className="sr-only">
                 Up to {CHOICE_MAX_LENGTH} characters
