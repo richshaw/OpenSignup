@@ -6,6 +6,7 @@ import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { FormError } from '@/components/ui/form-error';
+import { offersAlternatives, type SlotAlternative } from './capacity-message';
 import { participantErrorCopy } from './participant-error';
 import { PREFILL_KEY } from './prefill-key';
 import { Field, NotesAndSpots } from './participant-fields';
@@ -69,7 +70,7 @@ interface ApiError {
   field?: string;
   suggestion?: string;
   details?: {
-    alternatives?: { id: string; title: string }[];
+    alternatives?: SlotAlternative[];
     remaining?: number;
     capacity?: number;
     retryAfterSeconds?: number;
@@ -562,7 +563,7 @@ export default function CommitDialog({
               <FormError ref={errorRef}>
                 <p className="font-medium">{errorText?.message}</p>
                 {errorText?.suggestion ? <p className="text-xs">{errorText.suggestion}</p> : null}
-                {error.details?.alternatives?.length && error.details.remaining === 0 ? (
+                {offersAlternatives(error) ? (
                   <div className="mt-2 space-y-1 text-xs">
                     <a
                       href={`/s/${slug}`}
