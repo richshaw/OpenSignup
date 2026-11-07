@@ -109,6 +109,7 @@ All notable changes to OpenSignup are documented here. Format follows [Keep a Ch
 
 ### Removed
 
+- `signups.claimTokenHash` is out of the Drizzle schema, so the app no longer reads or writes `signups.claim_token_hash`. It came with the same never-built signup-claiming feature as `signup_claims` and was always null. The column stays in the database for now, so a build still running during a deploy can select it; a later migration drops it.
 - Migration `0014` drops the `signup_claims` table. It came with the first schema for a signup-claiming feature that was never built, and no code ever read or wrote it, so every instance's copy is empty.
 
 ### Fixed
