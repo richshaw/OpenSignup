@@ -1047,6 +1047,19 @@ export async function howCommitmentsEnded(
 }
 
 /**
+ * The status an organizer reads for a commitment, on the Responses tab and in
+ * its CSV export: `removed` or `moved` for a cancelled one that
+ * `howCommitmentsEnded` says so of, and the stored status otherwise, so a
+ * plain `cancelled` is the participant's own cancel.
+ */
+export function shownCommitmentStatus(
+  c: { id: string; status: string },
+  ended: ReadonlyMap<string, 'removed' | 'moved'>,
+): string {
+  return c.status === 'cancelled' ? (ended.get(c.id) ?? c.status) : c.status;
+}
+
+/**
  * How many sign-ups a signup has that are still active, for the count on its
  * Responses tab. A cancelled one, whether the participant cancelled, moved or
  * was removed, stays in the tab's table but no longer counts. Guard-free, like
