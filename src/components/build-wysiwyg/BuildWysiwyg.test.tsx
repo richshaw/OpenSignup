@@ -132,6 +132,54 @@ describe('BuildWysiwyg — group headers', () => {
     expect(screen.getByRole('button', { name: /Group header.*Sat, Nov 14/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Group header.*Sat, Nov 21/ })).toBeNull();
   });
+
+  it('renames exactly the slots its empty group shows', async () => {
+    const fetchMock = vi.fn().mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ data: {} }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        initialFields={[
+          {
+            id: 'f-who',
+            ref: 'who',
+            label: 'Who',
+            fieldType: 'text',
+            sortOrder: 0,
+            config: { fieldType: 'text', maxLength: 200 },
+          },
+        ]}
+        initialSettings={{ ...settings, groupByFieldRefs: ['who'] }}
+        initialSlots={[
+          { id: 'slot_blank', capacity: 1, sortOrder: 0, values: { who: '' } },
+          { id: 'slot_unset', capacity: 1, sortOrder: 1, values: {} },
+          { id: 'slot_literal', capacity: 1, sortOrder: 2, values: { who: '__empty__' } },
+          { id: 'slot_named', capacity: 1, sortOrder: 3, values: { who: 'Ann' } },
+        ]}
+      />,
+    );
+
+    const headers = screen.getAllByRole('button', { name: /Group header/ });
+    // Ann's group sorts first; the empty group, holding the literal `__empty__` too, last.
+    fireEvent.click(headers[headers.length - 1]!);
+    const input = screen.getByRole('textbox', { name: /Group header/ });
+    fireEvent.change(input, { target: { value: 'Bea' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const patched = fetchMock.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.startsWith('/api/slots/'))
+      .map((url) => url.slice('/api/slots/'.length))
+      .sort();
+    expect(patched).toEqual(['slot_blank', 'slot_literal', 'slot_unset']);
+  });
 });
 
 describe('BuildWysiwyg — duplicate', () => {
