@@ -8,7 +8,7 @@ export const magicLinks = pgTable(
     email: text('email').notNull(),
     purpose: text('purpose').notNull(), // 'login_code'
     // Always null: meant for a signup-claim link that was never built. Drop it
-    // the same way as signups.claimTokenHash: out of this schema (and the
+    // the same way as signups.claim_token_hash: out of this schema (and the
     // login-code insert) first, out of the database a release later.
     scopeId: text('scope_id'),
     /**
