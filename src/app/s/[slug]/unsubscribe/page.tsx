@@ -15,11 +15,23 @@ type PageParams = {
   searchParams: Promise<{ p?: string; token?: string; done?: 'on' | 'off'; error?: string }>;
 };
 
-function Shell({ title, children }: { title: string; children: React.ReactNode }) {
+function Shell({
+  title,
+  error,
+  children,
+}: {
+  title: string;
+  /** Set when the previous POST failed; both branches show it, see #785. */
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
     <main className="container-tight flex min-h-[100svh] flex-col justify-center gap-4 py-8">
       <div className="space-y-4 rounded-xl border border-surface-sunk bg-white p-6">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        {error ? (
+          <FormError>That didn&apos;t work — nothing has changed. Try again below.</FormError>
+        ) : null}
         {children}
       </div>
     </main>
@@ -88,7 +100,7 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
         or give up and mark the mail as spam. `done=off` still earns the
         affirmative wording; without it we say only what the row shows.
       */
-      <Shell title={done === 'off' ? 'Reminders turned off' : 'Reminders are off'}>
+      <Shell title={done === 'off' ? 'Reminders turned off' : 'Reminders are off'} error={error}>
         <p className="text-sm text-ink-muted">
           {done === 'off' ? (
             <>
@@ -130,10 +142,10 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
   }
 
   return (
-    <Shell title={done === 'on' ? 'Reminders turned back on' : 'Stop reminder emails?'}>
-      {error ? (
-        <FormError>That didn&apos;t work — nothing has changed. Try again below.</FormError>
-      ) : null}
+    <Shell
+      title={done === 'on' ? 'Reminders turned back on' : 'Stop reminder emails?'}
+      error={error}
+    >
       <p className="text-sm text-ink-muted">
         {done === 'on' ? (
           <>
