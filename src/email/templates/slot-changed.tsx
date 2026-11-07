@@ -1,6 +1,5 @@
 import { Text } from '@react-email/components';
 import { slotChangedSubject } from '../subjects';
-import type { SlotDetail } from '@/lib/slot-label';
 import {
   EmailButton,
   EmailHeading,
@@ -9,21 +8,11 @@ import {
   NotesText,
   UnsubscribeFooter,
 } from './layout';
+import type { ReminderEmailProps } from './reminder';
 import { SlotDetailsText } from './slot-details';
 
-export interface SlotChangedEmailProps {
-  participantName: string;
-  signupTitle: string;
-  /** The participant's own token-bearing link, as in the reminder. */
-  manageUrl: string;
-  /** Every field value for the slot, from `slotDetails()`. */
-  slotDetails: readonly SlotDetail[];
-  /** The same values on one line, from `summarizeSlotValues()`, for the preview text. */
-  slotSummary: string;
-  notes?: string | null;
-  /** Per-signup opt-out link. It silences reminders and these emails alike. */
-  unsubscribeUrl: string;
-}
+/** The reminder's props without `changed`: both emails are built from the same `workerEmailParts`. */
+export type SlotChangedEmailProps = Omit<ReminderEmailProps, 'changed'>;
 
 /** Sent when the organizer moves a slot to a new date or time. */
 export function SlotChangedEmail({
