@@ -157,12 +157,24 @@ function rewrite(commits: ReturningCommit[], now: Date): string {
 }
 
 /**
+ * A sign-up to remember. `signupId` is required: the signup page shows only
+ * the entries with its own id, so one written without it would never show as
+ * the participant's. Parsed entries keep it optional for cookies written before.
+ */
+export interface NewReturningCommit {
+  commitmentId: string;
+  token: string;
+  signupId: string;
+  slotAt: Date | null;
+}
+
+/**
  * Puts a sign-up at the front of the cookie, in place of any entry with its
  * id, remembered until `rememberUntil` says from its slot's `slotAt`.
  */
 export function appendReturningCommit(
   raw: string | null | undefined,
-  commit: { commitmentId: string; token: string; signupId?: string; slotAt: Date | null },
+  commit: NewReturningCommit,
   now: Date = new Date(),
 ): string {
   const { slotAt, ...entry } = commit;
@@ -216,4 +228,21 @@ export function setReturningCommitCookie(
     httpOnly: true,
     secure: isHttpsDeployment(),
   });
+}
+
+/**
+ * Remembers a new commitment in this browser: reads the cookie from the
+ * request, drops the entry for `replaces` (the commitment a move replaced),
+ * puts the new one first, and sets the cookie on the response.
+ */
+export function rememberNewCommitment(
+  response: NextResponse,
+  req: { cookies: { get(name: string): { value: string } | undefined } },
+  commit: NewReturningCommit,
+  { replaces }: { replaces?: string } = {},
+  now: Date = new Date(),
+): void {
+  let raw = req.cookies.get(COMMIT_COOKIE_NAME)?.value ?? null;
+  if (replaces) raw = removeReturningCommit(raw, replaces, now);
+  setReturningCommitCookie(response, appendReturningCommit(raw, commit, now), now);
 }
