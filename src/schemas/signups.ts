@@ -14,21 +14,6 @@ export type SignupStatus = (typeof SIGNUP_STATUSES)[number];
 
 const SIGNUP_VISIBILITIES = ['public', 'unlisted', 'password'] as const;
 
-/**
- * Hours before a slot that its reminder goes out: the day before.
- *
- * Fixed rather than configurable. `extractSlotAt` pins the organizer's wall
- * clock to UTC because a signup carries no timezone, so every reminder instant
- * is off by the organizer's UTC offset. At a day's lead that is a rounding
- * error nobody notices; at two hours it exceeds the lead itself. A date-only
- * slot anchors at noon UTC for the same reason: a day before noon UTC is still
- * the day before from UTC-11 to UTC+11, where a day before midnight UTC was
- * two days early for everyone west of Greenwich. A day also matches what
- * organizers coming from SignUp.com expect (issue #165). Shorter leads can
- * return once a signup carries a real timezone.
- */
-export const REMINDER_LEAD_HOURS = 24;
-
 /** The most signups a workspace list returns, newest first. */
 export const WORKSPACE_LIST_LIMIT = 200;
 
@@ -39,7 +24,7 @@ export const SignupSettingsSchema = z
     showWhoSignedUp: z.boolean().default(true),
     maxCommitmentsPerParticipant: z.number().int().positive().optional(),
     lockoutHoursBeforeSlot: z.number().int().nonnegative().default(0),
-    /** The only reminder off switch. Timing is fixed: see REMINDER_LEAD_HOURS. */
+    /** The only reminder off switch. Timing is fixed: see `@/lib/reminder-lead`. */
     sendReminders: z.boolean().default(true),
     confirmationMessage: z.string().max(500).optional(),
     /** Slot-field refs to group by in the participant view. v1 caps at length 1; nested grouping deferred. */
