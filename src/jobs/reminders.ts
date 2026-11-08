@@ -7,7 +7,7 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { log } from '@/lib/log';
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
-import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
+import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
 import { alreadyRecorded } from '@/email/commitment-row';
 import { sendReminder } from '@/email/send';
 import { allOf, notifiableRules, slotSettled, wasToldDifferentTime } from './notify-rules';

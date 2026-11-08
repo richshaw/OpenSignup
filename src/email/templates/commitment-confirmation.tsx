@@ -1,6 +1,7 @@
 import { Text } from '@react-email/components';
 import { confirmationSubject } from '../subjects';
 import type { SlotDetail } from '@/lib/slot-label';
+import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
 import { EmailButton, EmailHeading, EmailIntro, EmailLayout, NotesText } from './layout';
 import { SlotDetailsText } from './slot-details';
 
@@ -45,7 +46,7 @@ export function CommitmentConfirmationEmail({
       <Text className="mt-6 text-xs text-[#8a93a4]">
         Keep this email. The button above is how you change or cancel later, with no password to
         remember. Anyone with that link can change your slot, so don&apos;t forward it.
-        {promisesReminder ? <> We&apos;ll also send you a reminder the day before.</> : null}
+        {promisesReminder ? <> We&apos;ll also send you a reminder {REMINDER_LEAD_WORDS}.</> : null}
       </Text>
     </EmailLayout>
   );
