@@ -39,7 +39,7 @@ export async function sendReminder(
    * page, while this is POSTed unattended by the mail provider and must be the
    * API route that actually applies the opt-out.
    */
-  opts: { unsubscribePostUrl?: string } = {},
+  opts: { unsubscribePostUrl: string },
 ) {
   const { html, text } = await renderEmail(createElement(ReminderEmail, props));
   return getEmailTransport().send({
@@ -47,7 +47,7 @@ export async function sendReminder(
     subject: reminderSubject(props.signupTitle, props.slotSummary, props.changed),
     html,
     text,
-    ...(opts.unsubscribePostUrl ? { headers: unsubscribeHeaders(opts.unsubscribePostUrl) } : {}),
+    headers: unsubscribeHeaders(opts.unsubscribePostUrl),
   });
 }
 

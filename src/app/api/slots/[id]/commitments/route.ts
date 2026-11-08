@@ -1,11 +1,7 @@
 import { after, type NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
 import { fail, handle, ok, readJson } from '@/lib/api-response';
-import {
-  COMMIT_COOKIE_NAME,
-  appendReturningCommit,
-  setReturningCommitCookie,
-} from '@/lib/returning-participant';
+import { rememberNewCommitment } from '@/lib/returning-participant';
 import { commitmentLinks } from '@/lib/links';
 import { notifyCommitmentCreated } from '@/email/notify';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
@@ -44,13 +40,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const response = ok({ ...responseValue, editUrl }, { links });
     // Remembered until a week after the slot, so someone who signs up far
     // ahead, perhaps without an email, can still find their way back.
-    const nextCookie = appendReturningCommit(req.cookies.get(COMMIT_COOKIE_NAME)?.value ?? null, {
+    rememberNewCommitment(response, req, {
       commitmentId: responseValue.commitment.id,
       token: responseValue.editToken,
       signupId: responseValue.commitment.signupId,
       slotAt,
     });
-    setReturningCommitCookie(response, nextCookie);
 
     // After the response, so a slow mail server never holds up a participant
     // who has already got their slot. Failures are logged, never surfaced. A

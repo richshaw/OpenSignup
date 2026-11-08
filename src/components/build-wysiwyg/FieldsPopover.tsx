@@ -7,6 +7,7 @@ import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
 import { useReorderable } from '../build-shared/useReorderable';
 import type { BuildField } from '../build-shared/useBuildState';
 import type { SlotFieldConfig } from '@/schemas/slot-fields';
+import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
 import { useOutsideClose } from '@/hooks/useOutsideClose';
 import { InlineFieldForm, type InlineFieldFormMode } from './InlineFieldForm';
 import { PickerOption } from './PickerOption';
@@ -249,8 +250,8 @@ function FieldsListView({
               {f.ref === reminderFieldRef && (
                 <span
                   role="img"
-                  title="Reminders sent the day before this date"
-                  aria-label="Reminders sent the day before this date"
+                  title={`Reminders sent ${REMINDER_LEAD_WORDS} this date`}
+                  aria-label={`Reminders sent ${REMINDER_LEAD_WORDS} this date`}
                   className="inline-flex items-center justify-center p-[3px] text-ink-soft"
                 >
                   <Bell size={11} />

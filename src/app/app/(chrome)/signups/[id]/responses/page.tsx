@@ -7,6 +7,7 @@ import {
   PLACE_HOLDING_STATUSES,
   howCommitmentsEnded,
   listCommitmentsForSignup,
+  shownCommitmentStatus,
 } from '@/services/commitments';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { StatusPill } from '@/components/status-pill';
@@ -116,10 +117,7 @@ export default async function ResponsesTab({ params }: PageParams) {
                 // this cell, which then reads "removed". Every row has it, so
                 // it outlasts that re-render.
                 const statusId = `status-${c.id}`;
-                // "cancelled" is the participant's own cancel. An organizer's
-                // removal and the old sign-up of a move say so instead, here
-                // and in the CSV export.
-                const status = c.status === 'cancelled' ? (ended.get(c.id) ?? c.status) : c.status;
+                const status = shownCommitmentStatus(c, ended);
                 // Remove's name, and the start of its question.
                 const removeLabel = `Remove ${c.participantName} from ${
                   summary || slot?.ref || 'this slot'
