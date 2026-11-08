@@ -10,6 +10,7 @@ import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
+import { joinCommitmentTables } from '@/jobs/notify-rules';
 import { slotDetails, type SlotDetail } from '@/lib/slot-label';
 import { summarizeSlotValues } from '@/lib/slot-summary';
 import { listFieldsForSignup } from '@/services/slot-fields';
@@ -19,17 +20,12 @@ import { listFieldsForSignup } from '@/services/slot-fields';
  * is no such commitment or it fails `where`, a condition over those four tables.
  */
 export async function loadCommitmentRow(db: Db, commitmentId: string, where?: SQL) {
-  const [row] = await db
-    .select({
-      commitment: commitments,
-      slot: slots,
-      signup: signups,
-      participant: participants,
-    })
-    .from(commitments)
-    .innerJoin(slots, eq(slots.id, commitments.slotId))
-    .innerJoin(signups, eq(signups.id, commitments.signupId))
-    .innerJoin(participants, eq(participants.id, commitments.participantId))
+  const [row] = await joinCommitmentTables(
+    db
+      .select({ commitment: commitments, slot: slots, signup: signups, participant: participants })
+      .from(commitments)
+      .$dynamic(),
+  )
     .where(and(eq(commitments.id, commitmentId), where))
     .limit(1);
   return row;
