@@ -21,19 +21,6 @@ const SLUG_RE = /^[a-z0-9-]{1,120}$/;
 const MAX_FORM_BYTES = 16 * 1024;
 
 /**
- * Applies a reminder opt-out.
- *
- * POST rather than GET so that link scanners and mail-client prefetchers
- * cannot unsubscribe someone by merely following a link. It is also the target
- * of `List-Unsubscribe` / `List-Unsubscribe-Post: One-Click`, so a mail
- * provider may call it unattended — which is safe: the token authenticates the
- * request and the operation is idempotent.
- *
- * Two callers with different needs, separated by `Accept`: a provider reads
- * only the status code and ignores the body, while a person submitting the
- * confirm page must land on a page rather than a raw JSON envelope.
- */
-/**
  * Sends a person to the confirm page for a link that was opened rather than
  * POSTed.
  *
@@ -58,6 +45,21 @@ export async function GET(request: Request) {
   );
 }
 
+/**
+ * Applies a reminder opt-out, or turns reminders back on when the confirm page
+ * asks to.
+ *
+ * POST rather than GET so that link scanners and mail-client prefetchers
+ * cannot unsubscribe someone by merely following a link. It is also the target
+ * of `List-Unsubscribe` / `List-Unsubscribe-Post: One-Click`, so a mail
+ * provider may call it unattended — which is safe: the token authenticates the
+ * request and the operation is idempotent.
+ *
+ * Two callers with different needs, separated by the confirm page's `slug`
+ * field (see `fromConfirmPage`): a provider reads only the status code and
+ * ignores the body, while a person submitting the confirm page must land on a
+ * page rather than a raw JSON envelope.
+ */
 export async function POST(request: Request) {
   const url = new URL(request.url);
   const form = await readFormData(request, MAX_FORM_BYTES);
@@ -100,7 +102,7 @@ export async function POST(request: Request) {
       );
 
     try {
-      const clientIp = extractClientIp(new Headers(request.headers));
+      const clientIp = extractClientIp(request.headers);
       await consumeRateLimit(getDb(), RateLimits.reminderOptOutPerIp, clientIp ?? 'unknown');
 
       const result = turningOn
