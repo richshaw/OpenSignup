@@ -1,15 +1,12 @@
 import { SLOT_CHANGE_DELAY } from '@/lib/lifetimes';
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { INSTANCE_NAME } from '@/lib/site-config';
-import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
+import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
 import { Note, Screenshot, Step, Steps, Ui } from '../components';
 import { UI } from './create-and-publish-a-signup.ui';
 
 export { UI };
 
-// Said the way the builder says it next to the date field.
-const REMINDER_WHEN =
-  REMINDER_LEAD_HOURS === 24 ? 'the day before' : `${REMINDER_LEAD_HOURS} hours before`;
 // A sign-up newer than this isn't picked up yet (src/jobs/reminders.ts).
 const SETTLE = REMINDER_SETTLE_HOURS === 1 ? 'an hour' : `${REMINDER_SETTLE_HOURS} hours`;
 
@@ -239,7 +236,7 @@ export function CreateAndPublishASignup() {
         <h2 className="text-xl font-semibold tracking-tight">Reminders</h2>
         <p>
           If a slot has a date, people who take it and gave an email address get a reminder email{' '}
-          {REMINDER_WHEN}. Someone who signs up later than that gets one about {SETTLE} after
+          {REMINDER_LEAD_WORDS}. Someone who signs up later than that gets one about {SETTLE} after
           signing up, unless the slot is less than {SETTLE} away. Each reminder has a link to stop
           them.
         </p>

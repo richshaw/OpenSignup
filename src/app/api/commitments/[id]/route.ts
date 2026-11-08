@@ -9,7 +9,7 @@ import { notifyCommitmentCreated } from '@/email/notify';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
 import {
   COMMIT_COOKIE_NAME,
-  appendReturningCommit,
+  rememberNewCommitment,
   removeReturningCommit,
   setReturningCommitCookie,
 } from '@/lib/returning-participant';
@@ -70,16 +70,17 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     // the receipt is charged to the address, as signing up is.
     const { editUrl, links } = commitmentLinks(moved.signupSlug, commitment.id, moved.editToken);
     const response = ok({ ...commitment, editToken: moved.editToken, editUrl }, { links });
-    const nextCookie = appendReturningCommit(
-      removeReturningCommit(req.cookies.get(COMMIT_COOKIE_NAME)?.value, id),
+    rememberNewCommitment(
+      response,
+      req,
       {
         commitmentId: commitment.id,
         token: moved.editToken,
         signupId: commitment.signupId,
         slotAt: moved.slotAt,
       },
+      { replaces: id },
     );
-    setReturningCommitCookie(response, nextCookie);
     after(() =>
       notifyCommitmentCreated(db, commitment.id, moved.editToken, { meterRecipient: true }),
     );

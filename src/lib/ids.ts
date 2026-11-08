@@ -10,9 +10,7 @@ export type IdPrefix =
   | 'par' // Participant
   | 'com' // Commitment
   | 'act' // Activity
-  | 'ml' // MagicLink
-  | 'rl' // Rate limit bucket
-  | 'job'; // pg-boss helper (our own, not pg-boss internal)
+  | 'ml'; // MagicLink
 
 // ASCII-sorted so lexicographic comparison matches numeric order (required for UUIDv7 sortability).
 const BASE62_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
