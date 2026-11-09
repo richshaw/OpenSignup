@@ -22,7 +22,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
   const sig = result.value;
   const requireEmail = requiresEmail(sig.settings);
   await trackOrganizerView({
-    actor: { actorId: session.organizerId, actorType: 'organizer' },
+    actor: toActor(session),
     signupId: sig.id,
     workspaceId: sig.workspaceId,
     eventType: 'signup.editor_opened',

@@ -2,7 +2,8 @@ import { headers } from 'next/headers';
 import { after } from 'next/server';
 import type { ActivityEvent } from '@/db/schema/activity';
 import { getDb } from '@/db/client';
-import { recordActivityBestEffort, type ActivityActor } from '@/lib/activity';
+import { activityActor, recordActivityBestEffort, type ActivityActor } from '@/lib/activity';
+import type { Actor } from '@/lib/policy';
 import type { LandingCta } from '@/lib/landing-cta';
 
 const BOT_RE =
@@ -180,11 +181,15 @@ export async function recordOrganizerView(args: {
 /**
  * What an organizer page calls to record its view: reads the request's
  * signals now, since `after()` runs outside the request where `headers()`
- * isn't allowed, and writes the row once the page has been sent.
+ * isn't allowed, and writes the row once the page has been sent. Takes the
+ * page's policy `Actor` and turns it into the row's actor with
+ * `activityActor`, the same rule every mutation uses.
  */
 export async function trackOrganizerView(
-  args: Omit<Parameters<typeof recordOrganizerView>[0], 'signals'>,
+  args: Omit<Parameters<typeof recordOrganizerView>[0], 'signals' | 'actor'> & { actor: Actor },
 ): Promise<void> {
+  const { actor, ...rest } = args;
+  const row = { ...rest, actor: activityActor(actor) };
   const signals = readRequestSignals(await headers());
-  after(() => recordOrganizerView({ ...args, signals }));
+  after(() => recordOrganizerView({ ...row, signals }));
 }
