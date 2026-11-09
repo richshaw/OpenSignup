@@ -67,7 +67,7 @@ export async function addSlot(
       settings: locked.settings,
       fields,
       takenRefs: await readTakenRefs(tx, signupId, locked.workspaceId),
-      rows: [{ values: data.values, capacity: data.capacity ?? null, sortOrder }],
+      rows: [{ values: data.values, capacity: data.capacity, sortOrder }],
     });
     if (!inserted) throw new Error('slot insert failed');
 
