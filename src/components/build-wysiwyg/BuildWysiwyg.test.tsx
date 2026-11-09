@@ -259,6 +259,114 @@ describe('BuildWysiwyg — duplicate', () => {
   });
 });
 
+describe('BuildWysiwyg — Add a slot', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const nameField = {
+    id: 'f-name',
+    ref: 'name',
+    label: 'Name',
+    fieldType: 'text' as const,
+    sortOrder: 0,
+    config: { fieldType: 'text' as const, maxLength: 200 },
+  };
+  const dateField = {
+    id: 'f-date',
+    ref: 'date',
+    label: 'Date',
+    fieldType: 'date' as const,
+    sortOrder: 0,
+    config: { fieldType: 'date' as const },
+  };
+
+  const answerAdd = (slot: { id: string; values: Record<string, unknown> }) =>
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: { capacity: 1, sortOrder: 9, ...slot } }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+  it('opens the new slot with focus in its first field, and closes the one that was open', async () => {
+    vi.stubGlobal('fetch', answerAdd({ id: 'slot_new', values: {} }));
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        initialFields={[nameField]}
+        initialSlots={[{ id: 'slot_a', capacity: 2, sortOrder: 0, values: { name: 'Fruit' } }]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Fruit, / }));
+    expect(screen.getByTestId('slot-editor-slot_a')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Add a slot' }));
+    });
+
+    const editor = await screen.findByTestId('slot-editor-slot_new');
+    expect(screen.queryByTestId('slot-editor-slot_a')).toBeNull();
+    expect(editor.querySelector('input[aria-label="Name value"]')).toHaveFocus();
+  });
+
+  it('puts focus in the first field without a value when the slot is added under a group', async () => {
+    const fetchMock = answerAdd({ id: 'slot_new', values: { date: '2026-11-14' } });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        initialFields={[dateField, { ...nameField, sortOrder: 1 }]}
+        initialSettings={{ ...settings, groupByFieldRefs: ['date'] }}
+        initialSlots={[
+          {
+            id: 'slot_a',
+            capacity: 2,
+            sortOrder: 0,
+            values: { name: 'Fruit', date: '2026-11-14' },
+          },
+        ]}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Add a slot' }));
+    });
+
+    const sent = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
+      values: Record<string, unknown>;
+    };
+    expect(sent.values).toEqual({ date: '2026-11-14' });
+    const editor = await screen.findByTestId('slot-editor-slot_new');
+    expect(editor.querySelector('input[aria-label="Name value"]')).toHaveFocus();
+  });
+
+  it('opens nothing when the server refuses the new slot', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: 'internal', message: 'boom' } }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        initialFields={[nameField]}
+        initialSlots={[{ id: 'slot_a', capacity: 2, sortOrder: 0, values: { name: 'Fruit' } }]}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Add a slot' }));
+    });
+
+    expect(screen.queryByTestId(/^slot-editor-/)).toBeNull();
+  });
+});
+
 describe('BuildWysiwyg — opened from its row', () => {
   it("focuses the editor once, so moving the slot to another date's group leaves focus alone", () => {
     vi.stubGlobal(

@@ -73,7 +73,14 @@ test.describe('help: create and publish your first signup', () => {
     ).toBeVisible();
 
     await page.getByRole('button', { name: UI.addSlot }).click();
-    await expect(page.getByRole('button', { name: /^Edit slot.*taken$/ })).toHaveCount(2);
+    // "The new slot opens, ready for you to fill in": its editor is open, with
+    // focus in its first box.
+    await expect(page.locator('[data-testid^="wysiwyg-slot-"]')).toHaveCount(2);
+    await expect(
+      page.getByRole('button', { name: /^Edit slot — Fruit and water, / }),
+    ).toBeVisible();
+    await expect(slotEditor).toHaveCount(1);
+    await expect(slotEditor.getByRole('textbox', { name: `${UI.what} value` })).toBeFocused();
     // The article warns that a slot left empty reaches people as "Untitled slot".
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
     const [withEmpty] = await Promise.all([
