@@ -16,7 +16,7 @@ export default async function BuildTab({ params }: PageParams) {
   if (!filled.ok) return null;
   const sig = result.value;
   await trackOrganizerView({
-    actor: { actorId: session.organizerId, actorType: 'organizer' },
+    actor,
     signupId: sig.id,
     workspaceId: sig.workspaceId,
     eventType: 'signup.viewed',
