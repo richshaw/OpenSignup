@@ -4,6 +4,7 @@ import { MIN_DATE_YEAR } from '@/lib/reminder-fields';
 import {
   MAX_BULK_SLOT_ROWS,
   SlotBulkInputSchema,
+  SlotCapacitySchema,
   SlotReorderInputSchema,
   SlotUpdateInputSchema,
 } from '@/schemas/slots';
@@ -21,7 +22,7 @@ import { slotOut } from './signups-read';
  */
 const SlotRowSchema = SlotBulkInputSchema.shape.rows.element
   .omit({ sortOrder: true })
-  .extend({ capacity: z.number().int().positive().nullable().default(1) })
+  .extend({ capacity: SlotCapacitySchema.default(1) })
   .strict('A row takes values and capacity only. To place rows, pass beforeSlotId.');
 
 export const addSlotsTool = defineTool({
