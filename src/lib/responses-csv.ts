@@ -1,3 +1,4 @@
+import { shownCommitmentStatus } from '@/services/commitments';
 import type { LabelledField } from '@/lib/slot-label';
 
 /**
@@ -73,8 +74,7 @@ export function responsesCsv({ fields, slots, commitments, ended }: ResponsesCsv
       ...fields.map((f) => values[f.ref]),
       c.participantName,
       c.participantEmail,
-      // As the Responses tab says it: "cancelled" is the participant's own.
-      c.status === 'cancelled' ? (ended.get(c.id) ?? c.status) : c.status,
+      shownCommitmentStatus(c, ended),
       c.quantity,
       c.notes,
       c.createdAt.toISOString(),

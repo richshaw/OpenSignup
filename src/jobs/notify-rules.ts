@@ -1,4 +1,5 @@
 import { and, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
+import type { PgSelect } from 'drizzle-orm/pg-core';
 import type { Db } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
@@ -38,6 +39,20 @@ export const notifiableRules = {
   'participant has no email': isNotNull(participants.email),
 } satisfies Record<string, SQL>;
 
+/**
+ * Joins a select from commitments to the commitment's slot, signup and
+ * participant: the query shape every rule above is written over. The
+ * confirmation email, the reminder and slot-change scans, and `skipReasons`
+ * all go through it, so the rows a job decides on and the reasons it logs come
+ * from the same join. Pass `db.select(…).from(commitments).$dynamic()`.
+ */
+export function joinCommitmentTables<T extends PgSelect>(query: T) {
+  return query
+    .innerJoin(slots, eq(slots.id, commitments.slotId))
+    .innerJoin(signups, eq(signups.id, commitments.signupId))
+    .innerJoin(participants, eq(participants.id, commitments.participantId));
+}
+
 /** A `slot.rescheduled` row, aliased `m`, for the slot in the joined query. */
 export const moveOfThisSlot = sql`m.event_type = 'slot.rescheduled'
   AND m.signup_id = ${commitments.signupId}
@@ -70,14 +85,14 @@ export async function skipReasons(
   const failed = Object.entries(rules).map(
     ([reason, rule]) => sql`CASE WHEN coalesce(${rule}, false) THEN NULL ELSE ${reason}::text END`,
   );
-  const [row] = await db
-    .select({
-      reasons: sql<string[]>`array_remove(ARRAY[${sql.join(failed, sql`, `)}], NULL)`,
-    })
-    .from(commitments)
-    .innerJoin(slots, eq(slots.id, commitments.slotId))
-    .innerJoin(signups, eq(signups.id, commitments.signupId))
-    .innerJoin(participants, eq(participants.id, commitments.participantId))
+  const [row] = await joinCommitmentTables(
+    db
+      .select({
+        reasons: sql<string[]>`array_remove(ARRAY[${sql.join(failed, sql`, `)}], NULL)`,
+      })
+      .from(commitments)
+      .$dynamic(),
+  )
     .where(eq(commitments.id, commitmentId))
     .limit(1);
   return row ? row.reasons : null;
@@ -123,9 +138,7 @@ export const toldDifferentTime: SQL = (() => {
   // stay apart.
   const firstMoveFrom = sql`(
     SELECT m.payload->'from' FROM activity m
-    WHERE m.event_type = 'slot.rescheduled'
-      AND m.signup_id = ${commitments.signupId}
-      AND (m.payload->>'slotId') = ${slots.id}
+    WHERE ${moveOfThisSlot}
       AND m.occurred_at > ${toldAt}
     ORDER BY m.occurred_at ASC
     LIMIT 1
