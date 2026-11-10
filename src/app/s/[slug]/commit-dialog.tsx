@@ -320,7 +320,7 @@ export default function CommitDialog({
     if (!success) return;
     const shareData = {
       title: signupTitle,
-      text: `My link to change or cancel my spot for ${slotName}. Please keep it to yourself.`,
+      text: `My spot for ${slotName}. This link changes or cancels it, so keep it private.`,
       url: success.editUrl,
     };
     const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };

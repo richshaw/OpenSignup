@@ -568,7 +568,7 @@ describe('<CommitDialog /> sheet', () => {
     });
 
     // The link changes or cancels their spot, so the share sheet is for keeping
-    // it, and the text it fills in says to keep it to yourself.
+    // it, and the text it fills in says to keep it private.
     it('fills the share sheet with their link as theirs to keep', async () => {
       const share = vi.fn(async () => {});
       Object.defineProperty(navigator, 'share', { value: share, configurable: true });
@@ -578,7 +578,7 @@ describe('<CommitDialog /> sheet', () => {
         await waitFor(() => expect(share).toHaveBeenCalledTimes(1), settle);
         expect(share).toHaveBeenCalledWith({
           title: 'Snack duty',
-          text: 'My link to change or cancel my spot for Sat, May 16 · Cookies · Vinland Elementary. Please keep it to yourself.',
+          text: 'My spot for Sat, May 16 · Cookies · Vinland Elementary. This link changes or cancels it, so keep it private.',
           url: editUrl,
         });
       } finally {
