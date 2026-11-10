@@ -73,8 +73,13 @@ export function pickPrimaryField<F extends LabelledField>(
 export function renderFieldValue(field: LabelledField, raw: unknown): string | null {
   if (raw === undefined || raw === null || raw === '') return null;
   if (field.fieldType === 'date') {
-    const formatted = formatSlotDate(String(raw));
-    if (formatted) return formatted;
+    // Only a stored-shape date: `formatSlotDate` parses anything else with
+    // `new Date()`, which reads a half-typed "Sat, Nov 14" as a day in 2001.
+    const s = String(raw);
+    if (isRealDate(s)) {
+      const formatted = formatSlotDate(s);
+      if (formatted) return formatted;
+    }
   }
   if (field.fieldType === 'time') {
     const formatted = formatSlotTime(String(raw));
