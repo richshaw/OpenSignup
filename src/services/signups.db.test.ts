@@ -8,6 +8,7 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
+import { WORKSPACE_LIST_LIMIT } from '@/schemas/signups';
 import type { Actor, WorkspaceRole } from '@/lib/policy';
 import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
 import { listFieldsForSignup } from '@/services/slot-fields';
@@ -18,6 +19,7 @@ import { getSignupRowForOrganizer } from '@/services/locks';
 import {
   archiveSignup,
   closeSignup,
+  countSignupsForWorkspace,
   createSignup,
   deleteSignup,
   findDraftForOrganizer,
@@ -601,6 +603,62 @@ describe('signups service (db)', () => {
 
     it('refuses a workspace the actor is not a member of', async () => {
       await expect(listSignupSummariesForWorkspace(fx.db, fx.actor, makeId('ws'))).rejects.toThrow(
+        /not a member/,
+      );
+    });
+  });
+
+  describe('countSignupsForWorkspace', () => {
+    it('counts every live signup, past the list limit', async () => {
+      const countFx = await setupWorkspace();
+      try {
+        const total = WORKSPACE_LIST_LIMIT + 1;
+        const base = Date.UTC(2030, 0, 1);
+        // Plain rows: createSignup would also add fields and slots to each,
+        // which this count never reads.
+        await countFx.db.insert(signups).values(
+          Array.from({ length: total }, (_, i) => ({
+            id: makeId('sig'),
+            workspaceId: countFx.workspaceId,
+            organizerId: countFx.organizerId,
+            slug: `count-${countFx.workspaceId.slice(-8).toLowerCase()}-${i}`,
+            title: `Signup ${i}`,
+            status: i === 0 ? 'archived' : 'draft',
+            createdAt: new Date(base + i * 1000),
+          })),
+        );
+        const gone = await createSignup(
+          countFx.db,
+          countFx.actor,
+          countFx.workspaceId,
+          validCreateInput('Gone'),
+        );
+        if (!gone.ok) throw new Error('setup failed');
+        if (!(await deleteSignup(countFx.db, countFx.actor, gone.value.id)).ok)
+          throw new Error('delete failed');
+
+        const count = await countSignupsForWorkspace(
+          countFx.db,
+          countFx.actor,
+          countFx.workspaceId,
+        );
+        const list = await listSignupSummariesForWorkspace(
+          countFx.db,
+          countFx.actor,
+          countFx.workspaceId,
+        );
+        if (!count.ok || !list.ok) throw new Error('read failed');
+        expect(count.value).toBe(total);
+        expect(list.value).toHaveLength(WORKSPACE_LIST_LIMIT);
+        // Newest first, so the archived oldest one is the one left off.
+        expect(list.value.map((r) => r.title)).not.toContain('Signup 0');
+      } finally {
+        await teardownWorkspace(countFx.db, countFx.workspaceId, countFx.organizerId);
+      }
+    });
+
+    it('refuses a workspace the actor is not a member of', async () => {
+      await expect(countSignupsForWorkspace(fx.db, fx.actor, makeId('ws'))).rejects.toThrow(
         /not a member/,
       );
     });

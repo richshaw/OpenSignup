@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { listSignupSummariesForWorkspace } from '@/services/signups';
+import { countSignupsForWorkspace, listSignupSummariesForWorkspace } from '@/services/signups';
 import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { StatusPill } from '@/components/status-pill';
+import { signupCountLabel } from './signup-count';
 
 export const metadata = { title: 'Your signups' };
 
@@ -21,8 +22,13 @@ export default async function DashboardPage() {
       </div>
     );
   }
-  const result = await listSignupSummariesForWorkspace(getDb(), actor, workspaceId);
+  const db = getDb();
+  const [result, count] = await Promise.all([
+    listSignupSummariesForWorkspace(db, actor, workspaceId),
+    countSignupsForWorkspace(db, actor, workspaceId),
+  ]);
   const rows = result.ok ? result.value : [];
+  const total = count.ok ? count.value : rows.length;
 
   return (
     <div className="space-y-6">
@@ -30,7 +36,9 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Your signups</h1>
           <p className="text-sm text-ink-muted">
-            {rows.length === 0 ? 'No signups yet. Start one below.' : `${rows.length} total`}
+            {rows.length === 0
+              ? 'No signups yet. Start one below.'
+              : signupCountLabel(rows.length, total)}
           </p>
         </div>
         <Link

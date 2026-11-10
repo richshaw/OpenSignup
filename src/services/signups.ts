@@ -663,6 +663,20 @@ export async function listSignupSummariesForWorkspace(
   return ok(rows);
 }
 
+/**
+ * How many live signups the workspace has, uncapped, so a list that stops at
+ * WORKSPACE_LIST_LIMIT can say how many it left out.
+ */
+export async function countSignupsForWorkspace(
+  db: Db,
+  actor: Actor,
+  workspaceId: string,
+): Promise<Result<number, ServiceError>> {
+  requireWorkspaceAccess(actor, workspaceId);
+  const total = await db.$count(signups, workspaceSignupsWhere(workspaceId, {}));
+  return ok(total);
+}
+
 export async function getPublicSignup(
   db: Db,
   slug: string,
