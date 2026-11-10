@@ -86,12 +86,18 @@ export const RateLimits = {
   // (`LOGIN_CODE_MAX_AGE_MS`, regardless of the link's own expiry) and is keyed
   // to its email, so 5 tries per 15-minute window caps an attacker at 5 guesses
   // per code — one in two hundred thousand. Real people mistype once, maybe twice.
+  // The per-IP bucket is charged alongside it, over the same window: both are
+  // one code lifetime, so they move together if the lifetime changes.
   loginCodePerEmail: {
     bucket: 'auth.code.email',
     max: 5,
     windowSeconds: LOGIN_CODE_MAX_AGE_MS / 1000,
   },
-  loginCodePerIp: { bucket: 'auth.code.ip', max: 30, windowSeconds: 900 },
+  loginCodePerIp: {
+    bucket: 'auth.code.ip',
+    max: 30,
+    windowSeconds: LOGIN_CODE_MAX_AGE_MS / 1000,
+  },
   commitmentPerIp: { bucket: 'commit.ip', max: 10, windowSeconds: 60 },
   // Per-address, mirroring magicLinkPerEmail. A commit now sends a confirmation
   // to an address nobody has verified, so without this one IP can put a

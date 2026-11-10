@@ -1,17 +1,22 @@
-import { and, eq, sql, type SQL } from 'drizzle-orm';
+import { and, sql, type SQL } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
-import { participants } from '@/db/schema/participants';
-import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { log } from '@/lib/log';
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
-import { REMINDER_LEAD_HOURS } from '@/schemas/signups';
+import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
 import { alreadyRecorded } from '@/email/commitment-row';
 import { sendReminder } from '@/email/send';
-import { allOf, notifiableRules, slotSettled, wasToldDifferentTime } from './notify-rules';
-import { getBoss, QUEUES, type ReminderSendPayload } from './queue';
+import {
+  allOf,
+  joinCommitmentTables,
+  notifiableRules,
+  slotSettled,
+  wasToldDifferentTime,
+} from './notify-rules';
+import { getBoss, type ReminderSendPayload } from './queue';
+import { QUEUES } from './queue-names';
 import { loadDueRow, recordWorkerEmailSent, workerEmailParts } from './worker-email';
 
 /** The reminder lead time as a SQL interval. Fixed for every signup. */
@@ -75,24 +80,20 @@ const reminderDueCondition = allOf(reminderDueRules);
  * would get nothing at all.
  */
 export async function selectDueReminders(db: Db): Promise<{ commitmentId: string }[]> {
-  return db
-    .select({ commitmentId: commitments.id })
-    .from(commitments)
-    .innerJoin(participants, eq(participants.id, commitments.participantId))
-    .innerJoin(slots, eq(slots.id, commitments.slotId))
-    .innerJoin(signups, eq(signups.id, commitments.signupId))
-    .where(
-      and(
-        reminderDueCondition,
-        // skip if a reminder was already recorded for this commitment and time
-        sql`NOT EXISTS (
+  return joinCommitmentTables(
+    db.select({ commitmentId: commitments.id }).from(commitments).$dynamic(),
+  ).where(
+    and(
+      reminderDueCondition,
+      // skip if a reminder was already recorded for this commitment and time
+      sql`NOT EXISTS (
           SELECT 1 FROM activity a
           WHERE a.event_type = 'reminder.sent'
             AND (a.payload->>'commitmentId') = ${commitments.id}
             AND ${remindedForTime(sql`a.payload`, sql`${slots.slotAt}`)}
         )`,
-      ),
-    );
+    ),
+  );
 }
 
 /** Enqueues one reminders.send job per due commitment. */

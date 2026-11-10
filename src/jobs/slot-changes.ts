@@ -1,19 +1,19 @@
-import { and, eq, sql, type SQL } from 'drizzle-orm';
+import { and, sql, type SQL } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
-import { participants } from '@/db/schema/participants';
-import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { log } from '@/lib/log';
 import { sendSlotChanged } from '@/email/send';
 import {
   allOf,
+  joinCommitmentTables,
   moveOfThisSlot,
   notifiableRules,
   slotSettled,
   toldDifferentTime,
 } from './notify-rules';
-import { getBoss, QUEUES, type SlotChangeSendPayload } from './queue';
+import { getBoss, type SlotChangeSendPayload } from './queue';
+import { QUEUES } from './queue-names';
 import { loadDueRow, recordWorkerEmailSent, workerEmailParts } from './worker-email';
 
 /**
@@ -63,24 +63,20 @@ const slotChangeDueCondition = allOf(slotChangeDueRules);
 
 /** The commitments whose slot-change email is due now. */
 export async function selectDueSlotChanges(db: Db): Promise<{ commitmentId: string }[]> {
-  return db
-    .select({ commitmentId: commitments.id })
-    .from(commitments)
-    .innerJoin(participants, eq(participants.id, commitments.participantId))
-    .innerJoin(slots, eq(slots.id, commitments.slotId))
-    .innerJoin(signups, eq(signups.id, commitments.signupId))
-    .where(
-      and(
-        // Only slots moved lately, found through the event index before any
-        // commitment is looked at.
-        sql`${slots.id} IN (
+  return joinCommitmentTables(
+    db.select({ commitmentId: commitments.id }).from(commitments).$dynamic(),
+  ).where(
+    and(
+      // Only slots moved lately, found through the event index before any
+      // commitment is looked at.
+      sql`${slots.id} IN (
           SELECT a.payload->>'slotId' FROM activity a
           WHERE a.event_type = 'slot.rescheduled'
             AND a.occurred_at > now() - make_interval(days => ${LOOKBACK_DAYS})
         )`,
-        slotChangeDueCondition,
-      ),
-    );
+      slotChangeDueCondition,
+    ),
+  );
 }
 
 /** Enqueues one slot-change send job per due commitment. */

@@ -6,6 +6,7 @@ import {
   cookieMaxAge,
   parseReturningCommits,
   rememberUntil,
+  rememberNewCommitment,
   removeReturningCommit,
   serializeReturningCommits,
   setReturningCommitCookie,
@@ -71,15 +72,14 @@ describe('returning-participant cookie', () => {
     ]);
   });
 
-  it('appends without signupId for callers that omit it', () => {
-    const next = appendReturningCommit(
-      null,
-      { commitmentId: 'com_a', token: 'ta', slotAt: null },
-      NOW,
-    );
-    expect(parseReturningCommits(next)).toEqual([
-      { commitmentId: 'com_a', token: 'ta', expiresAt: NOW_SECONDS + 60 * DAY },
-    ]);
+  // The signup page shows only entries carrying its id, so a new entry
+  // without one would never show as the participant's. `pnpm typecheck`
+  // fails if the directive below stops being needed.
+  it('requires a signupId on every new entry', () => {
+    const write = () =>
+      // @ts-expect-error signupId is required
+      appendReturningCommit(null, { commitmentId: 'com_a', token: 'ta', slotAt: null }, NOW);
+    expect(write).toBeTypeOf('function');
   });
 
   it('removes a single commit, leaving the rest', () => {
@@ -272,5 +272,58 @@ describe('setReturningCommitCookie', () => {
     expect(set).toHaveBeenCalledWith(
       expect.objectContaining({ httpOnly: true, sameSite: 'lax', name: COMMIT_COOKIE_NAME }),
     );
+  });
+});
+
+describe('rememberNewCommitment', () => {
+  function mockResponse() {
+    const set = vi.fn();
+    return { response: { cookies: { set } } as unknown as NextResponse, set };
+  }
+  const requestWith = (value?: string) => ({
+    cookies: {
+      get: (name: string) => (name === COMMIT_COOKIE_NAME && value ? { value } : undefined),
+    },
+  });
+  const existing = serializeReturningCommits([
+    { commitmentId: 'com_old', token: 'tOld', signupId: 'sig_x', expiresAt: NOW_SECONDS + DAY },
+    { commitmentId: 'com_kept', token: 'tKept', signupId: 'sig_y', expiresAt: NOW_SECONDS + DAY },
+  ]);
+  const fresh = { commitmentId: 'com_new', token: 'tNew', signupId: 'sig_x', slotAt: inDays(100) };
+  const freshEntry = {
+    commitmentId: 'com_new',
+    token: 'tNew',
+    signupId: 'sig_x',
+    expiresAt: NOW_SECONDS + 107 * DAY,
+  };
+
+  it('puts the new commitment first, keeps the rest, and sets the cookie', () => {
+    const { response, set } = mockResponse();
+    rememberNewCommitment(response, requestWith(existing), fresh, {}, NOW);
+    expect(set).toHaveBeenCalledTimes(1);
+    const cookie = set.mock.calls[0]?.[0];
+    expect(cookie).toEqual(
+      expect.objectContaining({ name: COMMIT_COOKIE_NAME, maxAge: 107 * DAY, httpOnly: true }),
+    );
+    expect(parseReturningCommits(cookie.value)).toEqual([
+      freshEntry,
+      { commitmentId: 'com_old', token: 'tOld', signupId: 'sig_x', expiresAt: NOW_SECONDS + DAY },
+      { commitmentId: 'com_kept', token: 'tKept', signupId: 'sig_y', expiresAt: NOW_SECONDS + DAY },
+    ]);
+  });
+
+  it('drops the entry it replaces', () => {
+    const { response, set } = mockResponse();
+    rememberNewCommitment(response, requestWith(existing), fresh, { replaces: 'com_old' }, NOW);
+    expect(parseReturningCommits(set.mock.calls[0]?.[0].value)).toEqual([
+      freshEntry,
+      { commitmentId: 'com_kept', token: 'tKept', signupId: 'sig_y', expiresAt: NOW_SECONDS + DAY },
+    ]);
+  });
+
+  it('starts a cookie when the request has none', () => {
+    const { response, set } = mockResponse();
+    rememberNewCommitment(response, requestWith(), fresh, { replaces: 'com_old' }, NOW);
+    expect(parseReturningCommits(set.mock.calls[0]?.[0].value)).toEqual([freshEntry]);
   });
 });
