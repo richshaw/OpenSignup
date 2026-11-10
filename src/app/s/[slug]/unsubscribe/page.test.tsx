@@ -13,7 +13,8 @@ vi.mock('@/services/reminder-optout', () => ({
 
 const { default: UnsubscribePage } = await import('./page');
 
-const ERROR_COPY = "That didn't work — nothing has changed. Try again below.";
+const ON_ERROR = "We couldn't turn your reminders back on. Please try again.";
+const OFF_ERROR = "We couldn't turn off your reminders. Please try again.";
 
 const optedOutTarget = {
   participantId: 'par_1',
@@ -29,13 +30,32 @@ describe('unsubscribe page — opted out', () => {
     previewReminderOptOut.mockResolvedValue(ok(optedOutTarget));
   });
 
-  it('shows the failure message when error=1 after a failed opt-in', async () => {
+  it('shows the failure message when error=on after a failed opt-in', async () => {
     const page = await UnsubscribePage({
       params: Promise.resolve({ slug: 'bake-sale' }),
-      searchParams: Promise.resolve({ p: 'par_1', token: 'tok', error: '1' }),
+      searchParams: Promise.resolve({ p: 'par_1', token: 'tok', error: 'on' }),
     });
     const { container } = render(page);
-    expect(container.textContent).toContain(ERROR_COPY);
+    expect(container.textContent).toContain(ON_ERROR);
+  });
+
+  it('does not show the failure message for a stale error=off on the opted-out page', async () => {
+    const page = await UnsubscribePage({
+      params: Promise.resolve({ slug: 'bake-sale' }),
+      searchParams: Promise.resolve({ p: 'par_1', token: 'tok', error: 'off' }),
+    });
+    const { container } = render(page);
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('ignores legacy error=1 beside a successful opt-out', async () => {
+    const page = await UnsubscribePage({
+      params: Promise.resolve({ slug: 'bake-sale' }),
+      searchParams: Promise.resolve({ p: 'par_1', token: 'tok', done: 'off', error: '1' }),
+    });
+    const { container } = render(page);
+    expect(container.textContent).toContain('Reminders turned off');
+    expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 
   it('does not show the failure message without error', async () => {
@@ -44,7 +64,37 @@ describe('unsubscribe page — opted out', () => {
       searchParams: Promise.resolve({ p: 'par_1', token: 'tok' }),
     });
     const { container } = render(page);
-    expect(container.textContent).not.toContain(ERROR_COPY);
+    expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(container.textContent).toContain('Reminders are off');
+  });
+});
+
+const optedInTarget = {
+  ...optedOutTarget,
+  optedOut: false,
+};
+
+describe('unsubscribe page — opted in', () => {
+  beforeEach(() => {
+    previewReminderOptOut.mockReset();
+    previewReminderOptOut.mockResolvedValue(ok(optedInTarget));
+  });
+
+  it('shows the failure message when error=off after a failed opt-out', async () => {
+    const page = await UnsubscribePage({
+      params: Promise.resolve({ slug: 'bake-sale' }),
+      searchParams: Promise.resolve({ p: 'par_1', token: 'tok', error: 'off' }),
+    });
+    const { container } = render(page);
+    expect(container.textContent).toContain(OFF_ERROR);
+  });
+
+  it('does not show the failure message for a stale error=on on the confirm page', async () => {
+    const page = await UnsubscribePage({
+      params: Promise.resolve({ slug: 'bake-sale' }),
+      searchParams: Promise.resolve({ p: 'par_1', token: 'tok', error: 'on' }),
+    });
+    const { container } = render(page);
+    expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 });

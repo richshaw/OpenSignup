@@ -21,7 +21,7 @@ function Shell({
   children,
 }: {
   title: string;
-  error?: string;
+  error?: 'on' | 'off';
   children: React.ReactNode;
 }) {
   return (
@@ -29,7 +29,11 @@ function Shell({
       <div className="space-y-4 rounded-xl border border-surface-sunk bg-white p-6">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {error ? (
-          <FormError>That didn&apos;t work — nothing has changed. Try again below.</FormError>
+          <FormError>
+            {error === 'on'
+              ? "We couldn't turn your reminders back on. Please try again."
+              : "We couldn't turn off your reminders. Please try again."}
+          </FormError>
         ) : null}
         {children}
       </div>
@@ -99,7 +103,10 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
         or give up and mark the mail as spam. `done=off` still earns the
         affirmative wording; without it we say only what the row shows.
       */
-      <Shell title={done === 'off' ? 'Reminders turned off' : 'Reminders are off'} error={error}>
+      <Shell
+        title={done === 'off' ? 'Reminders turned off' : 'Reminders are off'}
+        error={error === 'on' ? error : undefined}
+      >
         <p className="text-sm text-ink-muted">
           {done === 'off' ? (
             <>
@@ -143,7 +150,7 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
   return (
     <Shell
       title={done === 'on' ? 'Reminders turned back on' : 'Stop reminder emails?'}
-      error={error}
+      error={error === 'off' ? error : undefined}
     >
       <p className="text-sm text-ink-muted">
         {done === 'on' ? (

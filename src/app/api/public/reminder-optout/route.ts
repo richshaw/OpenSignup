@@ -107,7 +107,8 @@ export async function POST(request: Request) {
         ? await optInToReminders(getDb(), participantId, token)
         : await optOutOfReminders(getDb(), participantId, token);
       if (!result.ok) {
-        if (fromConfirmPage && fallbackSlug) return toPage(fallbackSlug, 'error=1');
+        if (fromConfirmPage && fallbackSlug)
+          return toPage(fallbackSlug, turningOn ? 'error=on' : 'error=off');
         // One-click: a signup that no longer exists means there is nothing left
         // to unsubscribe from, which is the outcome the provider asked for.
         // RFC 8058 §3.2 expects 2xx, and a `List-Unsubscribe` URL that answers
@@ -129,7 +130,8 @@ export async function POST(request: Request) {
       // without this every browser unsubscribe would render "That didn't work"
       // with not one line anywhere saying why.
       log.error({ err, participantId, turningOn }, 'reminder opt-out failed');
-      if (fromConfirmPage && fallbackSlug) return toPage(fallbackSlug, 'error=1');
+      if (fromConfirmPage && fallbackSlug)
+        return toPage(fallbackSlug, turningOn ? 'error=on' : 'error=off');
       throw err;
     }
   });

@@ -177,13 +177,13 @@ describe('POST /api/public/reminder-optout', () => {
     expect(res.status).toBe(303);
     const location = new URL(res.headers.get('location') ?? '');
     expect(location.pathname).toBe(`/s/${p.signupSlug}/unsubscribe`);
-    expect(location.searchParams.get('error')).toBe('1');
+    expect(location.searchParams.get('error')).toBe('off');
     expect(location.searchParams.get('p')).toBe('x&done=on');
     expect(location.searchParams.get('token')).toBe('a+b/c=');
     expect(location.searchParams.has('done')).toBe(false);
   });
 
-  it('redirects a failed Turn reminders back on with error=1', async () => {
+  it('redirects a failed Turn reminders back on with error=on', async () => {
     const p = await makeParticipant(fx, 'Route Forged Optin');
     const res = await POST(
       postRequest({ p: 'x&done=on', token: 'a+b/c=', slug: p.signupSlug, action: 'start' }, '*/*'),
@@ -192,7 +192,7 @@ describe('POST /api/public/reminder-optout', () => {
     expect(res.status).toBe(303);
     const location = new URL(res.headers.get('location') ?? '');
     expect(location.pathname).toBe(`/s/${p.signupSlug}/unsubscribe`);
-    expect(location.searchParams.get('error')).toBe('1');
+    expect(location.searchParams.get('error')).toBe('on');
     expect(location.searchParams.has('done')).toBe(false);
   });
 
