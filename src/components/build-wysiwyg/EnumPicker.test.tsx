@@ -250,7 +250,7 @@ describe('EnumPicker', () => {
 
     fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH) } });
     expect(screen.getByTestId('new-item-count')).toBe(count);
-    expect(count.textContent).toBe(`${CHOICE_MAX_LENGTH}/${CHOICE_MAX_LENGTH} \u2014 limit`);
+    expect(count.textContent).toBe(`${CHOICE_MAX_LENGTH}/${CHOICE_MAX_LENGTH} \u00b7 max`);
     expect(count.className).toContain('text-warn');
     expect(count.className).not.toContain('text-ink-soft');
     expect(count.className.replace('text-warn', '')).toBe(layout);

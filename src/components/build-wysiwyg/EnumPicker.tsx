@@ -213,10 +213,10 @@ export function EnumPicker({
                   <span
                     aria-hidden="true"
                     data-testid="new-item-count"
-                    className={`whitespace-nowrap pl-2.5 text-[11px] tabular-nums ${atLengthLimit ? 'text-warn' : 'text-ink-soft'}`}
+                    className={`whitespace-nowrap pl-2.5 text-[10px] tabular-nums ${atLengthLimit ? 'text-warn' : 'text-ink-soft'}`}
                   >
                     {showCount
-                      ? `${draft.length}/${CHOICE_MAX_LENGTH}${atLengthLimit ? ' \u2014 limit' : ''}`
+                      ? `${draft.length}/${CHOICE_MAX_LENGTH}${atLengthLimit ? ' \u00b7 max' : ''}`
                       : ''}
                   </span>
                   <button
