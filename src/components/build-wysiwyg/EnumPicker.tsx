@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown, Plus } from 'lucide-react';
 import { useOutsideClose } from '@/hooks/useOutsideClose';
 import { CHOICE_COUNT_FROM, CHOICE_MAX_LENGTH, MAX_CHOICES } from '@/schemas/slot-fields';
@@ -31,8 +31,8 @@ type EnumPickerProps = {
 
 /**
  * The menu scrolls, and focusing the new-item box scrolls it only as far as
- * the box, which would leave the count under it below the menu's edge on a
- * long list. Defined outside the component so React calls it once, when the
+ * the box, which would leave the row under it (the count and Add) below the
+ * menu's edge on a long list. Defined outside the component so React calls it once, when the
  * count mounts, and never again while someone types.
  */
 const scrollIntoViewOnMount = (el: HTMLElement | null) =>
@@ -79,6 +79,22 @@ export function EnumPicker({
     settledRef.current = false;
     setAdding(true);
   };
+
+  // A menu with no room below it (near the screen's edge, or above a phone's
+  // Publish bar, whose height the page keeps as its scroll-padding-bottom)
+  // opens upward when there's more room above. Scrolling can't always make
+  // room: the page may already be at its end.
+  const [dropUp, setDropUp] = useState(false);
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    const trigger = triggerRef.current;
+    if (!open || !menu || !trigger) return;
+    const t = trigger.getBoundingClientRect();
+    const reserved =
+      parseFloat(getComputedStyle(document.documentElement).scrollPaddingBottom) || 0;
+    const below = window.innerHeight - reserved - t.bottom;
+    setDropUp(menu.offsetHeight + 4 > below && t.top > below);
+  }, [open]);
 
   const showCount = draft.length >= CHOICE_COUNT_FROM;
   const atLengthLimit = draft.length >= CHOICE_MAX_LENGTH;
@@ -135,7 +151,7 @@ export function EnumPicker({
           ref={menuRef}
           role="listbox"
           aria-label={ariaLabel}
-          className={`absolute left-0 ${triggerClassName ? 'min-w-[200px]' : 'right-0'} top-[calc(100%+4px)] z-50 max-h-[240px] overflow-y-auto rounded-lg border border-surface-sunk bg-white p-1 shadow-card`}
+          className={`absolute left-0 ${triggerClassName ? 'min-w-[260px]' : 'right-0'} ${dropUp ? 'bottom-[calc(100%+4px)]' : 'top-[calc(100%+4px)]'} z-50 max-h-[240px] overflow-y-auto rounded-lg border border-surface-sunk bg-white p-1 shadow-card`}
         >
           {options.length === 0 && !adding && (
             <div className="px-2.5 py-1.5 text-[11px] italic text-ink-soft">No items yet.</div>
@@ -153,63 +169,66 @@ export function EnumPicker({
           ))}
           {options.length > 0 && <div className="my-1 h-px bg-surface-sunk" />}
           {adding ? (
-            // The box and Add span the row, edge to edge like an option's
-            // highlight, and the input's left padding puts typed text where the
-            // option labels start: 1px border + 9px = px-2.5.
+            // The box spans the menu and wraps, two lines tall from the start,
+            // so a whole item fits in view (60 characters is wider than one
+            // line at any menu width) and nothing grows while someone types.
+            // Its left padding puts typed text where the option labels start:
+            // 1px border + 9px = px-2.5.
             <>
-              <div className="flex items-start gap-1 py-1">
-                {/* The count sits in the box's own column, so its right edge
-                    lines up with the box's, not with Add. */}
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <input
-                    autoFocus
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        commitNew();
-                      }
-                      if (e.key === 'Escape') {
-                        e.preventDefault();
-                        close();
-                        triggerRef.current?.focus();
-                      }
-                    }}
-                    onBlur={commitNew}
-                    maxLength={CHOICE_MAX_LENGTH}
-                    placeholder="Type a new item"
-                    aria-label="New option name"
-                    aria-describedby={lengthHintId}
-                    className="min-w-0 rounded border border-surface-sunk bg-white py-1.5 pl-[9px] pr-2 text-xs text-ink outline-none placeholder:text-ink-soft focus:border-brand"
-                  />
-                  {/* A count near the limit, so a box that stops taking
-                      characters (or a paste cut short by maxLength) explains
-                      itself. Its row is there from the moment the box opens
-                      and holds a blank until the count shows, so nothing moves
-                      while someone types. It isn't read out on every
-                      keystroke: the box is described by the fixed limit. */}
-                  <div
-                    ref={scrollIntoViewOnMount}
+              <div className="flex flex-col gap-1 py-1">
+                <textarea
+                  autoFocus
+                  rows={2}
+                  value={draft}
+                  // An item is one line: a pasted line break becomes a space.
+                  onChange={(e) => setDraft(e.target.value.replace(/\s*[\r\n]+\s*/g, ' '))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      commitNew();
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      close();
+                      triggerRef.current?.focus();
+                    }
+                  }}
+                  onBlur={commitNew}
+                  maxLength={CHOICE_MAX_LENGTH}
+                  placeholder="Type a new item"
+                  aria-label="New option name"
+                  aria-describedby={lengthHintId}
+                  className="block w-full resize-none rounded border border-surface-sunk bg-white py-1.5 pl-[9px] pr-2 text-xs leading-4 text-ink outline-none placeholder:text-ink-soft focus:border-brand"
+                />
+                {/* The count shares a row with Add, at the other end, so the
+                    row is never empty and the count never reads as part of
+                    the button. It shows only near the limit, and isn't read
+                    out on every keystroke: the box is described by the fixed
+                    limit. The row scrolls into view once, when the box opens,
+                    so Add is on screen on a long list. */}
+                <div
+                  ref={scrollIntoViewOnMount}
+                  className="flex items-center justify-between gap-2"
+                >
+                  <span
                     aria-hidden="true"
                     data-testid="new-item-count"
-                    className={`whitespace-nowrap pt-1 text-right text-[11px] tabular-nums ${atLengthLimit ? 'text-warn' : 'text-ink-soft'}`}
+                    className={`whitespace-nowrap pl-2.5 text-[11px] tabular-nums ${atLengthLimit ? 'text-warn' : 'text-ink-soft'}`}
                   >
                     {showCount
-                      ? `${draft.length}/${CHOICE_MAX_LENGTH}${atLengthLimit ? ' \u00b7 max' : ''}`
-                      : '\u00a0'}
-                  </div>
+                      ? `${draft.length}/${CHOICE_MAX_LENGTH}${atLengthLimit ? ' \u2014 limit' : ''}`
+                      : ''}
+                  </span>
+                  <button
+                    type="button"
+                    // Keeps focus in the box, so its blur doesn't add first.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={commitNew}
+                    className="shrink-0 cursor-pointer rounded border border-brand bg-brand px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-hover"
+                  >
+                    Add
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  // Keeps focus in the box, so its blur doesn't add first.
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={commitNew}
-                  // The same 1px border as the box, so the two stay the same height.
-                  className="shrink-0 cursor-pointer rounded border border-brand bg-brand px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover"
-                >
-                  Add
-                </button>
               </div>
               <span id={lengthHintId} className="sr-only">
                 Up to {CHOICE_MAX_LENGTH} characters

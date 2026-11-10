@@ -191,24 +191,45 @@ describe('EnumPicker', () => {
     renderPicker();
     fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
     fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
-    const input = screen.getByLabelText('New option name') as HTMLInputElement;
+    const input = screen.getByLabelText('New option name') as HTMLTextAreaElement;
     expect(input.maxLength).toBe(CHOICE_MAX_LENGTH);
   });
 
-  it('keeps a row for the count from the moment the box opens, and counts only near the limit', () => {
+  it('the new-item box is two lines tall from the start, so a whole item shows without it growing', () => {
+    renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name') as HTMLTextAreaElement;
+    expect(input.tagName).toBe('TEXTAREA');
+    expect(input.rows).toBe(2);
+    expect(input.className).toContain('resize-none');
+    expect(input.className).toContain('w-full');
+  });
+
+  it('turns a pasted line break into a space, since an item is one line', () => {
+    const { onAddOption } = renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'Lemon cake\n  (gluten free)' } });
+    expect(input.value).toBe('Lemon cake (gluten free)');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onAddOption).toHaveBeenCalledWith('Lemon cake (gluten free)');
+  });
+
+  it('shows the count only near the limit, in the row with Add', () => {
     renderPicker();
     fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
     fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
     const input = screen.getByLabelText('New option name');
 
-    // The row is there, holding a blank, before anything is typed.
     const count = screen.getByTestId('new-item-count');
     expect(count.getAttribute('aria-hidden')).toBe('true');
-    expect(count.textContent).toBe('\u00a0');
+    expect(count.textContent).toBe('');
 
     fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_COUNT_FROM - 1) } });
     expect(screen.getByTestId('new-item-count')).toBe(count);
-    expect(count.textContent).toBe('\u00a0');
+    expect(count.textContent).toBe('');
 
     fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_COUNT_FROM) } });
     expect(count.textContent).toBe(`${CHOICE_COUNT_FROM}/${CHOICE_MAX_LENGTH}`);
@@ -229,13 +250,13 @@ describe('EnumPicker', () => {
 
     fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH) } });
     expect(screen.getByTestId('new-item-count')).toBe(count);
-    expect(count.textContent).toBe(`${CHOICE_MAX_LENGTH}/${CHOICE_MAX_LENGTH} \u00b7 max`);
+    expect(count.textContent).toBe(`${CHOICE_MAX_LENGTH}/${CHOICE_MAX_LENGTH} \u2014 limit`);
     expect(count.className).toContain('text-warn');
     expect(count.className).not.toContain('text-ink-soft');
     expect(count.className.replace('text-warn', '')).toBe(layout);
   });
 
-  it('lines the count up with the box, in its own column beside Add', () => {
+  it('puts the count and Add in one row under the box, at its two ends', () => {
     renderPicker();
     fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
     fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
@@ -243,13 +264,13 @@ describe('EnumPicker', () => {
     const count = screen.getByTestId('new-item-count');
     const add = screen.getByRole('button', { name: 'Add' });
 
-    const column = input.parentElement!;
-    expect(count.parentElement).toBe(column);
-    expect(column.className).toContain('flex-1');
-    expect(column.className).toContain('min-w-0');
-    expect(column.contains(add)).toBe(false);
-    expect(add.parentElement).toBe(column.parentElement);
-    expect(count.className).toContain('text-right');
+    const row = count.parentElement!;
+    expect(add.parentElement).toBe(row);
+    expect(row.contains(input)).toBe(false);
+    expect(row.previousElementSibling).toBe(input);
+    expect(row.className).toContain('justify-between');
+    expect(row.firstElementChild).toBe(count);
+    expect(row.lastElementChild).toBe(add);
   });
 
   it('describes the new-item box by its limit, not by the live count', () => {
@@ -268,7 +289,7 @@ describe('EnumPicker', () => {
     expect(input.getAttribute('aria-describedby')).toBe(describedBy);
   });
 
-  it('scrolls the row for the count into view once, when the box opens, and not while typing', () => {
+  it('scrolls the row with the count and Add into view once, when the box opens, and not while typing', () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
     try {
@@ -277,9 +298,9 @@ describe('EnumPicker', () => {
       fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
       const input = screen.getByLabelText('New option name');
 
-      const count = screen.getByTestId('new-item-count');
+      const row = screen.getByTestId('new-item-count').parentElement;
       expect(scrollIntoView).toHaveBeenCalledTimes(1);
-      expect(scrollIntoView.mock.contexts[0]).toBe(count);
+      expect(scrollIntoView.mock.contexts[0]).toBe(row);
       expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
 
       fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_COUNT_FROM - 1) } });
@@ -289,5 +310,47 @@ describe('EnumPicker', () => {
     } finally {
       delete (Element.prototype as Partial<Element>).scrollIntoView;
     }
+  });
+
+  describe('which way the menu opens', () => {
+    // jsdom has no layout, so place the trigger and size the menu by hand.
+    function openAt(triggerTop: number, menuHeight: number, barHeight = 0) {
+      const rect = vi
+        .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+        .mockReturnValue({ top: triggerTop, bottom: triggerTop + 32 } as DOMRect);
+      const height = vi
+        .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+        .mockReturnValue(menuHeight);
+      document.documentElement.style.scrollPaddingBottom = `${barHeight}px`;
+      try {
+        renderPicker();
+        fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+        return screen.getByRole('listbox').className;
+      } finally {
+        rect.mockRestore();
+        height.mockRestore();
+        document.documentElement.style.scrollPaddingBottom = '';
+      }
+    }
+
+    it('opens downward when the menu fits below the trigger', () => {
+      const cls = openAt(100, 240);
+      expect(cls).toContain('top-[calc(100%+4px)]');
+      expect(cls).not.toContain('bottom-[calc(100%+4px)]');
+    });
+
+    it("opens upward when it doesn't fit below and there's more room above", () => {
+      // jsdom's window is 768px tall.
+      const cls = openAt(600, 240);
+      expect(cls).toContain('bottom-[calc(100%+4px)]');
+    });
+
+    it('opens downward with no Publish bar below', () => {
+      expect(openAt(400, 240)).toContain('top-[calc(100%+4px)]');
+    });
+
+    it("counts a phone's Publish bar (the page's scroll-padding-bottom) as no room", () => {
+      expect(openAt(400, 240, 120)).toContain('bottom-[calc(100%+4px)]');
+    });
   });
 });
