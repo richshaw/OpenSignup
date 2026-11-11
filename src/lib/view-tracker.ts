@@ -179,17 +179,28 @@ export async function recordOrganizerView(args: {
 }
 
 /**
- * What an organizer page calls to record its view: reads the request's
- * signals now, since `after()` runs outside the request where `headers()`
- * isn't allowed, and writes the row once the page has been sent. Takes the
- * page's policy `Actor` and turns it into the row's actor with
- * `activityActor`, the same rule every mutation uses.
+ * What a page calls to record a view: reads the request's signals now, during
+ * render, since `after()` runs outside the request where `headers()` isn't
+ * allowed (Next.js 15), then runs `record` once the page has been sent. The
+ * row is telemetry, so it is written outside any transaction and never fails
+ * the page.
+ */
+export async function trackAfterResponse<A>(
+  record: (args: A & { signals: RequestSignals }) => Promise<void>,
+  args: A,
+): Promise<void> {
+  const signals = readRequestSignals(await headers());
+  after(() => record({ ...args, signals }));
+}
+
+/**
+ * What an organizer page calls to record its view, through
+ * `trackAfterResponse`. Takes the page's policy `Actor` and turns it into the
+ * row's actor with `activityActor`, the same rule every mutation uses.
  */
 export async function trackOrganizerView(
   args: Omit<Parameters<typeof recordOrganizerView>[0], 'signals' | 'actor'> & { actor: Actor },
 ): Promise<void> {
   const { actor, ...rest } = args;
-  const row = { ...rest, actor: activityActor(actor) };
-  const signals = readRequestSignals(await headers());
-  after(() => recordOrganizerView({ ...row, signals }));
+  await trackAfterResponse(recordOrganizerView, { ...rest, actor: activityActor(actor) });
 }
