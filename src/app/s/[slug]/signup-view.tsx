@@ -29,7 +29,7 @@ export type { SignupViewField, SignupViewSlot };
 export function toSignupViewSignup(
   signup: {
     title: string;
-    description: string | null;
+    description: string;
     status: string;
     closesAt: Date | null;
     settings: unknown;
@@ -68,7 +68,7 @@ export function toSignupViewProps(
 interface SignupViewProps {
   signup: {
     title: string;
-    description: string | null;
+    description: string;
     status: SignupStatus;
     /** Whether the sign-up form asks for the email; true when left out. Only
      *  the live page's form reads it. */
