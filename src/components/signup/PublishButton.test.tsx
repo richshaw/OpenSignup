@@ -469,7 +469,7 @@ describe('Done after the check’s fix', () => {
   const buildTab = (
     <BuildWysiwyg
       signupId="sig_1"
-      signupMeta={{ title: 'Bake sale helpers', description: null }}
+      signupMeta={{ title: 'Bake sale helpers', description: '' }}
       initialFields={[
         {
           id: 'f-what',
