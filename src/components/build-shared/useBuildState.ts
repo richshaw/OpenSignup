@@ -1,5 +1,5 @@
 import { useReducer, useRef, useEffect, useState } from 'react';
-import { toFieldRef } from '@/schemas/slot-fields';
+import { toFieldRef } from '@/schemas/slot-field-basics';
 import type { SlotFieldDefinition, SlotFieldConfig } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
 import {

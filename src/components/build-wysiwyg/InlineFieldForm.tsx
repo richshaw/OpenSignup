@@ -4,12 +4,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { InlineNote } from '@/components/ui/inline-note';
 import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
-import {
-  FIELD_TYPES,
-  configFor,
-  type FieldType,
-  type SlotFieldConfig,
-} from '@/schemas/slot-fields';
+import { FIELD_TYPES, configFor, type FieldType } from '@/schemas/slot-field-basics';
+import type { SlotFieldConfig } from '@/schemas/slot-fields';
 import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
 import type { BuildField } from '../build-shared/useBuildState';
 
