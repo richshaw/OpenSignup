@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import Link from 'next/link';
-import { after } from 'next/server';
 import { SiteFooter } from '@/components/site-footer';
 import { buildLandingJsonLd, serializeJsonLd } from '@/lib/seo';
 import { APP_ORIGIN, INSTANCE_NAME } from '@/lib/site-config';
-import { readRequestSignals, recordLandingView } from '@/lib/view-tracker';
+import { recordLandingView, trackAfterResponse } from '@/lib/view-tracker';
 import { DemoVideoCta } from './_components/DemoVideoCta';
 import { HomeExampleCard } from './_components/HomeExampleCard';
 import { StartSignupCta } from './_components/StartSignupCta';
@@ -42,8 +40,7 @@ export default async function LandingPage() {
   const demoVideoUrl = process.env.NEXT_PUBLIC_DEMO_VIDEO_URL;
   const demoVideoPoster = process.env.NEXT_PUBLIC_DEMO_VIDEO_POSTER;
 
-  const signals = readRequestSignals(await headers());
-  after(() => recordLandingView({ signals }));
+  await trackAfterResponse(recordLandingView, {});
 
   // JSON-LD payload is composed entirely of trusted, build-time values
   // (INSTANCE_NAME from NEXT_PUBLIC_*, APP_ORIGIN derived via `new URL().origin`,

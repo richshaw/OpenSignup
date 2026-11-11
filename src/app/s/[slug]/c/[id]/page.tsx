@@ -1,6 +1,4 @@
-import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
-import { after } from 'next/server';
 import { Banner } from '@/components/banner';
 import { getDb } from '@/db/client';
 import {
@@ -11,7 +9,7 @@ import {
 } from '@/services/commitments';
 import { commitmentEditPath, commitmentEditUrl } from '@/lib/links';
 import { editTokenFor } from '@/lib/token';
-import { readRequestSignals, recordEditLinkFollowed } from '@/lib/view-tracker';
+import { recordEditLinkFollowed, trackAfterResponse } from '@/lib/view-tracker';
 import { CANCELLED_PAGE } from '../../cancelled-message';
 import { SignupStateMessage } from '../../state-message';
 import EditForm from './edit-form';
@@ -40,19 +38,13 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
     redirect(commitmentEditPath(c.signupSlug, c.id, token));
   }
 
-  // Read headers in the request context — `after(...)` runs outside it and
-  // Next.js 15 forbids dynamic APIs (headers/cookies) inside the callback.
   // Recorded for a cancelled sign-up too: the link was still followed.
-  const signals = readRequestSignals(await headers());
-  after(() =>
-    recordEditLinkFollowed({
-      signupId: c.signupId,
-      workspaceId: c.workspaceId,
-      commitmentId: c.id,
-      participantId: c.participantId,
-      signals,
-    }),
-  );
+  await trackAfterResponse(recordEditLinkFollowed, {
+    signupId: c.signupId,
+    workspaceId: c.workspaceId,
+    commitmentId: c.id,
+    participantId: c.participantId,
+  });
 
   // The link in the confirmation email never changes, so people follow it
   // after a cancel too. The token shows the sign-up is theirs, so there is
