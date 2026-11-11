@@ -34,7 +34,7 @@ const SLOTS: SignupViewSlot[] = [
   },
 ];
 
-const SIGNUP = { title: 'Snack duty', description: null, status: 'open' as const };
+const SIGNUP = { title: 'Snack duty', description: '', status: 'open' as const };
 
 describe('<SignupViewBody mode="showcase" />', () => {
   it('renders the row action as an inert span styled like the active button', () => {
@@ -459,7 +459,7 @@ describe('"Add to calendar" on a signup with several time fields', () => {
     try {
       render(
         <SignupViewBody
-          signup={{ title: 'Trip', description: null, status: 'open' }}
+          signup={{ title: 'Trip', description: '', status: 'open' }}
           fields={TRIP.fields}
           groupByRef={null}
           slots={toSignupViewSlots(TRIP).filter((s) => s.id === slotId)}
@@ -546,7 +546,7 @@ describe('the optional email box on the live page', () => {
 
 describe('the live page past its closing time', () => {
   const NOW = Date.parse('2030-04-06T12:00:00Z');
-  const ROW = { title: 'Snack duty', description: null, settings: {}, status: 'open' };
+  const ROW = { title: 'Snack duty', description: '', settings: {}, status: 'open' };
 
   function renderLive(closesAt: Date | null) {
     render(
@@ -572,6 +572,35 @@ describe('the live page past its closing time', () => {
     renderLive(new Date(NOW + 60_000));
     expect(screen.queryByText('This signup is no longer collecting responses.')).toBeNull();
     expect(screen.getByRole('button', { name: /^Sign up for / })).toBeInTheDocument();
+  });
+});
+
+describe("the signup's description", () => {
+  const ROW = { title: 'Snack duty', settings: {}, status: 'open', closesAt: null };
+
+  function renderWith(description: string) {
+    const { container } = render(
+      <SignupViewBody
+        signup={toSignupViewSignup({ ...ROW, description })}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+      />,
+    );
+    return container.querySelector('header p');
+  }
+
+  it('shows under the title, trimmed, keeping the line breaks inside', () => {
+    expect(renderWith('  Bring a plate.\nNut-free, please.\n')?.textContent).toBe(
+      'Bring a plate.\nNut-free, please.',
+    );
+  });
+
+  // A description saved before the schema trimmed it can still be only spaces.
+  it.each(['', '   ', ' \n '])('shows nothing for %j', (description) => {
+    expect(renderWith(description)).toBeNull();
   });
 });
 

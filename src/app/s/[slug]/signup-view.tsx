@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { shownSignupStatus } from '@/lib/signup-closing';
 import { requiresEmail, sendsReminders, type SignupStatus } from '@/schemas/signups';
@@ -23,12 +24,13 @@ export type { SignupViewField, SignupViewSlot };
 /**
  * The live page's view of the signup itself. Past its closing time an open
  * signup takes no sign-ups (`signupShutReason`), so it shows as closed: the
- * Closed banner, and Closed on every slot.
+ * Closed banner, and Closed on every slot. The description is trimmed, so one
+ * saved as only spaces before the schema trimmed it shows as none.
  */
 export function toSignupViewSignup(
   signup: {
     title: string;
-    description: string | null;
+    description: string;
     status: string;
     closesAt: Date | null;
     settings: unknown;
@@ -37,7 +39,7 @@ export function toSignupViewSignup(
 ): SignupViewProps['signup'] {
   return {
     title: signup.title,
-    description: signup.description,
+    description: signup.description.trim(),
     status: shownSignupStatus(signup, now) as SignupStatus,
     requireEmail: requiresEmail(signup.settings),
     sendReminders: sendsReminders(signup.settings),
@@ -67,7 +69,7 @@ export function toSignupViewProps(
 interface SignupViewProps {
   signup: {
     title: string;
-    description: string | null;
+    description: string;
     status: SignupStatus;
     /** Whether the sign-up form asks for the email; true when left out. Only
      *  the live page's form reads it. */
@@ -108,7 +110,7 @@ function groupSlots(slots: SignupViewSlot[], groupField: SignupViewField | null)
   const map = new Map<string, SlotGroup>();
   for (const slot of slots) {
     const raw = slot.values[groupField.ref];
-    const key = isUnsetValue(raw) ? '__unset__' : String(raw);
+    const key = isBlankSlotValue(raw) ? '__unset__' : String(raw);
     const label = formatGroupLabel(groupField, raw);
     const existing = map.get(key);
     if (existing) {
@@ -120,10 +122,6 @@ function groupSlots(slots: SignupViewSlot[], groupField: SignupViewField | null)
   return [...map.values()];
 }
 
-function isUnsetValue(raw: unknown): boolean {
-  return raw === undefined || raw === null || raw === '';
-}
-
 /**
  * The group a slot's name starts with, or null when the signup isn't grouped
  * or the slot has no value for the group field: "(no date)" heads that group
@@ -132,7 +130,7 @@ function isUnsetValue(raw: unknown): boolean {
 function nameGroupFor(slot: SignupViewSlot, groupField: SignupViewField | null): string | null {
   if (!groupField) return null;
   const raw = slot.values[groupField.ref];
-  return isUnsetValue(raw) ? null : formatGroupLabel(groupField, raw);
+  return isBlankSlotValue(raw) ? null : formatGroupLabel(groupField, raw);
 }
 
 function titleFor(slot: SignupViewSlot, primary: SignupViewField | null): string {
