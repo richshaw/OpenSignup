@@ -10,8 +10,9 @@ import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
 import { reminderOptOutTokenFor } from '@/services/reminder-optout';
-import { createSignup, publishSignup } from '@/services/signups';
+import { createSignup, deleteSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
+import UnsubscribePage from '@/app/s/[slug]/unsubscribe/page';
 import { GET, POST } from './route';
 
 interface Fixture {
@@ -98,6 +99,7 @@ async function makeParticipant(fx: Fixture, title: string) {
   return {
     participantId: row.participantId,
     token: reminderOptOutTokenFor(row.participantId),
+    signupId: created.value.id,
     signupSlug: created.value.slug,
   };
 }
@@ -177,9 +179,22 @@ describe('POST /api/public/reminder-optout', () => {
     expect(res.status).toBe(303);
     const location = new URL(res.headers.get('location') ?? '');
     expect(location.pathname).toBe(`/s/${p.signupSlug}/unsubscribe`);
-    expect(location.searchParams.get('error')).toBe('1');
+    expect(location.searchParams.get('error')).toBe('off');
     expect(location.searchParams.get('p')).toBe('x&done=on');
     expect(location.searchParams.get('token')).toBe('a+b/c=');
+    expect(location.searchParams.has('done')).toBe(false);
+  });
+
+  it('redirects a failed Turn reminders back on with error=on', async () => {
+    const p = await makeParticipant(fx, 'Route Forged Optin');
+    const res = await POST(
+      postRequest({ p: 'x&done=on', token: 'a+b/c=', slug: p.signupSlug, action: 'start' }, '*/*'),
+    );
+
+    expect(res.status).toBe(303);
+    const location = new URL(res.headers.get('location') ?? '');
+    expect(location.pathname).toBe(`/s/${p.signupSlug}/unsubscribe`);
+    expect(location.searchParams.get('error')).toBe('on');
     expect(location.searchParams.has('done')).toBe(false);
   });
 
@@ -206,5 +221,50 @@ describe('POST /api/public/reminder-optout', () => {
 
     expect(res.status).toBe(302);
     expect(await optedOutAt(fx.db, p.participantId)).toBeNull();
+  });
+
+  /** Opens the link with GET and renders the page it redirects to. */
+  async function openLink(participantId: string, token: string) {
+    const res = await GET(
+      new Request(
+        `http://localhost/api/public/reminder-optout?p=${participantId}&token=${encodeURIComponent(token)}`,
+        { headers: { 'x-forwarded-for': nextIp() } },
+      ),
+    );
+    expect(res.status).toBe(302);
+    const location = new URL(res.headers.get('location') ?? '');
+    const [, , slug = ''] = location.pathname.split('/');
+    const page = (await UnsubscribePage({
+      params: Promise.resolve({ slug }),
+      searchParams: Promise.resolve(Object.fromEntries(location.searchParams)),
+    })) as { props: { title?: string } };
+    return { location, title: page.props.title };
+  }
+
+  it('keeps p and token when an opened link has a bad token, so the page says it is not valid', async () => {
+    const p = await makeParticipant(fx, 'Route Get Bad Token');
+    const { location, title } = await openLink(p.participantId, 'not-the-token');
+
+    expect(location.pathname).toBe('/s/-/unsubscribe');
+    expect(location.searchParams.get('p')).toBe(p.participantId);
+    expect(location.searchParams.get('token')).toBe('not-the-token');
+    expect(title).toBe("This link isn't valid");
+  });
+
+  it('keeps p and token when an opened link is for a deleted signup, so the page says it is not valid', async () => {
+    const p = await makeParticipant(fx, 'Route Get Deleted Signup');
+    const deleted = await deleteSignup(fx.db, fx.actor, p.signupId);
+    if (!deleted.ok) throw new Error(deleted.error.message);
+    const { location, title } = await openLink(p.participantId, p.token);
+
+    expect(location.pathname).toBe('/s/-/unsubscribe');
+    expect(location.searchParams.get('p')).toBe(p.participantId);
+    expect(location.searchParams.get('token')).toBe(p.token);
+    expect(title).toBe("This link isn't valid");
+  });
+
+  it('still calls an opened link with no p or token incomplete', async () => {
+    const { title } = await openLink('', '');
+    expect(title).toBe('This link is incomplete');
   });
 });

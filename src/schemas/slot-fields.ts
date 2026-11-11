@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { SortOrderSchema } from './common';
 import {
+  CHOICE_MAX_LENGTH,
   FIELD_TYPES,
   MAX_CHOICES,
   REF_MAX_LENGTH,
@@ -21,7 +22,6 @@ export {
 } from './slot-field-basics';
 
 const LABEL_MAX_LENGTH = 80;
-const CHOICE_MAX_LENGTH = 60;
 
 export const RefSchema = z
   .string()

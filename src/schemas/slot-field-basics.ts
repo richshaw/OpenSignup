@@ -10,6 +10,9 @@ export const FIELD_TYPES = ['text', 'date', 'time', 'number', 'enum'] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
 export const MAX_CHOICES = 20;
+export const CHOICE_MAX_LENGTH = 60;
+/** The Build tab's list picker shows a new item's character count from this length on. */
+export const CHOICE_COUNT_FROM = CHOICE_MAX_LENGTH - 10;
 /** A text field's `maxLength` when the organizer hasn't set one. */
 export const TEXT_DEFAULT_MAX_LENGTH = 200;
 

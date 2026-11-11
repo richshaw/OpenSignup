@@ -141,6 +141,7 @@ export async function createSignup(
   for (const slot of parsedSlots) {
     const v = validateSlotValues(fieldDefs, slot.values);
     if (!v.ok) return v;
+    slot.values = v.value;
   }
 
   // Every signup with a date field names the one that gives its slots their

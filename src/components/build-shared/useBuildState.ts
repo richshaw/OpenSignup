@@ -372,11 +372,11 @@ export function useBuildState(
   initialFields: SlotFieldDefinition[],
   initialSlots: BuildSlot[],
   initialSettings: SignupSettings,
-  initialMeta: { title: string; description: string | null } = { title: '', description: '' },
+  initialMeta: { title: string; description: string } = { title: '', description: '' },
 ) {
   const [state, dispatch] = useReducer(buildReducer, undefined, () => ({
     title: initialMeta.title,
-    description: initialMeta.description ?? '',
+    description: initialMeta.description,
     fields: toBuildFields(initialFields),
     rows: initialSlots.map(toBuildRow),
     groupByFieldRef: initialSettings.groupByFieldRefs[0] ?? null,
@@ -941,7 +941,7 @@ export function useBuildState(
   // input doesn't strand on an invalid value the server never accepted.
   const lastCommittedMetaRef = useRef<{ title: string; description: string }>({
     title: initialMeta.title,
-    description: initialMeta.description ?? '',
+    description: initialMeta.description,
   });
 
   const updateSignupMeta = (patch: { title?: string; description?: string }): void => {

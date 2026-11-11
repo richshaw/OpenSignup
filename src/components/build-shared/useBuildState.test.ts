@@ -1138,7 +1138,7 @@ describe('buildReducer OPTIMISTIC_UPDATE_META', () => {
 // useBuildState updateSignupMeta (renderHook + mocked fetch, debounced)
 // ---------------------------------------------------------------------------
 
-function renderBuildWithMeta(meta: { title: string; description: string | null }) {
+function renderBuildWithMeta(meta: { title: string; description: string }) {
   return renderHook(() => useBuildState('sig_test', [], [], defaultSettings, meta));
 }
 

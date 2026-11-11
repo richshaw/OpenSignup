@@ -754,7 +754,7 @@ test.describe('a Build edit and a reload', () => {
   const storedMeta = async (page: Page, id: string) =>
     (await (await page.request.get(`/api/signups/${id}`)).json()).data as {
       title: string;
-      description: string | null;
+      description: string;
     };
 
   test('a title typed just before a reload is kept', async ({ page }) => {
