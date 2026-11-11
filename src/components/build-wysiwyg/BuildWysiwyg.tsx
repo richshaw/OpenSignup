@@ -124,8 +124,11 @@ export function BuildWysiwyg({
 
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
-  // The slot whose editor gets focus once it's open.
-  const [focusRequest, setFocusRequest] = useState<{ rowId: string } | null>(null);
+  // The slot whose editor gets focus once it's open, in the field named or
+  // else its first.
+  const [focusRequest, setFocusRequest] = useState<{ rowId: string; fieldRef?: string } | null>(
+    null,
+  );
   // The slot Publish's check opened, until any other editor opens or this
   // one closes: Done on it, or Enter, hands focus back to Publish and share.
   const fixRow = useRef<string | null>(null);
@@ -192,7 +195,14 @@ export function BuildWysiwyg({
     if (groupField && value !== '' && groupKey !== '__flat__') {
       seedValues[groupField.ref] = value;
     }
-    void addRow({ values: seedValues });
+    // Open the new slot, as Duplicate opens its copy, with focus in its first
+    // field without a value: under a day, that's past the day it already has.
+    void addRow({ values: seedValues }).then((id) => {
+      if (id === null) return;
+      expandRow(id);
+      const firstEmpty = state.fields.find((f) => !(f.ref in seedValues));
+      setFocusRequest({ rowId: id, ...(firstEmpty ? { fieldRef: firstEmpty.ref } : {}) });
+    });
   };
 
   const handleAddDate = () => {
@@ -278,15 +288,16 @@ export function BuildWysiwyg({
     }
   };
 
-  // Focus goes in the slot's first field once its editor is open; with no
-  // fields, in Spots.
+  // Focus goes in the field asked for, or the slot's first, once its editor
+  // is open; with no fields, in Spots.
   useEffect(() => {
     if (!focusRequest) return;
     const editor = Array.from(
       sheetRef.current?.querySelectorAll<HTMLElement>('[data-slot-editor]') ?? [],
     ).find((el) => el.dataset.slotEditor === focusRequest.rowId);
     if (!editor) return;
-    const box = editor.querySelector<HTMLElement>('[data-field-ref]');
+    const boxes = Array.from(editor.querySelectorAll<HTMLElement>('[data-field-ref]'));
+    const box = boxes.find((el) => el.dataset.fieldRef === focusRequest.fieldRef) ?? boxes[0];
     const control = box
       ? box.querySelector<HTMLElement>('input, select, button')
       : editor.querySelector<HTMLElement>('input');
