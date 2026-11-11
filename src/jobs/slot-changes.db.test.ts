@@ -1,6 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
-import { getDb, type Db } from '@/db/client';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { getDb, SESSION_SETTINGS, type Db, type Tx } from '@/db/client';
+import * as schema from '@/db/schema';
+import { getEnv } from '@/lib/env';
+import { applyConcurrentIndexes } from '@/db/concurrent-indexes';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { workspaceMembers } from '@/db/schema/members';
@@ -16,6 +21,7 @@ import { commitToSlot } from '@/services/commitments';
 import { createSignup, deleteSignup, publishSignup, updateSignup } from '@/services/signups';
 import { addField } from '@/services/slot-fields';
 import { addSlot, updateSlot } from '@/services/slots';
+import { toldDifferentTimeQuery } from './notify-rules';
 import { sendReminderJob } from './reminders';
 import { selectDueSlotChanges, sendSlotChangeJob } from './slot-changes';
 
@@ -485,5 +491,75 @@ describe('slot-change emails (db)', () => {
       // The reminder told them the new time, so no change email follows.
       expect(await dueIds()).not.toContain(s.commitmentIds[0]);
     });
+  });
+});
+
+/** Thrown to roll a test's transaction back once it has what it needs. */
+class Rollback extends Error {}
+
+async function inRolledBackTx<T>(db: Db, run: (tx: Tx) => Promise<T>) {
+  let result: T | undefined;
+  await db
+    .transaction(async (tx) => {
+      result = await run(tx);
+      throw new Rollback();
+    })
+    .catch((e: unknown) => {
+      if (!(e instanceof Rollback)) throw e;
+    });
+  return result as T;
+}
+
+describe('slot-change scan, query shape (db)', () => {
+  it('sends one statement and returns nothing when no slot moved lately', async () => {
+    // Counts every statement through a client with a debug hook, the way
+    // src/app/query-budget.db.test.ts does. BEGIN, the DELETE and ROLLBACK are
+    // outside the count.
+    let statements = 0;
+    let counting = false;
+    const client = postgres(getEnv().DATABASE_URL, {
+      max: 1,
+      prepare: false,
+      connection: SESSION_SETTINGS,
+      debug: (_connection, query) => {
+        if (counting && !query.includes('pg_catalog.pg_type')) statements += 1;
+      },
+    });
+    try {
+      const db = drizzle(client, { schema, casing: 'snake_case' });
+      const rows = await inRolledBackTx(db, async (tx) => {
+        // Other tests leave recent moves behind; clear them for this
+        // transaction only.
+        await tx.delete(activity).where(eq(activity.eventType, 'slot.rescheduled'));
+        counting = true;
+        const due = await selectDueSlotChanges(tx);
+        counting = false;
+        return due;
+      });
+      expect(rows).toEqual([]);
+      expect(statements).toBe(1);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('looks up what a participant was last told through activity_told_lookup', async () => {
+    const client = postgres(getEnv().DATABASE_URL, { max: 1, connection: SESSION_SETTINGS });
+    try {
+      await applyConcurrentIndexes(client);
+    } finally {
+      await client.end();
+    }
+    const db = getDb();
+    const plan = await inRolledBackTx(db, async (tx) => {
+      // A test database is small enough that a sequential scan always looks
+      // cheapest; turned off, the planner shows which index it can use.
+      await tx.execute(sql`SET LOCAL enable_seqscan = off`);
+      const rows = await tx.execute<{ 'QUERY PLAN': string }>(
+        sql`EXPLAIN ${toldDifferentTimeQuery(tx, 'com_explain')}`,
+      );
+      return rows.map((r) => r['QUERY PLAN']).join('\n');
+    });
+    expect(plan).toContain('activity_told_lookup');
   });
 });
