@@ -1,6 +1,6 @@
 import type { commitments as commitmentsTable } from '@/db/schema/commitments';
 import type { SignupStatus } from '@/schemas/signups';
-import { ACTIVE_COMMITMENT_STATUSES } from '@/services/commitments';
+import { ACTIVE_COMMITMENT_STATUSES, shownCommitmentStatus } from '@/services/commitments';
 
 type Status = (typeof commitmentsTable.$inferSelect)['status'];
 
@@ -19,12 +19,14 @@ export function summarizeResponses(
   let cancelled = 0;
   let removed = 0;
   for (const c of commitments) {
-    if (ACTIVE_COMMITMENT_STATUSES.includes(c.status)) active++;
-    else if (c.status === 'cancelled') {
-      const how = ended.get(c.id);
-      if (how === 'removed') removed++;
-      else if (how === undefined) cancelled++;
+    if (ACTIVE_COMMITMENT_STATUSES.includes(c.status)) {
+      active++;
+      continue;
     }
+    // A `moved` one falls through uncounted: its new half is active above.
+    const shown = shownCommitmentStatus(c, ended);
+    if (shown === 'cancelled') cancelled++;
+    else if (shown === 'removed') removed++;
   }
   const rest: string[] = [];
   if (cancelled > 0) rest.push(`${cancelled} cancelled`);

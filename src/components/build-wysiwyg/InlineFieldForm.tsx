@@ -10,6 +10,7 @@ import {
   type FieldType,
   type SlotFieldConfig,
 } from '@/schemas/slot-fields';
+import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
 import type { BuildField } from '../build-shared/useBuildState';
 
 export type InlineFieldFormMode = { mode: 'edit'; field: BuildField } | { mode: 'create' };
@@ -163,8 +164,8 @@ export function InlineFieldForm({
               </span>
               {!reminderBlocked && (
                 <span id={reminderHelpId} className="text-[11px] leading-[1.35] text-ink-muted">
-                  Sent the day before. One date field per signup drives reminders, and participants
-                  can opt out of any reminder they get.
+                  Sent {REMINDER_LEAD_WORDS}. One date field per signup drives reminders, and
+                  participants can opt out of any reminder they get.
                 </span>
               )}
             </span>

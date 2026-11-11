@@ -6,9 +6,12 @@ export type SlotStatus = (typeof SLOT_STATUSES)[number];
 
 const SlotValuesSchema = z.record(z.string(), z.unknown());
 
+/** How many people a slot takes: a whole number from 1, or null for no limit. */
+export const SlotCapacitySchema = z.number().int().positive().nullable();
+
 export const SlotCreateInputSchema = z.object({
   values: SlotValuesSchema.default({}),
-  capacity: z.number().int().positive().nullable().default(1),
+  capacity: SlotCapacitySchema.default(1),
   sortOrder: SortOrderSchema.optional(),
 });
 
@@ -22,7 +25,7 @@ export const SlotBulkInputSchema = z.object({
     .array(
       z.object({
         values: SlotValuesSchema.default({}),
-        capacity: z.number().int().positive().nullable().optional(),
+        capacity: SlotCapacitySchema.optional(),
         sortOrder: SortOrderSchema.optional(),
       }),
     )
@@ -45,7 +48,7 @@ export const SlotReorderInputSchema = z.object({
 export const SlotUpdateInputSchema = z
   .object({
     values: SlotValuesSchema.optional(),
-    capacity: z.number().int().positive().nullable().optional(),
+    capacity: SlotCapacitySchema.optional(),
     sortOrder: SortOrderSchema.optional(),
     status: z.enum(SLOT_STATUSES).optional(),
   })

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   return handle(async () => {
     // Unauthenticated write into the activity log — meter it per IP so a
     // script can't bloat the append-only table.
-    const clientIp = extractClientIp(new Headers(request.headers));
+    const clientIp = extractClientIp(request.headers);
     await consumeRateLimit(getDb(), RateLimits.telemetryPerIp, clientIp ?? 'unknown');
     const url = new URL(request.url);
     const cta = ctaSchema.parse(url.searchParams.get('cta') ?? undefined);

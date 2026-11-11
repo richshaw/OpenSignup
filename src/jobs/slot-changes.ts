@@ -1,13 +1,13 @@
-import { and, eq, sql, type SQL } from 'drizzle-orm';
-import { getDb, type Db } from '@/db/client';
+import { and, inArray, sql, type SQL } from 'drizzle-orm';
+import { getDb, type Queryable } from '@/db/client';
+import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
-import { participants } from '@/db/schema/participants';
-import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { log } from '@/lib/log';
 import { sendSlotChanged } from '@/email/send';
 import {
   allOf,
+  joinCommitmentTables,
   moveOfThisSlot,
   notifiableRules,
   slotSettled,
@@ -62,26 +62,34 @@ const slotChangeDueRules = {
 
 const slotChangeDueCondition = allOf(slotChangeDueRules);
 
-/** The commitments whose slot-change email is due now. */
-export async function selectDueSlotChanges(db: Db): Promise<{ commitmentId: string }[]> {
-  return db
-    .select({ commitmentId: commitments.id })
-    .from(commitments)
-    .innerJoin(participants, eq(participants.id, commitments.participantId))
-    .innerJoin(slots, eq(slots.id, commitments.slotId))
-    .innerJoin(signups, eq(signups.id, commitments.signupId))
+/**
+ * The commitments whose slot-change email is due now.
+ *
+ * Two steps on purpose. The slots moved in the lookback window come first, in
+ * a query of their own through the event index, and when there are none (the
+ * usual case) that is the only statement. Written as one query with
+ * `slots.id IN (SELECT …)`, Postgres joined every active commitment on the
+ * instance to its slot and ran the field-change rule's subquery on each pair
+ * before it narrowed to the moved slots: seconds every 2 minutes on a large
+ * instance, however few slots had moved. With the ids in hand, it fetches
+ * those slots by primary key and runs the rules on their commitments only.
+ */
+export async function selectDueSlotChanges(db: Queryable): Promise<{ commitmentId: string }[]> {
+  const moved = await db
+    .selectDistinct({ slotId: sql<string>`${activity.payload}->>'slotId'` })
+    .from(activity)
     .where(
       and(
-        // Only slots moved lately, found through the event index before any
-        // commitment is looked at.
-        sql`${slots.id} IN (
-          SELECT a.payload->>'slotId' FROM activity a
-          WHERE a.event_type = 'slot.rescheduled'
-            AND a.occurred_at > now() - make_interval(days => ${LOOKBACK_DAYS})
-        )`,
-        slotChangeDueCondition,
+        sql`${activity.eventType} = 'slot.rescheduled'`,
+        sql`${activity.occurredAt} > now() - make_interval(days => ${LOOKBACK_DAYS})`,
       ),
     );
+  const slotIds = moved.flatMap((m) => (m.slotId ? [m.slotId] : []));
+  if (slotIds.length === 0) return [];
+
+  return joinCommitmentTables(
+    db.select({ commitmentId: commitments.id }).from(commitments).$dynamic(),
+  ).where(and(inArray(slots.id, slotIds), slotChangeDueCondition));
 }
 
 /** Enqueues one slot-change send job per due commitment. */

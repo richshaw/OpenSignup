@@ -9,7 +9,7 @@
  * wrong in front of a participant.
  */
 
-import { isRealDate } from '@/lib/reminder-fields';
+import { isRealDate, isRealTime } from '@/lib/reminder-fields';
 
 /** The shape both `SlotFieldDefinition` and the view's field type satisfy. */
 export interface LabelledField {
@@ -41,8 +41,6 @@ export function formatSlotDate(iso: string | null | undefined): string | null {
   });
 }
 
-const TIME_OF_DAY = /^([01]\d|2[0-3]):([0-5]\d)$/;
-
 /**
  * `time`-type slot fields are stored as 24-hour HH:MM; people read them on a
  * 12-hour clock ("18:30" → "6:30 PM"), matching the en-US dates above. Plain
@@ -51,11 +49,10 @@ const TIME_OF_DAY = /^([01]\d|2[0-3]):([0-5]\d)$/;
  * space before AM/PM is non-breaking so a narrow column never strands "PM".
  */
 export function formatSlotTime(hhmm: string | null | undefined): string | null {
-  const match = hhmm?.match(TIME_OF_DAY);
-  if (!match) return null;
-  const hour = Number(match[1]);
+  if (!hhmm || !isRealTime(hhmm)) return null;
+  const hour = Number(hhmm.slice(0, 2));
   const period = hour < 12 ? 'AM' : 'PM';
-  return `${hour % 12 || 12}:${match[2]}\u00a0${period}`;
+  return `${hour % 12 || 12}:${hhmm.slice(3)}\u00a0${period}`;
 }
 
 /**

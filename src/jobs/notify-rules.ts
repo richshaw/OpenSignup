@@ -1,5 +1,6 @@
 import { and, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
-import type { Db } from '@/db/client';
+import type { PgSelect } from 'drizzle-orm/pg-core';
+import type { Db, Queryable } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
@@ -38,6 +39,20 @@ export const notifiableRules = {
   'participant has no email': isNotNull(participants.email),
 } satisfies Record<string, SQL>;
 
+/**
+ * Joins a select from commitments to the commitment's slot, signup and
+ * participant: the query shape every rule above is written over. The
+ * confirmation email, the reminder and slot-change scans, and `skipReasons`
+ * all go through it, so the rows a job decides on and the reasons it logs come
+ * from the same join. Pass `db.select(…).from(commitments).$dynamic()`.
+ */
+export function joinCommitmentTables<T extends PgSelect>(query: T) {
+  return query
+    .innerJoin(slots, eq(slots.id, commitments.slotId))
+    .innerJoin(signups, eq(signups.id, commitments.signupId))
+    .innerJoin(participants, eq(participants.id, commitments.participantId));
+}
+
 /** A `slot.rescheduled` row, aliased `m`, for the slot in the joined query. */
 export const moveOfThisSlot = sql`m.event_type = 'slot.rescheduled'
   AND m.signup_id = ${commitments.signupId}
@@ -70,14 +85,14 @@ export async function skipReasons(
   const failed = Object.entries(rules).map(
     ([reason, rule]) => sql`CASE WHEN coalesce(${rule}, false) THEN NULL ELSE ${reason}::text END`,
   );
-  const [row] = await db
-    .select({
-      reasons: sql<string[]>`array_remove(ARRAY[${sql.join(failed, sql`, `)}], NULL)`,
-    })
-    .from(commitments)
-    .innerJoin(slots, eq(slots.id, commitments.slotId))
-    .innerJoin(signups, eq(signups.id, commitments.signupId))
-    .innerJoin(participants, eq(participants.id, commitments.participantId))
+  const [row] = await joinCommitmentTables(
+    db
+      .select({
+        reasons: sql<string[]>`array_remove(ARRAY[${sql.join(failed, sql`, `)}], NULL)`,
+      })
+      .from(commitments)
+      .$dynamic(),
+  )
     .where(eq(commitments.id, commitmentId))
     .limit(1);
   return row ? row.reasons : null;
@@ -91,7 +106,9 @@ export function allOf(rules: Record<string, SQL>): SQL {
 /**
  * The emails that tell a participant their slot's time: the confirmation, a
  * reminder and a slot-change email. The newest of them is what the
- * participant was last told.
+ * participant was last told. `activity_told_lookup` in
+ * src/db/concurrent-indexes.ts is a partial index over exactly these, so keep
+ * the two lists the same.
  */
 const TOLD_EVENTS = sql`('commitment.confirmation_sent', 'reminder.sent', 'slot.change_sent')`;
 
@@ -123,9 +140,7 @@ export const toldDifferentTime: SQL = (() => {
   // stay apart.
   const firstMoveFrom = sql`(
     SELECT m.payload->'from' FROM activity m
-    WHERE m.event_type = 'slot.rescheduled'
-      AND m.signup_id = ${commitments.signupId}
-      AND (m.payload->>'slotId') = ${slots.id}
+    WHERE ${moveOfThisSlot}
       AND m.occurred_at > ${toldAt}
     ORDER BY m.occurred_at ASC
     LIMIT 1
@@ -139,13 +154,18 @@ export const toldDifferentTime: SQL = (() => {
   END)`;
 })();
 
-/** `toldDifferentTime` for one commitment. False when there is no such commitment. */
-export async function wasToldDifferentTime(db: Db, commitmentId: string): Promise<boolean> {
-  const [row] = await db
+/** The query `wasToldDifferentTime` runs, for one commitment. */
+export function toldDifferentTimeQuery(db: Queryable, commitmentId: string) {
+  return db
     .select({ differs: sql<boolean>`${toldDifferentTime}` })
     .from(commitments)
     .innerJoin(slots, eq(slots.id, commitments.slotId))
     .where(eq(commitments.id, commitmentId))
     .limit(1);
+}
+
+/** `toldDifferentTime` for one commitment. False when there is no such commitment. */
+export async function wasToldDifferentTime(db: Db, commitmentId: string): Promise<boolean> {
+  const [row] = await toldDifferentTimeQuery(db, commitmentId);
   return row?.differs === true;
 }

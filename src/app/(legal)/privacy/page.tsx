@@ -17,6 +17,7 @@ import {
   LOGIN_CODE_LIFETIME,
   SLOT_CHANGE_DELAY,
 } from '@/lib/lifetimes';
+import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
 
 export const metadata: Metadata = pageMetadata({
   path: '/privacy',
@@ -201,8 +202,8 @@ export default function PrivacyPage() {
           gives your spot a new private link, and sends a fresh confirmation with it. The old link
           then leads to the new one. Each of these participant emails contains a private link that
           lets you change or cancel that commitment without signing in, so treat them as you would a
-          password and don&apos;t forward them. Reminders go out the day before the slot, and a
-          moved-slot email about {SLOT_CHANGE_DELAY} after the organizer&apos;s last change to its
+          password and don&apos;t forward them. Reminders go out {REMINDER_LEAD_WORDS} the slot, and
+          a moved-slot email about {SLOT_CHANGE_DELAY} after the organizer&apos;s last change to its
           date or time; organizers can turn both off for a signup entirely, with the reminders
           setting. Every reminder and moved-slot email carries a link that stops both for that
           signup; we record only the time you opted out, and it does not affect any other signup or
