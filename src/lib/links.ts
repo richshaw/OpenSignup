@@ -66,7 +66,7 @@ function optOutQuery(participantId: string, token: string): string {
 }
 
 /** What the opt-out route tells the confirm page after a submit. */
-export type UnsubscribeStatus = 'done=on' | 'done=off' | 'error=1';
+export type UnsubscribeStatus = 'done=on' | 'done=off' | 'error=on' | 'error=off';
 
 /**
  * The reminder opt-out confirm page's path, which the email links to and the
