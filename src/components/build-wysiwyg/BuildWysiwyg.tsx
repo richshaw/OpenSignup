@@ -21,7 +21,7 @@ import type { SignupSettings } from '@/schemas/signups';
 /** Server-loaded chrome snapshot. Title + description are then edited in-place via updateSignupMeta. */
 type SignupMeta = {
   title: string;
-  description: string | null;
+  description: string;
 };
 
 type BuildWysiwygProps = {
