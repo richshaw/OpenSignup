@@ -24,7 +24,8 @@ export type { SignupViewField, SignupViewSlot };
 /**
  * The live page's view of the signup itself. Past its closing time an open
  * signup takes no sign-ups (`signupShutReason`), so it shows as closed: the
- * Closed banner, and Closed on every slot.
+ * Closed banner, and Closed on every slot. The description is trimmed, so one
+ * saved as only spaces before the schema trimmed it shows as none.
  */
 export function toSignupViewSignup(
   signup: {
@@ -38,7 +39,7 @@ export function toSignupViewSignup(
 ): SignupViewProps['signup'] {
   return {
     title: signup.title,
-    description: signup.description,
+    description: signup.description.trim(),
     status: shownSignupStatus(signup, now) as SignupStatus,
     requireEmail: requiresEmail(signup.settings),
     sendReminders: sendsReminders(signup.settings),

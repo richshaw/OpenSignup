@@ -575,6 +575,35 @@ describe('the live page past its closing time', () => {
   });
 });
 
+describe("the signup's description", () => {
+  const ROW = { title: 'Snack duty', settings: {}, status: 'open', closesAt: null };
+
+  function renderWith(description: string) {
+    const { container } = render(
+      <SignupViewBody
+        signup={toSignupViewSignup({ ...ROW, description })}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+      />,
+    );
+    return container.querySelector('header p');
+  }
+
+  it('shows under the title, trimmed, keeping the line breaks inside', () => {
+    expect(renderWith('  Bring a plate.\nNut-free, please.\n')?.textContent).toBe(
+      'Bring a plate.\nNut-free, please.',
+    );
+  });
+
+  // A description saved before the schema trimmed it can still be only spaces.
+  it.each(['', '   ', ' \n '])('shows nothing for %j', (description) => {
+    expect(renderWith(description)).toBeNull();
+  });
+});
+
 describe('the live page inside the lockout before a slot', () => {
   const NOW = Date.parse('2030-04-06T12:00:00Z');
   const HOUR = 3600 * 1000;
