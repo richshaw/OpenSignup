@@ -29,9 +29,9 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   const robots = { index: false, follow: false } as const;
   if (!result.ok) return { title: 'Sign up', robots };
   const sig = result.value;
-  const description = sig.description
-    ? shortenToLimit(sig.description, 200)
-    : `Sign up via ${INSTANCE_NAME}`;
+  // Trimmed for a description saved as only spaces before the schema trimmed it.
+  const text = sig.description.trim();
+  const description = text ? shortenToLimit(text, 200) : `Sign up via ${INSTANCE_NAME}`;
   return {
     title: sig.title,
     description,
