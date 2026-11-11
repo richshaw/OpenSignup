@@ -16,7 +16,6 @@ export interface PersistedDraft {
   groupByFieldRefs: string[];
   /** Plain sentences about what the conversion adjusted or dropped; empty when nothing was. */
   warnings: string[];
-  dropped: DroppedSummary;
 }
 
 /**
@@ -79,7 +78,7 @@ export async function persistDraft(
     { template },
   );
   if (!created.ok) return created;
-  return ok({ signup: created.value, template, groupByFieldRefs, warnings, dropped });
+  return ok({ signup: created.value, template, groupByFieldRefs, warnings });
 }
 
 const EXPECTED: Record<DroppedSummary['coercionFailures'][number]['reason'], string> = {

@@ -25,7 +25,7 @@ export default async function ResponsesTab({ params }: PageParams) {
   if (!result.ok) return null;
   const sig = result.value;
   await trackOrganizerView({
-    actor: { actorId: session.organizerId, actorType: 'organizer' },
+    actor: toActor(session),
     signupId: sig.id,
     workspaceId: sig.workspaceId,
     eventType: 'signup.editor_opened',

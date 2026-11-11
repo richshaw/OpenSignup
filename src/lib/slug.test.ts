@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { randomSuffix, slugBase, toSlug } from './slug';
+import { slugBase, toSlug } from './slug';
 
 describe('toSlug', () => {
   it('lowercases and kebab-cases', () => {
@@ -29,22 +29,13 @@ describe('toSlug', () => {
     expect(s).not.toMatch(/[iluo]/);
   });
 
-  it('respects maxLength', () => {
-    const long = 'a'.repeat(200);
-    const s = toSlug(long, { maxLength: 20 });
-    expect(s.length).toBeLessThanOrEqual(20);
+  it('caps the base at 60 characters', () => {
+    expect(toSlug('a'.repeat(200))).toHaveLength(60);
   });
 
-  it('honors a maxLength above 60', () => {
-    const long = 'a'.repeat(200);
-    expect(toSlug(long, { maxLength: 100 })).toHaveLength(100);
-  });
-
-  it('does not leave a trailing dash when truncation lands on a separator', () => {
-    // Truncating at maxLength 20 would otherwise cut right after the dash.
-    const s = toSlug('aaaaaaaaaaaaaaaaaaa bbbbb', { maxLength: 20 });
-    expect(s).toBe('aaaaaaaaaaaaaaaaaaa');
-    expect(s.endsWith('-')).toBe(false);
+  it('does not leave a trailing dash when the cap lands on a separator', () => {
+    const s = toSlug(`${'a'.repeat(59)} bbbbb`);
+    expect(s).toBe('a'.repeat(59));
   });
 
   it('keeps the slugs it has always made', () => {
@@ -58,15 +49,11 @@ describe('toSlug', () => {
   });
 });
 
-describe('randomSuffix', () => {
-  it('has the requested length', () => {
-    expect(randomSuffix(5)).toHaveLength(5);
-    expect(randomSuffix(10)).toHaveLength(10);
-  });
-
-  it('only contains crockford base32 chars', () => {
-    const s = randomSuffix(100);
-    expect(s).toMatch(/^[0-9abcdefghjkmnpqrstvwxyz]+$/);
+describe('the suffix', () => {
+  it('only uses crockford base32 characters', () => {
+    for (let i = 0; i < 50; i++) {
+      expect(toSlug('x', { suffix: true })).toMatch(/^x-[0-9abcdefghjkmnpqrstvwxyz]{5}$/);
+    }
   });
 });
 

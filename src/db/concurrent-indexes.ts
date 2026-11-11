@@ -36,6 +36,20 @@ export const CONCURRENT_INDEXES: ConcurrentIndex[] = [
       ON "activity" (("payload"->>'commitmentId'))
       WHERE "event_type" IN ('reminder.sent', 'commitment.confirmation_sent')`,
   },
+  {
+    name: 'activity_told_lookup',
+    // `toldDifferentTime` (src/jobs/notify-rules.ts) finds the newest of the
+    // three emails that tell a participant their slot's time, for one
+    // commitment. The index above leaves out 'slot.change_sent', so the
+    // planner can't use it and walks the signup's whole history instead, page
+    // views included. This one matches that lookup's event list and its
+    // ORDER BY. A new name rather than a widened `activity_commitment_lookup`,
+    // because IF NOT EXISTS never changes an index that's already there, and
+    // the reminder dispatcher and send-time guard still use that one.
+    create: `CREATE INDEX CONCURRENTLY IF NOT EXISTS "activity_told_lookup"
+      ON "activity" (("payload"->>'commitmentId'), "occurred_at")
+      WHERE "event_type" IN ('commitment.confirmation_sent', 'reminder.sent', 'slot.change_sent')`,
+  },
 ];
 
 /**
