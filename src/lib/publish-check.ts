@@ -9,6 +9,7 @@
  * refs count.
  */
 
+import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 
 type PublishCheckField = Pick<SlotFieldDefinition, 'ref'>;
@@ -26,12 +27,6 @@ export type PublishCheck =
   /** No slot has a value in any field. `slotId` is the first slot. */
   | { kind: 'all_blank'; slotId: string; slotCount: number };
 
-function isEmpty(value: unknown): boolean {
-  return (
-    value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
-  );
-}
-
 /** The first problem with the slots, or null when there is none. */
 export function checkBeforePublish({
   fields,
@@ -43,7 +38,7 @@ export function checkBeforePublish({
   const first = slots[0];
   if (!first) return { kind: 'no_slots' };
   if (fields.length === 0) return { kind: 'no_fields' };
-  if (slots.every((s) => fields.every((f) => isEmpty(s.values[f.ref])))) {
+  if (slots.every((s) => fields.every((f) => isBlankSlotValue(s.values[f.ref])))) {
     return { kind: 'all_blank', slotId: first.id, slotCount: slots.length };
   }
   return null;

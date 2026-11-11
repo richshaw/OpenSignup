@@ -36,8 +36,13 @@ export async function GET(request: Request) {
   const token = url.searchParams.get('token') ?? '';
   const target = await previewReminderOptOut(getDb(), participantId, token);
   if (!target.ok) {
-    // No slug to send them to, so render the page's own invalid-link state.
-    return Response.redirect(new URL('/s/-/unsubscribe', url.origin), 302);
+    // No slug to send them to, so let the page decide which invalid-link state
+    // to show. Keep `p` and `token`: without them it says "This link is
+    // incomplete" and tells a person whose signup was deleted to open the very
+    // link they just opened. With them it runs the same preview, fails the same
+    // way, and says "This link isn't valid". A link that really lacked them
+    // still arrives without them and is still called incomplete.
+    return Response.redirect(new URL(unsubscribePath('-', participantId, token), url.origin), 302);
   }
   return Response.redirect(
     new URL(unsubscribePath(target.value.signupSlug, participantId, token), url.origin),

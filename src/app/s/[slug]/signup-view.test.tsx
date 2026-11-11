@@ -34,7 +34,7 @@ const SLOTS: SignupViewSlot[] = [
   },
 ];
 
-const SIGNUP = { title: 'Snack duty', description: null, status: 'open' as const };
+const SIGNUP = { title: 'Snack duty', description: '', status: 'open' as const };
 
 describe('<SignupViewBody mode="showcase" />', () => {
   it('renders the row action as an inert span styled like the active button', () => {
@@ -459,7 +459,7 @@ describe('"Add to calendar" on a signup with several time fields', () => {
     try {
       render(
         <SignupViewBody
-          signup={{ title: 'Trip', description: null, status: 'open' }}
+          signup={{ title: 'Trip', description: '', status: 'open' }}
           fields={TRIP.fields}
           groupByRef={null}
           slots={toSignupViewSlots(TRIP).filter((s) => s.id === slotId)}
@@ -546,7 +546,7 @@ describe('the optional email box on the live page', () => {
 
 describe('the live page past its closing time', () => {
   const NOW = Date.parse('2030-04-06T12:00:00Z');
-  const ROW = { title: 'Snack duty', description: null, settings: {}, status: 'open' };
+  const ROW = { title: 'Snack duty', description: '', settings: {}, status: 'open' };
 
   function renderLive(closesAt: Date | null) {
     render(
