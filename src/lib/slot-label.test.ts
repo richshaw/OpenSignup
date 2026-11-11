@@ -145,4 +145,3 @@ describe('renderFieldValue with only spaces', () => {
     ]);
   });
 });
-
