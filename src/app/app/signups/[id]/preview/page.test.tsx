@@ -30,7 +30,7 @@ const signup = {
   workspaceId: 'ws_1',
   slug: 'snack-duty',
   title: 'Snack duty — Spring season',
-  description: null,
+  description: '',
   status: 'open',
   settings: {},
   closesAt: null,

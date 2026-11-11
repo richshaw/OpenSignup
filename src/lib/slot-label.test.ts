@@ -133,3 +133,16 @@ describe('renderFieldValue for date fields', () => {
     expect(renderFieldValue(date, '2026-13-01')).toBe('2026-13-01');
   });
 });
+
+describe('renderFieldValue with only spaces', () => {
+  it('returns null, as for an empty string', () => {
+    expect(renderFieldValue({ ref: 'what', label: 'What', fieldType: 'text' }, '   ')).toBeNull();
+  });
+
+  it('leaves the line out of slotDetails', () => {
+    expect(slotDetails(fields, { role: '   ', date: '2026-08-30' })).toEqual([
+      { label: 'Date', value: 'Sun, Aug 30' },
+    ]);
+  });
+});
+
