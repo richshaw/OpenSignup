@@ -114,6 +114,26 @@ describe('renderFieldValue for time fields', () => {
   });
 });
 
+describe('renderFieldValue for date fields', () => {
+  const date = { ref: 'd', label: 'Date', fieldType: 'date' };
+
+  it('formats a stored-shape date', () => {
+    expect(renderFieldValue(date, '2026-05-21')).toBe('Thu, May 21');
+  });
+
+  it('leaves a date string that is not in the stored shape as it is', () => {
+    // `new Date()` would read "Sat, Nov 14" as Nov 14, 2001, a Wednesday.
+    expect(renderFieldValue(date, 'Sat, Nov 14')).toBe('Sat, Nov 14');
+    expect(renderFieldValue(date, '05/21/2026')).toBe('05/21/2026');
+    expect(renderFieldValue(date, '2026-05-21T10:00:00Z')).toBe('2026-05-21T10:00:00Z');
+  });
+
+  it('leaves a date that does not exist as it is, rather than rolling it over', () => {
+    expect(renderFieldValue(date, '2026-02-31')).toBe('2026-02-31');
+    expect(renderFieldValue(date, '2026-13-01')).toBe('2026-13-01');
+  });
+});
+
 describe('renderFieldValue with only spaces', () => {
   it('returns null, as for an empty string', () => {
     expect(renderFieldValue({ ref: 'what', label: 'What', fieldType: 'text' }, '   ')).toBeNull();
