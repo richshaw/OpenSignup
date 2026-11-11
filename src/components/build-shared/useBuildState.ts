@@ -10,6 +10,7 @@ import {
 } from '@/lib/signup-limits';
 import type { ErrorCode } from '@/lib/errors';
 import { resolveAnchorRef } from '@/lib/reminder-fields';
+import { usePageLeave } from '@/hooks/usePageLeave';
 
 // ---------------------------------------------------------------------------
 // State types
@@ -927,25 +928,8 @@ export function useBuildState(
   };
 
   // A reload, a closed tab or leaving the site doesn't unmount React, so the
-  // cleanup above never runs then: send what's waiting as the page goes away
-  // (#598). `visibilitychange` covers a phone that drops a background tab
-  // without `pagehide`. Not `unload` or `beforeunload`, which keep the page
-  // out of the back-forward cache in some browsers; after a `pagehide` that
-  // keeps it there, the builder carries on as before.
-  const flushRef = useRef(flushPendingSaves);
-  flushRef.current = flushPendingSaves;
-  useEffect(() => {
-    const flush = () => void flushRef.current();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') flush();
-    };
-    window.addEventListener('pagehide', flush);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      window.removeEventListener('pagehide', flush);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, []);
+  // cleanup above never runs then: send what's waiting as the page goes away.
+  usePageLeave(() => void flushPendingSaves());
 
   // ---------------------------------------------------------------------------
   // Signup title, description and settings

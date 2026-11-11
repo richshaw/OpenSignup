@@ -1,4 +1,4 @@
-import { requireOrganizerSession } from '@/auth/session';
+import { requireOrganizerSession, toActor } from '@/auth/session';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { getEnv, magicComposeEnabled } from '@/lib/env';
 import { MagicComposeRoot } from '@/components/magic-compose/MagicComposeRoot';
@@ -25,7 +25,7 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
   if (session.defaultWorkspaceId) {
     const workspaceId = session.defaultWorkspaceId;
     await trackOrganizerView({
-      actor: { actorId: session.organizerId, actorType: 'organizer' },
+      actor: toActor(session),
       signupId: null,
       workspaceId,
       eventType: 'signup.draft_started',

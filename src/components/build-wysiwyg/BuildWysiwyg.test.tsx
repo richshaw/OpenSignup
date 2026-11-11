@@ -180,6 +180,33 @@ describe('BuildWysiwyg — group headers', () => {
       .sort();
     expect(patched).toEqual(['slot_blank', 'slot_literal', 'slot_unset']);
   });
+
+  it('puts a slot whose group value is only spaces in the empty group, as the public page does', () => {
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        initialFields={[
+          {
+            id: 'f-who',
+            ref: 'who',
+            label: 'Who',
+            fieldType: 'text',
+            sortOrder: 0,
+            config: { fieldType: 'text', maxLength: 200 },
+          },
+        ]}
+        initialSettings={{ ...settings, groupByFieldRefs: ['who'] }}
+        initialSlots={[
+          { id: 'slot_spaces', capacity: 1, sortOrder: 0, values: { who: '   ' } },
+          { id: 'slot_unset', capacity: 1, sortOrder: 1, values: {} },
+          { id: 'slot_named', capacity: 1, sortOrder: 2, values: { who: 'Ann' } },
+        ]}
+      />,
+    );
+
+    // Ann's group and the one empty group; no third group under an invisible heading.
+    expect(screen.getAllByRole('button', { name: /Group header/ })).toHaveLength(2);
+  });
 });
 
 describe('BuildWysiwyg — duplicate', () => {

@@ -141,7 +141,7 @@ Articles live in `src/help/articles/`, one `.tsx` body plus a `.ui.ts` list of t
 
 ### Logging
 
-`src/lib/log.ts` exports a pino logger (`pino-pretty` in dev, JSON in prod). `redact` strips `authorization`, `cookie`, `*.password`, `*.token`, `*.apiKey`, `RESEND_API_KEY`, `SMTP_PASSWORD`. Outside dev, also redact magic-link URLs and any token-bearing query strings before logging. When adding a new secret-shaped field, extend `redact.paths`.
+`src/lib/log.ts` exports a pino logger (`pino-pretty` in dev, JSON in prod). `redact` strips `authorization`, `cookie`, `*.password`, `*.token`, `*.apiKey`, `RESEND_API_KEY`, `SMTP_PASSWORD`. Outside dev, also redact magic-link URLs and any token-bearing query strings before logging. When adding a new secret-shaped field, extend `redact.paths`. A failed query's `DrizzleQueryError` carries every bind value in its message, stack and `params`, so the logger swaps it (anywhere in an error's `cause` chain) for one with the query text and the driver's message and code only; log errors under the `err` key so that applies.
 
 ## Conventions that hurt to violate
 
