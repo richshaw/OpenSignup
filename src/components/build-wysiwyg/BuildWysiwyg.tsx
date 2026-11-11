@@ -15,7 +15,7 @@ import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
-import type { SlotFieldDefinition } from '@/schemas/slot-fields';
+import { MAX_CHOICES, type SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
 
 /** Server-loaded chrome snapshot. Title + description are then edited in-place via updateSignupMeta. */
@@ -368,6 +368,8 @@ export function BuildWysiwyg({
                   const field = state.fields.find((f) => f.id === fieldId);
                   if (!field || field.config.fieldType !== 'enum') return;
                   if (field.config.choices.includes(value)) return;
+                  // The picker hides "Add to list" at the cap; this is the backstop.
+                  if (field.config.choices.length >= MAX_CHOICES) return;
                   // Slot saves wait for this one, so the server never sees
                   // the new value before it is in `choices`.
                   void updateField(fieldId, {
