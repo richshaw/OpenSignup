@@ -67,6 +67,33 @@ describe('title', () => {
   });
 });
 
+describe('description', () => {
+  it.each(['   ', '\n\n', ' \t\n '])('saves %j as no description on create', (description) => {
+    const r = SignupCreateInputSchema.parse({ title: 'Bake sale', description, settings: {} });
+    expect(r.description).toBe('');
+  });
+
+  it('saves only spaces as no description on update', () => {
+    expect(SignupUpdateInputSchema.parse({ description: '   ' }).description).toBe('');
+  });
+
+  it('trims the ends and keeps the line breaks inside', () => {
+    const r = SignupCreateInputSchema.parse({
+      title: 'Bake sale',
+      description: '\n Bring a plate.\n\nNut-free, please. \n',
+      settings: {},
+    });
+    expect(r.description).toBe('Bring a plate.\n\nNut-free, please.');
+  });
+
+  it('is empty when left out on create, and left alone when left out on update', () => {
+    expect(SignupCreateInputSchema.parse({ title: 'Bake sale', settings: {} }).description).toBe(
+      '',
+    );
+    expect(SignupUpdateInputSchema.parse({ title: 'Bake sale' })).not.toHaveProperty('description');
+  });
+});
+
 describe('visibility', () => {
   it('defaults to unlisted on create', () => {
     const r = SignupCreateInputSchema.parse({ title: 'Snack rota', settings: {} });
