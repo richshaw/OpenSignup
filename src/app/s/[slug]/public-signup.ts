@@ -62,7 +62,7 @@ export function toPublicSignup(
   signup: SourceSignup & {
     slug: string;
     title: string;
-    description: string | null;
+    description: string;
     status: string;
     opensAt: Date | null;
     closesAt: Date | null;

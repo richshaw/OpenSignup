@@ -18,6 +18,7 @@ import {
   slotTimeOfDay,
 } from '@/lib/reminder-fields';
 import { err, ok, type Result } from '@/lib/result';
+import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { MAX_SORT_ORDER } from '@/schemas/common';
 import {
   TEXT_DEFAULT_MAX_LENGTH,
@@ -661,12 +662,20 @@ export async function listFields(
   return ok(await listFieldsForSignup(db, signupId));
 }
 
+/**
+ * Check a slot's values against its signup's fields, and return them ready to
+ * store. A string of only spaces is blank (`isBlankSlotValue`), so it is
+ * dropped rather than stored: kept, it would show as an invisible title and an
+ * empty email line while Publish's check called the slot empty. Any other
+ * string keeps its spaces as typed.
+ */
 export function validateSlotValues(
   fields: SlotFieldDefinition[],
   values: Record<string, unknown>,
-): Result<void, ServiceError> {
+): Result<Record<string, unknown>, ServiceError> {
   const knownRefs = new Set(fields.map((f) => f.ref));
-  for (const ref of Object.keys(values)) {
+  const cleaned: Record<string, unknown> = {};
+  for (const [ref, value] of Object.entries(values)) {
     if (!knownRefs.has(ref)) {
       return err(
         serviceError('invalid_input', `unknown field ref "${ref}"`, {
@@ -674,12 +683,14 @@ export function validateSlotValues(
         }),
       );
     }
+    if (typeof value === 'string' && isBlankSlotValue(value)) continue;
+    cleaned[ref] = value;
   }
   for (const field of fields) {
-    const r = validateOneValue(field, values[field.ref]);
+    const r = validateOneValue(field, cleaned[field.ref]);
     if (!r.ok) return r;
   }
-  return ok(undefined);
+  return ok(cleaned);
 }
 
 // The date and time fields in the order src/lib/reminder-fields.ts reads them
@@ -699,12 +710,8 @@ function isDateOrTime(fieldType: string): boolean {
   return fieldType === 'date' || fieldType === 'time';
 }
 
-function isMissing(value: unknown): boolean {
-  return value === undefined || value === null || value === '';
-}
-
 function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<void, ServiceError> {
-  if (isMissing(value)) {
+  if (isBlankSlotValue(value)) {
     return ok(undefined);
   }
 

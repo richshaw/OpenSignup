@@ -14,13 +14,14 @@ import { Editable } from './Editable';
 import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
-import type { SlotFieldDefinition } from '@/schemas/slot-fields';
+import { isBlankSlotValue } from '@/lib/blank-slot-value';
+import { MAX_CHOICES, type SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
 
 /** Server-loaded chrome snapshot. Title + description are then edited in-place via updateSignupMeta. */
 type SignupMeta = {
   title: string;
-  description: string | null;
+  description: string;
 };
 
 type BuildWysiwygProps = {
@@ -38,10 +39,13 @@ type BuildWysiwygProps = {
 
 const EMPTY_GROUP_KEY = '__empty__';
 
-/** The group a row is in: its value for the group field, or `__empty__` when it has none. */
+/**
+ * The group a row is in: its value for the group field, or `__empty__` when
+ * it is blank by the same rule the public page groups by.
+ */
 function groupKeyOf(row: BuildRow, ref: string): string {
-  const raw = row.values[ref] ?? '';
-  return raw === '' ? EMPTY_GROUP_KEY : raw;
+  const raw = row.values[ref];
+  return raw === undefined || isBlankSlotValue(raw) ? EMPTY_GROUP_KEY : raw;
 }
 
 /** The group field value a group's rows have: `''` for `__empty__`. */
@@ -120,8 +124,11 @@ export function BuildWysiwyg({
 
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
-  // The slot whose editor gets focus once it's open.
-  const [focusRequest, setFocusRequest] = useState<{ rowId: string } | null>(null);
+  // The slot whose editor gets focus once it's open, in the field named or
+  // else its first.
+  const [focusRequest, setFocusRequest] = useState<{ rowId: string; fieldRef?: string } | null>(
+    null,
+  );
   // The slot Publish's check opened, until any other editor opens or this
   // one closes: Done on it, or Enter, hands focus back to Publish and share.
   const fixRow = useRef<string | null>(null);
@@ -188,7 +195,14 @@ export function BuildWysiwyg({
     if (groupField && value !== '' && groupKey !== '__flat__') {
       seedValues[groupField.ref] = value;
     }
-    void addRow({ values: seedValues });
+    // Open the new slot, as Duplicate opens its copy, with focus in its first
+    // field without a value: under a day, that's past the day it already has.
+    void addRow({ values: seedValues }).then((id) => {
+      if (id === null) return;
+      expandRow(id);
+      const firstEmpty = state.fields.find((f) => !(f.ref in seedValues));
+      setFocusRequest({ rowId: id, ...(firstEmpty ? { fieldRef: firstEmpty.ref } : {}) });
+    });
   };
 
   const handleAddDate = () => {
@@ -274,15 +288,16 @@ export function BuildWysiwyg({
     }
   };
 
-  // Focus goes in the slot's first field once its editor is open; with no
-  // fields, in Spots.
+  // Focus goes in the field asked for, or the slot's first, once its editor
+  // is open; with no fields, in Spots.
   useEffect(() => {
     if (!focusRequest) return;
     const editor = Array.from(
       sheetRef.current?.querySelectorAll<HTMLElement>('[data-slot-editor]') ?? [],
     ).find((el) => el.dataset.slotEditor === focusRequest.rowId);
     if (!editor) return;
-    const box = editor.querySelector<HTMLElement>('[data-field-ref]');
+    const boxes = Array.from(editor.querySelectorAll<HTMLElement>('[data-field-ref]'));
+    const box = boxes.find((el) => el.dataset.fieldRef === focusRequest.fieldRef) ?? boxes[0];
     const control = box
       ? box.querySelector<HTMLElement>('input, select, button')
       : editor.querySelector<HTMLElement>('input');
@@ -364,6 +379,8 @@ export function BuildWysiwyg({
                   const field = state.fields.find((f) => f.id === fieldId);
                   if (!field || field.config.fieldType !== 'enum') return;
                   if (field.config.choices.includes(value)) return;
+                  // The picker hides "Add to list" at the cap; this is the backstop.
+                  if (field.config.choices.length >= MAX_CHOICES) return;
                   // Slot saves wait for this one, so the server never sees
                   // the new value before it is in `choices`.
                   void updateField(fieldId, {

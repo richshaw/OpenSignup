@@ -85,7 +85,12 @@ export const TitleSchema = z
 
 export const SignupCreateInputSchema = z.object({
   title: TitleSchema,
-  description: z.string().max(DESCRIPTION_MAX_LENGTH).default(''),
+  /**
+   * Trimmed, so a description of only spaces is saved as none, however it
+   * arrives: the Build tab trims before it sends, but the API and the MCP
+   * tools didn't. max is on the raw string, as for the title.
+   */
+  description: z.string().max(DESCRIPTION_MAX_LENGTH).trim().default(''),
   organizerDisplayName: NameSchema.optional(),
   tags: TagsSchema,
   closesAt: z.string().datetime().optional(),
