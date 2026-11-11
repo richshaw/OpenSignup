@@ -14,6 +14,7 @@ import { Editable } from './Editable';
 import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
+import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { MAX_CHOICES, type SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
 
@@ -38,10 +39,13 @@ type BuildWysiwygProps = {
 
 const EMPTY_GROUP_KEY = '__empty__';
 
-/** The group a row is in: its value for the group field, or `__empty__` when it has none. */
+/**
+ * The group a row is in: its value for the group field, or `__empty__` when
+ * it is blank by the same rule the public page groups by.
+ */
 function groupKeyOf(row: BuildRow, ref: string): string {
-  const raw = row.values[ref] ?? '';
-  return raw === '' ? EMPTY_GROUP_KEY : raw;
+  const raw = row.values[ref];
+  return raw === undefined || isBlankSlotValue(raw) ? EMPTY_GROUP_KEY : raw;
 }
 
 /** The group field value a group's rows have: `''` for `__empty__`. */

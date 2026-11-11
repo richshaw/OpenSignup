@@ -8,6 +8,7 @@ import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
 import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
+import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { toSlug } from '@/lib/slug';
 import {
   type SlotUpdateInput,
@@ -67,7 +68,7 @@ export async function addSlot(
       settings: locked.settings,
       fields,
       takenRefs: await readTakenRefs(tx, signupId, locked.workspaceId),
-      rows: [{ values: data.values, capacity: data.capacity ?? null, sortOrder }],
+      rows: [{ values: valid.value, capacity: data.capacity, sortOrder }],
     });
     if (!inserted) throw new Error('slot insert failed');
 
@@ -114,9 +115,11 @@ export async function addSlotsBulk(
     // that this waited for has committed, and the rows are checked against the
     // fields, and take their slot_at from the anchor, as it left them.
     const fields = await listFieldsForSignup(tx, signupId);
+    const rowValues: Record<string, unknown>[] = [];
     for (const r of data.rows) {
       const valid = validateSlotValues(fields, r.values);
       if (!valid.ok) return valid;
+      rowValues.push(valid.value);
     }
     const settings = locked.settings;
 
@@ -156,7 +159,7 @@ export async function addSlotsBulk(
         ? new Set(shown.map((s) => s.ref))
         : await readTakenRefs(tx, signupId, locked.workspaceId),
       rows: data.rows.map((row, index) => ({
-        values: row.values,
+        values: rowValues[index] ?? {},
         capacity: row.capacity ?? null,
         sortOrder: row.sortOrder ?? Math.min(base + index, MAX_SORT_ORDER),
       })),
@@ -337,17 +340,19 @@ export async function updateSlot(
     }
 
     let nextSlotAt: Date | null | undefined;
+    let nextValues: Record<string, unknown> | undefined;
     if (data.values !== undefined) {
       const fields = await listFieldsForSignup(tx, locked.signupId);
       const valid = validateSlotValues(fields, data.values);
       if (!valid.ok) return valid;
-      nextSlotAt = extractSlotAt(signupRow.settings, fields, data.values);
+      nextValues = valid.value;
+      nextSlotAt = extractSlotAt(signupRow.settings, fields, nextValues);
     }
 
     const [row] = await tx
       .update(slots)
       .set({
-        ...(data.values !== undefined ? { values: data.values, slotAt: nextSlotAt ?? null } : {}),
+        ...(nextValues !== undefined ? { values: nextValues, slotAt: nextSlotAt ?? null } : {}),
         ...(data.capacity !== undefined ? { capacity: data.capacity } : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
         ...(data.status !== undefined ? { status: data.status } : {}),
@@ -477,7 +482,7 @@ export async function listSlotsForSignup(db: Queryable, signupId: string) {
 function summarizeValues(values: Record<string, unknown>): string {
   const parts: string[] = [];
   for (const val of Object.values(values)) {
-    if (val === undefined || val === null || val === '') continue;
+    if (isBlankSlotValue(val)) continue;
     parts.push(String(val));
     if (parts.length >= 2) break;
   }
