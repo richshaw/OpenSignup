@@ -118,6 +118,26 @@ describe('buildIcs', () => {
     expect(ics).toMatch(/\r\n /);
   });
 
+  it('folds a long line of multi-byte characters without splitting one', () => {
+    // Swedish letters are 2 octets each, the emoji 4 and the Japanese 3, so a
+    // fold counted in characters, or one that cuts a sequence in half, shows
+    // up here as an over-long line or a replacement character.
+    const title =
+      'Återträff på caféet 🎉 日本語のタイトル、スウェーデンの文字と絵文字をもう少し長くします';
+    const ics = buildIcs({
+      uid: 'com_x@opensignup.org',
+      title,
+      start: new Date('2026-05-02T15:00:00Z'),
+      now: new Date('2026-04-30T12:00:00Z'),
+    });
+    for (const physical of ics.split('\r\n')) {
+      expect(Buffer.byteLength(physical, 'utf8')).toBeLessThanOrEqual(75);
+    }
+    expect(ics).not.toContain('�');
+    // Unfolding (removing CRLF + the single leading space) restores the line.
+    expect(ics.replace(/\r\n /g, '')).toContain(`SUMMARY:${title}`);
+  });
+
   it('does not fold lines that fit under 75 octets', () => {
     const ics = buildIcs({
       uid: 'com_x@opensignup.org',

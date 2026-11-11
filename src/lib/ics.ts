@@ -82,8 +82,14 @@ function stripBreaks(value: string): string {
  * inserting CRLF + a single space at each fold point. We fold by octet
  * length (UTF-8) so multi-byte characters split safely.
  */
+// The web's own UTF-8 codecs, global in browsers and in Node. Measuring and
+// slicing with Buffer instead made webpack bundle its polyfill (7 kB gzipped)
+// into every page that builds a calendar file.
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+
 function foldLine(line: string): string {
-  const bytes = Buffer.from(line, 'utf8');
+  const bytes = encoder.encode(line);
   if (bytes.length <= 75) return line;
   const parts: string[] = [];
   let offset = 0;
@@ -94,7 +100,7 @@ function foldLine(line: string): string {
     // Avoid splitting in the middle of a multi-byte UTF-8 sequence: a
     // continuation byte is 10xxxxxx (0x80–0xBF). Walk back to a leading byte.
     while (end < bytes.length && ((bytes[end] ?? 0) & 0xc0) === 0x80) end--;
-    parts.push(bytes.subarray(offset, end).toString('utf8'));
+    parts.push(decoder.decode(bytes.subarray(offset, end)));
     offset = end;
     chunkSize = 74;
   }
