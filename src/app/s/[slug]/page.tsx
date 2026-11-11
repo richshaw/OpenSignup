@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { after } from 'next/server';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { getDb } from '@/db/client';
@@ -11,7 +10,7 @@ import { commitmentEditUrl } from '@/lib/links';
 import { COMMIT_COOKIE_NAME, parseReturningCommits } from '@/lib/returning-participant';
 import { shortenToLimit } from '@/lib/shorten';
 import { INSTANCE_NAME } from '@/lib/site-config';
-import { readRequestSignals, recordPublicView } from '@/lib/view-tracker';
+import { recordPublicView, trackAfterResponse } from '@/lib/view-tracker';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { findDraftForOrganizer } from '@/services/signups';
 import { loadPublicSignup } from '@/services/signups.cached';
@@ -30,9 +29,9 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   const robots = { index: false, follow: false } as const;
   if (!result.ok) return { title: 'Sign up', robots };
   const sig = result.value;
-  const description = sig.description
-    ? shortenToLimit(sig.description, 200)
-    : `Sign up via ${INSTANCE_NAME}`;
+  // Trimmed for a description saved as only spaces before the schema trimmed it.
+  const text = sig.description.trim();
+  const description = text ? shortenToLimit(text, 200) : `Sign up via ${INSTANCE_NAME}`;
   return {
     title: sig.title,
     description,
@@ -129,19 +128,12 @@ export default async function PublicSignupPage({ params }: PageParams) {
     editUrl: commitmentEditUrl(slug, c.id, tokenById.get(c.id) ?? ''),
   }));
 
-  // Read headers in the request context — `after(...)` runs outside it and
-  // Next.js 15 forbids dynamic APIs (headers/cookies) inside the callback.
-  const signals = readRequestSignals(await headers());
-  const isReturning = ownCommitments.length > 0;
-  after(() =>
-    recordPublicView({
-      signupId: sig.id,
-      workspaceId: sig.workspaceId,
-      signupStatus: sig.status,
-      isReturning,
-      signals,
-    }),
-  );
+  await trackAfterResponse(recordPublicView, {
+    signupId: sig.id,
+    workspaceId: sig.workspaceId,
+    signupStatus: sig.status,
+    isReturning: ownCommitments.length > 0,
+  });
 
   // The organizer strip sits above <main>, so the page under it is exactly
   // what participants see.

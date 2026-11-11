@@ -632,6 +632,27 @@ describe('signups service (db)', () => {
       expect(acts.some((a) => a.eventType === 'signup.updated')).toBe(true);
     });
 
+    // The API and the MCP tools send the description as given; the Build tab
+    // trims before it sends.
+    it('saves a description of only spaces as none, on create and on update', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Blank description'),
+        description: '   ',
+      });
+      if (!created.ok) throw new Error('setup failed');
+      expect(created.value.description).toBe('');
+
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, { description: ' \n ' });
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.description).toBe('');
+      const [row] = await fx.db
+        .select({ description: signups.description })
+        .from(signups)
+        .where(eq(signups.id, created.value.id));
+      expect(row?.description).toBe('');
+    });
+
     describe("a draft's web address follows its title", () => {
       const base = (slug: string) => slug.replace(/-[0-9a-z]{5}$/, '');
 

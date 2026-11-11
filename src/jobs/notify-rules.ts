@@ -1,6 +1,6 @@
 import { and, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
 import type { PgSelect } from 'drizzle-orm/pg-core';
-import type { Db } from '@/db/client';
+import type { Db, Queryable } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
@@ -106,7 +106,9 @@ export function allOf(rules: Record<string, SQL>): SQL {
 /**
  * The emails that tell a participant their slot's time: the confirmation, a
  * reminder and a slot-change email. The newest of them is what the
- * participant was last told.
+ * participant was last told. `activity_told_lookup` in
+ * src/db/concurrent-indexes.ts is a partial index over exactly these, so keep
+ * the two lists the same.
  */
 const TOLD_EVENTS = sql`('commitment.confirmation_sent', 'reminder.sent', 'slot.change_sent')`;
 
@@ -152,13 +154,18 @@ export const toldDifferentTime: SQL = (() => {
   END)`;
 })();
 
-/** `toldDifferentTime` for one commitment. False when there is no such commitment. */
-export async function wasToldDifferentTime(db: Db, commitmentId: string): Promise<boolean> {
-  const [row] = await db
+/** The query `wasToldDifferentTime` runs, for one commitment. */
+export function toldDifferentTimeQuery(db: Queryable, commitmentId: string) {
+  return db
     .select({ differs: sql<boolean>`${toldDifferentTime}` })
     .from(commitments)
     .innerJoin(slots, eq(slots.id, commitments.slotId))
     .where(eq(commitments.id, commitmentId))
     .limit(1);
+}
+
+/** `toldDifferentTime` for one commitment. False when there is no such commitment. */
+export async function wasToldDifferentTime(db: Db, commitmentId: string): Promise<boolean> {
+  const [row] = await toldDifferentTimeQuery(db, commitmentId);
   return row?.differs === true;
 }
