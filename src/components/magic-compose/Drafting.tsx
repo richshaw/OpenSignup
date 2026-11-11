@@ -4,6 +4,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { useTypewriter } from '@/hooks/useTypewriter';
 import type { FollowUp } from '@/lib/magic-compose/questions';
+import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { ChunkBoundary } from './ChunkBoundary';
 import {
   DETAILS_STEP,
@@ -80,7 +81,7 @@ function clampDuration(text: string, min: number, max: number): number {
 }
 
 function formatPreviewValue(raw: unknown): string {
-  if (raw == null || raw === '') return '—';
+  if (isBlankSlotValue(raw)) return '—';
   return String(raw);
 }
 
