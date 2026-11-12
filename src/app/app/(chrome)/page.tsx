@@ -9,7 +9,6 @@ import {
   newerSignupsHref,
   olderSignupsHref,
   parseCursor,
-  signupCountLabel,
   signupRangeLabel,
 } from './dashboard-paging';
 
@@ -35,10 +34,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   }
   const db = getDb();
   const cursor = parseCursor(await searchParams);
-  const [pageResult, countResult] = await Promise.all([
-    listSignupSummaryPageForWorkspace(db, actor, workspaceId, cursor ?? {}),
-    countSignupsForWorkspace(db, actor, workspaceId),
-  ]);
+  const pageResult = await listSignupSummaryPageForWorkspace(db, actor, workspaceId, cursor ?? {});
   let page = pageResult.ok
     ? pageResult.value
     : { rows: [], offset: 0, nextBefore: null, prevAfter: null };
@@ -50,20 +46,19 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     if (first.ok) page = first.value;
   }
   const { rows } = page;
-  const total = countResult.ok ? countResult.value : rows.length;
   const newerHref = newerSignupsHref(page.prevAfter, page.offset);
   const olderHref = olderSignupsHref(page.nextBefore);
   const paged = Boolean(newerHref || olderHref);
-  const countLabel = signupCountLabel(total);
+  // The total only shows in the pager's range, so a list that fits on one
+  // page (most of them) doesn't count.
+  const countResult = paged ? await countSignupsForWorkspace(db, actor, workspaceId) : null;
+  const total = countResult?.ok ? countResult.value : page.offset + rows.length;
   const range = signupRangeLabel(page.offset, rows.length, total);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Your signups</h1>
-          {countLabel ? <p className="text-sm text-ink-muted">{countLabel}</p> : null}
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">Your signups</h1>
         <Link
           href="/app/signups/new"
           className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover"

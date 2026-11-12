@@ -4,7 +4,6 @@ import {
   newerSignupsHref,
   olderSignupsHref,
   parseCursor,
-  signupCountLabel,
   signupRangeLabel,
 } from './dashboard-paging';
 
@@ -32,17 +31,6 @@ describe('parseCursor', () => {
   ])('falls back to the first page when %s', (_, raw) => {
     expect(parseCursor({ before: raw })).toBeNull();
     expect(parseCursor({ after: raw })).toBeNull();
-  });
-});
-
-describe('signupCountLabel', () => {
-  it('has no line when there are none, since the empty state says so', () => {
-    expect(signupCountLabel(0)).toBeNull();
-  });
-
-  it('gives the total', () => {
-    expect(signupCountLabel(1)).toBe('1 total');
-    expect(signupCountLabel(12)).toBe('12 total');
   });
 });
 

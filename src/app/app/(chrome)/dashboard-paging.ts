@@ -25,14 +25,6 @@ export function parseCursor(params: {
   return after ? { after } : null;
 }
 
-/**
- * The line under "Your signups": the workspace's real total, on every page.
- * None for an empty workspace, whose empty state below already says so.
- */
-export function signupCountLabel(total: number): string | null {
-  return total === 0 ? null : `${total} total`;
-}
-
 /** "201–210 of 210": which signups this page shows, out of how many. */
 export function signupRangeLabel(offset: number, shown: number, total: number): string {
   const end = offset + shown;
