@@ -4,11 +4,20 @@ import { requireOrganizerSession, toActor } from '@/auth/session';
 import { countSignupsForWorkspace, listSignupSummaryPageForWorkspace } from '@/services/signups';
 import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { StatusPill } from '@/components/status-pill';
-import { olderSignupsHref, parseBefore, signupCountLabel } from './dashboard-paging';
+import { DashboardPager } from './dashboard-pager';
+import {
+  newerSignupsHref,
+  olderSignupsHref,
+  parseCursor,
+  signupCountLabel,
+  signupRangeLabel,
+} from './dashboard-paging';
 
 export const metadata = { title: 'Your signups' };
 
-type PageProps = { searchParams: Promise<{ before?: string | string[] }> };
+type PageProps = {
+  searchParams: Promise<{ before?: string | string[]; after?: string | string[] }>;
+};
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   const session = await requireOrganizerSession();
@@ -25,24 +34,30 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     );
   }
   const db = getDb();
-  const requested = parseBefore((await searchParams).before);
+  const cursor = parseCursor(await searchParams);
   const [pageResult, countResult] = await Promise.all([
-    listSignupSummaryPageForWorkspace(db, actor, workspaceId, { before: requested }),
+    listSignupSummaryPageForWorkspace(db, actor, workspaceId, cursor ?? {}),
     countSignupsForWorkspace(db, actor, workspaceId),
   ]);
-  let page = pageResult.ok ? pageResult.value : { rows: [], nextBefore: null };
-  let before = requested;
-  // A `before` that names no signup here (another workspace's, or made up)
-  // finds nothing: show the first page instead of an empty one.
-  if (before && page.rows.length === 0) {
-    before = undefined;
+  let page = pageResult.ok
+    ? pageResult.value
+    : { rows: [], offset: 0, nextBefore: null, prevAfter: null };
+  // A cursor that names no signup here (another workspace's, or made up), or
+  // one with nothing past it, finds nothing: show the first page instead of
+  // an empty one.
+  if (cursor && page.rows.length === 0) {
     const first = await listSignupSummaryPageForWorkspace(db, actor, workspaceId);
     if (first.ok) page = first.value;
   }
   const { rows } = page;
   const total = countResult.ok ? countResult.value : rows.length;
+  const newerHref = newerSignupsHref(page.prevAfter, page.offset);
   const olderHref = olderSignupsHref(page.nextBefore);
-  const countLabel = signupCountLabel(total);
+  // More than a page: the pager's range says how many there are, so the line
+  // under the heading would only repeat it.
+  const paged = Boolean(newerHref || olderHref);
+  const countLabel = paged ? null : signupCountLabel(total);
+  const range = signupRangeLabel(page.offset, rows.length, total);
 
   return (
     <div className="space-y-6">
@@ -71,47 +86,51 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </Link>
         </div>
       ) : (
-        <ul className="divide-y divide-surface-sunk overflow-hidden rounded-xl border border-surface-sunk bg-white">
-          {rows.map((r) => (
-            <li key={r.id}>
-              <Link
-                href={`/app/signups/${r.id}`}
-                className="block px-5 py-4 transition hover:bg-surface"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{r.title}</p>
-                    {/* A draft's address only says it isn't ready yet, so there's
-                        nothing to send until it's published. */}
-                    {r.status === 'draft' ? (
-                      <p className="truncate text-sm text-ink-muted">{DRAFT_ONLY_YOU}</p>
-                    ) : (
-                      <p className="truncate font-mono text-sm text-ink-muted">/s/{r.slug}</p>
-                    )}
-                  </div>
-                  <StatusPill status={r.status} />
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-      {olderHref || before ? (
-        <nav aria-label="More signups" className="flex flex-wrap justify-between gap-4 text-sm">
-          {before ? (
-            <Link href="/app" className="font-medium text-brand hover:underline">
-              Back to newest signups
-            </Link>
-          ) : (
-            <span />
-          )}
-          {olderHref ? (
-            <Link href={olderHref} className="font-medium text-brand hover:underline">
-              Show older signups
-            </Link>
+        <div className="overflow-hidden rounded-xl border border-surface-sunk bg-white">
+          {paged ? (
+            <DashboardPager
+              label="Signup pages"
+              range={range}
+              newerHref={newerHref}
+              olderHref={olderHref}
+              edge="top"
+            />
           ) : null}
-        </nav>
-      ) : null}
+          <ul className="divide-y divide-surface-sunk">
+            {rows.map((r) => (
+              <li key={r.id}>
+                <Link
+                  href={`/app/signups/${r.id}`}
+                  className="block px-5 py-4 transition hover:bg-surface"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{r.title}</p>
+                      {/* A draft's address only says it isn't ready yet, so there's
+                          nothing to send until it's published. */}
+                      {r.status === 'draft' ? (
+                        <p className="truncate text-sm text-ink-muted">{DRAFT_ONLY_YOU}</p>
+                      ) : (
+                        <p className="truncate font-mono text-sm text-ink-muted">/s/{r.slug}</p>
+                      )}
+                    </div>
+                    <StatusPill status={r.status} />
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {paged ? (
+            <DashboardPager
+              label="Signup pages, end of list"
+              range={range}
+              newerHref={newerHref}
+              olderHref={olderHref}
+              edge="bottom"
+            />
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

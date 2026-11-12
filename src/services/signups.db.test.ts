@@ -702,6 +702,8 @@ describe('signups service (db)', () => {
         expect(first.value.rows[0]?.title).toBe(`Signup ${total - 1}`);
         expect(first.value.rows.map((r) => r.title)).not.toContain('Signup 0');
         expect(first.value.nextBefore).toBe(first.value.rows.at(-1)?.id);
+        expect(first.value.offset).toBe(0);
+        expect(first.value.prevAfter).toBeNull();
 
         const second = await listSignupSummaryPageForWorkspace(
           pageFx.db,
@@ -713,6 +715,18 @@ describe('signups service (db)', () => {
         // The oldest, archived one, which the first page left off.
         expect(second.value.rows.map((r) => r.title)).toEqual(['Signup 0']);
         expect(second.value.nextBefore).toBeNull();
+        expect(second.value.offset).toBe(WORKSPACE_LIST_LIMIT);
+        expect(second.value.prevAfter).toBe(second.value.rows[0]?.id);
+
+        // Newer, from the second page, is the first page again.
+        const back = await listSignupSummaryPageForWorkspace(
+          pageFx.db,
+          pageFx.actor,
+          pageFx.workspaceId,
+          { after: second.value.prevAfter ?? undefined },
+        );
+        if (!back.ok) throw new Error('list failed');
+        expect(back.value).toEqual(first.value);
       } finally {
         await teardownWorkspace(pageFx.db, pageFx.workspaceId, pageFx.organizerId);
       }
@@ -786,13 +800,54 @@ describe('signups service (db)', () => {
       }
     });
 
-    it('finds nothing for a before that names no signup in the workspace', async () => {
-      const page = await listSignupSummaryPageForWorkspace(fx.db, fx.actor, fx.workspaceId, {
-        before: makeId('sig'),
-      });
-      if (!page.ok) throw new Error('list failed');
-      expect(page.value).toEqual({ rows: [], nextBefore: null });
+    it('walks three pages older and back newer, knowing where each sits', async () => {
+      const pageFx = await setupWorkspace();
+      try {
+        const total = WORKSPACE_LIST_LIMIT * 2 + 5;
+        const base = Date.UTC(2030, 0, 1);
+        // A run sharing one created_at straddles the second page's far edge.
+        await insertPlain(pageFx, total, (i) =>
+          i < 10 ? new Date(base) : new Date(base + i * 1000),
+        );
+        const list = (opts: { before?: string; after?: string } = {}) =>
+          listSignupSummaryPageForWorkspace(pageFx.db, pageFx.actor, pageFx.workspaceId, opts);
+
+        const p1 = await list();
+        if (!p1.ok || !p1.value.nextBefore) throw new Error('list failed');
+        const p2 = await list({ before: p1.value.nextBefore });
+        if (!p2.ok || !p2.value.nextBefore) throw new Error('list failed');
+        const p3 = await list({ before: p2.value.nextBefore });
+        if (!p3.ok) throw new Error('list failed');
+
+        expect([p1, p2, p3].map((p) => p.value.offset)).toEqual([
+          0,
+          WORKSPACE_LIST_LIMIT,
+          WORKSPACE_LIST_LIMIT * 2,
+        ]);
+        expect(p3.value.rows).toHaveLength(5);
+        expect(p3.value.nextBefore).toBeNull();
+        const seen = [p1, p2, p3].flatMap((p) => p.value.rows.map((r) => r.id));
+        expect(new Set(seen).size).toBe(total);
+
+        // Newer from the third page is the second page, row for row.
+        const back = await list({ after: p3.value.prevAfter ?? undefined });
+        if (!back.ok) throw new Error('list failed');
+        expect(back.value).toEqual(p2.value);
+      } finally {
+        await teardownWorkspace(pageFx.db, pageFx.workspaceId, pageFx.organizerId);
+      }
     });
+
+    it.each(['before', 'after'] as const)(
+      'finds nothing for %s naming no signup in the workspace',
+      async (direction) => {
+        const page = await listSignupSummaryPageForWorkspace(fx.db, fx.actor, fx.workspaceId, {
+          [direction]: makeId('sig'),
+        });
+        if (!page.ok) throw new Error('list failed');
+        expect(page.value).toEqual({ rows: [], offset: 0, nextBefore: null, prevAfter: null });
+      },
+    );
 
     it('refuses a workspace the actor is not a member of', async () => {
       await expect(
