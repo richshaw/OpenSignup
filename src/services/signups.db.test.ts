@@ -229,6 +229,51 @@ describe('signups service (db)', () => {
       expect(capacities).toEqual([2, 5]);
     });
 
+    it('stores each template field at its sortOrder, or its position when it has none', async () => {
+      const mixed: SignupTemplate = {
+        id: 'mixed-sort',
+        fields: [
+          {
+            ref: 'what',
+            label: 'What',
+            fieldType: 'text',
+            config: { fieldType: 'text', maxLength: 200 },
+          },
+          {
+            ref: 'date',
+            label: 'Date',
+            fieldType: 'date',
+            sortOrder: 7,
+            config: { fieldType: 'date' },
+          },
+          {
+            ref: 'where',
+            label: 'Where',
+            fieldType: 'text',
+            config: { fieldType: 'text', maxLength: 200 },
+          },
+        ],
+        slots: [],
+      };
+
+      const r = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Mixed sort'),
+        { template: mixed },
+      );
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+
+      const fields = await listFieldsForSignup(fx.db, r.value.id);
+      expect(fields.map((f) => [f.ref, f.sortOrder])).toEqual([
+        ['what', 0],
+        ['where', 2],
+        ['date', 7],
+      ]);
+    });
+
     it('rejects a template with duplicate field refs (no DB writes)', async () => {
       const broken: SignupTemplate = {
         id: 'broken',
