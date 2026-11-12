@@ -2,6 +2,7 @@ import { getOrganizerSession } from '@/auth/session';
 import { fail, readJson, respond } from '@/lib/api-response';
 import { link, publicSignupUrl } from '@/lib/links';
 import { organizerRoute } from '@/lib/organizer-route';
+import { requireWorkspaceWrite } from '@/lib/policy';
 import { createSignup, listSignupsForWorkspace } from '@/services/signups';
 import { SIGNUP_STATUSES } from '@/schemas/signups';
 import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
@@ -14,8 +15,6 @@ const WORKSPACE_HINTS = {
 };
 
 export const POST = organizerRoute(async ({ req, db, actor }) => {
-  await consumeRateLimit(db, RateLimits.signupCreatePerOrganizer, actor.id);
-
   const body = await readJson(req);
   const session = await getOrganizerSession();
   const requested =
@@ -26,6 +25,10 @@ export const POST = organizerRoute(async ({ req, db, actor }) => {
     WORKSPACE_HINTS,
   );
   if (!workspace.ok) return fail(workspace.error);
+
+  // Policy first: a viewer's attempt must not cost a create-quota unit.
+  requireWorkspaceWrite(actor, workspace.value);
+  await consumeRateLimit(db, RateLimits.signupCreatePerOrganizer, actor.id);
 
   return respond(await createSignup(db, actor, workspace.value, body), (signup) => ({
     self: link(`/api/signups/${signup.id}`),
