@@ -9,9 +9,12 @@ export function parseBefore(raw: string | string[] | undefined): string | undefi
   return typeof raw === 'string' && SIGNUP_ID.test(raw) ? raw : undefined;
 }
 
-/** The line under "Your signups": the workspace's real total, on every page. */
-export function signupCountLabel(total: number): string {
-  return total === 0 ? 'No signups yet. Start one below.' : `${total} total`;
+/**
+ * The line under "Your signups": the workspace's real total, on every page.
+ * None for an empty workspace, whose empty state below already says so.
+ */
+export function signupCountLabel(total: number): string | null {
+  return total === 0 ? null : `${total} total`;
 }
 
 /** Where "Show older signups" goes, or null when this page is the oldest. */

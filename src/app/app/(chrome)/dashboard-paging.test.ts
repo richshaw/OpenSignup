@@ -19,8 +19,8 @@ describe('parseBefore', () => {
 });
 
 describe('signupCountLabel', () => {
-  it('invites a first signup when there are none', () => {
-    expect(signupCountLabel(0)).toBe('No signups yet. Start one below.');
+  it('has no line when there are none, since the empty state says so', () => {
+    expect(signupCountLabel(0)).toBeNull();
   });
 
   it('gives the real total, past one page', () => {

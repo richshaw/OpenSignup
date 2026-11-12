@@ -42,13 +42,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const { rows } = page;
   const total = countResult.ok ? countResult.value : rows.length;
   const olderHref = olderSignupsHref(page.nextBefore);
+  const countLabel = signupCountLabel(total);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Your signups</h1>
-          <p className="text-sm text-ink-muted">{signupCountLabel(total)}</p>
+          {countLabel ? <p className="text-sm text-ink-muted">{countLabel}</p> : null}
         </div>
         <Link
           href="/app/signups/new"
