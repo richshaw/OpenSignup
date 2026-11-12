@@ -15,7 +15,8 @@ import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
-import { MAX_CHOICES, type SlotFieldDefinition } from '@/schemas/slot-fields';
+import { MAX_CHOICES } from '@/schemas/slot-field-basics';
+import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
 
 /** Server-loaded chrome snapshot. Title + description are then edited in-place via updateSignupMeta. */

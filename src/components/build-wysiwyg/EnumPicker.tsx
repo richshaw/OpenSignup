@@ -3,7 +3,7 @@
 import { useId, useRef, useState } from 'react';
 import { ChevronDown, Plus } from 'lucide-react';
 import { useOutsideClose } from '@/hooks/useOutsideClose';
-import { CHOICE_COUNT_FROM, CHOICE_MAX_LENGTH, MAX_CHOICES } from '@/schemas/slot-fields';
+import { CHOICE_COUNT_FROM, CHOICE_MAX_LENGTH, MAX_CHOICES } from '@/schemas/slot-field-basics';
 import { PickerOption } from './PickerOption';
 
 type EnumPickerProps = {
