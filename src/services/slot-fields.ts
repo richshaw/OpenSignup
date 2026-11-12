@@ -19,7 +19,6 @@ import {
 } from '@/lib/reminder-fields';
 import { err, ok, type Result } from '@/lib/result';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
-import { MAX_SORT_ORDER } from '@/schemas/common';
 import {
   TEXT_DEFAULT_MAX_LENGTH,
   type SlotFieldConfig,
@@ -37,7 +36,7 @@ import {
   withLockedSignup,
   withSignupWriteLock,
 } from './locks';
-import { everyIdOnceError } from './reorder-ids';
+import { everyIdOnceError, nextSortOrder, writeOrder } from './reorder-ids';
 
 function rowToDefinition(row: FieldRow): SlotFieldDefinition {
   return {
@@ -150,7 +149,7 @@ export async function rebuildSlotAt(
   // and every slot row stay held until this transaction ends, and a slot add
   // or edit queued behind them waits with a pooled connection in hand. The
   // rows travel as one JSON parameter (a Date as its ISO string), as in
-  // `writeSlotOrder`. Postgres has the last word on what changed: the check
+  // `writeOrder`. Postgres has the last word on what changed: the check
   // above compares with the instant as the driver read it back, and the driver
   // cannot read every instant. Postgres prints one in the session's time zone,
   // and where that zone's offset then had seconds in it (Amsterdam's +00:19:32
@@ -225,15 +224,8 @@ export async function addField(
     } else if (sortOrder === undefined) {
       // Under the signup lock: two concurrent adds would otherwise read the
       // same max and land on the same sortOrder, leaving their order to the
-      // createdAt tiebreak. Held at the column's top, as `nextSlotSortOrder`
-      // does for slots: a field sent there would otherwise make every later
-      // add fail the insert; past it, appends tie instead.
-      const [top] = await tx
-        .select({ max: sql<number | null>`max(${slotFields.sortOrder})` })
-        .from(slotFields)
-        .where(eq(slotFields.signupId, signupId));
-      sortOrder =
-        top?.max === null || top?.max === undefined ? 0 : Math.min(top.max + 1, MAX_SORT_ORDER);
+      // createdAt tiebreak.
+      sortOrder = await nextSortOrder(tx, slotFields, signupId);
     }
 
     const [row] = await tx
@@ -272,7 +264,7 @@ export async function addField(
       // state this exists to get out of), and a shift would keep the tie.
       const ids = shown.map((f) => f.id);
       ids.splice(sortOrder, 0, row.id);
-      await writeFieldOrder(tx, signupId, ids);
+      await writeOrder(tx, slotFields, signupId, ids);
       const renumbered = new Map(ids.map((fieldId, i) => [fieldId, i]));
       timelineMoved =
         timeline(shown) !==
@@ -316,28 +308,6 @@ export async function addField(
 }
 
 /**
- * Number a signup's fields 0..n-1 in the order of `orderedIds`, writing only
- * the rows whose order changes. The caller has passed the policy guard and
- * holds the signup lock, and `orderedIds` is every field of the signup, as
- * `writeSlotOrder` asks of slots.
- */
-async function writeFieldOrder(tx: Queryable, signupId: string, orderedIds: string[]) {
-  const wanted = sql`jsonb_array_elements_text(${JSON.stringify(orderedIds)}::jsonb)
-    with ordinality as wanted(id, position)`;
-  await tx
-    .update(slotFields)
-    .set({ sortOrder: sql`(wanted.position - 1)::int` })
-    .from(wanted)
-    .where(
-      and(
-        eq(slotFields.signupId, signupId),
-        sql`${slotFields.id} = wanted.id`,
-        sql`${slotFields.sortOrder} <> wanted.position - 1`,
-      ),
-    );
-}
-
-/**
  * Put a signup's fields in a new order. `fieldIds` has to be every field of
  * the signup exactly once, for the reason `reorderSlots` gives: a partial list
  * would leave the fields it skips tied with the ones it names.
@@ -363,7 +333,7 @@ export async function reorderFields(
     );
     if (bad) return err(bad);
 
-    await writeFieldOrder(tx, signupId, fieldIds);
+    await writeOrder(tx, slotFields, signupId, fieldIds);
     const next = await listFieldsForSignup(tx, signupId);
 
     // Which time field pairs with the date, and which date field takes over

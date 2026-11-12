@@ -22,8 +22,8 @@ import {
   listSlotsForSignup,
   reorderSlots,
   updateSlot,
-  writeSlotOrder,
 } from '@/services/slots';
+import { writeOrder } from '@/services/reorder-ids';
 import { settle, untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
 
 interface Fixture {
@@ -453,7 +453,7 @@ describe('addSlotsBulk beforeSlotId (db)', () => {
     expect((await deleteSlot(fx.db, fx.actor, idOf('b'), { force: true })).ok).toBe(true);
     expect((await addSlot(fx.db, fx.actor, signupId, { values: { what: 'late' } })).ok).toBe(true);
 
-    await fx.db.transaction((tx) => writeSlotOrder(tx, signupId, stale));
+    await fx.db.transaction((tx) => writeOrder(tx, slots, signupId, stale));
 
     const after = await shown(fx, signupId);
     expect(after.names).toEqual(['c', 'a', 'late']);
