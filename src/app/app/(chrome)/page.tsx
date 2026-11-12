@@ -1,13 +1,16 @@
 import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { listSignupSummariesForWorkspace } from '@/services/signups';
+import { countSignupsForWorkspace, listSignupSummaryPageForWorkspace } from '@/services/signups';
 import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { StatusPill } from '@/components/status-pill';
+import { olderSignupsHref, parseBefore, signupCountLabel } from './dashboard-paging';
 
 export const metadata = { title: 'Your signups' };
 
-export default async function DashboardPage() {
+type PageProps = { searchParams: Promise<{ before?: string | string[] }> };
+
+export default async function DashboardPage({ searchParams }: PageProps) {
   const session = await requireOrganizerSession();
   const actor = toActor(session);
   const workspaceId = session.defaultWorkspaceId;
@@ -21,17 +24,31 @@ export default async function DashboardPage() {
       </div>
     );
   }
-  const result = await listSignupSummariesForWorkspace(getDb(), actor, workspaceId);
-  const rows = result.ok ? result.value : [];
+  const db = getDb();
+  const requested = parseBefore((await searchParams).before);
+  const [pageResult, countResult] = await Promise.all([
+    listSignupSummaryPageForWorkspace(db, actor, workspaceId, { before: requested }),
+    countSignupsForWorkspace(db, actor, workspaceId),
+  ]);
+  let page = pageResult.ok ? pageResult.value : { rows: [], nextBefore: null };
+  let before = requested;
+  // A `before` that names no signup here (another workspace's, or made up)
+  // finds nothing: show the first page instead of an empty one.
+  if (before && page.rows.length === 0) {
+    before = undefined;
+    const first = await listSignupSummaryPageForWorkspace(db, actor, workspaceId);
+    if (first.ok) page = first.value;
+  }
+  const { rows } = page;
+  const total = countResult.ok ? countResult.value : rows.length;
+  const olderHref = olderSignupsHref(page.nextBefore);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Your signups</h1>
-          <p className="text-sm text-ink-muted">
-            {rows.length === 0 ? 'No signups yet. Start one below.' : `${rows.length} total`}
-          </p>
+          <p className="text-sm text-ink-muted">{signupCountLabel(total)}</p>
         </div>
         <Link
           href="/app/signups/new"
@@ -78,6 +95,22 @@ export default async function DashboardPage() {
           ))}
         </ul>
       )}
+      {olderHref || before ? (
+        <nav aria-label="More signups" className="flex flex-wrap justify-between gap-4 text-sm">
+          {before ? (
+            <Link href="/app" className="font-medium text-brand hover:underline">
+              Back to newest signups
+            </Link>
+          ) : (
+            <span />
+          )}
+          {olderHref ? (
+            <Link href={olderHref} className="font-medium text-brand hover:underline">
+              Show older signups
+            </Link>
+          ) : null}
+        </nav>
+      ) : null}
     </div>
   );
 }

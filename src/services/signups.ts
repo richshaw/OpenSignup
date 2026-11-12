@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
@@ -658,6 +658,59 @@ export async function listSignupSummariesForWorkspace(
     .orderBy(desc(signups.createdAt))
     .limit(WORKSPACE_LIST_LIMIT);
   return ok(rows);
+}
+
+/** One page of a workspace's signups, newest first, and where the next one starts. */
+export type SignupSummaryPage = {
+  rows: SignupSummary[];
+  /** The id to pass as `before` for the next, older page; null on the last page. */
+  nextBefore: string | null;
+};
+
+/**
+ * A page of up to WORKSPACE_LIST_LIMIT live signups, ordered by
+ * (created_at, id) descending, so signups sharing a created_at keep one order
+ * across page boundaries. `before` is the id of the last row of the previous
+ * page: the page starts after that row's place in the order. The place is
+ * looked up in Postgres rather than carried in the URL, because created_at
+ * holds microseconds and a JavaScript Date keeps only milliseconds. A `before`
+ * that names no signup in this workspace matches nothing, so the caller falls
+ * back to the first page. One row more than a page is read to learn whether
+ * another page follows.
+ */
+export async function listSignupSummaryPageForWorkspace(
+  db: Db,
+  actor: Actor,
+  workspaceId: string,
+  opts: { before?: string } = {},
+): Promise<Result<SignupSummaryPage, ServiceError>> {
+  requireWorkspaceAccess(actor, workspaceId);
+  const after = opts.before
+    ? sql`(${signups.createdAt}, ${signups.id}) < (
+        select c.created_at, c.id from signups c
+        where c.id = ${opts.before} and c.workspace_id = ${workspaceId}
+      )`
+    : undefined;
+  const rows = await db
+    .select(signupSummaryColumns)
+    .from(signups)
+    .where(and(workspaceSignupsWhere(workspaceId, {}), after))
+    .orderBy(desc(signups.createdAt), desc(signups.id))
+    .limit(WORKSPACE_LIST_LIMIT + 1);
+  const more = rows.length > WORKSPACE_LIST_LIMIT;
+  const page = more ? rows.slice(0, WORKSPACE_LIST_LIMIT) : rows;
+  return ok({ rows: page, nextBefore: more ? (page.at(-1)?.id ?? null) : null });
+}
+
+/** How many live signups the workspace has, archived ones included, uncapped. */
+export async function countSignupsForWorkspace(
+  db: Db,
+  actor: Actor,
+  workspaceId: string,
+): Promise<Result<number, ServiceError>> {
+  requireWorkspaceAccess(actor, workspaceId);
+  const total = await db.$count(signups, workspaceSignupsWhere(workspaceId, {}));
+  return ok(total);
 }
 
 export async function getPublicSignup(
