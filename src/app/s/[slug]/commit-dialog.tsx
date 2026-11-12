@@ -313,11 +313,14 @@ export default function CommitDialog({
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
+  // The link changes or cancels this person's spot, so the share sheet is for
+  // keeping it (Notes, a message to yourself or a partner), not for telling
+  // the group: the button and the text it fills in both say so.
   async function handleShare() {
     if (!success) return;
     const shareData = {
       title: signupTitle,
-      text: `I'm signed up for "${slotName}".`,
+      text: `My spot for ${slotName}. This link changes or cancels it, so keep it private.`,
       url: success.editUrl,
     };
     const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
@@ -338,14 +341,14 @@ export default function CommitDialog({
     }
   }
 
-  // Someone without an email gets Copy link, not Share link: the link is how
+  // Someone without an email gets Copy link, not Save your link: the link is how
   // they change or cancel, and a share sheet invites them to post it.
   async function handleCopy() {
     if (!success) return;
     try {
       await navigator.clipboard.writeText(success.editUrl);
       setCopyResult('copied');
-      // Back to Copy link, as Share link does, unless a failure replaced it.
+      // Back to Copy link, as Save your link does, unless a failure replaced it.
       setTimeout(() => setCopyResult((r) => (r === 'copied' ? null : r)), 2000);
     } catch {
       // No clipboard over plain HTTP, or the browser refused.
@@ -358,7 +361,7 @@ export default function CommitDialog({
   // sign-up by the same email and a rate limit each get their own; any other
   // error keeps the server's own message and suggestion.
   const errorText = error ? (participantErrorCopy(error, 'join') ?? error) : null;
-  // Share link and Copy link each say "Link copied" on themselves after a copy.
+  // Save your link and Copy link each say "Link copied" on themselves after a copy.
   const linkCopied = success?.emailed ? shareCopied : copyResult === 'copied';
 
   return (
@@ -464,7 +467,7 @@ export default function CommitDialog({
                   onClick={success.emailed ? handleShare : handleCopy}
                   className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
                 >
-                  {linkCopied ? 'Link copied' : success.emailed ? 'Share link' : 'Copy link'}
+                  {linkCopied ? 'Link copied' : success.emailed ? 'Save your link' : 'Copy link'}
                 </button>
               </div>
               {success.emailed ? null : (
