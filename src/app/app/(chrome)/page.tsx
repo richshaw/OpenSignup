@@ -53,10 +53,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const total = countResult.ok ? countResult.value : rows.length;
   const newerHref = newerSignupsHref(page.prevAfter, page.offset);
   const olderHref = olderSignupsHref(page.nextBefore);
-  // More than a page: the pager's range says how many there are, so the line
-  // under the heading would only repeat it.
   const paged = Boolean(newerHref || olderHref);
-  const countLabel = paged ? null : signupCountLabel(total);
+  const countLabel = signupCountLabel(total);
   const range = signupRangeLabel(page.offset, rows.length, total);
 
   return (
@@ -87,15 +85,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-surface-sunk bg-white">
-          {paged ? (
-            <DashboardPager
-              label="Signup pages"
-              range={range}
-              newerHref={newerHref}
-              olderHref={olderHref}
-              edge="top"
-            />
-          ) : null}
           <ul className="divide-y divide-surface-sunk">
             {rows.map((r) => (
               <li key={r.id}>
@@ -121,13 +110,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             ))}
           </ul>
           {paged ? (
-            <DashboardPager
-              label="Signup pages, end of list"
-              range={range}
-              newerHref={newerHref}
-              olderHref={olderHref}
-              edge="bottom"
-            />
+            <DashboardPager range={range} newerHref={newerHref} olderHref={olderHref} />
           ) : null}
         </div>
       )}

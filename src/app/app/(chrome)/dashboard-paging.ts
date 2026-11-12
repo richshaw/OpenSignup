@@ -26,9 +26,8 @@ export function parseCursor(params: {
 }
 
 /**
- * The line under "Your signups" when every signup fits on one page. None for
- * an empty workspace, whose empty state below already says so. Once there is
- * more than a page, the pager's range says how many there are instead.
+ * The line under "Your signups": the workspace's real total, on every page.
+ * None for an empty workspace, whose empty state below already says so.
  */
 export function signupCountLabel(total: number): string | null {
   return total === 0 ? null : `${total} total`;

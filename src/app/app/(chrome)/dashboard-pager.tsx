@@ -6,33 +6,25 @@ const BUTTON =
   'inline-flex h-11 items-center gap-1 rounded-lg border border-surface-sunk bg-white px-3 text-sm font-medium text-ink md:h-9';
 
 /**
- * The bar above and below the dashboard's list once a workspace has more
- * signups than one page holds: which ones are showing, and Newer / Older.
+ * The footer of the dashboard's list once a workspace has more signups than
+ * one page holds: which ones are showing, and Newer / Older.
  * Both buttons always show, so they don't jump about; the one that has
  * nowhere to go is dimmed and inert. Plain links, so it adds no client
  * JavaScript.
  */
 export function DashboardPager({
-  label,
   range,
   newerHref,
   olderHref,
-  edge,
 }: {
-  /** Names the landmark; the two bars on a page need different names. */
-  label: string;
   range: string;
   newerHref: string | null;
   olderHref: string | null;
-  /** Which edge of the list card the bar sits on, for its divider. */
-  edge: 'top' | 'bottom';
 }) {
   return (
     <nav
-      aria-label={label}
-      className={`flex items-center justify-between gap-3 bg-surface-raised px-4 py-2.5 sm:px-5 ${
-        edge === 'top' ? 'border-b' : 'border-t'
-      } border-surface-sunk`}
+      aria-label="Signup pages"
+      className="flex items-center justify-between gap-3 border-t border-surface-sunk bg-surface-raised px-4 py-2.5 sm:px-5"
     >
       <p className="text-sm tabular-nums text-ink-muted">{range}</p>
       <div className="flex items-center gap-2">
