@@ -138,6 +138,19 @@ describe('buildIcs', () => {
     expect(ics.replace(/\r\n /g, '')).toContain(`SUMMARY:${title}`);
   });
 
+  it.each([
+    ['an emoji across the fold', 'A'.repeat(66) + '🎉 party'],
+    ['a U+FEFF at the fold', 'A'.repeat(67) + '\uFEFF' + 'Bake sale'],
+  ])('keeps %s intact', (_, title) => {
+    const ics = buildIcs({
+      uid: 'com_x@opensignup.org',
+      title,
+      start: new Date('2026-05-02T15:00:00Z'),
+    });
+    const unfolded = ics.replace(/\r\n /g, '').split('\r\n');
+    expect(unfolded).toContain(`SUMMARY:${title}`);
+  });
+
   it('does not fold lines that fit under 75 octets', () => {
     const ics = buildIcs({
       uid: 'com_x@opensignup.org',

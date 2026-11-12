@@ -77,17 +77,20 @@ function stripBreaks(value: string): string {
   return value.replace(/[\r\n]/g, '');
 }
 
+// The web's own UTF-8 codecs, global in browsers and in Node. Measuring and
+// slicing with Buffer instead made webpack bundle its polyfill (7 kB gzipped)
+// into every page that builds a calendar file.
+const encoder = new TextEncoder();
+// ignoreBOM: a leading U+FEFF (zero-width no-break space) is real content
+// here — it arrives in text pasted from Word or Excel — and TextDecoder
+// would otherwise strip it when it lands at a fold point.
+const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
+
 /**
  * RFC 5545 §3.1: content lines longer than 75 octets must be folded by
  * inserting CRLF + a single space at each fold point. We fold by octet
  * length (UTF-8) so multi-byte characters split safely.
  */
-// The web's own UTF-8 codecs, global in browsers and in Node. Measuring and
-// slicing with Buffer instead made webpack bundle its polyfill (7 kB gzipped)
-// into every page that builds a calendar file.
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
-
 function foldLine(line: string): string {
   const bytes = encoder.encode(line);
   if (bytes.length <= 75) return line;
