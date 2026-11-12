@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SESSION_MAX_AGE_DAYS } from '@/auth/session-lifetime';
 import { PREFILL_KEY } from '@/app/s/[slug]/prefill-key';
+import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draft-warnings';
 import { pageMetadata } from '@/lib/seo';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import {
@@ -11,6 +12,8 @@ import {
   OAUTH_INTERACTION_LIFETIME,
   OAUTH_SESSION_LIFETIME,
 } from '@/lib/lifetimes';
+import { COMMIT_COOKIE_NAME } from '@/lib/returning-participant';
+import { OAUTH_COOKIES } from '@/oauth/config';
 
 export const metadata: Metadata = pageMetadata({
   path: '/cookies',
@@ -24,7 +27,7 @@ export default function CookiesPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Cookies</h1>
-        <p className="text-sm text-ink-muted">Last updated: 31 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 12 November 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -86,7 +89,7 @@ export default function CookiesPage() {
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
-                  os_commit
+                  {COMMIT_COOKIE_NAME}
                 </td>
                 <td className="px-4 py-3">
                   Keeps the private link to change or cancel each slot a participant signed up for,
@@ -101,7 +104,7 @@ export default function CookiesPage() {
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
-                  os_oauth_session
+                  {OAUTH_COOKIES.session}
                 </td>
                 <td className="px-4 py-3">
                   Records which organizer is signed in while connecting an app or AI assistant to
@@ -112,7 +115,7 @@ export default function CookiesPage() {
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
-                  os_oauth_interaction
+                  {OAUTH_COOKIES.interaction}
                 </td>
                 <td className="px-4 py-3">
                   Ties a pending connection request to the browser that started it, so only that
@@ -122,7 +125,7 @@ export default function CookiesPage() {
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
-                  os_oauth_resume
+                  {OAUTH_COOKIES.resume}
                 </td>
                 <td className="px-4 py-3">
                   Carries your allow-or-decline answer back to finish (or cancel) the connection.
@@ -156,6 +159,14 @@ export default function CookiesPage() {
           and each sign-up updates it. On a shared or public computer, the next person to sign up
           for anything on {INSTANCE_NAME} in the same browser will see your name and email address
           filled in, so clear this site&apos;s data when you have finished.
+        </p>
+        <p>
+          When Magic Compose drafts a signup for an organizer, any warnings it has about the draft
+          are kept in that browser tab&apos;s session storage, under the key{' '}
+          <code>{AI_DRAFT_WARNINGS_KEY_PREFIX}</code> followed by the signup&apos;s ID, so the
+          draft&apos;s page can show them. They are never sent anywhere. They are removed when the
+          organizer dismisses them or publishes the signup, and the browser deletes them when the
+          tab closes.
         </p>
       </section>
 
