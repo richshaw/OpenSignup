@@ -175,7 +175,7 @@ export function SignupViewBody({
         ? 'This signup is closed. The page below shows what visitors see.'
         : signup.status === 'archived'
           ? 'This signup is archived and is not visible to participants.'
-          : 'This signup is live. The page below shows what visitors see.';
+          : 'This signup is open. The page below shows what visitors see.';
 
   // Closing only stops new sign-ups: everyone keeps their place and can still
   // change or cancel it, so a returning participant sees this bar under the
@@ -308,7 +308,11 @@ export function SignupViewBody({
                           <button
                             type="button"
                             disabled
-                            title="Preview: publish to enable signups"
+                            title={
+                              signup.status === 'draft'
+                                ? 'Preview: publish to let people sign up'
+                                : 'Preview: people sign up at the public link'
+                            }
                             aria-label={`Sign up for ${actionName}`}
                             className={`${ACTION_SIZING} cursor-not-allowed bg-brand font-medium text-white opacity-60`}
                           >

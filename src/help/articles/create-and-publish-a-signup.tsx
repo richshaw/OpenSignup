@@ -15,7 +15,8 @@ export function CreateAndPublishASignup() {
     <>
       <p>
         A signup is a page where people choose something to do or bring. Each thing they can choose
-        is a slot. By the end, you&apos;ll have a published signup and a link to send to people.
+        is a slot. By the end, your signup will be open for people to sign up, and you&apos;ll have
+        a link to send them.
       </p>
       <p>People who sign up don&apos;t need an account. All they need is the link.</p>
 
@@ -196,12 +197,12 @@ export function CreateAndPublishASignup() {
               choose the copy button.
             </p>
             <p>
-              Next to the link, you can see how many spots are taken. On a phone, that&apos;s beside{' '}
-              <Ui>{UI.share}</Ui>.
+              Your signup is marked <Ui>{UI.open}</Ui> at the top of the page. Next to the link, you
+              can see how many spots are taken. On a phone, that&apos;s beside <Ui>{UI.share}</Ui>.
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/published.png"
-              alt="The top of a published signup, marked open, with the public link, its copy button and how many spots are taken."
+              alt="The top of a signup marked open, with the public link, its copy button and how many spots are taken."
               width={605}
               height={110}
             />
