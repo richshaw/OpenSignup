@@ -229,6 +229,51 @@ describe('signups service (db)', () => {
       expect(capacities).toEqual([2, 5]);
     });
 
+    it('stores each template field at its sortOrder, or its position when it has none', async () => {
+      const mixed: SignupTemplate = {
+        id: 'mixed-sort',
+        fields: [
+          {
+            ref: 'what',
+            label: 'What',
+            fieldType: 'text',
+            config: { fieldType: 'text', maxLength: 200 },
+          },
+          {
+            ref: 'date',
+            label: 'Date',
+            fieldType: 'date',
+            sortOrder: 7,
+            config: { fieldType: 'date' },
+          },
+          {
+            ref: 'where',
+            label: 'Where',
+            fieldType: 'text',
+            config: { fieldType: 'text', maxLength: 200 },
+          },
+        ],
+        slots: [],
+      };
+
+      const r = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Mixed sort'),
+        { template: mixed },
+      );
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+
+      const fields = await listFieldsForSignup(fx.db, r.value.id);
+      expect(fields.map((f) => [f.ref, f.sortOrder])).toEqual([
+        ['what', 0],
+        ['where', 2],
+        ['date', 7],
+      ]);
+    });
+
     it('rejects a template with duplicate field refs (no DB writes)', async () => {
       const broken: SignupTemplate = {
         id: 'broken',
@@ -630,6 +675,27 @@ describe('signups service (db)', () => {
         .from(activity)
         .where(eq(activity.signupId, created.value.id));
       expect(acts.some((a) => a.eventType === 'signup.updated')).toBe(true);
+    });
+
+    // The API and the MCP tools send the description as given; the Build tab
+    // trims before it sends.
+    it('saves a description of only spaces as none, on create and on update', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Blank description'),
+        description: '   ',
+      });
+      if (!created.ok) throw new Error('setup failed');
+      expect(created.value.description).toBe('');
+
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, { description: ' \n ' });
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.description).toBe('');
+      const [row] = await fx.db
+        .select({ description: signups.description })
+        .from(signups)
+        .where(eq(signups.id, created.value.id));
+      expect(row?.description).toBe('');
     });
 
     describe("a draft's web address follows its title", () => {

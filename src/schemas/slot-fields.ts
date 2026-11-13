@@ -1,41 +1,33 @@
 import { z } from 'zod';
-import { toKebab } from '@/lib/kebab';
 import { SortOrderSchema } from './common';
+import {
+  CHOICE_MAX_LENGTH,
+  FIELD_TYPES,
+  MAX_CHOICES,
+  REF_MAX_LENGTH,
+  TEXT_DEFAULT_MAX_LENGTH,
+  type FieldType,
+} from './slot-field-basics';
 
-export const FIELD_TYPES = ['text', 'date', 'time', 'number', 'enum'] as const;
-export type FieldType = (typeof FIELD_TYPES)[number];
+// Client code imports these from `./slot-field-basics`, which has no zod in it.
+export {
+  FIELD_TYPES,
+  MAX_CHOICES,
+  REF_MAX_LENGTH,
+  TEXT_DEFAULT_MAX_LENGTH,
+  configFor,
+  sanitizeEnumChoices,
+  toFieldRef,
+  type FieldType,
+} from './slot-field-basics';
 
 const LABEL_MAX_LENGTH = 80;
-const CHOICE_MAX_LENGTH = 60;
-export const MAX_CHOICES = 20;
-/** A text field's `maxLength` when the organizer hasn't set one. */
-export const TEXT_DEFAULT_MAX_LENGTH = 200;
-
-export const REF_MAX_LENGTH = 40;
 
 export const RefSchema = z
   .string()
   .min(1)
   .max(REF_MAX_LENGTH)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'ref must be lowercase kebab');
-
-function cutRef(base: string, maxLength: number): string {
-  return base.slice(0, maxLength).replace(/-+$/, '');
-}
-
-/**
- * A new field's ref, made from its name: kebab-case, cut to fit `RefSchema`,
- * and numbered (`-2`, `-3`…) when `existingRefs` already has it.
- */
-export function toFieldRef(name: string, existingRefs: readonly string[]): string {
-  const base = cutRef(toKebab(name), REF_MAX_LENGTH) || 'field';
-  if (!existingRefs.includes(base)) return base;
-  for (let i = 2; ; i++) {
-    const suffix = `-${i}`;
-    const ref = `${cutRef(base, REF_MAX_LENGTH - suffix.length)}${suffix}`;
-    if (!existingRefs.includes(ref)) return ref;
-  }
-}
 
 export const LabelSchema = z.string().min(1).max(LABEL_MAX_LENGTH);
 
@@ -74,33 +66,6 @@ export const SlotFieldConfigSchema = z.discriminatedUnion('fieldType', [
   EnumConfigSchema,
 ]);
 export type SlotFieldConfig = z.infer<typeof SlotFieldConfigSchema>;
-
-/** A list of enum choices, trimmed, without blanks, and cut to `MAX_CHOICES`. */
-export function sanitizeEnumChoices(choices: string[] | undefined): string[] {
-  return (choices ?? [])
-    .map((c) => c.trim())
-    .filter((c) => c.length > 0)
-    .slice(0, MAX_CHOICES);
-}
-
-/**
- * A new field's starting config for its type. The Build tab, Magic Compose and
- * the MCP `add_field` tool all create fields through this, so they agree.
- */
-export function configFor(fieldType: FieldType, choices: string[] | undefined): SlotFieldConfig {
-  switch (fieldType) {
-    case 'text':
-      return { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH };
-    case 'date':
-      return { fieldType: 'date' };
-    case 'time':
-      return { fieldType: 'time' };
-    case 'number':
-      return { fieldType: 'number' };
-    case 'enum':
-      return { fieldType: 'enum', choices: sanitizeEnumChoices(choices) };
-  }
-}
 
 export const SlotFieldInputSchema = z
   .object({

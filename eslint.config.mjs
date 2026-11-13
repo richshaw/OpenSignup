@@ -24,6 +24,27 @@ const config = [
       ],
     },
   },
+  {
+    // `@/schemas/slot-fields` builds zod schemas at the top level, so a value
+    // import from it puts all of zod in the browser bundle. Components take
+    // the helpers from the zod-free `@/schemas/slot-field-basics` instead.
+    files: ['src/components/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/schemas/slot-fields',
+              message:
+                'Import values from @/schemas/slot-field-basics; slot-fields pulls zod into the browser. Type-only imports are fine.',
+              allowTypeImports: true,
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 export default config;

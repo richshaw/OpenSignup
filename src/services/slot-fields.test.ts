@@ -301,3 +301,22 @@ describe('findReminderFields', () => {
     expect(r.timeField?.ref).toBe('t2');
   });
 });
+
+describe('validateSlotValues and blank values', () => {
+  const text = def({
+    ref: 'what',
+    label: 'What',
+    fieldType: 'text',
+    config: { fieldType: 'text', maxLength: 200 },
+  });
+
+  it('drops a value of only spaces, for a date field too', () => {
+    const r = validateSlotValues([def({}), text], { date: '   ', what: ' \t' });
+    expect(r).toEqual({ ok: true, value: {} });
+  });
+
+  it('keeps the spaces around a real value', () => {
+    const r = validateSlotValues([def({}), text], { what: ' Snacks ' });
+    expect(r).toEqual({ ok: true, value: { what: ' Snacks ' } });
+  });
+});

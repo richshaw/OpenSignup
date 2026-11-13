@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { CHOICE_COUNT_FROM, CHOICE_MAX_LENGTH, MAX_CHOICES } from '@/schemas/slot-field-basics';
 import { EnumPicker } from './EnumPicker';
 
 function renderPicker(
@@ -168,5 +169,125 @@ describe('EnumPicker', () => {
     expect(screen.queryByRole('listbox')).toBeNull();
     expect(onAddOption).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('a full list offers no "Add to list" and says how many items a list holds', () => {
+    const full = Array.from({ length: MAX_CHOICES }, (_, i) => `Dish ${i + 1}`);
+    renderPicker({ options: full });
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    expect(screen.queryByRole('button', { name: /Add to list/ })).toBeNull();
+    expect(screen.getByText(`A list holds up to ${MAX_CHOICES} items.`)).toBeTruthy();
+  });
+
+  it('a list one short of full still offers "Add to list"', () => {
+    const almost = Array.from({ length: MAX_CHOICES - 1 }, (_, i) => `Dish ${i + 1}`);
+    renderPicker({ options: almost });
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    expect(screen.getByRole('button', { name: /Add to list/ })).toBeTruthy();
+    expect(screen.queryByText(`A list holds up to ${MAX_CHOICES} items.`)).toBeNull();
+  });
+
+  it('the new-item box takes no more characters than a list item can hold', () => {
+    renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name') as HTMLInputElement;
+    expect(input.maxLength).toBe(CHOICE_MAX_LENGTH);
+  });
+
+  it('keeps a row for the count from the moment the box opens, and counts only near the limit', () => {
+    renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name');
+
+    // The row is there, holding a blank, before anything is typed.
+    const count = screen.getByTestId('new-item-count');
+    expect(count.getAttribute('aria-hidden')).toBe('true');
+    expect(count.textContent).toBe('\u00a0');
+
+    fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_COUNT_FROM - 1) } });
+    expect(screen.getByTestId('new-item-count')).toBe(count);
+    expect(count.textContent).toBe('\u00a0');
+
+    fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_COUNT_FROM) } });
+    expect(count.textContent).toBe(`${CHOICE_COUNT_FROM}/${CHOICE_MAX_LENGTH}`);
+    expect(count.className).toContain('text-ink-soft');
+
+    fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH - 1) } });
+    expect(count.textContent).toBe(`${CHOICE_MAX_LENGTH - 1}/${CHOICE_MAX_LENGTH}`);
+    expect(count.className).toContain('text-ink-soft');
+  });
+
+  it('marks the limit with the warning colour and a word, keeping size and place', () => {
+    renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name');
+    const count = screen.getByTestId('new-item-count');
+    const layout = count.className.replace('text-ink-soft', '');
+
+    fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH) } });
+    expect(screen.getByTestId('new-item-count')).toBe(count);
+    expect(count.textContent).toBe(`${CHOICE_MAX_LENGTH}/${CHOICE_MAX_LENGTH} \u00b7 max`);
+    expect(count.className).toContain('text-warn');
+    expect(count.className).not.toContain('text-ink-soft');
+    expect(count.className.replace('text-warn', '')).toBe(layout);
+  });
+
+  it('lines the count up with the box, in its own column beside Add', () => {
+    renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name');
+    const count = screen.getByTestId('new-item-count');
+    const add = screen.getByRole('button', { name: 'Add' });
+
+    const column = input.parentElement!;
+    expect(count.parentElement).toBe(column);
+    expect(column.className).toContain('flex-1');
+    expect(column.className).toContain('min-w-0');
+    expect(column.contains(add)).toBe(false);
+    expect(add.parentElement).toBe(column.parentElement);
+    expect(count.className).toContain('text-right');
+  });
+
+  it('describes the new-item box by its limit, not by the live count', () => {
+    renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+    const input = screen.getByLabelText('New option name');
+
+    const describedBy = input.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    const description = document.getElementById(describedBy!);
+    expect(description?.textContent).toBe(`Up to ${CHOICE_MAX_LENGTH} characters`);
+    expect(description?.getAttribute('aria-live')).toBeNull();
+
+    fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH) } });
+    expect(input.getAttribute('aria-describedby')).toBe(describedBy);
+  });
+
+  it('scrolls the row for the count into view once, when the box opens, and not while typing', () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      renderPicker();
+      fireEvent.click(screen.getByRole('button', { name: 'Course value' }));
+      fireEvent.click(screen.getByRole('button', { name: /Add to list/ }));
+      const input = screen.getByLabelText('New option name');
+
+      const count = screen.getByTestId('new-item-count');
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(scrollIntoView.mock.contexts[0]).toBe(count);
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+
+      fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_COUNT_FROM - 1) } });
+      fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_COUNT_FROM) } });
+      fireEvent.change(input, { target: { value: 'x'.repeat(CHOICE_MAX_LENGTH) } });
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
   });
 });

@@ -149,7 +149,9 @@ describe('createSignupAction (db)', () => {
       .select({ description: signups.description })
       .from(signups)
       .where(eq(signups.workspaceId, workspaceId));
-    expect(row?.description).toBe(`${'a'.repeat(499)}\n`.repeat(4));
+    // The length limit is on the description before it's trimmed, so the full
+    // 2,000 characters are taken; the trim then drops the break at the end.
+    expect(row?.description).toBe(`${'a'.repeat(499)}\n`.repeat(4).trimEnd());
   });
 
   it('refuses a create past the limit, back on the form with a plain message', async () => {
