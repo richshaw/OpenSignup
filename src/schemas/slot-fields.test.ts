@@ -10,8 +10,8 @@ import {
   TEXT_DEFAULT_MAX_LENGTH,
   configFor,
   sanitizeEnumChoices,
-  toFieldRef,
 } from './slot-fields';
+import { toFieldRef } from './slot-field-basics';
 
 describe('FIELD_TYPES', () => {
   it('lists the five primitive field types', () => {

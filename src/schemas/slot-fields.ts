@@ -17,7 +17,6 @@ export {
   TEXT_DEFAULT_MAX_LENGTH,
   configFor,
   sanitizeEnumChoices,
-  toFieldRef,
   type FieldType,
 } from './slot-field-basics';
 
