@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 import { ServiceException, serviceError } from './errors';
 import { fail, handle, readJson, respond } from './api-response';
+import { link } from './links';
 import { MAX_JSON_BODY_BYTES } from './request-body';
 import { err, ok } from './result';
 
@@ -77,11 +78,11 @@ describe('fail()', () => {
 
 describe('respond()', () => {
   it('builds links from the value when given a function', async () => {
-    const res = respond(ok({ id: 'slot_1' }), (v) => ({ self: `/api/slots/${v.id}` }));
+    const res = respond(ok({ id: 'slot_1' }), (v) => ({ self: link(`/api/slots/${v.id}`) }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       data: { id: 'slot_1' },
-      _links: { self: '/api/slots/slot_1' },
+      _links: { self: { href: '/api/slots/slot_1', method: 'GET' } },
     });
   });
 

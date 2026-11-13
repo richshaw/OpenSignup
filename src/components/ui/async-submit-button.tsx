@@ -7,27 +7,18 @@ import { Spinner } from './spinner';
 type Props = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'disabled'> & {
   loadingLabel: string;
   children: ReactNode;
-  disabled?: boolean;
   ref?: Ref<HTMLButtonElement>;
 };
 
-export function AsyncSubmitButton({
-  loadingLabel,
-  children,
-  className,
-  disabled,
-  ref,
-  ...rest
-}: Props) {
+export function AsyncSubmitButton({ loadingLabel, children, className, ref, ...rest }: Props) {
   const { pending } = useFormStatus();
-  const isDisabled = pending || disabled;
 
   return (
     <button
       ref={ref}
       type="submit"
       aria-busy={pending}
-      disabled={isDisabled}
+      disabled={pending}
       className={className}
       {...rest}
     >

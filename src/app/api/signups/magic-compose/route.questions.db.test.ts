@@ -14,7 +14,7 @@ import { MAGIC_COMPOSE_BUCKET } from '@/lib/magic-compose/limits';
 import type { ChatMessage } from '@/lib/magic-compose/prompt';
 import type { FollowUp } from '@/lib/magic-compose/questions';
 import type { Actor } from '@/lib/policy';
-import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
+import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { err, ok } from '@/lib/result';
 import { POST } from './route';
 
@@ -654,7 +654,7 @@ describe('POST /api/signups/magic-compose: what the activity log records (db)', 
 
   it('records nothing for a follow-up turned away by the hourly quota', async () => {
     const policy = RateLimits.magicComposePerOrganizer;
-    await consumeRateLimit(getDb(), policy, organizerId, policy.max);
+    await chargeRateLimit(getDb(), policy, organizerId, policy.max);
     llm.replies = [ok(DRAFT)];
     expect((await compose({ prompt: 'Bake sale', followUp: ANSWERS })).status).toBe(429);
     expect(await composeRows()).toEqual([]);
