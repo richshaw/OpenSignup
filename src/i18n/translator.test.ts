@@ -1,6 +1,10 @@
+import compile from 'icu-minify/compile';
 import type { useTranslations } from 'next-intl';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { IntlErrorCode } from 'use-intl/core';
+import { _createCache, _createIntlFormatters, IntlErrorCode } from 'use-intl/core';
+// The formatter next-intl's plugin puts in place of use-intl's full one in
+// the Next build when messages are precompiled.
+import formatPrecompiled from 'use-intl/format-message/format-only';
 import { getTestTranslator } from './testing/translator';
 import { getTranslator, withEnglishUnder } from './translator';
 
@@ -70,5 +74,92 @@ describe('withEnglishUnder', () => {
 
   it('drops keys English doesn’t have', () => {
     expect(withEnglishUnder(english, { stale: 'Gammal' })).toEqual(english);
+  });
+});
+
+/**
+ * In the Next build, next-intl's loader compiles every catalog the app imports
+ * (`precompile` in next.config.mjs), the server's included: plain text stays a
+ * string, and a message with an argument, a plural or a tag becomes an array.
+ * The merge has to keep those arrays whole, or every such message renders as
+ * its key path in the web process while vitest and the worker, which read the
+ * raw JSON, stay green.
+ */
+describe('withEnglishUnder on precompiled catalogs', () => {
+  type Raw = { [key: string]: string | Raw };
+  const precompiled = (catalog: Raw): Parameters<typeof withEnglishUnder>[0] =>
+    Object.fromEntries(
+      Object.entries(catalog).map(([key, value]) => [
+        key,
+        typeof value === 'string' ? compile(value) : precompiled(value),
+      ]),
+    );
+
+  const english = precompiled({
+    title: 'Sign up',
+    greeting: 'Hello {name}',
+    spots: '{count, plural, one {# spot} other {# spots}}',
+    dialog: { guide: 'Read <link>the guide</link>', cancel: 'Cancel' },
+  });
+  const swedish = precompiled({
+    greeting: 'Hej {name}',
+    spots: '{count, plural, one {# plats} other {# platser}}',
+    dialog: { guide: 'Läs <link>guiden</link>' },
+  });
+
+  it('compiles these fixtures to arrays, as the build does', () => {
+    expect(english.greeting).toEqual(['Hello ', ['name']]);
+    expect(english.title).toBe('Sign up');
+  });
+
+  it('keeps each compiled message whole', () => {
+    expect(withEnglishUnder(english, undefined)).toEqual(english);
+    expect(withEnglishUnder(english, english)).toEqual(english);
+  });
+
+  it('keeps the language’s compiled messages and fills gaps with compiled English', () => {
+    expect(withEnglishUnder(english, swedish)).toEqual({
+      title: 'Sign up',
+      greeting: swedish.greeting,
+      spots: swedish.spots,
+      dialog: { guide: (swedish.dialog as Record<string, unknown>).guide, cancel: 'Cancel' },
+    });
+  });
+
+  it('takes a translation’s compiled message where English is plain text, and the reverse', () => {
+    const own = precompiled({ title: 'Anmäl {name}', greeting: 'Hej' });
+    expect(withEnglishUnder(english, own)).toMatchObject({
+      title: own.title,
+      greeting: 'Hej',
+    });
+  });
+
+  it('keeps English where the language has a section for a compiled message', () => {
+    expect(withEnglishUnder(english, { greeting: { oops: 'x' } })).toEqual(english);
+  });
+
+  it('keeps English where the language has something that is neither', () => {
+    // The catalog check refuses these, but the raw JSON could still hold them.
+    const own = { title: null, greeting: 5, dialog: null } as never;
+    expect(withEnglishUnder(english, own)).toEqual(english);
+  });
+
+  it('formats each merged message with the formatter the build uses', () => {
+    const merged = withEnglishUnder(english, swedish);
+    const cache = _createCache();
+    const format = (key: string, message: unknown, values: Record<string, unknown>) =>
+      formatPrecompiled(key, message as never, values as never, {
+        cache,
+        formatters: _createIntlFormatters(cache),
+        locale: 'sv',
+        timeZone: 'UTC',
+      });
+    expect(format('greeting', merged.greeting, { name: 'Pat' })).toBe('Hej Pat');
+    expect(format('spots', merged.spots, { count: 2 })).toBe('2 platser');
+    expect(
+      format('guide', (merged.dialog as Record<string, unknown>).guide, {
+        link: (chunks: string[]) => `<a>${chunks.join('')}</a>`,
+      }),
+    ).toBe('Läs <a>guiden</a>');
   });
 });

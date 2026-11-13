@@ -130,8 +130,23 @@ const nextConfig = {
 // writes src/messages/en.d.json.ts on every dev start and build, which gives
 // the English messages their literal text in src/types/next-intl.d.ts, so
 // TypeScript checks each message's arguments.
+//
+// `messages` precompiles the catalogs. The plugin's loader compiles every
+// src/messages/*.json the app imports, for the server and the browser alike,
+// and the plugin swaps use-intl's formatter for one that only formats compiled
+// messages, so a client component that shows translated text ships about 3 KB
+// of formatter rather than about 12 KB with an ICU parser. Catalogs must
+// therefore be imported, never read from disk (src/i18n/translator.ts). The
+// worker and vitest load the raw JSON and format it with use-intl's full
+// formatter; src/i18n/precompiled.test.ts checks the two agree on every
+// message. The loader needs webpack on Next 15, which `next dev` and
+// `next build` use here: under Turbopack the plugin stops with an error until
+// Next 16.
 const withNextIntl = createNextIntlPlugin({
-  experimental: { createMessagesDeclaration: './src/messages/en.json' },
+  experimental: {
+    createMessagesDeclaration: './src/messages/en.json',
+    messages: { path: './src/messages', format: 'json', locales: 'infer', precompile: true },
+  },
 });
 
 export default withNextIntl(nextConfig);

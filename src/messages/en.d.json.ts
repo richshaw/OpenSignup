@@ -4,6 +4,7 @@
 declare const messages: {
   "common": {
     "footer": {
+      "license": "{instance} · AGPL-3.0",
       "label": "Footer",
       "help": "Help",
       "privacy": "Privacy",
