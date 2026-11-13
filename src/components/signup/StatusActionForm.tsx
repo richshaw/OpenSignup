@@ -52,19 +52,9 @@ export function useStatusActionDispatch(): ((form: FormData) => void) | null {
   return useContext(StatusActionContext)?.[1] ?? null;
 }
 
-export function StatusActionButtonForm({
-  className,
-  children,
-}: {
-  className?: string;
-  children: ReactNode;
-}) {
+export function StatusActionButtonForm({ children }: { children: ReactNode }) {
   const formAction = useContext(StatusActionContext)?.[1];
-  return (
-    <form action={formAction} className={className}>
-      {children}
-    </form>
-  );
+  return <form action={formAction}>{children}</form>;
 }
 
 /**

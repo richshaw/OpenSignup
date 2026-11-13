@@ -26,7 +26,7 @@ function page(status: SignupStatus) {
       </h1>
       <ChangeButton to="closed" />
       <ChangeButton to="open" />
-      <ClosedNotice status={status} body={BODY} />
+      <ClosedNotice status={status} />
     </HeaderAnnouncer>
   );
 }
