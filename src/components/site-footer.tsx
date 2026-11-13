@@ -12,6 +12,7 @@ export function SiteFooter() {
     <footer className="flex flex-col items-center justify-between gap-3 border-t border-surface-sunk px-5 py-5 text-sm text-ink-soft lg:flex-row lg:gap-4 lg:px-12">
       <span>
         {commit ? `${commit} · ` : ''}
+        {/* eslint-disable-next-line react/jsx-no-literals -- a license's name, the same in every language */}
         {INSTANCE_NAME} · AGPL-3.0
       </span>
       <nav

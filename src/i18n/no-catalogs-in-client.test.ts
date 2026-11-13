@@ -46,7 +46,14 @@ const FORBIDDEN = [
     'export const load = (locale: string) => import(`@/messages/${locale}.json`);',
   ],
   ['any module in src/i18n', 'export const load = (name: string) => import(`../i18n/${name}`);'],
+  [
+    'whichever catalog a + chain names',
+    "export const load = (locale: string) => import('@/messages/' + locale + '.json');",
+  ],
   ['a catalog through require', "export const en = require('@/messages/en.json');"],
+  // Everything in src/i18n/ but the modules listed as client-safe.
+  ['another module in src/i18n', "import requestConfig from '@/i18n/request';"],
+  ['a module src/i18n gains later', "import { messagesFor } from '@/i18n/messages-for';"],
 ] as const;
 
 /** Imports a client file may have, translation-related or not. */
@@ -64,6 +71,10 @@ const ALLOWED = [
   [
     'a module chosen at runtime from a folder without catalogs',
     'export const load = (name: string) => import(`./icons/${name}`);',
+  ],
+  [
+    'a module a + chain picks from a folder without catalogs',
+    "export const load = (name: string) => import('./icons/' + name);",
   ],
 ] as const;
 
@@ -96,7 +107,10 @@ describe('opensignup/no-catalogs-in-client', () => {
   it('says why, and what to do instead', async () => {
     const [translator] = await lint(CLIENT + "import { getTranslator } from '@/i18n/translator';");
     expect(translator).toMatch(
-      /can't import '@\/i18n\/translator': it loads every language's message catalog, and all of them would go into the browser's JavaScript\. Translate in a server component and pass the text in as props\./,
+      /can't import '@\/i18n\/translator': src\/i18n\/ is server code that loads every language's message catalog, and all of them would go into the browser's JavaScript\. Translate in a server component and pass the text in as props\./,
+    );
+    expect(translator).toMatch(
+      /Or, if '@\/i18n\/translator' loads no catalog, now or through its imports, list it in CLIENT_SAFE_I18N in eslint\.config\.mjs\.$/,
     );
     const [catalog] = await lint(CLIENT + "import en from '@/messages/en.json';");
     expect(catalog).toMatch(
