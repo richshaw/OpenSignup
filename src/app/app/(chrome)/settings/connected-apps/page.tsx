@@ -10,6 +10,7 @@ import { listConnectedApps, revokeConnectedApp } from '@/oauth/grants';
 import { getProvider } from '@/oauth/instance';
 import { SCOPE_DESCRIPTIONS } from '@/oauth/scopes';
 import { DisconnectButton } from './disconnect-button';
+import { disconnectRefusal } from './disconnect-refusal';
 
 export const metadata = { title: 'Connected apps' };
 export const dynamic = 'force-dynamic';
@@ -37,11 +38,12 @@ export default async function ConnectedAppsPage({
     try {
       await revokeConnectedApp(getDb(), await getProvider(), toActor(current), grantId);
     } catch (err) {
-      if (err instanceof ServiceException) {
-        redirect(`${PATH}?error=${encodeURIComponent(err.serviceError.message)}`);
-      }
-      log.error({ err }, 'connected-apps: disconnect failed');
-      redirect(`${PATH}?error=${encodeURIComponent('Could not disconnect. Try again.')}`);
+      const code = err instanceof ServiceException ? err.serviceError.code : undefined;
+      if (code === undefined) log.error({ err }, 'connected-apps: disconnect failed');
+      // An app that is already gone still shows on a page loaded before, so
+      // refresh the list along with the message.
+      revalidatePath(PATH);
+      redirect(`${PATH}?error=${encodeURIComponent(disconnectRefusal(code))}`);
     }
     revalidatePath(PATH);
     redirect(`${PATH}?disconnected=1`);
