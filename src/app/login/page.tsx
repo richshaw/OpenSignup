@@ -9,6 +9,7 @@ import { CenteredPageFrame } from '@/components/centered-page-frame';
 import { FormError } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
 import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
+import { INSTANCE_NAME } from '@/lib/site-config';
 import { EmailSchema } from '@/schemas/common';
 import { LoginForm, type CodeActionResult, type LoginActionResult } from './login-form';
 import { OAuthButtons } from './oauth-buttons';
@@ -77,7 +78,7 @@ export default async function LoginPage({
   return (
     <CenteredPageFrame gap="gap-8">
       <div className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">Sign in to OpenSignup</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Sign in to {INSTANCE_NAME}</h1>
         <p className="text-ink-muted">
           {oauthProviders.length > 0
             ? 'Continue with a provider below, or get a magic link by email. No passwords.'
