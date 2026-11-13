@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { waitInMinutes } from '@/lib/format-duration';
+import { requireWorkspaceWrite } from '@/lib/policy';
 import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { createSignup } from '@/services/signups';
 import { lfLineBreaks } from './line-breaks';
@@ -32,12 +33,15 @@ export async function createSignupAction(
   const title = String(formData.get('title') ?? '');
   const description = lfLineBreaks(String(formData.get('description') ?? ''));
   const db = getDb();
+  const actor = toActor(s);
+  // Policy first, as POST /api/signups does: a refusal must not cost a create-quota unit.
+  requireWorkspaceWrite(actor, s.defaultWorkspaceId);
   const retryAfter = await chargeRateLimit(db, RateLimits.signupCreatePerOrganizer, s.organizerId);
   if (retryAfter !== null) {
     const error = `You’ve created a lot of signups in the last hour. Try again in about ${waitInMinutes(retryAfter)}.`;
     return { error, title, description };
   }
-  const result = await createSignup(db, toActor(s), s.defaultWorkspaceId, {
+  const result = await createSignup(db, actor, s.defaultWorkspaceId, {
     title,
     description,
     visibility: 'unlisted',

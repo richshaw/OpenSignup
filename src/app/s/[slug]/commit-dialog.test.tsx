@@ -517,11 +517,11 @@ describe('<CommitDialog /> sheet', () => {
     });
 
     // The link is how they change or cancel, so nothing offers to post it.
-    it('offers Copy link, not Share link, and says when it copied', async () => {
+    it('offers Copy link, not Save your link, and says when it copied', async () => {
       const writeText = vi.fn(async () => {});
       stubClipboard(writeText);
       await signUpWithEmail('', { slotAt: '2030-04-06T12:00:00.000Z' });
-      expect(screen.queryByRole('button', { name: 'Share link' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Save your link' })).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Add to calendar' })).toBeInTheDocument();
       const status = screen.getByRole('status');
       expect(status).toBeEmptyDOMElement();
@@ -563,8 +563,27 @@ describe('<CommitDialog /> sheet', () => {
         /and emailed this link to jordan@example\.test\. Bookmark it to edit or cancel later:$/,
       );
       expect(screen.queryByText(/we won't email it/)).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Share link' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save your link' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Copy link' })).not.toBeInTheDocument();
+    });
+
+    // The link changes or cancels their spot, so the share sheet is for keeping
+    // it, and the text it fills in says to keep it private.
+    it('fills the share sheet with their link as theirs to keep', async () => {
+      const share = vi.fn(async () => {});
+      Object.defineProperty(navigator, 'share', { value: share, configurable: true });
+      try {
+        await signUpWithEmail('jordan@example.test');
+        fireEvent.click(screen.getByRole('button', { name: 'Save your link' }));
+        await waitFor(() => expect(share).toHaveBeenCalledTimes(1), settle);
+        expect(share).toHaveBeenCalledWith({
+          title: 'Snack duty',
+          text: 'My spot for Sat, May 16 · Cookies · Vinland Elementary. This link changes or cancels it, so keep it private.',
+          url: editUrl,
+        });
+      } finally {
+        delete (navigator as { share?: unknown }).share;
+      }
     });
 
     // Someone who chose to leave it out once should not send it by accident.

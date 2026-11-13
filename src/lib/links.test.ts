@@ -72,14 +72,14 @@ describe('reminder opt-out links', () => {
     expect(unsubscribePath('bake-sale', 'par_1', 'tok', 'done=off')).toBe(
       '/s/bake-sale/unsubscribe?p=par_1&token=tok&done=off',
     );
-    expect(unsubscribePath('bake-sale', 'par_1', 'tok', 'error=1')).toBe(
-      '/s/bake-sale/unsubscribe?p=par_1&token=tok&error=1',
+    expect(unsubscribePath('bake-sale', 'par_1', 'tok', 'error=off')).toBe(
+      '/s/bake-sale/unsubscribe?p=par_1&token=tok&error=off',
     );
   });
 
   it('encodes values so they cannot add a parameter', () => {
-    expect(unsubscribePath('bake-sale', 'x&done=on', 'a+b/c=', 'error=1')).toBe(
-      '/s/bake-sale/unsubscribe?p=x%26done%3Don&token=a%2Bb%2Fc%3D&error=1',
+    expect(unsubscribePath('bake-sale', 'x&done=on', 'a+b/c=', 'error=off')).toBe(
+      '/s/bake-sale/unsubscribe?p=x%26done%3Don&token=a%2Bb%2Fc%3D&error=off',
     );
   });
 

@@ -72,7 +72,7 @@ test.describe('public commit flow', () => {
 
     // The link is how they change or cancel, so the screen offers to copy it
     // rather than to share it. Only Chromium lets a test grant the clipboard.
-    await expect(page.getByRole('button', { name: 'Share link' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Save your link' })).toHaveCount(0);
     const copy = page.getByRole('button', { name: 'Copy link' });
     await expect(copy).toBeVisible();
     if (browserName === 'chromium') {

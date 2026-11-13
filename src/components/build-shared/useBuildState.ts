@@ -1,5 +1,5 @@
 import { useReducer, useRef, useEffect, useState } from 'react';
-import { toFieldRef } from '@/schemas/slot-fields';
+import { toFieldRef } from '@/schemas/slot-field-basics';
 import type { SlotFieldDefinition, SlotFieldConfig } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
 import {
@@ -10,6 +10,7 @@ import {
 } from '@/lib/signup-limits';
 import type { ErrorCode } from '@/lib/errors';
 import { resolveAnchorRef } from '@/lib/reminder-fields';
+import { usePageLeave } from '@/hooks/usePageLeave';
 
 // ---------------------------------------------------------------------------
 // State types
@@ -371,11 +372,11 @@ export function useBuildState(
   initialFields: SlotFieldDefinition[],
   initialSlots: BuildSlot[],
   initialSettings: SignupSettings,
-  initialMeta: { title: string; description: string | null } = { title: '', description: '' },
+  initialMeta: { title: string; description: string } = { title: '', description: '' },
 ) {
   const [state, dispatch] = useReducer(buildReducer, undefined, () => ({
     title: initialMeta.title,
-    description: initialMeta.description ?? '',
+    description: initialMeta.description,
     fields: toBuildFields(initialFields),
     rows: initialSlots.map(toBuildRow),
     groupByFieldRef: initialSettings.groupByFieldRefs[0] ?? null,
@@ -927,25 +928,8 @@ export function useBuildState(
   };
 
   // A reload, a closed tab or leaving the site doesn't unmount React, so the
-  // cleanup above never runs then: send what's waiting as the page goes away
-  // (#598). `visibilitychange` covers a phone that drops a background tab
-  // without `pagehide`. Not `unload` or `beforeunload`, which keep the page
-  // out of the back-forward cache in some browsers; after a `pagehide` that
-  // keeps it there, the builder carries on as before.
-  const flushRef = useRef(flushPendingSaves);
-  flushRef.current = flushPendingSaves;
-  useEffect(() => {
-    const flush = () => void flushRef.current();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') flush();
-    };
-    window.addEventListener('pagehide', flush);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      window.removeEventListener('pagehide', flush);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, []);
+  // cleanup above never runs then: send what's waiting as the page goes away.
+  usePageLeave(() => void flushPendingSaves());
 
   // ---------------------------------------------------------------------------
   // Signup title, description and settings
@@ -957,7 +941,7 @@ export function useBuildState(
   // input doesn't strand on an invalid value the server never accepted.
   const lastCommittedMetaRef = useRef<{ title: string; description: string }>({
     title: initialMeta.title,
-    description: initialMeta.description ?? '',
+    description: initialMeta.description,
   });
 
   const updateSignupMeta = (patch: { title?: string; description?: string }): void => {

@@ -5,7 +5,7 @@ import { redeemLoginCode } from '@/auth/login-code';
 import { getOrganizerSession } from '@/auth/session';
 import { getEnabledOAuthProviders } from '@/auth/oauth-providers';
 import { getCurrentRequestIp } from '@/auth/request-context';
-import { SiteFooter } from '@/components/site-footer';
+import { CenteredPageFrame } from '@/components/centered-page-frame';
 import { FormError } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
 import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
@@ -75,29 +75,24 @@ export default async function LoginPage({
   }
 
   return (
-    <div className="flex min-h-[100svh] flex-col">
-      <main className="container-tight flex flex-1 flex-col justify-center gap-8 py-16">
-        <div className="space-y-3">
-          <h1 className="text-3xl font-semibold tracking-tight">Sign in to OpenSignup</h1>
-          <p className="text-ink-muted">
-            {oauthProviders.length > 0
-              ? 'Continue with a provider below, or get a magic link by email. No passwords.'
-              : "Enter your email and we'll send you a magic link to sign in. No passwords."}
-          </p>
-        </div>
-        {params.error ? (
-          <FormError>
-            {params.error === 'Verification'
-              ? 'That sign-in link is no longer valid. It may have been used already or it may have expired. Request a new one below.'
-              : 'Something went wrong. Try again.'}
-          </FormError>
-        ) : null}
-        <OAuthButtons providers={oauthProviders} callbackUrl={callbackUrl} />
-        <LoginForm action={handle} redeem={redeem} callbackUrl={callbackUrl} />
-      </main>
-      {/* Also gives this page outgoing links — a page that collects an email
-          address should link to the privacy policy and terms. */}
-      <SiteFooter />
-    </div>
+    <CenteredPageFrame gap="gap-8">
+      <div className="space-y-3">
+        <h1 className="text-3xl font-semibold tracking-tight">Sign in to OpenSignup</h1>
+        <p className="text-ink-muted">
+          {oauthProviders.length > 0
+            ? 'Continue with a provider below, or get a magic link by email. No passwords.'
+            : "Enter your email and we'll send you a magic link to sign in. No passwords."}
+        </p>
+      </div>
+      {params.error ? (
+        <FormError>
+          {params.error === 'Verification'
+            ? 'That sign-in link is no longer valid. It may have been used already or it may have expired. Request a new one below.'
+            : 'Something went wrong. Try again.'}
+        </FormError>
+      ) : null}
+      <OAuthButtons providers={oauthProviders} callbackUrl={callbackUrl} />
+      <LoginForm action={handle} redeem={redeem} callbackUrl={callbackUrl} />
+    </CenteredPageFrame>
   );
 }

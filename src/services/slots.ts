@@ -8,6 +8,7 @@ import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
 import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
+import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { toSlug } from '@/lib/slug';
 import {
   type SlotUpdateInput,
@@ -30,7 +31,7 @@ import {
 } from './locks';
 import { isActiveCommitment, placesTaken } from './commitments';
 import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
-import { everyIdOnceError } from './reorder-ids';
+import { everyIdOnceError, nextSortOrder, writeOrder } from './reorder-ids';
 
 export async function addSlot(
   db: Db,
@@ -53,13 +54,13 @@ export async function addSlot(
     const valid = validateSlotValues(fields, data.values);
     if (!valid.ok) return valid;
 
-    // An omitted sortOrder appends (`nextSlotSortOrder`), read under the
+    // An omitted sortOrder appends (`nextSortOrder`), read under the
     // signup lock so two adds cannot land on the same number. It was epoch
     // seconds, from before this held the lock: two slots added in the same
     // second tied, and their order fell to the slot_at tiebreak, so filling
     // the second with an earlier date moved it above the first. Epoch seconds
     // also overflow the int column in 2038.
-    const sortOrder = data.sortOrder ?? (await nextSlotSortOrder(tx, signupId));
+    const sortOrder = data.sortOrder ?? (await nextSortOrder(tx, slots, signupId));
 
     const [inserted] = await insertSlots(tx, {
       signupId,
@@ -67,7 +68,7 @@ export async function addSlot(
       settings: locked.settings,
       fields,
       takenRefs: await readTakenRefs(tx, signupId, locked.workspaceId),
-      rows: [{ values: data.values, capacity: data.capacity ?? null, sortOrder }],
+      rows: [{ values: valid.value, capacity: data.capacity, sortOrder }],
     });
     if (!inserted) throw new Error('slot insert failed');
 
@@ -114,9 +115,11 @@ export async function addSlotsBulk(
     // that this waited for has committed, and the rows are checked against the
     // fields, and take their slot_at from the anchor, as it left them.
     const fields = await listFieldsForSignup(tx, signupId);
+    const rowValues: Record<string, unknown>[] = [];
     for (const r of data.rows) {
       const valid = validateSlotValues(fields, r.values);
       if (!valid.ok) return valid;
+      rowValues.push(valid.value);
     }
     const settings = locked.settings;
 
@@ -143,7 +146,7 @@ export async function addSlotsBulk(
       // has, in the order given, so a bulk add appends instead of interleaving
       // with the template's 0..n-1 (which is what defaulting to the array
       // index did, and what `addField` had to fix for fields).
-      base = await nextSlotSortOrder(tx, signupId);
+      base = await nextSortOrder(tx, slots, signupId);
     }
     const out = await insertSlots(tx, {
       signupId,
@@ -156,7 +159,7 @@ export async function addSlotsBulk(
         ? new Set(shown.map((s) => s.ref))
         : await readTakenRefs(tx, signupId, locked.workspaceId),
       rows: data.rows.map((row, index) => ({
-        values: row.values,
+        values: rowValues[index] ?? {},
         capacity: row.capacity ?? null,
         sortOrder: row.sortOrder ?? Math.min(base + index, MAX_SORT_ORDER),
       })),
@@ -171,7 +174,7 @@ export async function addSlotsBulk(
       // of it.
       const ids = shown.map((s) => s.id);
       ids.splice(base, 0, ...out.map((s) => s.id));
-      await writeSlotOrder(tx, signupId, ids);
+      await writeOrder(tx, slots, signupId, ids);
     }
 
     await recordActivity(tx, {
@@ -188,60 +191,6 @@ export async function addSlotsBulk(
     });
     return ok(out);
   });
-}
-
-/**
- * The order a slot appended to a signup takes: past every slot it has, and
- * never below how many it has. The caller holds the signup lock.
- *
- * Not max + 1 alone: a REST caller can renumber the slots 0..n-1 by PATCHing
- * `sortOrder` one slot at a time, and an add landing between two of those
- * PATCHes reads a max from half-renumbered rows that a later PATCH then
- * writes too. At least the count keeps it clear of 0..n-1. Worked out as a bigint and held at the column's
- * top, where a slot sent there would otherwise make every later add fail the
- * insert; past it, appends tie instead.
- */
-async function nextSlotSortOrder(tx: Queryable, signupId: string): Promise<number> {
-  const [row] = await tx
-    .select({
-      next: sql<number>`least(
-        greatest(coalesce(max(${slots.sortOrder}), -1)::bigint + 1, count(*)),
-        ${MAX_SORT_ORDER}
-      )::int`,
-    })
-    .from(slots)
-    .where(eq(slots.signupId, signupId));
-  return row?.next ?? 0;
-}
-
-/**
- * Number a signup's slots 0..n-1 in the order of `orderedIds`, writing only
- * the rows whose order changes. The caller has already passed the policy guard
- * and holds the signup row lock (`lockSignupForWrite`), and `orderedIds` is
- * every slot of the signup: a partial list would tie with the slots it leaves
- * out.
- */
-export async function writeSlotOrder(
-  tx: Queryable,
-  signupId: string,
-  orderedIds: string[],
-): Promise<void> {
-  if (orderedIds.length === 0) return;
-  // The ids travel as one JSON parameter: drizzle would spread a JS array into
-  // one placeholder per id, and 500 slots is a lot of placeholders.
-  const wanted = sql`jsonb_array_elements_text(${JSON.stringify(orderedIds)}::jsonb)
-    with ordinality as wanted(id, position)`;
-  await tx
-    .update(slots)
-    .set({ sortOrder: sql`(wanted.position - 1)::int`, updatedAt: new Date() })
-    .from(wanted)
-    .where(
-      and(
-        eq(slots.signupId, signupId),
-        sql`${slots.id} = wanted.id`,
-        sql`${slots.sortOrder} <> wanted.position - 1`,
-      ),
-    );
 }
 
 /**
@@ -272,7 +221,7 @@ export async function reorderSlots(
     );
     if (bad) return err(bad);
 
-    await writeSlotOrder(tx, signupId, slotIds);
+    await writeOrder(tx, slots, signupId, slotIds);
 
     // Recorded even when the order already matched: the organizer asked for
     // this order, and a second code path to stay silent is not worth having.
@@ -337,17 +286,19 @@ export async function updateSlot(
     }
 
     let nextSlotAt: Date | null | undefined;
+    let nextValues: Record<string, unknown> | undefined;
     if (data.values !== undefined) {
       const fields = await listFieldsForSignup(tx, locked.signupId);
       const valid = validateSlotValues(fields, data.values);
       if (!valid.ok) return valid;
-      nextSlotAt = extractSlotAt(signupRow.settings, fields, data.values);
+      nextValues = valid.value;
+      nextSlotAt = extractSlotAt(signupRow.settings, fields, nextValues);
     }
 
     const [row] = await tx
       .update(slots)
       .set({
-        ...(data.values !== undefined ? { values: data.values, slotAt: nextSlotAt ?? null } : {}),
+        ...(nextValues !== undefined ? { values: nextValues, slotAt: nextSlotAt ?? null } : {}),
         ...(data.capacity !== undefined ? { capacity: data.capacity } : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
         ...(data.status !== undefined ? { status: data.status } : {}),
@@ -477,7 +428,7 @@ export async function listSlotsForSignup(db: Queryable, signupId: string) {
 function summarizeValues(values: Record<string, unknown>): string {
   const parts: string[] = [];
   for (const val of Object.values(values)) {
-    if (val === undefined || val === null || val === '') continue;
+    if (isBlankSlotValue(val)) continue;
     parts.push(String(val));
     if (parts.length >= 2) break;
   }

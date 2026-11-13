@@ -1,5 +1,4 @@
-import { isRealDate } from '@/lib/reminder-fields';
-import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
+import { renderFieldValue } from '@/lib/slot-label';
 import type { FieldType } from '@/schemas/slot-fields';
 
 /**
@@ -9,6 +8,9 @@ import type { FieldType } from '@/schemas/slot-fields';
  * - Times (HH:MM) -> "6:30 PM", the 12-hour clock the public page uses.
  * - Empty / no-value sentinel -> type/label-aware prompt (see emptyHeaderCopy).
  * - Anything else -> pass through.
+ *
+ * The rule is `renderFieldValue`'s, the one every other surface reads a value
+ * with, so a heading and the rows under it cannot disagree about a date.
  */
 export function prettyHeader(
   rawKey: string | null | undefined,
@@ -18,11 +20,7 @@ export function prettyHeader(
   if (!rawKey) {
     return emptyHeaderCopy(fieldType, fieldLabel);
   }
-  if (fieldType === 'time') return formatSlotTime(rawKey) ?? rawKey;
-  // Only a stored-shape date: `formatSlotDate` parses anything else with
-  // `new Date()`, which reads a half-typed "Sat, Nov 14" as a day in 2001.
-  if (fieldType === 'date') return (isRealDate(rawKey) && formatSlotDate(rawKey)) || rawKey;
-  return rawKey;
+  return renderFieldValue({ ref: '', label: fieldLabel ?? '', fieldType }, rawKey) ?? rawKey;
 }
 
 /**

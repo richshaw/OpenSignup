@@ -40,7 +40,7 @@ export default async function SignupPreviewPage({ params }: PageParams) {
   }
 
   await trackOrganizerView({
-    actor: { actorId: session.organizerId, actorType: 'organizer' },
+    actor,
     signupId: sig.id,
     workspaceId: sig.workspaceId,
     eventType: 'signup.previewed',

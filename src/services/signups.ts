@@ -129,7 +129,7 @@ export async function createSignup(
     parsedSlots.push(parsed.data);
   }
 
-  // Templates may omit sortOrder; array position is the fallback (matches the insert loop below).
+  // Templates may omit sortOrder; array position is the fallback.
   const fieldDefs: SlotFieldDefinition[] = parsedFields.map((f, index) => ({
     id: '',
     ref: f.ref,
@@ -141,6 +141,7 @@ export async function createSignup(
   for (const slot of parsedSlots) {
     const v = validateSlotValues(fieldDefs, slot.values);
     if (!v.ok) return v;
+    slot.values = v.value;
   }
 
   // Every signup with a date field names the one that gives its slots their
@@ -178,17 +179,13 @@ export async function createSignup(
       .returning();
     if (!inserted) throw new Error('insert failed');
 
-    if (parsedFields.length > 0) {
+    if (fieldDefs.length > 0) {
       await tx.insert(slotFields).values(
-        parsedFields.map((field, index) => ({
+        fieldDefs.map((field) => ({
+          ...field,
           id: makeId('fld'),
           signupId: inserted.id,
           workspaceId,
-          ref: field.ref,
-          label: field.label,
-          fieldType: field.fieldType,
-          sortOrder: field.sortOrder ?? index,
-          config: field.config,
         })),
       );
     }

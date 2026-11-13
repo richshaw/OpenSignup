@@ -5,8 +5,14 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { SESSION_MAX_AGE_SECONDS } from '@/auth/session-lifetime';
 import { PREFILL_KEY } from '@/app/s/[slug]/prefill-key';
-import { DAYS_AFTER_SLOT, MAX_DAYS, MIN_DAYS } from '@/lib/returning-participant';
-import { OAUTH_TTL } from '@/oauth/config';
+import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draft-warnings';
+import {
+  COMMIT_COOKIE_NAME,
+  DAYS_AFTER_SLOT,
+  MAX_DAYS,
+  MIN_DAYS,
+} from '@/lib/returning-participant';
+import { OAUTH_COOKIES, OAUTH_TTL } from '@/oauth/config';
 import CookiesPage from './page';
 
 // The text of each cell in the table row whose first cell names `cookie`.
@@ -42,20 +48,34 @@ describe('cookies page', () => {
     expect(screen.getByText(PREFILL_KEY).tagName).toBe('CODE');
   });
 
+  it("names Magic Compose's draft warnings by their real session-storage key", () => {
+    render(<CookiesPage />);
+    expect(AI_DRAFT_WARNINGS_KEY_PREFIX).toBe('opensignup:ai-draft-warnings:');
+    expect(screen.getByText(AI_DRAFT_WARNINGS_KEY_PREFIX).tagName).toBe('CODE');
+  });
+
+  it('lists every cookie the code names, and each in its own row', () => {
+    render(<CookiesPage />);
+    for (const name of [COMMIT_COOKIE_NAME, ...Object.values(OAUTH_COOKIES)]) {
+      const cell = screen.getByText(name, { selector: 'td' });
+      expect(cell.textContent?.trim()).toBe(name);
+    }
+  });
+
   it('gives os_commit the lifetime the participant cookie is written with', () => {
     render(<CookiesPage />);
     expect(DAYS_AFTER_SLOT).toBe(7); // the page says "a week"
-    expect(rowFor('os_commit')[2]).toBe(
+    expect(rowFor(COMMIT_COOKIE_NAME)[2]).toBe(
       `${MIN_DAYS} days, or until a week after the latest slot it holds if that is later (at most ${MAX_DAYS} days)`,
     );
   });
 
   it('gives the OAuth cookies the lifetimes the provider is configured with', () => {
     render(<CookiesPage />);
-    expect(rowFor('os_oauth_session')[2]).toBe(`${OAUTH_TTL.SESSION / 3600} hours`);
+    expect(rowFor(OAUTH_COOKIES.session)[2]).toBe(`${OAUTH_TTL.SESSION / 3600} hours`);
     // oidc-provider sets the resume cookie with the interaction TTL too.
     const interaction = `${OAUTH_TTL.INTERACTION / 60} minutes`;
-    expect(rowFor('os_oauth_interaction')[2]).toBe(interaction);
-    expect(rowFor('os_oauth_resume')[2]).toBe(interaction);
+    expect(rowFor(OAUTH_COOKIES.interaction)[2]).toBe(interaction);
+    expect(rowFor(OAUTH_COOKIES.resume)[2]).toBe(interaction);
   });
 });

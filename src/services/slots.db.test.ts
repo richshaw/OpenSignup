@@ -22,8 +22,8 @@ import {
   listSlotsForSignup,
   reorderSlots,
   updateSlot,
-  writeSlotOrder,
 } from '@/services/slots';
+import { writeOrder } from '@/services/reorder-ids';
 import { settle, untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
 
 interface Fixture {
@@ -453,7 +453,7 @@ describe('addSlotsBulk beforeSlotId (db)', () => {
     expect((await deleteSlot(fx.db, fx.actor, idOf('b'), { force: true })).ok).toBe(true);
     expect((await addSlot(fx.db, fx.actor, signupId, { values: { what: 'late' } })).ok).toBe(true);
 
-    await fx.db.transaction((tx) => writeSlotOrder(tx, signupId, stale));
+    await fx.db.transaction((tx) => writeOrder(tx, slots, signupId, stale));
 
     const after = await shown(fx, signupId);
     expect(after.names).toEqual(['c', 'a', 'late']);
@@ -1137,5 +1137,70 @@ describe('adding slots in one insert (db)', () => {
       Array.from({ length: 200 }, (_, i) => (i % 2 === 0 ? 'Same' : `Slot ${i}`)),
     );
     expect(new Set(rows.map((r) => r.ref)).size).toBe(200);
+  });
+});
+
+describe('slot values of only spaces (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  const stored = async (slotId: string) => {
+    const [row] = await fx.db.select().from(slots).where(eq(slots.id, slotId));
+    return row!;
+  };
+
+  it('addSlot stores no value for a field given only spaces', async () => {
+    const { signupId } = await makeDatedSignup(fx, 'Blank add');
+    const r = await addSlot(fx.db, fx.actor, signupId, {
+      values: { note: '   ', day: ' \t ', day2: '2026-05-02' },
+    });
+    if (!r.ok) throw new Error(r.error.message);
+    const row = await stored(r.value.id);
+    expect(row.values).toEqual({ day2: '2026-05-02' });
+    // The anchor date was blank, so the slot has no instant.
+    expect(row.slotAt).toBeNull();
+  });
+
+  it('updateSlot stores no value for a field given only spaces, and keeps other spaces', async () => {
+    const { signupId } = await makeDatedSignup(fx, 'Blank update');
+    const added = await addSlot(fx.db, fx.actor, signupId, {
+      values: { note: 'Snacks', day: '2026-05-01' },
+    });
+    if (!added.ok) throw new Error(added.error.message);
+    const r = await updateSlot(fx.db, fx.actor, added.value.id, {
+      values: { note: '  ', day: '2026-05-01', day2: '   ' },
+    });
+    if (!r.ok) throw new Error(r.error.message);
+    expect((await stored(added.value.id)).values).toEqual({ day: '2026-05-01' });
+
+    const kept = await updateSlot(fx.db, fx.actor, added.value.id, {
+      values: { note: ' Snacks ', day: '2026-05-01' },
+    });
+    if (!kept.ok) throw new Error(kept.error.message);
+    expect((await stored(added.value.id)).values).toEqual({ note: ' Snacks ', day: '2026-05-01' });
+  });
+
+  it('addSlotsBulk stores no value for a field given only spaces', async () => {
+    const { signupId } = await makeDatedSignup(fx, 'Blank bulk');
+    const r = await addSlotsBulk(fx.db, fx.actor, signupId, {
+      rows: [{ values: { note: '   ' } }, { values: { note: 'Cups' } }],
+    });
+    if (!r.ok) throw new Error(r.error.message);
+    const rows = await Promise.all(r.value.map((s) => stored(s.id)));
+    expect(rows.map((row) => row.values)).toEqual([{}, { note: 'Cups' }]);
+  });
+
+  it('still refuses an unknown field ref, even with a blank value', async () => {
+    const { signupId } = await makeDatedSignup(fx, 'Blank unknown');
+    const r = await addSlot(fx.db, fx.actor, signupId, { values: { nope: '  ' } });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('invalid_input');
   });
 });

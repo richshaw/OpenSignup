@@ -112,7 +112,8 @@ export function CreateAndPublishASignup() {
           </Step>
           <Step>
             <p>
-              For the next slot, choose <Ui>{UI.addSlot}</Ui> and fill it in the same way.
+              For the next slot, choose <Ui>{UI.addSlot}</Ui>. The new slot opens, ready for you to
+              fill in the same way.
             </p>
           </Step>
           <Step>
