@@ -1,0 +1,13 @@
+{
+  "common": {
+    "footer": {
+      "label": "Footer",
+      "help": "Help",
+      "privacy": "Privacy",
+      "terms": "Terms",
+      "cookies": "Cookies",
+      "source": "Source",
+      "contact": "Contact"
+    }
+  }
+}

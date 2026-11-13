@@ -4,8 +4,14 @@
   // a repo that merges this one can add scripts and skills of its own without
   // editing this file.
   "entry": ["scripts/**/*.{ts,mjs}", ".claude/skills/**/*.{js,mjs,ts}"],
-  // A design reference kit, not part of the app.
-  "ignore": ["design-system/**"],
+  "ignore": [
+    // A design reference kit, not part of the app.
+    "design-system/**",
+    // The catalogs' types, written by next-intl's plugin (next.config.mjs).
+    // TypeScript reads one in place of its .json file's own types
+    // (allowArbitraryExtensions), so nothing imports it by name.
+    "src/messages/*.d.json.ts",
+  ],
   "ignoreDependencies": [
     // Loaded by name: eslint.config.mjs extends next/core-web-vitals, and
     // src/lib/log.ts names pino-pretty as a transport target.
