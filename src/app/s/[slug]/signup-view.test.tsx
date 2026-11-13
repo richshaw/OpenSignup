@@ -71,9 +71,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
       />,
     );
     expect(screen.queryByText('Preview')).toBeNull();
-    expect(
-      screen.queryByText(/This signup is live\. The page below shows what visitors see\./),
-    ).toBeNull();
+    expect(screen.queryByText(/The page below shows what visitors see\./)).toBeNull();
   });
 
   it('preview mode still renders a disabled Sign-up button (regression guard)', () => {
@@ -108,6 +106,51 @@ describe('<SignupViewBody mode="showcase" />', () => {
     );
     expect(screen.getByRole('heading', { level: 2, name: 'Snack duty' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+  });
+});
+
+describe('<SignupViewBody mode="preview" /> banner', () => {
+  function renderPreview(status: 'draft' | 'open' | 'closed' | 'archived') {
+    render(
+      <SignupViewBody
+        signup={{ ...SIGNUP, status }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+      />,
+    );
+  }
+
+  // Open and closed, the words of the status beside the signup's title, read
+  // as a pair; "published" is only for leaving draft (docs/writing-help.md).
+  it.each([
+    ['draft', 'This is what people will see once you publish. No signups will be saved.'],
+    ['open', 'This signup is open. The page below shows what visitors see.'],
+    ['closed', 'This signup is closed. The page below shows what visitors see.'],
+    ['archived', 'This signup is archived and is not visible to participants.'],
+  ] as const)('the banner for status %s', (status, copy) => {
+    renderPreview(status);
+    expect(screen.getByText('Preview')).toBeInTheDocument();
+    expect(screen.getByText(copy)).toBeInTheDocument();
+    expect(screen.queryByText(/\blive\b/i)).toBeNull();
+  });
+
+  it('asks only a draft to be published before people can sign up', () => {
+    renderPreview('draft');
+    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' })).toHaveAttribute(
+      'title',
+      'Preview: publish to let people sign up',
+    );
+  });
+
+  it('sends an open signup’s preview to its public link, which is already taking sign-ups', () => {
+    renderPreview('open');
+    expect(screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' })).toHaveAttribute(
+      'title',
+      'Preview: people sign up at the public link',
+    );
   });
 });
 

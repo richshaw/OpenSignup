@@ -200,8 +200,8 @@ export function ConnectAnAiAssistant() {
           page, marked draft. Check every slot there before you publish.
         </p>
         <p>
-          Once it&apos;s published, anyone with the link can sign up. When it looks right, publish
-          it yourself or ask the assistant to.
+          When it looks right, publish it yourself or ask the assistant to. Then it&apos;s open, and
+          anyone with the link can sign up.
         </p>
       </section>
 
