@@ -1,4 +1,8 @@
-const KEY_PREFIX = 'opensignup:ai-draft-warnings:';
+/**
+ * The sessionStorage key a draft's AI warnings are kept under is this prefix
+ * plus the signup's id. Exported so the cookies page names the real key.
+ */
+export const AI_DRAFT_WARNINGS_KEY_PREFIX = 'opensignup:ai-draft-warnings:';
 
 /**
  * Run `fn` against sessionStorage, or return `fallback` when there is none
@@ -19,12 +23,14 @@ export function writeAiDraftWarnings(signupId: string, warnings: string[]): void
     clearAiDraftWarnings(signupId);
     return;
   }
-  withStorage(undefined, (s) => s.setItem(`${KEY_PREFIX}${signupId}`, JSON.stringify(warnings)));
+  withStorage(undefined, (s) =>
+    s.setItem(`${AI_DRAFT_WARNINGS_KEY_PREFIX}${signupId}`, JSON.stringify(warnings)),
+  );
 }
 
 export function readAiDraftWarnings(signupId: string): string[] {
   return withStorage([], (s) => {
-    const raw = s.getItem(`${KEY_PREFIX}${signupId}`);
+    const raw = s.getItem(`${AI_DRAFT_WARNINGS_KEY_PREFIX}${signupId}`);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
@@ -33,5 +39,5 @@ export function readAiDraftWarnings(signupId: string): string[] {
 }
 
 export function clearAiDraftWarnings(signupId: string): void {
-  withStorage(undefined, (s) => s.removeItem(`${KEY_PREFIX}${signupId}`));
+  withStorage(undefined, (s) => s.removeItem(`${AI_DRAFT_WARNINGS_KEY_PREFIX}${signupId}`));
 }
