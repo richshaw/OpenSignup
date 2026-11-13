@@ -4,7 +4,7 @@ import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CATALOG_LOCALES, SHIPPED } from './config';
 import { type Catalog, checkCatalogs, loadCatalogs } from './testing/catalog-check';
-import { createAppProgram, findUsedKeys } from './testing/used-keys';
+import { findUsedKeys } from './testing/used-keys';
 
 /**
  * The catalog check over the real catalogs in src/messages/: see
@@ -19,8 +19,10 @@ describe('the message catalogs', () => {
 
   beforeAll(() => {
     catalogs = loadCatalogs(path.join(ROOT, 'src/messages'));
-    found = findUsedKeys(createAppProgram(ROOT), catalogs.en ?? {}, ROOT);
-    // Builds a TypeScript program over src/, which takes a few seconds.
+    // Builds a TypeScript program over src/, which takes a few seconds. It
+    // types translators against the en.json just loaded, so a stale
+    // en.d.json.ts (messages-declaration.test.ts) can't confuse the check.
+    found = findUsedKeys(ROOT, catalogs.en ?? {});
   }, 120_000);
 
   it('are the ones CATALOG_LOCALES lists', () => {

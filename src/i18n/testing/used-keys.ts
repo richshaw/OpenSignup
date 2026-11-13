@@ -16,6 +16,12 @@
  * a literal for `t('help')` and a union of literals for a lookup in a typed
  * table (`t(STATUS_KEY[status])`) or a template over one.
  *
+ * Translators are typed against the English passed in, not against
+ * src/messages/en.d.json.ts, which lags en.json until the next `pnpm dev` or
+ * `pnpm build` (messages-declaration.test.ts fails while it does). So the keys
+ * a translator accepts are a section of that English even before the
+ * declaration catches up.
+ *
  * What it can't tell comes back in `unresolved` rather than being guessed: a
  * key typed as a plain `string` and a namespace that is a type parameter.
  */
@@ -25,19 +31,25 @@ import type { Catalog } from './catalog-check';
 
 /**
  * The app's code under `rootDir` as one TypeScript program, with its
- * tsconfig. With `fixtures` (contents by absolute path), the program is those
- * files instead of the app's, read as if they were on disk; a fixture at a
- * real file's path (like `src/messages/en.d.json.ts`) replaces that file.
+ * tsconfig, and with a declaration written from `english` in place of
+ * src/messages/en.d.json.ts. With `fixtures` (contents by absolute path), the
+ * program is those files instead of the app's, read as if they were on disk.
  */
-export function createAppProgram(
+function createAppProgram(
   rootDir: string,
+  english: Catalog,
   fixtures?: Readonly<Record<string, string>>,
 ): ts.Program {
   const config = ts.readConfigFile(path.join(rootDir, 'tsconfig.json'), ts.sys.readFile);
   const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, rootDir);
   const options = { ...parsed.options, incremental: false, noEmit: true };
   const host = ts.createCompilerHost(options);
-  const overlay = fixtures ?? {};
+  // What TypeScript reads for en.json's types (allowArbitraryExtensions).
+  const overlay: Readonly<Record<string, string>> = {
+    ...fixtures,
+    [path.join(rootDir, 'src/messages/en.d.json.ts')]:
+      `declare const messages: ${JSON.stringify(english)};\nexport default messages;\n`,
+  };
   const { getSourceFile, fileExists, readFile, directoryExists } = host;
   host.getSourceFile = (fileName, languageVersion, ...rest) => {
     const text = overlay[fileName];
@@ -57,21 +69,32 @@ export function createAppProgram(
   return ts.createProgram({ rootNames: [...declarations, ...code], options, host });
 }
 
-/** Code that ships: under `src/`, but not a test or a test helper. */
+/**
+ * Code that ships: under `src/`, but not a test, a test helper (in any
+ * `testing` folder) or an eval (`src/mcp/evals`).
+ */
 function isAppFile(rootDir: string, fileName: string): boolean {
   const relative = path.relative(path.join(rootDir, 'src'), fileName);
+  const folders = relative.split(path.sep).slice(0, -1);
   return (
     !relative.startsWith('..') &&
     !/\.test\.tsx?$/.test(relative) &&
-    !relative.startsWith(path.join('i18n', 'testing') + path.sep)
+    !folders.includes('testing') &&
+    !relative.startsWith(path.join('mcp', 'evals') + path.sep)
   );
 }
 
+/**
+ * The keys the app's code under `rootDir` uses, in full (`common.footer.help`),
+ * with translators typed against `english`. With `fixtures`, the code is those
+ * files instead (see `createAppProgram`).
+ */
 export function findUsedKeys(
-  program: ts.Program,
-  english: Catalog,
   rootDir: string,
+  english: Catalog,
+  fixtures?: Readonly<Record<string, string>>,
 ): { used: Set<string>; unresolved: string[] } {
+  const program = createAppProgram(rootDir, english, fixtures);
   const checker = program.getTypeChecker();
   const sections = sectionsOf(english);
   const used = new Set<string>();
@@ -88,8 +111,9 @@ export function findUsedKeys(
   return { used, unresolved };
 
   function record(file: ts.SourceFile, call: ts.CallExpression): void {
+    // Non-nullable, so that `t?.('help')` is seen.
     const signature = checker
-      .getTypeAtLocation(call.expression)
+      .getNonNullableType(checker.getTypeAtLocation(call.expression))
       .getCallSignatures()
       .find(isTranslatorSignature);
     if (!signature) return;
@@ -156,15 +180,15 @@ function sectionsOf(english: Catalog): Section[] {
 /**
  * The namespaces whose messages are exactly the keys a translator accepts.
  * Two sections with the same keys both count, so a use of either counts for
- * both. Failing an exact match, the sections holding all of them: the
- * declaration that types translators (src/messages/en.d.json.ts) lags en.json
- * until the next `pnpm dev` or `pnpm build`, and a section that has gained a
- * key since still holds every key its translators accept.
+ * both.
  */
 function namespacesAccepting(sections: readonly Section[], accepted: readonly string[]): string[] {
-  const holding = sections.filter((section) => accepted.every((key) => section.keys.has(key)));
-  const exact = holding.filter((section) => section.keys.size === accepted.length);
-  return (exact.length > 0 ? exact : holding).map((section) => section.namespace);
+  return sections
+    .filter(
+      (section) =>
+        section.keys.size === accepted.length && accepted.every((key) => section.keys.has(key)),
+    )
+    .map((section) => section.namespace);
 }
 
 function messageKeys(section: Catalog, prefix: string): string[] {

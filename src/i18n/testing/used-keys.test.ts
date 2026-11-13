@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Catalog } from './catalog-check';
-import { createAppProgram, findUsedKeys } from './used-keys';
+import { findUsedKeys } from './used-keys';
 
 /**
  * `findUsedKeys` on fixture code, typed against a fixture English catalog
@@ -17,16 +17,13 @@ const ENGLISH = {
     spots: '{count, plural, one {# spot} other {# spots}}',
     guide: 'Read <link>the guide</link>',
     welcome: 'Welcome',
+    maybe: 'Maybe',
     unused: 'Nobody reads this',
   },
   organizer: { status: { open: 'Open', closed: 'Closed', draft: 'Draft' } },
 } satisfies Catalog;
 
 const FIXTURES = {
-  // What TypeScript reads for en.json's types (allowArbitraryExtensions).
-  [path.join(ROOT, 'src/messages/en.d.json.ts')]:
-    `declare const messages: ${JSON.stringify(ENGLISH)};\nexport default messages;\n`,
-
   [fixture('variable.ts')]: `
 import { getServerTranslator } from '@/i18n/server';
 export const help = () => getServerTranslator('en', 'common.footer')('help');
@@ -53,6 +50,12 @@ import { getServerTranslator } from '@/i18n/server';
 const STATUS_KEY = { open: 'status.open', closed: 'status.closed' } as const;
 export const status = (s: keyof typeof STATUS_KEY) =>
   getServerTranslator('en', 'participant')(STATUS_KEY[s]);
+`,
+
+  [fixture('optional.ts')]: `
+import type { getTranslator } from '@/i18n/translator';
+type Translator = ReturnType<typeof getTranslator<'participant'>>;
+export const maybe = ({ t }: { t?: Translator }) => t?.('maybe');
 `,
 
   [fixture('same-keys.ts')]: `
@@ -82,15 +85,23 @@ export const generic = <N extends Namespace>(t: ReturnType<typeof getTranslator<
 import { getServerTranslator } from '@/i18n/server';
 getServerTranslator('en', 'participant')('unused');
 `,
+
+  [fixture('testing/helper.ts')]: `
+import { getServerTranslator } from '@/i18n/server';
+export const helper = () => getServerTranslator('en', 'participant')('unused');
+`,
+
+  [path.join(ROOT, 'src/mcp/evals/used-keys-fixture.ts')]: `
+import { getServerTranslator } from '@/i18n/server';
+export const evaluate = () => getServerTranslator('en', 'participant')('unused');
+`,
 };
 
 describe('findUsedKeys', () => {
-  let program: ReturnType<typeof createAppProgram>;
   let found: ReturnType<typeof findUsedKeys>;
 
   beforeAll(() => {
-    program = createAppProgram(ROOT, FIXTURES);
-    found = findUsedKeys(program, ENGLISH, ROOT);
+    found = findUsedKeys(ROOT, ENGLISH, FIXTURES);
   }, 120_000);
 
   it('sees a key named on a translator in a variable', () => {
@@ -123,16 +134,22 @@ describe('findUsedKeys', () => {
     expect(found.used).toContain('participant.welcome');
   });
 
-  it('still finds a namespace when en.json has gained a key the declaration lacks', () => {
-    // The declaration is rewritten from en.json on the next dev or build.
-    const gained = { ...ENGLISH, common: { footer: { ...ENGLISH.common.footer, added: 'Added' } } };
-    const { used, unresolved } = findUsedKeys(program, gained, ROOT);
-    expect(used).toContain('common.footer.help');
-    expect(used).not.toContain('common.footer.added');
-    expect(unresolved).toEqual(found.unresolved);
+  it('types translators against the English it is given, not src/messages/en.d.json.ts', () => {
+    // As when a key has left en.json and the declaration on disk, where the
+    // footer has more keys than this, hasn't been rewritten yet.
+    const english = { common: { footer: { help: 'Help' } } };
+    const code = { [fixture('variable.ts')]: FIXTURES[fixture('variable.ts')] ?? '' };
+    expect(findUsedKeys(ROOT, english, code)).toEqual({
+      used: new Set(['common.footer.help']),
+      unresolved: [],
+    });
   });
 
-  it("doesn't count a test's use", () => {
+  it('sees an optional call, t?.(…)', () => {
+    expect(found.used).toContain('participant.maybe');
+  });
+
+  it("doesn't count a use in a test, a test helper or an eval", () => {
     expect(found.used).not.toContain('participant.unused');
   });
 
