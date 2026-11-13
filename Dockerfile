@@ -44,6 +44,12 @@ ENV GIT_COMMIT_SHA=$GIT_COMMIT_SHA
 RUN pnpm build
 
 FROM base AS runner
+# Intl formats dates and numbers only in the languages whose ICU data this
+# Node carries. A Node with English-only ICU (a small-ICU build, or one linked
+# against a system ICU that ships only English) doesn't fail: every other
+# language quietly comes out in English. Checked in the stage the app and the
+# worker run in, so a base image like that fails the build instead.
+RUN node -e "const locale = Intl.DateTimeFormat('sv').resolvedOptions().locale; if (locale !== 'sv') { console.error('This Node has no full ICU: Intl resolved sv to ' + locale + ', so dates would print in English for every language. Use a Node built with full ICU, as the official node images are.'); process.exit(1); }"
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
