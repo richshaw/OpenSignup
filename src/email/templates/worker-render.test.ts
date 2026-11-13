@@ -58,6 +58,16 @@ describe('email templates under the worker toolchain', () => {
     expect(stdout).toContain('ok slot-changed');
   }, 60_000);
 
+  it('translates under the flags the worker script uses', async () => {
+    // Emails will take their text from the catalogs, so the translator and
+    // src/i18n/server.ts have to load in the worker, which has no Next.
+    const flags = workerScript().split(/\s+/).slice(1, -1);
+    const { stdout } = await run('pnpm', ['exec', 'tsx', ...flags, 'scripts/render-messages.ts'], {
+      cwd: repoRoot,
+    });
+    expect(stdout).toContain('ok translator Help');
+  }, 60_000);
+
   it('previews emails under the flags the worker script uses', () => {
     // `pnpm email:dev` promises that what renders there renders in the worker,
     // which holds only while it compiles templates the same way.

@@ -10,3 +10,5 @@ pnpm-lock.yaml
 # design-system/** for the same reason).
 design-system/preview
 design-system/ui_kits
+# Written by next-intl's plugin on every dev start and build (next.config.mjs).
+src/messages/*.d.json.ts

@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import createNextIntlPlugin from 'next-intl/plugin';
 
 /**
  * The commit this build is made from, for the site footer and the MCP
@@ -125,4 +126,12 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// next-intl's plugin finds the request config at src/i18n/request.ts. It also
+// writes src/messages/en.d.json.ts on every dev start and build, which gives
+// the English messages their literal text in src/types/next-intl.d.ts, so
+// TypeScript checks each message's arguments.
+const withNextIntl = createNextIntlPlugin({
+  experimental: { createMessagesDeclaration: './src/messages/en.json' },
+});
+
+export default withNextIntl(nextConfig);

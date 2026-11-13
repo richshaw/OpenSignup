@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import { getServerTranslator } from '@/i18n/server';
 import { shortCommit } from '@/lib/build-info';
 import { FOOTER_LINKS } from '@/lib/footer-links';
 import { INSTANCE_NAME, SOURCE_URL, SUPPORT_MAILTO } from '@/lib/site-config';
 
 export function SiteFooter() {
+  const t = getServerTranslator('en', 'common.footer');
   // The build's commit, or nothing when the build didn't know it.
   const commit = shortCommit();
   return (
@@ -13,7 +15,7 @@ export function SiteFooter() {
         {INSTANCE_NAME} · AGPL-3.0
       </span>
       <nav
-        aria-label="Footer"
+        aria-label={t('label')}
         className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2"
       >
         {FOOTER_LINKS.map((link) => (
@@ -22,22 +24,22 @@ export function SiteFooter() {
           </Link>
         ))}
         <Link href="/help" className="hover:underline">
-          Help
+          {t('help')}
         </Link>
         <Link href="/privacy" className="hover:underline">
-          Privacy
+          {t('privacy')}
         </Link>
         <Link href="/terms" className="hover:underline">
-          Terms
+          {t('terms')}
         </Link>
         <Link href="/cookies" className="hover:underline">
-          Cookies
+          {t('cookies')}
         </Link>
         <a href={SOURCE_URL} className="hover:underline">
-          Source
+          {t('source')}
         </a>
         <a href={SUPPORT_MAILTO} className="hover:underline">
-          Contact
+          {t('contact')}
         </a>
       </nav>
     </footer>
