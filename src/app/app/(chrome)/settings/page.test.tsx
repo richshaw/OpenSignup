@@ -163,8 +163,34 @@ describe('Account Settings: the question after a language save', () => {
       'Use Svenska for your open signups too?',
     );
     expect(yes.closest('form')!.querySelector('input[type=hidden][name=locale]')).toHaveValue('sv');
-    expect(screen.getByRole('link', { name: 'No' })).toHaveAttribute('href', '/app/settings');
     expect(screen.getByText('Saved')).toBeInTheDocument();
+  });
+
+  it('brings the question into view by giving Yes the focus, and No comes back to the form', async () => {
+    ship('participant', ['en', 'sv']);
+    request.saved = 'sv';
+    toSwitch(['sig_1']);
+    await renderPage({ saved: 'language' });
+
+    // Focus scrolls Yes into view, with the box's edge (its scroll margin).
+    const yes = screen.getByRole('button', { name: 'Yes' });
+    expect(yes).toHaveFocus();
+    expect(yes).toHaveClass('scroll-mb-4');
+    // No is the page without the question, at the choices that asked it,
+    // which the router focuses.
+    const no = screen.getByRole('link', { name: 'No' });
+    expect(no).toHaveAttribute('href', '/app/settings#organizer-language');
+    const choices = screen.getByRole('group', { name: 'Language for new signups' });
+    expect(choices).toHaveAttribute('id', 'organizer-language');
+    expect(choices).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('moves the focus nowhere after a save that asks nothing', async () => {
+    ship('participant', ['en', 'sv']);
+    request.saved = 'sv';
+    await renderPage({ saved: 'language' });
+    expect(question()).not.toBeInTheDocument();
+    expect(document.body).toHaveFocus();
   });
 
   it('doesn’t ask when every open signup is in it already, or there are none', async () => {
