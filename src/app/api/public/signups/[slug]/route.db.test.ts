@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { getDb, type Db } from '@/db/client';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
+import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -130,7 +131,7 @@ describe('GET /api/public/signups/[slug]', () => {
       ].sort(),
     );
     expect(Object.keys(data.settings).sort()).toEqual(
-      ['groupByFieldRefs', 'requireEmail', 'sendReminders'].sort(),
+      ['groupByFieldRefs', 'locale', 'requireEmail', 'sendReminders'].sort(),
     );
     expect(data.fields.length).toBeGreaterThan(0);
     for (const f of data.fields) {
@@ -144,6 +145,48 @@ describe('GET /api/public/signups/[slug]', () => {
     }
     expect(data.slots.find((s) => s.id === slot.value.id)).toMatchObject({ committed: 1 });
     expect(data.committedBySlot).toEqual({ [slot.value.id]: 1 });
+  });
+
+  // The language the page is in (signupLocale), so API clients can mark the
+  // content with it: never a stored language that no participant gets.
+  it('names the language the signup page is in as settings.locale', async () => {
+    async function openSignup(title: string, settings: Record<string, unknown>) {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, { title, settings });
+      if (!created.ok) throw new Error(created.error.message);
+      const slot = await addSlot(fx.db, fx.actor, created.value.id, {
+        values: { what: 'Fruit' },
+        capacity: 1,
+      });
+      if (!slot.ok) throw new Error(slot.error.message);
+      const pub = await publishSignup(fx.db, fx.actor, created.value.id);
+      if (!pub.ok) throw new Error(pub.error.message);
+      return created.value;
+    }
+    async function localeOf(slug: string) {
+      const res = await GET(new NextRequest(`http://localhost/api/public/signups/${slug}`), {
+        params: Promise.resolve({ slug }),
+      });
+      expect(res.status).toBe(200);
+      return ((await res.json()) as { data: { settings: { locale?: unknown } } }).data.settings
+        .locale;
+    }
+
+    const english = await openSignup('Route Public English', { locale: 'en' });
+    expect(await localeOf(english.slug)).toBe('en');
+
+    // Nothing stored: the instance's language for participants.
+    const none = await openSignup('Route Public No Language', {});
+    expect(none.settings).not.toHaveProperty('locale');
+    expect(await localeOf(none.slug)).toBe('en');
+
+    // A language stored earlier that hasn't shipped (or has left the list):
+    // participants get the instance's, so that is what the API names.
+    const stale = await openSignup('Route Public Stale Language', {});
+    await fx.db
+      .update(signups)
+      .set({ settings: { ...stale.settings, locale: 'sv' } })
+      .where(eq(signups.id, stale.id));
+    expect(await localeOf(stale.slug)).toBe('en');
   });
 
   it('still answers not_found for a slug with no live signup', async () => {
