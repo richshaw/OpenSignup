@@ -38,13 +38,6 @@ export const SHIPPED = {
   site: ['en'],
 } as const satisfies Record<Audience, readonly CatalogLocale[]>;
 
-/**
- * The time zone every translator formats dates in. Slot dates and times are
- * wall-clock values with no zone of their own, so formatting them in the
- * server's or the browser's zone could move them to another day.
- */
-export const TIME_ZONE = 'UTC';
-
 /** Whether `value` is a language shipped to `audience`, so one it may be offered. */
 export function isShipped(audience: Audience, value: unknown): value is CatalogLocale {
   return (SHIPPED[audience] as readonly unknown[]).includes(value);
