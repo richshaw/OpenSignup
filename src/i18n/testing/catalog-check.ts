@@ -263,7 +263,12 @@ function differences(english: Shape, own: Shape): string[] {
     if (!english.tags.has(tag)) found.push(`has <${tag}>, which English doesn't`);
   for (const [name, branches] of english.branches) {
     const ownBranches = own.branches.get(name);
-    if (ownBranches && !sameMembers(branches, ownBranches)) {
+    if (!ownBranches) {
+      // Shown as it is, {name} gives the code's value (`open`), not a word for it. A
+      // translation without {name} at all is already reported as dropping it.
+      if (own.placeholders.has(name))
+        found.push(`{${name}} isn't a select here, but is in English`);
+    } else if (!sameMembers(branches, ownBranches)) {
       found.push(
         `{${name}, select} has branches ${[...ownBranches].join(', ')} here but ${[...branches].join(', ')} in English`,
       );

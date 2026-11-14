@@ -116,6 +116,22 @@ describe('checkCatalogs', () => {
     ]);
   });
 
+  it("fails a translation that shows a select's value as it is", () => {
+    // Participants would read the code's value (`open`), not a word for it.
+    expect(check({ sv: svWith('status', 'Status: {status}') })).toEqual([
+      "sv participant.status: {status} isn't a select here, but is in English",
+    ]);
+  });
+
+  it('fails a key with a dot in it, which next-intl would read as nesting', () => {
+    expect(check({ en: { ...EN, participant: { ...EN.participant, 'a.b': 'A' } } })).toEqual([
+      'en participant: the key "a.b" has a dot in it',
+    ]);
+    expect(check({ sv: { ...SV, participant: { ...SV.participant, 'a.b': 'A' } } })).toEqual([
+      'sv participant: the key "a.b" has a dot in it',
+    ]);
+  });
+
   it('fails an English message nothing uses', () => {
     const used = new Set([...EVERY_KEY].filter((key) => key !== 'participant.when'));
     expect(check({ used })).toEqual([
