@@ -676,7 +676,7 @@ describe('<EditForm /> words', () => {
     cleanup();
     refuseCapacity(1, 3);
     renderForm(3, 1, SwedishMessages);
-    fireEvent.change(screen.getByLabelText('Antal platser'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Platser'), { target: { value: '3' } });
     fireEvent.click(screen.getByRole('button', { name: 'Spara' }));
     expect(
       await screen.findByText('Du kan ha upp till 1 plats på det här passet.'),

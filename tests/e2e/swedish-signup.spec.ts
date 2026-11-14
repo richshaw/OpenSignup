@@ -188,7 +188,7 @@ test.describe('the Swedish test signup’s edit page', () => {
         },
       },
     };
-    await main.getByLabel('Antal platser').fill('3');
+    await main.getByLabel(swedish('participant.fields')('spots')).fill('3');
     await main.getByRole('button', { name: form('save') }).click();
     const errors = swedish('participant.errors');
     await expect(main.getByRole('alert')).toHaveText(
