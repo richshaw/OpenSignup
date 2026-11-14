@@ -445,6 +445,52 @@ describe('signups service (db)', () => {
       expect(r.value.settings).not.toHaveProperty('locale');
     });
 
+    async function createdPayload(signupId: string) {
+      const [row] = await fx.db
+        .select({ payload: activity.payload })
+        .from(activity)
+        .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.created')));
+      return row?.payload as Record<string, unknown>;
+    }
+
+    it('records the language and the step that chose it on signup.created', async () => {
+      const r = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        { ...validCreateInput('Chosen locale'), settings: { locale: 'en' } },
+        { localeSource: 'browser' },
+      );
+      if (!r.ok) throw new Error('setup failed');
+      expect(await createdPayload(r.value.id)).toMatchObject({
+        locale: 'en',
+        localeSource: 'browser',
+      });
+    });
+
+    it('records a language with no step as the caller’s (api)', async () => {
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Sent locale'),
+        settings: { locale: 'en' },
+      });
+      if (!r.ok) throw new Error('setup failed');
+      expect(await createdPayload(r.value.id)).toMatchObject({ locale: 'en', localeSource: 'api' });
+    });
+
+    it('records neither key on signup.created when it stores no language', async () => {
+      const r = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Unstored locale'),
+        { localeSource: 'default' },
+      );
+      if (!r.ok) throw new Error('setup failed');
+      const payload = await createdPayload(r.value.id);
+      expect(payload).not.toHaveProperty('locale');
+      expect(payload).not.toHaveProperty('localeSource');
+    });
+
     it.each(['xx', 'EN', 'en-GB', '', 'x'.repeat(36), 7])(
       'refuses a sent language that has not shipped to participants: %j',
       async (locale) => {

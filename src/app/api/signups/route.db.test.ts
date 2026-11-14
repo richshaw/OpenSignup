@@ -1,22 +1,48 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import { getDb, type Db } from '@/db/client';
+import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
+import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
+import { type Audience, type CatalogLocale, SHIPPED } from '@/i18n/config';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { RateLimits } from '@/lib/rate-limit';
 import { POST } from './route';
 
 // The session is stubbed; the route, policy, rate limit and database are real.
-const route = vi.hoisted(() => ({ actor: undefined as unknown, defaultWorkspaceId: '' }));
+const route = vi.hoisted(() => ({
+  actor: undefined as unknown,
+  defaultWorkspaceId: '',
+  locale: null as string | null,
+  instanceDefault: undefined as string | undefined,
+}));
 vi.mock('@/auth/session', () => ({
   requireActor: async () => route.actor,
-  getOrganizerSession: async () => ({ defaultWorkspaceId: route.defaultWorkspaceId }),
+  getOrganizerSession: async () => ({
+    defaultWorkspaceId: route.defaultWorkspaceId,
+    locale: route.locale,
+  }),
 }));
+// The environment's own parse refuses a DEFAULT_LOCALE with no catalog, and
+// Swedish has none yet.
+vi.mock('@/i18n/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/i18n/server')>()),
+  instanceDefaultLocale: () => route.instanceDefault,
+}));
+
+// Only English has shipped today. The tests that need a choice ship Swedish by
+// changing the list itself, so config.ts's own `isShipped` sees it too.
+const asShippedToday = { ...SHIPPED };
+function ship(audience: Audience, locales: string[]) {
+  (SHIPPED as Record<Audience, readonly string[]>)[audience] = locales;
+}
+// Swedish has no catalog yet, hence the cast.
+const SV = 'sv' as CatalogLocale;
 
 const BUCKET = RateLimits.signupCreatePerOrganizer.bucket;
 
@@ -132,5 +158,188 @@ describe('POST /api/signups create quota (db)', () => {
     const res = await create({});
     expect(res.status).toBe(200);
     expect(await charged()).toBe(before + 1);
+  });
+});
+
+describe('POST /api/signups chooses the new signup’s language (db)', () => {
+  const db: Db = getDb();
+  const organizerId = makeId('org');
+  const workspaceId = makeId('ws');
+  const organizer: Actor = {
+    kind: 'organizer',
+    id: organizerId,
+    email: 'pat@example.com',
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+
+  beforeAll(async () => {
+    await db.transaction(async (tx) => {
+      await tx
+        .insert(organizers)
+        .values({ id: organizerId, email: `${organizerId.toLowerCase()}@example.test` });
+      await tx.insert(workspaces).values({
+        id: workspaceId,
+        slug: `locale-${workspaceId.slice(-10).toLowerCase()}`,
+        name: 'Language test',
+        type: 'personal',
+        plan: 'free',
+      });
+      await tx.insert(workspaceMembers).values({
+        id: makeId('mem'),
+        workspaceId,
+        organizerId,
+        role: 'owner',
+        status: 'active',
+      });
+    });
+  });
+
+  beforeEach(async () => {
+    route.actor = organizer;
+    route.defaultWorkspaceId = workspaceId;
+    route.locale = null;
+    route.instanceDefault = undefined;
+    await db.delete(rateLimits).where(eq(rateLimits.subject, organizerId));
+  });
+
+  afterEach(() => {
+    Object.assign(SHIPPED, asShippedToday);
+  });
+
+  afterAll(async () => {
+    await db.delete(rateLimits).where(eq(rateLimits.subject, organizerId));
+    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+    await db.delete(organizers).where(eq(organizers.id, organizerId));
+  });
+
+  async function create(body: Record<string, unknown>, acceptLanguage?: string) {
+    const res = await POST(
+      new NextRequest('http://localhost/api/signups', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(acceptLanguage ? { 'accept-language': acceptLanguage } : {}),
+        },
+        body: JSON.stringify({ title: 'Snack duty', ...body }),
+      }),
+      { params: Promise.resolve({}) },
+    );
+    const json = (await res.json()) as {
+      data?: { id: string; settings: Record<string, unknown> };
+      error?: { code: string; field?: string };
+    };
+    if (!json.data) return { status: res.status, error: json.error };
+    const [created] = await db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, json.data.id), eq(activity.eventType, 'signup.created')));
+    return {
+      status: res.status,
+      settings: json.data.settings,
+      telemetry: created?.payload as Record<string, unknown>,
+    };
+  }
+
+  async function made(title: string) {
+    return db
+      .select({ id: signups.id })
+      .from(signups)
+      .where(and(eq(signups.workspaceId, workspaceId), eq(signups.title, title)));
+  }
+
+  describe('while only English has shipped', () => {
+    it('stores no language, and records none, whatever the organizer’s steps say', async () => {
+      route.locale = 'en';
+      route.instanceDefault = 'en';
+      const r = await create({}, 'en-GB');
+      expect(r.status).toBe(200);
+      expect(r.settings).not.toHaveProperty('locale');
+      expect(r.telemetry).not.toHaveProperty('locale');
+      expect(r.telemetry).not.toHaveProperty('localeSource');
+    });
+
+    it('stores a shipped language the caller sent, as the caller’s', async () => {
+      const r = await create({ settings: { locale: 'en' } });
+      expect(r.status).toBe(200);
+      expect(r.settings).toMatchObject({ locale: 'en' });
+      expect(r.telemetry).toMatchObject({ locale: 'en', localeSource: 'api' });
+    });
+
+    it('refuses a language the caller sent that hasn’t shipped, and makes nothing', async () => {
+      const r = await create({ title: 'Unshipped', settings: { locale: 'sv' } });
+      expect(r.status).toBe(400);
+      expect(r.error).toMatchObject({ code: 'invalid_input', field: 'settings.locale' });
+      expect(await made('Unshipped')).toEqual([]);
+    });
+  });
+
+  describe('once Swedish has shipped to participants', () => {
+    beforeEach(() => {
+      ship('participant', ['en', SV]);
+    });
+
+    it('takes the organizer’s saved language first', async () => {
+      route.locale = 'sv';
+      route.instanceDefault = 'en';
+      const r = await create({}, 'en');
+      expect(r.settings).toMatchObject({ locale: 'sv' });
+      expect(r.telemetry).toMatchObject({ locale: 'sv', localeSource: 'setting' });
+    });
+
+    it('takes the instance’s DEFAULT_LOCALE before the browser', async () => {
+      route.instanceDefault = 'sv';
+      const r = await create({}, 'en');
+      expect(r.settings).toMatchObject({ locale: 'sv' });
+      expect(r.telemetry).toMatchObject({ locale: 'sv', localeSource: 'instance' });
+    });
+
+    it('takes the browser’s top language next', async () => {
+      const r = await create({}, 'sv-SE,en;q=0.8');
+      expect(r.settings).toMatchObject({ locale: 'sv' });
+      expect(r.telemetry).toMatchObject({ locale: 'sv', localeSource: 'browser' });
+    });
+
+    it('falls back to English when no step names a shipped language', async () => {
+      route.locale = 'xx';
+      const r = await create({}, 'de');
+      expect(r.settings).toMatchObject({ locale: 'en' });
+      expect(r.telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
+    });
+
+    it('keeps the caller’s language over the organizer’s', async () => {
+      route.locale = 'sv';
+      const r = await create({ settings: { locale: 'en' } }, 'sv');
+      expect(r.settings).toMatchObject({ locale: 'en' });
+      expect(r.telemetry).toMatchObject({ locale: 'en', localeSource: 'api' });
+      const sent = await create({ settings: { locale: 'sv' } });
+      expect(sent.settings).toMatchObject({ locale: 'sv' });
+      expect(sent.telemetry).toMatchObject({ locale: 'sv', localeSource: 'api' });
+    });
+
+    it('still refuses a sent language that hasn’t shipped, rather than choosing one', async () => {
+      route.locale = 'sv';
+      for (const locale of ['xx', null, '']) {
+        const title = `Refused ${String(locale)}`;
+        const r = await create({ title, settings: { locale } });
+        expect(r.status).toBe(400);
+        expect(r.error).toMatchObject({ code: 'invalid_input', field: 'settings.locale' });
+        expect(await made(title)).toEqual([]);
+      }
+    });
+
+    it('adds the language to the other settings sent', async () => {
+      route.locale = 'sv';
+      const r = await create({ settings: { sendReminders: false } });
+      expect(r.settings).toMatchObject({ sendReminders: false, locale: 'sv' });
+    });
+
+    it('leaves settings that aren’t an object for the service to refuse', async () => {
+      route.locale = 'sv';
+      const r = await create({ title: 'Bad settings', settings: 'sv' });
+      expect(r.status).toBe(400);
+      expect(r.error).toMatchObject({ code: 'invalid_input' });
+      expect(await made('Bad settings')).toEqual([]);
+    });
   });
 });
