@@ -2,8 +2,9 @@
 
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { CatalogLocale } from '@/i18n/config';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { formatSlotDate } from '@/lib/slot-label';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { ACTION_SIZING } from './slot-format';
@@ -17,6 +18,11 @@ import {
 
 // Only the 'live' tests mount the real CommitDialog, which calls useRouter().
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+// English from the catalog; a language with no catalog yet answers with the
+// key it was asked for and the language (`getTestServerTranslator`).
+vi.mock('@/i18n/server', async () => ({
+  getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
+}));
 
 const FIELDS: SignupViewField[] = [
   { ref: 'date', label: 'Date', fieldType: 'date' },
@@ -136,6 +142,177 @@ describe('<SignupViewBody /> language', () => {
     // The group heading, in Swedish.
     expect(screen.getByRole('heading', { level: 2, name: swedish! })).toBeInTheDocument();
     expect(screen.queryByText(/May/)).toBeNull();
+  });
+});
+
+describe('<SignupViewBody /> text, from the catalog in the signup’s language', () => {
+  // Swedish has no catalog yet, so the mocked translator answers each key with
+  // where it was asked for: "participant.signupView.full in sv".
+  const SWEDISH = 'sv' as CatalogLocale;
+  const view = (key: string) => `participant.signupView.${key} in sv`;
+  const slot = (key: string) => `participant.slot.${key} in sv`;
+  const OWN = { slotId: 's1', editUrl: '/s/example/c/com_1?t=tok' };
+
+  it('asks for the Closed banner and a returning participant’s bar in it', () => {
+    render(
+      <SignupViewBody
+        locale={SWEDISH}
+        signup={{ ...SIGNUP, status: 'closed' }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="live"
+        ownCommitments={[OWN]}
+      />,
+    );
+    const banner = screen.getByRole('status');
+    expect(banner).toHaveTextContent(view('closedBanner.title'));
+    expect(banner).toHaveTextContent(view('closedBanner.keepsYours'));
+    expect(banner.closest('[lang]')).toBeNull();
+    expect(screen.getByText(view('signedUp'))).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: view('editOrCancel') })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: view('editFor') })).toHaveTextContent(view('edit'));
+  });
+
+  it('asks for the Closed banner’s plain line and Manage in it', () => {
+    render(
+      <SignupViewBody
+        locale={SWEDISH}
+        signup={{ ...SIGNUP, status: 'closed' }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="live"
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(view('closedBanner.body'));
+    cleanup();
+    render(
+      <SignupViewBody
+        locale={SWEDISH}
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={[...SLOTS, { ...SLOTS[0]!, id: 's2', ref: 's2' }]}
+        slug="example"
+        mode="live"
+        ownCommitments={[OWN, { ...OWN, slotId: 's2' }]}
+      />,
+    );
+    expect(screen.getByRole('link', { name: view('manage') })).toBeInTheDocument();
+  });
+
+  it('asks for every row’s words in it', () => {
+    render(
+      <SignupViewBody
+        locale={SWEDISH}
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef="date"
+        slots={[
+          { ...SLOTS[0]!, id: 'left', capacity: 12, committed: 10 },
+          { ...SLOTS[0]!, id: 'uncapped', capacity: null, committed: 3 },
+          { ...SLOTS[0]!, id: 'full', capacity: 1, committed: 1 },
+          { ...SLOTS[0]!, id: 'shut', status: 'closed' },
+          { ...SLOTS[0]!, id: 'undated', values: {}, capacity: 1 },
+        ]}
+        slug="example"
+        mode="preview"
+        showStateBanner={false}
+      />,
+    );
+    expect(screen.getByText(slot('left'))).toBeInTheDocument();
+    expect(screen.getByText(slot('leftOf'))).toHaveClass('sr-only');
+    expect(screen.getByText(slot('signedUp'))).toHaveClass('sr-only');
+    expect(screen.getByText(view('full'))).toBeInTheDocument();
+    expect(screen.getByText(view('closed'))).toBeInTheDocument();
+    // The slot with no date: its group's heading, and its title, which has no
+    // team to show.
+    expect(screen.getByRole('heading', { level: 2, name: slot('noValue') })).toBeInTheDocument();
+    expect(screen.getByText(view('untitledSlot'))).toBeInTheDocument();
+    for (const button of screen.getAllByRole('button')) {
+      expect(button).toHaveAccessibleName(view('signUpFor'));
+      expect(button).toHaveTextContent(view('signUp'));
+    }
+  });
+
+  it('asks for the showcase’s Sign up in it', () => {
+    render(
+      <SignupViewBody
+        locale={SWEDISH}
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="showcase"
+      />,
+    );
+    expect(screen.getByText(view('signUp'))).toHaveClass('bg-brand');
+  });
+
+  it('keeps the Preview banner and the disabled button’s tip in English, marked so', () => {
+    render(
+      <SignupViewBody
+        locale={SWEDISH}
+        signup={{ ...SIGNUP, status: 'draft' }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+      />,
+    );
+    const banner = screen.getByRole('status');
+    expect(banner.closest('[lang]')).toHaveAttribute('lang', 'en');
+    expect(banner).toHaveTextContent(
+      'PreviewThis is what people will see once you publish. No signups will be saved.',
+    );
+    const button = screen.getByRole('button', { name: view('signUpFor') });
+    expect(button).toHaveAttribute('title', 'Preview: publish to enable signups');
+  });
+
+  it.each([
+    ['draft', 'This is what people will see once you publish. No signups will be saved.'],
+    ['open', 'This signup is live. The page below shows what visitors see.'],
+    ['closed', 'This signup is closed. The page below shows what visitors see.'],
+    ['archived', 'This signup is archived and is not visible to participants.'],
+  ] as const)('words the Preview banner of a signup that is %s as before', (status, body) => {
+    render(
+      <SignupViewBody
+        locale="en"
+        signup={{ ...SIGNUP, status }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(`Preview${body}`);
+  });
+});
+
+describe('the signed-up bar’s and the Closed banner’s messages', () => {
+  const t = getTestTranslator('participant.signupView');
+  const tags = { b: (chunks: string) => `[${chunks}]`, slot: (chunks: string) => `<${chunks}>` };
+
+  it('name the one slot someone holds, or count several', () => {
+    const bar = (count: number) => t.markup('signedUp', { count, name: 'Sat · Cookies', ...tags });
+    expect(bar(1)).toBe("[You're signed up] for <Sat · Cookies>.");
+    expect(bar(0)).toBe("[You're signed up] for <0 slots>.");
+    expect(bar(2)).toBe("[You're signed up] for <2 slots>.");
+    // As `${n} slots` wrote it, with no thousands separator.
+    expect(bar(1234)).toBe("[You're signed up] for <1234 slots>.");
+  });
+
+  it('say whether one spot or several are still theirs', () => {
+    const line = (count: number) => t('closedBanner.keepsYours', { count });
+    expect(line(1)).toBe('No one new can sign up, but your spot is still yours.');
+    expect(line(0)).toBe('No one new can sign up, but your spots are still yours.');
+    expect(line(3)).toBe('No one new can sign up, but your spots are still yours.');
   });
 });
 
@@ -742,6 +919,7 @@ describe('<SignupViewBody /> for a returning participant', () => {
     expect(
       screen.getByText('No one new can sign up, but your spots are still yours.'),
     ).toBeInTheDocument();
+    expect(screen.getByText('2 slots', { selector: 'span.text-ink' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Manage' })).toBeInTheDocument();
   });
 

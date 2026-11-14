@@ -10,5 +10,62 @@
       "source": "Source",
       "contact": "Contact"
     }
+  },
+  "participant": {
+    "signupPage": {
+      "title": "Sign up",
+      "description": "Sign up via {instance}",
+      "draft": {
+        "title": "This signup isn’t ready yet",
+        "body": "The organizer hasn’t published it yet. This link will work once they do, so check back later."
+      },
+      "archived": {
+        "title": "This signup is no longer available",
+        "body": "The organizer has archived this signup. If you need to reach them, ask for a new link."
+      }
+    },
+    "signupView": {
+      "closedBanner": {
+        "title": "Closed",
+        "body": "This signup is no longer collecting responses.",
+        "keepsYours": "No one new can sign up, but your {count, plural, one {spot is} other {spots are}} still yours."
+      },
+      "signedUp": "<b>You're signed up</b> for <slot>{count, plural, =1 {{name}} other {{count, number, ::group-off} slots}}</slot>.",
+      "editOrCancel": "Edit or cancel",
+      "manage": "Manage",
+      "untitledSlot": "Untitled slot",
+      "edit": "Edit",
+      "editFor": "Edit your spot for {slot}",
+      "full": "Full",
+      "closed": "Closed",
+      "signUp": "Sign up",
+      "signUpFor": "Sign up for {slot}"
+    },
+    "slot": {
+      "noValue": "(no {label})",
+      "left": "{left, number, ::group-off} left",
+      "leftOf": "{left, number, ::group-off} of {capacity, number, ::group-off} spots left",
+      "signedUp": "{count, number, ::group-off} signed up"
+    }
+  },
+  "organizer": {
+    "publicPage": {
+      "strip": {
+        "label": "Organizer",
+        "note": "<b>Your signup.</b> Only organizers see this bar.",
+        "responses": "See responses",
+        "edit": "Edit signup"
+      },
+      "ownDraft": {
+        "title": "Only you can see this draft",
+        "body": "People who open this link see “{title}” until you publish it. Renaming the draft gives it a new link, so share it after you publish.",
+        "open": "Open your draft"
+      }
+    },
+    "preview": {
+      "title": "Preview",
+      "body": "{status, select, draft {This is what people will see once you publish. No signups will be saved.} closed {This signup is closed. The page below shows what visitors see.} archived {This signup is archived and is not visible to participants.} other {This signup is live. The page below shows what visitors see.}}",
+      "signUpDisabled": "Preview: publish to enable signups"
+    }
   }
 }
