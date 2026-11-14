@@ -65,7 +65,7 @@ describe('email templates under the worker toolchain', () => {
     const { stdout } = await run('pnpm', ['exec', 'tsx', ...flags, 'scripts/render-messages.ts'], {
       cwd: repoRoot,
     });
-    expect(stdout).toContain('ok translator Help');
+    expect(stdout).toContain('ok translator Help | Example · AGPL-3.0');
   }, 60_000);
 
   it('previews emails under the flags the worker script uses', () => {
