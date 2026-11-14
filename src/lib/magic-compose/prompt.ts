@@ -144,8 +144,12 @@ export const QuestionsSchema = z
         message: `asking what people sign up for takes at least ${WHAT_OPTIONS_MIN} options`,
         path: ['whatOptions'],
       }),
+    // A model told to report a draft's language may report it here too: it
+    // doesn't make the reply anything but questions, and is read as nothing.
+    language: z.unknown().optional(),
   })
-  .strict();
+  .strict()
+  .transform(({ questions }) => ({ questions }));
 
 /**
  * The reply without its null top-level keys. Models in json_object mode often
@@ -158,15 +162,38 @@ function withoutNullKeys(value: unknown): unknown {
   return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== null));
 }
 
+/** A language code: a tag's primary language subtag, in lower case. */
+const LANGUAGE_CODE = /^[a-z]{2,3}$/;
+
+/**
+ * The language a draft says it's written in, as a bare language code (`sv`
+ * for `sv-SE`, `SV` or `sv_SE`), or undefined when it gives none that reads as
+ * one: a language's name, a sentence, anything not a string. Lenient, so a
+ * missing or odd value never fails a draft. Cut to two or three letters a-z,
+ * so nothing the model writes beyond a code is kept: the route only compares
+ * it with the languages that have shipped, and records an unshipped one.
+ */
+const ReportedLanguageSchema = z.unknown().transform((value) => {
+  if (typeof value !== 'string') return undefined;
+  const primary = value.trim().split(/[-_]/, 1)[0]!.toLowerCase();
+  return LANGUAGE_CODE.test(primary) ? primary : undefined;
+});
+
 /**
  * A refusal still wins, as it always has (`RefusalSchema` isn't strict). A
  * reply carrying `questions` is a questions reply and nothing else, so the
- * draft arm refuses that key; `FullDraftSchema` itself stays as it is, since
- * the MCP `create_signup` tool validates with it.
+ * draft arm refuses that key. Only the draft arm reads `language`, the
+ * language the draft says it's written in; a refusal or questions reply
+ * carries none. `FullDraftSchema` itself stays as it is, since the MCP
+ * `create_signup` tool validates with it.
  */
 export const MagicComposeDraftSchema = z.preprocess(
   withoutNullKeys,
-  z.union([RefusalSchema, QuestionsSchema, FullDraftSchema.extend({ questions: z.undefined() })]),
+  z.union([
+    RefusalSchema,
+    QuestionsSchema,
+    FullDraftSchema.extend({ questions: z.undefined(), language: ReportedLanguageSchema }),
+  ]),
 );
 
 export type MagicComposeDraft = z.infer<typeof FullDraftSchema>;
@@ -209,7 +236,8 @@ Output schema (return ONLY this JSON object, no prose, no fences):
   "slots": [
     { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default; null only if the prompt or answers say there's no limit> }
   ],
-  "groupBy": "<field-ref to group slots by, or null>"
+  "groupBy": "<field-ref to group slots by, or null>",
+  "language": "<code of the language the draft is written in, like en, sv or de>"
 }
 
 QUESTIONS — only when the prompt doesn't say what people sign up for, or every slot would be a "TBD:" placeholder (rule 4), return ONLY this object instead of a draft:
@@ -265,7 +293,8 @@ OUTPUT:
     { "values": { "class": "Cedar", "time": "10:00" }, "capacity": 1 },
     { "values": { "class": "Cedar", "time": "10:30" }, "capacity": 1 }
   ],
-  "groupBy": "class"
+  "groupBy": "class",
+  "language": "en"
 }
 
 Example B — weekly snack roster, 6 dated games:
@@ -288,7 +317,8 @@ OUTPUT:
     { "values": { "game": "Game 5", "date": "2026-05-23" }, "capacity": 2 },
     { "values": { "game": "Game 6", "date": "2026-05-30" }, "capacity": 2 }
   ],
-  "groupBy": null
+  "groupBy": null,
+  "language": "en"
 }
 
 Example C — doesn't say what people sign up for, so ask:
@@ -332,7 +362,8 @@ OUTPUT:
     { "values": { "item": "Cooler" }, "capacity": 1 },
     { "values": { "item": "Lantern" }, "capacity": 1 }
   ],
-  "groupBy": null
+  "groupBy": null,
+  "language": "en"
 }
 
 Example F — one day, with a time, so every slot carries that date and time:
@@ -352,7 +383,8 @@ OUTPUT:
     { "values": { "job": "Wash cars", "date": "2026-06-06", "time": "09:00" }, "capacity": 4 },
     { "values": { "job": "Take payments", "date": "2026-06-06", "time": "09:00" }, "capacity": 2 }
   ],
-  "groupBy": null
+  "groupBy": null,
+  "language": "en"
 }
 
 LOAD-BEARING RULES:

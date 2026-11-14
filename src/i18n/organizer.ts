@@ -7,8 +7,8 @@
  * reminder worker imports, keeps nothing about organizers.
  */
 import type { OrganizerSession } from '@/auth/organizer-session';
-import { type Audience, SHIPPED } from './config';
-import { chooseOrganizerLocale } from './organizer-locale';
+import { type Audience, type CatalogLocale, isShipped, SHIPPED } from './config';
+import { chooseOrganizerLocale, type SignupLocaleSource } from './organizer-locale';
 import { instanceDefaultLocale } from './server';
 
 /**
@@ -47,4 +47,25 @@ export function newSignupLocale(
 ) {
   if (SHIPPED.participant.length < 2) return null;
   return getOrganizerLocale(session, acceptLanguage, 'participant');
+}
+
+/**
+ * The language a signup drafted by Magic Compose starts in: the one its draft
+ * says it's written in (`drafted`, a bare language code) when that has
+ * shipped to participants, recorded as `content`, else the organizer's
+ * (`newSignupLocale`). The draft's language wins because the description is
+ * better evidence of what participants read than a guess from the browser.
+ * Null, as `newSignupLocale` is, while only one language has shipped, so the
+ * signup stores none. `drafted` is the model's value already cut to a code
+ * (`MagicComposeDraftSchema`), and is only ever compared with `SHIPPED`, so
+ * a language is stored only when it equals one on that list.
+ */
+export function draftedSignupLocale(
+  drafted: string | undefined,
+  session: Pick<OrganizerSession, 'locale'>,
+  acceptLanguage: string | null,
+): { locale: CatalogLocale; source: SignupLocaleSource } | null {
+  const organizers = newSignupLocale(session, acceptLanguage);
+  if (organizers === null) return null;
+  return isShipped('participant', drafted) ? { locale: drafted, source: 'content' } : organizers;
 }

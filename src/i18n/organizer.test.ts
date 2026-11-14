@@ -5,7 +5,7 @@ import { ship } from './testing/ship';
 const env = vi.hoisted(() => ({ DEFAULT_LOCALE: undefined as string | undefined }));
 vi.mock('@/lib/env', () => ({ getEnv: () => env }));
 
-const { getOrganizerLocale, newSignupLocale } = await import('./organizer');
+const { draftedSignupLocale, getOrganizerLocale, newSignupLocale } = await import('./organizer');
 
 afterEach(() => {
   env.DEFAULT_LOCALE = undefined;
@@ -85,5 +85,51 @@ describe('newSignupLocale', () => {
     expect(newSignupLocale({ locale: null }, 'de')).toEqual({ locale: 'en', source: 'default' });
     env.DEFAULT_LOCALE = 'sv';
     expect(newSignupLocale({ locale: null }, 'en')).toEqual({ locale: 'sv', source: 'instance' });
+  });
+});
+
+describe('draftedSignupLocale', () => {
+  it('chooses nothing while only English has shipped to participants, whatever the draft says', () => {
+    env.DEFAULT_LOCALE = 'en';
+    expect(draftedSignupLocale('en', { locale: 'en' }, 'en')).toBeNull();
+    expect(draftedSignupLocale('sv', { locale: 'sv' }, 'sv')).toBeNull();
+    expect(draftedSignupLocale(undefined, { locale: null }, null)).toBeNull();
+  });
+
+  it('once there is a choice, takes the draft’s language when it has shipped, over the organizer’s', () => {
+    ship('participant', ['en', 'sv']);
+    expect(draftedSignupLocale('sv', { locale: 'en' }, 'en')).toEqual({
+      locale: 'sv',
+      source: 'content',
+    });
+    expect(draftedSignupLocale('en', { locale: 'sv' }, 'sv')).toEqual({
+      locale: 'en',
+      source: 'content',
+    });
+  });
+
+  it('takes the organizer’s language when the draft’s hasn’t shipped, or it gives none', () => {
+    ship('participant', ['en', 'sv']);
+    expect(draftedSignupLocale('de', { locale: 'sv' }, 'en')).toEqual({
+      locale: 'sv',
+      source: 'setting',
+    });
+    expect(draftedSignupLocale(undefined, { locale: null }, 'sv')).toEqual({
+      locale: 'sv',
+      source: 'browser',
+    });
+    expect(draftedSignupLocale('de', { locale: null }, 'de')).toEqual({
+      locale: 'en',
+      source: 'default',
+    });
+  });
+
+  it('checks the draft’s language against what has shipped to participants, not organizers', () => {
+    ship('participant', ['en', 'de']);
+    ship('organizer', ['en', 'sv']);
+    expect(draftedSignupLocale('sv', { locale: null }, null)).toEqual({
+      locale: 'en',
+      source: 'default',
+    });
   });
 });

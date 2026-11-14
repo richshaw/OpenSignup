@@ -2,7 +2,8 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getOrganizerSession, requireActor } from '@/auth/session';
 import { getDb, type Db } from '@/db/client';
-import { getOrganizerLocale, newSignupLocale } from '@/i18n/organizer';
+import { isShipped } from '@/i18n/config';
+import { draftedSignupLocale, getOrganizerLocale } from '@/i18n/organizer';
 import { activityActor, recordActivityBestEffort } from '@/lib/activity';
 import { getEnv, magicComposeEnabled } from '@/lib/env';
 import { fail, handle, ok, readJson } from '@/lib/api-response';
@@ -352,12 +353,20 @@ export async function POST(req: NextRequest) {
       return fail(serviceError('internal', 'request cancelled'));
     }
 
-    // The signup starts in the organizer's language, as one made by hand
-    // does: none while only one language has shipped.
-    const language = newSignupLocale(session, acceptLanguage);
-    const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, draft.data, {
+    // The draft says which language it's written in, as a bare code or not
+    // at all. It goes no further than this: the signup starts in that
+    // language when it has shipped to participants, else in the organizer's,
+    // as one made by hand does, and in none while only one language has
+    // shipped. One that hasn't shipped is recorded on signup.created, to count
+    // which languages organizers write in.
+    const { language: reported, ...drafted } = draft.data;
+    const language = draftedSignupLocale(reported, session, acceptLanguage);
+    const draftLanguage =
+      reported !== undefined && !isShipped('participant', reported) ? reported : undefined;
+    const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, drafted, {
       logContext: { promptLength: userPrompt.length },
       ...(language ? { locale: language } : {}),
+      ...(draftLanguage ? { draftLanguage } : {}),
     });
     if (!persisted.ok) {
       await recordFailed(db, actor, session.defaultWorkspaceId, 'not_saved');
@@ -376,7 +385,7 @@ export async function POST(req: NextRequest) {
           groupByFieldRefs,
         },
         warnings: [...fitted.warnings, ...warnings],
-        draft: buildDraftPreview(draft.data, template),
+        draft: buildDraftPreview(drafted, template),
       },
       {
         links: {

@@ -27,7 +27,8 @@ These evals are written against the shape Magic Compose actually produces — no
     values: Record<fieldRef, value>,          // must include a value for every field ref
     capacity: number | null                   // null = unlimited
   }>,
-  groupBy?: fieldRef | null                   // which field to visually group the participant view by
+  groupBy?: fieldRef | null,                  // which field to visually group the participant view by
+  language?: string                           // code of the language it's written in, like "sv"; read leniently, never fails a draft
 }
 ```
 

@@ -108,12 +108,16 @@ export default function PrivacyPage() {
             signup&rsquo;s status: never the message, and nothing about who the link went to. When a
             new signup is given a language, it records which one and what chose it: the language you
             saved, this site&rsquo;s default, the first language your browser asks for, the app that
-            created the signup, or none of these (English). This exists so an organizer can audit
-            what happened in their own workspace, so the operator can investigate abuse, and so the
-            operator can count, in aggregate, where organizers get stuck between starting a signup
-            and sharing it, and which languages new signups start in. The same log records anonymous
-            view telemetry on the marketing home page and on your public signup pages (see
-            &ldquo;Logs and rate-limiting&rdquo; below).
+            created the signup, the language AI drafting wrote it in, or none of these (English).
+            When AI drafting writes a signup in a language this site doesn&rsquo;t offer, it records
+            that language&rsquo;s short code (such as &ldquo;de&rdquo; for German), never any of the
+            draft&rsquo;s words. This exists so an organizer can audit what happened in their own
+            workspace, so the operator can investigate abuse, and so the operator can count, in
+            aggregate, where organizers get stuck between starting a signup and sharing it, which
+            languages new signups start in, and which languages organizers write in, to choose the
+            next languages to offer. The same log records anonymous view telemetry on the marketing
+            home page and on your public signup pages (see &ldquo;Logs and rate-limiting&rdquo;
+            below).
           </li>
           <li>
             After a sign-in email is sent, the sign-in link&apos;s token (stored as a hash, next to

@@ -101,18 +101,25 @@ export interface SignupWithSlots extends SignupRow {
  * Create a draft signup, with the template's fields and slots, in one
  * transaction. Its language is the `settings.locale` in `rawInput`, refused
  * unless it has shipped to participants; the route decides it (the one its
- * caller sent, else `newSignupLocale`'s) and puts it there. `localeSource`
- * says which step chose it, for `signup.created`; a language with none was
- * sent by the caller (`api`). Without `opts.template` it starts from
- * `defaultTemplate`, its columns named in the language its participants will
- * get (`signupLocale`).
+ * caller sent, else `newSignupLocale`'s or `draftedSignupLocale`'s) and puts
+ * it there. `localeSource` says which step chose it, for `signup.created`; a
+ * language with none was sent by the caller (`api`). `draftLanguage`, from
+ * Magic Compose only, is the language code its draft said it was written in
+ * when that language hasn't shipped to participants, already cut to two or
+ * three letters a-z by the caller; it goes on `signup.created` as given.
+ * Without `opts.template` it starts from `defaultTemplate`, its columns named
+ * in the language its participants will get (`signupLocale`).
  */
 export async function createSignup(
   db: Db,
   actor: Actor,
   workspaceId: string,
   rawInput: unknown,
-  opts: { template?: SignupTemplate; localeSource?: SignupLocaleSource } = {},
+  opts: {
+    template?: SignupTemplate;
+    localeSource?: SignupLocaleSource;
+    draftLanguage?: string;
+  } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
   requireOrganizer(actor);
   requireWorkspaceWrite(actor, workspaceId);
@@ -265,6 +272,7 @@ export async function createSignup(
         ...(settings.locale === undefined
           ? {}
           : { locale: settings.locale, localeSource: opts.localeSource ?? 'api' }),
+        ...(opts.draftLanguage === undefined ? {} : { draftLanguage: opts.draftLanguage }),
       },
     });
     return inserted;

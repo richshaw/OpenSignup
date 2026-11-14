@@ -16,10 +16,12 @@ export type OrganizerLocaleSource = 'setting' | 'instance' | 'browser' | 'defaul
 
 /**
  * Which step chose a new signup's language: the caller, which sent one
- * (`api`), or one of the organizer's steps (`getOrganizerLocale` in
- * organizer.ts). `signup.created` records it next to the language.
+ * (`api`), the language its Magic Compose draft is written in (`content`,
+ * `draftedSignupLocale` in organizer.ts), or one of the organizer's steps
+ * (`getOrganizerLocale` there). `signup.created` records it next to the
+ * language.
  */
-export type SignupLocaleSource = OrganizerLocaleSource | 'api';
+export type SignupLocaleSource = OrganizerLocaleSource | 'api' | 'content';
 
 /**
  * The organizer's language for `audience`: the first of their saved language,

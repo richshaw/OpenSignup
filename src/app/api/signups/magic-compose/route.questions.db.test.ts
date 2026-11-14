@@ -216,6 +216,14 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
     expect(await quotaUsed()).toBe(1);
   });
 
+  it('shows questions that also report a language, in one call, without the language', async () => {
+    llm.replies = [ok({ ...QUESTIONS, language: 'sv' })];
+    const res = await compose({ prompt: 'Bake sale' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ data: QUESTIONS });
+    expect(llm.calls).toHaveLength(1);
+  });
+
   it('shows the first four of five options, in one call', async () => {
     const whatOptions = ['Bake', 'Staff the table', 'Set up', 'Clean up', 'Bring drinks'];
     llm.replies = [ok({ questions: { topics: ['what'], whatOptions } })];
@@ -411,6 +419,16 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
     expect(await signupsMade()).toBe(1);
     expect(llm.calls).toHaveLength(2);
     expect(await quotaUsed()).toBe(1);
+  });
+
+  it('reports a refusal that also reports a language as a refusal', async () => {
+    llm.replies = [ok({ refusalReason: 'That collects home addresses.', language: 'en' })];
+    const res = await compose({ prompt: 'Home addresses for the class list' });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { message: string; details: unknown } };
+    expect(body.error.message).toBe('That collects home addresses.');
+    expect(body.error.details).toEqual({ reason: 'refusal' });
+    expect(await signupsMade()).toBe(0);
   });
 
   it('reports a refusal after the answers as a refusal', async () => {
