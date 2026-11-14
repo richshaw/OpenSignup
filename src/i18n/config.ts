@@ -71,9 +71,10 @@ export function defaultFor(
  * choice an organizer sees is the one participants get. A stored value is
  * lenient: one that is unknown, or has a catalog but hasn't shipped (or has
  * since been taken off the list), reads as the instance's language rather
- * than breaking the row it's in. The e2e run's server alone also keeps a
- * stored language that hasn't shipped (`isShownToTests`), which its
- * confirmation emails follow too.
+ * than breaking the row it's in. The e2e run alone also keeps a stored
+ * language that hasn't shipped (`isShownToTests`), which its emails follow
+ * too: the confirmations its server sends, and the reminders and
+ * time-changed emails of a worker started the same way.
  */
 export function signupLocale(
   stored: unknown,
@@ -97,8 +98,9 @@ export function signupLocale(
  * browser, the API and the AI connector alike, and new signups store none
  * while only English has shipped. It never makes a language the instance's
  * (`defaultFor`), an organizer's, or a choice anywhere. It isn't in env.ts,
- * because it isn't a setting, and the server logs a warning when it starts
- * with it set (src/instrumentation.ts).
+ * because it isn't a setting, and the web server and the reminder worker
+ * each log a warning when they start with it set (`warnIfUnshippedLocalesShown`
+ * in ./unshipped-warning.ts).
  */
 function isShownToTests(stored: unknown): stored is CatalogLocale {
   const listed = process.env.E2E_UNSHIPPED_LOCALES?.split(',') ?? [];
