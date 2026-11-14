@@ -89,8 +89,9 @@ export interface Remembered {
  */
 interface OpenSlots {
   /**
-   * Capacity 20, one taken: "19 left", "19 of 20 spots left". Its name has
-   * letters beyond A to Z, which the calendar file's name keeps.
+   * Capacity 20, one taken: "19 left", "19 of 20 spots left". Its name is one
+   * word with letters beyond A to Z, which the calendar file's name keeps as
+   * they are.
    */
   many: string;
   /** Capacity 1, open: the row's Sign up and nothing in the count column. */
@@ -168,7 +169,7 @@ const ANY_LANGUAGE: OrganizerText = {
     title: 'Café Mozart',
     description: '☕',
     slots: {
-      many: 'Crème brûlée',
+      many: 'Smørrebrød',
       one: 'Espresso',
       full: 'Croissant',
       unlimitedOne: 'Tiramisù',
