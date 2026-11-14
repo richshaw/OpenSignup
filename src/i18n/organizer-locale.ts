@@ -16,10 +16,23 @@ export type OrganizerLocaleSource = 'setting' | 'instance' | 'browser' | 'defaul
 
 /**
  * Which step chose a new signup's language: the caller, which sent one
- * (`api`), or one of the organizer's steps (`getOrganizerLocale` in
- * organizer.ts). `signup.created` records it next to the language.
+ * (`api`), the language its Magic Compose draft is written in (`content`,
+ * `draftedSignupLocale` in organizer.ts), or one of the organizer's steps
+ * (`getOrganizerLocale` there). `signup.created` records it next to the
+ * language.
  */
-export type SignupLocaleSource = OrganizerLocaleSource | 'api';
+export type SignupLocaleSource = OrganizerLocaleSource | 'api' | 'content';
+
+/**
+ * Whether `value` has the shape of a bare language code, as `signup.created`
+ * records a Magic Compose draft's language (`draftLanguage`): two or three
+ * letters a-z, a tag's primary language subtag in lower case (`sv`, `fil`).
+ * The shape only: whether a code names a language is for the reader of the
+ * AI's reply (`MagicComposeDraftSchema`) to decide.
+ */
+export function isLanguageCode(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-z]{2,3}$/.test(value);
+}
 
 /**
  * The organizer's language for `audience`: the first of their saved language,

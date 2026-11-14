@@ -143,6 +143,19 @@ describe('system prompt', () => {
     for (const e of examples) expect(MagicComposeDraftSchema.safeParse(e.reply).success).toBe(true);
   });
 
+  it('asks a draft for the code of its language, and each worked draft gives one', () => {
+    expect(sys).toContain(
+      '"language": "<code of the language the draft is written in, like en, sv or de>"',
+    );
+    const drafts = examples.filter((e) => !('questions' in (e.reply as object)));
+    expect(drafts.map((e) => e.name)).toEqual(['A', 'B', 'E', 'F']);
+    for (const e of drafts) expect(e.reply).toMatchObject({ language: 'en' });
+    // A questions reply doesn't say which language its options are in.
+    for (const e of examples.filter((x) => !drafts.includes(x))) {
+      expect(e.reply).not.toHaveProperty('language');
+    }
+  });
+
   // ev_008 was Example C word for word, and ev_034 held rule 4's "e.g.", so each scored
   // recall of the prompt's own words, not the rules.
   it("has no worked example or e.g. whose words are, or hold, an eval case's", () => {
@@ -328,6 +341,91 @@ describe('MagicComposeDraftSchema', () => {
   it('rejects a refusal with an empty refusalReason', () => {
     const r = MagicComposeDraftSchema.safeParse({ refusalReason: '' });
     expect(r.success).toBe(false);
+  });
+});
+
+describe('the language a draft reports', () => {
+  const draft = {
+    title: 'Bake sale',
+    fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+    slots: [{ values: { what: 'Staff the table' } }],
+  };
+  /** The draft's `language` as the route reads it, failing the test if the draft fails. */
+  const reported = (language: unknown) => {
+    const r = MagicComposeDraftSchema.safeParse({ ...draft, language });
+    expect(r.success).toBe(true);
+    if (!r.success || !('title' in r.data)) throw new Error('not read as a draft');
+    return r.data.language;
+  };
+
+  it.each([
+    ['sv', 'sv'],
+    ['en', 'en'],
+    ['de', 'de'],
+    ['fil', 'fil'],
+    ['sv-SE', 'sv'],
+    ['sv_SE', 'sv'],
+    ['SV', 'sv'],
+    ['zh-Hant-TW', 'zh'],
+    ['en_GB', 'en'],
+    [' de ', 'de'],
+    // A three-letter code for a language with a two-letter one reads as that.
+    ['eng', 'en'],
+    ['swe', 'sv'],
+    ['deu', 'de'],
+    ['SWE-se', 'sv'],
+  ])('reads %j as the language code %j', (sent, code) => {
+    expect(reported(sent)).toBe(code);
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['null', null],
+    ['a language’s name', 'Swedish'],
+    ['its name in itself', 'svenska'],
+    ['one letter', 'e'],
+    ['four letters', 'swed'],
+    ['empty', ''],
+    ['a private-use tag', 'x-klingon'],
+    ['a code with text after it', 'sv; and more'],
+    ['a code with a sentence after it', 'sv. The draft is in Swedish'],
+    ['a sentence that starts with a tag', 'sv-SE, though the headings are partly in English'],
+    ['a sentence that starts with a language', 'it-depends on the slot'],
+    ['a title that starts with letters', 'Tea-party helpers'],
+    ['three letters that name no language', 'zzz'],
+    ['an English word that names no language', 'the'],
+    ['the code for no language in particular', 'und'],
+    ['the code for several languages', 'mul'],
+    ['the code for no linguistic content', 'zxx'],
+    ['digits', '12'],
+    ['letters outside a-z', 'sä'],
+    ['a number', 42],
+    ['a list', ['sv']],
+    ['an object', { code: 'sv' }],
+    ['true', true],
+  ])('reads %s as no language, and still takes the draft', (_, sent) => {
+    expect(reported(sent)).toBeUndefined();
+  });
+
+  it('is on Magic Compose’s draft only, not on FullDraftSchema, which create_signup takes', () => {
+    expect(Object.keys(FullDraftSchema.shape)).not.toContain('language');
+    expect(FullDraftSchema.parse({ ...draft, language: 'sv' })).not.toHaveProperty('language');
+  });
+
+  it('takes a questions reply or a refusal that carries one, and reads none from it', () => {
+    const questions = { topics: ['what'], whatOptions: ['Bake', 'Staff the table'] };
+    const asked = MagicComposeDraftSchema.safeParse({ questions, language: 'sv' });
+    expect(asked.success && asked.data).toEqual({ questions });
+    expect(QuestionsSchema.parse({ questions, language: 'sv' })).toEqual({ questions });
+    const refused = MagicComposeDraftSchema.safeParse({ refusalReason: 'No.', language: 'sv' });
+    expect(refused.success && refused.data).toEqual({ refusalReason: 'No.' });
+  });
+
+  it('still refuses questions mixed with a draft, language or not', () => {
+    const questions = { topics: ['what'], whatOptions: ['Bake', 'Staff the table'] };
+    expect(MagicComposeDraftSchema.safeParse({ ...draft, questions, language: 'sv' }).success).toBe(
+      false,
+    );
   });
 });
 

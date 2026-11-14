@@ -488,6 +488,60 @@ describe('signups service (db)', () => {
       expect(await createdPayload(r.value.id)).toMatchObject({ locale: 'en', localeSource: 'api' });
     });
 
+    it('records the language a draft was written in when it is given one, beside the language stored or not', async () => {
+      const r = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Drafted in German'),
+        { draftLanguage: 'de' },
+      );
+      if (!r.ok) throw new Error('setup failed');
+      const payload = await createdPayload(r.value.id);
+      expect(payload).toMatchObject({ draftLanguage: 'de' });
+      expect(payload).not.toHaveProperty('locale');
+      const stored = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        {
+          ...validCreateInput('Drafted in German, started in English'),
+          settings: { locale: 'en' },
+        },
+        { localeSource: 'default', draftLanguage: 'de' },
+      );
+      if (!stored.ok) throw new Error('setup failed');
+      expect(await createdPayload(stored.value.id)).toMatchObject({
+        locale: 'en',
+        localeSource: 'default',
+        draftLanguage: 'de',
+      });
+    });
+
+    it('records no draft language when it is given none', async () => {
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Hand-made'));
+      if (!r.ok) throw new Error('setup failed');
+      expect(await createdPayload(r.value.id)).not.toHaveProperty('draftLanguage');
+    });
+
+    // Whatever a later caller passes, only a bare code reaches the log.
+    it.each(['Swedish', 'sv-SE', 'SV', 'e', 'swed', 'sä', 'tea party', 'sv; and more', ''])(
+      'creates the signup but records no draft language that is not a bare code: %j',
+      async (draftLanguage) => {
+        const r = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput(`Drafted in ${draftLanguage || 'nothing'}`),
+          { draftLanguage },
+        );
+        if (!r.ok) throw new Error('setup failed');
+        const payload = await createdPayload(r.value.id);
+        expect(payload).toMatchObject({ templateId: 'default' });
+        expect(payload).not.toHaveProperty('draftLanguage');
+      },
+    );
+
     it('records neither key on signup.created when it stores no language', async () => {
       const r = await createSignup(
         fx.db,

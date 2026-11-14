@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { type CatalogLocale, languageName } from '@/i18n/config';
+import { isLanguageCode } from '@/i18n/organizer-locale';
 import {
   DESCRIPTION_MAX_LENGTH,
   TITLE_MAX_LENGTH,
@@ -144,8 +145,12 @@ export const QuestionsSchema = z
         message: `asking what people sign up for takes at least ${WHAT_OPTIONS_MIN} options`,
         path: ['whatOptions'],
       }),
+    // A model told to report a draft's language may report it here too: it
+    // doesn't make the reply anything but questions, and is read as nothing.
+    language: z.unknown().optional(),
   })
-  .strict();
+  .strict()
+  .transform(({ questions }) => ({ questions }));
 
 /**
  * The reply without its null top-level keys. Models in json_object mode often
@@ -158,15 +163,64 @@ function withoutNullKeys(value: unknown): unknown {
   return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== null));
 }
 
+/** A language's name in English, or undefined for a code that names none (`zzz`). */
+const LANGUAGE_NAMES = new Intl.DisplayNames('en', { type: 'language', fallback: 'none' });
+
+/**
+ * ISO 639's codes that stand for no single language: undetermined, uncoded,
+ * multiple languages and no linguistic content. CLDR names the last two, so
+ * they'd otherwise read as languages.
+ */
+const NO_SINGLE_LANGUAGE: ReadonlySet<string> = new Set(['und', 'mis', 'mul', 'zxx']);
+
+/**
+ * The language a draft says it's written in, as a bare language code, or
+ * undefined when the value doesn't name one. Lenient, so a missing or odd
+ * value never fails a draft.
+ *
+ * The whole value, trimmed and with `_` read as `-`, must be a well-formed
+ * language tag (`Intl.Locale`), and its language is kept only when it's two
+ * or three letters that CLDR names as a language. `Intl.Locale` gives the
+ * language in its canonical form, so `sv-SE`, `sv_SE` and `SV` read as `sv`,
+ * and a three-letter code for a language with a two-letter one as that:
+ * `eng`, `swe` and `deu` read as `en`, `sv` and `de`. A name (`Swedish`), a
+ * sentence (even one that starts `sv-SE,`), a private-use tag (`x-klingon`),
+ * digits, or a code CLDR doesn't name (`zzz`, `the`) reads as none. A
+ * well-formed tag with a real language and odd subtags after it still counts
+ * (`no-idea` reads as `no`). So what's kept is a language's code and nothing
+ * else the model wrote: the route only compares it with the languages that
+ * have shipped, and records an unshipped one.
+ */
+const ReportedLanguageSchema = z.unknown().transform((value) => {
+  if (typeof value !== 'string') return undefined;
+  try {
+    const { language } = new Intl.Locale(value.trim().replaceAll('_', '-'));
+    return isLanguageCode(language) &&
+      !NO_SINGLE_LANGUAGE.has(language) &&
+      LANGUAGE_NAMES.of(language) !== undefined
+      ? language
+      : undefined;
+  } catch {
+    // Not a well-formed language tag.
+    return undefined;
+  }
+});
+
 /**
  * A refusal still wins, as it always has (`RefusalSchema` isn't strict). A
  * reply carrying `questions` is a questions reply and nothing else, so the
- * draft arm refuses that key; `FullDraftSchema` itself stays as it is, since
- * the MCP `create_signup` tool validates with it.
+ * draft arm refuses that key. Only the draft arm reads `language`, the
+ * language the draft says it's written in; a refusal or questions reply
+ * carries none. `FullDraftSchema` itself stays as it is, since the MCP
+ * `create_signup` tool validates with it.
  */
 export const MagicComposeDraftSchema = z.preprocess(
   withoutNullKeys,
-  z.union([RefusalSchema, QuestionsSchema, FullDraftSchema.extend({ questions: z.undefined() })]),
+  z.union([
+    RefusalSchema,
+    QuestionsSchema,
+    FullDraftSchema.extend({ questions: z.undefined(), language: ReportedLanguageSchema }),
+  ]),
 );
 
 export type MagicComposeDraft = z.infer<typeof FullDraftSchema>;
@@ -209,7 +263,8 @@ Output schema (return ONLY this JSON object, no prose, no fences):
   "slots": [
     { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default; null only if the prompt or answers say there's no limit> }
   ],
-  "groupBy": "<field-ref to group slots by, or null>"
+  "groupBy": "<field-ref to group slots by, or null>",
+  "language": "<code of the language the draft is written in, like en, sv or de>"
 }
 
 QUESTIONS — only when the prompt doesn't say what people sign up for, or every slot would be a "TBD:" placeholder (rule 4), return ONLY this object instead of a draft:
@@ -265,7 +320,8 @@ OUTPUT:
     { "values": { "class": "Cedar", "time": "10:00" }, "capacity": 1 },
     { "values": { "class": "Cedar", "time": "10:30" }, "capacity": 1 }
   ],
-  "groupBy": "class"
+  "groupBy": "class",
+  "language": "en"
 }
 
 Example B — weekly snack roster, 6 dated games:
@@ -288,7 +344,8 @@ OUTPUT:
     { "values": { "game": "Game 5", "date": "2026-05-23" }, "capacity": 2 },
     { "values": { "game": "Game 6", "date": "2026-05-30" }, "capacity": 2 }
   ],
-  "groupBy": null
+  "groupBy": null,
+  "language": "en"
 }
 
 Example C — doesn't say what people sign up for, so ask:
@@ -332,7 +389,8 @@ OUTPUT:
     { "values": { "item": "Cooler" }, "capacity": 1 },
     { "values": { "item": "Lantern" }, "capacity": 1 }
   ],
-  "groupBy": null
+  "groupBy": null,
+  "language": "en"
 }
 
 Example F — one day, with a time, so every slot carries that date and time:
@@ -352,7 +410,8 @@ OUTPUT:
     { "values": { "job": "Wash cars", "date": "2026-06-06", "time": "09:00" }, "capacity": 4 },
     { "values": { "job": "Take payments", "date": "2026-06-06", "time": "09:00" }, "capacity": 2 }
   ],
-  "groupBy": null
+  "groupBy": null,
+  "language": "en"
 }
 
 LOAD-BEARING RULES:

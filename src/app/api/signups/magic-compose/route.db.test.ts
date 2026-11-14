@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import { getDb, type Db } from '@/db/client';
@@ -19,6 +19,7 @@ import {
   type ChatMessage,
 } from '@/lib/magic-compose/prompt';
 import type { LlmClient } from '@/lib/magic-compose/llm-client';
+import { persistDraft } from '@/lib/magic-compose/persist';
 import { magicComposeToTemplate } from '@/lib/magic-compose/to-template';
 import { listFieldsForSignup } from '@/services/slot-fields';
 import { createSignup } from '@/services/signups';
@@ -53,6 +54,11 @@ vi.mock('@/lib/env', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/env')>()),
   magicComposeEnabled: () => true,
 }));
+// The real persistDraft, watched, to see what the route hands it.
+vi.mock('@/lib/magic-compose/persist', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/magic-compose/persist')>();
+  return { ...actual, persistDraft: vi.fn(actual.persistDraft) };
+});
 vi.mock('@/lib/magic-compose/llm-client', () => ({
   defaultLlmClient: () => ({
     async generateDraft(messages: { role: string; content: string }[]) {
@@ -398,6 +404,168 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
       expect(system).toContain(writesIn('English'));
       expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: 'en' });
       expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
+    });
+  });
+});
+
+describe('POST /api/signups/magic-compose and the language the draft reports (db)', () => {
+  let fx: Fixture;
+
+  // A fresh organizer for each test, so none runs into the hourly draft limit.
+  beforeEach(async () => {
+    fx = await setupWorkspace();
+    route.actor = fx.actor;
+    route.workspaceId = fx.workspaceId;
+    route.locale = null;
+    route.instanceDefault = undefined;
+    vi.mocked(persistDraft).mockClear();
+  });
+
+  afterEach(async () => {
+    await teardown(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  /** The draft as the model sends it: `language` left out when undefined. */
+  async function compose(language: unknown, acceptLanguage = 'en') {
+    route.llmResult = ok(language === undefined ? CANNED_DRAFT : { ...CANNED_DRAFT, language });
+    const res = await POST(
+      new NextRequest('http://localhost/api/signups/magic-compose', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'accept-language': acceptLanguage },
+        body: JSON.stringify({ prompt: 'Snack duty for three Saturdays' }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const { data } = (await res.json()) as { data: { id: string; draft: object } };
+    const [row] = await fx.db.select().from(signups).where(eq(signups.id, data.id));
+    const [created] = await fx.db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, data.id), eq(activity.eventType, 'signup.created')));
+    // What persistDraft was given, and what the organizer's page is sent, never
+    // carry the model's language.
+    expect(vi.mocked(persistDraft)).toHaveBeenCalledTimes(1);
+    const persisted = vi.mocked(persistDraft).mock.calls[0]![3];
+    expect(persisted).not.toHaveProperty('language');
+    expect(Object.keys(data.draft).sort()).toEqual(['description', 'fields', 'slots', 'title']);
+    return {
+      settings: row!.settings as Record<string, unknown>,
+      telemetry: created!.payload as Record<string, unknown>,
+    };
+  }
+
+  describe('while only English has shipped to participants', () => {
+    it.each(['en', 'sv', 'de', undefined])(
+      'stores no language and records no locale for a draft in %j',
+      async (language) => {
+        route.locale = 'sv';
+        const { settings, telemetry } = await compose(language, 'sv');
+        expect(settings).not.toHaveProperty('locale');
+        expect(telemetry).not.toHaveProperty('locale');
+        expect(telemetry).not.toHaveProperty('localeSource');
+      },
+    );
+
+    it.each([
+      ['sv', 'sv'],
+      ['sv-SE', 'sv'],
+      ['SV', 'sv'],
+      ['de', 'de'],
+      ['de_AT', 'de'],
+      ['fil', 'fil'],
+      ['swe', 'sv'],
+      ['deu', 'de'],
+    ])('records the draft’s language %j as %j, since it hasn’t shipped', async (language, code) => {
+      const { telemetry } = await compose(language);
+      expect(telemetry).toMatchObject({ templateId: 'magic-compose', draftLanguage: code });
+    });
+
+    it.each([
+      ['English', 'en'],
+      ['English with a region', 'en-GB'],
+      ['English’s three-letter code', 'eng'],
+      ['missing', undefined],
+      ['a language’s name', 'Swedish'],
+      ['a code with text after it', 'sv; the draft is Swedish'],
+      ['a sentence that starts with a tag', 'sv-SE, though the headings are partly in English'],
+      ['a title that starts with letters', 'Tea-party helpers'],
+      ['three letters that name no language', 'zzz'],
+      ['an English word that names no language', 'the'],
+      ['a private-use tag', 'x-klingon'],
+      ['digits', '12'],
+      ['a number', 42],
+      ['an object', { code: 'sv' }],
+    ])('records no draft language for one that is %s', async (_, language) => {
+      const { telemetry } = await compose(language);
+      expect(telemetry).toMatchObject({ templateId: 'magic-compose' });
+      expect(telemetry).not.toHaveProperty('draftLanguage');
+      expect(JSON.stringify(telemetry)).not.toMatch(/swedish|english|tea|zzz|the|klingon/i);
+    });
+  });
+
+  describe('once Swedish has shipped to participants', () => {
+    beforeEach(() => {
+      ship('participant', ['en', 'sv']);
+    });
+
+    it.each(['sv', 'sv-SE', 'SV', 'swe'])(
+      'starts it in Swedish for a draft in %j, over the organizer’s English, as content',
+      async (language) => {
+        route.locale = 'en';
+        const { settings, telemetry } = await compose(language, 'en');
+        expect(settings).toMatchObject({ locale: 'sv' });
+        expect(telemetry).toMatchObject({ locale: 'sv', localeSource: 'content' });
+        expect(telemetry).not.toHaveProperty('draftLanguage');
+      },
+    );
+
+    it.each(['en', 'eng'])(
+      'starts it in English for a draft in %j, over the organizer’s Swedish, as content',
+      async (language) => {
+        route.locale = 'sv';
+        const { settings, telemetry } = await compose(language, 'sv');
+        expect(settings).toMatchObject({ locale: 'en' });
+        expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'content' });
+        expect(telemetry).not.toHaveProperty('draftLanguage');
+      },
+    );
+
+    it('starts it in the organizer’s language for a draft in one that hasn’t shipped, and records that one', async () => {
+      route.locale = 'sv';
+      const { settings, telemetry } = await compose('de-DE', 'de');
+      expect(settings).toMatchObject({ locale: 'sv' });
+      expect(telemetry).toMatchObject({
+        locale: 'sv',
+        localeSource: 'setting',
+        draftLanguage: 'de',
+      });
+    });
+
+    it.each([
+      ['missing', undefined],
+      ['a language’s name', 'Svenska'],
+      ['a code with text after it', 'sv, mostly'],
+      ['a sentence that starts with a tag', 'sv-SE, though the headings are partly in English'],
+      ['three letters that name no language', 'zzz'],
+      ['a number', 46],
+    ])(
+      'starts it in the organizer’s language for a draft whose language is %s',
+      async (_, language) => {
+        const { settings, telemetry } = await compose(language, 'sv-SE,en;q=0.8');
+        expect(settings).toMatchObject({ locale: 'sv' });
+        expect(telemetry).toMatchObject({ locale: 'sv', localeSource: 'browser' });
+        expect(telemetry).not.toHaveProperty('draftLanguage');
+      },
+    );
+
+    it('falls back to English when neither the draft nor the organizer names a shipped language', async () => {
+      const { settings, telemetry } = await compose('de', 'de');
+      expect(settings).toMatchObject({ locale: 'en' });
+      expect(telemetry).toMatchObject({
+        locale: 'en',
+        localeSource: 'default',
+        draftLanguage: 'de',
+      });
     });
   });
 });

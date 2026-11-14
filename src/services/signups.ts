@@ -4,7 +4,7 @@ import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
 import { type CatalogLocale, SHIPPED, isShipped, signupLocale } from '@/i18n/config';
-import type { SignupLocaleSource } from '@/i18n/organizer-locale';
+import { isLanguageCode, type SignupLocaleSource } from '@/i18n/organizer-locale';
 import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
 import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
@@ -101,18 +101,27 @@ export interface SignupWithSlots extends SignupRow {
  * Create a draft signup, with the template's fields and slots, in one
  * transaction. Its language is the `settings.locale` in `rawInput`, refused
  * unless it has shipped to participants; the route decides it (the one its
- * caller sent, else `newSignupLocale`'s) and puts it there. `localeSource`
- * says which step chose it, for `signup.created`; a language with none was
- * sent by the caller (`api`). Without `opts.template` it starts from
- * `defaultTemplate`, its columns named in the language its participants will
- * get (`signupLocale`).
+ * caller sent, else `newSignupLocale`'s or `draftedSignupLocale`'s) and puts
+ * it there. `localeSource` says which step chose it, for `signup.created`; a
+ * language with none was sent by the caller (`api`). `draftLanguage`, from
+ * Magic Compose only, is the code of the language its draft said it was
+ * written in when that language hasn't shipped to participants, as the
+ * caller read it (`MagicComposeDraftSchema`). It goes on `signup.created`
+ * only when it's a bare language code (`isLanguageCode`), and anything else
+ * is left out, so nothing but a code can reach the log this way.
+ * Without `opts.template` it starts from `defaultTemplate`, its columns named
+ * in the language its participants will get (`signupLocale`).
  */
 export async function createSignup(
   db: Db,
   actor: Actor,
   workspaceId: string,
   rawInput: unknown,
-  opts: { template?: SignupTemplate; localeSource?: SignupLocaleSource } = {},
+  opts: {
+    template?: SignupTemplate;
+    localeSource?: SignupLocaleSource;
+    draftLanguage?: string;
+  } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
   requireOrganizer(actor);
   requireWorkspaceWrite(actor, workspaceId);
@@ -265,6 +274,7 @@ export async function createSignup(
         ...(settings.locale === undefined
           ? {}
           : { locale: settings.locale, localeSource: opts.localeSource ?? 'api' }),
+        ...(isLanguageCode(opts.draftLanguage) ? { draftLanguage: opts.draftLanguage } : {}),
       },
     });
     return inserted;

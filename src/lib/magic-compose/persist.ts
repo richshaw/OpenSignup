@@ -34,9 +34,12 @@ export interface PersistedDraft {
  * nothing — otherwise a corrected retry would make a second signup.
  *
  * `locale` is the language the signup starts in and the step that chose it,
- * as the caller decided (`newSignupLocale`, or `api` for one a caller sent).
- * It goes into the signup's settings, where `createSignup` refuses one that
- * hasn't shipped. Without it the signup stores no language.
+ * as the caller decided (`draftedSignupLocale`, `newSignupLocale`, or `api`
+ * for one a caller sent). It goes into the signup's settings, where
+ * `createSignup` refuses one that hasn't shipped. Without it the signup
+ * stores no language. `draftLanguage` is Magic Compose's alone: the code of
+ * the language its draft was written in, when that hasn't shipped, for
+ * `signup.created`.
  */
 export async function persistDraft(
   db: Db,
@@ -48,6 +51,7 @@ export async function persistDraft(
     strict?: boolean;
     logContext?: Record<string, unknown>;
     locale?: { locale: CatalogLocale; source: SignupLocaleSource };
+    draftLanguage?: string;
   } = {},
 ): Promise<Result<PersistedDraft, ServiceError>> {
   const { template, groupByFieldRefs, dropped } = magicComposeToTemplate(
@@ -90,7 +94,7 @@ export async function persistDraft(
         ...(opts.locale ? { locale: opts.locale.locale } : {}),
       },
     },
-    { template, localeSource: opts.locale?.source },
+    { template, localeSource: opts.locale?.source, draftLanguage: opts.draftLanguage },
   );
   if (!created.ok) return created;
   return ok({ signup: created.value, template, groupByFieldRefs, warnings });

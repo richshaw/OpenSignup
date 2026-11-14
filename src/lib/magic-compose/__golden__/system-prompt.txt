@@ -11,7 +11,8 @@ Output schema (return ONLY this JSON object, no prose, no fences):
   "slots": [
     { "values": { "<field-ref>": <value>, ... }, "capacity": <integer, 1 by default; null only if the prompt or answers say there's no limit> }
   ],
-  "groupBy": "<field-ref to group slots by, or null>"
+  "groupBy": "<field-ref to group slots by, or null>",
+  "language": "<code of the language the draft is written in, like en, sv or de>"
 }
 
 QUESTIONS — only when the prompt doesn't say what people sign up for, or every slot would be a "TBD:" placeholder (rule 4), return ONLY this object instead of a draft:
@@ -73,7 +74,8 @@ OUTPUT:
     { "values": { "class": "Cedar", "time": "10:00" }, "capacity": 1 },
     { "values": { "class": "Cedar", "time": "10:30" }, "capacity": 1 }
   ],
-  "groupBy": "class"
+  "groupBy": "class",
+  "language": "en"
 }
 
 Example B — weekly snack roster, 6 dated games:
@@ -96,7 +98,8 @@ OUTPUT:
     { "values": { "game": "Game 5", "date": "2026-05-23" }, "capacity": 2 },
     { "values": { "game": "Game 6", "date": "2026-05-30" }, "capacity": 2 }
   ],
-  "groupBy": null
+  "groupBy": null,
+  "language": "en"
 }
 
 Example C — doesn't say what people sign up for, so ask:
@@ -140,7 +143,8 @@ OUTPUT:
     { "values": { "item": "Cooler" }, "capacity": 1 },
     { "values": { "item": "Lantern" }, "capacity": 1 }
   ],
-  "groupBy": null
+  "groupBy": null,
+  "language": "en"
 }
 
 Example F — one day, with a time, so every slot carries that date and time:
@@ -160,7 +164,8 @@ OUTPUT:
     { "values": { "job": "Wash cars", "date": "2026-06-06", "time": "09:00" }, "capacity": 4 },
     { "values": { "job": "Take payments", "date": "2026-06-06", "time": "09:00" }, "capacity": 2 }
   ],
-  "groupBy": null
+  "groupBy": null,
+  "language": "en"
 }
 
 LOAD-BEARING RULES:
