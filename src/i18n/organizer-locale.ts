@@ -1,13 +1,13 @@
 /**
  * Which language an organizer gets, from what is known about them.
  *
- * Pure, like config.ts: the caller reads the organizer's stored language and
- * the instance default, or a new account's `Accept-Language`, and passes them
- * in. Reading the request needs `next/headers`, which must stay out of this
- * file and out of server.ts, since the reminder worker imports server.ts
- * under tsx.
+ * Pure, like config.ts: the caller reads the instance default and either the
+ * organizer's stored language or a new account's `Accept-Language`, and
+ * passes them in. Reading the request needs `next/headers`, which must stay
+ * out of this file and out of server.ts, since the reminder worker imports
+ * server.ts under tsx.
  */
-import { type Audience, type CatalogLocale, SHIPPED, isShipped } from './config';
+import { type Audience, type CatalogLocale, isShipped } from './config';
 
 /**
  * Which step chose the language, in the order they are tried: the language
@@ -52,22 +52,34 @@ export function chooseOrganizerLocale({
 }
 
 /**
- * The language a new organizer account stores, from the `Accept-Language` of
- * the request that creates it (null when there is none): the browser's
- * top-ranked language, when it has shipped to participants, since it's the
- * language the organizer's new signups start in. Otherwise null, and the
- * account stores none, so it follows the instance's `DEFAULT_LOCALE`, else
- * English, as accounts made before languages were stored do.
+ * The language a new organizer account stores, or null to store none. The
+ * owner's rule (14 November 2026), where the site default wins:
  *
- * Also null while only one language has shipped to participants: there's
- * nothing to choose between, and storing English would pin the account to a
- * language nobody chose, ahead of a `DEFAULT_LOCALE` set once a second one
- * ships.
+ * - The instance sets `DEFAULT_LOCALE`: none, so the account follows it.
+ * - Otherwise the browser's top-ranked language, from the `Accept-Language`
+ *   of the request that creates the account, when it has shipped to
+ *   participants and isn't English, which an account with none gets anyway.
+ * - In every other case (no header, one that can't be read, a language that
+ *   hasn't shipped, English) none.
+ *
+ * So a stored language is always one the account wouldn't otherwise get, and
+ * an operator who sets or changes `DEFAULT_LOCALE` later moves every account
+ * that stores none. While only English has shipped, nothing is stored. The
+ * decision table in docs/translating.md ("An organizer's language") is this
+ * rule, and the tests run every row of it.
  */
-export function newOrganizerLocale(acceptLanguage: string | null): CatalogLocale | null {
-  if (SHIPPED.participant.length < 2 || acceptLanguage === null) return null;
+export function newOrganizerLocale({
+  acceptLanguage,
+  instanceDefault,
+}: {
+  /** The request's `Accept-Language` header, or null when it has none. */
+  acceptLanguage: string | null;
+  /** The instance's `DEFAULT_LOCALE` (`instanceDefaultLocale()`), or undefined when unset. */
+  instanceDefault: CatalogLocale | undefined;
+}): CatalogLocale | null {
+  if (instanceDefault !== undefined || acceptLanguage === null) return null;
   const top = topRankedLanguage(acceptLanguage);
-  return isShipped('participant', top) ? top : null;
+  return top !== 'en' && isShipped('participant', top) ? top : null;
 }
 
 /** A language range (`sv`, `sv-SE`), capturing its language, or the wildcard. */
@@ -84,10 +96,10 @@ const WEIGHT = /^q=(0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/i;
  * Only the top range counts: an account stores the language its browser asks
  * for first, or none, never one further down that ordinary negotiation would
  * fall back on. A browser that asks first for a language that hasn't shipped,
- * then English, stores nothing rather than English. The highest weight wins,
- * the first listed on a tie; a weight of 0 means "not this one". An entry that
- * isn't a range with at most a weight after it is passed over, so junk in a
- * header can't choose a language.
+ * then a shipped one, stores nothing. The highest weight wins, the first
+ * listed on a tie; a weight of 0 means "not this one". An entry that isn't a
+ * range with at most a weight after it is passed over, so junk in a header
+ * can't choose a language.
  */
 function topRankedLanguage(header: string): string | undefined {
   let top: { language: string | undefined; weight: number } | undefined;

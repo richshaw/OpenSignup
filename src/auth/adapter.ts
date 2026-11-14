@@ -7,6 +7,7 @@ import { workspaceMembers } from '@/db/schema/members';
 import { workspaces } from '@/db/schema/workspaces';
 import { accounts, sessions, verificationTokens } from '@/db/schema/auth';
 import { newOrganizerLocale } from '@/i18n/organizer-locale';
+import { instanceDefaultLocale } from '@/i18n/server';
 import { recordActivityBestEffort } from '@/lib/activity';
 import { makeId } from '@/lib/ids';
 import { normalizeEmail } from '@/schemas/common';
@@ -28,11 +29,13 @@ function toAdapterUser(row: typeof organizers.$inferSelect): AdapterUser {
  * (first magic-link login), we also create their personal workspace and the
  * owner membership in the same transaction.
  *
- * A new organizer's language is stored then, and only then: their browser's
- * top language, from the request that creates the account, when it has
- * shipped to participants (`newOrganizerLocale`), else none. A later sign-in
- * reads the account and marks its email verified, and never touches it, so
- * only the organizer changes it, in account Settings.
+ * A new organizer's language is stored then, and only then
+ * (`newOrganizerLocale`): none when the instance sets `DEFAULT_LOCALE`, which
+ * the account then follows; otherwise their browser's top language, from the
+ * request that creates the account, when it has shipped to participants and
+ * isn't English; else none. A later sign-in reads the account and marks its
+ * email verified, and never touches it, so only the organizer changes it, in
+ * account Settings.
  */
 export function SignupAdapter() {
   const db = getDb();
@@ -54,7 +57,10 @@ export function SignupAdapter() {
       return row ? toAdapterUser(row) : null;
     },
     async createUser(user: AdapterUser): Promise<AdapterUser> {
-      const locale = newOrganizerLocale(await getCurrentRequestAcceptLanguage());
+      const locale = newOrganizerLocale({
+        acceptLanguage: await getCurrentRequestAcceptLanguage(),
+        instanceDefault: instanceDefaultLocale(),
+      });
       const { row, workspaceId } = await db.transaction(async (tx) => {
         const organizerId = makeId('org');
         const [orgRow] = await tx

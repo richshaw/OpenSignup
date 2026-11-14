@@ -4,17 +4,24 @@ import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { accountLanguageTable } from '@/i18n/testing/account-language-table';
 import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import { SignupAdapter } from './adapter';
 
 // The request Auth.js creates an account in: the callback the signing-in
 // browser makes, from the magic link, the six-digit code or a sign-in
-// provider. Its Accept-Language, none, or no request at all.
+// provider. Its Accept-Language, none, or no request at all. And the site's
+// DEFAULT_LOCALE as each test sets it: getEnv() parses the environment once.
 const request = vi.hoisted(() => ({
   acceptLanguage: null as string | null,
   outsideRequest: false,
+  instanceDefault: undefined as string | undefined,
+}));
+vi.mock('@/i18n/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/i18n/server')>()),
+  instanceDefaultLocale: () => request.instanceDefault,
 }));
 vi.mock('next/headers', () => ({
   headers: async () => {
@@ -35,6 +42,7 @@ const made = { organizerIds: [] as string[], workspaceIds: [] as string[] };
 beforeEach(() => {
   request.acceptLanguage = null;
   request.outsideRequest = false;
+  request.instanceDefault = undefined;
 });
 
 afterAll(async () => {
@@ -104,6 +112,20 @@ async function signInAgain(email: string, acceptLanguage: string | null) {
   return stored(user.id);
 }
 
+describe('SignupAdapter.createUser and the decision table in docs/translating.md (db)', () => {
+  it.each(accountLanguageTable())('$label: stores what the row says', async (row) => {
+    ship('participant', ['en', 'sv']);
+    request.instanceDefault = row.instanceDefault;
+    for (const header of row.headers) {
+      const account = await signUp(header);
+      expect(account.locale, String(header)).toBe(row.stored);
+      expect(account.created, String(header)).toEqual([
+        row.stored ? { kind: 'personal', locale: row.stored } : { kind: 'personal' },
+      ]);
+    }
+  });
+});
+
 describe('SignupAdapter.createUser while only English has shipped (db)', () => {
   it.each<[string, string | null]>([
     ['an English browser', 'en'],
@@ -139,11 +161,23 @@ describe.each(OTHER_LANGUAGES)(
       expect(account.created).toEqual([{ kind: 'personal', locale: other }]);
     });
 
-    it('stores English for a browser that asks for English first', async () => {
+    it('stores nothing for a browser that asks for English first, which it gets anyway', async () => {
       const account = await signUp(`en-US,${other};q=0.9`);
-      expect(account.locale).toBe('en');
-      expect(account.created).toEqual([{ kind: 'personal', locale: 'en' }]);
+      expect(account.locale).toBeNull();
+      expect(account.created).toEqual([{ kind: 'personal' }]);
     });
+
+    it.each<CatalogLocale>(['en', other])(
+      'stores nothing when the site sets a default (%s), so the account follows it',
+      async (instanceDefault) => {
+        request.instanceDefault = instanceDefault;
+        for (const header of [other, 'en', null]) {
+          const account = await signUp(header);
+          expect(account.locale, String(header)).toBeNull();
+          expect(account.created).toEqual([{ kind: 'personal' }]);
+        }
+      },
+    );
 
     it.each([
       ['a language that hasn’t shipped first', () => `zz,${other};q=0.9,en;q=0.8`],
@@ -171,13 +205,21 @@ describe.each(OTHER_LANGUAGES)(
 
     it('never changes an account’s language on a later sign-in', async () => {
       const first = await signUp(other);
-      expect((await signInAgain(first.email, 'en')).locale).toBe(other);
-      expect((await signInAgain(first.email, null)).locale).toBe(other);
-
-      // One that stored none keeps none, whatever the browser asks for later.
       const none = await signUp('zz');
+      expect(first.locale).toBe(other);
       expect(none.locale).toBeNull();
-      expect((await signInAgain(none.email, other)).locale).toBeNull();
+
+      // Whatever the browser asks for later, and whatever the site's default
+      // has become, each keeps what it stores: one with none follows the
+      // default by having none.
+      for (const instanceDefault of [undefined, 'en', other]) {
+        request.instanceDefault = instanceDefault;
+        for (const header of [other, 'en', null]) {
+          expect((await signInAgain(first.email, header)).locale).toBe(other);
+          expect((await signInAgain(none.email, header)).locale).toBeNull();
+        }
+      }
+      request.instanceDefault = undefined;
 
       // And one the organizer changed in Settings keeps their choice.
       await db.update(organizers).set({ locale: 'en' }).where(eq(organizers.id, first.id));

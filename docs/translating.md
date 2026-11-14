@@ -366,9 +366,9 @@ Two lists in `src/i18n/config.ts` decide it:
   these can be saved on a signup or an account, sent through the API or the AI
   connector, or picked for a Magic Compose draft. The language controls on a
   signup's Settings tab and on the account settings page appear once a second
-  language has shipped, and only then does a new organizer account store its
-  browser's top language, if it's one of these. A site's `DEFAULT_LOCALE` counts only for audiences its
-  language has shipped to (`defaultFor`).
+  language has shipped, and only a language other than English in this list
+  can be stored on a new organizer account (below). A site's `DEFAULT_LOCALE`
+  counts only for audiences its language has shipped to (`defaultFor`).
 
 Today `CATALOG_LOCALES` is `en` and `sv`, and `SHIPPED` holds only `en`, for
 every audience.
@@ -386,6 +386,52 @@ nothing else: nothing in the app can save a language that hasn't shipped. The
 web server and the worker log a warning when they start with it set. A reused
 `pnpm dev` needs it too: `E2E_UNSHIPPED_LOCALES=sv pnpm dev`. Never set it on
 a real site.
+
+### An organizer's language
+
+An organizer's language is the one their new signups start in, and the one
+Magic Compose falls back on. It's stored on their account once, when the
+account is created, from the browser that finishes signing in: the one that
+opens the sign-in link or types the code, or comes back from a sign-in
+provider such as Google. Nothing reads the browser's language after that. The
+site default wins:
+
+- If the site sets `DEFAULT_LOCALE`, nothing is stored, and the account
+  follows the site's default.
+- Otherwise the browser's top language is stored if it has shipped to
+  participants and isn't English, which an account with nothing stored gets
+  anyway. Only the top language counts: a browser that asks for German, then
+  Swedish, stores nothing.
+- In every other case nothing is stored.
+
+So a stored language is always one the account wouldn't get otherwise, and a
+site that sets or changes `DEFAULT_LOCALE` later moves every account with
+nothing stored, including every account made before languages were stored.
+The organizer changes their language in account Settings, and whatever they
+choose there is stored. A stored language that later leaves
+`SHIPPED.participant` counts as nothing stored.
+
+With `sv` shipped to participants:
+
+| Site default (`DEFAULT_LOCALE`) | Browser's top language | Stored  | The account gets |
+| ------------------------------- | ---------------------- | ------- | ---------------- |
+| none                            | `sv`                   | `sv`    | `sv`             |
+| none                            | `en`                   | nothing | `en`             |
+| none                            | `de` (not shipped)     | nothing | `en`             |
+| none                            | none, or unreadable    | nothing | `en`             |
+| `en`                            | `sv`                   | nothing | `en`             |
+| `en`                            | `en`                   | nothing | `en`             |
+| `en`                            | `de` (not shipped)     | nothing | `en`             |
+| `en`                            | none, or unreadable    | nothing | `en`             |
+| `sv`                            | `sv`                   | nothing | `sv`             |
+| `sv`                            | `en`                   | nothing | `sv`             |
+| `sv`                            | `de` (not shipped)     | nothing | `sv`             |
+| `sv`                            | none, or unreadable    | nothing | `sv`             |
+
+While only English has shipped, nothing is stored and every account gets
+English. `newOrganizerLocale` in `src/i18n/organizer-locale.ts` applies the
+rule, and `src/i18n/organizer-locale.test.ts` and `src/auth/adapter.db.test.ts`
+run every row of this table against it.
 
 ## Changing English
 

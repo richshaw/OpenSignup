@@ -205,11 +205,11 @@ client-supplied data is trusted.
 
 ### Auth & workspace
 
-| event                  | actor     | payload                                                                                                                                                                | fired from                                   |
-| ---------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `auth.magic_link_sent` | system    | `{ emailDomain, expiresInMinutes }`                                                                                                                                    | `auth/config.ts` (`sendVerificationRequest`) |
-| `auth.signed_in`       | organizer | `{ isNewUser }`                                                                                                                                                        | `auth/config.ts` (`events.signIn`)           |
-| `workspace.created`    | organizer | `{ kind: 'personal' }`, plus `locale` when the new account stored a language: the top language the browser that signed up asked for, if it had shipped to participants | `auth/adapter.ts` (first-login tx)           |
+| event                  | actor     | payload                                                                                                                                                                                                                       | fired from                                   |
+| ---------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `auth.magic_link_sent` | system    | `{ emailDomain, expiresInMinutes }`                                                                                                                                                                                           | `auth/config.ts` (`sendVerificationRequest`) |
+| `auth.signed_in`       | organizer | `{ isNewUser }`                                                                                                                                                                                                               | `auth/config.ts` (`events.signIn`)           |
+| `workspace.created`    | organizer | `{ kind: 'personal' }`, plus `locale` when the new account stored a language: the top language the browser that signed up asked for, on a site with no `DEFAULT_LOCALE`, if it had shipped to participants and wasn't English | `auth/adapter.ts` (first-login tx)           |
 
 > Note: `auth.magic_link_sent` and `auth.signed_in` are workspace-scoped to
 > `NULL` because magic-link delivery happens before the workspace is known

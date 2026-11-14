@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { CATALOG_LOCALES } from './config';
+import { CATALOG_LOCALES, type CatalogLocale } from './config';
 import { chooseOrganizerLocale, newOrganizerLocale } from './organizer-locale';
+import { accountLanguageTable } from './testing/account-language-table';
 import { ship } from './testing/ship';
 
 /** Every language with a catalog besides English, each tried in turn. */
@@ -96,6 +97,33 @@ describe.each(OTHER_LANGUAGES)(
   },
 );
 
+/** A new account's language with no `DEFAULT_LOCALE` set. */
+const noDefault = (acceptLanguage: string | null) =>
+  newOrganizerLocale({ acceptLanguage, instanceDefault: undefined });
+
+describe('the decision table in docs/translating.md (“An organizer’s language”)', () => {
+  const rows = accountLanguageTable();
+
+  it('has a row for each site default and each kind of browser', () => {
+    expect(rows).toHaveLength(12);
+    expect(new Set(rows.map((row) => row.label)).size).toBe(12);
+  });
+
+  it.each(rows)('$label: stores what the row says, and the account gets its language', (row) => {
+    ship('participant', ['en', 'sv']);
+    for (const acceptLanguage of row.headers) {
+      const stored = newOrganizerLocale({ acceptLanguage, instanceDefault: row.instanceDefault });
+      expect(stored, String(acceptLanguage)).toBe(row.stored);
+      const gets = chooseOrganizerLocale({
+        audience: 'participant',
+        saved: stored,
+        instanceDefault: row.instanceDefault,
+      });
+      expect(gets.locale, String(acceptLanguage)).toBe(row.gets);
+    }
+  });
+});
+
 describe('newOrganizerLocale while only English has shipped', () => {
   it.each<[string, string | null]>([
     ['an English browser', 'en'],
@@ -106,12 +134,13 @@ describe('newOrganizerLocale while only English has shipped', () => {
     ]),
     ['no header', null],
   ])('stores nothing for %s', (_label, header) => {
-    expect(newOrganizerLocale(header)).toBeNull();
+    expect(noDefault(header)).toBeNull();
+    expect(newOrganizerLocale({ acceptLanguage: header, instanceDefault: 'en' })).toBeNull();
   });
 
   it.each(OTHER_LANGUAGES)('stores nothing while %s has shipped only to organizers', (other) => {
     ship('organizer', ['en', other]);
-    expect(newOrganizerLocale(other)).toBeNull();
+    expect(noDefault(other)).toBeNull();
   });
 });
 
@@ -120,14 +149,45 @@ describe.each(OTHER_LANGUAGES)(
   (other) => {
     const read = (header: string | null) => {
       ship('participant', ['en', other]);
-      return newOrganizerLocale(header);
+      return noDefault(header);
     };
 
-    it('stores the browser’s top language when it has shipped, English included', () => {
+    it('stores the browser’s top language when it has shipped and isn’t English', () => {
       expect(read(other)).toBe(other);
       expect(read(`${other},en;q=0.8`)).toBe(other);
-      expect(read(`en,${other};q=0.8`)).toBe('en');
-      expect(read('en-US')).toBe('en');
+    });
+
+    it('stores nothing for an English browser, which gets English anyway', () => {
+      expect(read('en')).toBeNull();
+      expect(read(`en,${other};q=0.8`)).toBeNull();
+      expect(read('en-US')).toBeNull();
+    });
+
+    it.each<CatalogLocale>(['en', other])(
+      'stores nothing when the site sets a default (%s), whatever the browser asks for',
+      (instanceDefault) => {
+        ship('participant', ['en', other]);
+        for (const acceptLanguage of [other, `${other}-ZZ,en;q=0.5`, 'en', null]) {
+          expect(newOrganizerLocale({ acceptLanguage, instanceDefault })).toBeNull();
+        }
+      },
+    );
+
+    it('lets a stored language that later leaves the list count as nothing stored', () => {
+      const stored = read(other);
+      expect(stored).toBe(other);
+      // The language is withdrawn: the account gets the site's default, if it
+      // has shipped, else English, as an account with nothing stored does.
+      ship('participant', ['en']);
+      for (const instanceDefault of [undefined, 'en', other] as const) {
+        expect(
+          chooseOrganizerLocale({ audience: 'participant', saved: stored, instanceDefault }),
+        ).toEqual(chooseOrganizerLocale({ audience: 'participant', saved: null, instanceDefault }));
+      }
+      expect(
+        chooseOrganizerLocale({ audience: 'participant', saved: stored, instanceDefault: other })
+          .locale,
+      ).toBe('en');
     });
 
     it('stores nothing with no header, as for a request from no browser', () => {
