@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
-import { removeRefusal } from '@/app/app/(chrome)/signups/[id]/responses/remove-refusal';
+import { removeRefusal } from '@/app/(organizer)/app/(chrome)/signups/[id]/responses/remove-refusal';
 import { CANCELLED_PAGE } from '@/app/s/[slug]/cancelled-message';
 import { loginAsSeededOrganizer } from './helpers/auth';
 

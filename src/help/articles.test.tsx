@@ -216,7 +216,7 @@ describe.each(HELP_ARTICLES.map((a) => [a.slug, a] as const))(
     it('gives search results a description of 110 to 160 characters', () => {
       expect(
         article.description.length,
-        'see the note in src/app/layout.tsx',
+        'see the note in src/app/root-shell.tsx',
       ).toBeGreaterThanOrEqual(110);
       expect(article.description.length).toBeLessThanOrEqual(160);
     });
@@ -302,7 +302,7 @@ describe('help index', () => {
   it('gives search results a description of 110 to 160 characters', () => {
     expect(
       HELP_INDEX_DESCRIPTION.length,
-      'see the note in src/app/layout.tsx',
+      'see the note in src/app/root-shell.tsx',
     ).toBeGreaterThanOrEqual(110);
     expect(HELP_INDEX_DESCRIPTION.length).toBeLessThanOrEqual(160);
   });

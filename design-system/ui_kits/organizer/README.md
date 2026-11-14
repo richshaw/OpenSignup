@@ -22,4 +22,4 @@ python3 -m http.server 8000 --directory design-system
 
 ## Reference
 
-`src/app/app/(chrome)/layout.tsx`, `page.tsx`, `signups/[id]/page.tsx`, `signups/new/page.tsx`. Layout: max-w-1100, white header with hairline border.
+`src/app/(organizer)/app/(chrome)/layout.tsx`, `page.tsx`, `signups/[id]/page.tsx`, `signups/new/page.tsx`. Layout: max-w-1100, white header with hairline border.
