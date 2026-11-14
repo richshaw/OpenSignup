@@ -13,13 +13,15 @@ import { oauthRecords } from '@/db/schema/oauth';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
+import { commitmentEditPath, unsubscribePath } from '@/lib/links';
 import type { Actor } from '@/lib/policy';
 import { RateLimits } from '@/lib/rate-limit';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import type { SignupTemplate } from '@/lib/signup-templates';
 import { TEXT_DEFAULT_MAX_LENGTH } from '@/schemas/slot-fields';
-import { commitToSlot } from '@/services/commitments';
+import { commitToSlot, type CommitResult } from '@/services/commitments';
+import { reminderOptOutTokenFor } from '@/services/reminder-optout';
 import { createSignup, deleteSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
 
@@ -83,6 +85,11 @@ interface SwedishSeed {
   /** The heading over the slots with no date: the date field's "(no …)". */
   noDateHeading: string;
   slots: typeof SWEDISH_SLOTS;
+  /** The date `slots.many` is on, as its date field stores it (YYYY-MM-DD). */
+  manyDate: string;
+  /** The edit link and the unsubscribe link of the sign-up on `slots.many`. */
+  editPath: string;
+  unsubscribePath: string;
 }
 
 /** Removes an e2e organizer and its data. Workspace delete cascades signups →
@@ -196,6 +203,7 @@ function dayFromNow(days: number): string {
  */
 async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Promise<SwedishSeed> {
   const title = 'Fika till vårfesten';
+  const manyDate = dayFromNow(30);
   const template: SignupTemplate = {
     id: 'e2e-swedish',
     fields: [
@@ -215,7 +223,7 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
       },
     ],
     slots: [
-      { capacity: 20, values: { vad: SWEDISH_SLOTS.many, datum: dayFromNow(30) } },
+      { capacity: 20, values: { vad: SWEDISH_SLOTS.many, datum: manyDate } },
       { capacity: 1, values: { vad: SWEDISH_SLOTS.one, datum: dayFromNow(30) } },
       { capacity: 1, values: { vad: SWEDISH_SLOTS.full, datum: dayFromNow(31) } },
       { capacity: null, values: { vad: SWEDISH_SLOTS.unlimitedOne } },
@@ -261,25 +269,37 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
     [SWEDISH_SLOTS.unlimitedTwo, 2],
   ];
   let n = 0;
+  const made: CommitResult[] = [];
   for (const [label, people] of taken) {
     for (let i = 0; i < people; i += 1) {
       n += 1;
-      unwrap(
-        await commitToSlot(db, slotIds.get(label)!, {
-          name: `Deltagare ${n}`,
-          email: `deltagare${n}@example.test`,
-          quantity: 1,
-        }),
-        `commitToSlot(${label})`,
+      made.push(
+        unwrap(
+          await commitToSlot(db, slotIds.get(label)!, {
+            name: `Deltagare ${n}`,
+            email: `deltagare${n}@example.test`,
+            quantity: 1,
+          }),
+          `commitToSlot(${label})`,
+        ),
       );
     }
   }
+  // The first is the one on `many`, which has a date.
+  const { commitment, editToken } = made[0]!;
   return {
     id: signup.id,
     slug: signup.slug,
     title,
     noDateHeading: '(datum saknas)',
     slots: SWEDISH_SLOTS,
+    manyDate,
+    editPath: commitmentEditPath(signup.slug, commitment.id, editToken),
+    unsubscribePath: unsubscribePath(
+      signup.slug,
+      commitment.participantId,
+      reminderOptOutTokenFor(commitment.participantId),
+    ),
   };
 }
 

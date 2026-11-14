@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { formatSlotDate } from '@/lib/slot-label';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { loadSeed } from './helpers/fixtures';
 import { gotoSwedish } from './helpers/swedish';
 
 const seed = loadSeed();
-const { id, slug, title, slots, noDateHeading } = seed.swedish;
+const { id, slug, title, slots, noDateHeading, manyDate, editPath, unsubscribePath } = seed.swedish;
 
 /**
  * The seeded Swedish signup (tests/e2e/helpers/seed.ts): its participants'
@@ -58,5 +59,20 @@ test.describe('the Swedish test signup', () => {
     await expect(button).toBeDisabled();
     await expect(button).toHaveText('Anmäl dig');
     await expect(button).toHaveAttribute('title', 'Preview: publish to enable signups');
+  });
+
+  // A sign-up's own pages take the signup's language from the row their link
+  // reads. Their words stay English until #630 moves them to the catalog, but
+  // the slot's date is already the signup's.
+  test('reads a sign-up’s slot date in Swedish on its edit page', async ({ page }) => {
+    await gotoSwedish(page, editPath);
+    await expect(page.locator('main')).toContainText(
+      `${slots.many} · ${formatSlotDate(manyDate, 'sv')}`,
+    );
+  });
+
+  test('marks the unsubscribe page as Swedish', async ({ page }) => {
+    await gotoSwedish(page, unsubscribePath);
+    await expect(page.locator('main')).toContainText(title);
   });
 });

@@ -1,8 +1,11 @@
 import { redirect } from 'next/navigation';
 import { FormError } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
+import { type CatalogLocale, signupLocale } from '@/i18n/config';
+import { instanceDefaultLocale } from '@/i18n/server';
 import { unsubscribePath } from '@/lib/links';
 import { previewReminderOptOut } from '@/services/reminder-optout';
+import { requestedSignupLocale } from '../signup-locale';
 import { SignupStateMessage } from '../state-message';
 
 export const metadata = {
@@ -16,16 +19,21 @@ type PageParams = {
 };
 
 function Shell({
+  locale,
   title,
   error,
   children,
 }: {
+  locale: CatalogLocale;
   title: string;
   error?: 'on' | 'off';
   children: React.ReactNode;
 }) {
   return (
-    <main className="container-tight flex min-h-[100svh] flex-col justify-center gap-4 py-8">
+    <main
+      lang={locale}
+      className="container-tight flex min-h-[100svh] flex-col justify-center gap-4 py-8"
+    >
       <div className="space-y-4 rounded-xl border border-surface-sunk bg-white p-6">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {error ? (
@@ -53,9 +61,12 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
   if (!participantId || !token) {
     // An incomplete link gets a plain explanation rather than a 404: the most
     // likely visitor is a real participant whose mail client mangled the link,
-    // and a "not found" would tell them nothing useful.
+    // and a "not found" would tell them nothing useful. With no signup to read
+    // a language from, it's in the language of the signup the path names, as
+    // a broken edit link's page is (`../c/[id]/not-found.tsx`).
     return (
       <SignupStateMessage
+        locale={await requestedSignupLocale()}
         title="This link is incomplete"
         body="Unsubscribe links only work in full. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
       />
@@ -66,6 +77,7 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
   if (!result.ok) {
     return (
       <SignupStateMessage
+        locale={await requestedSignupLocale()}
         title="This link isn't valid"
         body="It may have been mangled in transit, or the signup may have been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
       />
@@ -84,6 +96,10 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
   if (slug !== target.signupSlug) {
     redirect(unsubscribePath(target.signupSlug, participantId, token));
   }
+  // The signup's language, from the row the token was checked against. It
+  // marks the page; the page's own words are English until they move to the
+  // catalog (#630).
+  const locale = signupLocale(target.signupLocale, instanceDefaultLocale());
 
   const credentials = (
     <>
@@ -104,6 +120,7 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
         affirmative wording; without it we say only what the row shows.
       */
       <Shell
+        locale={locale}
         title={done === 'off' ? 'Reminders turned off' : 'Reminders are off'}
         error={error === 'on' ? error : undefined}
       >
@@ -149,6 +166,7 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
 
   return (
     <Shell
+      locale={locale}
       title={done === 'on' ? 'Reminders turned back on' : 'Stop reminder emails?'}
       error={error === 'off' ? error : undefined}
     >

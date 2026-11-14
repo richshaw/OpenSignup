@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
@@ -8,12 +8,21 @@ import { participants } from '@/db/schema/participants';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
+import { SIGNUP_PATH_HEADER } from '@/lib/signup-path';
 import { commitToSlot } from '@/services/commitments';
 import { reminderOptOutTokenFor } from '@/services/reminder-optout';
 import { createSignup, deleteSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
 import UnsubscribePage from '@/app/s/[slug]/unsubscribe/page';
 import { GET, POST } from './route';
+
+// The path of the page being rendered, in the header the middleware copies it
+// into: a link the page can't read a signup from takes the language of the
+// signup the path names.
+const request = vi.hoisted(() => ({ path: '' }));
+vi.mock('next/headers', () => ({
+  headers: async () => new Headers({ [SIGNUP_PATH_HEADER]: request.path }),
+}));
 
 interface Fixture {
   db: Db;
@@ -234,6 +243,7 @@ describe('POST /api/public/reminder-optout', () => {
     expect(res.status).toBe(302);
     const location = new URL(res.headers.get('location') ?? '');
     const [, , slug = ''] = location.pathname.split('/');
+    request.path = location.pathname;
     const page = (await UnsubscribePage({
       params: Promise.resolve({ slug }),
       searchParams: Promise.resolve(Object.fromEntries(location.searchParams)),
