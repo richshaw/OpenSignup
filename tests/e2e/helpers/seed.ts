@@ -66,8 +66,11 @@ export interface SeedData {
  * so the slots with no date sit under "(datum saknas)".
  */
 const SWEDISH_SLOTS = {
-  /** Capacity 20, one taken: "19 kvar", "19 av 20 platser kvar". */
-  many: 'Kakor',
+  /**
+   * Capacity 20, one taken: "19 kvar", "19 av 20 platser kvar". Its name has
+   * å, ä and ö, which the calendar file's name keeps.
+   */
+  many: 'Räksmörgås',
   /** Capacity 1, open: the row's Sign up and nothing in the count column. */
   one: 'Saft',
   /** Capacity 1, taken: Full. */

@@ -4,7 +4,7 @@ import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode }
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { suggestEmail } from '@/lib/email-suggest';
-import { buildIcs } from '@/lib/ics';
+import { buildIcs, calendarFileName } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { FormError } from '@/components/ui/form-error';
 import { participantErrorCopy, type ParticipantErrorCopy } from './participant-error';
@@ -355,7 +355,7 @@ export default function CommitDialog({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${slug}-${slotTitle}.ics`.replace(/[^A-Za-z0-9._-]+/g, '-');
+    a.download = calendarFileName(slug, slotTitle);
     document.body.appendChild(a);
     a.click();
     a.remove();
