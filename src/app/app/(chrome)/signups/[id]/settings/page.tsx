@@ -167,6 +167,9 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
  * AsyncSubmitButton added a few bytes to that button's module on every page
  * that loads it.
  */
+/** The "Signup language" choices' id, which No after its question comes back to. */
+const SIGNUP_LANGUAGE_ID = 'signup-language';
+
 function SignupLanguageForm({
   signupId,
   stored,
@@ -204,7 +207,9 @@ function SignupLanguageForm({
         action={setSignupLocaleAction.bind(null, signupId)}
         className="flex flex-col gap-4"
       >
-        <fieldset>
+        {/* No's link comes back here, and the router focuses it, so the
+            next Tab goes on from this form. */}
+        <fieldset id={SIGNUP_LANGUAGE_ID} tabIndex={-1}>
           <legend className="text-sm font-medium">Signup language</legend>
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
             {languages.map((locale) => (
@@ -242,7 +247,7 @@ function SignupLanguageForm({
           question={<>Make {name} your language for new signups?</>}
           action={setOrganizerLocaleFromSignupAction.bind(null, signupId)}
           fields={{ locale: current }}
-          noHref={settingsPath}
+          noHref={`${settingsPath}#${SIGNUP_LANGUAGE_ID}`}
         />
       ) : null}
       {saved === 'new-signups' && organizerLocale === current ? (

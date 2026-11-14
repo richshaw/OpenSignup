@@ -109,6 +109,9 @@ async function openSignupsAfterSave(
  * page loads no script of its own. After a save, it may offer to put the
  * organizer's open signups in the same language (#639, `openSignupsAfterSave`).
  */
+/** The "Language for new signups" choices' id, which No after its question comes back to. */
+const ORGANIZER_LANGUAGE_ID = 'organizer-language';
+
 function OrganizerLanguageForm({
   session,
   acceptLanguage,
@@ -145,7 +148,9 @@ function OrganizerLanguageForm({
       {refusal ? <FormError>{refusal}</FormError> : null}
       {/* Keyed on the choice shown, so after a save it's the saved one. */}
       <form key={current} action={setOrganizerLocaleAction} className="flex flex-col gap-4">
-        <fieldset>
+        {/* No's link comes back here, and the router focuses it, so the
+            next Tab goes on from this form. */}
+        <fieldset id={ORGANIZER_LANGUAGE_ID} tabIndex={-1}>
           <legend className="font-medium">Language for new signups</legend>
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
             {languages.map((locale) => (
@@ -183,7 +188,7 @@ function OrganizerLanguageForm({
           question={<>Use {name} for your open signups too?</>}
           action={setOpenSignupsLocaleAction}
           fields={{ locale: current }}
-          noHref="/app/settings"
+          noHref={`/app/settings#${ORGANIZER_LANGUAGE_ID}`}
         />
       ) : null}
       {openSignups === 'switched' ? (

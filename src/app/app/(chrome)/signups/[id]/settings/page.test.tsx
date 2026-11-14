@@ -138,19 +138,43 @@ describe('Settings tab: the question after a language save', () => {
     expect(asked).toHaveAttribute('role', 'status');
     expect(within(asked!).getByText('Svenska')).toHaveAttribute('lang', 'sv');
     const section = within(languageSection()!);
-    // Yes sends the signup's language; No is the tab without the question.
+    // Yes sends the signup's language.
     const yes = section.getByRole('button', { name: 'Yes' });
     // The answers are in a group the question names.
     expect(yes.closest('[role=group]')).toHaveAccessibleName(
       'Make Svenska your language for new signups?',
     );
     expect(yes.closest('form')!.querySelector('input[type=hidden][name=locale]')).toHaveValue('sv');
-    expect(section.getByRole('link', { name: 'No' })).toHaveAttribute(
-      'href',
-      '/app/signups/sig_1/settings',
-    );
     // "Saved" still shows by the form that saved.
     expect(section.getByText('Saved')).toBeInTheDocument();
+  });
+
+  it('brings the question into view by giving Yes the focus, and No comes back to the form', async () => {
+    ship('participant', ['en', 'sv']);
+    stored.settings = { locale: 'sv' };
+    await renderTab({ saved: 'language' });
+
+    // Focus scrolls Yes into view, clear of the phone's Share bar (the page's
+    // scroll-padding-bottom) and with the box's edge (its scroll margin).
+    const yes = screen.getByRole('button', { name: 'Yes' });
+    expect(yes).toHaveFocus();
+    expect(yes).toHaveClass('scroll-mb-4');
+    // No is the tab without the question, at the choices that asked it, which
+    // the router focuses.
+    const no = screen.getByRole('link', { name: 'No' });
+    expect(no).toHaveAttribute('href', '/app/signups/sig_1/settings#signup-language');
+    const choices = screen.getByRole('group', { name: 'Signup language' });
+    expect(choices).toHaveAttribute('id', 'signup-language');
+    expect(choices).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('moves the focus nowhere after a save that asks nothing', async () => {
+    ship('participant', ['en', 'sv']);
+    stored.settings = { locale: 'sv' };
+    organizer.saved = 'sv';
+    await renderTab({ saved: 'language' });
+    expect(question()).not.toBeInTheDocument();
+    expect(document.body).toHaveFocus();
   });
 
   it('doesn’t ask when the signup’s language is already the organizer’s, saved or not', async () => {
