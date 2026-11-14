@@ -120,6 +120,15 @@ These values are built into the app, so they must be set when you build it. Sett
 - **Fly.io**: copy the template (`cp fly.example.toml fly.toml`) and set your values under `[build.args]`. Git ignores `fly.toml`, so your settings stay out of the repository. `fly secrets` only apply when the app starts, so they do not work here.
 - **Local development** (`pnpm dev`): put them in `.env.local`. Next.js reads it each time it starts.
 
+`DEFAULT_LOCALE` sets your instance's language, for an instance that serves one language community. Today the only value it accepts is `en`, and that changes nothing, because English is the only language OpenSignup has shipped. Any other value, including a language that hasn't shipped yet, stops the app: the reminder worker exits at startup, and every page that needs the database fails with an "Invalid environment" error. So leave it unset for now. Other languages become valid as they ship, and the CHANGELOG will say when. Once one has, setting it will switch every signup that has no language of its own to that language at once, and that includes every signup made before signups had a language. Left unset, each organizer will get the language of their own browser.
+
+Unlike the values above, `DEFAULT_LOCALE` is read when the app starts, so changing it needs a restart, not a rebuild:
+
+- **Docker Compose**: put it in `.env`.
+- **Fly.io**: put it under `[env]` in `fly.toml`, or set it with `fly secrets set DEFAULT_LOCALE=…`.
+- **Other container hosts**: pass it when the container starts, for example with `docker run -e DEFAULT_LOCALE=…`.
+- **Local development** (`pnpm dev`): put it in `.env.local`.
+
 To link pages of your own from the footer of every page, list them in `src/lib/footer-links.ts`. This one is a code change, not an environment variable. The file holds only that list, so your copy merges cleanly when you update.
 
 ## Contributing

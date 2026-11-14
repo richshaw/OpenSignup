@@ -65,18 +65,20 @@ export function signupWithLinks(row: SignupRow) {
  * sign-up checks maxCommitmentsPerParticipant, and the notes box shows whatever
  * allowNotes says. The public page shows how full each slot is but never who
  * signed up, whatever showWhoSignedUp says. Nothing prints confirmationMessage.
+ * Pages and emails are English whatever locale says.
  *
  * update_signup refuses them and every tool hides them, so an assistant can
  * neither report a change that never happened nor read back a value that
- * participants never meet. Stored rows still carry them, because createSignup
- * fills in the schema defaults. Take a key out of here in the change that
- * makes something read it.
+ * participants never meet. Stored rows still carry most of them, because
+ * createSignup fills in the schema defaults. Take a key out of here in the
+ * change that makes something read it.
  */
 export const UNREAD_SETTINGS = {
   maxCommitmentsPerParticipant: true,
   allowNotes: true,
   showWhoSignedUp: true,
   confirmationMessage: true,
+  locale: true,
 } as const satisfies Partial<Record<keyof SignupSettings, true>>;
 
 /** The settings a tool shows: everything but UNREAD_SETTINGS. */

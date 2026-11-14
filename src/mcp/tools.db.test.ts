@@ -454,6 +454,7 @@ describe('signup write tools on Postgres', () => {
       'allowNotes',
       'showWhoSignedUp',
       'confirmationMessage',
+      'locale',
     ]) {
       expect(cl.signup.settings, key).not.toHaveProperty(key);
     }
@@ -462,6 +463,7 @@ describe('signup write tools on Postgres', () => {
       { allowNotes: false },
       { showWhoSignedUp: false },
       { confirmationMessage: 'See you there' },
+      { locale: 'en' },
     ]) {
       const refused = await client.callTool({
         name: 'update_signup',

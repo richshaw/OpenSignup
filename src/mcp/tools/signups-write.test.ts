@@ -322,6 +322,8 @@ describe('update_signup', () => {
     ['showWhoSignedUp', false],
     ['confirmationMessage', 'See you there'],
     ['confirmationMessage', null],
+    ['locale', 'en'],
+    ['locale', null],
   ] as const)('refuses %s: %j, which nothing reads', async (key, value) => {
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const { tools } = await client.listTools();
