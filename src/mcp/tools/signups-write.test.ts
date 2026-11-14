@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type Audience, type CatalogLocale, SHIPPED } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 import { serviceError, ServiceException } from '@/lib/errors';
 import { FullDraftSchema } from '@/lib/magic-compose/prompt';
 import { err, ok } from '@/lib/result';
@@ -259,14 +259,7 @@ describe('create_signup', () => {
 });
 
 describe('create_signup and the signup’s language', () => {
-  // Only English has shipped today. The tests that need a choice ship Swedish
-  // by changing the list itself, so config.ts's own `isShipped` sees it too.
-  const asShippedToday = { ...SHIPPED };
-  const shipSwedish = () => {
-    (SHIPPED as Record<Audience, readonly string[]>).participant = ['en', 'sv' as CatalogLocale];
-  };
   afterEach(() => {
-    Object.assign(SHIPPED, asShippedToday);
     instance.defaultLocale = undefined;
   });
 
@@ -344,7 +337,7 @@ describe('create_signup and the signup’s language', () => {
   });
 
   describe('once Swedish has shipped to participants', () => {
-    beforeEach(shipSwedish);
+    beforeEach(() => ship('participant', ['en', 'sv']));
 
     it('takes the organizer’s saved language without one', async () => {
       instance.defaultLocale = 'en';

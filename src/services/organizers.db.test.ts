@@ -2,18 +2,11 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { organizers } from '@/db/schema/organizers';
-import { type Audience, SHIPPED } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 import { ServiceException } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { updateOrganizerLocale } from './organizers';
-
-// Only English has shipped today. The tests that need a second language ship
-// Swedish by changing the list itself, so the service's own check sees it.
-const asShippedToday = { ...SHIPPED };
-function ship(audience: Audience, locales: string[]) {
-  (SHIPPED as Record<Audience, readonly string[]>)[audience] = locales;
-}
 
 const db = getDb();
 const mine = makeId('org');
@@ -54,7 +47,6 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  Object.assign(SHIPPED, asShippedToday);
   await store(mine, null);
   await store(theirs, null);
 });

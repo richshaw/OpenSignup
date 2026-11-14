@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import { getDb, type Db } from '@/db/client';
@@ -8,7 +8,8 @@ import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
-import { type Audience, type CatalogLocale, SHIPPED } from '@/i18n/config';
+import type { CatalogLocale } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { RateLimits } from '@/lib/rate-limit';
@@ -35,12 +36,6 @@ vi.mock('@/i18n/server', async (importOriginal) => ({
   instanceDefaultLocale: () => route.instanceDefault,
 }));
 
-// Only English has shipped today. The tests that need a choice ship Swedish by
-// changing the list itself, so config.ts's own `isShipped` sees it too.
-const asShippedToday = { ...SHIPPED };
-function ship(audience: Audience, locales: string[]) {
-  (SHIPPED as Record<Audience, readonly string[]>)[audience] = locales;
-}
 // Swedish has no catalog yet, hence the cast.
 const SV = 'sv' as CatalogLocale;
 
@@ -201,10 +196,6 @@ describe('POST /api/signups chooses the new signup’s language (db)', () => {
     route.locale = null;
     route.instanceDefault = undefined;
     await db.delete(rateLimits).where(eq(rateLimits.subject, organizerId));
-  });
-
-  afterEach(() => {
-    Object.assign(SHIPPED, asShippedToday);
   });
 
   afterAll(async () => {

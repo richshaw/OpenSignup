@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { type Audience, SHIPPED } from './config';
+import { ship } from './testing/ship';
 
 // Unit tests have no DATABASE_URL, so the real getEnv() would throw. Swedish
 // has no catalog yet, so the environment's own parse would refuse it.
@@ -8,14 +8,7 @@ vi.mock('@/lib/env', () => ({ getEnv: () => env }));
 
 const { getOrganizerLocale, newSignupLocale } = await import('./organizer');
 
-// Only English has shipped today. The tests that need a choice ship Swedish by
-// changing the list itself, so config.ts's own `isShipped` sees it too.
-const asShippedToday = { ...SHIPPED };
-function ship(audience: Audience, locales: string[]) {
-  (SHIPPED as Record<Audience, readonly string[]>)[audience] = locales;
-}
 afterEach(() => {
-  Object.assign(SHIPPED, asShippedToday);
   env.DEFAULT_LOCALE = undefined;
 });
 
