@@ -3,61 +3,66 @@ import { prettyHeader, emptyHeaderCopy } from './prettyHeader';
 
 describe('prettyHeader', () => {
   it('formats an ISO date as the public page does (the CSS uppercases it)', () => {
-    expect(prettyHeader('2026-05-21', 'date')).toBe('Thu, May 21');
+    expect(prettyHeader('2026-05-21', 'date', 'en')).toBe('Thu, May 21');
   });
 
   it('returns "Set a date" when value is empty and field is date', () => {
-    expect(prettyHeader('', 'date')).toBe('Set a date');
-    expect(prettyHeader(null, 'date')).toBe('Set a date');
-    expect(prettyHeader(undefined, 'date')).toBe('Set a date');
+    expect(prettyHeader('', 'date', 'en')).toBe('Set a date');
+    expect(prettyHeader(null, 'date', 'en')).toBe('Set a date');
+    expect(prettyHeader(undefined, 'date', 'en')).toBe('Set a date');
   });
 
   it('returns "Set a time" when value is empty and field is time', () => {
-    expect(prettyHeader('', 'time')).toBe('Set a time');
+    expect(prettyHeader('', 'time', 'en')).toBe('Set a time');
   });
 
   it('derives empty-header copy from the field label when provided', () => {
-    expect(prettyHeader('', 'text', 'What')).toBe('Set what');
-    expect(prettyHeader(null, 'text', 'Item')).toBe('Set item');
-    expect(prettyHeader('', 'enum', 'Course')).toBe('Set course');
-    expect(prettyHeader('', 'number', 'Quantity')).toBe('Set quantity');
+    expect(prettyHeader('', 'text', 'en', 'What')).toBe('Set what');
+    expect(prettyHeader(null, 'text', 'en', 'Item')).toBe('Set item');
+    expect(prettyHeader('', 'enum', 'en', 'Course')).toBe('Set course');
+    expect(prettyHeader('', 'number', 'en', 'Quantity')).toBe('Set quantity');
   });
 
   it('falls back to "Set a value" when value is empty and no label is supplied', () => {
-    expect(prettyHeader('', 'enum')).toBe('Set a value');
-    expect(prettyHeader(null, 'text')).toBe('Set a value');
-    expect(prettyHeader('', 'text', '   ')).toBe('Set a value');
+    expect(prettyHeader('', 'enum', 'en')).toBe('Set a value');
+    expect(prettyHeader(null, 'text', 'en')).toBe('Set a value');
+    expect(prettyHeader('', 'text', 'en', '   ')).toBe('Set a value');
   });
 
   it('passes through non-date field values unchanged', () => {
-    expect(prettyHeader('Main course', 'enum')).toBe('Main course');
-    expect(prettyHeader('Auditorium', 'text')).toBe('Auditorium');
+    expect(prettyHeader('Main course', 'enum', 'en')).toBe('Main course');
+    expect(prettyHeader('Auditorium', 'text', 'en')).toBe('Auditorium');
   });
 
   it('formats an HH:MM time on a 12-hour clock', () => {
-    expect(prettyHeader('18:30', 'time')).toBe('6:30\u00a0PM');
-    expect(prettyHeader('00:00', 'time')).toBe('12:00\u00a0AM');
+    expect(prettyHeader('18:30', 'time', 'en')).toBe('6:30\u00a0PM');
+    expect(prettyHeader('00:00', 'time', 'en')).toBe('12:00\u00a0AM');
+  });
+
+  it('reads a date or time in the language it is given', () => {
+    expect(prettyHeader('2025-05-03', 'date', 'sv')).toBe('lör 3 maj');
+    expect(prettyHeader('18:30', 'time', 'sv')).toBe('18:30');
   });
 
   it('passes through unparseable time values unchanged', () => {
-    expect(prettyHeader('after the game', 'time')).toBe('after the game');
+    expect(prettyHeader('after the game', 'time', 'en')).toBe('after the game');
   });
 
   it('passes through non-ISO date strings unchanged', () => {
-    expect(prettyHeader('05/21/2026', 'date')).toBe('05/21/2026');
-    expect(prettyHeader('next Tuesday', 'date')).toBe('next Tuesday');
+    expect(prettyHeader('05/21/2026', 'date', 'en')).toBe('05/21/2026');
+    expect(prettyHeader('next Tuesday', 'date', 'en')).toBe('next Tuesday');
   });
 
   it('passes through ISO-shaped but invalid dates unchanged (no silent normalization)', () => {
     // Feb 31 would otherwise roll forward into March.
-    expect(prettyHeader('2026-02-31', 'date')).toBe('2026-02-31');
+    expect(prettyHeader('2026-02-31', 'date', 'en')).toBe('2026-02-31');
     // Month 13.
-    expect(prettyHeader('2026-13-01', 'date')).toBe('2026-13-01');
+    expect(prettyHeader('2026-13-01', 'date', 'en')).toBe('2026-13-01');
   });
 
   it('passes through a typed date that is not in the stored shape', () => {
     // `new Date()` would read this as Nov 14, 2001, a Wednesday.
-    expect(prettyHeader('Sat, Nov 14', 'date')).toBe('Sat, Nov 14');
+    expect(prettyHeader('Sat, Nov 14', 'date', 'en')).toBe('Sat, Nov 14');
   });
 });
 

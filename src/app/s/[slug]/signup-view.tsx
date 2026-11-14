@@ -103,7 +103,11 @@ interface SlotGroup {
   slots: SignupViewSlot[];
 }
 
-function groupSlots(slots: SignupViewSlot[], groupField: SignupViewField | null): SlotGroup[] {
+function groupSlots(
+  slots: SignupViewSlot[],
+  groupField: SignupViewField | null,
+  locale: string,
+): SlotGroup[] {
   if (!groupField) return [{ key: '__all__', label: '', slots }];
   // A Map keeps its keys in the order they were first set, so the groups come
   // out in the order of their first slot.
@@ -111,7 +115,7 @@ function groupSlots(slots: SignupViewSlot[], groupField: SignupViewField | null)
   for (const slot of slots) {
     const raw = slot.values[groupField.ref];
     const key = isBlankSlotValue(raw) ? '__unset__' : String(raw);
-    const label = formatGroupLabel(groupField, raw);
+    const label = formatGroupLabel(groupField, raw, locale);
     const existing = map.get(key);
     if (existing) {
       existing.slots.push(slot);
@@ -127,14 +131,18 @@ function groupSlots(slots: SignupViewSlot[], groupField: SignupViewField | null)
  * or the slot has no value for the group field: "(no date)" heads that group
  * on the page, but says nothing in a slot's name.
  */
-function nameGroupFor(slot: SignupViewSlot, groupField: SignupViewField | null): string | null {
+function nameGroupFor(
+  slot: SignupViewSlot,
+  groupField: SignupViewField | null,
+  locale: string,
+): string | null {
   if (!groupField) return null;
   const raw = slot.values[groupField.ref];
-  return isBlankSlotValue(raw) ? null : formatGroupLabel(groupField, raw);
+  return isBlankSlotValue(raw) ? null : formatGroupLabel(groupField, raw, locale);
 }
 
-function titleFor(slot: SignupViewSlot, primary: SignupViewField | null): string {
-  const value = primary ? renderFieldValue(primary, slot.values[primary.ref]) : null;
+function titleFor(slot: SignupViewSlot, primary: SignupViewField | null, locale: string): string {
+  const value = primary ? renderFieldValue(primary, slot.values[primary.ref], locale) : null;
   return value || 'Untitled slot';
 }
 
@@ -148,22 +156,25 @@ export function SignupViewBody({
   ownCommitments,
   showStateBanner = true,
 }: SignupViewProps) {
+  // The language slot dates and times are read in. English until a signup
+  // has a language of its own.
+  const locale = 'en';
   const isPreview = mode === 'preview';
   const effectiveStatus = isPreview && signup.status === 'draft' ? 'open' : signup.status;
   const groupField = groupByRef ? (fields.find((f) => f.ref === groupByRef) ?? null) : null;
   const groupRef = groupField?.ref ?? null;
   const primary = pickPrimaryField(fields, groupRef);
   const primaryRef = primary?.ref;
-  const groups = groupSlots(slots, groupField);
+  const groups = groupSlots(slots, groupField, locale);
   const ownBySlot = new Map((ownCommitments ?? []).map((c) => [c.slotId, c]));
   const firstOwn = ownCommitments?.[0] ?? null;
   const ownCount = ownCommitments?.length ?? 0;
   const firstOwnSlot = firstOwn ? (slots.find((s) => s.id === firstOwn.slotId) ?? null) : null;
   const firstOwnName = firstOwnSlot
     ? slotDisplayName(
-        nameGroupFor(firstOwnSlot, groupField),
-        titleFor(firstOwnSlot, primary),
-        buildMetaSegments({ fields, slot: firstOwnSlot, primaryRef, groupRef }),
+        nameGroupFor(firstOwnSlot, groupField, locale),
+        titleFor(firstOwnSlot, primary, locale),
+        buildMetaSegments({ fields, slot: firstOwnSlot, primaryRef, groupRef, locale }),
       )
     : '';
   const Title = mode === 'showcase' ? 'h2' : 'h1';
@@ -247,8 +258,8 @@ export function SignupViewBody({
                   slot.capacity === null ? null : Math.max(0, slot.capacity - slot.committed);
                 const full = spotsLeft === 0;
                 const closed = slot.status !== 'open' || effectiveStatus !== 'open' || full;
-                const title = titleFor(slot, primary);
-                const meta = buildMetaSegments({ fields, slot, primaryRef, groupRef });
+                const title = titleFor(slot, primary, locale);
+                const meta = buildMetaSegments({ fields, slot, primaryRef, groupRef, locale });
                 const own = ownBySlot.get(slot.id) ?? null;
                 const isOwn = own !== null;
                 // A closed row says "Closed" (or "Full"), and "2 left" beside it
@@ -257,7 +268,7 @@ export function SignupViewBody({
                   ? { text: '', sr: null }
                   : capacityLabel(slot.committed, slot.capacity);
                 const actionName = slotAccessibleName(group.label || null, title, meta);
-                const nameGroup = nameGroupFor(slot, groupField);
+                const nameGroup = nameGroupFor(slot, groupField, locale);
                 return (
                   <li
                     key={slot.id}
