@@ -421,8 +421,10 @@ describe('<EditForm /> quantity', () => {
     expect(screen.getByRole('button', { name: 'Cancel signup' })).toBeEnabled();
   });
 
-  // An error page from a proxy, say, rather than the API's JSON.
-  it('says nothing was saved when a refused save has no JSON body', async () => {
+  // An error page from a proxy, say, rather than the API's JSON. A proxy can
+  // answer after the server saved, so the form doesn't say whether it did:
+  // saving the same again does no harm.
+  it('asks for Save again, without saying whether it saved, when a refused save has no JSON body', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,
       json: async () => {
@@ -434,10 +436,33 @@ describe('<EditForm /> quantity', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Something went wrong, so your changes weren't saved. Try again.",
-    );
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Something went wrong. Press Save again.');
+    expect(alert).not.toHaveTextContent('saved');
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
+  // Cancelling a spot already cancelled succeeds, so pressing it again does no harm.
+  it('asks for Cancel signup again, without saying whether it cancelled, when a refused cancel has no JSON body', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => {
+          throw new SyntaxError('Unexpected token < in JSON');
+        },
+      })),
+    );
+    renderForm(4, 2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel signup' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Something went wrong. Press Cancel signup again.');
+    expect(alert).not.toHaveTextContent('cancelled');
+    expect(screen.getByRole('button', { name: 'Cancel signup' })).toBeEnabled();
+    expect(router.refresh).not.toHaveBeenCalled();
   });
 
   it('says the sign-up was not cancelled when the cancel never reaches the server', async () => {
@@ -502,7 +527,15 @@ describe('<EditForm /> refusals', () => {
       { code: 'internal' },
       "Something went wrong, so your spot wasn't cancelled. Try again.",
     ],
-    ['save', {}, "Something went wrong, so your changes weren't saved. Try again."],
+    [
+      'cancel',
+      { code: 'teapot' },
+      "Something went wrong, so your spot wasn't cancelled. Try again.",
+    ],
+    // Every error the API sends has a code: one without may not be the API's,
+    // and may come after the change was made, so it says neither way.
+    ['save', {}, 'Something went wrong. Press Save again.'],
+    ['cancel', {}, 'Something went wrong. Press Cancel signup again.'],
     [
       'save',
       { code: 'rate_limited', details: { retryAfterSeconds: 600 } },
@@ -618,19 +651,9 @@ describe('<EditForm /> words', () => {
 
   it.each([
     ['a save that never reaches the server', 'save', sv('saveUnreachable'), true],
-    [
-      'a save refused with no JSON body',
-      'save',
-      'participant.errors.failed.save in sv participant.errors.failed.tryAgain in sv',
-      false,
-    ],
+    ['a save refused with no JSON body', 'save', sv('saveUnreadable'), false],
     ['a cancel that never reaches the server', 'cancel', sv('cancelUnreachable'), true],
-    [
-      'a cancel refused with no JSON body',
-      'cancel',
-      'participant.errors.failed.cancel in sv participant.errors.failed.tryAgain in sv',
-      false,
-    ],
+    ['a cancel refused with no JSON body', 'cancel', sv('cancelUnreadable'), false],
   ] as const)('explains %s in those messages', async (_, action, words, offline) => {
     vi.stubGlobal(
       'fetch',

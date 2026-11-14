@@ -93,7 +93,6 @@ describe('participantErrorCopy', () => {
     ['a code it does not know', { code: 'teapot' }],
     ['a capacity error without its numbers', { code: 'capacity_full' }],
     ['an error with no code', {}],
-    ['no error at all', null],
   ])('says the sign-up, save or cancel failed for %s', (_, error) => {
     for (const context of CONTEXTS) {
       expect(errorCopyText(participantErrorCopy(error, context, t))).toBe(FAILED[context]);
@@ -163,7 +162,7 @@ describe('participantErrorCopy', () => {
       say('rateLimit.message'),
     );
     for (const context of CONTEXTS) {
-      expect(participantErrorCopy(null, context, standIn)).toStrictEqual({
+      expect(participantErrorCopy({ code: 'internal' }, context, standIn)).toStrictEqual({
         message: say(`failed.${context}`),
         suggestion: say('failed.tryAgain'),
       });
