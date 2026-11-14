@@ -41,7 +41,8 @@ export function SavedNotice({
       className="inline-flex items-center gap-1.5 text-xs font-semibold text-success"
     >
       <Check size={11} />
-      {children}
+      {/* One flex item, so a longer line's words and parts keep their own spacing. */}
+      <span>{children}</span>
     </span>
   );
 }
