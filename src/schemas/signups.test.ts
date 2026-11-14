@@ -17,6 +17,12 @@ describe('requiresEmail', () => {
     // A stored language that has left the list must not make the whole
     // settings object fail, which would ask for an email the organizer turned off.
     ['a language OpenSignup does not offer', { requireEmail: false, locale: 'xx' }, false],
+    [
+      'a language longer than a language tag',
+      { requireEmail: false, locale: 'x'.repeat(36) },
+      false,
+    ],
+    ['a language that is not a string', { requireEmail: false, locale: 7 }, false],
   ])('%s', (_label, settings, expected) => {
     expect(requiresEmail(settings)).toBe(expected);
   });
@@ -29,6 +35,11 @@ describe('sendsReminders', () => {
     ['sendReminders true', { sendReminders: true }, true],
     ['sendReminders false', { sendReminders: false }, false],
     ['a language OpenSignup does not offer', { sendReminders: false, locale: 'xx' }, false],
+    [
+      'a language longer than a language tag',
+      { sendReminders: false, locale: 'x'.repeat(36) },
+      false,
+    ],
   ])('%s', (_label, settings, expected) => {
     expect(sendsReminders(settings)).toBe(expected);
   });
@@ -45,8 +56,16 @@ describe('settings.locale', () => {
     expect(SignupSettingsSchema.parse({})).not.toHaveProperty('locale');
   });
 
-  it('refuses anything longer than a language tag', () => {
-    expect(SignupSettingsSchema.safeParse({ locale: 'x'.repeat(36) }).success).toBe(false);
+  // A stored value only the database could hold must not fail the parse:
+  // it reads as no language, and the rest of the settings still count.
+  it.each([
+    ['longer than a language tag', 'x'.repeat(36)],
+    ['a number', 7],
+    ['null', null],
+  ])('reads a stored value %s as none', (_label, locale) => {
+    const parsed = SignupSettingsSchema.parse({ requireEmail: false, locale });
+    expect(parsed.locale).toBeUndefined();
+    expect(parsed.requireEmail).toBe(false);
   });
 });
 

@@ -66,14 +66,15 @@ function checkGroupByRefs(
 /**
  * A signup's language must be one that has shipped to participants, since its
  * pages and emails follow it. Only a language the caller sends is checked: a
- * stored one can leave the list later, and the row must stay editable.
+ * stored one can leave the list later, and the row must stay editable. It is
+ * checked as sent, because the settings schema reads any value leniently.
  */
-function checkLocale(locale: string | undefined): Result<null, ServiceError> {
-  if (locale === undefined || isShipped('participant', locale)) return ok(null);
+function checkLocale(sent: unknown): Result<null, ServiceError> {
+  if (sent === undefined || isShipped('participant', sent)) return ok(null);
   return err(
     serviceError('invalid_input', 'locale must be a language OpenSignup offers for signups', {
       field: 'settings.locale',
-      received: locale,
+      received: sent,
       suggestion: `leave it out, or use one of: ${SHIPPED.participant.join(', ')}`,
     }),
   );
@@ -169,7 +170,9 @@ export async function createSignup(
   if (!anchor.ok) return anchor;
   const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fieldDefs);
   if (!grouping.ok) return grouping;
-  const locale = checkLocale(data.settings.locale);
+  const locale = checkLocale(
+    isObject(rawInput) && isObject(rawInput.settings) ? rawInput.settings.locale : undefined,
+  );
   if (!locale.ok) return locale;
   const settings: SignupSettings =
     anchor.value === null
@@ -325,7 +328,7 @@ export async function updateSignup(
         if (!grouping.ok) return grouping;
       }
       if (sentLocale) {
-        const locale = checkLocale(data.settings.locale);
+        const locale = checkLocale(sent.locale);
         if (!locale.ok) return locale;
       }
       mergedSettings =
