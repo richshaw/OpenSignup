@@ -346,7 +346,7 @@ export default function CommitDialog({
     const ics = buildIcs({
       uid: `${success.commitmentId}@opensignup.org`,
       title: `${signupTitle} — ${slotTitle}`,
-      description: `Edit or cancel: ${success.editUrl}`,
+      description: t('calendarDescription', { url: success.editUrl }),
       url: success.editUrl,
       start,
       allDay: !slotHasTime,
@@ -364,12 +364,13 @@ export default function CommitDialog({
 
   // The link changes or cancels this person's spot, so the share sheet is for
   // keeping it (Notes, a message to yourself or a partner), not for telling
-  // the group: the button and the text it fills in both say so.
+  // the group: the button and the text it fills in both say so, and the text
+  // says to keep the link private in every language (tested for each).
   async function handleShare() {
     if (!success) return;
     const shareData = {
       title: signupTitle,
-      text: `My spot for ${slotName}. This link changes or cancels it, so keep it private.`,
+      text: t('shareText', { slot: slotName }),
       url: success.editUrl,
     };
     const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
