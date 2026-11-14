@@ -21,19 +21,25 @@ import { SignupStateMessage } from './state-message';
 
 type PageParams = { params: Promise<{ slug: string }> };
 
+// The tab title, with the site name after it. Next applies the root layout's
+// title template only to the segments below the layout's own, and this page
+// shares its segment with that layout (./layout.tsx), so it writes the site
+// name in itself, the way the template does for every other page.
+const tabTitle = (title: string) => ({ absolute: `${title} · ${INSTANCE_NAME}` });
+
 export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
   const { slug } = await params;
   const result = await loadPublicSignup(slug);
   // Private share links: keep these out of the search index. They stay
   // crawlable (not robots-disallowed) so the noindex directive is honored.
   const robots = { index: false, follow: false } as const;
-  if (!result.ok) return { title: 'Sign up', robots };
+  if (!result.ok) return { title: tabTitle('Sign up'), robots };
   const sig = result.value;
   // Trimmed for a description saved as only spaces before the schema trimmed it.
   const text = sig.description.trim();
   const description = text ? shortenToLimit(text, 200) : `Sign up via ${INSTANCE_NAME}`;
   return {
-    title: sig.title,
+    title: tabTitle(sig.title),
     description,
     robots,
     openGraph: {
@@ -150,7 +156,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
           above sets `robots: noindex` precisely because they are unlisted.
 
           `prefetch={false}`: `/` writes a `landing.viewed` activity row on
-          render (src/app/page.tsx) with no rate limit of its own. Nothing
+          render (src/app/(site)/page.tsx) with no rate limit of its own. Nothing
           renders it on prefetch today — that needs a `loading.tsx` in the tree
           or PPR, and the repo has neither — but this link is a one-off brand
           mark nobody races to follow, so there is no reason to leave the

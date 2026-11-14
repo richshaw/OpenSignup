@@ -30,15 +30,20 @@ export const SHARE_IMAGE = {
   alt: 'OpenSignup — sign-up sheets, redone. Ad-free, with no accounts for participants.',
 } as const;
 
+/** `SHARE_IMAGE` as `openGraph.images` and `twitter.images` take it. */
+export const SHARE_IMAGES = {
+  openGraph: [{ url: '/opengraph-image.png', ...SHARE_IMAGE }],
+  twitter: [{ url: '/twitter-image.png', ...SHARE_IMAGE }],
+};
+
 /**
  * Metadata for a public page: its title, description and canonical URL, with
  * `openGraph` and `twitter` objects that say the same. Next merges metadata
- * shallowly, so a page that sets neither inherits the root layout's whole,
- * home page's URL, title and description included, and every link preview of
- * it reads as the home page. Re-states type, siteName, locale and card for the
- * same reason, and the share image: Next adds the root `opengraph-image.png`
- * and `twitter-image.png` only to pages that leave `openGraph` and `twitter`
- * unset, so a page that sets them names the image itself.
+ * shallowly, so a page that sets neither inherits the root layout's whole
+ * (`rootMetadata` in src/app/root-shell.tsx), and every link preview of it
+ * reads as the site's. Setting them replaces the root layout's objects
+ * wholesale, so this re-states type, siteName, locale, card and the share
+ * image.
  */
 export function pageMetadata(page: {
   path: string;
@@ -59,13 +64,13 @@ export function pageMetadata(page: {
       url: page.path,
       title: fullTitle,
       description: page.description,
-      images: [{ url: '/opengraph-image.png', ...SHARE_IMAGE }],
+      images: SHARE_IMAGES.openGraph,
     },
     twitter: {
       card: 'summary_large_image',
       title: fullTitle,
       description: page.description,
-      images: [{ url: '/twitter-image.png', ...SHARE_IMAGE }],
+      images: SHARE_IMAGES.twitter,
     },
   };
 }

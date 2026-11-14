@@ -79,4 +79,4 @@ describe('consumeMagicLinkRateLimits', () => {
 
 // What Auth.js does with MagicLinkRateLimited (rethrows it to signIn, and
 // answers the HTTP route as before) is pinned against the real next-auth in
-// src/app/login/request-magic-link.test.ts.
+// src/app/(organizer)/login/request-magic-link.test.ts.

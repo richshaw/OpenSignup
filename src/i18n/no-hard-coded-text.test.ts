@@ -137,14 +137,14 @@ describe('where the rules apply', () => {
 
   it('matches a listed folder with brackets or parentheses in its name, and nothing else', async () => {
     const filesAt = await loadFilesAt();
-    const files = filesAt(['src/app/s/[slug]', 'src/app/app/(chrome)/']);
+    const files = filesAt(['src/app/s/[slug]', 'src/app/(organizer)/app/(chrome)/']);
     // A glob would read `[slug]` as one of the letters s, l, u and g.
     const isOn = (file: string) => matches(ROOT, files, file);
     expect(await isOn('src/app/s/[slug]/page.tsx')).toBe(true);
     expect(await isOn('src/app/s/[slug]/c/[id]/page.tsx')).toBe(true);
-    expect(await isOn('src/app/app/(chrome)/settings/page.tsx')).toBe(true);
+    expect(await isOn('src/app/(organizer)/app/(chrome)/settings/page.tsx')).toBe(true);
     expect(await isOn('src/app/s/s/page.tsx')).toBe(false);
-    expect(await isOn('src/app/app/c/settings/page.tsx')).toBe(false);
+    expect(await isOn('src/app/(organizer)/app/c/settings/page.tsx')).toBe(false);
   });
 
   // Windows can't put a backslash in a folder's name.
