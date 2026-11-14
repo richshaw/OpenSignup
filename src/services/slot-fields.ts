@@ -202,7 +202,7 @@ export async function addField(
   return withSignupWriteLock(db, actor, signupId, async (tx, signupRow) => {
     // An omitted sortOrder appends. The build page never sends one, and
     // defaulting it to 0 put every field it added ahead of the template's
-    // date column (DEFAULT_TEMPLATE pins it at 1), so a new column
+    // date column (the default template pins it at 1), so a new column
     // reappeared mid-grid after a reload.
     let sortOrder = data.sortOrder;
     // In front of another field: the new field takes that field's position,

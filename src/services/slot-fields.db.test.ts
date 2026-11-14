@@ -10,7 +10,6 @@ import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
-import { DEFAULT_TEMPLATE } from '@/lib/signup-templates';
 import {
   addField,
   deleteField,
@@ -253,7 +252,7 @@ describe('slot-fields service (db)', () => {
     it('appends when sortOrder is omitted', async () => {
       // Regression: the build page adds fields without a sortOrder. While the
       // input schema defaulted that to 0, the new field sorted ahead of
-      // the template's date column (DEFAULT_TEMPLATE pins it at 1) and
+      // the template's date column (the default template pins it at 1) and
       // reappeared mid-grid after a reload. This signup starts empty, so the
       // first field is placed explicitly and the second must land after it.
       const sigId = await createTestSignup(fx, 'Append not prepend');
@@ -1618,19 +1617,14 @@ describe('slot-fields service (db)', () => {
     });
 
     it('keeps the template anchor a signup was created with', async () => {
-      const r = await createSignup(
-        fx.db,
-        fx.actor,
-        fx.workspaceId,
-        {
-          title: 'Template anchor',
-          description: '',
-          tags: [],
-          visibility: 'unlisted',
-          settings: {},
-        },
-        { template: DEFAULT_TEMPLATE },
-      );
+      // No template given, so the default one, whose date field is `date`.
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        title: 'Template anchor',
+        description: '',
+        tags: [],
+        visibility: 'unlisted',
+        settings: {},
+      });
       expect(r.ok).toBe(true);
       if (!r.ok) return;
       expect(await anchorOf(r.value.id)).toBe('date');
