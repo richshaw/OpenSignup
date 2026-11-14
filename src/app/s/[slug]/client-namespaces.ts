@@ -19,6 +19,7 @@ export const COMMIT_DIALOG_NAMESPACES = [
 
 /** The edit page's form (`./c/[id]/edit-form.tsx`, with `./participant-fields.tsx`). */
 export const EDIT_FORM_NAMESPACES = [
+  'participant.editForm',
   'participant.fields',
   'participant.errors',
 ] as const satisfies readonly Namespace[];

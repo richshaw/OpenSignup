@@ -4,18 +4,9 @@ import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { FormError, SuccessNotice } from '@/components/ui/form-error';
-import { spotCount } from '@/lib/spot-counts';
 import { wasCancelled } from '../../cancelled-message';
 import { errorCopyText, participantErrorCopy } from '../../participant-error';
 import { Field, NotesAndSpots } from '../../participant-fields';
-
-// The request never reached the server (offline, or a dropped connection).
-const SAVE_UNREACHABLE =
-  "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.";
-const CANCEL_UNREACHABLE =
-  "Couldn't reach the server, so your spot wasn't cancelled. Check your connection and try again.";
-// A refusal whose answer isn't ours to read, such as an error page from a proxy.
-const SAVE_UNREADABLE = "Something went wrong, so your changes weren't saved. Try again.";
 
 interface EditFormProps {
   commitmentId: string;
@@ -40,6 +31,7 @@ export default function EditForm({
   maxQuantity,
 }: EditFormProps) {
   const router = useRouter();
+  const t = useTranslations('participant.editForm');
   const tFields = useTranslations('participant.fields');
   const tErrors = useTranslations('participant.errors');
   const [saving, setSaving] = useState(false);
@@ -85,13 +77,15 @@ export default function EditForm({
         body: JSON.stringify(body),
       });
     } catch {
-      setMessage({ kind: 'err', text: SAVE_UNREACHABLE });
+      // The request never reached the server (offline, or a dropped connection).
+      setMessage({ kind: 'err', text: t('saveUnreachable') });
       setSaving(false);
       return;
     }
     const payload = await res.json().catch(() => null);
     if (!res.ok && payload === null) {
-      setMessage({ kind: 'err', text: SAVE_UNREADABLE });
+      // A refusal whose answer isn't ours to read, such as an error page from a proxy.
+      setMessage({ kind: 'err', text: t('saveUnreadable') });
     } else if (!res.ok) {
       // Cancelled, or moved to another slot, since this page loaded, most
       // likely in another tab. Every save would be refused, so reload: the
@@ -115,7 +109,7 @@ export default function EditForm({
         setReportedMax(remaining);
       }
     } else {
-      setMessage({ kind: 'ok', text: 'Saved.' });
+      setMessage({ kind: 'ok', text: t('saved') });
       // The refresh brings a fresh maxQuantity, but this form stays mounted,
       // so an older error's number would otherwise keep overriding it.
       setReportedMax(null);
@@ -133,7 +127,7 @@ export default function EditForm({
         method: 'DELETE',
       });
     } catch {
-      setMessage({ kind: 'err', text: CANCEL_UNREACHABLE });
+      setMessage({ kind: 'err', text: t('cancelUnreachable') });
       setConfirmingCancel(false);
       setSaving(false);
       return;
@@ -162,7 +156,7 @@ export default function EditForm({
     >
       {showSpotsMax ? (
         <p id={spotsMaxId} className="text-sm text-ink-muted">
-          You can have up to {spotCount(spotsMax)} on this slot.
+          {t('spotsMax', { max: spotsMax })}
         </p>
       ) : null}
       <Field label={tFields('name')} type="text" name="name" required defaultValue={initialName} />
@@ -187,10 +181,10 @@ export default function EditForm({
         {confirmingCancel ? (
           <div
             role="alertdialog"
-            aria-label="Confirm cancellation"
+            aria-label={t('confirmCancel')}
             className="flex flex-1 flex-wrap items-center gap-2 rounded-lg bg-danger/10 px-3 py-2 text-sm"
           >
-            <span className="font-medium text-danger">Cancel this signup?</span>
+            <span className="font-medium text-danger">{t('cancelQuestion')}</span>
             <div className="ml-auto flex gap-2">
               <button
                 type="button"
@@ -198,7 +192,7 @@ export default function EditForm({
                 disabled={saving}
                 className="rounded-lg border border-surface-sunk bg-white px-3 py-1.5 text-xs font-medium transition disabled:opacity-50"
               >
-                Keep
+                {t('keep')}
               </button>
               <button
                 type="button"
@@ -206,7 +200,7 @@ export default function EditForm({
                 disabled={saving}
                 className="rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-50"
               >
-                {saving ? 'Cancelling…' : 'Yes, cancel'}
+                {saving ? t('cancelling') : t('yesCancel')}
               </button>
             </div>
           </div>
@@ -218,7 +212,7 @@ export default function EditForm({
               disabled={saving}
               className="rounded-lg border border-surface-sunk px-4 py-2 text-sm font-medium text-danger transition disabled:opacity-50"
             >
-              Cancel signup
+              {t('cancel')}
             </button>
             <div className="flex-1" />
             <button
@@ -226,7 +220,7 @@ export default function EditForm({
               disabled={saving}
               className="rounded-lg bg-brand px-5 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:opacity-50"
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('saving') : t('save')}
             </button>
           </>
         )}

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { CANCELLED_PAGE, wasCancelled } from './cancelled-message';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
+import { cancelledPage, wasCancelled } from './cancelled-message';
+
+// In English, from the catalog.
+const CANCELLED_PAGE = cancelledPage(getTestTranslator('participant.cancelledPage'));
 
 describe('wasCancelled', () => {
   it('is true for a conflict over a cancelled sign-up', () => {
@@ -24,7 +28,7 @@ describe('wasCancelled', () => {
   });
 });
 
-describe('CANCELLED_PAGE', () => {
+describe('cancelledPage', () => {
   // One for each `CancelledSlotState`: the reason the slot would refuse them.
   it.each([
     ['open', 'There’s still room if you want to sign up again.'],
@@ -62,6 +66,43 @@ describe('CANCELLED_PAGE', () => {
     expect(CANCELLED_PAGE.removed).toEqual({
       title: 'The organizer took you off this slot',
       body: 'If you think this is a mistake, contact the organizer.',
+    });
+  });
+
+  // In the page's language: each line is the catalog's, by its key.
+  it('takes every line from the catalog in the translator’s language', () => {
+    expect(cancelledPage(getStandInTranslator('sv', 'participant.cancelledPage'))).toEqual({
+      open: {
+        title: 'participant.cancelledPage.title in sv',
+        body: 'participant.cancelledPage.open in sv',
+      },
+      full: {
+        title: 'participant.cancelledPage.title in sv',
+        body: 'participant.cancelledPage.full in sv',
+      },
+      slotClosed: {
+        title: 'participant.cancelledPage.title in sv',
+        body: 'participant.cancelledPage.slotClosed in sv',
+      },
+      signupClosed: {
+        title: 'participant.cancelledPage.title in sv',
+        body: 'participant.cancelledPage.signupClosed in sv',
+      },
+      removed: {
+        title: 'participant.cancelledPage.removed.title in sv',
+        body: 'participant.cancelledPage.removed.body in sv',
+      },
+      moved: {
+        title: 'participant.cancelledPage.moved.title in sv',
+        body: 'participant.cancelledPage.moved.body in sv',
+      },
+    });
+  });
+
+  it('says the sign-up moved, and that it is still theirs', () => {
+    expect(CANCELLED_PAGE.moved).toEqual({
+      title: 'Your spot moved to another slot',
+      body: 'You’re still signed up. Use the link below to see or change it.',
     });
   });
 });
