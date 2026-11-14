@@ -1,4 +1,6 @@
-import { resolve } from 'node:path';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ESLint } from 'eslint';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -39,11 +41,21 @@ export function Example({ name, open, label }: { name: string; open: boolean; la
  * `filesAt` from eslint.config.mjs, which turns `TRANSLATED` into the config's
  * `files`. Imported at runtime because TypeScript has no types for the .mjs.
  */
-async function loadFilesAt(): Promise<(paths: string[]) => string[]> {
+async function loadFilesAt(): Promise<(paths: string[], root?: string) => string[]> {
   const config = (await import(pathToFileURL(resolve(ROOT, 'eslint.config.mjs')).href)) as {
-    filesAt: (paths: string[]) => string[];
+    filesAt: (paths: string[], root?: string) => string[];
   };
   return config.filesAt;
+}
+
+/** Whether ESLint, run from `cwd`, puts `file` under a block whose `files` are `files`. */
+async function matches(cwd: string, files: string[], file: string): Promise<boolean> {
+  const matcher = new ESLint({
+    cwd,
+    overrideConfigFile: true,
+    overrideConfig: [{ files: ['**/*.tsx'] }, { files, rules: { 'no-console': 'error' } }],
+  });
+  return Boolean((await matcher.calculateConfigForFile(file))?.rules?.['no-console']);
 }
 
 /** The props `opensignup/no-literal-text-props` reads as text. */
@@ -127,19 +139,31 @@ describe('where the rules apply', () => {
     const filesAt = await loadFilesAt();
     const files = filesAt(['src/app/s/[slug]', 'src/app/app/(chrome)/']);
     // A glob would read `[slug]` as one of the letters s, l, u and g.
-    const matcher = new ESLint({
-      cwd: ROOT,
-      overrideConfigFile: true,
-      overrideConfig: [{ files: ['**/*.tsx'] }, { files, rules: { 'no-console': 'error' } }],
-    });
-    const isOn = async (file: string) =>
-      Boolean((await matcher.calculateConfigForFile(file))?.rules?.['no-console']);
+    const isOn = (file: string) => matches(ROOT, files, file);
     expect(await isOn('src/app/s/[slug]/page.tsx')).toBe(true);
     expect(await isOn('src/app/s/[slug]/c/[id]/page.tsx')).toBe(true);
     expect(await isOn('src/app/app/(chrome)/settings/page.tsx')).toBe(true);
     expect(await isOn('src/app/s/s/page.tsx')).toBe(false);
     expect(await isOn('src/app/app/c/settings/page.tsx')).toBe(false);
   });
+
+  // Windows can't put a backslash in a folder's name.
+  it.skipIf(process.platform === 'win32')(
+    'matches a listed folder with a backslash in its name, and nothing else',
+    async () => {
+      const filesAt = await loadFilesAt();
+      const root = mkdtempSync(join(tmpdir(), 'files-at-'));
+      try {
+        mkdirSync(join(root, 'a\\b'));
+        const files = filesAt(['a\\b'], root);
+        // A glob reads a lone backslash as escaping the next letter, so `a\b` would be `ab`.
+        expect(await matches(root, files, 'a\\b/page.tsx')).toBe(true);
+        expect(await matches(root, files, 'ab/page.tsx')).toBe(false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
 
   it('stops at a listed path that does not exist', async () => {
     const filesAt = await loadFilesAt();
