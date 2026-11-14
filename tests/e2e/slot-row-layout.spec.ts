@@ -167,34 +167,33 @@ for (const { name, path, labels, shows, goto, sheet } of SIGNUPS) {
     });
 
     // The Spots box is 80px wide, so a longer label wraps there and pushes its
-    // input below the Notes input beside it.
-    test('the sign-up sheet’s field labels fit on one line, down to 320px', async ({ page }) => {
-      test.skip(!sheet, 'a closed signup has no sign-up sheet');
-      if (!sheet) return;
-      for (const viewport of [NARROW, PHONE, DESKTOP]) {
-        await page.setViewportSize(viewport);
-        await goto(page, sheet.path);
-        await page
-          .locator('li')
-          .filter({ hasText: sheet.slot })
-          .getByRole('button', { name: sheet.signUp })
-          .click();
-        const dialog = page.getByRole('dialog');
-        const notes = dialog.locator('input[name="notes"]');
-        const spots = dialog.locator('input[name="quantity"]');
-        await expect(spots, 'the sheet should ask how many spots').toBeVisible();
+    // input below the Notes input beside it. A closed signup has no sheet.
+    if (sheet)
+      test('the sign-up sheet’s field labels fit on one line, down to 320px', async ({ page }) => {
+        for (const viewport of [NARROW, PHONE, DESKTOP]) {
+          await page.setViewportSize(viewport);
+          await goto(page, sheet.path);
+          await page
+            .locator('li')
+            .filter({ hasText: sheet.slot })
+            .getByRole('button', { name: sheet.signUp })
+            .click();
+          const dialog = page.getByRole('dialog');
+          const notes = dialog.locator('input[name="notes"]');
+          const spots = dialog.locator('input[name="quantity"]');
+          await expect(spots, 'the sheet should ask how many spots').toBeVisible();
 
-        const labels = dialog.locator('label > span:first-child');
-        expect(await labels.count(), 'name, email, notes and spots').toBe(4);
-        for (const label of await labels.all()) {
-          await expectOneLine(label, `at ${viewport.width}px`);
+          const labels = dialog.locator('label > span:first-child');
+          expect(await labels.count(), 'name, email, notes and spots').toBe(4);
+          for (const label of await labels.all()) {
+            await expectOneLine(label, `at ${viewport.width}px`);
+          }
+          const [notesBox, spotsBox] = [await notes.boundingBox(), await spots.boundingBox()];
+          expect(Math.round(spotsBox!.y), `Notes and Spots line up at ${viewport.width}px`).toBe(
+            Math.round(notesBox!.y),
+          );
         }
-        const [notesBox, spotsBox] = [await notes.boundingBox(), await spots.boundingBox()];
-        expect(Math.round(spotsBox!.y), `Notes and Spots line up at ${viewport.width}px`).toBe(
-          Math.round(notesBox!.y),
-        );
-      }
-    });
+      });
 
     test('no horizontal overflow down to 320px', async ({ page }) => {
       for (const viewport of [NARROW, PHONE, DESKTOP]) {
