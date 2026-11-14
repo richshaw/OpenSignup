@@ -207,7 +207,7 @@ describe('the edit page’s words', () => {
     );
     // The form's messages are the signup's language's, here the Swedish catalog's.
     expect(screen.getByLabelText('Ditt namn')).toHaveValue('Pat Example');
-    expect(screen.getByText('Du kan ha upp till 4 platser på det här passet.')).toBeInTheDocument();
+    expect(screen.getByText('Du kan ha högst 4 platser.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Spara' })).toBeInTheDocument();
     expect(main).not.toHaveTextContent(
       /Your spot|Back to|You're editing|Closed|You can|Save|Cancel/,

@@ -83,7 +83,7 @@
       "addToCalendar": "Lägg till i kalendern",
       "calendarDescription": "Ändra eller avboka: {url}",
       "saveYourLink": "Spara din länk",
-      "shareText": "Min anmälan till {slot} – med den här länken går den att ändra eller avboka, så håll länken privat.",
+      "shareText": "Min anmälan till {slot} – med den här länken går den att ändra eller avboka, så dela inte länken med någon.",
       "copyLink": "Kopiera länk",
       "linkCopied": "Länk kopierad",
       "copied": "Länken är kopierad.",
@@ -97,18 +97,18 @@
         "onlyLeft": "Det finns bara {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}} kvar, och du valde {requested, number}.",
         "askForOne": "Välj 1 i stället.",
         "askForOrFewer": "Välj {remaining, number} eller färre.",
-        "full": "Passet är fullt, så du kan inte lägga till fler platser.",
-        "atMost": "Du kan ha högst {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}} på det här passet, och du valde {requested, number}.",
+        "full": "Det är fullt, så du kan inte lägga till fler platser.",
+        "atMost": "Du kan ha högst {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}}, och du valde {requested, number}.",
         "keepYourOne": "Behåll den plats du har."
       },
       "keepNumber": "Behåll det antal du har.",
       "closed": {
-        "join": "Inga fler kan anmäla sig till det här passet nu.",
+        "join": "Inga fler kan anmäla sig nu.",
         "reload": "Ladda om sidan för att se vad som fortfarande är ledigt.",
         "change": "Du kan inte lägga till fler platser nu."
       },
       "conflict": {
-        "message": "Du är redan anmäld till det här passet.",
+        "message": "Du är redan anmäld till det här.",
         "suggestion": "Använd länken i bekräftelsemejlet för att ändra eller avboka.",
         "change": "Din anmälan går inte att ändra längre."
       },
@@ -127,7 +127,7 @@
       "quantity": "Ange antalet platser som ett heltal från 1 till {max, number}.",
       "input": "Kontrollera det du har fyllt i och försök igen.",
       "rateLimit": {
-        "message": "För många försök just nu.",
+        "message": "För många försök på kort tid.",
         "wait": "Försök igen om ungefär {minutes, plural, one {{minutes, number} minut} other {{minutes, number} minuter}}.",
         "waitAWhile": "Försök igen om några minuter."
       },
@@ -159,7 +159,7 @@
       }
     },
     "editForm": {
-      "spotsMax": "Du kan ha upp till {max, plural, one {{max, number} plats} other {{max, number} platser}} på det här passet.",
+      "spotsMax": "Du kan ha högst {max, plural, one {{max, number} plats} other {{max, number} platser}}.",
       "save": "Spara",
       "saving": "Sparar…",
       "saved": "Sparat.",
@@ -199,7 +199,7 @@
       },
       "invalid": {
         "title": "Länken är inte giltig",
-        "body": "Länken kan ha skadats på vägen, eller så kan anmälningslistan ha tagits bort. Öppna den direkt från påminnelsemejlet, eller svara på mejlet och be arrangören att sluta skicka påminnelser."
+        "body": "Länken kan ha skadats på vägen, eller så kan anmälningslistan ha tagits bort. Öppna länken direkt från påminnelsemejlet, eller svara på mejlet och be arrangören att sluta skicka påminnelser."
       },
       "confirm": {
         "title": "Vill du stänga av påminnelserna?",
@@ -219,7 +219,7 @@
         "bodyWithEmail": "Påminnelserna om <b>{title}</b> är avstängda för {email}. Du får inga påminnelser och inga mejl när arrangören ändrar datum eller tid."
       },
       "turnBackOn": "Slå på påminnelserna igen",
-      "turnOnFailed": "Vi kunde inte slå på dina påminnelser igen. Försök igen.",
+      "turnOnFailed": "Vi kunde inte slå på dina påminnelser igen. Försök en gång till.",
       "turnedOn": {
         "title": "Påminnelserna är påslagna igen",
         "body": "Du får påminnelser om <b>{title}</b> igen, och mejl när datum eller tid ändras. Du kan stänga av dem när som helst via länken i något av mejlen.",

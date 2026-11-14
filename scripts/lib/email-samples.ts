@@ -16,7 +16,7 @@ import {
 import { MagicLinkEmail } from '@/email/templates/magic-link';
 import { ReminderEmail, type ReminderEmailProps } from '@/email/templates/reminder';
 import { SlotChangedEmail, type SlotChangedEmailProps } from '@/email/templates/slot-changed';
-import { formatSlotDate } from '@/lib/slot-label';
+import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
 
 export interface EmailSample {
   name: string;
@@ -63,6 +63,12 @@ function slotChanged(props: SlotChangedEmailProps) {
   };
 }
 
+/**
+ * The English confirmation's time as the app prints it ("9:00 AM"), as the
+ * Swedish samples' dates are below, so its text and subject read as sent.
+ */
+const nineAm = formatSlotTime('09:00', 'en') ?? '';
+
 /** The Swedish samples' signup, slot and participant. */
 const swedish = {
   locale: 'sv',
@@ -104,10 +110,10 @@ export const emailSamples: readonly EmailSample[] = [
       manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
       slotDetails: [
         { label: 'Date', value: 'Sat, Sep 5' },
-        { label: 'Time', value: '09:00' },
+        { label: 'Time', value: nineAm },
         { label: 'Snack', value: 'Fruit' },
       ],
-      slotSummary: 'Sat, Sep 5 · 09:00 · Fruit',
+      slotSummary: `Sat, Sep 5 · ${nineAm} · Fruit`,
       notes: 'Bringing grapes',
       quantity: 2,
       promisesReminder: true,

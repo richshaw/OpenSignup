@@ -1310,7 +1310,7 @@ describe('<CommitDialog /> sheet', () => {
      */
     const KEEP_IT_PRIVATE: Record<CatalogLocale, string> = {
       en: 'so keep it private',
-      sv: 'så håll länken privat',
+      sv: 'så dela inte länken med någon',
     };
 
     afterEach(() => {
@@ -1365,7 +1365,7 @@ describe('<CommitDialog /> sheet', () => {
         `Ändra eller avboka: ${editUrl}`,
       );
       expect((await shared(dialog('saveYourLink')))?.text).toBe(
-        `Min anmälan till ${slotName} – med den här länken går den att ändra eller avboka, så håll länken privat.`,
+        `Min anmälan till ${slotName} – med den här länken går den att ändra eller avboka, så dela inte länken med någon.`,
       );
     });
 

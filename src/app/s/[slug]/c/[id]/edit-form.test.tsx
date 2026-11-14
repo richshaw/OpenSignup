@@ -725,7 +725,7 @@ describe('<EditForm /> words', () => {
     renderForm(1234, 1, SwedishMessages);
     // Swedish groups thousands with a no-break space (the query's whitespace
     // is matched loosely), so a count never breaks across lines.
-    const line = screen.getByText('Du kan ha upp till 1 234 platser på det här passet.');
+    const line = screen.getByText('Du kan ha högst 1 234 platser.');
     expect(line.textContent).toContain('1\u00a0234');
     expect(screen.getByRole('button', { name: 'Spara' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Avboka' })).toBeEnabled();
@@ -735,26 +735,16 @@ describe('<EditForm /> words', () => {
     renderForm(3, 1, SwedishMessages);
     fireEvent.change(screen.getByLabelText('Platser'), { target: { value: '3' } });
     fireEvent.click(screen.getByRole('button', { name: 'Spara' }));
-    expect(
-      await screen.findByText('Du kan ha upp till 1 plats på det här passet.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Du kan ha högst 1 plats.')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('Behåll den plats du har.');
   });
 
   // The line can't show fewer than the spots held, so never 0, but the
   // message reads right for every count all the same.
   it.each([
-    [
-      0,
-      'You can have up to 0 spots on this slot.',
-      'Du kan ha upp till 0 platser på det här passet.',
-    ],
-    [1, 'You can have up to 1 spot on this slot.', 'Du kan ha upp till 1 plats på det här passet.'],
-    [
-      2,
-      'You can have up to 2 spots on this slot.',
-      'Du kan ha upp till 2 platser på det här passet.',
-    ],
+    [0, 'You can have up to 0 spots on this slot.', 'Du kan ha högst 0 platser.'],
+    [1, 'You can have up to 1 spot on this slot.', 'Du kan ha högst 1 plats.'],
+    [2, 'You can have up to 2 spots on this slot.', 'Du kan ha högst 2 platser.'],
   ])('words %i spots in both languages', (max, english, swedish) => {
     expect(getTestTranslator('participant.editForm')('spotsMax', { max })).toBe(english);
     const sv = getTranslator('sv', 'participant.editForm', {
