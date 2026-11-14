@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { NOT_FOUND_PAGE } from '@/app/not-found-message';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { loadSeed } from './helpers/fixtures';
+import { createDisposableSession } from './helpers/seed';
 
 const seed = loadSeed();
 
@@ -25,6 +26,22 @@ async function expectIconsAndManifest(page: Page) {
   }
 }
 
+/**
+ * The share image `rootMetadata` names. For a page that sets no `openGraph` or
+ * `twitter` of its own it's the only one, so a link to the page would preview
+ * with no picture without it.
+ */
+async function expectShareImage(page: Page) {
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+    'content',
+    /\/opengraph-image\.png$/,
+  );
+  await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
+    'content',
+    /\/twitter-image\.png$/,
+  );
+}
+
 test.describe('root layouts', () => {
   test('the help pages are English, with the icons and manifest', async ({ page }) => {
     await page.goto('/help');
@@ -40,6 +57,18 @@ test.describe('root layouts', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page).toHaveTitle(/^Your signups · /);
     await expectIconsAndManifest(page);
+    await expectShareImage(page);
+  });
+
+  test('sign-in and an edit link, which name no share image, get the site’s', async ({ page }) => {
+    for (const path of [
+      '/login',
+      `/s/${seed.editSlug}/c/${seed.editCommitmentId}?token=${seed.editToken}`,
+    ]) {
+      await page.goto(path);
+      await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+      await expectShareImage(page);
+    }
   });
 
   test('a signup page is English, with the icons, the manifest and the footer', async ({
@@ -74,6 +103,36 @@ test.describe('an address no page matches', () => {
       await expect(page.getByRole('contentinfo')).toBeVisible();
       // Not Next's own page.
       await expect(page.getByText('This page could not be found')).toHaveCount(0);
+      // Its `metadata` is its own, built on `rootMetadata`.
+      await expectShareImage(page);
     });
   }
+});
+
+test.describe('signing out', () => {
+  // Sign out is a server action on /app that redirects to the home page, in
+  // another root layout, so the browser has to load the whole page.
+  test('lands on the home page, and /app then asks to sign in', async ({ page, context }) => {
+    // Sign-out deletes the session row, so this test brings its own.
+    await loginAsSeededOrganizer(context, {
+      sessionToken: await createDisposableSession(seed.organizerId),
+    });
+    const errors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') errors.push(message.text());
+    });
+    page.on('pageerror', (error) => errors.push(error.message));
+
+    await page.goto('/app');
+    await expect(page.getByRole('heading', { level: 1, name: 'Your signups' })).toBeVisible();
+    await page.getByRole('button', { name: 'Sign out' }).click();
+
+    await page.waitForURL((url) => url.pathname === '/' && url.search === '');
+    await expect(page.getByRole('heading', { level: 1, name: /Sign-up sheets,/ })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    expect(errors).toEqual([]);
+
+    await page.goto('/app');
+    await expect(page).toHaveURL(/\/login\?callbackUrl=%2Fapp$/);
+  });
 });

@@ -21,10 +21,13 @@ const DESCRIPTION =
 /**
  * Every root layout exports this as its `metadata`.
  *
- * The share image is named here: Next attaches `src/app/opengraph-image.png`
- * and `twitter-image.png` to the `src/app` segment, and the `openGraph` and
- * `twitter` below, one segment down, replace that whole. A page that sets
- * neither inherits these, image included.
+ * It names the share image (`SHARE_IMAGES`), so a page that sets no `openGraph`
+ * or `twitter` of its own inherits these, image included. The image files are
+ * plain static files in `public/`, not metadata files in `src/app/`: there
+ * Next would attach them to the `src/app` segment, which has no layout and so
+ * no `metadataBase`, and warn on every build and server start that it used
+ * localhost for them, when the `openGraph` and `twitter` below, one segment
+ * down, replace them anyway.
  */
 export const rootMetadata: Metadata = {
   metadataBase: new URL(APP_ORIGIN),

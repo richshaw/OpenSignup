@@ -131,7 +131,7 @@ describe('pageMetadata', () => {
   });
 
   it.each(['opengraph-image', 'twitter-image'])('describes %s.png as it is on disk', (name) => {
-    const dir = path.resolve(__dirname, '../app');
+    const dir = path.resolve(__dirname, '../../public');
     const png = readFileSync(path.join(dir, `${name}.png`));
     // A PNG's IHDR chunk holds its width and height at bytes 16 and 20.
     expect(png.readUInt32BE(16)).toBe(SHARE_IMAGE.width);

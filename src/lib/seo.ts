@@ -20,8 +20,8 @@ export const INDEXABLE_ROUTES: readonly string[] = [
   ...HELP_ARTICLES.map((a) => `/help/${a.slug}`),
 ];
 
-// The root share image files (`src/app/opengraph-image.png`, the same picture
-// as `twitter-image.png`, made by `scripts/generate-og-image.mjs`) and their
+// The share image files (`public/opengraph-image.png`, the same picture as
+// `twitter-image.png`, made by `scripts/generate-og-image.mjs`) and their
 // `.alt.txt`. `seo.test.ts` checks these against the files.
 export const SHARE_IMAGE = {
   width: 1200,
