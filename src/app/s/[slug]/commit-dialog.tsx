@@ -7,7 +7,7 @@ import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { FormError } from '@/components/ui/form-error';
-import { participantErrorCopy } from './participant-error';
+import { participantErrorCopy, type ParticipantErrorCopy } from './participant-error';
 import { PREFILL_KEY } from './prefill-key';
 import { Field, NotesAndSpots } from './participant-fields';
 import { ACTION_SIZING } from './slot-format';
@@ -64,17 +64,24 @@ interface CommitDialogProps {
   sendsReminder: boolean;
 }
 
+/**
+ * An error from signing up, as far as the sheet reads it: never its `message`
+ * or `suggestion`, which are English for API callers (see `participantErrorCopy`).
+ */
 interface ApiError {
-  code: string;
-  message: string;
-  field?: string;
-  suggestion?: string;
+  code?: string;
   details?: {
+    reason?: string;
     alternatives?: { id: string; title: string }[];
     remaining?: number;
     capacity?: number;
     retryAfterSeconds?: number;
   };
+}
+
+/** What the sheet says went wrong, and whether to offer other slots. */
+interface DialogError extends ParticipantErrorCopy {
+  seeAlternatives?: boolean;
 }
 
 interface PrefillState {
@@ -142,7 +149,7 @@ export default function CommitDialog({
   const tErrors = useTranslations('participant.errors');
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<ApiError | null>(null);
+  const [error, setError] = useState<DialogError | null>(null);
   const [success, setSuccess] = useState<{
     commitmentId: string;
     editUrl: string;
@@ -267,16 +274,31 @@ export default function CommitDialog({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ...body, idempotencyKey }),
       });
-      const payload = await res.json();
-      if (!res.ok) {
-        setError(payload.error ?? { code: 'internal', message: 'something went wrong' });
-        // A blank email is refused only because the signup now requires one.
-        if (!email && payload.error?.code === 'invalid_input' && payload.error.field === 'email') {
-          setEmailNowRequired(true);
-        }
-        const remaining = payload.error?.details?.remaining;
-        if (payload.error?.code === 'capacity_full' && typeof remaining === 'number') {
-          const reportedCapacity = payload.error.details?.capacity;
+      // Not the API's JSON (an error page from a proxy, say) reads as null.
+      const payload = await res.json().catch(() => null);
+      if (!res.ok || !payload?.data) {
+        const failure: ApiError | undefined = payload?.error;
+        setError(
+          // Every error the API sends has a code, and comes after it has undone
+          // anything it began, so its copy may say the sign-up didn't happen.
+          // An answer without one may come from a proxy after the server made
+          // the sign-up, so its copy doesn't say whether it did. Confirm again
+          // with the same details gives that sign-up back, as after a dropped
+          // connection.
+          failure?.code
+            ? {
+                ...participantErrorCopy(failure, 'join', tErrors),
+                seeAlternatives:
+                  Boolean(failure.details?.alternatives?.length) &&
+                  failure.details?.remaining === 0,
+              }
+            : { message: t('unreadable.message'), suggestion: t('unreadable.suggestion') },
+        );
+        // The organizer made the email required after this page rendered.
+        if (failure?.details?.reason === 'email_required') setEmailNowRequired(true);
+        const remaining = failure?.details?.remaining;
+        if (failure?.code === 'capacity_full' && typeof remaining === 'number') {
+          const reportedCapacity = failure.details?.capacity;
           setReported({
             left: remaining,
             capacity: typeof reportedCapacity === 'number' ? reportedCapacity : capacity,
@@ -297,7 +319,10 @@ export default function CommitDialog({
       // dismissing the success view with its calendar/share affordances.
       // Refresh on close instead.
     } catch {
-      setError({ code: 'internal', message: 'network error' });
+      // Offline, or the connection dropped, perhaps after the server made the
+      // sign-up: Confirm again sends the same idempotency key, so it gives
+      // that sign-up back rather than making a second.
+      setError({ message: t('unreachable.message'), suggestion: t('unreachable.suggestion') });
     } finally {
       setSubmitting(false);
     }
@@ -380,11 +405,6 @@ export default function CommitDialog({
     }
   }
 
-  // A capacity error gets participant-facing copy built from its numbers, and
-  // a slot or signup closed or removed while this page was open, a second
-  // sign-up by the same email and a rate limit each get their own; any other
-  // error keeps the server's own message and suggestion.
-  const errorText = error ? (participantErrorCopy(error, 'join', tErrors) ?? error) : null;
   // Save your link and Copy link each say "Link copied" on themselves after a copy.
   const linkCopied = success?.emailed ? shareCopied : copyResult === 'copied';
   // The trigger's name and the sheet's: every row's button reads "Sign up".
@@ -593,9 +613,9 @@ export default function CommitDialog({
             />
             {error ? (
               <FormError ref={errorRef}>
-                <p className="font-medium">{errorText?.message}</p>
-                {errorText?.suggestion ? <p className="text-xs">{errorText.suggestion}</p> : null}
-                {error.details?.alternatives?.length && error.details.remaining === 0 ? (
+                <p className="font-medium">{error.message}</p>
+                {error.suggestion ? <p className="text-xs">{error.suggestion}</p> : null}
+                {error.seeAlternatives ? (
                   <div className="mt-2 space-y-1 text-xs">
                     <a
                       href={`/s/${slug}`}

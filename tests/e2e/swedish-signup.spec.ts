@@ -72,6 +72,31 @@ test.describe('the Swedish test signup', () => {
     await expect(page.getByRole('navigation', { name: 'Footer' })).toBeVisible();
   });
 
+  // The browser takes an address at `localhost` as an email; the server
+  // doesn't, and names the reason, which the sheet words in the signup's
+  // language. A new address each run, as the server counts refused ones
+  // against the address.
+  test('says why a sign-up was refused, in Swedish', async ({ page }) => {
+    await gotoSwedish(page, `/s/${slug}`);
+    const dialog = swedish('participant.dialog');
+    const fields = swedish('participant.fields');
+    const errors = swedish('participant.errors');
+    await page
+      .locator('li')
+      .filter({ hasText: slots.one })
+      .getByRole('button', { name: /^Anmäl dig till / })
+      .click();
+    const sheet = page.getByRole('dialog');
+    await sheet.getByLabel(fields('name')).fill('Kim Exempel');
+    await sheet.getByLabel(fields('emailOptional')).fill(`kim+${Date.now()}@localhost`);
+    await sheet.getByRole('button', { name: dialog('confirm') }).click();
+
+    const alert = sheet.getByRole('alert');
+    await expect(alert).toContainText(errors('email.invalid'));
+    await expect(alert).toContainText(errors('email.check'));
+    await expectNoEnglish(alert);
+  });
+
   test('keeps its organizer’s strip English, marked lang="en"', async ({ page, context }) => {
     await loginAsSeededOrganizer(context);
     await gotoSwedish(page, `/s/${slug}`);
@@ -143,11 +168,14 @@ test.describe('the Swedish test signup’s edit page', () => {
   // The answers are faked, so the seeded sign-up stays as it is.
   test('says a save worked, or why not, in Swedish, down to 1 spot', async ({ page }) => {
     await gotoSwedish(page, editPath);
-    let answer = { status: 200, body: { data: {} } as object };
+    // A string body is a page that isn't the API's JSON.
+    let answer: { status: number; body: object | string } = { status: 200, body: { data: {} } };
     await page.route('**/api/commitments/**', (route) =>
-      route.request().method() === 'PATCH'
-        ? route.fulfill({ status: answer.status, json: answer.body })
-        : route.continue(),
+      route.request().method() !== 'PATCH'
+        ? route.continue()
+        : typeof answer.body === 'string'
+          ? route.fulfill({ status: answer.status, contentType: 'text/html', body: answer.body })
+          : route.fulfill({ status: answer.status, json: answer.body }),
     );
     const main = page.locator('main');
 
@@ -172,6 +200,42 @@ test.describe('the Swedish test signup’s edit page', () => {
       `${errors('capacity.atMost', { remaining: 1, requested: 3 })} ${errors('capacity.keepYourOne')}`,
     );
     await expect(main.getByText(form('spotsMax', { max: 1 }))).toBeVisible();
+    await expectNoEnglish(main);
+
+    // The edit link's own rate limit, which this page used to show in the
+    // server's English ("too many requests").
+    answer = {
+      status: 429,
+      body: {
+        error: {
+          code: 'rate_limited',
+          message: 'too many requests',
+          details: { retryAfterSeconds: 120 },
+        },
+      },
+    };
+    await main.getByLabel(swedish('participant.fields')('spots')).fill('1');
+    await main.getByRole('button', { name: form('save') }).click();
+    await expect(main.getByRole('alert')).toHaveText(
+      `${errors('rateLimit.message')} ${errors('rateLimit.wait', { minutes: 2 })}`,
+    );
+
+    // And anything with no copy of its own.
+    answer = {
+      status: 500,
+      body: { error: { code: 'internal', message: 'something went wrong' } },
+    };
+    await main.getByRole('button', { name: form('save') }).click();
+    await expect(main.getByRole('alert')).toHaveText(
+      `${errors('failed.save')} ${errors('failed.tryAgain')}`,
+    );
+    await expectNoEnglish(main);
+
+    // A proxy's error page, which may come after the server saved: the form
+    // doesn't say whether it did, only to save again.
+    answer = { status: 502, body: '<html><body><h1>502 Bad Gateway</h1></body></html>' };
+    await main.getByRole('button', { name: form('save') }).click();
+    await expect(main.getByRole('alert')).toHaveText(form('saveUnreadable'));
     await expectNoEnglish(main);
   });
 

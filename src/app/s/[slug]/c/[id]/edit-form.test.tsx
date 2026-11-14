@@ -154,7 +154,12 @@ describe('<EditForm /> quantity', () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,
       json: async () => ({
-        error: { code: 'invalid_input', message: 'name is required', field: 'name' },
+        error: {
+          code: 'invalid_input',
+          message: 'name is required',
+          field: 'name',
+          details: { reason: 'name_required' },
+        },
       }),
     }));
     vi.stubGlobal('fetch', fetchMock);
@@ -346,7 +351,7 @@ describe('<EditForm /> quantity', () => {
   });
 
   // A conflict alone is not a cancelled sign-up.
-  it('shows any other conflict without reloading', async () => {
+  it('says a sign-up that ended some other way can no longer be changed, without reloading', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,
       json: async () => ({
@@ -362,7 +367,11 @@ describe('<EditForm /> quantity', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('commitment is not active');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      "This spot can't be changed any more. Reload the page to see what has changed.",
+    );
+    expect(alert).not.toHaveTextContent('commitment is not active');
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
@@ -395,8 +404,10 @@ describe('<EditForm /> quantity', () => {
     expect(screen.getByText('You can have up to 4 spots on this slot.')).toBeInTheDocument();
     expect(screen.getByLabelText('Spots')).toHaveAttribute('max', '4');
   });
-  // Offline, or a dropped connection: fetch itself rejects.
-  it('says nothing was saved, and lets the participant try again, when the save never reaches the server', async () => {
+  // Offline, or a dropped connection: fetch itself rejects. The connection
+  // can drop after the server saved, so the form doesn't say whether it did:
+  // saving the same again does no harm.
+  it('asks for Save again, without saying whether it saved, when no answer comes', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))),
@@ -405,15 +416,19 @@ describe('<EditForm /> quantity', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.",
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      "Couldn't reach the server. Check your connection and press Save again.",
     );
+    expect(alert).not.toHaveTextContent('saved');
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Cancel signup' })).toBeEnabled();
   });
 
-  // An error page from a proxy, say, rather than the API's JSON.
-  it('says nothing was saved when a refused save has no JSON body', async () => {
+  // An error page from a proxy, say, rather than the API's JSON. A proxy can
+  // answer after the server saved, so the form doesn't say whether it did:
+  // saving the same again does no harm.
+  it('asks for Save again, without saying whether it saved, when a refused save has no JSON body', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,
       json: async () => {
@@ -425,13 +440,36 @@ describe('<EditForm /> quantity', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Something went wrong, so your changes weren't saved. Try again.",
-    );
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Something went wrong. Press Save again.');
+    expect(alert).not.toHaveTextContent('saved');
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 
-  it('says the sign-up was not cancelled when the cancel never reaches the server', async () => {
+  // Cancelling a spot already cancelled succeeds, so pressing it again does no harm.
+  it('asks for Cancel signup again, without saying whether it cancelled, when a refused cancel has no JSON body', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => {
+          throw new SyntaxError('Unexpected token < in JSON');
+        },
+      })),
+    );
+    renderForm(4, 2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel signup' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Something went wrong. Press Cancel signup again.');
+    expect(alert).not.toHaveTextContent('cancelled');
+    expect(screen.getByRole('button', { name: 'Cancel signup' })).toBeEnabled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it('asks for Cancel signup again, without saying whether it cancelled, when no answer comes', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))),
@@ -441,11 +479,153 @@ describe('<EditForm /> quantity', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel signup' }));
     fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't reach the server, so your spot wasn't cancelled. Check your connection and try again.",
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      "Couldn't reach the server. Check your connection and press Cancel signup again.",
     );
+    expect(alert).not.toHaveTextContent('cancelled');
     expect(screen.getByRole('button', { name: 'Cancel signup' })).toBeEnabled();
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['save', 'Det gick inte att nå servern. Kontrollera anslutningen och tryck på Spara igen.'],
+    ['cancel', 'Det gick inte att nå servern. Kontrollera anslutningen och tryck på Avboka igen.'],
+  ] as const)(
+    'asks for the %s again in Swedish, without saying whether it happened, when no answer comes',
+    async (action, words) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))),
+      );
+      renderForm(4, 2, SwedishMessages);
+
+      if (action === 'save') {
+        fireEvent.click(screen.getByRole('button', { name: 'Spara' }));
+      } else {
+        fireEvent.click(screen.getByRole('button', { name: 'Avboka' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Ja, avboka' }));
+      }
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent(words);
+      // "sparades inte" and "avbokades inte" were the old claims.
+      expect(alert).not.toHaveTextContent(/sparades|avbokades/);
+    },
+  );
+});
+
+// The server's `message` and `suggestion` are English for API callers. The
+// form words every refusal itself, by code and reason, and never shows them.
+describe('<EditForm /> refusals', () => {
+  const SERVER_WORDS = 'SERVER-ONLY-ENGLISH';
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  /** Save or cancel, answered with `error` and the server's words in it. */
+  async function refuse(action: 'save' | 'cancel', error: Record<string, unknown>) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => ({
+          error: { ...error, message: SERVER_WORDS, suggestion: SERVER_WORDS },
+        }),
+      })),
+    );
+    renderForm(4, 2);
+    if (action === 'save') {
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    } else {
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel signup' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }));
+    }
+    const alert = await screen.findByRole('alert');
+    expect(alert).not.toHaveTextContent(SERVER_WORDS);
+    return alert;
+  }
+
+  it.each([
+    [
+      'save',
+      { code: 'internal' },
+      "Something went wrong, so your changes weren't saved. Try again.",
+    ],
+    [
+      'cancel',
+      { code: 'internal' },
+      "Something went wrong, so your spot wasn't cancelled. Try again.",
+    ],
+    [
+      'cancel',
+      { code: 'teapot' },
+      "Something went wrong, so your spot wasn't cancelled. Try again.",
+    ],
+    // Every error the API sends has a code: one without may not be the API's,
+    // and may come after the change was made, so it says neither way.
+    ['save', {}, 'Something went wrong. Press Save again.'],
+    ['cancel', {}, 'Something went wrong. Press Cancel signup again.'],
+    [
+      'save',
+      { code: 'rate_limited', details: { retryAfterSeconds: 600 } },
+      'Too many tries just now. Try again in about 10 minutes.',
+    ],
+    [
+      'cancel',
+      { code: 'rate_limited', details: { retryAfterSeconds: 600 } },
+      'Too many tries just now. Try again in about 10 minutes.',
+    ],
+    [
+      'save',
+      { code: 'forbidden' },
+      "This spot can't be changed any more. Reload the page to see what has changed.",
+    ],
+    [
+      'cancel',
+      { code: 'conflict', details: { status: 'no_show' } },
+      "This spot can't be changed any more. Reload the page to see what has changed.",
+    ],
+    [
+      'save',
+      { code: 'invalid_input', field: 'quantity', details: { reason: 'quantity_too_large' } },
+      `Enter a whole number of spots, from 1 to ${QUANTITY_MAX}.`,
+    ],
+    [
+      'save',
+      { code: 'invalid_input', field: 'notes', details: { reason: 'notes_too_long' } },
+      'Shorten your notes to 500 characters or fewer.',
+    ],
+    [
+      'save',
+      { code: 'invalid_input', details: { maxBytes: 1_000_000 } },
+      'Check what you entered and try again.',
+    ],
+  ] as const)('words a refused %s of %j itself', async (action, error, words) => {
+    expect(await refuse(action, error)).toHaveTextContent(words);
+  });
+
+  it('words a refusal in the language its page passes', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => ({
+          error: {
+            code: 'invalid_input',
+            message: SERVER_WORDS,
+            details: { reason: 'quantity_too_large' },
+          },
+        }),
+      })),
+    );
+    renderForm(4, 2, SwedishMessages);
+    fireEvent.click(screen.getByRole('button', { name: 'Spara' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(`Ange ett helt antal platser, från 1 till ${QUANTITY_MAX}.`);
+    expect(alert).not.toHaveTextContent(SERVER_WORDS);
   });
 });
 
@@ -502,10 +682,11 @@ describe('<EditForm /> words', () => {
   });
 
   it.each([
-    ['a save that never reaches the server', 'save', 'saveUnreachable', true],
-    ['a save refused with no JSON body', 'save', 'saveUnreadable', false],
-    ['a cancel that never reaches the server', 'cancel', 'cancelUnreachable', true],
-  ] as const)('explains %s in those messages', async (_, action, key, offline) => {
+    ['a save that never reaches the server', 'save', sv('saveUnreachable'), true],
+    ['a save refused with no JSON body', 'save', sv('saveUnreadable'), false],
+    ['a cancel that never reaches the server', 'cancel', sv('cancelUnreachable'), true],
+    ['a cancel refused with no JSON body', 'cancel', sv('cancelUnreadable'), false],
+  ] as const)('explains %s in those messages', async (_, action, words, offline) => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () =>
@@ -523,7 +704,7 @@ describe('<EditForm /> words', () => {
 
     fireEvent.click(screen.getByRole('button', { name: sv(action) }));
     if (action === 'cancel') fireEvent.click(screen.getByRole('button', { name: sv('yesCancel') }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(sv(key));
+    expect(await screen.findByRole('alert')).toHaveTextContent(words);
   });
 
   it('counts spots as before in English, many and 1', async () => {
