@@ -1,4 +1,5 @@
 import { FlatCompat } from '@eslint/eslintrc';
+import { statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import tseslint from '@typescript-eslint/eslint-plugin';
@@ -6,6 +7,36 @@ import tsparser from '@typescript-eslint/parser';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const compat = new FlatCompat({ baseDirectory: __dirname });
+
+/**
+ * The files and folders whose text has moved to the message catalogs. In
+ * these, text people read must come from a translator, so JSX text and a
+ * string on a prop like `aria-label` are lint errors (the last block of
+ * `config`). When an area moves to the catalogs, add its file or folder here
+ * in the same PR, as the path from the repo's root, written as it is on disk:
+ * `src/app/s/[slug]` takes in everything under that folder, brackets and all.
+ * Lint stops with an error if a path here doesn't exist.
+ *
+ * Text that reads the same in every language, like a name, can be let through
+ * where it stands with an eslint-disable comment that says why.
+ */
+const TRANSLATED = ['src/components/site-footer.tsx'];
+
+/**
+ * Glob patterns for `files` that match exactly `paths`, each a file or a
+ * folder relative to `root` (the repo's root unless a test gives another): a
+ * folder takes in everything under it, and the characters a glob reads
+ * specially (`[slug]`, `(chrome)`, and the backslash it escapes them with) are
+ * escaped, so they match only themselves.
+ */
+export function filesAt(paths, root = __dirname) {
+  return paths.map((entry) => {
+    const stats = statSync(path.join(root, entry), { throwIfNoEntry: false });
+    if (!stats) throw new Error(`eslint.config.mjs lists ${entry}, which doesn't exist.`);
+    const glob = entry.replace(/\/+$/, '').replace(/[\\*?[\]{}()!+@]/g, '\\$&');
+    return stats.isDirectory() ? `${glob}/**` : glob;
+  });
+}
 
 // OpenSignup's own rules, as a local plugin. To add one, put it in
 // `opensignup.rules` and turn it on as `opensignup/<name>` in a block of
@@ -17,10 +48,20 @@ const SRC = path.join(__dirname, 'src');
 /** The message catalogs, one JSON file per language (`en.json`). */
 const MESSAGES = path.join(SRC, 'messages');
 
-/** Modules that load every catalog, as paths without their extension. */
-const CATALOG_IMPORTERS = ['i18n/translator', 'i18n/server', 'i18n/testing/translator'].map(
-  (module) => path.join(SRC, module),
-);
+/**
+ * The translator lives here, and so does any other module that loads the
+ * catalogs (put a new one here). A client file may import only what's in
+ * `CLIENT_SAFE_I18N` from it, so a module added here later is kept out of the
+ * browser without anyone listing it.
+ */
+const I18N = path.join(SRC, 'i18n');
+
+/**
+ * The modules in src/i18n/ a client file may import, as paths without their
+ * extension. One goes on the list only if it loads no catalog, now or through
+ * anything it imports.
+ */
+const CLIENT_SAFE_I18N = ['i18n/config'].map((module) => path.join(SRC, module));
 
 /** What a client component does for its text instead. */
 const CLIENT_TEXT_INSTEAD =
@@ -46,14 +87,15 @@ function resolveSpecifier(specifier, filename) {
 
 const isUnder = (target, dir) => target === dir || target.startsWith(dir + path.sep);
 
-/** 'catalog' or 'importer' when `target` is one, else null. */
+/** 'catalog' for a catalog, 'importer' for a module in src/i18n/ that isn't client-safe, else null. */
 function catalogKind(target) {
   // `en.json`, but not `en.d.json`: that finds the declaration next-intl
   // writes beside the catalog (`en.d.json.ts`), which imports nothing.
   if (path.dirname(target) === MESSAGES && /^[^.]+\.json$/.test(path.basename(target))) {
     return 'catalog';
   }
-  return CATALOG_IMPORTERS.includes(target.replace(/\.[cm]?[jt]sx?$/, '')) ? 'importer' : null;
+  const modulePath = target.replace(/\.[cm]?[jt]sx?$/, '');
+  return isUnder(modulePath, I18N) && !CLIENT_SAFE_I18N.includes(modulePath) ? 'importer' : null;
 }
 
 /**
@@ -63,7 +105,27 @@ function catalogKind(target) {
  */
 function catalogKindUnder(dir) {
   if (isUnder(MESSAGES, dir)) return 'catalog';
-  return CATALOG_IMPORTERS.some((module) => isUnder(module, dir)) ? 'importer' : null;
+  return isUnder(I18N, dir) || isUnder(dir, I18N) ? 'importer' : null;
+}
+
+/**
+ * The fixed start of an import's path, and whether that's the whole path.
+ * A template (`@/messages/${locale}.json`) or a `+` chain whose leftmost
+ * operand is a string (`'@/messages/' + locale + '.json'`) has the rest added
+ * at runtime. Null when the path doesn't start with a string.
+ */
+function pathStart(source) {
+  if (source.type === 'Literal' && typeof source.value === 'string') {
+    return { head: source.value, whole: true };
+  }
+  if (source.type === 'TemplateLiteral') {
+    return { head: source.quasis[0]?.value.cooked ?? '', whole: source.expressions.length === 0 };
+  }
+  if (source.type === 'BinaryExpression' && source.operator === '+') {
+    const start = pathStart(source.left);
+    return start && { head: start.head, whole: false };
+  }
+  return null;
 }
 
 const isTypeOnly = (node, kind) =>
@@ -80,7 +142,7 @@ const noCatalogsInClient = {
     schema: [],
     messages: {
       catalog: `A 'use client' file can't import {{source}}: a message catalog holds the text of every page, and all of it would go into the browser's JavaScript. ${CLIENT_TEXT_INSTEAD}`,
-      importer: `A 'use client' file can't import {{source}}: it loads every language's message catalog, and all of them would go into the browser's JavaScript. ${CLIENT_TEXT_INSTEAD}`,
+      importer: `A 'use client' file can't import {{source}}: src/i18n/ is server code that loads every language's message catalog, and all of them would go into the browser's JavaScript. ${CLIENT_TEXT_INSTEAD} Or, if {{source}} loads no catalog, now or through its imports, list it in CLIENT_SAFE_I18N in eslint.config.mjs.`,
     },
   },
   create(context) {
@@ -88,19 +150,16 @@ const noCatalogsInClient = {
     if (!isClientFile(context.sourceCode.ast)) return {};
 
     function check(source) {
+      const start = pathStart(source);
+      if (!start) return;
+      const { head, whole } = start;
       let kind = null;
-      if (source.type === 'Literal' && typeof source.value === 'string') {
-        const target = resolveSpecifier(source.value, context.filename);
+      if (whole) {
+        const target = resolveSpecifier(head, context.filename);
         kind = target && catalogKind(target);
-      } else if (source.type === 'TemplateLiteral') {
-        const head = source.quasis[0]?.value.cooked ?? '';
-        if (source.expressions.length === 0) {
-          const target = resolveSpecifier(head, context.filename);
-          kind = target && catalogKind(target);
-        } else {
-          const dir = resolveSpecifier(head.slice(0, head.lastIndexOf('/') + 1), context.filename);
-          kind = dir && catalogKindUnder(dir);
-        }
+      } else {
+        const dir = resolveSpecifier(head.slice(0, head.lastIndexOf('/') + 1), context.filename);
+        kind = dir && catalogKindUnder(dir);
       }
       if (kind) {
         context.report({
@@ -132,10 +191,68 @@ const noCatalogsInClient = {
   },
 };
 
+/** Props whose value people read, or hear from a screen reader. */
+const TEXT_PROPS = new Set([
+  'aria-label',
+  'aria-description',
+  'title',
+  'placeholder',
+  'alt',
+  'label',
+]);
+
+/** Whether a string has a letter in it: `alt=""` (an image to skip) and a lone `·` don't. */
+const hasLetters = (text) => /\p{L}/u.test(text);
+
+/** The string literals with letters in them that an attribute's value can be. */
+function literalsIn(node) {
+  switch (node?.type) {
+    case 'Literal':
+      return typeof node.value === 'string' && hasLetters(node.value) ? [node] : [];
+    case 'TemplateLiteral':
+      return node.quasis.some((quasi) => hasLetters(quasi.value.cooked ?? '')) ? [node] : [];
+    case 'JSXExpressionContainer':
+      return literalsIn(node.expression);
+    case 'ConditionalExpression':
+      return [...literalsIn(node.consequent), ...literalsIn(node.alternate)];
+    case 'LogicalExpression':
+      return [...literalsIn(node.left), ...literalsIn(node.right)];
+    case 'BinaryExpression':
+      return node.operator === '+' ? [...literalsIn(node.left), ...literalsIn(node.right)] : [];
+    default:
+      return [];
+  }
+}
+
+const noLiteralTextProps = {
+  meta: {
+    type: 'suggestion',
+    docs: {
+      description: `Keep hard-coded text off the props people read: ${[...TEXT_PROPS].join(', ')}.`,
+    },
+    schema: [],
+    messages: {
+      literal:
+        "{{prop}} is text people read or hear, so it comes from the message catalog: pass t('…'), not a string.",
+    },
+  },
+  create(context) {
+    return {
+      JSXAttribute(node) {
+        if (node.name.type !== 'JSXIdentifier' || !TEXT_PROPS.has(node.name.name)) return;
+        for (const literal of literalsIn(node.value)) {
+          context.report({ node: literal, messageId: 'literal', data: { prop: node.name.name } });
+        }
+      },
+    };
+  },
+};
+
 const opensignup = {
   meta: { name: 'opensignup' },
   rules: {
     'no-catalogs-in-client': noCatalogsInClient,
+    'no-literal-text-props': noLiteralTextProps,
   },
 };
 
@@ -185,6 +302,16 @@ const config = [
     // The rule reads each file's directive, so it looks at every TS file.
     files: ['**/*.{ts,tsx}'],
     rules: { 'opensignup/no-catalogs-in-client': 'error' },
+  },
+  {
+    // Where text has moved to the catalogs (`TRANSLATED`), no hard-coded text:
+    // not in JSX, and not on the props people read. `noAttributeStrings` would
+    // also flag every className and href, so the props have a rule of their own.
+    files: filesAt(TRANSLATED),
+    rules: {
+      'react/jsx-no-literals': ['error', { noStrings: true, ignoreProps: true }],
+      'opensignup/no-literal-text-props': 'error',
+    },
   },
 ];
 
