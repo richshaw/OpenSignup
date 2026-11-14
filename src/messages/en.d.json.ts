@@ -223,6 +223,14 @@ declare const messages: {
       "back": "Back to the signup"
     }
   },
+  "email": {
+    "subject": {
+      "signedUp": "You're signed up: {title}",
+      "reminder": "Reminder: {title}",
+      "timeChanged": "Time changed: {title}",
+      "withSlot": "{subject} · {slot}"
+    }
+  },
   "organizer": {
     "publicPage": {
       "strip": {

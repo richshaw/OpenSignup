@@ -17,7 +17,7 @@ import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { normalizeEmail } from '@/schemas/common';
 import { sendsReminders } from '@/schemas/signups';
-import { alreadyRecorded, loadCommitmentRow, slotText } from './commitment-row';
+import { alreadyRecorded, emailLocale, loadCommitmentRow, slotText } from './commitment-row';
 import { sendCommitmentConfirmation } from './send';
 
 /**
@@ -99,11 +99,13 @@ export async function notifyCommitmentCreated(
       remindersOptedOutAt: row.participant.remindersOptedOutAt,
     });
 
+    const locale = emailLocale(row.signup);
     await sendCommitmentConfirmation(to, {
+      locale,
       participantName: row.participant.name,
       signupTitle: row.signup.title,
       manageUrl: commitmentEditUrl(row.signup.slug, row.commitment.id, editToken),
-      ...(await slotText(db, row.signup.id, row.slot.values)),
+      ...(await slotText(db, row.signup.id, row.slot.values, locale)),
       notes: row.commitment.notes,
       quantity: row.commitment.quantity,
       promisesReminder,
