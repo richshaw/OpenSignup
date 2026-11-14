@@ -1,0 +1,120 @@
+{
+  "common": {
+    "footer": {
+      "license": "{instance} · AGPL-3.0",
+      "label": "Sidfot",
+      "help": "Hjälp",
+      "privacy": "Integritet",
+      "terms": "Villkor",
+      "cookies": "Cookies",
+      "source": "Källkod",
+      "contact": "Kontakt"
+    }
+  },
+  "participant": {
+    "signupPage": {
+      "title": "Anmälan",
+      "description": "Anmäl dig via {instance}",
+      "draft": {
+        "title": "Den här anmälningslistan är inte klar ännu",
+        "body": "Arrangören har inte publicerat den ännu. Länken fungerar när listan är publicerad, så titta in igen senare."
+      },
+      "archived": {
+        "title": "Den här anmälningslistan är inte längre tillgänglig",
+        "body": "Arrangören har arkiverat anmälningslistan. Om du behöver nå arrangören kan du be om en ny länk."
+      }
+    },
+    "signupView": {
+      "closedBanner": {
+        "title": "Stängd",
+        "body": "Den här anmälningslistan tar inte längre emot anmälningar.",
+        "keepsYours": "Inga fler kan anmäla sig, men {count, plural, one {din plats är kvar} other {dina platser är kvar}}."
+      },
+      "signedUp": "<b>Du är anmäld</b> till <slot>{count, plural, =1 {{name}} other {{count, number} pass}}</slot>.",
+      "editOrCancel": "Ändra eller avboka",
+      "manage": "Hantera",
+      "untitledSlot": "Pass utan namn",
+      "edit": "Ändra",
+      "editFor": "Ändra din anmälan till {slot}",
+      "full": "Fullt",
+      "closed": "Stängt"
+    },
+    "slot": {
+      "noValue": "({label} saknas)",
+      "left": "{left, number} kvar",
+      "leftOf": "{left, number} av {capacity, number} platser kvar",
+      "signedUp": "{count, plural, one {{count, number} anmäld} other {{count, number} anmälda}}"
+    },
+    "fields": {
+      "name": "Ditt namn",
+      "email": "E-post",
+      "emailOptional": "E-post (valfritt)",
+      "notes": "Kommentar (valfritt)",
+      "spots": "Platser"
+    },
+    "dialog": {
+      "signUp": "Anmäl dig",
+      "signUpFor": "Anmäl dig till {slot}",
+      "close": "Stäng",
+      "cancel": "Avbryt",
+      "confirm": "Bekräfta",
+      "signingUp": "Skickar anmälan…",
+      "didYouMean": "Menade du <suggestion>{email}</suggestion>?",
+      "emailHelp": "Vi mejlar dig en länk där du kan ändra eller avboka{reminder, select, yes {, och en påminnelse före ditt pass} other {}}. Utan e-post behöver du spara länken som visas när du har anmält dig.",
+      "notesPlaceholder": "Allergier, önskemål m.m.",
+      "seeAlternatives": "Visa alternativ",
+      "youreIn": "Du är anmäld.",
+      "savedEmailed": "Vi har sparat din anmälan till <b>{slot}</b> och mejlat länken till <email>{address}</email>. Spara den som bokmärke, så kan du ändra eller avboka senare:",
+      "savedNotEmailed": "Vi har sparat din anmälan till <b>{slot}</b>. <b>Spara länken nu: vi mejlar den inte, och bara den här webbläsaren kommer ihåg den.</b>{calendar, select, yes { Knappen Lägg till i kalender sparar också länken.} other {}}",
+      "addToCalendar": "Lägg till i kalender",
+      "saveYourLink": "Spara din länk",
+      "copyLink": "Kopiera länk",
+      "linkCopied": "Länk kopierad",
+      "copied": "Länken är kopierad.",
+      "copyFailed": "Det gick inte att kopiera länken. Markera den ovan och kopiera den själv.",
+      "done": "Klar"
+    },
+    "errors": {
+      "capacity": {
+        "filledUp": "Tyvärr, passet blev precis fullt.",
+        "pickAnother": "Välj ett annat pass.",
+        "onlyLeft": "Det finns bara {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}} kvar, och du bad om {requested, number}.",
+        "askForOne": "Be om 1 i stället.",
+        "askForOrFewer": "Be om {remaining, number} eller färre.",
+        "full": "Passet är fullt, så du kan inte lägga till fler platser.",
+        "atMost": "Du kan ha högst {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}} på det här passet, och du bad om {requested, number}.",
+        "keepYourOne": "Behåll din plats."
+      },
+      "keepNumber": "Behåll det antal du har.",
+      "closed": {
+        "join": "Inga fler kan anmäla sig till det här passet nu.",
+        "reload": "Ladda om sidan för att se vad som fortfarande är ledigt.",
+        "change": "Du kan inte lägga till fler platser nu."
+      },
+      "conflict": {
+        "message": "Du är redan anmäld till det här passet.",
+        "suggestion": "Använd länken i bekräftelsemejlet för att ändra eller avboka."
+      },
+      "gone": {
+        "message": "Tyvärr, det här finns inte längre.",
+        "suggestion": "Ladda om sidan för att se vad som har ändrats."
+      },
+      "name": "Skriv ditt namn, högst {max, number} tecken.",
+      "rateLimit": {
+        "message": "För många försök just nu.",
+        "wait": "Försök igen om ungefär {minutes, plural, one {{minutes, number} minut} other {{minutes, number} minuter}}.",
+        "waitAWhile": "Försök igen om några minuter."
+      }
+    },
+    "gonePage": {
+      "signup": {
+        "title": "Tyvärr, den här anmälningslistan är inte längre tillgänglig",
+        "body": "Kontakta arrangören för att få veta vad som har ändrats, eller för att be om en ny länk."
+      },
+      "editLink": {
+        "title": "Tyvärr, den här länken fungerar inte",
+        "body": "Din plats kanske inte finns kvar, eller så är länken ofullständig. Kontakta arrangören för att få veta vad som har ändrats. Om du fick ett bekräftelsemejl kan du också prova länken i det igen."
+      }
+    }
+  }
+}

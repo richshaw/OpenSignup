@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ship } from './testing/ship';
 
-// Unit tests have no DATABASE_URL, so the real getEnv() would throw. Swedish
-// has no catalog yet, so the environment's own parse would refuse it.
+// Unit tests have no DATABASE_URL, so the real getEnv() would throw.
 const env = vi.hoisted(() => ({ DEFAULT_LOCALE: undefined as string | undefined }));
 vi.mock('@/lib/env', () => ({ getEnv: () => env }));
 

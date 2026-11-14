@@ -3,8 +3,7 @@ import type { CatalogLocale } from './config';
 import { chooseOrganizerLocale } from './organizer-locale';
 import { ship } from './testing/ship';
 
-// Swedish has no catalog yet, hence the cast.
-const SV = 'sv' as CatalogLocale;
+const SV: CatalogLocale = 'sv';
 
 type Input = Parameters<typeof chooseOrganizerLocale>[0];
 const NOTHING: Input = {

@@ -3,11 +3,11 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import type { CatalogLocale } from '@/i18n/config';
 import { getTestTranslator } from '@/i18n/testing/translator';
-import en from '@/messages/en.json';
+import { messagesFor } from '@/i18n/translator';
 import { formatSlotDate } from '@/lib/slot-label';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
+import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
 import { ACTION_SIZING } from './slot-format';
 import { toSignupViewSlots } from './public-signup';
 import {
@@ -19,8 +19,9 @@ import {
 
 // Only the 'live' tests mount the real CommitDialog, which calls useRouter().
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-// English from the catalog; a language with no catalog yet answers with the
-// key it was asked for and the language (`getTestServerTranslator`).
+// English from the catalog; any other language answers with the key it was
+// asked for and the language (`getTestServerTranslator`), so a test sees
+// which text the page asks for in Swedish.
 vi.mock('@/i18n/server', async () => ({
   getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
 }));
@@ -137,12 +138,12 @@ describe('<SignupViewBody mode="showcase" />', () => {
 
 describe('<SignupViewBody /> language', () => {
   it('reads slot dates in the language it is given', () => {
-    // Swedish has no catalog yet, hence the cast; the dates come from Intl.
+    // The dates come from Intl.
     const swedish = formatSlotDate('2026-05-17', 'sv');
     expect(swedish).not.toBe(formatSlotDate('2026-05-17', 'en'));
     render(
       <SignupViewBody
-        locale={'sv' as CatalogLocale}
+        locale="sv"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef="date"
@@ -168,22 +169,17 @@ describe('the sign-up dialog’s messages', () => {
 
   it('come with the live page, in its language, and only the dialog’s', async () => {
     provided.length = 0;
-    render(<SignupViewBody {...props} locale={'sv' as CatalogLocale} mode="live" />);
+    render(<SignupViewBody {...props} locale="sv" mode="live" />);
+    // The sections the dialog reads, and no others: not the page's own, which
+    // the server renders. Swedish, with English under it.
     expect(provided.at(-1)).toEqual({
       locale: 'sv',
-      // English, since Swedish has no catalog yet. The sections the dialog
-      // reads, and no others: not the page's own, which the server renders.
-      messages: {
-        participant: {
-          dialog: en.participant.dialog,
-          fields: en.participant.fields,
-          slot: en.participant.slot,
-          errors: en.participant.errors,
-        },
-      },
+      messages: messagesFor('sv', COMMIT_DIALOG_NAMESPACES),
     });
-    fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
-    expect(await screen.findByLabelText('Your name', {}, { timeout: 5000 })).toBeInTheDocument();
+    const given = provided.at(-1)?.messages as { participant: Record<string, unknown> };
+    expect(Object.keys(given.participant).sort()).toEqual(['dialog', 'errors', 'fields', 'slot']);
+    fireEvent.click(screen.getByRole('button', { name: /^Anmäl dig till / }));
+    expect(await screen.findByLabelText('Ditt namn', {}, { timeout: 5000 })).toBeInTheDocument();
   });
 
   it('stay out of the Preview and the showcase, which have no dialog', () => {
@@ -196,9 +192,9 @@ describe('the sign-up dialog’s messages', () => {
 });
 
 describe('<SignupViewBody /> text, from the catalog in the signup’s language', () => {
-  // Swedish has no catalog yet, so the mocked translator answers each key with
-  // where it was asked for: "participant.signupView.full in sv".
-  const SWEDISH = 'sv' as CatalogLocale;
+  // The mocked translator answers each Swedish key with where it was asked
+  // for: "participant.signupView.full in sv".
+  const SWEDISH = 'sv';
   const view = (key: string) => `participant.signupView.${key} in sv`;
   const slot = (key: string) => `participant.slot.${key} in sv`;
   // The live row's Sign up is the dialog's, and its stand-ins say the same.

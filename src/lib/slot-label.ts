@@ -9,6 +9,7 @@
  * wrong in front of a participant.
  */
 
+import type { CatalogLocale } from '@/i18n/config';
 import { TIME_ZONE } from '@/i18n/time-zone';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { isRealDate, isRealTime } from '@/lib/reminder-fields';
@@ -21,11 +22,13 @@ export interface LabelledField {
 }
 
 /*
- * The formatters below take the reader's language as `locale`, a language tag
- * like 'en' or 'sv'. Slot dates and times are wall-clock values with no zone
- * of their own, so each is built from its parts as a UTC moment and formatted
- * in UTC (`TIME_ZONE`): neither the server's zone nor the browser's can move
- * it to another day or hour.
+ * The formatters below take the reader's language as `locale`: a language
+ * OpenSignup has a catalog for ('en', 'sv'), so never a regional tag, which
+ * would miss the English clock below, or a malformed one, which `Intl` would
+ * throw on. Slot dates and times are wall-clock values with no zone of their
+ * own, so each is built from its parts as a UTC moment and formatted in UTC
+ * (`TIME_ZONE`): neither the server's zone nor the browser's can move it to
+ * another day or hour.
  */
 
 /**
@@ -35,7 +38,10 @@ export interface LabelledField {
  * any other string with `new Date()` would read a half-typed "Sat, Nov 14" as
  * a day in 2001, in whatever zone the code runs in.
  */
-export function formatSlotDate(iso: string | null | undefined, locale: string): string | null {
+export function formatSlotDate(
+  iso: string | null | undefined,
+  locale: CatalogLocale,
+): string | null {
   if (!iso || !isRealDate(iso)) return null;
   const [year, month, day] = iso.split('-').map(Number) as [number, number, number];
   return new Intl.DateTimeFormat(locale, {
@@ -54,7 +60,10 @@ export function formatSlotDate(iso: string | null | undefined, locale: string): 
  * is a narrow U+202F), so a page could read differently on the server and in
  * the browser. Ours is a no-break space, so a narrow column never strands "PM".
  */
-export function formatSlotTime(hhmm: string | null | undefined, locale: string): string | null {
+export function formatSlotTime(
+  hhmm: string | null | undefined,
+  locale: CatalogLocale,
+): string | null {
   if (!hhmm || !isRealTime(hhmm)) return null;
   const hour = Number(hhmm.slice(0, 2));
   if (locale === 'en') {
@@ -84,7 +93,7 @@ export function pickPrimaryField<F extends LabelledField>(
 export function renderFieldValue(
   field: LabelledField,
   raw: unknown,
-  locale: string,
+  locale: CatalogLocale,
 ): string | null {
   if (isBlankSlotValue(raw)) return null;
   // A value the formatter can't read, like a half-typed "Sat, Nov 14" in a
@@ -123,7 +132,7 @@ export interface SlotDetail {
 export function slotDetails(
   fields: readonly LabelledField[],
   values: Record<string, unknown>,
-  locale: string,
+  locale: CatalogLocale,
 ): SlotDetail[] {
   const out: SlotDetail[] = [];
   for (const field of fields) {

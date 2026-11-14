@@ -51,8 +51,8 @@ vi.mock('@/services/signups', async (importOriginal) => ({
   getSignupForOrganizer: (...a: unknown[]) => svc.getSignupForOrganizer(...a),
   listSignupsForWorkspace: (...a: unknown[]) => svc.listSignupsForWorkspace(...a),
 }));
-// The environment's own parse refuses a DEFAULT_LOCALE with no catalog, and
-// Swedish has none yet.
+// The instance's DEFAULT_LOCALE as each test sets it. Unit tests have no
+// DATABASE_URL, so the real getEnv() would throw.
 const instance = vi.hoisted(() => ({ defaultLocale: undefined as string | undefined }));
 vi.mock('@/i18n/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/i18n/server')>()),

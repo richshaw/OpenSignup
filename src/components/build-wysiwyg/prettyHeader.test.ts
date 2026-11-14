@@ -6,6 +6,14 @@ describe('prettyHeader', () => {
     expect(prettyHeader('2026-05-21', 'date', 'en')).toBe('Thu, May 21');
   });
 
+  // The language is a `CatalogLocale`, so typecheck refuses a call written
+  // before it took one, with the field's label third.
+  it('takes a language third, never a label', () => {
+    // @ts-expect-error: 'Date' is a label, not a language with a catalog.
+    const oldStyle = () => prettyHeader('2026-05-21', 'date', 'Date');
+    expect(oldStyle).toBeTypeOf('function');
+  });
+
   it('returns "Set a date" when value is empty and field is date', () => {
     expect(prettyHeader('', 'date', 'en')).toBe('Set a date');
     expect(prettyHeader(null, 'date', 'en')).toBe('Set a date');

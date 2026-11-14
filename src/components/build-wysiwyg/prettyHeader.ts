@@ -1,3 +1,4 @@
+import type { CatalogLocale } from '@/i18n/config';
 import { renderFieldValue } from '@/lib/slot-label';
 import type { FieldType } from '@/schemas/slot-fields';
 
@@ -15,7 +16,7 @@ import type { FieldType } from '@/schemas/slot-fields';
 export function prettyHeader(
   rawKey: string | null | undefined,
   fieldType: FieldType,
-  locale: string,
+  locale: CatalogLocale,
   fieldLabel?: string,
 ): string {
   if (!rawKey) {
