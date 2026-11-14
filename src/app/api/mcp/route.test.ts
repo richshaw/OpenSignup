@@ -1,9 +1,22 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { ToolContext } from '@/mcp/context';
 import { readRpc } from '@/mcp/testing/rpc';
 
 const resolve = vi.fn();
 vi.mock('@/auth/bearer', () => ({ resolveBearerActor: (...a: unknown[]) => resolve(...a) }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) as unknown }));
+// Records the context the tools are registered with, then registers them as usual.
+const toolContexts = vi.fn();
+vi.mock('@/mcp/registry', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/mcp/registry')>();
+  return {
+    ...actual,
+    registerAll: (...args: Parameters<typeof actual.registerAll>) => {
+      toolContexts(args[1]);
+      actual.registerAll(...args);
+    },
+  };
+});
 const consume = vi.fn(async (..._args: unknown[]): Promise<number | null> => null);
 vi.mock('@/lib/rate-limit', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/rate-limit')>();
@@ -24,6 +37,7 @@ const okResolution = {
   clientId: 'c',
   defaultWorkspaceId: 'ws_1',
   workspaces: [{ id: 'ws_1', slug: 'w', name: 'W', role: 'owner' }],
+  locale: null,
   authInfo: { token: 'tok', clientId: 'c', scopes: ['signups:read', 'signups:write'] },
 };
 
@@ -121,6 +135,25 @@ describe('/api/mcp', () => {
     const body = (await readRpc(r)) as { result: { tools: { name: string }[] } };
     expect(body.result.tools.map((t) => t.name)).toContain('list_workspaces');
   });
+
+  it.each([
+    ['as saved', 'sv'],
+    ['null when the organizer saved none', null],
+    ['raw, a value no language has', 'not-a-language'],
+  ])(
+    "gives the tools the organizer's language from the seam, %s, and keeps it off the actor",
+    async (_name, locale) => {
+      const { POST } = await import('./route');
+      toolContexts.mockClear();
+      resolve.mockResolvedValue({ ...okResolution, locale });
+      const r = await POST(post(rpc('tools/list')));
+      expect(r.status).toBe(200);
+      expect(toolContexts).toHaveBeenCalledOnce();
+      const ctx = toolContexts.mock.calls[0]?.[0] as ToolContext;
+      expect(ctx.locale).toBe(locale);
+      expect(ctx.actor).toEqual(okResolution.actor);
+    },
+  );
 
   it('sends the server instructions on initialize, rules within the byte budget', async () => {
     const { POST } = await import('./route');

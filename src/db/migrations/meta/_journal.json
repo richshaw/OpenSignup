@@ -106,6 +106,13 @@
       "when": 1793812859279,
       "tag": "0014_drop_signup_claims",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1794622492277,
+      "tag": "0015_organizer_locale",
+      "breakpoints": true
     }
   ]
 }

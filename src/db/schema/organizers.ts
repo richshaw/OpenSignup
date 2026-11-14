@@ -16,6 +16,11 @@ export const organizers = pgTable(
     image: text('image'),
     // signup-specific
     defaultWorkspaceId: text('default_workspace_id'),
+    // The language the organizer saved for themselves, or null for none (#626).
+    // Read as stored, never checked on the way out: `chooseOrganizerLocale`
+    // decides which language applies and passes over one that hasn't shipped,
+    // so a stored value that stops shipping can't break sign-in.
+    locale: text('locale'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     lastActiveAt: timestamp('last_active_at', { withTimezone: true }).notNull().defaultNow(),
   },

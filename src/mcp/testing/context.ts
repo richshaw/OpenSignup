@@ -22,5 +22,6 @@ export async function contextForOrganizer(
     clientId,
     defaultWorkspaceId: session.defaultWorkspaceId,
     workspaces: bearerWorkspaces(session),
+    locale: session.locale,
   };
 }
