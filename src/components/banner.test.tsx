@@ -28,6 +28,19 @@ describe('Banner', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
+  it('puts what it’s given under the body, inside the banner', () => {
+    render(
+      <Banner kind="offer" title="An offer" body="Take it or leave it." live={false}>
+        <button type="button">Take it</button>
+      </Banner>,
+    );
+    const body = screen.getByText('Take it or leave it.');
+    const button = screen.getByRole('button', { name: 'Take it' });
+    expect(body.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(body.parentElement).toContainElement(button);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
   it('needs a label for the ✕ whenever it has one', () => {
     // A type check: tsc fails this file if the label becomes optional.
     // @ts-expect-error onDismiss without dismissLabel

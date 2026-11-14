@@ -173,5 +173,6 @@
   "email.slotChanged.heading": "Your slot has changed",
   "email.slotChanged.intro": "Hi {name}, the organizer of <b>{title}</b> moved your slot to a new date or time. Here are the new details.",
   "email.slotChanged.keep": "Can't make the new time? Tap the button above to change or cancel. It opens your spot directly, no password needed. Keep this email to yourself: anyone with the link can change your slot.",
-  "email.slotChanged.stop": "Stop reminders and updates for {title}"
+  "email.slotChanged.stop": "Stop reminders and updates for {title}",
+  "organizer.swedishNotice.title": "Your signups can be in Swedish now."
 }

@@ -154,3 +154,22 @@ export function signupsLookWrittenIn(
   }
   return weak > 0 && weak * 2 >= withWords;
 }
+
+/**
+ * Whether any of `descriptions` has one of the language's own words (its
+ * `words`). They can only add evidence to `signupsLookWrittenIn`'s: one with
+ * a listed word says yes, one without says nothing, and none enters its "at
+ * least half" count, where an English description beside weak titles would
+ * turn a yes into a no. Letters count for nothing here: a description is long
+ * enough to name a Swedish place in English, and a Swedish one nearly always
+ * has a listed word. A language with no entry in `WRITING` never looks
+ * written in.
+ */
+export function descriptionsLookWrittenIn(
+  locale: CatalogLocale,
+  descriptions: readonly string[],
+): boolean {
+  const markers = COMPILED.get(locale);
+  if (!markers) return false;
+  return descriptions.some((text) => wordsOf(text, locale).some((word) => markers.words.has(word)));
+}

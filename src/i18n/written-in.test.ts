@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SignupSummary } from '@/services/signups';
-import { signupsLookWrittenIn } from './written-in';
+import { descriptionsLookWrittenIn, signupsLookWrittenIn } from './written-in';
 
 /** The guess for Swedish over these titles, as the Your signups page would ask it. */
 const looksSwedish = (...titles: string[]) =>
@@ -234,5 +234,46 @@ describe('signupsLookWrittenIn: the table', () => {
       },
     ];
     expect(signupsLookWrittenIn('sv', rows)).toBe(true);
+  });
+});
+
+describe('descriptionsLookWrittenIn', () => {
+  it('says yes for a description with one of the language’s words', () => {
+    expect(
+      descriptionsLookWrittenIn('sv', [
+        'Bring a dish to share.',
+        'Vi bakar kakor till kyrkkaffet och behöver hjälp att sälja dem.',
+      ]),
+    ).toBe(true);
+  });
+
+  // Synthetic descriptions, each naming a Swedish place or person.
+  it.each([
+    'Bring a dish to share. We meet at Åsa’s house in Västerås at noon.',
+    'Carpool to Malmö for the away game: drivers leave at 9, open till we fill the cars.',
+    'Fika Friday: coffee and cinnamon buns in the staff room. Smörgåsbord to follow.',
+    'Sign up to help with the Midsommar party at Björn’s, with a med kit on hand.',
+  ])('never takes %j, an English description, for Swedish', (description) => {
+    expect(descriptionsLookWrittenIn('sv', [description])).toBe(false);
+  });
+
+  it('says nothing without a listed word, however Swedish the letters', () => {
+    expect(descriptionsLookWrittenIn('sv', ['Föräldramöte', 'Städdag', 'Malmö Västerås Åre'])).toBe(
+      false,
+    );
+  });
+
+  it('says nothing for no descriptions, empty ones, or a language with no entry', () => {
+    expect(descriptionsLookWrittenIn('sv', [])).toBe(false);
+    expect(descriptionsLookWrittenIn('sv', ['', '   ', '2026'])).toBe(false);
+    expect(descriptionsLookWrittenIn('en', ['Vi behöver hjälp att baka och sälja kakor.'])).toBe(
+      false,
+    );
+  });
+
+  it('matches whole words in any case, after NFC', () => {
+    expect(descriptionsLookWrittenIn('sv', ['KAFFE OCH BULLAR'])).toBe(true);
+    expect(descriptionsLookWrittenIn('sv', ['Ta med fo\u0308r alla'])).toBe(true);
+    expect(descriptionsLookWrittenIn('sv', ['Ochre, attendance and Vemödalen'])).toBe(false);
   });
 });

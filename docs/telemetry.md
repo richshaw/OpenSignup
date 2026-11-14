@@ -236,6 +236,33 @@ approval extended an existing grant rather than creating a new one (the
 organizer re-approving the same app). No event carries a token, an
 authorization code, or an email address.
 
+### Language notice
+
+| event                      | actor     | payload              | fired from                                                                                         |
+| -------------------------- | --------- | -------------------- | -------------------------------------------------------------------------------------------------- |
+| `language_notice.shown`    | organizer | `{ reason, device }` | RSC at `/app` (Your signups), after the response, the first time it shows the organizer the notice |
+| `language_notice.answered` | organizer | `{ locale }`         | the notice's buttons (`answerLanguageNotice` in `services/organizers.ts`)                          |
+
+Once Swedish has shipped to participants, Your signups shows a notice, "Your
+signups can be in Swedish now.", to an organizer who hasn't saved a language,
+on an instance with no `DEFAULT_LOCALE`, whose browser asks for Swedish first
+or whose signups look Swedish (#640). `reason` says which: `browser`,
+`titles` (the titles the page lists) or `descriptions` (the start of the
+workspace's newest descriptions, read only when the browser and the titles
+don't settle it). The notice shows on every visit until it's answered, so
+`language_notice.shown` is written once per organizer, on the first visit
+that shows it: each later view reads for that row (after the response, like
+the write) and writes nothing. Two views at the same moment can both write
+it, so count distinct `actor_id`s.
+
+`language_notice.answered` is written in the same transaction as the save it
+describes, the organizer's language for new signups: `locale` is what was
+saved, `sv` for **Use Swedish** and `en` for **Keep English**. Either answer
+saves a language, so the notice never shows again and each organizer has at
+most one row (more only if they answer from two tabs). Both rows have
+`signup_id` and `workspace_id` set to `NULL`: the language belongs to the
+organizer, not a workspace. Neither carries any of the signups' text.
+
 ## Privacy guarantees
 
 The `landing.viewed`, `landing.cta_clicked`, public-page `signup.viewed`, and
@@ -434,7 +461,8 @@ edits, `auth.signed_in`, **and** the organizer-side RSC pageview events
 (`signup.editor_opened`, `signup.previewed`, `signup.draft_started`, and the
 Build tab's `signup.viewed`) which are written with the organizer as actor,
 and the organizer's telemetry rows (`signup.publish_refused`,
-`signup.link_copied`, `signup.link_shared`, `magic_compose.failed`).
+`signup.link_copied`, `signup.link_shared`, `magic_compose.failed`,
+`language_notice.shown` and `language_notice.answered`).
 The public page's `signup.viewed` is system-actor and does not advance
 `last_active_at`.
 

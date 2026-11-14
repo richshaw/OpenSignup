@@ -287,6 +287,9 @@ declare const messages: {
       "title": "Preview",
       "body": "{status, select, draft {This is what people will see once you publish. No signups will be saved.} closed {This signup is closed. The page below shows what visitors see.} archived {This signup is archived and is not visible to participants.} other {This signup is live. The page below shows what visitors see.}}",
       "signUpDisabled": "Preview: publish to enable signups"
+    },
+    "swedishNotice": {
+      "title": "Your signups can be in Swedish now."
     }
   }
 };

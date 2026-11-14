@@ -1,8 +1,10 @@
+import { and, eq } from 'drizzle-orm';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
-import type { ActivityEvent } from '@/db/schema/activity';
+import { activity, type ActivityEvent } from '@/db/schema/activity';
 import { getDb } from '@/db/client';
 import { activityActor, recordActivityBestEffort, type ActivityActor } from '@/lib/activity';
+import { log } from '@/lib/log';
 import type { Actor } from '@/lib/policy';
 import type { LandingCta } from '@/lib/landing-cta';
 
@@ -162,6 +164,12 @@ export async function recordEditLinkFollowed(args: {
  * An organizer opening one of their own pages. Signed in, so neither
  * do-not-track nor the bot filter applies; the row says whether the page was
  * opened on a phone or a computer (`device`), never the User-Agent itself.
+ *
+ * With `once`, only the first time: nothing when the organizer already has a
+ * row of `eventType`. That's for something a page shows on every visit until
+ * it's answered, such as the notice on Your signups that offers a language,
+ * so its rows count organizers rather than visits. It costs one read per
+ * visit, made after the page has been sent, like the write.
  */
 export async function recordOrganizerView(args: {
   actor: ActivityActor;
@@ -170,12 +178,34 @@ export async function recordOrganizerView(args: {
   eventType: ActivityEvent;
   payload?: Record<string, unknown>;
   signals: RequestSignals;
+  once?: boolean;
 }): Promise<void> {
-  const { signals, payload, ...row } = args;
+  const { signals, payload, once, ...row } = args;
+  if (once && (await hasRecorded(row.actor, row.eventType))) return;
   await recordActivityBestEffort(getDb(), {
     ...row,
     payload: { ...payload, device: classifyDevice(signals) },
   });
+}
+
+/**
+ * Whether `actor` has a row of `eventType` already. A read that fails says
+ * yes, so a database in trouble gets no write either, and the page that
+ * asked is never failed by it.
+ */
+async function hasRecorded(actor: ActivityActor, eventType: ActivityEvent): Promise<boolean> {
+  if (actor.actorId === null) return false;
+  try {
+    const [row] = await getDb()
+      .select({ id: activity.id })
+      .from(activity)
+      .where(and(eq(activity.eventType, eventType), eq(activity.actorId, actor.actorId)))
+      .limit(1);
+    return row !== undefined;
+  } catch (err) {
+    log.warn({ err, eventType }, 'activity read failed');
+    return true;
+  }
 }
 
 /**

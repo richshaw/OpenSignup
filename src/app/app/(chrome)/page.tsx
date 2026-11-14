@@ -1,9 +1,12 @@
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
+import { trackOrganizerView } from '@/lib/view-tracker';
 import { listSignupSummariesForWorkspace } from '@/services/signups';
 import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { StatusPill } from '@/components/status-pill';
+import { SwedishNotice, swedishNoticeReason } from './swedish-notice';
 
 export const metadata = { title: 'Your signups' };
 
@@ -23,6 +26,26 @@ export default async function DashboardPage() {
   }
   const result = await listSignupSummariesForWorkspace(getDb(), actor, workspaceId);
   const rows = result.ok ? result.value : [];
+  const acceptLanguage = (await headers()).get('accept-language');
+  const noticeReason = await swedishNoticeReason({
+    session,
+    actor,
+    workspaceId,
+    acceptLanguage,
+    rows,
+  });
+  if (noticeReason) {
+    // Once per organizer, after the page is sent: the notice shows on every
+    // visit until it's answered, and the rows should count organizers.
+    await trackOrganizerView({
+      actor,
+      signupId: null,
+      workspaceId: null,
+      eventType: 'language_notice.shown',
+      payload: { reason: noticeReason },
+      once: true,
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -40,6 +63,7 @@ export default async function DashboardPage() {
           New signup
         </Link>
       </div>
+      {noticeReason ? <SwedishNotice /> : null}
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-surface-sunk bg-white p-12 text-center">
           <p className="text-ink-muted">

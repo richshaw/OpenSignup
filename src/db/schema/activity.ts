@@ -79,6 +79,8 @@ export const ACTIVITY_EVENTS = [
   'oauth.grant_revoked',
   'landing.viewed',
   'landing.cta_clicked',
+  'language_notice.shown',
+  'language_notice.answered',
 ] as const;
 
 export type ActivityEvent = (typeof ACTIVITY_EVENTS)[number];

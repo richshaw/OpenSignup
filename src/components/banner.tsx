@@ -1,9 +1,12 @@
-type Kind = 'preview' | 'closed' | 'aiDraft';
+import type { ReactNode } from 'react';
+
+type Kind = 'preview' | 'closed' | 'aiDraft' | 'offer';
 
 const STYLES: Record<Kind, string> = {
   preview: 'bg-brand/10 text-brand',
   closed: 'bg-surface-sunk text-ink-muted',
   aiDraft: 'bg-brand/10 text-brand',
+  offer: 'bg-brand/10 text-brand',
 };
 
 /** A ✕ that closes the banner, or none. */
@@ -21,12 +24,14 @@ type Dismiss =
 
 /**
  * A coloured notice near the top of a page, such as Preview or Closed. All its
- * text comes from the caller, already in the page's language.
+ * text comes from the caller, already in the page's language. `children` go
+ * under the body: more text, or the buttons that answer an offer.
  */
 export function Banner({
   kind,
   title,
   body,
+  children,
   onDismiss,
   dismissLabel,
   live = true,
@@ -34,6 +39,7 @@ export function Banner({
   kind: Kind;
   title: string;
   body: string;
+  children?: ReactNode;
   /**
    * A live region (`role="status"`) unless false: for a banner that says what
    * the page is, where the change that put it there is announced already.
@@ -48,6 +54,7 @@ export function Banner({
       <div className="min-w-0 flex-1 space-y-1">
         <p className="text-base font-semibold">{title}</p>
         <p className="text-sm">{body}</p>
+        {children}
       </div>
       {onDismiss && (
         <button
