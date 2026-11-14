@@ -10,15 +10,12 @@ import { listConnectedApps, revokeConnectedApp } from '@/oauth/grants';
 import { getProvider } from '@/oauth/instance';
 import { SCOPE_DESCRIPTIONS } from '@/oauth/scopes';
 import { DisconnectButton } from './disconnect-button';
+import { formatGrantDate } from './grant-date';
 
 export const metadata = { title: 'Connected apps' };
 export const dynamic = 'force-dynamic';
 
 const PATH = '/app/settings/connected-apps';
-
-function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 export default async function ConnectedAppsPage({
   searchParams,
@@ -29,6 +26,7 @@ export default async function ConnectedAppsPage({
   const session = await requireOrganizerSession();
   const actor = toActor(session);
   const apps = await listConnectedApps(getDb(), actor);
+  const locale = 'en';
 
   async function disconnect(formData: FormData) {
     'use server';
@@ -93,11 +91,13 @@ export default async function ConnectedAppsPage({
                   ))}
                 </ul>
                 <p className="text-xs text-ink-soft">
-                  Approved {formatDate(app.approvedAt)}
+                  Approved {formatGrantDate(app.approvedAt, locale)}
                   {app.lastUsedAt
-                    ? ` · last used ${formatDate(app.lastUsedAt)}`
+                    ? ` · last used ${formatGrantDate(app.lastUsedAt, locale)}`
                     : ' · not used yet'}
-                  {app.expiresAt ? ` · expires ${formatDate(app.expiresAt)} unless renewed` : ''}
+                  {app.expiresAt
+                    ? ` · expires ${formatGrantDate(app.expiresAt, locale)} unless renewed`
+                    : ''}
                 </p>
               </div>
               <form action={disconnect} className="shrink-0">

@@ -87,12 +87,15 @@ function formatPreviewValue(raw: unknown): string {
 
 export function Drafting({
   prompt,
+  locale,
   followUp = null,
   draft,
   onCancel,
   onAnimationDone,
 }: {
   prompt: string;
+  /** The organizer's language, for the answers' day and times. */
+  locale: string;
   /** The answers this draft is made from, on the call after the questions. */
   followUp?: FollowUp | null;
   draft: DraftPreview | null;
@@ -231,7 +234,7 @@ export function Drafting({
         {followUp ? (
           <ChunkBoundary fallback={<YouWrote prompt={prompt} variant="band" />}>
             <Suspense fallback={<YouWrote prompt={prompt} variant="band" />}>
-              <DraftingFrom prompt={prompt} followUp={followUp} />
+              <DraftingFrom prompt={prompt} followUp={followUp} locale={locale} />
             </Suspense>
           </ChunkBoundary>
         ) : (

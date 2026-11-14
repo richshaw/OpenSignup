@@ -8,9 +8,9 @@ import { Compose } from './Compose';
 
 afterEach(cleanup);
 
-function renderWith(prompt: string) {
+function renderWith(prompt: string, locale = 'en') {
   const onDraft = vi.fn();
-  render(<Compose prompt={prompt} setPrompt={() => {}} onDraft={onDraft} />);
+  render(<Compose prompt={prompt} locale={locale} setPrompt={() => {}} onDraft={onDraft} />);
   return onDraft;
 }
 
@@ -44,5 +44,14 @@ describe('Compose description limit', () => {
     expect(draftButton()).toBeDisabled();
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', ctrlKey: true });
     expect(onDraft).not.toHaveBeenCalled();
+  });
+
+  it("writes the count's numbers in the organizer's language", () => {
+    // Swedish groups thousands with a no-break space. The words are still
+    // English until the organizer's text has a catalog.
+    renderWith('a'.repeat(4828), 'sv');
+    expect(screen.getByText(/characters/).textContent).toBe(
+      '4\u00a0828 / 4\u00a0000 characters. Shorten it by 828 to draft.',
+    );
   });
 });

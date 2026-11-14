@@ -34,7 +34,7 @@ describe('lazy parts of Magic Compose that fail to load', () => {
       'fetch',
       vi.fn(async () => new Response(JSON.stringify({ data: { questions } }), { status: 200 })),
     );
-    render(<MagicComposeRoot />);
+    render(<MagicComposeRoot locale="en" />);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bake sale' } });
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
 
@@ -51,6 +51,7 @@ describe('lazy parts of Magic Compose that fail to load', () => {
     render(
       <Drafting
         prompt="Bake sale"
+        locale="en"
         followUp={{ what: { picked: ['Staff the table'], added: [] } }}
         draft={null}
         onCancel={() => {}}
