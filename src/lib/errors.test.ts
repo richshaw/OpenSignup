@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { errorEnvelope } from './api-response';
 import { err, ok } from './result';
 import {
   fromZodError,
@@ -52,6 +53,58 @@ describe('fromZodError', () => {
     expect(err.received).toBe('number');
     expect(err.suggestion).toBeDefined();
     expect(err.details).toBeUndefined();
+  });
+
+  describe('with a table of reasons', () => {
+    const reasons = {
+      name: { too_small: 'name_required', too_big: 'name_too_long' },
+      count: { invalid_type: 'quantity_not_whole' },
+    } as const;
+
+    function issueOf(input: unknown) {
+      const parsed = schema.safeParse(input);
+      if (parsed.success) throw new Error('expected a parse failure');
+      return parsed.error;
+    }
+
+    it('gives the reason the table names for the first issue, by its field and code', () => {
+      expect(fromZodError(issueOf({ name: 'a', count: 1 }), reasons).details).toEqual({
+        reason: 'name_required',
+      });
+      expect(fromZodError(issueOf({ name: 'ab', count: 1.5 }), reasons).details).toEqual({
+        reason: 'quantity_not_whole',
+      });
+      // Both fields wrong: the reason is the first issue's, as `field` is.
+      const both = fromZodError(issueOf({ name: 'a', count: 1.5 }), reasons);
+      expect(both.field).toBe('name');
+      expect(both.details).toEqual({ reason: 'name_required' });
+    });
+
+    it('gives none for an issue the table does not name', () => {
+      // `name` lists too_small and too_big, not invalid_type; `count` lists no too_small.
+      expect(fromZodError(issueOf({ name: 123, count: 1 }), reasons).details).toBeUndefined();
+      expect(fromZodError(issueOf({ name: 'ab', count: -1 }), reasons).details).toBeUndefined();
+      // An issue on the whole input has no field to look up.
+      expect(fromZodError(issueOf('not an object'), reasons).details).toBeUndefined();
+    });
+
+    it('leaves every other field as it was, in the same order, adding details last', () => {
+      for (const input of [
+        { name: 'a', count: 1 },
+        { name: 'ab', count: 1.5 },
+      ]) {
+        const error = issueOf(input);
+        const without = fromZodError(error);
+        const withReason = fromZodError(error, reasons);
+        const { details, ...rest } = withReason;
+        expect(rest).toEqual(without);
+        // The bytes an API caller gets: the same, with `details` added at the end.
+        const before = JSON.stringify(errorEnvelope(without));
+        expect(JSON.stringify(errorEnvelope(withReason))).toBe(
+          `${before.slice(0, -2)},"details":${JSON.stringify(details)}}}`,
+        );
+      }
+    });
   });
 });
 

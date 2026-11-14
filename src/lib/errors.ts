@@ -1,4 +1,4 @@
-import { ZodError } from 'zod';
+import { ZodError, type ZodIssueCode } from 'zod';
 import { err, type Result } from './result';
 
 export type ErrorCode =
@@ -26,6 +26,46 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   internal: 500,
 };
 
+/**
+ * `details.reason`: which of the cases one `code` covers an error is, where a
+ * client words them differently and `code` (with `field`) can't tell it which.
+ * A closed set like `ErrorCode`, so a client can map each to its own text, in
+ * its own language; `message` and `suggestion` stay English, for API callers.
+ * Most errors carry no reason, because their code says it already, and a
+ * client meeting one it doesn't know falls back on the code.
+ *
+ * - `refusal` (`invalid_input`): Magic Compose's AI declined the description;
+ *   `message` is its own explanation.
+ * - `asked_again` (`invalid_input`): Magic Compose's AI asked its questions
+ *   again after they were answered.
+ * - `email_required` (`invalid_input` on `email`): the signup asks for an
+ *   email, and none was given.
+ * - `email_invalid` (`invalid_input` on `email`): not an email address, or
+ *   longer than one can be (254 characters).
+ * - `name_required` (`invalid_input` on `name`): blank once trimmed.
+ * - `name_too_long` (`invalid_input` on `name`): over `NAME_MAX_LENGTH`.
+ * - `notes_too_long` (`invalid_input` on `notes`): over `NOTES_MAX_LENGTH`.
+ * - `quantity_too_small` (`invalid_input` on `quantity`): under 1.
+ * - `quantity_too_large` (`invalid_input` on `quantity`): over `QUANTITY_MAX`.
+ * - `quantity_not_whole` (`invalid_input` on `quantity`): not a whole number.
+ *
+ * The participant ones come from signing up and from the edit link
+ * (`POST /api/slots/[id]/commitments`, `PATCH /api/commitments/[id]`) and
+ * nowhere else: a `name` elsewhere in the API follows its own rules. See
+ * `COMMITMENT_INPUT_REASONS` for how the input checks map to them.
+ */
+export type ErrorReason =
+  | 'refusal'
+  | 'asked_again'
+  | 'email_required'
+  | 'email_invalid'
+  | 'name_required'
+  | 'name_too_long'
+  | 'notes_too_long'
+  | 'quantity_too_small'
+  | 'quantity_too_large'
+  | 'quantity_not_whole';
+
 export interface ServiceError {
   code: ErrorCode;
   message: string;
@@ -35,8 +75,11 @@ export interface ServiceError {
   expected?: string;
   /** Human-and-LLM-friendly suggestion to resolve the error. */
   suggestion?: string;
-  /** Attached data, e.g. capacity_full returning alternative slots. */
-  details?: Record<string, unknown>;
+  /**
+   * Attached data, e.g. capacity_full returning alternative slots, and the
+   * error's `reason` when it has one (see `ErrorReason`).
+   */
+  details?: Record<string, unknown> & { reason?: ErrorReason };
 }
 
 export function httpStatusFor(code: ErrorCode): number {
@@ -51,12 +94,30 @@ export function serviceError(
   return { code, message, ...extras };
 }
 
-export function fromZodError(error: ZodError): ServiceError {
+/**
+ * The `ErrorReason` for each Zod issue a client words in its own way, by the
+ * issue's field path and issue code, as in
+ * `{ quantity: { too_big: 'quantity_too_large' } }`. Kept beside the schema it
+ * describes and handed to `fromZodError` by the service that parses with it.
+ */
+export type ZodIssueReasons = Readonly<
+  Record<string, Readonly<Partial<Record<ZodIssueCode, ErrorReason>>>>
+>;
+
+/**
+ * The `invalid_input` for a failed parse, from its first issue. With
+ * `reasons`, an issue the table names also gets `details.reason`; the other
+ * fields are the same with or without it, so Zod's English `message` and the
+ * `suggestion` still reach API callers as before. An issue the table doesn't
+ * name gets no reason, and a client words it from the code.
+ */
+export function fromZodError(error: ZodError, reasons?: ZodIssueReasons): ServiceError {
   const first = error.issues[0];
   const field = first?.path.join('.') || undefined;
   const received = first && 'received' in first ? (first.received as unknown) : undefined;
   const expected =
     first && 'expected' in first ? String((first as { expected: unknown }).expected) : undefined;
+  const reason = first && field !== undefined ? reasons?.[field]?.[first.code] : undefined;
   return {
     code: 'invalid_input',
     message: first?.message ?? 'invalid input',
@@ -67,6 +128,7 @@ export function fromZodError(error: ZodError): ServiceError {
       first?.message && first.path.length > 0
         ? `Check the value of "${first.path.join('.')}".`
         : 'Check your request payload.',
+    ...(reason !== undefined ? { details: { reason } } : {}),
   };
 }
 

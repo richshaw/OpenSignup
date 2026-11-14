@@ -40,6 +40,30 @@ describe('tool results', () => {
     });
   });
 
+  it('failure adds details.reason last and leaves the rest of the body as it was', () => {
+    const without = serviceError('invalid_input', 'Invalid email', {
+      field: 'email',
+      suggestion: 'Check the value of "email".',
+    });
+    const before = toolFailure(without);
+    const after = toolFailure({ ...without, details: { reason: 'email_invalid' } });
+    expect(after.isError).toBe(true);
+    expect(after.structuredContent).toEqual({
+      error: {
+        code: 'invalid_input',
+        message: 'Invalid email',
+        field: 'email',
+        suggestion: 'Check the value of "email".',
+        details: { reason: 'email_invalid' },
+      },
+    });
+    const text = (r: typeof before) => (r.content[0] as { text: string }).text;
+    expect(text(before)).toBe(
+      '{"error":{"code":"invalid_input","message":"Invalid email","field":"email","suggestion":"Check the value of \\"email\\"."}}',
+    );
+    expect(text(after)).toBe(`${text(before).slice(0, -2)},"details":{"reason":"email_invalid"}}}`);
+  });
+
   it('runTool parses arguments with the zod schema before calling the handler', async () => {
     const handler = vi.fn(async (_c: ToolContext, input: { n: number }) =>
       ok({ doubled: input.n * 2 }),
