@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test, type Locator } from '@playwright/test';
 import { getTranslator, type Namespace } from '@/i18n/translator';
 import { formatSlotDate } from '@/lib/slot-label';
@@ -93,6 +94,60 @@ test.describe('the Swedish test signup', () => {
     await expect(alert).toContainText(errors('email.invalid'));
     await expect(alert).toContainText(errors('email.check'));
     await expectNoEnglish(alert);
+  });
+
+  // Both are made in the browser after a sign-up, from the precompiled catalog.
+  test('gives the calendar file and the share menu their text in Swedish', async ({ page }) => {
+    // Headless Chromium has no share menu: this one keeps what it was given.
+    await page.addInitScript(() => {
+      const shared: ShareData[] = [];
+      Object.assign(window, { shared });
+      Object.defineProperty(navigator, 'share', {
+        configurable: true,
+        value: async (data: ShareData) => {
+          shared.push(data);
+        },
+      });
+    });
+    // The server's answer is stood in for, so the counts and the room left
+    // that other tests read on this slot stay as seeded.
+    const editUrl = `https://example.test/s/${slug}/c/com_e2e?token=e2e`;
+    await page.route('**/api/slots/*/commitments', (route) =>
+      route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { commitment: { id: 'com_e2e' }, editUrl } }),
+      }),
+    );
+    await gotoSwedish(page, `/s/${slug}`);
+    const dialog = swedish('participant.dialog');
+    const fields = swedish('participant.fields');
+    await page
+      .locator('li')
+      .filter({ hasText: slots.many })
+      .getByRole('button', { name: /^Anmäl dig till / })
+      .click();
+    const sheet = page.getByRole('dialog');
+    await sheet.getByLabel(fields('name')).fill('Kim Exempel');
+    await sheet.getByLabel(fields('emailOptional')).fill('kim@example.test');
+    await sheet.getByRole('button', { name: dialog('confirm') }).click();
+    await expect(sheet.getByRole('heading', { name: dialog('youreIn') })).toBeVisible();
+    // The slot's full name, which "Vi har sparat din anmälan till …" shows first.
+    const slotName = await sheet.locator('p strong').first().textContent();
+    expect(slotName).toContain(slots.many);
+
+    const download = page.waitForEvent('download');
+    await sheet.getByRole('button', { name: dialog('addToCalendar') }).click();
+    const ics = await readFile((await (await download).path())!, 'utf8');
+    // Unfolded (RFC 5545 §3.1).
+    expect(ics.replace(/\r\n /g, '').split('\r\n')).toContain(
+      `DESCRIPTION:${dialog('calendarDescription', { url: editUrl })}`,
+    );
+
+    await sheet.getByRole('button', { name: dialog('saveYourLink') }).click();
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { shared: ShareData[] }).shared))
+      .toEqual([{ title, text: dialog('shareText', { slot: slotName! }), url: editUrl }]);
   });
 
   test('keeps its organizer’s strip English, marked lang="en"', async ({ page, context }) => {
