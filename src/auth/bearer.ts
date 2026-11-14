@@ -54,6 +54,11 @@ export type BearerResolution =
       /** Every workspace the organizer belongs to, with names for display. */
       workspaces: BearerWorkspace[];
       /**
+       * The organizer's saved language, raw (`OrganizerSession.locale`), for
+       * tool handlers, which may not query the database. Not on `actor`.
+       */
+      locale: string | null;
+      /**
        * What the SDK verified, for handing back to SDK code that wants it
        * (the MCP handler's pass-through auth info). Carries the raw token;
        * never log it.
@@ -110,6 +115,7 @@ export async function resolveBearerActor(
     clientId: auth.clientId,
     defaultWorkspaceId: session.defaultWorkspaceId,
     workspaces: bearerWorkspaces(session),
+    locale: session.locale,
     authInfo: auth,
   };
 }

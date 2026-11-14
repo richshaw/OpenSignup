@@ -16,6 +16,7 @@ export function unitContext(overrides: Partial<ToolContext> = {}): ToolContext {
     clientId: 'c',
     defaultWorkspaceId: 'ws_1',
     workspaces: [{ id: 'ws_1', slug: 'w', name: 'W', role: 'owner' }],
+    locale: null,
     ...overrides,
   };
 }

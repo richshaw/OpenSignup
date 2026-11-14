@@ -15,6 +15,7 @@ function ctx(defaultWorkspaceId: string | null): ToolContext {
     clientId: 'c',
     defaultWorkspaceId,
     workspaces: [],
+    locale: null,
   };
 }
 
