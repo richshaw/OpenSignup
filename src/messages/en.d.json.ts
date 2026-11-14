@@ -118,6 +118,84 @@ declare const messages: {
         "title": "Sorry, this link isn’t working",
         "body": "Your spot may no longer be available, or the link may be incomplete. Contact the organizer to find out what has changed. If you got a confirmation email, you can also try its link again."
       }
+    },
+    "editPage": {
+      "title": "Your spot",
+      "back": "← Back to signup",
+      "editingAs": "You're editing this as {name}.",
+      "editingAsWithEmail": "You're editing this as {name} ({email}).",
+      "closedBanner": {
+        "title": "Closed",
+        "body": "You can't add more spots now, but you can still change your details, give spots back, or cancel."
+      }
+    },
+    "editForm": {
+      "spotsMax": "You can have up to {max, plural, one {{max, number, ::group-off} spot} other {{max, number, ::group-off} spots}} on this slot.",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved.",
+      "saveUnreachable": "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.",
+      "saveUnreadable": "Something went wrong, so your changes weren't saved. Try again.",
+      "cancel": "Cancel signup",
+      "confirmCancel": "Confirm cancellation",
+      "cancelQuestion": "Cancel this signup?",
+      "keep": "Keep",
+      "yesCancel": "Yes, cancel",
+      "cancelling": "Cancelling…",
+      "cancelUnreachable": "Couldn't reach the server, so your spot wasn't cancelled. Check your connection and try again."
+    },
+    "cancelledPage": {
+      "title": "Your spot was cancelled",
+      "open": "There’s still room if you want to sign up again.",
+      "full": "The slot has filled up since.",
+      "slotClosed": "The slot has closed.",
+      "signupClosed": "The signup has closed.",
+      "removed": {
+        "title": "The organizer took you off this slot",
+        "body": "If you think this is a mistake, contact the organizer."
+      },
+      "moved": {
+        "title": "Your spot moved to another slot",
+        "body": "You’re still signed up. Use the link below to see or change it.",
+        "link": "See your new spot"
+      },
+      "back": "Back to the signup"
+    },
+    "unsubscribe": {
+      "title": "Reminder emails",
+      "incomplete": {
+        "title": "This link is incomplete",
+        "body": "Unsubscribe links only work in full. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
+      },
+      "invalid": {
+        "title": "This link isn't valid",
+        "body": "It may have been mangled in transit, or the signup may have been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
+      },
+      "confirm": {
+        "title": "Stop reminder emails?",
+        "body": "We'll stop sending reminders for <b>{title}</b>, and emails when the organizer changes your slot's date or time. This only affects this signup, and your slot stays as it is.",
+        "bodyWithEmail": "We'll stop sending {email} reminders for <b>{title}</b>, and emails when the organizer changes your slot's date or time. This only affects this signup, and your slot stays as it is."
+      },
+      "stop": "Stop reminders",
+      "keep": "Keep them",
+      "turnOffFailed": "We couldn't turn off your reminders. Please try again.",
+      "turnedOff": {
+        "title": "Reminders turned off",
+        "body": "You won't get any more reminders for <b>{title}</b>, or emails when the organizer changes your slot's date or time. Your slot is unchanged — if you also want to give it up, open the link in your confirmation email and cancel there."
+      },
+      "areOff": {
+        "title": "Reminders are off",
+        "body": "Reminders for <b>{title}</b> are off. You won't get reminders about it, or emails when the organizer changes your slot's date or time.",
+        "bodyWithEmail": "Reminders for <b>{title}</b> are off for {email}. You won't get reminders about it, or emails when the organizer changes your slot's date or time."
+      },
+      "turnBackOn": "Turn reminders back on",
+      "turnOnFailed": "We couldn't turn your reminders back on. Please try again.",
+      "turnedOn": {
+        "title": "Reminders turned back on",
+        "body": "You'll get reminders for <b>{title}</b> again, and emails when your slot's date or time changes. You can stop them any time from the link in one.",
+        "bodyWithEmail": "You'll get reminders for <b>{title}</b> again at {email}, and emails when your slot's date or time changes. You can stop them any time from the link in one."
+      },
+      "back": "Back to the signup"
     }
   },
   "organizer": {

@@ -20,8 +20,8 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import type { SignupTemplate } from '@/lib/signup-templates';
 import { TEXT_DEFAULT_MAX_LENGTH } from '@/schemas/slot-fields';
-import { commitToSlot, type CommitResult } from '@/services/commitments';
-import { reminderOptOutTokenFor } from '@/services/reminder-optout';
+import { cancelOwnCommitment, commitToSlot, type CommitResult } from '@/services/commitments';
+import { optOutOfReminders, reminderOptOutTokenFor } from '@/services/reminder-optout';
 import { createSignup, deleteSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
 
@@ -87,9 +87,19 @@ interface SwedishSeed {
   slots: typeof SWEDISH_SLOTS;
   /** The date `slots.many` is on, as its date field stores it (YYYY-MM-DD). */
   manyDate: string;
-  /** The edit link and the unsubscribe link of the sign-up on `slots.many`. */
+  /** The edit link and the unsubscribe link of the sign-up on `slots.many`, and who made it. */
   editPath: string;
   unsubscribePath: string;
+  editName: string;
+  editEmail: string;
+  /**
+   * The edit link of a sign-up on `slots.many` that was cancelled, which shows
+   * the cancelled page. Cancelled, it takes no spot, so the counts stay as above.
+   */
+  cancelledEditPath: string;
+  /** The unsubscribe link of the person on `slots.unlimitedOne`, who has turned reminders off, and their email. */
+  optedOutUnsubscribePath: string;
+  optedOutEmail: string;
 }
 
 /** Removes an e2e organizer and its data. Workspace delete cascades signups →
@@ -269,24 +279,44 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
     [SWEDISH_SLOTS.unlimitedTwo, 2],
   ];
   let n = 0;
-  const made: CommitResult[] = [];
+  const made: (CommitResult & { name: string; email: string })[] = [];
   for (const [label, people] of taken) {
     for (let i = 0; i < people; i += 1) {
       n += 1;
-      made.push(
-        unwrap(
-          await commitToSlot(db, slotIds.get(label)!, {
-            name: `Deltagare ${n}`,
-            email: `deltagare${n}@example.test`,
-            quantity: 1,
-          }),
+      const person = { name: `Deltagare ${n}`, email: `deltagare${n}@example.test` };
+      made.push({
+        ...unwrap(
+          await commitToSlot(db, slotIds.get(label)!, { ...person, quantity: 1 }),
           `commitToSlot(${label})`,
         ),
-      );
+        ...person,
+      });
     }
   }
   // The first is the one on `many`, which has a date.
-  const { commitment, editToken } = made[0]!;
+  const { commitment, editToken, name, email } = made[0]!;
+
+  n += 1;
+  const cancelled = unwrap(
+    await commitToSlot(db, slotIds.get(SWEDISH_SLOTS.many)!, {
+      name: `Deltagare ${n}`,
+      email: `deltagare${n}@example.test`,
+      quantity: 1,
+    }),
+    'commitToSlot(cancelled)',
+  );
+  unwrap(
+    await cancelOwnCommitment(db, cancelled.commitment.id, cancelled.editToken),
+    'cancelOwnCommitment',
+  );
+  // The third is the one on `unlimitedOne`.
+  const optedOutPerson = made[2]!;
+  const optedOut = optedOutPerson.commitment.participantId;
+  unwrap(
+    await optOutOfReminders(db, optedOut, reminderOptOutTokenFor(optedOut)),
+    'optOutOfReminders',
+  );
+
   return {
     id: signup.id,
     slug: signup.slug,
@@ -300,6 +330,19 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
       commitment.participantId,
       reminderOptOutTokenFor(commitment.participantId),
     ),
+    editName: name,
+    editEmail: email,
+    cancelledEditPath: commitmentEditPath(
+      signup.slug,
+      cancelled.commitment.id,
+      cancelled.editToken,
+    ),
+    optedOutUnsubscribePath: unsubscribePath(
+      signup.slug,
+      optedOut,
+      reminderOptOutTokenFor(optedOut),
+    ),
+    optedOutEmail: optedOutPerson.email,
   };
 }
 

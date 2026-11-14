@@ -10,8 +10,6 @@ import type { CatalogLocale } from '@/i18n/config';
  * `locale` is the language the message is in: the signup's own, the
  * instance's for participants when there is no live signup to ask, or English
  * for a draft's note to its own organizer. It marks the message with `lang`.
- * The edit and unsubscribe pages pass their signup's language while their
- * words are still English, until those move to the catalog (#630).
  */
 export function SignupStateMessage({
   locale,
