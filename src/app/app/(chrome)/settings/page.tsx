@@ -148,8 +148,9 @@ function OrganizerLanguageForm({
       {refusal ? <FormError>{refusal}</FormError> : null}
       {/* Keyed on the choice shown, so after a save it's the saved one. */}
       <form key={current} action={setOrganizerLocaleAction} className="flex flex-col gap-4">
-        {/* No's link comes back here, and the router focuses it, so the
-            next Tab goes on from this form. */}
+        {/* No after its question comes back here, by the fragment on its
+            address, and the browser focuses it, so the next Tab goes on from
+            this form. */}
         <fieldset id={ORGANIZER_LANGUAGE_ID} tabIndex={-1}>
           <legend className="font-medium">Language for new signups</legend>
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">

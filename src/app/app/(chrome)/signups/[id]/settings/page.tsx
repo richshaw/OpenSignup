@@ -207,8 +207,9 @@ function SignupLanguageForm({
         action={setSignupLocaleAction.bind(null, signupId)}
         className="flex flex-col gap-4"
       >
-        {/* No's link comes back here, and the router focuses it, so the
-            next Tab goes on from this form. */}
+        {/* No after its question comes back here, by the fragment on its
+            address, and the browser focuses it, so the next Tab goes on from
+            this form. */}
         <fieldset id={SIGNUP_LANGUAGE_ID} tabIndex={-1}>
           <legend className="text-sm font-medium">Signup language</legend>
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 
 import { ship } from '@/i18n/testing/ship';
 
@@ -37,14 +37,30 @@ vi.mock('@/services/signups.cached', () => ({
   }),
 }));
 vi.mock('@/lib/view-tracker', () => ({ trackOrganizerView: async () => {} }));
+const setOrganizerLocaleFromSignupAction = vi.hoisted(() => vi.fn());
 vi.mock('../actions', () => ({
   setRequireEmailAction: vi.fn(),
   setSignupLocaleAction: vi.fn(),
-  setOrganizerLocaleFromSignupAction: vi.fn(),
+  setOrganizerLocaleFromSignupAction,
   deleteSignupAction: vi.fn(),
 }));
 
 const { default: SettingsTab } = await import('./page');
+
+/**
+ * The forms submitted from now until the test ends, in order. Each submit is
+ * stopped once React has had it, since jsdom can't load another page.
+ */
+function submittedForms(): HTMLFormElement[] {
+  const forms: HTMLFormElement[] = [];
+  const record = (event: Event) => {
+    forms.push(event.target as HTMLFormElement);
+    event.preventDefault();
+  };
+  document.addEventListener('submit', record);
+  onTestFinished(() => document.removeEventListener('submit', record));
+  return forms;
+}
 
 async function renderTab(searchParams: Record<string, string> = {}) {
   const page = await SettingsTab({
@@ -58,6 +74,7 @@ const languageSection = () => screen.queryByRole('region', { name: 'Language' })
 
 afterEach(() => {
   cleanup();
+  setOrganizerLocaleFromSignupAction.mockClear();
   stored.settings = {};
   instance.defaultLocale = undefined;
   Object.assign(organizer, { saved: null, acceptLanguage: null });
@@ -149,20 +166,38 @@ describe('Settings tab: the question after a language save', () => {
     expect(section.getByText('Saved')).toBeInTheDocument();
   });
 
-  it('brings the question into view by giving Yes the focus, and No comes back to the form', async () => {
+  it('gives No the focus, first in the row, so a second press or tap after Save says No', async () => {
     ship('participant', ['en', 'sv']);
     stored.settings = { locale: 'sv' };
     await renderTab({ saved: 'language' });
 
-    // Focus scrolls Yes into view, clear of the phone's Share bar (the page's
-    // scroll-padding-bottom) and with the box's edge (its scroll margin).
-    const yes = screen.getByRole('button', { name: 'Yes' });
-    expect(yes).toHaveFocus();
-    expect(yes).toHaveClass('scroll-mb-4');
-    // No is the tab without the question, at the choices that asked it, which
-    // the router focuses.
-    const no = screen.getByRole('link', { name: 'No' });
-    expect(no).toHaveAttribute('href', '/app/signups/sig_1/settings#signup-language');
+    const group = screen.getByRole('group', {
+      name: 'Make Svenska your language for new signups?',
+    });
+    const [no, yes] = within(group).getAllByRole('button') as [
+      HTMLButtonElement,
+      HTMLButtonElement,
+    ];
+    expect(no).toHaveAccessibleName('No');
+    expect(yes).toHaveAccessibleName('Yes');
+    // The focus scrolls No into view, clear of the phone's Share bar (the
+    // page's scroll-padding-bottom) and with the box's edge (its scroll
+    // margin), and puts it, not Yes, under the key or finger that pressed Save.
+    expect(no).toHaveFocus();
+    expect(no).toHaveClass('scroll-mb-4');
+    expect(yes).not.toHaveFocus();
+
+    // Pressing what has the focus goes back to the choices that asked, saving
+    // nothing: a plain GET form with no fields. Yes's action isn't called.
+    const submitted = submittedForms();
+    fireEvent.click(document.activeElement!);
+    const noForm = no.form!;
+    expect(submitted).toEqual([noForm]);
+    expect(noForm).toHaveAttribute('method', 'get');
+    expect(noForm).toHaveAttribute('action', '/app/signups/sig_1/settings#signup-language');
+    expect(noForm.querySelectorAll('input')).toHaveLength(0);
+    expect(setOrganizerLocaleFromSignupAction).not.toHaveBeenCalled();
+    // The choices it comes back to can take the focus.
     const choices = screen.getByRole('group', { name: 'Signup language' });
     expect(choices).toHaveAttribute('id', 'signup-language');
     expect(choices).toHaveAttribute('tabindex', '-1');
