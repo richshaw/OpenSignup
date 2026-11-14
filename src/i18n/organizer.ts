@@ -7,8 +7,8 @@
  * reminder worker imports, keeps nothing about organizers.
  */
 import type { OrganizerSession } from '@/auth/organizer-session';
-import type { Audience } from './config';
-import { chooseOrganizerLocale } from './organizer-locale';
+import { type Audience, SHIPPED } from './config';
+import { chooseOrganizerLocale, type OrganizerLocaleSource } from './organizer-locale';
 import { instanceDefaultLocale } from './server';
 
 /**
@@ -29,4 +29,29 @@ export function getOrganizerLocale(
     instanceDefault: instanceDefaultLocale(),
     acceptLanguage,
   });
+}
+
+/**
+ * Which step chose a new signup's language: the caller, which sent one
+ * (`api`), or one of the organizer's steps (`getOrganizerLocale`).
+ * `signup.created` records it next to the language.
+ */
+export type SignupLocaleSource = OrganizerLocaleSource | 'api';
+
+/**
+ * The language a new signup starts in when its creator sent none: the
+ * organizer's language for participants, and the step that chose it. Null
+ * while only one language has shipped to participants, so the signup stores
+ * none: no signup is pinned to a language nobody had a choice of, and it
+ * reads as the instance's language (`resolveLocale`) until it has one. A
+ * language the caller sent isn't this function's to decide: it goes into the
+ * signup as sent, `createSignup` refuses it unless it has shipped, and its
+ * source is `api`.
+ */
+export function newSignupLocale(
+  session: Pick<OrganizerSession, 'locale'>,
+  acceptLanguage: string | null,
+) {
+  if (SHIPPED.participant.length < 2) return null;
+  return getOrganizerLocale(session, acceptLanguage, 'participant');
 }

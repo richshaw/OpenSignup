@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getOrganizerSession, requireActor } from '@/auth/session';
 import { getDb, type Db } from '@/db/client';
+import { newSignupLocale } from '@/i18n/organizer';
 import { activityActor, recordActivityBestEffort } from '@/lib/activity';
 import { getEnv, magicComposeEnabled } from '@/lib/env';
 import { fail, handle, ok, readJson } from '@/lib/api-response';
@@ -340,8 +341,12 @@ export async function POST(req: NextRequest) {
       return fail(serviceError('internal', 'request cancelled'));
     }
 
+    // The signup starts in the organizer's language, as one made by hand
+    // does: none while only one language has shipped.
+    const language = newSignupLocale(session, req.headers.get('accept-language'));
     const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, draft.data, {
       logContext: { promptLength: userPrompt.length },
+      ...(language ? { locale: language } : {}),
     });
     if (!persisted.ok) {
       await recordFailed(db, actor, session.defaultWorkspaceId, 'not_saved');
