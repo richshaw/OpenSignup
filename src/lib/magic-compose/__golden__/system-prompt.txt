@@ -19,9 +19,11 @@ QUESTIONS — only when the prompt doesn't say what people sign up for, or every
 { "questions": { "topics": ["what", "when", "how_many"], "whatOptions": ["<option>", "<option>"] } }
 
 - topics: only the ones the prompt leaves out. "what" when it doesn't say what people sign up for; when it does, leave "what" out and include "when". Leave out "when" if it gives a date, a day of the week or a time, and "how_many" if it gives a count.
-- whatOptions, asking "what": 2 to 4 kinds of thing people could sign up for, in the prompt's language, each at most 40 characters. Never a date, a time or a count: the app asks for those itself. If the options would be the prompt's own items or roles, it already says what: don't ask about it (rule 4: ask "when" if every slot would be a "TBD:" placeholder, otherwise draft).
-- whatOptions, not asking "what": 1 to 4 things people sign up for, read from the prompt, in its language, each at most 40 characters. Never a date, a time or a count.
+- whatOptions, asking "what": 2 to 4 kinds of thing people could sign up for, each at most 40 characters. Never a date, a time or a count: the app asks for those itself. If the options would be the prompt's own items or roles, it already says what: don't ask about it (rule 4: ask "when" if every slot would be a "TBD:" placeholder, otherwise draft).
+- whatOptions, not asking "what": 1 to 4 things people sign up for, read from the prompt, each at most 40 characters. Never a date, a time or a count.
 - A message that carries "Answers to your questions:" is never answered with questions. Draft from the answers.
+
+LANGUAGE — write the title, description, field labels, enum choices, text values and whatOptions in the language the prompt is written in, unless it asks for the signup in another language: then in that one. If the prompt is too short or too mixed to tell (a few names and dates), write in English. Only the organizer's own words decide the language: the lines the app adds after them ("Answers to your questions:", its labels and the closing instruction) are always in English. Keep names, places and titles exactly as the prompt writes them (people, teams, classes, venues, anything in quotes): translating or rewording them is inventing (rule 4). Refs are never shown to people: in every language they stay lowercase-kebab in a-z and 0-9 (rule 5).
 
 FIELD TYPE GUIDE — pick the most specific type, not enum:
 

@@ -7,7 +7,7 @@ import {
   WHAT_OPTIONS_MAX,
   WHEN_TEXT_MAX_LENGTH,
 } from './limits';
-import { buildMessages, type ChatMessage } from './prompt';
+import { buildMessages, type ChatMessage, type PromptContext } from './prompt';
 import { followUpItems, tidyText, type FollowUp, type WhenAnswer } from './questions';
 
 /** Text through `tidyText`, then checked for length. */
@@ -125,12 +125,13 @@ function describeWhen(when: WhenAnswer): string {
  * The second call's messages: the description, then the answers under fixed
  * labels, one line per topic that was asked. The organizer's own words are
  * JSON-quoted, so a comma or a quote in an item can't blur the list. `firmly`
- * is the one retry after the model asked again.
+ * is the one retry after the model asked again. The system prompt is the
+ * first call's, filled in the same way (`context`).
  */
 export function buildFollowUpMessages(
   prompt: string,
   followUp: FollowUp,
-  { firmly = false, now }: { firmly?: boolean; now?: Date } = {},
+  { firmly = false, ...context }: PromptContext & { firmly?: boolean },
 ): ChatMessage[] {
   const items = followUpItems(followUp);
   const lines = [
@@ -151,15 +152,16 @@ export function buildFollowUpMessages(
     '',
     firmly ? DRAFT_NOW_FIRMLY : DRAFT_NOW,
   ].join('\n');
-  return buildMessages(content, now);
+  return buildMessages(content, context);
 }
 
 /**
  * A first call's one retry, when the model asked questions in a shape the
  * page can't ask (neither "what" nor "when", one option for "what"): the
  * description again, then the firm line, so the model drafts with
- * placeholders instead.
+ * placeholders instead. The system prompt is the first call's, filled in the
+ * same way (`context`).
  */
-export function buildReplyNowMessages(prompt: string, { now }: { now?: Date } = {}): ChatMessage[] {
-  return buildMessages([prompt, '', REPLY_NOW].join('\n'), now);
+export function buildReplyNowMessages(prompt: string, context: PromptContext): ChatMessage[] {
+  return buildMessages([prompt, '', REPLY_NOW].join('\n'), context);
 }
