@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { createElement, type ReactElement } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
@@ -40,6 +42,23 @@ vi.mock('@/i18n/server', async (importOriginal) => {
   return { ...actual, getServerTranslator };
 });
 
+/**
+ * Writes an email as the worker renders it, its HTML and its plain text, to
+ * `translation-review/<lang>/emails/`, for a translation's review in context
+ * (docs/translating.md). Only with TRANSLATION_SCREENSHOTS=1, which
+ * `pnpm translation:screenshots` sets; the folder is gitignored.
+ */
+function writeForReview(
+  lang: string,
+  name: string,
+  { html, text }: { html: string; text: string },
+) {
+  const dir = path.resolve(import.meta.dirname, '../../../translation-review', lang, 'emails');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, `${name}.html`), html);
+  writeFileSync(path.join(dir, `${name}.txt`), text);
+}
+
 /** `element` rendered with the web process's translators, or the worker's. */
 async function render(element: ReactElement, { web }: { web: boolean }) {
   translators.web = web;
@@ -80,16 +99,17 @@ describe('each email, from the catalogs as the web process gets them', () => {
     ]);
   });
 
-  it.each(emailSamples.map(({ name, element }) => [name, element] as const))(
+  it.each(emailSamples.map(({ name, element, lang }) => [name, element, lang] as const))(
     'renders %s as the worker does',
-    async (_name, element) => {
+    async (name, element, lang) => {
       const worker = await render(element, { web: false });
       const used = translators.precompiledUsed;
       const web = await render(element, { web: true });
       expect(web).toEqual(worker);
       // The sign-in email has no catalog text yet; every other one went
       // through the precompiled catalogs.
-      if (_name !== 'magic-link') expect(translators.precompiledUsed).toBeGreaterThan(used);
+      if (name !== 'magic-link') expect(translators.precompiledUsed).toBeGreaterThan(used);
+      if (process.env.TRANSLATION_SCREENSHOTS === '1') writeForReview(lang, name, worker);
     },
   );
 });

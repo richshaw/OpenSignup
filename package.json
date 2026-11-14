@@ -27,6 +27,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "help:screenshots": "HELP_SCREENSHOTS=1 playwright test tests/e2e/help --project=chromium",
+    "translation:screenshots": "rm -rf translation-review && TRANSLATION_SCREENSHOTS=1 vitest run src/email/templates/emails.test.tsx && TRANSLATION_SCREENSHOTS=1 playwright test tests/e2e/swedish-signup.spec.ts --project=chromium --project=chromium-phone",
     "test:db": "vitest run --config vitest.db.config.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",

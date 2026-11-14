@@ -11,6 +11,7 @@ import { CommitmentConfirmationEmail } from '@/email/templates/commitment-confir
 import { MagicLinkEmail } from '@/email/templates/magic-link';
 import { ReminderEmail } from '@/email/templates/reminder';
 import { SlotChangedEmail } from '@/email/templates/slot-changed';
+import { formatSlotDate } from '@/lib/slot-label';
 
 export interface EmailSample {
   name: string;
@@ -35,6 +36,13 @@ const swedish = {
   notes: 'Tar med vindruvor',
 } as const;
 const swedishUnsubscribeUrl = 'https://example.test/s/fika/unsubscribe?p=par_2&token=abc';
+/**
+ * The Swedish samples' dates as the app prints them ("lör 5 sep.", with the
+ * point `Intl` gives an abbreviated month), so a translation's review reads
+ * the emails participants get.
+ */
+const saturday = formatSlotDate('2026-09-05', 'sv') ?? '';
+const sunday = formatSlotDate('2026-09-06', 'sv') ?? '';
 
 export const emailSamples: readonly EmailSample[] = [
   {
@@ -116,11 +124,11 @@ export const emailSamples: readonly EmailSample[] = [
     element: createElement(CommitmentConfirmationEmail, {
       ...swedish,
       slotDetails: [
-        { label: 'Datum', value: 'lör 5 sep' },
+        { label: 'Datum', value: saturday },
         { label: 'Tid', value: '09:00' },
         { label: 'Fika', value: 'Frukt' },
       ],
-      slotSummary: 'lör 5 sep · 09:00 · Frukt',
+      slotSummary: `${saturday} · 09:00 · Frukt`,
       quantity: 2,
       promisesReminder: true,
     }),
@@ -139,13 +147,13 @@ export const emailSamples: readonly EmailSample[] = [
       ...swedish,
       unsubscribeUrl: swedishUnsubscribeUrl,
       slotDetails: [
-        { label: 'Datum', value: 'lör 5 sep' },
+        { label: 'Datum', value: saturday },
         { label: 'Fika', value: 'Frukt' },
       ],
-      slotSummary: 'lör 5 sep · Frukt',
+      slotSummary: `${saturday} · Frukt`,
     }),
     expect: [
-      'lör 5 sep',
+      'lör 5 sep.',
       'Hej Dana, det här är en påminnelse om att du har anmält dig till',
       'Stäng av påminnelser om Lördagsfika',
     ],
@@ -157,13 +165,13 @@ export const emailSamples: readonly EmailSample[] = [
       ...swedish,
       unsubscribeUrl: swedishUnsubscribeUrl,
       slotDetails: [
-        { label: 'Datum', value: 'sön 6 sep' },
+        { label: 'Datum', value: sunday },
         { label: 'Fika', value: 'Frukt' },
       ],
-      slotSummary: 'sön 6 sep · Frukt',
+      slotSummary: `${sunday} · Frukt`,
       changed: true,
     }),
-    expect: ['sön 6 sep', 'arrangören har ändrat ditt pass i', 'Här är de nya uppgifterna.'],
+    expect: ['sön 6 sep.', 'arrangören har ändrat ditt pass i', 'Här är de nya uppgifterna.'],
     lang: 'sv',
   },
   {
@@ -172,14 +180,14 @@ export const emailSamples: readonly EmailSample[] = [
       ...swedish,
       unsubscribeUrl: swedishUnsubscribeUrl,
       slotDetails: [
-        { label: 'Datum', value: 'sön 6 sep' },
+        { label: 'Datum', value: sunday },
         { label: 'Fika', value: 'Frukt' },
       ],
-      slotSummary: 'sön 6 sep · Frukt',
+      slotSummary: `${sunday} · Frukt`,
       notes: null,
     }),
     expect: [
-      'sön 6 sep',
+      'sön 6 sep.',
       'har flyttat ditt pass till ett nytt datum eller en ny tid',
       'Stäng av påminnelser och uppdateringar om Lördagsfika',
     ],
