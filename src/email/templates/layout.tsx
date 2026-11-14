@@ -38,6 +38,7 @@ export function EmailLayout({
         <Body className="bg-[#f7f8fa] font-sans text-[#0b1220]">
           <Container className="mx-auto my-10 max-w-[520px] rounded-xl bg-white p-8 shadow-sm">
             <Section className="pb-4">
+              {/* eslint-disable-next-line react/jsx-no-literals -- the product's name, the same in every language */}
               <Text className="m-0 text-lg font-semibold">OpenSignup</Text>
             </Section>
             <Hr className="border-[#eef1f5]" />
