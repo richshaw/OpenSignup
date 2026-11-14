@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
 import { workspaceMembers } from '@/db/schema/members';
@@ -8,8 +8,10 @@ import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import type { ErrorReason } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
+import { NAME_MAX_LENGTH } from '@/lib/participant-limits';
 import { RateLimits } from '@/lib/rate-limit';
 import { parseReturningCommits } from '@/lib/returning-participant';
 import { createSignup, publishSignup } from '@/services/signups';
@@ -159,5 +161,94 @@ describe('POST /api/slots/[id]/commitments (db)', () => {
         expect.objectContaining({ commitmentId: id, token: first.payload.data.editToken }),
       ]);
     }
+  });
+
+  // The sign-up sheet words an `invalid_input` by its `details.reason`. The
+  // reason comes after the fields the API has always sent, which stay as they
+  // were, byte for byte, in English for API callers.
+  describe('a refused sign-up', () => {
+    // Its own address, so these stay clear of the per-IP limit the tests above
+    // spend, and a fresh email each run for the per-address one.
+    const refusedIp = `2001:db8::1:${Math.floor(Math.random() * 0xffff).toString(16)}`;
+    const email = `pat-${randomBytes(4).toString('hex')}@localhost`;
+
+    afterAll(async () => {
+      await db
+        .delete(rateLimits)
+        .where(
+          and(
+            inArray(rateLimits.bucket, [
+              RateLimits.commitmentPerIp.bucket,
+              RateLimits.commitmentPerEmail.bucket,
+            ]),
+            inArray(rateLimits.subject, [refusedIp, email]),
+          ),
+        );
+    });
+
+    async function refuse(slotId: string, body: Record<string, unknown>) {
+      const req = new NextRequest(`http://localhost/api/slots/${slotId}/commitments`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-forwarded-for': refusedIp },
+        body: JSON.stringify(body),
+      });
+      const res = await POST(req, { params: Promise.resolve({ id: slotId }) });
+      return { status: res.status, text: await res.text() };
+    }
+
+    /** `before`, the body as it was, with `details.reason` added at the end. */
+    function withReason(before: string, reason: ErrorReason): string {
+      return `${before.slice(0, -2)},"details":{"reason":"${reason}"}}}`;
+    }
+
+    it('names an email that is not an address', async () => {
+      // The browser takes `pat@localhost` as an email; the server doesn't.
+      const refused = await refuse(await newSlot(null), { name: 'Robin Example', email });
+      expect(refused.status).toBe(400);
+      expect(refused.text).toBe(
+        withReason(
+          '{"error":{"code":"invalid_input","message":"Invalid email","field":"email","suggestion":"Check the value of \\"email\\"."}}',
+          'email_invalid',
+        ),
+      );
+    });
+
+    it('names an email the signup asks for and did not get', async () => {
+      // The default settings ask for an email; this file's signup doesn't.
+      const asks = await createSignup(db, actor, workspaceId, {
+        title: 'Commit POST test, email required',
+        description: '',
+        tags: [],
+        visibility: 'unlisted' as const,
+        settings: {},
+      });
+      if (!asks.ok) throw new Error(asks.error.message);
+      const slot = await addSlot(db, actor, asks.value.id, { values: {}, capacity: 5 });
+      if (!slot.ok) throw new Error(slot.error.message);
+      const published = await publishSignup(db, actor, asks.value.id);
+      if (!published.ok) throw new Error(published.error.message);
+
+      const refused = await refuse(slot.value.id, { name: 'Robin Example', quantity: 1 });
+      expect(refused.status).toBe(400);
+      expect(refused.text).toBe(
+        withReason(
+          '{"error":{"code":"invalid_input","message":"Email is required for this signup.","field":"email","suggestion":"Add your email and try again."}}',
+          'email_required',
+        ),
+      );
+    });
+
+    it('names a name that is too long', async () => {
+      const refused = await refuse(await newSlot(null), {
+        name: 'x'.repeat(NAME_MAX_LENGTH + 1),
+      });
+      expect(refused.status).toBe(400);
+      expect(refused.text).toBe(
+        withReason(
+          `{"error":{"code":"invalid_input","message":"String must contain at most ${NAME_MAX_LENGTH} character(s)","field":"name","suggestion":"Check the value of \\"name\\"."}}`,
+          'name_too_long',
+        ),
+      );
+    });
   });
 });

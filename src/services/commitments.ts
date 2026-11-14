@@ -24,6 +24,7 @@ import { editTokenFor, hashToken, idempotencyKeyHash, verifyHash } from '@/lib/t
 import {
   type CommitmentCreateInput,
   type CommitmentUpdateInput,
+  COMMITMENT_INPUT_REASONS,
   CommitmentCreateInputSchema,
   CommitmentUpdateInputSchema,
 } from '@/schemas/commitments';
@@ -238,7 +239,7 @@ export async function commitToSlot(
   slotId: string,
   rawInput: unknown,
 ): Promise<Result<CommitResult, ServiceError>> {
-  const input = parseInputSafe(CommitmentCreateInputSchema, rawInput);
+  const input = parseInputSafe(CommitmentCreateInputSchema, rawInput, COMMITMENT_INPUT_REASONS);
   if (!input.ok) return input;
   const { email, idempotencyKey, ...data } = input.value;
   // The key together with the request as parsed, so it finds an earlier
@@ -363,6 +364,7 @@ async function commitParticipantToSlot(
         serviceError('invalid_input', 'Email is required for this signup.', {
           field: 'email',
           suggestion: 'Add your email and try again.',
+          details: { reason: 'email_required' },
         }),
       );
     }
@@ -638,7 +640,7 @@ export async function updateOwnCommitment(
   token: string,
   rawInput: unknown,
 ): Promise<Result<EditedCommitment, ServiceError>> {
-  const input = parseInputSafe(CommitmentUpdateInputSchema, rawInput);
+  const input = parseInputSafe(CommitmentUpdateInputSchema, rawInput, COMMITMENT_INPUT_REASONS);
   if (!input.ok) return input;
   const data: CommitmentUpdateInput = input.value;
 

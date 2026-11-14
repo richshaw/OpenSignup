@@ -11,6 +11,7 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
+import { QUANTITY_MAX } from '@/lib/participant-limits';
 import type { Actor } from '@/lib/policy';
 import { PUBLIC_COMMITMENT_FIELDS } from '@/lib/public-commitment';
 import { editTokenFor } from '@/lib/token';
@@ -507,7 +508,11 @@ describe('updateOwnCommitment swap (db)', () => {
     });
     expect(blank.ok).toBe(false);
     if (blank.ok) return;
-    expect(blank.error).toMatchObject({ code: 'invalid_input', field: 'name' });
+    expect(blank.error).toMatchObject({
+      code: 'invalid_input',
+      field: 'name',
+      details: { reason: 'name_required' },
+    });
 
     const mine = await commitToSlot(fx.db, a.slotId, {
       name: 'Mo',
@@ -520,7 +525,11 @@ describe('updateOwnCommitment swap (db)', () => {
     });
     expect(edit.ok).toBe(false);
     if (edit.ok) return;
-    expect(edit.error).toMatchObject({ code: 'invalid_input', field: 'name' });
+    expect(edit.error).toMatchObject({
+      code: 'invalid_input',
+      field: 'name',
+      details: { reason: 'name_required' },
+    });
 
     const [p] = await fx.db
       .select({ name: participants.name })
@@ -1610,10 +1619,14 @@ describe('signing up without an email (db)', () => {
 
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.error).toMatchObject({
+    // `details.reason` tells the sign-up sheet this from an email it refused
+    // as not an address, which is `invalid_input` on `email` too.
+    expect(r.error).toEqual({
       code: 'invalid_input',
-      field: 'email',
       message: 'Email is required for this signup.',
+      field: 'email',
+      suggestion: 'Add your email and try again.',
+      details: { reason: 'email_required' },
     });
     expect(await peopleOn(signupId)).toEqual([]);
     const held = await fx.db
@@ -1622,6 +1635,24 @@ describe('signing up without an email (db)', () => {
       .where(eq(commitments.signupId, signupId));
     expect(held).toEqual([]);
     expect(await eventsOn(signupId)).toEqual(eventsBefore);
+  });
+
+  it('refuses an email that is not an address as email_invalid, not email_required', async () => {
+    const { slotId } = await makeOpenSignupWithSlot(fx, 'Required, not an address');
+    const r = await commitToSlot(fx.db, slotId, {
+      name: 'Sam',
+      email: 'sam@localhost',
+      quantity: 1,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toEqual({
+      code: 'invalid_input',
+      message: 'Invalid email',
+      field: 'email',
+      suggestion: 'Check the value of "email".',
+      details: { reason: 'email_invalid' },
+    });
   });
 
   it('lets someone without an email move after the signup requires one again', async () => {
@@ -2822,5 +2853,63 @@ describe('the capacity_full error (db)', () => {
     });
     expect(Object.keys(r.error)).toEqual(['code', 'message', 'details', 'suggestion']);
     expect(Object.keys(r.error.details ?? {})).toEqual(['remaining', 'requested', 'capacity']);
+  });
+});
+
+// Which refusals carry a `details.reason` (see `ErrorReason`): an
+// `invalid_input` the participant pages word by its case, and nothing whose
+// code already says it. Either way the other fields are as they always were.
+describe('the reason a refused sign-up or edit names (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  it('names too many spots on the edit link', async () => {
+    const { slotId } = await makeOpenSignupWithSlot(fx, 'Reasons, quantity');
+    const mine = await commitToSlot(fx.db, slotId, {
+      name: 'Lee',
+      email: 'lee@example.test',
+      quantity: 1,
+    });
+    if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
+    const r = await updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
+      quantity: QUANTITY_MAX + 1,
+    });
+    expect(r).toEqual({
+      ok: false,
+      error: {
+        code: 'invalid_input',
+        message: `Number must be less than or equal to ${QUANTITY_MAX}`,
+        field: 'quantity',
+        suggestion: 'Check the value of "quantity".',
+        details: { reason: 'quantity_too_large' },
+      },
+    });
+  });
+
+  it('gives a second sign-up by the same email and a wrong edit token no reason', async () => {
+    const { slotId } = await makeOpenSignupWithSlot(fx, 'Reasons, none');
+    const person = { name: 'Lee', email: 'lee@example.test', quantity: 1 };
+    const first = await commitToSlot(fx.db, slotId, person);
+    if (!first.ok) throw new Error(`commitToSlot failed: ${first.error.message}`);
+
+    expect(await commitToSlot(fx.db, slotId, person)).toEqual({
+      ok: false,
+      error: {
+        code: 'conflict',
+        message: 'you already committed to this slot',
+        suggestion: 'edit or cancel your existing commitment',
+        details: { commitmentId: first.value.commitment.id },
+      },
+    });
+    expect(
+      await updateOwnCommitment(fx.db, first.value.commitment.id, 'not-the-token', { notes: 'x' }),
+    ).toEqual({ ok: false, error: { code: 'forbidden', message: 'invalid edit token' } });
   });
 });
