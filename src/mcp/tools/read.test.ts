@@ -181,7 +181,6 @@ describe('read tools', () => {
           allowNotes: false,
           showWhoSignedUp: false,
           confirmationMessage: 'See you there',
-          locale: 'en',
         },
         fields: [],
         slots: [],
@@ -196,6 +195,24 @@ describe('read tools', () => {
       sendReminders: true,
       requireEmail: false,
     });
+  });
+
+  // As stored, like every setting it shows: a language that hasn't shipped
+  // (participants get the instance's) is shown as it is, and none as none.
+  it.each(['en', 'sv'])('get_signup shows a stored language as stored: %s', async (locale) => {
+    getSignupForOrganizer.mockResolvedValueOnce(
+      ok({
+        ...row,
+        settings: { groupByFieldRefs: [], locale },
+        fields: [],
+        slots: [],
+        committedBySlot: {},
+      }),
+    );
+    const client = await connectTestClient(ctx, READ_TOOLS);
+    const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 'sig_1' } });
+    const body = r.structuredContent as { signup: { settings: Record<string, unknown> } };
+    expect(body.signup.settings).toEqual({ groupByFieldRefs: [], locale });
   });
 
   it('get_signup names the links it returns', () => {

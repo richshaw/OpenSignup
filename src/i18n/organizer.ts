@@ -8,7 +8,7 @@
  */
 import type { OrganizerSession } from '@/auth/organizer-session';
 import { type Audience, SHIPPED } from './config';
-import { chooseOrganizerLocale, type OrganizerLocaleSource } from './organizer-locale';
+import { chooseOrganizerLocale } from './organizer-locale';
 import { instanceDefaultLocale } from './server';
 
 /**
@@ -30,13 +30,6 @@ export function getOrganizerLocale(
     acceptLanguage,
   });
 }
-
-/**
- * Which step chose a new signup's language: the caller, which sent one
- * (`api`), or one of the organizer's steps (`getOrganizerLocale`).
- * `signup.created` records it next to the language.
- */
-export type SignupLocaleSource = OrganizerLocaleSource | 'api';
 
 /**
  * The language a new signup starts in when its creator sent none: the

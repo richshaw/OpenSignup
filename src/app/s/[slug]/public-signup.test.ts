@@ -57,7 +57,7 @@ const ROW = {
 };
 
 describe('toPublicSignup', () => {
-  const pub = toPublicSignup(ROW);
+  const pub = toPublicSignup(ROW, 'en');
 
   it('sends only the listed signup keys', () => {
     expect(Object.keys(pub).sort()).toEqual(
@@ -75,7 +75,7 @@ describe('toPublicSignup', () => {
       ].sort(),
     );
     expect(Object.keys(pub.settings).sort()).toEqual(
-      ['groupByFieldRefs', 'requireEmail', 'sendReminders'].sort(),
+      ['groupByFieldRefs', 'locale', 'requireEmail', 'sendReminders'].sort(),
     );
   });
 
@@ -99,11 +99,20 @@ describe('toPublicSignup', () => {
       requireEmail: false,
       sendReminders: true,
       groupByFieldRefs: ['date'],
+      locale: 'en',
     });
-    expect(toPublicSignup({ ...ROW, settings: {} }).settings).toEqual({
+    expect(toPublicSignup({ ...ROW, settings: {} }, 'en').settings).toEqual({
       requireEmail: true,
       sendReminders: true,
       groupByFieldRefs: [],
+      locale: 'en',
     });
+  });
+
+  // The route works the language out as the page does, so a stored one that
+  // no participant gets is never what the API names.
+  it('sends the language it is given as settings.locale, never the stored one', () => {
+    const stored = { ...ROW, settings: { ...ROW.settings, locale: 'xx' } };
+    expect(toPublicSignup(stored, 'en').settings.locale).toBe('en');
   });
 });

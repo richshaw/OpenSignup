@@ -295,7 +295,11 @@ describe('create_signup and the signup’s language', () => {
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const { tools } = await client.listTools();
     const tool = tools.find((t) => t.name === 'create_signup');
-    expect(tool?.inputSchema.properties?.locale).toEqual({ type: 'string' });
+    expect(tool?.inputSchema.properties?.locale).toEqual({
+      type: 'string',
+      description:
+        "A language code, one of: en. Defaults to the organizer's language for new signups.",
+    });
     expect(tool?.inputSchema.required).not.toContain('locale');
     expect(tool?.description).toContain('locale sets the language');
     expect(tool?.description).toContain('one of: en.');
@@ -306,6 +310,27 @@ describe('create_signup and the signup’s language', () => {
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
     expect(settings).toEqual({ locale: 'en' });
     expect(localeSource).toBe('api');
+  });
+
+  it('shows the stored language in its result, as get_signup does', async () => {
+    svc.createSignup.mockResolvedValueOnce(ok(row));
+    svc.getSignupForOrganizer.mockResolvedValueOnce(
+      ok({ ...created, settings: { ...created.settings, locale: 'en' } }),
+    );
+    const client = await connectTestClient(ctx, WRITE_TOOLS);
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Snack rota',
+        fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+        slots: [{ values: { what: 'Fruit' } }],
+        locale: 'en',
+      },
+    });
+    expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    expect(
+      (r.structuredContent as { signup: { settings: Record<string, unknown> } }).signup.settings,
+    ).toMatchObject({ locale: 'en' });
   });
 
   it('stores none without one while only English has shipped, whatever the organizer saved', async () => {
@@ -445,8 +470,6 @@ describe('update_signup', () => {
     ['showWhoSignedUp', false],
     ['confirmationMessage', 'See you there'],
     ['confirmationMessage', null],
-    ['locale', 'en'],
-    ['locale', null],
   ] as const)('refuses %s: %j, which nothing reads', async (key, value) => {
     const client = await connectTestClient(ctx, WRITE_TOOLS);
     const { tools } = await client.listTools();
@@ -469,6 +492,56 @@ describe('update_signup', () => {
       code: 'invalid_input',
       field: 'settings',
     });
+    expect(svc.updateSignup).not.toHaveBeenCalled();
+  });
+
+  it('offers locale, listing the languages it takes', async () => {
+    const client = await connectTestClient(ctx, WRITE_TOOLS);
+    const { tools } = await client.listTools();
+    const tool = tools.find((t) => t.name === 'update_signup');
+    const settings = tool?.inputSchema.properties?.settings as
+      | { properties?: Record<string, { type?: unknown; description?: string }> }
+      | undefined;
+    expect(settings?.properties?.locale?.type).toEqual(['string', 'null']);
+    expect(settings?.properties?.locale?.description).toContain('as a language code, one of: en.');
+    expect(settings?.properties?.locale?.description).toContain('null removes it');
+  });
+
+  // updateSignup refuses one that hasn't shipped, with the REST API's message
+  // (tools.db.test.ts), and clears it on null. The stored schema would read a
+  // long string or null as no language at all, which updateSignup would then
+  // take as a change that clears it, so the tool hands it over as sent.
+  it.each(['en', 'sv', 'xx', '', 'x'.repeat(36), null])(
+    'passes locale %j to the service as sent, and shows the stored one back',
+    async (locale) => {
+      svc.updateSignup.mockResolvedValueOnce(
+        ok({ ...row, settings: { ...row.settings, locale: 'en' } }),
+      );
+      const client = await connectTestClient(ctx, WRITE_TOOLS);
+      const r = await client.callTool({
+        name: 'update_signup',
+        arguments: { signupId: 'sig_1', settings: { locale } },
+      });
+      expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+      expect(svc.updateSignup).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
+        settings: { locale },
+      });
+      expect(
+        (r.structuredContent as { signup: { settings: Record<string, unknown> } }).signup.settings,
+      ).toMatchObject({ locale: 'en' });
+    },
+  );
+
+  it('refuses a locale that is not a string', async () => {
+    const client = await connectTestClient(ctx, WRITE_TOOLS);
+    const r = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: 'sig_1', settings: { locale: 5 } },
+    });
+    expect(r.isError).toBe(true);
+    expect(
+      (r.structuredContent as { error: { code: string; field?: string } }).error,
+    ).toMatchObject({ code: 'invalid_input', field: 'settings.locale' });
     expect(svc.updateSignup).not.toHaveBeenCalled();
   });
 
