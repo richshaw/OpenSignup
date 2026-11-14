@@ -49,6 +49,11 @@ A language's catalog can be partial. Any message it lacks comes out in
 English (`withEnglishUnder` in `src/i18n/translator.ts`), so a half-done
 language never shows a key's name.
 
+Each language but English also has a record of the English each of its
+messages was translated from, `src/i18n/translated-from/<language>.json`, so
+the catalog check can tell when a translation has fallen behind its English
+(see "Stale translations").
+
 ## How a message reaches the screen
 
 - **Which language.** A signup's pages and emails are in `signupLocale`
@@ -250,7 +255,12 @@ Each problem is one line, `<language> <key>: <what's wrong>`, for example
 - an English message nothing in the app uses (delete it from every catalog);
 - a namespace no audience reads;
 - a missing message, in a language shipped to an audience that reads its
-  namespace (see the next section).
+  namespace (see "When a language can be chosen");
+- a stale message, in the same languages and namespaces: one whose English
+  has changed since it was translated, or one the language's record has no
+  entry for (see "Stale translations");
+- an entry in a language's record for a message English or the translation
+  doesn't have, or a record for a language with no translation.
 
 ### What the checks miss
 
@@ -268,11 +278,82 @@ Each problem is one line, `<language> <key>: <what's wrong>`, for example
   phone.
 - **Missing messages in a language that hasn't shipped.** English fills them,
   and nothing is reported.
-- **A stale translation.** When an English message changes, its translation
-  keeps saying the old thing, and nothing fails yet. The `translate` skill's
-  script lists the messages whose English changed on your branch.
+- **Stale messages in a language that hasn't shipped.** The catalog test
+  prints them as a warning and passes. The `translate` skill's
+  `to-translate.mjs` lists them.
+- **A message marked translated that wasn't.** The check believes the
+  record, so marking a message without translating it, or editing the record
+  by hand, hides it.
 
 The review in context (below) is what catches these.
+
+## Stale translations
+
+When an English message changes, its translations keep saying the old thing
+until someone translates it again. To notice, each language records the
+English each of its messages was translated from, in
+`src/i18n/translated-from/<language>.json`:
+
+```json
+{
+  "participant.slot.signedUp": "{count, number, ::group-off} signed up",
+  "participant.dialog.done": "Done"
+}
+```
+
+Each entry is a message's full key and the English text it was translated
+from, in `en.json`'s order. The catalog check compares it with `en.json`:
+
+| What the check finds                                                       | In a namespace the language is shipped in | Anywhere else  |
+| -------------------------------------------------------------------------- | ----------------------------------------- | -------------- |
+| **Stale**: the recorded English isn't what `en.json` says now              | fails, like a missing message             | a warning only |
+| **Unrecorded**: a translated message with no entry                         | fails                                     | a warning only |
+| An entry for a message `en.json` or the translation doesn't have (deleted) | fails                                     | fails          |
+| A record for a language with no catalog, or for English                    | fails                                     | fails          |
+
+A message English doesn't have is already a failure in the catalog itself
+("not in en.json; delete it"), so it isn't also reported as unrecorded.
+
+**Only the `translate` skill's scripts touch the record**, never a person or
+an editor's find-and-replace:
+
+- `to-translate.mjs <language>` lists what's missing, stale and unrecorded,
+  with the English each stale message was translated from beside the English
+  now, and ends with the command that marks them.
+- `mark-translated.mjs <language> <key or section> …` marks messages as
+  translated from today's English: each named message the catalog
+  translates gets `en.json`'s text now. A section or namespace
+  (`participant.dialog`, `email`) names every message under it. Other
+  entries stay as they were, so a stale one stays stale, and entries for
+  messages that `en.json` or the catalog no longer has are dropped. With no
+  keys, it only drops those. It makes the file the first time it runs for a
+  language.
+
+Run both with `pnpm exec tsx .claude/skills/translate/scripts/<script>`.
+
+Mark a message once you've translated it, or once you've read a stale one
+against its new English and found its translation still right (an English
+typo fix, say). Fixing a translation whose English hasn't changed needs no
+marking: the record holds the English, not the translation.
+
+When you delete or rename an English message, delete or move its
+translations too, as the check asks, then run `mark-translated.mjs` for each
+language so its record drops the old key and, for a rename, marks the new
+one.
+
+The record holds the English text rather than a hash of it. A hash would be
+safe from a find-and-replace across the repo, but the text shows what
+changed: `to-translate.mjs` prints the old English beside the new without
+digging through git history (which a shallow clone doesn't have), and a pull
+request's diff shows the English each translation now follows. So never let
+a find-and-replace of English text reach `src/i18n/translated-from/`: it would
+mark every translation it touches as up to date.
+
+The record is outside `src/messages/` because next-intl's plugin
+(`locales: 'infer'` in `next.config.mjs`) reads every JSON file there as a
+language, and its catalog loader takes in any path that starts with
+`src/messages`. Nothing in the app or the reminder worker imports it; only
+the catalog check and the skill's scripts read it.
 
 ## When a language can be chosen
 
@@ -311,17 +392,22 @@ a real site.
 2. Run `pnpm dev` or `pnpm build` once, and commit the rewritten
    `src/messages/en.d.json.ts`.
 3. In the same pull request, run the `translate` skill for each language in
-   `SHIPPED` (none but English today). For a language that has a catalog but
-   hasn't shipped, Swedish today, do it too when you can, so it stays ready to
-   launch. Until someone does, its test signups show the old translation, or
-   English for a new message.
+   `SHIPPED` (none but English today): the catalog check fails each changed
+   message in a shipped language as stale until it's translated again and
+   marked. For a language that has a catalog but hasn't shipped, Swedish
+   today, do it too when you can, so it stays ready to launch. Until someone
+   does, the catalog test warns that it's stale, and its test signups show the
+   old translation, or English for a new message.
+4. If you deleted or renamed a message, run `mark-translated.mjs` for each
+   language as "Stale translations" says.
 
 ## Adding a language
 
 1. **Make its catalog.** Add `src/messages/<code>.json` (start it as `{}`),
    add the code to `CATALOG_LOCALES`, and import the catalog into `CATALOGS`
    in `src/i18n/translator.ts`. Use a bare language code, like `sv`, never a
-   region (`sv-SE`).
+   region (`sv-SE`). Its record, `src/i18n/translated-from/<code>.json`,
+   comes with the first messages you mark as translated.
 2. **Give it test signups.** Add a seed like `makeSwedishSignup` in
    `tests/e2e/helpers/seed.ts`, add the code to `E2E_UNSHIPPED_LOCALES` in
    `playwright.config.ts`, and write a spec like
@@ -352,7 +438,8 @@ translator. Each one is made and checked the same way:
 
 1. A Claude session translates the missing and stale messages with the
    `translate` skill, namespace by namespace, from `en.json`, following the
-   glossary.
+   glossary, and marks them in the language's record as translated from
+   today's English.
 2. The checks above pass.
 3. A different model from the translator's reviews the result in context:
    screenshots of the participant screens and states, and every email's HTML.
