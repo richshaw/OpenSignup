@@ -74,7 +74,7 @@ export function WysiwygGroup({
 }: WysiwygGroupProps) {
   const showHeader = groupField !== null;
   const display = groupField
-    ? prettyHeader(group.rawValue, groupField.config.fieldType, groupField.name)
+    ? prettyHeader(group.rawValue, groupField.config.fieldType, 'en', groupField.name)
     : '';
   const placeholder = groupField
     ? emptyHeaderCopy(groupField.config.fieldType, groupField.name)
