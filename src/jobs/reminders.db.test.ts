@@ -550,6 +550,8 @@ describe('selectDueReminders (db)', () => {
       expect(inEnglish?.text).toContain('Sat, May 2');
       expect(inSwedish?.subject).toBe('Påminnelse: Vårloppis · lör 2 maj');
       expect(inSwedish?.text).toContain('lör 2 maj');
+      // The preview text inboxes show after the subject is the subject.
+      expect(inSwedish?.html).toContain(`>${inSwedish?.subject}<`);
     } finally {
       send.mockRestore();
     }

@@ -288,7 +288,8 @@ describe('notifyCommitmentCreated (db)', () => {
       const mail = await confirmation('Vårloppis', { settings: { locale: 'sv' } });
       expect(mail.subject).toBe('Du är anmäld: Vårloppis · lör 2 maj · 13:00 · Front desk');
       expect(mail.text).toContain('lör 2 maj');
-      expect(mail.html).toContain('lör 2 maj');
+      // The preview text inboxes show after the subject is the subject.
+      expect(mail.html).toContain(`>${mail.subject}<`);
     });
 
     it('stay English while the signup’s language has not shipped', async () => {
