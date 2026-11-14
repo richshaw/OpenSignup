@@ -8,6 +8,7 @@
  * a module of its own.
  */
 import type { IntlError } from 'use-intl/core';
+import { getEnv } from '@/lib/env';
 import { log } from '@/lib/log';
 import type { CatalogLocale } from './config';
 import { getTranslator, type Namespace } from './translator';
@@ -19,4 +20,14 @@ function logTranslationError(error: IntlError): void {
 
 export function getServerTranslator<N extends Namespace>(locale: CatalogLocale, namespace: N) {
   return getTranslator(locale, namespace, { onError: logTranslationError });
+}
+
+/**
+ * The instance's `DEFAULT_LOCALE`, or undefined when it's unset. Pass it to
+ * `defaultFor`, which keeps English for an audience the language hasn't
+ * shipped to yet. The one place in src/i18n that reads the environment, so
+ * config.ts stays pure.
+ */
+export function instanceDefaultLocale(): CatalogLocale | undefined {
+  return getEnv().DEFAULT_LOCALE;
 }

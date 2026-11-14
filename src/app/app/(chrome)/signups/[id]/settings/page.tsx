@@ -7,6 +7,7 @@ import { trackOrganizerView } from '@/lib/view-tracker';
 import { FormError } from '@/components/ui/form-error';
 import { setRequireEmailAction } from '../actions';
 import { DeleteSignupForm } from './delete-signup-form';
+import { SignupLanguageForm } from './signup-language-form';
 
 type PageParams = {
   params: Promise<{ id: string }>;
@@ -31,7 +32,8 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
 
   // Reminders are configured on the date field itself, in the Build tab's
   // field editor. This tab keeps what has no better home: whether the sign-up
-  // form asks for an email, and deletion.
+  // form asks for an email, the signup's language once there's a choice, and
+  // deletion. Each form's own `saved` value says which one shows "Saved".
   return (
     <section className="max-w-2xl space-y-6">
       {error ? <FormError>{error}</FormError> : null}
@@ -104,10 +106,11 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
             >
               Save
             </AsyncSubmitButton>
-            {saved ? <SavedNotice role="status" /> : null}
+            {saved === '1' ? <SavedNotice role="status" /> : null}
           </div>
         </form>
       </section>
+      <SignupLanguageForm signupId={id} stored={sig.settings.locale} saved={saved === 'language'} />
       <section
         aria-labelledby="danger-zone-heading"
         className="space-y-3 rounded-xl border border-danger/30 bg-danger/5 p-6"

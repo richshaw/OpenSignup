@@ -120,24 +120,51 @@ export async function closeQuestionAction(
 }
 
 /**
- * The Settings tab's "Ask for an email address". Sends only `requireEmail`,
- * which `updateSignup` merges over the stored settings. Anything but Optional
- * saves Required, the default. A refusal shows in plain words, by its code.
+ * Saves one Settings-tab form. Sends only `settings`, which `updateSignup`
+ * merges over the stored ones, then comes back to the tab with `saved` set to
+ * the form's own value, so "Saved" shows by that form. A refusal shows in
+ * plain words, by its code, at the top of the tab.
  */
-export async function setRequireEmailAction(signupId: string, formData: FormData) {
+async function saveSettingsForm(
+  signupId: string,
+  settings: Record<string, unknown>,
+  saved: string,
+): Promise<never> {
   const actor = await requireActor();
-  const requireEmail = formData.get('requireEmail') !== 'optional';
   const settingsPath = `/app/signups/${signupId}/settings`;
-  const result = await refusalAsResult(() =>
-    updateSignup(getDb(), actor, signupId, { settings: { requireEmail } }),
-  );
+  const result = await refusalAsResult(() => updateSignup(getDb(), actor, signupId, { settings }));
   if (!result.ok) {
     redirect(`${settingsPath}?error=${encodeURIComponent(SAVE_ERROR_MESSAGE[result.error.code])}`);
   }
   // This tab re-renders with the saved choice. The public page is dynamic, so
-  // its form reads the change on its next request.
+  // it reads the change on its next request.
   revalidateSignup(signupId);
-  redirect(`${settingsPath}?saved=1`);
+  redirect(`${settingsPath}?saved=${saved}`);
+}
+
+/**
+ * The Settings tab's "Ask for an email address". Anything but Optional saves
+ * Required, the default.
+ */
+export async function setRequireEmailAction(signupId: string, formData: FormData) {
+  const requireEmail = formData.get('requireEmail') !== 'optional';
+  await saveSettingsForm(signupId, { requireEmail }, '1');
+}
+
+/**
+ * The Settings tab's "Signup language", there once a second language has
+ * shipped to participants. `updateSignup` refuses a language that hasn't
+ * shipped. A form with no choice in it sends an empty string, which is refused
+ * too: null would clear the stored language and still come back saying it
+ * saved.
+ */
+export async function setSignupLocaleAction(signupId: string, formData: FormData) {
+  const locale = formData.get('locale');
+  await saveSettingsForm(
+    signupId,
+    { locale: typeof locale === 'string' ? locale : '' },
+    'language',
+  );
 }
 
 /**
