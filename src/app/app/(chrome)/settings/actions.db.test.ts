@@ -220,9 +220,9 @@ describe('switchOpenSignupsLocaleAction (db)', () => {
     );
   });
 
-  it('puts the organizer’s open signups in their language and says how many', async () => {
+  it('puts the organizer’s open signups in their language and comes back saying so', async () => {
     ship('participant', ['en', 'sv']);
-    expect(await press()).toBe('/app/settings?switched=2');
+    expect(await press()).toBe('/app/settings?switched=1');
     expect(await localeOf(ids.english)).toBe('sv');
     expect(await localeOf(ids.none)).toBe('sv');
     for (const id of [ids.draft, ids.closed, ids.theirs]) expect(await localeOf(id)).toBe('en');
@@ -246,7 +246,7 @@ describe('switchOpenSignupsLocaleAction (db)', () => {
 
   it('changes nothing more on a second press, and stays where it is', async () => {
     ship('participant', ['en', 'sv']);
-    expect(await press()).toBe('/app/settings?switched=2');
+    expect(await press()).toBe('/app/settings?switched=1');
     revalidatePath.mockClear();
 
     // A double tap's second press, which waits for the first.

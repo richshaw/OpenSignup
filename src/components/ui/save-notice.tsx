@@ -26,7 +26,7 @@ export const SAVE_ERROR_MESSAGE: Record<ErrorCode, string> = {
  * tab's form. It has no hooks, so a server page can show it without adding
  * script. Pass `role="status"` where it appears after a save on its own, and
  * `children` for a longer line in the same style, such as account Settings'
- * "Saved. 3 signups now use Svenska."
+ * "Saved. Your 3 open signups now use Svenska."
  */
 export function SavedNotice({
   role,

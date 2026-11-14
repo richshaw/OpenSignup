@@ -172,7 +172,11 @@ describe('setOpenSignupsLocale (db)', () => {
       await signup({ workspaceId: left }),
     ];
 
-    expect(await openSignupsToSwitch(db, patActor, 'sv')).toEqual({ ok: true, value: [open] });
+    // Only the one open signup of Pat's that they can change is theirs to count.
+    expect(await openSignupsToSwitch(db, patActor, 'sv')).toEqual({
+      ok: true,
+      value: { open: 1, toSwitch: [open] },
+    });
     const result = await setOpenSignupsLocale(db, patActor, 'sv');
 
     expect(result).toEqual({ ok: true, value: { locale: 'sv', signupIds: [open] } });
@@ -202,7 +206,10 @@ describe('setOpenSignupsLocale (db)', () => {
     // With the instance in Swedish, a signup with no language of its own, or
     // one that isn't offered, is in Swedish already.
     instance.defaultLocale = 'sv';
-    expect(await openSignupsToSwitch(db, patActor, 'sv')).toEqual({ ok: true, value: [english] });
+    expect(await openSignupsToSwitch(db, patActor, 'sv')).toEqual({
+      ok: true,
+      value: { open: 4, toSwitch: [english] },
+    });
     expect(await setOpenSignupsLocale(db, patActor, 'sv')).toEqual({
       ok: true,
       value: { locale: 'sv', signupIds: [english] },
@@ -213,7 +220,10 @@ describe('setOpenSignupsLocale (db)', () => {
     expect(await updatesOf([swedish, none, unknown])).toEqual([]);
 
     // Once all are in it, there's nothing to change and nothing is written.
-    expect(await openSignupsToSwitch(db, patActor, 'sv')).toEqual({ ok: true, value: [] });
+    expect(await openSignupsToSwitch(db, patActor, 'sv')).toEqual({
+      ok: true,
+      value: { open: 4, toSwitch: [] },
+    });
     expect(await setOpenSignupsLocale(db, patActor, 'sv')).toEqual({
       ok: true,
       value: { locale: 'sv', signupIds: [] },
@@ -259,7 +269,10 @@ describe('setOpenSignupsLocale (db)', () => {
       workspaceRoles: { [viewed]: 'viewer' },
     };
 
-    expect(await openSignupsToSwitch(db, viewer, 'sv')).toEqual({ ok: true, value: [] });
+    expect(await openSignupsToSwitch(db, viewer, 'sv')).toEqual({
+      ok: true,
+      value: { open: 0, toSwitch: [] },
+    });
     expect(await setOpenSignupsLocale(db, viewer, 'sv')).toEqual({
       ok: true,
       value: { locale: 'sv', signupIds: [] },

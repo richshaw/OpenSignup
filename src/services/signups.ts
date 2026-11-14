@@ -458,19 +458,23 @@ function notIn<T extends { settings: StoredSignupSettings }>(
 }
 
 /**
- * The ids of the signups `setOpenSignupsLocale` would change to `locale`
- * (none when every one is in it already), so a page can offer the change, with
- * its count, only when there's something to change. Read without a lock: what
- * changes is decided again, under one, when the change is made.
+ * The acting organizer's open signups, as `setOpenSignupsLocale` takes them:
+ * how many there are (`open`), and the ids of those it would change to
+ * `locale` (`toSwitch`, none when every one is in it already). So a page can
+ * offer the change, with its count, only when there's something to change,
+ * and say afterwards how many use the language, from what's stored. One read,
+ * without a lock: what changes is decided again, under one, when the change
+ * is made.
  */
 export async function openSignupsToSwitch(
   db: Queryable,
   actor: Actor,
   locale: CatalogLocale,
-): Promise<Result<string[], ServiceError>> {
+): Promise<Result<{ open: number; toSwitch: string[] }, ServiceError>> {
   const which = ownOpenSignups(actor);
-  if (which.workspaceIds.length === 0) return ok([]);
-  return ok(notIn(await readOrganizersSignups(db, which), locale).map((row) => row.id));
+  if (which.workspaceIds.length === 0) return ok({ open: 0, toSwitch: [] });
+  const rows = await readOrganizersSignups(db, which);
+  return ok({ open: rows.length, toSwitch: notIn(rows, locale).map((row) => row.id) });
 }
 
 /**
