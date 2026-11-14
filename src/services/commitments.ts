@@ -1131,7 +1131,8 @@ async function readSlotAndSignup(db: Db, slotId: string) {
  * unlimited. The edit page leaves the quantity field out when it is 1, since 1
  * is then the only value it accepts, and says so when `closed`. `slotName` is
  * the slot's values in a line, as `cancelledCommitmentState` gives it, for the
- * page to say which slot this is, or '' when it has none to show.
+ * page to say which slot this is, or '' when it has none to show. Its dates and
+ * times are read in `locale`.
  *
  * Guard-free, like `committedBySlot`: call it only with a commitment that
  * `getOwnCommitment` has already verified against its edit token.
@@ -1139,10 +1140,15 @@ async function readSlotAndSignup(db: Db, slotId: string) {
 export async function editLimitsForCommitment(
   db: Db,
   commitment: { id: string; slotId: string },
+  locale: string,
 ): Promise<{ maxQuantity: number | null; closed: boolean; slotName: string }> {
   const row = await readSlotAndSignup(db, commitment.slotId);
   if (!row) return { maxQuantity: null, closed: false, slotName: '' };
-  const slotName = summarizeSlotValues(await listFieldsForSignup(db, row.signupId), row.values);
+  const slotName = summarizeSlotValues(
+    await listFieldsForSignup(db, row.signupId),
+    row.values,
+    locale,
+  );
 
   if (whyNotTakingPlaces(row.signup, row)) {
     // Read here rather than taken from the caller, whose copy may be older.
@@ -1179,7 +1185,8 @@ const MAX_MOVES_FOLLOWED = 10;
  * a sign-up again (`CancelledSlotState`), so the page suggests signing up
  * again only when that would not be refused, and otherwise says why. Either
  * way, `slotName` is the slot last held's values in a line, as the
- * confirmation email's subject names it, or '' when it has none to show.
+ * confirmation email's subject names it, or '' when it has none to show, with
+ * its dates and times read in `locale`.
  *
  * Guard-free, like `editLimitsForCommitment`: call it only with a commitment
  * that `getOwnCommitment` has already verified against its edit token. Each
@@ -1188,6 +1195,7 @@ const MAX_MOVES_FOLLOWED = 10;
 export async function cancelledCommitmentState(
   db: Db,
   commitment: { id: string; signupId: string; slotId: string },
+  locale: string,
 ): Promise<
   | { movedTo: string }
   | { movedTo: null; removed: true; slotName: string }
@@ -1235,7 +1243,7 @@ export async function cancelledCommitmentState(
       ),
     )
     .limit(1);
-  const name = await slotName(db, commitment.signupId, slotId);
+  const name = await slotName(db, commitment.signupId, slotId, locale);
   if (removed) return { movedTo: null, removed: true, slotName: name };
   return {
     movedTo: null,
@@ -1246,7 +1254,7 @@ export async function cancelledCommitmentState(
 }
 
 /** `Pack away · Sat, Nov 14`: the slot's values in field order, or ''. */
-async function slotName(db: Db, signupId: string, slotId: string): Promise<string> {
+async function slotName(db: Db, signupId: string, slotId: string, locale: string): Promise<string> {
   const [slot] = await db
     .select({ values: slots.values })
     .from(slots)
@@ -1254,7 +1262,7 @@ async function slotName(db: Db, signupId: string, slotId: string): Promise<strin
     .limit(1);
   if (!slot) return '';
   const fields = await listFieldsForSignup(db, signupId);
-  return summarizeSlotValues(fields, slot.values);
+  return summarizeSlotValues(fields, slot.values, locale);
 }
 
 /**

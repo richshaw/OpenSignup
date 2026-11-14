@@ -5,8 +5,8 @@ import { renderFieldValue } from '@/lib/slot-label';
 
 export { pickPrimaryField, renderFieldValue } from '@/lib/slot-label';
 
-export function formatGroupLabel(field: SignupViewField, raw: unknown): string {
-  return renderFieldValue(field, raw) ?? `(no ${field.label.toLowerCase()})`;
+export function formatGroupLabel(field: SignupViewField, raw: unknown, locale: string): string {
+  return renderFieldValue(field, raw, locale) ?? `(no ${field.label.toLowerCase()})`;
 }
 
 export function buildMetaSegments({
@@ -14,17 +14,19 @@ export function buildMetaSegments({
   slot,
   primaryRef,
   groupRef,
+  locale,
 }: {
   fields: readonly SignupViewField[];
   slot: Pick<SignupViewSlot, 'values'>;
   primaryRef?: string | null;
   groupRef?: string | null;
+  locale: string;
 }): string[] {
   const out: string[] = [];
   for (const f of fields) {
     if (f.ref === primaryRef) continue;
     if (f.ref === groupRef) continue;
-    const formatted = renderFieldValue(f, slot.values[f.ref]);
+    const formatted = renderFieldValue(f, slot.values[f.ref], locale);
     if (!formatted) continue;
     out.push(formatted);
   }
