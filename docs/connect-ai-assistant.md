@@ -26,7 +26,11 @@ the browser:
   including how many places are taken.
 - **Create** a signup with its fields and slots in one go. It starts as a
   draft: participants cannot see it until you publish it, though other people
-  in the same workspace can.
+  in the same workspace can. It starts in your language for new signups, as
+  one you make in the browser does, unless the assistant names a language
+  OpenSignup offers for signups (only English so far). Your language is the
+  one you saved, else your site's default, else English: an assistant can't
+  pass on the language your browser asks for.
 - **Change** a signup: title, description, tags, closing time, settings,
   fields, and slots.
 - **Publish, close, reopen, archive, or delete** a signup.

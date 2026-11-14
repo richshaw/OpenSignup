@@ -1,5 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Audience, type CatalogLocale, SHIPPED } from '@/i18n/config';
 import { serviceError, ServiceException } from '@/lib/errors';
+import { FullDraftSchema } from '@/lib/magic-compose/prompt';
 import { err, ok } from '@/lib/result';
 import { DESCRIPTION_MAX_LENGTH } from '@/schemas/signups';
 import { connectTestClient } from '../testing/client';
@@ -35,7 +37,10 @@ const svc = {
   getSignupForOrganizer: vi.fn(),
   listSignupsForWorkspace: vi.fn(),
 };
-vi.mock('@/services/signups', () => ({
+vi.mock('@/services/signups', async (importOriginal) => ({
+  // Pure, so the real one: it is the check the tests are about.
+  checkSignupLocale: (await importOriginal<typeof import('@/services/signups')>())
+    .checkSignupLocale,
   createSignup: (...a: unknown[]) => svc.createSignup(...a),
   updateSignup: (...a: unknown[]) => svc.updateSignup(...a),
   publishSignup: (...a: unknown[]) => svc.publishSignup(...a),
@@ -45,6 +50,13 @@ vi.mock('@/services/signups', () => ({
   deleteSignup: (...a: unknown[]) => svc.deleteSignup(...a),
   getSignupForOrganizer: (...a: unknown[]) => svc.getSignupForOrganizer(...a),
   listSignupsForWorkspace: (...a: unknown[]) => svc.listSignupsForWorkspace(...a),
+}));
+// The environment's own parse refuses a DEFAULT_LOCALE with no catalog, and
+// Swedish has none yet.
+const instance = vi.hoisted(() => ({ defaultLocale: undefined as string | undefined }));
+vi.mock('@/i18n/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/i18n/server')>()),
+  instanceDefaultLocale: () => instance.defaultLocale,
 }));
 const consume = vi.fn(async (..._args: unknown[]) => {});
 vi.mock('@/lib/rate-limit', async (importOriginal) => {
@@ -244,6 +256,117 @@ describe('create_signup', () => {
     expect((r.structuredContent as { error: { code: string } }).error.code).toBe('rate_limited');
     expect(svc.createSignup).not.toHaveBeenCalled();
   });
+});
+
+describe('create_signup and the signup’s language', () => {
+  // Only English has shipped today. The tests that need a choice ship Swedish
+  // by changing the list itself, so config.ts's own `isShipped` sees it too.
+  const asShippedToday = { ...SHIPPED };
+  const shipSwedish = () => {
+    (SHIPPED as Record<Audience, readonly string[]>).participant = ['en', 'sv' as CatalogLocale];
+  };
+  afterEach(() => {
+    Object.assign(SHIPPED, asShippedToday);
+    instance.defaultLocale = undefined;
+  });
+
+  /** Creates a one-slot signup as `as`, and returns what createSignup was handed. */
+  async function create(as: typeof ctx, locale?: unknown) {
+    svc.createSignup.mockResolvedValueOnce(ok(row));
+    svc.getSignupForOrganizer.mockResolvedValueOnce(ok(created));
+    const client = await connectTestClient(as, WRITE_TOOLS);
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Snack rota',
+        fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+        slots: [{ values: { what: 'Fruit' } }],
+        ...(locale === undefined ? {} : { locale }),
+      },
+    });
+    const call = svc.createSignup.mock.calls[0] as
+      | [unknown, unknown, string, { settings: Record<string, unknown> }, { localeSource?: string }]
+      | undefined;
+    return { r, settings: call?.[3].settings, localeSource: call?.[4].localeSource };
+  }
+
+  it('offers locale on the tool, not on the draft Magic Compose shares, and lists what it takes', async () => {
+    expect(FullDraftSchema.shape).not.toHaveProperty('locale');
+    const client = await connectTestClient(ctx, WRITE_TOOLS);
+    const { tools } = await client.listTools();
+    const tool = tools.find((t) => t.name === 'create_signup');
+    expect(tool?.inputSchema.properties?.locale).toEqual({ type: 'string' });
+    expect(tool?.inputSchema.required).not.toContain('locale');
+    expect(tool?.description).toContain('locale sets the language');
+    expect(tool?.description).toContain('one of: en.');
+  });
+
+  it('stores a language the assistant sends, as sent by the caller', async () => {
+    const { r, settings, localeSource } = await create(unitContext({ locale: 'sv' }), 'en');
+    expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    expect(settings).toEqual({ locale: 'en' });
+    expect(localeSource).toBe('api');
+  });
+
+  it('stores none without one while only English has shipped, whatever the organizer saved', async () => {
+    for (const saved of ['sv', 'en', null]) {
+      svc.createSignup.mockClear();
+      const { r, settings, localeSource } = await create(unitContext({ locale: saved }));
+      expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+      expect(settings, String(saved)).toEqual({});
+      expect(localeSource, String(saved)).toBeUndefined();
+    }
+  });
+
+  describe('once Swedish has shipped to participants', () => {
+    beforeEach(shipSwedish);
+
+    it('takes the organizer’s saved language without one', async () => {
+      instance.defaultLocale = 'en';
+      const { settings, localeSource } = await create(unitContext({ locale: 'sv' }));
+      expect(settings).toEqual({ locale: 'sv' });
+      expect(localeSource).toBe('setting');
+    });
+
+    it('takes the instance default when the organizer saved none', async () => {
+      instance.defaultLocale = 'sv';
+      const { settings, localeSource } = await create(unitContext({ locale: null }));
+      expect(settings).toEqual({ locale: 'sv' });
+      expect(localeSource).toBe('instance');
+    });
+
+    // An assistant has no browser of the organizer's to ask.
+    it('falls back to English, never asking a browser, when no step names one', async () => {
+      const { settings, localeSource } = await create(unitContext({ locale: null }));
+      expect(settings).toEqual({ locale: 'en' });
+      expect(localeSource).toBe('default');
+    });
+
+    it('stores the one the assistant sends over the organizer’s', async () => {
+      const { settings, localeSource } = await create(unitContext({ locale: 'sv' }), 'en');
+      expect(settings).toEqual({ locale: 'en' });
+      expect(localeSource).toBe('api');
+    });
+  });
+
+  it.each(['sv', 'xx', '', 'EN'])(
+    'refuses %j, naming the languages that have shipped, before charging or creating anything',
+    async (locale) => {
+      const { r } = await create(ctx, locale);
+      expect(r.isError).toBe(true);
+      expect(r.structuredContent).toEqual({
+        error: {
+          code: 'invalid_input',
+          message: 'locale must be a language OpenSignup offers for signups',
+          field: 'locale',
+          received: locale,
+          suggestion: 'leave it out, or use one of: en',
+        },
+      });
+      expect(consume).not.toHaveBeenCalled();
+      expect(svc.createSignup).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('update_signup', () => {

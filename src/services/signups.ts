@@ -3,7 +3,7 @@ import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
-import { SHIPPED, isShipped } from '@/i18n/config';
+import { type CatalogLocale, SHIPPED, isShipped } from '@/i18n/config';
 import type { SignupLocaleSource } from '@/i18n/organizer';
 import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
@@ -69,12 +69,18 @@ function checkGroupByRefs(
  * pages and emails follow it. Only a language the caller sends is checked: a
  * stored one can leave the list later, and the row must stay editable. It is
  * checked as sent, because the settings schema reads any value leniently.
+ * `field` is where the caller's input holds it: `settings.locale` over REST,
+ * `locale` in the AI assistant's `create_signup`, which checks it before
+ * anything is charged or created.
  */
-function checkLocale(sent: unknown): Result<null, ServiceError> {
-  if (sent === undefined || isShipped('participant', sent)) return ok(null);
+export function checkSignupLocale(
+  sent: unknown,
+  field = 'settings.locale',
+): Result<CatalogLocale | undefined, ServiceError> {
+  if (sent === undefined || isShipped('participant', sent)) return ok(sent);
   return err(
     serviceError('invalid_input', 'locale must be a language OpenSignup offers for signups', {
-      field: 'settings.locale',
+      field,
       received: sent,
       suggestion: `leave it out, or use one of: ${SHIPPED.participant.join(', ')}`,
     }),
@@ -179,7 +185,7 @@ export async function createSignup(
   if (!anchor.ok) return anchor;
   const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fieldDefs);
   if (!grouping.ok) return grouping;
-  const locale = checkLocale(
+  const locale = checkSignupLocale(
     isObject(rawInput) && isObject(rawInput.settings) ? rawInput.settings.locale : undefined,
   );
   if (!locale.ok) return locale;
@@ -340,7 +346,7 @@ export async function updateSignup(
         if (!grouping.ok) return grouping;
       }
       if (sentLocale) {
-        const locale = checkLocale(sent.locale);
+        const locale = checkSignupLocale(sent.locale);
         if (!locale.ok) return locale;
       }
       mergedSettings =
