@@ -40,10 +40,10 @@ type BuildWysiwygProps = {
   committedBySlot: Record<string, number>;
   /**
    * The signup's language, the one its participants get. Group headings sort
-   * in its alphabetical order, as the same in the server's render as in the
-   * browser's (the browser's own language could sort them otherwise). Dates
-   * and times here stay English, like the rest of the organizer's screens for
-   * now: they're formatted in the browser too, whose ICU can abbreviate a
+   * in its alphabetical order, so the server's render and the browser's
+   * agree: each sorting in its own language could disagree. Dates and times
+   * here stay English, like the rest of the organizer's screens for now:
+   * they're formatted in the browser too, whose ICU can abbreviate a
    * language's days differently from the server's.
    */
   locale: CatalogLocale;
