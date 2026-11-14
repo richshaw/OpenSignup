@@ -51,22 +51,46 @@ interface RecordActivityArgs {
 }
 
 export async function recordActivity(db: Queryable, args: RecordActivityArgs) {
-  const payload = activityPayload(args.actor, args.payload);
-  await db.insert(activity).values({
-    id: makeId('act'),
-    signupId: args.signupId ?? null,
-    workspaceId: args.workspaceId ?? null,
-    actorId: args.actor.actorId,
-    actorType: args.actor.actorType,
-    eventType: args.eventType,
-    payload,
-  });
+  await recordActivities(db, [args]);
+}
 
-  if (args.actor.actorType === 'organizer' && args.actor.actorId !== null) {
+/**
+ * Rows per insert in `recordActivities`: each row is 7 bind parameters, and
+ * Postgres takes at most 65,535 in one statement.
+ */
+const ROWS_PER_INSERT = 1000;
+
+/**
+ * `recordActivity` for a change that touches many signups in one
+ * transaction: one insert for every row (more past `ROWS_PER_INSERT`), and
+ * one `last_active_at` update for each organizer among the actors, rather
+ * than two statements a row.
+ */
+export async function recordActivities(db: Queryable, rows: readonly RecordActivityArgs[]) {
+  for (let start = 0; start < rows.length; start += ROWS_PER_INSERT) {
+    await db.insert(activity).values(
+      rows.slice(start, start + ROWS_PER_INSERT).map((args) => ({
+        id: makeId('act'),
+        signupId: args.signupId ?? null,
+        workspaceId: args.workspaceId ?? null,
+        actorId: args.actor.actorId,
+        actorType: args.actor.actorType,
+        eventType: args.eventType,
+        payload: activityPayload(args.actor, args.payload),
+      })),
+    );
+  }
+
+  const organizerIds = new Set(
+    rows.flatMap(({ actor }) =>
+      actor.actorType === 'organizer' && actor.actorId !== null ? [actor.actorId] : [],
+    ),
+  );
+  for (const organizerId of organizerIds) {
     await db
       .update(organizers)
       .set({ lastActiveAt: sql`now()` })
-      .where(eq(organizers.id, args.actor.actorId));
+      .where(eq(organizers.id, organizerId));
   }
 }
 

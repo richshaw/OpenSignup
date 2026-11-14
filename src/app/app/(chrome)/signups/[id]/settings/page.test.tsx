@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 
 import { ship } from '@/i18n/testing/ship';
 
@@ -12,11 +12,23 @@ const instance = vi.hoisted(() => ({ defaultLocale: undefined as string | undefi
 vi.mock('@/i18n/server', () => ({ instanceDefaultLocale: () => instance.defaultLocale }));
 
 // The signup as the page loads it, and what the page needs around it: a
-// session, the view it records and the server actions, which need a database.
+// session (with the organizer's saved language, if any), the browser's
+// Accept-Language, the view it records and the server actions, which need a
+// database.
 const stored = vi.hoisted(() => ({ settings: {} as Record<string, unknown> }));
+const organizer = vi.hoisted(() => ({
+  saved: null as string | null,
+  acceptLanguage: null as string | null,
+}));
 vi.mock('@/auth/session', () => ({
-  requireOrganizerSession: async () => ({}),
+  requireOrganizerSession: async () => ({ locale: organizer.saved }),
   toActor: () => ({ kind: 'anonymous' }),
+}));
+vi.mock('next/headers', () => ({
+  headers: async () =>
+    new Headers(
+      organizer.acceptLanguage === null ? {} : { 'accept-language': organizer.acceptLanguage },
+    ),
 }));
 vi.mock('@/services/signups.cached', () => ({
   loadSignupForOrganizer: async () => ({
@@ -25,15 +37,32 @@ vi.mock('@/services/signups.cached', () => ({
   }),
 }));
 vi.mock('@/lib/view-tracker', () => ({ trackOrganizerView: async () => {} }));
+const setOrganizerLocaleFromSignupAction = vi.hoisted(() => vi.fn());
 vi.mock('../actions', () => ({
   setRequireEmailAction: vi.fn(),
   setSignupLocaleAction: vi.fn(),
+  setOrganizerLocaleFromSignupAction,
   deleteSignupAction: vi.fn(),
 }));
 
 const { default: SettingsTab } = await import('./page');
 
-async function renderTab(searchParams: { saved?: string } = {}) {
+/**
+ * The forms submitted from now until the test ends, in order. Each submit is
+ * stopped once React has had it, since jsdom can't load another page.
+ */
+function submittedForms(): HTMLFormElement[] {
+  const forms: HTMLFormElement[] = [];
+  const record = (event: Event) => {
+    forms.push(event.target as HTMLFormElement);
+    event.preventDefault();
+  };
+  document.addEventListener('submit', record);
+  onTestFinished(() => document.removeEventListener('submit', record));
+  return forms;
+}
+
+async function renderTab(searchParams: Record<string, string> = {}) {
   const page = await SettingsTab({
     params: Promise.resolve({ id: 'sig_1' }),
     searchParams: Promise.resolve(searchParams),
@@ -45,8 +74,10 @@ const languageSection = () => screen.queryByRole('region', { name: 'Language' })
 
 afterEach(() => {
   cleanup();
+  setOrganizerLocaleFromSignupAction.mockClear();
   stored.settings = {};
   instance.defaultLocale = undefined;
+  Object.assign(organizer, { saved: null, acceptLanguage: null });
 });
 
 describe('Settings tab: Signup language', () => {
@@ -108,5 +139,141 @@ describe('Settings tab: Signup language', () => {
     const emailForm = screen.getByRole('region', { name: 'Sign-up form' });
     expect(within(emailForm).getByRole('status')).toHaveTextContent('Saved');
     expect(screen.getAllByRole('status')).toHaveLength(1);
+  });
+});
+
+describe('Settings tab: the question after a language save', () => {
+  const question = () => screen.queryByText(/your language for new signups\?$/);
+
+  it('asks, after a save to a language that isn’t the organizer’s, to make it theirs', async () => {
+    ship('participant', ['en', 'sv']);
+    stored.settings = { locale: 'sv' };
+    await renderTab({ saved: 'language' });
+
+    const asked = question();
+    expect(asked).toHaveTextContent('Make Svenska your language for new signups?');
+    expect(asked).toHaveAttribute('role', 'status');
+    expect(within(asked!).getByText('Svenska')).toHaveAttribute('lang', 'sv');
+    const section = within(languageSection()!);
+    // Yes sends the signup's language.
+    const yes = section.getByRole('button', { name: 'Yes' });
+    // The answers are in a group the question names.
+    expect(yes.closest('[role=group]')).toHaveAccessibleName(
+      'Make Svenska your language for new signups?',
+    );
+    expect(yes.closest('form')!.querySelector('input[type=hidden][name=locale]')).toHaveValue('sv');
+    // "Saved" still shows by the form that saved.
+    expect(section.getByText('Saved')).toBeInTheDocument();
+  });
+
+  it('gives No the focus, first in the row, so a second press or tap after Save says No', async () => {
+    ship('participant', ['en', 'sv']);
+    stored.settings = { locale: 'sv' };
+    await renderTab({ saved: 'language' });
+
+    const group = screen.getByRole('group', {
+      name: 'Make Svenska your language for new signups?',
+    });
+    const [no, yes] = within(group).getAllByRole('button') as [
+      HTMLButtonElement,
+      HTMLButtonElement,
+    ];
+    expect(no).toHaveAccessibleName('No');
+    expect(yes).toHaveAccessibleName('Yes');
+    // The focus scrolls No into view, clear of the phone's Share bar (the
+    // page's scroll-padding-bottom) and with the box's edge (its scroll
+    // margin), and puts it, not Yes, under the key or finger that pressed Save.
+    expect(no).toHaveFocus();
+    expect(no).toHaveClass('scroll-mb-4');
+    expect(yes).not.toHaveFocus();
+
+    // Pressing what has the focus goes back to the choices that asked, saving
+    // nothing: a plain GET form with no fields. Yes's action isn't called.
+    const submitted = submittedForms();
+    fireEvent.click(document.activeElement!);
+    const noForm = no.form!;
+    expect(submitted).toEqual([noForm]);
+    expect(noForm).toHaveAttribute('method', 'get');
+    expect(noForm).toHaveAttribute('action', '/app/signups/sig_1/settings#signup-language');
+    expect(noForm.querySelectorAll('input')).toHaveLength(0);
+    expect(setOrganizerLocaleFromSignupAction).not.toHaveBeenCalled();
+    // The choices it comes back to can take the focus.
+    const choices = screen.getByRole('group', { name: 'Signup language' });
+    expect(choices).toHaveAttribute('id', 'signup-language');
+    expect(choices).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('moves the focus nowhere after a save that asks nothing', async () => {
+    ship('participant', ['en', 'sv']);
+    stored.settings = { locale: 'sv' };
+    organizer.saved = 'sv';
+    await renderTab({ saved: 'language' });
+    expect(question()).not.toBeInTheDocument();
+    expect(document.body).toHaveFocus();
+  });
+
+  it('doesn’t ask when the signup’s language is already the organizer’s, saved or not', async () => {
+    ship('participant', ['en', 'sv']);
+    stored.settings = { locale: 'sv' };
+    for (const setup of [
+      { saved: 'sv', acceptLanguage: null },
+      // Nothing saved: what new signups get, here the browser's language.
+      { saved: null, acceptLanguage: 'sv-SE,en;q=0.8' },
+    ]) {
+      Object.assign(organizer, setup);
+      await renderTab({ saved: 'language' });
+      expect(languageSection()).toBeInTheDocument();
+      expect(question()).not.toBeInTheDocument();
+      cleanup();
+    }
+
+    // English saved on a signup with none: the instance's English either way.
+    Object.assign(organizer, { saved: null, acceptLanguage: null });
+    stored.settings = { locale: 'en' };
+    await renderTab({ saved: 'language' });
+    expect(question()).not.toBeInTheDocument();
+  });
+
+  it('asks only right after that form saved, whatever else the address says', async () => {
+    ship('participant', ['en', 'sv']);
+    stored.settings = { locale: 'sv' };
+    const addresses: Record<string, string>[] = [
+      {},
+      { saved: '1' },
+      { saved: 'new-signups' },
+      { saved: 'Make Klingon your language' },
+      { offer: 'sv' },
+      { locale: 'sv', question: 'Make Svenska your language for new signups?' },
+    ];
+    for (const searchParams of addresses) {
+      await renderTab(searchParams);
+      expect(question()).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Yes' })).not.toBeInTheDocument();
+      cleanup();
+    }
+  });
+
+  it('never asks while one language has shipped to participants', async () => {
+    stored.settings = { locale: 'sv' };
+    await renderTab({ saved: 'language' });
+    expect(question()).not.toBeInTheDocument();
+  });
+
+  it('says the language is the organizer’s after its Yes, and only once it is', async () => {
+    ship('participant', ['en', 'sv']);
+    stored.settings = { locale: 'sv' };
+    organizer.saved = 'sv';
+    await renderTab({ saved: 'new-signups' });
+    const done = within(languageSection()!).getByRole('status');
+    expect(done).toHaveTextContent('Saved. New signups you make will start in Svenska.');
+    expect(within(done).getByText('Svenska')).toHaveAttribute('lang', 'sv');
+    expect(question()).not.toBeInTheDocument();
+    cleanup();
+
+    // A link that says so when it isn't true shows nothing.
+    organizer.saved = 'en';
+    await renderTab({ saved: 'new-signups' });
+    expect(screen.queryByText(/New signups you make/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });

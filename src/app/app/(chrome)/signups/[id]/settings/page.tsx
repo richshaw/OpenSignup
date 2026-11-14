@@ -1,13 +1,20 @@
+import { headers } from 'next/headers';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { SavedNotice } from '@/components/ui/save-notice';
+import { SaveQuestion } from '@/components/ui/save-question';
 import { type CatalogLocale, SHIPPED, languageName, signupLocale } from '@/i18n/config';
+import { getOrganizerLocale } from '@/i18n/organizer';
 import { instanceDefaultLocale } from '@/i18n/server';
 import { requiresEmail } from '@/schemas/signups';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { trackOrganizerView } from '@/lib/view-tracker';
-import { FormError } from '@/components/ui/form-error';
-import { setRequireEmailAction, setSignupLocaleAction } from '../actions';
+import { FormError, SuccessNotice } from '@/components/ui/form-error';
+import {
+  setOrganizerLocaleFromSignupAction,
+  setRequireEmailAction,
+  setSignupLocaleAction,
+} from '../actions';
 import { DeleteSignupForm } from './delete-signup-form';
 
 type PageParams = {
@@ -30,6 +37,12 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
     eventType: 'signup.editor_opened',
     payload: { section: 'settings' },
   });
+  // The organizer's own language matters only to what follows a language
+  // save: the question it may ask, and the answer to it.
+  const organizerLocale =
+    saved === 'language' || saved === 'new-signups'
+      ? getOrganizerLocale(session, (await headers()).get('accept-language'), 'participant').locale
+      : null;
 
   // Reminders are configured on the date field itself, in the Build tab's
   // field editor. This tab keeps what has no better home: whether the sign-up
@@ -111,7 +124,12 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
           </div>
         </form>
       </section>
-      <SignupLanguageForm signupId={id} stored={sig.settings.locale} saved={saved === 'language'} />
+      <SignupLanguageForm
+        signupId={id}
+        stored={sig.settings.locale}
+        saved={saved}
+        organizerLocale={organizerLocale}
+      />
       <section
         aria-labelledby="danger-zone-heading"
         className="space-y-3 rounded-xl border border-danger/30 bg-danger/5 p-6"
@@ -139,20 +157,32 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
  * itself (English, Svenska), so the organizer finds theirs whatever language
  * the rest of the tab is in.
  *
+ * After a save to a language that isn't the organizer's own, it asks "Make
+ * Svenska your language for new signups?" (#639). The question and the answer
+ * to its Yes (`saved=new-signups`) come from what's stored: the address says
+ * only which form saved, so a link can't name a language or put words of its
+ * own on the tab, and the question is only ever true.
+ *
  * Kept in this file: in one of its own, a second server import of
  * AsyncSubmitButton added a few bytes to that button's module on every page
  * that loads it.
  */
+/** The "Signup language" choices' id, which No after its question comes back to. */
+const SIGNUP_LANGUAGE_ID = 'signup-language';
+
 function SignupLanguageForm({
   signupId,
   stored,
   saved,
+  organizerLocale,
 }: {
   signupId: string;
   /** The signup's `settings.locale` as stored, which may be anything. */
   stored: unknown;
-  /** Whether this form just saved. */
-  saved: boolean;
+  /** The tab's `saved`: which form just saved, if any. */
+  saved: string | undefined;
+  /** The organizer's language for new signups, after a language save; else null. */
+  organizerLocale: CatalogLocale | null;
 }) {
   const languages: readonly CatalogLocale[] = SHIPPED.participant;
   if (languages.length < 2) return null;
@@ -160,6 +190,8 @@ function SignupLanguageForm({
   // language has since left the list shows that too, so the choice shown is
   // always one that saves, and is the language its pages use (`signupLocale`).
   const current = signupLocale(stored, instanceDefaultLocale());
+  const name = <span lang={current}>{languageName(current)}</span>;
+  const settingsPath = `/app/signups/${signupId}/settings`;
 
   return (
     <section
@@ -175,7 +207,10 @@ function SignupLanguageForm({
         action={setSignupLocaleAction.bind(null, signupId)}
         className="flex flex-col gap-4"
       >
-        <fieldset>
+        {/* No after its question comes back here, by the fragment on its
+            address, and the browser focuses it, so the next Tab goes on from
+            this form. */}
+        <fieldset id={SIGNUP_LANGUAGE_ID} tabIndex={-1}>
           <legend className="text-sm font-medium">Signup language</legend>
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
             {languages.map((locale) => (
@@ -204,9 +239,21 @@ function SignupLanguageForm({
           >
             Save
           </AsyncSubmitButton>
-          {saved ? <SavedNotice role="status" /> : null}
+          {saved === 'language' ? <SavedNotice role="status" /> : null}
         </div>
       </form>
+      {saved === 'language' && organizerLocale !== null && organizerLocale !== current ? (
+        <SaveQuestion
+          id="new-signups-language-question"
+          question={<>Make {name} your language for new signups?</>}
+          action={setOrganizerLocaleFromSignupAction.bind(null, signupId)}
+          fields={{ locale: current }}
+          noHref={`${settingsPath}#${SIGNUP_LANGUAGE_ID}`}
+        />
+      ) : null}
+      {saved === 'new-signups' && organizerLocale === current ? (
+        <SuccessNotice>Saved. New signups you make will start in {name}.</SuccessNotice>
+      ) : null}
     </section>
   );
 }
