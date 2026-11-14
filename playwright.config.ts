@@ -19,6 +19,11 @@ export default defineConfig({
     // Production server: run `pnpm build` first. Locally an already-running
     // `pnpm dev` on :3000 is reused instead.
     command: 'pnpm start',
+    // Shows the seeded Swedish signup in Swedish though Swedish hasn't shipped
+    // (`signupLocale` in src/i18n/config.ts), and nothing else: it can't make
+    // Swedish anybody's choice. A server you start yourself for these specs
+    // needs it too.
+    env: { E2E_UNSHIPPED_LOCALES: 'sv' },
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

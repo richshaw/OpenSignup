@@ -26,8 +26,8 @@ const loadSignupRowBySlug = vi.hoisted(() =>
   vi.fn(async (slug: string) => request.rows[slug] ?? null),
 );
 vi.mock('@/services/signups.cached', () => ({ loadSignupRowBySlug }));
-// English from the catalog; a language with no catalog yet answers with the
-// key it was asked for and the language (`getTestServerTranslator`).
+// English from the catalog; any other language answers with the key it was
+// asked for and the language (`getTestServerTranslator`).
 vi.mock('@/i18n/server', async () => ({
   instanceDefaultLocale: () => request.defaultLocale,
   getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,

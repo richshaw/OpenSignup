@@ -2,14 +2,16 @@
  * Which languages OpenSignup has text in, and which are ready for whom.
  *
  * Pure on purpose: nothing from `next/*` and no `env.ts`, because the reminder
- * worker, static pages and tests import it too.
+ * worker, static pages and tests import it too. The one thing it reads from
+ * the environment is the e2e run's `E2E_UNSHIPPED_LOCALES` (`signupLocale`).
  */
 
 /**
  * The languages with a catalog in `src/messages/`. A catalog may be partial:
- * the translator fills its gaps with English.
+ * the translator fills its gaps with English. Having a catalog doesn't make a
+ * language one anybody gets or can choose: that's `SHIPPED`.
  */
-export const CATALOG_LOCALES = ['en'] as const;
+export const CATALOG_LOCALES = ['en', 'sv'] as const;
 
 export type CatalogLocale = (typeof CATALOG_LOCALES)[number];
 
@@ -68,13 +70,40 @@ export function defaultFor(
  * participants get. Its emails don't follow it yet. A stored value is
  * lenient: one that is unknown, or has a catalog but hasn't shipped (or has
  * since been taken off the list), reads as the instance's language rather than
- * breaking the row it's in.
+ * breaking the row it's in. The e2e run's server alone also keeps a stored
+ * language that hasn't shipped (`isShownToTests`).
  */
 export function signupLocale(
   stored: unknown,
   instanceDefault: CatalogLocale | undefined,
 ): CatalogLocale {
-  return isShipped('participant', stored) ? stored : defaultFor('participant', instanceDefault);
+  return isShipped('participant', stored) || isShownToTests(stored)
+    ? stored
+    : defaultFor('participant', instanceDefault);
+}
+
+/**
+ * Whether `stored` is a language with a catalog that the e2e run's server
+ * shows on a signup that stores it, though it hasn't shipped:
+ * `E2E_UNSHIPPED_LOCALES`, a comma-separated list, which playwright.config.ts
+ * sets for the server it starts. That's how the seeded Swedish signup
+ * (tests/e2e/helpers/seed.ts) renders in Swedish before Swedish ships.
+ *
+ * Set on a real instance, it ships nothing. It only lets a signup keep a
+ * language already in its row, and nothing in the app can put one there that
+ * hasn't shipped: `createSignup` and `updateSignup` refuse it from the
+ * browser, the API and the AI connector alike, and new signups store none
+ * while only English has shipped. It never makes a language the instance's
+ * (`defaultFor`), an organizer's, or a choice anywhere. It isn't in env.ts,
+ * because it isn't a setting.
+ */
+function isShownToTests(stored: unknown): stored is CatalogLocale {
+  const listed = process.env.E2E_UNSHIPPED_LOCALES?.split(',') ?? [];
+  return (
+    typeof stored === 'string' &&
+    listed.includes(stored) &&
+    (CATALOG_LOCALES as readonly string[]).includes(stored)
+  );
 }
 
 /**

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
@@ -491,7 +491,7 @@ describe('signups service (db)', () => {
       expect(payload).not.toHaveProperty('localeSource');
     });
 
-    it.each(['xx', 'EN', 'en-GB', '', 'x'.repeat(36), 7])(
+    it.each(['sv', 'xx', 'EN', 'en-GB', '', 'x'.repeat(36), 7])(
       'refuses a sent language that has not shipped to participants: %j',
       async (locale) => {
         const title = `Locale ${locale || 'empty'}`;
@@ -1189,6 +1189,34 @@ describe('signups service (db)', () => {
       });
       const [row] = await fx.db.select().from(signups).where(eq(signups.id, created.value.id));
       expect(row?.settings).toEqual(created.value.settings);
+    });
+
+    // The e2e run's server shows the seeded Swedish signup in Swedish, from a
+    // row the seed writes directly. Its flag must not let anyone store one.
+    it('refuses a language that has not shipped on the e2e run’s server too', async () => {
+      vi.stubEnv('E2E_UNSHIPPED_LOCALES', 'sv');
+      try {
+        const sent = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+          ...validCreateInput('E2E locale'),
+          settings: { locale: 'sv' },
+        });
+        expect(sent.ok).toBe(false);
+        const created = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput('E2E locale later'),
+        );
+        if (!created.ok) throw new Error('setup failed');
+        const r = await updateSignup(fx.db, fx.actor, created.value.id, {
+          settings: { locale: 'sv' },
+        });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error).toMatchObject({ code: 'invalid_input', field: 'settings.locale' });
+      } finally {
+        vi.unstubAllEnvs();
+      }
     });
 
     it('saves an unrelated change on a row whose stored language has left the list', async () => {

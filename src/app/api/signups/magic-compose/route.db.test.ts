@@ -41,8 +41,8 @@ vi.mock('@/auth/session', () => ({
     locale: route.locale,
   }),
 }));
-// The environment's own parse refuses a DEFAULT_LOCALE with no catalog, and
-// Swedish has none yet.
+// The instance's DEFAULT_LOCALE as each test sets it: getEnv() parses the
+// environment once.
 vi.mock('@/i18n/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/i18n/server')>()),
   instanceDefaultLocale: () => route.instanceDefault,

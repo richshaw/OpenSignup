@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-import type { CatalogLocale } from '@/i18n/config';
 import { INSTANCE_NAME } from '@/lib/site-config';
 
 afterEach(() => {
@@ -34,15 +33,15 @@ describe('SiteFooter', () => {
   });
 
   it('is in the language it’s given', async () => {
-    // Only English has a catalog today, so a stand-in translator says which
-    // language each message was asked for in.
+    // A stand-in translator says which language each message was asked for
+    // in.
     vi.doMock('@/i18n/server', () => ({
       getServerTranslator: (locale: string, namespace: string) => (key: string) =>
         `${namespace}.${key} in ${locale}`,
     }));
     vi.doMock('@/lib/footer-links', () => ({ FOOTER_LINKS: [] }));
     const { SiteFooter } = await import('./site-footer');
-    render(<SiteFooter locale={'sv' as CatalogLocale} />);
+    render(<SiteFooter locale="sv" />);
     const nav = within(screen.getByRole('navigation', { name: 'common.footer.label in sv' }));
     expect(nav.getAllByRole('link').map((a) => a.textContent)).toEqual([
       'common.footer.help in sv',

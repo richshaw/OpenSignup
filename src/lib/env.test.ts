@@ -293,13 +293,15 @@ describe('parseEnv', () => {
       expect(parseEnv({ ...base, DEFAULT_LOCALE: '  ' }).DEFAULT_LOCALE).toBeUndefined();
     });
 
-    it('takes a language OpenSignup has a catalog for', () => {
-      expect(parseEnv({ ...base, DEFAULT_LOCALE: 'en' }).DEFAULT_LOCALE).toBe('en');
+    // Swedish has a catalog, partial and unshipped: `defaultFor` keeps every
+    // audience in English until it ships.
+    it.each(['en', 'sv'])('takes a language OpenSignup has a catalog for: %j', (value) => {
+      expect(parseEnv({ ...base, DEFAULT_LOCALE: value }).DEFAULT_LOCALE).toBe(value);
     });
 
     // A typo fails at startup like any other bad setting, rather than leaving
     // the instance in a language nobody chose.
-    it.each(['english', 'EN', 'en-GB', 'xx'])('refuses %j', (value) => {
+    it.each(['english', 'EN', 'en-GB', 'sv-SE', 'xx'])('refuses %j', (value) => {
       expect(() => parseEnv({ ...base, DEFAULT_LOCALE: value })).toThrow(/- DEFAULT_LOCALE: /);
     });
   });
