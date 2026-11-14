@@ -70,6 +70,10 @@ declare const messages: {
         "message": "Couldn't reach the server.",
         "suggestion": "Check your connection and try again."
       },
+      "unreadable": {
+        "message": "Something went wrong.",
+        "suggestion": "Press Confirm again."
+      },
       "youreIn": "You're in.",
       "savedEmailed": "We've saved your spot for <b>{slot}</b> and emailed this link to <email>{address}</email>. Bookmark it to edit or cancel later:",
       "savedNotEmailed": "We've saved your spot for <b>{slot}</b>. <b>Save this link now: we won't email it, and only this browser remembers it.</b>{calendar, select, yes { Add to calendar saves the link too.} other {}}",
@@ -156,14 +160,16 @@ declare const messages: {
       "save": "Save",
       "saving": "Saving…",
       "saved": "Saved.",
-      "saveUnreachable": "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.",
+      "saveUnreachable": "Couldn't reach the server. Check your connection and press Save again.",
+      "saveUnreadable": "Something went wrong. Press Save again.",
       "cancel": "Cancel signup",
       "confirmCancel": "Confirm cancellation",
       "cancelQuestion": "Cancel this signup?",
       "keep": "Keep",
       "yesCancel": "Yes, cancel",
       "cancelling": "Cancelling…",
-      "cancelUnreachable": "Couldn't reach the server, so your spot wasn't cancelled. Check your connection and try again."
+      "cancelUnreachable": "Couldn't reach the server. Check your connection and press Cancel signup again.",
+      "cancelUnreadable": "Something went wrong. Press Cancel signup again."
     },
     "cancelledPage": {
       "title": "Your spot was cancelled",

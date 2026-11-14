@@ -130,15 +130,58 @@ test.describe('public commit flow', () => {
     );
   });
 
-  // The browser takes `pat@localhost` as an email; the server doesn't. The
-  // sheet says why in its own words, from the reason the server names, and
-  // never shows the server's English ("Invalid email").
+  // A proxy's error page arrives after the sign-up got through. The sheet
+  // can't tell whether it did, so it says neither (#631), and pressing
+  // Confirm again gives back that sign-up rather than making a second.
+  test('a sign-up whose answer a proxy replaced says only to confirm again', async ({ page }) => {
+    // An address of its own, from the range kept for documentation (RFC
+    // 5737), so its two sign-ups don't count against the per-IP limit other
+    // specs' sign-ups share.
+    await page.setExtraHTTPHeaders({ 'x-forwarded-for': '203.0.113.81' });
+    await page.goto(`/s/${seed.optionalEmailSlug}`);
+    const row = page.locator('li').filter({ hasText: seed.optionalEmailSlotLabel });
+    await row.getByRole('button', { name: 'Sign up' }).click();
+    await page.getByLabel('Your name').fill('Robin Proxy');
+
+    let firstId: string | undefined;
+    await page.route(
+      '**/api/slots/*/commitments',
+      async (route) => {
+        const response = await route.fetch();
+        firstId = (await response.json()).data.commitment.id;
+        await route.fulfill({
+          status: 504,
+          contentType: 'text/html',
+          body: '<html><body><h1>504 Gateway Time-out</h1></body></html>',
+        });
+      },
+      { times: 1 },
+    );
+    await page.getByRole('button', { name: 'Confirm' }).click();
+    const alert = page.getByRole('dialog').getByRole('alert');
+    await expect(alert).toHaveText(/^Something went wrong\.\s*Press Confirm again\.$/);
+    expect(firstId).toBeTruthy();
+
+    await page.getByRole('button', { name: 'Confirm' }).click();
+    await expect(page.getByRole('heading', { name: "You're in." })).toBeVisible();
+    const editUrl = await page
+      .getByRole('link', { name: new RegExp(`/s/${seed.optionalEmailSlug}/c/`) })
+      .getAttribute('href');
+    expect(new URL(editUrl!, page.url()).pathname).toBe(
+      `/s/${seed.optionalEmailSlug}/c/${firstId}`,
+    );
+  });
+
+  // The browser takes an address at `localhost` as an email; the server
+  // doesn't. The sheet says why in its own words, from the reason the server
+  // names, and never shows the server's English ("Invalid email"). A new
+  // address each run, as the server counts refused ones against the address.
   test('a refused email is explained in the sheet’s words, not the server’s', async ({ page }) => {
     await page.goto(`/s/${seed.publicSlug}`);
     const row = page.locator('li').filter({ hasText: seed.openSlotLabel });
     await row.getByRole('button', { name: 'Sign up' }).click();
     await page.getByLabel('Your name').fill('Pat Tester');
-    await page.getByLabel('Email').fill('pat@localhost');
+    await page.getByLabel('Email').fill(`pat+${Date.now()}@localhost`);
     await page.getByRole('button', { name: 'Confirm' }).click();
 
     const alert = page.getByRole('dialog').getByRole('alert');

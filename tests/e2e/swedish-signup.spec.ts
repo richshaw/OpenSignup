@@ -73,8 +73,10 @@ test.describe('the Swedish test signup', () => {
     await expect(page.getByRole('navigation', { name: 'Footer' })).toBeVisible();
   });
 
-  // The browser takes `kim@localhost` as an email; the server doesn't, and
-  // names the reason, which the sheet words in the signup's language.
+  // The browser takes an address at `localhost` as an email; the server
+  // doesn't, and names the reason, which the sheet words in the signup's
+  // language. A new address each run, as the server counts refused ones
+  // against the address.
   test('says why a sign-up was refused, in Swedish', async ({ page }) => {
     await gotoSwedish(page, `/s/${slug}`);
     const dialog = swedish('participant.dialog');
@@ -87,7 +89,7 @@ test.describe('the Swedish test signup', () => {
       .click();
     const sheet = page.getByRole('dialog');
     await sheet.getByLabel(fields('name')).fill('Kim Exempel');
-    await sheet.getByLabel(fields('emailOptional')).fill('kim@localhost');
+    await sheet.getByLabel(fields('emailOptional')).fill(`kim+${Date.now()}@localhost`);
     await sheet.getByRole('button', { name: dialog('confirm') }).click();
 
     const alert = sheet.getByRole('alert');
@@ -221,11 +223,14 @@ test.describe('the Swedish test signup’s edit page', () => {
   // The answers are faked, so the seeded sign-up stays as it is.
   test('says a save worked, or why not, in Swedish, down to 1 spot', async ({ page }) => {
     await gotoSwedish(page, editPath);
-    let answer = { status: 200, body: { data: {} } as object };
+    // A string body is a page that isn't the API's JSON.
+    let answer: { status: number; body: object | string } = { status: 200, body: { data: {} } };
     await page.route('**/api/commitments/**', (route) =>
-      route.request().method() === 'PATCH'
-        ? route.fulfill({ status: answer.status, json: answer.body })
-        : route.continue(),
+      route.request().method() !== 'PATCH'
+        ? route.continue()
+        : typeof answer.body === 'string'
+          ? route.fulfill({ status: answer.status, contentType: 'text/html', body: answer.body })
+          : route.fulfill({ status: answer.status, json: answer.body }),
     );
     const main = page.locator('main');
 
@@ -279,6 +284,13 @@ test.describe('the Swedish test signup’s edit page', () => {
     await expect(main.getByRole('alert')).toHaveText(
       `${errors('failed.save')} ${errors('failed.tryAgain')}`,
     );
+    await expectNoEnglish(main);
+
+    // A proxy's error page, which may come after the server saved: the form
+    // doesn't say whether it did, only to save again.
+    answer = { status: 502, body: '<html><body><h1>502 Bad Gateway</h1></body></html>' };
+    await main.getByRole('button', { name: form('save') }).click();
+    await expect(main.getByRole('alert')).toHaveText(form('saveUnreadable'));
     await expectNoEnglish(main);
   });
 

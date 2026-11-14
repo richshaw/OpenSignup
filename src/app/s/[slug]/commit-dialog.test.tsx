@@ -492,6 +492,7 @@ describe('<CommitDialog /> sheet', () => {
   describe('a refusal', () => {
     const SERVER_WORDS = 'SERVER-ONLY-ENGLISH';
     const failed = ["Something went wrong, so you're not signed up yet.", 'Try again.'];
+    const unreadable = ['Something went wrong.', 'Press Confirm again.'];
 
     beforeEach(() => {
       // jsdom leaves scrollIntoView out, and the dialog calls it on the alert.
@@ -535,7 +536,9 @@ describe('<CommitDialog /> sheet', () => {
         ['Check what you entered and try again.'],
       ],
       ['an internal error', { code: 'internal' }, failed],
-      ['an error with no code', {}, failed],
+      ['a code it does not know', { code: 'teapot' }, failed],
+      // Every error the API sends has a code: one without may not be the API's.
+      ['an error with no code', {}, unreadable],
     ])('words %s itself', async (_, error, words) => {
       const alert = await confirmAnswered(async () => ({
         error: { ...error, message: SERVER_WORDS, suggestion: SERVER_WORDS },
@@ -544,15 +547,27 @@ describe('<CommitDialog /> sheet', () => {
     });
 
     // An error page from a proxy, say, rather than the API's JSON. Not a
-    // network error: the server answered.
-    it('says it went wrong when the answer is not the API’s JSON', async () => {
-      const alert = await confirmAnswered(async () => {
-        throw new SyntaxError('Unexpected token <');
-      });
-      for (const line of failed) expect(alert).toHaveTextContent(line);
-      expect(alert).not.toHaveTextContent("Couldn't reach the server.");
-      await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
-    });
+    // network error: the server answered. A proxy can answer after the server
+    // made the sign-up, so the sheet can't say whether it happened.
+    it.each([
+      [
+        'is not JSON',
+        async () => {
+          throw new SyntaxError('Unexpected token <');
+        },
+      ],
+      ['is JSON without an error', async () => ({})],
+      ['is JSON whose error is not the API’s', async () => ({ error: 'Bad Gateway' })],
+    ])(
+      'says only that it went wrong, and to confirm again, when the answer %s',
+      async (_, json) => {
+        const alert = await confirmAnswered(json);
+        for (const line of unreadable) expect(alert).toHaveTextContent(line);
+        expect(alert).not.toHaveTextContent('signed up');
+        expect(alert).not.toHaveTextContent("Couldn't reach the server.");
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
+      },
+    );
   });
 
   it('commits one place when it does not ask', async () => {
@@ -928,6 +943,35 @@ describe('<CommitDialog /> sheet', () => {
       expect(second).toEqual(first);
     });
 
+    // "Press Confirm again", the sheet says, after an answer it can't read.
+    it('sends the same key when Confirm is pressed again after an answer it can’t read', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 502,
+          json: async () => {
+            throw new SyntaxError('Unexpected token <');
+          },
+        })
+        .mockResolvedValueOnce(success);
+      vi.stubGlobal('fetch', fetchMock);
+
+      openSheet();
+      await fillAndConfirm();
+      expect(await screen.findByRole('alert', {}, settle)).toHaveTextContent(
+        'Press Confirm again.',
+      );
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      await screen.findByRole('heading', { name: "You're in." }, settle);
+
+      const [first, second] = sentBodies(fetchMock);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(first?.idempotencyKey).toEqual(expect.any(String));
+      expect(second).toEqual(first);
+    });
+
     it('sends a new key when the details change before Confirm is pressed again', async () => {
       const fetchMock = vi
         .fn()
@@ -1123,6 +1167,22 @@ describe('<CommitDialog /> sheet', () => {
       );
       alert = screen.getByRole('alert');
       expect(alert).toHaveTextContent(say('errors.failed.tryAgain'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+    });
+
+    it('asks for an answer it can’t read in it', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      openInSwedish({ requireEmail: false });
+      await confirmWith({
+        ok: false,
+        json: async () => {
+          throw new SyntaxError('Unexpected token <');
+        },
+      });
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent(say('dialog.unreadable.message'));
+      expect(alert).toHaveTextContent(say('dialog.unreadable.suggestion'));
+      expect(alert).not.toHaveTextContent(say('errors.failed.join'));
       expect(untranslated(screen.getByRole('dialog'))).toBe('');
     });
 
