@@ -3,8 +3,9 @@ import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
-import { type CatalogLocale, SHIPPED, isShipped } from '@/i18n/config';
+import { type CatalogLocale, SHIPPED, isShipped, signupLocale } from '@/i18n/config';
 import type { SignupLocaleSource } from '@/i18n/organizer-locale';
+import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
 import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
@@ -19,7 +20,7 @@ import {
 } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { chooseAnchorRef } from '@/lib/reminder-fields';
-import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
+import { defaultTemplate, type SignupTemplate } from '@/lib/signup-templates';
 import { slugBase, toSlug } from '@/lib/slug';
 import {
   type SlotFieldDefinition,
@@ -102,7 +103,9 @@ export interface SignupWithSlots extends SignupRow {
  * unless it has shipped to participants; the route decides it (the one its
  * caller sent, else `newSignupLocale`'s) and puts it there. `localeSource`
  * says which step chose it, for `signup.created`; a language with none was
- * sent by the caller (`api`).
+ * sent by the caller (`api`). Without `opts.template` it starts from
+ * `defaultTemplate`, its columns named in the language its participants will
+ * get (`signupLocale`).
  */
 export async function createSignup(
   db: Db,
@@ -118,7 +121,16 @@ export async function createSignup(
   if (!input.ok) return input;
   const data = input.value;
 
-  const template = opts.template ?? DEFAULT_TEMPLATE;
+  // A language that hasn't shipped reads as the instance's here; it's
+  // refused below, so its names never reach a row.
+  const template =
+    opts.template ??
+    defaultTemplate(
+      getServerTranslator(
+        signupLocale(data.settings.locale, instanceDefaultLocale()),
+        'participant.defaults',
+      ),
+    );
 
   const parsedFields: SlotFieldInput[] = [];
   const seenRefs = new Set<string>();

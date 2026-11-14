@@ -490,6 +490,8 @@ describe('Done after the check’s fix', () => {
         groupByFieldRefs: [],
       }}
       committedBySlot={{}}
+      locale="en"
+      fieldDefaults={{ name: 'Untitled', firstChoice: 'Option 1' }}
     />
   );
   const what = () => screen.getByRole('textbox', { name: 'What value' });

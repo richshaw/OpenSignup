@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
@@ -7,9 +7,10 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor, WorkspaceRole } from '@/lib/policy';
-import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
+import type { SignupTemplate } from '@/lib/signup-templates';
 import { listFieldsForSignup } from '@/services/slot-fields';
 import { addSlot, deleteSlot } from '@/services/slots';
 import { settle, untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
@@ -32,6 +33,14 @@ import {
   reopenSignup,
   updateSignup,
 } from '@/services/signups';
+
+// The instance's DEFAULT_LOCALE as a test sets it (getEnv() parses the
+// environment once): unset unless a test sets it.
+const instance = vi.hoisted(() => ({ defaultLocale: undefined as string | undefined }));
+vi.mock('@/i18n/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/i18n/server')>()),
+  instanceDefaultLocale: () => instance.defaultLocale,
+}));
 
 interface Fixture {
   db: Db;
@@ -153,7 +162,7 @@ describe('signups service (db)', () => {
       }
     });
 
-    it('applies DEFAULT_TEMPLATE when no opts.template is supplied', async () => {
+    it('applies the default template when no opts.template is supplied', async () => {
       const r = await createSignup(
         fx.db,
         fx.actor,
@@ -166,8 +175,10 @@ describe('signups service (db)', () => {
       const fields = await listFieldsForSignup(fx.db, r.value.id);
       expect(fields).toHaveLength(2);
       const byRef = Object.fromEntries(fields.map((f) => [f.ref, f]));
+      expect(byRef.what?.label).toBe('What');
       expect(byRef.what?.fieldType).toBe('text');
       expect(byRef.what?.sortOrder).toBe(0);
+      expect(byRef.date?.label).toBe('Date');
       expect(byRef.date?.fieldType).toBe('date');
       expect(byRef.date?.sortOrder).toBe(1);
 
@@ -181,7 +192,7 @@ describe('signups service (db)', () => {
       const created = acts.find((a) => a.eventType === 'signup.created');
       expect(created).toBeDefined();
       const payload = created!.payload as Record<string, unknown>;
-      expect(payload.templateId).toBe(DEFAULT_TEMPLATE.id);
+      expect(payload.templateId).toBe('default');
       expect(payload.fieldsAdded).toBe(2);
       expect(payload.slotsAdded).toBe(1);
       expect('title' in payload).toBe(false);
@@ -514,6 +525,50 @@ describe('signups service (db)', () => {
         expect(made).toEqual([]);
       },
     );
+
+    describe('names the default template’s columns in the signup’s language', () => {
+      afterEach(() => {
+        instance.defaultLocale = undefined;
+      });
+
+      async function columns(input: unknown): Promise<[string, string][]> {
+        const r = await createSignup(fx.db, fx.actor, fx.workspaceId, input);
+        if (!r.ok) throw new Error(`setup failed: ${JSON.stringify(r.error)}`);
+        const fields = await listFieldsForSignup(fx.db, r.value.id);
+        return fields.map((f) => [f.ref, f.label]);
+      }
+
+      it('in a shipped language sent with it, keeping the refs', async () => {
+        ship('participant', ['en', 'sv']);
+        const sent = { ...validCreateInput('Svensk'), settings: { locale: 'sv' } };
+        expect(await columns(sent)).toEqual([
+          ['what', 'Vad'],
+          ['date', 'Datum'],
+        ]);
+      });
+
+      it('in the instance’s language when it stores none', async () => {
+        ship('participant', ['en', 'sv']);
+        instance.defaultLocale = 'sv';
+        expect(await columns(validCreateInput('Instansens språk'))).toEqual([
+          ['what', 'Vad'],
+          ['date', 'Datum'],
+        ]);
+        const english = { ...validCreateInput('English here'), settings: { locale: 'en' } };
+        expect(await columns(english)).toEqual([
+          ['what', 'What'],
+          ['date', 'Date'],
+        ]);
+      });
+
+      it('in English while the instance’s language hasn’t shipped', async () => {
+        instance.defaultLocale = 'sv';
+        expect(await columns(validCreateInput('Not yet'))).toEqual([
+          ['what', 'What'],
+          ['date', 'Date'],
+        ]);
+      });
+    });
   });
 
   describe('getSignupForOrganizer', () => {
@@ -908,7 +963,7 @@ describe('signups service (db)', () => {
     });
 
     it('anchors a new signup on its template date field', async () => {
-      // DEFAULT_TEMPLATE has one date field, `date`. Nothing else in settings
+      // The default template has one date field, `date`. Nothing else in settings
       // is touched.
       const created = await createSignup(
         fx.db,

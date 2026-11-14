@@ -52,6 +52,12 @@
       "notes": "Kommentar (valfritt)",
       "spots": "Platser"
     },
+    "defaults": {
+      "what": "Vad",
+      "date": "Datum",
+      "untitledField": "Namnlös",
+      "firstChoice": "Alternativ 1"
+    },
     "dialog": {
       "signUp": "Anmäl dig",
       "signUpFor": "Anmäl dig till {slot}",

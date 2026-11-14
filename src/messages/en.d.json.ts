@@ -55,6 +55,12 @@ declare const messages: {
       "notes": "Notes (optional)",
       "spots": "Spots"
     },
+    "defaults": {
+      "what": "What",
+      "date": "Date",
+      "untitledField": "Untitled",
+      "firstChoice": "Option 1"
+    },
     "dialog": {
       "signUp": "Sign up",
       "signUpFor": "Sign up for {slot}",

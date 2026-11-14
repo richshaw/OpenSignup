@@ -16,6 +16,9 @@ function makeField(overrides: Partial<BuildField> = {}): BuildField {
   };
 }
 
+/** A new field's defaults, as the Build tab page gives them for an English signup. */
+const DEFAULTS = { name: 'Untitled', firstChoice: 'Option 1' };
+
 type UpdateFieldFn = (
   fieldId: string,
   patch: { name?: string; config?: SlotFieldConfig },
@@ -49,6 +52,7 @@ function renderPopover(overrides: RenderProps = {}) {
       open={overrides.open ?? true}
       onOpenChange={onOpenChange}
       fields={overrides.fields ?? [makeField()]}
+      fieldDefaults={DEFAULTS}
       groupByFieldRef={overrides.groupByFieldRef ?? null}
       reminderFieldRef={overrides.reminderFieldRef ?? null}
       onAddField={onAddField}
@@ -224,6 +228,7 @@ describe('FieldsPopover', () => {
         open={false}
         onOpenChange={noopOpen}
         fields={[makeField()]}
+        fieldDefaults={DEFAULTS}
         groupByFieldRef={null}
         reminderFieldRef={null}
         onAddField={onAddField}
@@ -239,6 +244,7 @@ describe('FieldsPopover', () => {
         open
         onOpenChange={noopOpen}
         fields={[makeField()]}
+        fieldDefaults={DEFAULTS}
         groupByFieldRef={null}
         reminderFieldRef={null}
         onAddField={onAddField}
