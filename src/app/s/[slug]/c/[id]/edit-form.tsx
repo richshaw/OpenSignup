@@ -89,7 +89,9 @@ export default function EditForm({
         body: JSON.stringify(body),
       });
     } catch {
-      // The request never reached the server (offline, or a dropped connection).
+      // No answer came: offline, or the connection dropped, perhaps after the
+      // server saved. So the copy doesn't say whether it did, only to save
+      // again, which sends the same values.
       setMessage({ kind: 'err', text: t('saveUnreachable') });
       setSaving(false);
       return;
@@ -134,6 +136,8 @@ export default function EditForm({
         method: 'DELETE',
       });
     } catch {
+      // As for a save: the cancel may have gone through, and cancelling a
+      // cancelled spot succeeds.
       setMessage({ kind: 'err', text: t('cancelUnreachable') });
       setConfirmingCancel(false);
       setSaving(false);

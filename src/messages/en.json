@@ -155,7 +155,7 @@
       "save": "Save",
       "saving": "Saving…",
       "saved": "Saved.",
-      "saveUnreachable": "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.",
+      "saveUnreachable": "Couldn't reach the server. Check your connection and press Save again.",
       "saveUnreadable": "Something went wrong. Press Save again.",
       "cancel": "Cancel signup",
       "confirmCancel": "Confirm cancellation",
@@ -163,7 +163,7 @@
       "keep": "Keep",
       "yesCancel": "Yes, cancel",
       "cancelling": "Cancelling…",
-      "cancelUnreachable": "Couldn't reach the server, so your spot wasn't cancelled. Check your connection and try again.",
+      "cancelUnreachable": "Couldn't reach the server. Check your connection and press Cancel signup again.",
       "cancelUnreadable": "Something went wrong. Press Cancel signup again."
     },
     "cancelledPage": {

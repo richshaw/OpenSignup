@@ -404,8 +404,10 @@ describe('<EditForm /> quantity', () => {
     expect(screen.getByText('You can have up to 4 spots on this slot.')).toBeInTheDocument();
     expect(screen.getByLabelText('Spots')).toHaveAttribute('max', '4');
   });
-  // Offline, or a dropped connection: fetch itself rejects.
-  it('says nothing was saved, and lets the participant try again, when the save never reaches the server', async () => {
+  // Offline, or a dropped connection: fetch itself rejects. The connection
+  // can drop after the server saved, so the form doesn't say whether it did:
+  // saving the same again does no harm.
+  it('asks for Save again, without saying whether it saved, when no answer comes', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))),
@@ -414,9 +416,11 @@ describe('<EditForm /> quantity', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't reach the server, so your changes weren't saved. Check your connection and try again.",
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      "Couldn't reach the server. Check your connection and press Save again.",
     );
+    expect(alert).not.toHaveTextContent('saved');
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Cancel signup' })).toBeEnabled();
   });
@@ -465,7 +469,7 @@ describe('<EditForm /> quantity', () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
-  it('says the sign-up was not cancelled when the cancel never reaches the server', async () => {
+  it('asks for Cancel signup again, without saying whether it cancelled, when no answer comes', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))),
@@ -475,12 +479,40 @@ describe('<EditForm /> quantity', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel signup' }));
     fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't reach the server, so your spot wasn't cancelled. Check your connection and try again.",
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      "Couldn't reach the server. Check your connection and press Cancel signup again.",
     );
+    expect(alert).not.toHaveTextContent('cancelled');
     expect(screen.getByRole('button', { name: 'Cancel signup' })).toBeEnabled();
     expect(router.push).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['save', 'Det gick inte att nå servern. Kontrollera anslutningen och tryck på Spara igen.'],
+    ['cancel', 'Det gick inte att nå servern. Kontrollera anslutningen och tryck på Avboka igen.'],
+  ] as const)(
+    'asks for the %s again in Swedish, without saying whether it happened, when no answer comes',
+    async (action, words) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))),
+      );
+      renderForm(4, 2, SwedishMessages);
+
+      if (action === 'save') {
+        fireEvent.click(screen.getByRole('button', { name: 'Spara' }));
+      } else {
+        fireEvent.click(screen.getByRole('button', { name: 'Avboka' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Ja, avboka' }));
+      }
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent(words);
+      // "sparades inte" and "avbokades inte" were the old claims.
+      expect(alert).not.toHaveTextContent(/sparades|avbokades/);
+    },
+  );
 });
 
 // The server's `message` and `suggestion` are English for API callers. The

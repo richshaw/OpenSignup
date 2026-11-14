@@ -155,7 +155,7 @@
       "save": "Spara",
       "saving": "Sparar…",
       "saved": "Sparat.",
-      "saveUnreachable": "Det gick inte att nå servern, så dina ändringar sparades inte. Kontrollera anslutningen och försök igen.",
+      "saveUnreachable": "Det gick inte att nå servern. Kontrollera anslutningen och tryck på Spara igen.",
       "saveUnreadable": "Något gick fel. Tryck på Spara igen.",
       "cancel": "Avboka",
       "confirmCancel": "Bekräfta avbokning",
@@ -163,7 +163,7 @@
       "keep": "Behåll",
       "yesCancel": "Ja, avboka",
       "cancelling": "Avbokar…",
-      "cancelUnreachable": "Det gick inte att nå servern, så din plats avbokades inte. Kontrollera anslutningen och försök igen.",
+      "cancelUnreachable": "Det gick inte att nå servern. Kontrollera anslutningen och tryck på Avboka igen.",
       "cancelUnreadable": "Något gick fel. Tryck på Avboka igen."
     },
     "cancelledPage": {
