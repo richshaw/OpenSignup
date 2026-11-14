@@ -209,7 +209,7 @@ test.describe('the Swedish test signup’s edit page', () => {
         },
       },
     };
-    await main.getByLabel('Antal platser').fill('1');
+    await main.getByLabel(swedish('participant.fields')('spots')).fill('1');
     await main.getByRole('button', { name: form('save') }).click();
     await expect(main.getByRole('alert')).toHaveText(
       `${errors('rateLimit.message')} ${errors('rateLimit.wait', { minutes: 2 })}`,

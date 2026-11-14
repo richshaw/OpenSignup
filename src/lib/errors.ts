@@ -47,7 +47,8 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
  * - `notes_too_long` (`invalid_input` on `notes`): over `NOTES_MAX_LENGTH`.
  * - `quantity_too_small` (`invalid_input` on `quantity`): under 1.
  * - `quantity_too_large` (`invalid_input` on `quantity`): over `QUANTITY_MAX`.
- * - `quantity_not_whole` (`invalid_input` on `quantity`): not a whole number.
+ * - `quantity_not_whole` (`invalid_input` on `quantity`): not a whole number
+ *   (a fraction, or not a number at all).
  *
  * The participant ones come from signing up and from the edit link
  * (`POST /api/slots/[id]/commitments`, `PATCH /api/commitments/[id]`) and
