@@ -264,7 +264,7 @@ export async function POST(req: NextRequest) {
     // A title or description over its limit is cut down rather than failing
     // the whole draft: a model asked to keep a long announcement word for word
     // goes over the same way on every retry.
-    const fitted = fitDraftText(raw.value);
+    const fitted = fitDraftText(raw.value, 'en');
     const draft = MagicComposeDraftSchema.safeParse(fitted.value);
     if (!draft.success) {
       log.warn(

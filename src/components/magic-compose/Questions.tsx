@@ -74,6 +74,7 @@ type Topic = MagicComposeQuestions['topics'][number];
  */
 export function Questions({
   prompt,
+  locale,
   questions,
   answers: held,
   setAnswers,
@@ -83,6 +84,8 @@ export function Questions({
   onInvalid,
 }: {
   prompt: string;
+  /** The organizer's language, for the times and lengths the screen writes. */
+  locale: string;
   questions: MagicComposeQuestions;
   /** The boxes as the organizer left them; null until they answer anything. */
   answers: Answers | null;
@@ -144,7 +147,7 @@ export function Questions({
       answers={answers}
       update={update}
     />,
-    asks('when') && <When key="when" answers={answers} update={update} />,
+    asks('when') && <When key="when" answers={answers} update={update} locale={locale} />,
     asks('how_many') && <HowMany key="how_many" answers={answers} update={update} />,
   ].filter(Boolean);
 
@@ -170,7 +173,7 @@ export function Questions({
         {/* First in the page so a phone shows it top left; under the steps on a wider screen. */}
         <button
           type="button"
-          onClick={() => onBack(appendAnswers(prompt, questions, committed()))}
+          onClick={() => onBack(appendAnswers(prompt, questions, committed(), locale))}
           className="-mb-2 -ml-1.5 inline-flex min-h-11 items-center gap-1 self-start rounded-[10px] pl-1 pr-2.5 text-[15px] font-medium text-ink-muted hover:text-ink md:order-last md:mb-0 md:ml-0 md:rounded-xl md:px-3 md:text-sm"
         >
           <ChevronLeft className="h-[18px] w-[18px]" aria-hidden="true" />
@@ -400,7 +403,7 @@ function What({
   );
 }
 
-function When({ answers, update }: Part) {
+function When({ answers, update, locale }: Part & { locale: string }) {
   const id = useId();
   const set = (patch: Partial<Answers>) => update((a) => ({ ...a, ...patch }));
 
@@ -475,7 +478,7 @@ function When({ answers, update }: Part) {
               value={answers.to}
               onChange={(to) => set({ to })}
               {...(answers.from
-                ? { after: answers.from, note: (t: string) => timeLength(answers.from, t) }
+                ? { after: answers.from, note: (t: string) => timeLength(answers.from, t, locale) }
                 : {})}
               className={`${BOX} ${BOX_FOCUS} min-w-0 flex-1 px-3 sm:flex-none`}
             />
