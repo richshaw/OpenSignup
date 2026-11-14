@@ -16,6 +16,7 @@ describe('signupsLookWrittenIn: English signups', () => {
     'Volunteer shifts for the spring fair',
     'Teacher appreciation week',
     'Untitled signup',
+    'Snack duty — Spring season',
   ])('never takes %j for Swedish', (title) => {
     expect(looksSwedish(title)).toBe(false);
   });
@@ -31,14 +32,37 @@ describe('signupsLookWrittenIn: English signups', () => {
     'Åre ski trip',
     'Malmö trip',
     'Dinner with Märta Söderberg',
+    'Picnic at Åre',
+    "Björn's farewell",
+    'Kräftskiva with the Andersons',
   ])('never takes %j, a Swedish place or person in English, for Swedish', (title) => {
     expect(looksSwedish(title)).toBe(false);
   });
 
-  // Words English shares with Swedish, and Swedish words inside English ones.
+  // Words English shares with Swedish, which the list leaves out or counts
+  // only beside a Swedish-lettered word, and Swedish words inside English ones.
   it.each([
     'Fika Friday',
     'Open till noon',
+    'Med school potluck',
+    'Midsommar party',
+    'Glögg night',
+    'Barn dance',
+    'Fest committee',
+    'Jul 4 parade',
+    'Tack room rota',
+    'AV club',
+    'Under 12s match',
+    'Class VI field trip',
+    'Om yoga morning',
+    'Cub Scout den meeting',
+    'Yoga mat drive',
+    'Vid crew for the recital',
+    'MOT test carpool',
+    'Ska band night',
+    'Kan Jam tournament',
+    'Du Bois book club',
+    'Database schema workshop',
     'Swedish meatball night',
     'Ochre and gold gala',
     'Attendance sheet',
@@ -46,6 +70,29 @@ describe('signupsLookWrittenIn: English signups', () => {
     'Vaders and Jedis costume party',
   ])('never takes %j for Swedish', (title) => {
     expect(looksSwedish(title)).toBe(false);
+  });
+
+  // The one way an ordinary English title says yes: "till" or "med" beside a
+  // Swedish-lettered name. Accepted, since such an organizer is likely in
+  // Sweden and a wrong yes costs one click on "Keep English", while "till"
+  // is the word that finds the most Swedish titles.
+  it.each(['Open till late in Malmö', 'Med kit for Åre trip'])(
+    'takes %j, "till" or "med" beside a Swedish name, for Swedish',
+    (title) => {
+      expect(looksSwedish(title)).toBe(true);
+    },
+  );
+
+  // Titles made up to hit a listed word that only looks English. Kept,
+  // because det, som, ett, kaffe and sommar are common in Swedish titles.
+  it.each([
+    'Det. Smith retirement party',
+    'Som tam dinner',
+    'Ett Hem dinner',
+    'Cafe Kaffe volunteers',
+    'Sommar house cleanup',
+  ])('takes %j, made up around a listed word, for Swedish', (title) => {
+    expect(looksSwedish(title)).toBe(true);
   });
 
   it('never takes a whole list of them for Swedish', () => {
@@ -78,12 +125,28 @@ describe('signupsLookWrittenIn: Swedish signups', () => {
     'Skjuts till matchen',
     'Kakor till loppisen',
     'Anmälan till julbordet',
+    'Städdag på förskolan',
+    'Föräldramöte åk 3',
+    'Kyrkkaffe söndag',
+    'Julfest 2026',
+  ])('takes %j for Swedish', (title) => {
+    expect(looksSwedish(title)).toBe(true);
+  });
+
+  // Titles that said no before the list took in words Danish or Norwegian
+  // share, and "till" beside a Swedish-lettered word.
+  it.each([
+    'Fika efter gudstjänsten',
+    'Kör till bortamatchen',
+    'Loppis i gympasalen',
+    'Sommarfest',
+    'Tränare till F12',
   ])('takes %j for Swedish', (title) => {
     expect(looksSwedish(title)).toBe(true);
   });
 
   // No listed word, but every word is spelled with å, ä or ö.
-  it.each(['Städdag på förskolan', 'Föräldramöte', 'Fotbollsträning', 'Ridläger', 'Påskpyssel'])(
+  it.each(['Städdag', 'Föräldramöte', 'Fotbollsträning', 'Ridläger', 'Påskpyssel'])(
     'takes %j, all words with Swedish letters, for Swedish',
     (title) => {
       expect(looksSwedish(title)).toBe(true);
@@ -100,23 +163,36 @@ describe('signupsLookWrittenIn: Swedish signups', () => {
   it('matches whole words only', () => {
     // English words that start with a listed word ("och", "att", "vad").
     expect(looksSwedish('Ochre', 'Attendance', 'Vademecum')).toBe(false);
-    // "Grillkvällen" holds "kväll" but isn't it, so only its letters count.
+    // "Grillkvällen" holds "kvällen" but isn't it, so only its letters count.
     expect(looksSwedish('Grillkvällen i parken')).toBe(false);
   });
 
-  // Titles alone are thin: a compound noun without å, ä or ö says nothing, so
-  // these organizers are found by their browser's language or not at all.
-  it('says nothing for Swedish titles without a listed word or a Swedish letter', () => {
-    expect(looksSwedish('Julfest 2026')).toBe(false);
-    expect(looksSwedish('Sommarfest', 'Lucia', 'Loppis')).toBe(false);
-    expect(looksSwedish('Grillkväll i parken')).toBe(false);
-  });
+  // Titles alone are thin: a compound with no listed word beside a plain word
+  // says nothing, and so does "med" with no Swedish-lettered word to stand
+  // beside. These organizers are found by their browser's language or not at all.
+  it.each(['Grillkväll i parken', 'Lussebak med scouterna', 'Julpyssel', 'Pantinsamling'])(
+    'says nothing for %j',
+    (title) => {
+      expect(looksSwedish(title)).toBe(false);
+    },
+  );
 });
 
 describe('signupsLookWrittenIn: mixed lists', () => {
   it('needs only one title with a Swedish word, however many English ones there are', () => {
     expect(
       looksSwedish('Bake sale', 'Snack schedule', 'Carpool', 'Book fair', 'Kaffe och bullar'),
+    ).toBe(true);
+    expect(
+      looksSwedish(
+        'Bake sale',
+        'Snack schedule',
+        'Carpool',
+        'Book fair',
+        'Field day',
+        'Teacher lunch',
+        'Städdag på förskolan',
+      ),
     ).toBe(true);
   });
 
@@ -127,7 +203,7 @@ describe('signupsLookWrittenIn: mixed lists', () => {
   });
 
   it('counts Swedish titles that say nothing as titles, so they can outweigh a weak one', () => {
-    expect(looksSwedish('Föräldramöte', 'Julfest', 'Sommarfest')).toBe(false);
+    expect(looksSwedish('Föräldramöte', 'Julpyssel', 'Pantinsamling')).toBe(false);
   });
 });
 
@@ -178,18 +254,30 @@ describe('signupsLookWrittenIn: the languages around Swedish', () => {
     expect(looksSwedish('Kuchen für das Sommerfest', 'Elternabend', 'Brötchen')).toBe(false);
   });
 
-  // Danish and Norwegian write å as Swedish does, but æ and ø, which Swedish
-  // never does, rule a word out, and the words the three share aren't listed.
-  it('takes Danish and Norwegian titles for Swedish only when they are one word with å', () => {
+  // The words Swedish shares with Danish and Norwegian (på, hos, som, det,
+  // fredag, kaffe) are listed, so a title with one says yes. Accepted: a Dane
+  // or Norwegian dismisses the notice with one click.
+  it('takes Danish and Norwegian titles with a word Swedish shares for Swedish', () => {
     for (const title of [
-      'Forældremøde',
-      'Kage til sommerfesten',
       'Juleklip på skolen',
       'Fest hos Mette',
       'Dugnad på skolen',
-      'Foreldremøte',
       'Kaker til basaren på lørdag',
       'Kaffe på fredag',
+      'Påske på slottet',
+    ]) {
+      expect(looksSwedish(title), title).toBe(true);
+    }
+  });
+
+  // Otherwise æ and ø, which Swedish never writes, rule a word out, and their
+  // own words ("til", "lørdag", "sommerfesten") aren't listed.
+  it('takes other Danish and Norwegian titles for Swedish only when they are one word with å', () => {
+    for (const title of [
+      'Forældremøde',
+      'Kage til sommerfesten',
+      'Foreldremøte',
+      'Kjøring til kamp',
       // å beside æ or ø in one word: the ø or æ rules it out.
       'Påskeæg',
       'Vårløp',
@@ -198,7 +286,7 @@ describe('signupsLookWrittenIn: the languages around Swedish', () => {
     }
     expect(looksSwedish('Påskefrokost')).toBe(true);
     expect(looksSwedish('Vårfest')).toBe(true);
-    expect(looksSwedish('Påskefrokost', 'Dugnad på skolen', 'Foreldremøte')).toBe(false);
+    expect(looksSwedish('Påskefrokost', 'Kage til sommerfesten', 'Foreldremøte')).toBe(false);
   });
 
   // Finnish writes ä and ö with no other letters Swedish lacks, so a Finnish

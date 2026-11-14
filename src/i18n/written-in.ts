@@ -25,11 +25,20 @@ interface WritingMarkers {
    */
   readonly alphabet: string;
   /**
-   * Common words that are the language's own: not English words, and not
-   * spelled the same in the languages around it. One in a title is strong
-   * evidence. Each entry is a group of words separated by spaces.
+   * Common words in the language that English doesn't have. One in a title
+   * is strong evidence. The languages around it may share them (Danish and
+   * Norwegian write "på" and "som" too): a wrong yes costs a click, and
+   * leaving them out costs the language's own speakers the notice. Each
+   * entry is a group of words separated by spaces.
    */
   readonly words: readonly string[];
+  /**
+   * Common words in the language that English has too ("till", "med"). One
+   * counts as a listed word only in a title that also has a word spelled with
+   * the language's letters (see `letters`), so "Kör till matchen" is strong
+   * evidence and "Open till noon" none. Grouped like `words`.
+   */
+  readonly sharedWithEnglish: readonly string[];
 }
 
 /**
@@ -43,18 +52,26 @@ const WRITING: Partial<Record<CatalogLocale, WritingMarkers>> = {
     alphabet: 'abcdefghijklmnopqrstuvwxyzåäöé',
     words: [
       // Small words: and, to, not, for, is, from, also, when, here, there,
-      // even, two, our, over, ahead of, between, who, what.
+      // even, two, our, over, ahead of, between, who, what; on, as, it, at
+      // (someone's), one, after, without, next, every, year, school year.
       'och att inte för är från också när här där även två våra över inför mellan vem vad',
-      // Days and times signups name. Onsdag, torsdag and fredag are Danish
-      // and Norwegian too.
-      'måndag tisdag lördag söndag vecka veckan kväll augusti sommar',
-      // What signups are for: sign-up, a lift, the school, cakes.
-      'anmälan skjuts skolan kakor',
-      // Left out on purpose: på, med, av, som, det, vi, om, hos and ett, which
-      // Danish or Norwegian write the same; till, which is English too ("open
-      // till noon") and a German first name; fika, which English has borrowed
-      // ("Fika Friday").
+      'på som det hos ett efter utan nästa varje år åk',
+      // Days, times and seasons.
+      'måndag tisdag onsdag torsdag fredag lördag söndag helgen vecka veckan kväll kvällen',
+      'augusti sommar hösten våren julen påsk',
+      // What signups are for: sign-up, a lift, the school, the preschool,
+      // cakes, coffee, buns, the food, the children, parents, help, welcome,
+      // needs, the flea market, the Christmas and summer parties, the match,
+      // the team, the kiosk.
+      'anmälan skjuts skolan förskolan kakor kaffe bullar maten barnen föräldrar hjälp',
+      'välkommen behöver loppis julfest sommarfest matchen laget kiosken',
+      // Left out because English has them: av (AV club), vi, om, den, barn,
+      // fest, mat, jul (Jul 4), tack, under, vid, mot, ska, kan, du, schema and
+      // match, and fika and midsommar, which English has borrowed. Till and med
+      // are English too but too common in Swedish titles to lose, so they're
+      // in sharedWithEnglish.
     ],
+    sharedWithEnglish: ['till med'],
   },
 };
 
@@ -62,18 +79,22 @@ interface CompiledMarkers {
   letters: ReadonlySet<string>;
   alphabet: ReadonlySet<string>;
   words: ReadonlySet<string>;
+  sharedWithEnglish: ReadonlySet<string>;
 }
 
 /** Each language's markers as sets, in the same form `wordsOf` gives words. */
 const COMPILED = new Map<CatalogLocale, CompiledMarkers>(
   Object.entries(WRITING).map(([locale, markers]) => {
     const lower = (text: string) => text.normalize('NFC').toLocaleLowerCase(locale);
+    const wordSet = (groups: readonly string[]) =>
+      new Set(groups.flatMap((group) => lower(group).trim().split(/\s+/)));
     return [
       locale as CatalogLocale,
       {
         letters: new Set(lower(markers.letters)),
         alphabet: new Set(lower(markers.alphabet + markers.letters)),
-        words: new Set(markers.words.flatMap((group) => lower(group).trim().split(/\s+/))),
+        words: wordSet(markers.words),
+        sharedWithEnglish: wordSet(markers.sharedWithEnglish),
       },
     ];
   }),
@@ -95,9 +116,10 @@ function wordsOf(title: string, locale: CatalogLocale): string[] {
 }
 
 /**
- * What one title says. `strong`: it has one of the language's words.
- * `weak`: every word in it is spelled with the language's letters and no
- * others ("Städdag", "Föräldramöte"), which a title of only names
+ * What one title says. `strong`: it has one of the language's words, or one
+ * it shares with English beside a word spelled with its letters ("Kör till
+ * matchen"). `weak`: every word in it is spelled with the language's letters
+ * and no others ("Städdag", "Föräldramöte"), which a title of only names
  * ("Malmö") or a word from a neighbouring language ("Kesäjuhla") also is.
  * `none`: anything else, which is what a title with an English word in it
  * ("Carpool to Malmö") is. `empty`: no words, so it says nothing and isn't
@@ -118,24 +140,28 @@ function titleEvidence(
       letters.every((letter) => markers.alphabet.has(letter))
     );
   };
+  const sharedWord = words.some((word) => markers.sharedWithEnglish.has(word));
+  if (sharedWord && words.some(spelledInLanguage)) return 'strong';
   return words.every(spelledInLanguage) ? 'weak' : 'none';
 }
 
 /**
  * Whether `signups` look written in `locale`, judged by their titles: yes when
- * any title has one of the language's own words, or when at least half the
- * titles with words in them are weak evidence (`titleEvidence`). So one
- * plainly Swedish title is enough; titles spelled only with Swedish letters,
- * as a Swedish compound ("Föräldramöte") and a lone name ("Malmö") both are,
- * count only when they make up at least half the list; and an English title
- * with a Swedish name in it counts for nothing. A language with no entry
- * in `WRITING` (English among them) never looks written in, and neither does
- * an empty list.
+ * any title is strong evidence, or when at least half the titles with words
+ * in them are weak evidence (`titleEvidence`). So one plainly Swedish title
+ * is enough; titles spelled only with Swedish letters, as a Swedish compound
+ * ("Föräldramöte") and a lone name ("Malmö") both are, count only when they
+ * make up at least half the list; and an English title with a Swedish name in
+ * it counts for nothing, unless it also has "till" or "med" ("Open till late
+ * in Malmö"). A language with no entry in `WRITING` (English among them)
+ * never looks written in, and neither does an empty list.
  *
- * Leans towards yes, because a wrong yes costs the organizer one click on the
- * notice it shows, while a wrong no leaves them not knowing the language is
- * there. Takes what the Your signups page already holds
- * (`listSignupSummariesForWorkspace`'s rows), not a database handle.
+ * Leans towards yes: its words include ones Danish and Norwegian share, and
+ * "till" and "med" count beside a Swedish-lettered word, because a wrong yes
+ * costs the organizer one click on the notice it shows, while a wrong no
+ * leaves them not knowing the language is there. Takes what the Your signups
+ * page already holds (`listSignupSummariesForWorkspace`'s rows), not a
+ * database handle.
  */
 export function signupsLookWrittenIn(
   locale: CatalogLocale,
