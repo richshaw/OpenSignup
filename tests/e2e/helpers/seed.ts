@@ -16,13 +16,19 @@ import { makeId } from '@/lib/ids';
 import { commitmentEditPath, unsubscribePath } from '@/lib/links';
 import type { Actor } from '@/lib/policy';
 import { RateLimits } from '@/lib/rate-limit';
-import { signups } from '@/db/schema/signups';
+import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import type { SignupTemplate } from '@/lib/signup-templates';
 import { TEXT_DEFAULT_MAX_LENGTH } from '@/schemas/slot-fields';
 import { cancelOwnCommitment, commitToSlot, type CommitResult } from '@/services/commitments';
 import { optOutOfReminders, reminderOptOutTokenFor } from '@/services/reminder-optout';
-import { createSignup, deleteSignup, publishSignup } from '@/services/signups';
+import {
+  archiveSignup,
+  closeSignup,
+  createSignup,
+  deleteSignup,
+  publishSignup,
+} from '@/services/signups';
 import { addSlot } from '@/services/slots';
 
 const E2E_ORGANIZER_EMAIL = 'e2e@example.test';
@@ -61,6 +67,20 @@ export interface SeedData {
   swedish: SwedishSeed;
   /** Draft in Swedish for its Build tab: see makeSwedishBuildSignup. */
   swedishBuild: SwedishBuildSeed;
+  /** Closed and archived signups in Swedish: see makeSwedishClosedAndArchived. */
+  swedishClosed: SwedishClosedSeed;
+  swedishArchived: SwedishArchivedSeed;
+}
+
+/**
+ * A sign-up as the browser that made it remembers it: its entry in the
+ * returning-participant cookie (`os_commit`), which shows its person their
+ * own spots on the signup's page.
+ */
+export interface Remembered {
+  signupId: string;
+  commitmentId: string;
+  token: string;
 }
 
 /**
@@ -94,6 +114,8 @@ interface SwedishSeed {
   manyDate: string;
   /** The edit link and the unsubscribe link of the sign-up on `slots.many`, and who made it. */
   editPath: string;
+  /** That sign-up as its browser remembers it. */
+  remembered: Remembered;
   unsubscribePath: string;
   editName: string;
   editEmail: string;
@@ -107,6 +129,19 @@ interface SwedishSeed {
   optedOutEmail: string;
 }
 
+interface SwedishClosedSeed {
+  slug: string;
+  /** The sign-up still on it, as its browser remembers it, and its edit link. */
+  remembered: Remembered;
+  editPath: string;
+  /** The edit link of a sign-up cancelled before the signup closed. */
+  cancelledEditPath: string;
+}
+
+interface SwedishArchivedSeed {
+  slug: string;
+}
+
 /**
  * The Swedish Build-tab draft's groups, in Swedish alphabetical order, where
  * Å, Ä and Ö come after Z. English puts Äpple and Ödla among the A's and O's,
@@ -116,6 +151,8 @@ const SWEDISH_BUILD_GROUPS = ['Apa', 'Zebra', 'Äpple', 'Ödla'] as const;
 
 interface SwedishBuildSeed {
   id: string;
+  /** Its page's address: a draft's, which tells visitors it isn't ready. */
+  slug: string;
   /** The group field's values, in the order the Build tab sorts them. */
   groups: typeof SWEDISH_BUILD_GROUPS;
 }
@@ -213,6 +250,20 @@ async function makePublishedSignup(
   return { id: signup.id, slug: signup.slug, slotIds };
 }
 
+/**
+ * Writes Swedish into a signup's row. Swedish can't be chosen until it ships
+ * (`createSignup` refuses it), so the seed writes it after creating the
+ * signup. It hasn't shipped, so the signup shows in it only on a server
+ * started with `E2E_UNSHIPPED_LOCALES=sv`, which playwright.config.ts gives
+ * the server it starts (`signupLocale` in src/i18n/config.ts).
+ */
+async function writeSwedish(db: Db, signup: SignupRow): Promise<void> {
+  await db
+    .update(signups)
+    .set({ settings: { ...signup.settings, locale: 'sv' } })
+    .where(eq(signups.id, signup.id));
+}
+
 /** A day `days` from today, as a date field stores it (YYYY-MM-DD). */
 function dayFromNow(days: number): string {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -221,13 +272,8 @@ function dayFromNow(days: number): string {
 /**
  * A published signup whose language is Swedish, for the specs that check the
  * participant pages in a second language. Fields and slots are an organizer's
- * in Swedish, as a Swedish signup's would be.
- *
- * Swedish can't be chosen until it ships (`createSignup` refuses it), so the
- * language is written into the row afterwards. It hasn't shipped, so the
- * page shows it only on a server started with `E2E_UNSHIPPED_LOCALES=sv`,
- * which playwright.config.ts gives the server it starts (`signupLocale` in
- * src/i18n/config.ts).
+ * in Swedish, as a Swedish signup's would be. Swedish is written into the
+ * row afterwards (`writeSwedish`).
  */
 async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Promise<SwedishSeed> {
   const title = 'Fika till vårfesten';
@@ -276,10 +322,7 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
     ),
     `createSignup(${title})`,
   );
-  await db
-    .update(signups)
-    .set({ settings: { ...signup.settings, locale: 'sv' } })
-    .where(eq(signups.id, signup.id));
+  await writeSwedish(db, signup);
   unwrap(await publishSignup(db, actor, signup.id), `publishSignup(${title})`);
 
   const slotIds = new Map(
@@ -343,6 +386,7 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
     slots: SWEDISH_SLOTS,
     manyDate,
     editPath: commitmentEditPath(signup.slug, commitment.id, editToken),
+    remembered: { signupId: signup.id, commitmentId: commitment.id, token: editToken },
     unsubscribePath: unsubscribePath(
       signup.slug,
       commitment.participantId,
@@ -418,11 +462,124 @@ async function makeSwedishBuildSignup(
     ),
     'createSignup(Städdag i parken)',
   );
-  await db
-    .update(signups)
-    .set({ settings: { ...signup.settings, locale: 'sv' } })
-    .where(eq(signups.id, signup.id));
-  return { id: signup.id, groups: SWEDISH_BUILD_GROUPS };
+  await writeSwedish(db, signup);
+  return { id: signup.id, slug: signup.slug, groups: SWEDISH_BUILD_GROUPS };
+}
+
+/**
+ * Two more signups in Swedish, for the pages a signup shows once it has
+ * closed or been archived, which a translation's review reads from the
+ * screenshots the Swedish spec saves (`translationShot`). The closed one keeps
+ * one sign-up, whose own page and edit page say it's still theirs, and has
+ * one cancelled before it closed. Swedish is written into each row
+ * (`writeSwedish`).
+ */
+async function makeSwedishClosedAndArchived(
+  db: Db,
+  actor: Actor,
+  workspaceId: string,
+): Promise<{ closed: SwedishClosedSeed; archived: SwedishArchivedSeed }> {
+  const fields: SignupTemplate['fields'] = [
+    {
+      ref: 'vad',
+      label: 'Vad',
+      fieldType: 'text',
+      sortOrder: 0,
+      config: { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH },
+    },
+    {
+      ref: 'datum',
+      label: 'Datum',
+      fieldType: 'date',
+      sortOrder: 1,
+      config: { fieldType: 'date' },
+    },
+  ];
+  const make = async (title: string, slotValues: { vad: string; capacity: number }[]) => {
+    const signup = unwrap(
+      await createSignup(
+        db,
+        actor,
+        workspaceId,
+        {
+          title,
+          description: 'Seeded by tests/e2e/helpers/seed.ts',
+          tags: [],
+          visibility: 'unlisted' as const,
+          settings: { requireEmail: false },
+        },
+        {
+          template: {
+            id: 'e2e-swedish-states',
+            fields,
+            slots: slotValues.map(({ vad, capacity }) => ({
+              capacity,
+              values: { vad, datum: dayFromNow(20) },
+            })),
+          },
+        },
+      ),
+      `createSignup(${title})`,
+    );
+    await writeSwedish(db, signup);
+    unwrap(await publishSignup(db, actor, signup.id), `publishSignup(${title})`);
+    return signup;
+  };
+
+  const closedTitle = 'Loppis i aulan';
+  const closed = await make(closedTitle, [
+    { vad: 'Kaffe', capacity: 4 },
+    { vad: 'Tårta', capacity: 1 },
+  ]);
+  const kaffe = (
+    await db
+      .select({ id: slots.id, values: slots.values })
+      .from(slots)
+      .where(eq(slots.signupId, closed.id))
+  ).find((slot) => slot.values.vad === 'Kaffe');
+  const kept = unwrap(
+    await commitToSlot(db, kaffe!.id, {
+      name: 'Deltagare 1',
+      email: 'loppis1@example.test',
+      quantity: 1,
+    }),
+    'commitToSlot(Kaffe)',
+  );
+  const cancelled = unwrap(
+    await commitToSlot(db, kaffe!.id, {
+      name: 'Deltagare 2',
+      email: 'loppis2@example.test',
+      quantity: 1,
+    }),
+    'commitToSlot(Kaffe, cancelled)',
+  );
+  unwrap(
+    await cancelOwnCommitment(db, cancelled.commitment.id, cancelled.editToken),
+    'cancelOwnCommitment(Kaffe)',
+  );
+  unwrap(await closeSignup(db, actor, closed.id), `closeSignup(${closedTitle})`);
+
+  const archivedTitle = 'Vårkonsert';
+  const archived = await make(archivedTitle, [{ vad: 'Biljettbord', capacity: 2 }]);
+  unwrap(await archiveSignup(db, actor, archived.id), `archiveSignup(${archivedTitle})`);
+
+  return {
+    closed: {
+      slug: closed.slug,
+      remembered: {
+        signupId: closed.id,
+        commitmentId: kept.commitment.id,
+        token: kept.editToken,
+      },
+      editPath: commitmentEditPath(closed.slug, kept.commitment.id, kept.editToken),
+      cancelledEditPath: commitmentEditPath(
+        closed.slug,
+        cancelled.commitment.id,
+        cancelled.editToken,
+      ),
+    },
+    archived: { slug: archived.slug },
+  };
 }
 
 export async function seedE2E(): Promise<SeedData> {
@@ -505,6 +662,11 @@ export async function seedE2E(): Promise<SeedData> {
 
   const swedish = await makeSwedishSignup(db, actor, workspaceId);
   const swedishBuild = await makeSwedishBuildSignup(db, actor, workspaceId);
+  const { closed: swedishClosed, archived: swedishArchived } = await makeSwedishClosedAndArchived(
+    db,
+    actor,
+    workspaceId,
+  );
 
   // Draft signup for the organizer publish flow.
   const draft = unwrap(
@@ -539,6 +701,8 @@ export async function seedE2E(): Promise<SeedData> {
     optionalEmailSlotLabel: 'Park gate',
     swedish,
     swedishBuild,
+    swedishClosed,
+    swedishArchived,
   };
   writeFileSync(SEED_FILE, JSON.stringify(data, null, 2));
   return data;

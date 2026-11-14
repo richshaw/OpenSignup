@@ -36,6 +36,7 @@ pnpm test:watch
 pnpm test:db            # vitest against real Postgres (vitest.db.config.ts, fileParallelism:false)
 pnpm test:e2e           # playwright
 pnpm help:screenshots   # re-take help-page screenshots via their walkthroughs
+pnpm translation:screenshots # screenshots and email HTML for a translation's review (after pnpm build)
 pnpm format / pnpm format:check
 pnpm db:generate        # drizzle-kit: generate SQL migrations from schema/*.ts
 pnpm db:migrate         # apply migrations via tsx src/db/migrate.ts
@@ -135,6 +136,10 @@ Optional feature: organizers paste a description and get a draft signup. Provide
 
 Articles live in `src/help/articles/`, one `.tsx` body plus a `.ui.ts` list of the on-screen names it prints, registered in `src/help/articles.ts` (metadata, read by the sitemap) and `src/help/bodies.tsx`. Writing rules: `docs/writing-help.md`. Three things keep an article true: facts the code decides are imported (e.g. `REMINDER_LEAD_HOURS`), never typed; its walkthrough in `tests/e2e/help/` clicks through the steps by the same `UI` names, so renaming a control fails that spec; and `src/help/articles.test.tsx` checks the rendered text against the style rules. When you change a screen an article describes, update the article, its `UI` list and walkthrough, and re-run `pnpm help:screenshots` in the same change. To add or update a page, follow the `help-pages` skill (`.claude/skills/help-pages/SKILL.md`); its `scripts/affected-articles.mjs` lists the articles a change touches and `scripts/new-article.mjs` scaffolds and registers a new one.
 
+### Translations
+
+Participant text (a signup's pages, the sign-up sheet, the edit and unsubscribe pages, the participant emails) lives in ICU message catalogs, `src/messages/<language>.json`, with `en.json` the source; organizer text is still English. The guide is `docs/translating.md`: how the catalogs and namespaces work, how to write plurals, selects and tags, what the catalog check (`src/i18n/catalogs.test.ts`) catches and misses, when a language can be offered (`CATALOG_LOCALES` vs `SHIPPED` in `src/i18n/config.ts`), and the Swedish glossary. Translations are made and reviewed by machine: **change English text only in `en.json`, and in the same PR run the `translate` skill (`.claude/skills/translate/SKILL.md`) for each language in `SHIPPED`**, which translates the missing and stale messages and has a different model review them from `pnpm translation:screenshots`. After changing `en.json`, run `pnpm dev` or `pnpm build` once and commit the rewritten `src/messages/en.d.json.ts`.
+
 ### Env
 
 `src/lib/env.ts` parses `process.env` through Zod with `.superRefine` for conditional requirements (e.g. `RESEND_API_KEY` required when `EMAIL_TRANSPORT=resend`). Tests import the pure `parseEnv` function. `getEnv()` lazily parses once at runtime.
@@ -160,7 +165,7 @@ From `CONTRIBUTING.md` and the v1 plan:
 
 - `src/**/*.test.ts(x)` — unit, run by `pnpm test`.
 - `src/**/*.db.test.ts` — integration against real Postgres, run by `pnpm test:db` (sequential; needs `docker compose up -d` and migrations applied).
-- `tests/e2e/**` — Playwright smokes (`testDir` in `playwright.config.ts`), run by `pnpm test:e2e`. Needs Postgres up, migrations applied, and a production build (`pnpm build`) — the config starts `pnpm start` itself; locally an already-running `pnpm dev` on :3000 is reused instead. `tests/e2e/global-setup.ts` reseeds fixture data (organizer + session, published/draft signups, a commitment with edit token) into the database on every run and writes ids/tokens to the gitignored `tests/e2e/.seed.json`. Axe (WCAG A/AA) specs cover `/s/[slug]` and the commit dialog in `tests/e2e/a11y.spec.ts`. CI runs the chromium project in a dedicated job.
+- `tests/e2e/**` — Playwright smokes (`testDir` in `playwright.config.ts`), run by `pnpm test:e2e`. Needs Postgres up, migrations applied, and a production build (`pnpm build`) — the config starts `pnpm start` itself; locally an already-running `pnpm dev` on :3000 is reused instead. `tests/e2e/global-setup.ts` reseeds fixture data (organizer + session, published/draft signups, a commitment with edit token) into the database on every run and writes ids/tokens to the gitignored `tests/e2e/.seed.json`. Axe (WCAG A/AA) specs cover `/s/[slug]` and the commit dialog in `tests/e2e/a11y.spec.ts`. CI runs the chromium project in a dedicated job. The seed also makes Swedish signups, which show in Swedish (though Swedish hasn't shipped) only on a server started with `E2E_UNSHIPPED_LOCALES=sv`: the config gives it to the server it starts, and a reused `pnpm dev` needs it too (`E2E_UNSHIPPED_LOCALES=sv pnpm dev`), or the Swedish specs fail at their first check. With `TRANSLATION_SCREENSHOTS=1` (`pnpm translation:screenshots`), `tests/e2e/swedish-signup.spec.ts` saves a screenshot of each screen it checks, at desktop and phone width, and `src/email/templates/emails.test.tsx` writes each email's HTML and text (the text headed by its subject), all to the gitignored `translation-review/`; without it they write nothing.
 
 ## Recurring mistakes to avoid
 

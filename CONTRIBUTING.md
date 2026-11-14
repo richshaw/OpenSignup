@@ -40,6 +40,7 @@ Run `pnpm test` for unit tests, `pnpm test:db` for integration tests against the
 - UI changes should include a Playwright smoke or a screenshot.
 - If you add or change an `ACTIVITY_EVENTS` entry or its payload shape, update [`docs/telemetry.md`](docs/telemetry.md).
 - If you change a screen that a help page at `/help` describes, update the page, its walkthrough and its screenshots in the same PR. How to write help: [`docs/writing-help.md`](docs/writing-help.md).
+- Text people read on a signup's pages and in its emails comes from the message catalogs in `src/messages/`. Change English only in `en.json`, and update every language that has shipped in the same PR. [`docs/translating.md`](docs/translating.md) says how, and how to add a language. AI agents: follow the `translate` skill in `.claude/skills/`.
 
 ## Reporting security issues
 
