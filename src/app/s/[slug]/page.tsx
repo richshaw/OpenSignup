@@ -3,10 +3,9 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getOrganizerSession, toActor } from '@/auth/session';
-import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { getDb } from '@/db/client';
 import { openGraphLocale, signupLocale } from '@/i18n/config';
-import { instanceDefaultLocale } from '@/i18n/server';
+import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
 import { ServiceException } from '@/lib/errors';
 import { commitmentEditUrl } from '@/lib/links';
 import { COMMIT_COOKIE_NAME, parseReturningCommits } from '@/lib/returning-participant';
@@ -30,12 +29,18 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   // Private share links: keep these out of the search index. They stay
   // crawlable (not robots-disallowed) so the noindex directive is honored.
   const robots = { index: false, follow: false } as const;
-  if (!result.ok) return { title: 'Sign up', robots };
+  if (!result.ok) {
+    const t = getServerTranslator(await signupLocaleForSlug(slug), 'participant.signupPage');
+    return { title: t('title'), robots };
+  }
   const sig = result.value;
+  const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const t = getServerTranslator(locale, 'participant.signupPage');
   // Trimmed for a description saved as only spaces before the schema trimmed it.
   const text = sig.description.trim();
-  const description = text ? shortenToLimit(text, 200) : `Sign up via ${INSTANCE_NAME}`;
-  const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const description = text
+    ? shortenToLimit(text, 200)
+    : t('description', { instance: INSTANCE_NAME });
   return {
     title: sig.title,
     description,
@@ -55,8 +60,6 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
     },
   };
 }
-
-const DRAFT_TITLE = 'This signup isn’t ready yet';
 
 /**
  * The draft's id when the signed-in organizer is a member of its workspace,
@@ -82,35 +85,35 @@ export default async function PublicSignupPage({ params }: PageParams) {
   const result = await loadPublicSignup(slug);
   if (!result.ok) {
     const received = result.error.received;
-    if (received === 'draft') {
-      const draftId = await ownDraftId(slug);
-      if (draftId) {
-        // Its own organizer's note, in the page's language rather than the
-        // signup's: organizer text isn't translated yet.
+    if (received === 'draft' || received === 'archived') {
+      // From the row the read above cached, so it costs no statement.
+      const locale = await signupLocaleForSlug(slug);
+      const t = getServerTranslator(locale, 'participant.signupPage');
+      if (received === 'archived') {
         return (
           <SignupStateMessage
-            title={DRAFT_ONLY_YOU}
-            body={`People who open this link see “${DRAFT_TITLE}” until you publish it. Renaming the draft gives it a new link, so share it after you publish.`}
-            action={{ label: 'Open your draft', href: `/app/signups/${draftId}/build` }}
+            locale={locale}
+            title={t('archived.title')}
+            body={t('archived.body')}
           />
         );
       }
-      return (
-        <SignupStateMessage
-          locale={await signupLocaleForSlug(slug)}
-          title={DRAFT_TITLE}
-          body="The organizer hasn’t published it yet. This link will work once they do, so check back later."
-        />
-      );
-    }
-    if (received === 'archived') {
-      return (
-        <SignupStateMessage
-          locale={await signupLocaleForSlug(slug)}
-          title="This signup is no longer available"
-          body="The organizer has archived this signup. If you need to reach them, ask for a new link."
-        />
-      );
+      const draftId = await ownDraftId(slug);
+      if (draftId) {
+        // Its own organizer's note: organizer text, so English until the
+        // organizer app has other languages, and marked so. It quotes the
+        // title visitors see, in the signup's language.
+        const own = getServerTranslator('en', 'organizer.publicPage.ownDraft');
+        return (
+          <SignupStateMessage
+            locale="en"
+            title={own('title')}
+            body={own('body', { title: t('draft.title') })}
+            action={{ label: own('open'), href: `/app/signups/${draftId}/build` }}
+          />
+        );
+      }
+      return <SignupStateMessage locale={locale} title={t('draft.title')} body={t('draft.body')} />;
     }
     // Deleted and never-existed both land here, and ./not-found.tsx words
     // them the same, so the page never says which.

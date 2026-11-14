@@ -66,7 +66,10 @@ const merged = new Map<string, Catalog>();
  * A translator for `namespace` in `locale`. A message the language's catalog
  * lacks comes out in English rather than as its key path. `onError` hears of
  * anything still wrong: a key missing from English too, or a message that
- * can't be formatted.
+ * can't be formatted. In the web process it doesn't hear of an argument
+ * passed as `undefined`: the precompiled formatter prints "undefined" in its
+ * place and reports nothing. TypeScript requires every argument, so only a
+ * value that is `undefined` at runtime gets there.
  */
 export function getTranslator<N extends Namespace>(
   locale: CatalogLocale,
@@ -82,6 +85,13 @@ export function getTranslator<N extends Namespace>(
     timeZone: TIME_ZONE,
   });
 }
+
+/**
+ * What `getTranslator` returns for `namespace`, for a helper that takes a
+ * translator rather than making one. Import it with `import type`, which
+ * brings no catalog along, so a module a client file imports can take one.
+ */
+export type Translator<N extends Namespace> = ReturnType<typeof getTranslator<N>>;
 
 function messagesFor(locale: CatalogLocale, namespace: string): Catalog {
   const top = namespace.split('.')[0] ?? namespace;

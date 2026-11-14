@@ -24,6 +24,13 @@ const TRANSLATED = [
   'src/components/site-footer.tsx',
   'src/components/banner.tsx',
   'src/components/ui/BottomSheet.tsx',
+  // The public signup page's server-rendered text, file by file: the rest of
+  // the folder (the sign-up dialog, its fields, `c/` and `unsubscribe/`)
+  // isn't translated yet.
+  'src/app/s/[slug]/page.tsx',
+  'src/app/s/[slug]/signup-view.tsx',
+  'src/app/s/[slug]/state-message.tsx',
+  'src/app/s/[slug]/organizer-strip.tsx',
 ];
 
 /**
@@ -198,9 +205,12 @@ const noCatalogsInClient = {
 /**
  * Props whose value people read, or hear from a screen reader: the ones HTML
  * has, and the ones shared components take their text through (Banner's
- * `body`, BottomSheet's `eyebrow` and `description`). Any prop whose name ends
- * in `Label` counts too (`closeLabel`, `dismissLabel`, `ariaLabel`): that's
- * how a component takes the name of a control it draws.
+ * `body`, BottomSheet's `eyebrow` and `description`, the signup page's state
+ * message's `detail`). Any prop whose name ends in `Label` or `Title` counts
+ * too (`closeLabel`, `dismissLabel`, `ariaLabel`, the sign-up dialog's
+ * `slotTitle`): that's how a component takes the name of a control it draws,
+ * or of the thing it shows. So does one of these keys in an object passed as
+ * a prop, like the state message's `action={{ label, href }}`.
  */
 const TEXT_PROPS = new Set([
   'aria-label',
@@ -212,9 +222,18 @@ const TEXT_PROPS = new Set([
   'body',
   'eyebrow',
   'description',
+  'detail',
 ]);
 
-const isTextProp = (name) => TEXT_PROPS.has(name) || name.endsWith('Label');
+const isTextProp = (name) =>
+  TEXT_PROPS.has(name) || name.endsWith('Label') || name.endsWith('Title');
+
+/** A property's name, when it's written out (`label:` or `'label':`). */
+function propertyName(property) {
+  if (property.type !== 'Property' || property.computed) return null;
+  if (property.key.type === 'Identifier') return property.key.name;
+  return typeof property.key.value === 'string' ? property.key.value : null;
+}
 
 /** Whether a string has a letter in it: `alt=""` (an image to skip) and a lone `·` don't. */
 const hasLetters = (text) => /\p{L}/u.test(text);
@@ -239,11 +258,26 @@ function literalsIn(node) {
   }
 }
 
+/**
+ * The literals in an object passed as a prop, under its text keys
+ * (`action={{ label: '…', href }}`), each with the key's name as
+ * `action.label`.
+ */
+function literalsInObject(value, attribute) {
+  const object = value?.type === 'JSXExpressionContainer' ? value.expression : null;
+  if (object?.type !== 'ObjectExpression') return [];
+  return object.properties.flatMap((property) => {
+    const key = propertyName(property);
+    if (key === null || !isTextProp(key)) return [];
+    return literalsIn(property.value).map((literal) => ({ literal, prop: `${attribute}.${key}` }));
+  });
+}
+
 const noLiteralTextProps = {
   meta: {
     type: 'suggestion',
     docs: {
-      description: `Keep hard-coded text off the props people read: ${[...TEXT_PROPS].join(', ')}, and any whose name ends in Label.`,
+      description: `Keep hard-coded text off the props people read: ${[...TEXT_PROPS].join(', ')}, and any whose name ends in Label or Title.`,
     },
     schema: [],
     messages: {
@@ -254,9 +288,13 @@ const noLiteralTextProps = {
   create(context) {
     return {
       JSXAttribute(node) {
-        if (node.name.type !== 'JSXIdentifier' || !isTextProp(node.name.name)) return;
-        for (const literal of literalsIn(node.value)) {
-          context.report({ node: literal, messageId: 'literal', data: { prop: node.name.name } });
+        if (node.name.type !== 'JSXIdentifier') return;
+        const attribute = node.name.name;
+        const found = isTextProp(attribute)
+          ? literalsIn(node.value).map((literal) => ({ literal, prop: attribute }))
+          : literalsInObject(node.value, attribute);
+        for (const { literal, prop } of found) {
+          context.report({ node: literal, messageId: 'literal', data: { prop } });
         }
       },
     };
