@@ -94,7 +94,7 @@ test.describe('a Swedish signup’s Build tab', () => {
     // Named by its title, which says New field once the form opens.
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('button', { name: 'Add field' }).click();
-    await dialog.getByRole('button', { name: 'List' }).click();
+    await dialog.getByRole('button', { name: 'List', exact: true }).click();
     const saved = page.waitForResponse(
       (r) =>
         r.url().endsWith(`/api/signups/${seed.swedishBuild.id}/fields`) &&
