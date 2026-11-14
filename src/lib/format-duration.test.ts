@@ -44,3 +44,52 @@ describe('waitInMinutes', () => {
     expect(waitInMinutes(3412)).toBe('57 minutes');
   });
 });
+
+describe('formatDuration in other languages', () => {
+  it('writes English the same when it is asked for by name', () => {
+    for (const minutes of [0, 1, 30, 60, 90, 121, 1440, 1500, 2160]) {
+      expect(formatDuration(minutes, 'en')).toBe(formatDuration(minutes));
+    }
+  });
+
+  it('plurals English for 0, 1 and many of each unit', () => {
+    expect(formatDuration(0)).toBe('0 minutes');
+    expect(formatDuration(1)).toBe('1 minute');
+    expect(formatDuration(2)).toBe('2 minutes');
+    expect(formatDuration(60)).toBe('1 hour');
+    expect(formatDuration(600)).toBe('10 hours');
+    expect(formatDuration(1440)).toBe('1 day');
+    expect(formatDuration(30 * 1440)).toBe('30 days');
+  });
+
+  it('never groups digits, so a long English span reads as it always has', () => {
+    expect(formatDuration(1000 * 1440)).toBe('1000 days');
+  });
+
+  it('plurals Swedish for 0, 1 and many of each unit', () => {
+    expect(formatDuration(0, 'sv')).toBe('0 minuter');
+    expect(formatDuration(1, 'sv')).toBe('1 minut');
+    expect(formatDuration(30, 'sv')).toBe('30 minuter');
+    expect(formatDuration(60, 'sv')).toBe('1 timme');
+    expect(formatDuration(120, 'sv')).toBe('2 timmar');
+    // Swedish names a day as a span of time "dygn", the same in the singular and plural.
+    expect(formatDuration(1440, 'sv')).toBe('1 dygn');
+    expect(formatDuration(90 * 1440, 'sv')).toBe('90 dygn');
+  });
+
+  it('writes two Swedish units side by side, rounding down as English does', () => {
+    expect(formatDuration(90, 'sv')).toBe('1 timme 30 minuter');
+    expect(formatDuration(121, 'sv')).toBe('2 timmar 1 minut');
+    expect(formatDuration(2160, 'sv')).toBe('1 dygn 12 timmar');
+    expect(formatDuration(1470, 'sv')).toBe('1 dygn');
+  });
+});
+
+describe('waitInMinutes in other languages', () => {
+  it('writes the wait in Swedish, rounded up and never under one', () => {
+    expect(waitInMinutes(1, 'sv')).toBe('1 minut');
+    expect(waitInMinutes(61, 'sv')).toBe('2 minuter');
+    expect(waitInMinutes(3412, 'sv')).toBe('57 minuter');
+    expect(waitInMinutes(3412, 'en')).toBe('57 minutes');
+  });
+});

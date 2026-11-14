@@ -17,7 +17,16 @@ function countLabel(count: number | null): string {
  * organizer can see their answers went with it. It's the panel's first band,
  * the one the description has on every screen, with the answers under the quote.
  */
-export function DraftingFrom({ prompt, followUp }: { prompt: string; followUp: FollowUp }) {
+export function DraftingFrom({
+  prompt,
+  followUp,
+  locale,
+}: {
+  prompt: string;
+  followUp: FollowUp;
+  /** The organizer's language, for the day and times. */
+  locale: string;
+}) {
   const items = followUpItems(followUp);
   const { when, howMany } = followUp;
   const blanks = (items.length === 0 ? 1 : 0) + (when?.kind === 'not_decided' ? 1 : 0);
@@ -72,7 +81,7 @@ export function DraftingFrom({ prompt, followUp }: { prompt: string; followUp: F
               </Blank>
             ) : (
               <span className="text-[15px] leading-snug">
-                {when.kind === 'several' ? when.text : oneDay(when)}
+                {when.kind === 'several' ? when.text : oneDay(when, locale)}
               </span>
             )}
           </Row>
@@ -82,8 +91,8 @@ export function DraftingFrom({ prompt, followUp }: { prompt: string; followUp: F
   );
 }
 
-function oneDay(when: Parameters<typeof formatOneDay>[0]): string {
-  const { day, times } = formatOneDay(when);
+function oneDay(when: Parameters<typeof formatOneDay>[0], locale: string): string {
+  const { day, times } = formatOneDay(when, locale);
   return times ? `${day} · ${times}` : day;
 }
 
