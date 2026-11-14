@@ -122,7 +122,7 @@ uses `one`, `few`, `many` and `other`. `other` is always required. `=1` or
 
 ```json
 "onlyLeft": "Only {remaining, plural, one {{remaining, number, ::group-off} spot is} other {{remaining, number, ::group-off} spots are}} left, and you asked for {requested, number, ::group-off}."
-"onlyLeft": "Det finns bara {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}} kvar, och du bad om {requested, number}."
+"onlyLeft": "Det finns bara {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}} kvar, och du valde {requested, number}."
 ```
 
 A translation may move more of the sentence into the branches when its
@@ -131,7 +131,7 @@ with the number:
 
 ```json
 "keepsYours": "No one new can sign up, but your {count, plural, one {spot is} other {spots are}} still yours."
-"keepsYours": "Inga fler kan anmäla sig, men {count, plural, one {din plats är kvar} other {dina platser är kvar}}."
+"keepsYours": "Inga fler kan anmäla sig, men {count, plural, one {din anmälan finns kvar} other {dina anmälningar finns kvar}}."
 ```
 
 It may also add a plural where English needs none. English "N signed up"
@@ -174,6 +174,15 @@ and may move it:
 ```json
 "didYouMean": "Did you mean <suggestion>{email}</suggestion>?"
 "didYouMean": "Menade du <suggestion>{email}</suggestion>?"
+```
+
+A tag can also move into a plural's or a select's branches, when the
+sentence differs by branch. Swedish words the signed-up bar as a label for
+one sign-up and as a count for several, with its tags in each branch:
+
+```json
+"signedUp": "<b>You're signed up</b> for <slot>{count, plural, =1 {{name}} other {{count, number, ::group-off} slots}}</slot>."
+"signedUp": "{count, plural, =1 {<b>Du är anmäld:</b> <slot>{name}</slot>} other {<b>Du har</b> <slot>{count, number} anmälningar</slot>}}"
 ```
 
 Tags take no attributes, and a tag can't be added. The link that stops
@@ -220,10 +229,14 @@ language that capitalizes nouns, like German, would lose the capital: change
 
 A slot's name can end in a full stop of its own: a Swedish date such as
 "fre 4 dec." does. A message that ends a sentence right after the name then
-shows two ("Du är anmäld till Kaffe · fre 4 dec.."). Today that's
+shows two ("Du är anmäld till Kaffe · fre 4 dec.."). In English that's
 `participant.signupView.signedUp`, `participant.dialog.shareText`, and
-`savedNotEmailed` after `<b>{slot}</b>`. Where the language lets you, word the
-sentence so the name doesn't end it.
+`savedNotEmailed` after `<b>{slot}</b>`; English dates never end in a full
+stop, so English is fine. A language whose dates can should word the sentence
+so the name doesn't end it. Swedish does it three ways: a label and a colon
+("Du är anmäld: {name}"), the name moved inside the sentence ("Din anmälan
+till {slot} är sparad."), and a dash going on to the next clause ("Min
+anmälan till {slot} – med den här länken …").
 
 ## The checks
 
@@ -473,43 +486,53 @@ page's errors when cancelling, and copying the link.
 ## Swedish glossary
 
 These are the words the Swedish catalog uses. A change to one of them changes
-it everywhere it appears, in the same pull request. Where the catalog
-disagrees with itself today, the open questions below say so, for the full
-review of the Swedish translation (#639) to settle.
+it everywhere it appears, in the same pull request. The first full review of
+the Swedish translation (#639) settled the questions earlier passes left
+open; "Settled" below says what it chose and why, so a later pass doesn't
+undo it by accident.
 
 ### Terms
 
-| English                                      | Swedish                              | Notes                                                     |
-| -------------------------------------------- | ------------------------------------ | --------------------------------------------------------- |
-| signup (the list people sign up on)          | anmälningslista                      | "Den här anmälningslistan är inte klar ännu"              |
-| sign up (the button)                         | Anmäl dig                            | "Anmäl dig till {slot}"                                   |
-| signed up                                    | anmäld, anmälda                      | "Du är anmäld", "2 anmälda"                               |
-| a sign-up (the act); the page's tab title    | anmälan                              | "Anmälan", "Min anmälan till {slot}"                      |
-| slot                                         | pass (the same in the plural)        | Open question 3                                           |
-| spot                                         | plats, platser                       | Open question 1                                           |
-| the Spots box                                | Platser                              | "Antal platser" doesn't fit the 80-pixel box on the sheet |
-| organizer                                    | arrangör                             | "Kontakta arrangören"                                     |
-| participant                                  | deltagare                            | No participant message uses it yet; people are "du"       |
-| cancel (your spot)                           | avboka                               | "Avboka", "Ja, avboka", "Din plats är avbokad"            |
-| Cancel (close the sheet)                     | Avbryt                               |                                                           |
-| Keep                                         | Behåll                               | "Behåll", "Behåll dem"                                    |
-| Edit                                         | Ändra                                | "Ändra eller avboka"                                      |
-| Full (a slot)                                | Fullt                                | Agrees with _pass_                                        |
-| Closed                                       | Stängd (the signup), Stängt (a slot) | Open question 4                                           |
-| open: spots still free                       | ledig, ledigt                        | "vad som fortfarande är ledigt". Open question 2          |
-| open: a signup taking sign-ups               | öppen                                | No participant message says it yet                        |
-| email (the address, the box)                 | e-post                               | "E-post (valfritt)"                                       |
-| an email (a message); to email               | mejl; mejla                          | "bekräftelsemejl", "påminnelsemejl", "Vi mejlar dig"      |
-| reminder                                     | påminnelse                           | "Stäng av påminnelser", "Slå på påminnelserna igen"       |
-| Notes (optional)                             | Kommentar (valfritt)                 |                                                           |
-| (optional)                                   | (valfritt)                           |                                                           |
-| link                                         | länk                                 | "Spara din länk", "Kopiera länk"                          |
-| Save; Saved.                                 | Spara; Sparat.                       |                                                           |
-| Done                                         | Klar                                 | Open question 6                                           |
-| (no {label})                                 | ({label} saknas)                     | Open question 5                                           |
-| Untitled slot; Untitled (a field)            | Pass utan namn; Namnlös              | Open question 6                                           |
-| What, Date, Option 1 (a new signup's fields) | Vad, Datum, Alternativ 1             |                                                           |
-| Sorry                                        | Tyvärr                               | "Tyvärr, passet blev precis fullt."                       |
+| English                                                      | Swedish                       | Notes                                                                                    |
+| ------------------------------------------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------- |
+| signup (the list people sign up on)                          | anmälningslista               | "Den här anmälningslistan är inte klar ännu". No short form ("listan")                   |
+| sign up (the button)                                         | Anmäl dig                     | "Anmäl dig till {slot}"                                                                  |
+| signed up                                                    | anmäld, anmälda               | "Du är anmäld", "2 anmälda"                                                              |
+| your spot, your sign-up (the one you made)                   | din anmälan, dina anmälningar | "Visa eller ändra din anmälan", "Din anmälan är avbokad". Never _din plats_              |
+| Sign up (the tab title of a signup page that can't be shown) | Anmälan                       |                                                                                          |
+| slot                                                         | pass (the same in the plural) | Only where the sentence needs the noun: "det här passet", "Pass utan namn"               |
+| spot, spots (a number of them)                               | plats, platser                | "1 plats", "19 av 20 platser kvar", "Behåll den plats du har"                            |
+| the Spots box                                                | Platser                       | "Antal platser" doesn't fit the 80-pixel box on the sheet                                |
+| Spots, in an email                                           | Antal platser                 | "Antal platser: 2", which can't be read as an organizer's "Plats:" field                 |
+| organizer                                                    | arrangör                      | "Kontakta arrangören"                                                                    |
+| participant                                                  | deltagare                     | No participant message uses it yet; people are "du"                                      |
+| cancel (your spot)                                           | avboka                        | "Avboka", "Ja, avboka", "Din anmälan är avbokad"                                         |
+| Cancel (close the sheet)                                     | Avbryt                        |                                                                                          |
+| Keep                                                         | Behåll                        | "Behåll", "Behåll dem"                                                                   |
+| Edit                                                         | Ändra                         | "Ändra eller avboka"                                                                     |
+| Full (a slot)                                                | Fullt                         | Agrees with _pass_; "Tyvärr, det blev precis fullt."                                     |
+| Closed (a slot's row)                                        | Stängt                        | Agrees with _pass_, and reads as a sign                                                  |
+| Closed (the signup page's banner)                            | Anmälan är stängd             | The usual phrase                                                                         |
+| Closed (the edit page's banner)                              | Stängt för nya anmälningar    | The signup or the slot closed; the participant's own sign-up still works                 |
+| open: spots still free                                       | ledig, ledigt                 | "vad som fortfarande är ledigt"                                                          |
+| open: a signup taking sign-ups                               | öppen                         | No participant message says it yet                                                       |
+| ask for (a number of spots)                                  | välja                         | "Välj 5 eller färre", "du valde 6"                                                       |
+| email (the address, the box)                                 | e-post                        | "E-post (valfritt)"                                                                      |
+| an email (a message); to email                               | mejl; mejla                   | "bekräftelsemejl", "påminnelsemejl", "Vi mejlar dig"                                     |
+| reminder                                                     | påminnelse                    | "Stäng av påminnelser om {title}", "Slå på påminnelserna igen"                           |
+| a new date or time (the change emails)                       | ny tid; Tiden har ändrats     | Subject "Ny tid: {title}"; "har flyttat din anmälan till ett nytt datum eller en ny tid" |
+| Notes (optional)                                             | Kommentar (valfritt)          |                                                                                          |
+| (optional)                                                   | (valfritt)                    |                                                                                          |
+| link                                                         | länk                          | "Spara din länk", "Kopiera länk"                                                         |
+| Add to calendar                                              | Lägg till i kalendern         | The definite form, as Swedish says it                                                    |
+| Save; Saved.                                                 | Spara; Sparat.                |                                                                                          |
+| Done                                                         | Klart                         |                                                                                          |
+| (no {label})                                                 | (utan {label})                | "(utan datum)"                                                                           |
+| Untitled slot; Untitled (a field)                            | Pass utan namn; Namnlös       |                                                                                          |
+| What, Date, Option 1 (a new signup's fields)                 | Vad, Datum, Alternativ 1      |                                                                                          |
+| Sorry                                                        | Tyvärr                        | "Tyvärr, den här länken fungerar inte"                                                   |
+| Privacy (the footer link)                                    | Integritetspolicy             |                                                                                          |
+| Keep this email to yourself                                  | Dela inte mejlet med någon    | Or "vidarebefordra inte mejlet", as the confirmation says it                             |
 
 ### Style
 
@@ -518,44 +541,60 @@ review of the Swedish translation (#639) to settle.
   igen."
 - **Dates and times.** The app formats them, not the catalog: "lör 3 maj",
   "lör 5 sep." (`Intl` puts a full stop after an abbreviated month, and none
-  after a short one like _maj_), and "18:30" on the 24-hour clock.
+  after a short one like _maj_), and "18:30" on the 24-hour clock. So never
+  end a sentence on a slot's name (see "A name at the end of a sentence").
 - **Numbers.** `{n, number}`, so "1 234" with a no-break space.
 - **Punctuation.** A spaced en dash (–) inside a sentence, where English has
   an em dash. An ellipsis is one character: "Sparar…".
-- **Buttons named in a sentence** are written as on screen, today without
-  quotation marks: "Tryck på Bekräfta igen."
+- **Buttons named in a sentence** are written as on screen, without quotation
+  marks, when the name is one word: "Tryck på Bekräfta igen." When a longer
+  name would run into the sentence around it, word the sentence around the
+  action instead: "Lägger du till anmälan i kalendern, sparas länken där
+  också." rather than "Knappen Lägg till i kalender sparar också länken."
+- **A button in an email** is "knappen ovan" with _använd_, not _tryck på_,
+  since an email is read on a computer as often as on a phone.
+- **Leave out _pass_ where the sentence can do without it.** Most signups are
+  shifts, where _pass_ fits, but many are things to bring, where "ditt pass"
+  for a cake reads oddly. "Välj något annat.", "Det har blivit fullt sedan du
+  avbokade.", "en påminnelse innan det är dags", "Du har 3 anmälningar".
 
-### Open questions for the review (#639)
+### Settled in the first full review (#639)
 
-1. **The participant's own sign-up: _din plats_ or _din anmälan_?** The catalog
-   uses both. The edit page's title, the cancelled page and the emails say
-   _din plats_ ("Visa eller ändra din plats"); the sheet and the row say
-   _din anmälan_ ("Vi har sparat din anmälan till …", "Ändra din anmälan till
-   …"). _Plats_ is also the word organizers most often give a location field,
-   so an email can show "Plats: Aulan" just above "Visa eller ändra din
-   plats", which reads as "your location". _Din anmälan_ avoids that.
-2. **Can a spot be "open"?** #638 defines _open_ as a signup people can sign
-   up on now, but participant text also calls free spots open ("Reload the
-   page to see what's still open"), and so do two help pages. Swedish keeps
-   them apart: _ledig_ for a free spot, _öppen_ for a signup taking sign-ups.
-   Keep that split whatever English settles on.
-3. **_Pass_ for a slot.** It fits shifts, but reads oddly for things to bring:
-   "Välj ett annat pass" and "Ditt pass har ändrats" on a fika list. Where a
-   sentence can do without the noun, it may read better ("Tyvärr, det blev
-   precis fullt."). The emails' "Ditt pass har ändrats" could become "Tiden
-   har ändrats", since the change is always a new date or time.
-4. **_Stängd_ or _Stängt_.** The signup page's banner says "Stängd", agreeing
-   with _anmälningslista_. The edit page's banner says "Stängt", neuter as on
-   a sign, because it can mean the signup or the slot. "Anmälan är stängd" is
-   the usual phrase for the first.
-5. **"({label} saknas)" or "(utan {label})".** As a heading, "(datum saknas)"
-   reads like an error; "(utan datum)" reads as a group.
-6. **Smaller wording.** "Klar" or "Klart"; "Be om" and "du bad om" or "Välj"
-   and "du valde"; "Namnlös" or "Utan namn"; "Behåll mejlet för dig själv"
-   (a calque) or "Vidarebefordra inte mejlet"; "Tryck på knappen ovan"
-   (touch only) or "Använd knappen ovan"; "Antal platser" in emails, which
-   have room for it; quoting a button's name (Knappen ”Lägg till i kalender”).
-7. **Layout.** The unsubscribe page's Swedish buttons wrap at 390 pixels.
+1. **_Din anmälan_, not _din plats_, for the participant's own sign-up.**
+   _Plats_ is also the word organizers most often give a location field, so an
+   email showed "Plats: Aulan" above "Visa eller ändra din plats", which reads
+   as "your location". _Plats_ stays for a number of spots, where it can't be
+   read that way.
+2. **A spot isn't "open".** Free spots are _ledig_, a signup taking sign-ups is
+   _öppen_, whatever English settles on.
+3. **_Pass_ stays the word for a slot**, used only where the sentence needs
+   the noun (Style, above). The change emails say "Tiden har ändrats", since
+   they're only sent for a new date or time.
+4. **Closed.** The row says "Stängt"; the signup page's banner says "Anmälan
+   är stängd", the usual phrase; the edit page's banner says "Stängt för nya
+   anmälningar", since under the heading "Din anmälan" a bare "Anmälan är
+   stängd" could read as the participant's own sign-up being closed. "Stängd"
+   on its own isn't used.
+5. **"(utan {label})"**, since as a heading "(datum saknas)" read like an
+   error, and "(utan datum)" reads as a group.
+6. **Smaller wording.** "Klart" on the Done button. "Välj" and "du valde" for
+   the number of spots, rather than the literal "Be om" and "du bad om".
+   "Namnlös" for an untitled field: the usual word for "Untitled" in Swedish
+   software, one word, and short enough for a column heading. "Dela inte
+   mejlet med någon" rather than the calque "Behåll mejlet för dig själv".
+   "Antal platser" in emails.
+7. **No no-break hyphens.** "e-post" and "e-postadress" may break after their
+   hyphen at a phone's width. That's ordinary Swedish line breaking, and a
+   no-break hyphen (U+2011) is missing from some fonts and can be read out
+   oddly.
+8. **"Du är anmäld som {name}"** on the edit page, where English says "You're
+   editing this as {name}". It says what the line is for, whose sign-up this
+   is, in the words Swedish uses for it; a literal "Du redigerar det här
+   som" would read as English in disguise.
+9. **Layout.** The unsubscribe page's buttons are "Stäng av dem" and "Behåll
+   dem", which fit side by side at 390 pixels.
 
-These come from the term tables in #914 and #916 and the reviews of #914,
-#916, #920 and #921, which have more detail on each.
+### Open questions
+
+None at the moment. A matter of taste a review raises and the translator
+doesn't take goes here, so the next pass sees it.

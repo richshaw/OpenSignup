@@ -110,7 +110,7 @@ describe('participantErrorCopy', () => {
       errorCopyText(participantErrorCopy({ code: 'internal' }, context, sv));
     expect(swedish('join')).toBe('Något gick fel, så du är inte anmäld än. Försök igen.');
     expect(swedish('save')).toBe('Något gick fel, så dina ändringar sparades inte. Försök igen.');
-    expect(swedish('cancel')).toBe('Något gick fel, så din plats avbokades inte. Försök igen.');
+    expect(swedish('cancel')).toBe('Något gick fel, så din anmälan avbokades inte. Försök igen.');
   });
 
   // Every code the two endpoints send, with the server's words in it.

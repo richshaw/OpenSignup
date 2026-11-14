@@ -134,9 +134,9 @@ export const emailSamples: readonly EmailSample[] = [
     }),
     expect: [
       'Tack Dana, du har anmält dig till',
-      'Platser:',
+      'Antal platser:',
       'Din kommentar:',
-      'Visa eller ändra din plats',
+      'Visa eller ändra din anmälan',
       'Vi skickar också en påminnelse dagen innan.',
     ],
     lang: 'sv',
@@ -171,7 +171,11 @@ export const emailSamples: readonly EmailSample[] = [
       slotSummary: `${sunday} · Frukt`,
       changed: true,
     }),
-    expect: ['sön 6 sep.', 'arrangören har ändrat ditt pass i', 'Här är de nya uppgifterna.'],
+    expect: [
+      'sön 6 sep.',
+      'har flyttat din anmälan till en ny tid sedan vi mejlade dig senast',
+      'Här är de nya uppgifterna.',
+    ],
     lang: 'sv',
   },
   {
@@ -188,7 +192,7 @@ export const emailSamples: readonly EmailSample[] = [
     }),
     expect: [
       'sön 6 sep.',
-      'har flyttat ditt pass till ett nytt datum eller en ny tid',
+      'har flyttat din anmälan till ett nytt datum eller en ny tid',
       'Stäng av påminnelser och uppdateringar om Lördagsfika',
     ],
     lang: 'sv',

@@ -1,8 +1,15 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
+import { getTranslator } from '@/i18n/translator';
 import { loadSeed } from './helpers/fixtures';
-import { gotoSwedish } from './helpers/swedish';
+import { gotoSwedish, remember } from './helpers/swedish';
 
 const seed = loadSeed();
+/** The Swedish row labels, from the catalog. Throws on a missing key. */
+const swedish = getTranslator('sv', 'participant.signupView', {
+  onError: (error) => {
+    throw error;
+  },
+});
 
 const PHONE = { width: 390, height: 844 };
 const NARROW = { width: 320, height: 568 };
@@ -29,12 +36,17 @@ const DESKTOP = { width: 1280, height: 800 };
  *
  * `sheet` is a slot with room for more than one person, so its sheet asks how
  * many spots, and with email optional, so it shows every field the sheet has.
+ * `shows` are the labels a signup's rows must include, so a change to the seed
+ * can't quietly stop a label being measured: the open Swedish signup has no
+ * closed slot and no sign-up of the browser's own, so the closed one, with a
+ * sign-up the browser remembers, is here for Stängt and Ändra.
  */
 const SIGNUPS = [
   {
     name: 'in English',
     path: `/s/${seed.publicSlug}`,
     labels: { full: 'Full', closed: 'Closed' },
+    shows: [] as string[],
     goto: (page: Page, path: string) => page.goto(path),
     sheet: {
       path: `/s/${seed.optionalEmailSlug}`,
@@ -45,13 +57,25 @@ const SIGNUPS = [
   {
     name: 'in Swedish',
     path: `/s/${seed.swedish.slug}`,
-    labels: { full: 'Fullt', closed: 'Stängt' },
+    labels: { full: swedish('full'), closed: swedish('closed') },
+    shows: [swedish('full')],
     goto: gotoSwedish,
     sheet: {
       path: `/s/${seed.swedish.slug}`,
       slot: seed.swedish.slots.many,
       signUp: /^Anmäl dig till /,
     },
+  },
+  {
+    name: 'in Swedish, closed, with your own sign-up',
+    path: `/s/${seed.swedishClosed.slug}`,
+    labels: { full: swedish('full'), closed: swedish('closed') },
+    shows: [swedish('closed'), swedish('edit')],
+    goto: async (page: Page, path: string) => {
+      await remember(page.context(), seed.swedishClosed.remembered);
+      await gotoSwedish(page, path);
+    },
+    sheet: null,
   },
 ];
 
@@ -78,7 +102,7 @@ async function expectOneLine(target: Locator, where: string): Promise<void> {
   });
 }
 
-for (const { name, path, labels, goto, sheet } of SIGNUPS) {
+for (const { name, path, labels, shows, goto, sheet } of SIGNUPS) {
   const ACTIONS = `button, a[href*="/c/"], span:text-is("${labels.full}"), span:text-is("${labels.closed}")`;
 
   test.describe(`slot row layout ${name}`, () => {
@@ -132,7 +156,11 @@ for (const { name, path, labels, goto, sheet } of SIGNUPS) {
       for (const viewport of [NARROW, PHONE, DESKTOP]) {
         await page.setViewportSize(viewport);
         await goto(page, path);
-        for (const action of await page.locator('ul li').locator(ACTIONS).all()) {
+        const actions = page.locator('ul li').locator(ACTIONS);
+        for (const label of shows) {
+          await expect(actions.filter({ hasText: label }).first()).toBeVisible();
+        }
+        for (const action of await actions.all()) {
           await expectOneLine(action, `at ${viewport.width}px`);
         }
       }
@@ -141,6 +169,8 @@ for (const { name, path, labels, goto, sheet } of SIGNUPS) {
     // The Spots box is 80px wide, so a longer label wraps there and pushes its
     // input below the Notes input beside it.
     test('the sign-up sheet’s field labels fit on one line, down to 320px', async ({ page }) => {
+      test.skip(!sheet, 'a closed signup has no sign-up sheet');
+      if (!sheet) return;
       for (const viewport of [NARROW, PHONE, DESKTOP]) {
         await page.setViewportSize(viewport);
         await goto(page, sheet.path);

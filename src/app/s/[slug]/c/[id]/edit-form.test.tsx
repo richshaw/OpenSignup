@@ -624,7 +624,9 @@ describe('<EditForm /> refusals', () => {
     renderForm(4, 2, SwedishMessages);
     fireEvent.click(screen.getByRole('button', { name: 'Spara' }));
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(`Ange ett helt antal platser, från 1 till ${QUANTITY_MAX}.`);
+    expect(alert).toHaveTextContent(
+      `Ange antalet platser som ett heltal från 1 till ${QUANTITY_MAX}.`,
+    );
     expect(alert).not.toHaveTextContent(SERVER_WORDS);
   });
 });
@@ -736,7 +738,7 @@ describe('<EditForm /> words', () => {
     expect(
       await screen.findByText('Du kan ha upp till 1 plats på det här passet.'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('Behåll din plats.');
+    expect(screen.getByRole('alert')).toHaveTextContent('Behåll den plats du har.');
   });
 
   // The line can't show fewer than the spots held, so never 0, but the

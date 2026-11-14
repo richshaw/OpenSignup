@@ -298,7 +298,7 @@ describe('notifyCommitmentCreated (db)', () => {
       // The body, from the heading to the last line; the slot's labels are
       // the organizer's own.
       expect(flat(mail.text)).toContain(
-        'DU ÄR ANMÄLD Tack Dana Participant, du har anmält dig till Vårloppis. Day: lör 2 maj Start: 13:00 Role: Front desk Visa eller ändra din plats',
+        'DU ÄR ANMÄLD Tack Dana Participant, du har anmält dig till Vårloppis. Day: lör 2 maj Start: 13:00 Role: Front desk Visa eller ändra din anmälan',
       );
       expect(flat(mail.text)).toContain('Spara det här mejlet.');
       // The preview text inboxes show after the subject is the subject.
