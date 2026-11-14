@@ -32,6 +32,11 @@ const TRANSLATED_FILES = [
   'src/app/s/[slug]/c/[id]/edit-form.tsx',
   'src/app/s/[slug]/c/[id]/not-found.tsx',
   'src/app/s/[slug]/unsubscribe/page.tsx',
+  'src/email/templates/commitment-confirmation.tsx',
+  'src/email/templates/reminder.tsx',
+  'src/email/templates/slot-changed.tsx',
+  'src/email/templates/layout.tsx',
+  'src/email/templates/slot-details.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
@@ -119,6 +124,7 @@ const TEXT_PROPS = [
   'slotName',
   'slotContext',
   'error',
+  'preview',
   'closeLabel',
   'dismissLabel',
   'ariaLabel',
@@ -238,6 +244,22 @@ describe('where the rules apply', () => {
       await lint('<p>Sign up</p><button aria-label="Close" />', 'src/app/s/[slug]/c/[id]/new.tsx'),
     ).toHaveLength(2);
     expect(await lint('<p>Sign up</p>', 'src/app/s/[slug]/unsubscribe/page.test.tsx')).toEqual([]);
+  });
+
+  // The emails' folder is listed whole, so a participant email added later is
+  // checked from the start. The sign-in email in it is organizer text, still
+  // in English, and the folder's tests are left out.
+  it('are on for a new email, and off for the sign-in email and the emails’ tests', async () => {
+    const text = '<p>Sign up</p><button aria-label="Close" />';
+    expect(await lint(text, 'src/email/templates/cancelled.tsx')).toHaveLength(2);
+    expect(await lint(text, 'src/email/templates/magic-link.tsx')).toEqual([]);
+    expect(await lint(text, 'src/email/templates/unsubscribe-footer.test.tsx')).toEqual([]);
+  });
+
+  it('read an email’s preview text as text', async () => {
+    expect(await lint('<EmailLayout preview="Signed up" />')).toEqual([
+      "opensignup/no-literal-text-props: preview is text people read or hear, so it comes from the message catalog: pass t('…'), not a string.",
+    ]);
   });
 
   // A test's English fixtures are what it checks. A file listed on its own

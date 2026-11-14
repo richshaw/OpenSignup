@@ -28,7 +28,17 @@ const TRANSLATED = [
   // sign-up sheet, the pages for changing or cancelling a spot and for
   // turning reminders off, both not-found pages, and the copy helpers.
   'src/app/s/[slug]',
+  // The emails a participant gets, the pieces they share, and any email
+  // added here later, but the sign-in email (`NOT_YET_TRANSLATED`).
+  'src/email/templates',
 ];
+
+/**
+ * Files inside a `TRANSLATED` folder whose text hasn't moved yet, left out of
+ * the rules until it does, written as in `TRANSLATED`. The sign-in email is
+ * organizer text, which moves to the catalogs after the participant's.
+ */
+const NOT_YET_TRANSLATED = ['src/email/templates/magic-link.tsx'];
 
 /**
  * Glob patterns for `files` that match exactly `paths`, each a file or a
@@ -208,7 +218,8 @@ const noCatalogsInClient = {
  * has, and the ones shared components take their text through (Banner's
  * `body`, BottomSheet's `eyebrow` and `description`, the signup page's state
  * message's `detail`, the sign-up dialog's `actionName`, `slotName` and
- * `slotContext`, the unsubscribe page's `error`). Any prop whose name ends in
+ * `slotContext`, the unsubscribe page's `error`, the email layout's `preview`,
+ * the line an inbox shows after the subject). Any prop whose name ends in
  * `Label` or `Title` counts too (`closeLabel`, `dismissLabel`, `ariaLabel`,
  * the sign-up dialog's `slotTitle`): that's how a component takes the name of
  * a control it draws, or of the thing it shows. So does one of these keys in
@@ -229,6 +240,7 @@ const TEXT_PROPS = new Set([
   'slotName',
   'slotContext',
   'error',
+  'preview',
 ]);
 
 const isTextProp = (name) =>
@@ -390,7 +402,7 @@ const config = [
     // also flag every className and href, so the props have a rule of their own.
     // Tests are left out: their English fixtures are what they check.
     files: filesAt(TRANSLATED),
-    ignores: ['**/*.test.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', ...filesAt(NOT_YET_TRANSLATED)],
     rules: {
       'react/jsx-no-literals': ['error', { noStrings: true, ignoreProps: true }],
       'opensignup/no-literal-text-props': 'error',

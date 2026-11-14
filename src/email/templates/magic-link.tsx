@@ -26,7 +26,8 @@ export function MagicLinkEmail({
   code,
 }: MagicLinkEmailProps) {
   return (
-    <EmailLayout preview={`Sign in to OpenSignup as ${email}`}>
+    // Organizer text, in English until it moves to the catalogs.
+    <EmailLayout locale="en" preview={`Sign in to OpenSignup as ${email}`}>
       <EmailHeading>Sign in to OpenSignup</EmailHeading>
       <EmailIntro>
         Click the button below to sign in as <strong>{email}</strong>. This link will expire in{' '}

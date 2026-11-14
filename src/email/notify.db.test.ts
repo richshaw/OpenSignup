@@ -219,7 +219,7 @@ describe('notifyCommitmentCreated (db)', () => {
     ).resolves.toBeUndefined();
   });
 
-  describe('the subject and the slot, in the signup’s language', () => {
+  describe('the email, in the signup’s language', () => {
     const template: SignupTemplate = {
       id: 'confirmation-language',
       fields: [
@@ -275,28 +275,43 @@ describe('notifyCommitmentCreated (db)', () => {
       }
     }
 
-    it('are English, as always, for a signup with no language of its own', async () => {
+    /** The email's plain text with its 80-column wrapping undone. */
+    const flat = (text: string) => text.replace(/\s+/g, ' ');
+
+    it('is English, as always, for a signup with no language of its own', async () => {
       const mail = await confirmation('Spring fair');
       expect(mail.subject).toBe(
         "You're signed up: Spring fair · Sat, May 2 · 1:00\u00a0PM · Front desk",
       );
-      expect(mail.text).toContain('Sat, May 2');
+      expect(mail.html).toMatch(/<html[^>]* lang="en"/);
+      expect(flat(mail.text)).toContain(
+        'Thanks Dana Participant, you signed up for Spring fair. Day: Sat, May 2',
+      );
+      expect(flat(mail.text)).toContain('Keep this email. The button above is how you change');
     });
 
-    it('are Swedish for a Swedish signup', async () => {
+    it('is Swedish for a Swedish signup', async () => {
       ship('participant', ['en', 'sv']);
       const mail = await confirmation('Vårloppis', { settings: { locale: 'sv' } });
       expect(mail.subject).toBe('Du är anmäld: Vårloppis · lör 2 maj · 13:00 · Front desk');
-      expect(mail.text).toContain('lör 2 maj');
+      expect(mail.html).toMatch(/<html[^>]* lang="sv"/);
+      // The body, from the heading to the last line; the slot's labels are
+      // the organizer's own.
+      expect(flat(mail.text)).toContain(
+        'DU ÄR ANMÄLD Tack Dana Participant, du har anmält dig till Vårloppis. Day: lör 2 maj Start: 13:00 Role: Front desk Visa eller ändra din plats',
+      );
+      expect(flat(mail.text)).toContain('Spara det här mejlet.');
       // The preview text inboxes show after the subject is the subject.
       expect(mail.html).toContain(`>${mail.subject}<`);
     });
 
-    it('stay English while the signup’s language has not shipped', async () => {
+    it('stays English while the signup’s language has not shipped', async () => {
       const mail = await confirmation('Loppis', { stored: { locale: 'sv' } });
       expect(mail.subject).toBe(
         "You're signed up: Loppis · Sat, May 2 · 1:00\u00a0PM · Front desk",
       );
+      expect(mail.html).toMatch(/<html[^>]* lang="en"/);
+      expect(flat(mail.text)).toContain('Thanks Dana Participant, you signed up for Loppis.');
     });
   });
 
