@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CatalogLocale } from '@/i18n/config';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { getPrecompiledTranslator } from '@/i18n/testing/precompiled';
 import { getTestTranslator } from '@/i18n/testing/translator';
 import { getTranslator, type Translator } from '@/i18n/translator';
@@ -86,10 +86,16 @@ describe('email subjects from the precompiled catalogs', () => {
       ]),
     );
 
-  it.each<[CatalogLocale, Translator<'email.subject'>]>([
-    ['en', en],
-    ['sv', sv],
-  ])('are the ones the raw %s catalog gives', async (locale, raw) => {
+  it.each<[CatalogLocale, Translator<'email.subject'>]>(
+    CATALOG_LOCALES.map((locale) => [
+      locale,
+      getTranslator(locale, 'email.subject', {
+        onError: (error) => {
+          throw error;
+        },
+      }),
+    ]),
+  )('are the ones the raw %s catalog gives', async (locale, raw) => {
     const precompiled = await getPrecompiledTranslator(locale, 'email.subject');
     expect(each(precompiled)).toEqual(each(raw));
   });

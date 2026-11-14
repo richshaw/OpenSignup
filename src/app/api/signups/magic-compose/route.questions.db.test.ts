@@ -8,6 +8,7 @@ import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
+import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { getEnv, resetEnvCache } from '@/lib/env';
 import { makeId } from '@/lib/ids';
@@ -548,27 +549,27 @@ describe('POST /api/signups/magic-compose: the fallback language on every call (
   const writesIn = (name: string) =>
     `too short or too mixed to tell (a few names and dates), write in ${name}.`;
 
-  // Swedish shipped, for an organizer who saved it, so English can only come from a call
+  // Another language shipped, for an organizer who saved it, so English can only come from a call
   // that wasn't told the organizer's language.
   beforeEach(() => {
-    ship('participant', ['en', 'sv']);
-    session.locale = 'sv';
+    ship('participant', ['en', OTHER_LOCALE]);
+    session.locale = OTHER_LOCALE;
   });
 
   it('tells the first call and its retry', async () => {
     llm.replies = [ok(CANT_ASK), ok(DRAFT)];
     expect((await compose({ prompt: 'Bake sale' })).status).toBe(200);
     expect(llm.calls).toHaveLength(2);
-    expect(system(0)).toContain(writesIn('Swedish'));
-    expect(system(1)).toContain(writesIn('Swedish'));
+    expect(system(0)).toContain(writesIn(OTHER_LANGUAGE));
+    expect(system(1)).toContain(writesIn(OTHER_LANGUAGE));
   });
 
   it('tells a follow-up and its retry', async () => {
     llm.replies = [ok(QUESTIONS), ok(DRAFT)];
     expect((await compose({ prompt: 'Bake sale', followUp: ANSWERS })).status).toBe(200);
     expect(llm.calls).toHaveLength(2);
-    expect(system(0)).toContain(writesIn('Swedish'));
-    expect(system(1)).toContain(writesIn('Swedish'));
+    expect(system(0)).toContain(writesIn(OTHER_LANGUAGE));
+    expect(system(1)).toContain(writesIn(OTHER_LANGUAGE));
   });
 });
 

@@ -8,6 +8,7 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -364,30 +365,30 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
   });
 
   it('tells the model English while only English has shipped, whatever the organizer saved or their browser asks for', async () => {
-    route.locale = 'sv';
-    const { system } = await compose('sv');
+    route.locale = OTHER_LOCALE;
+    const { system } = await compose(OTHER_LOCALE);
     expect(system).toContain(writesIn('English'));
   });
 
-  describe('once Swedish has shipped to participants', () => {
+  describe(`once ${OTHER_LANGUAGE} has shipped to participants`, () => {
     beforeEach(() => {
-      ship('participant', ['en', 'sv']);
+      ship('participant', ['en', OTHER_LOCALE]);
     });
 
     it.each([
-      { step: 'setting', locale: 'sv', instanceDefault: 'en', acceptLanguage: 'en' },
-      { step: 'instance', locale: null, instanceDefault: 'sv', acceptLanguage: 'en' },
-      { step: 'browser', locale: null, instanceDefault: undefined, acceptLanguage: 'sv' },
+      { step: 'setting', locale: OTHER_LOCALE, instanceDefault: 'en', acceptLanguage: 'en' },
+      { step: 'instance', locale: null, instanceDefault: OTHER_LOCALE, acceptLanguage: 'en' },
+      { step: 'browser', locale: null, instanceDefault: undefined, acceptLanguage: OTHER_LOCALE },
     ])(
-      'starts it in Swedish chosen by the organizer’s $step, keeping the grouping',
+      `starts it in ${OTHER_LANGUAGE} chosen by the organizer’s $step, keeping the grouping`,
       async ({ step, acceptLanguage, ...given }) => {
         Object.assign(route, given);
         const { settings, telemetry, system } = await compose(acceptLanguage);
-        expect(system).toContain(writesIn('Swedish'));
-        expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: 'sv' });
+        expect(system).toContain(writesIn(OTHER_LANGUAGE));
+        expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: OTHER_LOCALE });
         expect(telemetry).toMatchObject({
           templateId: 'magic-compose',
-          locale: 'sv',
+          locale: OTHER_LOCALE,
           localeSource: step,
         });
       },

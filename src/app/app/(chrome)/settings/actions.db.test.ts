@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { organizers } from '@/db/schema/organizers';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -92,19 +93,19 @@ describe('setOrganizerLocaleAction (db)', () => {
     expect(await stored(mine)).toBe('en');
     expect(revalidatePath).toHaveBeenCalledWith('/app/settings');
 
-    ship('participant', ['en', 'sv']);
-    expect(await submit({ locale: 'sv' })).toBe(SAVED);
-    expect(await stored(mine)).toBe('sv');
+    ship('participant', ['en', OTHER_LOCALE]);
+    expect(await submit({ locale: OTHER_LOCALE })).toBe(SAVED);
+    expect(await stored(mine)).toBe(OTHER_LOCALE);
   });
 
   it('saves on the signed-in organizer only, whoever the form names', async () => {
     await db.update(organizers).set({ locale: 'en' }).where(eq(organizers.id, theirs));
-    ship('participant', ['en', 'sv']);
+    ship('participant', ['en', OTHER_LOCALE]);
 
-    expect(await submit({ locale: 'sv', organizerId: theirs, id: theirs, organizer: theirs })).toBe(
-      SAVED,
-    );
-    expect(await stored(mine)).toBe('sv');
+    expect(
+      await submit({ locale: OTHER_LOCALE, organizerId: theirs, id: theirs, organizer: theirs }),
+    ).toBe(SAVED);
+    expect(await stored(mine)).toBe(OTHER_LOCALE);
     expect(await stored(theirs)).toBe('en');
   });
 
@@ -113,7 +114,7 @@ describe('setOrganizerLocaleAction (db)', () => {
     revalidatePath.mockClear();
 
     const forms: Record<string, string>[] = [
-      { locale: 'sv' },
+      { locale: OTHER_LOCALE },
       { locale: 'xx' },
       { locale: '' },
       {},

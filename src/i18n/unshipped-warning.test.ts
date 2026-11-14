@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { warnIfUnshippedLocalesShown } from './unshipped-warning';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 
 const warn = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/log', () => ({ log: { warn } }));
@@ -12,10 +13,10 @@ describe('warnIfUnshippedLocalesShown', () => {
   });
 
   it('warns once, naming the list, when E2E_UNSHIPPED_LOCALES is set', () => {
-    vi.stubEnv('E2E_UNSHIPPED_LOCALES', 'sv');
+    vi.stubEnv('E2E_UNSHIPPED_LOCALES', OTHER_LOCALE);
     warnIfUnshippedLocalesShown();
     expect(warn).toHaveBeenCalledOnce();
-    expect(warn.mock.calls[0]?.[0]).toEqual({ E2E_UNSHIPPED_LOCALES: 'sv' });
+    expect(warn.mock.calls[0]?.[0]).toEqual({ E2E_UNSHIPPED_LOCALES: OTHER_LOCALE });
     expect(warn.mock.calls[0]?.[1]).toMatch(/its emails go out in it.*unset it on a real instance/);
   });
 

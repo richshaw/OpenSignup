@@ -34,13 +34,15 @@ pnpm install --frozen-lockfile && pnpm db:migrate
 List what needs doing, namespace by namespace:
 
 ```bash
-pnpm exec tsx .claude/skills/translate/scripts/to-translate.mjs sv
+pnpm exec tsx .claude/skills/translate/scripts/to-translate.mjs <code>
 ```
 
-It compares `src/messages/sv.json` with `en.json` in the participant
-namespaces (`participant`, `email`, `common`), using Swedish's record of the
-English each message was translated from (`src/i18n/translated-from/sv.json`,
-"Stale translations" in the guide), and lists each message as:
+`<code>` is the language's code, as its catalog is named (`sv` for Swedish).
+It compares `src/messages/<code>.json` with `en.json` in the participant
+namespaces (`participant`, `email`, `common`), using the language's record of
+the English each message was translated from
+(`src/i18n/translated-from/<code>.json`, "Stale translations" in the guide),
+and lists each message as:
 
 - **missing**: English has it and the translation doesn't;
 - **stale**: its English has changed since it was translated, so it may still
@@ -55,7 +57,7 @@ English each message was translated from (`src/i18n/translated-from/sv.json`,
 For organizer text, add `--audience organizer`; organizer text stays English
 for now, so only do that when asked.
 
-Then translate in `src/messages/<language>.json`, one namespace at a time,
+Then translate in `src/messages/<code>.json`, one namespace at a time,
 from `en.json`:
 
 - Keep the keys in `en.json`'s order, and `pnpm format` the file after.
@@ -81,11 +83,12 @@ English. `to-translate.mjs` ends with the command, naming the sections it
 listed:
 
 ```bash
-pnpm exec tsx .claude/skills/translate/scripts/mark-translated.mjs sv participant.dialog email.reminder
+pnpm exec tsx .claude/skills/translate/scripts/mark-translated.mjs <code> participant.dialog email.reminder
 ```
 
-It writes the English `en.json` has now into `src/i18n/translated-from/sv.json`
-for each message in those sections that `sv.json` translates, leaves the
+It writes the English `en.json` has now into
+`src/i18n/translated-from/<code>.json` for each message in those sections
+that `<code>.json` translates, leaves the
 rest of the record alone, and drops entries nothing needs. Name a section
 only once every message `to-translate.mjs` listed in it is done; name single
 keys (`participant.dialog.done`) otherwise. A stale message whose translation
@@ -113,7 +116,10 @@ it should list nothing you meant to do. If you changed `en.json`, run
 and commit it.
 
 For labels in fixed boxes, also run the layout spec on the built app (below):
-`tests/e2e/slot-row-layout.spec.ts`.
+`tests/e2e/slot-row-layout.spec.ts`, which measures every language with a
+catalog. The other e2e specs pick the language up too; run
+`tests/e2e/translated-signup.spec.ts` once the participant namespaces are
+done, since it fails on English left on a page.
 
 ## 3. Have a different model review it in context
 
@@ -128,10 +134,10 @@ Leave out the `-c …` part outside Claude's cloud container: it points
 Playwright at the Chromium installed there. The command writes, under
 `translation-review/` (gitignored):
 
-- `<language>/screens/chromium/*.png` and `<language>/screens/chromium-phone/*.png`:
-  each participant screen and state the Swedish e2e spec checks, at desktop
-  and phone width;
-- `en/emails/*.html` and `<language>/emails/*.html`, with a `.txt` of each
+- `<code>/screens/chromium/*.png` and `<code>/screens/chromium-phone/*.png`:
+  each participant screen and state `tests/e2e/translated-signup.spec.ts`
+  checks, at desktop and phone width, for every language with a catalog;
+- `en/emails/*.html` and `<code>/emails/*.html`, with a `.txt` of each
   that starts with the email's subject: every participant email, from
   `scripts/lib/email-samples.ts`.
 
@@ -184,10 +190,14 @@ record drops the old one.
 
 ## Adding a language
 
-Follow "Adding a language" in `docs/translating.md`: the catalog, its test
-signups and screenshot spec, and its glossary come before step 1. Its launch
-(adding it to `SHIPPED.participant`) is a pull request of its own, for the
-owner to approve.
+Follow "Adding a language" in `docs/translating.md`: its catalog and its
+glossary come before step 1, then steps 1 to 4 here. The tests pick the
+language up from its catalog, with nothing written for it: the e2e specs, the
+layout checks, the screenshots and the email samples all run for every
+language with one. A test that keeps words per language, like
+`KEEP_IT_PRIVATE`, fails naming itself until you give it the new language's
+entry. Its launch (adding it to `SHIPPED.participant`) is a pull request of
+its own, for the owner to approve.
 
 ## Report
 

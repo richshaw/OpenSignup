@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ToolContext } from '@/mcp/context';
 import { readRpc } from '@/mcp/testing/rpc';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 
 const resolve = vi.fn();
 vi.mock('@/auth/bearer', () => ({ resolveBearerActor: (...a: unknown[]) => resolve(...a) }));
@@ -137,7 +138,7 @@ describe('/api/mcp', () => {
   });
 
   it.each([
-    ['as saved', 'sv'],
+    ['as saved', OTHER_LOCALE],
     ['null when the organizer saved none', null],
     ['raw, a value no language has', 'not-a-language'],
   ])(

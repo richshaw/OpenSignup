@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { ServiceException, serviceError } from '@/lib/errors';
 import { ok } from '@/lib/result';
@@ -70,15 +71,15 @@ describe('organizer preview page', () => {
 
   // What participants will see, in the language they'll see it in, inside an
   // organizer page that's in the organizer's.
-  it('wraps the participant view in a Swedish signup’s language, and gives its dates that language', async () => {
-    ship('participant', ['en', 'sv']);
-    getSignupForOrganizer.mockResolvedValue(ok({ ...signup, settings: { locale: 'sv' } }));
+  it(`wraps the participant view in a ${OTHER_LANGUAGE} signup’s language, and gives its dates that language`, async () => {
+    ship('participant', ['en', OTHER_LOCALE]);
+    getSignupForOrganizer.mockResolvedValue(ok({ ...signup, settings: { locale: OTHER_LOCALE } }));
     const page = (await SignupPreviewPage({
       params: Promise.resolve({ id: 'sig_1' }),
     })) as PreviewPage;
 
-    expect(page.props.lang).toBe('sv');
-    expect(page.props.children.props.locale).toBe('sv');
+    expect(page.props.lang).toBe(OTHER_LOCALE);
+    expect(page.props.children.props.locale).toBe(OTHER_LOCALE);
   });
 
   it('marks an English signup’s preview English, as its page is', async () => {

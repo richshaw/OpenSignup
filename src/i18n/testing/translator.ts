@@ -32,9 +32,9 @@ export function getStandInTranslator<N extends Namespace>(
 /**
  * What a component test mocks `getServerTranslator` from `@/i18n/server`
  * with: English from the catalog, as `getTestTranslator` gives it, and any
- * other language as `getStandInTranslator` answers, Swedish included though it
- * has a catalog. So a test on a Swedish page sees which text was asked for in
- * Swedish, and English text where the page keeps it.
+ * other language as `getStandInTranslator` answers, even one with a catalog.
+ * So a test on a page in another language sees which text was asked for in
+ * it, and English text where the page keeps it.
  */
 export function getTestServerTranslator<N extends Namespace>(locale: string, namespace: N) {
   return locale === 'en' ? getTestTranslator(namespace) : getStandInTranslator(locale, namespace);

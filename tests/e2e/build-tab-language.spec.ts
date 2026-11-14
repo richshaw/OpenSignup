@@ -1,9 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
+import {
+  englishName,
+  TEST_LOCALES,
+  UNSHIPPED_TEST_LOCALES,
+  withRegion,
+} from '@/i18n/testing/locales';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { loadSeed } from './helpers/fixtures';
+import { messagesIn } from './helpers/languages';
 
 const seed = loadSeed();
-const { groups } = seed.swedishBuild;
 
 /**
  * What the browser reports while `page` is open that would mean its first
@@ -46,66 +52,77 @@ async function openBuildTab(page: Page, signupId: string): Promise<void> {
 }
 
 /**
- * A Swedish signup's Build tab. Its language reaches the tab's client
- * components as the order its groups sort in and the names a new field gets,
- * and both render on the server first, so the browser must agree with the
- * server whatever its own language: Node's ICU and the browser's could sort
- * or format differently. Swedish hasn't shipped, so the server shows these
- * signups in Swedish only with `E2E_UNSHIPPED_LOCALES=sv`, which
- * playwright.config.ts gives the server it starts.
+ * A Build tab of a signup in each test language. Its language reaches the
+ * tab's client components as the order its groups sort in and the names a
+ * new field gets, and both render on the server first, so the browser must
+ * agree with the server whatever its own language: Node's ICU and the
+ * browser's could sort or format differently. A language that hasn't shipped
+ * shows on these signups only on a server started with it in
+ * `E2E_UNSHIPPED_LOCALES`, which playwright.config.ts gives the server it
+ * starts.
  */
-for (const browserLocale of ['en-US', 'sv-SE']) {
-  test.describe(`a Swedish signup’s Build tab, in a browser set to ${browserLocale}`, () => {
-    test.use({ locale: browserLocale });
+for (const locale of TEST_LOCALES) {
+  const language = englishName(locale);
+  const { open, build } = seed.languages[locale];
+  // The groups in the order the tab sorts them in the language, as
+  // BuildWysiwyg.tsx compares them.
+  const groups = [...build.groups].sort((a, b) => a.localeCompare(b, locale));
+  // A browser set to the language where it's most spoken: sv-SE for Swedish.
+  const browserLocales = ['en-US', withRegion(locale)];
 
+  for (const browserLocale of browserLocales) {
+    test.describe(`a ${language} signup’s Build tab, in a browser set to ${browserLocale}`, () => {
+      test.use({ locale: browserLocale });
+
+      test.beforeEach(async ({ context }) => {
+        await loginAsSeededOrganizer(context);
+      });
+
+      test(`hydrates with no mismatch, and sorts its groups in ${language}`, async ({ page }) => {
+        const errors = watchForHydrationErrors(page);
+        await openBuildTab(page, build.id);
+        expect(
+          await groupHeadings(page),
+          `groups in English order: start the server with E2E_UNSHIPPED_LOCALES=${UNSHIPPED_TEST_LOCALES.join(',')}`,
+        ).toEqual(groups);
+        expect(errors).toEqual([]);
+      });
+
+      test('hydrates with no mismatch on a signup grouped by date', async ({ page }) => {
+        const errors = watchForHydrationErrors(page);
+        await openBuildTab(page, open.id);
+        await expect(page.getByRole('button', { name: /^Group header/ }).first()).toBeVisible();
+        expect(errors).toEqual([]);
+      });
+    });
+  }
+
+  test.describe(`a ${language} signup’s Build tab`, () => {
     test.beforeEach(async ({ context }) => {
       await loginAsSeededOrganizer(context);
     });
 
-    test('hydrates with no mismatch, and sorts its groups in Swedish', async ({ page }) => {
-      const errors = watchForHydrationErrors(page);
-      await openBuildTab(page, seed.swedishBuild.id);
-      expect(
-        await groupHeadings(page),
-        'groups in English order: start the server with E2E_UNSHIPPED_LOCALES=sv',
-      ).toEqual([...groups]);
-      expect(errors).toEqual([]);
-    });
-
-    test('hydrates with no mismatch on a signup grouped by date', async ({ page }) => {
-      const errors = watchForHydrationErrors(page);
-      await openBuildTab(page, seed.swedish.id);
-      await expect(page.getByRole('button', { name: /^Group header/ }).first()).toBeVisible();
-      expect(errors).toEqual([]);
+    test(`names a new field left without a name, and its first option, in ${language}`, async ({
+      page,
+    }) => {
+      const defaults = messagesIn(locale, 'participant.defaults');
+      await openBuildTab(page, build.id);
+      await page.getByRole('button', { name: /^Fields/ }).click();
+      // Named by its title, which says New field once the form opens.
+      const dialog = page.getByRole('dialog');
+      await dialog.getByRole('button', { name: 'Add field' }).click();
+      await dialog.getByRole('button', { name: 'List', exact: true }).click();
+      const saved = page.waitForResponse(
+        (r) =>
+          r.url().endsWith(`/api/signups/${build.id}/fields`) && r.request().method() === 'POST',
+      );
+      await dialog.getByRole('button', { name: 'Add field', exact: true }).click();
+      const field = (await (await saved).json()).data as {
+        label: string;
+        config: { choices: string[] };
+      };
+      expect(field.label).toBe(defaults('untitledField'));
+      expect(field.config.choices).toEqual([defaults('firstChoice')]);
     });
   });
 }
-
-test.describe('a Swedish signup’s Build tab', () => {
-  test.beforeEach(async ({ context }) => {
-    await loginAsSeededOrganizer(context);
-  });
-
-  test('names a new field left without a name, and its first option, in Swedish', async ({
-    page,
-  }) => {
-    await openBuildTab(page, seed.swedishBuild.id);
-    await page.getByRole('button', { name: /^Fields/ }).click();
-    // Named by its title, which says New field once the form opens.
-    const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: 'Add field' }).click();
-    await dialog.getByRole('button', { name: 'List', exact: true }).click();
-    const saved = page.waitForResponse(
-      (r) =>
-        r.url().endsWith(`/api/signups/${seed.swedishBuild.id}/fields`) &&
-        r.request().method() === 'POST',
-    );
-    await dialog.getByRole('button', { name: 'Add field', exact: true }).click();
-    const field = (await (await saved).json()).data as {
-      label: string;
-      config: { choices: string[] };
-    };
-    expect(field.label).toBe('Namnlös');
-    expect(field.config.choices).toEqual(['Alternativ 1']);
-  });
-});

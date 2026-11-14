@@ -7,6 +7,7 @@ import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
+import { OTHER_LANGUAGE, OTHER_LOCALE, withRegion } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { ServiceException } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
@@ -236,23 +237,28 @@ describe('createSignupAction (db)', () => {
     expect(telemetry).not.toHaveProperty('localeSource');
   });
 
-  describe('once Swedish has shipped to participants', () => {
+  describe(`once ${OTHER_LANGUAGE} has shipped to participants`, () => {
     beforeEach(() => {
-      ship('participant', ['en', 'sv']);
+      ship('participant', ['en', OTHER_LOCALE]);
     });
 
     it.each([
-      { step: 'setting', locale: 'sv', instanceDefault: 'en', acceptLanguage: 'en' },
-      { step: 'instance', locale: null, instanceDefault: 'sv', acceptLanguage: 'en' },
-      { step: 'browser', locale: null, instanceDefault: undefined, acceptLanguage: 'sv-SE,en' },
+      { step: 'setting', locale: OTHER_LOCALE, instanceDefault: 'en', acceptLanguage: 'en' },
+      { step: 'instance', locale: null, instanceDefault: OTHER_LOCALE, acceptLanguage: 'en' },
+      {
+        step: 'browser',
+        locale: null,
+        instanceDefault: undefined,
+        acceptLanguage: `${withRegion(OTHER_LOCALE)},en`,
+      },
     ])(
       'starts the signup in the organizer’s language, chosen by their $step',
       async ({ step, ...given }) => {
         Object.assign(request, given);
-        await submit('In Swedish');
+        await submit(`In ${OTHER_LANGUAGE}`);
         const { settings, telemetry } = await madeOne();
-        expect(settings).toMatchObject({ locale: 'sv' });
-        expect(telemetry).toMatchObject({ locale: 'sv', localeSource: step });
+        expect(settings).toMatchObject({ locale: OTHER_LOCALE });
+        expect(telemetry).toMatchObject({ locale: OTHER_LOCALE, localeSource: step });
       },
     );
 

@@ -4,6 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import type { CatalogLocale } from '@/i18n/config';
+import { OTHER_LOCALE, withRegion } from '@/i18n/testing/locales';
+import { languageName } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
 
 // What the page reads around the form: the instance's language (none, unless
@@ -54,27 +56,27 @@ describe('Account Settings: Language for new signups', () => {
   });
 
   it('offers each shipped language by its own name once there are two, with the saved one chosen', async () => {
-    ship('participant', ['en', 'sv']);
-    request.saved = 'sv';
+    ship('participant', ['en', OTHER_LOCALE]);
+    request.saved = OTHER_LOCALE;
     request.acceptLanguage = 'en';
     await renderPage();
 
     const group = within(languageGroup()!);
     const english = group.getByRole('radio', { name: 'English' });
-    const swedish = group.getByRole('radio', { name: 'Svenska' });
+    const other = group.getByRole('radio', { name: languageName(OTHER_LOCALE) });
     expect(english).toHaveAttribute('name', 'locale');
     expect(english).toHaveAttribute('value', 'en');
-    expect(swedish).toHaveAttribute('value', 'sv');
+    expect(other).toHaveAttribute('value', OTHER_LOCALE);
     // Each name is marked as its own language, for screen readers.
-    expect(group.getByText('Svenska')).toHaveAttribute('lang', 'sv');
-    expect(checked()).toEqual([swedish]);
+    expect(group.getByText(languageName(OTHER_LOCALE))).toHaveAttribute('lang', OTHER_LOCALE);
+    expect(checked()).toEqual([other]);
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('with nothing saved, shows the language new signups would get', async () => {
-    ship('participant', ['en', 'sv']);
+    ship('participant', ['en', OTHER_LOCALE]);
     const shown = async () => {
       await renderPage();
       const [radio] = checked();
@@ -83,22 +85,22 @@ describe('Account Settings: Language for new signups', () => {
     };
 
     // The browser's top language, when it has shipped.
-    request.acceptLanguage = 'sv-SE,en;q=0.8';
-    expect(await shown()).toBe('sv');
+    request.acceptLanguage = `${withRegion(OTHER_LOCALE)},en;q=0.8`;
+    expect(await shown()).toBe(OTHER_LOCALE);
     // The instance's language comes before the browser.
     request.instanceDefault = 'en';
     expect(await shown()).toBe('en');
     // A saved language that has left the list counts as none.
     request.instanceDefault = undefined;
     request.saved = 'xx';
-    expect(await shown()).toBe('sv');
+    expect(await shown()).toBe(OTHER_LOCALE);
     // English when nothing else applies.
     request.acceptLanguage = null;
     expect(await shown()).toBe('en');
   });
 
   it('says Saved after a save, and nothing for any other value', async () => {
-    ship('participant', ['en', 'sv']);
+    ship('participant', ['en', OTHER_LOCALE]);
     await renderPage({ saved: 'language' });
     expect(within(languageGroup()!.closest('form')!).getByRole('status')).toHaveTextContent(
       'Saved',
@@ -110,7 +112,7 @@ describe('Account Settings: Language for new signups', () => {
   });
 
   it('shows a refusal in the Settings tab’s words, and only for a code the action sends', async () => {
-    ship('participant', ['en', 'sv']);
+    ship('participant', ['en', OTHER_LOCALE]);
     await renderPage({ error: 'invalid_input' });
     expect(screen.getByRole('alert')).toHaveTextContent('Some values weren’t accepted.');
     cleanup();

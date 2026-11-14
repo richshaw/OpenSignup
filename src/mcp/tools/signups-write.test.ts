@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { serviceError, ServiceException } from '@/lib/errors';
 import { FullDraftSchema } from '@/lib/magic-compose/prompt';
@@ -314,7 +315,7 @@ describe('create_signup and the signup’s language', () => {
   });
 
   it('stores a language the assistant sends, as sent by the caller', async () => {
-    const { r, settings, localeSource } = await create(unitContext({ locale: 'sv' }), 'en');
+    const { r, settings, localeSource } = await create(unitContext({ locale: OTHER_LOCALE }), 'en');
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
     expect(settings).toEqual({ locale: 'en' });
     expect(localeSource).toBe('api');
@@ -342,7 +343,7 @@ describe('create_signup and the signup’s language', () => {
   });
 
   it('stores none without one while only English has shipped, whatever the organizer saved', async () => {
-    for (const saved of ['sv', 'en', null]) {
+    for (const saved of [OTHER_LOCALE, 'en', null]) {
       svc.createSignup.mockClear();
       const { r, settings, localeSource } = await create(unitContext({ locale: saved }));
       expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
@@ -351,20 +352,20 @@ describe('create_signup and the signup’s language', () => {
     }
   });
 
-  describe('once Swedish has shipped to participants', () => {
-    beforeEach(() => ship('participant', ['en', 'sv']));
+  describe(`once ${OTHER_LANGUAGE} has shipped to participants`, () => {
+    beforeEach(() => ship('participant', ['en', OTHER_LOCALE]));
 
     it('takes the organizer’s saved language without one', async () => {
       instance.defaultLocale = 'en';
-      const { settings, localeSource } = await create(unitContext({ locale: 'sv' }));
-      expect(settings).toEqual({ locale: 'sv' });
+      const { settings, localeSource } = await create(unitContext({ locale: OTHER_LOCALE }));
+      expect(settings).toEqual({ locale: OTHER_LOCALE });
       expect(localeSource).toBe('setting');
     });
 
     it('takes the instance default when the organizer saved none', async () => {
-      instance.defaultLocale = 'sv';
+      instance.defaultLocale = OTHER_LOCALE;
       const { settings, localeSource } = await create(unitContext({ locale: null }));
-      expect(settings).toEqual({ locale: 'sv' });
+      expect(settings).toEqual({ locale: OTHER_LOCALE });
       expect(localeSource).toBe('instance');
     });
 
@@ -376,13 +377,13 @@ describe('create_signup and the signup’s language', () => {
     });
 
     it('stores the one the assistant sends over the organizer’s', async () => {
-      const { settings, localeSource } = await create(unitContext({ locale: 'sv' }), 'en');
+      const { settings, localeSource } = await create(unitContext({ locale: OTHER_LOCALE }), 'en');
       expect(settings).toEqual({ locale: 'en' });
       expect(localeSource).toBe('api');
     });
   });
 
-  it.each(['sv', 'xx', '', 'EN'])(
+  it.each([OTHER_LOCALE, 'xx', '', 'EN'])(
     'refuses %j, naming the languages that have shipped, before charging or creating anything',
     async (locale) => {
       const { r } = await create(ctx, locale);
@@ -519,7 +520,7 @@ describe('update_signup', () => {
   // (tools.db.test.ts), and clears it on null. The stored schema would read a
   // long string or null as no language at all, which updateSignup would then
   // take as a change that clears it, so the tool hands it over as sent.
-  it.each(['en', 'sv', 'xx', '', 'x'.repeat(36), null])(
+  it.each(['en', OTHER_LOCALE, 'xx', '', 'x'.repeat(36), null])(
     'passes locale %j to the service as sent, and shows the stored one back',
     async (locale) => {
       svc.updateSignup.mockResolvedValueOnce(

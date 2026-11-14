@@ -7,6 +7,7 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor, WorkspaceRole } from '@/lib/policy';
@@ -502,7 +503,7 @@ describe('signups service (db)', () => {
       expect(payload).not.toHaveProperty('localeSource');
     });
 
-    it.each(['sv', 'xx', 'EN', 'en-GB', '', 'x'.repeat(36), 7])(
+    it.each([OTHER_LOCALE, 'xx', 'EN', 'en-GB', '', 'x'.repeat(36), 7])(
       'refuses a sent language that has not shipped to participants: %j',
       async (locale) => {
         const title = `Locale ${locale || 'empty'}`;
@@ -539,8 +540,8 @@ describe('signups service (db)', () => {
       }
 
       it('in a shipped language sent with it, keeping the refs', async () => {
-        ship('participant', ['en', 'sv']);
-        const sent = { ...validCreateInput('Svensk'), settings: { locale: 'sv' } };
+        ship('participant', ['en', OTHER_LOCALE]);
+        const sent = { ...validCreateInput('Svensk'), settings: { locale: OTHER_LOCALE } };
         expect(await columns(sent)).toEqual([
           ['what', 'Vad'],
           ['date', 'Datum'],
@@ -548,8 +549,8 @@ describe('signups service (db)', () => {
       });
 
       it('in the instance’s language when it stores none', async () => {
-        ship('participant', ['en', 'sv']);
-        instance.defaultLocale = 'sv';
+        ship('participant', ['en', OTHER_LOCALE]);
+        instance.defaultLocale = OTHER_LOCALE;
         expect(await columns(validCreateInput('Instansens språk'))).toEqual([
           ['what', 'Vad'],
           ['date', 'Datum'],
@@ -562,7 +563,7 @@ describe('signups service (db)', () => {
       });
 
       it('in English while the instance’s language hasn’t shipped', async () => {
-        instance.defaultLocale = 'sv';
+        instance.defaultLocale = OTHER_LOCALE;
         expect(await columns(validCreateInput('Not yet'))).toEqual([
           ['what', 'What'],
           ['date', 'Date'],
@@ -1246,14 +1247,14 @@ describe('signups service (db)', () => {
       expect(row?.settings).toEqual(created.value.settings);
     });
 
-    // The e2e run's server shows the seeded Swedish signup in Swedish, from a
+    // The e2e run's server shows each seeded signup in its language, from a
     // row the seed writes directly. Its flag must not let anyone store one.
     it('refuses a language that has not shipped on the e2e run’s server too', async () => {
-      vi.stubEnv('E2E_UNSHIPPED_LOCALES', 'sv');
+      vi.stubEnv('E2E_UNSHIPPED_LOCALES', OTHER_LOCALE);
       try {
         const sent = await createSignup(fx.db, fx.actor, fx.workspaceId, {
           ...validCreateInput('E2E locale'),
-          settings: { locale: 'sv' },
+          settings: { locale: OTHER_LOCALE },
         });
         expect(sent.ok).toBe(false);
         const created = await createSignup(
@@ -1264,7 +1265,7 @@ describe('signups service (db)', () => {
         );
         if (!created.ok) throw new Error('setup failed');
         const r = await updateSignup(fx.db, fx.actor, created.value.id, {
-          settings: { locale: 'sv' },
+          settings: { locale: OTHER_LOCALE },
         });
         expect(r.ok).toBe(false);
         if (r.ok) return;

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createElement, type ReactElement } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { englishName, TEST_LOCALES } from '@/i18n/testing/locales';
 import { getPrecompiledTranslator } from '@/i18n/testing/precompiled';
 import type { Namespace } from '@/i18n/translator';
 import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
@@ -75,7 +76,7 @@ async function render(element: ReactElement, { web }: { web: boolean }) {
  * which formats the raw JSON. src/i18n/precompiled.test.ts holds the two
  * formatters to the same text message by message; this holds them to the same
  * email, rich text and all, for every sample `pnpm email:dev` shows, in
- * English and in Swedish.
+ * English and in every test language.
  */
 describe('each email, from the catalogs as the web process gets them', () => {
   beforeAll(async () => {
@@ -90,14 +91,26 @@ describe('each email, from the catalogs as the web process gets them', () => {
     }
   });
 
-  it('includes every participant email in Swedish', () => {
-    expect(emailSamples.filter(({ lang }) => lang === 'sv').map(({ name }) => name)).toEqual([
-      'commitment-confirmation-sv',
-      'reminder-sv',
-      'reminder-changed-sv',
-      'slot-changed-sv',
-    ]);
-  });
+  // Every English sample but the sign-in email, which is the organizer's, is
+  // a participant's, and has a sample in each test language.
+  const participantEmails = emailSamples
+    .filter(({ lang, name }) => lang === 'en' && name !== 'magic-link')
+    .map(({ name }) => name);
+
+  it.each(TEST_LOCALES.map((locale) => [englishName(locale), locale] as const))(
+    'includes every participant email in %s',
+    (_language, locale) => {
+      expect(participantEmails).toEqual([
+        'commitment-confirmation',
+        'reminder',
+        'reminder-changed',
+        'slot-changed',
+      ]);
+      expect(emailSamples.filter(({ lang }) => lang === locale).map(({ name }) => name)).toEqual(
+        participantEmails.map((name) => `${name}-${locale}`),
+      );
+    },
+  );
 
   it.each(emailSamples.map((sample) => [sample.name, sample] as const))(
     'renders %s as the worker does',

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type Audience,
   CATALOG_LOCALES,
@@ -9,6 +9,7 @@ import {
   openGraphLocale,
   signupLocale,
 } from './config';
+import { OTHER_LOCALE, withRegion } from './testing/locales';
 import { ship } from './testing/ship';
 
 describe('SHIPPED', () => {
@@ -49,8 +50,8 @@ describe('signupLocale', () => {
 
   it('keeps a language that has shipped to participants', () => {
     expect(signupLocale('en', undefined)).toBe('en');
-    ship('participant', ['en', 'sv']);
-    expect(signupLocale('sv', undefined)).toBe('sv');
+    ship('participant', ['en', OTHER_LOCALE]);
+    expect(signupLocale(OTHER_LOCALE, undefined)).toBe(OTHER_LOCALE);
   });
 
   // A stored value is lenient: one that is unknown, or has since left the
@@ -71,34 +72,39 @@ describe('signupLocale', () => {
   // (yet, or any more) isn't the signup's language, so the page doesn't use
   // one the organizer can't see chosen.
   it('falls back for a language that has a catalog but has not shipped', () => {
-    expect(CATALOG_LOCALES).toContain('sv');
-    expect(isShipped('participant', 'sv')).toBe(false);
-    expect(signupLocale('sv', undefined)).toBe('en');
+    ship('participant', ['en']);
+    expect(CATALOG_LOCALES).toContain(OTHER_LOCALE);
+    expect(isShipped('participant', OTHER_LOCALE)).toBe(false);
+    expect(signupLocale(OTHER_LOCALE, undefined)).toBe('en');
   });
 
   it('falls back to the instance language once it has shipped to participants', () => {
     // Set before it ships: English, as `defaultFor` says.
-    expect(signupLocale(undefined, 'sv')).toBe('en');
-    ship('participant', ['en', 'sv']);
-    expect(signupLocale(undefined, 'sv')).toBe('sv');
-    expect(signupLocale('xx', 'sv')).toBe('sv');
-    expect(signupLocale('en', 'sv')).toBe('en');
+    ship('participant', ['en']);
+    expect(signupLocale(undefined, OTHER_LOCALE)).toBe('en');
+    ship('participant', ['en', OTHER_LOCALE]);
+    expect(signupLocale(undefined, OTHER_LOCALE)).toBe(OTHER_LOCALE);
+    expect(signupLocale('xx', OTHER_LOCALE)).toBe(OTHER_LOCALE);
+    expect(signupLocale('en', OTHER_LOCALE)).toBe('en');
   });
 
   describe('on the e2e run’s server (E2E_UNSHIPPED_LOCALES)', () => {
+    // Each case with the language unshipped, as the list is for.
+    beforeEach(() => ship('participant', ['en']));
+
     it('keeps a stored language that has a catalog and is listed, though it hasn’t shipped', () => {
-      vi.stubEnv('E2E_UNSHIPPED_LOCALES', 'sv');
-      expect(signupLocale('sv', undefined)).toBe('sv');
-      vi.stubEnv('E2E_UNSHIPPED_LOCALES', 'de,sv');
-      expect(signupLocale('sv', undefined)).toBe('sv');
+      vi.stubEnv('E2E_UNSHIPPED_LOCALES', OTHER_LOCALE);
+      expect(signupLocale(OTHER_LOCALE, undefined)).toBe(OTHER_LOCALE);
+      vi.stubEnv('E2E_UNSHIPPED_LOCALES', `xx,${OTHER_LOCALE}`);
+      expect(signupLocale(OTHER_LOCALE, undefined)).toBe(OTHER_LOCALE);
     });
 
     it.each([
-      ['a language that isn’t listed', 'sv', 'de'],
+      ['a language that isn’t listed', OTHER_LOCALE, 'xx'],
       ['a language with no catalog', 'xx', 'xx'],
-      ['another case', 'SV', 'sv'],
-      ['a region', 'sv-SE', 'sv'],
-      ['an empty list', 'sv', ''],
+      ['another case', OTHER_LOCALE.toUpperCase(), OTHER_LOCALE],
+      ['a region', withRegion(OTHER_LOCALE), OTHER_LOCALE],
+      ['an empty list', OTHER_LOCALE, ''],
     ])('falls back for %s', (_label, stored, listed) => {
       vi.stubEnv('E2E_UNSHIPPED_LOCALES', listed);
       expect(signupLocale(stored, undefined)).toBe('en');
@@ -108,12 +114,13 @@ describe('signupLocale', () => {
     // language already stored, and nothing in the app stores one that hasn't
     // shipped (services/signups.ts's `checkSignupLocale`, tested there).
     it('ships nothing: no instance default, and nothing to choose', () => {
-      vi.stubEnv('E2E_UNSHIPPED_LOCALES', 'sv');
-      expect(signupLocale(undefined, 'sv')).toBe('en');
-      expect(defaultFor('participant', 'sv')).toBe('en');
+      for (const audience of Object.keys(SHIPPED) as Audience[]) ship(audience, ['en']);
+      vi.stubEnv('E2E_UNSHIPPED_LOCALES', OTHER_LOCALE);
+      expect(signupLocale(undefined, OTHER_LOCALE)).toBe('en');
+      expect(defaultFor('participant', OTHER_LOCALE)).toBe('en');
       for (const audience of Object.keys(SHIPPED) as Audience[]) {
-        expect(isShipped(audience, 'sv')).toBe(false);
-        expect(SHIPPED[audience]).not.toContain('sv');
+        expect(isShipped(audience, OTHER_LOCALE)).toBe(false);
+        expect(SHIPPED[audience]).not.toContain(OTHER_LOCALE);
       }
     });
   });
@@ -142,9 +149,10 @@ describe('defaultFor', () => {
   it.each(audiences)(
     'is English for %s when the instance language has not shipped there',
     (audience) => {
-      // Swedish has a catalog, and has shipped to no one yet: what
-      // DEFAULT_LOCALE=sv gives today.
-      expect(defaultFor(audience, 'sv')).toBe('en');
+      // A language with a catalog that hasn't shipped there: what
+      // DEFAULT_LOCALE gives for it.
+      ship(audience, ['en']);
+      expect(defaultFor(audience, OTHER_LOCALE)).toBe('en');
     },
   );
 });

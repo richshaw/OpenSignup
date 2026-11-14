@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { getTestTranslator } from '@/i18n/testing/translator';
 import { SIGNUP_PATH_HEADER } from '@/lib/signup-path';
@@ -42,7 +43,7 @@ function storeSignup(slug: string, over: Record<string, unknown> = {}) {
     status: 'open',
     title: 'Snack duty',
     description: 'Bring fruit for the team.',
-    settings: { locale: 'sv' },
+    settings: { locale: OTHER_LOCALE },
     ...over,
   };
 }
@@ -71,11 +72,11 @@ describe('participant not-found pages', () => {
   it.each(PAGES)(
     '%s is in the language of the signup its path names',
     async (...[, Page, , path]) => {
-      ship('participant', ['en', 'sv']);
+      ship('participant', ['en', OTHER_LOCALE]);
       storeSignup('snack-duty');
       request.path = path;
       render(await Page());
-      expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
+      expect(screen.getByRole('main')).toHaveAttribute('lang', OTHER_LOCALE);
       // The slug as the signup page reads it, so that page's cached read answers
       // both and the not-found page costs it no statement.
       expect(loadSignupRowBySlug).toHaveBeenCalledWith('snack-duty');
@@ -88,14 +89,16 @@ describe('participant not-found pages', () => {
   ] as const)(
     '%s takes its words from the catalog in that language',
     async (_, Page, page, path) => {
-      ship('participant', ['en', 'sv']);
+      ship('participant', ['en', OTHER_LOCALE]);
       storeSignup('snack-duty');
       request.path = path;
       render(await Page());
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-        `participant.gonePage.${page}.title in sv`,
+        `participant.gonePage.${page}.title in ${OTHER_LOCALE}`,
       );
-      expect(screen.getByText(`participant.gonePage.${page}.body in sv`)).toBeInTheDocument();
+      expect(
+        screen.getByText(`participant.gonePage.${page}.body in ${OTHER_LOCALE}`),
+      ).toBeInTheDocument();
     },
   );
 
@@ -108,23 +111,23 @@ describe('participant not-found pages', () => {
       expect(screen.getByRole('main')).toHaveAttribute('lang', 'en');
 
       cleanup();
-      ship('participant', ['en', 'sv']);
-      request.defaultLocale = 'sv';
+      ship('participant', ['en', OTHER_LOCALE]);
+      request.defaultLocale = OTHER_LOCALE;
       render(await Page());
-      expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
+      expect(screen.getByRole('main')).toHaveAttribute('lang', OTHER_LOCALE);
     },
   );
 
   it.each([null, '', '/app/settings', '/s/', '/s/Snack-Duty', '/s/snack%00', '/s/a.rsc'])(
     'reads no signup for the path %j, and is in the instance’s language',
     async (path) => {
-      ship('participant', ['en', 'sv']);
+      ship('participant', ['en', OTHER_LOCALE]);
       storeSignup('snack-duty');
-      request.defaultLocale = 'sv';
+      request.defaultLocale = OTHER_LOCALE;
       request.path = path;
       for (const [, Page] of PAGES) {
         render(await Page());
-        expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
+        expect(screen.getByRole('main')).toHaveAttribute('lang', OTHER_LOCALE);
         cleanup();
       }
       expect(loadSignupRowBySlug).not.toHaveBeenCalled();
@@ -141,12 +144,12 @@ describe('participant not-found pages', () => {
   it.each(['draft', 'archived'])(
     'takes only the language from a %s signup’s row',
     async (status) => {
-      ship('participant', ['en', 'sv']);
+      ship('participant', ['en', OTHER_LOCALE]);
       storeSignup('snack-duty', { status });
       for (const [, Page, , path] of PAGES) {
         request.path = path;
         render(await Page());
-        expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
+        expect(screen.getByRole('main')).toHaveAttribute('lang', OTHER_LOCALE);
         expect(document.body).not.toHaveTextContent('Snack duty');
         expect(document.body).not.toHaveTextContent('Bring fruit');
         cleanup();

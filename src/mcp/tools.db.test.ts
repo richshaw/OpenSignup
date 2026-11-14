@@ -7,6 +7,7 @@ import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
+import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import { DESCRIPTION_MAX_LENGTH } from '@/schemas/signups';
@@ -534,7 +535,10 @@ describe('create_signup and the signup’s language on Postgres', () => {
   }
 
   it('stores a language the assistant sends, records it as sent by the app, and answers as get_signup does', async () => {
-    const { client, body, settings, telemetry } = await create(await contextSaving('sv'), 'en');
+    const { client, body, settings, telemetry } = await create(
+      await contextSaving(OTHER_LOCALE),
+      'en',
+    );
     expect(settings).toMatchObject({ locale: 'en' });
     expect(telemetry).toEqual({
       templateId: 'mcp',
@@ -553,7 +557,7 @@ describe('create_signup and the signup’s language on Postgres', () => {
   });
 
   it('stores and records none without one while only English has shipped, whatever the organizer saved', async () => {
-    for (const saved of ['sv', 'en', null]) {
+    for (const saved of [OTHER_LOCALE, 'en', null]) {
       instance.defaultLocale = 'en';
       const { settings, telemetry } = await create(await contextSaving(saved));
       expect(settings, String(saved)).not.toHaveProperty('locale');
@@ -566,12 +570,12 @@ describe('create_signup and the signup’s language on Postgres', () => {
     }
   });
 
-  describe('once Swedish has shipped to participants', () => {
-    beforeEach(() => ship('participant', ['en', 'sv']));
+  describe(`once ${OTHER_LANGUAGE} has shipped to participants`, () => {
+    beforeEach(() => ship('participant', ['en', OTHER_LOCALE]));
 
     it.each([
-      { step: 'setting', saved: 'sv', instanceDefault: 'en', locale: 'sv' },
-      { step: 'instance', saved: null, instanceDefault: 'sv', locale: 'sv' },
+      { step: 'setting', saved: OTHER_LOCALE, instanceDefault: 'en', locale: OTHER_LOCALE },
+      { step: 'instance', saved: null, instanceDefault: OTHER_LOCALE, locale: OTHER_LOCALE },
       // No browser step: an assistant has no browser of the organizer's to ask.
       { step: 'default', saved: null, instanceDefault: undefined, locale: 'en' },
     ])(
@@ -585,7 +589,7 @@ describe('create_signup and the signup’s language on Postgres', () => {
     );
 
     it('stores the one the assistant sends over the organizer’s', async () => {
-      const { settings, telemetry } = await create(await contextSaving('sv'), 'en');
+      const { settings, telemetry } = await create(await contextSaving(OTHER_LOCALE), 'en');
       expect(settings).toMatchObject({ locale: 'en' });
       expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'api' });
     });
@@ -607,7 +611,7 @@ describe('create_signup and the signup’s language on Postgres', () => {
         title: 'Snack rota',
         fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
         slots: [{ values: { what: 'Fruit' } }],
-        locale: 'sv',
+        locale: OTHER_LOCALE,
       },
     });
     expect(r.isError).toBe(true);
@@ -616,7 +620,7 @@ describe('create_signup and the signup’s language on Postgres', () => {
         code: 'invalid_input',
         message: 'locale must be a language OpenSignup offers for signups',
         field: 'locale',
-        received: 'sv',
+        received: OTHER_LOCALE,
         suggestion: 'leave it out, or use one of: en',
       },
     });
@@ -672,7 +676,7 @@ describe('update_signup and the signup’s language on Postgres', () => {
     expect(await stored(id)).toMatchObject({ sendReminders: true });
   });
 
-  it.each(['sv', 'xx', '', 'EN', 'x'.repeat(36)])(
+  it.each([OTHER_LOCALE, 'xx', '', 'EN', 'x'.repeat(36)])(
     'refuses %j as the REST API does, and leaves the stored language as it was',
     async (locale) => {
       const client = await connectTestClient(ctx, TOOLS);
@@ -708,11 +712,13 @@ describe('update_signup and the signup’s language on Postgres', () => {
     const id = await createVia(client);
     await db
       .update(signups)
-      .set({ settings: { ...(await stored(id)), locale: 'sv' } })
+      .set({ settings: { ...(await stored(id)), locale: OTHER_LOCALE } })
       .where(eq(signups.id, id));
 
     const read = await client.callTool({ name: 'get_signup', arguments: { signupId: id } });
-    expect((read.structuredContent as Shown).signup.settings).toMatchObject({ locale: 'sv' });
+    expect((read.structuredContent as Shown).signup.settings).toMatchObject({
+      locale: OTHER_LOCALE,
+    });
 
     const settings = await client.callTool({
       name: 'update_signup',
@@ -721,7 +727,7 @@ describe('update_signup and the signup’s language on Postgres', () => {
     expect(settings.isError, JSON.stringify(settings.structuredContent)).toBeFalsy();
     expect((settings.structuredContent as Shown).signup.settings).toMatchObject({
       sendReminders: false,
-      locale: 'sv',
+      locale: OTHER_LOCALE,
     });
     const title = await client.callTool({
       name: 'update_signup',
@@ -729,7 +735,7 @@ describe('update_signup and the signup’s language on Postgres', () => {
     });
     expect(title.isError, JSON.stringify(title.structuredContent)).toBeFalsy();
     expect((title.structuredContent as Shown).signup.title).toBe('Language rota, renamed');
-    expect(await stored(id)).toMatchObject({ sendReminders: false, locale: 'sv' });
+    expect(await stored(id)).toMatchObject({ sendReminders: false, locale: OTHER_LOCALE });
   });
 });
 

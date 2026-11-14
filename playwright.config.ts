@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { UNSHIPPED_TEST_LOCALES } from './src/i18n/testing/locales';
 
 const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
 
@@ -13,12 +14,12 @@ const utf8Downloads = {
 
 /**
  * `pnpm translation:screenshots` sets TRANSLATION_SCREENSHOTS=1, and these
- * specs then save a screenshot of each participant screen they check in a
- * language other than English (`translationShot`), for a translation's
+ * specs then save a screenshot of each participant screen they check, in
+ * every language other than English (`translationShot`), for a translation's
  * review (docs/translating.md). With the flag they also run at a phone's
  * width, in Chromium, so the screenshots show where longer words wrap.
  */
-const TRANSLATION_SPECS = /swedish-signup\.spec\.ts$/;
+const TRANSLATION_SPECS = /translated-signup\.spec\.ts$/;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -37,11 +38,15 @@ export default defineConfig({
     // Production server: run `pnpm build` first. Locally an already-running
     // `pnpm dev` on :3000 is reused instead.
     command: 'pnpm start',
-    // Shows the seeded Swedish signup in Swedish though Swedish hasn't shipped
-    // (`signupLocale` in src/i18n/config.ts), and nothing else: it can't make
-    // Swedish anybody's choice. A server you start yourself for these specs
-    // needs it too.
-    env: { E2E_UNSHIPPED_LOCALES: 'sv' },
+    // Shows each seeded signup in its language though the language hasn't
+    // shipped (`signupLocale` in src/i18n/config.ts), and nothing else: it
+    // can't make a language anybody's choice. The list is every language with
+    // a catalog that hasn't shipped to participants, and the variable is left
+    // unset once there are none. A server you start yourself for these specs
+    // needs it too: a spec that finds English says which value to set.
+    env: UNSHIPPED_TEST_LOCALES.length
+      ? { E2E_UNSHIPPED_LOCALES: UNSHIPPED_TEST_LOCALES.join(',') }
+      : {},
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

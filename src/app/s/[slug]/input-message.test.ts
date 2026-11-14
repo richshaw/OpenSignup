@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { getTranslator } from '@/i18n/translator';
 import type { ErrorReason } from '@/lib/errors';
@@ -86,13 +87,13 @@ describe('inputMessage', () => {
   });
 
   it('takes its lines from the translator it is given', () => {
-    const standIn = getStandInTranslator('sv', 'participant.errors');
+    const standIn = getStandInTranslator(OTHER_LOCALE, 'participant.errors');
     expect(inputMessage(refused('email_invalid'), standIn)).toStrictEqual({
-      message: 'participant.errors.email.invalid in sv',
-      suggestion: 'participant.errors.email.check in sv',
+      message: `participant.errors.email.invalid in ${OTHER_LOCALE}`,
+      suggestion: `participant.errors.email.check in ${OTHER_LOCALE}`,
     });
     expect(inputMessage(refused(), standIn)).toStrictEqual({
-      message: 'participant.errors.input in sv',
+      message: `participant.errors.input in ${OTHER_LOCALE}`,
     });
   });
 

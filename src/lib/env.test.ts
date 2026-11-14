@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { OTHER_LOCALE, withRegion } from '@/i18n/testing/locales';
 import { magicComposeEnabled, parseEnv, resetEnvCache } from './env';
 
 /**
@@ -293,15 +295,15 @@ describe('parseEnv', () => {
       expect(parseEnv({ ...base, DEFAULT_LOCALE: '  ' }).DEFAULT_LOCALE).toBeUndefined();
     });
 
-    // Swedish has a catalog, partial and unshipped: `defaultFor` keeps every
+    // Each language with a catalog, shipped or not: `defaultFor` keeps every
     // audience in English until it ships.
-    it.each(['en', 'sv'])('takes a language OpenSignup has a catalog for: %j', (value) => {
+    it.each(CATALOG_LOCALES)('takes a language OpenSignup has a catalog for: %j', (value) => {
       expect(parseEnv({ ...base, DEFAULT_LOCALE: value }).DEFAULT_LOCALE).toBe(value);
     });
 
     // A typo fails at startup like any other bad setting, rather than leaving
     // the instance in a language nobody chose.
-    it.each(['english', 'EN', 'en-GB', 'sv-SE', 'xx'])('refuses %j', (value) => {
+    it.each(['english', 'EN', 'en-GB', withRegion(OTHER_LOCALE), 'xx'])('refuses %j', (value) => {
       expect(() => parseEnv({ ...base, DEFAULT_LOCALE: value })).toThrow(/- DEFAULT_LOCALE: /);
     });
   });

@@ -13,6 +13,7 @@ import { addField } from '@/services/slot-fields';
 import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
 import { GET } from './route';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 
 interface Fixture {
   db: Db;
@@ -184,7 +185,7 @@ describe('GET /api/public/signups/[slug]', () => {
     const stale = await openSignup('Route Public Stale Language', {});
     await fx.db
       .update(signups)
-      .set({ settings: { ...stale.settings, locale: 'sv' } })
+      .set({ settings: { ...stale.settings, locale: OTHER_LOCALE } })
       .where(eq(signups.id, stale.id));
     expect(await localeOf(stale.slug)).toBe('en');
   });

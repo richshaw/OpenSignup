@@ -4,7 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { getTestTranslator } from '@/i18n/testing/translator';
-import { messagesFor } from '@/i18n/translator';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { getTranslator, messagesFor } from '@/i18n/translator';
 import { formatSlotDate } from '@/lib/slot-label';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
@@ -21,7 +22,7 @@ import {
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 // English from the catalog; any other language answers with the key it was
 // asked for and the language (`getTestServerTranslator`), so a test sees
-// which text the page asks for in Swedish.
+// which text the page asks for in it.
 vi.mock('@/i18n/server', async () => ({
   getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
 }));
@@ -139,11 +140,11 @@ describe('<SignupViewBody mode="showcase" />', () => {
 describe('<SignupViewBody /> language', () => {
   it('reads slot dates in the language it is given', () => {
     // The dates come from Intl.
-    const swedish = formatSlotDate('2026-05-17', 'sv');
-    expect(swedish).not.toBe(formatSlotDate('2026-05-17', 'en'));
+    const inOther = formatSlotDate('2026-05-17', OTHER_LOCALE);
+    expect(inOther).not.toBe(formatSlotDate('2026-05-17', 'en'));
     render(
       <SignupViewBody
-        locale="sv"
+        locale={OTHER_LOCALE}
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef="date"
@@ -152,8 +153,8 @@ describe('<SignupViewBody /> language', () => {
         mode="showcase"
       />,
     );
-    // The group heading, in Swedish.
-    expect(screen.getByRole('heading', { level: 2, name: swedish! })).toBeInTheDocument();
+    // The group heading, in that language.
+    expect(screen.getByRole('heading', { level: 2, name: inOther! })).toBeInTheDocument();
     expect(screen.queryByText(/May/)).toBeNull();
   });
 });
@@ -169,17 +170,30 @@ describe('the sign-up dialog’s messages', () => {
 
   it('come with the live page, in its language, and only the dialog’s', async () => {
     provided.length = 0;
-    render(<SignupViewBody {...props} locale="sv" mode="live" />);
+    render(<SignupViewBody {...props} locale={OTHER_LOCALE} mode="live" />);
     // The sections the dialog reads, and no others: not the page's own, which
-    // the server renders. Swedish, with English under it.
+    // the server renders. The page's language, with English under it.
     expect(provided.at(-1)).toEqual({
-      locale: 'sv',
-      messages: messagesFor('sv', COMMIT_DIALOG_NAMESPACES),
+      locale: OTHER_LOCALE,
+      messages: messagesFor(OTHER_LOCALE, COMMIT_DIALOG_NAMESPACES),
     });
     const given = provided.at(-1)?.messages as { participant: Record<string, unknown> };
     expect(Object.keys(given.participant).sort()).toEqual(['dialog', 'errors', 'fields', 'slot']);
-    fireEvent.click(screen.getByRole('button', { name: /^Anmäl dig till / }));
-    expect(await screen.findByLabelText('Ditt namn', {}, { timeout: 5000 })).toBeInTheDocument();
+    const strict = {
+      onError: (error: Error) => {
+        throw error;
+      },
+    };
+    const dialog = getTranslator(OTHER_LOCALE, 'participant.dialog', strict);
+    const fields = getTranslator(OTHER_LOCALE, 'participant.fields', strict);
+    // Its Sign up button, named for its slot in the language.
+    const [before, after] = dialog('signUpFor', { slot: '\u0000' }).split('\u0000');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: (name) => name.startsWith(before!) && name.endsWith(after!),
+      }),
+    );
+    expect(await screen.findByLabelText(fields('name'), {}, { timeout: 5000 })).toBeInTheDocument();
   });
 
   it('stay out of the Preview and the showcase, which have no dialog', () => {
@@ -192,19 +206,18 @@ describe('the sign-up dialog’s messages', () => {
 });
 
 describe('<SignupViewBody /> text, from the catalog in the signup’s language', () => {
-  // The mocked translator answers each Swedish key with where it was asked
-  // for: "participant.signupView.full in sv".
-  const SWEDISH = 'sv';
-  const view = (key: string) => `participant.signupView.${key} in sv`;
-  const slot = (key: string) => `participant.slot.${key} in sv`;
+  // The mocked translator answers each key in a language other than English
+  // with where it was asked for: "participant.signupView.full in sv".
+  const view = (key: string) => `participant.signupView.${key} in ${OTHER_LOCALE}`;
+  const slot = (key: string) => `participant.slot.${key} in ${OTHER_LOCALE}`;
   // The live row's Sign up is the dialog's, and its stand-ins say the same.
-  const dialog = (key: string) => `participant.dialog.${key} in sv`;
+  const dialog = (key: string) => `participant.dialog.${key} in ${OTHER_LOCALE}`;
   const OWN = { slotId: 's1', editUrl: '/s/example/c/com_1?t=tok' };
 
   it('asks for the Closed banner and a returning participant’s bar in it', () => {
     render(
       <SignupViewBody
-        locale={SWEDISH}
+        locale={OTHER_LOCALE}
         signup={{ ...SIGNUP, status: 'closed' }}
         fields={FIELDS}
         groupByRef={null}
@@ -226,7 +239,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
   it('asks for the Closed banner’s plain line and Manage in it', () => {
     render(
       <SignupViewBody
-        locale={SWEDISH}
+        locale={OTHER_LOCALE}
         signup={{ ...SIGNUP, status: 'closed' }}
         fields={FIELDS}
         groupByRef={null}
@@ -239,7 +252,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
     cleanup();
     render(
       <SignupViewBody
-        locale={SWEDISH}
+        locale={OTHER_LOCALE}
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -255,7 +268,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
   it('asks for every row’s words in it', () => {
     render(
       <SignupViewBody
-        locale={SWEDISH}
+        locale={OTHER_LOCALE}
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef="date"
@@ -289,7 +302,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
   it('asks for the showcase’s Sign up in it', () => {
     render(
       <SignupViewBody
-        locale={SWEDISH}
+        locale={OTHER_LOCALE}
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -304,7 +317,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
   it('keeps the Preview banner and the disabled button’s tip in English, marked so', () => {
     render(
       <SignupViewBody
-        locale={SWEDISH}
+        locale={OTHER_LOCALE}
         signup={{ ...SIGNUP, status: 'draft' }}
         fields={FIELDS}
         groupByRef={null}

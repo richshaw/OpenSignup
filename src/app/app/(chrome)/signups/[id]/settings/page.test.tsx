@@ -4,6 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { languageName } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
 
 // Unit tests have no server environment. The instance sets no language
@@ -58,8 +60,8 @@ describe('Settings tab: Signup language', () => {
   });
 
   it('offers each shipped language by its own name once there are two', async () => {
-    ship('participant', ['en', 'sv']);
-    stored.settings = { locale: 'sv' };
+    ship('participant', ['en', OTHER_LOCALE]);
+    stored.settings = { locale: OTHER_LOCALE };
     await renderTab();
 
     const section = languageSection();
@@ -67,20 +69,20 @@ describe('Settings tab: Signup language', () => {
     const form = within(section!);
     expect(form.getByRole('group', { name: 'Signup language' })).toBeInTheDocument();
     const english = form.getByRole('radio', { name: 'English' });
-    const swedish = form.getByRole('radio', { name: 'Svenska' });
+    const other = form.getByRole('radio', { name: languageName(OTHER_LOCALE) });
     expect(english).toHaveAttribute('name', 'locale');
     expect(english).toHaveAttribute('value', 'en');
-    expect(swedish).toHaveAttribute('value', 'sv');
+    expect(other).toHaveAttribute('value', OTHER_LOCALE);
     // Each name is marked as its own language, for screen readers.
-    expect(form.getByText('Svenska')).toHaveAttribute('lang', 'sv');
-    expect(swedish).toBeChecked();
+    expect(form.getByText(languageName(OTHER_LOCALE))).toHaveAttribute('lang', OTHER_LOCALE);
+    expect(other).toBeChecked();
     expect(english).not.toBeChecked();
     expect(form.getByRole('button', { name: 'Save' })).toBeInTheDocument();
     expect(form.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('shows the instance’s language for a signup with none, or one that has left the list', async () => {
-    ship('participant', ['en', 'sv']);
+    ship('participant', ['en', OTHER_LOCALE]);
     await renderTab();
     expect(screen.getByRole('radio', { name: 'English' })).toBeChecked();
     cleanup();
@@ -88,17 +90,17 @@ describe('Settings tab: Signup language', () => {
     stored.settings = { locale: 'xx' };
     await renderTab();
     expect(screen.getByRole('radio', { name: 'English' })).toBeChecked();
-    expect(screen.getByRole('radio', { name: 'Svenska' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: languageName(OTHER_LOCALE) })).not.toBeChecked();
     cleanup();
 
     // The instance's own, once it has shipped: what the signup's pages use.
-    instance.defaultLocale = 'sv';
+    instance.defaultLocale = OTHER_LOCALE;
     await renderTab();
-    expect(screen.getByRole('radio', { name: 'Svenska' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: languageName(OTHER_LOCALE) })).toBeChecked();
   });
 
   it('says Saved by the form that saved, and only there', async () => {
-    ship('participant', ['en', 'sv']);
+    ship('participant', ['en', OTHER_LOCALE]);
     await renderTab({ saved: 'language' });
     expect(within(languageSection()!).getByRole('status')).toHaveTextContent('Saved');
     expect(screen.getAllByRole('status')).toHaveLength(1);
