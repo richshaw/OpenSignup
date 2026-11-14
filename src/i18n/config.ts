@@ -95,7 +95,8 @@ export function signupLocale(
  * browser, the API and the AI connector alike, and new signups store none
  * while only English has shipped. It never makes a language the instance's
  * (`defaultFor`), an organizer's, or a choice anywhere. It isn't in env.ts,
- * because it isn't a setting.
+ * because it isn't a setting, and the server logs a warning when it starts
+ * with it set (src/instrumentation.ts).
  */
 function isShownToTests(stored: unknown): stored is CatalogLocale {
   const listed = process.env.E2E_UNSHIPPED_LOCALES?.split(',') ?? [];
