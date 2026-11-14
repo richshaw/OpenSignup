@@ -33,12 +33,38 @@ How it looks in place, under `<repo root>/translation-review/`:
   of each participant screen and state, at desktop and phone width (390
   pixels), named for what it shows (`page-open`, `sheet-error-filled-up`,
   `edit-page-closed`, `unsubscribe-confirm` …). Look at the images.
-- `<code>/emails/*.html` and `*.txt`: each participant email, with the English
-  ones in `en/emails/` to compare. An email's subject is its preview text, the
-  first line of the `.txt`.
+- `<code>/emails/*.html` and `*.txt`: each participant email. Its English is
+  in `en/emails/`, under the same name without `-<code>` (`reminder-sv.txt`
+  and `reminder.txt`). Each `.txt` starts with a `Subject:` line: the email's
+  subject as it's sent, from `email.subject` in the catalog (the word
+  "Subject:" is the file's, not the email's). The "OpenSignup" below it is the
+  product's name, the same in every language. In the `.html` the subject is
+  the hidden preview text at the top of `<body>`. `en/emails/` also holds the
+  sign-in email (`magic-link`), which has no translation on purpose: it's
+  organizer text, still in English.
 
-For a message no screenshot shows, judge it from its key, its English and the
-messages beside it.
+Some messages show in no screenshot, because they're only in a tab's title, a
+link preview, what a screen reader says, or what a button hands to another
+app:
+
+- tab titles: `participant.signupPage.title` (a draft or archived signup's
+  page) and `participant.unsubscribe.title`;
+- the link preview's description for a signup with none of its own:
+  `participant.signupPage.description`;
+- names a screen reader reads: `participant.dialog.signUpFor` (each row's Sign
+  up button, and the sheet's title), `participant.signupView.editFor` (the
+  row's Edit link), `participant.dialog.close` (the sheet's close button),
+  `participant.slot.signedUp` and `participant.slot.leftOf` (the count beside
+  a row; `leftOf` also shows on the sheet), `participant.dialog.copied` and
+  `participant.editForm.confirmCancel`;
+- handed to another app: `participant.dialog.shareText` (the text a share
+  sheet gets) and `participant.dialog.calendarDescription` (the calendar
+  file's description);
+- `common.footer`: the footer under participant pages is still English, so
+  its translation shows nowhere yet.
+
+Judge those, and any other message no screenshot shows, from its key, its
+English and the messages beside it.
 
 Check every message for:
 
