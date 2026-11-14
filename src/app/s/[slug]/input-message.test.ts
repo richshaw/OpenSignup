@@ -30,7 +30,7 @@ const REASONS: readonly (readonly [ErrorReason, Copy, Copy])[] = [
     { message: 'This signup now needs an email address.', suggestion: 'Add yours and try again.' },
     {
       message: 'Den här anmälningslistan kräver nu en e-postadress.',
-      suggestion: 'Fyll i den och försök igen.',
+      suggestion: 'Fyll i din e-postadress och försök igen.',
     },
   ],
   [
