@@ -14,19 +14,29 @@ export const CATALOG_LOCALES = ['en'] as const;
 export type CatalogLocale = (typeof CATALOG_LOCALES)[number];
 
 /**
+ * The catalog namespaces (a catalog's top-level sections) each audience reads.
+ * A language is complete for an audience when it has every English message in
+ * these, which the catalog check in src/i18n/catalogs.test.ts enforces for
+ * the languages in `SHIPPED`.
+ */
+export const AUDIENCE_NAMESPACES = {
+  participant: ['participant', 'email', 'common'],
+  organizer: ['organizer', 'auth', 'common'],
+  site: ['site', 'common'],
+} as const;
+
+export type Audience = keyof typeof AUDIENCE_NAMESPACES;
+
+/**
  * Per audience, the languages whose text for that audience is complete and has
  * been reviewed. Only these may be chosen or offered, so adding one here is
  * that language's launch.
- *
- * An audience reads these catalog namespaces: participants `participant`,
- * `email` and `common`; organizers `organizer`, `auth` and `common`; the
- * public site `site` and `common`.
  */
 export const SHIPPED = {
   participant: ['en'],
   organizer: ['en'],
   site: ['en'],
-} as const satisfies Record<string, readonly CatalogLocale[]>;
+} as const satisfies Record<Audience, readonly CatalogLocale[]>;
 
 /**
  * The time zone every translator formats dates in. Slot dates and times are
