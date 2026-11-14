@@ -25,8 +25,8 @@ vi.mock('@/auth/session', () => ({
   toActor: () => ({ kind: 'organizer', id: 'org_1' }),
 }));
 // The server actions need a database, and so does the read of the
-// organizer's open signups in another language, which a test answers with
-// their ids.
+// organizer's open signups, which a test answers with how many there are and
+// the ids of those in another language.
 vi.mock('./actions', () => ({
   setOrganizerLocaleAction: vi.fn(),
   switchOpenSignupsLocaleAction: vi.fn(),
@@ -35,7 +35,7 @@ vi.mock('@/db/client', () => ({ getDb: () => ({}) }));
 const openSignupsToSwitch = vi.hoisted(() =>
   vi.fn(async (_db: unknown, _actor: unknown, _locale: string) => ({
     ok: true as const,
-    value: [] as string[],
+    value: { open: 0, toSwitch: [] as string[] },
   })),
 );
 vi.mock('@/services/signups', () => ({ openSignupsToSwitch }));
@@ -54,7 +54,7 @@ afterEach(() => {
   cleanup();
   Object.assign(request, { instanceDefault: undefined, acceptLanguage: null, saved: null });
   openSignupsToSwitch.mockClear();
-  openSignupsToSwitch.mockResolvedValue({ ok: true, value: [] });
+  openSignupsToSwitch.mockResolvedValue({ ok: true, value: { open: 0, toSwitch: [] } });
 });
 
 describe('Account Settings: Language for new signups', () => {
@@ -141,16 +141,17 @@ describe('Account Settings: Language for new signups', () => {
 
 describe('Account Settings: switching the open signups', () => {
   const switchButton = () => screen.queryByRole('button', { name: /^Switch your/ });
-  const toSwitch = (count: number) =>
+  /** The organizer has `open` open signups, `count` of them in another language. */
+  const toSwitch = (count: number, open = count) =>
     openSignupsToSwitch.mockResolvedValue({
       ok: true,
-      value: Array.from({ length: count }, (_, n) => `sig_${n}`),
+      value: { open, toSwitch: Array.from({ length: count }, (_, n) => `sig_${n}`) },
     });
 
   it('isn’t there, and reads nothing, while one language has shipped to participants', async () => {
     request.saved = 'en';
     toSwitch(3);
-    await renderPage({ switched: '3' });
+    await renderPage({ switched: '1' });
     expect(switchButton()).not.toBeInTheDocument();
     expect(screen.queryByText(/now use/)).not.toBeInTheDocument();
     expect(openSignupsToSwitch).not.toHaveBeenCalled();
@@ -192,33 +193,52 @@ describe('Account Settings: switching the open signups', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/^Saved$/);
   });
 
-  it('says what the switch did once none is left, and only then', async () => {
+  it('says how many open signups use the language after the switch, from what’s stored', async () => {
     ship('participant', ['en', 'sv']);
     request.saved = 'sv';
-    await renderPage({ switched: '3' });
+    toSwitch(0, 4);
+    await renderPage({ switched: '1' });
     const done = screen.getByRole('status');
-    expect(done).toHaveTextContent('Saved. 3 signups now use Svenska.');
+    expect(done).toHaveTextContent('Saved. Your 4 open signups now use Svenska.');
     expect(within(done).getByText('Svenska')).toHaveAttribute('lang', 'sv');
     expect(document.body).toHaveFocus();
     cleanup();
 
+    toSwitch(0, 1);
     await renderPage({ switched: '1' });
-    expect(screen.getByRole('status')).toHaveTextContent('Saved. 1 signup now uses Svenska.');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Saved. Your 1 open signup now uses Svenska.',
+    );
     cleanup();
 
     // With signups still in another language, the button shows instead.
-    toSwitch(2);
-    await renderPage({ switched: '3' });
+    toSwitch(2, 4);
+    await renderPage({ switched: '1' });
     expect(screen.queryByText(/now use/)).not.toBeInTheDocument();
     expect(switchButton()).toHaveAccessibleName('Switch your 2 open signups to Svenska');
   });
 
-  it('takes only a count from the address', async () => {
+  it('says nothing to an organizer with no open signups, whatever the address says', async () => {
     ship('participant', ['en', 'sv']);
     request.saved = 'sv';
-    for (const switched of ['0', '-1', 'abc', '1e3', '12345', '3 signups were deleted', '']) {
+    await renderPage({ switched: '1' });
+    expect(screen.queryByText(/now use/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('takes only a flag from the address, never a number', async () => {
+    ship('participant', ['en', 'sv']);
+    request.saved = 'sv';
+    toSwitch(0, 4);
+    // Only the action's flag, `1`, shows the line, with the count from what's
+    // stored (4 here); a number a link puts in its place shows nothing.
+    for (const switched of ['9999', '3', '0']) {
       await renderPage({ switched });
       expect(screen.queryByText(/now use/)).not.toBeInTheDocument();
+      cleanup();
+    }
+    for (const switched of ['-1', 'abc', 'true', '1e3', 'Your 9999 signups were deleted', '']) {
+      await renderPage({ switched });
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
       cleanup();
     }

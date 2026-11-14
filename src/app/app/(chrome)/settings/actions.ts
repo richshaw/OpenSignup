@@ -38,11 +38,11 @@ export async function setOrganizerLocaleAction(formData: FormData) {
  * sends nothing, so a forged one can't name another language, or anyone
  * else's signups.
  *
- * Comes back with `switched=` how many it changed, which the page shows once
- * none is left in another language. A press that finds none left changes
- * nothing and stays where it is: so the second tap of a double tap, which
- * waits for the first, leaves the first one's answer on the page. A refusal
- * comes back by its code, as above.
+ * Comes back with `switched=1`, a flag: the page then says how many open
+ * signups use the language, from what's stored, once none is left in another
+ * one. A press that finds none left changes nothing and stays where it is: so
+ * the second tap of a double tap, which waits for the first, leaves the first
+ * one's answer on the page. A refusal comes back by its code, as above.
  */
 export async function switchOpenSignupsLocaleAction(_form: FormData) {
   const session = await requireOrganizerSession();
@@ -60,5 +60,5 @@ export async function switchOpenSignupsLocaleAction(_form: FormData) {
     revalidatePath(`/app/signups/${signupId}`, 'layout');
   }
   revalidatePath(SETTINGS_PATH);
-  if (signupIds.length > 0) redirect(`${SETTINGS_PATH}?switched=${signupIds.length}`);
+  if (signupIds.length > 0) redirect(`${SETTINGS_PATH}?switched=1`);
 }
