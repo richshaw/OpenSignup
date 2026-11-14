@@ -145,6 +145,30 @@ describe('signupsLookWrittenIn: Swedish signups', () => {
     expect(looksSwedish(title)).toBe(true);
   });
 
+  // Signups that recur name their day in the plural ("on Mondays") or the
+  // definite form ("the Monday"), and their weeks and evenings in the plural.
+  // Each title says no without its day or count word.
+  it.each([
+    'Simskola måndagar',
+    'Körövning tisdagar',
+    'Fotboll onsdagar',
+    'Bokcirkel torsdagar',
+    'Fika fredagar',
+    'Bakning lördagar',
+    'Kyrkkaffe söndagar',
+    'Fikat måndagen den 3 mars',
+    'Kyrkkaffe tisdagen den 4 mars',
+    'Grillkväll onsdagen',
+    'Pyssel torsdagen den 6 mars',
+    'Disco fredagen den 7 mars',
+    'Städdag lördagen den 8 mars',
+    'Gudstjänst söndagen den 9 mars',
+    'Simskola fem veckor',
+    'Läxhjälp tre kvällar',
+  ])('takes %j, a day or count that recurs, for Swedish', (title) => {
+    expect(looksSwedish(title)).toBe(true);
+  });
+
   // No listed word, but every word is spelled with å, ä or ö.
   it.each(['Städdag', 'Föräldramöte', 'Fotbollsträning', 'Ridläger', 'Påskpyssel'])(
     'takes %j, all words with Swedish letters, for Swedish',

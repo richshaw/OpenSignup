@@ -56,8 +56,12 @@ const WRITING: Partial<Record<CatalogLocale, WritingMarkers>> = {
       // (someone's), one, after, without, next, every, year, school year.
       'och att inte för är från också när här där även två våra över inför mellan vem vad',
       'på som det hos ett efter utan nästa varje år åk',
-      // Days, times and seasons.
+      // Days, times and seasons. The days also as "on Mondays" (måndagar)
+      // and "the Monday" (måndagen), for signups that recur. Matcher (English)
+      // and helger (a surname) are left out.
       'måndag tisdag onsdag torsdag fredag lördag söndag helgen vecka veckan kväll kvällen',
+      'måndagar tisdagar onsdagar torsdagar fredagar lördagar söndagar veckor kvällar',
+      'måndagen tisdagen onsdagen torsdagen fredagen lördagen söndagen',
       'augusti sommar hösten våren julen påsk',
       // What signups are for: sign-up, a lift, the school, the preschool,
       // cakes, coffee, buns, the food, the children, parents, help, welcome,
@@ -186,10 +190,12 @@ export function signupsLookWrittenIn(
  * `words`). They can only add evidence to `signupsLookWrittenIn`'s: one with
  * a listed word says yes, one without says nothing, and none enters its "at
  * least half" count, where an English description beside weak titles would
- * turn a yes into a no. Letters count for nothing here: a description is long
- * enough to name a Swedish place in English, and a Swedish one nearly always
- * has a listed word. A language with no entry in `WRITING` never looks
- * written in.
+ * turn a yes into a no. Letters count for nothing here, and so do the words
+ * shared with English ("till", "med"), which count in a title only beside a
+ * word spelled with the language's letters: a description is long enough to
+ * have both while naming a Swedish place in English ("open till noon in
+ * Malmö"), and a Swedish one nearly always has a listed word. A language with
+ * no entry in `WRITING` never looks written in.
  */
 export function descriptionsLookWrittenIn(
   locale: CatalogLocale,
