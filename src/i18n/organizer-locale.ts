@@ -24,6 +24,17 @@ export type OrganizerLocaleSource = 'setting' | 'instance' | 'browser' | 'defaul
 export type SignupLocaleSource = OrganizerLocaleSource | 'api' | 'content';
 
 /**
+ * Whether `value` has the shape of a bare language code, as `signup.created`
+ * records a Magic Compose draft's language (`draftLanguage`): two or three
+ * letters a-z, a tag's primary language subtag in lower case (`sv`, `fil`).
+ * The shape only: whether a code names a language is for the reader of the
+ * AI's reply (`MagicComposeDraftSchema`) to decide.
+ */
+export function isLanguageCode(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-z]{2,3}$/.test(value);
+}
+
+/**
  * The organizer's language for `audience`: the first of their saved language,
  * the instance default and their browser's top-ranked language that has
  * shipped to that audience, else English. A step whose language hasn't shipped

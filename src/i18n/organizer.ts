@@ -56,9 +56,9 @@ export function newSignupLocale(
  * (`newSignupLocale`). The draft's language wins because the description is
  * better evidence of what participants read than a guess from the browser.
  * Null, as `newSignupLocale` is, while only one language has shipped, so the
- * signup stores none. `drafted` is the model's value already cut to a code
- * (`MagicComposeDraftSchema`), and is only ever compared with `SHIPPED`, so
- * a language is stored only when it equals one on that list.
+ * signup stores none. `drafted` is the model's value already read as a
+ * language code (`MagicComposeDraftSchema`), and is only ever compared with
+ * `SHIPPED`, so a language is stored only when it equals one on that list.
  */
 export function draftedSignupLocale(
   drafted: string | undefined,

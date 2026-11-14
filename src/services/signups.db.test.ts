@@ -524,6 +524,24 @@ describe('signups service (db)', () => {
       expect(await createdPayload(r.value.id)).not.toHaveProperty('draftLanguage');
     });
 
+    // Whatever a later caller passes, only a bare code reaches the log.
+    it.each(['Swedish', 'sv-SE', 'SV', 'e', 'swed', 'sä', 'tea party', 'sv; and more', ''])(
+      'creates the signup but records no draft language that is not a bare code: %j',
+      async (draftLanguage) => {
+        const r = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput(`Drafted in ${draftLanguage || 'nothing'}`),
+          { draftLanguage },
+        );
+        if (!r.ok) throw new Error('setup failed');
+        const payload = await createdPayload(r.value.id);
+        expect(payload).toMatchObject({ templateId: 'default' });
+        expect(payload).not.toHaveProperty('draftLanguage');
+      },
+    );
+
     it('records neither key on signup.created when it stores no language', async () => {
       const r = await createSignup(
         fx.db,
