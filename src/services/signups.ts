@@ -3,6 +3,7 @@ import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
+import { SHIPPED, isShipped } from '@/i18n/config';
 import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
@@ -58,6 +59,22 @@ function checkGroupByRefs(
     serviceError('invalid_input', "groupByFieldRefs must name one of the signup's fields", {
       field: 'settings.groupByFieldRefs',
       received: unknown,
+    }),
+  );
+}
+
+/**
+ * A signup's language must be one that has shipped to participants, since its
+ * pages and emails follow it. Only a language the caller sends is checked: a
+ * stored one can leave the list later, and the row must stay editable.
+ */
+function checkLocale(locale: string | undefined): Result<null, ServiceError> {
+  if (locale === undefined || isShipped('participant', locale)) return ok(null);
+  return err(
+    serviceError('invalid_input', 'locale must be a language OpenSignup offers for signups', {
+      field: 'settings.locale',
+      received: locale,
+      suggestion: `leave it out, or use one of: ${SHIPPED.participant.join(', ')}`,
     }),
   );
 }
@@ -152,6 +169,8 @@ export async function createSignup(
   if (!anchor.ok) return anchor;
   const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fieldDefs);
   if (!grouping.ok) return grouping;
+  const locale = checkLocale(data.settings.locale);
+  if (!locale.ok) return locale;
   const settings: SignupSettings =
     anchor.value === null
       ? data.settings
@@ -264,12 +283,13 @@ export async function updateSignup(
   // which is the one thing "only the settings you pass change" promises.
   return withSignupWriteLock(db, actor, signupId, async (tx, row) => {
     const prevSettings = row.settings;
-    // Only a group-by the caller sent is checked: a row saved with a stale ref
-    // must not make every unrelated settings save fail.
-    const sentGroupBy =
-      isObject(rawInput) &&
-      isObject(rawInput.settings) &&
-      rawInput.settings.groupByFieldRefs != null;
+    // Only a group-by or language the caller sent is checked: a row saved with
+    // a stale ref, or a language that has since left the list, must not make
+    // every unrelated settings save fail.
+    const sent: Record<string, unknown> =
+      isObject(rawInput) && isObject(rawInput.settings) ? rawInput.settings : {};
+    const sentGroupBy = sent.groupByFieldRefs != null;
+    const sentLocale = sent.locale != null;
     if (isObject(rawInput) && isObject(rawInput.settings)) {
       // The anchor stays out of the merge, so below it is only ever what the
       // caller sent.
@@ -303,6 +323,10 @@ export async function updateSignup(
       if (sentGroupBy) {
         const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fields);
         if (!grouping.ok) return grouping;
+      }
+      if (sentLocale) {
+        const locale = checkLocale(data.settings.locale);
+        if (!locale.ok) return locale;
       }
       mergedSettings =
         anchor.value === null

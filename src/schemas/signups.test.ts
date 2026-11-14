@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   SignupCreateInputSchema,
+  SignupSettingsSchema,
   SignupUpdateInputSchema,
   requiresEmail,
   sendsReminders,
@@ -13,6 +14,9 @@ describe('requiresEmail', () => {
     ['requireEmail true', { requireEmail: true }, true],
     ['requireEmail false', { requireEmail: false }, false],
     ['settings that do not parse', { requireEmail: 'no' }, true],
+    // A stored language that has left the list must not make the whole
+    // settings object fail, which would ask for an email the organizer turned off.
+    ['a language OpenSignup does not offer', { requireEmail: false, locale: 'xx' }, false],
   ])('%s', (_label, settings, expected) => {
     expect(requiresEmail(settings)).toBe(expected);
   });
@@ -24,8 +28,25 @@ describe('sendsReminders', () => {
     ['no sendReminders key', { requireEmail: false }, true],
     ['sendReminders true', { sendReminders: true }, true],
     ['sendReminders false', { sendReminders: false }, false],
+    ['a language OpenSignup does not offer', { sendReminders: false, locale: 'xx' }, false],
   ])('%s', (_label, settings, expected) => {
     expect(sendsReminders(settings)).toBe(expected);
+  });
+});
+
+describe('settings.locale', () => {
+  // Lenient on purpose: the services refuse a language the caller sends that
+  // isn't offered, but one already stored must still parse.
+  it.each(['en', 'xx', 'sv-FI'])('parses a stored %j', (locale) => {
+    expect(SignupSettingsSchema.parse({ locale }).locale).toBe(locale);
+  });
+
+  it('is absent unless set, with no default', () => {
+    expect(SignupSettingsSchema.parse({})).not.toHaveProperty('locale');
+  });
+
+  it('refuses anything longer than a language tag', () => {
+    expect(SignupSettingsSchema.safeParse({ locale: 'x'.repeat(36) }).success).toBe(false);
   });
 });
 

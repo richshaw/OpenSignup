@@ -52,6 +52,8 @@ primary_region = "iad"
   NEXT_TELEMETRY_DISABLED = "1"
   # Optional: URL of the demo video shown on the landing page.
   # NEXT_PUBLIC_DEMO_VIDEO_URL = "https://cdn.example.com/demo.mp4"
+  # Optional: the instance's language. See "Branding your instance" in the README.
+  # DEFAULT_LOCALE = "en"
 
 [http_service]
   internal_port = 3000
