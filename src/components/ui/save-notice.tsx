@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import type { ErrorCode } from '@/lib/errors';
 
@@ -23,16 +24,24 @@ export const SAVE_ERROR_MESSAGE: Record<ErrorCode, string> = {
 /**
  * "Saved", next to whatever saved it: the Build tab's status and the Settings
  * tab's form. It has no hooks, so a server page can show it without adding
- * script. Pass `role="status"` where it appears after a save on its own.
+ * script. Pass `role="status"` where it appears after a save on its own, and
+ * `children` for a longer line in the same style, such as account Settings'
+ * "Saved. 3 signups now use Svenska."
  */
-export function SavedNotice({ role }: { role?: 'status' }) {
+export function SavedNotice({
+  role,
+  children = 'Saved',
+}: {
+  role?: 'status';
+  children?: ReactNode;
+}) {
   return (
     <span
       role={role}
       className="inline-flex items-center gap-1.5 text-xs font-semibold text-success"
     >
       <Check size={11} />
-      Saved
+      {children}
     </span>
   );
 }

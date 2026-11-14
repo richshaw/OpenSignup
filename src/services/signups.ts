@@ -459,9 +459,9 @@ function notIn<T extends { settings: StoredSignupSettings }>(
 
 /**
  * The ids of the signups `setOpenSignupsLocale` would change to `locale`
- * (none when every one is in it already), so a page can ask first only when
- * there's something to change. Read without a lock: what changes is decided
- * again, under one, when the change is made.
+ * (none when every one is in it already), so a page can offer the change, with
+ * its count, only when there's something to change. Read without a lock: what
+ * changes is decided again, under one, when the change is made.
  */
 export async function openSignupsToSwitch(
   db: Queryable,
@@ -474,15 +474,14 @@ export async function openSignupsToSwitch(
 }
 
 /**
- * Puts the acting organizer's open signups in `locale` (#639): the Yes to
- * "Use Svenska for your open signups too?", asked once they've saved their
- * own language. Which signups count is `ownOpenSignups`'s to say. One whose
- * participants already get `locale` (`signupLocale`) is left as it is, as is
- * one with no language of its own that reads as `locale` through the
- * instance's. One whose language was chosen on its Settings tab changes like
- * the rest: the row can't tell a choice from the language it started in
- * (#627 stores the organizer's on each new signup), and the question asks
- * about all of them.
+ * Puts the acting organizer's open signups in `locale` (#639): account
+ * Settings' "Switch your 3 open signups to Svenska". Which signups count is
+ * `ownOpenSignups`'s to say. One whose participants already get `locale`
+ * (`signupLocale`) is left as it is, as is one with no language of its own
+ * that reads as `locale` through the instance's. One whose language was chosen
+ * on its Settings tab changes like the rest: the row can't tell a choice from
+ * the language it started in (#627 stores the organizer's on each new
+ * signup), and the button counts all of them.
  *
  * `locale` must have shipped to participants, as for `updateSignup`; anything
  * else is `invalid_input` on `locale` and changes nothing. The signups are

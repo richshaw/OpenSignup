@@ -1,15 +1,14 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { requireOrganizerSession, toActor, type OrganizerSession } from '@/auth/session';
-import { FormError, SuccessNotice } from '@/components/ui/form-error';
+import { FormError } from '@/components/ui/form-error';
 import { SAVE_ERROR_MESSAGE, SavedNotice } from '@/components/ui/save-notice';
-import { SaveQuestion } from '@/components/ui/save-question';
 import { getDb } from '@/db/client';
 import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
 import { getOrganizerLocale } from '@/i18n/organizer';
 import { type ErrorCode, refusalAsResult } from '@/lib/errors';
 import { openSignupsToSwitch } from '@/services/signups';
-import { setOpenSignupsLocaleAction, setOrganizerLocaleAction } from './actions';
+import { setOrganizerLocaleAction, switchOpenSignupsLocaleAction } from './actions';
 
 export const metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
@@ -29,13 +28,15 @@ const SECTIONS = [
   },
 ] as const;
 
-type PageProps = { searchParams: Promise<{ error?: string; saved?: string }> };
+type PageProps = {
+  searchParams: Promise<{ error?: string; saved?: string; switched?: string }>;
+};
 
 export default async function SettingsPage({ searchParams }: PageProps) {
-  const { error, saved } = await searchParams;
+  const { error, saved, switched } = await searchParams;
   const session = await requireOrganizerSession();
   const acceptLanguage = (await headers()).get('accept-language');
-  const openSignups = await openSignupsAfterSave(session, acceptLanguage, saved);
+  const toSwitch = await openSignupsInAnotherLanguage(session, acceptLanguage);
 
   return (
     <section className="space-y-6">
@@ -68,35 +69,35 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         acceptLanguage={acceptLanguage}
         error={error}
         saved={saved === 'language'}
-        openSignups={openSignups}
+        toSwitch={toSwitch}
+        switched={switchedCount(switched)}
       />
     </section>
   );
 }
 
 /**
- * What follows a save of "Language for new signups" about the organizer's
- * open signups, from what's stored: after the save (`saved=language`), ask
- * "Use Svenska for your open signups too?" when any of them would change;
- * after its Yes (`saved=open-signups`), say so once none would. Otherwise,
- * and while one language has shipped, nothing, without a query. The address
- * says only which save it was, so a link can't name a language or put words
- * of its own on the page, and what shows is only ever true.
+ * How many of the organizer's open signups aren't in their language for new
+ * signups, which "Switch your 3 open signups to Svenska" offers to change
+ * (`openSignupsToSwitch` says which count). One statement on each visit once a
+ * second language has shipped to participants; until then 0, without one.
  */
-async function openSignupsAfterSave(
+async function openSignupsInAnotherLanguage(
   session: OrganizerSession,
   acceptLanguage: string | null,
-  saved: string | undefined,
-): Promise<'ask' | 'switched' | null> {
-  if (SHIPPED.participant.length < 2) return null;
-  if (saved !== 'language' && saved !== 'open-signups') return null;
+): Promise<number> {
+  if (SHIPPED.participant.length < 2) return 0;
   const { locale } = getOrganizerLocale(session, acceptLanguage, 'participant');
-  const others = await refusalAsResult(() =>
-    openSignupsToSwitch(getDb(), toActor(session), locale),
-  );
-  if (!others.ok) return null;
-  if (saved === 'language') return others.value.length > 0 ? 'ask' : null;
-  return others.value.length === 0 ? 'switched' : null;
+  const ids = await refusalAsResult(() => openSignupsToSwitch(getDb(), toActor(session), locale));
+  return ids.ok ? ids.value.length : 0;
+}
+
+/**
+ * How many signups the switch changed, from its `switched=`: a whole number
+ * from 1 to 9999, else none, so a link can put only a count on the page.
+ */
+function switchedCount(switched: string | undefined): number | null {
+  return switched && /^[1-9]\d{0,3}$/.test(switched) ? Number(switched) : null;
 }
 
 /**
@@ -106,18 +107,22 @@ async function openSignupsAfterSave(
  * tab's "Signup language", a plain form with each language named in itself
  * (English, Svenska), so the organizer finds theirs whatever language the
  * rest of the page is in. Its Save is a plain button, as Sign out is, so the
- * page loads no script of its own. After a save, it may offer to put the
- * organizer's open signups in the same language (#639, `openSignupsAfterSave`).
+ * page loads no script of its own.
+ *
+ * Under it, while some of the organizer's open signups are in another
+ * language, a button that switches them to this one (#639), and once it has,
+ * what it did, in the place of "Saved". Both are plain HTML too: nothing
+ * appears after the language's own Save, and nothing moves or takes the
+ * focus. The button is gone once they're switched, so a second tap finds
+ * nothing to press.
  */
-/** The "Language for new signups" choices' id, which No after its question comes back to. */
-const ORGANIZER_LANGUAGE_ID = 'organizer-language';
-
 function OrganizerLanguageForm({
   session,
   acceptLanguage,
   error,
   saved,
-  openSignups,
+  toSwitch,
+  switched,
 }: {
   session: OrganizerSession;
   /** The request's `Accept-Language` header, if it has one. */
@@ -126,8 +131,10 @@ function OrganizerLanguageForm({
   error: string | undefined;
   /** Whether this form just saved. */
   saved: boolean;
-  /** What to say about the organizer's open signups (`openSignupsAfterSave`). */
-  openSignups: 'ask' | 'switched' | null;
+  /** How many of the organizer's open signups are in another language. */
+  toSwitch: number;
+  /** How many the switch just changed, from the address. */
+  switched: number | null;
 }) {
   const languages: readonly CatalogLocale[] = SHIPPED.participant;
   if (languages.length < 2) return null;
@@ -148,10 +155,7 @@ function OrganizerLanguageForm({
       {refusal ? <FormError>{refusal}</FormError> : null}
       {/* Keyed on the choice shown, so after a save it's the saved one. */}
       <form key={current} action={setOrganizerLocaleAction} className="flex flex-col gap-4">
-        {/* No after its question comes back here, by the fragment on its
-            address, and the browser focuses it, so the next Tab goes on from
-            this form. */}
-        <fieldset id={ORGANIZER_LANGUAGE_ID} tabIndex={-1}>
+        <fieldset>
           <legend className="font-medium">Language for new signups</legend>
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
             {languages.map((locale) => (
@@ -183,17 +187,23 @@ function OrganizerLanguageForm({
           {saved ? <SavedNotice role="status" /> : null}
         </div>
       </form>
-      {openSignups === 'ask' ? (
-        <SaveQuestion
-          id="open-signups-language-question"
-          question={<>Use {name} for your open signups too?</>}
-          action={setOpenSignupsLocaleAction}
-          fields={{ locale: current }}
-          noHref={`/app/settings#${ORGANIZER_LANGUAGE_ID}`}
-        />
-      ) : null}
-      {openSignups === 'switched' ? (
-        <SuccessNotice>Saved. Your open signups now use {name}.</SuccessNotice>
+      {toSwitch > 0 ? (
+        <form action={switchOpenSignupsLocaleAction} className="border-t border-surface-sunk pt-4">
+          <button
+            type="submit"
+            className="rounded-lg border border-surface-sunk bg-white px-4 py-2 text-sm font-medium transition hover:bg-surface-raised"
+          >
+            Switch your {toSwitch} open {toSwitch === 1 ? 'signup' : 'signups'} to {name}
+          </button>
+        </form>
+      ) : switched !== null ? (
+        // Only once none is left in another language; all the address can
+        // add is a count.
+        <div className="border-t border-surface-sunk pt-4">
+          <SavedNotice role="status">
+            Saved. {switched} {switched === 1 ? 'signup now uses' : 'signups now use'} {name}.
+          </SavedNotice>
+        </div>
       ) : null}
     </div>
   );

@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import type { CatalogLocale } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
-import { ServiceException } from '@/lib/errors';
 
 // What the page reads around the form: the instance's language (none, unless
 // a test sets one), the browser's Accept-Language, and the session.
@@ -26,11 +25,11 @@ vi.mock('@/auth/session', () => ({
   toActor: () => ({ kind: 'organizer', id: 'org_1' }),
 }));
 // The server actions need a database, and so does the read of the
-// organizer's open signups, which a test answers with their ids.
-const setOpenSignupsLocaleAction = vi.hoisted(() => vi.fn());
+// organizer's open signups in another language, which a test answers with
+// their ids.
 vi.mock('./actions', () => ({
   setOrganizerLocaleAction: vi.fn(),
-  setOpenSignupsLocaleAction,
+  switchOpenSignupsLocaleAction: vi.fn(),
 }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) }));
 const openSignupsToSwitch = vi.hoisted(() =>
@@ -42,21 +41,6 @@ const openSignupsToSwitch = vi.hoisted(() =>
 vi.mock('@/services/signups', () => ({ openSignupsToSwitch }));
 
 const { default: SettingsPage } = await import('./page');
-
-/**
- * The forms submitted from now until the test ends, in order. Each submit is
- * stopped once React has had it, since jsdom can't load another page.
- */
-function submittedForms(): HTMLFormElement[] {
-  const forms: HTMLFormElement[] = [];
-  const record = (event: Event) => {
-    forms.push(event.target as HTMLFormElement);
-    event.preventDefault();
-  };
-  document.addEventListener('submit', record);
-  onTestFinished(() => document.removeEventListener('submit', record));
-  return forms;
-}
 
 async function renderPage(searchParams: Record<string, string> = {}) {
   return render(await SettingsPage({ searchParams: Promise.resolve(searchParams) }));
@@ -70,7 +54,6 @@ afterEach(() => {
   cleanup();
   Object.assign(request, { instanceDefault: undefined, acceptLanguage: null, saved: null });
   openSignupsToSwitch.mockClear();
-  setOpenSignupsLocaleAction.mockClear();
   openSignupsToSwitch.mockResolvedValue({ ok: true, value: [] });
 });
 
@@ -156,137 +139,88 @@ describe('Account Settings: Language for new signups', () => {
   });
 });
 
-describe('Account Settings: the question after a language save', () => {
-  const question = () => screen.queryByText(/for your open signups too\?$/);
-  const toSwitch = (ids: string[]) =>
-    openSignupsToSwitch.mockResolvedValue({ ok: true, value: ids });
+describe('Account Settings: switching the open signups', () => {
+  const switchButton = () => screen.queryByRole('button', { name: /^Switch your/ });
+  const toSwitch = (count: number) =>
+    openSignupsToSwitch.mockResolvedValue({
+      ok: true,
+      value: Array.from({ length: count }, (_, n) => `sig_${n}`),
+    });
 
-  it('asks to put the open signups in the saved language when any of them isn’t', async () => {
+  it('isn’t there, and reads nothing, while one language has shipped to participants', async () => {
+    request.saved = 'en';
+    toSwitch(3);
+    await renderPage({ switched: '3' });
+    expect(switchButton()).not.toBeInTheDocument();
+    expect(screen.queryByText(/now use/)).not.toBeInTheDocument();
+    expect(openSignupsToSwitch).not.toHaveBeenCalled();
+  });
+
+  it('offers to switch the open signups in another language to the organizer’s, with how many', async () => {
     ship('participant', ['en', 'sv']);
     request.saved = 'sv';
-    toSwitch(['sig_1', 'sig_2']);
-    await renderPage({ saved: 'language' });
+    toSwitch(3);
+    await renderPage();
 
-    // Asked about the organizer's own language, as they saved it.
+    // Asked about the language the choice above shows.
     expect(openSignupsToSwitch).toHaveBeenCalledOnce();
     expect(openSignupsToSwitch.mock.calls[0]?.[2]).toBe('sv');
-    const asked = question();
-    expect(asked).toHaveTextContent('Use Svenska for your open signups too?');
-    expect(asked).toHaveAttribute('role', 'status');
-    expect(within(asked!).getByText('Svenska')).toHaveAttribute('lang', 'sv');
-    const yes = screen.getByRole('button', { name: 'Yes' });
-    // The answers are in a group the question names.
-    expect(yes.closest('[role=group]')).toHaveAccessibleName(
-      'Use Svenska for your open signups too?',
-    );
-    expect(yes.closest('form')!.querySelector('input[type=hidden][name=locale]')).toHaveValue('sv');
-    expect(screen.getByText('Saved')).toBeInTheDocument();
-  });
-
-  it('gives No the focus, first in the row, so a second press or tap after Save says No', async () => {
-    ship('participant', ['en', 'sv']);
-    request.saved = 'sv';
-    toSwitch(['sig_1']);
-    await renderPage({ saved: 'language' });
-
-    const group = screen.getByRole('group', { name: 'Use Svenska for your open signups too?' });
-    const [no, yes] = within(group).getAllByRole('button') as [
-      HTMLButtonElement,
-      HTMLButtonElement,
-    ];
-    expect(no).toHaveAccessibleName('No');
-    expect(yes).toHaveAccessibleName('Yes');
-    // The focus scrolls No into view, with the box's edge (its scroll margin),
-    // and puts it, not Yes, under the key or finger that pressed Save.
-    expect(no).toHaveFocus();
-    expect(no).toHaveClass('scroll-mb-4');
-    expect(yes).not.toHaveFocus();
-
-    // Pressing what has the focus goes back to the choices that asked,
-    // changing no signup: a plain GET form with no fields. Yes's action, which
-    // would switch every open signup, isn't called.
-    const submitted = submittedForms();
-    fireEvent.click(document.activeElement!);
-    const noForm = no.form!;
-    expect(submitted).toEqual([noForm]);
-    expect(noForm).toHaveAttribute('method', 'get');
-    expect(noForm).toHaveAttribute('action', '/app/settings#organizer-language');
-    expect(noForm.querySelectorAll('input')).toHaveLength(0);
-    expect(setOpenSignupsLocaleAction).not.toHaveBeenCalled();
-    // The choices it comes back to can take the focus.
-    const choices = screen.getByRole('group', { name: 'Language for new signups' });
-    expect(choices).toHaveAttribute('id', 'organizer-language');
-    expect(choices).toHaveAttribute('tabindex', '-1');
-  });
-
-  it('moves the focus nowhere after a save that asks nothing', async () => {
-    ship('participant', ['en', 'sv']);
-    request.saved = 'sv';
-    await renderPage({ saved: 'language' });
-    expect(question()).not.toBeInTheDocument();
+    const button = switchButton()!;
+    expect(button).toHaveAccessibleName('Switch your 3 open signups to Svenska');
+    expect(within(button).getByText('Svenska')).toHaveAttribute('lang', 'sv');
+    // Its form sends nothing: the action works out the language itself.
+    expect(button.closest('form')!.querySelectorAll('input')).toHaveLength(0);
+    // Nothing takes the focus.
     expect(document.body).toHaveFocus();
   });
 
-  it('doesn’t ask when every open signup is in it already, or there are none', async () => {
+  it('says “signup” for one', async () => {
+    ship('participant', ['en', 'sv']);
+    request.saved = 'sv';
+    toSwitch(1);
+    await renderPage();
+    expect(switchButton()).toHaveAccessibleName('Switch your 1 open signup to Svenska');
+  });
+
+  it('isn’t there when every open signup is in the organizer’s language, or there are none', async () => {
     ship('participant', ['en', 'sv']);
     request.saved = 'sv';
     await renderPage({ saved: 'language' });
     expect(openSignupsToSwitch).toHaveBeenCalledOnce();
-    expect(question()).not.toBeInTheDocument();
+    expect(switchButton()).not.toBeInTheDocument();
+    // The language's own Save says only "Saved", as before.
+    expect(screen.getByRole('status')).toHaveTextContent(/^Saved$/);
   });
 
-  it('asks only right after the language saved, and reads nothing otherwise', async () => {
+  it('says what the switch did once none is left, and only then', async () => {
     ship('participant', ['en', 'sv']);
     request.saved = 'sv';
-    toSwitch(['sig_1']);
-    const addresses: Record<string, string>[] = [
-      {},
-      { saved: '1' },
-      { saved: 'Use Klingon for everything' },
-      { ask: 'open-signups', locale: 'sv' },
-    ];
-    for (const searchParams of addresses) {
-      await renderPage(searchParams);
-      expect(question()).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Yes' })).not.toBeInTheDocument();
-      cleanup();
-    }
-    expect(openSignupsToSwitch).not.toHaveBeenCalled();
-  });
-
-  it('never asks, or reads, while one language has shipped to participants', async () => {
-    request.saved = 'en';
-    toSwitch(['sig_1']);
-    await renderPage({ saved: 'language' });
-    expect(question()).not.toBeInTheDocument();
-    expect(openSignupsToSwitch).not.toHaveBeenCalled();
-  });
-
-  it('says the open signups use it after its Yes, and only once they all do', async () => {
-    ship('participant', ['en', 'sv']);
-    request.saved = 'sv';
-    await renderPage({ saved: 'open-signups' });
+    await renderPage({ switched: '3' });
     const done = screen.getByRole('status');
-    expect(done).toHaveTextContent('Saved. Your open signups now use Svenska.');
+    expect(done).toHaveTextContent('Saved. 3 signups now use Svenska.');
     expect(within(done).getByText('Svenska')).toHaveAttribute('lang', 'sv');
-    expect(question()).not.toBeInTheDocument();
+    expect(document.body).toHaveFocus();
     cleanup();
 
-    // A link that says so when it isn't true shows nothing.
-    toSwitch(['sig_1']);
-    await renderPage({ saved: 'open-signups' });
-    expect(screen.queryByText(/Your open signups now use/)).not.toBeInTheDocument();
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    await renderPage({ switched: '1' });
+    expect(screen.getByRole('status')).toHaveTextContent('Saved. 1 signup now uses Svenska.');
+    cleanup();
+
+    // With signups still in another language, the button shows instead.
+    toSwitch(2);
+    await renderPage({ switched: '3' });
+    expect(screen.queryByText(/now use/)).not.toBeInTheDocument();
+    expect(switchButton()).toHaveAccessibleName('Switch your 2 open signups to Svenska');
   });
 
-  it('shows nothing when the read is refused', async () => {
+  it('takes only a count from the address', async () => {
     ship('participant', ['en', 'sv']);
     request.saved = 'sv';
-    openSignupsToSwitch.mockRejectedValue(
-      new ServiceException({ code: 'unauthorized', message: 'sign in required' }),
-    );
-    await renderPage({ saved: 'language' });
-    expect(question()).not.toBeInTheDocument();
-    expect(screen.getByText('Saved')).toBeInTheDocument();
+    for (const switched of ['0', '-1', 'abc', '1e3', '12345', '3 signups were deleted', '']) {
+      await renderPage({ switched });
+      expect(screen.queryByText(/now use/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      cleanup();
+    }
   });
 });
