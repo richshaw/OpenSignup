@@ -59,6 +59,7 @@ describe('email templates under the worker toolchain', () => {
       'ok magic-link',
       'ok commitment-confirmation',
       'ok reminder',
+      'ok reminder-changed',
       'ok slot-changed',
       'ok commitment-confirmation-sv',
       'ok reminder-sv',

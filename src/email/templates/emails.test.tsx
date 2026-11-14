@@ -45,18 +45,18 @@ vi.mock('@/i18n/server', async (importOriginal) => {
 /**
  * Writes an email as the worker renders it, its HTML and its plain text, to
  * `translation-review/<lang>/emails/`, for a translation's review in context
- * (docs/translating.md). Only with TRANSLATION_SCREENSHOTS=1, which
+ * (docs/translating.md). The text starts with a `Subject:` line, because the
+ * subject isn't in the body. Only with TRANSLATION_SCREENSHOTS=1, which
  * `pnpm translation:screenshots` sets; the folder is gitignored.
  */
 function writeForReview(
-  lang: string,
-  name: string,
+  { lang, name, subject }: { lang: string; name: string; subject: string },
   { html, text }: { html: string; text: string },
 ) {
   const dir = path.resolve(import.meta.dirname, '../../../translation-review', lang, 'emails');
   mkdirSync(dir, { recursive: true });
   writeFileSync(path.join(dir, `${name}.html`), html);
-  writeFileSync(path.join(dir, `${name}.txt`), text);
+  writeFileSync(path.join(dir, `${name}.txt`), `Subject: ${subject}\n\n${text}`);
 }
 
 /** `element` rendered with the web process's translators, or the worker's. */
@@ -99,9 +99,10 @@ describe('each email, from the catalogs as the web process gets them', () => {
     ]);
   });
 
-  it.each(emailSamples.map(({ name, element, lang }) => [name, element, lang] as const))(
+  it.each(emailSamples.map((sample) => [sample.name, sample] as const))(
     'renders %s as the worker does',
-    async (name, element, lang) => {
+    async (name, sample) => {
+      const { element } = sample;
       const worker = await render(element, { web: false });
       const used = translators.precompiledUsed;
       const web = await render(element, { web: true });
@@ -109,7 +110,7 @@ describe('each email, from the catalogs as the web process gets them', () => {
       // The sign-in email has no catalog text yet; every other one went
       // through the precompiled catalogs.
       if (name !== 'magic-link') expect(translators.precompiledUsed).toBeGreaterThan(used);
-      if (process.env.TRANSLATION_SCREENSHOTS === '1') writeForReview(lang, name, worker);
+      if (process.env.TRANSLATION_SCREENSHOTS === '1') writeForReview(sample, worker);
     },
   );
 });

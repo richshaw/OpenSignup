@@ -321,7 +321,10 @@ a real site.
 1. **Make its catalog.** Add `src/messages/<code>.json` (start it as `{}`),
    add the code to `CATALOG_LOCALES`, and import the catalog into `CATALOGS`
    in `src/i18n/translator.ts`. Use a bare language code, like `sv`, never a
-   region (`sv-SE`).
+   region (`sv-SE`). `pnpm typecheck` then points at the tests that keep a
+   table by language, like `KEEP_IT_PRIVATE` in
+   `src/app/s/[slug]/commit-dialog.test.tsx`: give each an entry once the
+   messages it checks are translated.
 2. **Give it test signups.** Add a seed like `makeSwedishSignup` in
    `tests/e2e/helpers/seed.ts`, add the code to `E2E_UNSHIPPED_LOCALES` in
    `playwright.config.ts`, and write a spec like
@@ -329,8 +332,10 @@ a real site.
    screen it checks. Add the spec to `TRANSLATION_SPECS` in
    `playwright.config.ts`, and to `pnpm translation:screenshots` in
    `package.json`. Add the participant emails in the language to
-   `scripts/lib/email-samples.ts`, and their names to the lists in
-   `src/email/templates/emails.test.tsx` and `worker-render.test.ts`.
+   `scripts/lib/email-samples.ts`, and their names to the list in
+   `src/email/templates/worker-render.test.ts`. The list in `emails.test.tsx`
+   beside it holds only the Swedish ones (`lang === 'sv'`), so give the new
+   language an assertion of its own there.
 3. **Write its glossary** below, before translating: the product's own terms,
    the tone and the date style.
 4. **Translate and review** with the `translate` skill, namespace by namespace.
@@ -368,20 +373,24 @@ pnpm translation:screenshots
 ```
 
 It sets `TRANSLATION_SCREENSHOTS=1`, which makes the email tests write each
-email's HTML and plain text, in English and Swedish, and makes the Swedish e2e
-specs save a screenshot of each screen and state they check, on a desktop and
-at a phone's width (390 pixels). Everything goes to `translation-review/`,
-which git ignores. Without the flag the tests write nothing, so CI is
-unaffected. In Claude's cloud container, Playwright's own Chromium isn't
-installed: add `-c .claude/skills/run-opensignup/playwright.container.config.ts`.
+email's HTML and plain text, in English and Swedish, with the subject on the
+text's first line, and makes the Swedish e2e specs save a screenshot of each
+screen and state they check, on a desktop and at a phone's width (390
+pixels). Everything goes to `translation-review/`, which git ignores. Without
+the flag the tests write nothing, so CI is unaffected. In Claude's cloud
+container, Playwright's own Chromium isn't installed: add
+`-c .claude/skills/run-opensignup/playwright.container.config.ts`.
 
 Some messages have no screenshot, and the reviewer reads them in the catalog.
-A signup that doesn't exist has no language, so its not-found page
-(`participant.gonePage.signup`) is in the site's language, which can't be
-Swedish until Swedish ships. And the spec doesn't reach a few rarer states: a
-cancelled spot whose slot has since filled or closed, someone the organizer
-took off a slot or moved, someone signed up for more than one slot, the edit
-page's errors when cancelling, and copying the link.
+The reviewer's prompt (`.claude/skills/translate/references/review.md`) names
+the ones only in a tab's title, a link preview, what a screen reader says, or
+what a button hands to another app. A signup that doesn't exist has no
+language, so its not-found page (`participant.gonePage.signup`) is in the
+site's language, which can't be Swedish until Swedish ships. And the spec
+doesn't reach a few rarer states: a cancelled spot whose slot has since filled
+or closed, someone the organizer took off a slot or moved, someone signed up
+for more than one slot, the edit page's errors when cancelling, and copying
+the link.
 
 ## Swedish glossary
 
@@ -446,7 +455,10 @@ review of the Swedish translation (#639) to settle.
    _din anmälan_ ("Vi har sparat din anmälan till …", "Ändra din anmälan till
    …"). _Plats_ is also the word organizers most often give a location field,
    so an email can show "Plats: Aulan" just above "Visa eller ändra din
-   plats", which reads as "your location". _Din anmälan_ avoids that.
+   plats", which reads as "your location". _Din anmälan_ avoids that. The
+   split isn't by screen, either: the signup page's own closed banner says
+   "din plats är kvar" (`participant.signupView.closedBanner.keepsYours`) on
+   the page whose sheet says _din anmälan_.
 2. **Can a spot be "open"?** #638 defines _open_ as a signup people can sign
    up on now, but participant text also calls free spots open ("Reload the
    page to see what's still open"), and so do two help pages. Swedish keeps
@@ -469,6 +481,14 @@ review of the Swedish translation (#639) to settle.
    (touch only) or "Använd knappen ovan"; "Antal platser" in emails, which
    have room for it; quoting a button's name (Knappen ”Lägg till i kalender”).
 7. **Layout.** The unsubscribe page's Swedish buttons wrap at 390 pixels.
+8. **"Du är anmäld som {name}".** The edit page's "You're editing this as
+   {name}." (`participant.editPage.editingAs`, and `editingAsWithEmail`) is
+   "Du är anmäld som {name}.", which says "You're signed up as". It reads
+   naturally there, but it isn't what the English says.
+9. **_Listan_ for short.** The draft page's body
+   (`participant.signupPage.draft.body`) says "när listan är publicerad", the
+   only place the catalog shortens _anmälningslista_. Its title has just said
+   the whole word; elsewhere the catalog always does.
 
 These come from the term tables in #914 and #916 and the reviews of #914,
-#916, #920 and #921, which have more detail on each.
+#916, #920, #921 and #929, which have more detail on each.

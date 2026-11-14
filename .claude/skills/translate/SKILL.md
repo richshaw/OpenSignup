@@ -105,8 +105,9 @@ Playwright at the Chromium installed there. The command writes, under
 - `<language>/screens/chromium/*.png` and `<language>/screens/chromium-phone/*.png`:
   each participant screen and state the Swedish e2e spec checks, at desktop
   and phone width;
-- `en/emails/*.html` and `<language>/emails/*.html`, with a `.txt` of each:
-  every participant email, from `scripts/lib/email-samples.ts`.
+- `en/emails/*.html` and `<language>/emails/*.html`, with a `.txt` of each
+  that starts with the email's subject: every participant email, from
+  `scripts/lib/email-samples.ts`.
 
 Open a few of the images yourself first, to be sure they show what they say.
 If a spec fails on `rate_limited` after several runs in an hour, empty the
@@ -117,8 +118,10 @@ than your own** (set the tool's `model`; your system prompt names yours), so
 the review isn't the translator marking its own work. Give it the prompt in
 `references/review.md`, with its `<…>` parts filled in. If your Agent tool has
 no `model` setting, start a separate cloud session for the review instead
-(`create_session` with a `model`, on your pushed branch), and have it run
-steps 2 and 3's commands before reviewing.
+(`create_session` with a `model`, on your pushed branch). `translation-review/`
+isn't in git, so that session starts without it: have it follow "Get set up",
+then run `pnpm build` and `pnpm translation:screenshots` as above, before it
+reviews.
 
 ## 4. Fix what it finds, and list it in the pull request
 
