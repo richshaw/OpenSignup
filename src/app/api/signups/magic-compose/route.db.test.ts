@@ -473,6 +473,8 @@ describe('POST /api/signups/magic-compose and the language the draft reports (db
       ['de', 'de'],
       ['de_AT', 'de'],
       ['fil', 'fil'],
+      ['swe', 'sv'],
+      ['deu', 'de'],
     ])('records the draft’s language %j as %j, since it hasn’t shipped', async (language, code) => {
       const { telemetry } = await compose(language);
       expect(telemetry).toMatchObject({ templateId: 'magic-compose', draftLanguage: code });
@@ -481,16 +483,23 @@ describe('POST /api/signups/magic-compose and the language the draft reports (db
     it.each([
       ['English', 'en'],
       ['English with a region', 'en-GB'],
+      ['English’s three-letter code', 'eng'],
       ['missing', undefined],
       ['a language’s name', 'Swedish'],
       ['a code with text after it', 'sv; the draft is Swedish'],
+      ['a sentence that starts with a tag', 'sv-SE, though the headings are partly in English'],
+      ['a title that starts with letters', 'Tea-party helpers'],
+      ['three letters that name no language', 'zzz'],
+      ['an English word that names no language', 'the'],
+      ['a private-use tag', 'x-klingon'],
+      ['digits', '12'],
       ['a number', 42],
       ['an object', { code: 'sv' }],
     ])('records no draft language for one that is %s', async (_, language) => {
       const { telemetry } = await compose(language);
       expect(telemetry).toMatchObject({ templateId: 'magic-compose' });
       expect(telemetry).not.toHaveProperty('draftLanguage');
-      expect(JSON.stringify(telemetry)).not.toMatch(/swedish|english/i);
+      expect(JSON.stringify(telemetry)).not.toMatch(/swedish|english|tea|zzz|the|klingon/i);
     });
   });
 
@@ -499,7 +508,7 @@ describe('POST /api/signups/magic-compose and the language the draft reports (db
       ship('participant', ['en', 'sv']);
     });
 
-    it.each(['sv', 'sv-SE', 'SV'])(
+    it.each(['sv', 'sv-SE', 'SV', 'swe'])(
       'starts it in Swedish for a draft in %j, over the organizer’s English, as content',
       async (language) => {
         route.locale = 'en';
@@ -510,12 +519,16 @@ describe('POST /api/signups/magic-compose and the language the draft reports (db
       },
     );
 
-    it('starts it in English for a draft in English, over the organizer’s Swedish, as content', async () => {
-      route.locale = 'sv';
-      const { settings, telemetry } = await compose('en', 'sv');
-      expect(settings).toMatchObject({ locale: 'en' });
-      expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'content' });
-    });
+    it.each(['en', 'eng'])(
+      'starts it in English for a draft in %j, over the organizer’s Swedish, as content',
+      async (language) => {
+        route.locale = 'sv';
+        const { settings, telemetry } = await compose(language, 'sv');
+        expect(settings).toMatchObject({ locale: 'en' });
+        expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'content' });
+        expect(telemetry).not.toHaveProperty('draftLanguage');
+      },
+    );
 
     it('starts it in the organizer’s language for a draft in one that hasn’t shipped, and records that one', async () => {
       route.locale = 'sv';
@@ -532,6 +545,8 @@ describe('POST /api/signups/magic-compose and the language the draft reports (db
       ['missing', undefined],
       ['a language’s name', 'Svenska'],
       ['a code with text after it', 'sv, mostly'],
+      ['a sentence that starts with a tag', 'sv-SE, though the headings are partly in English'],
+      ['three letters that name no language', 'zzz'],
       ['a number', 46],
     ])(
       'starts it in the organizer’s language for a draft whose language is %s',
