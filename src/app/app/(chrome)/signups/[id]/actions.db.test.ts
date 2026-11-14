@@ -20,6 +20,7 @@ import {
   publishAction,
   reopenAction,
   setRequireEmailAction,
+  setSignupLocaleAction,
 } from './actions';
 
 // The action reads the organizer from the session cookie. Tests hand it one
@@ -169,6 +170,101 @@ describe('setRequireEmailAction (db)', () => {
     expect(await submit('sig_nope', 'optional')).toBe(
       `/app/signups/sig_nope/settings?error=${encodeURIComponent('No longer available.')}`,
     );
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+// The same tab's "Signup language", hidden until a second language ships to
+// participants. Only English has, so 'en' is the one value that saves.
+describe('setSignupLocaleAction (db)', () => {
+  const db = getDb();
+  const organizerId = makeId('org');
+  const workspaceId = makeId('ws');
+  const slug = `test-${workspaceId.slice(-8).toLowerCase()}`;
+  const owner: Actor = {
+    kind: 'organizer',
+    id: organizerId,
+    email: `${slug}@example.test`,
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+  let signupId: string;
+
+  const settingsUrl = () => `/app/signups/${signupId}/settings`;
+  const refused = () =>
+    `${settingsUrl()}?error=${encodeURIComponent('Some values weren’t accepted.')}`;
+  const stored = async () => {
+    const [row] = await db
+      .select({ settings: signups.settings })
+      .from(signups)
+      .where(eq(signups.id, signupId));
+    return row?.settings as Record<string, unknown>;
+  };
+  const choose = async (locale: string | null) => {
+    const form = new FormData();
+    if (locale !== null) form.set('locale', locale);
+    return redirectOf(() => setSignupLocaleAction(signupId, form));
+  };
+
+  beforeAll(async () => {
+    await db.transaction(async (tx) => {
+      await tx.insert(organizers).values({ id: organizerId, email: owner.email, name: 'Test Org' });
+      await tx.insert(workspaces).values({
+        id: workspaceId,
+        slug,
+        name: 'Test Workspace',
+        type: 'personal',
+        plan: 'free',
+      });
+    });
+    const created = await createSignup(db, owner, workspaceId, {
+      title: 'Language setting',
+      description: '',
+      tags: [],
+      visibility: 'unlisted',
+      settings: { requireEmail: false },
+    });
+    if (!created.ok) throw new Error(created.error.message);
+    signupId = created.value.id;
+  });
+
+  afterAll(async () => {
+    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+    await db.delete(organizers).where(eq(organizers.id, organizerId));
+  });
+
+  beforeEach(() => {
+    revalidatePath.mockClear();
+    session.actor = owner;
+  });
+
+  it('saves a shipped language, and only that, and comes back saying so', async () => {
+    const before = await stored();
+    expect(before.locale).toBeUndefined();
+    expect(before.requireEmail).toBe(false);
+    expect(await choose('en')).toBe(`${settingsUrl()}?saved=language`);
+    expect(await stored()).toEqual({ ...before, locale: 'en' });
+    expect(revalidatePath).toHaveBeenCalledWith(`/app/signups/${signupId}`, 'layout');
+  });
+
+  it('refuses a language that hasn’t shipped with the tab’s usual error, and writes nothing', async () => {
+    await choose('en');
+    const before = await stored();
+    revalidatePath.mockClear();
+
+    for (const locale of ['xx', 'EN', 'en-GB']) {
+      expect(await choose(locale)).toBe(refused());
+    }
+    expect(await stored()).toEqual(before);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('refuses a form with no choice in it rather than clearing the language', async () => {
+    await choose('en');
+    revalidatePath.mockClear();
+
+    expect(await choose(null)).toBe(refused());
+    expect((await stored()).locale).toBe('en');
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

@@ -6,6 +6,7 @@ import {
   SHIPPED,
   defaultFor,
   isShipped,
+  languageName,
   resolveLocale,
 } from './config';
 
@@ -88,4 +89,15 @@ describe('defaultFor', () => {
       expect(defaultFor(audience, unshipped)).toBe('en');
     },
   );
+});
+
+describe('languageName', () => {
+  it('names a language in itself', () => {
+    expect(languageName('en')).toBe('English');
+  });
+
+  it('starts with a capital where CLDR writes the name in lower case', () => {
+    // CLDR has "svenska". Swedish has no catalog yet, hence the cast.
+    expect(languageName('sv' as CatalogLocale)).toBe('Svenska');
+  });
 });
