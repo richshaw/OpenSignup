@@ -12,6 +12,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { z } from 'zod';
+import type { CatalogLocale } from '@/i18n/config';
 import { magicComposeEnabled } from '@/lib/env';
 import { FollowUpSchema } from '@/lib/magic-compose/follow-up';
 import type { MagicComposeDraft } from '@/lib/magic-compose/prompt';
@@ -37,6 +38,13 @@ export interface EvalCase {
    * first call.
    */
   answers?: FollowUp;
+  /**
+   * The organizer's language, which Magic Compose's route puts in the prompt
+   * as the one to write in when the description is too short or too mixed to
+   * tell its own. English when left out. Only Magic Compose's prompt is told
+   * it, so a runner that isn't (`tellsOrganizerLanguage`) skips the case.
+   */
+  organizerLanguage?: CatalogLocale;
   expect: Record<string, unknown>;
 }
 
@@ -200,6 +208,52 @@ function dateOrNumberIn(option: string): string | null {
   return DATE_OR_NUMBER_WORDS.find((w) => hasWords(option, w)) ?? null;
 }
 
+/**
+ * Words that mark a language, for `language_must_be`: short words a title or
+ * description can hardly do without, and words a signup's labels use. Matched
+ * whole, in lower case, accents kept, and no word is in two lists (Swedish
+ * "för" isn't English "for"), so which list a reply's words hit says which
+ * language it's in. A heuristic for a smoke test, not a language detector.
+ */
+const LANGUAGE_WORDS: Record<string, string> = {
+  en: 'the and for with from each to of our your bring help people volunteer volunteers time item job shift slot sign',
+  sv: 'och för med från varje till att som är på av ett vi ni ta hjälp hjälpa personer frivilliga tid sak uppgift rätt plats när vad antal',
+  de: 'und für mit von jede jeden zu der die das ein eine ist wir ihr bitte helfen helfer personen zeit aufgabe schicht uhr',
+};
+
+/** Each language's marker words in `text`. */
+function languageHits(text: string): Record<string, string[]> {
+  const words = new Set(
+    text
+      .normalize('NFC')
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}]+/u),
+  );
+  return Object.fromEntries(
+    Object.entries(LANGUAGE_WORDS).map(([language, list]) => [
+      language,
+      list.split(' ').filter((w) => words.has(w)),
+    ]),
+  );
+}
+
+/**
+ * The words people read in a reply: a draft's title, description, labels,
+ * choices and slot values, or the options Magic Compose asks with. Null for
+ * a refusal, whose reason the rule doesn't cover.
+ */
+function readableText(reply: Reply): string | null {
+  if (reply.questions) return reply.questions.whatOptions.join('\n');
+  const { draft } = reply;
+  if (!draft) return null;
+  return [
+    draft.title,
+    draft.description,
+    ...draft.fields.flatMap((f) => [f.label, ...(f.choices ?? [])]),
+    ...draft.slots.flatMap((s) => Object.values(s.values).filter((v) => typeof v === 'string')),
+  ].join('\n');
+}
+
 /** One reply as the checks see it: at most one of draft, refusalReason and questions is set. */
 interface Reply {
   kind: Reached['status'];
@@ -257,6 +311,25 @@ function runCheck(rawKey: string, expected: unknown, reply: Reply): CheckResult 
         ? pass(rawKey)
         : fail(rawKey, `refusalReason "${refusalReason}" mentions none of ${JSON.stringify(a)}`);
     }
+  }
+
+  // The language of what people read, in a draft or in the options Magic
+  // Compose asks with: more of its marker words than any other language's.
+  if (key === 'language_must_be') {
+    if (typeof expected !== 'string' || !(expected in LANGUAGE_WORDS)) {
+      return skip(rawKey, `expected one of ${Object.keys(LANGUAGE_WORDS).join(', ')}`);
+    }
+    const text = readableText(reply);
+    if (text === null) return skip(rawKey, `not applicable to ${REPLY_NAME[reply.kind]}`);
+    const hits = Object.entries(languageHits(text));
+    const mine = hits.find(([language]) => language === expected)?.[1].length ?? 0;
+    const read = hits
+      .filter(([, words]) => words.length > 0)
+      .map(([language, words]) => `${language}: ${words.join(', ')}`);
+    return mine > 0 &&
+      hits.every(([language, words]) => language === expected || words.length < mine)
+      ? pass(rawKey)
+      : fail(rawKey, `doesn't read as ${expected} (${read.join('; ') || 'no marker words'})`);
   }
 
   // true expects questions, false a draft. A reply the other way already
@@ -349,6 +422,15 @@ function runCheck(rawKey: string, expected: unknown, reply: Reply): CheckResult 
       return a.some((s) => looseIncludes(draft.title, s))
         ? pass(rawKey)
         : fail(rawKey, `title "${draft.title}" matches none of ${JSON.stringify(a)}`);
+    }
+    case 'draft_must_contain_exactly': {
+      const a = arr(expected);
+      if (!a) return skip(rawKey, 'expected string[]');
+      const text = readableText(reply) ?? '';
+      const missing = a.filter((s) => !text.includes(s));
+      return missing.length === 0
+        ? pass(rawKey)
+        : fail(rawKey, `not written exactly as the prompt has it: ${missing.join(', ')}`);
     }
     case 'title_must_not_be_pure_ascii_english': {
       const hasNonAscii = /[^\x00-\x7F]/.test(draft.title);
@@ -800,6 +882,12 @@ export interface EvalRunner {
   caseFiles?: readonly string[];
   produce(c: EvalCase): Promise<Produced>;
   /**
+   * Whether the model is told the organizer's language (a case's
+   * `organizerLanguage`), as Magic Compose's prompt is. A runner without it
+   * skips the cases that set one.
+   */
+  tellsOrganizerLanguage?: boolean;
+  /**
    * Sends a case's prompt back with its `answers`, as the second call does:
    * already checked with `FollowUpSchema`, and holding only the topics the
    * first call asked about. A reply that asks again, in any shape, comes
@@ -1045,6 +1133,19 @@ export async function runOneCase(runner: EvalRunner, c: EvalCase): Promise<CaseR
       ...base,
       status: 'skipped',
       checks: [skip('runner=server', 'covered by route.db.test.ts; not exercised by this runner')],
+    };
+  }
+
+  if (c.organizerLanguage !== undefined && !runner.tellsOrganizerLanguage) {
+    return {
+      ...base,
+      status: 'skipped',
+      checks: [
+        skip(
+          'organizerLanguage',
+          "sets the organizer's language, which only Magic Compose is told",
+        ),
+      ],
     };
   }
 

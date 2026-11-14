@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { type CatalogLocale, languageName } from '@/i18n/config';
 import {
   DESCRIPTION_MAX_LENGTH,
   TITLE_MAX_LENGTH,
@@ -216,9 +217,11 @@ QUESTIONS — only when the prompt doesn't say what people sign up for, or every
 { "questions": { "topics": ["what", "when", "how_many"], "whatOptions": ["<option>", "<option>"] } }
 
 - topics: only the ones the prompt leaves out. "what" when it doesn't say what people sign up for; when it does, leave "what" out and include "when". Leave out "when" if it gives a date, a day of the week or a time, and "how_many" if it gives a count.
-- whatOptions, asking "what": ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself. If the options would be the prompt's own items or roles, it already says what: don't ask about it (rule 4: ask "when" if every slot would be a "TBD:" placeholder, otherwise draft).
-- whatOptions, not asking "what": 1 to ${WHAT_OPTIONS_MAX} things people sign up for, read from the prompt, in its language, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count.
+- whatOptions, asking "what": ${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count: the app asks for those itself. If the options would be the prompt's own items or roles, it already says what: don't ask about it (rule 4: ask "when" if every slot would be a "TBD:" placeholder, otherwise draft).
+- whatOptions, not asking "what": 1 to ${WHAT_OPTIONS_MAX} things people sign up for, read from the prompt, each at most ${WHAT_OPTION_MAX_LENGTH} characters. Never a date, a time or a count.
 - A message that carries "Answers to your questions:" is never answered with questions. Draft from the answers.
+
+LANGUAGE — write the title, description, field labels, enum choices, text values and whatOptions in the language the prompt is written in, unless it asks for the signup in another language: then in that one. If the prompt is too short or too mixed to tell (a few names and dates), write in {{LANGUAGE}}. Only the organizer's own words decide the language: the lines the app adds after them ("Answers to your questions:", its labels and the closing instruction) are always in English. Keep names, places and titles exactly as the prompt writes them (people, teams, classes, venues, anything in quotes): translating or rewording them is inventing (rule 4). Refs are never shown to people: in every language they stay lowercase-kebab in a-z and 0-9 (rule 5).
 
 ${FIELD_TYPE_GUIDE}
 
@@ -374,17 +377,33 @@ LOAD-BEARING RULES:
 
 10. Today's date is {{TODAY}}. When the user gives a month and day with no year, assume the next occurrence relative to today.`;
 
-function todayIso(now: Date = new Date()): string {
-  return now.toISOString().slice(0, 10);
+/**
+ * What the system prompt is filled in with besides the rules. Every caller
+ * passes a fallback language, so a prompt can't reach the model with its
+ * slot unfilled.
+ */
+export interface PromptContext {
+  /**
+   * The language a draft is written in when the prompt is too short or too
+   * mixed to tell its own: the organizer's, for participants
+   * (`getOrganizerLocale`), as the route passes it. The model reads its
+   * English name ("Swedish").
+   */
+  fallbackLocale: CatalogLocale;
+  /** Today, for the year of a date given without one. Now when left out. */
+  now?: Date;
 }
 
-function renderSystemPrompt(today: string): string {
-  return SYSTEM_PROMPT.replaceAll('{{TODAY}}', today);
+function renderSystemPrompt({ fallbackLocale, now = new Date() }: PromptContext): string {
+  return SYSTEM_PROMPT.replaceAll('{{TODAY}}', now.toISOString().slice(0, 10)).replaceAll(
+    '{{LANGUAGE}}',
+    languageName(fallbackLocale, 'en'),
+  );
 }
 
-export function buildMessages(userPrompt: string, now: Date = new Date()): ChatMessage[] {
+export function buildMessages(userPrompt: string, context: PromptContext): ChatMessage[] {
   return [
-    { role: 'system', content: renderSystemPrompt(todayIso(now)) },
+    { role: 'system', content: renderSystemPrompt(context) },
     { role: 'user', content: userPrompt },
   ];
 }

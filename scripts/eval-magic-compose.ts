@@ -10,7 +10,9 @@
  * both calls the page makes: the prompt, which must ask, then the prompt with
  * the answers (`buildFollowUpMessages`), whose draft is scored. A reply to the
  * answers that asks again, in any shape, is `asked_again`, as the route reads
- * it.
+ * it. Each call's prompt names the case's `organizerLanguage` (English when it
+ * has none) as the language for a description too short to tell, as the
+ * route names the organizer's.
  *
  * Usage:
  *   pnpm eval:magic-compose                       # all llm cases
@@ -34,8 +36,9 @@ import {
   MagicComposeDraftSchema,
   type ChatMessage,
   type MagicComposeParsed,
+  type PromptContext,
 } from '@/lib/magic-compose/prompt';
-import { runEvalCli, type Produced } from './lib/eval-harness';
+import { runEvalCli, type EvalCase, type Produced } from './lib/eval-harness';
 
 function isRefusal(p: MagicComposeParsed): p is { refusalReason: string } {
   return 'refusalReason' in p && typeof p.refusalReason === 'string';
@@ -75,12 +78,19 @@ async function ask(
   return { status: 'draft', raw: res.value, draft: parsed.data, ms };
 }
 
+/** What the route fills the prompt in with: here the case's organizer's language. */
+function context(c: EvalCase): PromptContext {
+  return { fallbackLocale: c.organizerLanguage ?? 'en' };
+}
+
 runEvalCli({
   snapshotDir: path.join(process.cwd(), 'evals/magic-compose/snapshots'),
   schemaName: 'MagicComposeDraftSchema',
-  produce: (c) => ask(buildMessages(c.prompt)),
+  tellsOrganizerLanguage: true,
+  produce: (c) => ask(buildMessages(c.prompt, context(c))),
   // The harness has checked the answers with FollowUpSchema before either call.
-  answer: (c, answers) => ask(buildFollowUpMessages(c.prompt, answers), { afterAnswers: true }),
+  answer: (c, answers) =>
+    ask(buildFollowUpMessages(c.prompt, answers, context(c)), { afterAnswers: true }),
 }).catch((e) => {
   console.error(e);
   process.exit(1);

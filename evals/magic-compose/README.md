@@ -4,7 +4,7 @@ Developer evals for OpenSignup's Magic Compose feature (natural-language to sign
 
 ## Files
 
-- `dev-evals.json` — 37-case developer eval suite, shared by the Magic Compose and MCP runners, covering each `fieldType`, cross-product/groupBy correctness, capacity instead of duplicate rows, edge cases, multilingual input, hostile prompts, when Magic Compose asks questions instead of drafting, and the server invariants that hold regardless of model output.
+- `dev-evals.json` — 45-case developer eval suite, shared by the Magic Compose and MCP runners, covering each `fieldType`, cross-product/groupBy correctness, capacity instead of duplicate rows, edge cases, multilingual input, which language a draft is written in, hostile prompts, when Magic Compose asks questions instead of drafting, and the server invariants that hold regardless of model output.
 
 The user-facing starter prompts (School, Sports, Volunteering) shipped in the UI as click-to-try chips live in the Magic Compose UI code, not as a JSON file in this directory.
 
@@ -101,6 +101,15 @@ A case with `answers` (a `FollowUp`, as the page sends it: `what.picked`, `what.
 
 Run only the cases about asking with `pnpm eval:magic-compose --tag=questions`.
 
+### Language
+
+A draft, and the options Magic Compose asks with, are written in the language of the organizer's description, or the one it asks for. When the description is too short or too mixed to tell, the prompt names a language to write in: the organizer's, which the route fills in (`{{LANGUAGE}}` in `prompt.ts`). A case gives it as `organizerLanguage` (`en` when left out), as a language code OpenSignup has a catalog for (`en`, `sv`).
+
+- `language_must_be` — a language code: what people read (the title, description, labels, choices and slot values, or the options of a questions reply) has more of that language's marker words than of any other's (`LANGUAGE_WORDS` in `scripts/lib/eval-harness.ts`, for `en`, `sv` and `de`). Words are matched whole, accents kept, so Swedish "för" and German "für" aren't English "for". A heuristic for a smoke test, not a language detector. Skipped for a refusal.
+- `draft_must_contain_exactly` — each string appears in the draft exactly as written, case and accents included: names, places and titles from the description, which the draft keeps in any language.
+
+Run only these cases with `pnpm eval:magic-compose --tag=language`.
+
 ## Running
 
 Opt-in script `scripts/eval-magic-compose.ts` gated on `LLM_BASE_URL` + `LLM_MODEL` being set. It calls our real `buildMessages()` against the configured provider, parses with `MagicComposeDraftSchema`, and reports per-case pass/fail with diffs.
@@ -125,6 +134,7 @@ Per-run JSON snapshots are written to `evals/magic-compose/snapshots/` for local
 - A reply with no `create_signup` call is scored as the refusal arm, so `ev_013` passes when the assistant declines. On most other cases it fails as `unexpected_refusal`, with the reply as its detail: an assistant that asks a question first did not build anything.
 - Where Magic Compose would ask (a case that expects questions, as above), asking the organizer is right for an assistant too, so a reply that asks passes as `asked_before_creating` and a create fails as `expected_questions_but_drafted`. A reply counts as asking when it holds a `?` or asks for details in so many words ("Let me know the dates", "Please share…", "I'll need the dates"; `askedBeforeCreating` in `scripts/lib/eval-harness.ts`), a deliberately simple heuristic: an empty reply, or one that asks for nothing (a refusal, say, even one ending "Let me know if there's anything else"), fails `asked_before_creating` with a detail saying which. A case can also say `"assistant_may_ask": true` where Magic Compose drafts "TBD:" rows but an assistant, told to ask for what the slots need, may ask for the dates instead.
 - Cases with `answers` are skipped: they answer Magic Compose's own questions, which an assistant never asks.
+- Cases with `organizerLanguage` are skipped too: an assistant isn't told the organizer's language, so it has no fallback for a description too short to tell. The other language cases run: they show whether an assistant, which isn't given Magic Compose's language rule, writes in the description's language anyway.
 
 ### Follow-up cases
 
@@ -158,3 +168,4 @@ When adding a case:
 - Refusal pattern on hostile prompts (`ev_013`).
 - Questions, not placeholder rows, for a prompt that doesn't say what people sign up for (`ev_008`, which drafted 1-6 slots until #570, and `ev_028`–`ev_031`); drafts for near misses (`ev_032`, `ev_033`); questions about when, without "what", for a prompt that says what but whose every slot would be a "TBD:" placeholder (`ev_034`, `ev_035`, which drafted those rows until #687, and `ev_040`, `ev_041`); drafts from the answers (`ev_036`, `ev_037`).
 - Several people for the same thing is one slot with a capacity, not a row per person: shifts that each need several volunteers, several parents per game, and the "Classroom or school" starter prompt word for word, whose potluck is one slot per dish type (`ev_005`, `ev_006`, `ev_026`, `ev_027`). `ev_025` is the counter-case, one parent per game at capacity 1. Run them together with `--tag=capacity_not_duplicate_rows`.
+- A draft in the description's language, or the one it asks for, with names, places and titles kept as written, and in the organizer's language when the description is too short to tell (`ev_042`–`ev_045`).
