@@ -96,23 +96,44 @@ export function getTranslator<N extends Namespace>(
 export type Translator<N extends Namespace> = ReturnType<typeof getTranslator<N>>;
 
 /**
- * The messages under `namespace` in `locale`, with English under them, and
- * nothing else: `participant.fields` gives `{ participant: { fields: {…} } }`.
- * Built once per language and namespace.
+ * The messages under `namespaces` in `locale`, with English under them, and
+ * nothing else: `participant.fields` gives `{ participant: { fields: {…} } }`,
+ * and `['participant.fields', 'participant.slot']` both sections, side by
+ * side. Built once per language and list of namespaces.
  *
  * Server code only, like all of this module. A server component passes what
  * it returns to `ClientMessages` (`./ClientMessages.tsx`) for the client
  * components under it, so a page carries only the messages they read, in its
  * HTML and its RSC payload alike.
  */
-export function messagesFor(locale: CatalogLocale, namespace: Namespace): Catalog {
-  const key = `${locale}:${namespace}`;
+export function messagesFor(
+  locale: CatalogLocale,
+  namespaces: Namespace | readonly Namespace[],
+): Catalog {
+  const list: readonly string[] = typeof namespaces === 'string' ? [namespaces] : namespaces;
+  const key = `${locale}:${list.join(',')}`;
   let messages = built.get(key);
   if (!messages) {
-    messages = namespaceMessages(namespace, CATALOGS.en, CATALOGS[locale]);
+    messages = list
+      .map((namespace) => namespaceMessages(namespace, CATALOGS.en, CATALOGS[locale]))
+      .reduce(mergeSections, {});
     built.set(key, messages);
   }
   return messages;
+}
+
+/**
+ * `a` and `b` together, section by section, for namespaces that sit side by
+ * side (`participant.fields` and `participant.slot` share `participant`). A
+ * message in both, or a message where the other has a section, is `b`'s.
+ */
+function mergeSections(a: Catalog, b: Catalog): Catalog {
+  const result: Catalog = { ...a };
+  for (const [key, value] of Object.entries(b)) {
+    const there = result[key];
+    result[key] = isSection(there) && isSection(value) ? mergeSections(there, value) : value;
+  }
+  return result;
 }
 
 /**

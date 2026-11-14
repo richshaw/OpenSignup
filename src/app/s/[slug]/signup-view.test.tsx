@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { CatalogLocale } from '@/i18n/config';
 import { getTestTranslator } from '@/i18n/testing/translator';
+import en from '@/messages/en.json';
 import { formatSlotDate } from '@/lib/slot-label';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { ACTION_SIZING } from './slot-format';
@@ -170,8 +171,16 @@ describe('the sign-up dialog’s messages', () => {
     render(<SignupViewBody {...props} locale={'sv' as CatalogLocale} mode="live" />);
     expect(provided.at(-1)).toEqual({
       locale: 'sv',
-      // English, since Swedish has no catalog yet.
-      messages: { participant: { fields: { name: 'Your name' } } },
+      // English, since Swedish has no catalog yet. The sections the dialog
+      // reads, and no others: not the page's own, which the server renders.
+      messages: {
+        participant: {
+          dialog: en.participant.dialog,
+          fields: en.participant.fields,
+          slot: en.participant.slot,
+          errors: en.participant.errors,
+        },
+      },
     });
     fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
     expect(await screen.findByLabelText('Your name', {}, { timeout: 5000 })).toBeInTheDocument();
@@ -192,6 +201,8 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
   const SWEDISH = 'sv' as CatalogLocale;
   const view = (key: string) => `participant.signupView.${key} in sv`;
   const slot = (key: string) => `participant.slot.${key} in sv`;
+  // The live row's Sign up is the dialog's, and its stand-ins say the same.
+  const dialog = (key: string) => `participant.dialog.${key} in sv`;
   const OWN = { slotId: 's1', editUrl: '/s/example/c/com_1?t=tok' };
 
   it('asks for the Closed banner and a returning participant’s bar in it', () => {
@@ -274,8 +285,8 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
     expect(screen.getByRole('heading', { level: 2, name: slot('noValue') })).toBeInTheDocument();
     expect(screen.getByText(view('untitledSlot'))).toBeInTheDocument();
     for (const button of screen.getAllByRole('button')) {
-      expect(button).toHaveAccessibleName(view('signUpFor'));
-      expect(button).toHaveTextContent(view('signUp'));
+      expect(button).toHaveAccessibleName(dialog('signUpFor'));
+      expect(button).toHaveTextContent(dialog('signUp'));
     }
   });
 
@@ -291,7 +302,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
         mode="showcase"
       />,
     );
-    expect(screen.getByText(view('signUp'))).toHaveClass('bg-brand');
+    expect(screen.getByText(dialog('signUp'))).toHaveClass('bg-brand');
   });
 
   it('keeps the Preview banner and the disabled button’s tip in English, marked so', () => {
@@ -311,7 +322,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
     expect(banner).toHaveTextContent(
       'PreviewThis is what people will see once you publish. No signups will be saved.',
     );
-    const button = screen.getByRole('button', { name: view('signUpFor') });
+    const button = screen.getByRole('button', { name: dialog('signUpFor') });
     expect(button).toHaveAttribute('title', 'Preview: publish to enable signups');
   });
 

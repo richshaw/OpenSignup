@@ -4,8 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { ClientMessages } from '@/i18n/ClientMessages';
-import { englishMessages } from '@/i18n/testing/client-messages';
+import { englishMessages, standInMessages } from '@/i18n/testing/client-messages';
+import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
 import { QUANTITY_MAX } from '@/lib/participant-limits';
@@ -34,7 +34,7 @@ describe('<CommitDialog /> trigger', () => {
         requireEmail
         sendsReminder={false}
       />,
-      { wrapper: englishMessages('participant.fields') },
+      { wrapper: englishMessages(COMMIT_DIALOG_NAMESPACES) },
     );
   }
 
@@ -68,7 +68,8 @@ describe('<CommitDialog /> sheet', () => {
     requireEmail = true,
     slotAt = null,
     sendsReminder = false,
-    wrapper = englishMessages('participant.fields'),
+    wrapper = englishMessages(COMMIT_DIALOG_NAMESPACES),
+    trigger = /^Sign up for /,
   }: {
     spotsLeft?: number | null;
     capacity?: number | null;
@@ -77,6 +78,8 @@ describe('<CommitDialog /> sheet', () => {
     sendsReminder?: boolean;
     /** What gives the sheet its messages: the page's, in English, unless a test says. */
     wrapper?: (props: { children: ReactNode }) => ReactNode;
+    /** The Sign up button's name in those messages. */
+    trigger?: string | RegExp;
   } = {}) {
     render(
       <CommitDialog
@@ -96,7 +99,7 @@ describe('<CommitDialog /> sheet', () => {
       />,
       { wrapper },
     );
-    fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
+    fireEvent.click(screen.getByRole('button', { name: trigger }));
   }
 
   // jsdom + Radix mount in several passes, and these run alongside the rest of
@@ -136,23 +139,21 @@ describe('<CommitDialog /> sheet', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), settle);
   });
 
-  // The page gives the sheet its messages (ClientMessages), in the signup's
-  // language. A stand-in shows the label comes from them, not the file.
-  it('takes the name box’s label from the messages its page passes', async () => {
-    openSheet({
-      wrapper: ({ children }) => (
-        <ClientMessages
-          locale="en"
-          messages={{ participant: { fields: { name: 'participant.fields.name from the page' } } }}
-        >
-          {children}
-        </ClientMessages>
-      ),
-    });
-    expect(
-      await screen.findByLabelText('participant.fields.name from the page', {}, settle),
-    ).toHaveAttribute('name', 'name');
-    expect(screen.queryByLabelText('Your name')).not.toBeInTheDocument();
+  // The sheet's Sign up isn't Radix's own trigger, so Radix had nowhere to
+  // put the focus back and it fell to the page.
+  it.each([
+    ['Escape', () => fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })],
+    ['Cancel', () => fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))],
+    ['the close button', () => fireEvent.click(screen.getByRole('button', { name: 'Close' }))],
+  ])('gives the focus back to its Sign up when closed with %s', async (_, close) => {
+    openSheet();
+    await waitFor(() => expect(screen.getByLabelText('Your name')).toHaveFocus(), settle);
+    close();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), settle);
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: /^Sign up for / })).toHaveFocus(),
+      settle,
+    );
   });
 
   it('opens with the caret in the first field, not on the close button', async () => {
@@ -874,6 +875,155 @@ describe('<CommitDialog /> sheet', () => {
       expect(secondRest).toEqual(firstRest);
       expect(secondKey).toMatch(/^[A-Za-z0-9_-]{16,128}$/);
       expect(secondKey).not.toBe(firstKey);
+    });
+  });
+
+  // The page passes the sheet its messages in the signup's language. Swedish
+  // has no catalog yet, so these stand in for it: each reads as where it was
+  // asked for ("participant.dialog.done in sv"). Every word the sheet shows,
+  // or gives a screen reader, has to be one of them, or the test's own data.
+  describe('in the signup’s language', () => {
+    const say = (key: string) => `participant.${key} in sv`;
+    const swedish = standInMessages('sv', COMMIT_DIALOG_NAMESPACES);
+    const editUrl = 'https://example.test/s/example/c/com_1';
+    // What the test gives the sheet, which it shows as given.
+    const DATA = ['Cookies', 'Sat, May 16 · Vinland Elementary', editUrl];
+
+    /** The words left in `element`, its text and the attributes people read, once those are out. */
+    function untranslated(element: Element): string {
+      const attributes = [element, ...element.querySelectorAll('*')].flatMap((el) =>
+        ['aria-label', 'placeholder', 'title', 'alt'].map((name) => el.getAttribute(name) ?? ''),
+      );
+      let text = [element.textContent ?? '', ...attributes].join(' ');
+      text = text.replace(/participant\.[\w.]+ in sv/g, ' ');
+      for (const value of DATA) text = text.split(value).join(' ');
+      return text.replace(/[^\p{L}]+/gu, ' ').trim();
+    }
+
+    function openInSwedish(options: Parameters<typeof openSheet>[0] = {}) {
+      openSheet({ ...options, wrapper: swedish, trigger: say('dialog.signUpFor') });
+    }
+
+    async function confirmWith(response: unknown) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => response),
+      );
+      fireEvent.change(await screen.findByLabelText(say('fields.name'), {}, settle), {
+        target: { value: 'Jordan Fields' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: say('dialog.confirm') }));
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      delete (navigator as { clipboard?: unknown }).clipboard;
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    });
+
+    it('asks for the button, the heading and the form in it', async () => {
+      openInSwedish({ spotsLeft: 3, capacity: 5, requireEmail: false, sendsReminder: true });
+      const dialog = await screen.findByRole('dialog', {}, settle);
+      // Behind the sheet, so hidden from assistive tech while it is open.
+      const trigger = screen.getByRole('button', { name: say('dialog.signUpFor'), hidden: true });
+      expect(trigger).toHaveTextContent(say('dialog.signUp'));
+      expect(dialog).toHaveAccessibleName(say('dialog.signUpFor'));
+      // "N of M spots left" is the row's message, not a second one.
+      expect(dialog).toHaveAccessibleDescription(say('slot.leftOf'));
+      expect(screen.getByRole('button', { name: say('dialog.close') })).toBeInTheDocument();
+      expect(screen.getByLabelText(say('fields.name'))).toBeInTheDocument();
+      const email = screen.getByLabelText(say('fields.emailOptional'));
+      expect(email).toHaveAccessibleDescription(say('dialog.emailHelp'));
+      expect(screen.getByLabelText(say('fields.notes'))).toHaveAttribute(
+        'placeholder',
+        say('dialog.notesPlaceholder'),
+      );
+      expect(screen.getByLabelText(say('fields.spots'))).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: say('dialog.cancel') })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: say('dialog.confirm') })).toBeInTheDocument();
+
+      fireEvent.change(email, { target: { value: 'pat@gmial.com' } });
+      expect(await screen.findByText(say('dialog.didYouMean'), {}, settle)).toBeInTheDocument();
+      expect(untranslated(dialog)).toBe('');
+      expect(untranslated(trigger)).toBe('');
+    });
+
+    it('asks for the required email’s label in it', async () => {
+      openInSwedish();
+      expect(await screen.findByLabelText(say('fields.email'), {}, settle)).toBeRequired();
+    });
+
+    it('asks for an error, its suggestion and See alternatives in it', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      openInSwedish({ requireEmail: false });
+      await confirmWith({
+        ok: false,
+        json: async () => ({
+          error: {
+            code: 'capacity_full',
+            message: 'slot is full',
+            details: { remaining: 0, requested: 1, alternatives: [{ id: 'slot_2' }] },
+          },
+        }),
+      });
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent(say('errors.capacity.filledUp'));
+      expect(alert).toHaveTextContent(say('errors.capacity.pickAnother'));
+      expect(within(alert).getByRole('link')).toHaveTextContent(say('dialog.seeAlternatives'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+    });
+
+    it('asks for Signing up in it while the sign-up is on its way', async () => {
+      openInSwedish({ requireEmail: false });
+      await confirmWith(new Promise(() => {}));
+      expect(
+        await screen.findByRole('button', { name: say('dialog.signingUp') }, settle),
+      ).toBeDisabled();
+    });
+
+    it('asks for the screen after a sign-up with an email in it', async () => {
+      openInSwedish({ slotAt: '2030-04-06T12:00:00.000Z' });
+      fireEvent.change(await screen.findByLabelText(say('fields.email'), {}, settle), {
+        target: { value: 'jordan@example.test' },
+      });
+      await confirmWith({
+        ok: true,
+        json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
+      });
+      const dialog = await screen.findByRole('dialog', { name: say('dialog.youreIn') }, settle);
+      expect(screen.getByText(say('dialog.savedEmailed'))).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: say('dialog.addToCalendar') })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: say('dialog.saveYourLink') })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: say('dialog.done') })).toBeInTheDocument();
+      expect(untranslated(dialog)).toBe('');
+    });
+
+    it('asks for the screen after a sign-up without an email, and its copy lines, in it', async () => {
+      openInSwedish({ requireEmail: false });
+      await confirmWith({
+        ok: true,
+        json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
+      });
+      const dialog = await screen.findByRole('dialog', { name: say('dialog.youreIn') }, settle);
+      expect(screen.getByText(say('dialog.savedNotEmailed'))).toBeInTheDocument();
+      expect(untranslated(dialog)).toBe('');
+
+      const writeText = vi.fn(async () => {});
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      fireEvent.click(screen.getByRole('button', { name: say('dialog.copyLink') }));
+      await waitFor(
+        () => expect(screen.getByRole('status')).toHaveTextContent(say('dialog.copied')),
+        settle,
+      );
+      expect(screen.getByRole('button', { name: say('dialog.linkCopied') })).toBeInTheDocument();
+
+      writeText.mockRejectedValue(new Error('not allowed'));
+      fireEvent.click(screen.getByRole('button', { name: say('dialog.linkCopied') }));
+      await waitFor(
+        () => expect(screen.getByRole('status')).toHaveTextContent(say('dialog.copyFailed')),
+        settle,
+      );
+      expect(untranslated(dialog)).toBe('');
     });
   });
 });
