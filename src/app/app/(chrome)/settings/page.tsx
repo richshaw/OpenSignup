@@ -1,4 +1,3 @@
-import { headers } from 'next/headers';
 import Link from 'next/link';
 import { requireOrganizerSession, toActor, type OrganizerSession } from '@/auth/session';
 import { FormError } from '@/components/ui/form-error';
@@ -35,8 +34,7 @@ type PageProps = {
 export default async function SettingsPage({ searchParams }: PageProps) {
   const { error, saved, switched } = await searchParams;
   const session = await requireOrganizerSession();
-  const acceptLanguage = (await headers()).get('accept-language');
-  const toSwitch = await openSignupsInAnotherLanguage(session, acceptLanguage);
+  const toSwitch = await openSignupsInAnotherLanguage(session);
 
   return (
     <section className="space-y-6">
@@ -66,7 +64,6 @@ export default async function SettingsPage({ searchParams }: PageProps) {
       </ul>
       <OrganizerLanguageForm
         session={session}
-        acceptLanguage={acceptLanguage}
         error={error}
         saved={saved === 'language'}
         toSwitch={toSwitch}
@@ -82,12 +79,9 @@ export default async function SettingsPage({ searchParams }: PageProps) {
  * (`openSignupsToSwitch` says which count). One statement on each visit once a
  * second language has shipped to participants; until then 0, without one.
  */
-async function openSignupsInAnotherLanguage(
-  session: OrganizerSession,
-  acceptLanguage: string | null,
-): Promise<number> {
+async function openSignupsInAnotherLanguage(session: OrganizerSession): Promise<number> {
   if (SHIPPED.participant.length < 2) return 0;
-  const { locale } = getOrganizerLocale(session, acceptLanguage, 'participant');
+  const { locale } = getOrganizerLocale(session, 'participant');
   const ids = await refusalAsResult(() => openSignupsToSwitch(getDb(), toActor(session), locale));
   return ids.ok ? ids.value.length : 0;
 }
@@ -118,15 +112,12 @@ function switchedCount(switched: string | undefined): number | null {
  */
 function OrganizerLanguageForm({
   session,
-  acceptLanguage,
   error,
   saved,
   toSwitch,
   switched,
 }: {
   session: OrganizerSession;
-  /** The request's `Accept-Language` header, if it has one. */
-  acceptLanguage: string | null;
   /** The `error` the action came back with: a refusal's code. */
   error: string | undefined;
   /** Whether this form just saved. */
@@ -138,10 +129,10 @@ function OrganizerLanguageForm({
 }) {
   const languages: readonly CatalogLocale[] = SHIPPED.participant;
   if (languages.length < 2) return null;
-  // The language new signups get now: the saved one, or with none saved (or
-  // one that has left the list) the instance's, the browser's or English. So
-  // the choice shown is always one that saves.
-  const { locale: current } = getOrganizerLocale(session, acceptLanguage, 'participant');
+  // The language new signups get now: the one stored on the account, or with
+  // none stored (or one that has left the list) the instance's, else English.
+  // So the choice shown is always one that saves.
+  const { locale: current } = getOrganizerLocale(session, 'participant');
   // Only a code the action sends shows, in the words the Settings tab uses,
   // so a link can't put its own words on the page.
   const refusal =

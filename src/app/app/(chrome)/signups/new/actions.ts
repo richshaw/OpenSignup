@@ -1,6 +1,5 @@
 'use server';
 
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
@@ -45,7 +44,7 @@ export async function createSignupAction(
     const error = `You’ve created a lot of signups in the last hour. Try again in about ${waitInMinutes(retryAfter)}.`;
     return { error, title, description };
   }
-  const language = newSignupLocale(s, (await headers()).get('accept-language'));
+  const language = newSignupLocale(s);
   const result = await createSignup(
     db,
     actor,

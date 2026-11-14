@@ -19,3 +19,20 @@ export async function getCurrentRequestIp(): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * Read the current Next.js request's `Accept-Language` header, as sent, or
+ * null when it has none or there is no request (outside any request scope),
+ * as `getCurrentRequestIp` does. Account creation reads it once, to store the
+ * new organizer's language (`newOrganizerLocale`): Auth.js creates the account
+ * in the callback request, which the browser that signs in makes itself,
+ * whether from the magic link, the six-digit code or a sign-in provider such
+ * as Google.
+ */
+export async function getCurrentRequestAcceptLanguage(): Promise<string | null> {
+  try {
+    return (await headers()).get('accept-language');
+  } catch {
+    return null;
+  }
+}

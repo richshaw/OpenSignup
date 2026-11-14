@@ -33,7 +33,7 @@ export const POST = organizerRoute(async ({ req, db, actor }) => {
   requireWorkspaceWrite(actor, workspace.value);
   await consumeRateLimit(db, RateLimits.signupCreatePerOrganizer, actor.id);
 
-  const { input, localeSource } = withLanguage(body, session, req.headers.get('accept-language'));
+  const { input, localeSource } = withLanguage(body, session);
   const created = await createSignup(db, actor, workspace.value, input, { localeSource });
   return respond(created, (signup) => ({
     self: link(`/api/signups/${signup.id}`),
@@ -57,7 +57,6 @@ function isObject(v: unknown): v is Record<string, unknown> {
 function withLanguage(
   body: unknown,
   session: Pick<OrganizerSession, 'locale'> | null,
-  acceptLanguage: string | null,
 ): { input: unknown; localeSource?: SignupLocaleSource } {
   if (!isObject(body)) return { input: body };
   const { settings } = body;
@@ -65,7 +64,7 @@ function withLanguage(
     return { input: body, localeSource: 'api' };
   }
   if (settings !== undefined && !isObject(settings)) return { input: body };
-  const chosen = newSignupLocale({ locale: session?.locale ?? null }, acceptLanguage);
+  const chosen = newSignupLocale({ locale: session?.locale ?? null });
   if (!chosen) return { input: body };
   return {
     input: { ...body, settings: { ...settings, locale: chosen.locale } },

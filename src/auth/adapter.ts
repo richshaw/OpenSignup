@@ -6,10 +6,12 @@ import { organizers } from '@/db/schema/organizers';
 import { workspaceMembers } from '@/db/schema/members';
 import { workspaces } from '@/db/schema/workspaces';
 import { accounts, sessions, verificationTokens } from '@/db/schema/auth';
+import { newOrganizerLocale } from '@/i18n/organizer-locale';
 import { recordActivityBestEffort } from '@/lib/activity';
 import { makeId } from '@/lib/ids';
 import { normalizeEmail } from '@/schemas/common';
 import { toSlug } from '@/lib/slug';
+import { getCurrentRequestAcceptLanguage } from './request-context';
 
 function toAdapterUser(row: typeof organizers.$inferSelect): AdapterUser {
   return {
@@ -25,6 +27,12 @@ function toAdapterUser(row: typeof organizers.$inferSelect): AdapterUser {
  * Wraps the standard Drizzle adapter so that when a new organizer is created
  * (first magic-link login), we also create their personal workspace and the
  * owner membership in the same transaction.
+ *
+ * A new organizer's language is stored then, and only then: their browser's
+ * top language, from the request that creates the account, when it has
+ * shipped to participants (`newOrganizerLocale`), else none. A later sign-in
+ * reads the account and marks its email verified, and never touches it, so
+ * only the organizer changes it, in account Settings.
  */
 export function SignupAdapter() {
   const db = getDb();
@@ -46,6 +54,7 @@ export function SignupAdapter() {
       return row ? toAdapterUser(row) : null;
     },
     async createUser(user: AdapterUser): Promise<AdapterUser> {
+      const locale = newOrganizerLocale(await getCurrentRequestAcceptLanguage());
       const { row, workspaceId } = await db.transaction(async (tx) => {
         const organizerId = makeId('org');
         const [orgRow] = await tx
@@ -56,6 +65,7 @@ export function SignupAdapter() {
             name: user.name ?? null,
             emailVerified: user.emailVerified ?? null,
             image: user.image ?? null,
+            locale,
           })
           .returning();
         if (!orgRow) throw new Error('failed to insert organizer');
@@ -96,7 +106,7 @@ export function SignupAdapter() {
         workspaceId,
         actor: { actorId: row.id, actorType: 'organizer' },
         eventType: 'workspace.created',
-        payload: { kind: 'personal' },
+        payload: { kind: 'personal', ...(locale ? { locale } : {}) },
       });
 
       return toAdapterUser(row);

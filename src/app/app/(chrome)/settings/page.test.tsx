@@ -7,19 +7,14 @@ import type { CatalogLocale } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
 
 // What the page reads around the form: the instance's language (none, unless
-// a test sets one), the browser's Accept-Language, and the session.
+// a test sets one) and the session, with the language stored on the account.
+// Nothing from the request: next/headers isn't mocked, so a page that read it
+// would throw here, outside any request.
 const request = vi.hoisted(() => ({
   instanceDefault: undefined as string | undefined,
-  acceptLanguage: null as string | null,
   saved: null as string | null,
 }));
 vi.mock('@/i18n/server', () => ({ instanceDefaultLocale: () => request.instanceDefault }));
-vi.mock('next/headers', () => ({
-  headers: async () =>
-    new Headers(
-      request.acceptLanguage === null ? {} : { 'accept-language': request.acceptLanguage },
-    ),
-}));
 vi.mock('@/auth/session', () => ({
   requireOrganizerSession: async () => ({ email: 'pat@example.com', locale: request.saved }),
   toActor: () => ({ kind: 'organizer', id: 'org_1' }),
@@ -52,7 +47,7 @@ const checked = () =>
 
 afterEach(() => {
   cleanup();
-  Object.assign(request, { instanceDefault: undefined, acceptLanguage: null, saved: null });
+  Object.assign(request, { instanceDefault: undefined, saved: null });
   openSignupsToSwitch.mockClear();
   openSignupsToSwitch.mockResolvedValue({ ok: true, value: [] });
 });
@@ -69,10 +64,10 @@ describe('Account Settings: Language for new signups', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
-  it('offers each shipped language by its own name once there are two, with the saved one chosen', async () => {
+  it('offers each shipped language by its own name once there are two, with the stored one chosen', async () => {
     ship('participant', ['en', 'sv']);
     request.saved = 'sv';
-    request.acceptLanguage = 'en';
+    request.instanceDefault = 'en';
     await renderPage();
 
     const group = within(languageGroup()!);
@@ -89,7 +84,7 @@ describe('Account Settings: Language for new signups', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('with nothing saved, shows the language new signups would get', async () => {
+  it('with nothing stored, shows the language new signups would get: the instance’s, else English', async () => {
     ship('participant', ['en', 'sv']);
     const shown = async () => {
       await renderPage();
@@ -98,18 +93,18 @@ describe('Account Settings: Language for new signups', () => {
       return radio?.getAttribute('value') as CatalogLocale;
     };
 
-    // The browser's top language, when it has shipped.
-    request.acceptLanguage = 'sv-SE,en;q=0.8';
+    // The instance's language, when it has shipped.
+    request.instanceDefault = 'sv';
     expect(await shown()).toBe('sv');
-    // The instance's language comes before the browser.
-    request.instanceDefault = 'en';
-    expect(await shown()).toBe('en');
-    // A saved language that has left the list counts as none.
-    request.instanceDefault = undefined;
+    // A stored language that has left the list counts as none.
     request.saved = 'xx';
     expect(await shown()).toBe('sv');
     // English when nothing else applies.
-    request.acceptLanguage = null;
+    request.instanceDefault = undefined;
+    expect(await shown()).toBe('en');
+    // And a stored one always comes first.
+    request.instanceDefault = 'sv';
+    request.saved = 'en';
     expect(await shown()).toBe('en');
   });
 

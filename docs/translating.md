@@ -366,7 +366,8 @@ Two lists in `src/i18n/config.ts` decide it:
   these can be saved on a signup or an account, sent through the API or the AI
   connector, or picked for a Magic Compose draft. The language controls on a
   signup's Settings tab and on the account settings page appear once a second
-  language has shipped. A site's `DEFAULT_LOCALE` counts only for audiences its
+  language has shipped, and only then does a new organizer account store its
+  browser's top language, if it's one of these. A site's `DEFAULT_LOCALE` counts only for audiences its
   language has shipped to (`defaultFor`).
 
 Today `CATALOG_LOCALES` is `en` and `sv`, and `SHIPPED` holds only `en`, for

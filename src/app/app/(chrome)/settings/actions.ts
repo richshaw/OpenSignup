@@ -1,7 +1,6 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
@@ -46,11 +45,7 @@ export async function setOrganizerLocaleAction(formData: FormData) {
  */
 export async function switchOpenSignupsLocaleAction(_form: FormData) {
   const session = await requireOrganizerSession();
-  const { locale } = getOrganizerLocale(
-    session,
-    (await headers()).get('accept-language'),
-    'participant',
-  );
+  const { locale } = getOrganizerLocale(session, 'participant');
   const result = await refusalAsResult(() =>
     setOpenSignupsLocale(getDb(), toActor(session), locale),
   );

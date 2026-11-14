@@ -363,7 +363,7 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
     expect(telemetry).not.toHaveProperty('localeSource');
   });
 
-  it('tells the model English while only English has shipped, whatever the organizer saved or their browser asks for', async () => {
+  it('tells the model English while only English has shipped, whatever the organizer stored or their browser asks for', async () => {
     route.locale = 'sv';
     const { system } = await compose('sv');
     expect(system).toContain(writesIn('English'));
@@ -375,14 +375,13 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
     });
 
     it.each([
-      { step: 'setting', locale: 'sv', instanceDefault: 'en', acceptLanguage: 'en' },
-      { step: 'instance', locale: null, instanceDefault: 'sv', acceptLanguage: 'en' },
-      { step: 'browser', locale: null, instanceDefault: undefined, acceptLanguage: 'sv' },
+      { step: 'setting', locale: 'sv', instanceDefault: 'en' },
+      { step: 'instance', locale: null, instanceDefault: 'sv' },
     ])(
-      'starts it in Swedish chosen by the organizer’s $step, keeping the grouping',
-      async ({ step, acceptLanguage, ...given }) => {
+      'starts it in Swedish chosen by the organizer’s $step, keeping the grouping, whatever the browser asks for',
+      async ({ step, ...given }) => {
         Object.assign(route, given);
-        const { settings, telemetry, system } = await compose(acceptLanguage);
+        const { settings, telemetry, system } = await compose('en');
         expect(system).toContain(writesIn('Swedish'));
         expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: 'sv' });
         expect(telemetry).toMatchObject({
@@ -393,11 +392,14 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
       },
     );
 
-    it('starts it in English when no step names a shipped language', async () => {
-      const { settings, telemetry, system } = await compose('de');
-      expect(system).toContain(writesIn('English'));
-      expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: 'en' });
-      expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
+    it('starts it in English when no step names a shipped language, taking none from the browser', async () => {
+      route.locale = 'xx';
+      for (const browser of ['sv', 'de']) {
+        const { settings, telemetry, system } = await compose(browser);
+        expect(system).toContain(writesIn('English'));
+        expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: 'en' });
+        expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
+      }
     });
   });
 });
