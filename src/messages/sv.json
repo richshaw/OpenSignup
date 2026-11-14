@@ -265,5 +265,10 @@
       "keep": "Passar inte den nya tiden? Tryck på knappen ovan för att ändra eller avboka. Den öppnar din plats direkt, utan lösenord. Behåll mejlet för dig själv: alla som har länken kan ändra din plats.",
       "stop": "Stäng av påminnelser och uppdateringar om {title}"
     }
+  },
+  "organizer": {
+    "swedishNotice": {
+      "title": "Nu kan dina anmälningslistor vara på svenska."
+    }
   }
 }

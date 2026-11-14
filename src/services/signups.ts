@@ -849,6 +849,34 @@ export async function listSignupSummariesForWorkspace(
   return ok(rows);
 }
 
+/** How many of a workspace's descriptions `listDescriptionStarts` reads, newest first. */
+const DESCRIPTION_STARTS_LIMIT = 20;
+/** How much of each description it reads, in characters. */
+const DESCRIPTION_START_LENGTH = 300;
+
+/**
+ * The start of each description in the workspace's newest live signups, for
+ * Your signups' guess at the language an organizer writes in (#640), which
+ * titles alone often can't settle. One statement, however many signups there
+ * are: at most `DESCRIPTION_STARTS_LIMIT` descriptions, each cut to
+ * `DESCRIPTION_START_LENGTH` characters by Postgres, so a long one isn't read
+ * whole. Signups without a description are left out.
+ */
+export async function listDescriptionStarts(
+  db: Db,
+  actor: Actor,
+  workspaceId: string,
+): Promise<Result<string[], ServiceError>> {
+  requireWorkspaceAccess(actor, workspaceId);
+  const rows = await db
+    .select({ start: sql<string>`left(${signups.description}, ${DESCRIPTION_START_LENGTH})` })
+    .from(signups)
+    .where(and(workspaceSignupsWhere(workspaceId, {}), sql`${signups.description} <> ''`))
+    .orderBy(desc(signups.createdAt))
+    .limit(DESCRIPTION_STARTS_LIMIT);
+  return ok(rows.map((row) => row.start));
+}
+
 /**
  * The signup at `slug` as stored, or null when no live signup has that slug.
  * One statement. It skips a deleted signup but returns a draft or an archived

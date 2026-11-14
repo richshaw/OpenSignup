@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
@@ -410,6 +410,52 @@ describe('view-tracker (db)', () => {
       expect(rows.length).toBeGreaterThanOrEqual(1);
       expect(rows[0]!.signupId).toBeNull();
       expect(rows[0]!.payload).toEqual({ mode: 'manual', device: 'phone' });
+    });
+
+    describe('with once', () => {
+      // Organizers of their own, so no other test's rows count.
+      const first = makeId('org');
+      const second = makeId('org');
+      const shownTo = async (id: string) =>
+        db
+          .select()
+          .from(activity)
+          .where(and(eq(activity.actorId, id), eq(activity.eventType, 'language_notice.shown')));
+      const show = (id: string, reason: string, once = true) =>
+        recordOrganizerView({
+          actor: { actorId: id, actorType: 'organizer' },
+          signupId: null,
+          workspaceId: null,
+          eventType: 'language_notice.shown',
+          payload: { reason },
+          signals: browserSignals(),
+          once,
+        });
+
+      afterAll(async () => {
+        await db.delete(activity).where(inArray(activity.actorId, [first, second]));
+      });
+
+      it('writes the first view only, for each organizer', async () => {
+        await show(first, 'browser');
+        await show(first, 'titles');
+        await show(first, 'browser');
+        const rows = await shownTo(first);
+        expect(rows).toHaveLength(1);
+        expect(rows[0]!.payload).toEqual({ reason: 'browser', device: 'computer' });
+        expect(rows[0]!.workspaceId).toBeNull();
+
+        await show(second, 'descriptions');
+        expect(await shownTo(second)).toHaveLength(1);
+        expect(await shownTo(first)).toHaveLength(1);
+      });
+
+      it('writes every view without it', async () => {
+        const before = (await shownTo(second)).length;
+        await show(second, 'titles', false);
+        await show(second, 'titles', false);
+        expect(await shownTo(second)).toHaveLength(before + 2);
+      });
     });
   });
 });

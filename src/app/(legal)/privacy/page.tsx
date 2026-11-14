@@ -88,8 +88,8 @@ export default function PrivacyPage() {
           <li>Email address (used to send magic-link sign-in emails).</li>
           <li>Optional display name and organization name.</li>
           <li>
-            The language you choose for your new signups, if you choose one in your account&apos;s
-            Settings.
+            The language you choose for your new signups, if you choose one: in your account&apos;s
+            Settings, or with the notice on Your signups that offers a language.
           </li>
           <li>
             If your account was created by signing in with a third-party provider such as Google,
@@ -111,13 +111,15 @@ export default function PrivacyPage() {
             created the signup, the language AI drafting wrote it in, or none of these (English).
             When AI drafting writes a signup in a language this site doesn&rsquo;t offer, it records
             that language&rsquo;s short code (such as &ldquo;de&rdquo; for German), never any of the
-            draft&rsquo;s words. This exists so an organizer can audit what happened in their own
-            workspace, so the operator can investigate abuse, and so the operator can count, in
-            aggregate, where organizers get stuck between starting a signup and sharing it, which
-            languages new signups start in, and which languages organizers write in, to choose the
-            next languages to offer. The same log records anonymous view telemetry on the marketing
-            home page and on your public signup pages (see &ldquo;Logs and rate-limiting&rdquo;
-            below).
+            draft&rsquo;s words. When Your signups offers you a language, it records why, the first
+            time (the first language your browser asks for, or that your signups&rsquo; titles or
+            descriptions look written in it, never their words), and which answer you chose. This
+            exists so an organizer can audit what happened in their own workspace, so the operator
+            can investigate abuse, and so the operator can count, in aggregate, where organizers get
+            stuck between starting a signup and sharing it, which languages new signups start in,
+            and which languages organizers write in, to choose the next languages to offer. The same
+            log records anonymous view telemetry on the marketing home page and on your public
+            signup pages (see &ldquo;Logs and rate-limiting&rdquo; below).
           </li>
           <li>
             After a sign-in email is sent, the sign-in link&apos;s token (stored as a hash, next to
