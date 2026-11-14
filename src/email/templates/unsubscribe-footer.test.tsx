@@ -6,6 +6,7 @@ import { SlotChangedEmail } from './slot-changed';
 const unsubscribeUrl = 'https://example.com/s/bake-sale/unsubscribe?t=fake-token';
 
 const props = {
+  locale: 'en' as const,
   participantName: 'Pat',
   signupTitle: 'Bake sale',
   manageUrl: 'https://example.com/s/bake-sale/c/fake',

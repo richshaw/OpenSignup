@@ -59,13 +59,18 @@ describe('email templates under the worker toolchain', () => {
   }, 60_000);
 
   it('translates under the flags the worker script uses', async () => {
-    // Emails will take their text from the catalogs, so the translator and
+    // Emails take their text from the catalogs, so the translator and
     // src/i18n/server.ts have to load in the worker, which has no Next.
     const flags = workerScript().split(/\s+/).slice(1, -1);
     const { stdout } = await run('pnpm', ['exec', 'tsx', ...flags, 'scripts/render-messages.ts'], {
       cwd: repoRoot,
     });
     expect(stdout).toContain('ok translator Help | Example · AGPL-3.0');
+    // The subjects the worker sends, in English as they always were and in
+    // Swedish, each checked against its exact text in the script.
+    expect(stdout).toContain(
+      "ok subjects Reminder: Pat's {bake} sale · Sat, May 2 · 1:00\u00a0PM | Time changed: Bake sale",
+    );
   }, 60_000);
 
   it('previews emails under the flags the worker script uses', () => {

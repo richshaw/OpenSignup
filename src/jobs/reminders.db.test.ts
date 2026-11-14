@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
@@ -10,6 +10,7 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { getEmailTransport } from '@/email';
+import { ship } from '@/i18n/testing/ship';
 import { log } from '@/lib/log';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -522,6 +523,33 @@ describe('selectDueReminders (db)', () => {
       expect(second.subject).toMatch(/^Time changed: /);
       expect(second.html).toContain('Your slot has changed');
       expect(second.text).toContain('since we last emailed you. Here are the new details.');
+    } finally {
+      send.mockRestore();
+    }
+  });
+
+  it('words the subject and the slot in the signup’s language', async () => {
+    ship('participant', ['en', 'sv']);
+    const english = await makeScenario(fx, 'Spring fair', { slotInHours: 20, dated: true });
+    const swedish = await makeScenario(fx, 'Vårloppis', {
+      slotInHours: 20,
+      dated: true,
+      settings: { locale: 'sv' },
+    });
+    // The slot's date as a value; its time to remind stays where the scenario put it.
+    await fx.db
+      .update(slots)
+      .set({ values: { day: '2026-05-02' } })
+      .where(inArray(slots.id, [english.slotId, swedish.slotId]));
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      await sendReminderJob({ commitmentId: english.commitmentId });
+      await sendReminderJob({ commitmentId: swedish.commitmentId });
+      const [inEnglish, inSwedish] = send.mock.calls.map(([mail]) => mail);
+      expect(inEnglish?.subject).toBe('Reminder: Spring fair · Sat, May 2');
+      expect(inEnglish?.text).toContain('Sat, May 2');
+      expect(inSwedish?.subject).toBe('Påminnelse: Vårloppis · lör 2 maj');
+      expect(inSwedish?.text).toContain('lör 2 maj');
     } finally {
       send.mockRestore();
     }
