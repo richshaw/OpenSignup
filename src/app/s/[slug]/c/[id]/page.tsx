@@ -2,6 +2,8 @@ import { notFound, redirect } from 'next/navigation';
 import { Banner } from '@/components/banner';
 import { getDb } from '@/db/client';
 import { ClientMessages } from '@/i18n/ClientMessages';
+import { signupLocale } from '@/i18n/config';
+import { instanceDefaultLocale } from '@/i18n/server';
 import { messagesFor } from '@/i18n/translator';
 import {
   ACTIVE_COMMITMENT_STATUSES,
@@ -40,6 +42,10 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   if (slug !== c.signupSlug) {
     redirect(commitmentEditPath(c.signupSlug, c.id, token));
   }
+  // The signup's language, from the row the token was checked against. It
+  // reads the slot's dates and times and marks the page; the page's own
+  // words are English until they move to the catalog (#630).
+  const locale = signupLocale(c.signupLocale, instanceDefaultLocale());
 
   // Recorded for a cancelled sign-up too: the link was still followed.
   await trackAfterResponse(recordEditLinkFollowed, {
@@ -54,13 +60,14 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   // nothing to hide, and the form would only fail: a save is refused and a
   // cancel changes nothing.
   if (c.status === 'cancelled') {
-    const state = await cancelledCommitmentState(getDb(), c, 'en');
+    const state = await cancelledCommitmentState(getDb(), c, locale);
     if (state.movedTo !== null) {
       // Its token is derived from its id, as the reminder email's is. Only
       // the holder of this link could have made the move, so linking them to
       // the sign-up it made gives nothing away.
       return (
         <SignupStateMessage
+          locale={locale}
           {...CANCELLED_PAGE.moved}
           action={{
             label: 'See your new spot',
@@ -71,6 +78,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
     }
     return (
       <SignupStateMessage
+        locale={locale}
         {...(state.removed ? CANCELLED_PAGE.removed : CANCELLED_PAGE[state.slot])}
         detail={state.slotName}
         action={{ label: 'Back to the signup', href: `/s/${slug}` }}
@@ -81,10 +89,10 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   // message here fits, so it gets the not-found page.
   if (!ACTIVE_COMMITMENT_STATUSES.includes(c.status)) notFound();
 
-  const { maxQuantity, closed, slotName } = await editLimitsForCommitment(getDb(), c, 'en');
+  const { maxQuantity, closed, slotName } = await editLimitsForCommitment(getDb(), c, locale);
 
   return (
-    <main className="container-tight flex min-h-[100svh] flex-col gap-6 py-8">
+    <main lang={locale} className="container-tight flex min-h-[100svh] flex-col gap-6 py-8">
       <header className="space-y-1">
         <a href={`/s/${slug}`} className="text-sm text-ink-muted hover:underline">
           ← Back to signup
@@ -108,7 +116,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
         />
       ) : null}
       {/* The form's text, which it reads in the browser. In English, as the
-          rest of this page is until it takes the signup's language (#630). */}
+          rest of this page's words are until they move to the catalog (#630). */}
       <ClientMessages locale="en" messages={messagesFor('en', EDIT_FORM_NAMESPACES)}>
         <EditForm
           commitmentId={c.id}

@@ -546,18 +546,27 @@ async function commitParticipantToSlot(
  * A participant's own commitment, by its id and edit token, with their name
  * and email and its signup's slug. The token is all that is checked: the edit
  * page redirects a link whose slug is not `signupSlug` to the one that is.
+ *
+ * `signupLocale` is the signup's `settings.locale` as stored, or null when it
+ * has none: read it with `signupLocale` from `@/i18n/config` for the language
+ * the edit page is in. It is the one setting read here. The rest of a
+ * signup's settings are the organizer's, and this answers anyone holding the
+ * edit link.
  */
 export async function getOwnCommitment(
   db: Db,
   commitmentId: string,
   token: string,
-): Promise<Result<OwnCommitment & { signupSlug: string }, ServiceError>> {
+): Promise<
+  Result<OwnCommitment & { signupSlug: string; signupLocale: string | null }, ServiceError>
+> {
   const row = await db
     .select({
       c: commitments,
       pname: participants.name,
       pemail: participants.email,
       slug: signups.slug,
+      locale: sql<string | null>`${signups.settings}->>'locale'`,
     })
     .from(commitments)
     .innerJoin(participants, eq(participants.id, commitments.participantId))
@@ -578,6 +587,7 @@ export async function getOwnCommitment(
     participantName: found.pname,
     participantEmail: found.pemail,
     signupSlug: found.slug,
+    signupLocale: found.locale,
   });
 }
 

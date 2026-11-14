@@ -65,9 +65,10 @@ export function defaultFor(
  * stored value as it is, whatever it holds, and the instance's
  * `DEFAULT_LOCALE` (`instanceDefaultLocale()` in server.ts).
  *
- * The signup's page, the public signup API and its Settings tab all read its
- * language by this rule, so the choice an organizer sees is the one
- * participants get. Its emails don't follow it yet. A stored value is
+ * The signup's page, the pages for changing a spot and unsubscribing, the
+ * public signup API and its Settings tab all read its language by this rule,
+ * so the choice an organizer sees is the one participants get. Its emails
+ * don't follow it yet. A stored value is
  * lenient: one that is unknown, or has a catalog but hasn't shipped (or has
  * since been taken off the list), reads as the instance's language rather than
  * breaking the row it's in. The e2e run's server alone also keeps a stored

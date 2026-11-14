@@ -7,11 +7,13 @@ import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { participants } from '@/db/schema/participants';
 import { rateLimits } from '@/db/schema/rate-limits';
+import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { getEmailTransport } from '@/email';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
+import { PUBLIC_COMMITMENT_FIELDS } from '@/lib/public-commitment';
 import { RateLimits } from '@/lib/rate-limit';
 import {
   appendReturningCommit,
@@ -169,6 +171,57 @@ describe('/api/commitments/[id] (db)', () => {
     expect(payload.data.participantName).toBe('Route Tester');
     expect(payload.data).not.toHaveProperty('editTokenHash');
     expect(payload.data).not.toHaveProperty('idempotencyKeyHash');
+  });
+
+  // Anyone holding an edit link can call this, and a signup's settings are
+  // its organizer's: the reminder switch, the lockout, the message shown
+  // after signing up. The answer is the commitment, who made it and its
+  // signup's slug, with none of them, nor the language the edit page reads.
+  it("GET answers with none of the signup's settings", async () => {
+    const signup = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+      title: 'Organizer keeps these',
+      description: '',
+      tags: [],
+      visibility: 'unlisted' as const,
+      settings: {
+        sendReminders: false,
+        lockoutHoursBeforeSlot: 6,
+        maxCommitmentsPerParticipant: 2,
+        confirmationMessage: 'Organizers only: the gate code is 4321',
+      },
+    });
+    if (!signup.ok) throw new Error(signup.error.message);
+    // Written to the row, as the e2e seed does: `createSignup` refuses a
+    // language that hasn't shipped.
+    await fx.db
+      .update(signups)
+      .set({ settings: { ...signup.value.settings, locale: 'sv' } })
+      .where(eq(signups.id, signup.value.id));
+    const slot = await addSlot(fx.db, fx.actor, signup.value.id, { values: {}, capacity: 5 });
+    if (!slot.ok) throw new Error(slot.error.message);
+    const pub = await publishSignup(fx.db, fx.actor, signup.value.id);
+    if (!pub.ok) throw new Error(pub.error.message);
+    const committed = await commitToSlot(fx.db, slot.value.id, {
+      name: 'Route Tester',
+      email: `route-${makeId('com').slice(-8).toLowerCase()}@example.test`,
+      quantity: 1,
+    });
+    if (!committed.ok) throw new Error(committed.error.message);
+
+    const { req, ctx } = makeRequest(committed.value.commitment.id, {
+      token: committed.value.editToken,
+    });
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(200);
+    const payload = await res.json();
+    expect(payload.data).not.toHaveProperty('settings');
+    expect(Object.keys(payload.data).sort()).toEqual(
+      [...PUBLIC_COMMITMENT_FIELDS, 'participantName', 'participantEmail', 'signupSlug'].sort(),
+    );
+    // Nowhere, nested or not, by key or by value.
+    expect(JSON.stringify(payload)).not.toMatch(
+      /"(settings|locale|signupLocale|sendReminders|lockoutHoursBeforeSlot|maxCommitmentsPerParticipant|confirmationMessage)"|gate code/,
+    );
   });
 
   it('GET accepts the token from the x-edit-token header', async () => {

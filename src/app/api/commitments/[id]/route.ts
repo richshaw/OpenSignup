@@ -39,7 +39,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const db = getDb();
     const token = await authorizeTokenOp(db, req);
     const result = await getOwnCommitment(db, id, token);
-    return respond(result);
+    if (!result.ok) return fail(result.error);
+    // The signup's stored language is for the edit page, which works out its
+    // language on the server and hands it down. Nothing reads it from here, so
+    // the answer stays the commitment, who made it and its signup's slug.
+    const { signupLocale: _forTheEditPage, ...commitment } = result.value;
+    return ok(commitment);
   });
 }
 
