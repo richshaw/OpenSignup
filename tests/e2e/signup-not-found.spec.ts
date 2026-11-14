@@ -37,6 +37,9 @@ test.describe('signup not found', () => {
       expect(response?.status()).toBe(404);
       await expect(page.getByRole('heading', { level: 1, name: copy.title })).toBeVisible();
       await expect(page.getByText(copy.body)).toBeVisible();
+      // In the language of the signup the path names, which src/middleware.ts
+      // copies for it: English, as none of these stores another.
+      await expect(page.getByRole('main')).toHaveAttribute('lang', 'en');
       // Not Next's default page, and nothing from the deleted signup.
       await expect(page.getByText('This page could not be found')).toHaveCount(0);
       await expect(page.getByText('Removed Potluck')).toHaveCount(0);
