@@ -103,7 +103,7 @@
       },
       "keepNumber": "Behåll det antal du har.",
       "closed": {
-        "join": "Inga fler kan anmäla sig nu.",
+        "join": "Det går inte längre att anmäla sig till det här.",
         "reload": "Ladda om sidan för att se vad som fortfarande är ledigt.",
         "change": "Du kan inte lägga till fler platser nu."
       },
