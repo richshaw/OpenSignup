@@ -15,6 +15,7 @@ import { addSlot, deleteSlot } from '@/services/slots';
 import { settle, untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
 import { commitToSlot, committedBySlot } from '@/services/commitments';
 import { getSignupRowForOrganizer } from '@/services/locks';
+import { requiresEmail } from '@/schemas/signups';
 import {
   archiveSignup,
   closeSignup,
@@ -443,7 +444,7 @@ describe('signups service (db)', () => {
       expect(r.value.settings).not.toHaveProperty('locale');
     });
 
-    it.each(['xx', 'EN', 'en-GB', ''])(
+    it.each(['xx', 'EN', 'en-GB', '', 'x'.repeat(36), 7])(
       'refuses a sent language that has not shipped to participants: %j',
       async (locale) => {
         const title = `Locale ${locale || 'empty'}`;
@@ -1172,6 +1173,46 @@ describe('signups service (db)', () => {
       expect(titleSave.ok, JSON.stringify(titleSave)).toBe(true);
       if (!titleSave.ok) return;
       expect(titleSave.value.settings).toMatchObject({ locale: 'xx' });
+    });
+
+    it('keeps a stored language too long to be one from breaking the row', async () => {
+      // Only a write straight to the database can store one, since the
+      // services refuse it when sent. It reads as no language, so the rest of
+      // the settings still count and an unrelated save goes through.
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Long locale'),
+        settings: { requireEmail: false },
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const tooLong = 'x'.repeat(36);
+      await fx.db
+        .update(signups)
+        .set({ settings: { ...created.value.settings, locale: tooLong } })
+        .where(eq(signups.id, created.value.id));
+      const [stored] = await fx.db.select().from(signups).where(eq(signups.id, created.value.id));
+      expect(requiresEmail(stored?.settings)).toBe(false);
+
+      const settingsSave = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { sendReminders: false },
+      });
+      expect(settingsSave.ok, JSON.stringify(settingsSave)).toBe(true);
+      if (!settingsSave.ok) return;
+      expect(settingsSave.value.settings).toMatchObject({
+        requireEmail: false,
+        sendReminders: false,
+      });
+      expect(settingsSave.value.settings).not.toHaveProperty('locale');
+
+      const sent = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { locale: tooLong },
+      });
+      expect(sent.ok).toBe(false);
+      if (sent.ok) return;
+      expect(sent.error).toMatchObject({
+        code: 'invalid_input',
+        field: 'settings.locale',
+        received: tooLong,
+      });
     });
   });
 
