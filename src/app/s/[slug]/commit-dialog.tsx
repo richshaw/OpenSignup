@@ -409,6 +409,7 @@ export default function CommitDialog({
             </>
           )
         }
+        closeLabel="Close"
         eyebrow={success ? undefined : slotContext || undefined}
         description={
           !success && showSpotsLeft ? `${left} of ${slotCapacity} spots left` : undefined

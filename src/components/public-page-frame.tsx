@@ -9,7 +9,8 @@ export function PublicPageFrame({ children }: { children: React.ReactNode }) {
       <main className="container-tight flex-1 pb-16 pt-4">
         <article className="space-y-6 text-[15px] leading-relaxed">{children}</article>
       </main>
-      <SiteFooter />
+      {/* The help and legal pages are in English. */}
+      <SiteFooter locale="en" />
     </div>
   );
 }

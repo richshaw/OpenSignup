@@ -20,7 +20,11 @@ const compat = new FlatCompat({ baseDirectory: __dirname });
  * Text that reads the same in every language, like a name, can be let through
  * where it stands with an eslint-disable comment that says why.
  */
-const TRANSLATED = ['src/components/site-footer.tsx'];
+const TRANSLATED = [
+  'src/components/site-footer.tsx',
+  'src/components/banner.tsx',
+  'src/components/ui/BottomSheet.tsx',
+];
 
 /**
  * Glob patterns for `files` that match exactly `paths`, each a file or a
@@ -191,7 +195,13 @@ const noCatalogsInClient = {
   },
 };
 
-/** Props whose value people read, or hear from a screen reader. */
+/**
+ * Props whose value people read, or hear from a screen reader: the ones HTML
+ * has, and the ones shared components take their text through (Banner's
+ * `body`, BottomSheet's `eyebrow` and `description`). Any prop whose name ends
+ * in `Label` counts too (`closeLabel`, `dismissLabel`, `ariaLabel`): that's
+ * how a component takes the name of a control it draws.
+ */
 const TEXT_PROPS = new Set([
   'aria-label',
   'aria-description',
@@ -199,7 +209,12 @@ const TEXT_PROPS = new Set([
   'placeholder',
   'alt',
   'label',
+  'body',
+  'eyebrow',
+  'description',
 ]);
+
+const isTextProp = (name) => TEXT_PROPS.has(name) || name.endsWith('Label');
 
 /** Whether a string has a letter in it: `alt=""` (an image to skip) and a lone `·` don't. */
 const hasLetters = (text) => /\p{L}/u.test(text);
@@ -228,7 +243,7 @@ const noLiteralTextProps = {
   meta: {
     type: 'suggestion',
     docs: {
-      description: `Keep hard-coded text off the props people read: ${[...TEXT_PROPS].join(', ')}.`,
+      description: `Keep hard-coded text off the props people read: ${[...TEXT_PROPS].join(', ')}, and any whose name ends in Label.`,
     },
     schema: [],
     messages: {
@@ -239,7 +254,7 @@ const noLiteralTextProps = {
   create(context) {
     return {
       JSXAttribute(node) {
-        if (node.name.type !== 'JSXIdentifier' || !TEXT_PROPS.has(node.name.name)) return;
+        if (node.name.type !== 'JSXIdentifier' || !isTextProp(node.name.name)) return;
         for (const literal of literalsIn(node.value)) {
           context.report({ node: literal, messageId: 'literal', data: { prop: node.name.name } });
         }
@@ -307,7 +322,9 @@ const config = [
     // Where text has moved to the catalogs (`TRANSLATED`), no hard-coded text:
     // not in JSX, and not on the props people read. `noAttributeStrings` would
     // also flag every className and href, so the props have a rule of their own.
+    // Tests are left out: their English fixtures are what they check.
     files: filesAt(TRANSLATED),
+    ignores: ['**/*.test.{ts,tsx}'],
     rules: {
       'react/jsx-no-literals': ['error', { noStrings: true, ignoreProps: true }],
       'opensignup/no-literal-text-props': 'error',
