@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { getDb } from '@/db/client';
 import type { Actor } from '@/lib/policy';
-import { ORGANIZER_CALLBACK_HEADER, safeCallbackUrl } from './callback-url';
+import { ORGANIZER_CALLBACK_HEADER, loginUrl, safeCallbackUrl } from './callback-url';
 import { auth } from './config';
 import { loadOrganizerSessionById, toActor, type OrganizerSession } from './organizer-session';
 
@@ -32,7 +32,7 @@ export async function requireOrganizerSession(): Promise<OrganizerSession> {
   const session = await getOrganizerSession();
   if (!session) {
     const callbackUrl = safeCallbackUrl((await headers()).get(ORGANIZER_CALLBACK_HEADER));
-    redirect(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+    redirect(loginUrl(callbackUrl));
   }
   return session;
 }

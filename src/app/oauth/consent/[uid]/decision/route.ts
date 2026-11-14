@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { loginUrl } from '@/auth/callback-url';
 import { requireActor } from '@/auth/session';
 import { getDb } from '@/db/client';
 import { waitInMinutes } from '@/lib/format-duration';
@@ -30,7 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
 
   const actor = await requireActor();
   if (actor.kind !== 'organizer') {
-    redirect(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
+    redirect(loginUrl(consentPath(uid)));
   }
 
   // The consent page posts one field; a bigger body is not from it.

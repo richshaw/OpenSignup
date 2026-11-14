@@ -47,3 +47,13 @@ export function safeCallbackUrl(raw: string | string[] | undefined | null): stri
   }
   return `${resolved.pathname}${resolved.search}${resolved.hash}`;
 }
+
+/**
+ * The sign-in page, coming back to `callbackUrl` afterwards. `callbackUrl` is
+ * encoded as one query value exactly as given; validating it is the caller's
+ * job (`safeCallbackUrl` for request headers, the consent paths carry it
+ * already).
+ */
+export function loginUrl(callbackUrl: string): string {
+  return `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+}

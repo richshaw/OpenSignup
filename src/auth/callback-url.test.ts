@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { safeCallbackUrl } from './callback-url';
+import { loginUrl, safeCallbackUrl } from './callback-url';
 
 describe('safeCallbackUrl', () => {
   it('keeps same-site paths and rejects everything else', () => {
@@ -81,5 +81,30 @@ describe('safeCallbackUrl', () => {
 
   it('falls back when a repeated query key arrives as an array', () => {
     expect(safeCallbackUrl(['/app/signups', '/oauth/consent/abc'])).toBe('/app');
+  });
+});
+
+describe('loginUrl', () => {
+  it('builds the sign-in URL with the callback as one encoded query value', () => {
+    expect(loginUrl('/app')).toBe('/login?callbackUrl=%2Fapp');
+    expect(loginUrl('/app/signups/sig_abc?tab=responses#row-3')).toBe(
+      '/login?callbackUrl=%2Fapp%2Fsignups%2Fsig_abc%3Ftab%3Dresponses%23row-3',
+    );
+    expect(loginUrl('/s/café?q=naïve')).toBe(
+      '/login?callbackUrl=%2Fs%2Fcaf%C3%A9%3Fq%3Dna%C3%AFve',
+    );
+  });
+
+  it('encodes already-encoded input again instead of decoding or validating it', () => {
+    expect(loginUrl('/oauth/consent/%2Fapp')).toBe(
+      '/login?callbackUrl=%2Foauth%2Fconsent%2F%252Fapp',
+    );
+  });
+
+  it('keeps a full-length consent uid as one value', () => {
+    const uid = 'a'.repeat(128);
+    expect(loginUrl(`/oauth/consent/${uid}`)).toBe(
+      `/login?callbackUrl=%2Foauth%2Fconsent%2F${uid}`,
+    );
   });
 });

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { ORGANIZER_CALLBACK_HEADER, safeCallbackUrl } from '@/auth/callback-url';
-import { signOutOrganizer } from '@/auth/sign-out';
+import { switchOrganizer } from '@/auth/sign-out';
 import { StateCard } from '@/components/state-card';
 import type { ServiceError } from '@/lib/errors';
 
@@ -35,13 +35,12 @@ export function SignupLoadError({ error, email }: { error: ServiceError; email: 
   const notFound = error.code === 'not_found';
   const copy = notFound ? SIGNUP_LOAD_ERROR.notFound : SIGNUP_LOAD_ERROR.failed;
 
-  // "/login" would bounce a signed-in organizer straight back to /app, so
-  // switching signs this one out first. The action posts to this page, so
-  // the middleware's header names it.
+  // The action posts to this page, so the middleware's header names it as the
+  // place to come back to after the next organizer signs in.
   async function switchAccount() {
     'use server';
     const back = safeCallbackUrl((await headers()).get(ORGANIZER_CALLBACK_HEADER));
-    await signOutOrganizer(`/login?callbackUrl=${encodeURIComponent(back)}`);
+    await switchOrganizer(back);
   }
 
   return (
