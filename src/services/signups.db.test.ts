@@ -24,6 +24,7 @@ import {
   findDraftForOrganizer,
   getPublicSignup,
   getSignupForOrganizer,
+  getSignupRowBySlug,
   listSignupSummariesForWorkspace,
   listSignupsForWorkspace,
   publishSignup,
@@ -2025,6 +2026,111 @@ describe('signups service (db)', () => {
       if (r.ok) return;
       expect(r.error.code).toBe('not_found');
       expect(r.error.received).toBeUndefined();
+    });
+
+    it('answers from a row already read, without reading the signup again', async () => {
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Read once'),
+      );
+      if (!created.ok) throw new Error('setup failed');
+      const slotR = await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 2 });
+      if (!slotR.ok) throw new Error('slot setup failed');
+      if (!(await publishSignup(fx.db, fx.actor, created.value.id)).ok) {
+        throw new Error('setup failed');
+      }
+      const row = await getSignupRowBySlug(fx.db, created.value.slug);
+      if (!row) throw new Error('row read failed');
+      // Renamed after the read: a second read of the signup would see this.
+      await fx.db
+        .update(signups)
+        .set({ title: 'Renamed since' })
+        .where(eq(signups.id, created.value.id));
+
+      const r = await getPublicSignup(fx.db, row);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.title).toBe('Read once');
+      expect(r.value.slots.map((s) => s.id)).toContain(slotR.value.id);
+      expect(r.value.committedBySlot).toEqual({});
+    });
+
+    it('gives a row the same answers as its slug: draft, archived and none', async () => {
+      const draft = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Row draft'),
+      );
+      if (!draft.ok) throw new Error('setup failed');
+      const archived = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Row archived'),
+      );
+      if (!archived.ok) throw new Error('setup failed');
+      if (!(await archiveSignup(fx.db, fx.actor, archived.value.id)).ok) {
+        throw new Error('setup failed');
+      }
+
+      for (const slug of [draft.value.slug, archived.value.slug, 'no-such-signup-xyz']) {
+        const fromRow = await getPublicSignup(fx.db, await getSignupRowBySlug(fx.db, slug));
+        expect(fromRow).toEqual(await getPublicSignup(fx.db, slug));
+        expect(fromRow.ok).toBe(false);
+      }
+    });
+  });
+
+  describe('getSignupRowBySlug', () => {
+    it('returns a draft, an open and an archived signup, for the page to tell apart', async () => {
+      const statuses: string[] = [];
+      for (const [title, publish, archive] of [
+        ['Slug draft', false, false],
+        ['Slug open', true, false],
+        ['Slug archived', true, true],
+      ] as const) {
+        const created = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput(title),
+        );
+        if (!created.ok) throw new Error('setup failed');
+        if (publish) {
+          await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 1 });
+          if (!(await publishSignup(fx.db, fx.actor, created.value.id)).ok) {
+            throw new Error('publish failed');
+          }
+        }
+        if (archive && !(await archiveSignup(fx.db, fx.actor, created.value.id)).ok) {
+          throw new Error('archive failed');
+        }
+        const row = await getSignupRowBySlug(fx.db, created.value.slug);
+        expect(row?.id).toBe(created.value.id);
+        statuses.push(row?.status ?? 'missing');
+      }
+      expect(statuses).toEqual(['draft', 'open', 'archived']);
+    });
+
+    it('skips a deleted signup', async () => {
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Slug deleted'),
+      );
+      if (!created.ok) throw new Error('setup failed');
+      if (!(await deleteSignup(fx.db, fx.actor, created.value.id)).ok) {
+        throw new Error('delete failed');
+      }
+      expect(await getSignupRowBySlug(fx.db, created.value.slug)).toBeNull();
+    });
+
+    it('returns null for a slug no signup has', async () => {
+      expect(await getSignupRowBySlug(fx.db, 'definitely-not-a-real-slug-xyz')).toBeNull();
     });
   });
 

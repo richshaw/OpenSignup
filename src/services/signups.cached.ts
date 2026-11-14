@@ -4,7 +4,7 @@ import { ServiceException, serviceError } from '@/lib/errors';
 import type { Actor } from '@/lib/policy';
 import { err, ok } from '@/lib/result';
 import { committedBySlot } from '@/services/commitments';
-import { getPublicSignup, getSignupForOrganizer } from '@/services/signups';
+import { getPublicSignup, getSignupForOrganizer, getSignupRowBySlug } from '@/services/signups';
 
 /**
  * The signup an organizer page shows. A signup in a workspace the organizer
@@ -36,6 +36,20 @@ export const loadCommittedBySlotForOrganizer = cache(async (actor: Actor, signup
   return ok(await committedBySlot(getDb(), loaded.value.id));
 });
 
+/**
+ * The live signup at `slug` as stored (`getSignupRowBySlug`), read once per
+ * request however many server components ask for it: `loadPublicSignup` gets
+ * its row here, so a layout reading the row as well adds no statement.
+ */
+export const loadSignupRowBySlug = cache(async (slug: string) => {
+  return getSignupRowBySlug(getDb(), slug);
+});
+
+/**
+ * The public page's signup (`getPublicSignup`), shared by its metadata and the
+ * page. It gets the row through `loadSignupRowBySlug`, never by slug, so the
+ * signup is read once per request; `signups.cached.test.ts` checks that.
+ */
 export const loadPublicSignup = cache(async (slug: string) => {
-  return getPublicSignup(getDb(), slug);
+  return getPublicSignup(getDb(), await loadSignupRowBySlug(slug));
 });
