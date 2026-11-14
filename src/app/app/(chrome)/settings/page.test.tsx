@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import type { CatalogLocale } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
+import { ServiceException } from '@/lib/errors';
 
 // What the page reads around the form: the instance's language (none, unless
 // a test sets one), the browser's Accept-Language, and the session.
@@ -22,13 +23,26 @@ vi.mock('next/headers', () => ({
 }));
 vi.mock('@/auth/session', () => ({
   requireOrganizerSession: async () => ({ email: 'pat@example.com', locale: request.saved }),
+  toActor: () => ({ kind: 'organizer', id: 'org_1' }),
 }));
-// The server action needs a database.
-vi.mock('./actions', () => ({ setOrganizerLocaleAction: vi.fn() }));
+// The server actions need a database, and so does the read of the
+// organizer's open signups, which a test answers with their ids.
+vi.mock('./actions', () => ({
+  setOrganizerLocaleAction: vi.fn(),
+  setOpenSignupsLocaleAction: vi.fn(),
+}));
+vi.mock('@/db/client', () => ({ getDb: () => ({}) }));
+const openSignupsToSwitch = vi.hoisted(() =>
+  vi.fn(async (_db: unknown, _actor: unknown, _locale: string) => ({
+    ok: true as const,
+    value: [] as string[],
+  })),
+);
+vi.mock('@/services/signups', () => ({ openSignupsToSwitch }));
 
 const { default: SettingsPage } = await import('./page');
 
-async function renderPage(searchParams: { error?: string; saved?: string } = {}) {
+async function renderPage(searchParams: Record<string, string> = {}) {
   return render(await SettingsPage({ searchParams: Promise.resolve(searchParams) }));
 }
 
@@ -39,6 +53,8 @@ const checked = () =>
 afterEach(() => {
   cleanup();
   Object.assign(request, { instanceDefault: undefined, acceptLanguage: null, saved: null });
+  openSignupsToSwitch.mockClear();
+  openSignupsToSwitch.mockResolvedValue({ ok: true, value: [] });
 });
 
 describe('Account Settings: Language for new signups', () => {
@@ -120,5 +136,97 @@ describe('Account Settings: Language for new signups', () => {
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
       cleanup();
     }
+  });
+});
+
+describe('Account Settings: the question after a language save', () => {
+  const question = () => screen.queryByText(/for your open signups too\?$/);
+  const toSwitch = (ids: string[]) =>
+    openSignupsToSwitch.mockResolvedValue({ ok: true, value: ids });
+
+  it('asks to put the open signups in the saved language when any of them isn’t', async () => {
+    ship('participant', ['en', 'sv']);
+    request.saved = 'sv';
+    toSwitch(['sig_1', 'sig_2']);
+    await renderPage({ saved: 'language' });
+
+    // Asked about the organizer's own language, as they saved it.
+    expect(openSignupsToSwitch).toHaveBeenCalledOnce();
+    expect(openSignupsToSwitch.mock.calls[0]?.[2]).toBe('sv');
+    const asked = question();
+    expect(asked).toHaveTextContent('Use Svenska for your open signups too?');
+    expect(asked).toHaveAttribute('role', 'status');
+    expect(within(asked!).getByText('Svenska')).toHaveAttribute('lang', 'sv');
+    const yes = screen.getByRole('button', { name: 'Yes' });
+    // The answers are in a group the question names.
+    expect(yes.closest('[role=group]')).toHaveAccessibleName(
+      'Use Svenska for your open signups too?',
+    );
+    expect(yes.closest('form')!.querySelector('input[type=hidden][name=locale]')).toHaveValue('sv');
+    expect(screen.getByRole('link', { name: 'No' })).toHaveAttribute('href', '/app/settings');
+    expect(screen.getByText('Saved')).toBeInTheDocument();
+  });
+
+  it('doesn’t ask when every open signup is in it already, or there are none', async () => {
+    ship('participant', ['en', 'sv']);
+    request.saved = 'sv';
+    await renderPage({ saved: 'language' });
+    expect(openSignupsToSwitch).toHaveBeenCalledOnce();
+    expect(question()).not.toBeInTheDocument();
+  });
+
+  it('asks only right after the language saved, and reads nothing otherwise', async () => {
+    ship('participant', ['en', 'sv']);
+    request.saved = 'sv';
+    toSwitch(['sig_1']);
+    const addresses: Record<string, string>[] = [
+      {},
+      { saved: '1' },
+      { saved: 'Use Klingon for everything' },
+      { ask: 'open-signups', locale: 'sv' },
+    ];
+    for (const searchParams of addresses) {
+      await renderPage(searchParams);
+      expect(question()).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Yes' })).not.toBeInTheDocument();
+      cleanup();
+    }
+    expect(openSignupsToSwitch).not.toHaveBeenCalled();
+  });
+
+  it('never asks, or reads, while one language has shipped to participants', async () => {
+    request.saved = 'en';
+    toSwitch(['sig_1']);
+    await renderPage({ saved: 'language' });
+    expect(question()).not.toBeInTheDocument();
+    expect(openSignupsToSwitch).not.toHaveBeenCalled();
+  });
+
+  it('says the open signups use it after its Yes, and only once they all do', async () => {
+    ship('participant', ['en', 'sv']);
+    request.saved = 'sv';
+    await renderPage({ saved: 'open-signups' });
+    const done = screen.getByRole('status');
+    expect(done).toHaveTextContent('Saved. Your open signups now use Svenska.');
+    expect(within(done).getByText('Svenska')).toHaveAttribute('lang', 'sv');
+    expect(question()).not.toBeInTheDocument();
+    cleanup();
+
+    // A link that says so when it isn't true shows nothing.
+    toSwitch(['sig_1']);
+    await renderPage({ saved: 'open-signups' });
+    expect(screen.queryByText(/Your open signups now use/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('shows nothing when the read is refused', async () => {
+    ship('participant', ['en', 'sv']);
+    request.saved = 'sv';
+    openSignupsToSwitch.mockRejectedValue(
+      new ServiceException({ code: 'unauthorized', message: 'sign in required' }),
+    );
+    await renderPage({ saved: 'language' });
+    expect(question()).not.toBeInTheDocument();
+    expect(screen.getByText('Saved')).toBeInTheDocument();
   });
 });

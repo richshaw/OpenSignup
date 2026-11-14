@@ -15,6 +15,7 @@ import {
 } from '@/lib/publish-check';
 import { closeSignupQuestion, spotCounts } from '@/lib/spot-counts';
 import { removeCommitment } from '@/services/commitments';
+import { updateOrganizerLocale } from '@/services/organizers';
 import {
   closeSignup,
   deleteSignup,
@@ -165,6 +166,28 @@ export async function setSignupLocaleAction(signupId: string, formData: FormData
     { locale: typeof locale === 'string' ? locale : '' },
     'language',
   );
+}
+
+/**
+ * The Yes to the Settings tab's "Make Svenska your language for new
+ * signups?", asked after "Signup language" saves a language that isn't the
+ * organizer's. Saves the signed-in organizer's own language
+ * (`updateOrganizerLocale`), the one the form sends, which refuses a language
+ * that hasn't shipped. Comes back to the tab with `saved=new-signups`, or a
+ * refusal in the tab's usual words at its top.
+ */
+export async function setOrganizerLocaleFromSignupAction(signupId: string, formData: FormData) {
+  const actor = await requireActor();
+  const settingsPath = `/app/signups/${signupId}/settings`;
+  const result = await refusalAsResult(() =>
+    updateOrganizerLocale(getDb(), actor, formData.get('locale')),
+  );
+  if (!result.ok) {
+    redirect(`${settingsPath}?error=${encodeURIComponent(SAVE_ERROR_MESSAGE[result.error.code])}`);
+  }
+  revalidateSignup(signupId);
+  revalidatePath('/app/settings');
+  redirect(`${settingsPath}?saved=new-signups`);
 }
 
 /**

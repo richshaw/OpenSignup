@@ -1,12 +1,15 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { requireOrganizerSession, type OrganizerSession } from '@/auth/session';
-import { FormError } from '@/components/ui/form-error';
+import { requireOrganizerSession, toActor, type OrganizerSession } from '@/auth/session';
+import { FormError, SuccessNotice } from '@/components/ui/form-error';
 import { SAVE_ERROR_MESSAGE, SavedNotice } from '@/components/ui/save-notice';
+import { SaveQuestion } from '@/components/ui/save-question';
+import { getDb } from '@/db/client';
 import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
 import { getOrganizerLocale } from '@/i18n/organizer';
-import type { ErrorCode } from '@/lib/errors';
-import { setOrganizerLocaleAction } from './actions';
+import { type ErrorCode, refusalAsResult } from '@/lib/errors';
+import { openSignupsToSwitch } from '@/services/signups';
+import { setOpenSignupsLocaleAction, setOrganizerLocaleAction } from './actions';
 
 export const metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
@@ -32,6 +35,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const { error, saved } = await searchParams;
   const session = await requireOrganizerSession();
   const acceptLanguage = (await headers()).get('accept-language');
+  const openSignups = await openSignupsAfterSave(session, acceptLanguage, saved);
 
   return (
     <section className="space-y-6">
@@ -64,9 +68,35 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         acceptLanguage={acceptLanguage}
         error={error}
         saved={saved === 'language'}
+        openSignups={openSignups}
       />
     </section>
   );
+}
+
+/**
+ * What follows a save of "Language for new signups" about the organizer's
+ * open signups, from what's stored: after the save (`saved=language`), ask
+ * "Use Svenska for your open signups too?" when any of them would change;
+ * after its Yes (`saved=open-signups`), say so once none would. Otherwise,
+ * and while one language has shipped, nothing, without a query. The address
+ * says only which save it was, so a link can't name a language or put words
+ * of its own on the page, and what shows is only ever true.
+ */
+async function openSignupsAfterSave(
+  session: OrganizerSession,
+  acceptLanguage: string | null,
+  saved: string | undefined,
+): Promise<'ask' | 'switched' | null> {
+  if (SHIPPED.participant.length < 2) return null;
+  if (saved !== 'language' && saved !== 'open-signups') return null;
+  const { locale } = getOrganizerLocale(session, acceptLanguage, 'participant');
+  const others = await refusalAsResult(() =>
+    openSignupsToSwitch(getDb(), toActor(session), locale),
+  );
+  if (!others.ok) return null;
+  if (saved === 'language') return others.value.length > 0 ? 'ask' : null;
+  return others.value.length === 0 ? 'switched' : null;
 }
 
 /**
@@ -76,13 +106,15 @@ export default async function SettingsPage({ searchParams }: PageProps) {
  * tab's "Signup language", a plain form with each language named in itself
  * (English, Svenska), so the organizer finds theirs whatever language the
  * rest of the page is in. Its Save is a plain button, as Sign out is, so the
- * page loads no script of its own.
+ * page loads no script of its own. After a save, it may offer to put the
+ * organizer's open signups in the same language (#639, `openSignupsAfterSave`).
  */
 function OrganizerLanguageForm({
   session,
   acceptLanguage,
   error,
   saved,
+  openSignups,
 }: {
   session: OrganizerSession;
   /** The request's `Accept-Language` header, if it has one. */
@@ -91,6 +123,8 @@ function OrganizerLanguageForm({
   error: string | undefined;
   /** Whether this form just saved. */
   saved: boolean;
+  /** What to say about the organizer's open signups (`openSignupsAfterSave`). */
+  openSignups: 'ask' | 'switched' | null;
 }) {
   const languages: readonly CatalogLocale[] = SHIPPED.participant;
   if (languages.length < 2) return null;
@@ -104,6 +138,7 @@ function OrganizerLanguageForm({
     error && Object.hasOwn(SAVE_ERROR_MESSAGE, error)
       ? SAVE_ERROR_MESSAGE[error as ErrorCode]
       : null;
+  const name = <span lang={current}>{languageName(current)}</span>;
 
   return (
     <div className="space-y-4 rounded-xl border border-surface-sunk bg-white px-5 py-4">
@@ -142,6 +177,18 @@ function OrganizerLanguageForm({
           {saved ? <SavedNotice role="status" /> : null}
         </div>
       </form>
+      {openSignups === 'ask' ? (
+        <SaveQuestion
+          id="open-signups-language-question"
+          question={<>Use {name} for your open signups too?</>}
+          action={setOpenSignupsLocaleAction}
+          fields={{ locale: current }}
+          noHref="/app/settings"
+        />
+      ) : null}
+      {openSignups === 'switched' ? (
+        <SuccessNotice>Saved. Your open signups now use {name}.</SuccessNotice>
+      ) : null}
     </div>
   );
 }

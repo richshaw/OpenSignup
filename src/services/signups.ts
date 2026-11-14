@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
@@ -6,7 +6,12 @@ import type { Slot as SlotRow } from '@/db/schema/slots';
 import { type CatalogLocale, SHIPPED, isShipped, signupLocale } from '@/i18n/config';
 import { isLanguageCode, type SignupLocaleSource } from '@/i18n/organizer-locale';
 import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
-import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
+import {
+  activityActor,
+  recordActivities,
+  recordActivity,
+  recordActivityBestEffort,
+} from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
@@ -14,6 +19,7 @@ import { parseInputSafe } from '@/lib/parse';
 import type { PublishCheck } from '@/lib/publish-check';
 import {
   requireOrganizer,
+  requireOrganizerId,
   requireWorkspaceAccess,
   requireWorkspaceWrite,
   type Actor,
@@ -40,8 +46,10 @@ import { listFieldsForSignup, rebuildSlotAt, validateSlotValues } from './slot-f
 import { committedBySlot } from './commitments';
 import {
   getSignupRowForOrganizer,
+  lockOrganizersSignupsForWrite,
   lockSlotsForSignup,
   readLiveSignup,
+  readOrganizersSignups,
   withSignupWriteLock,
 } from './locks';
 import { insertSlots, listSlotsForSignup } from './slots';
@@ -419,6 +427,120 @@ export async function updateSignup(
       payload: { changed: slug !== undefined ? [...Object.keys(data), 'slug'] : Object.keys(data) },
     });
     return ok(updated);
+  });
+}
+
+/**
+ * The workspaces `actor` may change signups in: each one they belong to that
+ * `requireWorkspaceWrite` clears them for, so not one where they only view.
+ */
+function writableWorkspaceIds(actor: Actor): string[] {
+  requireOrganizer(actor);
+  return actor.workspaceIds.filter((workspaceId) => {
+    try {
+      requireWorkspaceWrite(actor, workspaceId);
+      return true;
+    } catch (e) {
+      if (e instanceof ServiceException) return false;
+      throw e;
+    }
+  });
+}
+
+/**
+ * "Your open signups", as `setOpenSignupsLocale` takes them: the ones the
+ * acting organizer made, never another member's in a shared workspace; open,
+ * so people can sign up now (not a draft, a closed or an archived one); not
+ * deleted; and in a workspace they may change.
+ */
+function ownOpenSignups(actor: Actor) {
+  const organizerId = requireOrganizerId(actor);
+  return { organizerId, workspaceIds: writableWorkspaceIds(actor), status: 'open' as const };
+}
+
+/** Those of `rows` whose participants get another language than `locale`, as `signupLocale` reads it. */
+function notIn<T extends { settings: StoredSignupSettings }>(
+  rows: readonly T[],
+  locale: CatalogLocale,
+): T[] {
+  const instanceDefault = instanceDefaultLocale();
+  return rows.filter((row) => signupLocale(row.settings.locale, instanceDefault) !== locale);
+}
+
+/**
+ * The ids of the signups `setOpenSignupsLocale` would change to `locale`
+ * (none when every one is in it already), so a page can ask first only when
+ * there's something to change. Read without a lock: what changes is decided
+ * again, under one, when the change is made.
+ */
+export async function openSignupsToSwitch(
+  db: Queryable,
+  actor: Actor,
+  locale: CatalogLocale,
+): Promise<Result<string[], ServiceError>> {
+  const which = ownOpenSignups(actor);
+  if (which.workspaceIds.length === 0) return ok([]);
+  return ok(notIn(await readOrganizersSignups(db, which), locale).map((row) => row.id));
+}
+
+/**
+ * Puts the acting organizer's open signups in `locale` (#639): the Yes to
+ * "Use Svenska for your open signups too?", asked once they've saved their
+ * own language. Which signups count is `ownOpenSignups`'s to say. One whose
+ * participants already get `locale` (`signupLocale`) is left as it is, as is
+ * one with no language of its own that reads as `locale` through the
+ * instance's. One whose language was chosen on its Settings tab changes like
+ * the rest: the row can't tell a choice from the language it started in
+ * (#627 stores the organizer's on each new signup), and the question asks
+ * about all of them.
+ *
+ * `locale` must have shipped to participants, as for `updateSignup`; anything
+ * else is `invalid_input` on `locale` and changes nothing. The signups are
+ * locked and changed in one transaction, in one update however many there
+ * are, and each gets the `signup.updated` row a save on its Settings tab
+ * writes. Returns the language and the ids of the signups it changed.
+ */
+export async function setOpenSignupsLocale(
+  db: Db,
+  actor: Actor,
+  locale: unknown,
+): Promise<Result<{ locale: CatalogLocale; signupIds: string[] }, ServiceError>> {
+  const which = ownOpenSignups(actor);
+  if (!isShipped('participant', locale)) {
+    return err(
+      serviceError('invalid_input', 'locale must be a language OpenSignup offers for signups', {
+        field: 'locale',
+        received: locale,
+        suggestion: `use one of: ${SHIPPED.participant.join(', ')}`,
+      }),
+    );
+  }
+  if (which.workspaceIds.length === 0) return ok({ locale, signupIds: [] });
+
+  return db.transaction(async (tx) => {
+    const changing = notIn(await lockOrganizersSignupsForWrite(tx, which), locale);
+    const signupIds = changing.map((row) => row.id);
+    if (signupIds.length === 0) return ok({ locale, signupIds });
+
+    await tx
+      .update(signups)
+      .set({
+        settings: sql`${signups.settings} || jsonb_build_object('locale', ${locale}::text)`,
+        updatedAt: new Date(),
+      })
+      .where(and(inArray(signups.id, signupIds), inArray(signups.workspaceId, which.workspaceIds)));
+    const by = activityActor(actor);
+    await recordActivities(
+      tx,
+      changing.map((row) => ({
+        signupId: row.id,
+        workspaceId: row.workspaceId,
+        actor: by,
+        eventType: 'signup.updated' as const,
+        payload: { changed: ['settings'] },
+      })),
+    );
+    return ok({ locale, signupIds });
   });
 }
 

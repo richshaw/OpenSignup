@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ship } from '@/i18n/testing/ship';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
@@ -19,6 +20,7 @@ import {
   deleteSignupAction,
   publishAction,
   reopenAction,
+  setOrganizerLocaleFromSignupAction,
   setRequireEmailAction,
   setSignupLocaleAction,
 } from './actions';
@@ -266,6 +268,110 @@ describe('setSignupLocaleAction (db)', () => {
     expect(await choose(null)).toBe(refused());
     expect((await stored()).locale).toBe('en');
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe('setOrganizerLocaleFromSignupAction (db)', () => {
+  const db = getDb();
+  const organizerId = makeId('org');
+  const workspaceId = makeId('ws');
+  const slug = `test-${workspaceId.slice(-8).toLowerCase()}`;
+  const owner: Actor = {
+    kind: 'organizer',
+    id: organizerId,
+    email: `${slug}@example.test`,
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+  let signupId: string;
+
+  const settingsUrl = () => `/app/signups/${signupId}/settings`;
+  const organizersLocale = async () => {
+    const [row] = await db
+      .select({ locale: organizers.locale })
+      .from(organizers)
+      .where(eq(organizers.id, organizerId));
+    return row?.locale;
+  };
+  const signupSettings = async () => {
+    const [row] = await db
+      .select({ settings: signups.settings })
+      .from(signups)
+      .where(eq(signups.id, signupId));
+    return row?.settings;
+  };
+  const answerYes = async (fields: Record<string, string>, id = signupId) => {
+    const form = new FormData();
+    for (const [name, value] of Object.entries(fields)) form.set(name, value);
+    return redirectOf(() => setOrganizerLocaleFromSignupAction(id, form));
+  };
+
+  beforeAll(async () => {
+    await db.transaction(async (tx) => {
+      await tx.insert(organizers).values({ id: organizerId, email: owner.email, name: 'Test Org' });
+      await tx.insert(workspaces).values({
+        id: workspaceId,
+        slug,
+        name: 'Test Workspace',
+        type: 'personal',
+        plan: 'free',
+      });
+    });
+    const created = await createSignup(db, owner, workspaceId, {
+      title: 'Language question',
+      description: '',
+      tags: [],
+      visibility: 'unlisted',
+      settings: { locale: 'en' },
+    });
+    if (!created.ok) throw new Error(created.error.message);
+    signupId = created.value.id;
+  });
+
+  afterAll(async () => {
+    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+    await db.delete(organizers).where(eq(organizers.id, organizerId));
+  });
+
+  beforeEach(async () => {
+    revalidatePath.mockClear();
+    session.actor = owner;
+    await db.update(organizers).set({ locale: null }).where(eq(organizers.id, organizerId));
+  });
+
+  it('saves the language as the organizer’s own and comes back to the tab saying so', async () => {
+    ship('participant', ['en', 'sv']);
+    const before = await signupSettings();
+    expect(await answerYes({ locale: 'sv' })).toBe(`${settingsUrl()}?saved=new-signups`);
+    expect(await organizersLocale()).toBe('sv');
+    // The signup itself is as it was.
+    expect(await signupSettings()).toEqual(before);
+    expect(revalidatePath).toHaveBeenCalledWith(`/app/signups/${signupId}`, 'layout');
+    expect(revalidatePath).toHaveBeenCalledWith('/app/settings');
+  });
+
+  it('refuses a language that hasn’t shipped, or none, in the tab’s usual words', async () => {
+    const refused = `${settingsUrl()}?error=${encodeURIComponent('Some values weren’t accepted.')}`;
+    const forms: Record<string, string>[] = [
+      { locale: 'sv' },
+      { locale: 'xx' },
+      { locale: '' },
+      {},
+    ];
+    for (const fields of forms) {
+      expect(await answerYes(fields)).toBe(refused);
+    }
+    expect(await organizersLocale()).toBeNull();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('refuses anyone signed out', async () => {
+    ship('participant', ['en', 'sv']);
+    session.actor = { kind: 'anonymous' };
+    expect(await answerYes({ locale: 'sv' })).toBe(
+      `${settingsUrl()}?error=${encodeURIComponent('Sign in again to save.')}`,
+    );
+    expect(await organizersLocale()).toBeNull();
   });
 });
 
