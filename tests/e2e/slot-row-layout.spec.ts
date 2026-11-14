@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import { loadSeed } from './helpers/fixtures';
 import { gotoSwedish } from './helpers/swedish';
 
@@ -24,7 +24,11 @@ const DESKTOP = { width: 1280, height: 800 };
  *
  * Each runs on the English seed signup and on the Swedish one, whose labels
  * are longer ("Anmäl dig" where English has "Sign up"): `ACTION_SIZING` in
- * slot-format.ts was sized for English.
+ * slot-format.ts was sized for English, and the sign-up sheet's Spots box
+ * (`NotesAndSpots` in participant-fields.tsx) is 80px wide in every language.
+ *
+ * `sheet` is a slot with room for more than one person, so its sheet asks how
+ * many spots, and with email optional, so it shows every field the sheet has.
  */
 const SIGNUPS = [
   {
@@ -32,16 +36,49 @@ const SIGNUPS = [
     path: `/s/${seed.publicSlug}`,
     labels: { full: 'Full', closed: 'Closed' },
     goto: (page: Page, path: string) => page.goto(path),
+    sheet: {
+      path: `/s/${seed.optionalEmailSlug}`,
+      slot: seed.optionalEmailSlotLabel,
+      signUp: /^Sign up for /,
+    },
   },
   {
     name: 'in Swedish',
     path: `/s/${seed.swedish.slug}`,
     labels: { full: 'Fullt', closed: 'Stängt' },
     goto: gotoSwedish,
+    sheet: {
+      path: `/s/${seed.swedish.slug}`,
+      slot: seed.swedish.slots.many,
+      signUp: /^Anmäl dig till /,
+    },
   },
 ];
 
-for (const { name, path, labels, goto } of SIGNUPS) {
+/**
+ * How many lines `el`'s text takes, and whether it spills out of its box. A
+ * box of fixed width still measures the same with a label too long for it,
+ * so its size alone can't show the label wrapping or spilling.
+ */
+function measureFit(el: Element): { lines: number; spills: boolean } {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const tops = [...range.getClientRects()]
+    .filter((rect) => rect.width > 0)
+    .map((rect) => rect.top)
+    .sort((a, b) => a - b);
+  const lines = tops.filter((top, i) => i === 0 || top - tops[i - 1]! > 2).length;
+  return { lines, spills: el.scrollWidth > el.clientWidth };
+}
+
+async function expectOneLine(target: Locator, where: string): Promise<void> {
+  expect(await target.evaluate(measureFit), `"${await target.textContent()}" ${where}`).toEqual({
+    lines: 1,
+    spills: false,
+  });
+}
+
+for (const { name, path, labels, goto, sheet } of SIGNUPS) {
   const ACTIONS = `button, a[href*="/c/"], span:text-is("${labels.full}"), span:text-is("${labels.closed}")`;
 
   test.describe(`slot row layout ${name}`, () => {
@@ -96,21 +133,36 @@ for (const { name, path, labels, goto } of SIGNUPS) {
         await page.setViewportSize(viewport);
         await goto(page, path);
         for (const action of await page.locator('ul li').locator(ACTIONS).all()) {
-          const fit = await action.evaluate((el) => {
-            const range = document.createRange();
-            range.selectNodeContents(el);
-            const tops = [...range.getClientRects()]
-              .filter((rect) => rect.width > 0)
-              .map((rect) => rect.top)
-              .sort((a, b) => a - b);
-            const lines = tops.filter((top, i) => i === 0 || top - tops[i - 1]! > 2).length;
-            return { lines, spills: el.scrollWidth > el.clientWidth };
-          });
-          expect(fit, `"${await action.textContent()}" at ${viewport.width}px`).toEqual({
-            lines: 1,
-            spills: false,
-          });
+          await expectOneLine(action, `at ${viewport.width}px`);
         }
+      }
+    });
+
+    // The Spots box is 80px wide, so a longer label wraps there and pushes its
+    // input below the Notes input beside it.
+    test('the sign-up sheet’s field labels fit on one line, down to 320px', async ({ page }) => {
+      for (const viewport of [NARROW, PHONE, DESKTOP]) {
+        await page.setViewportSize(viewport);
+        await goto(page, sheet.path);
+        await page
+          .locator('li')
+          .filter({ hasText: sheet.slot })
+          .getByRole('button', { name: sheet.signUp })
+          .click();
+        const dialog = page.getByRole('dialog');
+        const notes = dialog.locator('input[name="notes"]');
+        const spots = dialog.locator('input[name="quantity"]');
+        await expect(spots, 'the sheet should ask how many spots').toBeVisible();
+
+        const labels = dialog.locator('label > span:first-child');
+        expect(await labels.count(), 'name, email, notes and spots').toBe(4);
+        for (const label of await labels.all()) {
+          await expectOneLine(label, `at ${viewport.width}px`);
+        }
+        const [notesBox, spotsBox] = [await notes.boundingBox(), await spots.boundingBox()];
+        expect(Math.round(spotsBox!.y), `Notes and Spots line up at ${viewport.width}px`).toBe(
+          Math.round(notesBox!.y),
+        );
       }
     });
 
