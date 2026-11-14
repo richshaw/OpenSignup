@@ -66,6 +66,7 @@ describe('<CommitDialog /> sheet', () => {
   });
 
   function openSheet({
+    slotTitle = 'Cookies',
     spotsLeft = null,
     capacity = null,
     requireEmail = true,
@@ -74,6 +75,8 @@ describe('<CommitDialog /> sheet', () => {
     wrapper = englishMessages(COMMIT_DIALOG_NAMESPACES),
     trigger = /^Sign up for /,
   }: {
+    /** The slot's title, which the calendar file is named after. */
+    slotTitle?: string;
     spotsLeft?: number | null;
     capacity?: number | null;
     requireEmail?: boolean;
@@ -87,7 +90,7 @@ describe('<CommitDialog /> sheet', () => {
     render(
       <CommitDialog
         slotId="slot_1"
-        slotTitle="Cookies"
+        slotTitle={slotTitle}
         actionName="Sat, May 16, Cookies, Vinland Elementary"
         slotName="Sat, May 16 · Cookies · Vinland Elementary"
         slotContext="Sat, May 16 · Vinland Elementary"
@@ -111,19 +114,27 @@ describe('<CommitDialog /> sheet', () => {
   const settle = { timeout: 5000 };
 
   /**
-   * Presses the button that downloads the calendar file and returns the file's
-   * DESCRIPTION, unfolded (RFC 5545 §3.1). jsdom's Blob has no text(), and it
-   * doesn't implement navigation, which a download link's click is.
+   * Presses the button that downloads the calendar file and returns the name
+   * it is saved under and its DESCRIPTION, unfolded (RFC 5545 §3.1). jsdom's
+   * Blob has no text(), and it doesn't implement navigation, which a download
+   * link's click is.
    */
-  async function calendarDescription(button: string): Promise<string | undefined> {
+  async function savedCalendarFile(
+    button: string,
+  ): Promise<{ name: string | undefined; description: string | undefined }> {
     const blobs: Blob[] = [];
+    const names: string[] = [];
     const { createObjectURL, revokeObjectURL } = URL;
     URL.createObjectURL = (blob: Blob) => {
       blobs.push(blob);
       return 'blob:ics';
     };
     URL.revokeObjectURL = () => {};
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      names.push(this.download);
+    });
     try {
       fireEvent.click(screen.getByRole('button', { name: button }));
       expect(blobs).toHaveLength(1);
@@ -133,17 +144,21 @@ describe('<CommitDialog /> sheet', () => {
         reader.onerror = () => reject(reader.error);
         reader.readAsText(blobs[0]!);
       });
-      return ics
+      const description = ics
         .replace(/\r\n /g, '')
         .split('\r\n')
         .find((line) => line.startsWith('DESCRIPTION:'))
         ?.slice('DESCRIPTION:'.length);
+      return { name: names[0], description };
     } finally {
       URL.createObjectURL = createObjectURL;
       URL.revokeObjectURL = revokeObjectURL;
       click.mockRestore();
     }
   }
+
+  const calendarDescription = async (button: string) =>
+    (await savedCalendarFile(button)).description;
 
   /** Presses the button that opens the share sheet and returns what it was given. */
   async function shared(button: string): Promise<ShareData | undefined> {
@@ -612,7 +627,10 @@ describe('<CommitDialog /> sheet', () => {
   describe('where the email is optional', () => {
     const editUrl = 'https://example.test/s/example/c/com_1';
 
-    async function signUpWithEmail(email: string, opts: { slotAt?: string | null } = {}) {
+    async function signUpWithEmail(
+      email: string,
+      opts: { slotAt?: string | null; slotTitle?: string } = {},
+    ) {
       const fetchMock = vi.fn(async () => ({
         ok: true,
         json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
@@ -728,6 +746,11 @@ describe('<CommitDialog /> sheet', () => {
     it('writes their link into the calendar file, saying what it is for', async () => {
       await signUpWithEmail('', { slotAt: '2030-04-06T12:00:00.000Z' });
       expect(await calendarDescription('Add to calendar')).toBe(`Edit or cancel: ${editUrl}`);
+    });
+
+    it('names the calendar file after the signup and the slot, in the slot’s own letters', async () => {
+      await signUpWithEmail('', { slotAt: '2030-04-06T12:00:00.000Z', slotTitle: 'Räksmörgås' });
+      expect((await savedCalendarFile('Add to calendar')).name).toBe('example-Räksmörgås.ics');
     });
 
     // Someone who chose to leave it out once should not send it by accident.

@@ -136,9 +136,12 @@ test.describe('the Swedish test signup', () => {
     const slotName = await sheet.locator('p strong').first().textContent();
     expect(slotName).toContain(slots.many);
 
-    const download = page.waitForEvent('download');
+    const downloading = page.waitForEvent('download');
     await sheet.getByRole('button', { name: dialog('addToCalendar') }).click();
-    const ics = await readFile((await (await download).path())!, 'utf8');
+    const download = await downloading;
+    // Named in the slot's own letters, as Chromium saves it.
+    expect(download.suggestedFilename()).toBe(`${slug}-${slots.many}.ics`);
+    const ics = await readFile((await download.path())!, 'utf8');
     // Unfolded (RFC 5545 §3.1).
     expect(ics.replace(/\r\n /g, '').split('\r\n')).toContain(
       `DESCRIPTION:${dialog('calendarDescription', { url: editUrl })}`,

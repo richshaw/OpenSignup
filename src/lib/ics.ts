@@ -146,3 +146,39 @@ export function buildIcs(input: IcsEventInput): string {
 
   return rawLines.map(foldLine).join(CRLF) + CRLF;
 }
+
+/**
+ * The longest name, in UTF-8 bytes, before ".ics". Most file systems allow
+ * 255, and a browser may add " (1)" and ".crdownload" while it saves.
+ */
+const MAX_NAME_BYTES = 200;
+
+/**
+ * The name "Add to calendar" saves the file under: the signup's slug and the
+ * slot's title, in the title's own letters (`fika-Räksmörgås.ics`). What a
+ * file name can't hold becomes `-`: path separators and `:*?"<>|`, spaces,
+ * control and invisible characters, and emoji. Never a `-` or `.` at either
+ * end or two `-` together, and cut, between whole characters, to fit.
+ */
+export function calendarFileName(slug: string, slotTitle: string): string {
+  // Built here, not once for the module: a browser without `\p{…}` (Firefox
+  // before 78) then loses this download, not the page that imports it.
+  //
+  // Letters, digits and combining marks stay. A mark goes with what it
+  // follows: after a letter it is part of the letter (a vowel sign in Hindi or
+  // Thai, which have no precomposed letters), after an emoji it is part of the
+  // emoji (U+FE0F), and goes with it. NFC first, so an "å" typed as "a" and a
+  // combining ring is one letter.
+  const safe = `${slug}-${slotTitle}`
+    .normalize('NFC')
+    .replace(/(?:[^\p{L}\p{M}\p{N}._-]\p{M}*)+/gu, '-')
+    .replace(/-+/g, '-');
+  let name = '';
+  let bytes = 0;
+  for (const char of safe) {
+    bytes += encoder.encode(char).length;
+    if (bytes > MAX_NAME_BYTES) break;
+    name += char;
+  }
+  return `${name.replace(/^[-.]+|[-.]+$/g, '') || 'signup'}.ics`;
+}
