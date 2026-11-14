@@ -4,6 +4,7 @@ import { requireOrganizerSession, toActor } from '@/auth/session';
 import { listSignupSummariesForWorkspace } from '@/services/signups';
 import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { StatusPill } from '@/components/status-pill';
+import { INSTANCE_NAME } from '@/lib/site-config';
 
 export const metadata = { title: 'Your signups' };
 
@@ -14,7 +15,7 @@ export default async function DashboardPage() {
   if (!workspaceId) {
     return (
       <div className="rounded-xl border border-surface-sunk bg-white p-8">
-        <h1 className="mb-2 text-2xl font-semibold">Welcome to OpenSignup</h1>
+        <h1 className="mb-2 text-2xl font-semibold">Welcome to {INSTANCE_NAME}</h1>
         <p className="text-ink-muted">
           Your workspace isn&apos;t set up yet. Sign out and back in to finish provisioning.
         </p>

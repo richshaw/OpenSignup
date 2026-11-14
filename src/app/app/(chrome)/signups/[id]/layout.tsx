@@ -24,7 +24,7 @@ type LayoutProps = {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await getOrganizerSession();
-  if (!session) return { title: 'OpenSignup' };
+  if (!session) return { title: 'Signup' };
   const result = await loadSignupForOrganizer(toActor(session), id);
   if (!result.ok) return { title: SIGNUP_NOT_FOUND_TITLE };
   return { title: result.value.title };

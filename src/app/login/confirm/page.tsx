@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { CenteredPageFrame } from '@/components/centered-page-frame';
 import { getEnv } from '@/lib/env';
+import { INSTANCE_NAME } from '@/lib/site-config';
 import { SignInLink } from './sign-in-link';
 
 export const metadata = { title: 'Sign in', robots: { index: false } };
@@ -32,7 +33,7 @@ export default async function ConfirmLoginPage({
   return (
     <CenteredPageFrame>
       <div className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">Sign in to OpenSignup</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Sign in to {INSTANCE_NAME}</h1>
         <p className="text-ink-muted">
           {email ? (
             <>
