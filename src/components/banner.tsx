@@ -6,7 +6,8 @@ const STYLES: Record<Kind, string> = {
   preview: 'bg-brand/10 text-brand',
   closed: 'bg-surface-sunk text-ink-muted',
   aiDraft: 'bg-brand/10 text-brand',
-  offer: 'bg-brand/10 text-brand',
+  // Darker text than Preview's, for 4.5:1 on the tint (WCAG AA); brand is 4.07:1.
+  offer: 'bg-brand/10 text-brand-hover',
 };
 
 /** A ✕ that closes the banner, or none. */
@@ -25,7 +26,7 @@ type Dismiss =
 /**
  * A coloured notice near the top of a page, such as Preview or Closed. All its
  * text comes from the caller, already in the page's language. `children` go
- * under the body: more text, or the buttons that answer an offer.
+ * under the body: the buttons that answer an offer, say.
  */
 export function Banner({
   kind,
@@ -37,7 +38,11 @@ export function Banner({
   live = true,
 }: {
   kind: Kind;
-  title: string;
+  /**
+   * Usually a string. A node lets the title carry its own twin in another
+   * language, marked with `lang`, as the notice offering Swedish does.
+   */
+  title: ReactNode;
   body: string;
   children?: ReactNode;
   /**

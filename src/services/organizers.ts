@@ -50,6 +50,11 @@ export async function updateOrganizerLocale(
  * the notice's buttons come here, "Use Swedish" with `sv` and "Keep English"
  * with `en`, so either answer saves a language and the notice, which shows
  * only while none is saved, is gone for good.
+ *
+ * The answer is recorded only when the organizer had no language before it,
+ * as when the notice was shown, so a double click, a second tab or a stale
+ * form saves again but records nothing. The organizer's row is locked first,
+ * so two answers at once take turns and the second finds the first's.
  */
 export async function answerLanguageNotice(
   db: Db,
@@ -57,9 +62,15 @@ export async function answerLanguageNotice(
   locale: unknown,
 ): Promise<Result<{ locale: CatalogLocale }, ServiceError>> {
   const who = activityActor(actor);
+  const organizerId = requireOrganizerId(actor);
   return db.transaction(async (tx) => {
+    const [before] = await tx
+      .select({ locale: organizers.locale })
+      .from(organizers)
+      .where(eq(organizers.id, organizerId))
+      .for('update');
     const saved = await updateOrganizerLocale(tx, actor, locale);
-    if (saved.ok) {
+    if (saved.ok && !before?.locale) {
       await recordActivity(tx, {
         actor: who,
         eventType: 'language_notice.answered',

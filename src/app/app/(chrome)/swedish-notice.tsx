@@ -64,12 +64,12 @@ export async function swedishNoticeReason({
 }
 
 /**
- * "Your signups can be in Swedish now.", with the same line in Swedish under
- * it for the people it's for, and two buttons that each save a language
- * (`answerSwedishNoticeAction`), so it needs no dismissal of its own. The
- * organizer app is English, so the rest is too. The title and its Swedish
- * come from one catalog key, so a change to the English marks the Swedish
- * stale. Plain forms, so the page loads no script for it.
+ * "Your signups can be in Swedish now.", with its twin in Swedish right under
+ * it, as the title's second line, for the people it's for; then two buttons
+ * that each save a language (`answerSwedishNoticeAction`), so it needs no
+ * dismissal of its own. The organizer app is English, so the rest is too. The
+ * title and its Swedish come from one catalog key, so a change to the English
+ * marks the Swedish stale. Plain forms, so the page loads no script for it.
  */
 export function SwedishNotice() {
   const english = getServerTranslator('en', 'organizer.swedishNotice');
@@ -79,12 +79,16 @@ export function SwedishNotice() {
       kind="offer"
       // Part of the page from the start, so nothing to announce.
       live={false}
-      title={english('title')}
+      title={
+        <>
+          {english('title')}{' '}
+          <span lang="sv" className="block">
+            {swedish('title')}
+          </span>
+        </>
+      }
       body="Choose the language your new signups start in: the buttons, messages and dates people see, and the emails they get. You can change it later in your account’s Settings."
     >
-      <p lang="sv" className="text-sm">
-        {swedish('title')}
-      </p>
       <div className="flex flex-wrap items-center gap-2 pt-2 text-sm">
         <form action={answerSwedishNoticeAction}>
           <input type="hidden" name="locale" value="sv" />

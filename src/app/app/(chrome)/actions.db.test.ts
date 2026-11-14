@@ -9,6 +9,7 @@ import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { openSignupsToSwitch } from '@/services/signups';
+import { settle, untilServiceBlockedOn } from '@/services/testing/locks';
 import { setOpenSignupsLocaleAction } from './settings/actions';
 import { answerSwedishNoticeAction } from './actions';
 
@@ -158,6 +159,52 @@ describe('answerSwedishNoticeAction (db)', () => {
     expect(await stored(mine)).toBe('en');
     expect((await answers(mine)).map((row) => row.payload)).toEqual([{ locale: 'en' }]);
     expect(revalidatePath).toHaveBeenCalledWith('/app');
+  });
+
+  it('records only the first answer: a second click or a stale form saves again but records nothing', async () => {
+    ship('participant', ['en', 'sv']);
+    expect(await submit({ locale: 'en' })).toBe('/app');
+    expect(await submit({ locale: 'en' })).toBe('/app');
+    // A notice left open in another tab, answered the other way.
+    expect(await submit({ locale: 'sv' })).toBe('/app/settings?saved=language');
+    expect(await stored(mine)).toBe('sv');
+    expect((await answers(mine)).map((row) => row.payload)).toEqual([{ locale: 'en' }]);
+  });
+
+  it('records one answer for two sent at once, as a double click sends them', async () => {
+    ship('participant', ['en', 'sv']);
+    expect(await Promise.all([submit({ locale: 'en' }), submit({ locale: 'en' })])).toEqual([
+      '/app',
+      '/app',
+    ]);
+    expect(await stored(mine)).toBe('en');
+    expect(await answers(mine)).toHaveLength(1);
+  });
+
+  it('waits for an answer already being saved, and then records nothing', async () => {
+    ship('participant', ['en', 'sv']);
+    let running: Promise<string> | undefined;
+    await db
+      .transaction(async (tx) => {
+        // The first of two answers, mid-save: it holds the organizer's row.
+        await tx.select().from(organizers).where(eq(organizers.id, mine)).for('update');
+        running = submit({ locale: 'sv' });
+        await untilServiceBlockedOn(db, tx, running);
+        await tx.update(organizers).set({ locale: 'en' }).where(eq(organizers.id, mine));
+      })
+      .finally(() => settle(running));
+
+    expect(await running).toBe('/app/settings?saved=language');
+    expect(await stored(mine)).toBe('sv');
+    expect(await answers(mine)).toEqual([]);
+  });
+
+  it('records nothing for an organizer who had already chosen a language', async () => {
+    ship('participant', ['en', 'sv']);
+    await db.update(organizers).set({ locale: 'en' }).where(eq(organizers.id, mine));
+    expect(await submit({ locale: 'sv' })).toBe('/app/settings?saved=language');
+    expect(await stored(mine)).toBe('sv');
+    expect(await answers(mine)).toEqual([]);
   });
 
   it('after Use Swedish, account Settings has open signups to offer, and its Yes switches them', async () => {

@@ -122,10 +122,18 @@ describe('Your signups: the notice that offers Swedish', () => {
     await renderPage();
 
     const box = within(notice()!);
-    expect(box.getByText('Nu kan dina anmälningslistor vara på svenska.')).toHaveAttribute(
-      'lang',
-      'sv',
+    const swedish = box.getByText('Nu kan dina anmälningslistor vara på svenska.');
+    expect(swedish).toHaveAttribute('lang', 'sv');
+    // The title's twin, in the title, ahead of the explanation.
+    const title = box.getByText('Your signups can be in Swedish now.');
+    expect(title).toContainElement(swedish);
+    expect(title).toHaveTextContent(
+      'Your signups can be in Swedish now. Nu kan dina anmälningslistor vara på svenska.',
     );
+    const explanation = box.getByText(/^Choose the language your new signups start in/);
+    expect(
+      title.compareDocumentPosition(explanation) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     const use = box.getByRole('button', { name: 'Use Swedish' });
     const keep = box.getByRole('button', { name: 'Keep English' });
     // Each is a plain form with the language it saves, and nothing else.

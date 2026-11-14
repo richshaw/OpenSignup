@@ -258,10 +258,12 @@ it, so count distinct `actor_id`s.
 `language_notice.answered` is written in the same transaction as the save it
 describes, the organizer's language for new signups: `locale` is what was
 saved, `sv` for **Use Swedish** and `en` for **Keep English**. Either answer
-saves a language, so the notice never shows again and each organizer has at
-most one row (more only if they answer from two tabs). Both rows have
-`signup_id` and `workspace_id` set to `NULL`: the language belongs to the
-organizer, not a workspace. Neither carries any of the signups' text.
+saves a language, so the notice never shows again. It's written only when the
+organizer had no saved language before the answer, with their row locked, so
+each organizer has at most one: a double click, a second tab or a stale form
+saves again and records nothing. Both rows have `signup_id` and
+`workspace_id` set to `NULL`: the language belongs to the organizer, not a
+workspace. Neither carries any of the signups' text.
 
 ## Privacy guarantees
 
