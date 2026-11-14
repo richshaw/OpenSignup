@@ -274,16 +274,26 @@ export default function CommitDialog({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ...body, idempotencyKey }),
       });
-      // Not the API's JSON (an error page from a proxy, say) reads as null, and
-      // gets the copy for an error with no code.
+      // Not the API's JSON (an error page from a proxy, say) reads as null.
       const payload = await res.json().catch(() => null);
       if (!res.ok || !payload?.data) {
         const failure: ApiError | undefined = payload?.error;
-        setError({
-          ...participantErrorCopy(failure, 'join', tErrors),
-          seeAlternatives:
-            Boolean(failure?.details?.alternatives?.length) && failure?.details?.remaining === 0,
-        });
+        setError(
+          // Every error the API sends has a code, and comes after it has undone
+          // anything it began, so its copy may say the sign-up didn't happen.
+          // An answer without one may come from a proxy after the server made
+          // the sign-up, so its copy doesn't say whether it did. Confirm again
+          // with the same details gives that sign-up back, as after a dropped
+          // connection.
+          failure?.code
+            ? {
+                ...participantErrorCopy(failure, 'join', tErrors),
+                seeAlternatives:
+                  Boolean(failure.details?.alternatives?.length) &&
+                  failure.details?.remaining === 0,
+              }
+            : { message: t('unreadable.message'), suggestion: t('unreadable.suggestion') },
+        );
         // The organizer made the email required after this page rendered.
         if (failure?.details?.reason === 'email_required') setEmailNowRequired(true);
         const remaining = failure?.details?.remaining;

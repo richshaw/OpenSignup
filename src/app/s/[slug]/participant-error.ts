@@ -39,14 +39,16 @@ interface ApiErrorLike {
  * is built from its numbers; a slot or signup closed or removed meanwhile, a
  * refused input, the rate limit, a second sign-up by the same email and a
  * sign-up the edit page can no longer change each get their own copy.
- * Anything else, no error at all (an answer that wasn't the API's JSON)
- * included, says the sign-up, save or cancel didn't happen, to try again.
+ * Anything else says the sign-up, save or cancel didn't happen, to try again:
+ * true of an error the API sends, which comes after it has undone anything it
+ * began. An answer that isn't one (no `code`: an error page from a proxy,
+ * say) may come after the server did it, so each form words that itself.
  *
  * The copy comes from `participant.errors` through `t`: the sign-up dialog and
  * the edit page get it from `useTranslations`, in the signup's language.
  */
 export function participantErrorCopy(
-  error: ApiErrorLike | null | undefined,
+  error: ApiErrorLike,
   context: ErrorContext,
   t: Translator<'participant.errors'>,
 ): ParticipantErrorCopy {

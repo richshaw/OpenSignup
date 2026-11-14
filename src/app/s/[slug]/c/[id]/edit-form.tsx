@@ -52,6 +52,18 @@ export default function EditForm({
   const showSpotsMax = askQuantity && spotsMax !== null;
   const spotsMaxId = useId();
 
+  /**
+   * What a refused save or cancel says. Every error the API sends has a code,
+   * and comes after it has undone anything it began, so its copy may say the
+   * change didn't happen. An answer without one may come from a proxy after
+   * the server made the change, so its copy doesn't say whether it did, only
+   * to press the button again, which does no harm if it did.
+   */
+  function refusalText(failure: { code?: string } | undefined, context: 'save' | 'cancel') {
+    if (!failure?.code) return t(`${context}Unreadable`);
+    return errorCopyText(participantErrorCopy(failure, context, tErrors));
+  }
+
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
@@ -77,13 +89,15 @@ export default function EditForm({
         body: JSON.stringify(body),
       });
     } catch {
-      // The request never reached the server (offline, or a dropped connection).
+      // No answer came: offline, or the connection dropped, perhaps after the
+      // server saved. So the copy doesn't say whether it did, only to save
+      // again, which sends the same values.
       setMessage({ kind: 'err', text: t('saveUnreachable') });
       setSaving(false);
       return;
     }
     // A refusal whose answer isn't ours to read, such as an error page from a
-    // proxy, reads as null, and gets the copy for an error with no code.
+    // proxy, reads as null.
     const payload = await res.json().catch(() => null);
     if (!res.ok) {
       // Cancelled, or moved to another slot, since this page loaded, most
@@ -96,10 +110,7 @@ export default function EditForm({
       }
       // `remaining` here is the most this commitment can hold, not the spots
       // still free, so the copy is the edit page's own.
-      setMessage({
-        kind: 'err',
-        text: errorCopyText(participantErrorCopy(payload?.error, 'save', tErrors)),
-      });
+      setMessage({ kind: 'err', text: refusalText(payload?.error, 'save') });
       // Someone else took spots since this page loaded, so the line at the
       // top and the field's max take the error's number.
       const remaining = payload?.error?.details?.remaining;
@@ -125,6 +136,8 @@ export default function EditForm({
         method: 'DELETE',
       });
     } catch {
+      // As for a save: the cancel may have gone through, and cancelling a
+      // cancelled spot succeeds.
       setMessage({ kind: 'err', text: t('cancelUnreachable') });
       setConfirmingCancel(false);
       setSaving(false);
@@ -138,10 +151,7 @@ export default function EditForm({
       return;
     }
     const payload = await res.json().catch(() => null);
-    setMessage({
-      kind: 'err',
-      text: errorCopyText(participantErrorCopy(payload?.error, 'cancel', tErrors)),
-    });
+    setMessage({ kind: 'err', text: refusalText(payload?.error, 'cancel') });
     setConfirmingCancel(false);
     setSaving(false);
   }

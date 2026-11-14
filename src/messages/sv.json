@@ -73,6 +73,10 @@
         "message": "Det gick inte att nå servern.",
         "suggestion": "Kontrollera anslutningen och försök igen."
       },
+      "unreadable": {
+        "message": "Något gick fel.",
+        "suggestion": "Tryck på Bekräfta igen."
+      },
       "youreIn": "Du är anmäld.",
       "savedEmailed": "Vi har sparat din anmälan till <b>{slot}</b> och mejlat länken till <email>{address}</email>. Spara den som bokmärke, så kan du ändra eller avboka senare:",
       "savedNotEmailed": "Vi har sparat din anmälan till <b>{slot}</b>. <b>Spara länken nu: vi mejlar den inte, och bara den här webbläsaren kommer ihåg den.</b>{calendar, select, yes { Knappen Lägg till i kalender sparar också länken.} other {}}",
@@ -115,7 +119,7 @@
       "name": "Skriv ditt namn, högst {max, number} tecken.",
       "email": {
         "required": "Den här anmälningslistan kräver nu en e-postadress.",
-        "addIt": "Fyll i den och försök igen.",
+        "addIt": "Fyll i din e-postadress och försök igen.",
         "invalid": "E-postadressen ser inte rätt ut.",
         "check": "Kontrollera den och försök igen."
       },
@@ -159,14 +163,16 @@
       "save": "Spara",
       "saving": "Sparar…",
       "saved": "Sparat.",
-      "saveUnreachable": "Det gick inte att nå servern, så dina ändringar sparades inte. Kontrollera anslutningen och försök igen.",
+      "saveUnreachable": "Det gick inte att nå servern. Kontrollera anslutningen och tryck på Spara igen.",
+      "saveUnreadable": "Något gick fel. Tryck på Spara igen.",
       "cancel": "Avboka",
       "confirmCancel": "Bekräfta avbokning",
       "cancelQuestion": "Vill du avboka din plats?",
       "keep": "Behåll",
       "yesCancel": "Ja, avboka",
       "cancelling": "Avbokar…",
-      "cancelUnreachable": "Det gick inte att nå servern, så din plats avbokades inte. Kontrollera anslutningen och försök igen."
+      "cancelUnreachable": "Det gick inte att nå servern. Kontrollera anslutningen och tryck på Avboka igen.",
+      "cancelUnreadable": "Något gick fel. Tryck på Avboka igen."
     },
     "cancelledPage": {
       "title": "Din plats är avbokad",
