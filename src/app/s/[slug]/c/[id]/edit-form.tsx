@@ -82,11 +82,10 @@ export default function EditForm({
       setSaving(false);
       return;
     }
+    // A refusal whose answer isn't ours to read, such as an error page from a
+    // proxy, reads as null, and gets the copy for an error with no code.
     const payload = await res.json().catch(() => null);
-    if (!res.ok && payload === null) {
-      // A refusal whose answer isn't ours to read, such as an error page from a proxy.
-      setMessage({ kind: 'err', text: t('saveUnreadable') });
-    } else if (!res.ok) {
+    if (!res.ok) {
       // Cancelled, or moved to another slot, since this page loaded, most
       // likely in another tab. Every save would be refused, so reload: the
       // page then says which in place of this form. `saving` stays on, so
@@ -97,10 +96,9 @@ export default function EditForm({
       }
       // `remaining` here is the most this commitment can hold, not the spots
       // still free, so the copy is the edit page's own.
-      const copy = participantErrorCopy(payload?.error, 'change', tErrors);
       setMessage({
         kind: 'err',
-        text: copy ? errorCopyText(copy) : (payload?.error?.message ?? 'save failed'),
+        text: errorCopyText(participantErrorCopy(payload?.error, 'save', tErrors)),
       });
       // Someone else took spots since this page loaded, so the line at the
       // top and the field's max take the error's number.
@@ -140,10 +138,9 @@ export default function EditForm({
       return;
     }
     const payload = await res.json().catch(() => null);
-    const copy = participantErrorCopy(payload?.error, 'change', tErrors);
     setMessage({
       kind: 'err',
-      text: copy ? errorCopyText(copy) : (payload?.error?.message ?? 'cancel failed'),
+      text: errorCopyText(participantErrorCopy(payload?.error, 'cancel', tErrors)),
     });
     setConfirmingCancel(false);
     setSaving(false);

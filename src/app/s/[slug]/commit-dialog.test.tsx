@@ -436,6 +436,74 @@ describe('<CommitDialog /> sheet', () => {
     }
   });
 
+  // The server's `message` and `suggestion` are English for API callers. The
+  // sheet words every refusal itself, by code and reason, and never shows them.
+  describe('a refusal', () => {
+    const SERVER_WORDS = 'SERVER-ONLY-ENGLISH';
+    const failed = ["Something went wrong, so you're not signed up yet.", 'Try again.'];
+
+    beforeEach(() => {
+      // jsdom leaves scrollIntoView out, and the dialog calls it on the alert.
+      Element.prototype.scrollIntoView = vi.fn();
+    });
+
+    afterEach(() => {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    });
+
+    async function confirmAnswered(json: () => Promise<unknown>) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({ ok: false, status: 400, json })),
+      );
+      openSheet();
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Fields' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'jordan@example' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).not.toHaveTextContent(SERVER_WORDS);
+      return alert;
+    }
+
+    it.each([
+      [
+        'email_invalid',
+        { code: 'invalid_input', field: 'email', details: { reason: 'email_invalid' } },
+        ["That email address doesn't look right.", 'Check it and try again.'],
+      ],
+      [
+        'name_too_long',
+        { code: 'invalid_input', field: 'name', details: { reason: 'name_too_long' } },
+        ['Enter your name, up to 100 characters.'],
+      ],
+      [
+        'a reason it does not know',
+        { code: 'invalid_input', field: 'phone', details: { reason: 'phone_invalid' } },
+        ['Check what you entered and try again.'],
+      ],
+      ['an internal error', { code: 'internal' }, failed],
+      ['an error with no code', {}, failed],
+    ])('words %s itself', async (_, error, words) => {
+      const alert = await confirmAnswered(async () => ({
+        error: { ...error, message: SERVER_WORDS, suggestion: SERVER_WORDS },
+      }));
+      for (const line of words) expect(alert).toHaveTextContent(line);
+    });
+
+    // An error page from a proxy, say, rather than the API's JSON. Not a
+    // network error: the server answered.
+    it('says it went wrong when the answer is not the API’s JSON', async () => {
+      const alert = await confirmAnswered(async () => {
+        throw new SyntaxError('Unexpected token <');
+      });
+      for (const line of failed) expect(alert).toHaveTextContent(line);
+      expect(alert).not.toHaveTextContent("Couldn't reach the server.");
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
+    });
+  });
+
   it('commits one place when it does not ask', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -650,6 +718,7 @@ describe('<CommitDialog /> sheet', () => {
               message: 'Email is required for this signup.',
               field: 'email',
               suggestion: 'Add your email and try again.',
+              details: { reason: 'email_required' },
             },
           }),
         })),
@@ -665,7 +734,9 @@ describe('<CommitDialog /> sheet', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
         const alert = await screen.findByRole('alert', {}, settle);
-        expect(alert).toHaveTextContent('Email is required for this signup.');
+        expect(alert).toHaveTextContent('This signup now needs an email address.');
+        expect(alert).toHaveTextContent('Add yours and try again.');
+        expect(alert).not.toHaveTextContent('Email is required');
         const email = screen.getByLabelText('Email');
         expect(email).toBeRequired();
         expect(email).not.toHaveAccessibleDescription();
@@ -729,8 +800,8 @@ describe('<CommitDialog /> sheet', () => {
     }
   });
 
-  // A phone that loses its connection after the POST got through shows
-  // "network error" for a sign-up the server did make. Pressing Confirm again
+  // A phone that loses its connection after the POST got through says it
+  // couldn't reach the server for a sign-up the server did make. Pressing Confirm again
   // must be recognisably the same sign-up, so the server hands that one back
   // rather than booking a second place (#387).
   describe('the idempotency key', () => {
@@ -770,7 +841,9 @@ describe('<CommitDialog /> sheet', () => {
     }
 
     async function seeNetworkError() {
-      expect(await screen.findByRole('alert', {}, settle)).toHaveTextContent('network error');
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent("Couldn't reach the server.");
+      expect(alert).toHaveTextContent('Check your connection and try again.');
       await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
     }
 
@@ -970,6 +1043,51 @@ describe('<CommitDialog /> sheet', () => {
       expect(alert).toHaveTextContent(say('errors.capacity.filledUp'));
       expect(alert).toHaveTextContent(say('errors.capacity.pickAnother'));
       expect(within(alert).getByRole('link')).toHaveTextContent(say('dialog.seeAlternatives'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+    });
+
+    it('asks for a refused input, and an error it has no copy for, in it', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      openInSwedish({ requireEmail: false });
+      await confirmWith({
+        ok: false,
+        json: async () => ({
+          error: {
+            code: 'invalid_input',
+            message: 'Invalid email',
+            suggestion: 'Check the value of "email".',
+            details: { reason: 'email_invalid' },
+          },
+        }),
+      });
+      let alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent(say('errors.email.invalid'));
+      expect(alert).toHaveTextContent(say('errors.email.check'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+
+      await confirmWith({
+        ok: false,
+        json: async () => ({ error: { code: 'internal', message: 'something went wrong' } }),
+      });
+      await waitFor(
+        () => expect(screen.getByRole('alert')).toHaveTextContent(say('errors.failed.join')),
+        settle,
+      );
+      alert = screen.getByRole('alert');
+      expect(alert).toHaveTextContent(say('errors.failed.tryAgain'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+    });
+
+    it('asks for a sign-up that never reached the server in it', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      openInSwedish({ requireEmail: false });
+      await confirmWith({
+        then: (_: unknown, reject: (reason: unknown) => void) =>
+          reject(new TypeError('Failed to fetch')),
+      });
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent(say('dialog.unreachable.message'));
+      expect(alert).toHaveTextContent(say('dialog.unreachable.suggestion'));
       expect(untranslated(screen.getByRole('dialog'))).toBe('');
     });
 

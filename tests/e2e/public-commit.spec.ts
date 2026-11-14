@@ -115,7 +115,9 @@ test.describe('public commit flow', () => {
       { times: 1 },
     );
     await page.getByRole('button', { name: 'Confirm' }).click();
-    await expect(page.getByRole('dialog').getByRole('alert')).toContainText('network error');
+    await expect(page.getByRole('dialog').getByRole('alert')).toContainText(
+      "Couldn't reach the server.",
+    );
     expect(firstId).toBeTruthy();
 
     await page.getByRole('button', { name: 'Confirm' }).click();
@@ -126,6 +128,23 @@ test.describe('public commit flow', () => {
     expect(new URL(editUrl!, page.url()).pathname).toBe(
       `/s/${seed.optionalEmailSlug}/c/${firstId}`,
     );
+  });
+
+  // The browser takes `pat@localhost` as an email; the server doesn't. The
+  // sheet says why in its own words, from the reason the server names, and
+  // never shows the server's English ("Invalid email").
+  test('a refused email is explained in the sheet’s words, not the server’s', async ({ page }) => {
+    await page.goto(`/s/${seed.publicSlug}`);
+    const row = page.locator('li').filter({ hasText: seed.openSlotLabel });
+    await row.getByRole('button', { name: 'Sign up' }).click();
+    await page.getByLabel('Your name').fill('Pat Tester');
+    await page.getByLabel('Email').fill('pat@localhost');
+    await page.getByRole('button', { name: 'Confirm' }).click();
+
+    const alert = page.getByRole('dialog').getByRole('alert');
+    await expect(alert).toContainText("That email address doesn't look right.");
+    await expect(alert).toContainText('Check it and try again.');
+    await expect(alert).not.toContainText(/Invalid email|Check the value/);
   });
 
   test('full slot shows Full and no sign-up affordance', async ({ page }) => {

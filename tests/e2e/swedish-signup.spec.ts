@@ -72,6 +72,29 @@ test.describe('the Swedish test signup', () => {
     await expect(page.getByRole('navigation', { name: 'Footer' })).toBeVisible();
   });
 
+  // The browser takes `kim@localhost` as an email; the server doesn't, and
+  // names the reason, which the sheet words in the signup's language.
+  test('says why a sign-up was refused, in Swedish', async ({ page }) => {
+    await gotoSwedish(page, `/s/${slug}`);
+    const dialog = swedish('participant.dialog');
+    const fields = swedish('participant.fields');
+    const errors = swedish('participant.errors');
+    await page
+      .locator('li')
+      .filter({ hasText: slots.one })
+      .getByRole('button', { name: /^Anmäl dig till / })
+      .click();
+    const sheet = page.getByRole('dialog');
+    await sheet.getByLabel(fields('name')).fill('Kim Exempel');
+    await sheet.getByLabel(fields('emailOptional')).fill('kim@localhost');
+    await sheet.getByRole('button', { name: dialog('confirm') }).click();
+
+    const alert = sheet.getByRole('alert');
+    await expect(alert).toContainText(errors('email.invalid'));
+    await expect(alert).toContainText(errors('email.check'));
+    await expectNoEnglish(alert);
+  });
+
   test('keeps its organizer’s strip English, marked lang="en"', async ({ page, context }) => {
     await loginAsSeededOrganizer(context);
     await gotoSwedish(page, `/s/${slug}`);
@@ -172,6 +195,35 @@ test.describe('the Swedish test signup’s edit page', () => {
       `${errors('capacity.atMost', { remaining: 1, requested: 3 })} ${errors('capacity.keepYourOne')}`,
     );
     await expect(main.getByText(form('spotsMax', { max: 1 }))).toBeVisible();
+    await expectNoEnglish(main);
+
+    // The edit link's own rate limit, which this page used to show in the
+    // server's English ("too many requests").
+    answer = {
+      status: 429,
+      body: {
+        error: {
+          code: 'rate_limited',
+          message: 'too many requests',
+          details: { retryAfterSeconds: 120 },
+        },
+      },
+    };
+    await main.getByLabel('Antal platser').fill('1');
+    await main.getByRole('button', { name: form('save') }).click();
+    await expect(main.getByRole('alert')).toHaveText(
+      `${errors('rateLimit.message')} ${errors('rateLimit.wait', { minutes: 2 })}`,
+    );
+
+    // And anything with no copy of its own.
+    answer = {
+      status: 500,
+      body: { error: { code: 'internal', message: 'something went wrong' } },
+    };
+    await main.getByRole('button', { name: form('save') }).click();
+    await expect(main.getByRole('alert')).toHaveText(
+      `${errors('failed.save')} ${errors('failed.tryAgain')}`,
+    );
     await expectNoEnglish(main);
   });
 

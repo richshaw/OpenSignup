@@ -223,7 +223,7 @@ describe('where the rules apply', () => {
     'src/app/s/[slug]/closed-message.ts',
     'src/app/s/[slug]/conflict-message.ts',
     'src/app/s/[slug]/gone-message.ts',
-    'src/app/s/[slug]/name-message.ts',
+    'src/app/s/[slug]/input-message.ts',
     'src/app/s/[slug]/rate-limit-message.ts',
     'src/app/s/[slug]/participant-error.ts',
   ])('are on for the copy helper %s', async (file) => {

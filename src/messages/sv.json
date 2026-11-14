@@ -63,6 +63,10 @@
       "emailHelp": "Vi mejlar dig en länk där du kan ändra eller avboka{reminder, select, yes {, och en påminnelse före ditt pass} other {}}. Utan e-post behöver du spara länken som visas när du har anmält dig.",
       "notesPlaceholder": "Allergier, önskemål m.m.",
       "seeAlternatives": "Visa alternativ",
+      "unreachable": {
+        "message": "Det gick inte att nå servern.",
+        "suggestion": "Kontrollera anslutningen och försök igen."
+      },
       "youreIn": "Du är anmäld.",
       "savedEmailed": "Vi har sparat din plats på <b>{slot}</b> och mejlat länken till <email>{address}</email>. Spara den som bokmärke, så kan du ändra eller avboka senare:",
       "savedNotEmailed": "Vi har sparat din plats på <b>{slot}</b>. <b>Spara länken nu: vi mejlar den inte, och bara den här webbläsaren kommer ihåg den.</b>{calendar, select, yes { Knappen Lägg till i kalender sparar också länken.} other {}}",
@@ -93,17 +97,33 @@
       },
       "conflict": {
         "message": "Du är redan anmäld till det här passet.",
-        "suggestion": "Använd länken i bekräftelsemejlet för att ändra eller avboka."
+        "suggestion": "Använd länken i bekräftelsemejlet för att ändra eller avboka.",
+        "change": "Din plats går inte att ändra längre."
       },
       "gone": {
         "message": "Tyvärr, det här finns inte längre.",
         "suggestion": "Ladda om sidan för att se vad som har ändrats."
       },
       "name": "Skriv ditt namn, högst {max, number} tecken.",
+      "email": {
+        "required": "Den här anmälningslistan kräver nu en e-postadress.",
+        "addIt": "Fyll i den och försök igen.",
+        "invalid": "E-postadressen ser inte rätt ut.",
+        "check": "Kontrollera den och försök igen."
+      },
+      "notes": "Korta kommentaren till högst {max, number} tecken.",
+      "quantity": "Ange ett helt antal platser, från 1 till {max, number}.",
+      "input": "Kontrollera det du har fyllt i och försök igen.",
       "rateLimit": {
         "message": "För många försök just nu.",
         "wait": "Försök igen om ungefär {minutes, plural, one {{minutes, number} minut} other {{minutes, number} minuter}}.",
         "waitAWhile": "Försök igen om några minuter."
+      },
+      "failed": {
+        "join": "Något gick fel, så du är inte anmäld än.",
+        "save": "Något gick fel, så dina ändringar sparades inte.",
+        "cancel": "Något gick fel, så din plats avbokades inte.",
+        "tryAgain": "Försök igen."
       }
     },
     "gonePage": {
@@ -132,7 +152,6 @@
       "saving": "Sparar…",
       "saved": "Sparat.",
       "saveUnreachable": "Det gick inte att nå servern, så dina ändringar sparades inte. Kontrollera anslutningen och försök igen.",
-      "saveUnreadable": "Något gick fel, så dina ändringar sparades inte. Försök igen.",
       "cancel": "Avboka",
       "confirmCancel": "Bekräfta avbokning",
       "cancelQuestion": "Vill du avboka din plats?",
