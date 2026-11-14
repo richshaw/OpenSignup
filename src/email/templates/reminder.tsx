@@ -4,11 +4,12 @@ import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
 import type { SlotDetail } from '@/lib/slot-label';
 import {
-  EmailButton,
   EmailHeading,
   EmailIntro,
   EmailLayout,
+  ManageButton,
   NotesText,
+  strong,
   UnsubscribeFooter,
 } from './layout';
 import { SlotDetailsText } from './slot-details';
@@ -50,8 +51,11 @@ export function ReminderEmail({
   unsubscribeUrl,
   changed = false,
 }: ReminderEmailProps) {
+  const t = getServerTranslator(locale, 'email.reminder');
+  const intro = { name: participantName, title: signupTitle, b: strong };
   return (
     <EmailLayout
+      locale={locale}
       preview={reminderSubject(
         getServerTranslator(locale, 'email.subject'),
         signupTitle,
@@ -59,26 +63,15 @@ export function ReminderEmail({
         changed,
       )}
     >
-      <EmailHeading>{changed ? 'Your slot has changed' : 'Coming up'}</EmailHeading>
-      {changed ? (
-        <EmailIntro>
-          Hi {participantName}, the organizer changed your slot for <strong>{signupTitle}</strong>{' '}
-          since we last emailed you. Here are the new details.
-        </EmailIntro>
-      ) : (
-        <EmailIntro>
-          Hi {participantName}, this is a reminder that you signed up for{' '}
-          <strong>{signupTitle}</strong>.
-        </EmailIntro>
-      )}
-      <SlotDetailsText details={slotDetails} />
-      <NotesText notes={notes} />
-      <EmailButton href={manageUrl}>View or change your slot</EmailButton>
-      <Text className="mt-6 text-xs text-[#8a93a4]">
-        Need to change or cancel? Tap the button above. It opens your spot directly, no password
-        needed. Keep this email to yourself: anyone with the link can change your slot.
-      </Text>
-      <UnsubscribeFooter href={unsubscribeUrl}>Stop reminders for {signupTitle}</UnsubscribeFooter>
+      <EmailHeading>{changed ? t('changed.heading') : t('heading')}</EmailHeading>
+      <EmailIntro>{changed ? t.rich('changed.intro', intro) : t.rich('intro', intro)}</EmailIntro>
+      <SlotDetailsText locale={locale} details={slotDetails} />
+      <NotesText locale={locale} notes={notes} />
+      <ManageButton locale={locale} href={manageUrl} />
+      <Text className="mt-6 text-xs text-[#8a93a4]">{t('keep')}</Text>
+      <UnsubscribeFooter locale={locale} href={unsubscribeUrl}>
+        {t('stop', { title: signupTitle })}
+      </UnsubscribeFooter>
     </EmailLayout>
   );
 }

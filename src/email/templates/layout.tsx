@@ -13,10 +13,25 @@ import {
   Text,
 } from '@react-email/components';
 import type { ReactNode } from 'react';
+import type { CatalogLocale } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
 
-export function EmailLayout({ preview, children }: { preview: string; children: ReactNode }) {
+/**
+ * Every email's frame. `locale` is the email's language, which its `<html
+ * lang>` declares: a participant email's is its signup's (`emailLocale`), and
+ * the sign-in email's is English until organizer text moves to the catalogs.
+ */
+export function EmailLayout({
+  locale,
+  preview,
+  children,
+}: {
+  locale: CatalogLocale;
+  preview: string;
+  children: ReactNode;
+}) {
   return (
-    <Html>
+    <Html lang={locale}>
       <Head />
       <Preview>{preview}</Preview>
       <Tailwind>
@@ -60,28 +75,61 @@ export function EmailButton({ href, children }: { href: string; children: ReactN
   );
 }
 
+/**
+ * The participant emails' call to action: their own link to view, change or
+ * cancel their spot.
+ */
+export function ManageButton({ locale, href }: { locale: CatalogLocale; href: string }) {
+  const t = getServerTranslator(locale, 'email.common');
+  return <EmailButton href={href}>{t('manage')}</EmailButton>;
+}
+
+/** What a message's `<b>` tag renders as, for `t.rich`. */
+export function strong(chunks: ReactNode) {
+  return <strong>{chunks}</strong>;
+}
+
 /** The participant's own notes on their sign-up, or nothing when they left none. */
-export function NotesText({ notes }: { notes?: string | null | undefined }) {
+export function NotesText({
+  locale,
+  notes,
+}: {
+  locale: CatalogLocale;
+  notes?: string | null | undefined;
+}) {
   if (!notes) return null;
+  const t = getServerTranslator(locale, 'email.common');
   return (
     <Text className="mt-4 rounded-lg bg-[#f7f8fa] p-3 text-[#0b1220]">
-      <strong>Your notes:</strong> {notes}
+      {t.rich('notes', { notes, b: strong })}
     </Text>
   );
 }
 
 /**
- * The opt-out line at the foot of the reminder and slot-change emails.
+ * The opt-out line at the foot of the reminder and slot-change emails: a
+ * sentence, then the link, whose label is `children`.
  *
  * Nothing may follow the link in the sentence. react-email renders a <Link>
  * in plaintext as "label\nURL", so trailing punctuation lands hard against the
  * bare URL and clients that autolink plaintext commonly swallow it into the
- * href — which would break the one link that must never break.
+ * href — which would break the one link that must never break. So the
+ * sentence and the label are separate messages, and the link comes last
+ * here, in every language: no translation can put words after it.
  */
-export function UnsubscribeFooter({ href, children }: { href: string; children: ReactNode }) {
+export function UnsubscribeFooter({
+  locale,
+  href,
+  children,
+}: {
+  locale: CatalogLocale;
+  href: string;
+  children: ReactNode;
+}) {
+  const t = getServerTranslator(locale, 'email.common');
   return (
     <Text className="mt-4 text-xs text-[#8a93a4]">
-      You&apos;ll still get a confirmation if you sign up for something new.{' '}
+      {t('stillConfirmed')}{' '}
       <Link href={href} className="text-[#8a93a4] underline">
         {children}
       </Link>

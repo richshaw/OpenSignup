@@ -68,12 +68,11 @@ export function defaultFor(
  * The signup's page, the pages for changing a spot and unsubscribing, the
  * public signup API, its Settings tab and its emails (`emailLocale` in
  * src/email/commitment-row.ts) all read its language by this rule, so the
- * choice an organizer sees is the one participants get; the emails' subjects
- * and slot details follow it so far, the rest of their text not yet. A stored
- * value is lenient: one that is unknown, or has a catalog but hasn't shipped
- * (or has since been taken off the list), reads as the instance's language
- * rather than breaking the row it's in. The e2e run's server alone also keeps
- * a stored language that hasn't shipped (`isShownToTests`), which its
+ * choice an organizer sees is the one participants get. A stored value is
+ * lenient: one that is unknown, or has a catalog but hasn't shipped (or has
+ * since been taken off the list), reads as the instance's language rather
+ * than breaking the row it's in. The e2e run's server alone also keeps a
+ * stored language that hasn't shipped (`isShownToTests`), which its
  * confirmation emails follow too.
  */
 export function signupLocale(

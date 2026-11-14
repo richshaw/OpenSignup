@@ -220,6 +220,36 @@
       "reminder": "Reminder: {title}",
       "timeChanged": "Time changed: {title}",
       "withSlot": "{subject} · {slot}"
+    },
+    "common": {
+      "manage": "View or change your slot",
+      "notes": "<b>Your notes:</b> {notes}",
+      "stillConfirmed": "You'll still get a confirmation if you sign up for something new."
+    },
+    "slotDetails": {
+      "line": "<b>{label}:</b> {value}",
+      "spots": "Spots"
+    },
+    "confirmation": {
+      "heading": "You're signed up",
+      "intro": "Thanks {name}, you signed up for <b>{title}</b>.",
+      "keep": "Keep this email. The button above is how you change or cancel later, with no password to remember. Anyone with that link can change your slot, so don't forward it.{reminder, select, yes { We'll also send you a reminder {hours, plural, =24 {the day before} one {# hour before} other {# hours before}}.} other {}}"
+    },
+    "reminder": {
+      "heading": "Coming up",
+      "intro": "Hi {name}, this is a reminder that you signed up for <b>{title}</b>.",
+      "changed": {
+        "heading": "Your slot has changed",
+        "intro": "Hi {name}, the organizer changed your slot for <b>{title}</b> since we last emailed you. Here are the new details."
+      },
+      "keep": "Need to change or cancel? Tap the button above. It opens your spot directly, no password needed. Keep this email to yourself: anyone with the link can change your slot.",
+      "stop": "Stop reminders for {title}"
+    },
+    "slotChanged": {
+      "heading": "Your slot has changed",
+      "intro": "Hi {name}, the organizer of <b>{title}</b> moved your slot to a new date or time. Here are the new details.",
+      "keep": "Can't make the new time? Tap the button above to change or cancel. It opens your spot directly, no password needed. Keep this email to yourself: anyone with the link can change your slot.",
+      "stop": "Stop reminders and updates for {title}"
     }
   },
   "organizer": {

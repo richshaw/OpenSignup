@@ -528,7 +528,7 @@ describe('selectDueReminders (db)', () => {
     }
   });
 
-  it('words the subject and the slot in the signup’s language', async () => {
+  it('writes the reminder in the signup’s language', async () => {
     ship('participant', ['en', 'sv']);
     const english = await makeScenario(fx, 'Spring fair', { slotInHours: 20, dated: true });
     const swedish = await makeScenario(fx, 'Vårloppis', {
@@ -546,10 +546,24 @@ describe('selectDueReminders (db)', () => {
       await sendReminderJob({ commitmentId: english.commitmentId });
       await sendReminderJob({ commitmentId: swedish.commitmentId });
       const [inEnglish, inSwedish] = send.mock.calls.map(([mail]) => mail);
+      // Plain text wraps at 80 columns, so any space may come out as a newline.
+      const flat = (text: string | undefined) => text?.replace(/\s+/g, ' ');
       expect(inEnglish?.subject).toBe('Reminder: Spring fair · Sat, May 2');
-      expect(inEnglish?.text).toContain('Sat, May 2');
+      expect(inEnglish?.html).toMatch(/<html[^>]* lang="en"/);
+      expect(flat(inEnglish?.text)).toContain(
+        'Hi Reminder Tester, this is a reminder that you signed up for Spring fair. Day: Sat, May 2',
+      );
+      expect(flat(inEnglish?.text)).toContain('Stop reminders for Spring fair');
       expect(inSwedish?.subject).toBe('Påminnelse: Vårloppis · lör 2 maj');
-      expect(inSwedish?.text).toContain('lör 2 maj');
+      expect(inSwedish?.html).toMatch(/<html[^>]* lang="sv"/);
+      // The body, from the heading to the opt-out link; the slot's label is
+      // the organizer's own.
+      expect(flat(inSwedish?.text)).toContain(
+        'SNART DAGS Hej Reminder Tester, det här är en påminnelse om att du har anmält dig till Vårloppis. Day: lör 2 maj Visa eller ändra din plats',
+      );
+      expect(flat(inSwedish?.text)).toContain(
+        'Du får fortfarande en bekräftelse om du anmäler dig till något nytt. Stäng av påminnelser om Vårloppis http',
+      );
       // The preview text inboxes show after the subject is the subject.
       expect(inSwedish?.html).toContain(`>${inSwedish?.subject}<`);
     } finally {
