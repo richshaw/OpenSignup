@@ -2128,6 +2128,29 @@ describe('signups service (db)', () => {
         expect(fromRow.ok).toBe(false);
       }
     });
+
+    // getSignupRowBySlug skips deleted rows, so only a row read some other way
+    // gets here; this check is then all that keeps it off the public page.
+    it('refuses a row that was deleted, as plainly as a slug nobody has', async () => {
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Row deleted'),
+      );
+      if (!created.ok) throw new Error('setup failed');
+      if (!(await publishSignup(fx.db, fx.actor, created.value.id)).ok) {
+        throw new Error('setup failed');
+      }
+      const row = await getSignupRowBySlug(fx.db, created.value.slug);
+      if (!row) throw new Error('row read failed');
+      expect((await getPublicSignup(fx.db, row)).ok).toBe(true);
+
+      expect(await getPublicSignup(fx.db, { ...row, deletedAt: new Date() })).toEqual({
+        ok: false,
+        error: { code: 'not_found', message: 'signup not found' },
+      });
+    });
   });
 
   describe('getSignupRowBySlug', () => {

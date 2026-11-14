@@ -3,6 +3,8 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import type { CatalogLocale } from '@/i18n/config';
+import { formatSlotDate } from '@/lib/slot-label';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { ACTION_SIZING } from './slot-format';
 import { toSignupViewSlots } from './public-signup';
@@ -40,6 +42,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
   it('renders the row action as an inert span styled like the active button', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -62,6 +65,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
   it('does not render the preview banner in showcase mode', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -79,6 +83,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
   it('preview mode still renders a disabled Sign-up button (regression guard)', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={{ ...SIGNUP, status: 'draft' }}
         fields={FIELDS}
         groupByRef={null}
@@ -98,6 +103,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
     // landing hero). Two h1s on one page is an SEO defect.
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -111,12 +117,35 @@ describe('<SignupViewBody mode="showcase" />', () => {
   });
 });
 
+describe('<SignupViewBody /> language', () => {
+  it('reads slot dates in the language it is given', () => {
+    // Swedish has no catalog yet, hence the cast; the dates come from Intl.
+    const swedish = formatSlotDate('2026-05-17', 'sv');
+    expect(swedish).not.toBe(formatSlotDate('2026-05-17', 'en'));
+    render(
+      <SignupViewBody
+        locale={'sv' as CatalogLocale}
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef="date"
+        slots={SLOTS}
+        slug="example"
+        mode="showcase"
+      />,
+    );
+    // The group heading, in Swedish.
+    expect(screen.getByRole('heading', { level: 2, name: swedish! })).toBeInTheDocument();
+    expect(screen.queryByText(/May/)).toBeNull();
+  });
+});
+
 describe('<SignupViewBody /> heading level', () => {
   // Only 'preview' is exercised here: 'live' mounts the whole CommitDialog.
   // Both take the same non-showcase branch, so preview is a faithful stand-in.
   it('keeps the title as the h1 outside showcase mode, where it is the page heading', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -167,6 +196,7 @@ describe('<SignupViewBody /> slot row', () => {
   function renderRows() {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -193,6 +223,7 @@ describe('<SignupViewBody /> slot row', () => {
   it('counts nothing on a closed signup, where every row says "Closed"', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={{ ...SIGNUP, status: 'closed' }}
         fields={FIELDS}
         groupByRef={null}
@@ -220,6 +251,7 @@ describe('<SignupViewBody /> slot row', () => {
     // The location was being truncated off every row on a 390px screen.
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={[...FIELDS, { ref: 'where', label: 'Where', fieldType: 'text' }]}
         groupByRef={null}
@@ -245,6 +277,7 @@ describe('<SignupViewBody /> slot row', () => {
     // time: without the group label in the name, both buttons are "9:00 AM".
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={[
           { ref: 'date', label: 'Date', fieldType: 'date' },
@@ -287,6 +320,7 @@ describe('<SignupViewBody /> slot row', () => {
   it('gives Full, Closed and Sign up the same box, not a narrow label beside a pill', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -345,6 +379,7 @@ describe('<SignupViewBody mode="live" /> quantity', () => {
   function openRow(team: RegExp) {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -459,6 +494,7 @@ describe('"Add to calendar" on a signup with several time fields', () => {
     try {
       render(
         <SignupViewBody
+          locale="en"
           signup={{ title: 'Trip', description: '', status: 'open' }}
           fields={TRIP.fields}
           groupByRef={null}
@@ -507,6 +543,7 @@ describe('the optional email box on the live page', () => {
   async function emailHelp(sendReminders: boolean | undefined, slotAt: string | null) {
     render(
       <SignupViewBody
+        locale="en"
         signup={{
           ...SIGNUP,
           requireEmail: false,
@@ -551,6 +588,7 @@ describe('the live page past its closing time', () => {
   function renderLive(closesAt: Date | null) {
     render(
       <SignupViewBody
+        locale="en"
         signup={toSignupViewSignup({ ...ROW, closesAt }, NOW)}
         fields={FIELDS}
         groupByRef={null}
@@ -581,6 +619,7 @@ describe("the signup's description", () => {
   function renderWith(description: string) {
     const { container } = render(
       <SignupViewBody
+        locale="en"
         signup={toSignupViewSignup({ ...ROW, description })}
         fields={FIELDS}
         groupByRef={null}
@@ -624,6 +663,7 @@ describe('the live page inside the lockout before a slot', () => {
   it('shows a slot that starts within the lockout as closed, with no Sign up button or count', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={[{ ref: 'team', label: 'Team', fieldType: 'text' }]}
         groupByRef={null}
@@ -650,6 +690,7 @@ describe('<SignupViewBody /> for a returning participant', () => {
   function renderOwn(status: 'open' | 'closed', mode: 'live' | 'preview' = 'live') {
     render(
       <SignupViewBody
+        locale="en"
         signup={{ ...SIGNUP, status }}
         fields={FIELDS}
         groupByRef={null}
@@ -688,6 +729,7 @@ describe('<SignupViewBody /> for a returning participant', () => {
   it('says "spots" for someone with more than one slot on a closed signup', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={{ ...SIGNUP, status: 'closed' }}
         fields={FIELDS}
         groupByRef={null}
@@ -750,6 +792,7 @@ describe('naming the slot once its row is out of sight', () => {
   ) {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={fields}
         groupByRef={groupByRef}
@@ -842,6 +885,7 @@ describe('naming the slot once its row is out of sight', () => {
   it('names the group and time in the signed-up bar', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={SHIFT_FIELDS}
         groupByRef="date"
@@ -875,6 +919,7 @@ describe('"You\'re in." and the address the link went to', () => {
     try {
       render(
         <SignupViewBody
+          locale="en"
           signup={{ ...SIGNUP, requireEmail }}
           fields={FIELDS}
           groupByRef={null}
