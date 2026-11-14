@@ -43,20 +43,6 @@ export function isShipped(audience: Audience, value: unknown): value is CatalogL
   return (SHIPPED[audience] as readonly unknown[]).includes(value);
 }
 
-function hasCatalog(value: unknown): value is CatalogLocale {
-  return (CATALOG_LOCALES as readonly unknown[]).includes(value);
-}
-
-/**
- * The language a stored value means, such as a signup's `settings.locale`: the
- * value when it names a catalog, else `fallback`. Stored languages are lenient
- * (one that is unknown, or whose catalog has gone, must not break the row it is
- * in), so whatever reads one reads it through this.
- */
-export function resolveLocale(value: unknown, fallback: CatalogLocale): CatalogLocale {
-  return hasCatalog(value) ? value : fallback;
-}
-
 /**
  * The language for `audience` when nothing more specific applies: the
  * instance's `DEFAULT_LOCALE` when it has shipped to that audience, else
@@ -68,6 +54,36 @@ export function defaultFor(
   instanceDefault: CatalogLocale | undefined,
 ): CatalogLocale {
   return isShipped(audience, instanceDefault) ? instanceDefault : 'en';
+}
+
+/**
+ * The language a signup's pages and emails are in, from its stored
+ * `settings.locale`: that language once it has shipped to participants, else
+ * the instance's language for participants (`defaultFor`). Pass the signup's
+ * stored value as it is, whatever it holds, and the instance's
+ * `DEFAULT_LOCALE` (`instanceDefaultLocale()` in server.ts).
+ *
+ * The signup's Settings tab shows its language by this rule too, so the choice
+ * an organizer sees there is the one participants get. A stored value is
+ * lenient: one that is unknown, or has a catalog but hasn't shipped (or has
+ * since been taken off the list), reads as the instance's language rather than
+ * breaking the row it's in.
+ */
+export function signupLocale(
+  stored: unknown,
+  instanceDefault: CatalogLocale | undefined,
+): CatalogLocale {
+  return isShipped('participant', stored) ? stored : defaultFor('participant', instanceDefault);
+}
+
+/**
+ * A language as link previews name it (`og:locale`): language and region
+ * joined by an underscore, the region being where the language is most likely
+ * spoken, so 'en' is en_US and 'sv' is sv_SE.
+ */
+export function openGraphLocale(locale: CatalogLocale): string {
+  const { language, region } = new Intl.Locale(locale).maximize();
+  return region ? `${language}_${region}` : language;
 }
 
 /**

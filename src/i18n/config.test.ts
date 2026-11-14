@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   type Audience,
   CATALOG_LOCALES,
@@ -7,7 +7,8 @@ import {
   defaultFor,
   isShipped,
   languageName,
-  resolveLocale,
+  openGraphLocale,
+  signupLocale,
 } from './config';
 
 describe('SHIPPED', () => {
@@ -41,13 +42,28 @@ describe('isShipped', () => {
   });
 });
 
-describe('resolveLocale', () => {
-  it('keeps a language that has a catalog', () => {
-    expect(resolveLocale('en', 'en')).toBe('en');
+describe('signupLocale', () => {
+  // Only English has shipped to participants today. Tests that need a second
+  // language ship Swedish by changing the lists themselves, as the pages and
+  // the Settings tab read them.
+  const shippedToday = [...SHIPPED.participant];
+  const catalogsToday = [...CATALOG_LOCALES];
+  function ship(locales: string[]) {
+    (SHIPPED as Record<Audience, readonly string[]>).participant = locales;
+  }
+  afterEach(() => {
+    ship(shippedToday);
+    (CATALOG_LOCALES as unknown as string[]).splice(0, Infinity, ...catalogsToday);
   });
 
-  // A stored value is lenient: one that is unknown, or has since lost its
-  // catalog, must read as the fallback rather than break the row.
+  it('keeps a language that has shipped to participants', () => {
+    expect(signupLocale('en', undefined)).toBe('en');
+    ship(['en', 'sv']);
+    expect(signupLocale('sv', undefined)).toBe('sv');
+  });
+
+  // A stored value is lenient: one that is unknown, or has since left the
+  // list, must read as the instance's language rather than break the row.
   it.each([
     ['nothing stored', undefined],
     ['null', null],
@@ -57,14 +73,33 @@ describe('resolveLocale', () => {
     ['an empty string', ''],
     ['not a string', 5],
   ])('falls back for %s', (_label, value) => {
-    expect(resolveLocale(value, 'en')).toBe('en');
+    expect(signupLocale(value, undefined)).toBe('en');
   });
 
-  it('returns the fallback it is given', () => {
-    // Every catalog language is a valid fallback, today only English.
-    for (const fallback of CATALOG_LOCALES) {
-      expect(resolveLocale('xx', fallback)).toBe(fallback);
-    }
+  // The Settings tab's rule: a language with a catalog that hasn't shipped
+  // (yet, or any more) isn't the signup's language, so the page doesn't use
+  // one the organizer can't see chosen.
+  it('falls back for a language that has a catalog but has not shipped', () => {
+    (CATALOG_LOCALES as unknown as string[]).push('sv');
+    expect(signupLocale('sv', undefined)).toBe('en');
+  });
+
+  it('falls back to the instance language once it has shipped to participants', () => {
+    const sv = 'sv' as CatalogLocale;
+    // Set before it ships: English, as `defaultFor` says.
+    expect(signupLocale(undefined, sv)).toBe('en');
+    ship(['en', 'sv']);
+    expect(signupLocale(undefined, sv)).toBe('sv');
+    expect(signupLocale('xx', sv)).toBe('sv');
+    expect(signupLocale('en', sv)).toBe('en');
+  });
+});
+
+describe('openGraphLocale', () => {
+  it('names a language with the region link previews expect', () => {
+    expect(openGraphLocale('en')).toBe('en_US');
+    // Swedish has no catalog yet, hence the cast.
+    expect(openGraphLocale('sv' as CatalogLocale)).toBe('sv_SE');
   });
 });
 

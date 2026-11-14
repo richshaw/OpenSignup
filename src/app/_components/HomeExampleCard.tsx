@@ -53,6 +53,8 @@ export function HomeExampleCard() {
             groupByRef={null}
             slots={SLOTS}
             slug="example"
+            // The home page's own language, not a signup's: it has none.
+            locale="en"
             mode="showcase"
             showStateBanner={false}
           />
