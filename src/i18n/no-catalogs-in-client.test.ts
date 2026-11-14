@@ -107,7 +107,7 @@ describe('opensignup/no-catalogs-in-client', () => {
   it('says why, and what to do instead', async () => {
     const [translator] = await lint(CLIENT + "import { getTranslator } from '@/i18n/translator';");
     expect(translator).toMatch(
-      /can't import '@\/i18n\/translator': src\/i18n\/ is server code that loads every language's message catalog, and all of them would go into the browser's JavaScript\. Translate in a server component and pass the text in as props\./,
+      /can't import '@\/i18n\/translator': src\/i18n\/ is server code that loads every language's message catalog, and all of them would go into the browser's JavaScript\. Translate in a server component and pass the text in as props, or call next-intl's useTranslations under <ClientMessages> \(src\/i18n\/ClientMessages\.tsx\), which a server component gives the messages from messagesFor\./,
     );
     expect(translator).toMatch(
       /Or, if '@\/i18n\/translator' loads no catalog, now or through its imports, list it in CLIENT_SAFE_I18N in eslint\.config\.mjs\.$/,

@@ -9,11 +9,11 @@ import { loadSeed } from './helpers/fixtures';
  * (`precompile` in next.config.mjs). Vitest and the reminder worker read the
  * raw JSON and use the full formatter, so only a real build shows what pages
  * print. The footer's `{instance} · AGPL-3.0` is checked on every kind of
- * page, and a slot row's count on the public signup page. Broken, a message
- * prints its key path, like `common.footer.license` (a compiled message
- * mangled on its way to the translator), or its own text, like
- * `{instance} · AGPL-3.0` (a message that skipped the loader, which this
- * formatter leaves unfilled).
+ * page, a slot row's count on the public signup page, and the text client
+ * components read in the browser. Broken, a message prints its key path, like
+ * `common.footer.license` (a compiled message mangled on its way to the
+ * translator), or its own text, like `{instance} · AGPL-3.0` (a message that
+ * skipped the loader, which this formatter leaves unfilled).
  *
  * Run against a production build (`pnpm build`, then the config's
  * `pnpm start`). `pnpm dev` precompiles as well, so it passes there too.
@@ -52,5 +52,30 @@ test.describe('a participant message with arguments', () => {
     await expect(row.locator('.sr-only').filter({ hasText: /left/ })).toHaveText(
       /^\d+ of 20 spots left$/,
     );
+  });
+});
+
+/**
+ * The sign-up sheet and the edit page's form read their text with
+ * `useTranslations`, from the messages their page gives `ClientMessages`.
+ * Broken, the name box reads `participant.fields.name`, or the page fails
+ * with no messages provider at all.
+ */
+test.describe('a message a client component reads', () => {
+  test('names the box on the sign-up sheet, which opens in the browser', async ({ page }) => {
+    await page.goto(`/s/${seed.publicSlug}`);
+    const row = page.locator('li').filter({ hasText: seed.openSlotLabel });
+    await row.getByRole('button', { name: 'Sign up' }).click();
+    await expect(
+      page.getByRole('dialog').getByRole('textbox', { name: 'Your name' }),
+    ).toBeVisible();
+  });
+
+  test('names the box on the edit page, rendered on the server and then in the browser', async ({
+    page,
+  }) => {
+    await page.goto(`/s/${seed.editSlug}/c/${seed.editCommitmentId}?token=${seed.editToken}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('textbox', { name: 'Your name' })).toBeVisible();
   });
 });
