@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { type CatalogLocale, languageName } from '@/i18n/config';
+import { isLanguageCode } from '@/i18n/organizer-locale';
 import {
   DESCRIPTION_MAX_LENGTH,
   TITLE_MAX_LENGTH,
@@ -162,21 +163,47 @@ function withoutNullKeys(value: unknown): unknown {
   return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== null));
 }
 
-/** A language code: a tag's primary language subtag, in lower case. */
-const LANGUAGE_CODE = /^[a-z]{2,3}$/;
+/** A language's name in English, or undefined for a code that names none (`zzz`). */
+const LANGUAGE_NAMES = new Intl.DisplayNames('en', { type: 'language', fallback: 'none' });
 
 /**
- * The language a draft says it's written in, as a bare language code (`sv`
- * for `sv-SE`, `SV` or `sv_SE`), or undefined when it gives none that reads as
- * one: a language's name, a sentence, anything not a string. Lenient, so a
- * missing or odd value never fails a draft. Cut to two or three letters a-z,
- * so nothing the model writes beyond a code is kept: the route only compares
- * it with the languages that have shipped, and records an unshipped one.
+ * ISO 639's codes that stand for no single language: undetermined, uncoded,
+ * multiple languages and no linguistic content. CLDR names the last two, so
+ * they'd otherwise read as languages.
+ */
+const NO_SINGLE_LANGUAGE: ReadonlySet<string> = new Set(['und', 'mis', 'mul', 'zxx']);
+
+/**
+ * The language a draft says it's written in, as a bare language code, or
+ * undefined when the value doesn't name one. Lenient, so a missing or odd
+ * value never fails a draft.
+ *
+ * The whole value, trimmed and with `_` read as `-`, must be a well-formed
+ * language tag (`Intl.Locale`), and its language is kept only when it's two
+ * or three letters that CLDR names as a language. `Intl.Locale` gives the
+ * language in its canonical form, so `sv-SE`, `sv_SE` and `SV` read as `sv`,
+ * and a three-letter code for a language with a two-letter one as that:
+ * `eng`, `swe` and `deu` read as `en`, `sv` and `de`. A name (`Swedish`), a
+ * sentence (even one that starts `sv-SE,`), a private-use tag (`x-klingon`),
+ * digits, or a code CLDR doesn't name (`zzz`, `the`) reads as none. A
+ * well-formed tag with a real language and odd subtags after it still counts
+ * (`no-idea` reads as `no`). So what's kept is a language's code and nothing
+ * else the model wrote: the route only compares it with the languages that
+ * have shipped, and records an unshipped one.
  */
 const ReportedLanguageSchema = z.unknown().transform((value) => {
   if (typeof value !== 'string') return undefined;
-  const primary = value.trim().split(/[-_]/, 1)[0]!.toLowerCase();
-  return LANGUAGE_CODE.test(primary) ? primary : undefined;
+  try {
+    const { language } = new Intl.Locale(value.trim().replaceAll('_', '-'));
+    return isLanguageCode(language) &&
+      !NO_SINGLE_LANGUAGE.has(language) &&
+      LANGUAGE_NAMES.of(language) !== undefined
+      ? language
+      : undefined;
+  } catch {
+    // Not a well-formed language tag.
+    return undefined;
+  }
 });
 
 /**

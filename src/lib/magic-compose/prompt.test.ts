@@ -364,10 +364,16 @@ describe('the language a draft reports', () => {
     ['de', 'de'],
     ['fil', 'fil'],
     ['sv-SE', 'sv'],
+    ['sv_SE', 'sv'],
     ['SV', 'sv'],
     ['zh-Hant-TW', 'zh'],
     ['en_GB', 'en'],
     [' de ', 'de'],
+    // A three-letter code for a language with a two-letter one reads as that.
+    ['eng', 'en'],
+    ['swe', 'sv'],
+    ['deu', 'de'],
+    ['SWE-se', 'sv'],
   ])('reads %j as the language code %j', (sent, code) => {
     expect(reported(sent)).toBe(code);
   });
@@ -383,6 +389,14 @@ describe('the language a draft reports', () => {
     ['a private-use tag', 'x-klingon'],
     ['a code with text after it', 'sv; and more'],
     ['a code with a sentence after it', 'sv. The draft is in Swedish'],
+    ['a sentence that starts with a tag', 'sv-SE, though the headings are partly in English'],
+    ['a sentence that starts with a language', 'it-depends on the slot'],
+    ['a title that starts with letters', 'Tea-party helpers'],
+    ['three letters that name no language', 'zzz'],
+    ['an English word that names no language', 'the'],
+    ['the code for no language in particular', 'und'],
+    ['the code for several languages', 'mul'],
+    ['the code for no linguistic content', 'zxx'],
     ['digits', '12'],
     ['letters outside a-z', 'sä'],
     ['a number', 42],
