@@ -24,15 +24,16 @@ const TRANSLATED = ['src/components/site-footer.tsx'];
 
 /**
  * Glob patterns for `files` that match exactly `paths`, each a file or a
- * folder relative to the repo's root: a folder takes in everything under it,
- * and the characters a glob reads specially (`[slug]`, `(chrome)`) are
+ * folder relative to `root` (the repo's root unless a test gives another): a
+ * folder takes in everything under it, and the characters a glob reads
+ * specially (`[slug]`, `(chrome)`, and the backslash it escapes them with) are
  * escaped, so they match only themselves.
  */
-export function filesAt(paths) {
+export function filesAt(paths, root = __dirname) {
   return paths.map((entry) => {
-    const stats = statSync(path.join(__dirname, entry), { throwIfNoEntry: false });
+    const stats = statSync(path.join(root, entry), { throwIfNoEntry: false });
     if (!stats) throw new Error(`eslint.config.mjs lists ${entry}, which doesn't exist.`);
-    const glob = entry.replace(/\/+$/, '').replace(/[*?[\]{}()!+@]/g, '\\$&');
+    const glob = entry.replace(/\/+$/, '').replace(/[\\*?[\]{}()!+@]/g, '\\$&');
     return stats.isDirectory() ? `${glob}/**` : glob;
   });
 }
