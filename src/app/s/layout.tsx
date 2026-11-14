@@ -4,7 +4,9 @@ export default function PublicParticipantLayout({ children }: { children: React.
   return (
     <div className="flex min-h-[100svh] flex-col bg-surface text-ink">
       <div className="flex-1">{children}</div>
-      <SiteFooter />
+      {/* English for now: this layout sits above [slug], so it has no signup
+          to take a language from. */}
+      <SiteFooter locale="en" />
     </div>
   );
 }

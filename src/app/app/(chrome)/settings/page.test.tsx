@@ -3,15 +3,8 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { type Audience, type CatalogLocale, SHIPPED } from '@/i18n/config';
-
-// Only English has shipped to participants today. The tests that need a
-// choice ship Swedish by changing the list itself, so the page and
-// `chooseOrganizerLocale` both see it.
-const asShippedToday = { ...SHIPPED };
-function ship(audience: Audience, locales: string[]) {
-  (SHIPPED as Record<Audience, readonly string[]>)[audience] = locales;
-}
+import type { CatalogLocale } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 
 // What the page reads around the form: the instance's language (none, unless
 // a test sets one), the browser's Accept-Language, and the session.
@@ -45,7 +38,6 @@ const checked = () =>
 
 afterEach(() => {
   cleanup();
-  Object.assign(SHIPPED, asShippedToday);
   Object.assign(request, { instanceDefault: undefined, acceptLanguage: null, saved: null });
 });
 

@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
@@ -7,7 +7,7 @@ import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
-import { type Audience, type CatalogLocale, SHIPPED } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 import { ServiceException } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -53,13 +53,6 @@ vi.mock('@/i18n/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/i18n/server')>()),
   instanceDefaultLocale: () => request.instanceDefault,
 }));
-
-// Only English has shipped today. The tests that need a choice ship Swedish by
-// changing the list itself, so config.ts's own `isShipped` sees it too.
-const asShippedToday = { ...SHIPPED };
-function ship(audience: Audience, locales: string[]) {
-  (SHIPPED as Record<Audience, readonly string[]>)[audience] = locales;
-}
 
 // Next's redirect() throws to end the action; this one throws the address.
 class Redirected extends Error {
@@ -122,10 +115,6 @@ describe('createSignupAction (db)', () => {
     request.instanceDefault = undefined;
     await db.delete(rateLimits).where(bucket);
     await db.delete(signups).where(eq(signups.workspaceId, workspaceId));
-  });
-
-  afterEach(() => {
-    Object.assign(SHIPPED, asShippedToday);
   });
 
   afterAll(async () => {
@@ -249,7 +238,7 @@ describe('createSignupAction (db)', () => {
 
   describe('once Swedish has shipped to participants', () => {
     beforeEach(() => {
-      ship('participant', ['en', 'sv' as CatalogLocale]);
+      ship('participant', ['en', 'sv']);
     });
 
     it.each([

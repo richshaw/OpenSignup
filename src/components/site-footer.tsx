@@ -1,11 +1,18 @@
 import Link from 'next/link';
+import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
 import { shortCommit } from '@/lib/build-info';
 import { FOOTER_LINKS } from '@/lib/footer-links';
 import { INSTANCE_NAME, SOURCE_URL, SUPPORT_MAILTO } from '@/lib/site-config';
 
-export function SiteFooter() {
-  const t = getServerTranslator('en', 'common.footer');
+/**
+ * The footer under the landing, help, legal, sign-in and public signup pages,
+ * in `locale`. The caller says which language rather than the footer working
+ * it out, because several of those pages are static and must not read the
+ * environment (`getEnv()`) for the instance's default.
+ */
+export function SiteFooter({ locale }: { locale: CatalogLocale }) {
+  const t = getServerTranslator(locale, 'common.footer');
   // The build's commit, or nothing when the build didn't know it.
   const commit = shortCommit();
   return (

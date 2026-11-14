@@ -7,7 +7,7 @@ import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
-import { type Audience, type CatalogLocale, SHIPPED } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import { DESCRIPTION_MAX_LENGTH } from '@/schemas/signups';
 import { commitToSlot } from '@/services/commitments';
@@ -490,12 +490,7 @@ describe('signup write tools on Postgres', () => {
 });
 
 describe('create_signup and the signup’s language on Postgres', () => {
-  // Only English has shipped today. The tests that need a choice ship Swedish
-  // by changing the list itself, so config.ts's own `isShipped` sees it too.
-  const asShippedToday = { ...SHIPPED };
-
   afterEach(async () => {
-    Object.assign(SHIPPED, asShippedToday);
     instance.defaultLocale = undefined;
     await db.update(organizers).set({ locale: null }).where(eq(organizers.id, organizerId));
   });
@@ -572,9 +567,7 @@ describe('create_signup and the signup’s language on Postgres', () => {
   });
 
   describe('once Swedish has shipped to participants', () => {
-    beforeEach(() => {
-      (SHIPPED as Record<Audience, readonly string[]>).participant = ['en', 'sv' as CatalogLocale];
-    });
+    beforeEach(() => ship('participant', ['en', 'sv']));
 
     it.each([
       { step: 'setting', saved: 'sv', instanceDefault: 'en', locale: 'sv' },

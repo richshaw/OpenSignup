@@ -32,6 +32,7 @@ export function ClosedNotice({ status }: { status: SignupStatus }) {
         setDismissed(changed.n);
         focusTitle();
       }}
+      dismissLabel="Dismiss"
     />
   );
 }

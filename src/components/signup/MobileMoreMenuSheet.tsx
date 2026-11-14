@@ -47,7 +47,7 @@ export function MobileMoreMenuSheet({
   const closeSignup = useAnnouncedStatusChange(closeAction, 'closed');
 
   return (
-    <BottomSheet open={open} onClose={onClose} title={title} compact>
+    <BottomSheet open={open} onClose={onClose} title={title} closeLabel="Close" compact>
       <StatusActionScope action={closeSignup}>
         {confirming ? (
           <CloseSignupConfirm phone question={closeQuestion} onNotYet={onClose} />

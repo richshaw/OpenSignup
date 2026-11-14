@@ -28,7 +28,8 @@ export function CenteredPageFrame({
       <main className={`container-tight flex flex-1 flex-col justify-center ${gap} ${padding}`}>
         {children}
       </main>
-      <SiteFooter />
+      {/* Organizer pages, English until the organizer app has other languages. */}
+      <SiteFooter locale="en" />
     </div>
   );
 }

@@ -3,18 +3,10 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { type Audience, SHIPPED } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 import { serviceError } from '@/lib/errors';
 import { err, ok } from '@/lib/result';
 import { formatSlotDate } from '@/lib/slot-label';
-
-// Only English has shipped to participants today. The tests that need a
-// second language ship Swedish by changing the list itself, as the page and
-// the Settings tab both read it.
-const shippedToday = [...SHIPPED.participant];
-function ship(locales: string[]) {
-  (SHIPPED as Record<Audience, readonly string[]>).participant = locales;
-}
 
 // The signup at the slug as stored, or null for none, and the instance's
 // DEFAULT_LOCALE (none unless a test sets one).
@@ -99,14 +91,13 @@ const ENGLISH_DATE = formatSlotDate('2026-05-17', 'en')!;
 
 afterEach(() => {
   cleanup();
-  ship(shippedToday);
   request.row = null;
   request.instanceDefault = undefined;
 });
 
 describe('the public signup page, in its signup’s language', () => {
   it('reads a Swedish signup’s dates in Swedish, and marks the page so', async () => {
-    ship(['en', 'sv']);
+    ship('participant', ['en', 'sv']);
     storeSignup({ settings: { locale: 'sv' } });
     await renderPage();
     expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
@@ -129,7 +120,7 @@ describe('the public signup page, in its signup’s language', () => {
     expect(screen.getByText(ENGLISH_DATE)).toBeInTheDocument();
 
     cleanup();
-    ship(['en', 'sv']);
+    ship('participant', ['en', 'sv']);
     request.instanceDefault = 'sv';
     storeSignup({ settings: { locale: 'de' } });
     await renderPage();
@@ -143,7 +134,7 @@ describe('the public signup page, in its signup’s language', () => {
   ])(
     'tells a visitor about %s in its language, and nothing else of it',
     async (_, status, heading) => {
-      ship(['en', 'sv']);
+      ship('participant', ['en', 'sv']);
       storeSignup({
         status,
         title: 'Secret plans',
@@ -178,14 +169,14 @@ describe('the public signup page’s metadata', () => {
   });
 
   it('names a Swedish signup’s language as link previews write it', async () => {
-    ship(['en', 'sv']);
+    ship('participant', ['en', 'sv']);
     storeSignup({ settings: { locale: 'sv' } });
     const meta = await generateMetadata(params);
     expect(meta.openGraph).toMatchObject({ locale: 'sv_SE' });
   });
 
   it('gives a draft only the plain title, as before', async () => {
-    ship(['en', 'sv']);
+    ship('participant', ['en', 'sv']);
     storeSignup({ status: 'draft', settings: { locale: 'sv' } });
     expect(await generateMetadata(params)).toEqual({ title: 'Sign up', robots });
   });

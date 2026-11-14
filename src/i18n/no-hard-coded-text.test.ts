@@ -16,12 +16,17 @@ const ROOT = resolve(import.meta.dirname, '../..');
 const RULES = ['react/jsx-no-literals', 'opensignup/no-literal-text-props'];
 const eslint = new ESLint({ cwd: ROOT });
 
-/** The first file whose text moved to the catalogs, so the rules are on for it. */
-const TRANSLATED_FILE = 'src/components/site-footer.tsx';
+/** The files whose text has moved to the catalogs so far, so the rules are on for them. */
+const TRANSLATED_FILES = [
+  'src/components/site-footer.tsx',
+  'src/components/banner.tsx',
+  'src/components/ui/BottomSheet.tsx',
+] as const;
+const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
 const OTHER_FILE = 'src/components/example.tsx';
 
-async function lint(jsx: string, filePath = TRANSLATED_FILE): Promise<string[]> {
+async function lint(jsx: string, filePath: string = TRANSLATED_FILE): Promise<string[]> {
   const code = `import { useTranslations } from 'next-intl';
 export function Example({ name, open, label }: { name: string; open: boolean; label?: string }) {
   const t = useTranslations('common.footer');
@@ -42,24 +47,67 @@ export function Example({ name, open, label }: { name: string; open: boolean; la
  * `files`. Imported at runtime because TypeScript has no types for the .mjs.
  */
 async function loadFilesAt(): Promise<(paths: string[], root?: string) => string[]> {
-  const config = (await import(pathToFileURL(resolve(ROOT, 'eslint.config.mjs')).href)) as {
-    filesAt: (paths: string[], root?: string) => string[];
-  };
-  return config.filesAt;
+  return (await loadConfig()).filesAt;
 }
 
-/** Whether ESLint, run from `cwd`, puts `file` under a block whose `files` are `files`. */
-async function matches(cwd: string, files: string[], file: string): Promise<boolean> {
+type ConfigBlock = { files?: string[]; ignores?: string[]; rules?: Record<string, unknown> };
+
+async function loadConfig() {
+  return (await import(pathToFileURL(resolve(ROOT, 'eslint.config.mjs')).href)) as {
+    filesAt: (paths: string[], root?: string) => string[];
+    default: ConfigBlock[];
+  };
+}
+
+/** The `ignores` of the config block that turns the rules on for `TRANSLATED`. */
+async function translatedIgnores(): Promise<string[]> {
+  const block = (await loadConfig()).default.find(
+    (b) => b.rules?.['opensignup/no-literal-text-props'] !== undefined,
+  );
+  if (!block) throw new Error('eslint.config.mjs has no block for TRANSLATED');
+  return block.ignores ?? [];
+}
+
+/**
+ * Whether ESLint, run from `cwd`, puts `file` under a block whose `files` are
+ * `files`, less its `ignores`.
+ */
+async function matches(
+  cwd: string,
+  files: string[],
+  file: string,
+  ignores: string[] = [],
+): Promise<boolean> {
   const matcher = new ESLint({
     cwd,
     overrideConfigFile: true,
-    overrideConfig: [{ files: ['**/*.tsx'] }, { files, rules: { 'no-console': 'error' } }],
+    overrideConfig: [
+      { files: ['**/*.{ts,tsx}'] },
+      { files, ignores, rules: { 'no-console': 'error' } },
+    ],
   });
   return Boolean((await matcher.calculateConfigForFile(file))?.rules?.['no-console']);
 }
 
-/** The props `opensignup/no-literal-text-props` reads as text. */
-const TEXT_PROPS = ['aria-label', 'aria-description', 'title', 'placeholder', 'alt', 'label'];
+/**
+ * The props `opensignup/no-literal-text-props` reads as text: some by name,
+ * and any whose name ends in `Label`.
+ */
+const TEXT_PROPS = [
+  'aria-label',
+  'aria-description',
+  'title',
+  'placeholder',
+  'alt',
+  'label',
+  'body',
+  'eyebrow',
+  'description',
+  'closeLabel',
+  'dismissLabel',
+  'ariaLabel',
+  'loadingLabel',
+];
 
 /** Hard-coded text, as JSX children. */
 const JSX_TEXT = [
@@ -93,6 +141,8 @@ const ALLOWED = [
   // `alt=""` marks an image screen readers should skip.
   ['an empty alt', '<img alt="" src="/logo.png" />'],
   ['a prop without letters', '<span title={`${name} · ${label}`} />'],
+  // It names the element that labels this one, so it's an id, not text.
+  ['a prop that points at a label', '<input aria-labelledby="name-label" />'],
   [
     'a string that only picks a branch',
     "<button aria-label={label === 'x' ? t('help') : t('label')} />",
@@ -133,6 +183,24 @@ describe('where the rules apply', () => {
   const failing = [...JSX_TEXT, ...PROP_TEXT.map(([name, jsx]) => [name, jsx] as const)];
   it.each(failing)('passes %s in a file not yet translated', async (_, jsx) => {
     expect(await lint(jsx, OTHER_FILE)).toEqual([]);
+  });
+
+  it.each(TRANSLATED_FILES)('are on for %s', async (file) => {
+    expect(await lint('<p>Sign up</p><button aria-label="Close" />', file)).toHaveLength(2);
+  });
+
+  // A test's English fixtures are what it checks. A file listed on its own
+  // never takes in its test, but a listed folder would without the block's
+  // `ignores`.
+  it('leaves out test files, even in a listed folder', async () => {
+    const filesAt = await loadFilesAt();
+    const ignores = await translatedIgnores();
+    const isOn = (file: string) => matches(ROOT, filesAt(['src/components']), file, ignores);
+    expect(await isOn('src/components/banner.tsx')).toBe(true);
+    expect(await isOn('src/components/ui/BottomSheet.tsx')).toBe(true);
+    expect(await isOn('src/components/banner.test.tsx')).toBe(false);
+    expect(await isOn('src/components/ui/BottomSheet.test.tsx')).toBe(false);
+    expect(await isOn('src/components/magic-compose/answers.test.ts')).toBe(false);
   });
 
   it('matches a listed folder with brackets or parentheses in its name, and nothing else', async () => {
