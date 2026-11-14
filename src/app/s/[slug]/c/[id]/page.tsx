@@ -13,6 +13,7 @@ import { commitmentEditPath, commitmentEditUrl } from '@/lib/links';
 import { editTokenFor } from '@/lib/token';
 import { recordEditLinkFollowed, trackAfterResponse } from '@/lib/view-tracker';
 import { CANCELLED_PAGE } from '../../cancelled-message';
+import { EDIT_FORM_NAMESPACES } from '../../client-namespaces';
 import { SignupStateMessage } from '../../state-message';
 import EditForm from './edit-form';
 
@@ -108,7 +109,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
       ) : null}
       {/* The form's text, which it reads in the browser. In English, as the
           rest of this page is until it takes the signup's language (#630). */}
-      <ClientMessages locale="en" messages={messagesFor('en', 'participant.fields')}>
+      <ClientMessages locale="en" messages={messagesFor('en', EDIT_FORM_NAMESPACES)}>
         <EditForm
           commitmentId={c.id}
           token={token}

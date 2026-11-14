@@ -6,16 +6,16 @@
     "POST /api/slots/[id]/commitments, without an email": 12
   },
   "firstLoadJsKb": {
-    "/s/[slug]": 130.9,
-    "/s/[slug]/c/[id]": 113.8,
-    "/": 131.9,
+    "/s/[slug]": 130.5,
+    "/s/[slug]/c/[id]": 113.6,
+    "/": 131.5,
     "/login": 110,
     "/help/[slug]": 113,
     "/app/signups/new": 117,
     "/app/signups/[id]": 130,
     "/app/signups/[id]/build": 149,
     "/app/signups/[id]/edit": 130,
-    "/app/signups/[id]/preview": 130.9,
+    "/app/signups/[id]/preview": 130.5,
     "/app/signups/[id]/responses": 132,
     "/app/signups/[id]/settings": 131,
     "*": 108

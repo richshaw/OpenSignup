@@ -1,3 +1,4 @@
+import type { Translator } from '@/i18n/translator';
 import { capacityMessage, type CapacityContext } from './capacity-message';
 import { closedMessage } from './closed-message';
 import { conflictMessage } from './conflict-message';
@@ -29,18 +30,22 @@ interface ApiErrorLike {
  * overlong name, each get their own copy.
  * Signing up also rephrases a second sign-up by the same email and the rate
  * limit, which the edit page has never reworded.
+ *
+ * The copy comes from `participant.errors` through `t`: the sign-up dialog and
+ * the edit page get it from `useTranslations`, in the signup's language.
  */
 export function participantErrorCopy(
   error: ApiErrorLike | null | undefined,
   context: CapacityContext,
+  t: Translator<'participant.errors'>,
 ): ParticipantErrorCopy | null {
   const shared =
-    capacityMessage(error, context) ??
-    closedMessage(error, context) ??
-    goneMessage(error) ??
-    nameMessage(error);
+    capacityMessage(error, context, t) ??
+    closedMessage(error, context, t) ??
+    goneMessage(error, t) ??
+    nameMessage(error, t);
   if (shared || context === 'change') return shared;
-  return conflictMessage(error) ?? rateLimitMessage(error);
+  return conflictMessage(error, t) ?? rateLimitMessage(error, t);
 }
 
 /** The copy as one line of text, for a form that shows a single message. */

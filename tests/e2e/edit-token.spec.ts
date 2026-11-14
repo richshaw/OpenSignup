@@ -1,10 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { CANCELLED_PAGE } from '@/app/s/[slug]/cancelled-message';
-import { GONE_PAGE } from '@/app/s/[slug]/gone-message';
+import { gonePage } from '@/app/s/[slug]/gone-message';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { loadSeed } from './helpers/fixtures';
 
 const seed = loadSeed();
+// The pages' English, from the catalog.
+const GONE_PAGE = gonePage(getTestTranslator('participant.gonePage'));
 
 /**
  * A fresh published signup with these slots, made as the seeded organizer, so

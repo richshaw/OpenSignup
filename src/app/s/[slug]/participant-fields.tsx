@@ -1,4 +1,5 @@
 import type { InputHTMLAttributes, ReactNode, Ref } from 'react';
+import { useTranslations } from 'next-intl';
 import { NOTES_MAX_LENGTH, QUANTITY_MAX } from '@/lib/participant-limits';
 
 const INPUT_CLASS =
@@ -32,7 +33,8 @@ export function Field({
 /**
  * Notes, and beside it the Spots box when `spots` is given. A slot with one
  * place open (or a sign-up that can only hold one) has nothing to ask, so its
- * form leaves `spots` out and sends no quantity of its own.
+ * form leaves `spots` out and sends no quantity of its own. Their labels come
+ * from `participant.fields`, which both forms' pages give `ClientMessages`.
  */
 export function NotesAndSpots({
   notes,
@@ -41,19 +43,14 @@ export function NotesAndSpots({
   notes: { defaultValue?: string; placeholder?: string };
   spots?: { max: number | undefined; defaultValue: number; describedBy: string | undefined };
 }) {
+  const t = useTranslations('participant.fields');
   const quantityMax = spots?.max === undefined ? QUANTITY_MAX : Math.min(spots.max, QUANTITY_MAX);
   return (
     <div className={spots ? 'grid grid-cols-[1fr_auto] gap-3' : undefined}>
-      <Field
-        label="Notes (optional)"
-        type="text"
-        name="notes"
-        maxLength={NOTES_MAX_LENGTH}
-        {...notes}
-      />
+      <Field label={t('notes')} type="text" name="notes" maxLength={NOTES_MAX_LENGTH} {...notes} />
       {spots ? (
         <Field
-          label="Spots"
+          label={t('spots')}
           className="block w-20"
           type="number"
           name="quantity"

@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { suggestEmail } from '@/lib/email-suggest';
@@ -104,6 +104,11 @@ function readPrefill(): PrefillState | null {
   }
 }
 
+/** The bold in the success screen's messages (`<b>` in the catalog). */
+function strong(chunks: ReactNode) {
+  return <strong className="text-ink">{chunks}</strong>;
+}
+
 function writePrefill(value: PrefillState): void {
   if (typeof window === 'undefined') return;
   try {
@@ -129,7 +134,12 @@ export default function CommitDialog({
   sendsReminder,
 }: CommitDialogProps) {
   const router = useRouter();
+  // Its text, from the messages the page gives ClientMessages in the signup's
+  // language: COMMIT_DIALOG_NAMESPACES (./client-namespaces.ts) lists them.
+  const t = useTranslations('participant.dialog');
   const tFields = useTranslations('participant.fields');
+  const tSlot = useTranslations('participant.slot');
+  const tErrors = useTranslations('participant.errors');
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -150,6 +160,7 @@ export default function CommitDialog({
   const [shareCopied, setShareCopied] = useState(false);
   // What happened to the last Copy link, said in a live region.
   const [copyResult, setCopyResult] = useState<'copied' | 'failed' | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -194,6 +205,17 @@ export default function CommitDialog({
     if (!target) return;
     event.preventDefault();
     target.focus();
+  }
+
+  /**
+   * Back to Sign up once the sheet closes (Escape, the X, Cancel or a tap
+   * outside). Radix would focus its own trigger, but the button here isn't
+   * one, so without this the focus fell to the page. After a sign-up, Done's
+   * refresh swaps the button for the row's Edit, which this can't reach.
+   */
+  function handleCloseAutoFocus(event: Event) {
+    event.preventDefault();
+    triggerRef.current?.focus();
   }
 
   const emailHint = useMemo(() => suggestEmail(emailValue), [emailValue]);
@@ -362,22 +384,25 @@ export default function CommitDialog({
   // a slot or signup closed or removed while this page was open, a second
   // sign-up by the same email and a rate limit each get their own; any other
   // error keeps the server's own message and suggestion.
-  const errorText = error ? (participantErrorCopy(error, 'join') ?? error) : null;
+  const errorText = error ? (participantErrorCopy(error, 'join', tErrors) ?? error) : null;
   // Save your link and Copy link each say "Link copied" on themselves after a copy.
   const linkCopied = success?.emailed ? shareCopied : copyResult === 'copied';
+  // The trigger's name and the sheet's: every row's button reads "Sign up".
+  const signUpFor = t('signUpFor', { slot: actionName });
 
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={handleOpen}
         // Every row's button reads "Sign up", so without this a screen-reader
         // user swiping the list hears the same name N times with no way to tell
         // which slot they are committing to.
-        aria-label={`Sign up for ${actionName}`}
+        aria-label={signUpFor}
         className={`${ACTION_SIZING} bg-brand font-medium text-white transition hover:bg-brand-hover`}
       >
-        Sign up
+        {t('signUp')}
       </button>
       {/* The shared sheet, not a hand-rolled overlay: it locks body scroll, so
           the list no longer scrolls away under the sheet on a phone, and it
@@ -394,6 +419,7 @@ export default function CommitDialog({
         }}
         busy={submitting}
         onOpenAutoFocus={handleOpenAutoFocus}
+        onCloseAutoFocus={handleCloseAutoFocus}
         // On screen the heading is the slot's own name, which is what the
         // participant just tapped, below a line (the eyebrow) with its group
         // and other values: on a phone the sheet covers the list, and
@@ -403,43 +429,39 @@ export default function CommitDialog({
         // assistive tech rather than read twice.
         title={
           success ? (
-            "You're in."
+            t('youreIn')
           ) : (
             <>
-              <span className="sr-only">Sign up for {actionName}</span>
+              <span className="sr-only">{signUpFor}</span>
               <span aria-hidden="true">{slotTitle}</span>
             </>
           )
         }
-        closeLabel="Close"
+        closeLabel={t('close')}
         eyebrow={success ? undefined : slotContext || undefined}
         description={
-          !success && showSpotsLeft ? `${left} of ${slotCapacity} spots left` : undefined
+          !success && showSpotsLeft ? tSlot('leftOf', { left, capacity: slotCapacity }) : undefined
         }
         descriptionId={spotsLeftId}
       >
         {success ? (
           <div className="space-y-4">
             <p className="text-sm text-ink-muted">
-              {success.emailed ? (
-                // Named so a typo the suggestion list doesn't know is seen
-                // here, not when no confirmation ever arrives.
-                <>
-                  We&apos;ve saved your spot for <strong className="text-ink">{slotName}</strong>{' '}
-                  and emailed this link to{' '}
-                  <strong className="break-words text-ink">{success.email}</strong>. Bookmark it to
-                  edit or cancel later:
-                </>
-              ) : (
-                <>
-                  We&apos;ve saved your spot for <strong className="text-ink">{slotName}</strong>.{' '}
-                  <strong className="text-ink">
-                    Save this link now: we won&apos;t email it, and only this browser remembers it.
-                  </strong>
-                  {/* The calendar event carries the link: see handleDownloadIcs. */}
-                  {slotAt ? ' Add to calendar saves the link too.' : null}
-                </>
-              )}
+              {success.emailed
+                ? // Named so a typo the suggestion list doesn't know is seen
+                  // here, not when no confirmation ever arrives.
+                  t.rich('savedEmailed', {
+                    slot: slotName,
+                    address: success.email,
+                    b: strong,
+                    email: (chunks) => <strong className="break-words text-ink">{chunks}</strong>,
+                  })
+                : t.rich('savedNotEmailed', {
+                    slot: slotName,
+                    // The calendar event carries the link: see handleDownloadIcs.
+                    calendar: slotAt ? 'yes' : 'no',
+                    b: strong,
+                  })}
             </p>
             <a
               href={success.editUrl}
@@ -462,7 +484,7 @@ export default function CommitDialog({
                     onClick={handleDownloadIcs}
                     className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
                   >
-                    Add to calendar
+                    {t('addToCalendar')}
                   </button>
                 ) : null}
                 <button
@@ -470,7 +492,11 @@ export default function CommitDialog({
                   onClick={success.emailed ? handleShare : handleCopy}
                   className="flex-1 rounded-lg border border-surface-sunk px-3 py-2 text-sm font-medium transition hover:bg-surface-raised"
                 >
-                  {linkCopied ? 'Link copied' : success.emailed ? 'Save your link' : 'Copy link'}
+                  {linkCopied
+                    ? t('linkCopied')
+                    : success.emailed
+                      ? t('saveYourLink')
+                      : t('copyLink')}
                 </button>
               </div>
               {success.emailed ? null : (
@@ -483,9 +509,9 @@ export default function CommitDialog({
                   className={copyResult === 'failed' ? 'mt-2 text-sm text-ink-muted' : 'sr-only'}
                 >
                   {copyResult === 'copied'
-                    ? 'Link copied.'
+                    ? t('copied')
                     : copyResult === 'failed'
-                      ? "Couldn't copy it. Select the link above and copy it yourself."
+                      ? t('copyFailed')
                       : null}
                 </p>
               )}
@@ -495,7 +521,7 @@ export default function CommitDialog({
               onClick={handleClose}
               className="w-full rounded-lg bg-brand px-4 py-3 text-sm font-medium text-white"
             >
-              Done
+              {t('done')}
             </button>
           </div>
         ) : (
@@ -514,7 +540,7 @@ export default function CommitDialog({
                 box rather than becoming part of its name. */}
             <div>
               <Field
-                label={emailRequired ? 'Email' : 'Email (optional)'}
+                label={emailRequired ? tFields('email') : tFields('emailOptional')}
                 inputRef={emailRef}
                 type="email"
                 name="email"
@@ -527,28 +553,29 @@ export default function CommitDialog({
               >
                 {emailHint ? (
                   <p className="mt-1 text-xs text-ink-muted">
-                    Did you mean{' '}
-                    <button
-                      type="button"
-                      onClick={handleAcceptSuggestion}
-                      className="font-medium text-brand underline"
-                    >
-                      {emailHint}
-                    </button>
-                    ?
+                    {t.rich('didYouMean', {
+                      email: emailHint,
+                      suggestion: (chunks) => (
+                        <button
+                          type="button"
+                          onClick={handleAcceptSuggestion}
+                          className="font-medium text-brand underline"
+                        >
+                          {chunks}
+                        </button>
+                      ),
+                    })}
                   </p>
                 ) : null}
               </Field>
               {emailRequired ? null : (
                 <p id={emailHelpId} className="mt-1 text-xs text-ink-muted">
-                  We&apos;ll email you your link to change or cancel
-                  {sendsReminder ? ', and a reminder before your slot' : null}. Without an email,
-                  save the link we show you after you sign up.
+                  {t('emailHelp', { reminder: sendsReminder ? 'yes' : 'no' })}
                 </p>
               )}
             </div>
             <NotesAndSpots
-              notes={{ placeholder: 'Allergies, preferences, etc.' }}
+              notes={{ placeholder: t('notesPlaceholder') }}
               spots={
                 askQuantity
                   ? {
@@ -574,7 +601,7 @@ export default function CommitDialog({
                       href={`/s/${slug}`}
                       className="inline-block rounded bg-white px-2 py-1 underline"
                     >
-                      See alternatives
+                      {t('seeAlternatives')}
                     </a>
                   </div>
                 ) : null}
@@ -587,14 +614,14 @@ export default function CommitDialog({
                 disabled={submitting}
                 className="flex-1 rounded-lg border border-surface-sunk px-4 py-3 text-sm font-medium transition disabled:opacity-50"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 type="submit"
                 disabled={submitting}
                 className="flex-1 rounded-lg bg-brand px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-hover disabled:opacity-50"
               >
-                {submitting ? 'Signing up…' : 'Confirm'}
+                {submitting ? t('signingUp') : t('confirm')}
               </button>
             </div>
           </form>

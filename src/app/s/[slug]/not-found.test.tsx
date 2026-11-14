@@ -4,9 +4,10 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { ship } from '@/i18n/testing/ship';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { SIGNUP_PATH_HEADER } from '@/lib/signup-path';
 import EditLinkNotFound from './c/[id]/not-found';
-import { GONE_PAGE } from './gone-message';
+import { gonePage } from './gone-message';
 import SignupNotFound from './not-found';
 
 // The path the middleware copied into its header (none unless a test sets
@@ -25,7 +26,14 @@ const loadSignupRowBySlug = vi.hoisted(() =>
   vi.fn(async (slug: string) => request.rows[slug] ?? null),
 );
 vi.mock('@/services/signups.cached', () => ({ loadSignupRowBySlug }));
-vi.mock('@/i18n/server', () => ({ instanceDefaultLocale: () => request.defaultLocale }));
+// English from the catalog; a language with no catalog yet answers with the
+// key it was asked for and the language (`getTestServerTranslator`).
+vi.mock('@/i18n/server', async () => ({
+  instanceDefaultLocale: () => request.defaultLocale,
+  getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
+}));
+
+const GONE_PAGE = gonePage(getTestTranslator('participant.gonePage'));
 
 function storeSignup(slug: string, over: Record<string, unknown> = {}) {
   request.rows[slug] = {
@@ -71,6 +79,23 @@ describe('participant not-found pages', () => {
       // The slug as the signup page reads it, so that page's cached read answers
       // both and the not-found page costs it no statement.
       expect(loadSignupRowBySlug).toHaveBeenCalledWith('snack-duty');
+    },
+  );
+
+  it.each([
+    ['the signup page', SignupNotFound, 'signup', '/s/snack-duty'],
+    ['an edit link', EditLinkNotFound, 'editLink', '/s/snack-duty/c/com_1'],
+  ] as const)(
+    '%s takes its words from the catalog in that language',
+    async (_, Page, page, path) => {
+      ship('participant', ['en', 'sv']);
+      storeSignup('snack-duty');
+      request.path = path;
+      render(await Page());
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        `participant.gonePage.${page}.title in sv`,
+      );
+      expect(screen.getByText(`participant.gonePage.${page}.body in sv`)).toBeInTheDocument();
     },
   );
 
