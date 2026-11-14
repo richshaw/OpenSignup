@@ -38,19 +38,22 @@ pnpm exec tsx .claude/skills/translate/scripts/to-translate.mjs sv
 ```
 
 It compares `src/messages/sv.json` with `en.json` in the participant
-namespaces (`participant`, `email`, `common`) and lists each message as:
+namespaces (`participant`, `email`, `common`), using Swedish's record of the
+English each message was translated from (`src/i18n/translated-from/sv.json`,
+"Stale translations" in the guide), and lists each message as:
 
 - **missing**: English has it and the translation doesn't;
-- **stale**: its English changed on this branch and the translation didn't, so
-  it may still say the old thing;
-- **check**: both changed on this branch; read them together;
-- **extra**: the translation has a key English doesn't; delete it.
+- **stale**: its English has changed since it was translated, so it may still
+  say the old thing. It shows the English it was translated from (`en was`)
+  beside the English now: translate the difference;
+- **unrecorded**: translated, but the record doesn't say from which English.
+  Read it against the English now;
+- **extra**: the translation has a key English doesn't; delete it;
+- **unneeded**: the record has an entry for a message English or the
+  translation no longer has; marking (below) drops it.
 
-It compares English with where your branch left `origin/main`. On a branch
-stacked on another, pass the branch below as the base:
-`to-translate.mjs sv origin/<base-branch>`. For organizer text, add
-`--audience organizer`; organizer text stays English for now, so only do that
-when asked.
+For organizer text, add `--audience organizer`; organizer text stays English
+for now, so only do that when asked.
 
 Then translate in `src/messages/<language>.json`, one namespace at a time,
 from `en.json`:
@@ -73,6 +76,24 @@ from `en.json`:
   is wrong or can't be translated well, change it on purpose, as English, and
   say so in the pull request.
 
+Once every listed message is done, mark them as translated from today's
+English. `to-translate.mjs` ends with the command, naming the sections it
+listed:
+
+```bash
+pnpm exec tsx .claude/skills/translate/scripts/mark-translated.mjs sv participant.dialog email.reminder
+```
+
+It writes the English `en.json` has now into `src/i18n/translated-from/sv.json`
+for each message in those sections that `sv.json` translates, leaves the
+rest of the record alone, and drops entries nothing needs. Name a section
+only once every message `to-translate.mjs` listed in it is done; name single
+keys (`participant.dialog.done`) otherwise. A stale message whose translation
+still fits its new English (an English typo fix, say) is marked without
+changing it, once you've read the two together. Never mark a message you
+haven't translated or read, and never edit the record by hand: the catalog
+check believes it. Commit the record with the translation.
+
 ## 2. Run the checks
 
 ```bash
@@ -82,9 +103,14 @@ pnpm lint && pnpm format:check && pnpm typecheck && pnpm knip && pnpm test
 
 The first line runs the catalog check, the two formatters' comparison and the
 email tests; the second is what CI runs. A catalog check line reads
-`<language> <key>: <what's wrong>`: fix the message it names. If you changed
-`en.json`, run `pnpm build` (or `pnpm dev`) once so `src/messages/en.d.json.ts`
-is rewritten, and commit it.
+`<language> <key>: <what's wrong>`: fix the message it names. For a language
+in `SHIPPED`, that includes every stale or unrecorded message: translate it
+and mark it. For one that hasn't shipped, the catalog test only warns about
+those, and the warning doesn't show in an agent's test output (vitest hides a
+passing test's output from agents), so run `to-translate.mjs` again instead:
+it should list nothing you meant to do. If you changed `en.json`, run
+`pnpm build` (or `pnpm dev`) once so `src/messages/en.d.json.ts` is rewritten,
+and commit it.
 
 For labels in fixed boxes, also run the layout spec on the built app (below):
 `tests/e2e/slot-row-layout.spec.ts`.
@@ -128,7 +154,8 @@ reviews.
 Check each finding against the English and the glossary before you change
 anything: reviewers are sometimes wrong. Then:
 
-- fix the messages, and run step 2's checks again;
+- fix the messages, and run step 2's checks again. A fix needs no marking:
+  the record holds the English, which hasn't changed;
 - re-take the screenshots if a fix could change how something fits;
 - if a finding changes a glossary word, change the glossary in
   `docs/translating.md` and every message that uses the word, in the same pull
@@ -144,10 +171,16 @@ glossary's open questions, so the next pass sees them.
 
 A pull request that changes English text people read changes it in `en.json`,
 and in the same pull request runs this skill for every language in `SHIPPED`
-(`src/i18n/config.ts`). For a language with a catalog that hasn't shipped yet
-(Swedish today), do it too, so the language stays ready to launch. A one-line
-change still gets the review; give the reviewer just the changed keys and the
-screens they show on.
+(`src/i18n/config.ts`): until each changed message is translated again and
+marked, the catalog check fails it as stale. For a language with a catalog
+that hasn't shipped yet (Swedish today), do it too, so the language stays
+ready to launch. A one-line change still gets the review; give the reviewer
+just the changed keys and the screens they show on.
+
+A pull request that deletes or renames an English message deletes or moves
+its translations, as the catalog check asks, then runs `mark-translated.mjs
+<language>` for each language, naming the new key for a rename, so the
+record drops the old one.
 
 ## Adding a language
 
