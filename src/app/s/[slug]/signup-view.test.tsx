@@ -23,6 +23,17 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock('@/i18n/server', async () => ({
   getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
 }));
+// The real provider, noting what each render gives it.
+const provided = vi.hoisted(() => [] as { locale: string; messages: unknown }[]);
+vi.mock('@/i18n/ClientMessages', async (importOriginal) => {
+  const { ClientMessages } = await importOriginal<typeof import('@/i18n/ClientMessages')>();
+  return {
+    ClientMessages: (props: Parameters<typeof ClientMessages>[0]) => {
+      provided.push({ locale: props.locale, messages: props.messages });
+      return ClientMessages(props);
+    },
+  };
+});
 
 const FIELDS: SignupViewField[] = [
   { ref: 'date', label: 'Date', fieldType: 'date' },
@@ -142,6 +153,36 @@ describe('<SignupViewBody /> language', () => {
     // The group heading, in Swedish.
     expect(screen.getByRole('heading', { level: 2, name: swedish! })).toBeInTheDocument();
     expect(screen.queryByText(/May/)).toBeNull();
+  });
+});
+
+describe('the sign-up dialog’s messages', () => {
+  const props = {
+    signup: SIGNUP,
+    fields: FIELDS,
+    groupByRef: null,
+    slots: SLOTS,
+    slug: 'example',
+  };
+
+  it('come with the live page, in its language, and only the dialog’s', async () => {
+    provided.length = 0;
+    render(<SignupViewBody {...props} locale={'sv' as CatalogLocale} mode="live" />);
+    expect(provided.at(-1)).toEqual({
+      locale: 'sv',
+      // English, since Swedish has no catalog yet.
+      messages: { participant: { fields: { name: 'Your name' } } },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
+    expect(await screen.findByLabelText('Your name', {}, { timeout: 5000 })).toBeInTheDocument();
+  });
+
+  it('stay out of the Preview and the showcase, which have no dialog', () => {
+    provided.length = 0;
+    render(<SignupViewBody {...props} locale="en" mode="preview" />);
+    cleanup();
+    render(<SignupViewBody {...props} locale="en" mode="showcase" />);
+    expect(provided).toEqual([]);
   });
 });
 

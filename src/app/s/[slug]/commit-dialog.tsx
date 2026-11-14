@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -128,6 +129,7 @@ export default function CommitDialog({
   sendsReminder,
 }: CommitDialogProps) {
   const router = useRouter();
+  const tFields = useTranslations('participant.fields');
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -499,7 +501,7 @@ export default function CommitDialog({
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field
-              label="Your name"
+              label={tFields('name')}
               inputRef={nameRef}
               type="text"
               name="name"

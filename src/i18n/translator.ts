@@ -13,7 +13,9 @@
  * logging import either, because Playwright specs import app copy modules, so
  * the caller decides what a missing message does. Server code gets a
  * translator that logs from `getServerTranslator` in `./server`; tests get one
- * that throws from `./testing/translator`.
+ * that throws from `./testing/translator`. Client components call next-intl's
+ * `useTranslations` under `ClientMessages`, which a server component fills
+ * with just the messages they need, from `messagesFor`.
  *
  * Catalogs are imported as modules, never read from disk. In the Next build,
  * next-intl's loader compiles each catalog the app imports (`precompile` in
@@ -59,8 +61,8 @@ function isSection(value: unknown): value is Catalog {
 
 const CATALOGS: Record<CatalogLocale, Catalog> = { en };
 
-/** Each language's catalog with English under it, per top-level namespace, built once. */
-const merged = new Map<string, Catalog>();
+/** What `messagesFor` has built, by language and namespace. */
+const built = new Map<string, Catalog>();
 
 /**
  * A translator for `namespace` in `locale`. A message the language's catalog
@@ -79,7 +81,7 @@ export function getTranslator<N extends Namespace>(
   return createTranslator<Messages, N>({
     locale,
     namespace,
-    // Just the top-level section `namespace` sits in: all a translator for it can reach.
+    // Just `namespace`'s section: all a translator for it can reach.
     messages: messagesFor(locale, namespace) as Messages,
     onError,
     timeZone: TIME_ZONE,
@@ -93,18 +95,45 @@ export function getTranslator<N extends Namespace>(
  */
 export type Translator<N extends Namespace> = ReturnType<typeof getTranslator<N>>;
 
-function messagesFor(locale: CatalogLocale, namespace: string): Catalog {
-  const top = namespace.split('.')[0] ?? namespace;
-  const key = `${locale}:${top}`;
-  let messages = merged.get(key);
+/**
+ * The messages under `namespace` in `locale`, with English under them, and
+ * nothing else: `participant.fields` gives `{ participant: { fields: {…} } }`.
+ * Built once per language and namespace.
+ *
+ * Server code only, like all of this module. A server component passes what
+ * it returns to `ClientMessages` (`./ClientMessages.tsx`) for the client
+ * components under it, so a page carries only the messages they read, in its
+ * HTML and its RSC payload alike.
+ */
+export function messagesFor(locale: CatalogLocale, namespace: Namespace): Catalog {
+  const key = `${locale}:${namespace}`;
+  let messages = built.get(key);
   if (!messages) {
-    const english = CATALOGS.en[top];
-    messages = {
-      [top]: isSection(english) ? withEnglishUnder(english, CATALOGS[locale][top]) : {},
-    };
-    merged.set(key, messages);
+    messages = namespaceMessages(namespace, CATALOGS.en, CATALOGS[locale]);
+    built.set(key, messages);
   }
   return messages;
+}
+
+/**
+ * `namespace`'s section of `own` with `english` under it (`withEnglishUnder`),
+ * nested under the namespace's path, and the rest of both catalogs left out.
+ * Each step of the path goes into a section only, so a compiled message (an
+ * array) on the way is never taken for one. A path English has no section at
+ * gives an empty one.
+ */
+export function namespaceMessages(namespace: string, english: Catalog, own: Catalog): Catalog {
+  const path = namespace.split('.');
+  const base = sectionAt(english, path);
+  const section = isSection(base) ? withEnglishUnder(base, sectionAt(own, path)) : {};
+  return path.reduceRight<Catalog>((inner, key) => ({ [key]: inner }), section);
+}
+
+/** What sits at `path` in `catalog`, going into sections only. */
+function sectionAt(catalog: Catalog, path: readonly string[]): Message | Catalog | undefined {
+  let at: Message | Catalog | undefined = catalog;
+  for (const key of path) at = isSection(at) ? at[key] : undefined;
+  return at;
 }
 
 /**

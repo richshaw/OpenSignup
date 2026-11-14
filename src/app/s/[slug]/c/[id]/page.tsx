@@ -1,6 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
 import { Banner } from '@/components/banner';
 import { getDb } from '@/db/client';
+import { ClientMessages } from '@/i18n/ClientMessages';
+import { messagesFor } from '@/i18n/translator';
 import {
   ACTIVE_COMMITMENT_STATUSES,
   cancelledCommitmentState,
@@ -104,14 +106,18 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
           body="You can't add more spots now, but you can still change your details, give spots back, or cancel."
         />
       ) : null}
-      <EditForm
-        commitmentId={c.id}
-        token={token}
-        initialName={c.participantName}
-        initialNotes={c.notes}
-        initialQuantity={c.quantity}
-        maxQuantity={maxQuantity}
-      />
+      {/* The form's text, which it reads in the browser. In English, as the
+          rest of this page is until it takes the signup's language (#630). */}
+      <ClientMessages locale="en" messages={messagesFor('en', 'participant.fields')}>
+        <EditForm
+          commitmentId={c.id}
+          token={token}
+          initialName={c.participantName}
+          initialNotes={c.notes}
+          initialQuantity={c.quantity}
+          maxQuantity={maxQuantity}
+        />
+      </ClientMessages>
     </main>
   );
 }

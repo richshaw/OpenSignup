@@ -3,6 +3,9 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { ClientMessages } from '@/i18n/ClientMessages';
+import { englishMessages } from '@/i18n/testing/client-messages';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
 import { QUANTITY_MAX } from '@/lib/participant-limits';
@@ -31,6 +34,7 @@ describe('<CommitDialog /> trigger', () => {
         requireEmail
         sendsReminder={false}
       />,
+      { wrapper: englishMessages('participant.fields') },
     );
   }
 
@@ -64,12 +68,15 @@ describe('<CommitDialog /> sheet', () => {
     requireEmail = true,
     slotAt = null,
     sendsReminder = false,
+    wrapper = englishMessages('participant.fields'),
   }: {
     spotsLeft?: number | null;
     capacity?: number | null;
     requireEmail?: boolean;
     slotAt?: string | null;
     sendsReminder?: boolean;
+    /** What gives the sheet its messages: the page's, in English, unless a test says. */
+    wrapper?: (props: { children: ReactNode }) => ReactNode;
   } = {}) {
     render(
       <CommitDialog
@@ -87,6 +94,7 @@ describe('<CommitDialog /> sheet', () => {
         requireEmail={requireEmail}
         sendsReminder={sendsReminder}
       />,
+      { wrapper },
     );
     fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
   }
@@ -126,6 +134,25 @@ describe('<CommitDialog /> sheet', () => {
 
     fireEvent.keyDown(dialog, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), settle);
+  });
+
+  // The page gives the sheet its messages (ClientMessages), in the signup's
+  // language. A stand-in shows the label comes from them, not the file.
+  it('takes the name box’s label from the messages its page passes', async () => {
+    openSheet({
+      wrapper: ({ children }) => (
+        <ClientMessages
+          locale="en"
+          messages={{ participant: { fields: { name: 'participant.fields.name from the page' } } }}
+        >
+          {children}
+        </ClientMessages>
+      ),
+    });
+    expect(
+      await screen.findByLabelText('participant.fields.name from the page', {}, settle),
+    ).toHaveAttribute('name', 'name');
+    expect(screen.queryByLabelText('Your name')).not.toBeInTheDocument();
   });
 
   it('opens with the caret in the first field, not on the close button', async () => {
