@@ -85,7 +85,7 @@ export interface Remembered {
 
 /**
  * The Swedish test signup's slots, by what each exercises. Grouped by date,
- * so the slots with no date sit under "(datum saknas)".
+ * so the slots with no date sit under "(utan datum)".
  */
 const SWEDISH_SLOTS = {
   /**
@@ -382,7 +382,7 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
     id: signup.id,
     slug: signup.slug,
     title,
-    noDateHeading: '(datum saknas)',
+    noDateHeading: '(utan datum)',
     slots: SWEDISH_SLOTS,
     manyDate,
     editPath: commitmentEditPath(signup.slug, commitment.id, editToken),

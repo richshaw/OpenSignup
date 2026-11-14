@@ -4,7 +4,7 @@
       "license": "{instance} · AGPL-3.0",
       "label": "Sidfot",
       "help": "Hjälp",
-      "privacy": "Integritet",
+      "privacy": "Integritetspolicy",
       "terms": "Villkor",
       "cookies": "Cookies",
       "source": "Källkod",
@@ -17,20 +17,20 @@
       "description": "Anmäl dig via {instance}",
       "draft": {
         "title": "Den här anmälningslistan är inte klar ännu",
-        "body": "Arrangören har inte publicerat den ännu. Länken fungerar när listan är publicerad, så titta in igen senare."
+        "body": "Arrangören har inte publicerat den ännu. Länken börjar fungera när det är gjort, så titta in igen senare."
       },
       "archived": {
         "title": "Den här anmälningslistan är inte längre tillgänglig",
-        "body": "Arrangören har arkiverat anmälningslistan. Om du behöver nå arrangören kan du be om en ny länk."
+        "body": "Arrangören har arkiverat anmälningslistan. Kontakta arrangören om du behöver en ny länk."
       }
     },
     "signupView": {
       "closedBanner": {
-        "title": "Stängd",
+        "title": "Anmälan är stängd",
         "body": "Den här anmälningslistan tar inte längre emot anmälningar.",
-        "keepsYours": "Inga fler kan anmäla sig, men {count, plural, one {din plats är kvar} other {dina platser är kvar}}."
+        "keepsYours": "Inga fler kan anmäla sig, men {count, plural, one {din anmälan finns kvar} other {dina anmälningar finns kvar}}."
       },
-      "signedUp": "<b>Du är anmäld</b> till <slot>{count, plural, =1 {{name}} other {{count, number} pass}}</slot>.",
+      "signedUp": "{count, plural, =1 {<b>Du är anmäld:</b> <slot>{name}</slot>} other {<b>Du har</b> <slot>{count, number} anmälningar</slot>}}",
       "editOrCancel": "Ändra eller avboka",
       "manage": "Hantera",
       "untitledSlot": "Pass utan namn",
@@ -40,7 +40,7 @@
       "closed": "Stängt"
     },
     "slot": {
-      "noValue": "({label} saknas)",
+      "noValue": "(utan {label})",
       "left": "{left, number} kvar",
       "leftOf": "{left, number} av {capacity, number} platser kvar",
       "signedUp": "{count, plural, one {{count, number} anmäld} other {{count, number} anmälda}}"
@@ -66,7 +66,7 @@
       "confirm": "Bekräfta",
       "signingUp": "Skickar anmälan…",
       "didYouMean": "Menade du <suggestion>{email}</suggestion>?",
-      "emailHelp": "Vi mejlar dig en länk där du kan ändra eller avboka{reminder, select, yes {, och en påminnelse före ditt pass} other {}}. Utan e-post behöver du spara länken som visas när du har anmält dig.",
+      "emailHelp": "Vi mejlar dig en länk för att ändra eller avboka{reminder, select, yes {, och en påminnelse innan det är dags} other {}}. Utan e-post behöver du spara länken som visas när du har anmält dig.",
       "notesPlaceholder": "Allergier, önskemål m.m.",
       "seeAlternatives": "Visa alternativ",
       "unreachable": {
@@ -78,39 +78,39 @@
         "suggestion": "Tryck på Bekräfta igen."
       },
       "youreIn": "Du är anmäld.",
-      "savedEmailed": "Vi har sparat din anmälan till <b>{slot}</b> och mejlat länken till <email>{address}</email>. Spara den som bokmärke, så kan du ändra eller avboka senare:",
-      "savedNotEmailed": "Vi har sparat din anmälan till <b>{slot}</b>. <b>Spara länken nu: vi mejlar den inte, och bara den här webbläsaren kommer ihåg den.</b>{calendar, select, yes { Knappen Lägg till i kalender sparar också länken.} other {}}",
-      "addToCalendar": "Lägg till i kalender",
+      "savedEmailed": "Din anmälan till <b>{slot}</b> är sparad, och vi har mejlat länken till <email>{address}</email>. Spara den som bokmärke, så kan du ändra eller avboka senare:",
+      "savedNotEmailed": "Din anmälan till <b>{slot}</b> är sparad. <b>Spara länken nu: vi mejlar den inte, och bara den här webbläsaren kommer ihåg den.</b>{calendar, select, yes { Lägger du till anmälan i kalendern, sparas länken där också.} other {}}",
+      "addToCalendar": "Lägg till i kalendern",
       "calendarDescription": "Ändra eller avboka: {url}",
       "saveYourLink": "Spara din länk",
-      "shareText": "Min anmälan till {slot}. Med den här länken går den att ändra eller avboka, så håll länken privat.",
+      "shareText": "Min anmälan till {slot} – med den här länken går den att ändra eller avboka, så dela inte länken med någon.",
       "copyLink": "Kopiera länk",
       "linkCopied": "Länk kopierad",
       "copied": "Länken är kopierad.",
       "copyFailed": "Det gick inte att kopiera länken. Markera den ovan och kopiera den själv.",
-      "done": "Klar"
+      "done": "Klart"
     },
     "errors": {
       "capacity": {
-        "filledUp": "Tyvärr, passet blev precis fullt.",
-        "pickAnother": "Välj ett annat pass.",
-        "onlyLeft": "Det finns bara {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}} kvar, och du bad om {requested, number}.",
-        "askForOne": "Be om 1 i stället.",
-        "askForOrFewer": "Be om {remaining, number} eller färre.",
-        "full": "Passet är fullt, så du kan inte lägga till fler platser.",
-        "atMost": "Du kan ha högst {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}} på det här passet, och du bad om {requested, number}.",
-        "keepYourOne": "Behåll din plats."
+        "filledUp": "Tyvärr, det blev precis fullt.",
+        "pickAnother": "Välj något annat.",
+        "onlyLeft": "Det finns bara {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}} kvar, och du valde {requested, number}.",
+        "askForOne": "Välj 1 i stället.",
+        "askForOrFewer": "Välj {remaining, number} eller färre.",
+        "full": "Det är fullt, så du kan inte lägga till fler platser.",
+        "atMost": "Du kan ha högst {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}}, och du valde {requested, number}.",
+        "keepYourOne": "Behåll den plats du har."
       },
       "keepNumber": "Behåll det antal du har.",
       "closed": {
-        "join": "Inga fler kan anmäla sig till det här passet nu.",
+        "join": "Det går inte längre att anmäla sig till det här.",
         "reload": "Ladda om sidan för att se vad som fortfarande är ledigt.",
         "change": "Du kan inte lägga till fler platser nu."
       },
       "conflict": {
-        "message": "Du är redan anmäld till det här passet.",
+        "message": "Du är redan anmäld till det här.",
         "suggestion": "Använd länken i bekräftelsemejlet för att ändra eller avboka.",
-        "change": "Din plats går inte att ändra längre."
+        "change": "Din anmälan går inte att ändra längre."
       },
       "gone": {
         "message": "Tyvärr, det här finns inte längre.",
@@ -124,17 +124,17 @@
         "check": "Kontrollera den och försök igen."
       },
       "notes": "Korta kommentaren till högst {max, number} tecken.",
-      "quantity": "Ange ett helt antal platser, från 1 till {max, number}.",
+      "quantity": "Ange antalet platser som ett heltal från 1 till {max, number}.",
       "input": "Kontrollera det du har fyllt i och försök igen.",
       "rateLimit": {
-        "message": "För många försök just nu.",
+        "message": "För många försök på kort tid.",
         "wait": "Försök igen om ungefär {minutes, plural, one {{minutes, number} minut} other {{minutes, number} minuter}}.",
         "waitAWhile": "Försök igen om några minuter."
       },
       "failed": {
         "join": "Något gick fel, så du är inte anmäld än.",
         "save": "Något gick fel, så dina ändringar sparades inte.",
-        "cancel": "Något gick fel, så din plats avbokades inte.",
+        "cancel": "Något gick fel, så din anmälan avbokades inte.",
         "tryAgain": "Försök igen."
       }
     },
@@ -145,21 +145,21 @@
       },
       "editLink": {
         "title": "Tyvärr, den här länken fungerar inte",
-        "body": "Din plats kanske inte finns kvar, eller så är länken ofullständig. Kontakta arrangören för att få veta vad som har ändrats. Om du fick ett bekräftelsemejl kan du också prova länken i det igen."
+        "body": "Din anmälan kanske inte finns kvar, eller så är länken ofullständig. Kontakta arrangören för att få veta vad som har ändrats. Om du fick ett bekräftelsemejl kan du också prova länken i mejlet igen."
       }
     },
     "editPage": {
-      "title": "Din plats",
+      "title": "Din anmälan",
       "back": "← Tillbaka till anmälningslistan",
       "editingAs": "Du är anmäld som {name}.",
       "editingAsWithEmail": "Du är anmäld som {name} ({email}).",
       "closedBanner": {
-        "title": "Stängt",
-        "body": "Du kan inte lägga till fler platser nu, men du kan fortfarande ändra dina uppgifter, lämna tillbaka platser eller avboka."
+        "title": "Stängt för nya anmälningar",
+        "body": "Du kan inte lägga till fler platser nu, men du kan fortfarande ändra dina uppgifter, minska antalet platser eller avboka."
       }
     },
     "editForm": {
-      "spotsMax": "Du kan ha upp till {max, plural, one {{max, number} plats} other {{max, number} platser}} på det här passet.",
+      "spotsMax": "Du kan ha högst {max, plural, one {{max, number} plats} other {{max, number} platser}}.",
       "save": "Spara",
       "saving": "Sparar…",
       "saved": "Sparat.",
@@ -167,7 +167,7 @@
       "saveUnreadable": "Något gick fel. Tryck på Spara igen.",
       "cancel": "Avboka",
       "confirmCancel": "Bekräfta avbokning",
-      "cancelQuestion": "Vill du avboka din plats?",
+      "cancelQuestion": "Vill du avboka din anmälan?",
       "keep": "Behåll",
       "yesCancel": "Ja, avboka",
       "cancelling": "Avbokar…",
@@ -175,9 +175,9 @@
       "cancelUnreadable": "Något gick fel. Tryck på Avboka igen."
     },
     "cancelledPage": {
-      "title": "Din plats är avbokad",
+      "title": "Din anmälan är avbokad",
       "open": "Det finns fortfarande plats om du vill anmäla dig igen.",
-      "full": "Passet har blivit fullt sedan dess.",
+      "full": "Det har blivit fullt sedan du avbokade.",
       "slotClosed": "Passet är stängt.",
       "signupClosed": "Anmälningslistan är stängd.",
       "removed": {
@@ -185,9 +185,9 @@
         "body": "Om du tror att det är ett misstag kan du kontakta arrangören."
       },
       "moved": {
-        "title": "Din plats har flyttats till ett annat pass",
-        "body": "Du är fortfarande anmäld. Använd länken nedan för att se eller ändra din plats.",
-        "link": "Se din nya plats"
+        "title": "Din anmälan har flyttats till ett annat pass",
+        "body": "Du är fortfarande anmäld. Använd länken nedan för att se eller ändra din anmälan.",
+        "link": "Visa din anmälan"
       },
       "back": "Tillbaka till anmälningslistan"
     },
@@ -195,35 +195,35 @@
       "title": "Påminnelsemejl",
       "incomplete": {
         "title": "Länken är ofullständig",
-        "body": "Länkar för att stänga av påminnelser fungerar bara om de är hela. Öppna länken direkt från påminnelsemejlet, eller svara på mejlet och be arrangören att sluta."
+        "body": "Länken för att stänga av påminnelser fungerar bara om den är komplett. Öppna den direkt från påminnelsemejlet, eller svara på mejlet och be arrangören att sluta skicka påminnelser."
       },
       "invalid": {
         "title": "Länken är inte giltig",
-        "body": "Den kan ha blivit förvanskad på vägen, eller så kan anmälningslistan ha tagits bort. Öppna länken direkt från påminnelsemejlet, eller svara på mejlet och be arrangören att sluta."
+        "body": "Länken kan ha skadats på vägen, eller så kan anmälningslistan ha tagits bort. Öppna länken direkt från påminnelsemejlet, eller svara på mejlet och be arrangören att sluta skicka påminnelser."
       },
       "confirm": {
         "title": "Vill du stänga av påminnelserna?",
-        "body": "Vi slutar skicka påminnelser om <b>{title}</b> och mejl när arrangören ändrar datum eller tid för ditt pass. Det gäller bara den här anmälningslistan, och din plats påverkas inte.",
-        "bodyWithEmail": "Vi slutar skicka påminnelser om <b>{title}</b> till {email} och mejl när arrangören ändrar datum eller tid för ditt pass. Det gäller bara den här anmälningslistan, och din plats påverkas inte."
+        "body": "Då får du inga fler påminnelser om <b>{title}</b> och inga mejl när arrangören ändrar datum eller tid. Det gäller bara den här anmälningslistan, och din anmälan påverkas inte.",
+        "bodyWithEmail": "Då får {email} inga fler påminnelser om <b>{title}</b> och inga mejl när arrangören ändrar datum eller tid. Det gäller bara den här anmälningslistan, och din anmälan påverkas inte."
       },
-      "stop": "Stäng av påminnelser",
+      "stop": "Stäng av dem",
       "keep": "Behåll dem",
       "turnOffFailed": "Vi kunde inte stänga av dina påminnelser. Försök igen.",
       "turnedOff": {
-        "title": "Påminnelserna har stängts av",
-        "body": "Du får inga fler påminnelser om <b>{title}</b> och inga mejl när arrangören ändrar datum eller tid för ditt pass. Din plats påverkas inte – om du också vill lämna den, öppna länken i bekräftelsemejlet och avboka där."
+        "title": "Du har stängt av påminnelserna",
+        "body": "Du får inga fler påminnelser om <b>{title}</b> och inga mejl när arrangören ändrar datum eller tid. Din anmälan påverkas inte – vill du också avboka, gör du det via länken i bekräftelsemejlet."
       },
       "areOff": {
         "title": "Påminnelserna är avstängda",
-        "body": "Påminnelserna om <b>{title}</b> är avstängda. Du får inga påminnelser om den och inga mejl när arrangören ändrar datum eller tid för ditt pass.",
-        "bodyWithEmail": "Påminnelserna om <b>{title}</b> är avstängda för {email}. Du får inga påminnelser om den och inga mejl när arrangören ändrar datum eller tid för ditt pass."
+        "body": "Påminnelserna om <b>{title}</b> är avstängda. Du får inga påminnelser och inga mejl när arrangören ändrar datum eller tid.",
+        "bodyWithEmail": "Påminnelserna om <b>{title}</b> är avstängda för {email}. Du får inga påminnelser och inga mejl när arrangören ändrar datum eller tid."
       },
       "turnBackOn": "Slå på påminnelserna igen",
-      "turnOnFailed": "Vi kunde inte slå på dina påminnelser igen. Försök igen.",
+      "turnOnFailed": "Vi kunde inte slå på dina påminnelser igen. Försök en gång till.",
       "turnedOn": {
-        "title": "Påminnelserna är på igen",
-        "body": "Du får påminnelser om <b>{title}</b> igen och mejl när datum eller tid för ditt pass ändras. Du kan stänga av dem när som helst via länken i något av mejlen.",
-        "bodyWithEmail": "Du får påminnelser om <b>{title}</b> igen till {email} och mejl när datum eller tid för ditt pass ändras. Du kan stänga av dem när som helst via länken i något av mejlen."
+        "title": "Påminnelserna är påslagna igen",
+        "body": "Du får påminnelser om <b>{title}</b> igen, och mejl när datum eller tid ändras. Du kan stänga av dem när som helst via länken i något av mejlen.",
+        "bodyWithEmail": "Du får påminnelser om <b>{title}</b> till {email} igen, och mejl när datum eller tid ändras. Du kan stänga av dem när som helst via länken i något av mejlen."
       },
       "back": "Tillbaka till anmälningslistan"
     }
@@ -236,33 +236,33 @@
       "withSlot": "{subject} · {slot}"
     },
     "common": {
-      "manage": "Visa eller ändra din plats",
+      "manage": "Visa eller ändra din anmälan",
       "notes": "<b>Din kommentar:</b> {notes}",
       "stillConfirmed": "Du får fortfarande en bekräftelse om du anmäler dig till något nytt."
     },
     "slotDetails": {
       "line": "<b>{label}:</b> {value}",
-      "spots": "Platser"
+      "spots": "Antal platser"
     },
     "confirmation": {
       "heading": "Du är anmäld",
       "intro": "Tack {name}, du har anmält dig till <b>{title}</b>.",
-      "keep": "Spara det här mejlet. Med knappen ovan kan du ändra eller avboka senare, utan att behöva något lösenord. Alla som har länken kan ändra din plats, så vidarebefordra inte mejlet.{reminder, select, yes { Vi skickar också en påminnelse {hours, plural, =24 {dagen innan} one {# timme innan} other {# timmar innan}}.} other {}}"
+      "keep": "Spara det här mejlet. Med knappen ovan kan du ändra eller avboka senare, utan att behöva något lösenord. Alla som har länken kan ändra din anmälan, så vidarebefordra inte mejlet.{reminder, select, yes { Vi skickar också en påminnelse {hours, plural, =24 {dagen innan} one {# timme innan} other {# timmar innan}}.} other {}}"
     },
     "reminder": {
       "heading": "Snart dags",
       "intro": "Hej {name}, det här är en påminnelse om att du har anmält dig till <b>{title}</b>.",
       "changed": {
-        "heading": "Ditt pass har ändrats",
-        "intro": "Hej {name}, arrangören har ändrat ditt pass i <b>{title}</b> sedan vi mejlade dig senast. Här är de nya uppgifterna."
+        "heading": "Tiden har ändrats",
+        "intro": "Hej {name}, arrangören av <b>{title}</b> har flyttat din anmälan till en ny tid sedan vi mejlade dig senast. Här är de nya uppgifterna."
       },
-      "keep": "Behöver du ändra eller avboka? Tryck på knappen ovan. Den öppnar din plats direkt, utan lösenord. Behåll mejlet för dig själv: alla som har länken kan ändra din plats.",
+      "keep": "Behöver du ändra eller avboka? Använd knappen ovan. Den öppnar din anmälan direkt, utan lösenord. Dela inte mejlet med någon: alla som har länken kan ändra din anmälan.",
       "stop": "Stäng av påminnelser om {title}"
     },
     "slotChanged": {
-      "heading": "Ditt pass har ändrats",
-      "intro": "Hej {name}, arrangören av <b>{title}</b> har flyttat ditt pass till ett nytt datum eller en ny tid. Här är de nya uppgifterna.",
-      "keep": "Passar inte den nya tiden? Tryck på knappen ovan för att ändra eller avboka. Den öppnar din plats direkt, utan lösenord. Behåll mejlet för dig själv: alla som har länken kan ändra din plats.",
+      "heading": "Tiden har ändrats",
+      "intro": "Hej {name}, arrangören av <b>{title}</b> har flyttat din anmälan till ett nytt datum eller en ny tid. Här är de nya uppgifterna.",
+      "keep": "Passar inte den nya tiden? Använd knappen ovan för att ändra eller avboka. Den öppnar din anmälan direkt, utan lösenord. Dela inte mejlet med någon: alla som har länken kan ändra din anmälan.",
       "stop": "Stäng av påminnelser och uppdateringar om {title}"
     }
   }

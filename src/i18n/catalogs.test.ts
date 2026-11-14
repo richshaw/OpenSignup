@@ -52,7 +52,7 @@ describe('the message catalogs', () => {
     if (notes.length > 0) {
       console.warn(
         [
-          'Translations out of date (not failing, as these languages have not shipped):',
+          'Translations out of date (not failing, as these languages have not shipped to the audiences that read these):',
           ...notes.map((note) => `  ${note}`),
           'Update them with the translate skill (to-translate.mjs <language> lists them).',
         ].join('\n'),

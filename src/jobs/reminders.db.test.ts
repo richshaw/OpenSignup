@@ -559,7 +559,7 @@ describe('selectDueReminders (db)', () => {
       // The body, from the heading to the opt-out link; the slot's label is
       // the organizer's own.
       expect(flat(inSwedish?.text)).toContain(
-        'SNART DAGS Hej Reminder Tester, det här är en påminnelse om att du har anmält dig till Vårloppis. Day: lör 2 maj Visa eller ändra din plats',
+        'SNART DAGS Hej Reminder Tester, det här är en påminnelse om att du har anmält dig till Vårloppis. Day: lör 2 maj Visa eller ändra din anmälan',
       );
       expect(flat(inSwedish?.text)).toContain(
         'Du får fortfarande en bekräftelse om du anmäler dig till något nytt. Stäng av påminnelser om Vårloppis http',
