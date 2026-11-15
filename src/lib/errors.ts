@@ -74,8 +74,8 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
  *   taken; `received` is the capacity sent and `details.taken` the spots taken.
  * - `invalidates_slot_values` (`conflict`): a field's new type or settings
  *   would make values its slots hold invalid.
- * - `status_changed` (`conflict` on `status`): publishing, closing, reopening
- *   or archiving a signup that isn't in the status that needs.
+ * - `status_changed` (`conflict` on `status`): publishing, closing or
+ *   reopening a signup that isn't in the status that needs.
  * - `no_slots` (`conflict` on `slots`): publishing or reopening a signup with
  *   no slots.
  * - `draft_invalid` (`internal`): Magic Compose's AI wrote a draft that isn't
