@@ -1,10 +1,13 @@
+import type { Metadata } from 'next';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireOrganizerSession, toActor } from '@/auth/session';
+import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
 import { FormError, SuccessNotice } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
+import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { getServerTranslator } from '@/i18n/server';
 import { ServiceException } from '@/lib/errors';
-import { ACCESS_TOKEN_LIFETIME } from '@/lib/lifetimes';
+import { accessTokenLifetime } from '@/lib/lifetimes';
 import { log } from '@/lib/log';
 import { listConnectedApps, revokeConnectedApp } from '@/oauth/grants';
 import { getProvider } from '@/oauth/instance';
@@ -12,10 +15,16 @@ import { SCOPE_DESCRIPTIONS } from '@/oauth/scopes';
 import { DisconnectButton } from './disconnect-button';
 import { formatGrantDate } from './grant-date';
 
-export const metadata = { title: 'Connected apps' };
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = getOrganizerAppLocale(await getOrganizerSession());
+  return { title: getServerTranslator(locale, 'organizer.connectedApps')('title') };
+}
 export const dynamic = 'force-dynamic';
 
 const PATH = '/app/settings/connected-apps';
+
+/** Between an app's domain and the name it gives itself: a mark, the same in every language. */
+const NAME_SEPARATOR = ' · ';
 
 export default async function ConnectedAppsPage({
   searchParams,
@@ -26,7 +35,9 @@ export default async function ConnectedAppsPage({
   const session = await requireOrganizerSession();
   const actor = toActor(session);
   const apps = await listConnectedApps(getDb(), actor);
-  const locale = 'en';
+  const locale = getOrganizerAppLocale(session);
+  const t = getServerTranslator(locale, 'organizer.connectedApps');
+  const lifetime = accessTokenLifetime(locale);
 
   async function disconnect(formData: FormData) {
     'use server';
@@ -48,28 +59,17 @@ export default async function ConnectedAppsPage({
   return (
     <section className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Connected apps</h1>
-        <p className="text-sm text-ink-muted">
-          Apps and AI assistants you have allowed to use your account. Each one acts as you, in
-          every workspace you belong to, with the permissions you approved.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t('title')}</h1>
+        <p className="text-sm text-ink-muted">{t('intro')}</p>
       </div>
 
       {error ? <FormError>{error}</FormError> : null}
-      {disconnected ? (
-        <SuccessNotice>
-          Disconnected. It can no longer get new access, and any access it still holds ends within{' '}
-          {ACCESS_TOKEN_LIFETIME}.
-        </SuccessNotice>
-      ) : null}
+      {disconnected ? <SuccessNotice>{t('disconnected', { lifetime })}</SuccessNotice> : null}
 
       {apps.length === 0 ? (
         <div className="rounded-xl border border-dashed border-surface-sunk px-6 py-10 text-center">
-          <p className="font-medium">No connected apps</p>
-          <p className="mt-1 text-sm text-ink-muted">
-            When you connect an AI assistant such as Claude or ChatGPT to your account, it will show
-            up here.
-          </p>
+          <p className="font-medium">{t('empty.title')}</p>
+          <p className="mt-1 text-sm text-ink-muted">{t('empty.body')}</p>
         </div>
       ) : (
         <ul className="divide-y divide-surface-sunk rounded-xl border border-surface-sunk bg-white">
@@ -82,7 +82,10 @@ export default async function ConnectedAppsPage({
                 <p className="font-medium">
                   <span className="break-all">{app.client.domain}</span>
                   {app.client.name ? (
-                    <span className="font-normal text-ink-muted"> · {app.client.name}</span>
+                    <span className="font-normal text-ink-muted">
+                      {NAME_SEPARATOR}
+                      {app.client.name}
+                    </span>
                   ) : null}
                 </p>
                 <ul className="text-sm text-ink-muted">
@@ -91,28 +94,25 @@ export default async function ConnectedAppsPage({
                   ))}
                 </ul>
                 <p className="text-xs text-ink-soft">
-                  Approved {formatGrantDate(app.approvedAt, locale)}
-                  {app.lastUsedAt
-                    ? ` · last used ${formatGrantDate(app.lastUsedAt, locale)}`
-                    : ' · not used yet'}
-                  {app.expiresAt
-                    ? ` · expires ${formatGrantDate(app.expiresAt, locale)} unless renewed`
-                    : ''}
+                  {t('dates', {
+                    approved: formatGrantDate(app.approvedAt, locale),
+                    used: app.lastUsedAt ? 'yes' : 'no',
+                    lastUsed: app.lastUsedAt ? formatGrantDate(app.lastUsedAt, locale) : '',
+                    expiring: app.expiresAt ? 'yes' : 'no',
+                    expires: app.expiresAt ? formatGrantDate(app.expiresAt, locale) : '',
+                  })}
                 </p>
               </div>
               <form action={disconnect} className="shrink-0">
                 <input type="hidden" name="grantId" value={app.grantId} />
-                <DisconnectButton />
+                <DisconnectButton label={t('disconnect')} loadingLabel={t('disconnecting')} />
               </form>
             </li>
           ))}
         </ul>
       )}
 
-      <p className="text-xs text-ink-soft">
-        Disconnecting stops an app from getting new access straight away. Access it already holds
-        expires on its own within {ACCESS_TOKEN_LIFETIME} and cannot be cut short.
-      </p>
+      <p className="text-xs text-ink-soft">{t('footnote', { lifetime })}</p>
     </section>
   );
 }

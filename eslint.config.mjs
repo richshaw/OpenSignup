@@ -38,6 +38,8 @@ const TRANSLATED = [
   'src/app/app/(chrome)/@crumbs',
   'src/components/chrome',
   'src/components/signup/SignupLoadError.tsx',
+  // Account Settings and Connected apps, the disconnect button included.
+  'src/app/app/(chrome)/settings',
 ];
 
 /**

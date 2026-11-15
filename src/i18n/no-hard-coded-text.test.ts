@@ -43,6 +43,9 @@ const TRANSLATED_FILES = [
   'src/app/app/(chrome)/@crumbs/signups/[id]/edit/page.tsx',
   'src/components/chrome/Crumb.tsx',
   'src/components/signup/SignupLoadError.tsx',
+  'src/app/app/(chrome)/settings/page.tsx',
+  'src/app/app/(chrome)/settings/connected-apps/page.tsx',
+  'src/app/app/(chrome)/settings/connected-apps/disconnect-button.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */

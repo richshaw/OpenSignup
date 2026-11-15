@@ -1,16 +1,31 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { requireOrganizerSession, toActor, type OrganizerSession } from '@/auth/session';
+import type { ReactNode } from 'react';
+import {
+  getOrganizerSession,
+  requireOrganizerSession,
+  toActor,
+  type OrganizerSession,
+} from '@/auth/session';
 import { FormError } from '@/components/ui/form-error';
 import { SAVE_ERROR_MESSAGE, SavedNotice } from '@/components/ui/save-notice';
 import { getDb } from '@/db/client';
 import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
-import { getOrganizerLocale } from '@/i18n/organizer';
+import { getOrganizerAppLocale, getOrganizerLocale } from '@/i18n/organizer';
+import { getServerTranslator } from '@/i18n/server';
+import type { Translator } from '@/i18n/translator';
 import { type ErrorCode, refusalAsResult } from '@/lib/errors';
 import { openSignupsToSwitch } from '@/services/signups';
 import { setOrganizerLocaleAction, switchOpenSignupsLocaleAction } from './actions';
 
-export const metadata = { title: 'Settings' };
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = getOrganizerAppLocale(await getOrganizerSession());
+  return { title: getServerTranslator(locale, 'organizer.settings')('title') };
+}
 export const dynamic = 'force-dynamic';
+
+/** The arrow at the end of each section's card: a mark, the same in every language. */
+const ARROW = '→';
 
 /**
  * The settings hub the account link in the header opens. One section today;
@@ -18,14 +33,15 @@ export const dynamic = 'force-dynamic';
  * go, so each is a card with a name and a one-line description rather than
  * a bare link.
  */
-const SECTIONS = [
-  {
-    href: '/app/settings/connected-apps',
-    title: 'Connected apps',
-    description:
-      'AI assistants and other apps you have allowed to use your account, and how to disconnect them.',
-  },
-] as const;
+function sections(t: Translator<'organizer.settings'>) {
+  return [
+    {
+      href: '/app/settings/connected-apps',
+      title: t('connectedApps.title'),
+      description: t('connectedApps.description'),
+    },
+  ];
+}
 
 type PageProps = {
   searchParams: Promise<{ error?: string; saved?: string; switched?: string }>;
@@ -35,17 +51,21 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const { error, saved, switched } = await searchParams;
   const session = await requireOrganizerSession();
   const openSignups = await openSignupsInAnotherLanguage(session);
+  const t = getServerTranslator(getOrganizerAppLocale(session), 'organizer.settings');
 
   return (
     <section className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t('title')}</h1>
         <p className="text-sm text-ink-muted">
-          Signed in as <span className="font-medium text-ink">{session.email}</span>.
+          {t.rich('signedInAs', {
+            email: session.email,
+            account: (chunks) => <span className="font-medium text-ink">{chunks}</span>,
+          })}
         </p>
       </div>
       <ul className="divide-y divide-surface-sunk rounded-xl border border-surface-sunk bg-white">
-        {SECTIONS.map((s) => (
+        {sections(t).map((s) => (
           <li key={s.href}>
             <Link
               href={s.href}
@@ -56,13 +76,14 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 <span className="block text-sm text-ink-muted">{s.description}</span>
               </span>
               <span aria-hidden="true" className="shrink-0 text-ink-soft">
-                →
+                {ARROW}
               </span>
             </Link>
           </li>
         ))}
       </ul>
       <OrganizerLanguageForm
+        t={t}
         session={session}
         error={error}
         saved={saved === 'language'}
@@ -115,12 +136,15 @@ async function openSignupsInAnotherLanguage(session: OrganizerSession): Promise<
  * nothing to press.
  */
 function OrganizerLanguageForm({
+  t,
   session,
   error,
   saved,
   openSignups,
   switched,
 }: {
+  /** The page's text, in the organizer app's language. */
+  t: Translator<'organizer.settings'>;
   session: OrganizerSession;
   /** The `error` the action came back with: a refusal's code. */
   error: string | undefined;
@@ -143,7 +167,8 @@ function OrganizerLanguageForm({
     error && Object.hasOwn(SAVE_ERROR_MESSAGE, error)
       ? SAVE_ERROR_MESSAGE[error as ErrorCode]
       : null;
-  const name = <span lang={current}>{languageName(current)}</span>;
+  const name = languageName(current);
+  const language = (chunks: ReactNode) => <span lang={current}>{chunks}</span>;
 
   return (
     <div className="space-y-4 rounded-xl border border-surface-sunk bg-white px-5 py-4">
@@ -151,7 +176,7 @@ function OrganizerLanguageForm({
       {/* Keyed on the choice shown, so after a save it's the saved one. */}
       <form key={current} action={setOrganizerLocaleAction} className="flex flex-col gap-4">
         <fieldset>
-          <legend className="font-medium">Language</legend>
+          <legend className="font-medium">{t('language.legend')}</legend>
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
             {languages.map((locale) => (
               <label key={locale} className="flex cursor-pointer items-center gap-2 text-sm">
@@ -168,9 +193,7 @@ function OrganizerLanguageForm({
             ))}
           </div>
           <p id="organizer-language-help" className="mt-2 text-sm text-ink-muted">
-            OpenSignup shows your screens and sends your sign-in emails in this language. Each
-            signup you make starts in it too, for the buttons, messages and dates its participants
-            see. To change one signup’s language, use its Settings tab.
+            {t('language.help')}
           </p>
         </fieldset>
         <div className="flex flex-wrap items-center gap-3">
@@ -178,9 +201,9 @@ function OrganizerLanguageForm({
             type="submit"
             className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover"
           >
-            Save
+            {t('language.save')}
           </button>
-          {saved ? <SavedNotice role="status" /> : null}
+          {saved ? <SavedNotice role="status">{t('language.saved')}</SavedNotice> : null}
         </div>
       </form>
       {openSignups.toSwitch > 0 ? (
@@ -189,8 +212,7 @@ function OrganizerLanguageForm({
             type="submit"
             className="rounded-lg border border-surface-sunk bg-white px-4 py-2 text-sm font-medium transition hover:bg-surface-raised"
           >
-            Switch your {openSignups.toSwitch} open{' '}
-            {openSignups.toSwitch === 1 ? 'signup' : 'signups'} to {name}
+            {t.rich('language.switch', { count: openSignups.toSwitch, name, language })}
           </button>
         </form>
       ) : switched && openSignups.open > 0 ? (
@@ -198,8 +220,7 @@ function OrganizerLanguageForm({
         // stored: the address says only that the switch ran.
         <div className="border-t border-surface-sunk pt-4">
           <SavedNotice role="status">
-            Saved. Your {openSignups.open} open{' '}
-            {openSignups.open === 1 ? 'signup now uses' : 'signups now use'} {name}.
+            {t.rich('language.switched', { count: openSignups.open, name, language })}
           </SavedNotice>
         </div>
       ) : null}
