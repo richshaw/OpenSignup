@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState } from 'react';
 import { ChevronDown, Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useOutsideClose } from '@/hooks/useOutsideClose';
 import { CHOICE_COUNT_FROM, CHOICE_MAX_LENGTH, MAX_CHOICES } from '@/schemas/slot-field-basics';
 import { PickerOption } from './PickerOption';
@@ -20,8 +21,14 @@ type EnumPickerProps = {
    * server could see a value not yet in `choices` and refuse it).
    */
   onAddOption: (value: string) => void;
-  /** Shown when nothing is chosen. */
+  /** Shown when nothing is chosen; "Choose…" when omitted. */
   placeholder?: string;
+  /**
+   * The language the list's items are in, where it isn't the page's: the
+   * signup's (`useSignupLanguage`). It marks the item chosen and each in the
+   * menu, not the placeholder or the box a new one is typed in.
+   */
+  lang?: string | undefined;
   /**
    * Replaces the slot editor's boxed look, for a picker set inline in text (a
    * group header); its menu then sets its own width.
@@ -50,9 +57,11 @@ export function EnumPicker({
   ariaLabel,
   onChange,
   onAddOption,
-  placeholder = 'Choose\u2026',
+  placeholder,
   triggerClassName,
+  lang,
 }: EnumPickerProps) {
+  const t = useTranslations('organizer.build.list');
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
@@ -126,7 +135,9 @@ export function EnumPicker({
             (value ? 'text-ink' : 'text-ink-soft')
         }
       >
-        <span className="truncate">{value || placeholder}</span>
+        <span className="truncate" lang={value ? lang : undefined}>
+          {value || (placeholder ?? t('choose'))}
+        </span>
         <ChevronDown size={11} className="shrink-0 text-ink-soft" />
       </button>
 
@@ -138,13 +149,14 @@ export function EnumPicker({
           className={`absolute left-0 ${triggerClassName ? 'min-w-[200px]' : 'right-0'} top-[calc(100%+4px)] z-50 max-h-[240px] overflow-y-auto rounded-lg border border-surface-sunk bg-white p-1 shadow-card`}
         >
           {options.length === 0 && !adding && (
-            <div className="px-2.5 py-1.5 text-[11px] italic text-ink-soft">No items yet.</div>
+            <div className="px-2.5 py-1.5 text-[11px] italic text-ink-soft">{t('empty')}</div>
           )}
           {options.map((opt) => (
             <PickerOption
               key={opt}
               active={opt === value}
               label={opt}
+              lang={lang}
               onClick={() => {
                 onChange(opt);
                 close();
@@ -178,8 +190,8 @@ export function EnumPicker({
                     }}
                     onBlur={commitNew}
                     maxLength={CHOICE_MAX_LENGTH}
-                    placeholder="Type a new item"
-                    aria-label="New option name"
+                    placeholder={t('newItem')}
+                    aria-label={t('newItemLabel')}
                     aria-describedby={lengthHintId}
                     className="min-w-0 rounded border border-surface-sunk bg-white py-1.5 pl-[9px] pr-2 text-xs text-ink outline-none placeholder:text-ink-soft focus:border-brand"
                   />
@@ -196,7 +208,11 @@ export function EnumPicker({
                     className={`whitespace-nowrap pt-1 text-right text-[11px] tabular-nums ${atLengthLimit ? 'text-warn' : 'text-ink-soft'}`}
                   >
                     {showCount
-                      ? `${draft.length}/${CHOICE_MAX_LENGTH}${atLengthLimit ? ' \u00b7 max' : ''}`
+                      ? t('count', {
+                          length: draft.length,
+                          max: CHOICE_MAX_LENGTH,
+                          atMax: atLengthLimit ? 'yes' : 'no',
+                        })
                       : '\u00a0'}
                   </div>
                 </div>
@@ -208,18 +224,18 @@ export function EnumPicker({
                   // The same 1px border as the box, so the two stay the same height.
                   className="shrink-0 cursor-pointer rounded border border-brand bg-brand px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover"
                 >
-                  Add
+                  {t('add')}
                 </button>
               </div>
               <span id={lengthHintId} className="sr-only">
-                Up to {CHOICE_MAX_LENGTH} characters
+                {t('maxLength', { max: CHOICE_MAX_LENGTH })}
               </span>
             </>
           ) : options.length >= MAX_CHOICES ? (
             // The server refuses a longer list, so say so rather than offer an
             // add that would be rolled back (#784).
             <div className="px-2.5 py-1.5 text-[11px] text-ink-soft">
-              A list holds up to {MAX_CHOICES} items.
+              {t('full', { max: MAX_CHOICES })}
             </div>
           ) : (
             <button
@@ -228,7 +244,7 @@ export function EnumPicker({
               className="flex w-full cursor-pointer items-center gap-2 rounded-md border-none bg-transparent px-2.5 py-1.5 text-left text-xs font-medium text-brand hover:bg-brand-soft"
             >
               <Plus size={12} />
-              <span>Add to list</span>
+              <span>{t('addToList')}</span>
             </button>
           )}
         </div>

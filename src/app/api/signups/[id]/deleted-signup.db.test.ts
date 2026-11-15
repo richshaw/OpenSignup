@@ -16,9 +16,13 @@ import { GET as getFields } from './fields/route';
 import { GET as getSlots } from './slots/route';
 
 // The routes read the organizer from the session cookie. Tests hand them one
-// directly instead of going through Auth.js.
+// directly instead of going through Auth.js. The CSV also reads the session
+// for the organizer's language: none stored here, so it's English.
 const session = vi.hoisted(() => ({ actor: { kind: 'anonymous' } as Actor }));
-vi.mock('@/auth/session', () => ({ requireActor: async () => session.actor }));
+vi.mock('@/auth/session', () => ({
+  requireActor: async () => session.actor,
+  getOrganizerSession: async () => ({ locale: null }),
+}));
 
 type RouteGet = (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 

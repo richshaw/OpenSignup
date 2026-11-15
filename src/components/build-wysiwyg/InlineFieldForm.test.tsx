@@ -1,8 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render as renderUi, screen, fireEvent } from '@testing-library/react';
 import { InlineFieldForm } from './InlineFieldForm';
 import type { BuildField } from '../build-shared/useBuildState';
+import type { ReactElement } from 'react';
+import { englishMessages } from '@/i18n/testing/client-messages';
+import { BUILD_TAB_NAMESPACES } from './client-namespaces';
+
+/** Renders `ui` with the Build tab's messages in English, as its page gives them. */
+const wrapper = englishMessages(BUILD_TAB_NAMESPACES);
+const render = (ui: ReactElement) => renderUi(ui, { wrapper });
 
 function makeField(overrides: Partial<BuildField> = {}): BuildField {
   return {

@@ -1,40 +1,16 @@
 import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
-import type { ErrorCode } from '@/lib/errors';
 
 /**
- * What an organizer reads when a save is refused, by error code. The service's
- * own message is written for developers ("your role cannot modify this
- * workspace"), so the Build tab and the Settings tab, Delete included, show
- * these instead.
+ * A save's confirmation, next to whatever saved it: the Build tab's status,
+ * the Settings tab's forms and account Settings' language. It has no hooks,
+ * so a server page can show it without adding script. Its text is the
+ * caller's, in the organizer's language: "Saved" (`organizer.saveNotice`),
+ * or a longer line in the same style, such as account Settings' "Saved. Your
+ * 3 open signups now use Svenska." Pass `role="status"` where it appears
+ * after a save on its own.
  */
-export const SAVE_ERROR_MESSAGE: Record<ErrorCode, string> = {
-  forbidden: 'You don’t have edit access.',
-  unauthorized: 'Sign in again to save.',
-  conflict: 'Reload to see the latest changes.',
-  capacity_full: 'Slot is full.',
-  closed: 'This signup is closed.',
-  not_found: 'No longer available.',
-  invalid_input: 'Some values weren’t accepted.',
-  rate_limited: 'Slow down — try again in a moment.',
-  already_consumed: 'Already used.',
-  internal: 'Save failed.',
-};
-
-/**
- * "Saved", next to whatever saved it: the Build tab's status and the Settings
- * tab's form. It has no hooks, so a server page can show it without adding
- * script. Pass `role="status"` where it appears after a save on its own, and
- * `children` for a longer line in the same style, such as account Settings'
- * "Saved. Your 3 open signups now use Svenska."
- */
-export function SavedNotice({
-  role,
-  children = 'Saved',
-}: {
-  role?: 'status';
-  children?: ReactNode;
-}) {
+export function SavedNotice({ role, children }: { role?: 'status'; children: ReactNode }) {
   return (
     <span
       role={role}
