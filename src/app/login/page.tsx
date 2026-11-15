@@ -8,7 +8,7 @@ import { getCurrentRequestIp } from '@/auth/request-context';
 import { CenteredPageFrame } from '@/components/centered-page-frame';
 import { FormError } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
-import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
+import { RateLimits, chargeRateLimit, ipSubject } from '@/lib/rate-limit';
 import { EmailSchema } from '@/schemas/common';
 import { LoginForm, type CodeActionResult, type LoginActionResult } from './login-form';
 import { OAuthButtons } from './oauth-buttons';
@@ -47,7 +47,7 @@ export default async function LoginPage({
       (await chargeRateLimit(
         db,
         RateLimits.loginCodePerIp,
-        (await getCurrentRequestIp()) ?? 'unknown',
+        ipSubject(await getCurrentRequestIp()),
       )) !== null ||
       (await chargeRateLimit(db, RateLimits.loginCodePerEmail, email.data)) !== null
     ) {

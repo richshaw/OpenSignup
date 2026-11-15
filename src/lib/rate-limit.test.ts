@@ -1,5 +1,6 @@
+import { isIP } from 'node:net';
 import { describe, expect, it, vi } from 'vitest';
-import { RateLimits } from './rate-limit';
+import { ipSubject, RateLimits } from './rate-limit';
 
 // A lifetime other than the real 15 minutes, so a window typed as a number
 // can't pass by matching it.
@@ -9,5 +10,15 @@ describe('RateLimits', () => {
   it('gives both sign-in code buckets a window of one code lifetime', () => {
     expect(RateLimits.loginCodePerEmail.windowSeconds).toBe(600);
     expect(RateLimits.loginCodePerIp.windowSeconds).toBe(600);
+  });
+});
+
+describe('ipSubject', () => {
+  it('charges a known IP to itself', () => {
+    expect(ipSubject('203.0.113.5')).toBe('203.0.113.5');
+  });
+
+  it('charges requests without a readable IP to a shared bucket no real IP can share', () => {
+    expect(isIP(ipSubject(null))).toBe(0);
   });
 });
