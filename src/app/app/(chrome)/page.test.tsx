@@ -15,7 +15,7 @@ const request = vi.hoisted(() => ({
     defaultWorkspaceId: 'ws_1' as string | null,
     locale: null as string | null,
   },
-  rows: [] as { id: string; title: string; slug: string; status: string }[],
+  rows: [] as { id: string; title: string; slug: string; status: string; locale?: string | null }[],
 }));
 vi.mock('@/auth/session', () => ({
   getOrganizerSession: async () => request.session,
@@ -90,6 +90,58 @@ describe('Your signups', () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it('leaves the titles of signups in the organizer’s language unmarked', async () => {
+    request.rows = [
+      { id: 'sig_1', title: 'Bake Sale', slug: 'bake-sale', status: 'open', locale: null },
+      { id: 'sig_2', title: 'Picnic', slug: 'picnic', status: 'draft', locale: 'en' },
+    ];
+    await renderPage();
+    expect(screen.getByText('Bake Sale')).not.toHaveAttribute('lang');
+    expect(screen.getByText('Picnic')).not.toHaveAttribute('lang');
+  });
+
+  // A title is in its signup's language: shown only once that language has
+  // shipped to participants, as the signup's own pages show it.
+  it.each(OTHER_LANGUAGES)('marks the title of a signup in %s', async (other) => {
+    ship('participant', ['en', other]);
+    request.rows = [
+      { id: 'sig_1', title: 'Bake Sale', slug: 'bake-sale', status: 'open', locale: other },
+      { id: 'sig_2', title: 'Picnic', slug: 'picnic', status: 'draft', locale: null },
+    ];
+    await renderPage();
+    expect(screen.getByText('Bake Sale')).toHaveAttribute('lang', other);
+    expect(screen.getByText('Picnic')).not.toHaveAttribute('lang');
+    // The row's other words are the organizer's.
+    expect(screen.getByText('/s/bake-sale').closest('[lang]')).toBeNull();
+  });
+
+  it.each(OTHER_LANGUAGES)(
+    'leaves a signup stored in %s unmarked until it ships',
+    async (other) => {
+      request.rows = [
+        { id: 'sig_1', title: 'Bake Sale', slug: 'bake-sale', status: 'open', locale: other },
+      ];
+      await renderPage();
+      expect(screen.getByText('Bake Sale')).not.toHaveAttribute('lang');
+    },
+  );
+
+  it.each(OTHER_LANGUAGES)(
+    'marks English titles for an organizer whose screens are in %s, and not their own language’s',
+    async (other) => {
+      ship('organizer', ['en', other]);
+      ship('participant', ['en', other]);
+      request.session.locale = other;
+      request.rows = [
+        { id: 'sig_1', title: 'Bake Sale', slug: 'bake-sale', status: 'open', locale: null },
+        { id: 'sig_2', title: 'Picnic', slug: 'picnic', status: 'draft', locale: other },
+      ];
+      await renderPage();
+      expect(screen.getByText('Bake Sale')).toHaveAttribute('lang', 'en');
+      expect(screen.getByText('Picnic')).not.toHaveAttribute('lang');
+    },
+  );
 
   it.each(OTHER_LANGUAGES)('is in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { expect, test, type Locator } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { formatGrantDate } from '@/app/app/(chrome)/settings/connected-apps/grant-date';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { getTranslator, type Namespace } from '@/i18n/translator';
@@ -55,6 +56,20 @@ const onScreen = (locator: Locator) => locator.locator('visible=true');
 
 /** A name that starts with `text`, as a tab's does, its count after it. */
 const startsWith = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+
+/**
+ * The WCAG A and AA problems axe finds on `page`, outside `exclude`, as a list
+ * that's empty when there are none.
+ */
+async function axeViolations(page: Page, exclude?: string) {
+  const axe = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']);
+  const results = await (exclude ? axe.exclude(exclude) : axe).analyze();
+  return results.violations.map((v) => ({
+    id: v.id,
+    impact: v.impact,
+    nodes: v.nodes.map((n) => n.target),
+  }));
+}
 
 /** A tab title that starts with `text`, then the site's name. */
 const titled = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} · `);
@@ -260,9 +275,13 @@ for (const stored of STORED) {
       await page.goto(`/app/signups/${organizer.draft.id}/build`);
       const title = page.getByRole('heading', { level: 1 }).locator('visible=true');
       await expect(title).toHaveText('Draft Picnic');
-      expect(await languageOf(title), unshippedHint).toBe(locale);
+      // The title is the signup's own, in its language: it stores none, so
+      // the instance's, English.
+      expect(await languageOf(title)).toBe('en');
       await expect(onScreen(page.getByText(status('draft'), { exact: true }))).toBeVisible();
-      await expect(onScreen(page.getByText(signup('draftLine')))).toBeVisible();
+      const draftLine = onScreen(page.getByText(signup('draftLine')));
+      await expect(draftLine).toBeVisible();
+      expect(await languageOf(draftLine), unshippedHint).toBe(locale);
       const tabs = page.getByRole('tablist', { name: signup('tabs.label') });
       for (const tab of ['build', 'responses', 'settings'] as const) {
         await expect(
@@ -310,20 +329,91 @@ for (const stored of STORED) {
         }),
       ).toBeVisible();
       // The message is for participants: in the signup's language, whatever
-      // the organizer's. A new signup's empty slot holds 1, and Blankets 4.
-      await expect(panel.getByLabel(share('messageLabel'))).toHaveValue(
+      // the organizer's, and marked so. A new signup's empty slot holds 1,
+      // and Blankets 4.
+      const box = panel.getByLabel(share('messageLabel'));
+      await expect(box).toHaveValue(
         [
           elsewhere.title,
           message('spotsOpen', { count: 5 }),
           message('signUp', { url: url! }),
         ].join('\n'),
       );
+      await expect(box).toHaveAttribute('lang', signupLocale);
       if (!phone) {
         await expect(panel.getByRole('button', { name: share('copyMessage') })).toBeVisible();
         await expect(panel.getByRole('link', { name: share('emailIt') })).toBeVisible();
       }
       await panel.getByRole('button', { name: share('close') }).click();
       await expect(panel).toBeHidden();
+    });
+
+    test(`marks a signup’s own words in its language, not ${locale}`, async ({ page }) => {
+      // The first language with a catalog that isn't the organizer's.
+      const signupLocale = CATALOG_LOCALES.find((other) => other !== locale) ?? 'en';
+      const elsewhere = await publishSignupIn(organizer, signupLocale);
+      const chrome = messagesIn(locale, 'organizer.chrome');
+      const signup = messagesIn(locale, 'organizer.signup');
+      const preview = messagesIn(locale, 'organizer.preview');
+
+      // Your signups: each title in its signup's language. The organizer's
+      // own two store none, so they're in the instance's, English, marked
+      // only where that isn't the page's.
+      await page.goto('/app');
+      const row = page.locator(`a[href="/app/signups/${elsewhere.id}"]`);
+      const rowTitle = row.getByText(elsewhere.title, { exact: true });
+      await expect(rowTitle).toHaveAttribute('lang', signupLocale);
+      expect(await languageOf(row.getByText(`/s/${elsewhere.slug}`)), unshippedHint).toBe(locale);
+      for (const own of ['Bake Sale', 'Draft Picnic']) {
+        const title = page.getByText(own, { exact: true });
+        expect(await languageOf(title)).toBe('en');
+        if (locale === 'en') await expect(title).not.toHaveAttribute('lang');
+      }
+      expect(await axeViolations(page)).toEqual([]);
+
+      // Its header and the crumb: the title in the signup's language, the
+      // header's own words in the organizer's.
+      await page.goto(`/app/signups/${elsewhere.id}/responses`);
+      const title = page.getByRole('heading', { level: 1 }).locator('visible=true');
+      await expect(title).toHaveText(elsewhere.title);
+      await expect(title).toHaveAttribute('lang', signupLocale);
+      const trail = page.getByRole('navigation', { name: chrome('breadcrumb') });
+      const crumb = trail.locator('[aria-current="page"]');
+      await expect(crumb).toHaveText(elsewhere.title);
+      await expect(crumb).toHaveAttribute('lang', signupLocale);
+      const tabs = page.getByRole('tablist', { name: signup('tabs.label') });
+      expect(await languageOf(tabs), unshippedHint).toBe(locale);
+      expect(await axeViolations(page)).toEqual([]);
+
+      // Its own signup's header and crumb, in English, marked only where the
+      // page isn't.
+      await page.goto(`/app/signups/${organizer.open.id}/responses`);
+      await expect(title).toHaveText('Bake Sale');
+      expect(await languageOf(title)).toBe('en');
+      expect(await languageOf(crumb)).toBe('en');
+      if (locale === 'en') {
+        await expect(title).not.toHaveAttribute('lang');
+        await expect(crumb).not.toHaveAttribute('lang');
+      }
+
+      // Preview: what participants will see, in the signup's language. A
+      // disabled Sign up button's tip is the organizer's, and screen readers
+      // get it from text marked with their language, since the title a
+      // mouse shows can't carry one.
+      await page.goto(`/app/signups/${elsewhere.id}/preview`);
+      await expect(page.locator('main')).toHaveAttribute('lang', signupLocale);
+      const button = page.locator('main li').filter({ hasText: 'Blankets' }).getByRole('button');
+      await expect(button).toBeDisabled();
+      await expect(button).toHaveAttribute('title', preview('signUpDisabled'));
+      await expect(button).toHaveAccessibleDescription(preview('signUpDisabled'));
+      const tipId = await button.getAttribute('aria-describedby');
+      const tip = page.locator(`[id="${tipId}"]`);
+      await expect(tip).toHaveText(preview('signUpDisabled'));
+      await expect(tip, unshippedHint).toHaveAttribute('lang', locale);
+      await expect(tip).toBeHidden();
+      // The Preview banner's blue on blue is short of AA contrast, as it was
+      // before these marks, so it's left out here.
+      expect(await axeViolations(page, '[role="status"]')).toEqual([]);
     });
 
     // Last, since it closes the open signup the tests above read, and reopens it.

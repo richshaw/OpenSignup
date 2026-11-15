@@ -107,6 +107,21 @@ export function organizerAppLocale(
 }
 
 /**
+ * The `lang` for a part of a page whose words are in `part`'s language, inside
+ * an element in `around`'s: `part` where the two differ, else undefined, which
+ * React leaves out, so a part in the page's own language carries no mark. A
+ * signup's own words (its title, and the message its share panel offers to
+ * send) are in the signup's language (`signupLocale`) wherever the organizer
+ * app shows them, inside screens in the organizer's.
+ */
+export function langWhereDifferent(
+  part: CatalogLocale,
+  around: CatalogLocale,
+): CatalogLocale | undefined {
+  return part === around ? undefined : part;
+}
+
+/**
  * Whether `stored` is a language with a catalog that the e2e run's server
  * shows, though it hasn't shipped, on a signup that stores it or on the
  * screens of an organizer whose account stores it (`organizerAppLocale`):

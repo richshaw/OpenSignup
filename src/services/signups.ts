@@ -816,22 +816,27 @@ const signupSummaryColumns = {
   closesAt: signups.closesAt,
   createdAt: signups.createdAt,
   updatedAt: signups.updatedAt,
+  locale: sql<string | null>`${signups.settings}->>'locale'`,
 };
 
 /** A signup as a list shows it: no description, settings, theme or tags. */
-export type SignupSummary = Pick<SignupRow, keyof typeof signupSummaryColumns>;
+export type SignupSummary = Pick<
+  SignupRow,
+  'id' | 'slug' | 'title' | 'status' | 'closesAt' | 'createdAt' | 'updatedAt'
+>;
 
 /**
  * The same rows as listSignupsForWorkspace, reading only the columns a list
  * shows, so up to WORKSPACE_LIST_LIMIT long descriptions aren't read from Postgres and thrown
- * away.
+ * away. Of the settings, only `locale`, as stored, so Your signups can mark
+ * each title with its signup's language (`signupLocale`) in the same statement.
  */
 export async function listSignupSummariesForWorkspace(
   db: Db,
   actor: Actor,
   workspaceId: string,
   filter: { status?: SignupStatus } = {},
-): Promise<Result<SignupSummary[], ServiceError>> {
+): Promise<Result<(SignupSummary & { locale: string | null })[], ServiceError>> {
   requireWorkspaceAccess(actor, workspaceId);
   const rows = await db
     .select(signupSummaryColumns)

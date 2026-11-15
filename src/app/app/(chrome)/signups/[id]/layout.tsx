@@ -68,13 +68,14 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   // The words of the header's client components, the closed box and the
   // tabs, passed to them as props.
   const text = signupHeaderText(getServerTranslator(locale, 'organizer.signup'));
-  // The message the share panel offers to send is for participants, so it's
-  // in the signup's language, as its page is, not the organizer's.
-  const messageLocale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  // The signup's language. Its title is in it, and so is the message the
+  // share panel offers to send, which is for participants, as its page is:
+  // neither is in the organizer's.
+  const contentLocale = signupLocale(sig.settings.locale, instanceDefaultLocale());
   const message = shareMessage(
     sig,
     publicUrl,
-    { locale: messageLocale, t: getServerTranslator(messageLocale, 'participant.share') },
+    { locale: contentLocale, t: getServerTranslator(contentLocale, 'participant.share') },
     filled?.value,
   );
 
@@ -94,6 +95,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
         <HeaderAnnouncer status={status} announcements={text.announcements}>
           <SignupHeader
             locale={locale}
+            contentLocale={contentLocale}
             text={text}
             signupId={id}
             title={sig.title}

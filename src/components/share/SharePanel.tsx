@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useId, useRef, useState, type Ref } from 'react';
 import { Check, Copy, Mail, Share } from 'lucide-react';
 import { useClipboardCopy } from '@/hooks/useClipboardCopy';
+import type { CatalogLocale } from '@/i18n/config';
 import { emailBody, withLink } from '@/lib/share-message';
 import { emitSignupLinkEvent } from '@/lib/signup-link-events';
 import { ShareQrCode } from './ShareQrCode';
@@ -24,6 +25,11 @@ export interface SharePanelProps {
    * edit is still there when the panel opens again.
    */
   message: string;
+  /**
+   * The message's `lang`: the signup's language, where it isn't the
+   * organizer's, which the panel's own words are in.
+   */
+  messageLang?: CatalogLocale;
   onMessageChange: (message: string) => void;
   /**
    * Its words, in the organizer's language, from `shareText`. The message is
@@ -56,6 +62,7 @@ export function SharePanel({
   title,
   url,
   message,
+  messageLang,
   onMessageChange,
   text,
 }: SharePanelProps) {
@@ -178,6 +185,7 @@ export function SharePanel({
       <textarea
         ref={messageField}
         id={messageId}
+        lang={messageLang}
         rows={phone ? PHONE_ROWS : MIN_ROWS}
         value={message}
         onChange={(e) => onMessageChange(e.target.value)}

@@ -48,6 +48,7 @@ export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
         title={share.title}
         url={share.url}
         message={share.message}
+        messageLang={share.messageLang}
         onMessageChange={share.setMessage}
         text={text.panel}
       />

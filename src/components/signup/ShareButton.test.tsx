@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { shareText, type ShareText } from '@/components/share/share-text';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
 import { signupHeaderText } from './header-text';
@@ -50,10 +50,12 @@ function windowWidth(width: number) {
 function Header({
   action = async () => null,
   message = MESSAGE,
+  messageLang,
   text = SHARE_TEXT,
 }: {
   action?: StatusAction;
   message?: string;
+  messageLang?: CatalogLocale;
   text?: ShareText;
 }) {
   return (
@@ -64,6 +66,7 @@ function Header({
       title="Bake sale helpers"
       url={LINK}
       message={message}
+      messageLang={messageLang}
     >
       <PublishButton variant="desktop" text={TEXT.publish} />
       <div data-testid="desktop">
@@ -203,6 +206,31 @@ describe('ShareButton on a computer', () => {
     fireEvent.change(box, { target: { value: 'Mine' } });
     rerender(<Header message={MESSAGE} />);
     expect(screen.getByLabelText('A message to send with it')).toHaveValue('Mine');
+  });
+});
+
+describe('ShareButton’s message', () => {
+  it('carries no mark of its own in the panel’s language', async () => {
+    windowWidth(1280);
+    render(<Header />);
+    fireEvent.click(shareIn('desktop'));
+    expect(await screen.findByLabelText('A message to send with it')).not.toHaveAttribute('lang');
+  });
+
+  // The signup's language, which the layout passes where it isn't the
+  // organizer's, on a computer's popover and a phone's sheet.
+  it.each(
+    CATALOG_LOCALES.flatMap((locale) => [
+      [locale, 'desktop', 1280],
+      [locale, 'phone', 390],
+    ]) as [CatalogLocale, 'desktop' | 'phone', number][],
+  )('is marked %s when the signup is in it, %s', async (locale, where, width) => {
+    windowWidth(width);
+    render(<Header messageLang={locale} />);
+    fireEvent.click(shareIn(where));
+    const box = await screen.findByLabelText('A message to send with it');
+    expect(box).toHaveValue(MESSAGE);
+    expect(box).toHaveAttribute('lang', locale);
   });
 });
 
