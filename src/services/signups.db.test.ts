@@ -15,6 +15,7 @@ import { addSlot, deleteSlot } from '@/services/slots';
 import { settle, untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
 import { commitToSlot, committedBySlot } from '@/services/commitments';
 import { getSignupRowForOrganizer } from '@/services/locks';
+import { requiresEmail } from '@/schemas/signups';
 import {
   archiveSignup,
   closeSignup,
@@ -426,6 +427,46 @@ describe('signups service (db)', () => {
         .where(eq(signups.workspaceId, fx.workspaceId));
       expect(after.length).toBe(beforeCount);
     });
+
+    it('stores a language that has shipped to participants', async () => {
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('In English'),
+        settings: { locale: 'en' },
+      });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.settings).toMatchObject({ locale: 'en' });
+    });
+
+    it('stores no language when none is sent', async () => {
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('No locale'));
+      if (!r.ok) throw new Error('setup failed');
+      expect(r.value.settings).not.toHaveProperty('locale');
+    });
+
+    it.each(['xx', 'EN', 'en-GB', '', 'x'.repeat(36), 7])(
+      'refuses a sent language that has not shipped to participants: %j',
+      async (locale) => {
+        const title = `Locale ${locale || 'empty'}`;
+        const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+          ...validCreateInput(title),
+          settings: { locale },
+        });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error).toMatchObject({
+          code: 'invalid_input',
+          field: 'settings.locale',
+          received: locale,
+        });
+        expect(r.error.suggestion).toContain('en');
+        const made = await fx.db
+          .select({ id: signups.id })
+          .from(signups)
+          .where(and(eq(signups.workspaceId, fx.workspaceId), eq(signups.title, title)));
+        expect(made).toEqual([]);
+      },
+    );
   });
 
   describe('getSignupForOrganizer', () => {
@@ -1056,6 +1097,122 @@ describe('signups service (db)', () => {
       expect(r.ok, JSON.stringify(r)).toBe(true);
       if (!r.ok) return;
       expect(r.value.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['gone'] });
+    });
+
+    it('sets a language that has shipped to participants, and clears it with null', async () => {
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Set locale'),
+      );
+      if (!created.ok) throw new Error('setup failed');
+
+      const set = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { locale: 'en' },
+      });
+      expect(set.ok, JSON.stringify(set)).toBe(true);
+      if (!set.ok) return;
+      expect(set.value.settings).toMatchObject({ locale: 'en' });
+
+      const cleared = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { locale: null },
+      });
+      expect(cleared.ok, JSON.stringify(cleared)).toBe(true);
+      if (!cleared.ok) return;
+      expect(cleared.value.settings).not.toHaveProperty('locale');
+    });
+
+    it('refuses a sent language that has not shipped to participants', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Bad locale'),
+        settings: { locale: 'en' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { sendReminders: false, locale: 'xx' },
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error).toMatchObject({
+        code: 'invalid_input',
+        field: 'settings.locale',
+        received: 'xx',
+      });
+      const [row] = await fx.db.select().from(signups).where(eq(signups.id, created.value.id));
+      expect(row?.settings).toEqual(created.value.settings);
+    });
+
+    it('saves an unrelated change on a row whose stored language has left the list', async () => {
+      // updateSignup merges the stored settings under the patch before it
+      // parses, so only a language the caller sent may be checked: otherwise
+      // every save would fail on a signup whose language stopped shipping.
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Stale locale'),
+      );
+      if (!created.ok) throw new Error('setup failed');
+      await fx.db
+        .update(signups)
+        .set({ settings: { ...created.value.settings, locale: 'xx' } })
+        .where(eq(signups.id, created.value.id));
+
+      const settingsSave = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { sendReminders: false },
+      });
+      expect(settingsSave.ok, JSON.stringify(settingsSave)).toBe(true);
+      if (!settingsSave.ok) return;
+      expect(settingsSave.value.settings).toMatchObject({ sendReminders: false, locale: 'xx' });
+
+      const titleSave = await updateSignup(fx.db, fx.actor, created.value.id, {
+        title: 'Stale locale, renamed',
+      });
+      expect(titleSave.ok, JSON.stringify(titleSave)).toBe(true);
+      if (!titleSave.ok) return;
+      expect(titleSave.value.settings).toMatchObject({ locale: 'xx' });
+    });
+
+    it('keeps a stored language too long to be one from breaking the row', async () => {
+      // Only a write straight to the database can store one, since the
+      // services refuse it when sent. It reads as no language, so the rest of
+      // the settings still count and an unrelated save goes through.
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Long locale'),
+        settings: { requireEmail: false },
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const tooLong = 'x'.repeat(36);
+      await fx.db
+        .update(signups)
+        .set({ settings: { ...created.value.settings, locale: tooLong } })
+        .where(eq(signups.id, created.value.id));
+      const [stored] = await fx.db.select().from(signups).where(eq(signups.id, created.value.id));
+      expect(requiresEmail(stored?.settings)).toBe(false);
+
+      const settingsSave = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { sendReminders: false },
+      });
+      expect(settingsSave.ok, JSON.stringify(settingsSave)).toBe(true);
+      if (!settingsSave.ok) return;
+      expect(settingsSave.value.settings).toMatchObject({
+        requireEmail: false,
+        sendReminders: false,
+      });
+      expect(settingsSave.value.settings).not.toHaveProperty('locale');
+
+      const sent = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { locale: tooLong },
+      });
+      expect(sent.ok).toBe(false);
+      if (sent.ok) return;
+      expect(sent.error).toMatchObject({
+        code: 'invalid_input',
+        field: 'settings.locale',
+        received: tooLong,
+      });
     });
   });
 

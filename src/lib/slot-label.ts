@@ -9,7 +9,7 @@
  * wrong in front of a participant.
  */
 
-import { TIME_ZONE } from '@/i18n/config';
+import { TIME_ZONE } from '@/i18n/time-zone';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { isRealDate, isRealTime } from '@/lib/reminder-fields';
 

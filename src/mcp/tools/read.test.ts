@@ -181,6 +181,7 @@ describe('read tools', () => {
           allowNotes: false,
           showWhoSignedUp: false,
           confirmationMessage: 'See you there',
+          locale: 'en',
         },
         fields: [],
         slots: [],

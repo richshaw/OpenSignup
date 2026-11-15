@@ -6,7 +6,8 @@ import { _createCache, _createIntlFormatters, createTranslator } from 'use-intl/
 // The formatter next-intl's plugin puts in place of use-intl's full one in
 // the Next build when messages are precompiled.
 import formatPrecompiled from 'use-intl/format-message/format-only';
-import { CATALOG_LOCALES, TIME_ZONE } from './config';
+import { CATALOG_LOCALES } from './config';
+import { TIME_ZONE } from './time-zone';
 import { getTranslator, type Namespace, withEnglishUnder } from './translator';
 
 /**

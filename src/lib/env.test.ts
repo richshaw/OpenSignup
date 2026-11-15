@@ -286,6 +286,24 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...base, GOOGLE_CLIENT_SECRET: 'secret' })).toThrow(/GOOGLE_CLIENT_ID/);
   });
 
+  describe('DEFAULT_LOCALE', () => {
+    it('is unset when absent or blank, so each organizer keeps their own language', () => {
+      expect(parseEnv(base).DEFAULT_LOCALE).toBeUndefined();
+      expect(parseEnv({ ...base, DEFAULT_LOCALE: '' }).DEFAULT_LOCALE).toBeUndefined();
+      expect(parseEnv({ ...base, DEFAULT_LOCALE: '  ' }).DEFAULT_LOCALE).toBeUndefined();
+    });
+
+    it('takes a language OpenSignup has a catalog for', () => {
+      expect(parseEnv({ ...base, DEFAULT_LOCALE: 'en' }).DEFAULT_LOCALE).toBe('en');
+    });
+
+    // A typo fails at startup like any other bad setting, rather than leaving
+    // the instance in a language nobody chose.
+    it.each(['english', 'EN', 'en-GB', 'xx'])('refuses %j', (value) => {
+      expect(() => parseEnv({ ...base, DEFAULT_LOCALE: value })).toThrow(/- DEFAULT_LOCALE: /);
+    });
+  });
+
   it('accepts GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET together', () => {
     const env = parseEnv({ ...base, GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' });
     expect(env.GOOGLE_CLIENT_ID).toBe('id');

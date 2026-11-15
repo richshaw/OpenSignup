@@ -32,7 +32,8 @@ import {
   type NestedKeyOf,
 } from 'use-intl/core';
 import en from '@/messages/en.json';
-import { type CatalogLocale, TIME_ZONE } from './config';
+import type { CatalogLocale } from './config';
+import { TIME_ZONE } from './time-zone';
 
 /** A top-level namespace of the catalog (`common`) or one inside it (`common.footer`). */
 export type Namespace = NamespaceKeys<Messages, NestedKeyOf<Messages>>;

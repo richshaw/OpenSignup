@@ -38,9 +38,34 @@ export const SHIPPED = {
   site: ['en'],
 } as const satisfies Record<Audience, readonly CatalogLocale[]>;
 
+/** Whether `value` is a language shipped to `audience`, so one it may be offered. */
+export function isShipped(audience: Audience, value: unknown): value is CatalogLocale {
+  return (SHIPPED[audience] as readonly unknown[]).includes(value);
+}
+
+function hasCatalog(value: unknown): value is CatalogLocale {
+  return (CATALOG_LOCALES as readonly unknown[]).includes(value);
+}
+
 /**
- * The time zone every translator formats dates in. Slot dates and times are
- * wall-clock values with no zone of their own, so formatting them in the
- * server's or the browser's zone could move them to another day.
+ * The language a stored value means, such as a signup's `settings.locale`: the
+ * value when it names a catalog, else `fallback`. Stored languages are lenient
+ * (one that is unknown, or whose catalog has gone, must not break the row it is
+ * in), so whatever reads one reads it through this.
  */
-export const TIME_ZONE = 'UTC';
+export function resolveLocale(value: unknown, fallback: CatalogLocale): CatalogLocale {
+  return hasCatalog(value) ? value : fallback;
+}
+
+/**
+ * The language for `audience` when nothing more specific applies: the
+ * instance's `DEFAULT_LOCALE` when it has shipped to that audience, else
+ * English. An operator who sets a language before it ships gets English pages
+ * rather than half-translated ones.
+ */
+export function defaultFor(
+  audience: Audience,
+  instanceDefault: CatalogLocale | undefined,
+): CatalogLocale {
+  return isShipped(audience, instanceDefault) ? instanceDefault : 'en';
+}

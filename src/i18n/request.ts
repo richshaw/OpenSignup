@@ -1,5 +1,5 @@
 import { getRequestConfig } from 'next-intl/server';
-import { TIME_ZONE } from './config';
+import { TIME_ZONE } from './time-zone';
 
 /**
  * next-intl's request config. The plugin in next.config.mjs requires one, and
