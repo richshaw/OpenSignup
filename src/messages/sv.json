@@ -316,6 +316,113 @@
     "saveNotice": {
       "saved": "Sparat"
     },
+    "build": {
+      "rail": {
+        "editing": "Ändrar",
+        "fields": "Fält ({count, number})",
+        "saving": "Sparar…"
+      },
+      "sheet": {
+        "titlePlaceholder": "Namnlös anmälningslista",
+        "titleLabel": "Anmälningslistans titel",
+        "descriptionPlaceholder": "Lägg till en kort beskrivning för deltagarna",
+        "descriptionLabel": "Anmälningslistans beskrivning",
+        "addDate": "Lägg till datum"
+      },
+      "group": {
+        "header": "Grupprubrik – {heading}",
+        "renameFailed": "Ändringen sparades inte, så rubriken är som förut. Försök igen.",
+        "addSlot": "Lägg till ett pass"
+      },
+      "empty": {
+        "date": "Ange datum",
+        "time": "Ange tid",
+        "named": "Ange {label}",
+        "other": "Ange ett värde"
+      },
+      "slot": {
+        "untitled": "Pass",
+        "row": "Ändra {kind, select, time {passet kl. {name}} named {passet – {name}} other {passet}}, {count}",
+        "edit": "Ändra {kind, select, time {passet kl. {name}} named {passet – {name}} other {passet}}",
+        "duplicate": "Duplicera {kind, select, time {passet kl. {name}} named {passet – {name}} other {passet}}",
+        "delete": "Radera {kind, select, time {passet kl. {name}} named {passet – {name}} other {passet}}",
+        "editing": "Du ändrar {kind, select, time {passet kl. {name}} named {passet – {name}} other {passet}}",
+        "taken": "{taken, plural, one {{taken, number} upptagen} other {{taken, number} upptagna}}",
+        "takenOf": "{taken, plural, one {{taken, number} av {capacity, number} upptagen} other {{taken, number} av {capacity, number} upptagna}}"
+      },
+      "editor": {
+        "title": "Ändra pass",
+        "duplicate": "Duplicera",
+        "delete": "Radera",
+        "done": "Klart",
+        "signedUp": "{taken, plural, one {{taken, number} person är anmäld till det här passet.} other {{taken, number} personer är anmälda till det här passet.}} {reminders, select, on {Om du ändrar datum eller tid får {taken, plural, one {personen} other {de}} ett mejl om det.} other {Påminnelserna är avstängda, så {taken, plural, one {personen} other {de}} får inget mejl om du ändrar datum eller tid.}}",
+        "value": "Värde för {field}",
+        "spots": "Platser",
+        "noLimit": "Inget tak",
+        "spotsHelp": "Hur många platser passet har. Lämna tomt för obegränsat antal.",
+        "noTime": "Ingen tid"
+      },
+      "placeholder": {
+        "text": "t.ex. Ta med servetter",
+        "date": "ÅÅÅÅ-MM-DD",
+        "number": "t.ex. 12"
+      },
+      "fieldType": {
+        "text": "Kort text",
+        "date": "Datum",
+        "time": "Tid",
+        "number": "Tal",
+        "enum": "Lista"
+      },
+      "list": {
+        "choose": "Välj…",
+        "empty": "Inga alternativ ännu.",
+        "newItem": "Skriv ett nytt alternativ",
+        "newItemLabel": "Namn på det nya alternativet",
+        "count": "{length, number}/{max, number}{atMax, select, yes { · max} other {}}",
+        "add": "Lägg till",
+        "maxLength": "Högst {max, number} tecken",
+        "full": "En lista rymmer högst {max, number} alternativ.",
+        "addToList": "Lägg till i listan"
+      },
+      "fields": {
+        "label": "Fält",
+        "title": "Fält · {count, number}",
+        "editTitle": "Ändra fält",
+        "newTitle": "Nytt fält",
+        "close": "Stäng",
+        "groupBy": "Gruppera passen efter",
+        "noGroup": "Gruppera inte",
+        "reorder": "Dra för att flytta",
+        "add": "Lägg till fält",
+        "empty": "Inga fält ännu – lägg till ett för att komma igång.",
+        "reminder": "Påminnelser skickas {hours, plural, =24 {dagen före} one {# timme före} other {# timmar före}} det här datumet",
+        "typeCount": "{type} · {count, number}",
+        "delete": "Radera {field}"
+      },
+      "fieldForm": {
+        "backLabel": "Tillbaka till fälten",
+        "back": "Tillbaka",
+        "name": "Namn",
+        "namePlaceholder": "t.ex. Lärare, Ämne, Sak",
+        "nameLabel": "Fältets namn",
+        "type": "Typ",
+        "reminder": "Skicka ett påminnelsemejl före det här datumet",
+        "reminderHelp": "Skickas {hours, plural, =24 {dagen innan} one {# timme innan} other {# timmar innan}}. Ett datumfält per anmälningslista styr påminnelserna, och deltagarna kan stänga av sina påminnelser.",
+        "reminderTaken": "<field>{label}</field> är redan påminnelsefältet för den här anmälningslistan. Stäng av påminnelsen där om du vill använda det här fältet i stället.",
+        "remove": "Ta bort fält",
+        "cancel": "Avbryt",
+        "save": "Spara",
+        "add": "Lägg till fält"
+      },
+      "refusal": {
+        "dateTooEarly": "Datum måste vara år {year, number, ::group-off} eller senare.",
+        "slotsMoved": "Passen har ändrats i ett annat fönster, så flytten sparades inte. Dra passet igen.",
+        "fieldsMoved": "Fälten har ändrats i ett annat fönster, så flytten sparades inte. Dra fältet igen.",
+        "capacityBelowTaken": "{taken, plural, one {{taken, number} plats är redan upptagen. Ge passet minst {taken, number} plats.} other {{taken, number} platser är redan upptagna. Ge passet minst {taken, number} platser.}}",
+        "invalidatesSlotValues": "Vissa pass har värden som inte fungerar med den här ändringen. Ändra de passen först."
+      }
+    },
     "responses": {
       "summary": {
         "signUps": "{count, plural, one {{count, number} anmälan} other {{count, number} anmälningar}}",
