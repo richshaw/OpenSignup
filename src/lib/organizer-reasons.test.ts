@@ -22,11 +22,11 @@ import { refusalText } from './organizer-errors';
  * (but for a `refusal`, whose message is the AI's own explanation). The
  * English is as each screen read before there were reasons.
  *
- * The New signup form's words come from the catalog (`organizer.errors`), in
- * the organizer's language. The Build tab's, Magic Compose's and the
- * header's are still written in their components, and move into the catalog
- * with the rest of those screens' text, when these cases switch to the
- * catalog too.
+ * The New signup form's and the Build tab's words come from the catalog
+ * (`organizer.errors`, `organizer.build`), in the organizer's language.
+ * Magic Compose's and the header's are still written in their components,
+ * and move into the catalog with the rest of those screens' text, when these
+ * cases switch to the catalog too.
  */
 const PARTICIPANT_REASONS = [
   'email_required',
@@ -54,6 +54,8 @@ const sent = (
 });
 
 const t = getTestTranslator('organizer.errors');
+const buildTab = (error: ReturnType<typeof sent>) =>
+  saveErrorMessage(error, { build: getTestTranslator('organizer.build'), errors: t });
 const answered: FollowUp = { what: { picked: ['Bake something'], added: [] } };
 const draftText = (status: number, error: ReturnType<typeof sent>, followUp?: FollowUp) => {
   const said = explainDraftFailure(status, error, followUp ? { followUp } : {});
@@ -72,28 +74,28 @@ const CASES = {
     error: sent('invalid_input', 'title_too_short', { field: 'title' }),
     screens: {
       'New signup': (error) => refusalText(t, error),
-      'Build tab': saveErrorMessage,
+      'Build tab': buildTab,
     },
     english: 'Title must be at least 2 characters.',
   },
   date_too_early: {
     error: sent('invalid_input', 'date_too_early', { field: 'date', received: '1899-12-31' }),
-    screens: { 'Build tab': saveErrorMessage },
+    screens: { 'Build tab': buildTab },
     english: '"date" must be a date in 1900 or later',
   },
   slot_ids_mismatch: {
     error: sent('invalid_input', 'slot_ids_mismatch', { field: 'slotIds' }),
-    screens: { 'Build tab': saveErrorMessage },
+    screens: { 'Build tab': buildTab },
     english: "The slots changed in another window, so your move wasn't saved. Drag it again.",
   },
   field_ids_mismatch: {
     error: sent('invalid_input', 'field_ids_mismatch', { field: 'fieldIds' }),
-    screens: { 'Build tab': saveErrorMessage },
+    screens: { 'Build tab': buildTab },
     english: "The fields changed in another window, so your move wasn't saved. Drag it again.",
   },
   slot_has_signups: {
     error: sent('conflict', 'slot_has_signups', { field: 'slotId', details: { filled: 2 } }),
-    screens: { 'Build tab': saveErrorMessage },
+    screens: { 'Build tab': buildTab },
     english: '2 people have signed up for this slot',
   },
   capacity_below_taken: {
@@ -102,12 +104,12 @@ const CASES = {
       received: 1,
       details: { taken: 2 },
     }),
-    screens: { 'Build tab': saveErrorMessage },
+    screens: { 'Build tab': buildTab },
     english: 'capacity (1) is less than active quantity (2)',
   },
   invalidates_slot_values: {
     error: sent('conflict', 'invalidates_slot_values', { details: { count: 1 } }),
-    screens: { 'Build tab': saveErrorMessage },
+    screens: { 'Build tab': buildTab },
     english: 'change would invalidate existing slot values',
   },
   status_changed: {

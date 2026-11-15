@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useRegisterBuildTab } from '@/components/signup/BuildBridge';
 import {
   useBuildState,
@@ -41,10 +42,12 @@ type BuildWysiwygProps = {
   /**
    * The signup's language, the one its participants get. Group headings sort
    * in its alphabetical order, so the server's render and the browser's
-   * agree: each sorting in its own language could disagree. Dates and times
-   * here stay English, like the rest of the organizer's screens for now:
-   * they're formatted in the browser too, whose ICU can abbreviate a
-   * language's days differently from the server's.
+   * agree: each sorting in its own language could disagree. The tab's own
+   * words are the organizer's, from the messages its page gives
+   * `ClientMessages`, so a signup in one language can be built in another.
+   * Dates and times here stay English for now: they're formatted in the
+   * browser too, whose ICU can abbreviate a language's days differently from
+   * the server's.
    */
   locale: CatalogLocale;
   /** What a new field gets for what the organizer leaves unset, in the signup's language. */
@@ -123,6 +126,7 @@ export function BuildWysiwyg({
   locale,
   fieldDefaults,
 }: BuildWysiwygProps) {
+  const t = useTranslations('organizer.build.sheet');
   const {
     state,
     updateSignupMeta,
@@ -369,8 +373,8 @@ export function BuildWysiwyg({
           <Editable
             value={state.title}
             onChange={(next) => updateSignupMeta({ title: next })}
-            placeholder="Untitled signup"
-            ariaLabel="Signup title"
+            placeholder={t('titlePlaceholder')}
+            ariaLabel={t('titleLabel')}
             className="-mx-1 -my-0.5 block px-1 py-0.5 text-[22px] font-bold tracking-[-0.02em] text-ink"
           />
 
@@ -378,9 +382,9 @@ export function BuildWysiwyg({
             <Editable
               value={state.description}
               onChange={(next) => updateSignupMeta({ description: next })}
-              placeholder="Add a short description for volunteers"
+              placeholder={t('descriptionPlaceholder')}
               multiline
-              ariaLabel="Signup description"
+              ariaLabel={t('descriptionLabel')}
               className="-mx-1 -my-0.5 block px-1 py-0.5 text-[13px] leading-snug text-ink-muted"
             />
           </div>
@@ -440,7 +444,7 @@ export function BuildWysiwyg({
               className="mt-5 inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-dashed border-surface-sunk bg-transparent px-3.5 py-1.5 text-xs font-medium text-ink-muted transition-colors duration-180 hover:border-brand hover:bg-brand-soft hover:text-brand"
             >
               <Plus size={12} />
-              Add date
+              {t('addDate')}
             </button>
           )}
         </div>

@@ -28,6 +28,10 @@ const TRANSLATED = [
   // signup's Settings tab, the delete form included.
   'src/components/ui/save-notice.tsx',
   'src/app/app/(chrome)/signups/[id]/settings',
+  // A signup's Build tab: the page, and the client components it renders.
+  'src/app/app/(chrome)/signups/[id]/build',
+  'src/components/build-wysiwyg',
+  'src/components/build-shared',
   // Everything a participant sees under a signup's address: its page, the
   // sign-up sheet, the pages for changing or cancelling a spot and for
   // turning reminders off, both not-found pages, and the copy helpers.
