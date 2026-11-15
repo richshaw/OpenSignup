@@ -487,7 +487,7 @@
       "descriptionPlaceholder": "Ett stycke som visas överst på anmälningslistans sida.",
       "cancel": "Avbryt",
       "creating": "Skapar…",
-      "create": "Skapa anmälningslista"
+      "create": "Skapa lista"
     },
     "compose": {
       "eyebrow": "Ny anmälningslista",
@@ -511,7 +511,7 @@
         "classroom": {
           "label": "Klass eller skola",
           "blurb": "Knytkalas, utvecklingssamtal, insamlingar, volontärdagar",
-          "body": "Knytkalas för klass 3 när terminen slutar, sista fredagen i månaden kl. 17. 20 familjer tar med en rätt var: vi behöver 5 familjer till varmrätter, 5 till tillbehör, 5 till efterrätter och 5 till dricka."
+          "body": "Knytkalas för klass 3 vid läsårets slut, sista fredagen i månaden kl. 17. 20 familjer tar med var sin rätt: vi behöver 5 familjer som tar med varmrätt, 5 tillbehör, 5 efterrätt och 5 dricka."
         },
         "community": {
           "label": "Volontärpass",
@@ -543,7 +543,7 @@
         "slots": "Skapar pass",
         "check": "Snyggar till",
         "details": "Några detaljer",
-        "readShort": "Läsning",
+        "readShort": "Läst",
         "draftShort": "Utkast"
       },
       "drafting": {
