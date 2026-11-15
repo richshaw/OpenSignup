@@ -38,7 +38,17 @@ const PARTICIPANT_REASONS = [
   'quantity_too_large',
   'quantity_not_whole',
 ] as const satisfies readonly ErrorReason[];
-type OrganizerReason = Exclude<ErrorReason, (typeof PARTICIPANT_REASONS)[number]>;
+/**
+ * Reasons only API callers get, which no screen words: `slot_has_signups`
+ * refuses deleting a slot people hold unless the caller forces it, and the
+ * Build tab's Delete always forces (`DELETE /api/slots/[id]`), so only the AI
+ * connector's `delete_slot` meets it.
+ */
+const API_ONLY_REASONS = ['slot_has_signups'] as const satisfies readonly ErrorReason[];
+type OrganizerReason = Exclude<
+  ErrorReason,
+  (typeof PARTICIPANT_REASONS)[number] | (typeof API_ONLY_REASONS)[number]
+>;
 
 /** What the server sends, its English `message` and `suggestion` swapped for words no screen may show. */
 const sent = (
@@ -93,11 +103,6 @@ const CASES = {
     screens: { 'Build tab': buildTab },
     english: "The fields changed in another window, so your move wasn't saved. Drag it again.",
   },
-  slot_has_signups: {
-    error: sent('conflict', 'slot_has_signups', { field: 'slotId', details: { filled: 2 } }),
-    screens: { 'Build tab': buildTab },
-    english: '2 people have signed up for this slot',
-  },
   capacity_below_taken: {
     error: sent('conflict', 'capacity_below_taken', {
       field: 'capacity',
@@ -151,6 +156,13 @@ describe('every reason an organizer screen can receive', () => {
       expect(said).not.toBe(SAVE_ERROR_MESSAGE[error.code]);
       if (reason !== 'refusal') expect(said).not.toContain('Server');
     });
+  });
+
+  it('leaves slot_has_signups to API callers: the Build tab would give it its code’s line', () => {
+    for (const reason of API_ONLY_REASONS) {
+      const error = sent('conflict', reason, { field: 'slotId', details: { filled: 2 } });
+      expect(buildTab(error)).toBe(SAVE_ERROR_MESSAGE.conflict);
+    }
   });
 
   it('includes the reopen line for a signup with no slots', () => {

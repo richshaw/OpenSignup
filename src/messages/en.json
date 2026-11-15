@@ -478,7 +478,6 @@
         "dateTooEarly": "\"{field}\" must be a date in {year, number, ::group-off} or later",
         "slotsMoved": "The slots changed in another window, so your move wasn't saved. Drag it again.",
         "fieldsMoved": "The fields changed in another window, so your move wasn't saved. Drag it again.",
-        "slotHasSignups": "{filled, plural, one {{filled, number, ::group-off} person has} other {{filled, number, ::group-off} people have}} signed up for this slot",
         "capacityBelowTaken": "capacity ({capacity, number, ::group-off}) is less than active quantity ({taken, number, ::group-off})",
         "invalidatesSlotValues": "change would invalidate existing slot values"
       }

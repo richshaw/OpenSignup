@@ -23,7 +23,10 @@ export type RefusalTranslators = {
  *
  * A reason whose words name a value the error doesn't carry gets its code's
  * line, rather than words with a gap in them, and a code the catalog doesn't
- * know gets the line for `internal`.
+ * know gets the line for `internal`. `slot_has_signups` never reaches the
+ * tab: its Delete always forces (`DELETE /api/slots/[id]`), so only the AI
+ * connector's `delete_slot` is refused with it, and it gets its code's line
+ * like any reason the tab doesn't word.
  */
 export function saveErrorMessage(error: SaveError, { build, errors }: RefusalTranslators): string {
   const details = error.details ?? {};
@@ -40,11 +43,6 @@ export function saveErrorMessage(error: SaveError, { build, errors }: RefusalTra
       return build('refusal.slotsMoved');
     case 'field_ids_mismatch':
       return build('refusal.fieldsMoved');
-    case 'slot_has_signups': {
-      const filled = details.filled;
-      if (typeof filled === 'number') return build('refusal.slotHasSignups', { filled });
-      break;
-    }
     case 'capacity_below_taken':
       if (typeof error.received === 'number' && typeof details.taken === 'number') {
         return build('refusal.capacityBelowTaken', {

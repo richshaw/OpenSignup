@@ -63,14 +63,6 @@ describe('saveErrorMessage', () => {
   // organizer-reasons.db.test.ts pins them.
   it.each([
     [
-      { code: 'conflict', field: 'slotId', details: { reason: 'slot_has_signups', filled: 1 } },
-      '1 person has signed up for this slot',
-    ],
-    [
-      { code: 'conflict', field: 'slotId', details: { reason: 'slot_has_signups', filled: 3 } },
-      '3 people have signed up for this slot',
-    ],
-    [
       {
         code: 'conflict',
         field: 'capacity',
@@ -91,9 +83,6 @@ describe('saveErrorMessage', () => {
     expect(said({ code: 'invalid_input', details: { reason: 'date_too_early' } })).toBe(
       'Some values weren’t accepted.',
     );
-    expect(said({ code: 'conflict', details: { reason: 'slot_has_signups' } })).toBe(
-      'Reload to see the latest changes.',
-    );
     expect(
       said({
         code: 'conflict',
@@ -107,6 +96,15 @@ describe('saveErrorMessage', () => {
     for (const code of Object.keys(SAVE_ERROR_MESSAGE) as ErrorCode[]) {
       expect(said({ code })).toBe(SAVE_ERROR_MESSAGE[code]);
     }
+    // A deleted slot people hold, which only the AI connector is refused: the
+    // tab's Delete always forces.
+    expect(
+      said({
+        code: 'conflict',
+        field: 'slotId',
+        details: { reason: 'slot_has_signups', filled: 2 },
+      }),
+    ).toBe('Reload to see the latest changes.');
     // A participant's reason, or one the tab doesn't know.
     expect(said({ code: 'invalid_input', details: { reason: 'quantity_too_large' } })).toBe(
       'Some values weren’t accepted.',
@@ -138,10 +136,6 @@ describe('saveErrorMessage', () => {
       [
         { code: 'invalid_input', details: { reason: 'field_ids_mismatch' } },
         'organizer.build.refusal.fieldsMoved in sv',
-      ],
-      [
-        { code: 'conflict', details: { reason: 'slot_has_signups', filled: 2 } },
-        'organizer.build.refusal.slotHasSignups in sv',
       ],
       [
         { code: 'conflict', received: 1, details: { reason: 'capacity_below_taken', taken: 2 } },

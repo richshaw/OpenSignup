@@ -24,13 +24,15 @@ describe('<SaveStatus />', () => {
       <SaveStatus
         status={{
           kind: 'error',
-          code: 'conflict',
-          field: 'slotId',
-          details: { reason: 'slot_has_signups', filled: 2, commitments: 1 },
+          code: 'invalid_input',
+          field: 'slotIds',
+          details: { reason: 'slot_ids_mismatch' },
         }}
       />,
     );
-    expect(screen.getByRole('status')).toHaveTextContent('2 people have signed up for this slot');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "The slots changed in another window, so your move wasn't saved. Drag it again.",
+    );
   });
 
   it('says Saving… and Saved', () => {

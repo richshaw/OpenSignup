@@ -13,7 +13,7 @@
     "/help/[slug]": 113,
     "/app/signups/new": 118,
     "/app/signups/[id]": 130,
-    "/app/signups/[id]/build": 151.2,
+    "/app/signups/[id]/build": 151.1,
     "/app/signups/[id]/edit": 130,
     "/app/signups/[id]/preview": 130.5,
     "/app/signups/[id]/responses": 132,
