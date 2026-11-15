@@ -150,6 +150,10 @@ const CASES = {
 
 describe('every reason an organizer screen can receive', () => {
   describe.each(Object.entries(CASES))('%s', (reason, { error, screens, english }) => {
+    it('names at least one screen that words it', () => {
+      expect(Object.keys(screens)).not.toHaveLength(0);
+    });
+
     it.each(Object.entries(screens))('has words of its own on %s', (_screen, words) => {
       const said = words(error);
       expect(said).toBe(english);
