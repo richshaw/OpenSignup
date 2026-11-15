@@ -6,6 +6,7 @@ import {
   sanitizeEnumChoices,
   type SlotFieldInput,
 } from '@/schemas/slot-fields';
+import type { DraftWarning } from './draft-warnings';
 import type { MagicComposeDraft } from './prompt';
 
 type CoercedValue = string | number;
@@ -65,32 +66,23 @@ export interface MagicComposeConversion {
   dropped: DroppedSummary;
 }
 
-/** Build short user-facing warnings the build page can surface in a banner. */
-export function buildWarnings(dropped: DroppedSummary): string[] {
-  const out: string[] = [];
+/**
+ * What the conversion changed, as warnings the build page shows in a banner,
+ * each a code with its arguments (see `DraftWarning`), in this order.
+ */
+export function draftWarnings(dropped: DroppedSummary): DraftWarning[] {
+  const out: DraftWarning[] = [];
   if (dropped.coercionFailures.length > 0) {
-    const n = dropped.coercionFailures.length;
-    out.push(
-      n === 1
-        ? "1 value was left blank because it didn't fit its field. Fill it in below."
-        : `${n} values were left blank because they didn't fit their fields. Fill them in below.`,
-    );
+    out.push({ code: 'values_blanked', count: dropped.coercionFailures.length });
   }
   if (dropped.emptyEnumFields.length > 0) {
-    const labels = dropped.emptyEnumFields.join(', ');
-    out.push(
-      `Field${dropped.emptyEnumFields.length === 1 ? '' : 's'} ${labels} arrived without a fixed list of options, so ${dropped.emptyEnumFields.length === 1 ? 'it was' : 'they were'} switched to free text.`,
-    );
+    out.push({ code: 'enum_fields_to_text', fields: [...dropped.emptyEnumFields] });
   }
   if (dropped.duplicateRefs.length > 0) {
-    out.push(
-      `Removed ${dropped.duplicateRefs.length} duplicate field${dropped.duplicateRefs.length === 1 ? '' : 's'} the AI tried to add twice.`,
-    );
+    out.push({ code: 'duplicate_fields', count: dropped.duplicateRefs.length });
   }
   if (dropped.strayValueKeys.length > 0) {
-    out.push(
-      `Ignored ${dropped.strayValueKeys.length} stray value${dropped.strayValueKeys.length === 1 ? '' : 's'} that didn't match any field.`,
-    );
+    out.push({ code: 'stray_values', count: dropped.strayValueKeys.length });
   }
   return out;
 }

@@ -48,7 +48,8 @@ const TRANSLATED = [
   'src/app/app/(chrome)/@crumbs',
   'src/components/chrome',
   'src/components/signup/SignupLoadError.tsx',
-  // New signup: the form, and Magic Compose's screens.
+  // New signup: the form, and Magic Compose's screens, its questions and the
+  // banner on a draft it made included.
   'src/app/app/(chrome)/signups/new',
   'src/components/magic-compose',
 ];
@@ -56,15 +57,9 @@ const TRANSLATED = [
 /**
  * Files inside a `TRANSLATED` folder whose text hasn't moved yet, left out of
  * the rules until it does, written as in `TRANSLATED`. The sign-in email is
- * organizer text, which moves to the catalogs after the participant's. Magic
- * Compose's questions and the banner on a draft it made move after its other
- * screens.
+ * organizer text, which moves to the catalogs after the participant's.
  */
-const NOT_YET_TRANSLATED = [
-  'src/email/templates/magic-link.tsx',
-  'src/components/magic-compose/Questions.tsx',
-  'src/components/magic-compose/AiDraftBanner.tsx',
-];
+const NOT_YET_TRANSLATED = ['src/email/templates/magic-link.tsx'];
 
 /**
  * Glob patterns for `files` that match exactly `paths`, each a file or a
@@ -105,7 +100,13 @@ const I18N = path.join(SRC, 'i18n');
  * extension. One goes on the list only if it loads no catalog, now or through
  * anything it imports.
  */
-const CLIENT_SAFE_I18N = ['i18n/config'].map((module) => path.join(SRC, module));
+const CLIENT_SAFE_I18N = [
+  'i18n/config',
+  // Takes its messages as a prop, and imports only types from the translator.
+  // A client component wraps a part it loads lazily in it, so the messages
+  // provider stays out of the page's first JavaScript (AiDraftWarnings).
+  'i18n/ClientMessages',
+].map((module) => path.join(SRC, module));
 
 /** What a client component does for its text instead. */
 const CLIENT_TEXT_INSTEAD =

@@ -18,8 +18,11 @@ export interface OrganizerIn {
    * with one slot, "Cookies", that holds 5.
    */
   open: { id: string; slug: string; slotId: string };
-  /** A draft of theirs, whose page tells its own organizer about it. */
-  draft: { slug: string };
+  /**
+   * A draft of theirs, whose page tells its own organizer about it, as a new
+   * signup starts: two fields and one slot.
+   */
+  draft: { id: string; slug: string };
 }
 
 function unwrap<T>(
@@ -117,6 +120,6 @@ export async function createOrganizerIn(
   return {
     sessionToken: await createDisposableSession(organizerId),
     open: { id: open.id, slug: open.slug, slotId: slot.id },
-    draft: { slug: draft.slug },
+    draft: { id: draft.id, slug: draft.slug },
   };
 }

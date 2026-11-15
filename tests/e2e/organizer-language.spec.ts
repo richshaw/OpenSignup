@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draft-warnings';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { getTranslator, type Namespace } from '@/i18n/translator';
 import { loginAsSeededOrganizer } from './helpers/auth';
@@ -323,6 +324,147 @@ for (const stored of STORED) {
       );
       await expect(page.getByRole('link', { name: newSignup('cancel') })).toBeVisible();
       await expect(page.getByRole('button', { name: newSignup('create') })).toBeVisible();
+      expect(hydration).toEqual([]);
+    });
+
+    test(`answers Magic Compose’s questions in ${locale}`, async ({ page }) => {
+      const newSignup = messagesIn(locale, 'organizer.newSignup');
+      const compose = messagesIn(locale, 'organizer.compose');
+      const questions = messagesIn(locale, 'organizer.compose.questions');
+      const warnings = messagesIn(locale, 'organizer.aiDraft.warnings');
+      const hydration = watchForHydrationErrors(page);
+
+      await page.goto('/app/signups/new');
+      const heading = page.getByRole('heading', { level: 1 });
+      await expect(heading).toHaveText(
+        new RegExp(`^(${escaped(compose('heading'))}|${escaped(newSignup('title'))})$`),
+      );
+      test.skip(
+        (await heading.textContent()) !== compose('heading'),
+        'Magic Compose is off on this server (no LLM_BASE_URL)',
+      );
+
+      // The AI asks first, then drafts from the answers, as the route answers;
+      // the draft it "made" is the organizer's seeded one.
+      const replies: unknown[] = [
+        {
+          data: {
+            questions: {
+              topics: ['what', 'when', 'how_many'],
+              whatOptions: ['Bake', 'Staff the table'],
+            },
+          },
+        },
+        {
+          data: {
+            id: organizer.draft.id,
+            slug: organizer.draft.slug,
+            draft: {
+              title: 'Bake sale',
+              description: '',
+              fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+              slots: [{ values: { what: 'Staff the table' }, capacity: 1 }],
+            },
+            warnings: ["1 value was left blank because it didn't fit its field. Fill it in below."],
+            codedWarnings: [{ code: 'values_blanked', count: 1 }],
+          },
+        },
+      ];
+      const sent: unknown[] = [];
+      await page.route('**/api/signups/magic-compose', (route) => {
+        sent.push(route.request().postDataJSON());
+        return route.fulfill({ json: replies.shift() });
+      });
+      await page.getByRole('textbox', { name: compose('describe') }).fill('Bake sale');
+      await page.getByRole('button', { name: compose('draft') }).click();
+
+      const asked = page.getByRole('heading', { level: 1, name: questions('heading') });
+      await expect(asked).toBeVisible();
+      expect(await languageOf(asked), unshippedHint).toBe(locale);
+      await expect(page.getByText(questions('intro'))).toBeVisible();
+      await expect(page.getByText(questions('what.ask'))).toBeVisible();
+      await page.getByRole('button', { name: 'Staff the table' }).click();
+      await page
+        .getByRole('button', { name: questions('howMany.more', { item: 'Staff the table' }) })
+        .click();
+      await expect(
+        page.getByRole('spinbutton', {
+          name: questions('howMany.people', { item: 'Staff the table' }),
+        }),
+      ).toHaveValue('1');
+      await expect(page.getByRole('radio', { name: questions('when.oneDay') })).toBeChecked();
+      await expect(page.getByLabel(questions('when.starts'))).toContainText(
+        questions('when.noTime'),
+      );
+
+      // A start time with no date can't go, and the screen says why.
+      await page.getByLabel(questions('when.starts')).selectOption('09:00');
+      await page.getByRole('button', { name: compose('draft') }).click();
+      const problem = page.getByRole('main').getByRole('alert');
+      await expect(problem).toHaveText(questions('problems.noDate'));
+      expect(await languageOf(problem)).toBe(locale);
+      await page.getByLabel(questions('when.date')).fill('2026-11-14');
+      await page.getByRole('button', { name: compose('draft') }).click();
+
+      // Drafting, then the draft's page, whose banner words the warning's code.
+      await expect(page).toHaveURL(
+        new RegExp(`/app/signups/${organizer.draft.id}/build\\?aiDraft=1$`),
+        { timeout: 30_000 },
+      );
+      expect(sent[1]).toEqual({
+        prompt: 'Bake sale',
+        followUp: {
+          what: { picked: ['Staff the table'], added: [] },
+          when: { kind: 'one_day', date: '2026-11-14', from: '09:00' },
+          howMany: [1],
+        },
+      });
+      const box = page.getByRole('status').filter({ hasText: warnings('heading') });
+      await expect(box.getByRole('listitem')).toHaveText([warnings('valuesBlanked', { count: 1 })]);
+      expect(hydration).toEqual([]);
+    });
+
+    test(`sees the banner on a draft Magic Compose made, and its warnings, in ${locale}`, async ({
+      page,
+    }) => {
+      const aiDraft = messagesIn(locale, 'organizer.aiDraft');
+      const warnings = messagesIn(locale, 'organizer.aiDraft.warnings');
+      const hydration = watchForHydrationErrors(page);
+      const build = `/app/signups/${organizer.draft.id}/build`;
+
+      // What Magic Compose changed, as the tab keeps it: codes with their
+      // arguments, and a sentence kept by a tab from before they had codes,
+      // which isn't shown.
+      await page.goto(build);
+      await page.evaluate(
+        ([key, kept]) => window.sessionStorage.setItem(key, JSON.stringify(kept)),
+        [
+          `${AI_DRAFT_WARNINGS_KEY_PREFIX}${organizer.draft.id}`,
+          [
+            'Removed 1 duplicate field the AI tried to add twice.',
+            { code: 'values_blanked', count: 2 },
+            { code: 'enum_fields_to_text', fields: ['role'] },
+            { code: 'text_cut', field: 'description', max: 2000 },
+          ],
+        ] as const,
+      );
+      await page.goto(`${build}?aiDraft=1`);
+
+      const banner = page.getByRole('status').filter({ hasText: aiDraft('body') });
+      // A new signup starts with two fields and one slot.
+      await expect(banner).toContainText(aiDraft('title', { fields: 2, slots: 1 }));
+      expect(await languageOf(banner), unshippedHint).toBe(locale);
+      const box = page.getByRole('status').filter({ hasText: warnings('heading') });
+      await expect(box.getByRole('listitem')).toHaveText([
+        warnings('valuesBlanked', { count: 2 }),
+        warnings('enumFieldsToText', { count: 1, fields: 'role' }),
+        warnings('descriptionCut', { max: 2000 }),
+      ]);
+      expect(await languageOf(box)).toBe(locale);
+
+      await banner.getByRole('button', { name: aiDraft('dismiss') }).click();
+      await expect(box).toBeHidden();
+      await expect(page).toHaveURL(new RegExp(`${escaped(build)}$`));
       expect(hydration).toEqual([]);
     });
   });

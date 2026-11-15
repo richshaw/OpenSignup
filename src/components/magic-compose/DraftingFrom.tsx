@@ -25,13 +25,14 @@ export function DraftingFrom({
   locale: string;
 }) {
   const t = useTranslations('organizer.compose.draftingFrom');
+  const answers = useTranslations('organizer.compose.answers');
   const items = followUpItems(followUp);
   const { when, howMany } = followUp;
   const blanks = (items.length === 0 ? 1 : 0) + (when?.kind === 'not_decided' ? 1 : 0);
   const countLabel = (count: number | null) =>
     count === null ? t('noLimit') : t('people', { count });
   const oneDay = (when: Parameters<typeof formatOneDay>[0]) => {
-    const { day, times } = formatOneDay(when, locale);
+    const { day, times } = formatOneDay(when, locale, answers);
     return times ? t('dayAndTimes', { day, times }) : day;
   };
 

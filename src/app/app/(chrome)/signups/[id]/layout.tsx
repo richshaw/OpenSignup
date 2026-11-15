@@ -14,6 +14,8 @@ import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
 import { SignupLoadError, signupNotFoundTitle } from '@/components/signup/SignupLoadError';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { getServerTranslator } from '@/i18n/server';
+import { messagesFor } from '@/i18n/translator';
 import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, closeQuestionAction, publishAction, reopenAction } from './actions';
 
@@ -67,6 +69,8 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   }
   const publicUrl = publicSignupUrl(sig.slug);
   const status = sig.status as SignupStatus;
+  const locale = getOrganizerAppLocale(session);
+  const aiDraft = getServerTranslator(locale, 'organizer.aiDraft');
 
   return (
     // The header reaches the Build tab through this: Publish saves its edits
@@ -100,8 +104,13 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
         <AiDraftBanner
           signupId={id}
           signupStatus={sig.status}
-          fieldsCount={sig.fields.length}
-          slotsCount={sig.slots.length}
+          text={{
+            title: aiDraft('title', { fields: sig.fields.length, slots: sig.slots.length }),
+            body: aiDraft('body'),
+            dismiss: aiDraft('dismiss'),
+          }}
+          locale={locale}
+          warningMessages={messagesFor(locale, 'organizer.aiDraft.warnings')}
         />
         <TabsNav
           signupId={id}

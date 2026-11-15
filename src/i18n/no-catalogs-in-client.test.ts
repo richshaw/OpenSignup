@@ -61,6 +61,10 @@ const ALLOWED = [
   ['React', "import { useState } from 'react';"],
   ['next-intl', "import { useTranslations } from 'next-intl';"],
   ['the i18n config, which has no catalog in it', "import { SHIPPED } from '@/i18n/config';"],
+  [
+    'ClientMessages, which takes its messages as a prop',
+    "import { ClientMessages } from '@/i18n/ClientMessages';",
+  ],
   ['a type from the translator', "import type { Namespace } from '@/i18n/translator';"],
   ['a type named inline', "import { type Namespace } from '@/i18n/translator';"],
   ['a type re-exported', "export type { Namespace } from '@/i18n/translator';"],
