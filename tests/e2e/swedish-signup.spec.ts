@@ -329,7 +329,10 @@ test.describe('the Swedish test signup', () => {
     await shot(page, 'page-signed-up');
   });
 
-  test('keeps its organizer’s strip English, marked lang="en"', async ({ page, context }) => {
+  test('shows its organizer’s strip in their language, English with none stored, marked lang="en"', async ({
+    page,
+    context,
+  }) => {
     await loginAsSeededOrganizer(context);
     await gotoSwedish(page, `/s/${slug}`);
     const strip = page.getByRole('navigation', { name: 'Organizer' });
@@ -339,7 +342,7 @@ test.describe('the Swedish test signup', () => {
     await expect(strip.getByRole('link', { name: 'Edit signup' })).toBeVisible();
   });
 
-  test('keeps the Preview banner English, marked lang="en", over a Swedish page', async ({
+  test('shows the Preview banner in the organizer’s language, English with none stored, marked lang="en", over a Swedish page', async ({
     page,
     context,
   }) => {

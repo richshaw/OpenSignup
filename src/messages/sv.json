@@ -466,7 +466,7 @@
       },
       "language": {
         "legend": "Språk",
-        "help": "OpenSignup visar dina sidor och skickar dina inloggningsmejl på det här språket. Varje anmälningslista du skapar får också det här språket från början, för knappar, meddelanden och datum som deltagarna ser. Vill du byta språk för en enskild anmälningslista gör du det under listans flik Inställningar.",
+        "help": "Dina sidor och nya anmälningslistor använder det här språket. Vill du byta språk för en enskild anmälningslista gör du det under listans flik Inställningar.",
         "save": "Spara",
         "saved": "Sparat",
         "switch": "Byt till <language>{name}</language> för {count, plural, one {din öppna anmälningslista} other {dina {count, number} öppna anmälningslistor}}",
