@@ -90,15 +90,6 @@
       "copyFailed": "Couldn't copy it. Select the link above and copy it yourself.",
       "done": "Done"
     },
-    "share": {
-      "signUp": "Sign up here, no account needed: {url}",
-      "spotsOpen": "{count, plural, one {{count, number, ::group-off} spot open} other {{count, number, ::group-off} spots open}}",
-      "spotsLeft": "{count, plural, one {{count, number, ::group-off} spot left} other {{count, number, ::group-off} spots left}}",
-      "dayAndTime": "{day}, {time}",
-      "dayRange": "{first} to {last}",
-      "twoDays": "{first} and {second}",
-      "threeDays": "{first}, {second} and {third}"
-    },
     "errors": {
       "capacity": {
         "filledUp": "Sorry, this slot just filled up.",
@@ -235,6 +226,15 @@
         "bodyWithEmail": "You'll get reminders for <b>{title}</b> again at {email}, and emails when your slot's date or time changes. You can stop them any time from the link in one."
       },
       "back": "Back to the signup"
+    },
+    "share": {
+      "signUp": "Sign up here, no account needed: {url}",
+      "spotsOpen": "{count, plural, one {{count, number, ::group-off} spot open} other {{count, number, ::group-off} spots open}}",
+      "spotsLeft": "{count, plural, one {{count, number, ::group-off} spot left} other {{count, number, ::group-off} spots left}}",
+      "dayAndTime": "{day}, {time}",
+      "dayRange": "{first} to {last}",
+      "twoDays": "{first} and {second}",
+      "threeDays": "{first}, {second} and {third}"
     }
   },
   "email": {
@@ -334,6 +334,412 @@
       },
       "goToSignups": "Go to your signups",
       "switchAccount": "Sign in with a different email"
+    },
+    "errors": {
+      "code": {
+        "forbidden": "You don’t have edit access.",
+        "unauthorized": "Sign in again to save.",
+        "conflict": "Reload to see the latest changes.",
+        "capacity_full": "Slot is full.",
+        "closed": "This signup is closed.",
+        "not_found": "No longer available.",
+        "invalid_input": "Some values weren’t accepted.",
+        "rate_limited": "Slow down — try again in a moment.",
+        "already_consumed": "Already used.",
+        "internal": "Save failed."
+      },
+      "titleTooShort": "Title must be at least {min, number, ::group-off} characters.",
+      "tooManySignups": "You’ve created a lot of signups in the last hour. Try again in about {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}.",
+      "disconnectFailed": "Could not disconnect. Try again."
+    },
+    "signupSettings": {
+      "signupForm": {
+        "title": "Sign-up form",
+        "askForEmail": "Ask for an email address",
+        "required": "Required",
+        "optional": "Optional",
+        "requiredHelp": "We email everyone their link to change or cancel.",
+        "optionalHelp": "People can leave it blank. They get no emails, not even reminders, so they need to save their link. If they lose it, they can sign up again and you can remove the old one on the Responses tab."
+      },
+      "language": {
+        "title": "Language",
+        "legend": "Signup language",
+        "help": "This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language."
+      },
+      "save": "Save",
+      "saving": "Saving…",
+      "dangerZone": {
+        "title": "Danger zone",
+        "body": "Deleting removes this signup from your dashboard and immediately makes its public link inaccessible."
+      },
+      "delete": {
+        "start": "Delete signup",
+        "label": "Confirm signup deletion",
+        "question": "This will delete the signup.",
+        "confirm": "Yes, delete signup",
+        "deleting": "Deleting…",
+        "cancel": "Cancel"
+      }
+    },
+    "saveNotice": {
+      "saved": "Saved"
+    },
+    "build": {
+      "rail": {
+        "editing": "Editing",
+        "fields": "Fields ({count, number, ::group-off})",
+        "saving": "Saving…"
+      },
+      "sheet": {
+        "titlePlaceholder": "Untitled signup",
+        "titleLabel": "Signup title",
+        "descriptionPlaceholder": "Add a short description for volunteers",
+        "descriptionLabel": "Signup description",
+        "addDate": "Add date"
+      },
+      "group": {
+        "header": "Group header — {heading}",
+        "renameFailed": "That change didn’t save, so this heading is back to what it was. Try again.",
+        "addSlot": "Add a slot"
+      },
+      "empty": {
+        "date": "Set a date",
+        "time": "Set a time",
+        "named": "Set {label}",
+        "other": "Set a value"
+      },
+      "slot": {
+        "untitled": "Slot",
+        "row": "Edit {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}, {count}",
+        "edit": "Edit {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}",
+        "duplicate": "Duplicate {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}",
+        "delete": "Delete {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}",
+        "editing": "Editing {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}",
+        "taken": "{taken, number, ::group-off} taken",
+        "takenOf": "{taken, number, ::group-off} of {capacity, number, ::group-off} taken"
+      },
+      "editor": {
+        "title": "Editing slot",
+        "duplicate": "Duplicate",
+        "delete": "Delete",
+        "done": "Done",
+        "signedUp": "{taken, plural, one {{taken, number, ::group-off} person is} other {{taken, number, ::group-off} people are}} signed up for this slot. {reminders, select, on {If you change its date or time, we’ll email them to let them know.} other {Reminders are off, so we won’t email them if you change it.}}",
+        "value": "{field} value",
+        "spots": "Spots",
+        "noLimit": "No limit",
+        "spotsHelp": "How many spots this slot has. Leave blank for no limit.",
+        "noTime": "No time"
+      },
+      "placeholder": {
+        "text": "e.g. Bring napkins",
+        "date": "YYYY-MM-DD",
+        "number": "e.g. 12"
+      },
+      "fieldType": {
+        "text": "Short text",
+        "date": "Date",
+        "time": "Time",
+        "number": "Number",
+        "enum": "List"
+      },
+      "list": {
+        "choose": "Choose…",
+        "empty": "No items yet.",
+        "newItem": "Type a new item",
+        "newItemLabel": "New option name",
+        "count": "{length, number, ::group-off}/{max, number, ::group-off}{atMax, select, yes { · max} other {}}",
+        "add": "Add",
+        "maxLength": "Up to {max, number, ::group-off} characters",
+        "full": "A list holds up to {max, number, ::group-off} items.",
+        "addToList": "Add to list"
+      },
+      "fields": {
+        "label": "Fields",
+        "title": "Fields · {count, number, ::group-off}",
+        "editTitle": "Edit field",
+        "newTitle": "New field",
+        "close": "Close",
+        "groupBy": "Group slots by",
+        "noGroup": "Don’t group",
+        "reorder": "Drag to reorder",
+        "add": "Add field",
+        "empty": "No fields yet — add one to get started.",
+        "reminder": "Reminders sent {hours, plural, =24 {the day before} one {# hour before} other {# hours before}} this date",
+        "typeCount": "{type} · {count, number, ::group-off}",
+        "delete": "Delete {field}"
+      },
+      "fieldForm": {
+        "backLabel": "Back to fields list",
+        "back": "Back",
+        "name": "Name",
+        "namePlaceholder": "e.g. Teacher, Subject, Item",
+        "nameLabel": "Field name",
+        "type": "Type",
+        "reminder": "Send a reminder email before this date",
+        "reminderHelp": "Sent {hours, plural, =24 {the day before} one {# hour before} other {# hours before}}. One date field per signup drives reminders, and participants can opt out of any reminder they get.",
+        "reminderTaken": "<field>{label}</field> is already the reminder field for this signup. Turn it off there to use this one instead.",
+        "remove": "Remove field",
+        "cancel": "Cancel",
+        "save": "Save",
+        "add": "Add field"
+      },
+      "refusal": {
+        "dateTooEarly": "Dates must be in {year, number, ::group-off} or later.",
+        "slotsMoved": "The slots changed in another window, so your move wasn't saved. Drag it again.",
+        "fieldsMoved": "The fields changed in another window, so your move wasn't saved. Drag it again.",
+        "capacityBelowTaken": "{taken, plural, one {{taken, number, ::group-off} spot is already taken} other {{taken, number, ::group-off} spots are already taken}}. Set this slot to {taken, number, ::group-off} or more.",
+        "invalidatesSlotValues": "Some slots have values that don’t fit this change. Change those first."
+      }
+    },
+    "responses": {
+      "summary": {
+        "signUps": "{count, plural, one {{count, number, ::group-off} sign-up} other {{count, number, ::group-off} sign-ups}}",
+        "cancelled": "{count, number, ::group-off} cancelled",
+        "removed": "{count, number, ::group-off} removed"
+      },
+      "downloadCsv": "Download CSV",
+      "empty": {
+        "draft": "Nobody has signed up yet. People can sign up once you publish and share it.",
+        "open": "Nobody has signed up yet. Share the public link to start collecting.",
+        "closed": "Nobody signed up.",
+        "archived": "Nobody signed up. People can’t sign up now."
+      },
+      "table": {
+        "name": "Name",
+        "email": "Email",
+        "slot": "Slot",
+        "spots": "Spots",
+        "status": "Status",
+        "actions": "Actions",
+        "noEmail": "No email",
+        "spotsAfterCount": "{count, plural, one {spot} other {spots}}"
+      },
+      "status": {
+        "confirmed": "confirmed",
+        "tentative": "tentative",
+        "waitlist": "waitlist",
+        "cancelled": "cancelled",
+        "noShow": "no_show",
+        "removed": "removed",
+        "moved": "moved"
+      },
+      "remove": {
+        "button": "Remove",
+        "label": "Remove {name} from {slot}",
+        "labelNoSlot": "Remove {name} from this slot",
+        "question": "{label}? {count, plural, =1 {Their spot opens} other {Their {count, number, ::group-off} spots open}} up for someone else. They won’t get an email about it.",
+        "dialogLabel": "Confirm removal",
+        "keep": "Keep",
+        "confirm": "Yes, remove",
+        "removing": "Removing…",
+        "refusal": {
+          "notFound": "This person is no longer on this signup. Reload to see the latest.",
+          "failed": "Couldn’t remove them. Try again."
+        }
+      },
+      "csv": {
+        "name": "Name",
+        "email": "Email",
+        "status": "Status",
+        "spots": "Spots",
+        "notes": "Notes",
+        "signedUp": "Signed up"
+      }
+    },
+    "newSignup": {
+      "title": "New signup",
+      "intro": "You can add slots after it's created. Nothing is visible until you publish.",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Snack duty — Spring season",
+      "descriptionLabel": "Description (optional)",
+      "descriptionPlaceholder": "One paragraph that shows up at the top of your signup page.",
+      "cancel": "Cancel",
+      "creating": "Creating…",
+      "create": "Create signup"
+    },
+    "compose": {
+      "eyebrow": "New signup",
+      "heading": "What are you organizing?",
+      "intro": "<strong>Say what people sign up for, when, and how many of each.</strong> We'll turn it into a title, blurb, and slots for you to edit.",
+      "describe": "Describe your signup",
+      "placeholder": "e.g. Snack duty for our U9 soccer team. 6 Saturday games starting April 25, two families per game, no nuts please.",
+      "count": "{count, number} / {max, number} characters",
+      "countOver": "{count, number} / {max, number} characters. Shorten it by {over, number} to draft.",
+      "skip": "Skip, fill in by hand",
+      "draft": "Draft my signup",
+      "examples": "Or start from an example",
+      "loaded": "Loaded",
+      "tryThis": "Try this",
+      "starters": {
+        "sports": {
+          "label": "Sports team",
+          "blurb": "Snack, treat, or carpool rosters across a season of games",
+          "body": "Snack duty for our soccer team. We have 6 Saturday games starting next Saturday. Two families bring snacks plus drinks per game. No nuts please."
+        },
+        "classroom": {
+          "label": "Classroom or school",
+          "blurb": "Potlucks, conference signups, supply drives, volunteer days",
+          "body": "End-of-year potluck for our grade 3 class on the last Friday of the month at 5pm. 20 families are each bringing one dish: we need 5 families on mains, 5 on sides, 5 on desserts and 5 on drinks."
+        },
+        "community": {
+          "label": "Community shifts",
+          "blurb": "Volunteer shifts, event setup, or rotating roles",
+          "body": "Volunteers for our spring book fair. Thursday and Friday next week, three 2-hour shifts each day (9 to 11, 11 to 1, 1 to 3). 2 volunteers per shift."
+        }
+      },
+      "tips": {
+        "heading": "Tips for a better draft",
+        "dates": {
+          "title": "Mention dates",
+          "body": "A range like “Saturdays Apr 25 to May 30” lets us generate one slot per date."
+        },
+        "howMany": {
+          "title": "Say how many",
+          "body": "“Two families per game” or “six volunteers per shift”, so we can set capacity."
+        },
+        "gotchas": {
+          "title": "Flag the gotchas",
+          "body": "Allergies, locations, no-shows policy. Anything participants should know."
+        }
+      },
+      "steps": {
+        "label": "Progress",
+        "read": "Reading your description",
+        "title": "Drafting a title",
+        "desc": "Writing a short blurb",
+        "fields": "Choosing fields for each slot",
+        "slots": "Generating slots",
+        "check": "Tidying up",
+        "details": "A few details",
+        "readShort": "Read",
+        "draftShort": "Draft"
+      },
+      "drafting": {
+        "readingTitle": "Reading your description",
+        "readingBody": "You'll get a draft, or a few quick questions if it needs more to go on.",
+        "draftingTitle": "Drafting your signup",
+        "draftingBody": "You'll be able to edit anything once it's ready.",
+        "cancel": "Cancel",
+        "liveReading": "Reading · live",
+        "liveDrafting": "Drafting · live",
+        "title": "Title",
+        "description": "Description",
+        "fields": "Fields",
+        "slots": "Slots",
+        "shown": "{shown, number, ::group-off} of {total, number, ::group-off}",
+        "more": "+{count, number, ::group-off} more"
+      },
+      "youWrote": {
+        "label": "Your description",
+        "heading": "You wrote",
+        "quoted": "“{text}”"
+      },
+      "draftingFrom": {
+        "label": "Drafting from",
+        "allAnswered": "All answered",
+        "oneBlank": "One left blank",
+        "twoBlank": "Two left blank",
+        "what": "What",
+        "whatBlank": "Left blank. The draft will use placeholder slots you can fill in later.",
+        "when": "When",
+        "whenBlank": "Not decided. The draft will use placeholder dates you can fill in later.",
+        "noLimit": "No limit",
+        "people": "{count, plural, one {{count, number, ::group-off} person} other {{count, number, ::group-off} people}}",
+        "dayAndTimes": "{day} · {times}"
+      },
+      "errors": {
+        "questionsUnavailable": "The questions couldn't be shown. Reload the page and try again; copy your description first if you want to keep it.",
+        "slow": "AI drafting is taking longer than expected. Try again or simplify your prompt.",
+        "slowWithAnswers": "AI drafting is taking longer than expected. Try again.",
+        "hourlyLimit": "You've used this hour's AI drafts. Try again in {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}, or <link>fill it in by hand</link>.",
+        "busy": "The AI service is busy. Try again {minutes, plural, =1 {in a minute} other {in {minutes, number, ::group-off} minutes}}.",
+        "askedAgain": "Couldn't draft this. Try again, or fill it in by hand.",
+        "askedAgainWithAnswers": "Couldn't draft from these answers. Add a little more, or fill it in by hand.",
+        "draftInvalid": "AI draft did not match expected shape — try again or adjust your prompt",
+        "timeout": "AI drafting timed out. Try a simpler prompt.",
+        "timeoutWithAnswers": "AI drafting timed out. Try again.",
+        "apiKey": "AI provider rejected the API key. An operator needs to check LLM_API_KEY.",
+        "unavailable": "AI provider is unavailable right now (HTTP {status, number, ::group-off}). Try again.",
+        "providerError": "AI provider returned an error. Try again.",
+        "providerErrorStatus": "AI provider returned an error (HTTP {status, number, ::group-off}). Try again.",
+        "malformed": "AI provider returned a malformed response. Try again.",
+        "shape": "AI provider returned an unexpected response shape. Try again.",
+        "failed": "AI drafting failed (HTTP {status, number, ::group-off}). Try again.",
+        "cancelled": "Request was cancelled.",
+        "offline": "Couldn't reach the server. Check your connection and try again.",
+        "unexpected": "The server returned an unexpected response. Try again.",
+        "unknown": "Something went wrong while drafting. Try again."
+      },
+      "questions": {
+        "back": "Back",
+        "heading": "A few details first",
+        "intro": "Pick what fits. Anything you skip becomes a placeholder you can fill in later.",
+        "fillInByHand": "Fill in by hand instead",
+        "what": {
+          "ask": "What do people sign up for?",
+          "askHint": "Pick any that apply, or add your own.",
+          "told": "What people sign up for",
+          "toldHint": "From your description. Remove any that don't fit, or add your own.",
+          "remove": "Remove {item}",
+          "full": "{max, number, ::group-off} is the most. Remove one to add another.",
+          "addLabel": "Add your own, then press Enter",
+          "addYourOwn": "Add your own",
+          "addAnother": "Add another",
+          "add": "Add"
+        },
+        "when": {
+          "ask": "When is it?",
+          "oneDay": "One day",
+          "several": "Several days",
+          "notDecided": "Not decided",
+          "date": "Date",
+          "starts": "Starts",
+          "ends": "Ends",
+          "noTime": "No time",
+          "whichDays": "Which days?",
+          "whichDaysPlaceholder": "Which days? For example: every Saturday in May, 9 to 11",
+          "notDecidedHint": "The draft will use placeholder dates you can fill in later."
+        },
+        "howMany": {
+          "ask": "How many people do you need?",
+          "hint": "For each thing above. Leave a box empty for no limit.",
+          "pickFirst": "Pick or add something above first.",
+          "fewer": "Fewer people for {item}",
+          "people": "People for {item}",
+          "noLimit": "No limit",
+          "more": "More people for {item}"
+        },
+        "problems": {
+          "noDate": "Add a date, or leave the times empty.",
+          "year": "Check the date's year.",
+          "timeOrder": "The end time must be after the start time.",
+          "wholeNumbers": "Use whole numbers for how many people."
+        }
+      },
+      "answers": {
+        "what": "What: {items}",
+        "item": "{item} ({count, number, ::group-off})",
+        "itemNoLimit": "{item} (no limit)",
+        "when": "When: {when}",
+        "dayAndTimes": "{day}, {times}",
+        "fromTo": "{from} to {to}",
+        "from": "from {from}",
+        "until": "until {to}"
+      }
+    },
+    "aiDraft": {
+      "title": "Here's your draft, {fields, plural, one {{fields, number, ::group-off} field} other {{fields, number, ::group-off} fields}} and {slots, plural, one {{slots, number, ::group-off} slot} other {{slots, number, ::group-off} slots}}",
+      "body": "Edit anything below, then publish when you're ready.",
+      "dismiss": "Dismiss",
+      "warnings": {
+        "heading": "A few things to double-check",
+        "valuesBlanked": "{count, plural, one {{count, number, ::group-off} value was left blank because it didn't fit its field. Fill it in below.} other {{count, number, ::group-off} values were left blank because they didn't fit their fields. Fill them in below.}}",
+        "enumFieldsToText": "{count, plural, one {Field {fields} arrived without a fixed list of options, so it was switched to free text.} other {Fields {fields} arrived without a fixed list of options, so they were switched to free text.}}",
+        "duplicateFields": "Removed {count, plural, one {{count, number, ::group-off} duplicate field} other {{count, number, ::group-off} duplicate fields}} the AI tried to add twice.",
+        "strayValues": "Ignored {count, plural, one {{count, number, ::group-off} stray value} other {{count, number, ::group-off} stray values}} that didn't match any field.",
+        "titleCut": "The AI's title was longer than {max, number} characters, so the end was cut off. Check it below.",
+        "descriptionCut": "The AI's description was longer than {max, number} characters, so the end was cut off. Check it below."
+      }
     },
     "status": {
       "draft": "draft",

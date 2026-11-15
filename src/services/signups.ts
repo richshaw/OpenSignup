@@ -37,6 +37,7 @@ import {
   type SignupSettings,
   type SignupStatus,
   type StoredSignupSettings,
+  SIGNUP_INPUT_REASONS,
   SignupCreateInputSchema,
   SignupUpdateInputSchema,
   WORKSPACE_LIST_LIMIT,
@@ -125,7 +126,7 @@ export async function createSignup(
   requireOrganizer(actor);
   requireWorkspaceWrite(actor, workspaceId);
 
-  const input = parseInputSafe(SignupCreateInputSchema, rawInput);
+  const input = parseInputSafe(SignupCreateInputSchema, rawInput, SIGNUP_INPUT_REASONS);
   if (!input.ok) return input;
   const data = input.value;
 
@@ -340,7 +341,7 @@ export async function updateSignup(
       rawInput = { ...rawInput, settings: merged };
     }
 
-    const input = parseInputSafe(SignupUpdateInputSchema, rawInput);
+    const input = parseInputSafe(SignupUpdateInputSchema, rawInput, SIGNUP_INPUT_REASONS);
     if (!input.ok) return input;
     const data = input.value;
 
@@ -718,6 +719,7 @@ async function transitionStatus(
           received: row.status,
           expected: from,
           suggestion: `call the correct transition for status=${row.status}`,
+          details: { reason: 'status_changed' },
         }),
       );
     }
@@ -735,6 +737,7 @@ async function transitionStatus(
           serviceError('conflict', `${verb} requires at least one slot`, {
             field: 'slots',
             suggestion: `add a slot before ${doing}`,
+            details: { reason: 'no_slots' },
           }),
         );
       }

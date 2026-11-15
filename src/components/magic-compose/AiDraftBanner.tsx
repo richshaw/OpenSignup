@@ -1,23 +1,46 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Banner } from '@/components/banner';
 import { useDismissibleQueryFlag } from '@/hooks/useDismissibleQueryFlag';
+import type { CatalogLocale } from '@/i18n/config';
+import type { messagesFor } from '@/i18n/translator';
 import { clearAiDraftWarnings, readAiDraftWarnings } from './ai-draft-warnings';
 
+// Worded in the browser, from codes kept in the tab's storage, so they need
+// the messages provider. Only a draft with warnings loads it. If its code
+// won't load, as when a deploy has replaced it since the page opened, the
+// warnings are left out rather than taking the signup's page down.
+const AiDraftWarnings = lazy(() =>
+  import('./AiDraftWarnings').then(
+    (m) => ({ default: m.AiDraftWarnings }),
+    () => ({ default: () => null }),
+  ),
+);
+
+/**
+ * The banner on a draft Magic Compose just made (`?aiDraft=1`), with what it
+ * changed in the AI's draft, if anything. Its text is worded by the signup's
+ * layout, and the warnings in the browser from `warningMessages`, both in the
+ * organizer's language (`locale`).
+ */
 export function AiDraftBanner({
   signupId,
   signupStatus,
-  fieldsCount,
-  slotsCount,
+  text,
+  locale,
+  warningMessages,
 }: {
   signupId: string;
   signupStatus: string;
-  fieldsCount: number;
-  slotsCount: number;
+  /** The banner's title (with the draft's counts), body and ✕'s name. */
+  text: { title: string; body: string; dismiss: string };
+  locale: CatalogLocale;
+  /** `organizer.aiDraft.warnings`, for `AiDraftWarnings`; none for a signup that isn't a draft. */
+  warningMessages: ReturnType<typeof messagesFor> | null;
 }) {
   const [shown, dismiss] = useDismissibleQueryFlag('aiDraft');
-  const [warnings, setWarnings] = useState<string[]>([]);
+  const [kept, setKept] = useState<unknown[]>([]);
 
   useEffect(() => {
     if (signupStatus !== 'draft') {
@@ -25,7 +48,7 @@ export function AiDraftBanner({
       return;
     }
     if (!shown) return;
-    setWarnings(readAiDraftWarnings(signupId));
+    setKept(readAiDraftWarnings(signupId));
   }, [shown, signupId, signupStatus]);
 
   if (signupStatus !== 'draft' || !shown) return null;
@@ -39,25 +62,15 @@ export function AiDraftBanner({
     <div className="flex flex-col gap-3">
       <Banner
         kind="aiDraft"
-        title={`Here's your draft, ${fieldsCount} ${
-          fieldsCount === 1 ? 'field' : 'fields'
-        } and ${slotsCount} ${slotsCount === 1 ? 'slot' : 'slots'}`}
-        body="Edit anything below, then publish when you're ready."
+        title={text.title}
+        body={text.body}
         onDismiss={onDismiss}
-        dismissLabel="Dismiss"
+        dismissLabel={text.dismiss}
       />
-      {warnings.length > 0 && (
-        <div
-          role="status"
-          className="rounded-lg border border-warn/30 bg-warn/10 px-5 py-4 text-sm text-ink"
-        >
-          <p className="mb-1 font-semibold">A few things to double-check</p>
-          <ul className="list-inside list-disc space-y-1">
-            {warnings.map((w, i) => (
-              <li key={i}>{w}</li>
-            ))}
-          </ul>
-        </div>
+      {kept.length > 0 && warningMessages && (
+        <Suspense fallback={null}>
+          <AiDraftWarnings locale={locale} messages={warningMessages} kept={kept} />
+        </Suspense>
       )}
     </div>
   );
