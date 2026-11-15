@@ -8,6 +8,7 @@ import { signups } from '@/db/schema/signups';
 import { slots as slotsTable } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import type { Actor } from '@/lib/policy';
 import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/publish-check';
 import { commitToSlot } from '@/services/commitments';
@@ -499,7 +500,7 @@ describe('Publish’s check (db)', () => {
       .map((s) => s.id);
   const answer = (check: PublishCheck) => ({
     check,
-    copy: publishCheckCopy(check),
+    copy: publishCheckCopy(check, getTestTranslator('organizer.signup.check')),
     target: publishCheckTarget(check),
   });
 

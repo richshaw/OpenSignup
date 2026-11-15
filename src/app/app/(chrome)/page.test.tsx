@@ -75,6 +75,9 @@ describe('Your signups', () => {
     expect(screen.getByText('/s/bake-sale')).toBeInTheDocument();
     expect(screen.getByText('Only you can see this draft')).toBeInTheDocument();
     expect(screen.queryByText('/s/picnic')).not.toBeInTheDocument();
+    // Each row's status, in the words it always had.
+    expect(screen.getByText('open', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('draft', { exact: true })).toBeInTheDocument();
   });
 
   it('says so, as before, when the workspace isn’t set up', async () => {
@@ -97,6 +100,7 @@ describe('Your signups', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(ask('title'));
     expect(screen.getByText(ask('total'))).toBeInTheDocument();
     expect(screen.getByText(ask('draftOnlyYou'))).toBeInTheDocument();
+    expect(screen.getByText(`organizer.status.draft in ${other}`)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: ask('newSignup') })).toBeInTheDocument();
     expect(await generateMetadata()).toEqual({ title: ask('title') });
   });

@@ -9,6 +9,7 @@ import {
   type CloseQuestionAction,
 } from './CloseSignupConfirm';
 import { OUTLINED } from './header-buttons';
+import type { SignupHeaderText } from './header-text';
 import { useAnnouncedStatusChange } from './HeaderAnnouncer';
 import {
   StatusActionScope,
@@ -17,6 +18,8 @@ import {
 } from './StatusActionForm';
 
 interface MoreActionsMenuProps {
+  /** The words of the ⋯, its panel and Close signup, from the server. */
+  text: SignupHeaderText;
   closeQuestion: string;
   closeQuestionAction: CloseQuestionAction;
   closeAction: StatusChangeAction;
@@ -29,6 +32,7 @@ interface MoreActionsMenuProps {
  * spot where Publish was.
  */
 export function MoreActionsMenu({
+  text,
   closeQuestion,
   closeQuestionAction,
   closeAction,
@@ -36,15 +40,16 @@ export function MoreActionsMenu({
   const closeSignup = useAnnouncedStatusChange(closeAction, 'closed');
   return (
     <StatusActionScope action={closeSignup}>
-      <Menu closeQuestion={closeQuestion} closeQuestionAction={closeQuestionAction} />
+      <Menu text={text} closeQuestion={closeQuestion} closeQuestionAction={closeQuestionAction} />
     </StatusActionScope>
   );
 }
 
 function Menu({
+  text,
   closeQuestion,
   closeQuestionAction,
-}: Pick<MoreActionsMenuProps, 'closeQuestion' | 'closeQuestionAction'>) {
+}: Pick<MoreActionsMenuProps, 'text' | 'closeQuestion' | 'closeQuestionAction'>) {
   const [question, askAgain] = useCloseQuestion(closeQuestion, closeQuestionAction);
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -71,7 +76,7 @@ function Menu({
         ref={trigger}
         type="button"
         onClick={() => (open ? close() : openMenu())}
-        aria-label="More actions"
+        aria-label={text.moreActions}
         aria-haspopup="dialog"
         aria-expanded={open}
         className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition ${OUTLINED}`}
@@ -83,12 +88,12 @@ function Menu({
         onClose={close}
         triggerRef={trigger}
         initialFocusRef={closeItem}
-        label="More actions"
+        label={text.moreActions}
         className="w-80 p-2"
       >
         {confirming ? (
           <div className="p-1.5">
-            <CloseSignupConfirm question={question} onNotYet={close} />
+            <CloseSignupConfirm question={question} onNotYet={close} text={text.close} />
           </div>
         ) : (
           <button
@@ -98,7 +103,7 @@ function Menu({
             className="flex min-h-10 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm font-medium text-ink hover:bg-surface-raised"
           >
             <XCircle size={15} aria-hidden="true" />
-            Close signup
+            {text.close.action}
           </button>
         )}
       </Popover>

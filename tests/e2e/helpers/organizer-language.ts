@@ -19,8 +19,12 @@ export interface OrganizerIn {
   sessionToken: string;
   /** A published signup of theirs, for the strip on its page and its Preview. */
   open: { id: string; slug: string };
-  /** A draft of theirs, whose page tells its own organizer about it. */
-  draft: { slug: string };
+  /**
+   * A draft of theirs, with only the empty slot a new signup starts with: its
+   * page tells its own organizer about it, and Publish and share's check stops
+   * it.
+   */
+  draft: { id: string; slug: string };
 }
 
 function unwrap<T>(
@@ -126,7 +130,7 @@ export async function createOrganizerIn(
     email,
     sessionToken: await createDisposableSession(organizerId),
     open: { id: open.id, slug: open.slug },
-    draft: { slug: draft.slug },
+    draft: { id: draft.id, slug: draft.slug },
   };
 }
 

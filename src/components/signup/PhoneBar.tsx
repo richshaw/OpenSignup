@@ -1,6 +1,7 @@
 'use client';
 
 import type { SignupStatus } from '@/schemas/signups';
+import type { PublishText } from './header-text';
 import { hasPhoneBar } from './phone-bar';
 import { PublishButton, PublishRefusal } from './PublishButton';
 import { ShareButton } from './ShareButton';
@@ -9,6 +10,8 @@ interface PhoneBarProps {
   status: SignupStatus;
   /** From `spotsTakenLine`; null for a draft, which has nothing to count. */
   spotsTaken: string | null;
+  /** Publish and share's words, from the server. */
+  text: PublishText;
 }
 
 /**
@@ -21,7 +24,7 @@ interface PhoneBarProps {
  * A closed or archived signup has no bar. The layout leaves room for it at
  * the bottom of the page (`PHONE_BAR_ROOM`).
  */
-export function PhoneBar({ status, spotsTaken }: PhoneBarProps) {
+export function PhoneBar({ status, spotsTaken, text }: PhoneBarProps) {
   if (!hasPhoneBar(status)) return null;
   return (
     <div
@@ -31,8 +34,8 @@ export function PhoneBar({ status, spotsTaken }: PhoneBarProps) {
     >
       {status === 'draft' ? (
         <>
-          <PublishRefusal className="pb-3" />
-          <PublishButton variant="phone" />
+          <PublishRefusal className="pb-3" text={text} />
+          <PublishButton variant="phone" text={text} />
         </>
       ) : (
         <div className="flex items-center gap-3">

@@ -5,7 +5,10 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
-import { refusalAsResult } from '@/lib/errors';
+import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { getServerTranslator } from '@/i18n/server';
+import type { CatalogLocale } from '@/i18n/config';
+import { refusalAsResult, type ServiceError } from '@/lib/errors';
 import { requireWorkspaceWrite } from '@/lib/policy';
 import {
   checkBeforePublish,
@@ -35,6 +38,23 @@ async function requireActor() {
   return toActor(await requireOrganizerSession());
 }
 
+/** Who is acting, and the language their screens are in, for what the header shows. */
+async function requireActorIn() {
+  const session = await requireOrganizerSession();
+  return { actor: toActor(session), locale: getOrganizerAppLocale(session) };
+}
+
+/** `statusRefusal` in `locale`. */
+function refusal(
+  error: ServiceError,
+  change: 'publish' | 'close' | 'reopen',
+  locale: CatalogLocale,
+) {
+  return {
+    error: statusRefusal(error, change, getServerTranslator(locale, 'organizer.signup.refusal')),
+  };
+}
+
 /**
  * The header's Publish, Close signup and Reopen signup. A refusal (a
  * viewer's role, a signup already published, closed or reopened in another
@@ -62,40 +82,41 @@ async function requireActor() {
 export async function publishAction(
   signupId: string,
 ): Promise<{ error: string } | { published: true } | PublishCheckAnswer> {
-  const actor = await requireActor();
+  const { actor, locale } = await requireActorIn();
   const db = getDb();
   const read = await refusalAsResult(async () => {
     const loaded = await getSignupForOrganizer(db, actor, signupId);
     if (loaded.ok) requireWorkspaceWrite(actor, loaded.value.workspaceId);
     return loaded;
   });
-  if (!read.ok) return { error: statusRefusal(read.error, 'publish') };
+  if (!read.ok) return refusal(read.error, 'publish', locale);
   if (read.value.status === 'draft') {
     const check = checkBeforePublish(read.value);
     if (check) {
       // #525's count of refused publishes, now that the service doesn't see these.
       await refusalAsResult(() => recordPublishCheck(db, actor, signupId, check));
-      return { check, copy: publishCheckCopy(check), target: publishCheckTarget(check) };
+      const copy = publishCheckCopy(check, getServerTranslator(locale, 'organizer.signup.check'));
+      return { check, copy, target: publishCheckTarget(check) };
     }
   }
   const result = await refusalAsResult(() => publishSignup(db, actor, signupId));
-  if (!result.ok) return { error: statusRefusal(result.error, 'publish') };
+  if (!result.ok) return refusal(result.error, 'publish', locale);
   revalidateSignup(signupId);
   return { published: true };
 }
 
 export async function closeAction(signupId: string): Promise<{ error: string } | null> {
-  const actor = await requireActor();
+  const { actor, locale } = await requireActorIn();
   const result = await refusalAsResult(() => closeSignup(getDb(), actor, signupId));
-  if (!result.ok) return { error: statusRefusal(result.error, 'close') };
+  if (!result.ok) return refusal(result.error, 'close', locale);
   revalidateSignup(signupId);
   return null;
 }
 
 export async function reopenAction(signupId: string): Promise<{ error: string } | null> {
-  const actor = await requireActor();
+  const { actor, locale } = await requireActorIn();
   const result = await refusalAsResult(() => reopenSignup(getDb(), actor, signupId));
-  if (!result.ok) return { error: statusRefusal(result.error, 'reopen') };
+  if (!result.ok) return refusal(result.error, 'reopen', locale);
   revalidateSignup(signupId);
   return null;
 }
@@ -110,13 +131,14 @@ export async function reopenAction(signupId: string): Promise<{ error: string } 
 export async function closeQuestionAction(
   signupId: string,
 ): Promise<{ question: string } | { error: string }> {
-  const actor = await requireActor();
+  const { actor, locale } = await requireActorIn();
   const result = await refusalAsResult(() =>
     getSignupForOrganizer(getDb(), actor, signupId, { includeFilled: true }),
   );
-  if (!result.ok) return { error: statusRefusal(result.error, 'close') };
+  if (!result.ok) return refusal(result.error, 'close', locale);
   const { slots, committedBySlot } = result.value;
-  return { question: closeSignupQuestion(spotCounts(slots, committedBySlot ?? {})) };
+  const t = getServerTranslator(locale, 'organizer.signup.close');
+  return { question: closeSignupQuestion(spotCounts(slots, committedBySlot ?? {}), t) };
 }
 
 /**

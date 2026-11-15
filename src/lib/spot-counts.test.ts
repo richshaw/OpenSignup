@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { closeSignupQuestion, spotCount, spotCounts, spotsTakenLine } from './spot-counts';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
+import {
+  closeSignupQuestion,
+  KEEPS_THEIR_SPOT,
+  spotCount,
+  spotCounts,
+  spotsTakenLine,
+} from './spot-counts';
+
+const close = getTestTranslator('organizer.signup.close');
+const spots = getTestTranslator('organizer.signup.spots');
 
 describe('spotCount', () => {
   it('says "spot" for one and "spots" for any other number', () => {
@@ -80,45 +91,45 @@ describe('closeSignupQuestion', () => {
   const kept = `${after} Everyone already signed up keeps their spot.`;
 
   it('says nobody has signed up yet when no spot is taken', () => {
-    expect(closeSignupQuestion({ taken: 0, total: 21, open: 21, allSlotsOpen: true })).toBe(
+    expect(closeSignupQuestion({ taken: 0, total: 21, open: 21, allSlotsOpen: true }, close)).toBe(
       `Nobody has signed up yet.${after}`,
     );
-    expect(closeSignupQuestion({ taken: 0, total: null, open: null, allSlotsOpen: true })).toBe(
-      `Nobody has signed up yet.${after}`,
-    );
+    expect(
+      closeSignupQuestion({ taken: 0, total: null, open: null, allSlotsOpen: true }, close),
+    ).toBe(`Nobody has signed up yet.${after}`);
   });
 
   it('says how many spots are still open when every open slot has a limit', () => {
-    expect(closeSignupQuestion({ taken: 3, total: 21, open: 18, allSlotsOpen: true })).toBe(
+    expect(closeSignupQuestion({ taken: 3, total: 21, open: 18, allSlotsOpen: true }, close)).toBe(
       `18 of 21 spots are still open.${kept}`,
     );
-    expect(closeSignupQuestion({ taken: 20, total: 21, open: 1, allSlotsOpen: true })).toBe(
+    expect(closeSignupQuestion({ taken: 20, total: 21, open: 1, allSlotsOpen: true }, close)).toBe(
       `1 of 21 spots is still open.${kept}`,
     );
-    expect(closeSignupQuestion({ taken: 21, total: 21, open: 0, allSlotsOpen: true })).toBe(
+    expect(closeSignupQuestion({ taken: 21, total: 21, open: 0, allSlotsOpen: true }, close)).toBe(
       `Every spot is taken.${kept}`,
     );
   });
 
   it('goes by the open spots, not the total less those taken', () => {
     // A closed slot with free spots, or an over-full one, makes them differ.
-    expect(closeSignupQuestion({ taken: 4, total: 21, open: 3, allSlotsOpen: false })).toBe(
+    expect(closeSignupQuestion({ taken: 4, total: 21, open: 3, allSlotsOpen: false }, close)).toBe(
       `3 of 21 spots are still open.${kept}`,
     );
     // A closed slot with no limit leaves no total to count against.
-    expect(closeSignupQuestion({ taken: 3, total: null, open: 3, allSlotsOpen: false })).toBe(
-      `3 spots are still open.${kept}`,
-    );
-    expect(closeSignupQuestion({ taken: 3, total: null, open: 1, allSlotsOpen: false })).toBe(
-      `1 spot is still open.${kept}`,
-    );
+    expect(
+      closeSignupQuestion({ taken: 3, total: null, open: 3, allSlotsOpen: false }, close),
+    ).toBe(`3 spots are still open.${kept}`);
+    expect(
+      closeSignupQuestion({ taken: 3, total: null, open: 1, allSlotsOpen: false }, close),
+    ).toBe(`1 spot is still open.${kept}`);
   });
 
   it('says every spot is taken only when every slot is open and full', () => {
     const question = (
       slots: { id: string; capacity: number; status: string }[],
       taken: Record<string, number>,
-    ) => closeSignupQuestion(spotCounts(slots, taken));
+    ) => closeSignupQuestion(spotCounts(slots, taken), close);
     expect(
       question(
         [
@@ -151,12 +162,12 @@ describe('closeSignupQuestion', () => {
   });
 
   it('says how many spots are taken when an open slot has no limit', () => {
-    expect(closeSignupQuestion({ taken: 3, total: null, open: null, allSlotsOpen: true })).toBe(
-      `3 spots are taken.${kept}`,
-    );
-    expect(closeSignupQuestion({ taken: 1, total: null, open: null, allSlotsOpen: true })).toBe(
-      `1 spot is taken.${kept}`,
-    );
+    expect(
+      closeSignupQuestion({ taken: 3, total: null, open: null, allSlotsOpen: true }, close),
+    ).toBe(`3 spots are taken.${kept}`);
+    expect(
+      closeSignupQuestion({ taken: 1, total: null, open: null, allSlotsOpen: true }, close),
+    ).toBe(`1 spot is taken.${kept}`);
   });
 });
 
@@ -169,33 +180,60 @@ describe('spotsTakenLine', () => {
   });
 
   it('counts the spots taken of all of them when every slot has a limit', () => {
-    expect(spotsTakenLine(counts(0, 21), 'open')).toBe('0 of 21 spots taken');
-    expect(spotsTakenLine(counts(3, 21), 'open')).toBe('3 of 21 spots taken');
-    expect(spotsTakenLine(counts(21, 21), 'open')).toBe('21 of 21 spots taken');
+    expect(spotsTakenLine(counts(0, 21), 'open', spots)).toBe('0 of 21 spots taken');
+    expect(spotsTakenLine(counts(3, 21), 'open', spots)).toBe('3 of 21 spots taken');
+    expect(spotsTakenLine(counts(21, 21), 'open', spots)).toBe('21 of 21 spots taken');
   });
 
   it('says spot, not spots, of one', () => {
-    expect(spotsTakenLine(counts(0, 1), 'open')).toBe('0 of 1 spot taken');
-    expect(spotsTakenLine(counts(1, 1), 'open')).toBe('1 of 1 spot taken');
+    expect(spotsTakenLine(counts(0, 1), 'open', spots)).toBe('0 of 1 spot taken');
+    expect(spotsTakenLine(counts(1, 1), 'open', spots)).toBe('1 of 1 spot taken');
   });
 
   it('counts only the spots taken when a slot has no limit', () => {
-    expect(spotsTakenLine(counts(0, null), 'open')).toBe('0 spots taken');
-    expect(spotsTakenLine(counts(1, null), 'open')).toBe('1 spot taken');
-    expect(spotsTakenLine(counts(3, null), 'open')).toBe('3 spots taken');
+    expect(spotsTakenLine(counts(0, null), 'open', spots)).toBe('0 spots taken');
+    expect(spotsTakenLine(counts(1, null), 'open', spots)).toBe('1 spot taken');
+    expect(spotsTakenLine(counts(3, null), 'open', spots)).toBe('3 spots taken');
   });
 
   it('counts only the spots taken when there are no slots to count against', () => {
-    expect(spotsTakenLine(counts(0, 0), 'open')).toBe('0 spots taken');
+    expect(spotsTakenLine(counts(0, 0), 'open', spots)).toBe('0 spots taken');
   });
 
   it('says what it counts when an organizer lowered a slot below its sign-ups', () => {
-    expect(spotsTakenLine(counts(5, 4), 'open')).toBe('5 of 4 spots taken');
+    expect(spotsTakenLine(counts(5, 4), 'open', spots)).toBe('5 of 4 spots taken');
   });
 
   it('says first that a closed or archived signup has stopped taking sign-ups', () => {
-    expect(spotsTakenLine(counts(3, 21), 'closed')).toBe('Closed · 3 of 21 spots taken');
-    expect(spotsTakenLine(counts(1, null), 'closed')).toBe('Closed · 1 spot taken');
-    expect(spotsTakenLine(counts(3, 21), 'archived')).toBe('Archived · 3 of 21 spots taken');
+    expect(spotsTakenLine(counts(3, 21), 'closed', spots)).toBe('Closed · 3 of 21 spots taken');
+    expect(spotsTakenLine(counts(1, null), 'closed', spots)).toBe('Closed · 1 spot taken');
+    expect(spotsTakenLine(counts(3, 21), 'archived', spots)).toBe('Archived · 3 of 21 spots taken');
   });
+});
+
+describe('in the organizer’s language', () => {
+  const counts = { taken: 1234, total: 5678, open: 4444, allSlotsOpen: true };
+
+  it('writes counts without grouping, as the English always has', () => {
+    expect(closeSignupQuestion(counts, close)).toMatch(/^4444 of 5678 spots are still open\./);
+    expect(spotsTakenLine(counts, 'open', spots)).toBe('1234 of 5678 spots taken');
+  });
+
+  it('closes with the closed box’s words and the help page’s', () => {
+    const closed = getTestTranslator('organizer.signup.closed');
+    expect(closeSignupQuestion(counts, close).endsWith(` ${KEEPS_THEIR_SPOT}`)).toBe(true);
+    expect(closed('body').endsWith(` ${KEEPS_THEIR_SPOT}`)).toBe(true);
+  });
+
+  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+    'asks the catalog in %s for the question and the count',
+    (locale) => {
+      expect(
+        closeSignupQuestion(counts, getStandInTranslator(locale, 'organizer.signup.close')),
+      ).toBe(`organizer.signup.close.question in ${locale}`);
+      expect(
+        spotsTakenLine(counts, 'closed', getStandInTranslator(locale, 'organizer.signup.spots')),
+      ).toBe(`organizer.signup.spots.line in ${locale}`);
+    },
+  );
 });

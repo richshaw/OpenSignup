@@ -9,11 +9,13 @@ import { BuildBridge } from '@/components/signup/BuildBridge';
 import { ClosedNotice } from '@/components/signup/ClosedNotice';
 import { HeaderAnnouncer } from '@/components/signup/HeaderAnnouncer';
 import { SignupHeader } from '@/components/signup/SignupHeader';
+import { signupHeaderText } from '@/components/signup/header-text';
 import { hasPhoneBar, PHONE_BAR_ROOM } from '@/components/signup/phone-bar';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
 import { SignupLoadError, signupNotFoundTitle } from '@/components/signup/SignupLoadError';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { getServerTranslator } from '@/i18n/server';
 import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, closeQuestionAction, publishAction, reopenAction } from './actions';
 
@@ -35,15 +37,14 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   const { id } = await params;
   const session = await requireOrganizerSession();
   const actor = toActor(session);
+  // The header's language. It changes only with a full page load (#938), so
+  // this layout not re-rendering between tabs leaves it right.
+  const locale = getOrganizerAppLocale(session);
   const result = await loadSignupForOrganizer(actor, id);
   if (!result.ok) {
     return (
       <div className="sm:py-8">
-        <SignupLoadError
-          error={result.error}
-          email={session.email}
-          locale={getOrganizerAppLocale(session)}
-        />
+        <SignupLoadError error={result.error} email={session.email} locale={locale} />
       </div>
     );
   }
@@ -57,16 +58,15 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   if (filled && !filled.ok) {
     return (
       <div className="sm:py-8">
-        <SignupLoadError
-          error={filled.error}
-          email={session.email}
-          locale={getOrganizerAppLocale(session)}
-        />
+        <SignupLoadError error={filled.error} email={session.email} locale={locale} />
       </div>
     );
   }
   const publicUrl = publicSignupUrl(sig.slug);
   const status = sig.status as SignupStatus;
+  // The words of the header's client components, the closed box and the
+  // tabs, passed to them as props.
+  const text = signupHeaderText(getServerTranslator(locale, 'organizer.signup'));
 
   return (
     // The header reaches the Build tab through this: Publish saves its edits
@@ -81,8 +81,10 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
           signup. It adds only that region to the page, after the header and
           the box, so they stay this div's own children and keep its
           spacing. */}
-        <HeaderAnnouncer status={status}>
+        <HeaderAnnouncer status={status} announcements={text.announcements}>
           <SignupHeader
+            locale={locale}
+            text={text}
             signupId={id}
             title={sig.title}
             status={status}
@@ -95,7 +97,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
             reopenAction={reopenAction.bind(null, id)}
           />
           {/* Once, after Close signup on this page; see ClosedNotice. */}
-          <ClosedNotice status={status} />
+          <ClosedNotice status={status} text={text.closedNotice} />
         </HeaderAnnouncer>
         <AiDraftBanner
           signupId={id}
@@ -106,6 +108,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
         <TabsNav
           signupId={id}
           counts={{ build: sig.fields.length + sig.slots.length, responses: responsesCount }}
+          labels={text.tabs}
         />
         <div>{children}</div>
       </div>

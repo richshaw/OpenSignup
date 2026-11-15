@@ -3,9 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { BuildWysiwyg } from '@/components/build-wysiwyg/BuildWysiwyg';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/publish-check';
 import { BuildBridge, useRegisterBuildTab } from './BuildBridge';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
+import { signupHeaderText } from './header-text';
 import { PublishButton, PublishRefusal } from './PublishButton';
 import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
@@ -31,12 +33,15 @@ vi.mock('@/components/share/load-share-panel', async (importOriginal) => {
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 
+/** The header's words in English, as the layout passes them. */
+const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
+
 const EMPTY: PublishCheck = { kind: 'all_blank', slotId: 'slot_a', slotCount: 1 };
 
 /** What the action answers for `check`, with the words the server puts with it. */
 const answer = (check: PublishCheck) => ({
   check,
-  copy: publishCheckCopy(check),
+  copy: publishCheckCopy(check, getTestTranslator('organizer.signup.check')),
   target: publishCheckTarget(check),
 });
 
@@ -74,7 +79,7 @@ function Header({
 }) {
   return (
     <BuildBridge buildHref="/app/signups/sig_1/build">
-      <HeaderAnnouncer status="draft">
+      <HeaderAnnouncer status="draft" announcements={TEXT.announcements}>
         <ShareScope
           publishAction={action}
           signupId="sig_1"
@@ -83,12 +88,12 @@ function Header({
           message=""
         >
           <div data-testid="desktop">
-            <PublishButton variant="desktop" />
+            <PublishButton variant="desktop" text={TEXT.publish} />
             <ShareButton variant="desktop" />
-            <PublishRefusal />
+            <PublishRefusal text={TEXT.publish} />
           </div>
           <div data-testid="phone">
-            <PublishButton variant="phone" />
+            <PublishButton variant="phone" text={TEXT.publish} />
           </div>
         </ShareScope>
       </HeaderAnnouncer>
@@ -394,7 +399,11 @@ describe('the check on a computer', () => {
       />,
     );
     await press(publishIn('desktop'));
-    fireEvent.click(screen.getByRole('button', { name: publishCheckCopy(check).fix ?? '' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: publishCheckCopy(check, getTestTranslator('organizer.signup.check')).fix ?? '',
+      }),
+    );
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(openSlot).toHaveBeenCalledWith(slotId);
     expect(router.push).not.toHaveBeenCalled();

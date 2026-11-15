@@ -11,7 +11,10 @@ import {
   type RefObject,
 } from 'react';
 import type { SignupStatus } from '@/schemas/signups';
+import type { SignupHeaderText } from './header-text';
 import type { StatusChangeAction } from './StatusActionForm';
+
+type Announcements = SignupHeaderText['announcements'];
 
 // The status a button on this page has just changed the signup to, set when
 // its action answers, and read when the header next sees its status change.
@@ -40,15 +43,16 @@ export function useAnnouncedStatusChange(
   };
 }
 
-// What the header says after a change this page asked for, by the status the
-// signup changed from and then to; any other change says nothing. It goes by
-// both on purpose, not by the new status alone, so each message is said only
-// for the change it describes: reaching open from a draft is a publish, not
-// what reopening a closed signup says.
-const ANNOUNCED: Partial<Record<SignupStatus, Partial<Record<SignupStatus, string>>>> = {
-  open: { closed: 'Closed. People can’t sign up now.' },
-  closed: { open: 'Reopened. People can sign up again.' },
-};
+// Which of those the header says after a change this page asked for, by the
+// status the signup changed from and then to; any other change says nothing.
+// It goes by both on purpose, not by the new status alone, so each message is
+// said only for the change it describes: reaching open from a draft is a
+// publish, not what reopening a closed signup says.
+const ANNOUNCED: Partial<Record<SignupStatus, Partial<Record<SignupStatus, keyof Announcements>>>> =
+  {
+    open: { closed: 'closed' },
+    closed: { open: 'reopened' },
+  };
 
 const Say = createContext<(message: string) => void>(() => {});
 
@@ -106,9 +110,12 @@ export function useAnnounce(): (message: string) => void {
  */
 export function HeaderAnnouncer({
   status,
+  announcements,
   children,
 }: {
   status: SignupStatus;
+  /** What it says after Close signup and Reopen signup, from the server. */
+  announcements: Announcements;
   children: ReactNode;
 }) {
   // What the region says, and how many times it's been told: each time is a
@@ -122,6 +129,7 @@ export function HeaderAnnouncer({
     const timer = setTimeout(() => setSaid(([, n]) => ['', n]), SAID_FOR_MS);
     return () => clearTimeout(timer);
   }, [said]);
+  const { closed, reopened } = announcements;
   const previous = useRef(status);
   const askedFor = useRef<SignupStatus | null>(null);
   const [changed, setChanged] = useState<StatusChange>(null);
@@ -136,14 +144,16 @@ export function HeaderAnnouncer({
     // Every change, not only this page's, so a close made elsewhere after
     // one made here doesn't count as this page's.
     setChanged((last) => ({ to: status, here, n: (last?.n ?? 0) + 1 }));
-    const words = here ? ANNOUNCED[was]?.[status] : undefined;
-    if (!words) return;
-    say(words);
+    const which = here ? ANNOUNCED[was]?.[status] : undefined;
+    if (!which) return;
+    say(which === 'closed' ? closed : reopened);
     // A tick later, once a phone's sheet has finished closing: until then its
     // focus trap would take focus back.
     const timer = setTimeout(focusTitle);
     return () => clearTimeout(timer);
-  }, [status, say]);
+    // The words as strings, so a new copy of the same ones (the layout's next
+    // render) runs nothing.
+  }, [status, say, closed, reopened]);
 
   return (
     <AskedFor.Provider value={askedFor}>

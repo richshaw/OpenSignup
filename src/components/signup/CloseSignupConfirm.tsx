@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
+import type { CloseText } from './header-text';
 import {
   StatusActionButtonForm,
   StatusActionRefusal,
@@ -34,6 +35,8 @@ interface CloseSignupConfirmProps {
   /** From `closeSignupQuestion`, built on the server (see `useCloseQuestion`). */
   question: string;
   onNotYet: () => void;
+  /** The words of its buttons, from the server. */
+  text: CloseText;
   /** The phone sheet's sizes: full-width buttons at least 44px tall. */
   phone?: boolean;
 }
@@ -46,7 +49,12 @@ interface CloseSignupConfirmProps {
  * question out, since focus lands on a button. Each time it's asked starts
  * clean: a refusal shows only for a Close signup pressed here.
  */
-export function CloseSignupConfirm({ question, onNotYet, phone = false }: CloseSignupConfirmProps) {
+export function CloseSignupConfirm({
+  question,
+  onNotYet,
+  text,
+  phone = false,
+}: CloseSignupConfirmProps) {
   const pending = useStatusActionPending();
   const notYet = useRef<HTMLButtonElement>(null);
   const questionId = useId();
@@ -73,15 +81,15 @@ export function CloseSignupConfirm({ question, onNotYet, phone = false }: CloseS
           onClick={onNotYet}
           className={`rounded-lg border border-surface-sunk bg-white font-medium transition hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-70 ${size}`}
         >
-          Not yet
+          {text.notYet}
         </button>
         <StatusActionButtonForm>
           <AsyncSubmitButton
-            loadingLabel="Closing…"
+            loadingLabel={text.closing}
             onClick={() => setPressed(true)}
             className={`rounded-lg border border-danger bg-danger font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 ${size}`}
           >
-            Close signup
+            {text.action}
           </AsyncSubmitButton>
         </StatusActionButtonForm>
       </div>

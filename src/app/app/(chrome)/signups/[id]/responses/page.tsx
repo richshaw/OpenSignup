@@ -164,7 +164,8 @@ export default async function ResponsesTab({ params }: PageParams) {
                       tabIndex={-1}
                       className="max-md:col-start-2 max-md:row-start-1 max-md:text-right md:px-4 md:py-3"
                     >
-                      <StatusPill status={status} />
+                      {/* The stored word, in English, until this tab's text moves (#945). */}
+                      <StatusPill status={status} label={status} />
                     </td>
                     <td
                       role="cell"

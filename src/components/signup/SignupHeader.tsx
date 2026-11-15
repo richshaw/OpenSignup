@@ -2,10 +2,13 @@ import Link from 'next/link';
 import { Eye } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { StatusPill } from '@/components/status-pill';
+import type { CatalogLocale } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
 import { closeSignupQuestion, spotsTakenLine, type SpotCounts } from '@/lib/spot-counts';
 import type { SignupStatus } from '@/schemas/signups';
 import type { CloseQuestionAction } from './CloseSignupConfirm';
 import { DraftLine, PhonePreviewItem, PhoneStanding } from './HeaderParts';
+import type { SignupHeaderText } from './header-text';
 import { HEADER_BUTTON, OUTLINED } from './header-buttons';
 import { MobileSignupHeader } from './MobileSignupHeader';
 import { MoreActionsMenu } from './MoreActionsMenu';
@@ -13,9 +16,14 @@ import { PublishButton, PublishRefusal } from './PublishButton';
 import { ReopenButton, ReopenRefusal, ReopenScope } from './ReopenButton';
 import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
+import { signupStatusLabel } from './status-label';
 import type { StatusAction, StatusChangeAction } from './StatusActionForm';
 
 interface SignupHeaderProps {
+  /** The organizer's language, which all of the header's own text is in. */
+  locale: CatalogLocale;
+  /** Its client components' words, from `signupHeaderText` in `locale`. */
+  text: SignupHeaderText;
   signupId: string;
   title: string;
   status: SignupStatus;
@@ -35,6 +43,8 @@ interface SignupHeaderProps {
 }
 
 export function SignupHeader({
+  locale,
+  text,
   signupId,
   title,
   status,
@@ -46,9 +56,22 @@ export function SignupHeader({
   closeAction,
   reopenAction,
 }: SignupHeaderProps) {
+  const t = getServerTranslator(locale, 'organizer.signup');
   const previewHref = `/app/signups/${signupId}/preview`;
-  const closeQuestion = spots ? closeSignupQuestion(spots) : '';
-  const spotsTaken = spots ? spotsTakenLine(spots, status) : null;
+  const closeQuestion = spots
+    ? closeSignupQuestion(spots, getServerTranslator(locale, 'organizer.signup.close'))
+    : '';
+  const spotsTaken = spots
+    ? spotsTakenLine(spots, status, getServerTranslator(locale, 'organizer.signup.spots'))
+    : null;
+  // Rendered here for both headers: the phone's takes it as a node, so it
+  // stays out of the page's JavaScript.
+  const pill = (
+    <StatusPill
+      status={status}
+      label={signupStatusLabel(status, getServerTranslator(locale, 'organizer.status'))}
+    />
+  );
 
   return (
     // Publish, from either header, and the share panel it opens. Their live
@@ -64,15 +87,18 @@ export function SignupHeader({
         <MobileSignupHeader
           title={title}
           status={status}
+          pill={pill}
           standing={
             <PhoneStanding
               signupId={signupId}
               status={status}
               publicUrl={publicUrl}
               spotsTaken={spotsTaken}
+              draftLine={t('draftLine')}
             />
           }
-          previewItem={<PhonePreviewItem href={previewHref} />}
+          previewItem={<PhonePreviewItem href={previewHref} label={t('preview')} />}
+          text={text}
           spotsTaken={spotsTaken}
           closeQuestion={closeQuestion}
           closeQuestionAction={closeQuestionAction}
@@ -98,10 +124,10 @@ export function SignupHeader({
                 >
                   {title}
                 </h1>
-                <StatusPill status={status} />
+                {pill}
               </div>
               {status === 'draft' ? (
-                <DraftLine />
+                <DraftLine text={t('draftLine')} />
               ) : (
                 <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
                   <PublicLinkChip
@@ -123,23 +149,24 @@ export function SignupHeader({
                 className={`${HEADER_BUTTON} ${OUTLINED}`}
               >
                 <Eye size={15} aria-hidden="true" />
-                Preview
+                {t('preview')}
               </Link>
-              {status === 'draft' ? <PublishButton variant="desktop" /> : null}
+              {status === 'draft' ? <PublishButton variant="desktop" text={text.publish} /> : null}
               {status === 'open' ? (
                 <>
                   <ShareButton variant="desktop" />
                   <MoreActionsMenu
+                    text={text}
                     closeQuestion={closeQuestion}
                     closeQuestionAction={closeQuestionAction}
                     closeAction={closeAction}
                   />
                 </>
               ) : null}
-              {status === 'closed' ? <ReopenButton /> : null}
+              {status === 'closed' ? <ReopenButton text={text.reopen} /> : null}
             </div>
           </div>
-          {status === 'draft' ? <PublishRefusal /> : null}
+          {status === 'draft' ? <PublishRefusal text={text.publish} /> : null}
           {status === 'closed' ? <ReopenRefusal /> : null}
         </ReopenScope>
       </header>
