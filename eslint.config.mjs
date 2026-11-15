@@ -24,6 +24,10 @@ const TRANSLATED = [
   'src/components/site-footer.tsx',
   'src/components/banner.tsx',
   'src/components/ui/BottomSheet.tsx',
+  // The notice a save shows, which takes its text from the page, and a
+  // signup's Settings tab, the delete form included.
+  'src/components/ui/save-notice.tsx',
+  'src/app/app/(chrome)/signups/[id]/settings',
   // Everything a participant sees under a signup's address: its page, the
   // sign-up sheet, the pages for changing or cancelling a spot and for
   // turning reminders off, both not-found pages, and the copy helpers.

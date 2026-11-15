@@ -22,7 +22,7 @@ export function SaveStatus({ status }: SaveStatusProps) {
     );
   }
 
-  if (status.kind === 'saved') return <SavedNotice />;
+  if (status.kind === 'saved') return <SavedNotice>Saved</SavedNotice>;
 
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-danger" role="status">

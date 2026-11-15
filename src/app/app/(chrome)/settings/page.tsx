@@ -182,7 +182,7 @@ function OrganizerLanguageForm({
           >
             Save
           </button>
-          {saved ? <SavedNotice role="status" /> : null}
+          {saved ? <SavedNotice role="status">Saved</SavedNotice> : null}
         </div>
       </form>
       {openSignups.toSwitch > 0 ? (

@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
+import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { CATALOG_LOCALES, languageName } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
 
 // Unit tests have no server environment. The instance sets no language
@@ -39,6 +40,16 @@ vi.mock('../actions', () => ({
   setSignupLocaleAction: vi.fn(),
   deleteSignupAction: vi.fn(),
 }));
+// A submit button shows its loading label only while its form is pending,
+// which a test can't hold. This one shows it as an attribute instead.
+vi.mock('@/components/ui/async-submit-button', async () => {
+  const { createElement } = await import('react');
+  type Props = { loadingLabel: string; children: ReactNode };
+  return {
+    AsyncSubmitButton: ({ loadingLabel, children }: Props) =>
+      createElement('button', { type: 'submit', 'data-loading-label': loadingLabel }, children),
+  };
+});
 
 const { default: SettingsTab } = await import('./page');
 
@@ -51,6 +62,9 @@ async function renderTab(searchParams: { error?: string; saved?: string } = {}) 
 }
 
 const languageSection = () => screen.queryByRole('region', { name: 'Language' });
+
+/** Every language with a catalog but English. */
+const OTHER_LOCALES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 afterEach(() => {
   cleanup();
@@ -82,17 +96,14 @@ describe('Settings tab: a refused save or delete', () => {
     }
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-    'is in the organizer’s language, %s',
-    async (other) => {
-      ship('organizer', ['en', other]);
-      stored.organizerLocale = other;
-      await renderTab({ error: 'forbidden' });
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        `organizer.errors.code.forbidden in ${other}`,
-      );
-    },
-  );
+  it.each(OTHER_LOCALES)('is in the organizer’s language, %s', async (other) => {
+    ship('organizer', ['en', other]);
+    stored.organizerLocale = other;
+    await renderTab({ error: 'forbidden' });
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      `organizer.errors.code.forbidden in ${other}`,
+    );
+  });
 });
 
 describe('Settings tab: Signup language', () => {
@@ -154,5 +165,92 @@ describe('Settings tab: Signup language', () => {
     const emailForm = screen.getByRole('region', { name: 'Sign-up form' });
     expect(within(emailForm).getByRole('status')).toHaveTextContent('Saved');
     expect(screen.getAllByRole('status')).toHaveLength(1);
+  });
+});
+
+describe('Settings tab: its words', () => {
+  /**
+   * Each part of the tab, found by the words it should show, as a test reads
+   * them: `say` gives the text for a key under `organizer.signupSettings`,
+   * and `saved` the Saved notice's. Every catalog language is shipped to
+   * participants, so Signup language is there.
+   */
+  async function expectTab(say: (key: string) => string, saved: string) {
+    ship('participant', CATALOG_LOCALES);
+    await renderTab({ saved: '1' });
+
+    const form = within(screen.getByRole('region', { name: say('signupForm.title') }));
+    expect(form.getByRole('group', { name: say('signupForm.askForEmail') })).toBeInTheDocument();
+    expect(form.getByRole('radio', { name: say('signupForm.required') })).toBeChecked();
+    expect(form.getByRole('radio', { name: say('signupForm.optional') })).not.toBeChecked();
+    expect(form.getByText(say('signupForm.requiredHelp'))).toBeInTheDocument();
+    expect(form.getByText(say('signupForm.optionalHelp'))).toBeInTheDocument();
+    const save = form.getByRole('button', { name: say('save') });
+    expect(save).toHaveAttribute('data-loading-label', say('saving'));
+    expect(form.getByRole('status')).toHaveTextContent(saved);
+    cleanup();
+
+    await renderTab({ saved: 'language' });
+    const language = within(screen.getByRole('region', { name: say('language.title') }));
+    expect(language.getByRole('group', { name: say('language.legend') })).toBeInTheDocument();
+    expect(language.getByText(say('language.help'))).toBeInTheDocument();
+    expect(language.getByRole('button', { name: say('save') })).toHaveAttribute(
+      'data-loading-label',
+      say('saving'),
+    );
+    expect(language.getByRole('status')).toHaveTextContent(saved);
+
+    const danger = within(screen.getByRole('region', { name: say('dangerZone.title') }));
+    expect(danger.getByText(say('dangerZone.body'))).toBeInTheDocument();
+    fireEvent.click(danger.getByRole('button', { name: say('delete.start') }));
+    const confirm = within(danger.getByRole('alertdialog', { name: say('delete.label') }));
+    expect(confirm.getByText(say('delete.question'))).toBeInTheDocument();
+    expect(confirm.getByRole('button', { name: say('delete.confirm') })).toHaveAttribute(
+      'data-loading-label',
+      say('delete.deleting'),
+    );
+    fireEvent.click(confirm.getByRole('button', { name: say('delete.cancel') }));
+    expect(danger.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(danger.getByRole('button', { name: say('delete.start') })).toBeInTheDocument();
+  }
+
+  it('reads as before in English, with no language stored', async () => {
+    const english: Record<string, string> = {
+      'signupForm.title': 'Sign-up form',
+      'signupForm.askForEmail': 'Ask for an email address',
+      'signupForm.required': 'Required',
+      'signupForm.optional': 'Optional',
+      'signupForm.requiredHelp': 'We email everyone their link to change or cancel.',
+      'signupForm.optionalHelp':
+        'People can leave it blank. They get no emails, not even reminders, so they need to save their link. If they lose it, they can sign up again and you can remove the old one on the Responses tab.',
+      'language.title': 'Language',
+      'language.legend': 'Signup language',
+      'language.help':
+        'This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language.',
+      save: 'Save',
+      saving: 'Saving…',
+      'dangerZone.title': 'Danger zone',
+      'dangerZone.body':
+        'Deleting removes this signup from your dashboard and immediately makes its public link inaccessible.',
+      'delete.start': 'Delete signup',
+      'delete.label': 'Confirm signup deletion',
+      'delete.question': 'This will delete the signup.',
+      'delete.confirm': 'Yes, delete signup',
+      'delete.deleting': 'Deleting…',
+      'delete.cancel': 'Cancel',
+    };
+    await expectTab((key) => english[key] ?? `no English for ${key}`, 'Saved');
+  });
+
+  it.each(OTHER_LOCALES)('is in the organizer’s language, %s', async (other) => {
+    ship('organizer', ['en', other]);
+    stored.organizerLocale = other;
+    await expectTab(
+      (key) => `organizer.signupSettings.${key} in ${other}`,
+      `organizer.saveNotice.saved in ${other}`,
+    );
+    // Each language is still named in itself, whatever the tab's language.
+    expect(screen.getByRole('radio', { name: 'English' })).toBeInTheDocument();
+    expect(screen.getByText(languageName(other))).toHaveAttribute('lang', other);
   });
 });
