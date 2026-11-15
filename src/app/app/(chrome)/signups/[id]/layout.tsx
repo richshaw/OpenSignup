@@ -12,7 +12,8 @@ import { SignupHeader } from '@/components/signup/SignupHeader';
 import { hasPhoneBar, PHONE_BAR_ROOM } from '@/components/signup/phone-bar';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
-import { SIGNUP_NOT_FOUND_TITLE, SignupLoadError } from '@/components/signup/SignupLoadError';
+import { SignupLoadError, signupNotFoundTitle } from '@/components/signup/SignupLoadError';
+import { getOrganizerAppLocale } from '@/i18n/organizer';
 import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, closeQuestionAction, publishAction, reopenAction } from './actions';
 
@@ -26,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const session = await getOrganizerSession();
   if (!session) return { title: 'OpenSignup' };
   const result = await loadSignupForOrganizer(toActor(session), id);
-  if (!result.ok) return { title: SIGNUP_NOT_FOUND_TITLE };
+  if (!result.ok) return { title: signupNotFoundTitle(getOrganizerAppLocale(session)) };
   return { title: result.value.title };
 }
 
@@ -38,7 +39,11 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   if (!result.ok) {
     return (
       <div className="sm:py-8">
-        <SignupLoadError error={result.error} email={session.email} />
+        <SignupLoadError
+          error={result.error}
+          email={session.email}
+          locale={getOrganizerAppLocale(session)}
+        />
       </div>
     );
   }
@@ -52,7 +57,11 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   if (filled && !filled.ok) {
     return (
       <div className="sm:py-8">
-        <SignupLoadError error={filled.error} email={session.email} />
+        <SignupLoadError
+          error={filled.error}
+          email={session.email}
+          locale={getOrganizerAppLocale(session)}
+        />
       </div>
     );
   }

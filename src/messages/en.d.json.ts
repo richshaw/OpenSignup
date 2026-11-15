@@ -287,6 +287,47 @@ declare const messages: {
       "title": "Preview",
       "body": "{status, select, draft {This is what people will see once you publish. No signups will be saved.} closed {This signup is closed. The page below shows what visitors see.} archived {This signup is archived and is not visible to participants.} other {This signup is live. The page below shows what visitors see.}}",
       "signUpDisabled": "Preview: publish to enable signups"
+    },
+    "chrome": {
+      "tabTitle": "Dashboard",
+      "breadcrumb": "Breadcrumb",
+      "home": "OpenSignup",
+      "help": "Help",
+      "account": "Account",
+      "settings": "Settings",
+      "signOut": "Sign out"
+    },
+    "crumbs": {
+      "settings": "Settings",
+      "connectedApps": "Connected apps",
+      "newSignup": "New signup",
+      "edit": "Edit"
+    },
+    "dashboard": {
+      "title": "Your signups",
+      "none": "No signups yet. Start one below.",
+      "total": "{count, number, ::group-off} total",
+      "newSignup": "New signup",
+      "emptyPitch": "Coordinate snacks, carpool, potluck, volunteer shifts, or anything else.",
+      "createFirst": "Create your first signup",
+      "draftOnlyYou": "Only you can see this draft",
+      "noWorkspace": {
+        "title": "Welcome to OpenSignup",
+        "body": "Your workspace isn't set up yet. Sign out and back in to finish provisioning."
+      }
+    },
+    "loadError": {
+      "tabTitle": "Signup not found",
+      "notFound": {
+        "title": "We can’t find this signup",
+        "body": "It may have been deleted, or it may belong to a different account. You’re signed in as <account>{email}</account>."
+      },
+      "failed": {
+        "title": "We couldn’t open this signup",
+        "body": "Something went wrong on our side. Reload the page to try again."
+      },
+      "goToSignups": "Go to your signups",
+      "switchAccount": "Sign in with a different email"
     }
   }
 };

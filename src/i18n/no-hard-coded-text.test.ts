@@ -37,6 +37,12 @@ const TRANSLATED_FILES = [
   'src/email/templates/slot-changed.tsx',
   'src/email/templates/layout.tsx',
   'src/email/templates/slot-details.tsx',
+  'src/app/app/(chrome)/layout.tsx',
+  'src/app/app/(chrome)/page.tsx',
+  'src/app/app/(chrome)/@crumbs/settings/page.tsx',
+  'src/app/app/(chrome)/@crumbs/signups/[id]/edit/page.tsx',
+  'src/components/chrome/Crumb.tsx',
+  'src/components/signup/SignupLoadError.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */

@@ -1,5 +1,8 @@
 import Link from 'next/link';
 
+/** What goes between two crumbs: a mark, not a word, so the same in every language. */
+const SEPARATOR = '›';
+
 export function Crumb({
   href,
   children,
@@ -21,7 +24,7 @@ export function Crumb({
   return (
     <>
       <span className="text-ink-soft" aria-hidden="true">
-        ›
+        {SEPARATOR}
       </span>
       {label}
     </>

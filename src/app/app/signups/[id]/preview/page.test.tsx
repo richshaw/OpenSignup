@@ -13,7 +13,11 @@ const organizer = vi.hoisted(() => ({ locale: null as string | null }));
 vi.mock('next/server', () => ({ after: vi.fn() }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) }));
 vi.mock('@/auth/session', () => ({
-  getOrganizerSession: async () => ({ organizerId: 'org_1', email: 'pat@example.com' }),
+  getOrganizerSession: async () => ({
+    organizerId: 'org_1',
+    email: 'pat@example.com',
+    locale: organizer.locale,
+  }),
   requireOrganizerSession: async () => ({
     organizerId: 'org_1',
     email: 'pat@example.com',
@@ -31,7 +35,12 @@ vi.mock('@/services/commitments', () => ({
 }));
 vi.mock('@/lib/view-tracker', () => ({ trackOrganizerView: vi.fn() }));
 // Unit tests have no server environment; the instance sets no language.
-vi.mock('@/i18n/server', () => ({ instanceDefaultLocale: () => undefined }));
+// English from the catalog; any other language answers with the key it was
+// asked for (`getTestServerTranslator`).
+vi.mock('@/i18n/server', async () => ({
+  instanceDefaultLocale: () => undefined,
+  getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
+}));
 
 const { default: SignupPreviewPage, generateMetadata } = await import('./page');
 
@@ -133,10 +142,11 @@ describe('organizer preview page', () => {
     );
     const page = (await SignupPreviewPage({
       params: Promise.resolve({ id: 'sig_theirs' }),
-    })) as ReactElement<{ error: { code: string }; email: string }>;
+    })) as ReactElement<{ error: { code: string }; email: string; locale: string }>;
 
     expect(page.props.error.code).toBe('not_found');
     expect(page.props.email).toBe('pat@example.com');
+    expect(page.props.locale).toBe('en');
     expect(committedBySlot).not.toHaveBeenCalled();
   });
 
@@ -152,4 +162,28 @@ describe('organizer preview page', () => {
     const params = Promise.resolve({ id: 'sig_1' });
     expect(await generateMetadata({ params })).toEqual({ title: 'Preview' });
   });
+
+  it.each(OTHER_LANGUAGES)(
+    'titles the tab, and words the not-found card, in the organizer’s language, %s',
+    async (other) => {
+      ship('organizer', ['en', other]);
+      organizer.locale = other;
+      const params = Promise.resolve({ id: 'sig_1' });
+      expect(await generateMetadata({ params })).toEqual({
+        title: `organizer.preview.title in ${other}`,
+      });
+
+      getSignupForOrganizer.mockRejectedValue(
+        new ServiceException(serviceError('forbidden', 'not a member of that workspace')),
+      );
+      const theirs = Promise.resolve({ id: 'sig_theirs' });
+      expect(await generateMetadata({ params: theirs })).toEqual({
+        title: `organizer.loadError.tabTitle in ${other}`,
+      });
+      const page = (await SignupPreviewPage({ params: theirs })) as ReactElement<{
+        locale: string;
+      }>;
+      expect(page.props.locale).toBe(other);
+    },
+  );
 });
