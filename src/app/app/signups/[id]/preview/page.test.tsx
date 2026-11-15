@@ -13,7 +13,7 @@ vi.mock('@/auth/session', () => ({
   requireOrganizerSession: async () => ({ organizerId: 'org_1', email: 'pat@example.com' }),
   toActor: () => ({ kind: 'organizer', organizerId: 'org_1' }),
 }));
-vi.mock('@/auth/sign-out', () => ({ signOutOrganizer: vi.fn() }));
+vi.mock('@/auth/sign-out', () => ({ signOutOrganizer: vi.fn(), switchOrganizer: vi.fn() }));
 vi.mock('@/services/signups', () => ({
   getSignupForOrganizer: (...args: unknown[]) => getSignupForOrganizer(...args),
   getPublicSignup: vi.fn(),

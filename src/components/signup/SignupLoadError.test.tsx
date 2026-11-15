@@ -6,7 +6,7 @@ import { render, screen } from '@testing-library/react';
 import { serviceError } from '@/lib/errors';
 
 vi.mock('next/headers', () => ({ headers: vi.fn() }));
-vi.mock('@/auth/sign-out', () => ({ signOutOrganizer: vi.fn() }));
+vi.mock('@/auth/sign-out', () => ({ signOutOrganizer: vi.fn(), switchOrganizer: vi.fn() }));
 
 const { SIGNUP_LOAD_ERROR, SignupLoadError } = await import('./SignupLoadError');
 
