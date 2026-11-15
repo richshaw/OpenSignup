@@ -4,12 +4,14 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { ClientMessages } from '@/i18n/ClientMessages';
-import type { CatalogLocale } from '@/i18n/config';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { getTranslator, messagesFor } from '@/i18n/translator';
+import { formatSlotTime } from '@/lib/slot-label';
 import { WHAT_ITEMS_MAX } from '@/lib/magic-compose/limits';
 import type { MagicComposeQuestions } from '@/lib/magic-compose/questions';
 import { MAGIC_COMPOSE_NAMESPACES } from './client-namespaces';
 import { MagicComposeRoot } from './MagicComposeRoot';
+import { timeLength } from './answers';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -681,6 +683,27 @@ describe('<MagicComposeRoot /> questions when the description says what', () => 
     fireEvent.click(first);
     expect(screen.getByRole('button', { name: 'Remove Set up' })).toHaveFocus();
   });
+});
+
+describe('<MagicComposeRoot /> in each language', () => {
+  // No signup yet, and a new one starts in its organizer's language, so the
+  // time boxes write their times in it, as their lengths are, not in English.
+  it.each(CATALOG_LOCALES)(
+    "writes the time boxes' times in the organizer's language, %s",
+    async (locale) => {
+      stubReplies(asks());
+      await openQuestions('Bake sale', locale);
+      const starts = screen.getByLabelText(composeIn(locale)('questions.when.starts'));
+      const option = (box: HTMLElement, value: string) =>
+        Array.from(box.querySelectorAll('option')).find((o) => o.value === value)?.textContent;
+      expect(option(starts, '09:00')).toBe(formatSlotTime('09:00', locale));
+      fireEvent.change(starts, { target: { value: '09:00' } });
+      const ends = screen.getByLabelText(composeIn(locale)('questions.when.ends'));
+      expect(option(ends, '10:30')).toBe(
+        `${formatSlotTime('10:30', locale)} (${timeLength('09:00', '10:30', locale)})`,
+      );
+    },
+  );
 });
 
 describe('<MagicComposeRoot /> in another language', () => {
