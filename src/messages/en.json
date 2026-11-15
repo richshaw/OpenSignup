@@ -486,5 +486,57 @@
       "disconnecting": "Disconnecting…",
       "footnote": "Disconnecting stops an app from getting new access straight away. Access it already holds expires on its own within {lifetime} and cannot be cut short."
     }
+  },
+  "auth": {
+    "tabTitle": "Sign in",
+    "heading": "Sign in to OpenSignup",
+    "login": {
+      "intro": "Enter your email and we'll send you a magic link to sign in. No passwords.",
+      "introWithProviders": "Continue with a provider below, or get a magic link by email. No passwords.",
+      "linkInvalid": "That sign-in link is no longer valid. It may have been used already or it may have expired. Request a new one below.",
+      "failed": "Something went wrong. Try again.",
+      "continueWith": "Continue with {provider}",
+      "or": "or"
+    },
+    "form": {
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "send": "Send magic link",
+      "sending": "Sending…",
+      "sent": "Sent — check your email",
+      "sentTo": "Link sent to {email}. Check your inbox.",
+      "sendAgain": "Send again",
+      "tryAgain": "Try again",
+      "errors": {
+        "invalidEmail": "That doesn’t look like a valid email address.",
+        "sendFailed": "Couldn’t send. Please try again.",
+        "rateLimited": "Too many sign-in requests. Wait up to an hour. If we already emailed you a link, you can use that."
+      }
+    },
+    "code": {
+      "label": "Opened the email on another device?",
+      "hint": "Type the six-digit code from the email to sign in here instead.",
+      "submit": "Sign in with code",
+      "checking": "Checking…",
+      "errors": {
+        "noEmail": "Request a new link first.",
+        "rateLimited": "Too many tries. Wait a few minutes, or click the link in the email.",
+        "expired": "That code has expired. Request a new link.",
+        "wrong": "That code is not right. Check the email and try again.",
+        "failed": "Something went wrong. Try again."
+      }
+    },
+    "check": {
+      "tabTitle": "Check your email",
+      "heading": "Check your email",
+      "body": "We sent a sign-in link to your inbox. Click it to continue. The link expires in {duration}. This page will move on by itself once you have signed in."
+    },
+    "confirm": {
+      "bodyAs": "Click the button below to sign in as <strong>{email}</strong>.",
+      "body": "Click the button below to sign in.",
+      "signIn": "Sign in →",
+      "signingIn": "Signing in…",
+      "differentEmail": "Use a different email"
+    }
   }
 }

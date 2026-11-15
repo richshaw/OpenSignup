@@ -38,6 +38,15 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
  *   `message` is its own explanation.
  * - `asked_again` (`invalid_input`): Magic Compose's AI asked its questions
  *   again after they were answered.
+ * - `code_malformed` (`invalid_input` on `code`): a sign-in code that isn't
+ *   six digits, once spaces and dashes are dropped. This and the next two
+ *   come from `redeemLoginCode`, which only the sign-in page's code form
+ *   calls (`codeRefusal` in src/app/login/code-refusal.ts), so no API sends
+ *   them.
+ * - `code_invalid` (`invalid_input` on `code`): no live sign-in code matches:
+ *   a wrong one, one already used, or one a newer email has replaced.
+ * - `code_expired` (`already_consumed`): the sign-in code matched, but its
+ *   time is up.
  * - `email_required` (`invalid_input` on `email`): the signup asks for an
  *   email, and none was given.
  * - `email_invalid` (`invalid_input` on `email`): not an email address, or
@@ -58,6 +67,9 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
 export type ErrorReason =
   | 'refusal'
   | 'asked_again'
+  | 'code_malformed'
+  | 'code_invalid'
+  | 'code_expired'
   | 'email_required'
   | 'email_invalid'
   | 'name_required'
