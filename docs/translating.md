@@ -650,6 +650,14 @@ review of the Swedish translation (#639) to settle.
    _flytten_ alone mostly means moving house, but "så det du flyttade
    sparades inte" takes the rail to 8 lines at 320 pixels, against 7 for
    English and for "flytten". "så ordningen sparades inte" also fits in 7.
+   From #982's review: "i hela tal" or "med hela tal" for how many people
+   (`organizer.compose.questions.problems.wholeNumbers`); the catalog keeps
+   "i hela tal", as in "i hela kronor". And "uppgifter man turas om med" or
+   the review's "uppgifter som går på tur" for rotating roles
+   (`organizer.compose.starters.community.blurb`): _turas om_ is the usual
+   verb, and _gå på tur_ can read as going on an outing. Either takes the
+   card to three lines at 320 and 1280 pixels, where English has two;
+   dropping "inför evenemang" keeps two, but loses the events.
 7. **Layout.** The unsubscribe page's Swedish buttons wrap at 390 pixels.
 8. **"Du är anmäld som {name}".** The edit page's "You're editing this as
    {name}." (`participant.editPage.editingAs`, and `editingAsWithEmail`) is

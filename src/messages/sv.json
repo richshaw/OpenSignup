@@ -492,7 +492,7 @@
     "compose": {
       "eyebrow": "Ny anmälningslista",
       "heading": "Vad ska du ordna?",
-      "intro": "<strong>Skriv vad deltagarna ska anmäla sig till, när och hur många du behöver till varje.</strong> Vi gör om det till en titel, en kort beskrivning och pass som du kan ändra.",
+      "intro": "<strong>Skriv vad deltagarna ska anmäla sig till, när och hur många du behöver till varje sak.</strong> Vi gör om det till en titel, en kort beskrivning och pass som du kan ändra.",
       "describe": "Beskriv din anmälningslista",
       "placeholder": "T.ex. Mellanmål till barnens fotbollslag. 6 matcher på lördagar från 25 april, två familjer per match, inga nötter tack.",
       "count": "{count, number} / {max, number} tecken",
@@ -510,12 +510,12 @@
         },
         "classroom": {
           "label": "Klass eller skola",
-          "blurb": "Knytkalas, utvecklingssamtal, insamlingar, volontärdagar",
-          "body": "Knytkalas för klass 3 vid läsårets slut, sista fredagen i månaden kl. 17. 20 familjer tar med var sin rätt: vi behöver 5 familjer som tar med varmrätt, 5 tillbehör, 5 efterrätt och 5 dricka."
+          "blurb": "Knytkalas, utvecklingssamtal, insamlingar, arbetsdagar",
+          "body": "Sommaravslutning med knytkalas för klass 3, sista fredagen i månaden kl. 17. 20 familjer tar med var sin rätt: vi behöver 5 familjer som tar med varmrätt, 5 tillbehör, 5 efterrätt och 5 dricka."
         },
         "community": {
           "label": "Volontärpass",
-          "blurb": "Pass för frivilliga, förberedelser inför evenemang eller turordningslistor",
+          "blurb": "Pass för volontärer, förberedelser inför evenemang eller uppgifter man turas om med",
           "body": "Volontärer till vårens bokmarknad. Torsdag och fredag nästa vecka, tre pass på 2 timmar varje dag (9–11, 11–13 och 13–15). 2 volontärer per pass."
         }
       },
@@ -568,7 +568,7 @@
       },
       "draftingFrom": {
         "label": "Underlag för utkastet",
-        "allAnswered": "Allt besvarat",
+        "allAnswered": "Alla besvarade",
         "oneBlank": "En obesvarad",
         "twoBlank": "Två obesvarade",
         "what": "Vad",
@@ -609,7 +609,7 @@
         "fillInByHand": "Fyll i själv i stället",
         "what": {
           "ask": "Vad ska deltagarna anmäla sig till?",
-          "askHint": "Välj det som passar, eller lägg till egna.",
+          "askHint": "Välj en eller flera, eller lägg till egna.",
           "told": "Vad deltagarna anmäler sig till",
           "toldHint": "Från din beskrivning. Ta bort det som inte passar, eller lägg till egna.",
           "remove": "Ta bort {item}",
