@@ -3,6 +3,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { FormError } from '@/components/ui/form-error';
 import { LLM_TIMEOUT_DEFAULT_MS } from '@/lib/magic-compose/limits';
@@ -11,8 +12,13 @@ import type { Answers } from './answers';
 import { ChunkBoundary } from './ChunkBoundary';
 import { Compose } from './Compose';
 import { Drafting } from './Drafting';
-import { explainDraftFailure, type DraftError, type DraftErrorBody } from './draft-errors';
-import { handFillHref } from './hand-fill';
+import {
+  explainDraftFailure,
+  type DraftError,
+  type DraftErrorBody,
+  type DraftErrorTranslators,
+} from './draft-errors';
+import { useHandFillHref } from './hand-fill';
 import { writeAiDraftWarnings } from './ai-draft-warnings';
 
 // The questions, and the Drafting from card after them, show only once the AI
@@ -75,23 +81,19 @@ function failed(followUp: FollowUp | null, error: DraftError): Phase {
 const DRAFTING_WATCHDOG_HEADROOM_MS = 30_000;
 
 /**
- * When the questions can't show: their code won't load, most likely because a
- * deploy replaced it, or they throw while rendering.
+ * Magic Compose's screens, under the `ClientMessages` its page gives them
+ * (`MAGIC_COMPOSE_NAMESPACES`), in the organizer's language. The dates,
+ * times and numbers the screens write are in that language too.
  */
-const QUESTIONS_UNAVAILABLE: DraftError = {
-  kind: 'message',
-  text: "The questions couldn't be shown. Reload the page and try again; copy your description first if you want to keep it.",
-};
-
 export function MagicComposeRoot({
-  locale,
   llmTimeoutMs = LLM_TIMEOUT_DEFAULT_MS,
 }: {
-  /** The organizer's language, for the dates, times and numbers the screens write. */
-  locale: string;
   /** The instance's `LLM_TIMEOUT_MS`. */
   llmTimeoutMs?: number;
 }) {
+  const locale = useLocale();
+  const compose = useTranslations('organizer.compose.errors');
+  const errors = useTranslations('organizer.errors');
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [prompt, setPrompt] = useState('');
@@ -117,14 +119,12 @@ export function MagicComposeRoot({
         // A call with answers comes back to the questions, where there's no prompt to simplify.
         return failed(followUp, {
           kind: 'message',
-          text: followUp
-            ? 'AI drafting is taking longer than expected. Try again.'
-            : 'AI drafting is taking longer than expected. Try again or simplify your prompt.',
+          text: followUp ? compose('slowWithAnswers') : compose('slow'),
         });
       });
     }, llmTimeoutMs + DRAFTING_WATCHDOG_HEADROOM_MS);
     return () => clearTimeout(timer);
-  }, [phase.kind, llmTimeoutMs]);
+  }, [phase.kind, llmTimeoutMs, compose]);
 
   const request = useCallback(
     async (followUp: FollowUp | null) => {
@@ -159,7 +159,13 @@ export function MagicComposeRoot({
           return;
         }
         if (!res.ok || !data?.id || !data.draft) {
-          setPhase(failed(followUp, explainDraftFailure(res.status, body?.error, { followUp })));
+          const error = explainDraftFailure(
+            res.status,
+            body?.error,
+            { compose, errors },
+            { followUp },
+          );
+          setPhase(failed(followUp, error));
           return;
         }
 
@@ -170,10 +176,10 @@ export function MagicComposeRoot({
         setPhase((p) => (p.kind === 'drafting' ? { ...p, draft, response: { id } } : p));
       } catch (e) {
         if (controller.signal.aborted) return;
-        setPhase(failed(followUp, { kind: 'message', text: explainFetchError(e) }));
+        setPhase(failed(followUp, { kind: 'message', text: explainFetchError(e, compose) }));
       }
     },
-    [prompt],
+    [prompt, compose, errors],
   );
 
   const onDraft = useCallback(() => void request(null), [request]);
@@ -193,13 +199,14 @@ export function MagicComposeRoot({
     setPhase({ kind: 'idle', back: true });
   }, []);
 
-  // The questions can't show: back to compose, with the description in its
-  // box to copy before a reload.
+  // The questions can't show: their code won't load, most likely because a
+  // deploy replaced it, or they throw while rendering. Back to compose, with
+  // the description in its box to copy before a reload.
   const onQuestionsUnavailable = useCallback(() => {
     setQuestions(null);
     setAnswers(null);
-    setPhase({ kind: 'error', error: QUESTIONS_UNAVAILABLE });
-  }, []);
+    setPhase({ kind: 'error', error: { kind: 'message', text: compose('questionsUnavailable') } });
+  }, [compose]);
 
   const onCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -274,7 +281,6 @@ export function MagicComposeRoot({
       )}
       <Compose
         prompt={prompt}
-        locale={locale}
         setPrompt={setPrompt}
         onDraft={onDraft}
         focusAtEnd={phase.kind === 'idle' && phase.back === true}
@@ -284,17 +290,17 @@ export function MagicComposeRoot({
 }
 
 function DraftErrorText({ error, prompt }: { error: DraftError; prompt: string }) {
+  const t = useTranslations('organizer.compose.errors');
+  const handFill = useHandFillHref(prompt);
   if (error.kind === 'message') return <>{error.text}</>;
-  return (
-    <>
-      You&apos;ve used this hour&apos;s AI drafts. Try again in {error.minutes}{' '}
-      {error.minutes === 1 ? 'minute' : 'minutes'}, or{' '}
-      <Link href={handFillHref(prompt)} className="font-medium underline">
-        fill it in by hand
+  return t.rich('hourlyLimit', {
+    minutes: error.minutes,
+    link: (chunks) => (
+      <Link href={handFill} className="font-medium underline">
+        {chunks}
       </Link>
-      .
-    </>
-  );
+    ),
+  });
 }
 
 /**
@@ -303,15 +309,9 @@ function DraftErrorText({ error, prompt }: { error: DraftError; prompt: string }
  * failed", "NetworkError when attempting to fetch resource") are not
  * actionable; abort errors are handled by the caller before we land here.
  */
-export function explainFetchError(e: unknown): string {
-  if (e instanceof DOMException && e.name === 'AbortError') {
-    return 'Request was cancelled.';
-  }
-  if (e instanceof TypeError) {
-    return "Couldn't reach the server. Check your connection and try again.";
-  }
-  if (e instanceof SyntaxError) {
-    return 'The server returned an unexpected response. Try again.';
-  }
-  return 'Something went wrong while drafting. Try again.';
+export function explainFetchError(e: unknown, t: DraftErrorTranslators['compose']): string {
+  if (e instanceof DOMException && e.name === 'AbortError') return t('cancelled');
+  if (e instanceof TypeError) return t('offline');
+  if (e instanceof SyntaxError) return t('unexpected');
+  return t('unknown');
 }

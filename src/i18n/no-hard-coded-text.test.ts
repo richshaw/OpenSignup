@@ -61,6 +61,16 @@ const TRANSLATED_FILES = [
   'src/app/app/(chrome)/@crumbs/signups/[id]/edit/page.tsx',
   'src/components/chrome/Crumb.tsx',
   'src/components/signup/SignupLoadError.tsx',
+  'src/app/app/(chrome)/signups/new/page.tsx',
+  'src/app/app/(chrome)/signups/new/NewSignupForm.tsx',
+  'src/components/magic-compose/Compose.tsx',
+  'src/components/magic-compose/Drafting.tsx',
+  'src/components/magic-compose/DraftingFrom.tsx',
+  'src/components/magic-compose/Steps.tsx',
+  'src/components/magic-compose/StepLine.tsx',
+  'src/components/magic-compose/YouWrote.tsx',
+  'src/components/magic-compose/MagicComposeRoot.tsx',
+  'src/components/magic-compose/ChunkBoundary.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
@@ -290,6 +300,16 @@ describe('where the rules apply', () => {
     expect(await lint(text, 'src/email/templates/cancelled.tsx')).toHaveLength(2);
     expect(await lint(text, 'src/email/templates/magic-link.tsx')).toEqual([]);
     expect(await lint(text, 'src/email/templates/unsubscribe-footer.test.tsx')).toEqual([]);
+  });
+
+  // Magic Compose's folder is listed whole, so a screen added later is checked
+  // from the start. Its questions and the banner on a draft it made are still
+  // in English.
+  it('are on for a new Magic Compose screen, and off for its questions and banner', async () => {
+    const text = '<p>Sign up</p><button aria-label="Close" />';
+    expect(await lint(text, 'src/components/magic-compose/Review.tsx')).toHaveLength(2);
+    expect(await lint(text, 'src/components/magic-compose/Questions.tsx')).toEqual([]);
+    expect(await lint(text, 'src/components/magic-compose/AiDraftBanner.tsx')).toEqual([]);
   });
 
   it('read an email’s preview text as text', async () => {

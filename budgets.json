@@ -11,7 +11,7 @@
     "/": 131.5,
     "/login": 110,
     "/help/[slug]": 113,
-    "/app/signups/new": 118,
+    "/app/signups/new": 119.6,
     "/app/signups/[id]": 130,
     "/app/signups/[id]/build": 151.1,
     "/app/signups/[id]/edit": 130,

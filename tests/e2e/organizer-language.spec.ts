@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { getTranslator, type Namespace } from '@/i18n/translator';
 import { loginAsSeededOrganizer } from './helpers/auth';
@@ -41,8 +41,30 @@ function languageOf(locator: Locator): Promise<string | null | undefined> {
 /** A rich message as the page shows it: its text, tags and all left as text. */
 const plain = (chunks: string) => chunks;
 
+/** `text` as a regular expression that matches only itself. */
+const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /** A tab title that starts with `text`, then the site's name. */
-const titled = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} · `);
+const titled = (text: string) => new RegExp(`^${escaped(text)} · `);
+
+/**
+ * What the browser reports while `page` is open that would mean its first
+ * render didn't match the server's HTML: a production build reports a
+ * hydration mismatch as an uncaught error ("Minified React error #418").
+ */
+function watchForHydrationErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (
+      message.type() === 'error' &&
+      /hydrat|react error #4(18|19|21|22|23|25)/i.test(message.text())
+    ) {
+      errors.push(message.text());
+    }
+  });
+  return errors;
+}
 
 for (const stored of STORED) {
   const locale = stored ?? 'en';
@@ -236,6 +258,72 @@ for (const stored of STORED) {
       const robin = lines.find((line) => line.includes(who));
       expect(robin?.split(',')[0]).toBe('Cookies');
       expect(robin?.split(',')[4]).toBe(responses('status.removed'));
+    });
+
+    test(`starts a new signup in ${locale}`, async ({ page }) => {
+      const newSignup = messagesIn(locale, 'organizer.newSignup');
+      const compose = messagesIn(locale, 'organizer.compose');
+      const hydration = watchForHydrationErrors(page);
+
+      // Magic Compose, where the instance has an AI set up (LLM_BASE_URL).
+      await page.goto('/app/signups/new');
+      const heading = page.getByRole('heading', { level: 1 });
+      await expect(heading).toHaveText(
+        new RegExp(`^(${escaped(compose('heading'))}|${escaped(newSignup('title'))})$`),
+      );
+      expect(await languageOf(heading), unshippedHint).toBe(locale);
+      await expect(page).toHaveTitle(titled(newSignup('title')));
+      if ((await heading.textContent()) === compose('heading')) {
+        const box = page.getByRole('textbox', { name: compose('describe') });
+        // An example is a description in the organizer's language, sent as is.
+        await page
+          .getByRole('button', {
+            name: new RegExp(`^${escaped(compose('starters.sports.label'))}`),
+          })
+          .click();
+        await expect(box).toHaveValue(compose('starters.sports.body'));
+        await expect(page.getByText(compose('loaded'))).toBeVisible();
+        // The hour's AI drafts used up, as the route answers it.
+        await page.route('**/api/signups/magic-compose', (route) =>
+          route.fulfill({
+            status: 429,
+            json: {
+              error: {
+                code: 'rate_limited',
+                message: 'too many requests',
+                details: { retryAfterSeconds: 700, bucket: 'magic.compose' },
+              },
+            },
+          }),
+        );
+        await page.getByRole('button', { name: compose('draft') }).click();
+        const alert = page.getByRole('main').getByRole('alert');
+        await expect(alert).toHaveText(
+          compose.markup('errors.hourlyLimit', { minutes: 12, link: plain }),
+        );
+        expect(await languageOf(alert)).toBe(locale);
+        await expect(box).toHaveValue(compose('starters.sports.body'));
+        await page.getByRole('link', { name: compose('skip') }).click();
+      } else {
+        await page.goto('/app/signups/new?manual=1');
+      }
+
+      // The form, from Skip or with no AI.
+      await expect(page).toHaveURL(/\/app\/signups\/new\?manual=1$/);
+      await expect(heading).toHaveText(newSignup('title'));
+      expect(await languageOf(heading), unshippedHint).toBe(locale);
+      await expect(page.getByText(newSignup('intro'))).toBeVisible();
+      await expect(page.getByLabel(newSignup('titleLabel'))).toHaveAttribute(
+        'placeholder',
+        newSignup('titlePlaceholder'),
+      );
+      await expect(page.getByLabel(newSignup('descriptionLabel'))).toHaveAttribute(
+        'placeholder',
+        newSignup('descriptionPlaceholder'),
+      );
+      await expect(page.getByRole('link', { name: newSignup('cancel') })).toBeVisible();
+      await expect(page.getByRole('button', { name: newSignup('create') })).toBeVisible();
+      expect(hydration).toEqual([]);
     });
   });
 }

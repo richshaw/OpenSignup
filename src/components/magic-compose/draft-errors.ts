@@ -1,4 +1,4 @@
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-errors';
+import type { Translator } from '@/i18n/translator';
 import type { ErrorCode } from '@/lib/errors';
 import { waitMinutes } from '@/lib/format-duration';
 import { MAGIC_COMPOSE_BUCKET } from '@/lib/magic-compose/limits';
@@ -28,6 +28,37 @@ function minutesToWait(details: Record<string, unknown> | undefined): number | u
 
 const message = (text: string): DraftError => ({ kind: 'message', text });
 
+type WordedCode = Exclude<ErrorCode, 'internal'>;
+
+/**
+ * The line in `organizer.errors` for each code a failed draft is worded by,
+ * all but `internal`. A table, so a code read from the response is looked up
+ * only if it's one of its own keys, and a new code fails the type check until
+ * it's listed.
+ */
+const CODE_LINE: { [C in WordedCode]: `code.${C}` } = {
+  forbidden: 'code.forbidden',
+  unauthorized: 'code.unauthorized',
+  conflict: 'code.conflict',
+  capacity_full: 'code.capacity_full',
+  closed: 'code.closed',
+  not_found: 'code.not_found',
+  invalid_input: 'code.invalid_input',
+  rate_limited: 'code.rate_limited',
+  already_consumed: 'code.already_consumed',
+};
+
+/**
+ * The messages a failed draft is worded with, in the organizer's language:
+ * Magic Compose's own (`organizer.compose.errors`), and the line for a
+ * refusal's code, which the pages rendered on the server use too
+ * (`organizer.errors`).
+ */
+export type DraftErrorTranslators = {
+  compose: Translator<'organizer.compose.errors'>;
+  errors: Translator<'organizer.errors'>;
+};
+
 /**
  * The words for a failure of the AI provider, by the route's
  * `details.llmErrorCode` and, for an error the provider sent,
@@ -37,26 +68,21 @@ const message = (text: string): DraftError => ({ kind: 'message', text });
 function providerFailure(
   details: Record<string, unknown>,
   withAnswers: boolean,
+  t: DraftErrorTranslators['compose'],
 ): string | undefined {
   const status = typeof details.upstreamStatus === 'number' ? details.upstreamStatus : undefined;
   switch (details.llmErrorCode) {
     // A call with answers comes back to the questions, where there's no prompt to simplify.
     case 'timeout':
-      return withAnswers
-        ? 'AI drafting timed out. Try again.'
-        : 'AI drafting timed out. Try a simpler prompt.';
+      return withAnswers ? t('timeoutWithAnswers') : t('timeout');
     case 'upstream':
-      if (status === 401 || status === 403) {
-        return 'AI provider rejected the API key. An operator needs to check LLM_API_KEY.';
-      }
-      if (status !== undefined && status >= 500) {
-        return `AI provider is unavailable right now (HTTP ${status}). Try again.`;
-      }
-      return `AI provider returned an error${status !== undefined ? ` (HTTP ${status})` : ''}. Try again.`;
+      if (status === 401 || status === 403) return t('apiKey');
+      if (status !== undefined && status >= 500) return t('unavailable', { status });
+      return status !== undefined ? t('providerErrorStatus', { status }) : t('providerError');
     case 'invalid_json':
-      return 'AI provider returned a malformed response. Try again.';
+      return t('malformed');
     case 'schema_mismatch':
-      return 'AI provider returned an unexpected response shape. Try again.';
+      return t('shape');
     default:
       return undefined;
   }
@@ -69,9 +95,11 @@ function providerFailure(
  * English for API callers, so neither is shown, with one exception: a
  * `refusal`'s message is the AI's own explanation of why it declined, not
  * the server's words. Anything else gets the line for its code
- * (`SAVE_ERROR_MESSAGE`), and an answer with no code at all, such as a
- * proxy's error page, says which HTTP status came back. Each line reads as
- * the screen read before there were reasons.
+ * (`organizer.errors.code`), except an unexpected `internal`, whose line
+ * ("Save failed.") names something the organizer didn't ask for. That, and
+ * an answer with no code at all, such as a proxy's error page, say which
+ * HTTP status came back. The other lines read as the screen read before
+ * there were reasons.
  *
  * Both rate limits are worded here: `consumeRateLimit` is shared by every
  * endpoint, and only this screen knows the bucket means "this hour's AI
@@ -84,6 +112,7 @@ function providerFailure(
 export function explainDraftFailure(
   status: number,
   error: DraftErrorBody | undefined,
+  { compose, errors }: DraftErrorTranslators,
   { followUp = null }: { followUp?: FollowUp | null } = {},
 ): DraftError {
   const details = error?.details ?? {};
@@ -92,9 +121,7 @@ export function explainDraftFailure(
       return { kind: 'hourly_limit', minutes: minutesToWait(details) ?? 60 };
     }
     if (details.llmErrorCode === 'rate_limited') {
-      const minutes = minutesToWait(details) ?? 1;
-      const when = minutes > 1 ? `in ${minutes} minutes` : 'in a minute';
-      return message(`The AI service is busy. Try again ${when}.`);
+      return message(compose('busy', { minutes: minutesToWait(details) ?? 1 }));
     }
   }
   switch (details.reason) {
@@ -104,20 +131,18 @@ export function explainDraftFailure(
     case 'asked_again':
       if (followUp) {
         return message(
-          answeredNothing(followUp)
-            ? "Couldn't draft this. Try again, or fill it in by hand."
-            : "Couldn't draft from these answers. Add a little more, or fill it in by hand.",
+          answeredNothing(followUp) ? compose('askedAgain') : compose('askedAgainWithAnswers'),
         );
       }
       break;
     case 'draft_invalid':
-      return message('AI draft did not match expected shape — try again or adjust your prompt');
+      return message(compose('draftInvalid'));
   }
-  const provider = providerFailure(details, followUp !== null);
+  const provider = providerFailure(details, followUp !== null, compose);
   if (provider) return message(provider);
   const code = error?.code;
-  if (code !== undefined && Object.hasOwn(SAVE_ERROR_MESSAGE, code)) {
-    return message(SAVE_ERROR_MESSAGE[code as ErrorCode]);
+  if (code !== undefined && Object.hasOwn(CODE_LINE, code)) {
+    return message(errors(CODE_LINE[code as WordedCode]));
   }
-  return message(`AI drafting failed (HTTP ${status}). Try again.`);
+  return message(compose('failed', { status }));
 }

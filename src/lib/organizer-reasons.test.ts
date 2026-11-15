@@ -22,11 +22,11 @@ import { refusalText } from './organizer-errors';
  * (but for a `refusal`, whose message is the AI's own explanation). The
  * English is as each screen read before there were reasons.
  *
- * The New signup form's and the Build tab's words come from the catalog
- * (`organizer.errors`, `organizer.build`), in the organizer's language.
- * Magic Compose's and the header's are still written in their components,
- * and move into the catalog with the rest of those screens' text, when these
- * cases switch to the catalog too.
+ * The New signup form's, the Build tab's and Magic Compose's words come from
+ * the catalog (`organizer.errors`, `organizer.build`,
+ * `organizer.compose.errors`), in the organizer's language. The header's are
+ * still written in its components, and move into the catalog with the rest
+ * of its text.
  */
 const PARTICIPANT_REASONS = [
   'email_required',
@@ -68,7 +68,8 @@ const buildTab = (error: ReturnType<typeof sent>) =>
   saveErrorMessage(error, { build: getTestTranslator('organizer.build'), errors: t });
 const answered: FollowUp = { what: { picked: ['Bake something'], added: [] } };
 const draftText = (status: number, error: ReturnType<typeof sent>, followUp?: FollowUp) => {
-  const said = explainDraftFailure(status, error, followUp ? { followUp } : {});
+  const translators = { compose: getTestTranslator('organizer.compose.errors'), errors: t };
+  const said = explainDraftFailure(status, error, translators, followUp ? { followUp } : {});
   return said.kind === 'message' ? said.text : `hourly limit, ${said.minutes} minutes`;
 };
 
