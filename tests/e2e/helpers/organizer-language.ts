@@ -13,8 +13,11 @@ import { createDisposableSession } from './seed';
 /** An organizer who stores a language (or none), signed in, with a signup of each kind. */
 export interface OrganizerIn {
   sessionToken: string;
-  /** A published signup of theirs, for the strip on its page and its Preview. */
-  open: { id: string; slug: string };
+  /**
+   * A published signup of theirs, for the strip on its page and its Preview,
+   * with one slot, "Cookies", that holds 5.
+   */
+  open: { id: string; slug: string; slotId: string };
   /** A draft of theirs, whose page tells its own organizer about it. */
   draft: { slug: string };
 }
@@ -104,7 +107,7 @@ export async function createOrganizerIn(
     );
 
   const open = await make('Bake Sale');
-  unwrap(
+  const slot = unwrap(
     await addSlot(db, actor, open.id, { values: { what: 'Cookies' }, capacity: 5 }),
     'addSlot',
   );
@@ -113,7 +116,7 @@ export async function createOrganizerIn(
 
   return {
     sessionToken: await createDisposableSession(organizerId),
-    open: { id: open.id, slug: open.slug },
+    open: { id: open.id, slug: open.slug, slotId: slot.id },
     draft: { slug: draft.slug },
   };
 }

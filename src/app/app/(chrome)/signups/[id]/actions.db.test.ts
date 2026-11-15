@@ -2,11 +2,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
+import { commitments } from '@/db/schema/commitments';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots as slotsTable } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/publish-check';
@@ -18,17 +21,29 @@ import {
   closeQuestionAction,
   deleteSignupAction,
   publishAction,
+  removeCommitmentAction,
   reopenAction,
   setRequireEmailAction,
   setSignupLocaleAction,
 } from './actions';
 
 // The action reads the organizer from the session cookie. Tests hand it one
-// directly instead of going through Auth.js.
-const session = vi.hoisted(() => ({ actor: { kind: 'anonymous' } as Actor }));
+// directly instead of going through Auth.js, with the language stored on
+// their account (none unless a test stores one).
+const session = vi.hoisted(() => ({
+  actor: { kind: 'anonymous' } as Actor,
+  locale: null as string | null,
+}));
 vi.mock('@/auth/session', () => ({
-  requireOrganizerSession: async () => ({}),
+  requireOrganizerSession: async () => ({ locale: session.locale }),
   toActor: () => session.actor,
+}));
+
+// English comes from the catalog. Any other language answers with the key it
+// was asked for and the language, whatever its catalog holds so far.
+vi.mock('@/i18n/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/i18n/server')>()),
+  getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
 }));
 
 // Next's redirect() throws to end the action; this one throws the address.
@@ -706,5 +721,112 @@ describe('closeQuestionAction (db)', () => {
     expect(await closeQuestionAction('sig_nope')).toEqual({
       error: 'This signup is no longer available.',
     });
+  });
+});
+
+describe('removeCommitmentAction (db)', () => {
+  const db = getDb();
+  const organizerId = makeId('org');
+  const workspaceId = makeId('ws');
+  const slug = `test-${workspaceId.slice(-8).toLowerCase()}`;
+  const owner: Actor = {
+    kind: 'organizer',
+    id: organizerId,
+    email: `${slug}@example.test`,
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+  const viewer: Actor = {
+    kind: 'organizer',
+    id: makeId('org'),
+    email: 'viewer@example.test',
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'viewer' },
+  };
+  let signupId: string;
+  let commitmentId: string;
+
+  const status = async () => {
+    const [found] = await db
+      .select({ status: commitments.status })
+      .from(commitments)
+      .where(eq(commitments.id, commitmentId));
+    return found?.status;
+  };
+
+  beforeAll(async () => {
+    await db.transaction(async (tx) => {
+      await tx.insert(organizers).values({ id: organizerId, email: owner.email, name: 'Test Org' });
+      await tx.insert(workspaces).values({
+        id: workspaceId,
+        slug,
+        name: 'Test Workspace',
+        type: 'personal',
+        plan: 'free',
+      });
+    });
+    const created = await createSignup(db, owner, workspaceId, {
+      title: 'Remove refusals',
+      description: '',
+      tags: [],
+      visibility: 'unlisted',
+      settings: {},
+    });
+    if (!created.ok) throw new Error(created.error.message);
+    signupId = created.value.id;
+    const slot = await addSlot(db, owner, signupId, { values: { what: 'Juice' }, capacity: 2 });
+    if (!slot.ok) throw new Error(slot.error.message);
+    const published = await publishSignup(db, owner, signupId);
+    if (!published.ok) throw new Error(published.error.message);
+    const commit = await commitToSlot(db, slot.value.id, {
+      name: 'Sam Example',
+      email: `sam-${slug}@example.test`,
+      quantity: 1,
+    });
+    if (!commit.ok) throw new Error(commit.error.message);
+    commitmentId = commit.value.commitment.id;
+  });
+
+  afterAll(async () => {
+    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+    await db.delete(organizers).where(eq(organizers.id, organizerId));
+  });
+
+  beforeEach(() => {
+    revalidatePath.mockClear();
+    session.locale = null;
+  });
+
+  it('tells a viewer they can’t edit, in English with no language stored, and leaves the person on', async () => {
+    session.actor = viewer;
+    expect(await removeCommitmentAction(signupId, commitmentId)).toEqual({
+      error: 'You don’t have edit access.',
+    });
+    expect(await status()).toBe('confirmed');
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+    'words each refusal in the language stored on the organizer’s account, %s',
+    async (locale) => {
+      ship('organizer', ['en', locale]);
+      session.locale = locale;
+      session.actor = viewer;
+      expect(await removeCommitmentAction(signupId, commitmentId)).toEqual({
+        error: `organizer.errors.code.forbidden in ${locale}`,
+      });
+      session.actor = owner;
+      expect(await removeCommitmentAction(signupId, 'com_nope')).toEqual({
+        error: `organizer.responses.remove.refusal.notFound in ${locale}`,
+      });
+      expect(await status()).toBe('confirmed');
+    },
+  );
+
+  it('takes the person off and re-renders the signup', async () => {
+    session.actor = owner;
+    expect(await removeCommitmentAction(signupId, commitmentId)).toBeNull();
+    expect(await status()).toBe('cancelled');
+    expect(revalidatePath).toHaveBeenCalledWith(`/app/signups/${signupId}`, 'layout');
   });
 });

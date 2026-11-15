@@ -9,8 +9,7 @@ import type { ErrorCode } from '@/lib/errors';
  * The same lines are `organizer.errors.code` in the catalog, which the pages
  * rendered on the server and the Build tab read, in the organizer's language.
  * This copy is for the screens that don't read the catalog yet (Magic
- * Compose, and the header's and Remove's refusals), and a test keeps the two
- * equal.
+ * Compose, and the header's refusals), and a test keeps the two equal.
  * A module of its own, with no React in it, so Magic Compose loads only
  * these lines.
  */
