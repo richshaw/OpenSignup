@@ -598,6 +598,27 @@ review of the Swedish translation (#639) to settle.
 | What, Date, Option 1 (a new signup's fields) | Vad, Datum, Alternativ 1             |                                                           |
 | Sorry                                        | Tyvärr                               | "Tyvärr, passet blev precis fullt."                       |
 
+### Organizer terms
+
+The words the organizer's screens use beside the ones above.
+
+| English                                       | Swedish                                                                 | Notes                                                                                                   |
+| --------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Responses (the tab)                           | Anmälningar                                                             | "på fliken Anmälningar"                                                                                 |
+| sign-ups, counted on Responses                | anmälan, anmälningar                                                    | "5 anmälningar · 1 avbokad · 1 borttagen"                                                               |
+| remove (someone from a slot)                  | ta bort                                                                 | "Ta bort {name} från {slot}", "Ja, ta bort", status "borttagen"                                         |
+| delete (a signup)                             | radera                                                                  | "Radera anmälningslistan". Kept apart from _ta bort_, which takes a person off a slot                   |
+| dashboard                                     | översikt                                                                | "försvinner den från din översikt"                                                                      |
+| public link                                   | offentlig länk                                                          | "Dela den offentliga länken"                                                                            |
+| Required, Optional (a setting's choices)      | Obligatoriskt, Valfritt                                                 | Neuter, as a choice standing on its own reads, like "(valfritt)" after a box's label                    |
+| a sign-up's status (Responses' pill, the CSV) | bekräftad, preliminär, väntelista, avbokad, uteblev, borttagen, flyttad | Lower case, as in English. The adjectives agree with _anmälan_. `no_show` is "uteblev" (didn't show up) |
+| Spots (a column on Responses and in its CSV)  | Antal platser                                                           | A column is read on its own, often beside an organizer's "Plats" field, as in an email                  |
+| Notes (the CSV's column)                      | Kommentar                                                               | What the sign-up sheet called the box                                                                   |
+| Signed up (the CSV's time column)             | Anmäld                                                                  | Its cells are the time each person signed up                                                            |
+| Reload (the page)                             | Ladda om sidan                                                          | "Ladda om sidan för att se de senaste ändringarna."                                                     |
+| edit access                                   | behörighet att göra ändringar                                           | "Du har inte behörighet att göra ändringar."                                                            |
+| Danger zone                                   | Farozon                                                                 |                                                                                                         |
+
 ### Style
 
 - **Tone.** _Du_, never _ni_, and the plain, friendly tone of the English.
@@ -611,6 +632,9 @@ review of the Swedish translation (#639) to settle.
   an em dash. An ellipsis is one character: "Sparar…".
 - **Buttons named in a sentence** are written as on screen, today without
   quotation marks: "Tryck på Bekräfta igen."
+- **One person the sentence doesn't name** is _personen_, not _hen_ or _de_:
+  "Ta bort Sam från passet? Platsen blir ledig för någon annan. Personen får
+  inget mejl om det."
 
 ### Open questions for the review (#639)
 
