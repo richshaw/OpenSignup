@@ -126,7 +126,7 @@ describe('Account Settings: Language', () => {
     ship('participant', CATALOG_LOCALES);
     await renderPage();
     expect(screen.getByRole('radio', { name: 'English' })).toHaveAccessibleDescription(
-      'OpenSignup shows your screens and sends your sign-in emails in this language. Each signup you make starts in it too, for the buttons, messages and dates its participants see. To change one signup’s language, use its Settings tab.',
+      'Your screens and new signups use this language. To change one signup’s language, use its Settings tab.',
     );
   });
 
