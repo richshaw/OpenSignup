@@ -416,11 +416,11 @@
         "add": "Lägg till fält"
       },
       "refusal": {
-        "dateTooEarly": "Datum måste vara år {year, number, ::group-off} eller senare.",
+        "dateTooEarly": "Datum kan inte vara före år {year, number, ::group-off}.",
         "slotsMoved": "Passen har ändrats i ett annat fönster, så flytten sparades inte. Dra passet igen.",
         "fieldsMoved": "Fälten har ändrats i ett annat fönster, så flytten sparades inte. Dra fältet igen.",
         "capacityBelowTaken": "{taken, plural, one {{taken, number} plats är redan upptagen. Ge passet minst {taken, number} plats.} other {{taken, number} platser är redan upptagna. Ge passet minst {taken, number} platser.}}",
-        "invalidatesSlotValues": "Vissa pass har värden som inte fungerar med den här ändringen. Ändra de passen först."
+        "invalidatesSlotValues": "Vissa pass har värden som inte fungerar med den här ändringen. Ändra dem först."
       }
     },
     "responses": {

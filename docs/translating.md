@@ -645,6 +645,11 @@ review of the Swedish translation (#639) to settle.
    (a calque) or "Vidarebefordra inte mejlet"; "Tryck på knappen ovan"
    (touch only) or "Använd knappen ovan"; "Antal platser" in emails, which
    have room for it; quoting a button's name (Knappen ”Lägg till i kalender”).
+   And "flytten" or "det du flyttade" in the Build tab's two drag refusals
+   (`organizer.build.refusal.slotsMoved`, `fieldsMoved`, from #981's review):
+   _flytten_ alone mostly means moving house, but "så det du flyttade
+   sparades inte" takes the rail to 8 lines at 320 pixels, against 7 for
+   English and for "flytten". "så ordningen sparades inte" also fits in 7.
 7. **Layout.** The unsubscribe page's Swedish buttons wrap at 390 pixels.
 8. **"Du är anmäld som {name}".** The edit page's "You're editing this as
    {name}." (`participant.editPage.editingAs`, and `editingAsWithEmail`) is
