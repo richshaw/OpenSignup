@@ -1,8 +1,15 @@
 import { Text } from '@react-email/components';
+import type { CatalogLocale } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
 import { formatDuration } from '@/lib/format-duration';
-import { EmailButton, EmailHeading, EmailIntro, EmailLayout } from './layout';
+import { EmailButton, EmailHeading, EmailIntro, EmailLayout, strong } from './layout';
 
 interface MagicLinkEmailBaseProps {
+  /**
+   * The email's language: the language stored on the account at its address,
+   * else the instance's (`signInEmailLocale` in src/auth/sign-in-email-locale.ts).
+   */
+  locale: CatalogLocale;
   url: string;
   email: string;
   expiresInMinutes: number;
@@ -18,27 +25,34 @@ export type MagicLinkEmailProps = MagicLinkEmailBaseProps &
     | { code?: undefined; codeExpiresInMinutes?: number }
   );
 
+/**
+ * The sign-in email. Its subject is `signInSubject` in ../subjects.ts; its
+ * preview names the address too, so it's a message of its own.
+ */
 export function MagicLinkEmail({
+  locale,
   url,
   email,
   expiresInMinutes,
   codeExpiresInMinutes = expiresInMinutes,
   code,
 }: MagicLinkEmailProps) {
+  const t = getServerTranslator(locale, 'auth.email');
   return (
-    // Organizer text, in English until it moves to the catalogs.
-    <EmailLayout locale="en" preview={`Sign in to OpenSignup as ${email}`}>
-      <EmailHeading>Sign in to OpenSignup</EmailHeading>
+    <EmailLayout locale={locale} preview={t('preview', { email })}>
+      <EmailHeading>{t('heading')}</EmailHeading>
       <EmailIntro>
-        Click the button below to sign in as <strong>{email}</strong>. This link will expire in{' '}
-        {formatDuration(expiresInMinutes)}.
+        {t.rich('intro', {
+          email,
+          duration: formatDuration(expiresInMinutes, locale),
+          b: strong,
+        })}
       </EmailIntro>
-      <EmailButton href={url}>Sign in</EmailButton>
+      <EmailButton href={url}>{t('signIn')}</EmailButton>
       {code ? (
         <>
           <Text className="mt-6 text-[#5b6474]">
-            Reading this on a different device? Type this code into the window where you started
-            signing in instead. It works for {formatDuration(codeExpiresInMinutes)}:
+            {t('code', { duration: formatDuration(codeExpiresInMinutes, locale) })}
           </Text>
           <Text className="m-0 font-mono text-2xl font-semibold tracking-[0.3em] text-[#0b1220]">
             {code}
@@ -46,7 +60,7 @@ export function MagicLinkEmail({
         </>
       ) : null}
       <Text className="mt-6 break-all text-xs text-[#8a93a4]">
-        Or copy this URL: <br />
+        {t('copyUrl')} <br />
         {url}
       </Text>
     </EmailLayout>

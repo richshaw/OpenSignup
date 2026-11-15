@@ -540,6 +540,15 @@ declare const messages: {
       "signIn": "Sign in →",
       "signingIn": "Signing in…",
       "differentEmail": "Use a different email"
+    },
+    "email": {
+      "subject": "Sign in to OpenSignup",
+      "preview": "Sign in to OpenSignup as {email}",
+      "heading": "Sign in to OpenSignup",
+      "intro": "Click the button below to sign in as <b>{email}</b>. This link will expire in {duration}.",
+      "signIn": "Sign in",
+      "code": "Reading this on a different device? Type this code into the window where you started signing in instead. It works for {duration}:",
+      "copyUrl": "Or copy this URL:"
     }
   }
 };

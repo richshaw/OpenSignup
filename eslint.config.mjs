@@ -28,8 +28,8 @@ const TRANSLATED = [
   // sign-up sheet, the pages for changing or cancelling a spot and for
   // turning reminders off, both not-found pages, and the copy helpers.
   'src/app/s/[slug]',
-  // The emails a participant gets, the pieces they share, and any email
-  // added here later, but the sign-in email (`NOT_YET_TRANSLATED`).
+  // Every email: the ones a participant gets, the pieces they share, the
+  // sign-in email, and any email added here later.
   'src/email/templates',
   // The organizer app's header and crumbs, Your signups, and the card a
   // signup's pages show when it can't be loaded.
@@ -51,13 +51,6 @@ const TRANSLATED = [
   // the check-your-email and confirm pages.
   'src/app/login',
 ];
-
-/**
- * Files inside a `TRANSLATED` folder whose text hasn't moved yet, left out of
- * the rules until it does, written as in `TRANSLATED`. The sign-in email is
- * organizer text, which moves to the catalogs after the participant's.
- */
-const NOT_YET_TRANSLATED = ['src/email/templates/magic-link.tsx'];
 
 /**
  * Glob patterns for `files` that match exactly `paths`, each a file or a
@@ -421,7 +414,7 @@ const config = [
     // also flag every className and href, so the props have a rule of their own.
     // Tests are left out: their English fixtures are what they check.
     files: filesAt(TRANSLATED),
-    ignores: ['**/*.test.{ts,tsx}', ...filesAt(NOT_YET_TRANSLATED)],
+    ignores: ['**/*.test.{ts,tsx}'],
     rules: {
       'react/jsx-no-literals': ['error', { noStrings: true, ignoreProps: true }],
       'opensignup/no-literal-text-props': 'error',

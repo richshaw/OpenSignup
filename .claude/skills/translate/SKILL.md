@@ -132,8 +132,8 @@ Playwright at the Chromium installed there. The command writes, under
   each participant screen and state the Swedish e2e spec checks, at desktop
   and phone width;
 - `en/emails/*.html` and `<language>/emails/*.html`, with a `.txt` of each
-  that starts with the email's subject: every participant email, from
-  `scripts/lib/email-samples.ts`.
+  that starts with the email's subject: every participant email and the
+  sign-in email, from `scripts/lib/email-samples.ts`.
 
 Open a few of the images yourself first, to be sure they show what they say.
 If a spec fails on `rate_limited` after several runs in an hour, empty the

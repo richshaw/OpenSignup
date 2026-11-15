@@ -52,9 +52,10 @@ describe('email templates under the worker toolchain', () => {
       ['exec', 'tsx', ...flags, 'scripts/render-email-templates.ts'],
       { cwd: repoRoot },
     );
-    // Each participant email in English and in Swedish, from the catalogs the
-    // worker loads: a catalog missing from its path, or a message missing from
-    // one, leaves text out and fails the run.
+    // Each participant email in English and in Swedish, and the sign-in email
+    // in each language with a catalog, from the catalogs the worker loads: a
+    // catalog missing from its path, or a message missing from one, leaves
+    // text out and fails the run.
     expect(stdout.trim().split('\n')).toEqual([
       'ok magic-link',
       'ok commitment-confirmation',
@@ -65,6 +66,7 @@ describe('email templates under the worker toolchain', () => {
       'ok reminder-sv',
       'ok reminder-changed-sv',
       'ok slot-changed-sv',
+      'ok magic-link-sv',
     ]);
   }, 60_000);
 

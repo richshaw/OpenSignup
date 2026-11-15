@@ -2,13 +2,19 @@
  * Each sendable email template with made-up props: what
  * scripts/render-email-templates.ts checks renders, and what `pnpm email:dev`
  * shows. Add a case here whenever a new template gains a `send*` function.
- * The participant emails are here in English and in Swedish, so both render
- * under the worker's toolchain and both can be looked at.
+ * The participant emails are here in English and in Swedish, and the sign-in
+ * email in every language with a catalog, so each renders under the worker's
+ * toolchain and can be looked at.
  */
 import { createElement, type ReactElement } from 'react';
-import type { CatalogLocale } from '@/i18n/config';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
-import { confirmationSubject, reminderSubject, slotChangedSubject } from '@/email/subjects';
+import {
+  confirmationSubject,
+  reminderSubject,
+  signInSubject,
+  slotChangedSubject,
+} from '@/email/subjects';
 import {
   CommitmentConfirmationEmail,
   type CommitmentConfirmationEmailProps,
@@ -16,6 +22,7 @@ import {
 import { MagicLinkEmail } from '@/email/templates/magic-link';
 import { ReminderEmail, type ReminderEmailProps } from '@/email/templates/reminder';
 import { SlotChangedEmail, type SlotChangedEmailProps } from '@/email/templates/slot-changed';
+import { formatDuration } from '@/lib/format-duration';
 import { formatSlotDate } from '@/lib/slot-label';
 
 export interface EmailSample {
@@ -63,6 +70,31 @@ function slotChanged(props: SlotChangedEmailProps) {
   };
 }
 
+/**
+ * The sign-in email in `locale`, as src/auth/config.ts sends it to an account
+ * in that language: `magic-link` in English, and named with the language
+ * after it in any other (`magic-link-sv`). Its button and its code's sentence
+ * come from the catalog, so a language needs nothing written here.
+ */
+function signIn(locale: CatalogLocale): EmailSample {
+  const t = getServerTranslator(locale, 'auth.email');
+  const url = 'https://example.test/login/confirm?token=abc';
+  return {
+    name: locale === 'en' ? 'magic-link' : `magic-link-${locale}`,
+    element: createElement(MagicLinkEmail, {
+      locale,
+      url,
+      email: 'organizer@example.test',
+      expiresInMinutes: 60,
+      code: '123456',
+      codeExpiresInMinutes: 15,
+    }),
+    subject: signInSubject(t),
+    expect: [url, '123456', t('signIn'), t('code', { duration: formatDuration(15, locale) })],
+    lang: locale,
+  };
+}
+
 /** The Swedish samples' signup, slot and participant. */
 const swedish = {
   locale: 'sv',
@@ -81,20 +113,7 @@ const saturday = formatSlotDate('2026-09-05', 'sv') ?? '';
 const sunday = formatSlotDate('2026-09-06', 'sv') ?? '';
 
 export const emailSamples: readonly EmailSample[] = [
-  {
-    name: 'magic-link',
-    element: createElement(MagicLinkEmail, {
-      url: 'https://example.test/login/confirm?token=abc',
-      email: 'organizer@example.test',
-      expiresInMinutes: 60,
-      code: '123456',
-      codeExpiresInMinutes: 15,
-    }),
-    // Sent from src/auth/config.ts, which has no subject function to share.
-    subject: 'Sign in to OpenSignup',
-    expect: ['https://example.test/login/confirm?token=abc', '123456'],
-    lang: 'en',
-  },
+  signIn('en'),
   {
     name: 'commitment-confirmation',
     ...confirmation({
@@ -250,4 +269,5 @@ export const emailSamples: readonly EmailSample[] = [
     ],
     lang: 'sv',
   },
+  ...CATALOG_LOCALES.filter((locale) => locale !== 'en').map(signIn),
 ];

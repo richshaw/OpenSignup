@@ -24,7 +24,8 @@ import { instanceDefaultLocale } from './server';
  * only once it has shipped to organizers (`organizerAppLocale`). Every
  * organizer page, and anything else that shows an organizer their own text,
  * takes its language from here: the strip and notice on a signup's page, the
- * Preview banner, the header and the pages under it.
+ * Preview banner, the header and the pages under it, and the sign-in email
+ * (`signInEmailLocale` in src/auth/sign-in-email-locale.ts).
  *
  * Each page calls it with the session it already has, rather than taking a
  * language from a layout above it: a client-side navigation re-renders the
