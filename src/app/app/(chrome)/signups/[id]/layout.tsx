@@ -110,7 +110,10 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
             dismiss: aiDraft('dismiss'),
           }}
           locale={locale}
-          warningMessages={messagesFor(locale, 'organizer.aiDraft.warnings')}
+          // Only a draft shows the banner, so only a draft's pages carry these.
+          warningMessages={
+            status === 'draft' ? messagesFor(locale, 'organizer.aiDraft.warnings') : null
+          }
         />
         <TabsNav
           signupId={id}

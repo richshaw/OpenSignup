@@ -36,8 +36,8 @@ export function AiDraftBanner({
   /** The banner's title (with the draft's counts), body and ✕'s name. */
   text: { title: string; body: string; dismiss: string };
   locale: CatalogLocale;
-  /** `organizer.aiDraft.warnings`, for `AiDraftWarnings`. */
-  warningMessages: ReturnType<typeof messagesFor>;
+  /** `organizer.aiDraft.warnings`, for `AiDraftWarnings`; none for a signup that isn't a draft. */
+  warningMessages: ReturnType<typeof messagesFor> | null;
 }) {
   const [shown, dismiss] = useDismissibleQueryFlag('aiDraft');
   const [kept, setKept] = useState<unknown[]>([]);
@@ -67,7 +67,7 @@ export function AiDraftBanner({
         onDismiss={onDismiss}
         dismissLabel={text.dismiss}
       />
-      {kept.length > 0 && (
+      {kept.length > 0 && warningMessages && (
         <Suspense fallback={null}>
           <AiDraftWarnings locale={locale} messages={warningMessages} kept={kept} />
         </Suspense>
