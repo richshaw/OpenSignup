@@ -276,7 +276,7 @@
         "closed": "Den här anmälningslistan är stängd.",
         "not_found": "Finns inte längre.",
         "invalid_input": "Vissa värden godkändes inte.",
-        "rate_limited": "Det gick lite för fort – försök igen om en stund.",
+        "rate_limited": "Vänta en stund och försök igen.",
         "already_consumed": "Har redan använts.",
         "internal": "Det gick inte att spara."
       },
@@ -296,13 +296,13 @@
       "language": {
         "title": "Språk",
         "legend": "Anmälningslistans språk",
-        "help": "Det här språket används för knappar, meddelanden och datum på anmälningslistans sida och i dess mejl. Skriv titeln och passen på samma språk."
+        "help": "Det här språket används för knappar, meddelanden och datum på anmälningslistans sida och i mejlen till deltagarna. Skriv titeln och passen på samma språk."
       },
       "save": "Spara",
       "saving": "Sparar…",
       "dangerZone": {
         "title": "Farozon",
-        "body": "Om du raderar anmälningslistan försvinner den från din översikt, och den offentliga länken slutar fungera direkt."
+        "body": "Om du raderar anmälningslistan försvinner den från dina anmälningslistor, och den offentliga länken slutar fungera direkt."
       },
       "delete": {
         "start": "Radera anmälningslistan",
@@ -351,7 +351,7 @@
       "remove": {
         "button": "Ta bort",
         "label": "Ta bort {name} från {slot}",
-        "labelNoSlot": "Ta bort {name} från passet",
+        "labelNoSlot": "Ta bort {name} från det här passet",
         "question": "{label}? {count, plural, one {Platsen blir ledig för någon annan.} other {De {count, number} platserna blir lediga för andra.}} Personen får inget mejl om det.",
         "dialogLabel": "Bekräfta borttagning",
         "keep": "Behåll",
