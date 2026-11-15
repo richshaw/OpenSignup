@@ -664,23 +664,25 @@ the words only organizers see. From #953's first batch.
 The sign-in pages, the sign-in email and the screen that connects an AI
 assistant (`auth`) use the terms above, and these. From #953's second batch.
 
-| English                                     | Swedish                                   | Notes                                                                                                                                                    |
-| ------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sign in to OpenSignup                       | Logga in på OpenSignup                    | The sign-in pages' heading and the sign-in email's subject and heading, the same words. The product's name stays as it is                                |
-| magic link; sign-in link                    | inloggningslänk                           | "Skicka inloggningslänk". _Magisk länk_ is a calque; Swedish services say _inloggningslänk_                                                              |
-| the six-digit code                          | koden; den sexsiffriga koden              | "Logga in med kod". Not _engångskod_: the English never says one-time, and the page and the email must name it with the same word                        |
-| request (a new link)                        | begära                                    | "Begär en ny länk"                                                                                                                                       |
-| expires in {duration}; works for {duration} | går ut om {duration}; gäller i {duration} | A link "går ut", as on Connected apps; a code "gäller". The app writes the duration ("1 timme", "15 minuter"), so translate the whole sentence around it |
-| Check your email; your inbox                | Kolla din e-post; din inkorg              | _E-post_ for the mailbox, _mejl_ for the message: "Öppnade du mejlet på en annan enhet?"                                                                 |
-| click (a link, a button)                    | klicka på                                 | As the English says: "Klicka på knappen nedan"                                                                                                           |
-| Continue with {provider}; a provider        | Fortsätt med {provider}; en tjänst        | Google's own Swedish button says "Fortsätt med Google"                                                                                                   |
-| Allow; Don't allow                          | Tillåt; Tillåt inte                       | What Swedish permission prompts say. The heading asks "Vill du tillåta … att använda ditt konto på …?", and the buttons answer it                        |
-| approve                                     | godkänna                                  | "Godkänn bara om …", as Connected apps' "de behörigheter du har godkänt"                                                                                 |
-| Connection request                          | Begäran om anslutning                     | Also "Den här begäran om anslutning har gått ut"                                                                                                         |
-| app, application                            | app                                       | "Appen kommer att kunna", "Gå tillbaka till appen"                                                                                                       |
-| It will be able to                          | Appen kommer att kunna                    | The heading over the permission lines, which each start with a verb ("Se …", "Skapa …"), so they read on from it and stand alone on Connected apps       |
-| It acts as you                              | Appen agerar i ditt namn                  | As Connected apps' intro: "agerar som du" can read as "behaves like you"                                                                                 |
-| Go to your dashboard                        | Gå till översikten                        | _Översikt_, as the dashboard's tab title                                                                                                                 |
+| English                                         | Swedish                                              | Notes                                                                                                                                                    |
+| ----------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign in to OpenSignup                           | Logga in på OpenSignup                               | The sign-in pages' heading and the sign-in email's subject and heading, the same words. The product's name stays as it is                                |
+| magic link; sign-in link                        | inloggningslänk                                      | "Skicka inloggningslänk". _Magisk länk_ is a calque; Swedish services say _inloggningslänk_                                                              |
+| the six-digit code                              | koden; den sexsiffriga koden                         | "Logga in med kod". Not _engångskod_: the English never says one-time, and the page and the email must name it with the same word                        |
+| request (a new link); Too many sign-in requests | begära; För många inloggningslänkar har begärts      | "Begär en ny länk". Not _inloggningsförsök_, which reads as wrong passwords, beside the code box's own "För många försök"                                |
+| Too many requests (the OAuth pages)             | För många försök                                     | The person's tries to connect, as "För många anslutningsförsök". _Förfrågningar_ would be a second word beside _begäran_                                 |
+| expires in {duration}; works for {duration}     | går ut om {duration}; gäller i {duration}            | A link "går ut", as on Connected apps; a code "gäller". The app writes the duration ("1 timme", "15 minuter"), so translate the whole sentence around it |
+| Check your email; your inbox                    | Kolla din e-post; din inkorg                         | _E-post_ for the mailbox, _mejl_ for the message and the channel: "Öppnade du mejlet på en annan enhet?", "få en inloggningslänk via mejl"               |
+| click (a link, a button)                        | klicka på                                            | As the English says: "Klicka på knappen nedan"                                                                                                           |
+| Continue with {provider}; a provider            | Fortsätt med {provider}; en tjänst                   | Google's own Swedish button says "Fortsätt med Google"                                                                                                   |
+| Allow; Don't allow                              | Tillåt; Tillåt inte                                  | What Swedish permission prompts say. The heading asks "Vill du tillåta … att använda ditt konto på …?", and the buttons answer it                        |
+| approve (permissions, on Connected apps)        | godkänna                                             | "de behörigheter du har godkänt". The consent screen's "Only approve if …" is "Tillåt bara om …", so that screen uses one verb, its button's             |
+| was set up by the people who run this site      | har lagts till av dem som driver den här webbplatsen | An app the site lists itself. Not _satts upp_, a light anglicism                                                                                         |
+| Connection request                              | Begäran om anslutning                                | Also "Den här begäran om anslutning har gått ut"                                                                                                         |
+| app, application                                | app                                                  | "Appen kommer att kunna", "Gå tillbaka till appen"                                                                                                       |
+| It will be able to                              | Appen kommer att kunna                               | The heading over the permission lines, which each start with a verb ("Se …", "Skapa …"), so they read on from it and stand alone on Connected apps       |
+| It acts as you                                  | Appen agerar i ditt namn                             | As Connected apps' intro: "agerar som du" can read as "behaves like you"                                                                                 |
+| Go to your dashboard                            | Gå till översikten                                   | _Översikt_, as the dashboard's tab title                                                                                                                 |
 
 - **The OAuth error page** prints oidc-provider's own description, in
   English, after the catalog's words (`<code>invalid_request</code> — …`).
@@ -747,6 +749,11 @@ assistant (`auth`) use the terms above, and these. From #953's second batch.
    "under listans flik Inställningar". In both, the sentence before has just
    said the whole word. Apart from the button "Ny lista", these are the only
    places the catalog shortens _anmälningslista_.
+10. **"Too many sign-in requests."** `auth.form.errors.rateLimited` reads "För
+    många inloggningslänkar har begärts.", with the verb of "Begär en ny
+    länk". #980's review offered the noun, "För många begäranden om
+    inloggning.", which keeps the English's shape but is stiffer. Both say
+    requests, not attempts.
 
 These come from the term tables in #914 and #916 and the reviews of #914,
-#916, #920, #921 and #929, which have more detail on each.
+#916, #920, #921, #929 and #980, which have more detail on each.
