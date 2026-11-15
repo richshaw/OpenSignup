@@ -409,7 +409,7 @@
       },
       "language": {
         "legend": "Language",
-        "help": "OpenSignup shows your screens and sends your sign-in emails in this language. Each signup you make starts in it too, for the buttons, messages and dates its participants see. To change one signup’s language, use its Settings tab.",
+        "help": "Your screens and new signups use this language. To change one signup’s language, use its Settings tab.",
         "save": "Save",
         "saved": "Saved",
         "switch": "Switch your {count, plural, one {{count, number, ::group-off} open signup} other {{count, number, ::group-off} open signups}} to <language>{name}</language>",
