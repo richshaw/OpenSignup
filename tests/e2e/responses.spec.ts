@@ -7,6 +7,12 @@ import { loginAsSeededOrganizer } from './helpers/auth';
 // The participant's cancelled page, in English, from the catalog.
 const CANCELLED_PAGE = cancelledPage(getTestTranslator('participant.cancelledPage'));
 
+// What Remove says when it's refused, in English, from the catalog.
+const REMOVE_REFUSED = removeRefusal('not_found', {
+  responses: getTestTranslator('organizer.responses'),
+  errors: getTestTranslator('organizer.errors'),
+});
+
 /** Each row's Remove is named for its person and slot. */
 const REMOVE_SAM = 'Remove Sam Example from Fruit and water';
 const QUESTION =
@@ -342,7 +348,7 @@ test.describe('Responses tab', () => {
 
     await confirm.getByRole('button', { name: 'Yes, remove' }).click();
     // In plain words, not the service's "commitment not found".
-    await expect(confirm.getByRole('alert')).toHaveText(removeRefusal('not_found'));
+    await expect(confirm.getByRole('alert')).toHaveText(REMOVE_REFUSED);
     // Focus left the button while it was disabled; it comes back to Keep, so
     // Escape still closes the confirmation.
     await expect(confirm.getByRole('button', { name: 'Keep' })).toBeFocused();

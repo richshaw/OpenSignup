@@ -1,3 +1,5 @@
+import type { Translator } from '@/i18n/translator';
+import { commitmentStatusLabel } from '@/lib/commitment-status-label';
 import { shownCommitmentStatus } from '@/services/commitments';
 import type { LabelledField } from '@/lib/slot-label';
 
@@ -6,11 +8,14 @@ import type { LabelledField } from '@/lib/slot-label';
  * row per sign-up, one column per signup field headed by its label, then who
  * signed up and how it stands.
  *
- * Field values go out as stored (dates `YYYY-MM-DD`, times `HH:MM`, numbers as
- * numbers), not as `renderFieldValue` shows them, so a spreadsheet sorts the
- * file by day or item. `slots.ref` and `slots.slot_at` stay out: one is a key
- * nobody typed, the other the reminder job's noon-UTC anchor for a date-only
- * slot, which a spreadsheet reads as a time.
+ * OpenSignup's own words, the response columns' names and each status, are in
+ * the translator's language: the organizer's. What the organizer and their
+ * participants wrote stays as written: the field labels, the values, names
+ * and notes. Field values go out as stored (dates `YYYY-MM-DD`, times `HH:MM`,
+ * numbers as numbers), not as `renderFieldValue` shows them, so a spreadsheet
+ * sorts the file by day or item. `slots.ref` and `slots.slot_at` stay out:
+ * one is a key nobody typed, the other the reminder job's noon-UTC anchor for
+ * a date-only slot, which a spreadsheet reads as a time.
  */
 
 export interface ResponsesCsvInput {
@@ -30,7 +35,17 @@ export interface ResponsesCsvInput {
   ended: ReadonlyMap<string, 'removed' | 'moved'>;
 }
 
-const RESPONSE_COLUMNS = ['Name', 'Email', 'Status', 'Spots', 'Notes', 'Signed up'];
+/** The columns after the fields', named in the translator's language. */
+function responseColumns(t: Translator<'organizer.responses'>): string[] {
+  return [
+    t('csv.name'),
+    t('csv.email'),
+    t('csv.status'),
+    t('csv.spots'),
+    t('csv.notes'),
+    t('csv.signedUp'),
+  ];
+}
 
 // Excel on Windows reads a file without it as the local code page, and garbles
 // accented names.
@@ -52,29 +67,32 @@ function csvEscape(value: unknown): string {
  * Field labels can repeat, and can match a response column ("Name"), so a
  * repeat gets " (2)", " (3)"... The response columns keep their own names.
  */
-function headers(fields: readonly LabelledField[]): string[] {
-  const taken = new Set(RESPONSE_COLUMNS);
+function headers(fields: readonly LabelledField[], columns: readonly string[]): string[] {
+  const taken = new Set(columns);
   const fieldHeaders = fields.map((f) => {
     let header = f.label;
     for (let n = 2; taken.has(header); n++) header = `${f.label} (${n})`;
     taken.add(header);
     return header;
   });
-  return [...fieldHeaders, ...RESPONSE_COLUMNS];
+  return [...fieldHeaders, ...columns];
 }
 
-export function responsesCsv({ fields, slots, commitments, ended }: ResponsesCsvInput): string {
+export function responsesCsv(
+  { fields, slots, commitments, ended }: ResponsesCsvInput,
+  t: Translator<'organizer.responses'>,
+): string {
   const valuesBySlot = new Map(
     slots.map((s) => [s.id, (s.values as Record<string, unknown> | null) ?? {}]),
   );
-  const lines: unknown[][] = [headers(fields)];
+  const lines: unknown[][] = [headers(fields, responseColumns(t))];
   for (const c of commitments) {
     const values = valuesBySlot.get(c.slotId) ?? {};
     lines.push([
       ...fields.map((f) => values[f.ref]),
       c.participantName,
       c.participantEmail,
-      shownCommitmentStatus(c, ended),
+      commitmentStatusLabel(shownCommitmentStatus(c, ended), t),
       c.quantity,
       c.notes,
       c.createdAt.toISOString(),

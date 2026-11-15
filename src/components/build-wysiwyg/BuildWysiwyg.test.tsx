@@ -1,10 +1,24 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useEffect } from 'react';
-import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  render as renderUi,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { BuildBridge, useBuildBridge } from '@/components/signup/BuildBridge';
 import { BuildWysiwyg } from './BuildWysiwyg';
 import type { SignupSettings } from '@/schemas/signups';
+import type { ReactElement } from 'react';
+import { englishMessages } from '@/i18n/testing/client-messages';
+import { BUILD_TAB_NAMESPACES } from './client-namespaces';
+
+/** Renders `ui` with the Build tab's messages in English, as its page gives them. */
+const wrapper = englishMessages(BUILD_TAB_NAMESPACES);
+const render = (ui: ReactElement) => renderUi(ui, { wrapper });
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock('next/navigation', () => ({

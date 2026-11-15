@@ -26,6 +26,7 @@ describe('statusRefusal', () => {
   it('asks for a reload when the status changed under the page', () => {
     const e = serviceError('conflict', 'cannot closed a signup that is draft', {
       field: 'status',
+      details: { reason: 'status_changed' },
     });
     expect(statusRefusal(e, 'close', en)).toBe(
       'This signup changed since the page loaded. Reload to see the latest.',
@@ -35,6 +36,7 @@ describe('statusRefusal', () => {
   it('asks for a reload when a reopen finds the signup no longer closed', () => {
     const e = serviceError('conflict', 'cannot open a signup that is open', {
       field: 'status',
+      details: { reason: 'status_changed' },
     });
     expect(statusRefusal(e, 'reopen', en)).toBe(
       'This signup changed since the page loaded. Reload to see the latest.',
@@ -42,12 +44,18 @@ describe('statusRefusal', () => {
   });
 
   it('asks for a slot when publishing an empty signup', () => {
-    const e = serviceError('conflict', 'publish requires at least one slot');
+    const e = serviceError('conflict', 'publish requires at least one slot', {
+      field: 'slots',
+      details: { reason: 'no_slots' },
+    });
     expect(statusRefusal(e, 'publish', en)).toBe('Add a slot before publishing.');
   });
 
   it('asks for a slot when reopening a signup with none left', () => {
-    const e = serviceError('conflict', 'reopen requires at least one slot', { field: 'slots' });
+    const e = serviceError('conflict', 'reopen requires at least one slot', {
+      field: 'slots',
+      details: { reason: 'no_slots' },
+    });
     expect(statusRefusal(e, 'reopen', en)).toBe('Add a slot before reopening.');
     // Publish's line stays its own.
     expect(statusRefusal(e, 'publish', en)).toBe('Add a slot before publishing.');
@@ -60,9 +68,15 @@ describe('statusRefusal', () => {
     expect(statusRefusal(e, 'reopen', en)).toBe('Couldn’t reopen the signup. Try again.');
   });
 
-  it('falls back to the retry line for a reopen conflict on anything but the status or slots', () => {
+  it('falls back to the retry line for a conflict with no reason it knows', () => {
     const e = serviceError('conflict', 'something else', { field: 'title' });
+    expect(statusRefusal(e, 'publish', en)).toBe('Couldn’t publish. Try again.');
     expect(statusRefusal(e, 'reopen', en)).toBe('Couldn’t reopen the signup. Try again.');
+    // The field alone doesn't decide it: the reason does.
+    const noReason = serviceError('conflict', 'cannot open a signup that is open', {
+      field: 'status',
+    });
+    expect(statusRefusal(noReason, 'reopen', en)).toBe('Couldn’t reopen the signup. Try again.');
   });
 
   it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
@@ -71,15 +85,11 @@ describe('statusRefusal', () => {
       const t = getStandInTranslator(locale, 'organizer.signup.refusal');
       const words = (key: string) => `organizer.signup.refusal.${key} in ${locale}`;
       expect(statusRefusal(serviceError('not_found', 'gone'), 'close', t)).toBe(words('gone'));
-      expect(statusRefusal(serviceError('conflict', 'x', { field: 'status' }), 'reopen', t)).toBe(
-        words('changed'),
-      );
-      expect(statusRefusal(serviceError('conflict', 'x'), 'publish', t)).toBe(
-        words('addSlotToPublish'),
-      );
-      expect(statusRefusal(serviceError('conflict', 'x', { field: 'slots' }), 'reopen', t)).toBe(
-        words('addSlotToReopen'),
-      );
+      const conflict = (reason: 'status_changed' | 'no_slots') =>
+        serviceError('conflict', 'x', { details: { reason } });
+      expect(statusRefusal(conflict('status_changed'), 'reopen', t)).toBe(words('changed'));
+      expect(statusRefusal(conflict('no_slots'), 'publish', t)).toBe(words('addSlotToPublish'));
+      expect(statusRefusal(conflict('no_slots'), 'reopen', t)).toBe(words('addSlotToReopen'));
       expect(statusRefusal(serviceError('internal', 'x'), 'publish', t)).toBe(
         words('publishFailed'),
       );

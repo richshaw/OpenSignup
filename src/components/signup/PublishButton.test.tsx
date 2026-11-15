@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render as renderUi,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { BuildWysiwyg } from '@/components/build-wysiwyg/BuildWysiwyg';
 import { shareText } from '@/components/share/share-text';
 import { getTestTranslator } from '@/i18n/testing/translator';
@@ -13,6 +20,13 @@ import { PublishButton, PublishRefusal } from './PublishButton';
 import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
 import type { StatusAction } from './StatusActionForm';
+import type { ReactElement } from 'react';
+import { englishMessages } from '@/i18n/testing/client-messages';
+import { BUILD_TAB_NAMESPACES } from '@/components/build-wysiwyg/client-namespaces';
+
+/** Renders `ui` with the Build tab's messages in English, as its page gives them. */
+const wrapper = englishMessages(BUILD_TAB_NAMESPACES);
+const render = (ui: ReactElement) => renderUi(ui, { wrapper });
 
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
 const router = vi.hoisted(() => ({ push: vi.fn() }));

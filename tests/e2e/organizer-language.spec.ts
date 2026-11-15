@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { formatGrantDate } from '@/app/app/(chrome)/settings/connected-apps/grant-date';
+import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draft-warnings';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { getTranslator, type Namespace } from '@/i18n/translator';
 import { accessTokenLifetime } from '@/lib/lifetimes';
@@ -50,14 +51,36 @@ function languageOf(locator: Locator): Promise<string | null | undefined> {
 /** A rich message as the page shows it: its text, tags and all left as text. */
 const plain = (chunks: string) => chunks;
 
+/** `text` as a regular expression that matches only itself. */
+const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /** The one of a computer's and a phone's copies that's on screen. */
 const onScreen = (locator: Locator) => locator.locator('visible=true');
 
 /** A name that starts with `text`, as a tab's does, its count after it. */
-const startsWith = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+const startsWith = (text: string) => new RegExp(`^${escaped(text)}`);
 
 /** A tab title that starts with `text`, then the site's name. */
-const titled = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} · `);
+const titled = (text: string) => new RegExp(`^${escaped(text)} · `);
+
+/**
+ * What the browser reports while `page` is open that would mean its first
+ * render didn't match the server's HTML: a production build reports a
+ * hydration mismatch as an uncaught error ("Minified React error #418").
+ */
+function watchForHydrationErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (
+      message.type() === 'error' &&
+      /hydrat|react error #4(18|19|21|22|23|25)/i.test(message.text())
+    ) {
+      errors.push(message.text());
+    }
+  });
+  return errors;
+}
 
 /**
  * An AI assistant's request to connect, from the `e2e-client` static client
@@ -364,6 +387,321 @@ for (const stored of STORED) {
       await onScreen(page.getByRole('button', { name: signup('reopen.action') })).click();
       await expect(onScreen(page.getByText(status('open'), { exact: true }))).toBeVisible();
       await expect(page.getByText(signup('closed.title'))).toBeHidden();
+    });
+
+    test(`sees a signup’s Settings tab, its notices and the delete flow in ${locale}`, async ({
+      page,
+    }) => {
+      const settings = messagesIn(locale, 'organizer.signupSettings');
+      const saveNotice = messagesIn(locale, 'organizer.saveNotice');
+      const errors = messagesIn(locale, 'organizer.errors');
+      const tab = `/app/signups/${organizer.open.id}/settings`;
+
+      await page.goto(tab);
+      const form = page.getByRole('region', { name: settings('signupForm.title') });
+      await expect(form).toBeVisible();
+      expect(await languageOf(form), unshippedHint).toBe(locale);
+      const ask = form.getByRole('group', { name: settings('signupForm.askForEmail') });
+      await expect(ask.getByRole('radio', { name: settings('signupForm.required') })).toBeChecked();
+      await expect(ask.getByRole('radio', { name: settings('signupForm.optional') })).toBeVisible();
+      await expect(form.getByText(settings('signupForm.requiredHelp'))).toBeVisible();
+      // Saving changes nothing here (Required stays Required), but says Saved.
+      await form.getByRole('button', { name: settings('save') }).click();
+      await expect(form.getByRole('status')).toHaveText(saveNotice('saved'));
+
+      const danger = page.getByRole('region', { name: settings('dangerZone.title') });
+      await expect(danger.getByText(settings('dangerZone.body'))).toBeVisible();
+      await danger.getByRole('button', { name: settings('delete.start') }).click();
+      const confirm = danger.getByRole('alertdialog', { name: settings('delete.label') });
+      await expect(confirm.getByText(settings('delete.question'))).toBeVisible();
+      await expect(confirm.getByRole('button', { name: settings('delete.confirm') })).toBeVisible();
+      await confirm.getByRole('button', { name: settings('delete.cancel') }).click();
+      await expect(danger.getByRole('button', { name: settings('delete.start') })).toBeVisible();
+
+      // A refused save or delete comes back as its code.
+      await page.goto(`${tab}?error=forbidden`);
+      const refusal = page.getByRole('main').getByRole('alert');
+      await expect(refusal).toHaveText(errors('code.forbidden'));
+      expect(await languageOf(refusal)).toBe(locale);
+    });
+
+    test(`sees the Responses tab, the remove flow and the CSV’s own words in ${locale}`, async ({
+      page,
+    }) => {
+      const responses = messagesIn(locale, 'organizer.responses');
+      // Someone signs up, from an address of their own (RFC 5737), so the
+      // per-IP limit every other spec's sign-ups share doesn't count it. A
+      // name of its own, so a retry finds its own row.
+      const who = `Robin ${Date.now()}`;
+      const committed = await page.request.post(`/api/slots/${organizer.open.slotId}/commitments`, {
+        headers: { 'x-forwarded-for': '203.0.113.82' },
+        data: { name: who, email: `robin+${Date.now()}@example.test`, quantity: 1 },
+      });
+      expect(committed.ok()).toBe(true);
+
+      await page.goto(`/app/signups/${organizer.open.id}/responses`);
+      const table = page.getByRole('table');
+      expect(await languageOf(table), unshippedHint).toBe(locale);
+      for (const heading of ['name', 'email', 'slot', 'status', 'actions'] as const) {
+        await expect(
+          table.getByRole('columnheader', { name: responses(`table.${heading}`), exact: true }),
+        ).toBeAttached();
+      }
+      await expect(page.getByRole('link', { name: responses('downloadCsv') })).toBeVisible();
+      const row = table.getByRole('row').filter({ hasText: who });
+      await expect(
+        row.getByRole('cell', { name: responses('status.confirmed'), exact: true }),
+      ).toBeVisible();
+
+      // Remove, its question, Keep, then Yes.
+      const label = responses('remove.label', { name: who, slot: 'Cookies' });
+      const remove = row.getByRole('button', { name: label, exact: true });
+      await expect(remove).toHaveText(responses('remove.button'));
+      await remove.click();
+      const confirm = page.getByRole('alertdialog', { name: responses('remove.dialogLabel') });
+      await expect(confirm).toHaveAccessibleDescription(
+        responses('remove.question', { label, count: 1 }),
+      );
+      await confirm.getByRole('button', { name: responses('remove.keep') }).click();
+      await expect(confirm).toHaveCount(0);
+      await remove.click();
+      await confirm.getByRole('button', { name: responses('remove.confirm') }).click();
+      await expect(
+        row.getByRole('cell', { name: responses('status.removed'), exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText(
+          `${responses('summary.signUps', { count: 0 })} · ${responses('summary.removed', { count: 1 })}`,
+        ),
+      ).toBeVisible();
+
+      // The CSV's column names and statuses come in the organizer's language,
+      // whatever the browser asks for. The signup's own column names stay.
+      const csv = await page.request.get(`/api/signups/${organizer.open.id}/export.csv`, {
+        headers: { 'accept-language': locale === 'en' ? 'sv' : 'en' },
+      });
+      expect(csv.ok()).toBe(true);
+      const lines = (await csv.text()).replace(/^\uFEFF/, '').split('\n');
+      expect(lines[0]?.split(',')).toEqual([
+        'What',
+        'Date',
+        responses('csv.name'),
+        responses('csv.email'),
+        responses('csv.status'),
+        responses('csv.spots'),
+        responses('csv.notes'),
+        responses('csv.signedUp'),
+      ]);
+      const robin = lines.find((line) => line.includes(who));
+      expect(robin?.split(',')[0]).toBe('Cookies');
+      expect(robin?.split(',')[4]).toBe(responses('status.removed'));
+    });
+
+    test(`starts a new signup in ${locale}`, async ({ page }) => {
+      const newSignup = messagesIn(locale, 'organizer.newSignup');
+      const compose = messagesIn(locale, 'organizer.compose');
+      const hydration = watchForHydrationErrors(page);
+
+      // Magic Compose, where the instance has an AI set up (LLM_BASE_URL).
+      await page.goto('/app/signups/new');
+      const heading = page.getByRole('heading', { level: 1 });
+      await expect(heading).toHaveText(
+        new RegExp(`^(${escaped(compose('heading'))}|${escaped(newSignup('title'))})$`),
+      );
+      expect(await languageOf(heading), unshippedHint).toBe(locale);
+      await expect(page).toHaveTitle(titled(newSignup('title')));
+      if ((await heading.textContent()) === compose('heading')) {
+        const box = page.getByRole('textbox', { name: compose('describe') });
+        // An example is a description in the organizer's language, sent as is.
+        await page
+          .getByRole('button', {
+            name: new RegExp(`^${escaped(compose('starters.sports.label'))}`),
+          })
+          .click();
+        await expect(box).toHaveValue(compose('starters.sports.body'));
+        await expect(page.getByText(compose('loaded'))).toBeVisible();
+        // The hour's AI drafts used up, as the route answers it.
+        await page.route('**/api/signups/magic-compose', (route) =>
+          route.fulfill({
+            status: 429,
+            json: {
+              error: {
+                code: 'rate_limited',
+                message: 'too many requests',
+                details: { retryAfterSeconds: 700, bucket: 'magic.compose' },
+              },
+            },
+          }),
+        );
+        await page.getByRole('button', { name: compose('draft') }).click();
+        const alert = page.getByRole('main').getByRole('alert');
+        await expect(alert).toHaveText(
+          compose.markup('errors.hourlyLimit', { minutes: 12, link: plain }),
+        );
+        expect(await languageOf(alert)).toBe(locale);
+        await expect(box).toHaveValue(compose('starters.sports.body'));
+        await page.getByRole('link', { name: compose('skip') }).click();
+      } else {
+        await page.goto('/app/signups/new?manual=1');
+      }
+
+      // The form, from Skip or with no AI.
+      await expect(page).toHaveURL(/\/app\/signups\/new\?manual=1$/);
+      await expect(heading).toHaveText(newSignup('title'));
+      expect(await languageOf(heading), unshippedHint).toBe(locale);
+      await expect(page.getByText(newSignup('intro'))).toBeVisible();
+      await expect(page.getByLabel(newSignup('titleLabel'))).toHaveAttribute(
+        'placeholder',
+        newSignup('titlePlaceholder'),
+      );
+      await expect(page.getByLabel(newSignup('descriptionLabel'))).toHaveAttribute(
+        'placeholder',
+        newSignup('descriptionPlaceholder'),
+      );
+      await expect(page.getByRole('link', { name: newSignup('cancel') })).toBeVisible();
+      await expect(page.getByRole('button', { name: newSignup('create') })).toBeVisible();
+      expect(hydration).toEqual([]);
+    });
+
+    test(`answers Magic Compose’s questions in ${locale}`, async ({ page }) => {
+      const newSignup = messagesIn(locale, 'organizer.newSignup');
+      const compose = messagesIn(locale, 'organizer.compose');
+      const questions = messagesIn(locale, 'organizer.compose.questions');
+      const warnings = messagesIn(locale, 'organizer.aiDraft.warnings');
+      const hydration = watchForHydrationErrors(page);
+
+      await page.goto('/app/signups/new');
+      const heading = page.getByRole('heading', { level: 1 });
+      await expect(heading).toHaveText(
+        new RegExp(`^(${escaped(compose('heading'))}|${escaped(newSignup('title'))})$`),
+      );
+      test.skip(
+        (await heading.textContent()) !== compose('heading'),
+        'Magic Compose is off on this server (no LLM_BASE_URL)',
+      );
+
+      // The AI asks first, then drafts from the answers, as the route answers;
+      // the draft it "made" is the organizer's seeded one.
+      const replies: unknown[] = [
+        {
+          data: {
+            questions: {
+              topics: ['what', 'when', 'how_many'],
+              whatOptions: ['Bake', 'Staff the table'],
+            },
+          },
+        },
+        {
+          data: {
+            id: organizer.draft.id,
+            slug: organizer.draft.slug,
+            draft: {
+              title: 'Bake sale',
+              description: '',
+              fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+              slots: [{ values: { what: 'Staff the table' }, capacity: 1 }],
+            },
+            warnings: ["1 value was left blank because it didn't fit its field. Fill it in below."],
+            codedWarnings: [{ code: 'values_blanked', count: 1 }],
+          },
+        },
+      ];
+      const sent: unknown[] = [];
+      await page.route('**/api/signups/magic-compose', (route) => {
+        sent.push(route.request().postDataJSON());
+        return route.fulfill({ json: replies.shift() });
+      });
+      await page.getByRole('textbox', { name: compose('describe') }).fill('Bake sale');
+      await page.getByRole('button', { name: compose('draft') }).click();
+
+      const asked = page.getByRole('heading', { level: 1, name: questions('heading') });
+      await expect(asked).toBeVisible();
+      expect(await languageOf(asked), unshippedHint).toBe(locale);
+      await expect(page.getByText(questions('intro'))).toBeVisible();
+      await expect(page.getByText(questions('what.ask'))).toBeVisible();
+      await page.getByRole('button', { name: 'Staff the table' }).click();
+      await page
+        .getByRole('button', { name: questions('howMany.more', { item: 'Staff the table' }) })
+        .click();
+      await expect(
+        page.getByRole('spinbutton', {
+          name: questions('howMany.people', { item: 'Staff the table' }),
+        }),
+      ).toHaveValue('1');
+      await expect(page.getByRole('radio', { name: questions('when.oneDay') })).toBeChecked();
+      await expect(page.getByLabel(questions('when.starts'))).toContainText(
+        questions('when.noTime'),
+      );
+
+      // A start time with no date can't go, and the screen says why.
+      await page.getByLabel(questions('when.starts')).selectOption('09:00');
+      await page.getByRole('button', { name: compose('draft') }).click();
+      const problem = page.getByRole('main').getByRole('alert');
+      await expect(problem).toHaveText(questions('problems.noDate'));
+      expect(await languageOf(problem)).toBe(locale);
+      await page.getByLabel(questions('when.date')).fill('2026-11-14');
+      await page.getByRole('button', { name: compose('draft') }).click();
+
+      // Drafting, then the draft's page, whose banner words the warning's code.
+      await expect(page).toHaveURL(
+        new RegExp(`/app/signups/${organizer.draft.id}/build\\?aiDraft=1$`),
+        { timeout: 30_000 },
+      );
+      expect(sent[1]).toEqual({
+        prompt: 'Bake sale',
+        followUp: {
+          what: { picked: ['Staff the table'], added: [] },
+          when: { kind: 'one_day', date: '2026-11-14', from: '09:00' },
+          howMany: [1],
+        },
+      });
+      const box = page.getByRole('status').filter({ hasText: warnings('heading') });
+      await expect(box.getByRole('listitem')).toHaveText([warnings('valuesBlanked', { count: 1 })]);
+      expect(hydration).toEqual([]);
+    });
+
+    test(`sees the banner on a draft Magic Compose made, and its warnings, in ${locale}`, async ({
+      page,
+    }) => {
+      const aiDraft = messagesIn(locale, 'organizer.aiDraft');
+      const warnings = messagesIn(locale, 'organizer.aiDraft.warnings');
+      const hydration = watchForHydrationErrors(page);
+      const build = `/app/signups/${organizer.draft.id}/build`;
+
+      // What Magic Compose changed, as the tab keeps it: codes with their
+      // arguments, and a sentence kept by a tab from before they had codes,
+      // which isn't shown.
+      await page.goto(build);
+      await page.evaluate(
+        ([key, kept]) => window.sessionStorage.setItem(key, JSON.stringify(kept)),
+        [
+          `${AI_DRAFT_WARNINGS_KEY_PREFIX}${organizer.draft.id}`,
+          [
+            'Removed 1 duplicate field the AI tried to add twice.',
+            { code: 'values_blanked', count: 2 },
+            { code: 'enum_fields_to_text', fields: ['role'] },
+            { code: 'text_cut', field: 'description', max: 2000 },
+          ],
+        ] as const,
+      );
+      await page.goto(`${build}?aiDraft=1`);
+
+      const banner = page.getByRole('status').filter({ hasText: aiDraft('body') });
+      // A new signup starts with two fields and one slot.
+      await expect(banner).toContainText(aiDraft('title', { fields: 2, slots: 1 }));
+      expect(await languageOf(banner), unshippedHint).toBe(locale);
+      const box = page.getByRole('status').filter({ hasText: warnings('heading') });
+      await expect(box.getByRole('listitem')).toHaveText([
+        warnings('valuesBlanked', { count: 2 }),
+        warnings('enumFieldsToText', { count: 1, fields: 'role' }),
+        warnings('descriptionCut', { max: 2000 }),
+      ]);
+      expect(await languageOf(box)).toBe(locale);
+
+      await banner.getByRole('button', { name: aiDraft('dismiss') }).click();
+      await expect(box).toBeHidden();
+      await expect(page).toHaveURL(new RegExp(`${escaped(build)}$`));
+      expect(hydration).toEqual([]);
     });
   });
 }

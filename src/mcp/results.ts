@@ -34,9 +34,10 @@ export function toolFailure(error: ServiceError): CallToolResult {
  * Runs one tool call end to end: the scope check, zod parse (the SDK's
  * validator only checks the JSON Schema and hands over raw arguments, so
  * defaults and transforms happen here), the handler, and the mapping of
- * every outcome to a tool result. Unknown errors are logged with the tool
- * name and returned as a generic `internal` — never a stack or a database
- * message.
+ * every outcome to a tool result. A refused parse names the reason its
+ * service would (the tool's `inputReasons`), so the error matches the REST
+ * API's. Unknown errors are logged with the tool name and returned as a
+ * generic `internal` — never a stack or a database message.
  *
  * The route already turns a missing scope into the OAuth 403 challenge
  * before the SDK runs; this second check makes the registry safe on its own,
@@ -74,7 +75,9 @@ export async function runTool(
     );
   }
   const parsed = def.inputSchema.safeParse(args);
-  if (!parsed.success) return finish('invalid_input', toolFailure(fromZodError(parsed.error)));
+  if (!parsed.success) {
+    return finish('invalid_input', toolFailure(fromZodError(parsed.error, def.inputReasons)));
+  }
   try {
     const result = await def.handler(ctx, parsed.data);
     return result.ok
