@@ -611,7 +611,7 @@ the words only organizers see. From #953's first batch.
 
 | English                                          | Swedish                                              | Notes                                                                                                                                                                                                                                                 |
 | ------------------------------------------------ | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Your signups; New signup                         | Dina anmälningslistor; Ny lista                      | The whole word everywhere else, as participants read it. "Ny lista", the button on Your signups and its crumb, is the one short form: "Ny anmälningslista" pushed Your signups 12 pixels past a 320-pixel screen, and its crumb ran into Hjälp at 390 |
+| Your signups; New signup                         | Dina anmälningslistor; Ny lista                      | The whole word everywhere else, as participants read it. "Ny lista", the button on Your signups and its crumb, is the short label: "Ny anmälningslista" pushed Your signups 12 pixels past a 320-pixel screen, and its crumb ran into Hjälp at 390 px |
 | draft (a signup not published yet)               | utkast                                               | "Bara du kan se det här utkastet", the same words on Your signups and on the draft's own page                                                                                                                                                         |
 | publish; Publish and share                       | publicera; Publicera och dela                        |                                                                                                                                                                                                                                                       |
 | Published                                        | Publicerad                                           | Agrees with _anmälningslista_                                                                                                                                                                                                                         |
@@ -627,8 +627,9 @@ the words only organizers see. From #953's first batch.
 | Share; Share…; Share the link                    | Dela; Dela…; Dela länken                             |                                                                                                                                                                                                                                                       |
 | Public link                                      | Offentlig länk                                       |                                                                                                                                                                                                                                                       |
 | Copy link; Copy message; Copied                  | Kopiera länk; Kopiera texten; Kopierat               | "Kopiera meddelande" wraps in its half-width button on a phone                                                                                                                                                                                        |
+| Link copied; Message copied (what is announced)  | Länken är kopierad; Meddelandet är kopierat          | The state, with _är_, as participants' "Länken är kopierad.", not _har kopierats_. "QR-koden är sparad" too                                                                                                                                           |
 | Email it                                         | Mejla det                                            |                                                                                                                                                                                                                                                       |
-| QR code                                          | QR-kod                                               |                                                                                                                                                                                                                                                       |
+| QR code; Hide QR code                            | QR-kod; Dölj QR-kod                                  | No article on the button, like Kopiera länk beside it                                                                                                                                                                                                 |
 | Settings (the account page)                      | Inställningar                                        | The same word as a signup's tab, as in English, and the same in the header's tip and the crumb                                                                                                                                                        |
 | Language                                         | Språk                                                | Account Settings and a signup's Settings tab                                                                                                                                                                                                          |
 | Save; Saved                                      | Spara; Sparat                                        | Every Save button                                                                                                                                                                                                                                     |
@@ -696,6 +697,8 @@ assistant (`auth`) use the terms above, and these. From #953's second batch.
 - **Numbers.** `{n, number}`, so "1 234" with a no-break space.
 - **Punctuation.** A spaced en dash (–) inside a sentence, where English has
   an em dash. An ellipsis is one character: "Sparar…".
+- **A channel takes _via_:** "via mejl", "via sms". "Med mejl" is a calque
+  of "by email".
 - **Buttons named in a sentence** are written as on screen, today without
   quotation marks: "Tryck på Bekräfta igen."
 
@@ -738,9 +741,11 @@ assistant (`auth`) use the terms above, and these. From #953's second batch.
    "Du är anmäld som {name}.", which says "You're signed up as". It reads
    naturally there, but it isn't what the English says.
 9. **_Listan_ for short.** The draft page's body
-   (`participant.signupPage.draft.body`) says "när listan är publicerad", the
-   only place the catalog shortens _anmälningslista_. Its title has just said
-   the whole word; elsewhere the catalog always does.
+   (`participant.signupPage.draft.body`) says "när listan är publicerad", and
+   account Settings' language help (`organizer.settings.language.help`) says
+   "under listans flik Inställningar". In both, the sentence before has just
+   said the whole word. Apart from the button "Ny lista", these are the only
+   places the catalog shortens _anmälningslista_.
 
 These come from the term tables in #914 and #916 and the reviews of #914,
 #916, #920, #921 and #929, which have more detail on each.
