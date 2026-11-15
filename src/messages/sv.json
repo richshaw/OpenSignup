@@ -90,6 +90,15 @@
       "copyFailed": "Det gick inte att kopiera länken. Markera den ovan och kopiera den själv.",
       "done": "Klar"
     },
+    "share": {
+      "signUp": "Anmäl dig här, inget konto behövs: {url}",
+      "spotsOpen": "{count, plural, one {{count, number, ::group-off} ledig plats} other {{count, number, ::group-off} lediga platser}}",
+      "spotsLeft": "{count, plural, one {{count, number, ::group-off} plats kvar} other {{count, number, ::group-off} platser kvar}}",
+      "dayAndTime": "{day} kl. {time}",
+      "dayRange": "{first} – {last}",
+      "twoDays": "{first} och {second}",
+      "threeDays": "{first}, {second} och {third}"
+    },
     "errors": {
       "capacity": {
         "filledUp": "Tyvärr, passet blev precis fullt.",
@@ -264,6 +273,218 @@
       "intro": "Hej {name}, arrangören av <b>{title}</b> har flyttat ditt pass till ett nytt datum eller en ny tid. Här är de nya uppgifterna.",
       "keep": "Passar inte den nya tiden? Tryck på knappen ovan för att ändra eller avboka. Den öppnar din plats direkt, utan lösenord. Behåll mejlet för dig själv: alla som har länken kan ändra din plats.",
       "stop": "Stäng av påminnelser och uppdateringar om {title}"
+    }
+  },
+  "organizer": {
+    "publicPage": {
+      "strip": {
+        "label": "Arrangör",
+        "note": "<b>Din anmälningslista.</b> Bara arrangörer ser det här.",
+        "responses": "Se anmälningar",
+        "edit": "Ändra anmälningslistan"
+      },
+      "ownDraft": {
+        "title": "Bara du kan se det här utkastet",
+        "body": "Den som öppnar den här länken ser ”{title}” tills du publicerar utkastet. Byter du namn på utkastet får det en ny länk, så dela länken först när du har publicerat.",
+        "open": "Öppna ditt utkast"
+      }
+    },
+    "preview": {
+      "title": "Förhandsgranskning",
+      "body": "{status, select, draft {Så här ser det ut för andra när du har publicerat. Inga anmälningar sparas.} closed {Den här anmälningslistan är stängd. Sidan nedan visar vad besökarna ser.} archived {Den här anmälningslistan är arkiverad och syns inte för deltagarna.} other {Den här anmälningslistan är öppen. Sidan nedan visar vad besökarna ser.}}",
+      "signUpDisabled": "Förhandsgranskning: publicera för att ta emot anmälningar"
+    },
+    "chrome": {
+      "tabTitle": "Översikt",
+      "breadcrumb": "Du är här",
+      "home": "OpenSignup",
+      "help": "Hjälp",
+      "account": "Konto",
+      "settings": "Inställningar",
+      "signOut": "Logga ut"
+    },
+    "crumbs": {
+      "settings": "Inställningar",
+      "connectedApps": "Anslutna appar",
+      "newSignup": "Ny lista",
+      "edit": "Ändra"
+    },
+    "dashboard": {
+      "title": "Dina anmälningslistor",
+      "none": "Inga anmälningslistor ännu. Skapa en nedan.",
+      "total": "{count, number} totalt",
+      "newSignup": "Ny lista",
+      "emptyPitch": "Samordna fika, samåkning, knytkalas, volontärpass eller vad som helst.",
+      "createFirst": "Skapa din första anmälningslista",
+      "draftOnlyYou": "Bara du kan se det här utkastet",
+      "noWorkspace": {
+        "title": "Välkommen till OpenSignup",
+        "body": "Din arbetsyta är inte färdig ännu. Logga ut och logga in igen för att göra den klar."
+      }
+    },
+    "loadError": {
+      "tabTitle": "Anmälningslistan hittades inte",
+      "notFound": {
+        "title": "Vi hittar inte den här anmälningslistan",
+        "body": "Den kan ha tagits bort, eller så hör den till ett annat konto. Du är inloggad som <account>{email}</account>."
+      },
+      "failed": {
+        "title": "Vi kunde inte öppna den här anmälningslistan",
+        "body": "Något gick fel hos oss. Ladda om sidan för att försöka igen."
+      },
+      "goToSignups": "Gå till dina anmälningslistor",
+      "switchAccount": "Logga in med en annan e-postadress"
+    },
+    "status": {
+      "draft": "utkast",
+      "open": "öppen",
+      "closed": "stängd",
+      "archived": "arkiverad"
+    },
+    "signup": {
+      "draftLine": "Bara du kan se det här utkastet tills du publicerar det.",
+      "preview": "Förhandsgranska",
+      "moreActions": "Fler åtgärder",
+      "closeSheet": "Stäng",
+      "spots": {
+        "taken": "{taken, plural, one {{taken, number} plats är upptagen} other {{taken, number} platser är upptagna}}",
+        "takenOf": "{taken, number} av {total, plural, one {{total, number} plats} other {{total, number} platser}} är {taken, plural, one {upptagen} other {upptagna}}",
+        "line": "{status, select, closed {Stängd · {spots}} archived {Arkiverad · {spots}} other {{spots}}}"
+      },
+      "publish": {
+        "label": "Publicera och dela",
+        "checking": "Kontrollerar…",
+        "ready": "Publicera och dela när du är redo.",
+        "unsaved": "En ändring sparades inte. Rätta den och publicera sedan."
+      },
+      "check": {
+        "title": "Inget att anmäla sig till ännu",
+        "noSlots": "Det finns inga pass ännu. Lägg till ett och publicera sedan.",
+        "noFields": "Lägg till ett fält som säger vad deltagarna anmäler sig till och publicera sedan.",
+        "allBlank": "{count, plural, =1 {Passet är tomt.} other {Alla pass är tomma.}} Skriv vad deltagarna anmäler sig till och publicera sedan.",
+        "addSlot": "Lägg till ett pass",
+        "fillIn": "Fyll i passet",
+        "notNow": "Inte nu"
+      },
+      "close": {
+        "action": "Stäng anmälan",
+        "notYet": "Inte än",
+        "closing": "Stänger…",
+        "question": "{standing} Det går inte att anmäla sig förrän du öppnar anmälan igen.{kept, select, yes { Alla som redan är anmälda behåller sin plats.} other {}}",
+        "standing": {
+          "nobody": "Ingen har anmält sig ännu.",
+          "taken": "{taken, plural, one {{taken, number} plats är upptagen.} other {{taken, number} platser är upptagna.}}",
+          "allTaken": "Alla platser är upptagna.",
+          "noneOpen": "Inga platser är lediga.",
+          "open": "{open, plural, one {{open, number} plats är fortfarande ledig.} other {{open, number} platser är fortfarande lediga.}}",
+          "openOf": "{open, plural, one {{open, number} av {total, number} platser är fortfarande ledig.} other {{open, number} av {total, number} platser är fortfarande lediga.}}"
+        }
+      },
+      "closed": {
+        "title": "Anmälan är stängd",
+        "body": "Det går inte att anmäla sig nu. Alla som redan är anmälda behåller sin plats.",
+        "dismiss": "Dölj"
+      },
+      "reopen": {
+        "action": "Öppna anmälan igen",
+        "reopening": "Öppnar igen…"
+      },
+      "announce": {
+        "closed": "Stängd. Det går inte att anmäla sig nu.",
+        "reopened": "Öppen igen. Nu går det att anmäla sig."
+      },
+      "tabs": {
+        "label": "Delar av anmälningslistan",
+        "build": "Bygg",
+        "responses": "Anmälningar",
+        "settings": "Inställningar"
+      },
+      "refusal": {
+        "gone": "Den här anmälningslistan finns inte längre.",
+        "changed": "Den här anmälningslistan har ändrats sedan sidan laddades. Ladda om sidan för att se den senaste versionen.",
+        "addSlotToPublish": "Lägg till ett pass innan du publicerar.",
+        "addSlotToReopen": "Lägg till ett pass innan du öppnar anmälan igen.",
+        "publishFailed": "Det gick inte att publicera. Försök igen.",
+        "closeFailed": "Det gick inte att stänga anmälan. Försök igen.",
+        "reopenFailed": "Det gick inte att öppna anmälan igen. Försök en gång till."
+      }
+    },
+    "share": {
+      "button": "Dela",
+      "close": "Stäng",
+      "heading": {
+        "firstTime": "Dags att skicka länken",
+        "later": "Dela länken"
+      },
+      "published": "Publicerad",
+      "announce": "Publicerad. Alla som har länken kan anmäla sig nu.",
+      "lead": {
+        "firstTime": "Alla som har länken kan anmäla sig. Ingen har den förrän du skickar den.",
+        "desktop": "Skicka länken med mejl eller i en gruppchatt. Alla som har den kan anmäla sig.",
+        "phone": "Skicka länken i en gruppchatt, med sms eller med mejl. Alla som har den kan anmäla sig."
+      },
+      "linkField": "Offentlig länk",
+      "copyLink": "Kopiera länk",
+      "copied": "Kopierat",
+      "linkCopied": "Länken har kopierats",
+      "messageCopied": "Meddelandet har kopierats",
+      "linkRefused": "Det gick inte att kopiera. Markera länken och kopiera den.",
+      "messageRefused": "Det gick inte att kopiera. Markera meddelandet och kopiera det.",
+      "messageLabel": "Ett meddelande att skicka med länken",
+      "copyMessage": "Kopiera texten",
+      "emailIt": "Mejla det",
+      "shareMenu": "Dela…",
+      "shareMenuHint": "Öppnar telefonens delningsmeny, med meddelandet och länken.",
+      "shareMenuSent": "Skickat via telefonens delningsmeny.",
+      "unavailable": "Det gick inte att ladda de andra sätten att dela. Ladda om sidan för att försöka igen.",
+      "qr": {
+        "alt": "QR-kod för anmälningslänken till {title}",
+        "lead": "En QR-kod för en affisch eller ett anmälningsbord.",
+        "download": "Ladda ned",
+        "downloadLabel": "Ladda ned QR-koden",
+        "show": "QR-kod",
+        "hide": "Dölj QR-koden",
+        "save": "Spara bilden",
+        "saved": "Sparat",
+        "savedNotice": "QR-koden har sparats"
+      },
+      "chip": {
+        "label": "Offentlig länk",
+        "copy": "Kopiera den offentliga länken",
+        "copyTip": "Kopiera",
+        "open": "Öppna den offentliga sidan",
+        "openTip": "Öppna",
+        "copied": "Länken har kopierats"
+      }
+    },
+    "settings": {
+      "title": "Inställningar",
+      "signedInAs": "Inloggad som <account>{email}</account>.",
+      "connectedApps": {
+        "title": "Anslutna appar",
+        "description": "AI-assistenter och andra appar som du har gett åtkomst till ditt konto, och hur du kopplar från dem."
+      },
+      "language": {
+        "legend": "Språk",
+        "help": "OpenSignup visar dina sidor och skickar dina inloggningsmejl på det här språket. Varje anmälningslista du skapar får också det här språket från början, för knappar, meddelanden och datum som deltagarna ser. Vill du byta språk för en enskild anmälningslista gör du det på dess flik Inställningar.",
+        "save": "Spara",
+        "saved": "Sparat",
+        "switch": "Byt till <language>{name}</language> för {count, plural, one {din öppna anmälningslista} other {dina {count, number} öppna anmälningslistor}}",
+        "switched": "Sparat. {count, plural, one {Din öppna anmälningslista använder nu} other {Dina {count, number} öppna anmälningslistor använder nu}} <language>{name}</language>."
+      }
+    },
+    "connectedApps": {
+      "title": "Anslutna appar",
+      "intro": "Appar och AI-assistenter som du har gett åtkomst till ditt konto. Var och en agerar som du, i alla arbetsytor du är med i, med de behörigheter du har godkänt.",
+      "disconnected": "Appen är frånkopplad. Den kan inte längre få ny åtkomst, och åtkomst som den fortfarande har upphör inom {lifetime}.",
+      "empty": {
+        "title": "Inga anslutna appar",
+        "body": "När du ansluter en AI-assistent som Claude eller ChatGPT till ditt konto visas den här."
+      },
+      "dates": "Godkänd {approved}{used, select, yes { · senast använd {lastUsed}} other { · inte använd ännu}}{expiring, select, yes { · går ut {expires} om den inte förnyas} other {}}",
+      "disconnect": "Koppla från",
+      "disconnecting": "Kopplar från…",
+      "footnote": "När du kopplar från en app slutar den direkt att få ny åtkomst. Åtkomst som den redan har går ut av sig själv inom {lifetime} och kan inte avbrytas tidigare."
     }
   }
 }

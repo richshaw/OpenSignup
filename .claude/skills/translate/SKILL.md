@@ -52,8 +52,9 @@ English each message was translated from (`src/i18n/translated-from/sv.json`,
 - **unneeded**: the record has an entry for a message English or the
   translation no longer has; marking (below) drops it.
 
-For organizer text, add `--audience organizer`; organizer text stays English
-for now, so only do that when asked.
+For organizer text (`organizer`, `auth`, `common`), add `--audience organizer`.
+Swedish has organizer text since #953's first batch, so when English changes
+in `organizer` or `auth`, list that audience too.
 
 Then translate in `src/messages/<language>.json`, one namespace at a time,
 from `en.json`:
