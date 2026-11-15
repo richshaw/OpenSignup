@@ -32,7 +32,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 14 November 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 15 November 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -88,11 +88,11 @@ export default function PrivacyPage() {
           <li>Email address (used to send magic-link sign-in emails).</li>
           <li>Optional display name and organization name.</li>
           <li>
-            Your language for new signups. When you create your account, we look once at the
-            language your browser asks for first. If this site has a default language of its own, we
-            save nothing, and your new signups start in the site&rsquo;s language. If it
-            doesn&rsquo;t, we save your browser&rsquo;s language when this site offers signups in it
-            and it isn&rsquo;t English. Otherwise we save nothing, and your new signups start in
+            Your language: the one we show your screens in, and the one your new signups start in.
+            When you create your account, we look once at the language your browser asks for first.
+            If this site has a default language of its own, we save nothing, and you get the
+            site&rsquo;s language. If it doesn&rsquo;t, we save your browser&rsquo;s language when
+            this site offers it and it isn&rsquo;t English. Otherwise we save nothing, and you get
             English. We don&rsquo;t read your browser&rsquo;s language again after that. You can
             change your language in your account&rsquo;s Settings.
           </li>

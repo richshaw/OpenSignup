@@ -86,18 +86,41 @@ export function signupLocale(
 }
 
 /**
+ * The language an organizer's own screens are in, from the language stored
+ * on their account: that language once it has shipped to organizers, else
+ * the instance's language for organizers (`defaultFor`). It's
+ * `chooseOrganizerLocale`'s rule for the `'organizer'` audience, with a
+ * stored value read as leniently as `signupLocale` reads a signup's, and the
+ * e2e run alone also keeps a stored language that hasn't shipped
+ * (`isShownToTests`), so its specs can see the organizer app in one. Pass
+ * the account's stored value as it is, and the instance's `DEFAULT_LOCALE`
+ * (`instanceDefaultLocale()` in server.ts); code with the organizer's session
+ * calls `getOrganizerAppLocale` in organizer.ts, which does both.
+ */
+export function organizerAppLocale(
+  stored: unknown,
+  instanceDefault: CatalogLocale | undefined,
+): CatalogLocale {
+  return isShipped('organizer', stored) || isShownToTests(stored)
+    ? stored
+    : defaultFor('organizer', instanceDefault);
+}
+
+/**
  * Whether `stored` is a language with a catalog that the e2e run's server
- * shows on a signup that stores it, though it hasn't shipped:
+ * shows, though it hasn't shipped, on a signup that stores it or on the
+ * screens of an organizer whose account stores it (`organizerAppLocale`):
  * `E2E_UNSHIPPED_LOCALES`, a comma-separated list, which playwright.config.ts
  * sets for the server it starts. That's how the seeded Swedish signup
  * (tests/e2e/helpers/seed.ts) renders in Swedish before Swedish ships.
  *
- * Set on a real instance, it ships nothing. It only lets a signup keep a
- * language already in its row, and nothing in the app can put one there that
- * hasn't shipped: `createSignup` and `updateSignup` refuse it from the
- * browser, the API and the AI connector alike, and new signups store none
- * while only English has shipped. It never makes a language the instance's
- * (`defaultFor`), an organizer's, or a choice anywhere. It isn't in env.ts,
+ * Set on a real instance, it ships nothing. It only lets a signup or an
+ * account keep a language already in its row, and nothing in the app can put
+ * one there that hasn't shipped: `createSignup`, `updateSignup` and
+ * `updateOrganizerLocale` refuse it from the browser, the API and the AI
+ * connector alike, and new signups and accounts store none while only
+ * English has shipped. It never makes a language the instance's
+ * (`defaultFor`), a new signup's, or a choice anywhere. It isn't in env.ts,
  * because it isn't a setting, and the web server and the reminder worker
  * each log a warning when they start with it set (`warnIfUnshippedLocalesShown`
  * in ./unshipped-warning.ts).

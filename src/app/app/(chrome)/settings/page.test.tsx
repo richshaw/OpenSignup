@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
-import type { CatalogLocale } from '@/i18n/config';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
 
 // What the page reads around the form: the instance's language (none, unless
@@ -41,7 +41,7 @@ async function renderPage(searchParams: Record<string, string> = {}) {
   return render(await SettingsPage({ searchParams: Promise.resolve(searchParams) }));
 }
 
-const languageGroup = () => screen.queryByRole('group', { name: 'Language for new signups' });
+const languageGroup = () => screen.queryByRole('group', { name: 'Language' });
 const checked = () =>
   screen.getAllByRole('radio').filter((radio) => (radio as HTMLInputElement).checked);
 
@@ -52,7 +52,7 @@ afterEach(() => {
   openSignupsToSwitch.mockResolvedValue({ ok: true, value: { open: 0, toSwitch: [] } });
 });
 
-describe('Account Settings: Language for new signups', () => {
+describe('Account Settings: Language', () => {
   it('isn’t there while one language has shipped to participants', async () => {
     request.saved = 'en';
     await renderPage({ saved: 'language' });
@@ -82,6 +82,15 @@ describe('Account Settings: Language for new signups', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  // One setting, two uses: the organizer's own screens, and their new signups.
+  it('says what the language is for: the organizer’s screens, and each new signup', async () => {
+    ship('participant', CATALOG_LOCALES);
+    await renderPage();
+    expect(screen.getByRole('radio', { name: 'English' })).toHaveAccessibleDescription(
+      'OpenSignup shows your screens and sends your sign-in emails in this language. Each signup you make starts in it too, for the buttons, messages and dates its participants see. To change one signup’s language, use its Settings tab.',
+    );
   });
 
   it('with nothing stored, shows the language new signups would get: the instance’s, else English', async () => {

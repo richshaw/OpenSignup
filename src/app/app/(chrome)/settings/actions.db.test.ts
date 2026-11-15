@@ -99,7 +99,9 @@ describe('setOrganizerLocaleAction (db)', () => {
   it('saves a shipped language on the signed-in organizer and comes back saying so', async () => {
     expect(await submit({ locale: 'en' })).toBe(SAVED);
     expect(await stored(mine)).toBe('en');
-    expect(revalidatePath).toHaveBeenCalledWith('/app/settings');
+    // Every organizer page, the header's layout included, is in the account's
+    // language, so none may be served from before the save.
+    expect(revalidatePath).toHaveBeenCalledWith('/app', 'layout');
 
     ship('participant', ['en', 'sv']);
     expect(await submit({ locale: 'sv' })).toBe(SAVED);

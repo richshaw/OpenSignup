@@ -7,9 +7,13 @@ import {
   isShipped,
   languageName,
   openGraphLocale,
+  organizerAppLocale,
   signupLocale,
 } from './config';
 import { ship } from './testing/ship';
+
+/** Every language with a catalog besides English, each tried in turn. */
+const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 describe('SHIPPED', () => {
   it('ships English to every audience, since English fills every gap', () => {
@@ -115,6 +119,61 @@ describe('signupLocale', () => {
         expect(isShipped(audience, 'sv')).toBe(false);
         expect(SHIPPED[audience]).not.toContain('sv');
       }
+    });
+  });
+});
+
+describe.each(OTHER_LANGUAGES)('organizerAppLocale, with %s', (other) => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('is English while only English has shipped to organizers, whatever is stored', () => {
+    expect(organizerAppLocale(null, undefined)).toBe('en');
+    expect(organizerAppLocale(other, other)).toBe('en');
+  });
+
+  it('takes the stored language once it has shipped to organizers', () => {
+    ship('organizer', ['en', other]);
+    expect(organizerAppLocale(other, 'en')).toBe(other);
+    expect(organizerAppLocale('en', other)).toBe('en');
+  });
+
+  it('takes the instance’s language when nothing usable is stored, once it has shipped to organizers', () => {
+    ship('organizer', ['en', other]);
+    for (const stored of [null, undefined, 'xx', other.toUpperCase(), '', 5]) {
+      expect(organizerAppLocale(stored, other)).toBe(other);
+      expect(organizerAppLocale(stored, undefined)).toBe('en');
+    }
+  });
+
+  // The two lists ship together, but each screen asks its own.
+  it('asks the organizers’ list, not the participants’', () => {
+    ship('participant', ['en', other]);
+    expect(organizerAppLocale(other, other)).toBe('en');
+  });
+
+  describe('on the e2e run’s server (E2E_UNSHIPPED_LOCALES)', () => {
+    it('keeps a stored language that has a catalog and is listed, though it hasn’t shipped', () => {
+      vi.stubEnv('E2E_UNSHIPPED_LOCALES', other);
+      expect(organizerAppLocale(other, undefined)).toBe(other);
+      vi.stubEnv('E2E_UNSHIPPED_LOCALES', `xx,${other}`);
+      expect(organizerAppLocale(other, undefined)).toBe(other);
+    });
+
+    it('never makes a listed language the one an organizer with none stored gets', () => {
+      vi.stubEnv('E2E_UNSHIPPED_LOCALES', other);
+      expect(organizerAppLocale(null, other)).toBe('en');
+      expect(defaultFor('organizer', other)).toBe('en');
+      expect(isShipped('organizer', other)).toBe(false);
+    });
+
+    it.each([
+      ['a language that isn’t listed', 'xx'],
+      ['an empty list', ''],
+    ])('falls back for %s', (_label, listed) => {
+      vi.stubEnv('E2E_UNSHIPPED_LOCALES', listed);
+      expect(organizerAppLocale(other, undefined)).toBe('en');
     });
   });
 });

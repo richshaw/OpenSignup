@@ -7,16 +7,35 @@
  * reminder worker imports, keeps nothing about organizers.
  */
 import type { OrganizerSession } from '@/auth/organizer-session';
-import { type Audience, SHIPPED } from './config';
+import { type Audience, type CatalogLocale, SHIPPED, organizerAppLocale } from './config';
 import { chooseOrganizerLocale } from './organizer-locale';
 import { instanceDefaultLocale } from './server';
+
+/**
+ * The language the organizer app shows this organizer: the language stored
+ * on their account, else the instance's `DEFAULT_LOCALE`, else English, each
+ * only once it has shipped to organizers (`organizerAppLocale`). Every
+ * organizer page, and anything else that shows an organizer their own text,
+ * takes its language from here: the strip and notice on a signup's page, the
+ * Preview banner, the header and the pages under it.
+ *
+ * Each page calls it with the session it already has, rather than taking a
+ * language from a layout above it: a client-side navigation re-renders the
+ * page but not the layout, as `requireOrganizerSession` explains. It costs
+ * no statement, since the session has read the stored language already.
+ */
+export function getOrganizerAppLocale(session: Pick<OrganizerSession, 'locale'>): CatalogLocale {
+  return organizerAppLocale(session.locale, instanceDefaultLocale());
+}
 
 /**
  * The organizer's language for `audience`, and which step chose it: the
  * language stored on their account, the instance's `DEFAULT_LOCALE`, or
  * English, taking the first that has shipped to `audience`
  * (`chooseOrganizerLocale`). Pass `'participant'` for the language their new
- * signups start in.
+ * signups start in. For the language of the organizer's own screens, call
+ * `getOrganizerAppLocale`, which also keeps the e2e run's unshipped
+ * languages.
  */
 export function getOrganizerLocale(session: Pick<OrganizerSession, 'locale'>, audience: Audience) {
   return chooseOrganizerLocale({

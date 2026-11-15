@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireOrganizerSession } from '@/auth/session';
 import { signOutOrganizer } from '@/auth/sign-out';
+import { getOrganizerAppLocale } from '@/i18n/organizer';
 import { INSTANCE_NAME } from '@/lib/site-config';
 
 export const metadata = {
@@ -21,8 +22,11 @@ export default async function OrganizerLayout({
     await signOutOrganizer('/');
   }
 
+  // Marks the header and every page under it with the organizer app's
+  // language for this organizer. Saving a new one in account Settings
+  // revalidates this layout, so the mark can't outlive the language.
   return (
-    <div className="min-h-[100svh] bg-surface">
+    <div lang={getOrganizerAppLocale(session)} className="min-h-[100svh] bg-surface">
       <header className="border-b border-surface-sunk bg-white">
         <div className="mx-auto flex w-full max-w-[1100px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <nav

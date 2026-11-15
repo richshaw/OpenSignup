@@ -11,13 +11,17 @@ import { setOpenSignupsLocale } from '@/services/signups';
 
 const SETTINGS_PATH = '/app/settings';
 
+/** Every organizer page under the header, which all show the account's language. */
+const ORGANIZER_APP = '/app';
+
 /**
- * Account Settings' "Language for new signups", there once a second language
- * has shipped to participants. Saves the signed-in organizer's own language:
- * the form names no organizer, so it can't change anyone else's. The service
- * refuses a language that hasn't shipped, and a form with no choice in it, and
- * the page shows the refusal by its code. Either way it comes back to Account
- * Settings, with `saved=language` when it saved.
+ * Account Settings' "Language", there once a second language has shipped to
+ * participants: the organizer app's language, and the one new signups start
+ * in. Saves the signed-in organizer's own language: the form names no
+ * organizer, so it can't change anyone else's. The service refuses a language
+ * that hasn't shipped, and a form with no choice in it, and the page shows
+ * the refusal by its code. Either way it comes back to Account Settings, with
+ * `saved=language` when it saved.
  */
 export async function setOrganizerLocaleAction(formData: FormData) {
   const session = await requireOrganizerSession();
@@ -25,7 +29,8 @@ export async function setOrganizerLocaleAction(formData: FormData) {
     updateOrganizerLocale(getDb(), toActor(session), formData.get('locale')),
   );
   if (!result.ok) redirect(`${SETTINGS_PATH}?error=${result.error.code}`);
-  revalidatePath(SETTINGS_PATH);
+  // The whole organizer app, its header included: it's all in this language.
+  revalidatePath(ORGANIZER_APP, 'layout');
   redirect(`${SETTINGS_PATH}?saved=language`);
 }
 

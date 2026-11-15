@@ -1,5 +1,6 @@
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
 import { signupLocale } from '@/i18n/config';
+import { getOrganizerAppLocale } from '@/i18n/organizer';
 import { instanceDefaultLocale } from '@/i18n/server';
 import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { trackOrganizerView } from '@/lib/view-tracker';
@@ -49,11 +50,17 @@ export default async function SignupPreviewPage({ params }: PageParams) {
   });
 
   // What participants will see, so in the signup's language: marked with it,
-  // inside an organizer page that's in the organizer's.
+  // inside an organizer page that's in the organizer's. The Preview banner
+  // over it is the organizer's.
   const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
   return (
     <main lang={locale} className="flex min-h-[100svh] flex-col py-8">
-      <SignupView {...toSignupViewProps(sig, filled.value)} locale={locale} mode="preview" />
+      <SignupView
+        {...toSignupViewProps(sig, filled.value)}
+        locale={locale}
+        mode="preview"
+        organizerLocale={getOrganizerAppLocale(session)}
+      />
     </main>
   );
 }

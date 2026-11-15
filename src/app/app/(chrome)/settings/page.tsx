@@ -96,13 +96,15 @@ async function openSignupsInAnotherLanguage(session: OrganizerSession): Promise<
 }
 
 /**
- * "Language for new signups": the language each signup the organizer makes
- * starts in. With one language shipped to participants there's nothing to
- * choose, so it renders nothing until a second one ships. Like the Settings
- * tab's "Signup language", a plain form with each language named in itself
- * (English, Svenska), so the organizer finds theirs whatever language the
- * rest of the page is in. Its Save is a plain button, as Sign out is, so the
- * page loads no script of its own.
+ * "Language": the language of the organizer's own screens
+ * (`getOrganizerAppLocale`), and the one each signup they make starts in
+ * (`newSignupLocale`). A language ships to organizers and to participants in
+ * the same release, so the choices are the participants' list. With one
+ * language shipped there's nothing to choose, so it renders nothing until a
+ * second one ships. Like the Settings tab's "Signup language", a plain form
+ * with each language named in itself (English, Svenska), so the organizer
+ * finds theirs whatever language the rest of the page is in. Its Save is a
+ * plain button, as Sign out is, so the page loads no script of its own.
  *
  * Under it, while some of the organizer's open signups are in another
  * language, a button that switches them to this one (#639), and once it has,
@@ -149,7 +151,7 @@ function OrganizerLanguageForm({
       {/* Keyed on the choice shown, so after a save it's the saved one. */}
       <form key={current} action={setOrganizerLocaleAction} className="flex flex-col gap-4">
         <fieldset>
-          <legend className="font-medium">Language for new signups</legend>
+          <legend className="font-medium">Language</legend>
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
             {languages.map((locale) => (
               <label key={locale} className="flex cursor-pointer items-center gap-2 text-sm">
@@ -166,8 +168,9 @@ function OrganizerLanguageForm({
             ))}
           </div>
           <p id="organizer-language-help" className="mt-2 text-sm text-ink-muted">
-            Each signup you make starts in this language, for the buttons, messages and dates on its
-            page and in its emails. To change one signup’s language, use its Settings tab.
+            OpenSignup shows your screens and sends your sign-in emails in this language. Each
+            signup you make starts in it too, for the buttons, messages and dates its participants
+            see. To change one signup’s language, use its Settings tab.
           </p>
         </fieldset>
         <div className="flex flex-wrap items-center gap-3">
