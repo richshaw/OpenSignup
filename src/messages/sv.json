@@ -486,5 +486,107 @@
       "disconnecting": "Kopplar från…",
       "footnote": "När du kopplar från en app slutar den direkt att få ny åtkomst. Åtkomst som den redan har går ut av sig själv inom {lifetime} och kan inte avbrytas tidigare."
     }
+  },
+  "auth": {
+    "tabTitle": "Logga in",
+    "heading": "Logga in på OpenSignup",
+    "login": {
+      "intro": "Ange din e-postadress så mejlar vi dig en inloggningslänk. Inget lösenord behövs.",
+      "introWithProviders": "Fortsätt med en av tjänsterna nedan, eller få en inloggningslänk via e-post. Inget lösenord behövs.",
+      "linkInvalid": "Inloggningslänken gäller inte längre. Den kan redan ha använts eller ha gått ut. Begär en ny nedan.",
+      "failed": "Något gick fel. Försök igen.",
+      "continueWith": "Fortsätt med {provider}",
+      "or": "eller"
+    },
+    "form": {
+      "email": "E-post",
+      "emailPlaceholder": "du@example.com",
+      "send": "Skicka inloggningslänk",
+      "sending": "Skickar…",
+      "sent": "Skickad – kolla din e-post",
+      "sentTo": "Länken har skickats till {email}. Kolla din inkorg.",
+      "sendAgain": "Skicka igen",
+      "tryAgain": "Försök igen",
+      "errors": {
+        "invalidEmail": "Det ser inte ut som en giltig e-postadress.",
+        "sendFailed": "Det gick inte att skicka. Försök igen.",
+        "rateLimited": "För många inloggningsförsök. Du kan behöva vänta upp till en timme. Om vi redan har mejlat dig en länk kan du använda den."
+      }
+    },
+    "code": {
+      "label": "Öppnade du mejlet på en annan enhet?",
+      "hint": "Skriv in den sexsiffriga koden från mejlet för att logga in här i stället.",
+      "submit": "Logga in med kod",
+      "checking": "Kontrollerar…",
+      "errors": {
+        "noEmail": "Begär en ny länk först.",
+        "rateLimited": "För många försök. Vänta några minuter, eller klicka på länken i mejlet.",
+        "expired": "Koden har gått ut. Begär en ny länk.",
+        "wrong": "Koden stämmer inte. Kontrollera mejlet och försök igen.",
+        "failed": "Något gick fel. Försök igen."
+      }
+    },
+    "check": {
+      "tabTitle": "Kolla din e-post",
+      "heading": "Kolla din e-post",
+      "body": "Vi har skickat en inloggningslänk till din inkorg. Klicka på den för att fortsätta. Länken går ut om {duration}. Den här sidan går vidare automatiskt när du har loggat in."
+    },
+    "confirm": {
+      "bodyAs": "Klicka på knappen nedan för att logga in som <strong>{email}</strong>.",
+      "body": "Klicka på knappen nedan för att logga in.",
+      "signIn": "Logga in →",
+      "signingIn": "Loggar in…",
+      "differentEmail": "Använd en annan e-postadress"
+    },
+    "email": {
+      "subject": "Logga in på OpenSignup",
+      "preview": "Logga in på OpenSignup som {email}",
+      "heading": "Logga in på OpenSignup",
+      "intro": "Klicka på knappen nedan för att logga in som <b>{email}</b>. Länken går ut om {duration}.",
+      "signIn": "Logga in",
+      "code": "Läser du det här på en annan enhet? Skriv i stället in den här koden i fönstret där du började logga in. Koden gäller i {duration}:",
+      "copyUrl": "Eller kopiera den här länken:"
+    },
+    "consent": {
+      "tabTitle": "Anslut en app",
+      "request": "Begäran om anslutning",
+      "heading": "Vill du tillåta <host>{domain}</host> att använda ditt konto på {instance}?",
+      "fromNamedApp": "<strong>{name}</strong> från <strong>{domain}</strong> vill ansluta till ditt konto. Tillåt det bara om du litar på {domain}.",
+      "fromApp": "En app från <strong>{domain}</strong> vill ansluta till ditt konto. Tillåt det bara om du litar på {domain}.",
+      "setUpBySite": "<strong>{name}</strong> har satts upp av dem som driver den här webbplatsen.",
+      "permissions": "Appen kommer att kunna",
+      "sensitive": "Deltagarna har gett de här uppgifterna till dig, inte till den här appen. Godkänn bara om du känner dig trygg med att {domain} hanterar dem.",
+      "actsAs": "{workspaces, select, many {Appen agerar som du (<strong>{email}</strong>) i alla arbetsytor du är med i och kan inte göra något som du inte kan göra själv.} other {Appen agerar som du (<strong>{email}</strong>) och kan inte göra något som du inte kan göra själv.}}",
+      "allow": "Tillåt",
+      "allowing": "Ansluter…",
+      "deny": "Tillåt inte",
+      "denying": "Avböjer…",
+      "disconnect": "Du kan koppla från appen när som helst på sidan <link>Anslutna appar</link>.",
+      "notYou": "Är det inte du?",
+      "switchAccount": "Logga in som någon annan",
+      "expired": {
+        "heading": "Den här begäran om anslutning har gått ut",
+        "body": "En begäran om anslutning gäller bara i några minuter, och bara i den webbläsare där den startades. Inget har anslutits. Gå tillbaka till appen och börja om.",
+        "dashboard": "Gå till översikten"
+      },
+      "decision": {
+        "tooManyAttempts": "För många anslutningsförsök. Vänta {wait} och försök igen.",
+        "failed": "Något gick fel när ditt beslut skulle sparas. Inget har anslutits."
+      }
+    },
+    "scopes": {
+      "signupsRead": "Se dina anmälningslistor och deras pass",
+      "signupsWrite": "Skapa och ändra anmälningslistor",
+      "commitmentsRead": "Se vilka som har anmält sig, inklusive deras namn och e-postadresser",
+      "offlineAccess": "Förbli ansluten utan att du behöver logga in igen"
+    },
+    "oauthErrors": {
+      "tabTitle": "Anslutningen misslyckades",
+      "heading": "Anslutningen kunde inte slutföras",
+      "intro": "Appen som skickade dig hit gjorde en begäran som vi inte kunde godta.",
+      "noDescription": "Begäran kunde inte slutföras.",
+      "nothingConnected": "Inget har anslutits till ditt konto. Stäng det här fönstret och försök igen från appen, eller <home>gå till startsidan</home>.",
+      "tooManyRequests": "För många förfrågningar. Vänta {wait} och försök igen."
+    }
   }
 }

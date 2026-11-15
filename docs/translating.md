@@ -658,6 +658,33 @@ the words only organizers see. From #953's first batch.
   ("Svenska"), so it's capitalized inside a sentence too: "Byt till Svenska
   för …". That's the code's choice, not a typo in the catalog.
 
+### Sign-in and connecting an app
+
+The sign-in pages, the sign-in email and the screen that connects an AI
+assistant (`auth`) use the terms above, and these. From #953's second batch.
+
+| English                                     | Swedish                                   | Notes                                                                                                                                                    |
+| ------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign in to OpenSignup                       | Logga in på OpenSignup                    | The sign-in pages' heading and the sign-in email's subject and heading, the same words. The product's name stays as it is                                |
+| magic link; sign-in link                    | inloggningslänk                           | "Skicka inloggningslänk". _Magisk länk_ is a calque; Swedish services say _inloggningslänk_                                                              |
+| the six-digit code                          | koden; den sexsiffriga koden              | "Logga in med kod". Not _engångskod_: the English never says one-time, and the page and the email must name it with the same word                        |
+| request (a new link)                        | begära                                    | "Begär en ny länk"                                                                                                                                       |
+| expires in {duration}; works for {duration} | går ut om {duration}; gäller i {duration} | A link "går ut", as on Connected apps; a code "gäller". The app writes the duration ("1 timme", "15 minuter"), so translate the whole sentence around it |
+| Check your email; your inbox                | Kolla din e-post; din inkorg              | _E-post_ for the mailbox, _mejl_ for the message: "Öppnade du mejlet på en annan enhet?"                                                                 |
+| click (a link, a button)                    | klicka på                                 | As the English says: "Klicka på knappen nedan"                                                                                                           |
+| Continue with {provider}; a provider        | Fortsätt med {provider}; en tjänst        | Google's own Swedish button says "Fortsätt med Google"                                                                                                   |
+| Allow; Don't allow                          | Tillåt; Tillåt inte                       | What Swedish permission prompts say. The heading asks "Vill du tillåta … att använda ditt konto på …?", and the buttons answer it                        |
+| approve                                     | godkänna                                  | "Godkänn bara om …", as Connected apps' "de behörigheter du har godkänt"                                                                                 |
+| Connection request                          | Begäran om anslutning                     | Also "Den här begäran om anslutning har gått ut"                                                                                                         |
+| app, application                            | app                                       | "Appen kommer att kunna", "Gå tillbaka till appen"                                                                                                       |
+| It will be able to                          | Appen kommer att kunna                    | The heading over the permission lines, which each start with a verb ("Se …", "Skapa …"), so they read on from it and stand alone on Connected apps       |
+| Go to your dashboard                        | Gå till översikten                        | _Översikt_, as the dashboard's tab title                                                                                                                 |
+
+- **The OAuth error page** prints oidc-provider's own description, in
+  English, after the catalog's words (`<code>invalid_request</code> — …`).
+  Its intro is a whole sentence with its own full stop, so an English line
+  after it reads as a technical detail, not as the end of a Swedish sentence.
+
 ### Style
 
 - **Tone.** _Du_, never _ni_, and the plain, friendly tone of the English.
