@@ -17,8 +17,11 @@ export interface OrganizerIn {
   /** Their address, which account Settings says they're signed in as. */
   email: string;
   sessionToken: string;
-  /** A published signup of theirs, for the strip on its page and its Preview. */
-  open: { id: string; slug: string };
+  /**
+   * A published signup of theirs, for the strip on its page and its Preview,
+   * with one slot, "Cookies", that holds 5.
+   */
+  open: { id: string; slug: string; slotId: string };
   /**
    * A draft of theirs, with only the empty slot a new signup starts with: its
    * page tells its own organizer about it, and Publish and share's check stops
@@ -118,7 +121,7 @@ export async function createOrganizerIn(
     );
 
   const open = await make('Bake Sale');
-  unwrap(
+  const slot = unwrap(
     await addSlot(db, actor, open.id, { values: { what: 'Cookies' }, capacity: 5 }),
     'addSlot',
   );
@@ -129,7 +132,7 @@ export async function createOrganizerIn(
     id: organizerId,
     email,
     sessionToken: await createDisposableSession(organizerId),
-    open: { id: open.id, slug: open.slug },
+    open: { id: open.id, slug: open.slug, slotId: slot.id },
     draft: { id: draft.id, slug: draft.slug },
   };
 }

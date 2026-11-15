@@ -21,6 +21,13 @@ type EditableProps = {
   input?: FieldValueInput;
   /** The most characters the value may have, as its field allows. */
   maxLength?: number;
+  /**
+   * The language the value is in, where it isn't the page's: the signup's
+   * own words on a tab in the organizer's (`useSignupLanguage`). It marks the
+   * value shown, not the placeholder, nor the box it's edited in, whose name
+   * is the organizer's.
+   */
+  lang?: string | undefined;
 };
 
 export function Editable({
@@ -33,6 +40,7 @@ export function Editable({
   display,
   input,
   maxLength,
+  lang,
 }: EditableProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -156,7 +164,11 @@ export function Editable({
       className={`${className} ${multiline ? 'whitespace-pre-line' : ''} cursor-text rounded transition-colors duration-180 [overflow-wrap:anywhere] hover:bg-brand-soft focus:bg-brand-soft focus:outline-none`}
     >
       {value ? (
-        (display ?? value)
+        lang ? (
+          <span lang={lang}>{display ?? value}</span>
+        ) : (
+          (display ?? value)
+        )
       ) : (
         <span className="font-normal italic text-ink-soft">{placeholder}</span>
       )}

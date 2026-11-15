@@ -1,3 +1,5 @@
+import type { Translator } from '@/i18n/translator';
+
 type SlotNameParts = {
   anchor: string;
   time: boolean;
@@ -9,20 +11,20 @@ type SlotNameParts = {
  * first field's value ("slot at 9:00 AM" for a time, "slot — Surfing"
  * otherwise) or, when that's empty, the prompt it shows instead ("slot — Set a
  * date"). The row, its toolbar's buttons and its open editor all start from
- * it, so each says which slot it's for.
+ * it, so each says which slot it's for. Each of their messages holds the name
+ * whole, as a `select` on `kind` with the value as `name`, so a language can
+ * word the name to suit what's done to it.
  */
-function slotName({ anchor, time, prompt }: SlotNameParts): string {
-  return anchor
-    ? time
-      ? `slot at ${anchor}`
-      : `slot — ${anchor}`
-    : prompt
-      ? `slot — ${prompt}`
-      : 'slot';
+function slotName({ anchor, time, prompt }: SlotNameParts) {
+  if (anchor) return { kind: time ? 'time' : 'named', name: anchor };
+  return prompt ? { kind: 'named', name: prompt } : { kind: 'none', name: '' };
 }
 
 /** The names of a collapsed row's toolbar buttons and of its open editor. */
-export function slotActionLabels(parts: SlotNameParts): {
+export function slotActionLabels(
+  t: Translator<'organizer.build'>,
+  parts: SlotNameParts,
+): {
   edit: string;
   duplicate: string;
   delete: string;
@@ -30,10 +32,10 @@ export function slotActionLabels(parts: SlotNameParts): {
 } {
   const name = slotName(parts);
   return {
-    edit: `Edit ${name}`,
-    duplicate: `Duplicate ${name}`,
-    delete: `Delete ${name}`,
-    editing: `Editing ${name}`,
+    edit: t('slot.edit', name),
+    duplicate: t('slot.duplicate', name),
+    delete: t('slot.delete', name),
+    editing: t('slot.editing', name),
   };
 }
 
@@ -41,11 +43,18 @@ export function slotActionLabels(parts: SlotNameParts): {
  * A collapsed slot row's accessible name: "Edit" and the slot's name, then the
  * spots taken the row shows ("0 of 6 taken").
  */
-export function slotRowLabel({ count, ...parts }: SlotNameParts & { count: string }): string {
-  return `Edit ${slotName(parts)}, ${count}`;
+export function slotRowLabel(
+  t: Translator<'organizer.build'>,
+  { count, ...parts }: SlotNameParts & { count: string },
+): string {
+  return t('slot.row', { ...slotName(parts), count });
 }
 
 /** The spots a slot row says are taken: "2 of 6 taken", or "2 taken" with no limit. */
-export function takenText(taken: number, capacity: number | null): string {
-  return capacity === null ? `${taken} taken` : `${taken} of ${capacity} taken`;
+export function takenText(
+  t: Translator<'organizer.build'>,
+  taken: number,
+  capacity: number | null,
+): string {
+  return capacity === null ? t('slot.taken', { taken }) : t('slot.takenOf', { taken, capacity });
 }

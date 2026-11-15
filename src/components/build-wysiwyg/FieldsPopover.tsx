@@ -3,14 +3,16 @@
 import { useMemo, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Bell, ChevronDown, GripVertical, List, Plus, X } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
 import { useReorderable } from '../build-shared/useReorderable';
 import type { BuildField } from '../build-shared/useBuildState';
 import type { SlotFieldConfig } from '@/schemas/slot-fields';
-import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
+import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
 import { useOutsideClose } from '@/hooks/useOutsideClose';
 import { InlineFieldForm, type FieldDefaults, type InlineFieldFormMode } from './InlineFieldForm';
 import { PickerOption } from './PickerOption';
+import { useSignupLanguage } from './signup-language';
 
 type FieldsPopoverProps = {
   open: boolean;
@@ -38,12 +40,18 @@ type FieldsPopoverProps = {
 };
 
 export function FieldsPopover({ open, onOpenChange, ...body }: FieldsPopoverProps) {
+  const t = useTranslations('organizer.build.fields');
+  // The dialog renders at the end of the page's body, outside the element
+  // that marks the organizer app with the organizer's language, so it says
+  // so itself.
+  const locale = useLocale();
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-40 bg-ink/30 backdrop-blur-[2px]" />
         <Dialog.Content
-          aria-label="Fields"
+          lang={locale}
+          aria-label={t('label')}
           aria-describedby={undefined}
           className="fixed left-1/2 top-[10vh] z-50 max-h-[80vh] w-[420px] max-w-[calc(100%-2rem)] -translate-x-1/2 overflow-y-auto rounded-xl border border-surface-sunk bg-white p-4 shadow-card focus:outline-none"
         >
@@ -70,6 +78,7 @@ function FieldsPopoverBody({
   onGroupByChange,
   onSetReminder,
 }: Omit<FieldsPopoverProps, 'open' | 'onOpenChange'>) {
+  const t = useTranslations('organizer.build.fields');
   // null = list view; otherwise inline-edit view (create or edit existing).
   const [formMode, setFormMode] = useState<InlineFieldFormMode | null>(null);
   const reminderField = reminderFieldRef
@@ -81,10 +90,10 @@ function FieldsPopoverBody({
       <FieldsPopoverHeader
         title={
           formMode?.mode === 'edit'
-            ? 'Edit field'
+            ? t('editTitle')
             : formMode?.mode === 'create'
-              ? 'New field'
-              : `Fields · ${fields.length}`
+              ? t('newTitle')
+              : t('title', { count: fields.length })
         }
       />
 
@@ -139,6 +148,7 @@ function FieldsPopoverBody({
 }
 
 function FieldsPopoverHeader({ title }: { title: string }) {
+  const t = useTranslations('organizer.build.fields');
   return (
     <div className="mb-3.5 flex items-center justify-between">
       <Dialog.Title className="text-[11px] font-bold uppercase tracking-[0.06em] text-ink-soft">
@@ -147,7 +157,7 @@ function FieldsPopoverHeader({ title }: { title: string }) {
       <Dialog.Close asChild>
         <button
           type="button"
-          aria-label="Close"
+          aria-label={t('close')}
           className="inline-flex h-6 w-6 items-center justify-center rounded-md border-none bg-transparent text-ink-soft hover:bg-surface-raised hover:text-ink"
         >
           <X size={13} />
@@ -178,6 +188,8 @@ function FieldsListView({
   onEdit,
   onStartCreate,
 }: FieldsListViewProps) {
+  const t = useTranslations('organizer.build');
+  const { lang } = useSignupLanguage();
   const reorder = useReorderable({
     items: fields,
     onReorder: (fromIdx, toIdx) => {
@@ -190,13 +202,13 @@ function FieldsListView({
   return (
     <>
       <div className="mb-3 flex items-center justify-between gap-2.5 border-b border-surface-sunk pb-3">
-        <span className="text-xs font-medium text-ink-muted">Group slots by</span>
+        <span className="text-xs font-medium text-ink-muted">{t('fields.groupBy')}</span>
         <GroupByInlinePicker fields={fields} value={groupByFieldRef} onChange={onGroupByChange} />
       </div>
 
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-ink-soft">
-          Drag to reorder
+          {t('fields.reorder')}
         </span>
         <button
           type="button"
@@ -204,14 +216,14 @@ function FieldsListView({
           className="inline-flex items-center gap-1 rounded-md border border-surface-sunk bg-white px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface-raised"
         >
           <Plus size={11} />
-          Add field
+          {t('fields.add')}
         </button>
       </div>
 
       <div className="flex flex-col gap-1">
         {fields.length === 0 && (
           <div className="rounded-md bg-surface-raised px-3 py-3 text-center text-[11px] italic text-ink-soft">
-            No fields yet — add one to get started.
+            {t('fields.empty')}
           </div>
         )}
         {fields.map((f) => {
@@ -247,6 +259,7 @@ function FieldsListView({
               <button
                 type="button"
                 onClick={() => onEdit(f)}
+                lang={lang}
                 className="flex-1 cursor-pointer truncate border-none bg-transparent p-0 text-left text-[13px] font-medium text-ink"
               >
                 {f.name}
@@ -254,8 +267,8 @@ function FieldsListView({
               {f.ref === reminderFieldRef && (
                 <span
                   role="img"
-                  title={`Reminders sent ${REMINDER_LEAD_WORDS} this date`}
-                  aria-label={`Reminders sent ${REMINDER_LEAD_WORDS} this date`}
+                  title={t('fields.reminder', { hours: REMINDER_LEAD_HOURS })}
+                  aria-label={t('fields.reminder', { hours: REMINDER_LEAD_HOURS })}
                   className="inline-flex items-center justify-center p-[3px] text-ink-soft"
                 >
                   <Bell size={11} />
@@ -263,13 +276,16 @@ function FieldsListView({
               )}
               <span className="text-[11px] text-ink-soft">
                 {enumChoiceCount > 0
-                  ? `${FIELD_TYPE_META[fieldType].label} · ${enumChoiceCount}`
-                  : FIELD_TYPE_META[fieldType].label}
+                  ? t('fields.typeCount', {
+                      type: t(`fieldType.${fieldType}`),
+                      count: enumChoiceCount,
+                    })
+                  : t(`fieldType.${fieldType}`)}
               </span>
               <button
                 type="button"
                 onClick={() => onDelete(f.id)}
-                aria-label={`Delete ${f.name}`}
+                aria-label={t('fields.delete', { field: f.name })}
                 className="inline-flex h-5 w-5 items-center justify-center rounded border-none bg-transparent text-ink-soft hover:text-danger"
               >
                 <X size={11} />
@@ -289,6 +305,8 @@ type GroupByInlinePickerProps = {
 };
 
 function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerProps) {
+  const t = useTranslations('organizer.build.fields');
+  const { lang } = useSignupLanguage();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -309,8 +327,7 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
   useOutsideClose(open, [menuRef, triggerRef], () => setOpen(false));
 
   const activeField = value ? fields.find((f) => f.ref === value) : null;
-  const label =
-    value === null ? 'Don\u2019t group' : activeField ? activeField.name : 'Don\u2019t group';
+  const label = activeField ? activeField.name : t('noGroup');
 
   return (
     <div className="relative">
@@ -320,6 +337,7 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        lang={activeField ? lang : undefined}
         className="inline-flex items-center gap-1 rounded-md border border-surface-sunk bg-white px-2 py-1 text-xs font-medium text-ink hover:bg-surface-raised"
       >
         {label}
@@ -329,13 +347,13 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
         <div
           ref={menuRef}
           role="listbox"
-          aria-label="Group slots by"
+          aria-label={t('groupBy')}
           className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[200px] rounded-lg border border-surface-sunk bg-white p-1 shadow-card"
         >
           <PickerOption
             active={value === null}
             icon={<List size={12} />}
-            label={'Don\u2019t group'}
+            label={t('noGroup')}
             onClick={() => {
               onChange(null);
               setOpen(false);
@@ -350,6 +368,7 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
                 active={value === f.ref}
                 icon={<TypeIcon size={12} />}
                 label={f.name}
+                lang={lang}
                 onClick={() => {
                   onChange(f.ref);
                   setOpen(false);

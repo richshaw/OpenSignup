@@ -3,9 +3,15 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { ClientMessages } from '@/i18n/ClientMessages';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { getTranslator, messagesFor } from '@/i18n/translator';
+import { formatSlotTime } from '@/lib/slot-label';
 import { WHAT_ITEMS_MAX } from '@/lib/magic-compose/limits';
 import type { MagicComposeQuestions } from '@/lib/magic-compose/questions';
+import { MAGIC_COMPOSE_NAMESPACES } from './client-namespaces';
 import { MagicComposeRoot } from './MagicComposeRoot';
+import { timeLength } from './answers';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -45,16 +51,33 @@ function stubReplies(...replies: Reply[]) {
   return (call: number) => JSON.parse(String(fetchMock.mock.calls[call]?.[1]?.body)) as unknown;
 }
 
+/** Magic Compose as its page renders it, with its messages in `locale`. */
+function renderRoot(locale: CatalogLocale = 'en') {
+  render(
+    <ClientMessages locale={locale} messages={messagesFor(locale, MAGIC_COMPOSE_NAMESPACES)}>
+      <MagicComposeRoot />
+    </ClientMessages>,
+  );
+}
+
+/** Magic Compose's own words in `locale`. */
+const composeIn = (locale: CatalogLocale) =>
+  getTranslator(locale, 'organizer.compose', {
+    onError: (error) => {
+      throw error;
+    },
+  });
+
 const asks = (questions: MagicComposeQuestions = ASKED): Reply => ({
   status: 200,
   body: { data: { questions } },
 });
 
-async function openQuestions(prompt = 'Bake sale', locale = 'en') {
-  render(<MagicComposeRoot locale={locale} />);
+async function openQuestions(prompt = 'Bake sale', locale: CatalogLocale = 'en') {
+  renderRoot(locale);
   fireEvent.change(screen.getByRole('textbox'), { target: { value: prompt } });
-  fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
-  return screen.findByRole('heading', { name: 'A few details first' });
+  fireEvent.click(screen.getByRole('button', { name: composeIn(locale)('draft') }));
+  return screen.findByRole('heading', { name: composeIn(locale)('questions.heading') });
 }
 
 const addBox = () => screen.getByRole('textbox', { name: 'Add your own, then press Enter' });
@@ -118,7 +141,7 @@ function expectEveryAnswerKept() {
 describe('<MagicComposeRoot /> questions', () => {
   it("doesn't promise a draft while the first reply is on its way", async () => {
     stubReplies('hang');
-    render(<MagicComposeRoot locale="en" />);
+    renderRoot();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bake sale' } });
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
     expect(
@@ -515,8 +538,14 @@ describe('<MagicComposeRoot /> focus after Back', () => {
   });
 
   it('leaves focus alone on compose otherwise, even after a Back', async () => {
-    stubReplies(asks(), { status: 500, body: { error: { code: 'internal', message: 'No.' } } });
-    render(<MagicComposeRoot locale="en" />);
+    const timedOut = 'AI drafting timed out. Try a simpler prompt.';
+    stubReplies(asks(), {
+      status: 500,
+      body: {
+        error: { code: 'internal', message: timedOut, details: { llmErrorCode: 'timeout' } },
+      },
+    });
+    renderRoot();
     const description = () => screen.getByRole('textbox', { name: 'Describe your signup' });
     expect(description()).not.toHaveFocus();
     fireEvent.change(description(), { target: { value: 'Bake sale' } });
@@ -526,7 +555,7 @@ describe('<MagicComposeRoot /> focus after Back', () => {
     expect(description()).toHaveFocus();
 
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('No.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(timedOut);
     expect(description()).not.toHaveFocus();
   });
 });
@@ -656,34 +685,77 @@ describe('<MagicComposeRoot /> questions when the description says what', () => 
   });
 });
 
+describe('<MagicComposeRoot /> in each language', () => {
+  // No signup yet, and a new one starts in its organizer's language, so the
+  // time boxes write their times in it, as their lengths are, not in English.
+  it.each(CATALOG_LOCALES)(
+    "writes the time boxes' times in the organizer's language, %s",
+    async (locale) => {
+      stubReplies(asks());
+      await openQuestions('Bake sale', locale);
+      const starts = screen.getByLabelText(composeIn(locale)('questions.when.starts'));
+      const option = (box: HTMLElement, value: string) =>
+        Array.from(box.querySelectorAll('option')).find((o) => o.value === value)?.textContent;
+      expect(option(starts, '09:00')).toBe(formatSlotTime('09:00', locale));
+      fireEvent.change(starts, { target: { value: '09:00' } });
+      const ends = screen.getByLabelText(composeIn(locale)('questions.when.ends'));
+      expect(option(ends, '10:30')).toBe(
+        `${formatSlotTime('10:30', locale)} (${timeLength('09:00', '10:30', locale)})`,
+      );
+    },
+  );
+});
+
 describe('<MagicComposeRoot /> in another language', () => {
+  // The words come from the catalog in that language; the day and the times
+  // are what `Intl` writes in it, with the year only when it isn't this one.
+  const t = composeIn('sv');
+  const DAYS = ['lördag 14 november', 'lördag 14 november 2026'];
+  const times = t('answers.fromTo', { from: '09:00', to: '13:00' });
+
+  /** Picks an option and gives it a day starting at 9:00. */
+  function answerADay() {
+    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
+    fireEvent.change(screen.getByLabelText(t('questions.when.date')), {
+      target: { value: '2026-11-14' },
+    });
+    fireEvent.change(screen.getByLabelText(t('questions.when.starts')), {
+      target: { value: '09:00' },
+    });
+  }
+
   it("writes the lengths, and the day and times going Back, in the organizer's language", async () => {
     stubReplies(asks());
     await openQuestions('Loppis', 'sv');
-    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
-    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-14' } });
-    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '09:00' } });
+    answerADay();
     // Each end time says how long the shift would be.
-    const ends = screen.getByLabelText('Ends');
+    const ends = screen.getByLabelText(t('questions.when.ends'));
     expect(within(ends).getByRole('option', { name: /\(1 tim 30 min\)$/ })).toHaveValue('10:30');
     fireEvent.change(ends, { target: { value: '13:00' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toMatch(
-      /^Loppis\nWhat: Staff the table \(no limit\)\nWhen: lördag 14 november( 2026)?, 09:00 to 13:00$/,
+    fireEvent.click(screen.getByRole('button', { name: t('questions.back') }));
+    const [first, what, when, ...rest] = (
+      screen.getByRole('textbox') as HTMLTextAreaElement
+    ).value.split('\n');
+    expect(first).toBe('Loppis');
+    expect(what).toBe(
+      t('answers.what', { items: t('answers.itemNoLimit', { item: 'Staff the table' }) }),
     );
+    expect(
+      DAYS.map((day) => t('answers.when', { when: t('answers.dayAndTimes', { day, times }) })),
+    ).toContain(when);
+    expect(rest).toEqual([]);
   });
 
   it("shows the day and times in the organizer's language while drafting from them", async () => {
     stubReplies(asks(), 'hang');
     await openQuestions('Loppis', 'sv');
-    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
-    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-14' } });
-    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '09:00' } });
-    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '13:00' } });
-    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
-    const card = await screen.findByRole('region', { name: 'Drafting from' });
-    expect(
-      within(card).getByText(/^lördag 14 november( 2026)? · 09:00 to 13:00$/),
-    ).toBeInTheDocument();
+    answerADay();
+    fireEvent.change(screen.getByLabelText(t('questions.when.ends')), {
+      target: { value: '13:00' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: t('draft') }));
+    const card = await screen.findByRole('region', { name: t('draftingFrom.label') });
+    const shown = DAYS.map((day) => t('draftingFrom.dayAndTimes', { day, times }));
+    expect(within(card).getByText((text) => shown.includes(text))).toBeInTheDocument();
   });
 });

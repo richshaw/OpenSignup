@@ -16,6 +16,7 @@ import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
 import { SignupLoadError, signupNotFoundTitle } from '@/components/signup/SignupLoadError';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
 import { getServerTranslator } from '@/i18n/server';
+import { messagesFor } from '@/i18n/translator';
 import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, closeQuestionAction, publishAction, reopenAction } from './actions';
 
@@ -64,6 +65,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   }
   const publicUrl = publicSignupUrl(sig.slug);
   const status = sig.status as SignupStatus;
+  const aiDraft = getServerTranslator(locale, 'organizer.aiDraft');
   // The words of the header's client components, the closed box and the
   // tabs, passed to them as props.
   const text = signupHeaderText(getServerTranslator(locale, 'organizer.signup'));
@@ -102,8 +104,16 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
         <AiDraftBanner
           signupId={id}
           signupStatus={sig.status}
-          fieldsCount={sig.fields.length}
-          slotsCount={sig.slots.length}
+          text={{
+            title: aiDraft('title', { fields: sig.fields.length, slots: sig.slots.length }),
+            body: aiDraft('body'),
+            dismiss: aiDraft('dismiss'),
+          }}
+          locale={locale}
+          // Only a draft shows the banner, so only a draft's pages carry these.
+          warningMessages={
+            status === 'draft' ? messagesFor(locale, 'organizer.aiDraft.warnings') : null
+          }
         />
         <TabsNav
           signupId={id}
