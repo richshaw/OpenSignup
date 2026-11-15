@@ -314,7 +314,7 @@
       "none": "Inga anmälningslistor ännu. Skapa en nedan.",
       "total": "{count, number} totalt",
       "newSignup": "Ny lista",
-      "emptyPitch": "Samordna fika, samåkning, knytkalas, volontärpass eller vad som helst.",
+      "emptyPitch": "Samordna fika, samåkning, knytkalas, volontärpass eller något helt annat.",
       "createFirst": "Skapa din första anmälningslista",
       "draftOnlyYou": "Bara du kan se det här utkastet",
       "noWorkspace": {
@@ -420,14 +420,14 @@
       "announce": "Publicerad. Alla som har länken kan anmäla sig nu.",
       "lead": {
         "firstTime": "Alla som har länken kan anmäla sig. Ingen har den förrän du skickar den.",
-        "desktop": "Skicka länken med mejl eller i en gruppchatt. Alla som har den kan anmäla sig.",
-        "phone": "Skicka länken i en gruppchatt, med sms eller med mejl. Alla som har den kan anmäla sig."
+        "desktop": "Skicka länken via mejl eller i en gruppchatt. Alla som har den kan anmäla sig.",
+        "phone": "Skicka länken i en gruppchatt, via sms eller via mejl. Alla som har den kan anmäla sig."
       },
       "linkField": "Offentlig länk",
       "copyLink": "Kopiera länk",
       "copied": "Kopierat",
-      "linkCopied": "Länken har kopierats",
-      "messageCopied": "Meddelandet har kopierats",
+      "linkCopied": "Länken är kopierad",
+      "messageCopied": "Meddelandet är kopierat",
       "linkRefused": "Det gick inte att kopiera. Markera länken och kopiera den.",
       "messageRefused": "Det gick inte att kopiera. Markera meddelandet och kopiera det.",
       "messageLabel": "Ett meddelande att skicka med länken",
@@ -443,10 +443,10 @@
         "download": "Ladda ned",
         "downloadLabel": "Ladda ned QR-koden",
         "show": "QR-kod",
-        "hide": "Dölj QR-koden",
+        "hide": "Dölj QR-kod",
         "save": "Spara bilden",
         "saved": "Sparat",
-        "savedNotice": "QR-koden har sparats"
+        "savedNotice": "QR-koden är sparad"
       },
       "chip": {
         "label": "Offentlig länk",
@@ -454,7 +454,7 @@
         "copyTip": "Kopiera",
         "open": "Öppna den offentliga sidan",
         "openTip": "Öppna",
-        "copied": "Länken har kopierats"
+        "copied": "Länken är kopierad"
       }
     },
     "settings": {
@@ -466,7 +466,7 @@
       },
       "language": {
         "legend": "Språk",
-        "help": "OpenSignup visar dina sidor och skickar dina inloggningsmejl på det här språket. Varje anmälningslista du skapar får också det här språket från början, för knappar, meddelanden och datum som deltagarna ser. Vill du byta språk för en enskild anmälningslista gör du det på dess flik Inställningar.",
+        "help": "OpenSignup visar dina sidor och skickar dina inloggningsmejl på det här språket. Varje anmälningslista du skapar får också det här språket från början, för knappar, meddelanden och datum som deltagarna ser. Vill du byta språk för en enskild anmälningslista gör du det under listans flik Inställningar.",
         "save": "Spara",
         "saved": "Sparat",
         "switch": "Byt till <language>{name}</language> för {count, plural, one {din öppna anmälningslista} other {dina {count, number} öppna anmälningslistor}}",
@@ -475,11 +475,11 @@
     },
     "connectedApps": {
       "title": "Anslutna appar",
-      "intro": "Appar och AI-assistenter som du har gett åtkomst till ditt konto. Var och en agerar som du, i alla arbetsytor du är med i, med de behörigheter du har godkänt.",
+      "intro": "Appar och AI-assistenter som du har gett åtkomst till ditt konto. Var och en agerar i ditt namn, i alla arbetsytor du är med i, med de behörigheter du har godkänt.",
       "disconnected": "Appen är frånkopplad. Den kan inte längre få ny åtkomst, och åtkomst som den fortfarande har upphör inom {lifetime}.",
       "empty": {
         "title": "Inga anslutna appar",
-        "body": "När du ansluter en AI-assistent som Claude eller ChatGPT till ditt konto visas den här."
+        "body": "När du ansluter en AI-assistent som Claude eller ChatGPT till ditt konto visas den på den här sidan."
       },
       "dates": "Godkänd {approved}{used, select, yes { · senast använd {lastUsed}} other { · inte använd ännu}}{expiring, select, yes { · går ut {expires} om den inte förnyas} other {}}",
       "disconnect": "Koppla från",
