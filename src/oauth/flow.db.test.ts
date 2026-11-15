@@ -134,6 +134,7 @@ beforeAll(async () => {
     findGrantId: (a, c) => findGrantIdFor(db, a, c),
     allowCimdFetch: async () => true,
     onGrantUsed: (g) => touchGrantUsed(db, g),
+    errorPageLocale: 'en',
     // Serve the CIMD document without a network. MISMATCHED_CLIENT gets the
     // same document, whose `client_id` is CLIENT, so its test reaches the
     // provider's id check instead of stopping at a 404.

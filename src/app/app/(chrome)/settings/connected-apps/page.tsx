@@ -11,7 +11,7 @@ import { accessTokenLifetime } from '@/lib/lifetimes';
 import { log } from '@/lib/log';
 import { listConnectedApps, revokeConnectedApp } from '@/oauth/grants';
 import { getProvider } from '@/oauth/instance';
-import { SCOPE_DESCRIPTIONS } from '@/oauth/scopes';
+import { SCOPE_MESSAGES } from '@/oauth/scopes';
 import { DisconnectButton } from './disconnect-button';
 import { formatGrantDate } from './grant-date';
 
@@ -37,6 +37,7 @@ export default async function ConnectedAppsPage({
   const apps = await listConnectedApps(getDb(), actor);
   const locale = getOrganizerAppLocale(session);
   const t = getServerTranslator(locale, 'organizer.connectedApps');
+  const describe = getServerTranslator(locale, 'auth.scopes');
   const lifetime = accessTokenLifetime(locale);
 
   async function disconnect(formData: FormData) {
@@ -90,7 +91,7 @@ export default async function ConnectedAppsPage({
                 </p>
                 <ul className="text-sm text-ink-muted">
                   {app.scopes.map((s) => (
-                    <li key={s}>{SCOPE_DESCRIPTIONS[s]}</li>
+                    <li key={s}>{describe(SCOPE_MESSAGES[s])}</li>
                   ))}
                 </ul>
                 <p className="text-xs text-ink-soft">

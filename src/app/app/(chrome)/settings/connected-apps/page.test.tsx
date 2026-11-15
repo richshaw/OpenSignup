@@ -137,6 +137,7 @@ describe('Connected apps', () => {
       /^assistant\.example\.com · Example Assistant$/,
     );
     expect(used!.getByText('See your signups and their slots')).toBeInTheDocument();
+    expect(used!.getByText('Create and edit signups')).toBeInTheDocument();
     expect(
       used!.getByText(
         'Approved 14 Nov 2026 · last used 15 Nov 2026 · expires 12 Feb 2027 unless renewed',
@@ -169,6 +170,8 @@ describe('Connected apps', () => {
     expect(screen.getByText(ask('intro'))).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(ask('disconnected'));
     expect(screen.getByText(ask('dates'))).toBeInTheDocument();
+    expect(screen.getByText(`auth.scopes.signupsRead in ${other}`)).toBeInTheDocument();
+    expect(screen.getByText(`auth.scopes.signupsWrite in ${other}`)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: ask('disconnect') })).toHaveAttribute(
       'data-loading-label',
       ask('disconnecting'),

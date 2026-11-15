@@ -76,6 +76,8 @@ const TRANSLATED_FILES = [
   'src/app/login/check/page.tsx',
   'src/app/login/confirm/page.tsx',
   'src/app/login/confirm/sign-in-link.tsx',
+  'src/app/oauth/consent/[uid]/page.tsx',
+  'src/app/oauth/consent/[uid]/consent-form.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
