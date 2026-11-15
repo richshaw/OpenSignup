@@ -556,7 +556,7 @@
       "setUpBySite": "<strong>{name}</strong> har satts upp av dem som driver den här webbplatsen.",
       "permissions": "Appen kommer att kunna",
       "sensitive": "Deltagarna har gett de här uppgifterna till dig, inte till den här appen. Godkänn bara om du känner dig trygg med att {domain} hanterar dem.",
-      "actsAs": "{workspaces, select, many {Appen agerar som du (<strong>{email}</strong>) i alla arbetsytor du är med i och kan inte göra något som du inte kan göra själv.} other {Appen agerar som du (<strong>{email}</strong>) och kan inte göra något som du inte kan göra själv.}}",
+      "actsAs": "{workspaces, select, many {Appen agerar i ditt namn (<strong>{email}</strong>) i alla arbetsytor du är med i och kan inte göra något som du inte kan göra själv.} other {Appen agerar i ditt namn (<strong>{email}</strong>) och kan inte göra något som du inte kan göra själv.}}",
       "allow": "Tillåt",
       "allowing": "Ansluter…",
       "deny": "Tillåt inte",

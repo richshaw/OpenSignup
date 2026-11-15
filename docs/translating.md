@@ -679,6 +679,7 @@ assistant (`auth`) use the terms above, and these. From #953's second batch.
 | Connection request                          | Begäran om anslutning                     | Also "Den här begäran om anslutning har gått ut"                                                                                                         |
 | app, application                            | app                                       | "Appen kommer att kunna", "Gå tillbaka till appen"                                                                                                       |
 | It will be able to                          | Appen kommer att kunna                    | The heading over the permission lines, which each start with a verb ("Se …", "Skapa …"), so they read on from it and stand alone on Connected apps       |
+| It acts as you                              | Appen agerar i ditt namn                  | As Connected apps' intro: "agerar som du" can read as "behaves like you"                                                                                 |
 | Go to your dashboard                        | Gå till översikten                        | _Översikt_, as the dashboard's tab title                                                                                                                 |
 
 - **The OAuth error page** prints oidc-provider's own description, in
