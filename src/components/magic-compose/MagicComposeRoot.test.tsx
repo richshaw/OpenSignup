@@ -21,7 +21,7 @@ function stubFetch(status: number, body: unknown) {
 }
 
 async function draft(prompt: string) {
-  render(<MagicComposeRoot />);
+  render(<MagicComposeRoot locale="en" />);
   fireEvent.change(screen.getByRole('textbox'), { target: { value: prompt } });
   fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
   return screen.findByRole('alert');
@@ -93,7 +93,7 @@ describe('<MagicComposeRoot /> errors', () => {
       vi.fn(() => new Promise<Response>(() => {})),
     );
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    render(<MagicComposeRoot />);
+    render(<MagicComposeRoot locale="en" />);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bake sale' } });
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
     act(() => {
@@ -111,7 +111,7 @@ describe('<MagicComposeRoot /> errors', () => {
       vi.fn(() => new Promise<Response>(() => {})),
     );
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    render(<MagicComposeRoot llmTimeoutMs={300_000} />);
+    render(<MagicComposeRoot locale="en" llmTimeoutMs={300_000} />);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bake sale' } });
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
     act(() => {

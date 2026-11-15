@@ -15,12 +15,15 @@ import type { FieldType } from '@/schemas/slot-fields';
 export function prettyHeader(
   rawKey: string | null | undefined,
   fieldType: FieldType,
+  locale: string,
   fieldLabel?: string,
 ): string {
   if (!rawKey) {
     return emptyHeaderCopy(fieldType, fieldLabel);
   }
-  return renderFieldValue({ ref: '', label: fieldLabel ?? '', fieldType }, rawKey) ?? rawKey;
+  return (
+    renderFieldValue({ ref: '', label: fieldLabel ?? '', fieldType }, rawKey, locale) ?? rawKey
+  );
 }
 
 /**

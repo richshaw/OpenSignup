@@ -51,7 +51,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   // nothing to hide, and the form would only fail: a save is refused and a
   // cancel changes nothing.
   if (c.status === 'cancelled') {
-    const state = await cancelledCommitmentState(getDb(), c);
+    const state = await cancelledCommitmentState(getDb(), c, 'en');
     if (state.movedTo !== null) {
       // Its token is derived from its id, as the reminder email's is. Only
       // the holder of this link could have made the move, so linking them to
@@ -78,7 +78,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   // message here fits, so it gets the not-found page.
   if (!ACTIVE_COMMITMENT_STATUSES.includes(c.status)) notFound();
 
-  const { maxQuantity, closed, slotName } = await editLimitsForCommitment(getDb(), c);
+  const { maxQuantity, closed, slotName } = await editLimitsForCommitment(getDb(), c, 'en');
 
   return (
     <main className="container-tight flex min-h-[100svh] flex-col gap-6 py-8">

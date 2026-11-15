@@ -4,7 +4,7 @@ import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/servi
 import { countActiveCommitmentsForSignup } from '@/services/commitments';
 import { publicSignupUrl } from '@/lib/links';
 import { shareMessage } from '@/lib/share-message';
-import { KEEPS_THEIR_SPOT, spotCounts } from '@/lib/spot-counts';
+import { spotCounts } from '@/lib/spot-counts';
 import { BuildBridge } from '@/components/signup/BuildBridge';
 import { ClosedNotice } from '@/components/signup/ClosedNotice';
 import { HeaderAnnouncer } from '@/components/signup/HeaderAnnouncer';
@@ -86,7 +86,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
             reopenAction={reopenAction.bind(null, id)}
           />
           {/* Once, after Close signup on this page; see ClosedNotice. */}
-          <ClosedNotice status={status} body={`People can’t sign up now. ${KEEPS_THEIR_SPOT}`} />
+          <ClosedNotice status={status} />
         </HeaderAnnouncer>
         <AiDraftBanner
           signupId={id}

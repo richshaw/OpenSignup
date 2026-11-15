@@ -107,12 +107,12 @@ function sharedTime(slots: ShareMessageSignup['slots'], timeRef: string): string
   if (slots.length === 0 || times.size !== 1 || typeof only !== 'string' || !isRealTime(only)) {
     return null;
   }
-  return formatSlotTime(only);
+  return formatSlotTime(only, 'en');
 }
 
 /** The days, sorted and distinct, in words; see `dateSpan`. */
 function dayList(days: string[]): string | null {
-  const named = days.map((d) => formatSlotDate(d)).filter((d): d is string => d !== null);
+  const named = days.map((d) => formatSlotDate(d, 'en')).filter((d): d is string => d !== null);
   if (named.length !== days.length || named.length === 0) return null;
   const first = named[0]!;
   const last = named[named.length - 1]!;

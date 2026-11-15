@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
+import { INSTANCE_NAME } from '@/lib/site-config';
 
 afterEach(() => {
   vi.resetModules();
@@ -44,16 +45,16 @@ describe('SiteFooter', () => {
   ])('shows no version when the commit is %s', async (_name, sha) => {
     vi.stubEnv('NEXT_PUBLIC_COMMIT_SHA', sha);
     await renderFooter([]);
-    expect(screen.getByRole('contentinfo').querySelector('span')?.textContent).toMatch(
-      /^[^·]+ · AGPL-3\.0$/,
+    expect(screen.getByRole('contentinfo').querySelector('span')?.textContent).toBe(
+      `${INSTANCE_NAME} · AGPL-3.0`,
     );
   });
 
   it('shows the build’s short commit before the instance name', async () => {
     vi.stubEnv('NEXT_PUBLIC_COMMIT_SHA', '1d4ff3a9c0b2e8f7a6d5c4b3a2918070f6e5d4c3');
     await renderFooter([]);
-    expect(screen.getByRole('contentinfo').querySelector('span')?.textContent).toMatch(
-      /^1d4ff3a · .+ · AGPL-3\.0$/,
+    expect(screen.getByRole('contentinfo').querySelector('span')?.textContent).toBe(
+      `1d4ff3a · ${INSTANCE_NAME} · AGPL-3.0`,
     );
   });
 });

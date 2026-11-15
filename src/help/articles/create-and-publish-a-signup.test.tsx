@@ -13,7 +13,7 @@ vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
 // the names the article's note uses for them are checked here instead.
 describe('create-and-publish-a-signup: drafting screen names', () => {
   it('matches what the drafting screen shows', () => {
-    render(<Compose prompt="" setPrompt={() => {}} onDraft={() => {}} />);
+    render(<Compose prompt="" locale="en" setPrompt={() => {}} onDraft={() => {}} />);
     expect(screen.getByRole('heading', { name: UI.composeHeading })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: UI.draftCompose })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: UI.skipCompose })).toBeInTheDocument();
@@ -23,6 +23,7 @@ describe('create-and-publish-a-signup: drafting screen names', () => {
     render(
       <Questions
         prompt="Bake sale"
+        locale="en"
         questions={{ topics: ['what'], whatOptions: ['Bake something to sell', 'Staff the table'] }}
         answers={null}
         setAnswers={() => {}}

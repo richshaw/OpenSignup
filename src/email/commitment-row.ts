@@ -75,7 +75,7 @@ export async function slotText(
   const fields = await listFieldsForSignup(db, signupId);
   const slotValues = (values as Record<string, unknown>) ?? {};
   return {
-    slotDetails: slotDetails(fields, slotValues),
-    slotSummary: summarizeSlotValues(fields, slotValues),
+    slotDetails: slotDetails(fields, slotValues, 'en'),
+    slotSummary: summarizeSlotValues(fields, slotValues, 'en'),
   };
 }

@@ -89,7 +89,7 @@ export async function recordActivityBestEffort(db: Db, args: RecordActivityArgs)
   }
 }
 
-export async function listActivityForSignup(db: Db, signupId: string, limit = 100) {
+export async function listActivityForSignup(db: Db, signupId: string, limit: number) {
   return db
     .select()
     .from(activity)

@@ -84,8 +84,11 @@ const QUESTIONS_UNAVAILABLE: DraftError = {
 };
 
 export function MagicComposeRoot({
+  locale,
   llmTimeoutMs = LLM_TIMEOUT_DEFAULT_MS,
 }: {
+  /** The organizer's language, for the dates, times and numbers the screens write. */
+  locale: string;
   /** The instance's `LLM_TIMEOUT_MS`. */
   llmTimeoutMs?: number;
 }) {
@@ -215,6 +218,7 @@ export function MagicComposeRoot({
     return (
       <Drafting
         prompt={prompt}
+        locale={locale}
         followUp={phase.followUp}
         draft={phase.draft}
         onCancel={onCancel}
@@ -231,6 +235,7 @@ export function MagicComposeRoot({
           fallback={
             <Drafting
               prompt={prompt}
+              locale={locale}
               draft={null}
               onCancel={onCancel}
               onAnimationDone={onAnimationDone}
@@ -239,6 +244,7 @@ export function MagicComposeRoot({
         >
           <Questions
             prompt={prompt}
+            locale={locale}
             questions={questions}
             answers={answers}
             setAnswers={setAnswers}
@@ -269,6 +275,7 @@ export function MagicComposeRoot({
       )}
       <Compose
         prompt={prompt}
+        locale={locale}
         setPrompt={setPrompt}
         onDraft={onDraft}
         focusAtEnd={phase.kind === 'idle' && phase.back === true}

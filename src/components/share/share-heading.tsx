@@ -10,11 +10,9 @@ export function shareHeading(firstTime: boolean): string {
 }
 
 /** The small green "Published" over the heading, the first time only. */
-export function PublishedMark({ className = '' }: { className?: string }) {
+export function PublishedMark() {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 text-[13px] font-semibold text-success ${className}`}
-    >
+    <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-success">
       <Check size={14} strokeWidth={2.6} aria-hidden="true" />
       Published
     </span>

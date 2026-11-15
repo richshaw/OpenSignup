@@ -27,7 +27,7 @@ export function TimeSelect({ value, onChange, after, note, ...rest }: TimeSelect
       <option value="">No time</option>
       {timeOptions(value, after).map((t) => (
         <option key={t} value={t}>
-          {formatSlotTime(t) ?? t}
+          {formatSlotTime(t, 'en') ?? t}
           {note && (!after || t > after) ? ` (${note(t)})` : ''}
         </option>
       ))}

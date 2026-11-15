@@ -85,6 +85,7 @@ export function WysiwygSlot({
     renderFieldValue(
       { ref: f.ref, label: f.name, fieldType: f.config.fieldType },
       row.values[f.ref],
+      'en',
     ) ?? '';
   const anchorField = displayFields[0] ?? null;
   const anchorValue = anchorField ? display(anchorField) : '';

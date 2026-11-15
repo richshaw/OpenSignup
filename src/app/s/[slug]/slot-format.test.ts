@@ -43,27 +43,27 @@ describe('pickPrimaryField', () => {
 
 describe('renderFieldValue', () => {
   it('returns null for empty/null/undefined values', () => {
-    expect(renderFieldValue(text('a', 'A'), undefined)).toBeNull();
-    expect(renderFieldValue(text('a', 'A'), null)).toBeNull();
-    expect(renderFieldValue(text('a', 'A'), '')).toBeNull();
+    expect(renderFieldValue(text('a', 'A'), undefined, 'en')).toBeNull();
+    expect(renderFieldValue(text('a', 'A'), null, 'en')).toBeNull();
+    expect(renderFieldValue(text('a', 'A'), '', 'en')).toBeNull();
   });
 
   it('passes text/number values through as strings', () => {
-    expect(renderFieldValue(text('a', 'A'), 'hello')).toBe('hello');
+    expect(renderFieldValue(text('a', 'A'), 'hello', 'en')).toBe('hello');
     const num: SignupViewField = { ref: 'n', label: 'N', fieldType: 'number' };
-    expect(renderFieldValue(num, 12)).toBe('12');
-    expect(renderFieldValue(num, 0)).toBe('0');
+    expect(renderFieldValue(num, 12, 'en')).toBe('12');
+    expect(renderFieldValue(num, 0, 'en')).toBe('0');
   });
 
   it('formats date fields using slot-date format', () => {
     const date: SignupViewField = { ref: 'd', label: 'D', fieldType: 'date' };
-    const out = renderFieldValue(date, '2026-04-25');
+    const out = renderFieldValue(date, '2026-04-25', 'en');
     expect(out).toMatch(/^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}$/);
   });
 
   it('falls back to raw string when date value is unparseable', () => {
     const date: SignupViewField = { ref: 'd', label: 'D', fieldType: 'date' };
-    expect(renderFieldValue(date, 'not-a-date')).toBe('not-a-date');
+    expect(renderFieldValue(date, 'not-a-date', 'en')).toBe('not-a-date');
   });
 });
 
@@ -71,34 +71,41 @@ describe('buildMetaSegments', () => {
   const slot = { values: { game: 'Game 1', opponent: 'vs Hawks', field: 'Field B' } };
 
   it('includes every value with no labels', () => {
-    expect(buildMetaSegments({ fields, slot })).toEqual(['Game 1', 'vs Hawks', 'Field B']);
+    expect(buildMetaSegments({ fields, slot, locale: 'en' })).toEqual([
+      'Game 1',
+      'vs Hawks',
+      'Field B',
+    ]);
   });
 
   it('skips the primary field', () => {
-    expect(buildMetaSegments({ fields, slot, primaryRef: 'game' })).toEqual([
+    expect(buildMetaSegments({ fields, slot, primaryRef: 'game', locale: 'en' })).toEqual([
       'vs Hawks',
       'Field B',
     ]);
   });
 
   it('skips the group field', () => {
-    expect(buildMetaSegments({ fields, slot, groupRef: 'field' })).toEqual(['Game 1', 'vs Hawks']);
-  });
-
-  it('skips both primary and group', () => {
-    expect(buildMetaSegments({ fields, slot, primaryRef: 'game', groupRef: 'field' })).toEqual([
+    expect(buildMetaSegments({ fields, slot, groupRef: 'field', locale: 'en' })).toEqual([
+      'Game 1',
       'vs Hawks',
     ]);
   });
 
+  it('skips both primary and group', () => {
+    expect(
+      buildMetaSegments({ fields, slot, primaryRef: 'game', groupRef: 'field', locale: 'en' }),
+    ).toEqual(['vs Hawks']);
+  });
+
   it('omits empty values', () => {
     const partial = { values: { game: 'Game 1', opponent: '', field: null } };
-    expect(buildMetaSegments({ fields, slot: partial })).toEqual(['Game 1']);
+    expect(buildMetaSegments({ fields, slot: partial, locale: 'en' })).toEqual(['Game 1']);
   });
 
   it('preserves field-definition order regardless of values key order', () => {
     const reordered = { values: { field: 'Field B', opponent: 'vs Hawks', game: 'Game 1' } };
-    expect(buildMetaSegments({ fields, slot: reordered })).toEqual([
+    expect(buildMetaSegments({ fields, slot: reordered, locale: 'en' })).toEqual([
       'Game 1',
       'vs Hawks',
       'Field B',
@@ -109,18 +116,20 @@ describe('buildMetaSegments', () => {
 describe('formatGroupLabel', () => {
   it('formats the value via renderFieldValue (date stays a date)', () => {
     const date: SignupViewField = { ref: 'd', label: 'Date', fieldType: 'date' };
-    expect(formatGroupLabel(date, '2026-04-25')).toMatch(/^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}$/);
+    expect(formatGroupLabel(date, '2026-04-25', 'en')).toMatch(
+      /^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}$/,
+    );
   });
 
   it('passes text values through', () => {
-    expect(formatGroupLabel(text('g', 'Game'), 'GAME 1')).toBe('GAME 1');
+    expect(formatGroupLabel(text('g', 'Game'), 'GAME 1', 'en')).toBe('GAME 1');
   });
 
   it('falls back to "(no <label>)" for empty/null/undefined', () => {
     const game = text('g', 'Game');
-    expect(formatGroupLabel(game, undefined)).toBe('(no game)');
-    expect(formatGroupLabel(game, null)).toBe('(no game)');
-    expect(formatGroupLabel(game, '')).toBe('(no game)');
+    expect(formatGroupLabel(game, undefined, 'en')).toBe('(no game)');
+    expect(formatGroupLabel(game, null, 'en')).toBe('(no game)');
+    expect(formatGroupLabel(game, '', 'en')).toBe('(no game)');
   });
 });
 

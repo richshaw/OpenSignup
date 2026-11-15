@@ -17,8 +17,9 @@ import { slotDetails, type LabelledField } from '@/lib/slot-label';
 export function summarizeSlotValues(
   fields: readonly LabelledField[],
   values: Record<string, unknown>,
+  locale: string,
 ): string {
-  return slotDetails(fields, values)
+  return slotDetails(fields, values, locale)
     .map((d) => d.value)
     .join(' · ');
 }

@@ -9,6 +9,7 @@
  * wrong in front of a participant.
  */
 
+import { TIME_ZONE } from '@/i18n/config';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { isRealDate, isRealTime } from '@/lib/reminder-fields';
 
@@ -19,41 +20,50 @@ export interface LabelledField {
   fieldType: string;
 }
 
-const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+/*
+ * The formatters below take the reader's language as `locale`, a language tag
+ * like 'en' or 'sv'. Slot dates and times are wall-clock values with no zone
+ * of their own, so each is built from its parts as a UTC moment and formatted
+ * in UTC (`TIME_ZONE`): neither the server's zone nor the browser's can move
+ * it to another day or hour.
+ */
 
-export function formatSlotDate(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  // `date`-type slot fields are validated as YYYY-MM-DD. `new Date('YYYY-MM-DD')`
-  // parses as UTC midnight and would shift to the prior calendar day in
-  // negative-offset zones — construct a local-midnight Date instead so the
-  // displayed weekday/day matches what the organizer typed.
-  // `new Date(y, m, d)` silently rolls an impossible day (Feb 31) into the
-  // next month, so a date-only value must pass `isRealDate` first.
-  const dateOnly = iso.match(DATE_ONLY);
-  if (dateOnly && !isRealDate(iso)) return null;
-  const d = dateOnly
-    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
-    : new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('en-US', {
+/**
+ * A `date` field's stored YYYY-MM-DD as people read it: "Sat, Apr 25" in
+ * English, "lör 3 maj" in Swedish. Null for anything else, a day that doesn't
+ * exist (Feb 31) included: a stored value always has that shape, and parsing
+ * any other string with `new Date()` would read a half-typed "Sat, Nov 14" as
+ * a day in 2001, in whatever zone the code runs in.
+ */
+export function formatSlotDate(iso: string | null | undefined, locale: string): string | null {
+  if (!iso || !isRealDate(iso)) return null;
+  const [year, month, day] = iso.split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat(locale, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-  });
+    timeZone: TIME_ZONE,
+  }).format(Date.UTC(year, month - 1, day));
 }
 
 /**
- * `time`-type slot fields are stored as 24-hour HH:MM; people read them on a
- * 12-hour clock ("18:30" → "6:30 PM"), matching the en-US dates above. Plain
- * string arithmetic, not `toLocaleTimeString`: a time field has no date or
- * zone, so building a Date would let the server's zone move the hour. The
- * space before AM/PM is non-breaking so a narrow column never strands "PM".
+ * A `time` field's stored 24-hour HH:MM as people read it. Each language gets
+ * its own short time from `Intl` ("18:30" in Swedish), except English, which
+ * keeps the 12-hour clock it has always had ("18:30" → "6:30 PM") written out
+ * here: which space `Intl` puts before PM depends on the runtime's ICU (Node's
+ * is a narrow U+202F), so a page could read differently on the server and in
+ * the browser. Ours is a no-break space, so a narrow column never strands "PM".
  */
-export function formatSlotTime(hhmm: string | null | undefined): string | null {
+export function formatSlotTime(hhmm: string | null | undefined, locale: string): string | null {
   if (!hhmm || !isRealTime(hhmm)) return null;
   const hour = Number(hhmm.slice(0, 2));
-  const period = hour < 12 ? 'AM' : 'PM';
-  return `${hour % 12 || 12}:${hhmm.slice(3)}\u00a0${period}`;
+  if (locale === 'en') {
+    const period = hour < 12 ? 'AM' : 'PM';
+    return `${hour % 12 || 12}:${hhmm.slice(3)}\u00a0${period}`;
+  }
+  return new Intl.DateTimeFormat(locale, { timeStyle: 'short', timeZone: TIME_ZONE }).format(
+    Date.UTC(1970, 0, 1, hour, Number(hhmm.slice(3))),
+  );
 }
 
 /**
@@ -71,19 +81,20 @@ export function pickPrimaryField<F extends LabelledField>(
   return null;
 }
 
-export function renderFieldValue(field: LabelledField, raw: unknown): string | null {
+export function renderFieldValue(
+  field: LabelledField,
+  raw: unknown,
+  locale: string,
+): string | null {
   if (isBlankSlotValue(raw)) return null;
+  // A value the formatter can't read, like a half-typed "Sat, Nov 14" in a
+  // date field, shows as it was typed.
   if (field.fieldType === 'date') {
-    // Only a stored-shape date: `formatSlotDate` parses anything else with
-    // `new Date()`, which reads a half-typed "Sat, Nov 14" as a day in 2001.
-    const s = String(raw);
-    if (isRealDate(s)) {
-      const formatted = formatSlotDate(s);
-      if (formatted) return formatted;
-    }
+    const formatted = formatSlotDate(String(raw), locale);
+    if (formatted) return formatted;
   }
   if (field.fieldType === 'time') {
-    const formatted = formatSlotTime(String(raw));
+    const formatted = formatSlotTime(String(raw), locale);
     if (formatted) return formatted;
   }
   return String(raw);
@@ -112,10 +123,11 @@ export interface SlotDetail {
 export function slotDetails(
   fields: readonly LabelledField[],
   values: Record<string, unknown>,
+  locale: string,
 ): SlotDetail[] {
   const out: SlotDetail[] = [];
   for (const field of fields) {
-    const value = renderFieldValue(field, values[field.ref]);
+    const value = renderFieldValue(field, values[field.ref], locale);
     if (value === null) continue;
     out.push({ label: field.label, value });
   }

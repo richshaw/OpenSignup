@@ -58,7 +58,7 @@ export async function chargeRateLimit(
 }
 
 /**
- * `chargeRateLimit`, throwing a `rate_limited` ServiceException when over the
+ * `chargeRateLimit` for one unit, throwing a `rate_limited` ServiceException when over the
  * limit, for route handlers and tools that turn it into the API's 429. Code
  * that answers a rate limit its own way calls `chargeRateLimit` and reads the
  * result instead of catching this.
@@ -67,9 +67,8 @@ export async function consumeRateLimit(
   db: Db,
   policy: RateLimitPolicy,
   subject: string,
-  cost = 1,
 ): Promise<void> {
-  const retryAfter = await chargeRateLimit(db, policy, subject, cost);
+  const retryAfter = await chargeRateLimit(db, policy, subject);
   if (retryAfter === null) return;
   throw new ServiceException(
     serviceError('rate_limited', 'too many requests', {

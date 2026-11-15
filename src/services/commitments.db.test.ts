@@ -1009,12 +1009,12 @@ describe('updateOwnCommitment on a slot that takes no more places (db)', () => {
   // accepts would only lead to the error.
   it.each(SHUT)('caps the edit page at what is held on a signup %s', async (name, shutDown) => {
     const s = await holdingTwo(`Max, ${name}`);
-    expect(await editLimitsForCommitment(fx.db, s.commitment)).toMatchObject({
+    expect(await editLimitsForCommitment(fx.db, s.commitment, 'en')).toMatchObject({
       maxQuantity: 5,
       closed: false,
     });
     await shutDown(fx, s);
-    expect(await editLimitsForCommitment(fx.db, s.commitment)).toMatchObject({
+    expect(await editLimitsForCommitment(fx.db, s.commitment, 'en')).toMatchObject({
       maxQuantity: 2,
       closed: true,
     });
@@ -1951,7 +1951,7 @@ describe('editLimitsForCommitment (db)', () => {
     if (!theirs.ok) throw new Error(`commit failed: ${theirs.error.message}`);
 
     // Capacity 5: Sam's 1 is the only place that isn't Pat's own.
-    expect(await editLimitsForCommitment(fx.db, mine.value.commitment)).toEqual({
+    expect(await editLimitsForCommitment(fx.db, mine.value.commitment, 'en')).toEqual({
       maxQuantity: 4,
       closed: false,
       slotName: '',
@@ -1963,7 +1963,7 @@ describe('editLimitsForCommitment (db)', () => {
       theirs.value.editToken,
     );
     if (!cancelled.ok) throw new Error(`cancel failed: ${cancelled.error.message}`);
-    expect(await editLimitsForCommitment(fx.db, mine.value.commitment)).toEqual({
+    expect(await editLimitsForCommitment(fx.db, mine.value.commitment, 'en')).toEqual({
       maxQuantity: 5,
       closed: false,
       slotName: '',
@@ -1988,7 +1988,7 @@ describe('editLimitsForCommitment (db)', () => {
     });
     if (!theirs.ok) throw new Error(`commit failed: ${theirs.error.message}`);
 
-    const { maxQuantity: max } = await editLimitsForCommitment(fx.db, mine.value.commitment);
+    const { maxQuantity: max } = await editLimitsForCommitment(fx.db, mine.value.commitment, 'en');
     expect(max).toBe(3);
 
     const over = await updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
@@ -2023,12 +2023,12 @@ describe('editLimitsForCommitment (db)', () => {
     });
     if (!onUnlimited.ok) throw new Error(`commit failed: ${onUnlimited.error.message}`);
 
-    expect(await editLimitsForCommitment(fx.db, onSingle.value.commitment)).toEqual({
+    expect(await editLimitsForCommitment(fx.db, onSingle.value.commitment, 'en')).toEqual({
       maxQuantity: 1,
       closed: false,
       slotName: '',
     });
-    expect(await editLimitsForCommitment(fx.db, onUnlimited.value.commitment)).toEqual({
+    expect(await editLimitsForCommitment(fx.db, onUnlimited.value.commitment, 'en')).toEqual({
       maxQuantity: null,
       closed: false,
       slotName: '',
@@ -2056,15 +2056,47 @@ describe('editLimitsForCommitment (db)', () => {
     });
     if (!onBlank.ok) throw new Error(`commit failed: ${onBlank.error.message}`);
 
-    expect((await editLimitsForCommitment(fx.db, onNamed.value.commitment)).slotName).toBe('Juice');
-    expect((await editLimitsForCommitment(fx.db, onBlank.value.commitment)).slotName).toBe('');
+    expect((await editLimitsForCommitment(fx.db, onNamed.value.commitment, 'en')).slotName).toBe(
+      'Juice',
+    );
+    expect((await editLimitsForCommitment(fx.db, onBlank.value.commitment, 'en')).slotName).toBe(
+      '',
+    );
 
     // Closed, the limits take the other branch and still name the slot.
     expect((await closeSignup(fx.db, fx.actor, signupId)).ok).toBe(true);
-    expect(await editLimitsForCommitment(fx.db, onNamed.value.commitment)).toEqual({
+    expect(await editLimitsForCommitment(fx.db, onNamed.value.commitment, 'en')).toEqual({
       maxQuantity: 1,
       closed: true,
       slotName: 'Juice',
+    });
+  });
+
+  it("reads the slot's date in the language it is given, here and once cancelled", async () => {
+    const { signupId } = await makeOpenSignupWithSlot(fx, 'Slot name language');
+    const dated = await addSlot(fx.db, fx.actor, signupId, {
+      values: { what: 'Juice', date: '2027-05-03' },
+      capacity: 5,
+    });
+    if (!dated.ok) throw new Error(`addSlot failed: ${dated.error.message}`);
+    const mine = await commitToSlot(fx.db, dated.value.id, {
+      name: 'Pat',
+      email: 'pat@example.test',
+      quantity: 1,
+    });
+    if (!mine.ok) throw new Error(`commit failed: ${mine.error.message}`);
+    const { commitment, editToken } = mine.value;
+
+    expect((await editLimitsForCommitment(fx.db, commitment, 'en')).slotName).toBe(
+      'Juice · Mon, May 3',
+    );
+    expect((await editLimitsForCommitment(fx.db, commitment, 'sv')).slotName).toBe(
+      'Juice · mån 3 maj',
+    );
+
+    expect((await cancelOwnCommitment(fx.db, commitment.id, editToken)).ok).toBe(true);
+    expect(await cancelledCommitmentState(fx.db, commitment, 'sv')).toMatchObject({
+      slotName: 'Juice · mån 3 maj',
     });
   });
 });
@@ -2111,7 +2143,7 @@ describe('cancelledCommitmentState (db)', () => {
   it('says whether the slot still takes places after a cancel', async () => {
     const s = await signedUp('Cancelled');
     expect((await cancelOwnCommitment(fx.db, s.commitment.id, s.editToken)).ok).toBe(true);
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
       movedTo: null,
       removed: false,
       slot: 'open',
@@ -2119,7 +2151,7 @@ describe('cancelledCommitmentState (db)', () => {
     });
 
     expect((await closeSignup(fx.db, fx.actor, s.signupId)).ok).toBe(true);
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
       movedTo: null,
       removed: false,
       slot: 'signupClosed',
@@ -2131,7 +2163,7 @@ describe('cancelledCommitmentState (db)', () => {
     const s = await signedUp('Cancelled, slot closed');
     expect((await cancelOwnCommitment(fx.db, s.commitment.id, s.editToken)).ok).toBe(true);
     expect((await updateSlot(fx.db, fx.actor, s.slotId, { status: 'closed' })).ok).toBe(true);
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
       movedTo: null,
       removed: false,
       slot: 'slotClosed',
@@ -2140,7 +2172,7 @@ describe('cancelledCommitmentState (db)', () => {
 
     // The whole signup closed says more, so it wins.
     expect((await closeSignup(fx.db, fx.actor, s.signupId)).ok).toBe(true);
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
       movedTo: null,
       removed: false,
       slot: 'signupClosed',
@@ -2158,7 +2190,7 @@ describe('cancelledCommitmentState (db)', () => {
       quantity: 4,
     });
     if (!others.ok) throw new Error(`commitToSlot failed: ${others.error.message}`);
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
       movedTo: null,
       removed: false,
       slot: 'open',
@@ -2171,7 +2203,7 @@ describe('cancelledCommitmentState (db)', () => {
       quantity: 1,
     });
     if (!last.ok) throw new Error(`commitToSlot failed: ${last.error.message}`);
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
       movedTo: null,
       removed: false,
       slot: 'full',
@@ -2182,18 +2214,22 @@ describe('cancelledCommitmentState (db)', () => {
   it('follows a move, and every move after it, to the sign-up that is active', async () => {
     const s = await signedUp('Moved');
     const first = await moved(s.commitment.id, s.editToken, s.otherSlotId);
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({ movedTo: first.id });
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
+      movedTo: first.id,
+    });
 
     // Moved back again, with the link the first move sent.
     const second = await moved(first.id, editTokenFor(first.id), s.slotId);
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({ movedTo: second.id });
-    expect(await cancelledCommitmentState(fx.db, first)).toEqual({ movedTo: second.id });
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
+      movedTo: second.id,
+    });
+    expect(await cancelledCommitmentState(fx.db, first, 'en')).toEqual({ movedTo: second.id });
   });
 
   it('says an organizer removed it', async () => {
     const s = await signedUp('Removed');
     expect((await removeCommitment(fx.db, fx.actor, s.commitment.id, s.signupId)).ok).toBe(true);
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
       movedTo: null,
       removed: true,
       slotName: '',
@@ -2205,12 +2241,12 @@ describe('cancelledCommitmentState (db)', () => {
     const first = await moved(s.commitment.id, s.editToken, s.otherSlotId);
     expect((await removeCommitment(fx.db, fx.actor, first.id, s.signupId)).ok).toBe(true);
     // Named for the slot it was taken off, the one it moved to.
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
       movedTo: null,
       removed: true,
       slotName: 'Juice',
     });
-    expect(await cancelledCommitmentState(fx.db, first)).toEqual({
+    expect(await cancelledCommitmentState(fx.db, first, 'en')).toEqual({
       movedTo: null,
       removed: true,
       slotName: 'Juice',
@@ -2222,7 +2258,7 @@ describe('cancelledCommitmentState (db)', () => {
     const s = await signedUp('Cancelled, then removed');
     expect((await cancelOwnCommitment(fx.db, s.commitment.id, s.editToken)).ok).toBe(true);
     expect((await removeCommitment(fx.db, fx.actor, s.commitment.id, s.signupId)).ok).toBe(true);
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
       movedTo: null,
       removed: false,
       slot: 'open',
@@ -2234,7 +2270,7 @@ describe('cancelledCommitmentState (db)', () => {
     const s = await signedUp('Moved, then cancelled');
     const first = await moved(s.commitment.id, s.editToken, s.otherSlotId);
     expect((await cancelOwnCommitment(fx.db, first.id, editTokenFor(first.id))).ok).toBe(true);
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
       movedTo: null,
       removed: false,
       slot: 'open',
@@ -2243,7 +2279,7 @@ describe('cancelledCommitmentState (db)', () => {
 
     // Named and judged by the slot it moved to, the one last held.
     expect((await updateSlot(fx.db, fx.actor, s.otherSlotId, { status: 'closed' })).ok).toBe(true);
-    expect(await cancelledCommitmentState(fx.db, s.commitment)).toEqual({
+    expect(await cancelledCommitmentState(fx.db, s.commitment, 'en')).toEqual({
       movedTo: null,
       removed: false,
       slot: 'slotClosed',

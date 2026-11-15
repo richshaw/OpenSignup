@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EARLIEST_DATE_YEAR } from '@/lib/magic-compose/limits';
 import type { MagicComposeQuestions } from '@/lib/magic-compose/questions';
 import { isRealDate, MIN_DATE_YEAR } from '@/lib/reminder-fields';
@@ -7,6 +7,7 @@ import {
   answersProblem,
   appendAnswers,
   buildFollowUp,
+  formatOneDay,
   NO_ANSWERS,
   parseCount,
   removeItem,
@@ -148,7 +149,7 @@ describe('sameAnswers', () => {
 
 describe('appendAnswers', () => {
   it('adds the answers to the description as plain lines, items as typed', () => {
-    expect(appendAnswers('Bake sale for the PTA\n', ALL, answered, NOW)).toBe(
+    expect(appendAnswers('Bake sale for the PTA\n', ALL, answered, 'en', NOW)).toBe(
       [
         'Bake sale for the PTA',
         'What: Bake something to sell (no limit), Staff the table (2), Bring drinks (1)',
@@ -163,6 +164,7 @@ describe('appendAnswers', () => {
         'x',
         { topics: ['what', 'when'], whatOptions: OPTIONS },
         { ...NO_ANSWERS, date, from, to },
+        'en',
         NOW,
       );
     expect(when('09:30', '')).toBe('x\nWhen: Saturday, November 14, from 9:30am');
@@ -172,20 +174,20 @@ describe('appendAnswers', () => {
 
   it('keeps times that have no date yet, with no day', () => {
     const when = (from: string, to: string) =>
-      appendAnswers('x', ALL, { ...NO_ANSWERS, from, to }, NOW);
+      appendAnswers('x', ALL, { ...NO_ANSWERS, from, to }, 'en', NOW);
     expect(when('09:00', '13:00')).toBe('x\nWhen: 9am to 1pm');
     expect(when('09:30', '')).toBe('x\nWhen: from 9:30am');
     expect(when('', '12:00')).toBe('x\nWhen: until 12pm');
     // Not once another answer is chosen for When.
     expect(
-      appendAnswers('x', ALL, { ...NO_ANSWERS, from: '09:00', when: 'not_decided' }, NOW),
+      appendAnswers('x', ALL, { ...NO_ANSWERS, from: '09:00', when: 'not_decided' }, 'en', NOW),
     ).toBe('x');
   });
 
   it('writes a count as typed, not rounded', () => {
     const counts = { 'Staff the table': '2.5' };
     expect(
-      appendAnswers('x', ALL, { ...NO_ANSWERS, picked: ['Staff the table'], counts }, NOW),
+      appendAnswers('x', ALL, { ...NO_ANSWERS, picked: ['Staff the table'], counts }, 'en', NOW),
     ).toBe('x\nWhat: Staff the table (2.5)');
   });
 
@@ -196,7 +198,13 @@ describe('appendAnswers', () => {
       several: 'every Saturday in May, 9 to 11',
     };
     expect(
-      appendAnswers('Bake sale', { topics: ['what', 'when'], whatOptions: OPTIONS }, several, NOW),
+      appendAnswers(
+        'Bake sale',
+        { topics: ['what', 'when'], whatOptions: OPTIONS },
+        several,
+        'en',
+        NOW,
+      ),
     ).toBe(
       [
         'Bake sale',
@@ -206,8 +214,21 @@ describe('appendAnswers', () => {
     );
   });
 
+  it("writes the day and times in the organizer's language", () => {
+    expect(appendAnswers('Loppis', ALL, { ...answered, added: [] }, 'sv', NOW)).toBe(
+      [
+        'Loppis',
+        'What: Bake something to sell (no limit), Staff the table (2)',
+        'When: lördag 14 november, 09:00 to 13:00',
+      ].join('\n'),
+    );
+    expect(appendAnswers('x', ALL, { ...NO_ANSWERS, to: '12:00' }, 'sv', NOW)).toBe(
+      'x\nWhen: until 12:00',
+    );
+  });
+
   it('adds nothing for skipped questions', () => {
-    expect(appendAnswers('Bake sale ', ALL, NO_ANSWERS, NOW)).toBe('Bake sale ');
+    expect(appendAnswers('Bake sale ', ALL, NO_ANSWERS, 'en', NOW)).toBe('Bake sale ');
   });
 });
 
@@ -292,9 +313,66 @@ describe('when the description already says what', () => {
 
 describe('timeLength', () => {
   it('says how long, in hours and minutes', () => {
-    expect(timeLength('09:00', '09:15')).toBe('15 min');
-    expect(timeLength('09:00', '13:00')).toBe('4 hr');
-    expect(timeLength('09:00', '10:30')).toBe('1 hr 30 min');
-    expect(timeLength('09:10', '09:15')).toBe('5 min');
+    expect(timeLength('09:00', '09:15', 'en')).toBe('15 min');
+    expect(timeLength('09:00', '13:00', 'en')).toBe('4 hr');
+    expect(timeLength('09:00', '10:30', 'en')).toBe('1 hr 30 min');
+    expect(timeLength('09:10', '09:15', 'en')).toBe('5 min');
+  });
+  it('says 1 and many of each unit the same way, and nothing for no time at all', () => {
+    expect(timeLength('09:00', '10:00', 'en')).toBe('1 hr');
+    expect(timeLength('09:00', '09:01', 'en')).toBe('1 min');
+    expect(timeLength('09:00', '11:02', 'en')).toBe('2 hr 2 min');
+    expect(timeLength('09:00', '09:00', 'en')).toBe('');
+  });
+
+  it("says how long in Swedish, in Swedish's short units", () => {
+    expect(timeLength('09:00', '09:15', 'sv')).toBe('15 min');
+    expect(timeLength('09:00', '10:00', 'sv')).toBe('1 tim');
+    expect(timeLength('09:00', '13:00', 'sv')).toBe('4 tim');
+    expect(timeLength('09:00', '10:30', 'sv')).toBe('1 tim 30 min');
+    expect(timeLength('09:00', '09:00', 'sv')).toBe('');
+  });
+});
+
+describe('formatOneDay', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const day = (date: string, from?: string, to?: string) => ({
+    kind: 'one_day' as const,
+    date,
+    ...(from ? { from } : {}),
+    ...(to ? { to } : {}),
+  });
+
+  it('writes an English day in full, with the year only when it is not this one', () => {
+    expect(formatOneDay(day('2026-11-14', '09:00', '13:00'), 'en', NOW)).toEqual({
+      day: 'Saturday, November 14',
+      times: '9am to 1pm',
+    });
+    expect(formatOneDay(day('2027-01-02'), 'en', NOW)).toEqual({
+      day: 'Saturday, January 2, 2027',
+      times: null,
+    });
+  });
+
+  it('writes a Swedish day and times in Swedish', () => {
+    expect(formatOneDay(day('2026-11-14', '09:00', '13:30'), 'sv', NOW)).toEqual({
+      day: 'lördag 14 november',
+      times: '09:00 to 13:30',
+    });
+    expect(formatOneDay(day('2027-01-02', '18:30'), 'sv', NOW)).toEqual({
+      day: 'lördag 2 januari 2027',
+      times: 'from 18:30',
+    });
+  });
+
+  it('keeps the day under any time zone', () => {
+    for (const tz of ['America/Los_Angeles', 'Pacific/Auckland']) {
+      vi.stubEnv('TZ', tz);
+      expect(formatOneDay(day('2026-11-14'), 'sv', NOW).day).toBe('lördag 14 november');
+      expect(formatOneDay(day('2026-11-14'), 'en', NOW).day).toBe('Saturday, November 14');
+    }
   });
 });
