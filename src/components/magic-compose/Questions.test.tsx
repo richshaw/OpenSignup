@@ -77,7 +77,7 @@ async function openQuestions(prompt = 'Bake sale', locale: CatalogLocale = 'en')
   renderRoot(locale);
   fireEvent.change(screen.getByRole('textbox'), { target: { value: prompt } });
   fireEvent.click(screen.getByRole('button', { name: composeIn(locale)('draft') }));
-  return screen.findByRole('heading', { name: 'A few details first' });
+  return screen.findByRole('heading', { name: composeIn(locale)('questions.heading') });
 }
 
 const addBox = () => screen.getByRole('textbox', { name: 'Add your own, then press Enter' });
@@ -707,35 +707,55 @@ describe('<MagicComposeRoot /> in each language', () => {
 });
 
 describe('<MagicComposeRoot /> in another language', () => {
+  // The words come from the catalog in that language; the day and the times
+  // are what `Intl` writes in it, with the year only when it isn't this one.
+  const t = composeIn('sv');
+  const DAYS = ['lördag 14 november', 'lördag 14 november 2026'];
+  const times = t('answers.fromTo', { from: '09:00', to: '13:00' });
+
+  /** Picks an option and gives it a day starting at 9:00. */
+  function answerADay() {
+    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
+    fireEvent.change(screen.getByLabelText(t('questions.when.date')), {
+      target: { value: '2026-11-14' },
+    });
+    fireEvent.change(screen.getByLabelText(t('questions.when.starts')), {
+      target: { value: '09:00' },
+    });
+  }
+
   it("writes the lengths, and the day and times going Back, in the organizer's language", async () => {
     stubReplies(asks());
     await openQuestions('Loppis', 'sv');
-    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
-    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-14' } });
-    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '09:00' } });
+    answerADay();
     // Each end time says how long the shift would be.
-    const ends = screen.getByLabelText('Ends');
+    const ends = screen.getByLabelText(t('questions.when.ends'));
     expect(within(ends).getByRole('option', { name: /\(1 tim 30 min\)$/ })).toHaveValue('10:30');
     fireEvent.change(ends, { target: { value: '13:00' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toMatch(
-      /^Loppis\nWhat: Staff the table \(no limit\)\nWhen: lördag 14 november( 2026)?, 09:00 to 13:00$/,
+    fireEvent.click(screen.getByRole('button', { name: t('questions.back') }));
+    const [first, what, when, ...rest] = (
+      screen.getByRole('textbox') as HTMLTextAreaElement
+    ).value.split('\n');
+    expect(first).toBe('Loppis');
+    expect(what).toBe(
+      t('answers.what', { items: t('answers.itemNoLimit', { item: 'Staff the table' }) }),
     );
+    expect(
+      DAYS.map((day) => t('answers.when', { when: t('answers.dayAndTimes', { day, times }) })),
+    ).toContain(when);
+    expect(rest).toEqual([]);
   });
 
   it("shows the day and times in the organizer's language while drafting from them", async () => {
     stubReplies(asks(), 'hang');
     await openQuestions('Loppis', 'sv');
-    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
-    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-14' } });
-    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '09:00' } });
-    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '13:00' } });
-    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
-    const card = await screen.findByRole('region', {
-      name: composeIn('sv')('draftingFrom.label'),
+    answerADay();
+    fireEvent.change(screen.getByLabelText(t('questions.when.ends')), {
+      target: { value: '13:00' },
     });
-    expect(
-      within(card).getByText(/^lördag 14 november( 2026)? · 09:00 to 13:00$/),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: t('draft') }));
+    const card = await screen.findByRole('region', { name: t('draftingFrom.label') });
+    const shown = DAYS.map((day) => t('draftingFrom.dayAndTimes', { day, times }));
+    expect(within(card).getByText((text) => shown.includes(text))).toBeInTheDocument();
   });
 });
