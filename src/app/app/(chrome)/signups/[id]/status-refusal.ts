@@ -1,4 +1,4 @@
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
+import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-errors';
 import type { ServiceError } from '@/lib/errors';
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
+import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-errors';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { type ErrorCode, serviceError } from './errors';

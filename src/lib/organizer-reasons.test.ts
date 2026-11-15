@@ -3,7 +3,7 @@ import { statusRefusal } from '@/app/app/(chrome)/signups/[id]/status-refusal';
 import { inputMessage } from '@/app/s/[slug]/input-message';
 import { saveErrorMessage } from '@/components/build-shared/save-error-message';
 import { explainDraftFailure } from '@/components/magic-compose/draft-errors';
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
+import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-errors';
 import { getTestTranslator } from '@/i18n/testing/translator';
 import type { FollowUp } from '@/lib/magic-compose/questions';
 import type { ErrorCode, ErrorReason, ServiceError } from './errors';

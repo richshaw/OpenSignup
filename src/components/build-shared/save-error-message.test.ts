@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
+import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-errors';
 import { fromZodError, type ErrorCode } from '@/lib/errors';
 import { SIGNUP_INPUT_REASONS, SignupUpdateInputSchema } from '@/schemas/signups';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';

@@ -1,4 +1,4 @@
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
+import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-errors';
 import type { ErrorCode } from '@/lib/errors';
 import { waitMinutes } from '@/lib/format-duration';
 import { MAGIC_COMPOSE_BUCKET } from '@/lib/magic-compose/limits';

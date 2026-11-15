@@ -1,4 +1,4 @@
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
+import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-errors';
 import { MIN_DATE_YEAR } from '@/lib/reminder-fields';
 import { TITLE_TOO_SHORT_MESSAGE } from '@/lib/signup-limits';
 import type { SaveError } from './useBuildState';
