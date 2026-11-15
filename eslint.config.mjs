@@ -24,6 +24,16 @@ const TRANSLATED = [
   'src/components/site-footer.tsx',
   'src/components/banner.tsx',
   'src/components/ui/BottomSheet.tsx',
+  // The notice a save shows, which takes its text from the page, and a
+  // signup's Settings tab, the delete form included.
+  'src/components/ui/save-notice.tsx',
+  'src/app/app/(chrome)/signups/[id]/settings',
+  // A signup's Build tab: the page, and the client components it renders.
+  'src/app/app/(chrome)/signups/[id]/build',
+  'src/components/build-wysiwyg',
+  'src/components/build-shared',
+  // A signup's Responses tab: the table, its empty lines and the remove flow.
+  'src/app/app/(chrome)/signups/[id]/responses',
   // Everything a participant sees under a signup's address: its page, the
   // sign-up sheet, the pages for changing or cancelling a spot and for
   // turning reminders off, both not-found pages, and the copy helpers.
@@ -37,6 +47,10 @@ const TRANSLATED = [
   'src/app/app/(chrome)/page.tsx',
   'src/app/app/(chrome)/@crumbs',
   'src/components/chrome',
+  // New signup: the form, and Magic Compose's screens, its questions and the
+  // banner on a draft it made included.
+  'src/app/app/(chrome)/signups/new',
+  'src/components/magic-compose',
   // Account Settings and Connected apps, the disconnect button included.
   'src/app/app/(chrome)/settings',
   // A signup's header, tabs, status pill and closed box, on every tab, and the
@@ -91,7 +105,13 @@ const I18N = path.join(SRC, 'i18n');
  * extension. One goes on the list only if it loads no catalog, now or through
  * anything it imports.
  */
-const CLIENT_SAFE_I18N = ['i18n/config'].map((module) => path.join(SRC, module));
+const CLIENT_SAFE_I18N = [
+  'i18n/config',
+  // Takes its messages as a prop, and imports only types from the translator.
+  // A client component wraps a part it loads lazily in it, so the messages
+  // provider stays out of the page's first JavaScript (AiDraftWarnings).
+  'i18n/ClientMessages',
+].map((module) => path.join(SRC, module));
 
 /** What a client component does for its text instead. */
 const CLIENT_TEXT_INSTEAD =

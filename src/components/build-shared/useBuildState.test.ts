@@ -1,10 +1,18 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
+import { getTestTranslator } from '@/i18n/testing/translator';
+import { saveErrorMessage } from './save-error-message';
 import { buildReducer, useBuildState } from './useBuildState';
 import type { BuildState, BuildField, BuildRow, BuildSlot } from './useBuildState';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
+
+/** The Build tab's rail words a refusal with these, here in English. */
+const english = {
+  build: getTestTranslator('organizer.build'),
+  errors: getTestTranslator('organizer.errors'),
+};
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -232,17 +240,16 @@ describe('buildReducer SET_SAVE_STATUS', () => {
     expect(next.saveStatus).toEqual({ kind: 'saved' });
   });
 
-  it('updates saveStatus to error with code + message', () => {
+  it('updates saveStatus to error with code + details', () => {
     const state = makeState({ saveStatus: { kind: 'saving' } });
-    const next = buildReducer(state, {
-      type: 'SET_SAVE_STATUS',
-      status: { kind: 'error', code: 'conflict', message: 'Reload to see latest.' },
-    });
-    expect(next.saveStatus).toEqual({
+    const status = {
       kind: 'error',
       code: 'conflict',
-      message: 'Reload to see latest.',
-    });
+      field: 'slotId',
+      details: { reason: 'slot_has_signups', filled: 2 },
+    } as const;
+    const next = buildReducer(state, { type: 'SET_SAVE_STATUS', status });
+    expect(next.saveStatus).toEqual(status);
   });
 
   it('updates saveStatus back to idle', () => {
@@ -513,6 +520,8 @@ describe('useBuildState moveField', () => {
             error: {
               code: 'invalid_input',
               message: 'fieldIds must list every field of the signup exactly once',
+              field: 'fieldIds',
+              details: { reason: 'field_ids_mismatch', unknown: ['c'] },
             },
           },
           { ok: false, status: 400 },
@@ -532,14 +541,19 @@ describe('useBuildState moveField', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2); // the PUT, then one refetch
     expect(result.current.state.fields.map((f) => f.id)).toEqual(['a', 'b', 'c']);
-    expect(result.current.state.saveStatus).toEqual({
+    const status = result.current.state.saveStatus;
+    expect(status).toEqual({
       kind: 'error',
       code: 'invalid_input',
-      message: "The fields changed in another window, so your move wasn't saved. Drag it again.",
+      field: 'fieldIds',
+      details: { reason: 'field_ids_mismatch', unknown: ['c'] },
     });
+    expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
+      "The fields changed in another window, so your move wasn't saved. Drag it again.",
+    );
   });
 
-  it("keeps the server's message for a failure that isn't a stale list", async () => {
+  it("keeps the server's code for a failure that isn't a stale list", async () => {
     const a = makeApiField({ id: 'a', ref: 'a', label: 'A', sortOrder: 0 });
     const b = makeApiField({ id: 'b', ref: 'b', label: 'B', sortOrder: 1 });
 
@@ -714,6 +728,8 @@ describe('useBuildState moveRow', () => {
             error: {
               code: 'invalid_input',
               message: 'slotIds must list every slot of the signup exactly once',
+              field: 'slotIds',
+              details: { reason: 'slot_ids_mismatch', missing: ['r3'] },
             },
           },
           { ok: false },
@@ -739,11 +755,16 @@ describe('useBuildState moveRow', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.current.state.rows.map((r) => r.id)).toEqual(['r1', 'r2', 'r3']);
-    expect(result.current.state.saveStatus).toEqual({
+    const status = result.current.state.saveStatus;
+    expect(status).toEqual({
       kind: 'error',
       code: 'invalid_input',
-      message: "The slots changed in another window, so your move wasn't saved. Drag it again.",
+      field: 'slotIds',
+      details: { reason: 'slot_ids_mismatch', missing: ['r3'] },
     });
+    expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
+      "The slots changed in another window, so your move wasn't saved. Drag it again.",
+    );
   });
 
   it('falls back to snapshot when refetch also fails', async () => {
@@ -871,6 +892,8 @@ describe('useBuildState moveRow into another group', () => {
             error: {
               code: 'invalid_input',
               message: 'slotIds must list every slot of the signup exactly once',
+              field: 'slotIds',
+              details: { reason: 'slot_ids_mismatch', missing: ['d'] },
             },
           },
           { ok: false },
@@ -898,11 +921,16 @@ describe('useBuildState moveRow into another group', () => {
 
     expect(result.current.state.rows.map((r) => r.id)).toEqual(['a', 'b', 'c', 'd']);
     expect(result.current.state.rows[0]?.values['date']).toBe('2026-11-02');
-    expect(result.current.state.saveStatus).toEqual({
+    const status = result.current.state.saveStatus;
+    expect(status).toEqual({
       kind: 'error',
       code: 'invalid_input',
-      message: "The slots changed in another window, so your move wasn't saved. Drag it again.",
+      field: 'slotIds',
+      details: { reason: 'slot_ids_mismatch', missing: ['d'] },
     });
+    expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
+      "The slots changed in another window, so your move wasn't saved. Drag it again.",
+    );
   });
 
   it('shows the server rows when the value save is refused, and sends no order', async () => {
@@ -928,11 +956,7 @@ describe('useBuildState moveRow into another group', () => {
       fetchMock.mock.calls.some((call) => (call[1] as RequestInit | undefined)?.method === 'PUT'),
     ).toBe(false);
     expect(result.current.state.rows.map((r) => r.id)).toEqual(['b', 'c']);
-    expect(result.current.state.saveStatus).toEqual({
-      kind: 'error',
-      code: 'not_found',
-      message: 'Slot not found',
-    });
+    expect(result.current.state.saveStatus).toEqual({ kind: 'error', code: 'not_found' });
   });
 });
 
@@ -1085,11 +1109,7 @@ describe('useBuildState duplicateRow', () => {
     });
     expect(copyId).toBeNull();
     expect(result.current.state.rows.map((r) => r.id)).toEqual(['a', 'b', 'c', 'd']);
-    expect(result.current.state.saveStatus).toEqual({
-      kind: 'error',
-      code: 'forbidden',
-      message: 'No edit access',
-    });
+    expect(result.current.state.saveStatus).toEqual({ kind: 'error', code: 'forbidden' });
   });
 });
 
@@ -1256,11 +1276,16 @@ describe('useBuildState updateSignupMeta', () => {
     expect(result.current.state.title).toBe('Original');
     // Don't let the revert be silent — the user needs to know why their edit
     // bounced back, otherwise they think the save just failed mysteriously.
-    expect(result.current.state.saveStatus).toEqual({
+    const status = result.current.state.saveStatus;
+    expect(status).toEqual({
       kind: 'error',
       code: 'invalid_input',
-      message: 'Title must be at least 2 characters.',
+      field: 'title',
+      details: { reason: 'title_too_short' },
     });
+    expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
+      'Title must be at least 2 characters.',
+    );
   });
 
   it('trims title before PATCH and surfaces an error when trimmed length < 2', async () => {
@@ -1298,11 +1323,7 @@ describe('useBuildState updateSignupMeta', () => {
       await vi.advanceTimersByTimeAsync(900);
     });
     expect(result.current.state.title).toBe('New'); // optimistic update preserved
-    expect(result.current.state.saveStatus).toEqual({
-      kind: 'error',
-      code: 'conflict',
-      message: 'Stale snapshot',
-    });
+    expect(result.current.state.saveStatus).toEqual({ kind: 'error', code: 'conflict' });
   });
 
   it('falls back to code: internal when the error envelope is missing', async () => {
@@ -1679,11 +1700,7 @@ describe('useBuildState setReminderField', () => {
     });
 
     expect(result.current.state.reminderFieldRef).toBeNull();
-    expect(result.current.state.saveStatus).toEqual({
-      kind: 'error',
-      code: 'invalid_input',
-      message: 'not a date field',
-    });
+    expect(result.current.state.saveStatus).toEqual({ kind: 'error', code: 'invalid_input' });
   });
 
   it('follows the anchor when the reminder field is deleted: the next date field, or off when none is left', async () => {
@@ -2177,11 +2194,7 @@ describe('useBuildState editCell when the server refuses a value', () => {
     });
 
     expect(result.current.state.rows[0]?.values['item']).toBe('Fruit');
-    expect(result.current.state.saveStatus).toEqual({
-      kind: 'error',
-      code: 'invalid_input',
-      message: 'Too long',
-    });
+    expect(result.current.state.saveStatus).toEqual({ kind: 'error', code: 'invalid_input' });
   });
 
   it('lets a later edit to another field in the row save', async () => {
@@ -2469,11 +2482,7 @@ describe('useBuildState flushPendingSaves', () => {
       await flush.promise;
     });
     expect(flush.saved()).toBe(false);
-    expect(result.current.state.saveStatus).toEqual({
-      kind: 'error',
-      code: 'forbidden',
-      message: 'No',
-    });
+    expect(result.current.state.saveStatus).toEqual({ kind: 'error', code: 'forbidden' });
   });
 
   it('resolves at once when nothing is waiting or in flight, after an earlier flush too', async () => {
