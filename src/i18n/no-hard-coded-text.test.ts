@@ -60,7 +60,14 @@ const TRANSLATED_FILES = [
   'src/components/signup/ClosedNotice.tsx',
   'src/components/signup/HeaderAnnouncer.tsx',
   'src/components/signup/TabsNav.tsx',
+  'src/components/signup/ShareButton.tsx',
+  'src/components/signup/ShareScope.tsx',
   'src/components/status-pill.tsx',
+  'src/components/share/SharePanel.tsx',
+  'src/components/share/ShareQrCode.tsx',
+  'src/components/share/ShareUnavailable.tsx',
+  'src/components/share/share-heading.tsx',
+  'src/components/PublicLinkChip.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
@@ -280,13 +287,12 @@ describe('where the rules apply', () => {
     expect(await lint(text, 'src/email/templates/unsubscribe-footer.test.tsx')).toEqual([]);
   });
 
-  // The signup header's folder is listed whole too. Its Share button and the
-  // share panel's scope move with the share panel (#942), so they're off.
-  it('are on for a new file in the signup header’s folder, and off for its share files', async () => {
+  // The signup header's folder is listed whole too, and so is the share
+  // panel's, so a file added to either later is checked from the start.
+  it('are on for a new file in the signup header’s or the share panel’s folder', async () => {
     const text = '<p>Publish</p><button aria-label="Close" />';
     expect(await lint(text, 'src/components/signup/NewPart.tsx')).toHaveLength(2);
-    expect(await lint(text, 'src/components/signup/ShareButton.tsx')).toEqual([]);
-    expect(await lint(text, 'src/components/signup/ShareScope.tsx')).toEqual([]);
+    expect(await lint(text, 'src/components/share/NewPart.tsx')).toHaveLength(2);
   });
 
   it('read an email’s preview text as text', async () => {

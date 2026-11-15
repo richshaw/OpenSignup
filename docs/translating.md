@@ -26,17 +26,20 @@ nothing else.
 A catalog's top-level sections are its namespaces. Each audience reads its
 own, as `AUDIENCE_NAMESPACES` in `src/i18n/config.ts` lists them:
 
-| Audience    | Namespaces                       | What's in them today                                                                                                                                                                                                                                                                                                                           |
-| ----------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| participant | `participant`, `email`, `common` | The signup's page, the sign-up sheet, the edit, cancelled and unsubscribe pages, both not-found pages, the participant emails, and the footer's links                                                                                                                                                                                          |
-| organizer   | `organizer`, `auth`, `common`    | Organizer text: on a participant page, the bar across the top, the Preview banner and the note on your own draft; in the organizer app, the header, the crumbs, Your signups, the card for a signup that can't be loaded, account Settings and Connected apps, and on a signup's own pages its header, status, tabs, publish, close and reopen |
-| site        | `site`, `common`                 | Nothing yet                                                                                                                                                                                                                                                                                                                                    |
+| Audience    | Namespaces                       | What's in them today                                                                                                                                                                                                                                                                                                                                                |
+| ----------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| participant | `participant`, `email`, `common` | The signup's page, the sign-up sheet, the edit, cancelled and unsubscribe pages, both not-found pages, the participant emails, and the footer's links                                                                                                                                                                                                               |
+| organizer   | `organizer`, `auth`, `common`    | Organizer text: on a participant page, the bar across the top, the Preview banner and the note on your own draft; in the organizer app, the header, the crumbs, Your signups, the card for a signup that can't be loaded, account Settings and Connected apps, and on a signup's own pages its header, status, tabs, publish, close and reopen, and the share panel |
+| site        | `site`, `common`                 | Nothing yet                                                                                                                                                                                                                                                                                                                                                         |
 
 `auth` and `site` have no messages yet. `participant.defaults` holds the names
 a new signup's first fields get ("What", "Date") and a new field's ("Untitled",
 "Option 1"). Organizers see them on the Build tab, but they become the
 signup's own text, which participants read, so they're in the signup's
-language.
+language. `participant.share` is the same: the message the share panel offers
+an organizer to send with the link ("21 spots open", "Sign up here, no account
+needed: …") is read by the people it's sent to, so it's in the signup's
+language, though the panel around it is in the organizer's.
 
 Organizer text is in the organizer's own language (`getOrganizerAppLocale`,
 below), and marked with it where it sits on a page in a signup's language.

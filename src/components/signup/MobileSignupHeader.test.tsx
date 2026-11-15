@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { shareText } from '@/components/share/share-text';
 import { StatusPill } from '@/components/status-pill';
 import { getTestTranslator } from '@/i18n/testing/translator';
 import type { SignupStatus } from '@/schemas/signups';
@@ -13,6 +14,9 @@ import { signupStatusLabel } from './status-label';
 import type { StatusAction, StatusChangeAction } from './StatusActionForm';
 
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
+
+/** The share panel's words in English, as `SignupHeader` passes them. */
+const SHARE_TEXT = shareText(getTestTranslator('organizer.share'), 'Bake sale helpers');
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const PREVIEW = '/app/signups/sig_1/preview';
@@ -38,6 +42,7 @@ function Phone({
   return (
     <HeaderAnnouncer status={status} announcements={TEXT.announcements}>
       <ShareScope
+        text={SHARE_TEXT}
         publishAction={action}
         signupId="sig_1"
         title="Bake sale helpers"
@@ -55,6 +60,7 @@ function Phone({
           }
           standing={
             <PhoneStanding
+              chip={SHARE_TEXT.panel.chip}
               signupId="sig_1"
               status={status}
               publicUrl={LINK}

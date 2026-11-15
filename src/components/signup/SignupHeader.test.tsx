@@ -233,5 +233,22 @@ describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
         closed.computer.getByRole('button', { name: words('signup.reopen.action') }),
       ).toBeInTheDocument();
     });
+
+    it('takes Share’s and the public link’s words from the catalog in that language', () => {
+      const { computer, phone, bar } = renderHeader('open', SPOTS, undefined, locale);
+      for (const header of [computer, phone]) {
+        expect(header.getByText(words('share.chip.label'))).toBeInTheDocument();
+        expect(header.getByRole('button', { name: words('share.chip.copy') })).toHaveAttribute(
+          'title',
+          words('share.chip.copyTip'),
+        );
+        expect(header.getByRole('link', { name: words('share.chip.open') })).toHaveAttribute(
+          'title',
+          words('share.chip.openTip'),
+        );
+      }
+      expect(computer.getByRole('button', { name: words('share.button') })).toBeInTheDocument();
+      expect(within(bar!).getByRole('button', { name: words('share.button') })).toBeInTheDocument();
+    });
   },
 );

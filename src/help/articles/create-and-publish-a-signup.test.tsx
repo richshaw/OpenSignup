@@ -4,7 +4,9 @@ import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Compose } from '@/components/magic-compose/Compose';
 import { Questions } from '@/components/magic-compose/Questions';
+import { shareText } from '@/components/share/share-text';
 import { SharePanel } from '@/components/share/SharePanel';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { UI } from './create-and-publish-a-signup.ui';
 
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
@@ -55,6 +57,7 @@ describe('create-and-publish-a-signup: a phone’s share menu', () => {
         url="https://your-site.example/s/snack-duty-spring-season"
         message="Snack duty — Spring season"
         onMessageChange={() => {}}
+        text={shareText(getTestTranslator('organizer.share'), 'Snack duty — Spring season').panel}
       />,
     );
     expect(screen.getByRole('button', { name: UI.shareOnPhone })).toBeInTheDocument();

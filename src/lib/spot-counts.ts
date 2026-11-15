@@ -1,15 +1,6 @@
 import type { Translator } from '@/i18n/translator';
 import type { SignupStatus } from '@/schemas/signups';
 
-/**
- * "1 spot" or "N spots", in English, for the share message (#942 moves it).
- * The header's counts and Close signup's question are in the organizer's
- * language, from `organizer.signup`.
- */
-export function spotCount(n: number): string {
-  return n === 1 ? '1 spot' : `${n} spots`;
-}
-
 /** A signup's spots, all slots together. */
 export interface SpotCounts {
   /** Spots confirmed and tentative sign-ups hold, as the public page counts them. */

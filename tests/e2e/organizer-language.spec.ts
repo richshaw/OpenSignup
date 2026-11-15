@@ -4,7 +4,12 @@ import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { getTranslator, type Namespace } from '@/i18n/translator';
 import { accessTokenLifetime } from '@/lib/lifetimes';
 import { loginAsSeededOrganizer } from './helpers/auth';
-import { connectAppFor, createOrganizerIn, type OrganizerIn } from './helpers/organizer-language';
+import {
+  connectAppFor,
+  createOrganizerIn,
+  publishSignupIn,
+  type OrganizerIn,
+} from './helpers/organizer-language';
 
 /**
  * The organizer app follows the language stored on the organizer's account
@@ -209,6 +214,51 @@ for (const stored of STORED) {
       await check.getByRole('button', { name: signup('check.notNow') }).click();
       await expect(check).toBeHidden();
       await expect(onScreen(page.getByText(status('draft'), { exact: true }))).toBeVisible();
+    });
+
+    test(`shares a signup in its own language from a panel in ${locale}`, async ({ page }) => {
+      // The first language with a catalog that isn't the organizer's.
+      const signupLocale = CATALOG_LOCALES.find((other) => other !== locale) ?? 'en';
+      const elsewhere = await publishSignupIn(organizer, signupLocale);
+      const share = messagesIn(locale, 'organizer.share');
+      const message = messagesIn(signupLocale, 'participant.share');
+      const phone = (page.viewportSize()?.width ?? 1280) < 768;
+      await page.goto(`/app/signups/${elsewhere.id}/build`);
+
+      // The public link's chip, by the title on a computer, under it on a phone.
+      await expect(onScreen(page.getByText(share('chip.label'), { exact: true }))).toBeVisible();
+      await expect(onScreen(page.getByRole('button', { name: share('chip.copy') }))).toBeVisible();
+      const open = onScreen(page.getByRole('link', { name: share('chip.open') }));
+      const url = await open.getAttribute('href');
+      expect(url).toMatch(new RegExp(`/s/${elsewhere.slug}$`));
+
+      await onScreen(page.getByRole('button', { name: share('button') })).click();
+      const panel = page.getByRole('dialog', { name: share('heading.later') });
+      await expect(panel).toBeVisible();
+      // A phone's sheet sits outside the page's wrapper, under <html lang> (#938).
+      if (!phone) expect(await languageOf(panel), unshippedHint).toBe(locale);
+      await expect(panel.getByText(share(phone ? 'lead.phone' : 'lead.desktop'))).toBeVisible();
+      await expect(panel.getByRole('button', { name: share('copyLink') })).toBeVisible();
+      await expect(
+        panel.getByRole(phone ? 'button' : 'link', {
+          name: share(phone ? 'qr.show' : 'qr.downloadLabel'),
+        }),
+      ).toBeVisible();
+      // The message is for participants: in the signup's language, whatever
+      // the organizer's. A new signup's empty slot holds 1, and Blankets 4.
+      await expect(panel.getByLabel(share('messageLabel'))).toHaveValue(
+        [
+          elsewhere.title,
+          message('spotsOpen', { count: 5 }),
+          message('signUp', { url: url! }),
+        ].join('\n'),
+      );
+      if (!phone) {
+        await expect(panel.getByRole('button', { name: share('copyMessage') })).toBeVisible();
+        await expect(panel.getByRole('link', { name: share('emailIt') })).toBeVisible();
+      }
+      await panel.getByRole('button', { name: share('close') }).click();
+      await expect(panel).toBeHidden();
     });
 
     // Last, since it closes the open signup the tests above read, and reopens it.
