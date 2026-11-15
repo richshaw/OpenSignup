@@ -7,7 +7,11 @@ import { FullDraftSchema } from '@/lib/magic-compose/prompt';
 import { requireWorkspaceWrite } from '@/lib/policy';
 import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
 import { ok } from '@/lib/result';
-import { SignupSettingsSchema, SignupUpdateInputSchema } from '@/schemas/signups';
+import {
+  SIGNUP_INPUT_REASONS,
+  SignupSettingsSchema,
+  SignupUpdateInputSchema,
+} from '@/schemas/signups';
 import {
   archiveSignup,
   checkSignupLocale,
@@ -47,6 +51,7 @@ export const createSignupTool = defineTool({
         `A language code, one of: ${SIGNUP_LANGUAGES}. Defaults to the organizer's language for new signups.`,
       ),
   }),
+  inputReasons: SIGNUP_INPUT_REASONS,
   handler: async (ctx, input) => {
     const { workspaceId, locale, ...draft } = input;
     // Checked with the rest of the input, so a refused one costs no quota, and
@@ -157,6 +162,7 @@ export const updateSignupTool = defineTool({
     signupId: z.string(),
     settings: SparseSettingsSchema.optional(),
   }),
+  inputReasons: SIGNUP_INPUT_REASONS,
   handler: async (ctx, input) => {
     const { signupId, ...rest } = input;
     const updated = await updateSignup(ctx.db, ctx.actor, signupId, rest);
