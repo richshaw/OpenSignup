@@ -11,6 +11,7 @@ import {
 import { InlineNote } from '@/components/ui/inline-note';
 import { TimeSelect } from '../build-shared/TimeSelect';
 import { EnumPicker } from './EnumPicker';
+import { useSignupLanguage } from './signup-language';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
 type SlotEditorProps = {
@@ -65,6 +66,7 @@ export function SlotEditor({
   onClose,
 }: SlotEditorProps) {
   const t = useTranslations('organizer.build');
+  const { locale, lang } = useSignupLanguage();
   const gridRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!focusOnOpen) return;
@@ -144,7 +146,7 @@ export function SlotEditor({
               data-field-ref={f.ref}
               className="flex flex-col gap-1 text-[11px] text-ink-muted"
             >
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex items-center gap-1" lang={lang}>
                 <TypeIcon size={10} className="text-ink-soft" />
                 {f.name}
               </span>
@@ -153,6 +155,7 @@ export function SlotEditor({
                   value={row.values[f.ref] ?? ''}
                   options={f.config.choices}
                   ariaLabel={t('editor.value', { field: f.name })}
+                  lang={lang}
                   onChange={(v) => onCellChange(f.ref, v)}
                   onAddOption={(v) => onAddEnumOption(f.id, v)}
                 />
@@ -161,6 +164,7 @@ export function SlotEditor({
                   value={row.values[f.ref] ?? ''}
                   onChange={(v) => onCellChange(f.ref, v)}
                   noTimeLabel={t('editor.noTime')}
+                  locale={locale}
                   className={FIELD_VALUE_INPUT_CLASS}
                   aria-label={t('editor.value', { field: f.name })}
                 />

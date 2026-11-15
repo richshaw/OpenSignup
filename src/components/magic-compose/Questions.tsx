@@ -42,6 +42,7 @@ import { DETAILS_STEP, DRAFT_STEPS, FRAME, PulseMark, StepList, type StepRow } f
 import { HereDot, StepLine } from './StepLine';
 import { YOU_WROTE_BAND, YouWrote } from './YouWrote';
 import { TimeSelect } from '@/components/build-shared/TimeSelect';
+import type { CatalogLocale } from '@/i18n/config';
 
 /** The When choices, each with its message in `organizer.compose.questions.when`. */
 const WHEN_CHOICES = [
@@ -87,7 +88,7 @@ export function Questions({
 }: {
   prompt: string;
   /** The organizer's language, for the times and lengths the screen writes. */
-  locale: string;
+  locale: CatalogLocale;
   questions: MagicComposeQuestions;
   /** The boxes as the organizer left them; null until they answer anything. */
   answers: Answers | null;
@@ -407,7 +408,7 @@ function What({
   );
 }
 
-function When({ answers, update, locale }: Part & { locale: string }) {
+function When({ answers, update, locale }: Part & { locale: CatalogLocale }) {
   const t = useTranslations('organizer.compose.questions.when');
   const id = useId();
   const set = (patch: Partial<Answers>) => update((a) => ({ ...a, ...patch }));
@@ -472,6 +473,7 @@ function When({ answers, update, locale }: Part & { locale: string }) {
                 set(from && answers.to && answers.to <= from ? { from, to: '' } : { from })
               }
               noTimeLabel={t('noTime')}
+              locale={locale}
               className={`${BOX} ${BOX_FOCUS} min-w-0 flex-1 px-3 sm:flex-none`}
             />
           </div>
@@ -490,6 +492,7 @@ function When({ answers, update, locale }: Part & { locale: string }) {
                   }
                 : {})}
               noTimeLabel={t('noTime')}
+              locale={locale}
               className={`${BOX} ${BOX_FOCUS} min-w-0 flex-1 px-3 sm:flex-none`}
             />
           </div>

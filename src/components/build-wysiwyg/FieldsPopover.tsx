@@ -12,6 +12,7 @@ import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
 import { useOutsideClose } from '@/hooks/useOutsideClose';
 import { InlineFieldForm, type FieldDefaults, type InlineFieldFormMode } from './InlineFieldForm';
 import { PickerOption } from './PickerOption';
+import { useSignupLanguage } from './signup-language';
 
 type FieldsPopoverProps = {
   open: boolean;
@@ -188,6 +189,7 @@ function FieldsListView({
   onStartCreate,
 }: FieldsListViewProps) {
   const t = useTranslations('organizer.build');
+  const { lang } = useSignupLanguage();
   const reorder = useReorderable({
     items: fields,
     onReorder: (fromIdx, toIdx) => {
@@ -257,6 +259,7 @@ function FieldsListView({
               <button
                 type="button"
                 onClick={() => onEdit(f)}
+                lang={lang}
                 className="flex-1 cursor-pointer truncate border-none bg-transparent p-0 text-left text-[13px] font-medium text-ink"
               >
                 {f.name}
@@ -303,6 +306,7 @@ type GroupByInlinePickerProps = {
 
 function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerProps) {
   const t = useTranslations('organizer.build.fields');
+  const { lang } = useSignupLanguage();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -333,6 +337,7 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        lang={activeField ? lang : undefined}
         className="inline-flex items-center gap-1 rounded-md border border-surface-sunk bg-white px-2 py-1 text-xs font-medium text-ink hover:bg-surface-raised"
       >
         {label}
@@ -363,6 +368,7 @@ function GroupByInlinePicker({ fields, value, onChange }: GroupByInlinePickerPro
                 active={value === f.ref}
                 icon={<TypeIcon size={12} />}
                 label={f.name}
+                lang={lang}
                 onClick={() => {
                   onChange(f.ref);
                   setOpen(false);

@@ -11,8 +11,9 @@ import {
 } from '@/services/commitments';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { StatusPill } from '@/components/status-pill';
+import { langWhereDifferent, signupLocale } from '@/i18n/config';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator } from '@/i18n/server';
+import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
 import { commitmentStatusLabel } from '@/lib/commitment-status-label';
 import type { SignupStatus } from '@/schemas/signups';
 import { summarizeSlotValues } from '@/lib/slot-summary';
@@ -47,9 +48,14 @@ export default async function ResponsesTab({ params }: PageParams) {
   );
   const canRemove = (c: (typeof commitments)[number]) =>
     ACTIVE_COMMITMENT_STATUSES.includes(c.status);
-  // The tab's own words are in the organizer's language. What the signup
-  // holds (its slots' values) and what participants gave stay as written.
-  const t = getServerTranslator(getOrganizerAppLocale(session), 'organizer.responses');
+  // The tab's own words are in the organizer's language. Its slots' values
+  // are the signup's, formatted as its participants read them and marked with
+  // its language where that isn't the organizer's. What participants gave
+  // stays as written, unmarked: it's in whatever language each person typed.
+  const organizerLocale = getOrganizerAppLocale(session);
+  const t = getServerTranslator(organizerLocale, 'organizer.responses');
+  const contentLocale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const contentLang = langWhereDifferent(contentLocale, organizerLocale);
   const totals = summarizeResponses(commitments, ended, t);
   // Every row's Remove says the same. One object, so the page's RSC payload
   // carries its words once and each row refers to it.
@@ -127,7 +133,7 @@ export default async function ResponsesTab({ params }: PageParams) {
                 const values = slot?.values ?? {};
                 // Values only: the column heading already says Slot, and the
                 // Remove question below reads the slot the same way.
-                const summary = slot ? summarizeSlotValues(sig.fields, values, 'en') : '';
+                const summary = slot ? summarizeSlotValues(sig.fields, values, contentLocale) : '';
                 // A removal takes the Remove button away, so focus goes to
                 // this cell, which then reads "removed". Every row has it, so
                 // it outlasts that re-render.
@@ -161,6 +167,7 @@ export default async function ResponsesTab({ params }: PageParams) {
                     </td>
                     <td
                       role="cell"
+                      lang={slot ? contentLang : undefined}
                       className="max-md:col-span-2 max-md:row-start-2 md:px-4 md:py-3"
                     >
                       {summary || slot?.ref || '—'}

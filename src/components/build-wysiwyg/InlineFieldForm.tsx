@@ -9,6 +9,7 @@ import { FIELD_TYPES, configFor, type FieldType } from '@/schemas/slot-field-bas
 import type { SlotFieldConfig } from '@/schemas/slot-fields';
 import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
 import type { BuildField } from '../build-shared/useBuildState';
+import { useSignupLanguage } from './signup-language';
 
 export type InlineFieldFormMode = { mode: 'edit'; field: BuildField } | { mode: 'create' };
 
@@ -46,6 +47,7 @@ export function InlineFieldForm({
   onDelete,
 }: InlineFieldFormProps) {
   const t = useTranslations('organizer.build');
+  const { lang } = useSignupLanguage();
   const isEdit = formMode.mode === 'edit';
   const initialName = isEdit ? formMode.field.name : '';
   const initialType: FieldType = isEdit ? formMode.field.config.fieldType : 'text';
@@ -181,7 +183,11 @@ export function InlineFieldForm({
             <InlineNote id={reminderNoteId} className="mt-2">
               {t.rich('fieldForm.reminderTaken', {
                 label: reminderFieldLabel ?? '',
-                field: (chunks) => <strong className="font-medium text-ink">{chunks}</strong>,
+                field: (chunks) => (
+                  <strong className="font-medium text-ink" lang={lang}>
+                    {chunks}
+                  </strong>
+                ),
               })}
             </InlineNote>
           )}
