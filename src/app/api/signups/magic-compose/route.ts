@@ -293,7 +293,7 @@ export async function POST(req: NextRequest) {
       return fail(
         serviceError('internal', 'AI draft did not match expected shape', {
           suggestion: 'try again or adjust your prompt',
-          details: { issues: safeIssues },
+          details: { reason: 'draft_invalid', issues: safeIssues },
         }),
       );
     }

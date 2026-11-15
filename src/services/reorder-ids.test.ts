@@ -5,6 +5,7 @@ describe.each([
   {
     noun: 'slot',
     field: 'slotIds',
+    reason: 'slot_ids_mismatch',
     message: 'slotIds must list every slot of the signup exactly once',
     suggestion:
       'call get_signup to see the ids of its slots, then send every one of them once, ' +
@@ -13,12 +14,13 @@ describe.each([
   {
     noun: 'field',
     field: 'fieldIds',
+    reason: 'field_ids_mismatch',
     message: 'fieldIds must list every field of the signup exactly once',
     suggestion:
       'call get_signup to see the ids of its fields, then send every one of them once, ' +
       'in the order you want them shown',
   },
-] as const)('$noun reorder IDs', ({ noun, field, message, suggestion }) => {
+] as const)('$noun reorder IDs', ({ noun, field, reason, message, suggestion }) => {
   it('accepts each current ID exactly once, in any order', () => {
     expect(everyIdOnceError(['c', 'a', 'b'], ['a', 'b', 'c'], noun)).toBeNull();
     expect(everyIdOnceError([], [], noun)).toBeNull();
@@ -35,6 +37,7 @@ describe.each([
       message,
       field,
       details: {
+        reason,
         missing: ['b', 'd'],
         unknown: ['foreign-b', 'foreign-a'],
         duplicates: ['c', 'foreign-b'],
@@ -46,13 +49,18 @@ describe.each([
     expect(JSON.stringify(error)).toBe(JSON.stringify(expected));
   });
 
-  it('includes only the applicable error details', () => {
+  it('names its reason, and includes only the applicable error details', () => {
     expect(everyIdOnceError(['a', 'b', 'other'], ['a', 'b'], noun)?.details).toEqual({
+      reason,
       unknown: ['other'],
     });
     expect(everyIdOnceError(['a', 'a', 'b'], ['a', 'b'], noun)?.details).toEqual({
+      reason,
       duplicates: ['a'],
     });
-    expect(everyIdOnceError(['b'], ['a', 'b'], noun)?.details).toEqual({ missing: ['a'] });
+    expect(everyIdOnceError(['b'], ['a', 'b'], noun)?.details).toEqual({
+      reason,
+      missing: ['a'],
+    });
   });
 });
