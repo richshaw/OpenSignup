@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { Copy, GripVertical, Pencil, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { SlotEditor } from './SlotEditor';
 import { emptyHeaderCopy } from './prettyHeader';
 import { slotActionLabels, slotRowLabel, takenText } from './slotRow';
+import { useSignupLanguage } from './signup-language';
 import { renderFieldValue } from '@/lib/slot-label';
 import type { UseReorderableResult } from '../build-shared/useReorderable';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
@@ -71,6 +73,8 @@ export function WysiwygSlot({
   onDelete,
   reorder,
 }: WysiwygSlotProps) {
+  const t = useTranslations('organizer.build');
+  const { locale, lang } = useSignupLanguage();
   // Whether the row is hovered or has focus within. Drives `inert` on the
   // floating toolbar so its buttons don't pollute the tab order (and stay
   // hidden from assistive tech) when the row is dormant. CSS already handles
@@ -79,13 +83,14 @@ export function WysiwygSlot({
   const [interactive, setInteractive] = useState(false);
   // Anchor = first field in the organizer's chosen order. No type-based
   // promotion: a time field later in the list must not win over field 0.
-  // Values render as the public page renders them, so the organizer sees
-  // "Wed, Sep 30 · 6:30 PM" here too, not the stored "2026-09-30 · 18:30".
+  // Values render as the public page renders them, in the signup's language,
+  // so the organizer sees "Wed, Sep 30 · 6:30 PM" here too, not the stored
+  // "2026-09-30 · 18:30".
   const display = (f: BuildField): string =>
     renderFieldValue(
       { ref: f.ref, label: f.name, fieldType: f.config.fieldType },
       row.values[f.ref],
-      'en',
+      locale,
     ) ?? '';
   const anchorField = displayFields[0] ?? null;
   const anchorValue = anchorField ? display(anchorField) : '';
@@ -101,7 +106,7 @@ export function WysiwygSlot({
   // (lowercased) for everything else, "Set a value" without a label.
   const isTimeAnchor = anchorField?.config.fieldType === 'time';
   const placeholder = anchorField
-    ? emptyHeaderCopy(anchorField.config.fieldType, anchorField.name)
+    ? emptyHeaderCopy(t, anchorField.config.fieldType, anchorField.name)
     : null;
 
   // aria-label must mirror what the row shows — the primary label, including
@@ -110,8 +115,8 @@ export function WysiwygSlot({
   // (aria-label overrides the button's text content.) The toolbar's buttons
   // and the open editor are named for the slot the same way.
   const nameParts = { anchor: anchorValue, time: isTimeAnchor, prompt: placeholder };
-  const actions = slotActionLabels(nameParts);
-  const count = takenText(taken, row.capacity);
+  const actions = slotActionLabels(t, nameParts);
+  const count = takenText(t, taken, row.capacity);
 
   if (expanded) {
     return (
@@ -138,7 +143,7 @@ export function WysiwygSlot({
     );
   }
 
-  const ariaLabel = slotRowLabel({ ...nameParts, count });
+  const ariaLabel = slotRowLabel(t, { ...nameParts, count });
 
   const anchorSizing = summary ? 'max-w-[60%] shrink-0' : 'min-w-0';
 
@@ -193,7 +198,7 @@ export function WysiwygSlot({
             the anchor then simply truncates at the row's edge. */}
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {anchorValue ? (
-            <span className={`${anchorSizing} truncate text-sm font-semibold text-ink`}>
+            <span className={`${anchorSizing} truncate text-sm font-semibold text-ink`} lang={lang}>
               {anchorValue}
             </span>
           ) : placeholder ? (
@@ -201,9 +206,13 @@ export function WysiwygSlot({
               {placeholder}
             </span>
           ) : (
-            <span className="shrink-0 text-sm font-semibold text-ink">Slot</span>
+            <span className="shrink-0 text-sm font-semibold text-ink">{t('slot.untitled')}</span>
           )}
-          {summary && <span className="min-w-0 truncate text-xs text-ink-muted">{summary}</span>}
+          {summary && (
+            <span className="min-w-0 truncate text-xs text-ink-muted" lang={lang}>
+              {summary}
+            </span>
+          )}
         </div>
         {/* Spots taken, not left: organizers want to know how many signed up.
             The public page counts what's left. */}

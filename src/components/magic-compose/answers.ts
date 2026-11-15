@@ -1,3 +1,4 @@
+import type { Translator } from '@/i18n/translator';
 import {
   EARLIEST_DATE_YEAR,
   HOW_MANY_MAX,
@@ -168,20 +169,25 @@ export function sameAnswers(a: Answers, b: Answers): boolean {
 }
 
 /**
- * Why these answers can't go yet, in the words the screen shows, or null. It
- * reads the boxes rather than `buildFollowUp`, which drops times with no date.
+ * Why these answers can't go yet, in the words the screen shows (`t`, in the
+ * organizer's language), or null. It reads the boxes rather than
+ * `buildFollowUp`, which drops times with no date.
  */
-export function answersProblem(questions: MagicComposeQuestions, answers: Answers): string | null {
+export function answersProblem(
+  questions: MagicComposeQuestions,
+  answers: Answers,
+  t: Translator<'organizer.compose.questions.problems'>,
+): string | null {
   const { date, from, to } = answers;
   if (questions.topics.includes('when') && answers.when === 'one_day' && (date || from || to)) {
     // With no date the answer would go as "not decided", and the times with it.
-    if (!date) return 'Add a date, or leave the times empty.';
+    if (!date) return t('noDate');
     // A short year is an easy slip in a date box (202 becomes 0202), and the
     // server refuses a year before EARLIEST_DATE_YEAR, or one that isn't four
     // digits, as not a real day.
     const year = date.split('-')[0] ?? '';
-    if (year.length !== 4 || Number(year) < EARLIEST_DATE_YEAR) return "Check the date's year.";
-    if (from && to && from >= to) return 'The end time must be after the start time.';
+    if (year.length !== 4 || Number(year) < EARLIEST_DATE_YEAR) return t('year');
+    if (from && to && from >= to) return t('timeOrder');
   }
   // A count isn't rounded, so 2.5 is stopped here rather than sent as 3.
   if (
@@ -191,16 +197,18 @@ export function answersProblem(questions: MagicComposeQuestions, answers: Answer
       return count !== null && !Number.isInteger(count);
     })
   ) {
-    return 'Use whole numbers for how many people.';
+    return t('wholeNumbers');
   }
   return null;
 }
 
 /*
- * The formatters below take the organizer's language as `locale` ('en', 'sv').
- * The words around the times ("to", "from", "until") stay English until
- * Magic Compose's text has a catalog.
+ * The formatters below take the organizer's language as `locale` ('en', 'sv'),
+ * and the words around the times and answers ("to", "from", "What:") from
+ * `organizer.compose.answers` in that language (`t`).
  */
+
+type AnswersTranslator = Translator<'organizer.compose.answers'>;
 
 /**
  * A time from a time box: "9am", "1:30pm", "12pm" for noon in English, the
@@ -257,10 +265,16 @@ export function timeLength(start: string, end: string, locale: string): string {
 }
 
 /** "9am to 1pm", "from 9am" or "until 1pm", or null with neither time. */
-function formatTimes({ from, to }: { from?: string; to?: string }, locale: string): string | null {
-  if (from && to) return `${formatTime(from, locale)} to ${formatTime(to, locale)}`;
-  if (from) return `from ${formatTime(from, locale)}`;
-  return to ? `until ${formatTime(to, locale)}` : null;
+function formatTimes(
+  { from, to }: { from?: string; to?: string },
+  locale: string,
+  t: AnswersTranslator,
+): string | null {
+  if (from && to) {
+    return t('fromTo', { from: formatTime(from, locale), to: formatTime(to, locale) });
+  }
+  if (from) return t('from', { from: formatTime(from, locale) });
+  return to ? t('until', { to: formatTime(to, locale) }) : null;
 }
 
 /**
@@ -272,6 +286,7 @@ function formatTimes({ from, to }: { from?: string; to?: string }, locale: strin
 export function formatOneDay(
   when: Extract<WhenAnswer, { kind: 'one_day' }>,
   locale: string,
+  t: AnswersTranslator,
   now: Date = new Date(),
 ): { day: string; times: string | null } {
   const [y = 0, m = 1, d = 1] = when.date.split('-').map(Number);
@@ -284,7 +299,15 @@ export function formatOneDay(
     timeZone: 'UTC',
     ...(y === now.getFullYear() ? {} : { year: 'numeric' }),
   }).format(at);
-  return { day, times: formatTimes(when, locale) };
+  return { day, times: formatTimes(when, locale, t) };
+}
+
+/**
+ * Items as one list in `locale`, without "and": "a, b, c" in English, as
+ * Back has always written them.
+ */
+function listOf(items: string[], locale: string): string {
+  return new Intl.ListFormat(locale, { type: 'unit', style: 'short' }).format(items);
 }
 
 /**
@@ -303,6 +326,7 @@ export function appendAnswers(
   questions: MagicComposeQuestions,
   answers: Answers,
   locale: string,
+  t: AnswersTranslator,
   now?: Date,
 ): string {
   const followUp = buildFollowUp(questions, answers);
@@ -310,20 +334,22 @@ export function appendAnswers(
   const items = followUpItems(followUp);
   if (items.length > 0) {
     const counts = followUp.howMany;
-    const described = items.map((item, i) =>
-      counts ? `${item} (${counts[i] ?? 'no limit'})` : item,
-    );
-    lines.push(`What: ${described.join(', ')}`);
+    const described = items.map((item, i) => {
+      if (!counts) return item;
+      const count = counts[i] ?? null;
+      return count === null ? t('itemNoLimit', { item }) : t('item', { item, count });
+    });
+    lines.push(t('what', { items: listOf(described, locale) }));
   }
   const when = followUp.when;
   if (when?.kind === 'one_day') {
-    const { day, times } = formatOneDay(when, locale, now);
-    lines.push(`When: ${times ? `${day}, ${times}` : day}`);
+    const { day, times } = formatOneDay(when, locale, t, now);
+    lines.push(t('when', { when: times ? t('dayAndTimes', { day, times }) : day }));
   } else if (when?.kind === 'several') {
-    lines.push(`When: ${when.text}`);
+    lines.push(t('when', { when: when.text }));
   } else if (when && answers.when === 'one_day') {
-    const times = formatTimes(answers, locale);
-    if (times) lines.push(`When: ${times}`);
+    const times = formatTimes(answers, locale, t);
+    if (times) lines.push(t('when', { when: times }));
   }
   if (lines.length === 0) return prompt;
   return [prompt.trimEnd(), ...lines].join('\n');

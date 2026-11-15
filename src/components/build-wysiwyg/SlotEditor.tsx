@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef } from 'react';
 import { Check, Copy, Hash, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import {
   FIELD_TYPE_META,
   FIELD_VALUE_INPUT_CLASS,
@@ -10,6 +11,7 @@ import {
 import { InlineNote } from '@/components/ui/inline-note';
 import { TimeSelect } from '../build-shared/TimeSelect';
 import { EnumPicker } from './EnumPicker';
+import { useSignupLanguage } from './signup-language';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
 type SlotEditorProps = {
@@ -63,6 +65,8 @@ export function SlotEditor({
   onDelete,
   onClose,
 }: SlotEditorProps) {
+  const t = useTranslations('organizer.build');
+  const { locale, lang } = useSignupLanguage();
   const gridRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!focusOnOpen) return;
@@ -91,7 +95,7 @@ export function SlotEditor({
     >
       <div className="mb-2.5 flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-ink-soft">
-          Editing slot
+          {t('editor.title')}
         </span>
         <div className="flex gap-1">
           <button
@@ -100,7 +104,7 @@ export function SlotEditor({
             className="inline-flex items-center gap-1 rounded-md border-none bg-transparent px-1.5 py-1 text-[11px] font-medium text-ink-muted hover:bg-surface-raised hover:text-ink"
           >
             <Copy size={11} />
-            Duplicate
+            {t('editor.duplicate')}
           </button>
           <button
             type="button"
@@ -108,7 +112,7 @@ export function SlotEditor({
             className="inline-flex items-center gap-1 rounded-md border-none bg-transparent px-1.5 py-1 text-[11px] font-medium text-danger hover:bg-danger/10"
           >
             <Trash2 size={11} />
-            Delete
+            {t('editor.delete')}
           </button>
           <button
             type="button"
@@ -116,16 +120,13 @@ export function SlotEditor({
             className="inline-flex items-center gap-1 rounded-md border-none bg-transparent px-1.5 py-1 text-[11px] font-medium text-brand hover:bg-brand-soft"
           >
             <Check size={11} />
-            Done
+            {t('editor.done')}
           </button>
         </div>
       </div>
       {taken > 0 && (
         <InlineNote className="mb-2.5">
-          {signedUpLine(taken)}{' '}
-          {remindersOn
-            ? 'If you change its date or time, we\u2019ll email them to let them know.'
-            : 'Reminders are off, so we won\u2019t email them if you change it.'}
+          {t('editor.signedUp', { taken, reminders: remindersOn ? 'on' : 'off' })}
         </InlineNote>
       )}
       <div ref={gridRef} className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5">
@@ -145,7 +146,7 @@ export function SlotEditor({
               data-field-ref={f.ref}
               className="flex flex-col gap-1 text-[11px] text-ink-muted"
             >
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex items-center gap-1" lang={lang}>
                 <TypeIcon size={10} className="text-ink-soft" />
                 {f.name}
               </span>
@@ -153,7 +154,8 @@ export function SlotEditor({
                 <EnumPicker
                   value={row.values[f.ref] ?? ''}
                   options={f.config.choices}
-                  ariaLabel={`${f.name} value`}
+                  ariaLabel={t('editor.value', { field: f.name })}
+                  lang={lang}
                   onChange={(v) => onCellChange(f.ref, v)}
                   onAddOption={(v) => onAddEnumOption(f.id, v)}
                 />
@@ -161,17 +163,20 @@ export function SlotEditor({
                 <TimeSelect
                   value={row.values[f.ref] ?? ''}
                   onChange={(v) => onCellChange(f.ref, v)}
+                  noTimeLabel={t('editor.noTime')}
+                  locale={locale}
                   className={FIELD_VALUE_INPUT_CLASS}
-                  aria-label={`${f.name} value`}
+                  aria-label={t('editor.value', { field: f.name })}
                 />
               ) : (
                 <input
                   {...FIELD_VALUE_INPUTS[f.config.fieldType]}
                   {...(f.config.fieldType === 'text' ? { maxLength: f.config.maxLength } : {})}
+                  placeholder={t(`placeholder.${f.config.fieldType}`)}
                   value={row.values[f.ref] ?? ''}
                   onChange={(e) => onCellChange(f.ref, e.target.value)}
                   className={FIELD_VALUE_INPUT_CLASS}
-                  aria-label={`${f.name} value`}
+                  aria-label={t('editor.value', { field: f.name })}
                 />
               )}
             </Cell>
@@ -180,14 +185,14 @@ export function SlotEditor({
         <label className="col-span-full flex flex-col gap-1 text-[11px] text-ink-muted">
           <span className="inline-flex items-center gap-1">
             <Hash size={10} className="text-ink-soft" />
-            Spots
+            {t('editor.spots')}
           </span>
           <span className="flex items-center gap-2">
             <input
               type="number"
               min={1}
               value={row.capacity ?? ''}
-              placeholder="No limit"
+              placeholder={t('editor.noLimit')}
               onChange={(e) => {
                 const raw = e.target.value;
                 if (raw === '') {
@@ -197,22 +202,16 @@ export function SlotEditor({
                 const parsed = parseInt(raw, 10);
                 onCapacity(Math.max(1, Number.isFinite(parsed) ? parsed : 1));
               }}
-              aria-label="Spots"
+              aria-label={t('editor.spots')}
               aria-describedby={spotsHelpId}
               className="w-20 shrink-0 rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand"
             />
             <span id={spotsHelpId} className="min-w-0 text-[11px] text-ink-soft">
-              How many spots this slot has. Leave blank for no limit.
+              {t('editor.spotsHelp')}
             </span>
           </span>
         </label>
       </div>
     </div>
   );
-}
-
-function signedUpLine(taken: number): string {
-  return taken === 1
-    ? '1 person is signed up for this slot.'
-    : `${taken} people are signed up for this slot.`;
 }

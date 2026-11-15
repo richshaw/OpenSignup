@@ -309,7 +309,7 @@ test.describe('organizer flow', () => {
     await date.fill('1899-12-31');
     expect(await date.evaluate((el: HTMLInputElement) => el.validity.rangeUnderflow)).toBe(true);
     expect((await saved).status()).toBe(400);
-    await expect(page.getByText('"date" must be a date in 1900 or later')).toBeVisible();
+    await expect(page.getByText('Dates must be in 1900 or later.')).toBeVisible();
     expect(await storedDate()).toBe('2030-04-06');
 
     // The first day of 1900 is in range and saves.

@@ -8,13 +8,14 @@ import {
   type OrganizerSession,
 } from '@/auth/session';
 import { FormError } from '@/components/ui/form-error';
-import { SAVE_ERROR_MESSAGE, SavedNotice } from '@/components/ui/save-notice';
+import { SavedNotice } from '@/components/ui/save-notice';
 import { getDb } from '@/db/client';
 import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
 import { getOrganizerAppLocale, getOrganizerLocale } from '@/i18n/organizer';
 import { getServerTranslator } from '@/i18n/server';
 import type { Translator } from '@/i18n/translator';
-import { type ErrorCode, refusalAsResult } from '@/lib/errors';
+import { refusalAsResult } from '@/lib/errors';
+import { refusalFromQuery } from '@/lib/organizer-errors';
 import { openSignupsToSwitch } from '@/services/signups';
 import { setOrganizerLocaleAction, switchOpenSignupsLocaleAction } from './actions';
 
@@ -163,10 +164,10 @@ function OrganizerLanguageForm({
   const { locale: current } = getOrganizerLocale(session, 'participant');
   // Only a code the action sends shows, in the words the Settings tab uses,
   // so a link can't put its own words on the page.
-  const refusal =
-    error && Object.hasOwn(SAVE_ERROR_MESSAGE, error)
-      ? SAVE_ERROR_MESSAGE[error as ErrorCode]
-      : null;
+  const refusal = refusalFromQuery(
+    getServerTranslator(getOrganizerAppLocale(session), 'organizer.errors'),
+    error,
+  );
   const name = languageName(current);
   const language = (chunks: ReactNode) => <span lang={current}>{chunks}</span>;
 
