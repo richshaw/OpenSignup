@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
 import { refusalAsResult } from '@/lib/errors';
 import { requireWorkspaceWrite } from '@/lib/policy';
 import {
@@ -122,8 +121,8 @@ export async function closeQuestionAction(
 /**
  * Saves one Settings-tab form. Sends only `settings`, which `updateSignup`
  * merges over the stored ones, then comes back to the tab with `saved` set to
- * the form's own value, so "Saved" shows by that form. A refusal shows in
- * plain words, by its code, at the top of the tab.
+ * the form's own value, so "Saved" shows by that form. A refusal comes back
+ * as its code in `error`, which the tab words at its top.
  */
 async function saveSettingsForm(
   signupId: string,
@@ -133,9 +132,7 @@ async function saveSettingsForm(
   const actor = await requireActor();
   const settingsPath = `/app/signups/${signupId}/settings`;
   const result = await refusalAsResult(() => updateSignup(getDb(), actor, signupId, { settings }));
-  if (!result.ok) {
-    redirect(`${settingsPath}?error=${encodeURIComponent(SAVE_ERROR_MESSAGE[result.error.code])}`);
-  }
+  if (!result.ok) redirect(`${settingsPath}?error=${result.error.code}`);
   // This tab re-renders with the saved choice. The public page is dynamic, so
   // it reads the change on its next request.
   revalidateSignup(signupId);
@@ -194,11 +191,8 @@ export async function removeCommitmentAction(
 export async function deleteSignupAction(signupId: string) {
   const actor = await requireActor();
   const result = await refusalAsResult(() => deleteSignup(getDb(), actor, signupId));
-  if (!result.ok) {
-    // In plain words by its code, as Save on the same tab is.
-    const message = SAVE_ERROR_MESSAGE[result.error.code];
-    redirect(`/app/signups/${signupId}/settings?error=${encodeURIComponent(message)}`);
-  }
+  // Its code, which the tab words, as for Save on the same tab.
+  if (!result.ok) redirect(`/app/signups/${signupId}/settings?error=${result.error.code}`);
   // Bust any open tab on the deleted signup so the next interaction shows the
   // organizer "signup not found" state instead of a stale cached layout.
   revalidatePath(`/app/signups/${signupId}`, 'layout');

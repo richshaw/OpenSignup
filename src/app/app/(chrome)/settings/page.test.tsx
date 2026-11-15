@@ -8,13 +8,17 @@ import { ship } from '@/i18n/testing/ship';
 
 // What the page reads around the form: the instance's language (none, unless
 // a test sets one) and the session, with the language stored on the account.
-// Nothing from the request: next/headers isn't mocked, so a page that read it
+// Its refusals come from the catalog in English, and as the key asked for in
+// any other language. Nothing from the request: next/headers isn't mocked, so a page that read it
 // would throw here, outside any request.
 const request = vi.hoisted(() => ({
   instanceDefault: undefined as string | undefined,
   saved: null as string | null,
 }));
-vi.mock('@/i18n/server', () => ({ instanceDefaultLocale: () => request.instanceDefault }));
+vi.mock('@/i18n/server', async () => ({
+  instanceDefaultLocale: () => request.instanceDefault,
+  getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
+}));
 vi.mock('@/auth/session', () => ({
   requireOrganizerSession: async () => ({ email: 'pat@example.com', locale: request.saved }),
   toActor: () => ({ kind: 'organizer', id: 'org_1' }),

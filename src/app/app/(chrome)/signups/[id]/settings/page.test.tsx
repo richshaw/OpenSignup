@@ -4,18 +4,27 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 
+import { CATALOG_LOCALES } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
 
 // Unit tests have no server environment. The instance sets no language
-// unless a test sets one.
+// unless a test sets one. English comes from the catalog; any other language
+// answers with the key it was asked for and the language.
 const instance = vi.hoisted(() => ({ defaultLocale: undefined as string | undefined }));
-vi.mock('@/i18n/server', () => ({ instanceDefaultLocale: () => instance.defaultLocale }));
+vi.mock('@/i18n/server', async () => ({
+  instanceDefaultLocale: () => instance.defaultLocale,
+  getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
+}));
 
 // The signup as the page loads it, and what the page needs around it: a
 // session, the view it records and the server actions, which need a database.
-const stored = vi.hoisted(() => ({ settings: {} as Record<string, unknown> }));
+const stored = vi.hoisted(() => ({
+  settings: {} as Record<string, unknown>,
+  /** The language stored on the organizer's account. */
+  organizerLocale: null as string | null,
+}));
 vi.mock('@/auth/session', () => ({
-  requireOrganizerSession: async () => ({}),
+  requireOrganizerSession: async () => ({ locale: stored.organizerLocale }),
   toActor: () => ({ kind: 'anonymous' }),
 }));
 vi.mock('@/services/signups.cached', () => ({
@@ -33,7 +42,7 @@ vi.mock('../actions', () => ({
 
 const { default: SettingsTab } = await import('./page');
 
-async function renderTab(searchParams: { saved?: string } = {}) {
+async function renderTab(searchParams: { error?: string; saved?: string } = {}) {
   const page = await SettingsTab({
     params: Promise.resolve({ id: 'sig_1' }),
     searchParams: Promise.resolve(searchParams),
@@ -46,7 +55,44 @@ const languageSection = () => screen.queryByRole('region', { name: 'Language' })
 afterEach(() => {
   cleanup();
   stored.settings = {};
+  stored.organizerLocale = null;
   instance.defaultLocale = undefined;
+});
+
+describe('Settings tab: a refused save or delete', () => {
+  it('reads as before, worded by the code the action sends', async () => {
+    const lines = {
+      forbidden: 'You don’t have edit access.',
+      not_found: 'No longer available.',
+      invalid_input: 'Some values weren’t accepted.',
+      internal: 'Save failed.',
+    };
+    for (const [error, line] of Object.entries(lines)) {
+      await renderTab({ error });
+      expect(screen.getByRole('alert')).toHaveTextContent(line);
+      cleanup();
+    }
+  });
+
+  it('shows nothing for anything else, so a link can’t put words on the page', async () => {
+    for (const error of ['Your account is locked. Email us at once.', 'toString', '']) {
+      await renderTab({ error });
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      cleanup();
+    }
+  });
+
+  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+    'is in the organizer’s language, %s',
+    async (other) => {
+      ship('organizer', ['en', other]);
+      stored.organizerLocale = other;
+      await renderTab({ error: 'forbidden' });
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        `organizer.errors.code.forbidden in ${other}`,
+      );
+    },
+  );
 });
 
 describe('Settings tab: Signup language', () => {

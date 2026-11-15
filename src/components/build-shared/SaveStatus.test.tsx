@@ -12,10 +12,17 @@ describe('<SaveStatus />', () => {
     expect(screen.getByRole('status')).toHaveTextContent('You don’t have edit access.');
   });
 
-  it('shows a message the save brought with it instead', () => {
+  it('words a refusal by its reason, when it has one the tab words itself', () => {
     render(
-      <SaveStatus status={{ kind: 'error', code: 'conflict', message: 'Reload to see latest.' }} />,
+      <SaveStatus
+        status={{
+          kind: 'error',
+          code: 'conflict',
+          field: 'slotId',
+          details: { reason: 'slot_has_signups', filled: 2, commitments: 1 },
+        }}
+      />,
     );
-    expect(screen.getByRole('status')).toHaveTextContent('Reload to see latest.');
+    expect(screen.getByRole('status')).toHaveTextContent('2 people have signed up for this slot');
   });
 });

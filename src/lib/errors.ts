@@ -123,6 +123,11 @@ export function httpStatusFor(code: ErrorCode): number {
   return HTTP_STATUS[code];
 }
 
+/** Whether `value` is an `ErrorCode`, as a code read back from an address must be before it's used. */
+export function isErrorCode(value: unknown): value is ErrorCode {
+  return typeof value === 'string' && Object.hasOwn(HTTP_STATUS, value);
+}
+
 export function serviceError(
   code: ErrorCode,
   message: string,

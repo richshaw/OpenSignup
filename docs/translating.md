@@ -26,11 +26,11 @@ nothing else.
 A catalog's top-level sections are its namespaces. Each audience reads its
 own, as `AUDIENCE_NAMESPACES` in `src/i18n/config.ts` lists them:
 
-| Audience    | Namespaces                       | What's in them today                                                                                                                                                                                                         |
-| ----------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| participant | `participant`, `email`, `common` | The signup's page, the sign-up sheet, the edit, cancelled and unsubscribe pages, both not-found pages, the participant emails, and the footer's links                                                                        |
-| organizer   | `organizer`, `auth`, `common`    | Organizer text: on a participant page, the bar across the top, the Preview banner and the note on your own draft; in the organizer app, the header, the crumbs, Your signups, and the card for a signup that can't be loaded |
-| site        | `site`, `common`                 | Nothing yet                                                                                                                                                                                                                  |
+| Audience    | Namespaces                       | What's in them today                                                                                                                                                                                                                                                                                            |
+| ----------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| participant | `participant`, `email`, `common` | The signup's page, the sign-up sheet, the edit, cancelled and unsubscribe pages, both not-found pages, the participant emails, and the footer's links                                                                                                                                                           |
+| organizer   | `organizer`, `auth`, `common`    | Organizer text: on a participant page, the bar across the top, the Preview banner and the note on your own draft; in the organizer app, the header, the crumbs, Your signups, the card for a signup that can't be loaded, and what New signup, the Settings pages and Connected apps say when a save is refused |
+| site        | `site`, `common`                 | Nothing yet                                                                                                                                                                                                                                                                                                     |
 
 `auth` and `site` have no messages yet. `participant.defaults` holds the names
 a new signup's first fields get ("What", "Date") and a new field's ("Untitled",
@@ -44,7 +44,10 @@ While no language but English has shipped to organizers, that's English for
 everyone. The rest of the organizer app, the sign-in email, the landing, help
 and legal pages, and API error text and AI connector tool descriptions aren't
 in the catalogs at all. API errors and tool descriptions stay English on purpose:
-developers and models read them.
+developers and models read them. A screen never shows an API error's `message`
+(but for Magic Compose's `refusal`, whose message is the AI's own reason): it
+words the error itself, from its `code` and `details.reason` (`ErrorReason` in
+`src/lib/errors.ts`), so its words can be in the reader's language.
 
 A language's catalog can be partial. Any message it lacks comes out in
 English (`withEnglishUnder` in `src/i18n/translator.ts`), so a half-done
