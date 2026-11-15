@@ -687,12 +687,36 @@ export async function listSignupSummariesForWorkspace(
   return ok(rows);
 }
 
+/**
+ * The signup at `slug` as stored, or null when no live signup has that slug.
+ * One statement. It skips a deleted signup but returns a draft or an archived
+ * one, so a page can say which it is. No policy guard, like `getPublicSignup`:
+ * anyone with the link may ask. So the whole row, server-only columns and
+ * all, is for server code to decide with; what a visitor gets goes through
+ * `getPublicSignup` (and `toPublicSignup` for the API).
+ */
+export async function getSignupRowBySlug(db: Queryable, slug: string): Promise<SignupRow | null> {
+  const [row] = await db
+    .select()
+    .from(signups)
+    .where(and(eq(signups.slug, slug), isNull(signups.deletedAt)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * The signup a public page shows, with its slots, fields and spots taken. A
+ * draft, an archived signup and one that's deleted or never existed are all
+ * `not_found`; the first two carry `received`, so the page can say which.
+ * Takes the slug, or what `getSignupRowBySlug` already returned for it (null
+ * for none), so a request that has read the row doesn't read it again.
+ */
 export async function getPublicSignup(
   db: Db,
-  slug: string,
+  slugOrRow: string | SignupRow | null,
 ): Promise<Result<SignupWithSlots & { committedBySlot: Record<string, number> }, ServiceError>> {
-  const found = await db.select().from(signups).where(eq(signups.slug, slug)).limit(1);
-  const row = found[0];
+  const row = typeof slugOrRow === 'string' ? await getSignupRowBySlug(db, slugOrRow) : slugOrRow;
+  // Checked again for a row read some other way.
   if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
   if (row.status === 'draft') {
     return err(serviceError('not_found', 'signup not yet published', { received: 'draft' }));
