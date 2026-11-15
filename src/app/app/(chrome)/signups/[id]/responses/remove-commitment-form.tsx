@@ -21,6 +21,23 @@ interface Props {
    * does. Rendered by the page, so its words add no script here.
    */
   children: ReactNode;
+  /**
+   * Its own words, in the organizer's language, from the Responses tab
+   * (`organizer.responses.remove`), so the page sends no messages to the
+   * browser. The same object for every row.
+   */
+  text: RemoveText;
+}
+
+export interface RemoveText {
+  /** The button each row shows. */
+  remove: string;
+  /** The confirmation's accessible name. */
+  dialogLabel: string;
+  keep: string;
+  confirm: string;
+  /** The confirm button while it removes. */
+  removing: string;
 }
 
 /**
@@ -35,6 +52,7 @@ export function RemoveCommitmentForm({
   statusCellId,
   label,
   children,
+  text,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -65,9 +83,14 @@ export function RemoveCommitmentForm({
         }}
         className="rounded-lg border border-danger/40 bg-white px-3 py-1.5 text-xs font-medium text-danger transition hover:bg-danger/5 max-sm:min-h-11"
       >
-        Remove
+        {text.remove}
       </button>
-      <ConfirmDialog dialog={dialog} questionId={`remove-${commitmentId}`} error={error}>
+      <ConfirmDialog
+        dialog={dialog}
+        questionId={`remove-${commitmentId}`}
+        error={error}
+        text={text}
+      >
         {children}
       </ConfirmDialog>
     </form>
@@ -84,11 +107,13 @@ function ConfirmDialog({
   questionId,
   error,
   children,
+  text,
 }: {
   dialog: RefObject<HTMLDialogElement | null>;
   questionId: string;
   error: string | null;
   children: ReactNode;
+  text: RemoveText;
 }) {
   const { pending } = useFormStatus();
   const keepButton = useRef<HTMLButtonElement>(null);
@@ -104,7 +129,7 @@ function ConfirmDialog({
     <dialog
       ref={dialog}
       role="alertdialog"
-      aria-label="Confirm removal"
+      aria-label={text.dialogLabel}
       aria-describedby={questionId}
       onCancel={(e) => {
         if (pending) e.preventDefault();
@@ -121,13 +146,13 @@ function ConfirmDialog({
           onClick={() => dialog.current?.close()}
           className="rounded-lg border border-surface-sunk bg-white px-3 py-1.5 text-xs font-medium transition hover:bg-surface-sunk/30 disabled:cursor-not-allowed disabled:opacity-70 max-sm:min-h-11"
         >
-          Keep
+          {text.keep}
         </button>
         <AsyncSubmitButton
-          loadingLabel="Removing…"
+          loadingLabel={text.removing}
           className="rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 max-sm:min-h-11"
         >
-          Yes, remove
+          {text.confirm}
         </AsyncSubmitButton>
       </div>
     </dialog>

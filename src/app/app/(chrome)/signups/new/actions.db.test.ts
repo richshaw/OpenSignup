@@ -44,10 +44,12 @@ vi.mock('@/auth/session', () => ({
   toActor: () => owner,
 }));
 // The instance's DEFAULT_LOCALE as each test sets it: getEnv() parses the
-// environment once.
+// environment once. Refusals come from the catalog in English, and as the key
+// asked for in any other language.
 vi.mock('@/i18n/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/i18n/server')>()),
   instanceDefaultLocale: () => request.instanceDefault,
+  getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
 }));
 
 // Next's redirect() throws to end the action; this one throws the address.
@@ -147,6 +149,33 @@ describe('createSignupAction (db)', () => {
     });
     expect(await created()).toHaveLength(0);
   });
+
+  it('words any other refusal by its code, not with the service’s English', async () => {
+    // A description over the limit, as only a request the form didn't send can be.
+    expect(await submit('Bake sale', 'a'.repeat(DESCRIPTION_MAX_LENGTH + 1))).toEqual({
+      refused: {
+        error: 'Some values weren’t accepted.',
+        title: 'Bake sale',
+        description: 'a'.repeat(DESCRIPTION_MAX_LENGTH + 1),
+      },
+    });
+    expect(await created()).toHaveLength(0);
+  });
+
+  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+    'words a refusal in the organizer’s language, %s',
+    async (other) => {
+      ship('organizer', ['en', other]);
+      request.locale = other;
+      expect(await submit('   ')).toEqual({
+        refused: {
+          error: `organizer.errors.titleTooShort in ${other}`,
+          title: '   ',
+          description: '',
+        },
+      });
+    },
+  );
 
   it('saves the title trimmed', async () => {
     await submit('  Bake sale  ');

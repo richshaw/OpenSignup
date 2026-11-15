@@ -2,11 +2,18 @@
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, act, within } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { render as renderBare, screen, act, within } from '@testing-library/react';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
+import { englishMessages } from '@/i18n/testing/client-messages';
 import type { FollowUp } from '@/lib/magic-compose/questions';
+import { MAGIC_COMPOSE_NAMESPACES } from './client-namespaces';
 import { Drafting, VISIBLE_FIELD_CAP, VISIBLE_SLOT_CAP } from './Drafting';
 import { BAND_DIVIDER, YOU_WROTE_BAND } from './YouWrote';
+
+/** As Magic Compose's page renders it, with its messages in English. */
+const render = (ui: ReactElement) =>
+  renderBare(ui, { wrapper: englishMessages(MAGIC_COMPOSE_NAMESPACES) });
 
 function makeDraft(fieldCount: number, slotCount: number): DraftPreview {
   const fields = Array.from({ length: fieldCount }).map((_, i) => ({
