@@ -8,7 +8,8 @@ import { ship } from '@/i18n/testing/ship';
 
 // What the page reads around the form: the instance's language (none, unless
 // a test sets one) and the session, with the language stored on the account.
-// Nothing from the request: next/headers isn't mocked, so a page that read it
+// Its refusals come from the catalog in English, and as the key asked for in
+// any other language. Nothing from the request: next/headers isn't mocked, so a page that read it
 // would throw here, outside any request.
 const request = vi.hoisted(() => ({
   instanceDefault: undefined as string | undefined,

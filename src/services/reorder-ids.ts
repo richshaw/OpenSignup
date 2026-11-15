@@ -32,6 +32,7 @@ export function everyIdOnceError(
     {
       field,
       details: {
+        reason: noun === 'slot' ? 'slot_ids_mismatch' : 'field_ids_mismatch',
         ...(missing.length > 0 ? { missing } : {}),
         ...(unknown.length > 0 ? { unknown } : {}),
         ...(duplicates.size > 0 ? { duplicates: [...duplicates] } : {}),

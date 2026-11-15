@@ -13,6 +13,7 @@ import { listConnectedApps, revokeConnectedApp } from '@/oauth/grants';
 import { getProvider } from '@/oauth/instance';
 import { SCOPE_MESSAGES } from '@/oauth/scopes';
 import { DisconnectButton } from './disconnect-button';
+import { disconnectRefusal } from './disconnect-refusal';
 import { formatGrantDate } from './grant-date';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -39,6 +40,7 @@ export default async function ConnectedAppsPage({
   const t = getServerTranslator(locale, 'organizer.connectedApps');
   const describe = getServerTranslator(locale, 'auth.scopes');
   const lifetime = accessTokenLifetime(locale);
+  const refusal = disconnectRefusal(getServerTranslator(locale, 'organizer.errors'), error);
 
   async function disconnect(formData: FormData) {
     'use server';
@@ -47,11 +49,10 @@ export default async function ConnectedAppsPage({
     try {
       await revokeConnectedApp(getDb(), await getProvider(), toActor(current), grantId);
     } catch (err) {
-      if (err instanceof ServiceException) {
-        redirect(`${PATH}?error=${encodeURIComponent(err.serviceError.message)}`);
-      }
+      // The refusal's code, or `internal` for anything else, which the page words.
+      if (err instanceof ServiceException) redirect(`${PATH}?error=${err.serviceError.code}`);
       log.error({ err }, 'connected-apps: disconnect failed');
-      redirect(`${PATH}?error=${encodeURIComponent('Could not disconnect. Try again.')}`);
+      redirect(`${PATH}?error=internal`);
     }
     revalidatePath(PATH);
     redirect(`${PATH}?disconnected=1`);
@@ -64,7 +65,7 @@ export default async function ConnectedAppsPage({
         <p className="text-sm text-ink-muted">{t('intro')}</p>
       </div>
 
-      {error ? <FormError>{error}</FormError> : null}
+      {refusal ? <FormError>{refusal}</FormError> : null}
       {disconnected ? <SuccessNotice>{t('disconnected', { lifetime })}</SuccessNotice> : null}
 
       {apps.length === 0 ? (
