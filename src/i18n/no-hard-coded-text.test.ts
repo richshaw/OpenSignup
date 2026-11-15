@@ -21,6 +21,24 @@ const TRANSLATED_FILES = [
   'src/components/site-footer.tsx',
   'src/components/banner.tsx',
   'src/components/ui/BottomSheet.tsx',
+  'src/components/ui/save-notice.tsx',
+  'src/app/app/(chrome)/signups/[id]/settings/page.tsx',
+  'src/app/app/(chrome)/signups/[id]/settings/delete-signup-form.tsx',
+  'src/app/app/(chrome)/signups/[id]/build/page.tsx',
+  'src/components/build-wysiwyg/BuildWysiwyg.tsx',
+  'src/components/build-wysiwyg/Editable.tsx',
+  'src/components/build-wysiwyg/EditingRail.tsx',
+  'src/components/build-wysiwyg/EnumPicker.tsx',
+  'src/components/build-wysiwyg/FieldsPopover.tsx',
+  'src/components/build-wysiwyg/InlineFieldForm.tsx',
+  'src/components/build-wysiwyg/PickerOption.tsx',
+  'src/components/build-wysiwyg/SlotEditor.tsx',
+  'src/components/build-wysiwyg/WysiwygGroup.tsx',
+  'src/components/build-wysiwyg/WysiwygSlot.tsx',
+  'src/components/build-shared/SaveStatus.tsx',
+  'src/components/build-shared/TimeSelect.tsx',
+  'src/app/app/(chrome)/signups/[id]/responses/page.tsx',
+  'src/app/app/(chrome)/signups/[id]/responses/remove-commitment-form.tsx',
   'src/app/s/[slug]/page.tsx',
   'src/app/s/[slug]/signup-view.tsx',
   'src/app/s/[slug]/state-message.tsx',
@@ -43,6 +61,19 @@ const TRANSLATED_FILES = [
   'src/app/app/(chrome)/@crumbs/signups/[id]/edit/page.tsx',
   'src/components/chrome/Crumb.tsx',
   'src/components/signup/SignupLoadError.tsx',
+  'src/app/app/(chrome)/signups/new/page.tsx',
+  'src/app/app/(chrome)/signups/new/NewSignupForm.tsx',
+  'src/components/magic-compose/Compose.tsx',
+  'src/components/magic-compose/Drafting.tsx',
+  'src/components/magic-compose/DraftingFrom.tsx',
+  'src/components/magic-compose/Steps.tsx',
+  'src/components/magic-compose/StepLine.tsx',
+  'src/components/magic-compose/YouWrote.tsx',
+  'src/components/magic-compose/MagicComposeRoot.tsx',
+  'src/components/magic-compose/ChunkBoundary.tsx',
+  'src/components/magic-compose/Questions.tsx',
+  'src/components/magic-compose/AiDraftBanner.tsx',
+  'src/components/magic-compose/AiDraftWarnings.tsx',
   'src/app/app/(chrome)/settings/page.tsx',
   'src/app/app/(chrome)/settings/connected-apps/page.tsx',
   'src/app/app/(chrome)/settings/connected-apps/disconnect-button.tsx',
@@ -246,6 +277,18 @@ describe('where the rules apply', () => {
     for (const rule of RULES) expect(rules[rule]?.[0], rule).toBe(2);
   });
 
+  // On too: the Build tab's helpers, which word its slots, headings and
+  // refusals for its components.
+  it.each([
+    'src/components/build-wysiwyg/prettyHeader.ts',
+    'src/components/build-wysiwyg/slotRow.ts',
+    'src/components/build-shared/save-error-message.ts',
+    'src/components/build-shared/fieldTypes.ts',
+  ])('are on for the Build tab’s helper %s', async (file) => {
+    const rules = (await eslint.calculateConfigForFile(file))?.rules ?? {};
+    for (const rule of RULES) expect(rules[rule]?.[0], rule).toBe(2);
+  });
+
   // The signup's folder is listed whole, so a file added there later is
   // checked from the start, and its tests are still left out.
   it('are on for a new file in the signup’s folder, and off for its tests', async () => {
@@ -263,6 +306,13 @@ describe('where the rules apply', () => {
     expect(await lint(text, 'src/email/templates/cancelled.tsx')).toHaveLength(2);
     expect(await lint(text, 'src/email/templates/magic-link.tsx')).toEqual([]);
     expect(await lint(text, 'src/email/templates/unsubscribe-footer.test.tsx')).toEqual([]);
+  });
+
+  // Magic Compose's folder is listed whole, so a screen added later is checked
+  // from the start.
+  it('are on for a new Magic Compose screen', async () => {
+    const text = '<p>Sign up</p><button aria-label="Close" />';
+    expect(await lint(text, 'src/components/magic-compose/Review.tsx')).toHaveLength(2);
   });
 
   it('read an email’s preview text as text', async () => {

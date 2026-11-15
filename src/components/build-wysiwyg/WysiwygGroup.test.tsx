@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, type Mock } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render as renderUi, screen, fireEvent } from '@testing-library/react';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 import { FIELD_VALUE_INPUT_CLASS } from '../build-shared/fieldTypes';
+import type { ReactElement } from 'react';
+import { englishMessages } from '@/i18n/testing/client-messages';
+import { BUILD_TAB_NAMESPACES } from './client-namespaces';
+
+/** Renders `ui` with the Build tab's messages in English, as its page gives them. */
+const wrapper = englishMessages(BUILD_TAB_NAMESPACES);
+const render = (ui: ReactElement) => renderUi(ui, { wrapper });
 
 function makeRow(overrides: Partial<BuildRow> = {}): BuildRow {
   return {
