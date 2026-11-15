@@ -20,7 +20,9 @@ import { refusalText } from './organizer-errors';
  * for the code, which is what a refusal with no words of its own falls back
  * on, and never the server's `message`, which is English for API callers
  * (but for a `refusal`, whose message is the AI's own explanation). The
- * English is as each screen read before there were reasons.
+ * English is as each screen read before there were reasons, but for three
+ * Build tab lines worded for organizers rather than developers (#944):
+ * `date_too_early`, `capacity_below_taken` and `invalidates_slot_values`.
  *
  * The New signup form's, the Build tab's and Magic Compose's words come from
  * the catalog (`organizer.errors`, `organizer.build`,
@@ -92,7 +94,7 @@ const CASES = {
   date_too_early: {
     error: sent('invalid_input', 'date_too_early', { field: 'date', received: '1899-12-31' }),
     screens: { 'Build tab': buildTab },
-    english: '"date" must be a date in 1900 or later',
+    english: 'Dates must be in 1900 or later.',
   },
   slot_ids_mismatch: {
     error: sent('invalid_input', 'slot_ids_mismatch', { field: 'slotIds' }),
@@ -111,12 +113,12 @@ const CASES = {
       details: { taken: 2 },
     }),
     screens: { 'Build tab': buildTab },
-    english: 'capacity (1) is less than active quantity (2)',
+    english: '2 spots are already taken. Set this slot to 2 or more.',
   },
   invalidates_slot_values: {
     error: sent('conflict', 'invalidates_slot_values', { details: { count: 1 } }),
     screens: { 'Build tab': buildTab },
-    english: 'change would invalidate existing slot values',
+    english: 'Some slots have values that don’t fit this change. Change those first.',
   },
   status_changed: {
     error: sent('conflict', 'status_changed', { field: 'status' }),

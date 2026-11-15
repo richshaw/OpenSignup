@@ -478,11 +478,11 @@ declare const messages: {
         "add": "Add field"
       },
       "refusal": {
-        "dateTooEarly": "\"{field}\" must be a date in {year, number, ::group-off} or later",
+        "dateTooEarly": "Dates must be in {year, number, ::group-off} or later.",
         "slotsMoved": "The slots changed in another window, so your move wasn't saved. Drag it again.",
         "fieldsMoved": "The fields changed in another window, so your move wasn't saved. Drag it again.",
-        "capacityBelowTaken": "capacity ({capacity, number, ::group-off}) is less than active quantity ({taken, number, ::group-off})",
-        "invalidatesSlotValues": "change would invalidate existing slot values"
+        "capacityBelowTaken": "{taken, plural, one {{taken, number, ::group-off} spot is already taken} other {{taken, number, ::group-off} spots are already taken}}. Set this slot to {taken, number, ::group-off} or more.",
+        "invalidatesSlotValues": "Some slots have values that don’t fit this change. Change those first."
       }
     },
     "responses": {
