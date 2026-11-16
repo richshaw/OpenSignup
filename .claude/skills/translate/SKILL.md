@@ -215,9 +215,10 @@ Follow "Adding a language" in `docs/translating.md`: its catalog and its
 glossary come before step 1, then steps 1 to 4 here. The tests pick the
 language up from its catalog, with nothing written for it: the e2e specs, the
 layout checks, the screenshots and the email samples all run for every
-language with one. A test that keeps words per language, like
-`KEEP_IT_PRIVATE`, fails naming itself until you give it the new language's
-entry. Its launch (adding it to `SHIPPED.participant` and `SHIPPED.organizer`
+language with one. A test that keeps words per language fails naming
+itself until you give it the new language's entry: `KEEP_IT_PRIVATE` in
+`pnpm test`, and `inSentence` in `pnpm typecheck` ("Adding a language" in the
+guide). Its launch (adding it to `SHIPPED.participant` and `SHIPPED.organizer`
 together: a language launches for participants and organizers at once) is a
 pull request of its own, for the owner to approve.
 

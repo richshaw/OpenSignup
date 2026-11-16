@@ -583,11 +583,16 @@ for it. Every language with a catalog but English is a test language
   `translation-review/<code>/screens/` and its emails to
   `translation-review/<code>/emails/`.
 
-A test that checks what a translation must say keeps its words per language,
-like `KEEP_IT_PRIVATE` in `src/app/s/[slug]/commit-dialog.test.tsx`, the
-words in the share text that warn whoever has the link can change the
-sign-up. `pnpm test` fails, naming the table, for each one that has no entry
-for the new language: add one once those messages are translated.
+A few tests keep what a language says in a table by language, and need the
+new language's entry:
+
+- `KEEP_IT_PRIVATE` in `src/app/s/[slug]/commit-dialog.test.tsx`, the words
+  in the share text that warn whoever has the link can change the sign-up.
+  `pnpm test` fails, naming the table, until it has one: add it once those
+  messages are translated.
+- `inSentence` in `src/i18n/config.test.ts`, how each language writes each
+  language's name inside a sentence. `pnpm typecheck` asks for the new
+  language's row and column, with the catalog.
 
 The test signups and email samples also carry what an organizer would write
 (titles, slots' names). A language without its own gets names that read as
