@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getOrganizerSession, requireActor } from '@/auth/session';
 import { getDb, type Db } from '@/db/client';
-import { newSignupLocale } from '@/i18n/organizer';
+import { getOrganizerLocale, newSignupLocale } from '@/i18n/organizer';
 import { activityActor, recordActivityBestEffort } from '@/lib/activity';
 import { getEnv, magicComposeEnabled } from '@/lib/env';
 import { fail, handle, ok, readJson } from '@/lib/api-response';
@@ -22,6 +22,7 @@ import {
   buildMessages,
   isQuestionsReply,
   MagicComposeDraftSchema,
+  type PromptContext,
 } from '@/lib/magic-compose/prompt';
 import { fitDraftText } from '@/lib/magic-compose/fit-text';
 import { PROMPT_MAX_LENGTH } from '@/lib/magic-compose/limits';
@@ -166,12 +167,22 @@ export async function POST(req: NextRequest) {
       pending.answered = () => recordAnswered(db, actor, workspaceId, followUp, outcome);
     }
 
+    // Every call, retries included, tells the model the organizer's language
+    // for participants, to write in when the description is too short or too
+    // mixed to tell its own. Always one that has shipped, so English while
+    // only English has.
+    const acceptLanguage = req.headers.get('accept-language');
+    const context: PromptContext = {
+      fallbackLocale: getOrganizerLocale(session, acceptLanguage, 'participant').locale,
+    };
     const client = defaultLlmClient();
     // One time budget for the whole request: a retry gets what the first call
     // left, so the organizer never waits twice LLM_TIMEOUT_MS.
     const deadline = Date.now() + getEnv().LLM_TIMEOUT_MS;
     let raw = await client.generateDraft(
-      followUp ? buildFollowUpMessages(userPrompt, followUp) : buildMessages(userPrompt),
+      followUp
+        ? buildFollowUpMessages(userPrompt, followUp, context)
+        : buildMessages(userPrompt, context),
       req.signal,
     );
 
@@ -201,7 +212,7 @@ export async function POST(req: NextRequest) {
       );
       outcome.retried = true;
       raw = await client.generateDraft(
-        buildFollowUpMessages(userPrompt, followUp, { firmly: true }),
+        buildFollowUpMessages(userPrompt, followUp, { ...context, firmly: true }),
         req.signal,
         { timeoutMs: left },
       );
@@ -231,7 +242,7 @@ export async function POST(req: NextRequest) {
           { promptLength: userPrompt.length },
           'magic-compose asked questions in a shape the page cannot ask; retrying once',
         );
-        raw = await client.generateDraft(buildReplyNowMessages(userPrompt), req.signal, {
+        raw = await client.generateDraft(buildReplyNowMessages(userPrompt, context), req.signal, {
           timeoutMs: left,
         });
       } else {
@@ -343,7 +354,7 @@ export async function POST(req: NextRequest) {
 
     // The signup starts in the organizer's language, as one made by hand
     // does: none while only one language has shipped.
-    const language = newSignupLocale(session, req.headers.get('accept-language'));
+    const language = newSignupLocale(session, acceptLanguage);
     const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, draft.data, {
       logContext: { promptLength: userPrompt.length },
       ...(language ? { locale: language } : {}),

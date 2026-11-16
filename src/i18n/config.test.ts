@@ -158,4 +158,11 @@ describe('languageName', () => {
     // CLDR has "svenska".
     expect(languageName('sv')).toBe('Svenska');
   });
+
+  it('names a language in another, as the Magic Compose prompt names one in English', () => {
+    expect(languageName('sv', 'en')).toBe('Swedish');
+    expect(languageName('en', 'en')).toBe('English');
+    // CLDR has "engelska".
+    expect(languageName('en', 'sv')).toBe('Engelska');
+  });
 });

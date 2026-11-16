@@ -124,10 +124,12 @@ export function openGraphLocale(locale: CatalogLocale): string {
 /**
  * A language's name in that language, as a list to choose from shows it
  * (English, Svenska), so people can find theirs whatever language the rest of
- * the screen is in. CLDR writes some names in lower case (svenska, français),
- * so the first letter is raised, by that language's own rules.
+ * the screen is in. Given `inLocale`, its name in that language instead, as
+ * the Magic Compose prompt names one in English ("Swedish"). CLDR writes some
+ * names in lower case (svenska, français), so the first letter is raised, by
+ * the naming language's own rules.
  */
-export function languageName(locale: CatalogLocale): string {
-  const name = new Intl.DisplayNames([locale], { type: 'language' }).of(locale) ?? locale;
-  return name.replace(/^\p{Ll}/u, (first) => first.toLocaleUpperCase(locale));
+export function languageName(locale: CatalogLocale, inLocale: CatalogLocale = locale): string {
+  const name = new Intl.DisplayNames([inLocale], { type: 'language' }).of(locale) ?? locale;
+  return name.replace(/^\p{Ll}/u, (first) => first.toLocaleUpperCase(inLocale));
 }

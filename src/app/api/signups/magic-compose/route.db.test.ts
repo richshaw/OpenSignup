@@ -33,6 +33,8 @@ const route = vi.hoisted(() => ({
   llmResult: undefined as unknown,
   locale: null as string | null,
   instanceDefault: undefined as string | undefined,
+  /** The system prompt of the model's last call. */
+  system: '',
 }));
 vi.mock('@/auth/session', () => ({
   requireActor: async () => route.actor,
@@ -52,7 +54,12 @@ vi.mock('@/lib/env', async (importOriginal) => ({
   magicComposeEnabled: () => true,
 }));
 vi.mock('@/lib/magic-compose/llm-client', () => ({
-  defaultLlmClient: () => ({ generateDraft: async () => route.llmResult }),
+  defaultLlmClient: () => ({
+    async generateDraft(messages: { role: string; content: string }[]) {
+      route.system = messages.find((m) => m.role === 'system')?.content ?? '';
+      return route.llmResult;
+    },
+  }),
 }));
 
 interface Fixture {
@@ -140,7 +147,7 @@ describe('magic-compose route chain (db)', () => {
     const client = stubLlmClient(CANNED_DRAFT);
     const userPrompt = 'snack duty for U9 soccer, six saturdays';
 
-    const llm = await client.generateDraft(buildMessages(userPrompt));
+    const llm = await client.generateDraft(buildMessages(userPrompt, { fallbackLocale: 'en' }));
     expect(llm.ok).toBe(true);
     if (!llm.ok) return;
     const draft = FullDraftSchema.parse(llm.value);
@@ -281,7 +288,7 @@ describe('POST /api/signups/magic-compose with an over-long title or description
   });
 });
 
-describe('POST /api/signups/magic-compose starts the signup in the organizer’s language (db)', () => {
+describe('POST /api/signups/magic-compose starts the signup in the organizer’s language, and drafts in it when the description can’t tell (db)', () => {
   let fx: Fixture;
   // Two shifts a day, grouped by day, so the grouping is kept.
   const GROUPED = {
@@ -307,11 +314,16 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
     route.workspaceId = fx.workspaceId;
     route.locale = null;
     route.instanceDefault = undefined;
+    route.system = '';
   });
 
   afterAll(async () => {
     await teardown(fx.db, fx.workspaceId, fx.organizerId);
   });
+
+  /** The prompt's fallback, as the model reads it, naming the language in English. */
+  const writesIn = (name: string) =>
+    `If the prompt is too short or too mixed to tell (a few names and dates), write in ${name}.`;
 
   async function compose(acceptLanguage?: string) {
     route.llmResult = ok(GROUPED);
@@ -335,18 +347,26 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
     return {
       settings: row!.settings as Record<string, unknown>,
       telemetry: created?.payload as Record<string, unknown>,
+      system: route.system,
     };
   }
 
   it('stores no language, and records none, while only English has shipped', async () => {
     route.locale = 'en';
     route.instanceDefault = 'en';
-    const { settings, telemetry } = await compose('en');
+    const { settings, telemetry, system } = await compose('en');
+    expect(system).toContain(writesIn('English'));
     expect(settings).toMatchObject({ groupByFieldRefs: ['date'] });
     expect(settings).not.toHaveProperty('locale');
     expect(telemetry).toMatchObject({ templateId: 'magic-compose' });
     expect(telemetry).not.toHaveProperty('locale');
     expect(telemetry).not.toHaveProperty('localeSource');
+  });
+
+  it('tells the model English while only English has shipped, whatever the organizer saved or their browser asks for', async () => {
+    route.locale = 'sv';
+    const { system } = await compose('sv');
+    expect(system).toContain(writesIn('English'));
   });
 
   describe('once Swedish has shipped to participants', () => {
@@ -362,7 +382,8 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
       'starts it in Swedish chosen by the organizer’s $step, keeping the grouping',
       async ({ step, acceptLanguage, ...given }) => {
         Object.assign(route, given);
-        const { settings, telemetry } = await compose(acceptLanguage);
+        const { settings, telemetry, system } = await compose(acceptLanguage);
+        expect(system).toContain(writesIn('Swedish'));
         expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: 'sv' });
         expect(telemetry).toMatchObject({
           templateId: 'magic-compose',
@@ -373,7 +394,8 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
     );
 
     it('starts it in English when no step names a shipped language', async () => {
-      const { settings, telemetry } = await compose('de');
+      const { settings, telemetry, system } = await compose('de');
+      expect(system).toContain(writesIn('English'));
       expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: 'en' });
       expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
     });
