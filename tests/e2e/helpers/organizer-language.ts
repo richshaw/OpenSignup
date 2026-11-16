@@ -1,3 +1,4 @@
+import type { Locator } from '@playwright/test';
 import { eq } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { workspaceMembers } from '@/db/schema/members';
@@ -6,11 +7,26 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
 import type { CatalogLocale } from '@/i18n/config';
+import { getTranslator, type Namespace } from '@/i18n/translator';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
 import { createDisposableSession } from './seed';
+
+/** `namespace`'s messages in `locale`, as vitest formats them, failing on a missing key. */
+export function messagesIn<N extends Namespace>(locale: CatalogLocale, namespace: N) {
+  return getTranslator(locale, namespace, {
+    onError: (error) => {
+      throw error;
+    },
+  });
+}
+
+/** The language `locator`'s element is in: its own `lang`, or its nearest ancestor's. */
+export function languageOf(locator: Locator): Promise<string | null | undefined> {
+  return locator.evaluate((element) => element.closest('[lang]')?.getAttribute('lang'));
+}
 
 /** An organizer who stores a language (or none), signed in, with a signup of each kind. */
 export interface OrganizerIn {
@@ -228,4 +244,38 @@ export async function connectAppFor(organizer: OrganizerIn): Promise<ConnectedAp
     expiresAt: dates.expiresAt,
   });
   return dates;
+}
+
+/**
+ * Gets `organizer`'s signup `signupId`, made in the browser, ready for a
+ * participant: a slot, "Cookies", that holds 3, and published. With
+ * `locale`, writes that language into its row first: a new signup starts in
+ * its organizer's language only once that language has shipped
+ * (`newSignupLocale`), so before then a spec stands in for it here, as
+ * `publishSignupIn` does, and the server shows it only with it in
+ * `E2E_UNSHIPPED_LOCALES`.
+ */
+export async function publishForParticipants(
+  organizer: OrganizerIn,
+  signupId: string,
+  locale?: CatalogLocale,
+): Promise<{ slug: string; slotId: string }> {
+  const db = getDb();
+  const actor = actorFor(organizer);
+  if (locale) {
+    const [row] = await db
+      .select({ settings: signups.settings })
+      .from(signups)
+      .where(eq(signups.id, signupId));
+    await db
+      .update(signups)
+      .set({ settings: { ...row?.settings, locale } })
+      .where(eq(signups.id, signupId));
+  }
+  const slot = unwrap(
+    await addSlot(db, actor, signupId, { values: { what: 'Cookies' }, capacity: 3 }),
+    'addSlot',
+  );
+  const signup = unwrap(await publishSignup(db, actor, signupId), 'publishSignup');
+  return { slug: signup.slug, slotId: slot.id };
 }
