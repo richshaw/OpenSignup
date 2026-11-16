@@ -6,7 +6,7 @@ import { fail, handle, ok, readJson, respond } from '@/lib/api-response';
 import { serviceError, ServiceException } from '@/lib/errors';
 import { commitmentLinks } from '@/lib/links';
 import { notifyCommitmentCreated } from '@/email/notify';
-import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
+import { consumeRateLimit, ipSubject, RateLimits } from '@/lib/rate-limit';
 import {
   COMMIT_COOKIE_NAME,
   rememberNewCommitment,
@@ -22,8 +22,11 @@ function readToken(req: NextRequest): string | null {
 /** Anonymous, token-authenticated endpoint: meter per IP before any token
  *  verification or DB lookup happens, then return the edit token or refuse. */
 async function authorizeTokenOp(db: Db, req: NextRequest): Promise<string> {
-  const clientIp = extractClientIp(req.headers);
-  await consumeRateLimit(db, RateLimits.commitmentTokenOpsPerIp, clientIp ?? 'unknown');
+  await consumeRateLimit(
+    db,
+    RateLimits.commitmentTokenOpsPerIp,
+    ipSubject(extractClientIp(req.headers)),
+  );
   const token = readToken(req);
   if (!token) {
     throw new ServiceException(
