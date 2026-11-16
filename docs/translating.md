@@ -715,3 +715,12 @@ so the next pass sees it.
   _flytten_ alone mostly means moving house, but "så det du flyttade
   sparades inte" takes the rail to 8 lines at 320 pixels, against 7 for
   English and for "flytten". "så ordningen sparades inte" also fits in 7.
+- **"i hela tal" or "med hela tal"** for how many people
+  (`organizer.compose.questions.problems.wholeNumbers`, from #982's review):
+  the catalog keeps "i hela tal", as in "i hela kronor".
+- **"uppgifter man turas om med" or "uppgifter som går på tur"** for rotating
+  roles (`organizer.compose.starters.community.blurb`, from #982's review):
+  _turas om_ is the usual verb, and _gå på tur_ can read as going on an
+  outing. Either takes the card to three lines at 320 and 1280 pixels, where
+  English has two; dropping "inför evenemang" keeps two, but loses the
+  events.

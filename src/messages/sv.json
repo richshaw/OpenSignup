@@ -477,6 +477,201 @@
         "notes": "Kommentar",
         "signedUp": "Anmäld"
       }
+    },
+    "newSignup": {
+      "title": "Ny anmälningslista",
+      "intro": "Du kan lägga till pass när anmälningslistan har skapats. Inget syns förrän du publicerar den.",
+      "titleLabel": "Titel",
+      "titlePlaceholder": "Mellanmål – vårsäsongen",
+      "descriptionLabel": "Beskrivning (valfritt)",
+      "descriptionPlaceholder": "Ett stycke som visas överst på anmälningslistans sida.",
+      "cancel": "Avbryt",
+      "creating": "Skapar…",
+      "create": "Skapa lista"
+    },
+    "compose": {
+      "eyebrow": "Ny anmälningslista",
+      "heading": "Vad ska du ordna?",
+      "intro": "<strong>Skriv vad deltagarna ska anmäla sig till, när och hur många du behöver till varje sak.</strong> Vi gör om det till en titel, en kort beskrivning och pass som du kan ändra.",
+      "describe": "Beskriv din anmälningslista",
+      "placeholder": "T.ex. Mellanmål till barnens fotbollslag. 6 matcher på lördagar från 25 april, två familjer per match, inga nötter tack.",
+      "count": "{count, number} / {max, number} tecken",
+      "countOver": "{count, number} / {max, number} tecken. Korta beskrivningen med {over, number} tecken för att kunna skapa ett utkast.",
+      "skip": "Hoppa över, fyll i själv",
+      "draft": "Skapa utkast",
+      "examples": "Eller utgå från ett exempel",
+      "loaded": "Ifyllt",
+      "tryThis": "Prova det här",
+      "starters": {
+        "sports": {
+          "label": "Idrottslag",
+          "blurb": "Schema för mellanmål, fika eller samåkning under en hel säsong",
+          "body": "Mellanmål till vårt fotbollslag. Vi har 6 matcher på lördagar, med start nästa lördag. Två familjer tar med mellanmål och dricka till varje match. Inga nötter, tack."
+        },
+        "classroom": {
+          "label": "Klass eller skola",
+          "blurb": "Knytkalas, utvecklingssamtal, insamlingar, arbetsdagar",
+          "body": "Sommaravslutning med knytkalas för klass 3, sista fredagen i månaden kl. 17. 20 familjer tar med var sin rätt: vi behöver 5 familjer som tar med varmrätt, 5 tillbehör, 5 efterrätt och 5 dricka."
+        },
+        "community": {
+          "label": "Volontärpass",
+          "blurb": "Pass för volontärer, förberedelser inför evenemang eller uppgifter man turas om med",
+          "body": "Volontärer till vårens bokmarknad. Torsdag och fredag nästa vecka, tre pass på 2 timmar varje dag (9–11, 11–13 och 13–15). 2 volontärer per pass."
+        }
+      },
+      "tips": {
+        "heading": "Tips för ett bättre utkast",
+        "dates": {
+          "title": "Nämn datum",
+          "body": "Ett intervall som ”lördagar från 25 april till 30 maj” gör att vi kan skapa ett pass per datum."
+        },
+        "howMany": {
+          "title": "Skriv hur många",
+          "body": "”Två familjer per match” eller ”sex volontärer per pass”, så att vi kan ange antalet platser."
+        },
+        "gotchas": {
+          "title": "Nämn det viktiga",
+          "body": "Allergier, mötesplats, vad som gäller om någon uteblir. Allt som deltagarna bör veta."
+        }
+      },
+      "steps": {
+        "label": "Förlopp",
+        "read": "Läser din beskrivning",
+        "title": "Skriver en titel",
+        "desc": "Skriver en kort beskrivning",
+        "fields": "Väljer fält för varje pass",
+        "slots": "Skapar pass",
+        "check": "Snyggar till",
+        "details": "Några detaljer",
+        "readShort": "Läst",
+        "draftShort": "Utkast"
+      },
+      "drafting": {
+        "readingTitle": "Läser din beskrivning",
+        "readingBody": "Du får ett utkast, eller några snabba frågor om det behövs mer underlag.",
+        "draftingTitle": "Skapar ditt utkast",
+        "draftingBody": "Du kan ändra allt när det är klart.",
+        "cancel": "Avbryt",
+        "liveReading": "Läser · live",
+        "liveDrafting": "Skriver · live",
+        "title": "Titel",
+        "description": "Beskrivning",
+        "fields": "Fält",
+        "slots": "Pass",
+        "shown": "{shown, number} av {total, number}",
+        "more": "+{count, number} till"
+      },
+      "youWrote": {
+        "label": "Din beskrivning",
+        "heading": "Du skrev",
+        "quoted": "”{text}”"
+      },
+      "draftingFrom": {
+        "label": "Underlag för utkastet",
+        "allAnswered": "Alla besvarade",
+        "oneBlank": "En obesvarad",
+        "twoBlank": "Två obesvarade",
+        "what": "Vad",
+        "whatBlank": "Lämnades tomt. Utkastet får platshållare för passen, som du kan fylla i senare.",
+        "when": "När",
+        "whenBlank": "Inte bestämt. Utkastet får platshållare för datumen, som du kan fylla i senare.",
+        "noLimit": "Inget tak",
+        "people": "{count, plural, one {{count, number} person} other {{count, number} personer}}",
+        "dayAndTimes": "{day} · {times}"
+      },
+      "errors": {
+        "questionsUnavailable": "Det gick inte att visa frågorna. Ladda om sidan och försök igen – kopiera din beskrivning först om du vill behålla den.",
+        "slow": "AI-utkastet tar längre tid än väntat. Försök igen eller förenkla beskrivningen.",
+        "slowWithAnswers": "AI-utkastet tar längre tid än väntat. Försök igen.",
+        "hourlyLimit": "Du har använt alla AI-utkast för den här timmen. Försök igen om {minutes, plural, one {{minutes, number} minut} other {{minutes, number} minuter}}, eller <link>fyll i anmälningslistan själv</link>.",
+        "busy": "AI-tjänsten är upptagen just nu. Försök igen {minutes, plural, =1 {om en minut} other {om {minutes, number} minuter}}.",
+        "askedAgain": "Det gick inte att skapa ett utkast av det här. Försök igen, eller fyll i anmälningslistan själv.",
+        "askedAgainWithAnswers": "Det gick inte att skapa ett utkast av de här svaren. Lägg till lite mer, eller fyll i anmälningslistan själv.",
+        "draftInvalid": "AI-utkastet hade inte den form som väntades – försök igen eller ändra beskrivningen",
+        "timeout": "AI-utkastet tog för lång tid. Prova med en enklare beskrivning.",
+        "timeoutWithAnswers": "AI-utkastet tog för lång tid. Försök igen.",
+        "apiKey": "AI-leverantören godkände inte API-nyckeln. En administratör behöver kontrollera LLM_API_KEY.",
+        "unavailable": "AI-leverantören är inte tillgänglig just nu (HTTP {status, number, ::group-off}). Försök igen.",
+        "providerError": "AI-leverantören svarade med ett fel. Försök igen.",
+        "providerErrorStatus": "AI-leverantören svarade med ett fel (HTTP {status, number, ::group-off}). Försök igen.",
+        "malformed": "AI-leverantören skickade ett svar som inte gick att läsa. Försök igen.",
+        "shape": "AI-leverantören skickade ett svar i en oväntad form. Försök igen.",
+        "failed": "AI-utkastet misslyckades (HTTP {status, number, ::group-off}). Försök igen.",
+        "cancelled": "Begäran avbröts.",
+        "offline": "Det gick inte att nå servern. Kontrollera anslutningen och försök igen.",
+        "unexpected": "Servern skickade ett oväntat svar. Försök igen.",
+        "unknown": "Något gick fel när utkastet skapades. Försök igen."
+      },
+      "questions": {
+        "back": "Tillbaka",
+        "heading": "Först några detaljer",
+        "intro": "Välj det som passar. Det du hoppar över blir en platshållare som du kan fylla i senare.",
+        "fillInByHand": "Fyll i själv i stället",
+        "what": {
+          "ask": "Vad ska deltagarna anmäla sig till?",
+          "askHint": "Välj en eller flera, eller lägg till egna.",
+          "told": "Vad deltagarna anmäler sig till",
+          "toldHint": "Från din beskrivning. Ta bort det som inte passar, eller lägg till egna.",
+          "remove": "Ta bort {item}",
+          "full": "Du kan ha högst {max, number}. Ta bort en för att lägga till en ny.",
+          "addLabel": "Skriv en egen och tryck på Enter",
+          "addYourOwn": "Lägg till egen",
+          "addAnother": "Lägg till fler",
+          "add": "Lägg till"
+        },
+        "when": {
+          "ask": "När är det?",
+          "oneDay": "En dag",
+          "several": "Flera dagar",
+          "notDecided": "Inte bestämt",
+          "date": "Datum",
+          "starts": "Börjar",
+          "ends": "Slutar",
+          "noTime": "Ingen tid",
+          "whichDays": "Vilka dagar?",
+          "whichDaysPlaceholder": "Vilka dagar? Till exempel: varje lördag i maj, 9–11",
+          "notDecidedHint": "Utkastet får platshållare för datumen, som du kan fylla i senare."
+        },
+        "howMany": {
+          "ask": "Hur många personer behöver du?",
+          "hint": "Till varje sak ovan. Lämna en ruta tom för obegränsat antal.",
+          "pickFirst": "Välj eller lägg till något ovan först.",
+          "fewer": "Färre personer till {item}",
+          "people": "Personer till {item}",
+          "noLimit": "Inget tak",
+          "more": "Fler personer till {item}"
+        },
+        "problems": {
+          "noDate": "Ange ett datum, eller lämna tiderna tomma.",
+          "year": "Kontrollera årtalet i datumet.",
+          "timeOrder": "Sluttiden måste vara efter starttiden.",
+          "wholeNumbers": "Ange antalet personer i hela tal."
+        }
+      },
+      "answers": {
+        "what": "Vad: {items}",
+        "item": "{item} ({count, number})",
+        "itemNoLimit": "{item} (inget tak)",
+        "when": "När: {when}",
+        "dayAndTimes": "{day}, {times}",
+        "fromTo": "{from}–{to}",
+        "from": "från {from}",
+        "until": "till {to}"
+      }
+    },
+    "aiDraft": {
+      "title": "Här är ditt utkast med {fields, number} fält och {slots, number} pass",
+      "body": "Ändra det du vill nedan och publicera när du är klar.",
+      "dismiss": "Dölj",
+      "warnings": {
+        "heading": "Några saker att dubbelkolla",
+        "valuesBlanked": "{count, plural, one {{count, number} värde passade inte i sitt fält och lämnades tomt. Fyll i det nedan.} other {{count, number} värden passade inte i sina fält och lämnades tomma. Fyll i dem nedan.}}",
+        "enumFieldsToText": "{count, plural, one {Fältet {fields} hade ingen fast lista med alternativ, så det ändrades till fritext.} other {Fälten {fields} hade ingen fast lista med alternativ, så de ändrades till fritext.}}",
+        "duplicateFields": "{count, plural, one {AI:n försökte lägga till {count, number} fält två gånger, så dubbletten togs bort.} other {AI:n försökte lägga till {count, number} fält två gånger, så dubbletterna togs bort.}}",
+        "strayValues": "{count, plural, one {{count, number} värde hörde inte till något fält och ignorerades.} other {{count, number} värden hörde inte till något fält och ignorerades.}}",
+        "titleCut": "Titeln som AI:n skrev var längre än {max, number} tecken, så slutet klipptes bort. Kontrollera den nedan.",
+        "descriptionCut": "Beskrivningen som AI:n skrev var längre än {max, number} tecken, så slutet klipptes bort. Kontrollera den nedan."
+      }
     }
   }
 }
