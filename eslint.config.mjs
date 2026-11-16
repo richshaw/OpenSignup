@@ -32,6 +32,8 @@ const TRANSLATED = [
   'src/app/app/(chrome)/signups/[id]/build',
   'src/components/build-wysiwyg',
   'src/components/build-shared',
+  // A signup's Responses tab: the table, its empty lines and the remove flow.
+  'src/app/app/(chrome)/signups/[id]/responses',
   // Everything a participant sees under a signup's address: its page, the
   // sign-up sheet, the pages for changing or cancelling a spot and for
   // turning reminders off, both not-found pages, and the copy helpers.

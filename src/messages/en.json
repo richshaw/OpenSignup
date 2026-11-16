@@ -481,6 +481,61 @@
         "capacityBelowTaken": "capacity ({capacity, number, ::group-off}) is less than active quantity ({taken, number, ::group-off})",
         "invalidatesSlotValues": "change would invalidate existing slot values"
       }
+    },
+    "responses": {
+      "summary": {
+        "signUps": "{count, plural, one {{count, number, ::group-off} sign-up} other {{count, number, ::group-off} sign-ups}}",
+        "cancelled": "{count, number, ::group-off} cancelled",
+        "removed": "{count, number, ::group-off} removed"
+      },
+      "downloadCsv": "Download CSV",
+      "empty": {
+        "draft": "Nobody has signed up yet. People can sign up once you publish and share it.",
+        "open": "Nobody has signed up yet. Share the public link to start collecting.",
+        "closed": "Nobody signed up.",
+        "archived": "Nobody signed up. People can’t sign up now."
+      },
+      "table": {
+        "name": "Name",
+        "email": "Email",
+        "slot": "Slot",
+        "spots": "Spots",
+        "status": "Status",
+        "actions": "Actions",
+        "noEmail": "No email",
+        "spotsAfterCount": "{count, plural, one {spot} other {spots}}"
+      },
+      "status": {
+        "confirmed": "confirmed",
+        "tentative": "tentative",
+        "waitlist": "waitlist",
+        "cancelled": "cancelled",
+        "noShow": "no_show",
+        "removed": "removed",
+        "moved": "moved"
+      },
+      "remove": {
+        "button": "Remove",
+        "label": "Remove {name} from {slot}",
+        "labelNoSlot": "Remove {name} from this slot",
+        "question": "{label}? {count, plural, =1 {Their spot opens} other {Their {count, number, ::group-off} spots open}} up for someone else. They won’t get an email about it.",
+        "dialogLabel": "Confirm removal",
+        "keep": "Keep",
+        "confirm": "Yes, remove",
+        "removing": "Removing…",
+        "refusal": {
+          "notFound": "This person is no longer on this signup. Reload to see the latest.",
+          "failed": "Couldn’t remove them. Try again."
+        }
+      },
+      "csv": {
+        "name": "Name",
+        "email": "Email",
+        "status": "Status",
+        "spots": "Spots",
+        "notes": "Notes",
+        "signedUp": "Signed up"
+      }
     }
   }
 }

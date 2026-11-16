@@ -165,5 +165,77 @@ for (const stored of STORED) {
       await expect(refusal).toHaveText(errors('code.forbidden'));
       expect(await languageOf(refusal)).toBe(locale);
     });
+
+    test(`sees the Responses tab, the remove flow and the CSV’s own words in ${locale}`, async ({
+      page,
+    }) => {
+      const responses = messagesIn(locale, 'organizer.responses');
+      // Someone signs up, from an address of their own (RFC 5737), so the
+      // per-IP limit every other spec's sign-ups share doesn't count it. A
+      // name of its own, so a retry finds its own row.
+      const who = `Robin ${Date.now()}`;
+      const committed = await page.request.post(`/api/slots/${organizer.open.slotId}/commitments`, {
+        headers: { 'x-forwarded-for': '203.0.113.82' },
+        data: { name: who, email: `robin+${Date.now()}@example.test`, quantity: 1 },
+      });
+      expect(committed.ok()).toBe(true);
+
+      await page.goto(`/app/signups/${organizer.open.id}/responses`);
+      const table = page.getByRole('table');
+      expect(await languageOf(table), unshippedHint).toBe(locale);
+      for (const heading of ['name', 'email', 'slot', 'status', 'actions'] as const) {
+        await expect(
+          table.getByRole('columnheader', { name: responses(`table.${heading}`), exact: true }),
+        ).toBeAttached();
+      }
+      await expect(page.getByRole('link', { name: responses('downloadCsv') })).toBeVisible();
+      const row = table.getByRole('row').filter({ hasText: who });
+      await expect(
+        row.getByRole('cell', { name: responses('status.confirmed'), exact: true }),
+      ).toBeVisible();
+
+      // Remove, its question, Keep, then Yes.
+      const label = responses('remove.label', { name: who, slot: 'Cookies' });
+      const remove = row.getByRole('button', { name: label, exact: true });
+      await expect(remove).toHaveText(responses('remove.button'));
+      await remove.click();
+      const confirm = page.getByRole('alertdialog', { name: responses('remove.dialogLabel') });
+      await expect(confirm).toHaveAccessibleDescription(
+        responses('remove.question', { label, count: 1 }),
+      );
+      await confirm.getByRole('button', { name: responses('remove.keep') }).click();
+      await expect(confirm).toHaveCount(0);
+      await remove.click();
+      await confirm.getByRole('button', { name: responses('remove.confirm') }).click();
+      await expect(
+        row.getByRole('cell', { name: responses('status.removed'), exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText(
+          `${responses('summary.signUps', { count: 0 })} · ${responses('summary.removed', { count: 1 })}`,
+        ),
+      ).toBeVisible();
+
+      // The CSV's column names and statuses come in the organizer's language,
+      // whatever the browser asks for. The signup's own column names stay.
+      const csv = await page.request.get(`/api/signups/${organizer.open.id}/export.csv`, {
+        headers: { 'accept-language': locale === 'en' ? 'sv' : 'en' },
+      });
+      expect(csv.ok()).toBe(true);
+      const lines = (await csv.text()).replace(/^\uFEFF/, '').split('\n');
+      expect(lines[0]?.split(',')).toEqual([
+        'What',
+        'Date',
+        responses('csv.name'),
+        responses('csv.email'),
+        responses('csv.status'),
+        responses('csv.spots'),
+        responses('csv.notes'),
+        responses('csv.signedUp'),
+      ]);
+      const robin = lines.find((line) => line.includes(who));
+      expect(robin?.split(',')[0]).toBe('Cookies');
+      expect(robin?.split(',')[4]).toBe(responses('status.removed'));
+    });
   });
 }

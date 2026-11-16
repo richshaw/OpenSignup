@@ -37,6 +37,8 @@ const TRANSLATED_FILES = [
   'src/components/build-wysiwyg/WysiwygSlot.tsx',
   'src/components/build-shared/SaveStatus.tsx',
   'src/components/build-shared/TimeSelect.tsx',
+  'src/app/app/(chrome)/signups/[id]/responses/page.tsx',
+  'src/app/app/(chrome)/signups/[id]/responses/remove-commitment-form.tsx',
   'src/app/s/[slug]/page.tsx',
   'src/app/s/[slug]/signup-view.tsx',
   'src/app/s/[slug]/state-message.tsx',

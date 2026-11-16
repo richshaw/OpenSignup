@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
+import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { getServerTranslator } from '@/i18n/server';
 import { refusalAsResult } from '@/lib/errors';
 import { requireWorkspaceWrite } from '@/lib/policy';
 import {
@@ -168,20 +170,28 @@ export async function setSignupLocaleAction(signupId: string, formData: FormData
  * The Responses tab's Remove. Once the person is off the slot, revalidates the
  * signup's pages, so the row re-renders as removed, and returns null. A
  * refusal (a viewer's role, a signup deleted meanwhile) returns what to tell
- * the organizer, by its code (`removeRefusal`), and revalidates nothing: the
- * page stays as it is, so the confirmation stays open to show it. After a
- * delete, a revalidate would swap the page for "signup not found" and the
- * message would never be seen.
+ * the organizer, by its code (`removeRefusal`), in their language, and
+ * revalidates nothing: the page stays as it is, so the confirmation stays open
+ * to show it. After a delete, a revalidate would swap the page for "signup not
+ * found" and the message would never be seen.
  */
 export async function removeCommitmentAction(
   signupId: string,
   commitmentId: string,
 ): Promise<{ error: string } | null> {
-  const actor = await requireActor();
+  const session = await requireOrganizerSession();
   const result = await refusalAsResult(() =>
-    removeCommitment(getDb(), actor, commitmentId, signupId),
+    removeCommitment(getDb(), toActor(session), commitmentId, signupId),
   );
-  if (!result.ok) return { error: removeRefusal(result.error.code) };
+  if (!result.ok) {
+    const locale = getOrganizerAppLocale(session);
+    return {
+      error: removeRefusal(result.error.code, {
+        responses: getServerTranslator(locale, 'organizer.responses'),
+        errors: getServerTranslator(locale, 'organizer.errors'),
+      }),
+    };
+  }
   // The public page and the edit link are dynamic, so they read the change on
   // their next request.
   revalidateSignup(signupId);
