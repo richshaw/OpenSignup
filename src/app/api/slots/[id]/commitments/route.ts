@@ -4,7 +4,7 @@ import { fail, handle, ok, readJson } from '@/lib/api-response';
 import { rememberNewCommitment } from '@/lib/returning-participant';
 import { commitmentLinks } from '@/lib/links';
 import { notifyCommitmentCreated } from '@/email/notify';
-import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
+import { consumeRateLimit, ipSubject, RateLimits } from '@/lib/rate-limit';
 import { normalizeEmail } from '@/schemas/common';
 import { commitToSlot } from '@/services/commitments';
 import { extractClientIp } from '@/auth/request-context';
@@ -13,8 +13,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   return handle(async () => {
     const { id: slotId } = await ctx.params;
     const db = getDb();
-    const clientIp = extractClientIp(req.headers);
-    await consumeRateLimit(db, RateLimits.commitmentPerIp, clientIp ?? 'unknown');
+    await consumeRateLimit(db, RateLimits.commitmentPerIp, ipSubject(extractClientIp(req.headers)));
     const body = await readJson(req);
     // Per-address limit as well as per-IP, consumed before commitToSlot so a
     // rejected request never reaches the send. The address is unverified and
