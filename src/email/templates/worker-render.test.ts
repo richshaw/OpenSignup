@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 
 const run = promisify(execFile);
 
@@ -52,21 +53,25 @@ describe('email templates under the worker toolchain', () => {
       ['exec', 'tsx', ...flags, 'scripts/render-email-templates.ts'],
       { cwd: repoRoot },
     );
-    // Each participant email in English and in Swedish, and the sign-in email
-    // in each language with a catalog, from the catalogs the worker loads: a
-    // catalog missing from its path, or a message missing from one, leaves
-    // text out and fails the run.
+    // Each participant email and the sign-in email in English and in every
+    // test language, from the catalogs the worker loads: a catalog missing
+    // from its path fails the run. A message missing from a test language's
+    // catalog comes out in English, in the email and in what it must say
+    // alike, as it would be sent; the catalog check (src/i18n/catalogs.test.ts)
+    // requires every message once the language ships.
+    const participantEmails = [
+      'commitment-confirmation',
+      'reminder',
+      'reminder-changed',
+      'slot-changed',
+    ];
     expect(stdout.trim().split('\n')).toEqual([
       'ok magic-link',
-      'ok commitment-confirmation',
-      'ok reminder',
-      'ok reminder-changed',
-      'ok slot-changed',
-      'ok commitment-confirmation-sv',
-      'ok reminder-sv',
-      'ok reminder-changed-sv',
-      'ok slot-changed-sv',
-      'ok magic-link-sv',
+      ...participantEmails.map((name) => `ok ${name}`),
+      ...TEST_LOCALES.flatMap((locale) => [
+        ...participantEmails.map((name) => `ok ${name}-${locale}`),
+        `ok magic-link-${locale}`,
+      ]),
     ]);
   }, 60_000);
 

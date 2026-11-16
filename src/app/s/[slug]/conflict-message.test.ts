@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { conflictMessage } from './conflict-message';
 
 const t = getTestTranslator('participant.errors');
-const sv = getStandInTranslator('sv', 'participant.errors');
+const other = getStandInTranslator(OTHER_LOCALE, 'participant.errors');
 
 // What `commitToSlot` sends for a second sign-up by the same email.
 const alreadyCommitted = {
@@ -47,13 +48,13 @@ describe('conflictMessage', () => {
   });
 
   it('takes its lines from the translator it is given', () => {
-    expect(conflictMessage(alreadyCommitted, 'join', sv)).toStrictEqual({
-      message: 'participant.errors.conflict.message in sv',
-      suggestion: 'participant.errors.conflict.suggestion in sv',
+    expect(conflictMessage(alreadyCommitted, 'join', other)).toStrictEqual({
+      message: `participant.errors.conflict.message in ${OTHER_LOCALE}`,
+      suggestion: `participant.errors.conflict.suggestion in ${OTHER_LOCALE}`,
     });
-    expect(conflictMessage(badToken, 'change', sv)).toStrictEqual({
-      message: 'participant.errors.conflict.change in sv',
-      suggestion: 'participant.errors.gone.suggestion in sv',
+    expect(conflictMessage(badToken, 'change', other)).toStrictEqual({
+      message: `participant.errors.conflict.change in ${OTHER_LOCALE}`,
+      suggestion: `participant.errors.gone.suggestion in ${OTHER_LOCALE}`,
     });
   });
 

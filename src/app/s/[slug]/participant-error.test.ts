@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { getTranslator } from '@/i18n/translator';
 import { closedMessage } from './closed-message';
@@ -140,8 +141,8 @@ describe('participantErrorCopy', () => {
   // The same code runs in the dialog and on the edit page, each with the
   // translator its page's language gives it.
   it('hands the translator it is given to every helper', () => {
-    const standIn = getStandInTranslator('sv', 'participant.errors');
-    const say = (key: string) => `participant.errors.${key} in sv`;
+    const standIn = getStandInTranslator(OTHER_LOCALE, 'participant.errors');
+    const say = (key: string) => `participant.errors.${key} in ${OTHER_LOCALE}`;
     const capacity = { code: 'capacity_full', details: { remaining: 2, requested: 3 } };
     const longName = { code: 'invalid_input', details: { reason: 'name_too_long' } };
     expect(participantErrorCopy(capacity, 'join', standIn).message).toBe(say('capacity.onlyLeft'));

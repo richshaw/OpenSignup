@@ -2,8 +2,9 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { NOT_FOUND_PAGE } from '@/app/not-found-message';
 import { loginAsSeededOrganizer } from './helpers/auth';
+import { englishName, TEST_LOCALES } from '@/i18n/testing/locales';
 import { loadSeed } from './helpers/fixtures';
-import { gotoSwedish } from './helpers/swedish';
+import { gotoIn, messagesIn } from './helpers/languages';
 
 const seed = loadSeed();
 
@@ -25,24 +26,29 @@ test.describe('accessibility', () => {
     ).toEqual([]);
   });
 
-  // In Swedish, the page's language is on <html> and <main>, and longer
-  // words go in the same boxes.
-  test('the Swedish test signup’s page has no WCAG A/AA violations', async ({ page }) => {
-    await gotoSwedish(page, `/s/${seed.swedish.slug}`);
-    await expect(page.getByRole('heading', { name: seed.swedish.title })).toBeVisible();
+  // In a test language, the page's language is on <html> and <main>, and
+  // longer words go in the same boxes.
+  for (const locale of TEST_LOCALES) {
+    const { open } = seed.languages[locale];
+    test(`the ${englishName(locale)} test signup’s page has no WCAG A/AA violations`, async ({
+      page,
+    }) => {
+      await gotoIn(page, locale, `/s/${open.slug}`);
+      await expect(page.getByRole('heading', { name: open.title })).toBeVisible();
 
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-      .analyze();
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
 
-    expect(
-      results.violations.map((v) => ({
-        id: v.id,
-        impact: v.impact,
-        nodes: v.nodes.map((n) => n.target),
-      })),
-    ).toEqual([]);
-  });
+      expect(
+        results.violations.map((v) => ({
+          id: v.id,
+          impact: v.impact,
+          nodes: v.nodes.map((n) => n.target),
+        })),
+      ).toEqual([]);
+    });
+  }
 
   // Rendered outside every layout (src/app/global-not-found.tsx), so nothing
   // but the page itself gives it a `lang`.
@@ -63,14 +69,14 @@ test.describe('accessibility', () => {
     ).toEqual([]);
   });
 
-  for (const { name, slug, slotLabel, signUp, yourName, swedish } of [
+  for (const { name, slug, slotLabel, signUp, yourName, locale } of [
     {
       name: 'commit dialog',
       slug: seed.publicSlug,
       slotLabel: seed.openSlotLabel,
       signUp: 'Sign up',
       yourName: 'Your name',
-      swedish: false,
+      locale: null,
     },
     {
       name: 'commit dialog with the email optional',
@@ -78,20 +84,20 @@ test.describe('accessibility', () => {
       slotLabel: seed.optionalEmailSlotLabel,
       signUp: 'Sign up',
       yourName: 'Your name',
-      swedish: false,
+      locale: null,
     },
-    {
-      // Email optional too, and asking how many spots.
-      name: 'commit dialog on the Swedish test signup',
-      slug: seed.swedish.slug,
-      slotLabel: seed.swedish.slots.many,
-      signUp: 'Anmäl dig',
-      yourName: 'Ditt namn',
-      swedish: true,
-    },
+    // Email optional too, and asking how many spots.
+    ...TEST_LOCALES.map((locale) => ({
+      name: `commit dialog on the ${englishName(locale)} test signup`,
+      slug: seed.languages[locale].open.slug,
+      slotLabel: seed.languages[locale].open.slots.many,
+      signUp: messagesIn(locale, 'participant.dialog')('signUp'),
+      yourName: messagesIn(locale, 'participant.fields')('name'),
+      locale,
+    })),
   ]) {
     test(`${name} has no WCAG A/AA violations`, async ({ page }) => {
-      if (swedish) await gotoSwedish(page, `/s/${slug}`);
+      if (locale) await gotoIn(page, locale, `/s/${slug}`);
       else await page.goto(`/s/${slug}`);
       const row = page.locator('li').filter({ hasText: slotLabel });
       await row.getByRole('button', { name: signUp }).click();
@@ -111,24 +117,30 @@ test.describe('accessibility', () => {
     });
   }
 
-  // A sign-up's own pages, in English and in the Swedish test signup's
-  // language, which the whole page takes, from <html lang> to the footer.
-  for (const { name, path, swedish } of [
+  // A sign-up's own pages, in English and in each test signup's language,
+  // which the whole page takes, from <html lang> to the footer.
+  for (const { name, path, locale } of [
     {
       name: 'an edit page',
       path: `/s/${seed.editSlug}/c/${seed.editCommitmentId}?token=${seed.editToken}`,
-      swedish: false,
+      locale: null,
     },
-    { name: 'the Swedish test signup’s edit page', path: seed.swedish.editPath, swedish: true },
-    { name: 'an unsubscribe page', path: `/s/${seed.publicSlug}/unsubscribe`, swedish: false },
-    {
-      name: 'the Swedish test signup’s unsubscribe page',
-      path: seed.swedish.unsubscribePath,
-      swedish: true,
-    },
+    { name: 'an unsubscribe page', path: `/s/${seed.publicSlug}/unsubscribe`, locale: null },
+    ...TEST_LOCALES.flatMap((locale) => [
+      {
+        name: `the ${englishName(locale)} test signup’s edit page`,
+        path: seed.languages[locale].open.editPath,
+        locale,
+      },
+      {
+        name: `the ${englishName(locale)} test signup’s unsubscribe page`,
+        path: seed.languages[locale].open.unsubscribePath,
+        locale,
+      },
+    ]),
   ]) {
     test(`${name} has no WCAG A/AA violations`, async ({ page }) => {
-      if (swedish) await gotoSwedish(page, path);
+      if (locale) await gotoIn(page, locale, path);
       else await page.goto(path);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
