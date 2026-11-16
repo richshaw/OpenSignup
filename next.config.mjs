@@ -46,6 +46,15 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  experimental: {
+    // An address no page matches gets src/app/global-not-found.tsx. The app
+    // has three root layouts (src/app/root-shell.tsx says why) and none above
+    // them, so without this Next's built-in 404 renders in a bare document
+    // with no `<html lang>`. If the flag goes away, a
+    // `src/app/(site)/[...missing]/page.tsx` that calls `notFound()` with a
+    // `(site)/not-found.tsx` does the same job.
+    globalNotFound: true,
+  },
   // Turn off the image optimizer. With it on, `/_next/image` is a public
   // endpoint that decodes and resizes images with sharp (libvips) for anyone
   // who asks, and nothing here uses it: the help screenshots are already

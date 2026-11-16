@@ -48,8 +48,9 @@ describe('login codes', () => {
     if (!expired.ok) expect(expired.error.code).toBe('already_consumed');
   });
 
-  // The sign-in page words each refusal from its reason (src/app/login/code-refusal.ts),
-  // and the English message stays for anyone reading the error itself.
+  // The sign-in page words each refusal from its reason
+  // (src/app/(organizer)/login/code-refusal.ts), and the English message stays
+  // for anyone reading the error itself.
   it('names each refusal’s case in details.reason, with its English message', async () => {
     const reasonOf = async (email: string, code: string) => {
       const result = await redeemLoginCode(db, { email, code });

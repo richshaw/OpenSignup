@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { connectedAppsLines } from '@/app/app/(chrome)/settings/connected-apps/refusal-lines';
-import { removeRefusal } from '@/app/app/(chrome)/signups/[id]/responses/remove-refusal';
-import { statusRefusal } from '@/app/app/(chrome)/signups/[id]/status-refusal';
+import { connectedAppsLines } from '@/app/(organizer)/app/(chrome)/settings/connected-apps/refusal-lines';
+import { removeRefusal } from '@/app/(organizer)/app/(chrome)/signups/[id]/responses/remove-refusal';
+import { statusRefusal } from '@/app/(organizer)/app/(chrome)/signups/[id]/status-refusal';
 import { inputMessage } from '@/app/s/[slug]/input-message';
 import { saveErrorMessage } from '@/components/build-shared/save-error-message';
 import { explainDraftFailure } from '@/components/magic-compose/draft-errors';

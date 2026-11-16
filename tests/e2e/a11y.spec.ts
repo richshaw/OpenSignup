@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { NOT_FOUND_PAGE } from '@/app/not-found-message';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { loadSeed } from './helpers/fixtures';
 import { gotoSwedish } from './helpers/swedish';
@@ -29,6 +30,25 @@ test.describe('accessibility', () => {
   test('the Swedish test signup’s page has no WCAG A/AA violations', async ({ page }) => {
     await gotoSwedish(page, `/s/${seed.swedish.slug}`);
     await expect(page.getByRole('heading', { name: seed.swedish.title })).toBeVisible();
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    expect(
+      results.violations.map((v) => ({
+        id: v.id,
+        impact: v.impact,
+        nodes: v.nodes.map((n) => n.target),
+      })),
+    ).toEqual([]);
+  });
+
+  // Rendered outside every layout (src/app/global-not-found.tsx), so nothing
+  // but the page itself gives it a `lang`.
+  test("the site's 404 has no WCAG A/AA violations", async ({ page }) => {
+    await page.goto('/no-such-page');
+    await expect(page.getByRole('heading', { name: NOT_FOUND_PAGE.title })).toBeVisible();
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
