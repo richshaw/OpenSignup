@@ -470,12 +470,12 @@ describe('signups service (db)', () => {
         fx.actor,
         fx.workspaceId,
         { ...validCreateInput('Chosen locale'), settings: { locale: 'en' } },
-        { localeSource: 'browser' },
+        { localeSource: 'instance' },
       );
       if (!r.ok) throw new Error('setup failed');
       expect(await createdPayload(r.value.id)).toMatchObject({
         locale: 'en',
-        localeSource: 'browser',
+        localeSource: 'instance',
       });
     });
 

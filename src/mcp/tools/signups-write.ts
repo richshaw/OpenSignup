@@ -60,11 +60,10 @@ export const createSignupTool = defineTool({
     await consumeRateLimit(ctx.db, RateLimits.signupCreatePerOrganizer, ctx.actor.id);
     // The language the assistant sent (`api`), else the organizer's, chosen as
     // for a signup made in the browser (none while only one language has
-    // shipped) but with no browser step: an assistant's Accept-Language names
-    // its vendor's language, not the organizer's.
+    // shipped).
     const language =
       sent.value === undefined
-        ? newSignupLocale({ locale: ctx.locale }, null)
+        ? newSignupLocale({ locale: ctx.locale })
         : { locale: sent.value, source: 'api' as const };
     const persisted = await persistDraft(ctx.db, ctx.actor, ws.value, draft, {
       templateId: 'mcp',

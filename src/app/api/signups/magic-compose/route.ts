@@ -171,9 +171,8 @@ export async function POST(req: NextRequest) {
     // for participants, to write in when the description is too short or too
     // mixed to tell its own. Always one that has shipped, so English while
     // only English has.
-    const acceptLanguage = req.headers.get('accept-language');
     const context: PromptContext = {
-      fallbackLocale: getOrganizerLocale(session, acceptLanguage, 'participant').locale,
+      fallbackLocale: getOrganizerLocale(session, 'participant').locale,
     };
     const client = defaultLlmClient();
     // One time budget for the whole request: a retry gets what the first call
@@ -354,7 +353,7 @@ export async function POST(req: NextRequest) {
 
     // The signup starts in the organizer's language, as one made by hand
     // does: none while only one language has shipped.
-    const language = newSignupLocale(session, acceptLanguage);
+    const language = newSignupLocale(session);
     const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, draft.data, {
       logContext: { promptLength: userPrompt.length },
       ...(language ? { locale: language } : {}),

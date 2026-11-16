@@ -20,8 +20,9 @@ vi.mock('@/auth/session', () => ({
   requireOrganizerSession: async () => ({ locale: session.locale }),
   toActor: () => session.actor,
 }));
-// No browser language: the organizer's is the one they saved, else English.
-vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
+// Nothing from the request: next/headers isn't mocked, so an action that read
+// it would throw here, outside any request. The organizer's language is the
+// one stored on their account, else the instance's, else English.
 
 // Next's redirect() throws to end the action; this one throws the address.
 class Redirected extends Error {
