@@ -23,7 +23,7 @@ import { MagicLinkEmail } from '@/email/templates/magic-link';
 import { ReminderEmail, type ReminderEmailProps } from '@/email/templates/reminder';
 import { SlotChangedEmail, type SlotChangedEmailProps } from '@/email/templates/slot-changed';
 import { formatDuration } from '@/lib/format-duration';
-import { formatSlotDate } from '@/lib/slot-label';
+import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
 
 export interface EmailSample {
   name: string;
@@ -95,6 +95,12 @@ function signIn(locale: CatalogLocale): EmailSample {
   };
 }
 
+/**
+ * The English confirmation's time as the app prints it ("9:00 AM"), as the
+ * Swedish samples' dates are below, so its text and subject read as sent.
+ */
+const nineAm = formatSlotTime('09:00', 'en') ?? '';
+
 /** The Swedish samples' signup, slot and participant. */
 const swedish = {
   locale: 'sv',
@@ -123,10 +129,10 @@ export const emailSamples: readonly EmailSample[] = [
       manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
       slotDetails: [
         { label: 'Date', value: 'Sat, Sep 5' },
-        { label: 'Time', value: '09:00' },
+        { label: 'Time', value: nineAm },
         { label: 'Snack', value: 'Fruit' },
       ],
-      slotSummary: 'Sat, Sep 5 · 09:00 · Fruit',
+      slotSummary: `Sat, Sep 5 · ${nineAm} · Fruit`,
       notes: 'Bringing grapes',
       quantity: 2,
       promisesReminder: true,
@@ -210,9 +216,9 @@ export const emailSamples: readonly EmailSample[] = [
     }),
     expect: [
       'Tack Dana, du har anmält dig till',
-      'Platser:',
+      'Antal platser:',
       'Din kommentar:',
-      'Visa eller ändra din plats',
+      'Visa eller ändra din anmälan',
       'Vi skickar också en påminnelse dagen innan.',
     ],
     lang: 'sv',
@@ -247,7 +253,11 @@ export const emailSamples: readonly EmailSample[] = [
       slotSummary: `${sunday} · Frukt`,
       changed: true,
     }),
-    expect: ['sön 6 sep.', 'arrangören har ändrat ditt pass i', 'Här är de nya uppgifterna.'],
+    expect: [
+      'sön 6 sep.',
+      'har flyttat din anmälan till en ny tid sedan vi mejlade dig senast',
+      'Här är de nya uppgifterna.',
+    ],
     lang: 'sv',
   },
   {
@@ -264,7 +274,7 @@ export const emailSamples: readonly EmailSample[] = [
     }),
     expect: [
       'sön 6 sep.',
-      'har flyttat ditt pass till ett nytt datum eller en ny tid',
+      'har flyttat din anmälan till ett nytt datum eller en ny tid',
       'Stäng av påminnelser och uppdateringar om Lördagsfika',
     ],
     lang: 'sv',
