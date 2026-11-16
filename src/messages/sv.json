@@ -224,7 +224,7 @@
       "turnedOn": {
         "title": "Påminnelserna är påslagna igen",
         "body": "Du får påminnelser om <b>{title}</b> igen, och mejl när datum eller tid ändras. Du kan stänga av dem när som helst via länken i något av mejlen.",
-        "bodyWithEmail": "Du får påminnelser om <b>{title}</b> till {email} igen, och mejl när datum eller tid ändras. Du kan stänga av dem när som helst via länken i något av mejlen."
+        "bodyWithEmail": "Du får påminnelser om <b>{title}</b> igen, skickade till {email}, och mejl när datum eller tid ändras. Du kan stänga av dem när som helst via länken i något av mejlen."
       },
       "back": "Tillbaka till anmälningslistan"
     },

@@ -981,8 +981,8 @@ each with what was done.
 
 ### Settled after the owner's walkthrough
 
-The owner's tophat of the whole stack, on 15 November 2026, and the
-follow-ups to it settled these.
+The owner's tophat of the whole stack, on 15 November 2026, the follow-ups
+to it and the launch's translation review (#1019) settled these.
 
 1. **Short forms of _anmälningslista_ only where the whole word doesn't
    fit.** Organizer text keeps two, the button and crumb "Ny lista" and New
@@ -1010,6 +1010,14 @@ follow-ups to it settled these.
    text. The owner chose this over a shorter word: "Inget tak" fitted, but
    reads as "no ceiling". The Build tab's Spots box was widened for the same
    word (#999).
+6. **"Try again" is "Försök igen."**, except after a sentence that already
+   ends on _igen_, where it's "Försök en gång till.", so the word doesn't
+   come twice in a row: "Vi kunde inte slå på dina påminnelser igen. Försök
+   en gång till." (`participant.unsubscribe.turnOnFailed`) and "Det gick inte
+   att öppna anmälan igen. Försök en gång till."
+   (`organizer.signup.refusal.reopenFailed`). The _igen_ there is the
+   glossary's own ("Slå på påminnelserna igen", "Öppna anmälan igen"), so
+   it stays.
 
 ### Open questions
 
