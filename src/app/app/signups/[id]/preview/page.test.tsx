@@ -1,17 +1,24 @@
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CATALOG_LOCALES } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
 import { ServiceException, serviceError } from '@/lib/errors';
 import { ok } from '@/lib/result';
 
 const getSignupForOrganizer = vi.fn();
 const committedBySlot = vi.fn();
+/** The language stored on the signed-in organizer's account. */
+const organizer = vi.hoisted(() => ({ locale: null as string | null }));
 
 vi.mock('next/server', () => ({ after: vi.fn() }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) }));
 vi.mock('@/auth/session', () => ({
   getOrganizerSession: async () => ({ organizerId: 'org_1', email: 'pat@example.com' }),
-  requireOrganizerSession: async () => ({ organizerId: 'org_1', email: 'pat@example.com' }),
+  requireOrganizerSession: async () => ({
+    organizerId: 'org_1',
+    email: 'pat@example.com',
+    locale: organizer.locale,
+  }),
   toActor: () => ({ kind: 'organizer', organizerId: 'org_1' }),
 }));
 vi.mock('@/auth/sign-out', () => ({ signOutOrganizer: vi.fn() }));
@@ -44,11 +51,19 @@ const signup = {
   ],
 };
 
-type ViewProps = { slots: { id: string; committed: number }[]; locale: string };
+type ViewProps = {
+  slots: { id: string; committed: number }[];
+  locale: string;
+  organizerLocale: string;
+};
+
+/** Every language with a catalog besides English, each tried in turn. */
+const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 type PreviewPage = ReactElement<{ lang?: string; children: ReactElement<ViewProps> }>;
 
 describe('organizer preview page', () => {
   beforeEach(() => {
+    organizer.locale = null;
     getSignupForOrganizer.mockReset();
     getSignupForOrganizer.mockResolvedValue(ok(signup));
     committedBySlot.mockReset();
@@ -88,6 +103,28 @@ describe('organizer preview page', () => {
 
     expect(page.props.lang).toBe('en');
     expect(page.props.children.props.locale).toBe('en');
+  });
+
+  // The Preview banner over the view is the organizer's, whatever the signup's.
+  it.each(OTHER_LANGUAGES)(
+    'gives the Preview banner the organizer’s language, %s, over an English signup',
+    async (other) => {
+      ship('organizer', ['en', other]);
+      organizer.locale = other;
+      const page = (await SignupPreviewPage({
+        params: Promise.resolve({ id: 'sig_1' }),
+      })) as PreviewPage;
+
+      expect(page.props.lang).toBe('en');
+      expect(page.props.children.props.organizerLocale).toBe(other);
+    },
+  );
+
+  it('gives the Preview banner English for an organizer with no language stored', async () => {
+    const page = (await SignupPreviewPage({
+      params: Promise.resolve({ id: 'sig_1' }),
+    })) as PreviewPage;
+    expect(page.props.children.props.organizerLocale).toBe('en');
   });
 
   it('shows the not-found card for a signup in a workspace the organizer is not in', async () => {

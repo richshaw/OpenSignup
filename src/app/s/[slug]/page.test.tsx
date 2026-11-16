@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
+import { CATALOG_LOCALES } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
 import { serviceError } from '@/lib/errors';
 import { err, ok } from '@/lib/result';
@@ -18,6 +19,8 @@ const request = vi.hoisted(() => ({
   row: null as Record<string, unknown> | null,
   instanceDefault: undefined as string | undefined,
   actor: { kind: 'anonymous' } as Record<string, unknown>,
+  /** The language stored on the signed-in organizer's account. */
+  organizerLocale: null as string | null,
 }));
 // English from the catalog; Swedish answers each key with where it was asked
 // for ("participant.signupPage.title in sv"), so a test sees which text is
@@ -63,7 +66,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 vi.mock('@/auth/session', () => ({
-  getOrganizerSession: async () => (request.actor.kind === 'organizer' ? {} : null),
+  getOrganizerSession: async () =>
+    request.actor.kind === 'organizer' ? { locale: request.organizerLocale } : null,
   toActor: () => request.actor,
 }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) }));
@@ -119,8 +123,12 @@ afterEach(() => {
   request.row = null;
   request.instanceDefault = undefined;
   request.actor = { kind: 'anonymous' };
+  request.organizerLocale = null;
   vi.mocked(findDraftForOrganizer).mockReset();
 });
+
+/** Every language with a catalog besides English, each tried in turn. */
+const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 describe('the public signup page, in its signup’s language', () => {
   it('reads a Swedish signup’s dates in Swedish, and marks the page so', async () => {
@@ -228,6 +236,44 @@ describe('the organizer’s own text on the public signup page', () => {
       ),
     ).toBeInTheDocument();
   });
+
+  // The stand-in translator answers in any language but English with where
+  // the text was asked for, so these see which text is in the organizer's.
+  it.each(OTHER_LANGUAGES)(
+    'tells a draft’s own organizer about it in theirs, %s, marked so',
+    async (other) => {
+      ship('organizer', ['en', other]);
+      signInItsOrganizer();
+      request.organizerLocale = other;
+      vi.mocked(findDraftForOrganizer).mockResolvedValue(ok({ id: 'sig_1' }) as never);
+      storeSignup({ status: 'draft' });
+      await renderPage();
+      const own = (key: string) => `organizer.publicPage.ownDraft.${key} in ${other}`;
+      expect(screen.getByRole('main')).toHaveAttribute('lang', other);
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(own('title'));
+      expect(screen.getByText(own('body'))).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: own('open') })).toHaveAttribute(
+        'href',
+        '/app/signups/sig_1/build',
+      );
+    },
+  );
+
+  it.each(OTHER_LANGUAGES)(
+    'puts the strip in its organizer’s language, %s, over an English signup',
+    async (other) => {
+      ship('organizer', ['en', other]);
+      signInItsOrganizer();
+      request.organizerLocale = other;
+      storeSignup({});
+      await renderPage();
+      const strip = screen.getByRole('navigation', {
+        name: `organizer.publicPage.strip.label in ${other}`,
+      });
+      expect(strip).toHaveAttribute('lang', other);
+      expect(screen.getByRole('main')).toHaveAttribute('lang', 'en');
+    },
+  );
 
   it('keeps the organizer strip in English over a Swedish signup, marked so', async () => {
     ship('participant', ['en', 'sv']);

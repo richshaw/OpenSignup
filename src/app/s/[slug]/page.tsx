@@ -4,7 +4,8 @@ import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
-import { openGraphLocale, signupLocale } from '@/i18n/config';
+import { type CatalogLocale, openGraphLocale, signupLocale } from '@/i18n/config';
+import { getOrganizerAppLocale } from '@/i18n/organizer';
 import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
 import { ServiceException } from '@/lib/errors';
 import { commitmentEditUrl } from '@/lib/links';
@@ -63,16 +64,18 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
 
 /**
  * The draft's id when the signed-in organizer is a member of its workspace,
- * so its own organizer gets a note and a way back to it; null for everyone
- * else, who sees the visitor message. Only the draft branch asks, so an open
- * signup's page never pays for this read.
+ * with the organizer app's language for them (`getOrganizerAppLocale`), so
+ * its own organizer gets a note in their language and a way back to it; null
+ * for everyone else, who sees the visitor message. Only the draft branch
+ * asks, so an open signup's page never pays for this read.
  */
-async function ownDraftId(slug: string): Promise<string | null> {
-  const actor = toActor(await getOrganizerSession());
-  if (actor.kind !== 'organizer') return null;
+async function ownDraft(slug: string): Promise<{ id: string; locale: CatalogLocale } | null> {
+  const session = await getOrganizerSession();
+  const actor = toActor(session);
+  if (!session || actor.kind !== 'organizer') return null;
   try {
     const found = await findDraftForOrganizer(getDb(), actor, slug);
-    return found.ok ? found.value.id : null;
+    return found.ok ? { id: found.value.id, locale: getOrganizerAppLocale(session) } : null;
   } catch (e) {
     // Another workspace's draft: the guard refuses, and they're a visitor here.
     if (e instanceof ServiceException) return null;
@@ -98,18 +101,18 @@ export default async function PublicSignupPage({ params }: PageParams) {
           />
         );
       }
-      const draftId = await ownDraftId(slug);
-      if (draftId) {
-        // Its own organizer's note: organizer text, so English until the
-        // organizer app has other languages, and marked so. It quotes the
-        // title visitors see, in the signup's language.
-        const own = getServerTranslator('en', 'organizer.publicPage.ownDraft');
+      const draft = await ownDraft(slug);
+      if (draft) {
+        // Its own organizer's note: organizer text, so in the organizer
+        // app's language for them, and marked so. It quotes the title
+        // visitors see, in the signup's language.
+        const own = getServerTranslator(draft.locale, 'organizer.publicPage.ownDraft');
         return (
           <SignupStateMessage
-            locale="en"
+            locale={draft.locale}
             title={own('title')}
             body={own('body', { title: t('draft.title') })}
-            action={{ label: own('open'), href: `/app/signups/${draftId}/build` }}
+            action={{ label: own('open'), href: `/app/signups/${draft.id}/build` }}
           />
         );
       }
@@ -139,6 +142,12 @@ export default async function PublicSignupPage({ params }: PageParams) {
     getOrganizerSession(),
   ]);
   const organizerSignupId = organizerBarSignupId(toActor(session), sig);
+  // The strip is the organizer's, in the organizer app's language for them:
+  // from the session just read, so it costs no statement.
+  const strip =
+    session && organizerSignupId ? (
+      <OrganizerStrip signupId={organizerSignupId} locale={getOrganizerAppLocale(session)} />
+    ) : null;
   const tokenById = new Map(candidates.map((c) => [c.commitmentId, c.token]));
   const ownCommitments = found.map((c) => ({
     slotId: c.slotId,
@@ -156,7 +165,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
   // what participants see.
   return (
     <>
-      {organizerSignupId ? <OrganizerStrip signupId={organizerSignupId} /> : null}
+      {strip}
       <main lang={locale} className="flex min-h-[100svh] flex-col pb-24 pt-10 sm:pt-14">
         {/* Brand mark only. The old "· Public signup" segment told participants
           nothing actionable — they arrive from a shared link, and the title and

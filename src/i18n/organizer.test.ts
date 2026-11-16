@@ -6,13 +6,43 @@ import { ship } from './testing/ship';
 const env = vi.hoisted(() => ({ DEFAULT_LOCALE: undefined as string | undefined }));
 vi.mock('@/lib/env', () => ({ getEnv: () => env }));
 
-const { getOrganizerLocale, newSignupLocale } = await import('./organizer');
+const { getOrganizerAppLocale, getOrganizerLocale, newSignupLocale } = await import('./organizer');
 
 /** Every language with a catalog besides English, each tried in turn. */
 const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 afterEach(() => {
   env.DEFAULT_LOCALE = undefined;
+  vi.unstubAllEnvs();
+});
+
+describe.each(OTHER_LANGUAGES)('getOrganizerAppLocale, with %s', (other) => {
+  it('is English while only English has shipped to organizers, whatever the organizer stored', () => {
+    env.DEFAULT_LOCALE = other;
+    expect(getOrganizerAppLocale({ locale: other })).toBe('en');
+    expect(getOrganizerAppLocale({ locale: null })).toBe('en');
+  });
+
+  it('is the stored language, else the instance’s, else English, once shipped to organizers', () => {
+    ship('organizer', ['en', other]);
+    expect(getOrganizerAppLocale({ locale: other })).toBe(other);
+    expect(getOrganizerAppLocale({ locale: null })).toBe('en');
+    env.DEFAULT_LOCALE = other;
+    expect(getOrganizerAppLocale({ locale: null })).toBe(other);
+    expect(getOrganizerAppLocale({ locale: 'en' })).toBe('en');
+  });
+
+  // So the e2e specs can see the organizer app in a language that hasn't
+  // shipped, and nothing else changes with it.
+  it('keeps a stored language the e2e run lists, and only for the organizer’s own screens', () => {
+    vi.stubEnv('E2E_UNSHIPPED_LOCALES', other);
+    expect(getOrganizerAppLocale({ locale: other })).toBe(other);
+    expect(getOrganizerLocale({ locale: other }, 'participant').locale).toBe('en');
+    expect(getOrganizerLocale({ locale: other }, 'organizer').locale).toBe('en');
+    expect(newSignupLocale({ locale: other })).toBeNull();
+    env.DEFAULT_LOCALE = other;
+    expect(getOrganizerAppLocale({ locale: null })).toBe('en');
+  });
 });
 
 describe.each(OTHER_LANGUAGES)('getOrganizerLocale, with %s', (other) => {

@@ -38,11 +38,12 @@ a new signup's first fields get ("What", "Date") and a new field's ("Untitled",
 signup's own text, which participants read, so they're in the signup's
 language.
 
-Organizer text stays English for now. The `organizer` namespace has no
-Swedish, and its text is marked `lang="en"` where it sits on a Swedish page.
-The rest of the organizer app, the sign-in email, the landing, help and legal
-pages, and API error text and AI connector tool descriptions aren't in the
-catalogs at all. API errors and tool descriptions stay English on purpose:
+Organizer text is in the organizer's own language (`getOrganizerAppLocale`,
+below), and marked with it where it sits on a page in a signup's language.
+While no language but English has shipped to organizers, that's English for
+everyone. The rest of the organizer app, the sign-in email, the landing, help
+and legal pages, and API error text and AI connector tool descriptions aren't
+in the catalogs at all. API errors and tool descriptions stay English on purpose:
 developers and models read them.
 
 A language's catalog can be partial. Any message it lacks comes out in
@@ -60,7 +61,12 @@ the catalog check can tell when a translation has fallen behind its English
   (`src/i18n/config.ts`): the language saved in the signup's settings once it
   has shipped to participants, else the site's `DEFAULT_LOCALE` once that has
   shipped, else English. Emails use the same rule (`emailLocale` in
-  `src/email/commitment-row.ts`).
+  `src/email/commitment-row.ts`). An organizer's own screens are in
+  `getOrganizerAppLocale` (`src/i18n/organizer.ts`): the language stored on
+  their account once it has shipped to organizers, else the site's
+  `DEFAULT_LOCALE` once that has, else English. Each organizer page works it
+  out from the session itself, since a layout above it doesn't re-render on a
+  client-side navigation, and passes it to `getServerTranslator`.
 - **Server code** (pages, emails, the reminder worker) calls
   `getServerTranslator(locale, namespace)` from `src/i18n/server.ts`.
 - **Client components** call next-intl's `useTranslations` inside
@@ -395,16 +401,20 @@ adds it says so.
 
 `E2E_UNSHIPPED_LOCALES` is for tests only. `playwright.config.ts` sets it for
 the server it starts, so the seeded Swedish signups show in Swedish before
-Swedish ships. It keeps a language already saved in a signup's row, and does
-nothing else: nothing in the app can save a language that hasn't shipped. The
-web server and the worker log a warning when they start with it set. A reused
+Swedish ships, and an organizer whose account stores a listed language sees
+the organizer app in it (`tests/e2e/organizer-language.spec.ts`). It keeps a
+language already saved in a signup's or an account's row, and does nothing
+else: nothing in the app can save a language that hasn't shipped, and it
+never makes one the site's default, a new signup's, or a choice. The web
+server and the worker log a warning when they start with it set. A reused
 `pnpm dev` needs it too: `E2E_UNSHIPPED_LOCALES=sv pnpm dev`. Never set it on
 a real site.
 
 ### An organizer's language
 
-An organizer's language is the one their new signups start in, and the one
-Magic Compose falls back on. It's stored on their account once, when the
+An organizer's language is the one the organizer app shows them, the one
+their new signups start in, and the one Magic Compose falls back on. It's
+stored on their account once, when the
 account is created, from the browser that finishes signing in: the one that
 opens the sign-in link or types the code, or comes back from a sign-in
 provider such as Google. Nothing reads the browser's language after that. The

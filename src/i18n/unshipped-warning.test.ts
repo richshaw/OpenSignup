@@ -17,6 +17,9 @@ describe('warnIfUnshippedLocalesShown', () => {
     expect(warn).toHaveBeenCalledOnce();
     expect(warn.mock.calls[0]?.[0]).toEqual({ E2E_UNSHIPPED_LOCALES: 'sv' });
     expect(warn.mock.calls[0]?.[1]).toMatch(/its emails go out in it.*unset it on a real instance/);
+    expect(warn.mock.calls[0]?.[1]).toMatch(
+      /an organizer whose account stores one sees their screens/,
+    );
   });
 
   it('says nothing when it is not set', () => {

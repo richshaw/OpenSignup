@@ -8,8 +8,9 @@ import type { CatalogLocale } from '@/i18n/config';
  * card is the shared `StateCard`; `action` is a link under the body.
  *
  * `locale` is the language the message is in: the signup's own, the
- * instance's for participants when there is no live signup to ask, or English
- * for a draft's note to its own organizer. It marks the message with `lang`.
+ * instance's for participants when there is no live signup to ask, or the
+ * organizer app's for a draft's note to its own organizer. It marks the
+ * message with `lang`.
  */
 export function SignupStateMessage({
   locale,
