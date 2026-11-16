@@ -11,7 +11,7 @@ import { FormError } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
 import { signInLocale } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
-import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
+import { RateLimits, chargeRateLimit, ipSubject } from '@/lib/rate-limit';
 import { EmailSchema } from '@/schemas/common';
 import { codeRefusal } from './code-refusal';
 import { LoginForm, type CodeActionResult, type LoginActionResult } from './login-form';
@@ -57,7 +57,7 @@ export default async function LoginPage({
       (await chargeRateLimit(
         db,
         RateLimits.loginCodePerIp,
-        (await getCurrentRequestIp()) ?? 'unknown',
+        ipSubject(await getCurrentRequestIp()),
       )) !== null ||
       (await chargeRateLimit(db, RateLimits.loginCodePerEmail, email.data)) !== null
     ) {
