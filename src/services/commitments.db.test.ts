@@ -12,7 +12,9 @@ import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
+import { PUBLIC_COMMITMENT_FIELDS } from '@/lib/public-commitment';
 import { editTokenFor } from '@/lib/token';
+import type { StoredSignupSettings } from '@/schemas/signups';
 import {
   cancelledCommitmentState,
   cancelOwnCommitment,
@@ -31,6 +33,7 @@ import {
   archiveSignup,
   closeSignup,
   createSignup,
+  deleteSignup,
   publishSignup,
   updateSignup,
 } from '@/services/signups';
@@ -1921,6 +1924,84 @@ describe('signing up again with the same idempotency key (db)', () => {
     expect(again.value.commitment.id).toBe(first?.commitment.id);
     expect(again.value.editToken).toBe(first?.editToken);
     expect(await writtenOn(signupId)).toMatchObject({ participants: 1, commitments: 1 });
+  });
+});
+
+describe("getOwnCommitment and its signup's language (db)", () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  /**
+   * A sign-up on a signup whose settings are `settings`, written straight to
+   * the row: `createSignup` refuses a language that hasn't shipped, and the
+   * read has to hand back whatever is stored.
+   */
+  async function signUpWhereSettingsAre(title: string, settings: StoredSignupSettings) {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, title);
+    await fx.db.update(signups).set({ settings }).where(eq(signups.id, signupId));
+    const r = await commitToSlot(fx.db, slotId, {
+      name: 'Pat',
+      email: 'pat@example.test',
+      quantity: 1,
+    });
+    if (!r.ok) throw new Error(`commit failed: ${r.error.message}`);
+    return { signupId, commitmentId: r.value.commitment.id, editToken: r.value.editToken };
+  }
+
+  // The edit link's answer goes to anyone holding the link, so of the
+  // signup's settings, which are the organizer's, only the language comes back.
+  it("gives the signup's language as stored, and none of its other settings", async () => {
+    const { commitmentId, editToken } = await signUpWhereSettingsAre('Stored language', {
+      locale: 'sv',
+      sendReminders: false,
+      lockoutHoursBeforeSlot: 6,
+      maxCommitmentsPerParticipant: 2,
+      confirmationMessage: 'Organizers only: the gate code is 4321',
+    });
+    const own = await getOwnCommitment(fx.db, commitmentId, editToken);
+    if (!own.ok) throw new Error(`getOwnCommitment failed: ${own.error.message}`);
+
+    // As stored: Swedish hasn't shipped, and reading it as the language in
+    // effect is the page's job (`signupLocale`).
+    expect(own.value.signupLocale).toBe('sv');
+    expect(Object.keys(own.value).sort()).toEqual(
+      [
+        ...PUBLIC_COMMITMENT_FIELDS,
+        'participantName',
+        'participantEmail',
+        'signupSlug',
+        'signupLocale',
+      ].sort(),
+    );
+    expect(JSON.stringify(own.value)).not.toMatch(
+      /"(settings|locale|sendReminders|lockoutHoursBeforeSlot|maxCommitmentsPerParticipant|confirmationMessage)"|gate code/,
+    );
+  });
+
+  it('gives null for a signup with no language', async () => {
+    const { commitmentId, editToken } = await signUpWhereSettingsAre('No language', {
+      sendReminders: false,
+    });
+    const own = await getOwnCommitment(fx.db, commitmentId, editToken);
+    expect(own.ok && own.value.signupLocale).toBeNull();
+  });
+
+  it('is not found once the signup is deleted, whatever language it stores', async () => {
+    const { signupId, commitmentId, editToken } = await signUpWhereSettingsAre(
+      'Deleted with a language',
+      { locale: 'sv' },
+    );
+    expect((await deleteSignup(fx.db, fx.actor, signupId)).ok).toBe(true);
+    const own = await getOwnCommitment(fx.db, commitmentId, editToken);
+    expect(own.ok).toBe(false);
+    if (!own.ok) expect(own.error.code).toBe('not_found');
   });
 });
 

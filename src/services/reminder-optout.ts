@@ -10,7 +10,7 @@
  * The opt-out lives on `participants`, which is per-signup, so unsubscribing
  * from one organizer's snack rotation never silences another's.
  */
-import { and, eq, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { Db } from '@/db/client';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
@@ -31,6 +31,12 @@ export interface OptOutTarget {
   participantEmail: string | null;
   signupTitle: string;
   signupSlug: string;
+  /**
+   * The signup's `settings.locale` as stored, or null when it has none: read
+   * it with `signupLocale` from `@/i18n/config` for the language the page is
+   * in. The one setting read here.
+   */
+  signupLocale: string | null;
   optedOut: boolean;
 }
 
@@ -58,6 +64,7 @@ async function loadVerified(
       signupId: signups.id,
       signupTitle: signups.title,
       signupSlug: signups.slug,
+      signupLocale: sql<string | null>`${signups.settings}->>'locale'`,
       workspaceId: signups.workspaceId,
     })
     .from(participants)
@@ -72,6 +79,7 @@ async function loadVerified(
     participantEmail: row.participant.email,
     signupTitle: row.signupTitle,
     signupSlug: row.signupSlug,
+    signupLocale: row.signupLocale,
     optedOut: row.participant.remindersOptedOutAt !== null,
     signupId: row.signupId,
     workspaceId: row.workspaceId,

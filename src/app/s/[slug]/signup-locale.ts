@@ -23,12 +23,13 @@ export async function signupLocaleForSlug(slug: string): Promise<CatalogLocale> 
  * no params: the not-found pages under `/s/[slug]`. The slug comes from the
  * path header the middleware sets (`SIGNUP_PATH_HEADER`); a path with no slug
  * in it reads as the instance's language for participants, without a lookup.
+ * The unsubscribe page asks it too, for a link it can't read a signup from.
  *
  * Next renders a segment's not-found page on every request under it, not only
  * on a 404, so this runs on every signup, edit and unsubscribe page. The slug
  * is the one the signup page reads, so there it shares that page's cached
  * read; the edit and unsubscribe pages read by token, so it is one statement
- * there.
+ * there, which the unsubscribe page's own call shares.
  */
 export async function requestedSignupLocale(): Promise<CatalogLocale> {
   const slug = slugFromSignupPath((await headers()).get(SIGNUP_PATH_HEADER));
