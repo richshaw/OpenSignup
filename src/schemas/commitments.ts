@@ -48,8 +48,8 @@ export type CommitmentUpdateInput = z.infer<typeof CommitmentUpdateInputSchema>;
  * Zod's English. Both schemas above share these fields. A wrong JSON type on a
  * text field (a number for `name`) gets no reason, since the forms always send
  * text; on `quantity` it does, because Zod reports a fraction that way too.
- * Anything not listed (`phone`, `idempotencyKey`, `swapToSlotId`, which the
- * forms don't type) gets none either, and the pages word it from the code.
+ * Anything not listed (`idempotencyKey`, `swapToSlotId`, which the forms
+ * don't type) gets none either, and the pages word it from the code.
  */
 export const COMMITMENT_INPUT_REASONS = {
   name: { too_small: 'name_required', too_big: 'name_too_long' },
