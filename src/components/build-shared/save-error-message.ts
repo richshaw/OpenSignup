@@ -18,8 +18,10 @@ export type RefusalTranslators = {
  * each refusal the tab can meet that it words itself, chosen by the error's
  * `details.reason` (see `ErrorReason`), else the line for its code
  * (`organizer.errors.code`). Never the server's `message`, which is English
- * for API callers. In English each line reads as the rail read before there
- * were reasons.
+ * for API callers. In English most lines read as the rail read before there
+ * were reasons; the capacity, field change and 1900 lines are worded for
+ * organizers rather than developers (#944), and the 1900 line no longer
+ * prints the date field's ref.
  *
  * A reason whose words name a value the error doesn't carry gets its code's
  * line, rather than words with a gap in them, and a code the catalog doesn't
@@ -33,22 +35,15 @@ export function saveErrorMessage(error: SaveError, { build, errors }: RefusalTra
   switch (details.reason) {
     case 'title_too_short':
       return errors('titleTooShort', { min: TITLE_MIN_LENGTH });
-    // `field` is the date field's ref, as the rail has always printed it.
     case 'date_too_early':
-      if (error.field) {
-        return build('refusal.dateTooEarly', { field: error.field, year: MIN_DATE_YEAR });
-      }
-      break;
+      return build('refusal.dateTooEarly', { year: MIN_DATE_YEAR });
     case 'slot_ids_mismatch':
       return build('refusal.slotsMoved');
     case 'field_ids_mismatch':
       return build('refusal.fieldsMoved');
     case 'capacity_below_taken':
-      if (typeof error.received === 'number' && typeof details.taken === 'number') {
-        return build('refusal.capacityBelowTaken', {
-          capacity: error.received,
-          taken: details.taken,
-        });
+      if (typeof details.taken === 'number') {
+        return build('refusal.capacityBelowTaken', { taken: details.taken });
       }
       break;
     case 'invalidates_slot_values':

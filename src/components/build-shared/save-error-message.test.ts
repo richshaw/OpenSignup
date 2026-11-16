@@ -43,14 +43,11 @@ describe('saveErrorMessage', () => {
     const title = SignupUpdateInputSchema.safeParse({ title: ' ' });
     if (title.success) throw new Error('a blank title parsed');
     const titleTooShort = fromZodError(title.error, SIGNUP_INPUT_REASONS);
-    const early = validateSlotValues([dateField], { date: '1899-12-31' });
-    if (early.ok) throw new Error('1899 passed');
     const slots = everyIdOnceError(['a'], ['a', 'b'], 'slot');
     const fields = everyIdOnceError(['a'], ['a', 'b'], 'field');
     if (!slots || !fields) throw new Error('a short list passed');
 
     expect(said(kept(titleTooShort))).toBe(titleTooShort.message);
-    expect(said(kept(early.error))).toBe(early.error.message);
     expect(said(kept(slots))).toBe(
       "The slots changed in another window, so your move wasn't saved. Drag it again.",
     );
@@ -59,30 +56,44 @@ describe('saveErrorMessage', () => {
     );
   });
 
-  // The rest are refused inside a transaction; these are their messages, as
-  // organizer-reasons.db.test.ts pins them.
+  // Three are worded for organizers, where the server's English, which API
+  // callers keep, was worded for developers (#944).
+  it('words the 1900 floor for organizers, without the date field’s ref', () => {
+    const early = validateSlotValues([dateField], { date: '1899-12-31' });
+    if (early.ok) throw new Error('1899 passed');
+    expect(early.error.message).toBe('"date" must be a date in 1900 or later');
+    expect(said(kept(early.error))).toBe('Dates must be in 1900 or later.');
+    // It names no field, so it needs none.
+    expect(said({ code: 'invalid_input', details: { reason: 'date_too_early' } })).toBe(
+      'Dates must be in 1900 or later.',
+    );
+  });
+
+  // These are refused inside a transaction; organizer-reasons.db.test.ts pins
+  // the server's messages ("capacity (1) is less than active quantity (2)",
+  // "change would invalidate existing slot values").
   it.each([
-    [
-      {
+    [1, '1 spot is already taken. Set this slot to 1 or more.'],
+    [2, '2 spots are already taken. Set this slot to 2 or more.'],
+    [1234, '1234 spots are already taken. Set this slot to 1234 or more.'],
+  ])('words a slot set below %i spots taken for organizers', (taken, words) => {
+    expect(
+      said({
         code: 'conflict',
         field: 'capacity',
         received: 1,
-        details: { reason: 'capacity_below_taken', taken: 2 },
-      },
-      'capacity (1) is less than active quantity (2)',
-    ],
-    [
-      { code: 'conflict', details: { reason: 'invalidates_slot_values', count: 1 } },
-      'change would invalidate existing slot values',
-    ],
-  ] as [SaveError, string][])('words %o as the rail read before', (error, english) => {
-    expect(said(error)).toBe(english);
+        details: { reason: 'capacity_below_taken', taken },
+      }),
+    ).toBe(words);
+  });
+
+  it('words a field change its slots’ values don’t fit for organizers', () => {
+    expect(
+      said({ code: 'conflict', details: { reason: 'invalidates_slot_values', count: 1 } }),
+    ).toBe('Some slots have values that don’t fit this change. Change those first.');
   });
 
   it('gives a reason whose words lack their value the line for its code', () => {
-    expect(said({ code: 'invalid_input', details: { reason: 'date_too_early' } })).toBe(
-      'Some values weren’t accepted.',
-    );
     expect(
       said({
         code: 'conflict',
