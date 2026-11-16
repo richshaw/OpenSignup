@@ -9,11 +9,11 @@ import { getServerTranslator } from '@/i18n/server';
 import { ServiceException } from '@/lib/errors';
 import { accessTokenLifetime } from '@/lib/lifetimes';
 import { log } from '@/lib/log';
+import { refusalFromQuery } from '@/lib/organizer-errors';
 import { listConnectedApps, revokeConnectedApp } from '@/oauth/grants';
 import { getProvider } from '@/oauth/instance';
 import { SCOPE_MESSAGES } from '@/oauth/scopes';
 import { DisconnectButton } from './disconnect-button';
-import { disconnectRefusal } from './disconnect-refusal';
 import { formatGrantDate } from './grant-date';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -40,7 +40,8 @@ export default async function ConnectedAppsPage({
   const t = getServerTranslator(locale, 'organizer.connectedApps');
   const describe = getServerTranslator(locale, 'auth.scopes');
   const lifetime = accessTokenLifetime(locale);
-  const refusal = disconnectRefusal(getServerTranslator(locale, 'organizer.errors'), error);
+  const errors = getServerTranslator(locale, 'organizer.errors');
+  const refusal = refusalFromQuery(errors, error, { internal: errors('disconnectFailed') });
 
   async function disconnect(formData: FormData) {
     'use server';

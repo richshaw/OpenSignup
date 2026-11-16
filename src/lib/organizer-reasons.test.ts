@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { disconnectRefusal } from '@/app/app/(chrome)/settings/connected-apps/disconnect-refusal';
 import { removeRefusal } from '@/app/app/(chrome)/signups/[id]/responses/remove-refusal';
 import { statusRefusal } from '@/app/app/(chrome)/signups/[id]/status-refusal';
 import { inputMessage } from '@/app/s/[slug]/input-message';
@@ -219,7 +218,8 @@ describe('every organizer refusal comes from the catalog', () => {
   const SCREENS: Record<string, (error: ServiceError) => string | null> = {
     'New signup': (error) => refusalText(errors, error),
     'account Settings and a signup’s Settings tab': (error) => refusalFromQuery(errors, error.code),
-    'Connected apps': (error) => disconnectRefusal(errors, error.code),
+    'Connected apps': (error) =>
+      refusalFromQuery(errors, error.code, { internal: errors('disconnectFailed') }),
     Publish: (error) => statusRefusal(error, 'publish', signup),
     'Close signup': (error) => statusRefusal(error, 'close', signup),
     'Reopen signup': (error) => statusRefusal(error, 'reopen', signup),
