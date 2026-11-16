@@ -69,7 +69,7 @@ test.describe('a participant message with arguments', () => {
     // One and two people on slots with no limit: the plural's two branches.
     await expect(row(slots.unlimitedOne).locator('.sr-only')).toHaveText('1 anmäld');
     await expect(row(slots.unlimitedTwo).locator('.sr-only')).toHaveText('2 anmälda');
-    // The date field's label goes into "({label} saknas)" lowercased.
+    // The date field's label goes into "(utan {label})" lowercased.
     await expect(page.getByRole('heading', { name: noDateHeading })).toBeVisible();
   });
 });
@@ -122,7 +122,7 @@ test.describe('a message a client component reads', () => {
     const email = sheet.getByRole('textbox', { name: 'E-post (valfritt)' });
     // A dated slot, with reminders on: the select's `yes`.
     await expect(email).toHaveAccessibleDescription(
-      'Vi mejlar dig en länk där du kan ändra eller avboka, och en påminnelse före ditt pass. Utan e-post behöver du spara länken som visas när du har anmält dig.',
+      'Vi mejlar dig en länk för att ändra eller avboka, och en påminnelse innan det är dags. Utan e-post behöver du spara länken som visas när du har anmält dig.',
     );
     await email.fill('pat@gmial.com');
     const suggestion = sheet.getByRole('button', { name: 'pat@gmail.com' });
@@ -135,7 +135,7 @@ test.describe('a message a client component reads', () => {
     await expect(
       undated.getByRole('textbox', { name: 'E-post (valfritt)' }),
     ).toHaveAccessibleDescription(
-      'Vi mejlar dig en länk där du kan ändra eller avboka. Utan e-post behöver du spara länken som visas när du har anmält dig.',
+      'Vi mejlar dig en länk för att ändra eller avboka. Utan e-post behöver du spara länken som visas när du har anmält dig.',
     );
   });
 
