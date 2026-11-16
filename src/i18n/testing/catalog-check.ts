@@ -10,6 +10,12 @@
  * - a translation has no key English lacks;
  * - completeness per namespace against English, which must be whole for each
  *   audience a language is shipped to (`SHIPPED` in src/i18n/config.ts);
+ * - against the language's record of the English each message was translated
+ *   from (./translated-from.ts), that no message is stale: translated from
+ *   English that has changed since, or with no record of what it was
+ *   translated from. Like completeness, that fails only where the language is
+ *   shipped; elsewhere `catalogNotes` reports it. An entry the record doesn't
+ *   need fails in every language;
  * - every English message is used by the app (`findUsedKeys` in ./used-keys).
  *
  * Each problem comes back as one line, `<locale> <key>: <what's wrong>`.
@@ -20,6 +26,13 @@ import compile from 'icu-minify/compile';
 import { AUDIENCE_NAMESPACES, type Audience } from '../config';
 
 export type Catalog = { [key: string]: string | Catalog };
+
+/**
+ * A language's record of the English each of its messages was translated
+ * from, by full key (`participant.dialog.done`): the file in
+ * src/i18n/translated-from/ (./translated-from.ts).
+ */
+export type TranslatedFrom = { readonly [key: string]: string };
 
 /** Every `<locale>.json` in `dir`, by locale. */
 export function loadCatalogs(dir: string): Record<string, Catalog> {
@@ -35,11 +48,14 @@ export function checkCatalogs({
   catalogs,
   shipped,
   used,
+  translatedFrom,
 }: {
   catalogs: Readonly<Record<string, Catalog>>;
   shipped: Readonly<Record<Audience, readonly string[]>>;
   /** Every key the app uses, in full (`common.footer.help`). */
   used: ReadonlySet<string>;
+  /** Each translated language's record of the English it was translated from. */
+  translatedFrom: Readonly<Record<string, TranslatedFrom>>;
 }): string[] {
   const problems: string[] = [];
   const english = catalogs.en;
@@ -88,7 +104,126 @@ export function checkCatalogs({
       }
     }
   }
+  for (const { line, fails } of recordLines(catalogs, shipped, translatedFrom)) {
+    if (fails) problems.push(line);
+  }
   return problems;
+}
+
+/**
+ * What the check finds in a language's record that doesn't fail it: a stale
+ * message, or one with no record, in a namespace the language hasn't shipped
+ * to an audience in. Lines like `checkCatalogs`'s, for the catalog test to
+ * print as a warning. (The `translate` skill's to-translate.mjs lists the
+ * same messages from `recordFindings`, with their text.)
+ */
+export function catalogNotes({
+  catalogs,
+  shipped,
+  translatedFrom,
+}: {
+  catalogs: Readonly<Record<string, Catalog>>;
+  shipped: Readonly<Record<Audience, readonly string[]>>;
+  translatedFrom: Readonly<Record<string, TranslatedFrom>>;
+}): string[] {
+  return recordLines(catalogs, shipped, translatedFrom)
+    .filter(({ fails }) => !fails)
+    .map(({ line }) => line);
+}
+
+/**
+ * Every finding in every language's record, as a line, and whether it fails
+ * the check: a stale or unrecorded message fails where the language is
+ * shipped to an audience that reads its namespace, as a missing one does; an
+ * entry the record doesn't need fails everywhere, as a key English lacks does.
+ */
+function recordLines(
+  catalogs: Readonly<Record<string, Catalog>>,
+  shipped: Readonly<Record<Audience, readonly string[]>>,
+  translatedFrom: Readonly<Record<string, TranslatedFrom>>,
+): { line: string; fails: boolean }[] {
+  const english = catalogs.en;
+  if (!english) return [];
+  const lines: { line: string; fails: boolean }[] = [];
+  for (const locale of Object.keys(translatedFrom)) {
+    if (locale === 'en' || !catalogs[locale]) {
+      const line = `${locale}: there's a record of what ${locale} was translated from, but no ${locale} translation; delete the record`;
+      lines.push({ line, fails: true });
+    }
+  }
+  for (const [locale, catalog] of Object.entries(catalogs)) {
+    if (locale === 'en') continue;
+    const required = requiredNamespaces(locale, shipped);
+    for (const finding of recordFindings(english, catalog, translatedFrom[locale] ?? {})) {
+      const { key } = finding;
+      if (finding.status === 'unneeded') {
+        const lacks = finding.lacking === 'english' ? 'en.json' : `${locale}.json`;
+        const line = `${locale} ${key}: recorded as translated, but ${lacks} doesn't have it; the translate skill's mark-translated.mjs ${locale} drops it`;
+        lines.push({ line, fails: true });
+        continue;
+      }
+      const what =
+        finding.status === 'stale'
+          ? 'stale: its English changed after it was translated'
+          : 'no record of the English it was translated from';
+      const audiences = required.get(key.split('.')[0] ?? key);
+      if (audiences) {
+        const lists = audiences.map((audience) => `SHIPPED.${audience}`).join(' and ');
+        lines.push({
+          line: `${locale} ${key}: ${what}, but ${locale} is in ${lists}`,
+          fails: true,
+        });
+      } else {
+        lines.push({ line: `${locale} ${key}: ${what}`, fails: false });
+      }
+    }
+  }
+  return lines;
+}
+
+/** What a language's record says about one of its messages, where that's anything but "up to date". */
+export type RecordFinding =
+  /** Translated from `recorded`, which isn't what English says now. */
+  | { key: string; status: 'stale'; recorded: string }
+  /** Translated, but the record doesn't say from what. */
+  | { key: string; status: 'unrecorded' }
+  /** In the record, but English or the translation no longer has the message. */
+  | { key: string; status: 'unneeded'; lacking: 'english' | 'translation' };
+
+/**
+ * Compares a language's record (`TranslatedFrom`) with English as it is now:
+ * each translated message whose English has changed since it was translated
+ * (stale) or that the record lacks (unrecorded), and each entry in the record
+ * for a message English or the translation doesn't have (unneeded). A message
+ * English doesn't have is left to the check's "not in en.json" problem.
+ */
+export function recordFindings(
+  english: Catalog,
+  catalog: Catalog,
+  record: TranslatedFrom,
+): RecordFinding[] {
+  const findings: RecordFinding[] = [];
+  for (const key of messagesIn(catalog).keys()) {
+    const source = messageAt(english, key);
+    if (source === undefined) continue;
+    // A record is parsed JSON, so ask for its own keys only.
+    const recorded = Object.hasOwn(record, key) ? record[key] : undefined;
+    if (recorded === undefined) findings.push({ key, status: 'unrecorded' });
+    else if (recorded !== source) findings.push({ key, status: 'stale', recorded });
+  }
+  for (const key of Object.keys(record)) {
+    if (messageAt(english, key) === undefined) {
+      findings.push({ key, status: 'unneeded', lacking: 'english' });
+    } else if (messageAt(catalog, key) === undefined) {
+      findings.push({ key, status: 'unneeded', lacking: 'translation' });
+    }
+  }
+  return findings;
+}
+
+/** A catalog's messages by full key (`common.footer.help`), in the catalog's order. */
+export function messagesIn(catalog: Catalog): Map<string, string> {
+  return messagesOf('', catalog, []);
 }
 
 /**

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { type Catalog, checkCatalogs, completeness } from './catalog-check';
+import {
+  type Catalog,
+  catalogNotes,
+  checkCatalogs,
+  completeness,
+  messagesIn,
+  type TranslatedFrom,
+} from './catalog-check';
+import { markTranslated } from './translated-from';
 
 /** English, and a Swedish translation of everything participants read. */
 const EN = {
@@ -33,13 +41,40 @@ const EVERY_KEY = new Set([
   'organizer.title',
 ]);
 
-function check({
+/** A record that `catalog` was translated from English as it is in EN, every message of it. */
+const translatedFromEN = (catalog: Catalog): TranslatedFrom =>
+  Object.fromEntries(
+    [...messagesIn(catalog).keys()].flatMap((key) => {
+      const english = messagesIn(EN).get(key);
+      return english === undefined ? [] : [[key, english]];
+    }),
+  );
+
+type Input = {
+  en?: Catalog;
+  sv?: Catalog;
+  used?: ReadonlySet<string>;
+  shipped?: Readonly<Record<keyof typeof SHIPPED, readonly string[]>>;
+  /** sv's record of what it was translated from: by default, English as it is in EN. */
+  svFrom?: TranslatedFrom;
+};
+
+const inputOf = ({
   en = EN,
   sv = SV,
   used = EVERY_KEY,
-}: { en?: Catalog; sv?: Catalog; used?: ReadonlySet<string> } = {}) {
-  return checkCatalogs({ catalogs: { en, sv }, shipped: SHIPPED, used });
-}
+  shipped = SHIPPED,
+  svFrom = translatedFromEN(sv),
+}: Input) => ({ catalogs: { en, sv }, shipped, used, translatedFrom: { sv: svFrom } });
+
+/** What the check fails on. */
+const check = (input: Input = {}) => checkCatalogs(inputOf(input));
+
+/** What it reports without failing. */
+const notes = (input: Input = {}) => catalogNotes(inputOf(input));
+
+/** Swedish with a catalog, but shipped to nobody. */
+const NOT_SHIPPED = { participant: ['en'], organizer: ['en'], site: ['en'] };
 
 /** SV with one participant message replaced. */
 const svWith = (key: keyof typeof SV.participant, message: unknown) =>
@@ -60,9 +95,13 @@ describe('checkCatalogs', () => {
 
   it("knows how complete a language is that isn't shipped, without failing it", () => {
     const de = { common: { footer: { help: 'Hilfe' } } };
-    expect(checkCatalogs({ catalogs: { en: EN, de }, shipped: SHIPPED, used: EVERY_KEY })).toEqual(
-      [],
-    );
+    const input = {
+      catalogs: { en: EN, de },
+      shipped: SHIPPED,
+      used: EVERY_KEY,
+      translatedFrom: { de: { 'common.footer.help': 'Help' } },
+    };
+    expect(checkCatalogs(input)).toEqual([]);
     expect(completeness(EN, de)).toEqual({
       common: { total: 1, missing: [] },
       participant: {
@@ -156,5 +195,92 @@ describe('checkCatalogs', () => {
     ).toEqual([
       'en admin: no audience reads this namespace; add it to AUDIENCE_NAMESPACES in src/i18n/config.ts',
     ]);
+  });
+  describe("against the record of the English it's translated from", () => {
+    /** EN once the guide's English has changed, after SV was translated. */
+    const EN_NOW = {
+      ...EN,
+      participant: { ...EN.participant, guide: 'Read <link>our guide</link>' },
+    };
+    const STALE = 'stale: its English changed after it was translated';
+
+    it('fails a shipped language whose English changed after it was translated, until it is retranslated and marked', () => {
+      const svFrom = translatedFromEN(SV);
+      expect(check({ en: EN_NOW, svFrom })).toEqual([
+        `sv participant.guide: ${STALE}, but sv is in SHIPPED.participant`,
+      ]);
+
+      // Retranslating isn't enough on its own: the record still says it was
+      // translated from the old English.
+      const retranslated = svWith('guide', 'Läs <link>vår guide</link>');
+      expect(check({ en: EN_NOW, sv: retranslated, svFrom })).toEqual([
+        `sv participant.guide: ${STALE}, but sv is in SHIPPED.participant`,
+      ]);
+
+      // Marking it, as mark-translated.mjs does, records the English it was translated from now.
+      const marked = markTranslated(EN_NOW, retranslated, svFrom, ['participant.guide']);
+      expect(check({ en: EN_NOW, sv: retranslated, svFrom: marked.record })).toEqual([]);
+      expect(notes({ en: EN_NOW, sv: retranslated, svFrom: marked.record })).toEqual([]);
+    });
+
+    it("reports a stale message in a language that isn't shipped, without failing it", () => {
+      const input = { en: EN_NOW, svFrom: translatedFromEN(SV), shipped: NOT_SHIPPED };
+      expect(check(input)).toEqual([]);
+      expect(notes(input)).toEqual([`sv participant.guide: ${STALE}`]);
+    });
+
+    it('fails a stale message only in the namespaces a language is shipped in', () => {
+      const svOrganizer = { ...SV, organizer: { title: 'Dina anmälningslistor' } };
+      const enNow = { ...EN, organizer: { title: 'All your signups' } };
+      const input = { en: enNow, sv: svOrganizer, svFrom: translatedFromEN(svOrganizer) };
+      // Swedish is shipped to participants, not organizers.
+      expect(check(input)).toEqual([]);
+      expect(notes(input)).toEqual([`sv organizer.title: ${STALE}`]);
+    });
+
+    it('fails a translated message with no record where the language is shipped, and reports it elsewhere', () => {
+      const { 'participant.when': _, ...svFrom } = translatedFromEN(SV);
+      const unrecorded = 'no record of the English it was translated from';
+      expect(check({ svFrom })).toEqual([
+        `sv participant.when: ${unrecorded}, but sv is in SHIPPED.participant`,
+      ]);
+      expect(check({ svFrom, shipped: NOT_SHIPPED })).toEqual([]);
+      expect(notes({ svFrom, shipped: NOT_SHIPPED })).toEqual([
+        `sv participant.when: ${unrecorded}`,
+      ]);
+    });
+
+    it('fails, shipped or not, a record entry for a message English or the translation lacks', () => {
+      const svFrom = {
+        ...translatedFromEN(SV),
+        'participant.deleted': 'Once in English',
+        'organizer.title': 'Your signups',
+      };
+      const fix = "the translate skill's mark-translated.mjs sv drops it";
+      const expected = [
+        `sv participant.deleted: recorded as translated, but en.json doesn't have it; ${fix}`,
+        `sv organizer.title: recorded as translated, but sv.json doesn't have it; ${fix}`,
+      ];
+      expect(check({ svFrom })).toEqual(expected);
+      expect(check({ svFrom, shipped: NOT_SHIPPED })).toEqual(expected);
+    });
+
+    it('fails a record for a language with no translation', () => {
+      const input = {
+        ...inputOf({}),
+        translatedFrom: { sv: translatedFromEN(SV), en: {}, de: {} },
+      };
+      expect(checkCatalogs(input)).toEqual([
+        "en: there's a record of what en was translated from, but no en translation; delete the record",
+        "de: there's a record of what de was translated from, but no de translation; delete the record",
+      ]);
+    });
+
+    it('leaves a translated key English lacks to the check that says to delete it', () => {
+      const sv = { ...SV, extra: { old: 'Gammal' } };
+      expect(check({ sv, svFrom: translatedFromEN(SV) })).toEqual([
+        'sv extra.old: not in en.json; delete it',
+      ]);
+    });
   });
 });
