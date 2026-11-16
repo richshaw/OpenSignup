@@ -18,7 +18,6 @@ const ParticipantEmailSchema = z
 export const CommitmentCreateInputSchema = z.object({
   name: NameSchema,
   email: ParticipantEmailSchema,
-  phone: z.string().min(4).max(40).optional(),
   notes: z.string().max(NOTES_MAX_LENGTH).optional(),
   quantity: z.number().int().positive().max(QUANTITY_MAX).default(1),
   /**
