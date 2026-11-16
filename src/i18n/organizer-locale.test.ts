@@ -1,16 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { type Audience, type CatalogLocale, SHIPPED } from './config';
+import { describe, expect, it } from 'vitest';
+import type { CatalogLocale } from './config';
 import { chooseOrganizerLocale } from './organizer-locale';
-
-// Only English has shipped today. The tests that need a choice ship Swedish by
-// changing the list itself, so config.ts's own `isShipped` sees it too.
-const asShippedToday = { ...SHIPPED };
-function ship(audience: Audience, locales: string[]) {
-  (SHIPPED as Record<Audience, readonly string[]>)[audience] = locales;
-}
-afterEach(() => {
-  Object.assign(SHIPPED, asShippedToday);
-});
+import { ship } from './testing/ship';
 
 // Swedish has no catalog yet, hence the cast.
 const SV = 'sv' as CatalogLocale;

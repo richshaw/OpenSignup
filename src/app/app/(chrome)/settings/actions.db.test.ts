@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { organizers } from '@/db/schema/organizers';
-import { type Audience, SHIPPED } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { setOrganizerLocaleAction } from './actions';
@@ -28,12 +28,6 @@ vi.mock('next/navigation', () => ({
 }));
 const revalidatePath = vi.hoisted(() => vi.fn());
 vi.mock('next/cache', () => ({ revalidatePath }));
-
-// Only English has shipped today; one test ships Swedish by changing the list.
-const asShippedToday = { ...SHIPPED };
-function ship(audience: Audience, locales: string[]) {
-  (SHIPPED as Record<Audience, readonly string[]>)[audience] = locales;
-}
 
 /** Sends the form as the page does, with `fields` in it, and says where the action went. */
 async function submit(fields: Record<string, string>): Promise<string> {
@@ -87,7 +81,6 @@ describe('setOrganizerLocaleAction (db)', () => {
   });
 
   afterEach(async () => {
-    Object.assign(SHIPPED, asShippedToday);
     await db
       .update(organizers)
       .set({ locale: null })

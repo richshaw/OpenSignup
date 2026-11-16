@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { type Audience, SHIPPED } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 import { SIGNUP_PATH_HEADER } from '@/lib/signup-path';
 import EditLinkNotFound from './c/[id]/not-found';
 import { GONE_PAGE } from './gone-message';
@@ -27,11 +27,6 @@ const loadSignupRowBySlug = vi.hoisted(() =>
 vi.mock('@/services/signups.cached', () => ({ loadSignupRowBySlug }));
 vi.mock('@/i18n/server', () => ({ instanceDefaultLocale: () => request.defaultLocale }));
 
-const shippedToday = [...SHIPPED.participant];
-function shipSwedish() {
-  (SHIPPED as Record<Audience, readonly string[]>).participant = ['en', 'sv'];
-}
-
 function storeSignup(slug: string, over: Record<string, unknown> = {}) {
   request.rows[slug] = {
     id: 'sig_1',
@@ -46,7 +41,6 @@ function storeSignup(slug: string, over: Record<string, unknown> = {}) {
 
 afterEach(() => {
   cleanup();
-  (SHIPPED as Record<Audience, readonly string[]>).participant = shippedToday;
   request.path = null;
   request.rows = {};
   request.defaultLocale = undefined;
@@ -69,7 +63,7 @@ describe('participant not-found pages', () => {
   it.each(PAGES)(
     '%s is in the language of the signup its path names',
     async (...[, Page, , path]) => {
-      shipSwedish();
+      ship('participant', ['en', 'sv']);
       storeSignup('snack-duty');
       request.path = path;
       render(await Page());
@@ -89,7 +83,7 @@ describe('participant not-found pages', () => {
       expect(screen.getByRole('main')).toHaveAttribute('lang', 'en');
 
       cleanup();
-      shipSwedish();
+      ship('participant', ['en', 'sv']);
       request.defaultLocale = 'sv';
       render(await Page());
       expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
@@ -99,7 +93,7 @@ describe('participant not-found pages', () => {
   it.each([null, '', '/app/settings', '/s/', '/s/Snack-Duty', '/s/snack%00', '/s/a.rsc'])(
     'reads no signup for the path %j, and is in the instance’s language',
     async (path) => {
-      shipSwedish();
+      ship('participant', ['en', 'sv']);
       storeSignup('snack-duty');
       request.defaultLocale = 'sv';
       request.path = path;
@@ -122,7 +116,7 @@ describe('participant not-found pages', () => {
   it.each(['draft', 'archived'])(
     'takes only the language from a %s signup’s row',
     async (status) => {
-      shipSwedish();
+      ship('participant', ['en', 'sv']);
       storeSignup('snack-duty', { status });
       for (const [, Page, , path] of PAGES) {
         request.path = path;

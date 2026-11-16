@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import { getDb, type Db } from '@/db/client';
@@ -8,7 +8,7 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
-import { type Audience, type CatalogLocale, SHIPPED } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { ok } from '@/lib/result';
@@ -283,12 +283,6 @@ describe('POST /api/signups/magic-compose with an over-long title or description
 
 describe('POST /api/signups/magic-compose starts the signup in the organizer’s language (db)', () => {
   let fx: Fixture;
-  // Only English has shipped today. The tests that need a choice ship Swedish
-  // by changing the list itself, so config.ts's own `isShipped` sees it too.
-  const asShippedToday = { ...SHIPPED };
-  const ship = (audience: Audience, locales: string[]) => {
-    (SHIPPED as Record<Audience, readonly string[]>)[audience] = locales;
-  };
   // Two shifts a day, grouped by day, so the grouping is kept.
   const GROUPED = {
     title: 'Bake sale stall',
@@ -313,10 +307,6 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
     route.workspaceId = fx.workspaceId;
     route.locale = null;
     route.instanceDefault = undefined;
-  });
-
-  afterEach(() => {
-    Object.assign(SHIPPED, asShippedToday);
   });
 
   afterAll(async () => {
@@ -361,7 +351,7 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
 
   describe('once Swedish has shipped to participants', () => {
     beforeEach(() => {
-      ship('participant', ['en', 'sv' as CatalogLocale]);
+      ship('participant', ['en', 'sv']);
     });
 
     it.each([

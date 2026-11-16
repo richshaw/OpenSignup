@@ -44,6 +44,7 @@ export function AiDraftBanner({
         } and ${slotsCount} ${slotsCount === 1 ? 'slot' : 'slots'}`}
         body="Edit anything below, then publish when you're ready."
         onDismiss={onDismiss}
+        dismissLabel="Dismiss"
       />
       {warnings.length > 0 && (
         <div

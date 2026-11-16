@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type Audience, SHIPPED } from '@/i18n/config';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ship } from '@/i18n/testing/ship';
 import { ServiceException, serviceError } from '@/lib/errors';
 import { ok } from '@/lib/result';
 
@@ -25,14 +25,6 @@ vi.mock('@/services/commitments', () => ({
 vi.mock('@/lib/view-tracker', () => ({ trackOrganizerView: vi.fn() }));
 // Unit tests have no server environment; the instance sets no language.
 vi.mock('@/i18n/server', () => ({ instanceDefaultLocale: () => undefined }));
-
-// Only English has shipped to participants today. The tests that need a
-// second language ship Swedish by changing the list itself.
-const shippedToday = [...SHIPPED.participant];
-function ship(locales: string[]) {
-  (SHIPPED as Record<Audience, readonly string[]>).participant = locales;
-}
-afterEach(() => ship(shippedToday));
 
 const { default: SignupPreviewPage, generateMetadata } = await import('./page');
 
@@ -79,7 +71,7 @@ describe('organizer preview page', () => {
   // What participants will see, in the language they'll see it in, inside an
   // organizer page that's in the organizer's.
   it('wraps the participant view in a Swedish signup’s language, and gives its dates that language', async () => {
-    ship(['en', 'sv']);
+    ship('participant', ['en', 'sv']);
     getSignupForOrganizer.mockResolvedValue(ok({ ...signup, settings: { locale: 'sv' } }));
     const page = (await SignupPreviewPage({
       params: Promise.resolve({ id: 'sig_1' }),

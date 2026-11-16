@@ -4,15 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 
-import { type Audience, SHIPPED } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 
-// Only English has shipped to participants today. The tests that need a
-// choice ship a second language by changing the list itself, so the form and
-// `signupLocale` both see it.
-const shippedToday = [...SHIPPED.participant];
-function ship(locales: string[]) {
-  (SHIPPED as Record<Audience, readonly string[]>).participant = locales;
-}
 // Unit tests have no server environment. The instance sets no language
 // unless a test sets one.
 const instance = vi.hoisted(() => ({ defaultLocale: undefined as string | undefined }));
@@ -52,7 +45,6 @@ const languageSection = () => screen.queryByRole('region', { name: 'Language' })
 
 afterEach(() => {
   cleanup();
-  ship(shippedToday);
   stored.settings = {};
   instance.defaultLocale = undefined;
 });
@@ -66,7 +58,7 @@ describe('Settings tab: Signup language', () => {
   });
 
   it('offers each shipped language by its own name once there are two', async () => {
-    ship(['en', 'sv']);
+    ship('participant', ['en', 'sv']);
     stored.settings = { locale: 'sv' };
     await renderTab();
 
@@ -88,7 +80,7 @@ describe('Settings tab: Signup language', () => {
   });
 
   it('shows the instance’s language for a signup with none, or one that has left the list', async () => {
-    ship(['en', 'sv']);
+    ship('participant', ['en', 'sv']);
     await renderTab();
     expect(screen.getByRole('radio', { name: 'English' })).toBeChecked();
     cleanup();
@@ -106,7 +98,7 @@ describe('Settings tab: Signup language', () => {
   });
 
   it('says Saved by the form that saved, and only there', async () => {
-    ship(['en', 'sv']);
+    ship('participant', ['en', 'sv']);
     await renderTab({ saved: 'language' });
     expect(within(languageSection()!).getByRole('status')).toHaveTextContent('Saved');
     expect(screen.getAllByRole('status')).toHaveLength(1);

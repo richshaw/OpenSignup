@@ -10,6 +10,7 @@ import {
   openGraphLocale,
   signupLocale,
 } from './config';
+import { ship } from './testing/ship';
 
 describe('SHIPPED', () => {
   it('ships English to every audience, since English fills every gap', () => {
@@ -43,22 +44,16 @@ describe('isShipped', () => {
 });
 
 describe('signupLocale', () => {
-  // Only English has shipped to participants today. Tests that need a second
-  // language ship Swedish by changing the lists themselves, as the pages and
-  // the Settings tab read them.
-  const shippedToday = [...SHIPPED.participant];
+  // Only English has a catalog today. The test that needs a second one adds
+  // Swedish to the list itself.
   const catalogsToday = [...CATALOG_LOCALES];
-  function ship(locales: string[]) {
-    (SHIPPED as Record<Audience, readonly string[]>).participant = locales;
-  }
   afterEach(() => {
-    ship(shippedToday);
     (CATALOG_LOCALES as unknown as string[]).splice(0, Infinity, ...catalogsToday);
   });
 
   it('keeps a language that has shipped to participants', () => {
     expect(signupLocale('en', undefined)).toBe('en');
-    ship(['en', 'sv']);
+    ship('participant', ['en', 'sv']);
     expect(signupLocale('sv', undefined)).toBe('sv');
   });
 
@@ -88,7 +83,7 @@ describe('signupLocale', () => {
     const sv = 'sv' as CatalogLocale;
     // Set before it ships: English, as `defaultFor` says.
     expect(signupLocale(undefined, sv)).toBe('en');
-    ship(['en', 'sv']);
+    ship('participant', ['en', 'sv']);
     expect(signupLocale(undefined, sv)).toBe('sv');
     expect(signupLocale('xx', sv)).toBe('sv');
     expect(signupLocale('en', sv)).toBe('en');
