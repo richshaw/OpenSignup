@@ -1,5 +1,7 @@
 import { extractClientIp } from '@/auth/request-context';
 import { getDb } from '@/db/client';
+import { signInLocale } from '@/i18n/locale';
+import { getServerTranslator } from '@/i18n/server';
 import { waitInMinutes } from '@/lib/format-duration';
 import { log } from '@/lib/log';
 import { RateLimits, chargeRateLimit, ipSubject, type RateLimitPolicy } from '@/lib/rate-limit';
@@ -68,12 +70,16 @@ function rateLimited(request: Request, retryAfterSeconds: number): Response {
   };
   const wantsHtml = (request.headers.get('accept') ?? '').includes('text/html');
   if (wantsHtml) {
-    const wait = waitInMinutes(retryAfterSeconds);
+    // Nobody is known before the provider runs, so the page is in the
+    // instance's language, as the provider's own error page is.
+    const locale = signInLocale();
+    const wait = waitInMinutes(retryAfterSeconds, locale);
+    const t = getServerTranslator(locale, 'auth.oauthErrors');
     return new Response(
-      renderErrorPage({
-        error: 'too_many_requests',
-        error_description: `Too many requests. Wait ${wait} and try again.`,
-      }),
+      renderErrorPage(
+        { error: 'too_many_requests', error_description: t('tooManyRequests', { wait }) },
+        locale,
+      ),
       { status: 429, headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } },
     );
   }

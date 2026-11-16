@@ -1,18 +1,18 @@
 import type { Metadata } from 'next';
 import { describe, expect, it } from 'vitest';
-import { INDEXABLE_ROUTES } from '@/lib/seo';
+import { INDEXABLE_ROUTES, SHARE_IMAGES } from '@/lib/seo';
 
 // Each indexable route's metadata, as its page module exports it.
 async function metadataFor(path: string): Promise<Metadata> {
-  if (path === '') return (await import('./page')).metadata;
-  if (path === '/help') return (await import('./(help)/help/page')).metadata;
+  if (path === '') return (await import('./(site)/page')).metadata;
+  if (path === '/help') return (await import('./(site)/(help)/help/page')).metadata;
   if (path.startsWith('/help/')) {
-    const { generateMetadata } = await import('./(help)/help/[slug]/page');
+    const { generateMetadata } = await import('./(site)/(help)/help/[slug]/page');
     return generateMetadata({ params: Promise.resolve({ slug: path.slice('/help/'.length) }) });
   }
-  if (path === '/privacy') return (await import('./(legal)/privacy/page')).metadata;
-  if (path === '/terms') return (await import('./(legal)/terms/page')).metadata;
-  if (path === '/cookies') return (await import('./(legal)/cookies/page')).metadata;
+  if (path === '/privacy') return (await import('./(site)/(legal)/privacy/page')).metadata;
+  if (path === '/terms') return (await import('./(site)/(legal)/terms/page')).metadata;
+  if (path === '/cookies') return (await import('./(site)/(legal)/cookies/page')).metadata;
   throw new Error(`no page module mapped for ${path}; add it here`);
 }
 
@@ -36,10 +36,10 @@ describe('link previews of indexable pages', () => {
       const shown = typeof title === 'string' ? title : (title as { absolute: string }).absolute;
       expect(ogTitle).toContain(shown);
 
-      // The share image. Next adds the image files in src/app only to the home
-      // page, which sits beside them, and to pages that set no openGraph, so
-      // every other page has to name it.
-      if (route !== '/') expect(meta.openGraph?.images).toBeTruthy();
+      // The share image. A page that sets openGraph and twitter replaces the
+      // root layout's, image and all, so it has to name the image itself.
+      expect(meta.openGraph?.images).toEqual(SHARE_IMAGES.openGraph);
+      expect(meta.twitter?.images).toEqual(SHARE_IMAGES.twitter);
     },
   );
 });

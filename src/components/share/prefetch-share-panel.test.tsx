@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { getTestTranslator } from '@/i18n/testing/translator';
+import { shareText } from './share-text';
 
 // The QR code has its own test; here it would only wait on the encoder.
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
@@ -8,6 +10,9 @@ vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
 // in each test, since a module mocked once stays loaded through
 // `vi.resetModules`.
 const panelLoads = { count: 0 };
+
+/** The share panel's words in English, as `SignupHeader` passes them. */
+const SHARE_TEXT = shareText(getTestTranslator('organizer.share'), 'Bake sale helpers');
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 
@@ -61,6 +66,7 @@ async function header() {
   const { ShareButton } = await import('@/components/signup/ShareButton');
   render(
     <ShareScope
+      text={SHARE_TEXT}
       publishAction={async () => null}
       signupId="sig_1"
       title="Bake sale helpers"

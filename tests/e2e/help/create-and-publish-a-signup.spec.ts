@@ -210,6 +210,9 @@ test.describe('help: create and publish your first signup', () => {
     await expect(page.getByRole('dialog')).toBeHidden();
 
     await expect(header.getByText(UI.publicLink, { exact: true })).toBeVisible();
+    // Marked open at the top of the page, where it said draft.
+    const pill = header.getByText(UI.open, { exact: true });
+    await expect(pill).toBeVisible();
     // Next to the link, how many spots are taken: none of the two slots' four.
     const count = header.getByText('0 of 4 spots taken', { exact: true });
     await expect(count).toBeVisible();
@@ -226,7 +229,6 @@ test.describe('help: create and publish your first signup', () => {
       // is too wide to read once it is scaled into the article's column.
       const chip = header.getByRole('button', { name: UI.copyPublicLink }).locator('..');
       const title = header.getByRole('heading', { level: 1 });
-      const pill = header.getByText('open', { exact: true });
       const boxes = await Promise.all([title, pill, chip, count].map((l) => l.boundingBox()));
       if (boxes.some((b) => !b)) throw new Error('title, status, link or count not on screen');
       const [t, st, c, n] = boxes as [
@@ -277,8 +279,11 @@ test.describe('help: create and publish your first signup', () => {
 
     await page.goto(`/app/signups/${signup.id}/build`);
     await page.getByRole('tab', { name: UI.settings }).click();
-    const form = page.getByRole('region', { name: UI.signupForm });
-    const ask = form.getByRole('group', { name: UI.askForEmail });
+    const ask = page
+      .getByRole('region', { name: UI.signupForm })
+      .getByRole('group', { name: UI.askForEmail });
+    // The tab's settings are one form, with one Save under them all.
+    const form = page.locator('form').filter({ has: ask });
     // "A signup asks people for their email unless you make it optional."
     await expect(ask.getByRole('radio', { name: UI.emailRequired })).toBeChecked();
     await ask.getByRole('radio', { name: UI.emailOptional }).check();
@@ -426,11 +431,13 @@ test.describe('help: create and publish your first signup', () => {
       await page.keyboard.press('Escape');
       await expect(sheet).toBeHidden();
 
-      // The link is at the top now, and Share, beside the count, is where
-      // Publish and share was, with the focus back on it.
+      // The signup is marked open and the link is at the top now, and Share,
+      // beside the count, is where Publish and share was, with the focus back
+      // on it.
       await expect(
         page.getByText(UI.publicLink, { exact: true }).locator('visible=true'),
       ).toBeVisible();
+      await expect(page.getByText(UI.open, { exact: true }).locator('visible=true')).toBeVisible();
       await expect(publish).toHaveCount(0);
       const bar = page.locator('[data-phone-bar]');
       await expect(bar.getByText('0 of 1 spot taken', { exact: true })).toBeVisible();

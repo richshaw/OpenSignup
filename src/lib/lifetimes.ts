@@ -11,7 +11,8 @@ import { OAUTH_TTL } from '@/oauth/config';
  * legal and help pages are static.
  */
 
-const fromSeconds = (seconds: number) => formatDuration(Math.floor(seconds / 60));
+const fromSeconds = (seconds: number, locale = 'en') =>
+  formatDuration(Math.floor(seconds / 60), locale);
 const days = (n: number) => formatDuration(n * 24 * 60);
 
 /** How long the six-digit sign-in code can be used. */
@@ -30,8 +31,16 @@ export const SLOT_CHANGE_DELAY = formatDuration(SLOT_CHANGE_SETTLE_MINUTES);
  * runs out on its own), and the longest an approval lasts, counted from the
  * first Allow: approving again keeps the connection's original end date.
  */
-export const ACCESS_TOKEN_LIFETIME = fromSeconds(OAUTH_TTL.ACCESS_TOKEN);
+export const ACCESS_TOKEN_LIFETIME = accessTokenLifetime('en');
 export const GRANT_LIFETIME = fromSeconds(OAUTH_TTL.GRANT_MAX);
+
+/**
+ * `ACCESS_TOKEN_LIFETIME` in `locale`, for the connected-apps page, which is
+ * in the organizer's language: "15 minutes", "15 minuter".
+ */
+export function accessTokenLifetime(locale: string): string {
+  return fromSeconds(OAUTH_TTL.ACCESS_TOKEN, locale);
+}
 
 /** A connection nobody uses for this long has to be approved again. */
 export const CONNECTION_IDLE_LIMIT = fromSeconds(OAUTH_TTL.REFRESH_TOKEN);

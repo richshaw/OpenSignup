@@ -9,6 +9,7 @@ import {
 } from '@/db/schema/participants';
 import { signups, type Signup } from '@/db/schema/signups';
 import { slots, type Slot } from '@/db/schema/slots';
+import type { CatalogLocale } from '@/i18n/config';
 import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
@@ -23,6 +24,7 @@ import { editTokenFor, hashToken, idempotencyKeyHash, verifyHash } from '@/lib/t
 import {
   type CommitmentCreateInput,
   type CommitmentUpdateInput,
+  COMMITMENT_INPUT_REASONS,
   CommitmentCreateInputSchema,
   CommitmentUpdateInputSchema,
 } from '@/schemas/commitments';
@@ -237,7 +239,7 @@ export async function commitToSlot(
   slotId: string,
   rawInput: unknown,
 ): Promise<Result<CommitResult, ServiceError>> {
-  const input = parseInputSafe(CommitmentCreateInputSchema, rawInput);
+  const input = parseInputSafe(CommitmentCreateInputSchema, rawInput, COMMITMENT_INPUT_REASONS);
   if (!input.ok) return input;
   const { email, idempotencyKey, ...data } = input.value;
   // The key together with the request as parsed, so it finds an earlier
@@ -362,6 +364,7 @@ async function commitParticipantToSlot(
         serviceError('invalid_input', 'Email is required for this signup.', {
           field: 'email',
           suggestion: 'Add your email and try again.',
+          details: { reason: 'email_required' },
         }),
       );
     }
@@ -545,18 +548,27 @@ async function commitParticipantToSlot(
  * A participant's own commitment, by its id and edit token, with their name
  * and email and its signup's slug. The token is all that is checked: the edit
  * page redirects a link whose slug is not `signupSlug` to the one that is.
+ *
+ * `signupLocale` is the signup's `settings.locale` as stored, or null when it
+ * has none: read it with `localeOfSignup` from `@/i18n/locale` for the
+ * language the edit page is in. It is the one setting read here. The rest of a
+ * signup's settings are the organizer's, and this answers anyone holding the
+ * edit link.
  */
 export async function getOwnCommitment(
   db: Db,
   commitmentId: string,
   token: string,
-): Promise<Result<OwnCommitment & { signupSlug: string }, ServiceError>> {
+): Promise<
+  Result<OwnCommitment & { signupSlug: string; signupLocale: string | null }, ServiceError>
+> {
   const row = await db
     .select({
       c: commitments,
       pname: participants.name,
       pemail: participants.email,
       slug: signups.slug,
+      locale: sql<string | null>`${signups.settings}->>'locale'`,
     })
     .from(commitments)
     .innerJoin(participants, eq(participants.id, commitments.participantId))
@@ -577,6 +589,7 @@ export async function getOwnCommitment(
     participantName: found.pname,
     participantEmail: found.pemail,
     signupSlug: found.slug,
+    signupLocale: found.locale,
   });
 }
 
@@ -627,13 +640,23 @@ export async function updateOwnCommitment(
   token: string,
   rawInput: unknown,
 ): Promise<Result<EditedCommitment, ServiceError>> {
-  const input = parseInputSafe(CommitmentUpdateInputSchema, rawInput);
+  const input = parseInputSafe(CommitmentUpdateInputSchema, rawInput, COMMITMENT_INPUT_REASONS);
   if (!input.ok) return input;
   const data: CommitmentUpdateInput = input.value;
 
   const gotten = await getOwnCommitment(db, commitmentId, token);
   if (!gotten.ok) return gotten;
   const current = gotten.value;
+  // The participant's refused change, written through `db` after a move rolls
+  // back, or through `tx` inside the quantity change's transaction.
+  const refused = (q: Queryable, payload: Record<string, unknown>) =>
+    safeRecordAttemptFailed(q, {
+      signupId: current.signupId,
+      workspaceId: current.workspaceId,
+      actorId: current.participantId,
+      actorType: 'participant',
+      payload,
+    });
 
   if (data.swapToSlotId && data.swapToSlotId !== current.slotId) {
     const swapToSlotId = data.swapToSlotId;
@@ -712,13 +735,7 @@ export async function updateOwnCommitment(
       })
       .catch(async (e: unknown) => {
         if (refusal) {
-          await safeRecordAttemptFailed(db, {
-            signupId: current.signupId,
-            workspaceId: current.workspaceId,
-            actorId: current.participantId,
-            actorType: 'participant',
-            payload: { ...refusal, source: 'move' },
-          });
+          await refused(db, { ...refusal, source: 'move' });
         }
         throw e;
       });
@@ -798,18 +815,12 @@ export async function updateOwnCommitment(
       // waits on the locks above is seen.
       const shut = whyNotTakingPlaces(signupRow, slotRow);
       if (shut) {
-        await safeRecordAttemptFailed(tx, {
-          signupId: signupRow.id,
-          workspaceId: signupRow.workspaceId,
-          actorId: current.participantId,
-          actorType: 'participant',
-          payload: {
-            slotId: current.slotId,
-            reason: shut.reason,
-            detail: shut.detail,
-            source: 'update',
-            requested: data.quantity,
-          },
+        await refused(tx, {
+          slotId: current.slotId,
+          reason: shut.reason,
+          detail: shut.detail,
+          source: 'update',
+          requested: data.quantity,
         });
         return err({ ...shut.error, suggestion: 'keep the quantity as it is, or lower it' });
       }
@@ -819,18 +830,12 @@ export async function updateOwnCommitment(
         const otherQty = await placesTaken(tx, current.slotId, commitmentId);
         if (otherQty + data.quantity > cap) {
           const remaining = Math.max(0, cap - otherQty);
-          await safeRecordAttemptFailed(tx, {
-            signupId: current.signupId,
-            workspaceId: current.workspaceId,
-            actorId: current.participantId,
-            actorType: 'participant',
-            payload: {
-              slotId: current.slotId,
-              reason: 'capacity_full',
-              source: 'update',
-              requested: data.quantity,
-              remaining,
-            },
+          await refused(tx, {
+            slotId: current.slotId,
+            reason: 'capacity_full',
+            source: 'update',
+            requested: data.quantity,
+            remaining,
           });
           return err(
             capacityFull(remaining, data.quantity, cap, {
@@ -1140,7 +1145,7 @@ async function readSlotAndSignup(db: Db, slotId: string) {
 export async function editLimitsForCommitment(
   db: Db,
   commitment: { id: string; slotId: string },
-  locale: string,
+  locale: CatalogLocale,
 ): Promise<{ maxQuantity: number | null; closed: boolean; slotName: string }> {
   const row = await readSlotAndSignup(db, commitment.slotId);
   if (!row) return { maxQuantity: null, closed: false, slotName: '' };
@@ -1195,7 +1200,7 @@ const MAX_MOVES_FOLLOWED = 10;
 export async function cancelledCommitmentState(
   db: Db,
   commitment: { id: string; signupId: string; slotId: string },
-  locale: string,
+  locale: CatalogLocale,
 ): Promise<
   | { movedTo: string }
   | { movedTo: null; removed: true; slotName: string }
@@ -1254,7 +1259,12 @@ export async function cancelledCommitmentState(
 }
 
 /** `Pack away · Sat, Nov 14`: the slot's values in field order, or ''. */
-async function slotName(db: Db, signupId: string, slotId: string, locale: string): Promise<string> {
+async function slotName(
+  db: Db,
+  signupId: string,
+  slotId: string,
+  locale: CatalogLocale,
+): Promise<string> {
   const [slot] = await db
     .select({ values: slots.values })
     .from(slots)

@@ -11,8 +11,11 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
+import { QUANTITY_MAX } from '@/lib/participant-limits';
 import type { Actor } from '@/lib/policy';
+import { PUBLIC_COMMITMENT_FIELDS } from '@/lib/public-commitment';
 import { editTokenFor } from '@/lib/token';
+import type { StoredSignupSettings } from '@/schemas/signups';
 import {
   cancelledCommitmentState,
   cancelOwnCommitment,
@@ -31,6 +34,7 @@ import {
   archiveSignup,
   closeSignup,
   createSignup,
+  deleteSignup,
   publishSignup,
   updateSignup,
 } from '@/services/signups';
@@ -504,7 +508,11 @@ describe('updateOwnCommitment swap (db)', () => {
     });
     expect(blank.ok).toBe(false);
     if (blank.ok) return;
-    expect(blank.error).toMatchObject({ code: 'invalid_input', field: 'name' });
+    expect(blank.error).toMatchObject({
+      code: 'invalid_input',
+      field: 'name',
+      details: { reason: 'name_required' },
+    });
 
     const mine = await commitToSlot(fx.db, a.slotId, {
       name: 'Mo',
@@ -517,7 +525,11 @@ describe('updateOwnCommitment swap (db)', () => {
     });
     expect(edit.ok).toBe(false);
     if (edit.ok) return;
-    expect(edit.error).toMatchObject({ code: 'invalid_input', field: 'name' });
+    expect(edit.error).toMatchObject({
+      code: 'invalid_input',
+      field: 'name',
+      details: { reason: 'name_required' },
+    });
 
     const [p] = await fx.db
       .select({ name: participants.name })
@@ -1607,10 +1619,14 @@ describe('signing up without an email (db)', () => {
 
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.error).toMatchObject({
+    // `details.reason` tells the sign-up sheet this from an email it refused
+    // as not an address, which is `invalid_input` on `email` too.
+    expect(r.error).toEqual({
       code: 'invalid_input',
-      field: 'email',
       message: 'Email is required for this signup.',
+      field: 'email',
+      suggestion: 'Add your email and try again.',
+      details: { reason: 'email_required' },
     });
     expect(await peopleOn(signupId)).toEqual([]);
     const held = await fx.db
@@ -1619,6 +1635,24 @@ describe('signing up without an email (db)', () => {
       .where(eq(commitments.signupId, signupId));
     expect(held).toEqual([]);
     expect(await eventsOn(signupId)).toEqual(eventsBefore);
+  });
+
+  it('refuses an email that is not an address as email_invalid, not email_required', async () => {
+    const { slotId } = await makeOpenSignupWithSlot(fx, 'Required, not an address');
+    const r = await commitToSlot(fx.db, slotId, {
+      name: 'Sam',
+      email: 'sam@localhost',
+      quantity: 1,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toEqual({
+      code: 'invalid_input',
+      message: 'Invalid email',
+      field: 'email',
+      suggestion: 'Check the value of "email".',
+      details: { reason: 'email_invalid' },
+    });
   });
 
   it('lets someone without an email move after the signup requires one again', async () => {
@@ -1921,6 +1955,84 @@ describe('signing up again with the same idempotency key (db)', () => {
     expect(again.value.commitment.id).toBe(first?.commitment.id);
     expect(again.value.editToken).toBe(first?.editToken);
     expect(await writtenOn(signupId)).toMatchObject({ participants: 1, commitments: 1 });
+  });
+});
+
+describe("getOwnCommitment and its signup's language (db)", () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  /**
+   * A sign-up on a signup whose settings are `settings`, written straight to
+   * the row: `createSignup` refuses a language that hasn't shipped, and the
+   * read has to hand back whatever is stored.
+   */
+  async function signUpWhereSettingsAre(title: string, settings: StoredSignupSettings) {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, title);
+    await fx.db.update(signups).set({ settings }).where(eq(signups.id, signupId));
+    const r = await commitToSlot(fx.db, slotId, {
+      name: 'Pat',
+      email: 'pat@example.test',
+      quantity: 1,
+    });
+    if (!r.ok) throw new Error(`commit failed: ${r.error.message}`);
+    return { signupId, commitmentId: r.value.commitment.id, editToken: r.value.editToken };
+  }
+
+  // The edit link's answer goes to anyone holding the link, so of the
+  // signup's settings, which are the organizer's, only the language comes back.
+  it("gives the signup's language as stored, and none of its other settings", async () => {
+    const { commitmentId, editToken } = await signUpWhereSettingsAre('Stored language', {
+      locale: 'sv',
+      sendReminders: false,
+      lockoutHoursBeforeSlot: 6,
+      maxCommitmentsPerParticipant: 2,
+      confirmationMessage: 'Organizers only: the gate code is 4321',
+    });
+    const own = await getOwnCommitment(fx.db, commitmentId, editToken);
+    if (!own.ok) throw new Error(`getOwnCommitment failed: ${own.error.message}`);
+
+    // As stored: Swedish hasn't shipped, and reading it as the language in
+    // effect is the page's job (`localeOfSignup`).
+    expect(own.value.signupLocale).toBe('sv');
+    expect(Object.keys(own.value).sort()).toEqual(
+      [
+        ...PUBLIC_COMMITMENT_FIELDS,
+        'participantName',
+        'participantEmail',
+        'signupSlug',
+        'signupLocale',
+      ].sort(),
+    );
+    expect(JSON.stringify(own.value)).not.toMatch(
+      /"(settings|locale|sendReminders|lockoutHoursBeforeSlot|maxCommitmentsPerParticipant|confirmationMessage)"|gate code/,
+    );
+  });
+
+  it('gives null for a signup with no language', async () => {
+    const { commitmentId, editToken } = await signUpWhereSettingsAre('No language', {
+      sendReminders: false,
+    });
+    const own = await getOwnCommitment(fx.db, commitmentId, editToken);
+    expect(own.ok && own.value.signupLocale).toBeNull();
+  });
+
+  it('is not found once the signup is deleted, whatever language it stores', async () => {
+    const { signupId, commitmentId, editToken } = await signUpWhereSettingsAre(
+      'Deleted with a language',
+      { locale: 'sv' },
+    );
+    expect((await deleteSignup(fx.db, fx.actor, signupId)).ok).toBe(true);
+    const own = await getOwnCommitment(fx.db, commitmentId, editToken);
+    expect(own.ok).toBe(false);
+    if (!own.ok) expect(own.error.code).toBe('not_found');
   });
 });
 
@@ -2741,5 +2853,63 @@ describe('the capacity_full error (db)', () => {
     });
     expect(Object.keys(r.error)).toEqual(['code', 'message', 'details', 'suggestion']);
     expect(Object.keys(r.error.details ?? {})).toEqual(['remaining', 'requested', 'capacity']);
+  });
+});
+
+// Which refusals carry a `details.reason` (see `ErrorReason`): an
+// `invalid_input` the participant pages word by its case, and nothing whose
+// code already says it. Either way the other fields are as they always were.
+describe('the reason a refused sign-up or edit names (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  it('names too many spots on the edit link', async () => {
+    const { slotId } = await makeOpenSignupWithSlot(fx, 'Reasons, quantity');
+    const mine = await commitToSlot(fx.db, slotId, {
+      name: 'Lee',
+      email: 'lee@example.test',
+      quantity: 1,
+    });
+    if (!mine.ok) throw new Error(`commitToSlot failed: ${mine.error.message}`);
+    const r = await updateOwnCommitment(fx.db, mine.value.commitment.id, mine.value.editToken, {
+      quantity: QUANTITY_MAX + 1,
+    });
+    expect(r).toEqual({
+      ok: false,
+      error: {
+        code: 'invalid_input',
+        message: `Number must be less than or equal to ${QUANTITY_MAX}`,
+        field: 'quantity',
+        suggestion: 'Check the value of "quantity".',
+        details: { reason: 'quantity_too_large' },
+      },
+    });
+  });
+
+  it('gives a second sign-up by the same email and a wrong edit token no reason', async () => {
+    const { slotId } = await makeOpenSignupWithSlot(fx, 'Reasons, none');
+    const person = { name: 'Lee', email: 'lee@example.test', quantity: 1 };
+    const first = await commitToSlot(fx.db, slotId, person);
+    if (!first.ok) throw new Error(`commitToSlot failed: ${first.error.message}`);
+
+    expect(await commitToSlot(fx.db, slotId, person)).toEqual({
+      ok: false,
+      error: {
+        code: 'conflict',
+        message: 'you already committed to this slot',
+        suggestion: 'edit or cancel your existing commitment',
+        details: { commitmentId: first.value.commitment.id },
+      },
+    });
+    expect(
+      await updateOwnCommitment(fx.db, first.value.commitment.id, 'not-the-token', { notes: 'x' }),
+    ).toEqual({ ok: false, error: { code: 'forbidden', message: 'invalid edit token' } });
   });
 });

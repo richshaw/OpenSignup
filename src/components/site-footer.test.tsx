@@ -6,6 +6,7 @@ import { INSTANCE_NAME } from '@/lib/site-config';
 afterEach(() => {
   vi.resetModules();
   vi.doUnmock('@/lib/footer-links');
+  vi.doUnmock('@/i18n/server');
   vi.unstubAllEnvs();
 });
 
@@ -14,7 +15,7 @@ afterEach(() => {
 async function renderFooter(links: readonly { href: string; label: string }[]) {
   vi.doMock('@/lib/footer-links', () => ({ FOOTER_LINKS: links }));
   const { SiteFooter } = await import('./site-footer');
-  render(<SiteFooter />);
+  render(<SiteFooter locale="en" />);
   return within(screen.getByRole('navigation', { name: 'Footer' }));
 }
 
@@ -29,6 +30,30 @@ describe('SiteFooter', () => {
       'Source',
       'Contact',
     ]);
+  });
+
+  it('is in the language it’s given', async () => {
+    // A stand-in translator says which language each message was asked for
+    // in.
+    vi.doMock('@/i18n/server', () => ({
+      getServerTranslator: (locale: string, namespace: string) => (key: string) =>
+        `${namespace}.${key} in ${locale}`,
+    }));
+    vi.doMock('@/lib/footer-links', () => ({ FOOTER_LINKS: [] }));
+    const { SiteFooter } = await import('./site-footer');
+    render(<SiteFooter locale="sv" />);
+    const nav = within(screen.getByRole('navigation', { name: 'common.footer.label in sv' }));
+    expect(nav.getAllByRole('link').map((a) => a.textContent)).toEqual([
+      'common.footer.help in sv',
+      'common.footer.privacy in sv',
+      'common.footer.terms in sv',
+      'common.footer.cookies in sv',
+      'common.footer.source in sv',
+      'common.footer.contact in sv',
+    ]);
+    expect(screen.getByRole('contentinfo').querySelector('span')?.textContent).toBe(
+      'common.footer.license in sv',
+    );
   });
 
   it('puts the instance’s own links before Help', async () => {

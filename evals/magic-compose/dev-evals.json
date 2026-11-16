@@ -737,6 +737,67 @@
         ],
         "rationale": "#687: a role (drivers) with no concert dates. Every slot would be \"TBD: concert 1\", so it asks when, reading the role from the prompt, rather than drafting placeholders or asking what."
       }
+    },
+    {
+      "id": "ev_042_swedish_description_drafts_in_swedish",
+      "tags": ["i18n", "edge:non_english", "language", "field_type:date"],
+      "runner": "llm",
+      "prompt": "Fika efter skolavslutningen fredag 11 juni 2027 kl. 13. Vi behöver kaffe, kanelbullar, saft och frukt, två familjer på varje.",
+      "expect": {
+        "behavior": "A Swedish description from an organizer whose language is English (no organizerLanguage, so the prompt's fallback is English): the title, description, labels and items are Swedish.",
+        "language_must_be": "sv",
+        "slots.count": 4,
+        "slots.all_capacities_equal": 2,
+        "slot_dates.set_must_equal": ["2027-06-11"],
+        "slot_values_must_cover_all": ["kaffe", "kanelbullar", "saft", "frukt"],
+        "rationale": "#635: the description's language wins over the organizer's. Before the rule, a Swedish description could come back with English labels."
+      }
+    },
+    {
+      "id": "ev_043_german_description_stays_german",
+      "tags": ["i18n", "edge:non_english", "language", "field_type:time"],
+      "runner": "llm",
+      "prompt": "Helfer für das Sommerfest der Grundschule am Samstag, 19. Juni 2027: Aufbau ab 9 Uhr, Kuchenstand ab 11 Uhr, Abbau ab 16 Uhr. Wir brauchen jeweils drei Personen.",
+      "expect": {
+        "behavior": "German isn't a language OpenSignup has shipped, and the organizer's language is English. The draft still stays in German, as the description is.",
+        "language_must_be": "de",
+        "slots.count": 3,
+        "slots.all_capacities_equal": 3,
+        "slot_dates.set_must_equal": ["2027-06-19"],
+        "slot_times_or_labels.must_include_starts": ["09:00", "11:00", "16:00"],
+        "rationale": "#635: a rule that wrote in the organizer's language would have turned every description in a language OpenSignup hasn't shipped into an English draft. Which language the signup's pages use is the route's decision, not the draft's."
+      }
+    },
+    {
+      "id": "ev_044_english_description_asks_for_swedish",
+      "tags": ["i18n", "language", "field_type:time"],
+      "runner": "llm",
+      "prompt": "Please make this signup in Swedish, most of our families speak it at home. We need volunteers for the \"Winter Lights Concert\" at Brookside Library on Sunday, December 12, 2027: 2 people to set up chairs at 4pm and 3 people to serve coffee at 6pm.",
+      "expect": {
+        "behavior": "An English description that asks for the signup in Swedish gets a Swedish draft. The concert's name and the venue stay exactly as the organizer wrote them.",
+        "language_must_be": "sv",
+        "draft_must_contain_exactly": ["Winter Lights Concert", "Brookside Library"],
+        "slots.count": 2,
+        "slots.any_capacity_equals_or_sums_to": 5,
+        "slot_dates.set_must_equal": ["2027-12-12"],
+        "slot_times_or_labels.must_include_starts": ["16:00", "18:00"],
+        "rationale": "#635: a language the description asks for wins over the one it's written in, and names, places and titles are kept as given: translating them would be inventing."
+      }
+    },
+    {
+      "id": "ev_045_too_short_to_tell_uses_organizer_language",
+      "tags": ["i18n", "language", "field_type:date"],
+      "runner": "llm",
+      "organizerLanguage": "sv",
+      "prompt": "Pizza, sushi, tapas – 2027-05-29 18:00",
+      "expect": {
+        "behavior": "Dish names and a date don't say what language the organizer writes in, so the draft is in the organizer's language, which the route puts in the prompt: Swedish here.",
+        "language_must_be": "sv",
+        "slots.count": 3,
+        "slot_values_must_cover_all": ["pizza", "sushi", "tapas"],
+        "slot_dates.set_must_equal": ["2027-05-29"],
+        "rationale": "#635: the {{LANGUAGE}} fallback. Without it the model guesses, most likely English. eval:mcp skips this case, since an assistant isn't told the organizer's language."
+      }
     }
   ]
 }

@@ -33,7 +33,7 @@ test.describe('reminder field', () => {
   }
 
   // A fresh signup per test so retries and projects never compete over one row.
-  // createSignup applies DEFAULT_TEMPLATE — fields `what` (text) and `date`
+  // createSignup applies the default template — fields `what` (text) and `date`
   // (date) — and anchors reminders on `date` from the start.
   async function createSignup(page: Page, title: string): Promise<string> {
     const created = await page.request.post('/api/signups', {

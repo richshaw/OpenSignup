@@ -16,12 +16,105 @@ const ROOT = resolve(import.meta.dirname, '../..');
 const RULES = ['react/jsx-no-literals', 'opensignup/no-literal-text-props'];
 const eslint = new ESLint({ cwd: ROOT });
 
-/** The first file whose text moved to the catalogs, so the rules are on for it. */
-const TRANSLATED_FILE = 'src/components/site-footer.tsx';
+/** The files whose text has moved to the catalogs so far, so the rules are on for them. */
+const TRANSLATED_FILES = [
+  'src/components/site-footer.tsx',
+  'src/components/banner.tsx',
+  'src/components/ui/BottomSheet.tsx',
+  'src/components/ui/save-notice.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/settings/page.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/settings/delete-signup-form.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/build/page.tsx',
+  'src/components/build-wysiwyg/BuildWysiwyg.tsx',
+  'src/components/build-wysiwyg/Editable.tsx',
+  'src/components/build-wysiwyg/EditingRail.tsx',
+  'src/components/build-wysiwyg/EnumPicker.tsx',
+  'src/components/build-wysiwyg/FieldsPopover.tsx',
+  'src/components/build-wysiwyg/InlineFieldForm.tsx',
+  'src/components/build-wysiwyg/PickerOption.tsx',
+  'src/components/build-wysiwyg/SlotEditor.tsx',
+  'src/components/build-wysiwyg/WysiwygGroup.tsx',
+  'src/components/build-wysiwyg/WysiwygSlot.tsx',
+  'src/components/build-shared/SaveStatus.tsx',
+  'src/components/build-shared/TimeSelect.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/responses/page.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/responses/remove-commitment-form.tsx',
+  'src/app/s/[slug]/page.tsx',
+  'src/app/s/[slug]/signup-view.tsx',
+  'src/app/s/[slug]/state-message.tsx',
+  'src/app/s/[slug]/organizer-strip.tsx',
+  'src/app/s/[slug]/not-found.tsx',
+  'src/app/s/[slug]/commit-dialog.tsx',
+  'src/app/s/[slug]/participant-fields.tsx',
+  'src/app/s/[slug]/c/[id]/page.tsx',
+  'src/app/s/[slug]/c/[id]/edit-form.tsx',
+  'src/app/s/[slug]/c/[id]/not-found.tsx',
+  'src/app/s/[slug]/unsubscribe/page.tsx',
+  'src/email/templates/commitment-confirmation.tsx',
+  'src/email/templates/reminder.tsx',
+  'src/email/templates/slot-changed.tsx',
+  'src/email/templates/layout.tsx',
+  'src/email/templates/slot-details.tsx',
+  'src/email/templates/magic-link.tsx',
+  'src/app/(organizer)/app/(chrome)/layout.tsx',
+  'src/app/(organizer)/app/(chrome)/page.tsx',
+  'src/app/(organizer)/app/(chrome)/@crumbs/settings/page.tsx',
+  'src/app/(organizer)/app/(chrome)/@crumbs/signups/[id]/edit/page.tsx',
+  'src/components/chrome/Crumb.tsx',
+  'src/components/signup/SignupLoadError.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/new/page.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/new/NewSignupForm.tsx',
+  'src/components/magic-compose/Compose.tsx',
+  'src/components/magic-compose/Drafting.tsx',
+  'src/components/magic-compose/DraftingFrom.tsx',
+  'src/components/magic-compose/Steps.tsx',
+  'src/components/magic-compose/StepLine.tsx',
+  'src/components/magic-compose/YouWrote.tsx',
+  'src/components/magic-compose/MagicComposeRoot.tsx',
+  'src/components/magic-compose/ChunkBoundary.tsx',
+  'src/components/magic-compose/Questions.tsx',
+  'src/components/magic-compose/AiDraftBanner.tsx',
+  'src/components/magic-compose/AiDraftWarnings.tsx',
+  'src/app/(organizer)/app/(chrome)/settings/page.tsx',
+  'src/app/(organizer)/app/(chrome)/settings/connected-apps/page.tsx',
+  'src/app/(organizer)/app/(chrome)/settings/connected-apps/disconnect-button.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/layout.tsx',
+  'src/components/signup/SignupHeader.tsx',
+  'src/components/signup/HeaderParts.tsx',
+  'src/components/signup/MobileSignupHeader.tsx',
+  'src/components/signup/MobileMoreMenuSheet.tsx',
+  'src/components/signup/MoreActionsMenu.tsx',
+  'src/components/signup/PhoneBar.tsx',
+  'src/components/signup/PublishButton.tsx',
+  'src/components/signup/PublishCheckPanel.tsx',
+  'src/components/signup/CloseSignupConfirm.tsx',
+  'src/components/signup/ReopenButton.tsx',
+  'src/components/signup/ClosedNotice.tsx',
+  'src/components/signup/HeaderAnnouncer.tsx',
+  'src/components/signup/TabsNav.tsx',
+  'src/components/signup/ShareButton.tsx',
+  'src/components/signup/ShareScope.tsx',
+  'src/components/status-pill.tsx',
+  'src/components/share/SharePanel.tsx',
+  'src/components/share/ShareQrCode.tsx',
+  'src/components/share/ShareUnavailable.tsx',
+  'src/components/share/share-heading.tsx',
+  'src/components/PublicLinkChip.tsx',
+  'src/app/(organizer)/login/page.tsx',
+  'src/app/(organizer)/login/login-form.tsx',
+  'src/app/(organizer)/login/oauth-buttons.tsx',
+  'src/app/(organizer)/login/session-watcher.tsx',
+  'src/app/(organizer)/login/check/page.tsx',
+  'src/app/(organizer)/login/confirm/page.tsx',
+  'src/app/(organizer)/login/confirm/sign-in-link.tsx',
+  'src/app/(organizer)/oauth/consent/[uid]/page.tsx',
+  'src/app/(organizer)/oauth/consent/[uid]/consent-form.tsx',
+] as const;
+const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
 const OTHER_FILE = 'src/components/example.tsx';
 
-async function lint(jsx: string, filePath = TRANSLATED_FILE): Promise<string[]> {
+async function lint(jsx: string, filePath: string = TRANSLATED_FILE): Promise<string[]> {
   const code = `import { useTranslations } from 'next-intl';
 export function Example({ name, open, label }: { name: string; open: boolean; label?: string }) {
   const t = useTranslations('common.footer');
@@ -42,24 +135,74 @@ export function Example({ name, open, label }: { name: string; open: boolean; la
  * `files`. Imported at runtime because TypeScript has no types for the .mjs.
  */
 async function loadFilesAt(): Promise<(paths: string[], root?: string) => string[]> {
-  const config = (await import(pathToFileURL(resolve(ROOT, 'eslint.config.mjs')).href)) as {
-    filesAt: (paths: string[], root?: string) => string[];
-  };
-  return config.filesAt;
+  return (await loadConfig()).filesAt;
 }
 
-/** Whether ESLint, run from `cwd`, puts `file` under a block whose `files` are `files`. */
-async function matches(cwd: string, files: string[], file: string): Promise<boolean> {
+type ConfigBlock = { files?: string[]; ignores?: string[]; rules?: Record<string, unknown> };
+
+async function loadConfig() {
+  return (await import(pathToFileURL(resolve(ROOT, 'eslint.config.mjs')).href)) as {
+    filesAt: (paths: string[], root?: string) => string[];
+    default: ConfigBlock[];
+  };
+}
+
+/** The `ignores` of the config block that turns the rules on for `TRANSLATED`. */
+async function translatedIgnores(): Promise<string[]> {
+  const block = (await loadConfig()).default.find(
+    (b) => b.rules?.['opensignup/no-literal-text-props'] !== undefined,
+  );
+  if (!block) throw new Error('eslint.config.mjs has no block for TRANSLATED');
+  return block.ignores ?? [];
+}
+
+/**
+ * Whether ESLint, run from `cwd`, puts `file` under a block whose `files` are
+ * `files`, less its `ignores`.
+ */
+async function matches(
+  cwd: string,
+  files: string[],
+  file: string,
+  ignores: string[] = [],
+): Promise<boolean> {
   const matcher = new ESLint({
     cwd,
     overrideConfigFile: true,
-    overrideConfig: [{ files: ['**/*.tsx'] }, { files, rules: { 'no-console': 'error' } }],
+    overrideConfig: [
+      { files: ['**/*.{ts,tsx}'] },
+      { files, ignores, rules: { 'no-console': 'error' } },
+    ],
   });
   return Boolean((await matcher.calculateConfigForFile(file))?.rules?.['no-console']);
 }
 
-/** The props `opensignup/no-literal-text-props` reads as text. */
-const TEXT_PROPS = ['aria-label', 'aria-description', 'title', 'placeholder', 'alt', 'label'];
+/**
+ * The props `opensignup/no-literal-text-props` reads as text: some by name,
+ * and any whose name ends in `Label`.
+ */
+const TEXT_PROPS = [
+  'aria-label',
+  'aria-description',
+  'title',
+  'placeholder',
+  'alt',
+  'label',
+  'body',
+  'eyebrow',
+  'description',
+  'detail',
+  'actionName',
+  'slotName',
+  'slotContext',
+  'error',
+  'preview',
+  'closeLabel',
+  'dismissLabel',
+  'ariaLabel',
+  'loadingLabel',
+  'slotTitle',
+];
 
 /** Hard-coded text, as JSX children. */
 const JSX_TEXT = [
@@ -93,6 +236,10 @@ const ALLOWED = [
   // `alt=""` marks an image screen readers should skip.
   ['an empty alt', '<img alt="" src="/logo.png" />'],
   ['a prop without letters', '<span title={`${name} · ${label}`} />'],
+  // It names the element that labels this one, so it's an id, not text.
+  ['a prop that points at a label', '<input aria-labelledby="name-label" />'],
+  ['translated text in an object', "<Example action={{ label: t('help'), href: '/help' }} />"],
+  ['strings nobody reads in an object', "<Example style={{ display: 'flex' }} />"],
   [
     'a string that only picks a branch',
     "<button aria-label={label === 'x' ? t('help') : t('label')} />",
@@ -118,6 +265,13 @@ describe('hard-coded text in translated files', () => {
     for (const problem of problems) expect(problem).toMatch(/^opensignup\/no-literal-text-props: /);
   });
 
+  it('fails a text key in an object passed as a prop, naming both', async () => {
+    expect(await lint("<Example action={{ label: 'Open', href: '/help' }} />")).toEqual([
+      "opensignup/no-literal-text-props: action.label is text people read or hear, so it comes from the message catalog: pass t('…'), not a string.",
+    ]);
+    expect(await lint("<Example action={{ 'label': open ? 'Open' : 'Shut' }} />")).toHaveLength(2);
+  });
+
   it.each(TEXT_PROPS)('fails %s with a string', async (prop) => {
     expect(await lint(`<Example ${prop}="Your name" name="" open />`)).toEqual([
       `opensignup/no-literal-text-props: ${prop} is text people read or hear, so it comes from the message catalog: pass t('…'), not a string.`,
@@ -135,16 +289,100 @@ describe('where the rules apply', () => {
     expect(await lint(jsx, OTHER_FILE)).toEqual([]);
   });
 
+  it.each(TRANSLATED_FILES)('are on for %s', async (file) => {
+    expect(await lint('<p>Sign up</p><button aria-label="Close" />', file)).toHaveLength(2);
+  });
+
+  // On too, though they hold no JSX for the rules to read: the whole of the
+  // signup's folder has moved.
+  it.each([
+    'src/app/s/[slug]/cancelled-message.ts',
+    'src/app/s/[slug]/capacity-message.ts',
+    'src/app/s/[slug]/closed-message.ts',
+    'src/app/s/[slug]/conflict-message.ts',
+    'src/app/s/[slug]/gone-message.ts',
+    'src/app/s/[slug]/input-message.ts',
+    'src/app/s/[slug]/rate-limit-message.ts',
+    'src/app/s/[slug]/participant-error.ts',
+  ])('are on for the copy helper %s', async (file) => {
+    const rules = (await eslint.calculateConfigForFile(file))?.rules ?? {};
+    for (const rule of RULES) expect(rules[rule]?.[0], rule).toBe(2);
+  });
+
+  // On too: the Build tab's helpers, which word its slots, headings and
+  // refusals for its components.
+  it.each([
+    'src/components/build-wysiwyg/prettyHeader.ts',
+    'src/components/build-wysiwyg/slotRow.ts',
+    'src/components/build-shared/save-error-message.ts',
+    'src/components/build-shared/fieldTypes.ts',
+  ])('are on for the Build tab’s helper %s', async (file) => {
+    const rules = (await eslint.calculateConfigForFile(file))?.rules ?? {};
+    for (const rule of RULES) expect(rules[rule]?.[0], rule).toBe(2);
+  });
+
+  // The signup's folder is listed whole, so a file added there later is
+  // checked from the start, and its tests are still left out.
+  it('are on for a new file in the signup’s folder, and off for its tests', async () => {
+    expect(
+      await lint('<p>Sign up</p><button aria-label="Close" />', 'src/app/s/[slug]/c/[id]/new.tsx'),
+    ).toHaveLength(2);
+    expect(await lint('<p>Sign up</p>', 'src/app/s/[slug]/unsubscribe/page.test.tsx')).toEqual([]);
+  });
+
+  // The emails' folder is listed whole, so an email added later is checked
+  // from the start, and the folder's tests are left out.
+  it('are on for a new email, and off for the emails’ tests', async () => {
+    const text = '<p>Sign up</p><button aria-label="Close" />';
+    expect(await lint(text, 'src/email/templates/cancelled.tsx')).toHaveLength(2);
+    expect(await lint(text, 'src/email/templates/unsubscribe-footer.test.tsx')).toEqual([]);
+  });
+
+  // Magic Compose's folder is listed whole, so a screen added later is checked
+  // from the start.
+  it('are on for a new Magic Compose screen', async () => {
+    const text = '<p>Sign up</p><button aria-label="Close" />';
+    expect(await lint(text, 'src/components/magic-compose/Review.tsx')).toHaveLength(2);
+  });
+
+  // The signup header's folder is listed whole too, and so is the share
+  // panel's, so a file added to either later is checked from the start.
+  it('are on for a new file in the signup header’s or the share panel’s folder', async () => {
+    const text = '<p>Publish</p><button aria-label="Close" />';
+    expect(await lint(text, 'src/components/signup/NewPart.tsx')).toHaveLength(2);
+    expect(await lint(text, 'src/components/share/NewPart.tsx')).toHaveLength(2);
+  });
+
+  it('read an email’s preview text as text', async () => {
+    expect(await lint('<EmailLayout preview="Signed up" />')).toEqual([
+      "opensignup/no-literal-text-props: preview is text people read or hear, so it comes from the message catalog: pass t('…'), not a string.",
+    ]);
+  });
+
+  // A test's English fixtures are what it checks. A file listed on its own
+  // never takes in its test, but a listed folder would without the block's
+  // `ignores`.
+  it('leaves out test files, even in a listed folder', async () => {
+    const filesAt = await loadFilesAt();
+    const ignores = await translatedIgnores();
+    const isOn = (file: string) => matches(ROOT, filesAt(['src/components']), file, ignores);
+    expect(await isOn('src/components/banner.tsx')).toBe(true);
+    expect(await isOn('src/components/ui/BottomSheet.tsx')).toBe(true);
+    expect(await isOn('src/components/banner.test.tsx')).toBe(false);
+    expect(await isOn('src/components/ui/BottomSheet.test.tsx')).toBe(false);
+    expect(await isOn('src/components/magic-compose/answers.test.ts')).toBe(false);
+  });
+
   it('matches a listed folder with brackets or parentheses in its name, and nothing else', async () => {
     const filesAt = await loadFilesAt();
-    const files = filesAt(['src/app/s/[slug]', 'src/app/app/(chrome)/']);
+    const files = filesAt(['src/app/s/[slug]', 'src/app/(organizer)/app/(chrome)/']);
     // A glob would read `[slug]` as one of the letters s, l, u and g.
     const isOn = (file: string) => matches(ROOT, files, file);
     expect(await isOn('src/app/s/[slug]/page.tsx')).toBe(true);
     expect(await isOn('src/app/s/[slug]/c/[id]/page.tsx')).toBe(true);
-    expect(await isOn('src/app/app/(chrome)/settings/page.tsx')).toBe(true);
+    expect(await isOn('src/app/(organizer)/app/(chrome)/settings/page.tsx')).toBe(true);
     expect(await isOn('src/app/s/s/page.tsx')).toBe(false);
-    expect(await isOn('src/app/app/c/settings/page.tsx')).toBe(false);
+    expect(await isOn('src/app/(organizer)/app/c/settings/page.tsx')).toBe(false);
   });
 
   // Windows can't put a backslash in a folder's name.
