@@ -149,6 +149,24 @@ for (const stored of STORED) {
       await expect(here).toHaveText(crumbs('newSignup'));
     });
 
+    test(`gets ${locale} on <html lang>, and the sign-in pages the site’s`, async ({ page }) => {
+      const html = page.locator('html');
+      // The page itself, which screen readers and browser translation read,
+      // and what anything outside the screens' own marks falls back to.
+      await page.goto('/app');
+      await expect(html, unshippedHint).toHaveAttribute('lang', locale);
+
+      // The sign-in pages are in the site default, else English, whoever is
+      // signed in, as their text is: this server sets no DEFAULT_LOCALE, and
+      // the check page reads no session.
+      await page.goto('/login/check');
+      await expect(html).toHaveAttribute('lang', 'en');
+      // It moves on once it sees the session, to the organizer app's own root
+      // layout, so the whole page loads, in the organizer's language.
+      await page.waitForURL(/\/app$/);
+      await expect(html, unshippedHint).toHaveAttribute('lang', locale);
+    });
+
     test(`sees account Settings and Connected apps in ${locale}`, async ({ page }) => {
       const settings = messagesIn(locale, 'organizer.settings');
       const apps = messagesIn(locale, 'organizer.connectedApps');
@@ -207,6 +225,7 @@ for (const stored of STORED) {
         'OAUTH_STATIC_CLIENTS has no "e2e-client": set it as in .env.example',
       );
       await expect(page).toHaveURL(/\/oauth\/consent\//);
+      await expect(page.locator('html'), unshippedHint).toHaveAttribute('lang', locale);
       const permissions = page.getByRole('heading', { level: 2 });
       await expect(permissions).toHaveText(consent('permissions'));
       expect(await languageOf(permissions), unshippedHint).toBe(locale);
@@ -330,8 +349,8 @@ for (const stored of STORED) {
       await onScreen(page.getByRole('button', { name: share('button') })).click();
       const panel = page.getByRole('dialog', { name: share('heading.later') });
       await expect(panel).toBeVisible();
-      // A phone's sheet sits outside the page's wrapper, under <html lang> (#938).
-      if (!phone) expect(await languageOf(panel), unshippedHint).toBe(locale);
+      // A phone's sheet sits outside the page's wrapper, so it's <html lang>'s.
+      expect(await languageOf(panel), unshippedHint).toBe(locale);
       await expect(panel.getByText(share(phone ? 'lead.phone' : 'lead.desktop'))).toBeVisible();
       await expect(panel.getByRole('button', { name: share('copyLink') })).toBeVisible();
       await expect(
@@ -740,6 +759,110 @@ for (const stored of STORED) {
       const box = page.getByRole('status').filter({ hasText: warnings('heading') });
       await expect(box.getByRole('listitem')).toHaveText([warnings('valuesBlanked', { count: 1 })]);
       expect(hydration).toEqual([]);
+    });
+
+    // jsdom computes no layout, so only a browser can see a name hidden
+    // behind the how-many box, or the box's "No limit" cut off.
+    test(`reads every name and how-many box in full in ${locale}, down to 320px`, async ({
+      page,
+    }) => {
+      const newSignup = messagesIn(locale, 'organizer.newSignup');
+      const compose = messagesIn(locale, 'organizer.compose');
+      const questions = messagesIn(locale, 'organizer.compose.questions');
+      // A short name, a long one, and one word too long to sit beside the box.
+      const items = ['Cake', 'Refreshments coordinator', 'Antidisestablishmentarianism'];
+      // Where the box goes under the name: on a narrow phone always, on a
+      // wider one for the long word only, and never on a computer.
+      const boxBelow = {
+        320: [true, true, true],
+        390: [false, false, true],
+        1280: [false, false, false],
+      };
+
+      await page.goto('/app/signups/new');
+      const heading = page.getByRole('heading', { level: 1 });
+      await expect(heading).toHaveText(
+        new RegExp(`^(${escaped(compose('heading'))}|${escaped(newSignup('title'))})$`),
+      );
+      test.skip(
+        (await heading.textContent()) !== compose('heading'),
+        'Magic Compose is off on this server (no LLM_BASE_URL)',
+      );
+      await page.route('**/api/signups/magic-compose', (route) =>
+        route.fulfill({
+          json: {
+            data: { questions: { topics: ['what', 'when', 'how_many'], whatOptions: items } },
+          },
+        }),
+      );
+      await page.getByRole('textbox', { name: compose('describe') }).fill('Bake sale');
+      await page.getByRole('button', { name: compose('draft') }).click();
+      await expect(
+        page.getByRole('heading', { level: 1, name: questions('heading') }),
+      ).toBeVisible();
+      for (const item of items) await page.getByRole('button', { name: item, exact: true }).click();
+      const rows = page.getByRole('listitem').filter({ has: page.getByRole('spinbutton') });
+      await expect(rows).toHaveCount(items.length);
+
+      for (const width of [320, 390, 1280] as const) {
+        await page.setViewportSize({ width, height: 800 });
+        const fits = await rows.evaluateAll((lis) =>
+          lis.map((li) => {
+            const name = li.firstElementChild!;
+            const stepper = li.lastElementChild!.getBoundingClientRect();
+            const range = document.createRange();
+            range.selectNodeContents(name);
+            const text = [...range.getClientRects()];
+            const input = li.querySelector('input')!;
+            const style = getComputedStyle(input);
+            const context = document.createElement('canvas').getContext('2d')!;
+            context.font = style.font;
+            return {
+              name: name.textContent,
+              spills: name.scrollWidth > name.clientWidth,
+              underTheBox: text.some(
+                (line) =>
+                  line.right > stepper.left &&
+                  line.left < stepper.right &&
+                  line.bottom > stepper.top &&
+                  line.top < stepper.bottom,
+              ),
+              placeholderCut:
+                context.measureText(input.placeholder).width >
+                input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+              boxBelow: stepper.top >= name.getBoundingClientRect().bottom,
+            };
+          }),
+        );
+        for (const fit of fits) {
+          expect(
+            {
+              spills: fit.spills,
+              underTheBox: fit.underTheBox,
+              placeholderCut: fit.placeholderCut,
+            },
+            `"${fit.name}" at ${width}px`,
+          ).toEqual({ spills: false, underTheBox: false, placeholderCut: false });
+        }
+        expect(
+          fits.map((fit) => fit.boxBelow),
+          `the box under the name at ${width}px`,
+        ).toEqual(boxBelow[width]);
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+          `no sideways scroll at ${width}px`,
+        ).toBe(true);
+      }
+
+      // The box still counts at 320px, by pointer and by keyboard.
+      await page.setViewportSize({ width: 320, height: 800 });
+      const item = items[1]!;
+      await page.getByRole('button', { name: questions('howMany.more', { item }) }).click();
+      const count = page.getByRole('spinbutton', { name: questions('howMany.people', { item }) });
+      await expect(count).toHaveValue('1');
+      await count.press('ArrowUp');
+      await expect(count).toHaveValue('2');
+      expect(await axeViolations(page)).toEqual([]);
     });
 
     test(`sees the banner on a draft Magic Compose made, and its warnings, in ${locale}`, async ({

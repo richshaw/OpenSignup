@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { getTestTranslator } from '@/i18n/testing/translator';
-import { messagesFor } from '@/i18n/translator';
+import { messagesFor, type Namespace } from '@/i18n/translator';
 import { formatSlotDate } from '@/lib/slot-label';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
@@ -22,10 +22,23 @@ import {
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 // English from the catalog; any other language answers with the key it was
 // asked for and the language (`getTestServerTranslator`), so a test sees
-// which text the page asks for in Swedish.
-vi.mock('@/i18n/server', async () => ({
-  getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
-}));
+// which text the page asks for in Swedish. That answer leaves out the values
+// the page gave with the key, so each call is noted here, values and all.
+const asked = vi.hoisted(() => [] as { locale: string; key: string; values: unknown }[]);
+vi.mock('@/i18n/server', async () => {
+  const { getTestServerTranslator } = await import('@/i18n/testing/translator');
+  return {
+    getServerTranslator: (locale: string, namespace: Namespace) => {
+      const t = getTestServerTranslator(locale, namespace);
+      const answer = t as unknown as (key: string, values?: unknown) => string;
+      const noted = (key: string, values?: unknown) => {
+        asked.push({ locale, key: `${namespace}.${key}`, values });
+        return answer(key, values);
+      };
+      return Object.assign(noted, t);
+    },
+  };
+});
 // The real provider, noting what each render gives it.
 const provided = vi.hoisted(() => [] as { locale: string; messages: unknown }[]);
 vi.mock('@/i18n/ClientMessages', async (importOriginal) => {
@@ -367,6 +380,32 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
       expect(tip).not.toBeVisible();
     },
   );
+
+  // The stand-in answers the same whatever it's given, so the test above
+  // can't tell a draft's tip from an open signup's. What each call was given
+  // can: the button's title and its description both pass the signup's
+  // status, which picks the words (#888).
+  it.each(
+    OTHER_LANGUAGES.flatMap((other) =>
+      (['draft', 'open'] as const).map((status) => [other, status] as const),
+    ),
+  )('gives the disabled button’s tip in %s the status of a signup that is %s', (other, status) => {
+    asked.length = 0;
+    render(
+      <SignupViewBody
+        locale="en"
+        signup={{ ...SIGNUP, status }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+        organizerLocale={other}
+      />,
+    );
+    const tip = { locale: other, key: 'organizer.preview.signUpDisabled', values: { status } };
+    expect(asked.filter(({ key }) => key === tip.key)).toEqual([tip, tip]);
+  });
 
   // Open and closed, the words of the status beside the signup's title, read
   // as a pair; "published" is only for leaving draft (docs/writing-help.md).

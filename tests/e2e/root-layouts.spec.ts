@@ -9,7 +9,7 @@ const seed = loadSeed();
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// The app has three root layouts and none above them (src/app/root-shell.tsx).
+// The app has several root layouts and none above them (src/app/root-shell.tsx).
 // Each must still give its pages the language, the icons and the manifest the
 // single root layout used to, and an address no page matches must get the
 // site's own 404 rather than Next's, which has no `lang`.
