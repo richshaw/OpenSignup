@@ -138,6 +138,32 @@ describe('buildIcs', () => {
     expect(ics.replace(/\r\n /g, '')).toContain(`SUMMARY:${title}`);
   });
 
+  it('folds a long Swedish line without splitting å, ä or ö', () => {
+    // Each of å, ä and ö is two octets in UTF-8, and this line has one across
+    // each of its first three fold points (skolgården, köket, ändra). Cut
+    // where the octets run out, each would leave half a letter on either
+    // side of the fold.
+    const description =
+      'Ta gärna med kakor och bullar till vårfestens fika på skolgården. Vi börjar vid två och hjälps åt att städa efteråt så att köket är klart före fem. Om du blir sjuk går det bra att avboka eller ändra via länken.';
+    const ics = buildIcs({
+      uid: 'com_x@opensignup.org',
+      title: 'Fika',
+      description,
+      start: new Date('2026-05-02T15:00:00Z'),
+      now: new Date('2026-04-30T12:00:00Z'),
+    });
+    const lines = ics.split('\r\n');
+    const first = lines.findIndex((l) => l.startsWith('DESCRIPTION:'));
+    const folded = lines.slice(first, first + 4);
+    const octets = (line: string) => new TextEncoder().encode(line).length;
+    // Each fold comes one octet early, before the letter rather than inside it.
+    expect(folded.slice(0, 3).map(octets)).toEqual([74, 74, 74]);
+    expect(folded.slice(1).map((l) => l.slice(0, 2))).toEqual([' å', ' ö', ' ä']);
+    expect(lines[first + 4]).toBe('END:VEVENT');
+    expect(ics).not.toContain('\uFFFD');
+    expect(ics.replace(/\r\n /g, '').split('\r\n')).toContain(`DESCRIPTION:${description}`);
+  });
+
   it.each([
     ['an emoji across the fold', 'A'.repeat(66) + '🎉 party'],
     ['a U+FEFF at the fold', 'A'.repeat(67) + '\uFEFF' + 'Bake sale'],

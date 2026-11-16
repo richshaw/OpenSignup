@@ -4,7 +4,10 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { ClientMessages } from '@/i18n/ClientMessages';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { englishMessages, standInMessages } from '@/i18n/testing/client-messages';
+import { getTranslator, messagesFor } from '@/i18n/translator';
 import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
@@ -106,6 +109,54 @@ describe('<CommitDialog /> sheet', () => {
   // the suite; the 1s default left them close enough to the edge to flake on a
   // loaded machine.
   const settle = { timeout: 5000 };
+
+  /**
+   * Presses the button that downloads the calendar file and returns the file's
+   * DESCRIPTION, unfolded (RFC 5545 §3.1). jsdom's Blob has no text(), and it
+   * doesn't implement navigation, which a download link's click is.
+   */
+  async function calendarDescription(button: string): Promise<string | undefined> {
+    const blobs: Blob[] = [];
+    const { createObjectURL, revokeObjectURL } = URL;
+    URL.createObjectURL = (blob: Blob) => {
+      blobs.push(blob);
+      return 'blob:ics';
+    };
+    URL.revokeObjectURL = () => {};
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    try {
+      fireEvent.click(screen.getByRole('button', { name: button }));
+      expect(blobs).toHaveLength(1);
+      const ics = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(blobs[0]!);
+      });
+      return ics
+        .replace(/\r\n /g, '')
+        .split('\r\n')
+        .find((line) => line.startsWith('DESCRIPTION:'))
+        ?.slice('DESCRIPTION:'.length);
+    } finally {
+      URL.createObjectURL = createObjectURL;
+      URL.revokeObjectURL = revokeObjectURL;
+      click.mockRestore();
+    }
+  }
+
+  /** Presses the button that opens the share sheet and returns what it was given. */
+  async function shared(button: string): Promise<ShareData | undefined> {
+    const share = vi.fn(async (_data: ShareData) => {});
+    Object.defineProperty(navigator, 'share', { value: share, configurable: true });
+    try {
+      fireEvent.click(screen.getByRole('button', { name: button }));
+      await waitFor(() => expect(share).toHaveBeenCalledTimes(1), settle);
+      return share.mock.calls[0]?.[0];
+    } finally {
+      delete (navigator as { share?: unknown }).share;
+    }
+  }
 
   // The reason this is a real modal and not the fixed overlay it replaced: on a
   // phone the page kept scrolling under that overlay, so the row you tapped
@@ -681,20 +732,17 @@ describe('<CommitDialog /> sheet', () => {
     // The link changes or cancels their spot, so the share sheet is for keeping
     // it, and the text it fills in says to keep it private.
     it('fills the share sheet with their link as theirs to keep', async () => {
-      const share = vi.fn(async () => {});
-      Object.defineProperty(navigator, 'share', { value: share, configurable: true });
-      try {
-        await signUpWithEmail('jordan@example.test');
-        fireEvent.click(screen.getByRole('button', { name: 'Save your link' }));
-        await waitFor(() => expect(share).toHaveBeenCalledTimes(1), settle);
-        expect(share).toHaveBeenCalledWith({
-          title: 'Snack duty',
-          text: 'My spot for Sat, May 16 · Cookies · Vinland Elementary. This link changes or cancels it, so keep it private.',
-          url: editUrl,
-        });
-      } finally {
-        delete (navigator as { share?: unknown }).share;
-      }
+      await signUpWithEmail('jordan@example.test');
+      expect(await shared('Save your link')).toEqual({
+        title: 'Snack duty',
+        text: 'My spot for Sat, May 16 · Cookies · Vinland Elementary. This link changes or cancels it, so keep it private.',
+        url: editUrl,
+      });
+    });
+
+    it('writes their link into the calendar file, saying what it is for', async () => {
+      await signUpWithEmail('', { slotAt: '2030-04-06T12:00:00.000Z' });
+      expect(await calendarDescription('Add to calendar')).toBe(`Edit or cancel: ${editUrl}`);
     });
 
     // Someone who chose to leave it out once should not send it by accident.
@@ -1176,6 +1224,26 @@ describe('<CommitDialog /> sheet', () => {
       expect(untranslated(dialog)).toBe('');
     });
 
+    it('asks for the calendar file’s description and the share text in it', async () => {
+      openInSwedish({ slotAt: '2030-04-06T12:00:00.000Z' });
+      fireEvent.change(await screen.findByLabelText(say('fields.email'), {}, settle), {
+        target: { value: 'jordan@example.test' },
+      });
+      await confirmWith({
+        ok: true,
+        json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
+      });
+      await screen.findByRole('dialog', { name: say('dialog.youreIn') }, settle);
+      expect(await calendarDescription(say('dialog.addToCalendar'))).toBe(
+        say('dialog.calendarDescription'),
+      );
+      expect(await shared(say('dialog.saveYourLink'))).toEqual({
+        title: 'Snack duty',
+        text: say('dialog.shareText'),
+        url: editUrl,
+      });
+    });
+
     it('asks for the screen after a sign-up without an email, and its copy lines, in it', async () => {
       openInSwedish({ requireEmail: false });
       await confirmWith({
@@ -1202,6 +1270,87 @@ describe('<CommitDialog /> sheet', () => {
         settle,
       );
       expect(untranslated(dialog)).toBe('');
+    });
+  });
+
+  // From the real catalogs, in each language they hold: what the page gives
+  // the sheet.
+  describe('the calendar file and the share text, from the catalog', () => {
+    const editUrl = 'https://example.test/s/example/c/com_1';
+    const slotName = 'Sat, May 16 · Cookies · Vinland Elementary';
+
+    /**
+     * The words in each language's share text that say to keep the link
+     * private. Whoever has the link can change or cancel the spot, so a
+     * translation that drops the warning fails here, and a new language fails
+     * typecheck until it names the words that carry it.
+     */
+    const KEEP_IT_PRIVATE: Record<CatalogLocale, string> = {
+      en: 'so keep it private',
+      sv: 'så håll länken privat',
+    };
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    /** Signs up with an email in `locale`, and returns the dialog's translator. */
+    async function signUpIn(locale: CatalogLocale) {
+      // A message the catalog lacks fails the test, rather than reading as a key.
+      const strict = {
+        onError: (error: Error) => {
+          throw error;
+        },
+      };
+      const dialog = getTranslator(locale, 'participant.dialog', strict);
+      const fields = getTranslator(locale, 'participant.fields', strict);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({
+          ok: true,
+          json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
+        })),
+      );
+      openSheet({
+        slotAt: '2030-04-06T12:00:00.000Z',
+        wrapper: function CatalogMessages({ children }: { children: ReactNode }) {
+          return (
+            <ClientMessages
+              locale={locale}
+              messages={messagesFor(locale, COMMIT_DIALOG_NAMESPACES)}
+            >
+              {children}
+            </ClientMessages>
+          );
+        },
+        trigger: dialog('signUpFor', { slot: 'Sat, May 16, Cookies, Vinland Elementary' }),
+      });
+      fireEvent.change(await screen.findByLabelText(fields('name'), {}, settle), {
+        target: { value: 'Jordan Fields' },
+      });
+      fireEvent.change(screen.getByLabelText(fields('email')), {
+        target: { value: 'jordan@example.test' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: dialog('confirm') }));
+      await screen.findByRole('dialog', { name: dialog('youreIn') }, settle);
+      return dialog;
+    }
+
+    it('are Swedish on a Swedish signup', async () => {
+      const dialog = await signUpIn('sv');
+      expect(await calendarDescription(dialog('addToCalendar'))).toBe(
+        `Ändra eller avboka: ${editUrl}`,
+      );
+      expect((await shared(dialog('saveYourLink')))?.text).toBe(
+        `Min anmälan till ${slotName}. Med den här länken går den att ändra eller avboka, så håll länken privat.`,
+      );
+    });
+
+    it.each(CATALOG_LOCALES)('say to keep the link private in %s', async (locale) => {
+      const dialog = await signUpIn(locale);
+      const text = (await shared(dialog('saveYourLink')))?.text;
+      expect(text).toContain(slotName);
+      expect(text).toContain(KEEP_IT_PRIVATE[locale]);
     });
   });
 });
