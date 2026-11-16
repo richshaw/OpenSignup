@@ -6,7 +6,7 @@ import { type Audience, SHIPPED } from './config';
 const env = vi.hoisted(() => ({ DEFAULT_LOCALE: undefined as string | undefined }));
 vi.mock('@/lib/env', () => ({ getEnv: () => env }));
 
-const { getOrganizerLocale } = await import('./organizer');
+const { getOrganizerLocale, newSignupLocale } = await import('./organizer');
 
 // Only English has shipped today. The tests that need a choice ship Swedish by
 // changing the list itself, so config.ts's own `isShipped` sees it too.
@@ -67,5 +67,31 @@ describe('getOrganizerLocale', () => {
       locale: 'en',
       source: 'default',
     });
+  });
+});
+
+describe('newSignupLocale', () => {
+  it('chooses nothing while only English has shipped to participants, whatever the steps say', () => {
+    env.DEFAULT_LOCALE = 'en';
+    expect(newSignupLocale({ locale: 'en' }, 'en')).toBeNull();
+    expect(newSignupLocale({ locale: 'sv' }, 'sv-SE')).toBeNull();
+    expect(newSignupLocale({ locale: null }, null)).toBeNull();
+  });
+
+  it('chooses nothing while a second language has shipped only to organizers', () => {
+    ship('organizer', ['en', 'sv']);
+    expect(newSignupLocale({ locale: 'sv' }, 'sv')).toBeNull();
+  });
+
+  it('once there is a choice, is the organizer’s language for participants, with the step that chose it', () => {
+    ship('participant', ['en', 'sv']);
+    expect(newSignupLocale({ locale: 'sv' }, 'en')).toEqual({ locale: 'sv', source: 'setting' });
+    expect(newSignupLocale({ locale: null }, 'sv-SE,en;q=0.8')).toEqual({
+      locale: 'sv',
+      source: 'browser',
+    });
+    expect(newSignupLocale({ locale: null }, 'de')).toEqual({ locale: 'en', source: 'default' });
+    env.DEFAULT_LOCALE = 'sv';
+    expect(newSignupLocale({ locale: null }, 'en')).toEqual({ locale: 'sv', source: 'instance' });
   });
 });

@@ -4,6 +4,7 @@ import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
 import { SHIPPED, isShipped } from '@/i18n/config';
+import type { SignupLocaleSource } from '@/i18n/organizer';
 import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
@@ -89,12 +90,20 @@ export interface SignupWithSlots extends SignupRow {
   fields: SlotFieldDefinition[];
 }
 
+/**
+ * Create a draft signup, with the template's fields and slots, in one
+ * transaction. Its language is the `settings.locale` in `rawInput`, refused
+ * unless it has shipped to participants; the route decides it (the one its
+ * caller sent, else `newSignupLocale`'s) and puts it there. `localeSource`
+ * says which step chose it, for `signup.created`; a language with none was
+ * sent by the caller (`api`).
+ */
 export async function createSignup(
   db: Db,
   actor: Actor,
   workspaceId: string,
   rawInput: unknown,
-  opts: { template?: SignupTemplate } = {},
+  opts: { template?: SignupTemplate; localeSource?: SignupLocaleSource } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
   requireOrganizer(actor);
   requireWorkspaceWrite(actor, workspaceId);
@@ -235,6 +244,9 @@ export async function createSignup(
         templateId: template.id,
         fieldsAdded: template.fields.length,
         slotsAdded: template.slots.length,
+        ...(settings.locale === undefined
+          ? {}
+          : { locale: settings.locale, localeSource: opts.localeSource ?? 'api' }),
       },
     });
     return inserted;

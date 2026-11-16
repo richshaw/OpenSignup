@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { and, eq } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
@@ -8,6 +8,7 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { type Audience, type CatalogLocale, SHIPPED } from '@/i18n/config';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { ok } from '@/lib/result';
@@ -30,10 +31,21 @@ const route = vi.hoisted(() => ({
   actor: undefined as unknown,
   workspaceId: '',
   llmResult: undefined as unknown,
+  locale: null as string | null,
+  instanceDefault: undefined as string | undefined,
 }));
 vi.mock('@/auth/session', () => ({
   requireActor: async () => route.actor,
-  getOrganizerSession: async () => ({ defaultWorkspaceId: route.workspaceId }),
+  getOrganizerSession: async () => ({
+    defaultWorkspaceId: route.workspaceId,
+    locale: route.locale,
+  }),
+}));
+// The environment's own parse refuses a DEFAULT_LOCALE with no catalog, and
+// Swedish has none yet.
+vi.mock('@/i18n/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/i18n/server')>()),
+  instanceDefaultLocale: () => route.instanceDefault,
 }));
 vi.mock('@/lib/env', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/env')>()),
@@ -266,5 +278,114 @@ describe('POST /api/signups/magic-compose with an over-long title or description
     expect(r.status).toBe(200);
     expect(r.warnings).toEqual([]);
     expect((await savedSignup(r.id)).description).toBe(CANNED_DRAFT.description);
+  });
+});
+
+describe('POST /api/signups/magic-compose starts the signup in the organizer’s language (db)', () => {
+  let fx: Fixture;
+  // Only English has shipped today. The tests that need a choice ship Swedish
+  // by changing the list itself, so config.ts's own `isShipped` sees it too.
+  const asShippedToday = { ...SHIPPED };
+  const ship = (audience: Audience, locales: string[]) => {
+    (SHIPPED as Record<Audience, readonly string[]>)[audience] = locales;
+  };
+  // Two shifts a day, grouped by day, so the grouping is kept.
+  const GROUPED = {
+    title: 'Bake sale stall',
+    description: '',
+    fields: [
+      { ref: 'date', label: 'Date', fieldType: 'date' },
+      { ref: 'shift', label: 'Shift', fieldType: 'text' },
+    ],
+    slots: [
+      { values: { date: '2026-04-25', shift: 'Morning' }, capacity: 2 },
+      { values: { date: '2026-04-25', shift: 'Afternoon' }, capacity: 2 },
+    ],
+    groupBy: 'date',
+  };
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  beforeEach(() => {
+    route.actor = fx.actor;
+    route.workspaceId = fx.workspaceId;
+    route.locale = null;
+    route.instanceDefault = undefined;
+  });
+
+  afterEach(() => {
+    Object.assign(SHIPPED, asShippedToday);
+  });
+
+  afterAll(async () => {
+    await teardown(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  async function compose(acceptLanguage?: string) {
+    route.llmResult = ok(GROUPED);
+    const res = await POST(
+      new NextRequest('http://localhost/api/signups/magic-compose', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(acceptLanguage ? { 'accept-language': acceptLanguage } : {}),
+        },
+        body: JSON.stringify({ prompt: 'Snack duty for three Saturdays' }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const { data } = (await res.json()) as { data: { id: string } };
+    const [row] = await fx.db.select().from(signups).where(eq(signups.id, data.id));
+    const [created] = await fx.db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, data.id), eq(activity.eventType, 'signup.created')));
+    return {
+      settings: row!.settings as Record<string, unknown>,
+      telemetry: created?.payload as Record<string, unknown>,
+    };
+  }
+
+  it('stores no language, and records none, while only English has shipped', async () => {
+    route.locale = 'en';
+    route.instanceDefault = 'en';
+    const { settings, telemetry } = await compose('en');
+    expect(settings).toMatchObject({ groupByFieldRefs: ['date'] });
+    expect(settings).not.toHaveProperty('locale');
+    expect(telemetry).toMatchObject({ templateId: 'magic-compose' });
+    expect(telemetry).not.toHaveProperty('locale');
+    expect(telemetry).not.toHaveProperty('localeSource');
+  });
+
+  describe('once Swedish has shipped to participants', () => {
+    beforeEach(() => {
+      ship('participant', ['en', 'sv' as CatalogLocale]);
+    });
+
+    it.each([
+      { step: 'setting', locale: 'sv', instanceDefault: 'en', acceptLanguage: 'en' },
+      { step: 'instance', locale: null, instanceDefault: 'sv', acceptLanguage: 'en' },
+      { step: 'browser', locale: null, instanceDefault: undefined, acceptLanguage: 'sv' },
+    ])(
+      'starts it in Swedish chosen by the organizer’s $step, keeping the grouping',
+      async ({ step, acceptLanguage, ...given }) => {
+        Object.assign(route, given);
+        const { settings, telemetry } = await compose(acceptLanguage);
+        expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: 'sv' });
+        expect(telemetry).toMatchObject({
+          templateId: 'magic-compose',
+          locale: 'sv',
+          localeSource: step,
+        });
+      },
+    );
+
+    it('starts it in English when no step names a shipped language', async () => {
+      const { settings, telemetry } = await compose('de');
+      expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: 'en' });
+      expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
+    });
   });
 });
