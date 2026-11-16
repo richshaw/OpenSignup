@@ -1,3 +1,5 @@
+import type { CatalogLocale } from '@/i18n/config';
+import type { Translator } from '@/i18n/translator';
 import {
   isRealDate,
   isRealTime,
@@ -6,7 +8,7 @@ import {
   type AnchorCandidate,
 } from '@/lib/reminder-fields';
 import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
-import { spotCount, spotCounts } from '@/lib/spot-counts';
+import { spotCounts } from '@/lib/spot-counts';
 
 /** What the share message reads from a signup. `SignupWithSlots` has it all. */
 export interface ShareMessageSignup {
@@ -22,9 +24,25 @@ export interface ShareMessageSignup {
 }
 
 /**
+ * The language the message is written in, the signup's (`signupLocale`), and
+ * its words in that language, from `participant.share`: the people it's sent
+ * to read it, as they read the signup's page, whatever the organizer's own
+ * language is. The translator is passed in, rather than made here, because
+ * the share panel imports `withLink` and `emailBody` from this file, and a
+ * translator would bring every catalog into the browser with them.
+ */
+export interface ShareMessageLanguage {
+  locale: CatalogLocale;
+  t: Translator<'participant.share'>;
+}
+
+/** Between the parts of the middle line: a mark, the same in every language. */
+const PARTS = ' · ';
+
+/**
  * The message the share panel offers to send with a signup's link, built
  * from the signup's own data and nothing else, in words the people it's
- * sent to know:
+ * sent to know, in the signup's language (`language`):
  *
  *     Fall book fair volunteers
  *     Thu, Nov 12 to Sat, Nov 14 · 11:00 AM · 21 spots open
@@ -44,12 +62,14 @@ export interface ShareMessageSignup {
 export function shareMessage(
   signup: ShareMessageSignup,
   url: string,
+  language: ShareMessageLanguage,
   committedBySlot: Record<string, number> = {},
 ): string {
-  const facts = [dateSpan(signup, committedBySlot), spotsOpen(signup, committedBySlot)].filter(
-    (part): part is string => part !== null,
-  );
-  return [signup.title.trim(), facts.join(' · '), `Sign up here, no account needed: ${url}`]
+  const facts = [
+    dateSpan(signup, committedBySlot, language),
+    spotsOpen(signup, committedBySlot, language.t),
+  ].filter((part): part is string => part !== null);
+  return [signup.title.trim(), facts.join(PARTS), language.t('signUp', { url })]
     .filter(Boolean)
     .join('\n');
 }
@@ -77,6 +97,7 @@ export function shareMessage(
 function dateSpan(
   { settings, fields, slots: all }: ShareMessageSignup,
   committedBySlot: Record<string, number>,
+  { locale, t }: ShareMessageLanguage,
 ): string | null {
   const open = all.filter((s) => s.status === 'open');
   const withRoom = open.filter(
@@ -93,33 +114,42 @@ function dateSpan(
     : [];
   // YYYY-MM-DD strings sort as the days they name.
   const days = [...new Set(dated.map((s) => s.values[dateRef ?? ''] as string))].sort();
-  const time = timeRef ? sharedTime(dated.length > 0 ? dated : slots, timeRef) : null;
-  const when = dayList(days);
+  const time = timeRef ? sharedTime(dated.length > 0 ? dated : slots, timeRef, locale) : null;
+  const when = dayList(days, locale, t);
   if (!when) return time;
   if (!time) return when;
-  return days.length === 1 ? `${when}, ${time}` : `${when} · ${time}`;
+  return days.length === 1 ? t('dayAndTime', { day: when, time }) : `${when}${PARTS}${time}`;
 }
 
-/** The time every one of `slots` has in `timeRef`, formatted, or null. */
-function sharedTime(slots: ShareMessageSignup['slots'], timeRef: string): string | null {
+/** The time every one of `slots` has in `timeRef`, formatted in `locale`, or null. */
+function sharedTime(
+  slots: ShareMessageSignup['slots'],
+  timeRef: string,
+  locale: CatalogLocale,
+): string | null {
   const times = new Set(slots.map((s) => s.values[timeRef]));
   const [only] = times;
   if (slots.length === 0 || times.size !== 1 || typeof only !== 'string' || !isRealTime(only)) {
     return null;
   }
-  return formatSlotTime(only, 'en');
+  return formatSlotTime(only, locale);
 }
 
 /** The days, sorted and distinct, in words; see `dateSpan`. */
-function dayList(days: string[]): string | null {
-  const named = days.map((d) => formatSlotDate(d, 'en')).filter((d): d is string => d !== null);
+function dayList(
+  days: string[],
+  locale: CatalogLocale,
+  t: ShareMessageLanguage['t'],
+): string | null {
+  const named = days.map((d) => formatSlotDate(d, locale)).filter((d): d is string => d !== null);
   if (named.length !== days.length || named.length === 0) return null;
   const first = named[0]!;
   const last = named[named.length - 1]!;
   if (named.length === 1) return first;
   const runsOn = days.every((d, i) => i === 0 || d === nextDay(days[i - 1]!));
-  if (runsOn || named.length >= 4) return `${first} to ${last}`;
-  return `${named.slice(0, -1).join(', ')} and ${last}`;
+  if (runsOn || named.length >= 4) return t('dayRange', { first, last });
+  if (named.length === 2) return t('twoDays', { first, second: last });
+  return t('threeDays', { first, second: named[1]!, third: last });
 }
 
 /** The calendar day after a YYYY-MM-DD day, in the same form. */
@@ -137,10 +167,11 @@ function nextDay(day: string): string {
 function spotsOpen(
   { slots }: ShareMessageSignup,
   committedBySlot: Record<string, number>,
+  t: ShareMessageLanguage['t'],
 ): string | null {
   const { taken, open } = spotCounts(slots, committedBySlot);
   if (open === null || open === 0) return null;
-  return `${spotCount(open)} ${taken === 0 ? 'open' : 'left'}`;
+  return taken === 0 ? t('spotsOpen', { count: open }) : t('spotsLeft', { count: open });
 }
 
 /**

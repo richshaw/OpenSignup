@@ -10,6 +10,7 @@ import {
   within,
 } from '@testing-library/react';
 import { BuildWysiwyg } from '@/components/build-wysiwyg/BuildWysiwyg';
+import { shareText } from '@/components/share/share-text';
 import { getTestTranslator } from '@/i18n/testing/translator';
 import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/publish-check';
 import { BuildBridge, useRegisterBuildTab } from './BuildBridge';
@@ -44,6 +45,9 @@ vi.mock('@/components/share/load-share-panel', async (importOriginal) => {
     },
   };
 });
+
+/** The share panel's words in English, as `SignupHeader` passes them. */
+const SHARE_TEXT = shareText(getTestTranslator('organizer.share'), 'Bake sale helpers');
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 
@@ -95,6 +99,7 @@ function Header({
     <BuildBridge buildHref="/app/signups/sig_1/build">
       <HeaderAnnouncer status="draft" announcements={TEXT.announcements}>
         <ShareScope
+          text={SHARE_TEXT}
           publishAction={action}
           signupId="sig_1"
           title="Bake sale helpers"

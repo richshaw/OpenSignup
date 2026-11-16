@@ -5,6 +5,7 @@
 import Link from 'next/link';
 import { Eye } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
+import type { PublicLinkChipText } from '@/components/share/share-text';
 import type { SignupStatus } from '@/schemas/signups';
 import { SHEET_ITEM } from './header-buttons';
 
@@ -26,6 +27,7 @@ export function PhoneStanding({
   signupId,
   status,
   publicUrl,
+  chip,
   spotsTaken,
   draftLine,
 }: {
@@ -33,6 +35,8 @@ export function PhoneStanding({
   signupId: string;
   status: SignupStatus;
   publicUrl: string;
+  /** The chip's words. */
+  chip: PublicLinkChipText;
   /** From `spotsTakenLine`; null for a draft. */
   spotsTaken: string | null;
   /** `DraftLine`'s text. */
@@ -41,7 +45,7 @@ export function PhoneStanding({
   if (status === 'draft') return <DraftLine text={draftLine} />;
   return (
     <div className="flex flex-col gap-1.5">
-      <PublicLinkChip url={publicUrl} signupId={signupId} />
+      <PublicLinkChip url={publicUrl} text={chip} signupId={signupId} />
       {status !== 'open' && spotsTaken ? (
         <p className="text-[13px] text-ink-muted">{spotsTaken}</p>
       ) : null}

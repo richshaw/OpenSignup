@@ -229,6 +229,15 @@ declare const messages: {
         "bodyWithEmail": "You'll get reminders for <b>{title}</b> again at {email}, and emails when your slot's date or time changes. You can stop them any time from the link in one."
       },
       "back": "Back to the signup"
+    },
+    "share": {
+      "signUp": "Sign up here, no account needed: {url}",
+      "spotsOpen": "{count, plural, one {{count, number, ::group-off} spot open} other {{count, number, ::group-off} spots open}}",
+      "spotsLeft": "{count, plural, one {{count, number, ::group-off} spot left} other {{count, number, ::group-off} spots left}}",
+      "dayAndTime": "{day}, {time}",
+      "dayRange": "{first} to {last}",
+      "twoDays": "{first} and {second}",
+      "threeDays": "{first}, {second} and {third}"
     }
   },
   "email": {
@@ -807,6 +816,54 @@ declare const messages: {
         "publishFailed": "Couldn’t publish. Try again.",
         "closeFailed": "Couldn’t close the signup. Try again.",
         "reopenFailed": "Couldn’t reopen the signup. Try again."
+      }
+    },
+    "share": {
+      "button": "Share",
+      "close": "Close",
+      "heading": {
+        "firstTime": "Now send people the link",
+        "later": "Share the link"
+      },
+      "published": "Published",
+      "announce": "Published. Anyone with the link can sign up now.",
+      "lead": {
+        "firstTime": "Anyone with the link can sign up. Nobody has it until you send it.",
+        "desktop": "Send it by email or in a group chat. Anyone with the link can sign up.",
+        "phone": "Send it to a group chat, by text or by email. Anyone with the link can sign up."
+      },
+      "linkField": "Public link",
+      "copyLink": "Copy link",
+      "copied": "Copied",
+      "linkCopied": "Link copied",
+      "messageCopied": "Message copied",
+      "linkRefused": "Couldn’t copy. Select the link and copy it.",
+      "messageRefused": "Couldn’t copy. Select the message and copy it.",
+      "messageLabel": "A message to send with it",
+      "copyMessage": "Copy message",
+      "emailIt": "Email it",
+      "shareMenu": "Share…",
+      "shareMenuHint": "Opens your phone’s share menu, with the message and link.",
+      "shareMenuSent": "Sent from your phone’s share menu.",
+      "unavailable": "Couldn’t load the other ways to share. Reload to try again.",
+      "qr": {
+        "alt": "QR code for the sign-up link to {title}",
+        "lead": "A QR code for a flyer or a sign-up table.",
+        "download": "Download",
+        "downloadLabel": "Download QR code",
+        "show": "QR code",
+        "hide": "Hide QR code",
+        "save": "Save image",
+        "saved": "Saved",
+        "savedNotice": "QR code saved"
+      },
+      "chip": {
+        "label": "Public link",
+        "copy": "Copy public link",
+        "copyTip": "Copy",
+        "open": "Open public page",
+        "openTip": "Open",
+        "copied": "Link copied"
       }
     },
     "settings": {

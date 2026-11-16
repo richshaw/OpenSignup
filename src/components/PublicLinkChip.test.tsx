@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { PublicLinkChip } from './PublicLinkChip';
+import { shareText } from './share/share-text';
 
 const emit = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/signup-link-events', () => ({ emitSignupLinkEvent: emit }));
+
+/** The chip's words in English, as the header passes them. */
+const TEXT = shareText(getTestTranslator('organizer.share'), 'Bake sale').panel.chip;
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const writeText = vi.fn<(text: string) => Promise<void>>();
@@ -17,7 +22,7 @@ beforeEach(() => {
 
 describe('PublicLinkChip', () => {
   it('records a copy from the header once the clipboard has it', async () => {
-    render(<PublicLinkChip url={LINK} signupId="sig_1" />);
+    render(<PublicLinkChip text={TEXT} url={LINK} signupId="sig_1" />);
     fireEvent.click(screen.getByRole('button', { name: 'Copy public link' }));
     await screen.findByText('Link copied');
     expect(writeText).toHaveBeenCalledWith(LINK);
@@ -25,7 +30,7 @@ describe('PublicLinkChip', () => {
   });
 
   it('records it as the share panel’s where the panel shows it', async () => {
-    render(<PublicLinkChip url={LINK} signupId="sig_1" surface="share_panel" />);
+    render(<PublicLinkChip text={TEXT} url={LINK} signupId="sig_1" surface="share_panel" />);
     fireEvent.click(screen.getByRole('button', { name: 'Copy public link' }));
     await screen.findByText('Link copied');
     expect(emit).toHaveBeenCalledExactlyOnceWith('sig_1', 'copied', 'share_panel');
@@ -33,7 +38,7 @@ describe('PublicLinkChip', () => {
 
   it('records nothing when the clipboard refuses', async () => {
     writeText.mockRejectedValue(new Error('denied'));
-    render(<PublicLinkChip url={LINK} signupId="sig_1" />);
+    render(<PublicLinkChip text={TEXT} url={LINK} signupId="sig_1" />);
     fireEvent.click(screen.getByRole('button', { name: 'Copy public link' }));
     await waitFor(() => expect(writeText).toHaveBeenCalled());
     await Promise.resolve();

@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import type { ShareText } from '@/components/share/share-text';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useAnnounce } from './HeaderAnnouncer';
 import { PublishState } from './PublishButton';
@@ -31,6 +32,8 @@ interface Share {
   setMessage: (message: string) => void;
   openShare: () => void;
   closeShare: () => void;
+  /** The Share buttons' and the panel's words, in the organizer's language. */
+  text: ShareText;
 }
 
 const ShareContext = createContext<Share | null>(null);
@@ -54,10 +57,12 @@ export function useShare(): Share {
  * opens it in its first-time form, and has the header say so. A signup
  * published elsewhere does neither.
  *
- * The message is the server's, built from the signup, until the organizer
- * edits it; then the edit is kept while the page is open, so reopening the
- * panel shows it. Until then a fresher message from the server (the layout
- * re-renders after Publish) replaces the one the page loaded with.
+ * The message is the server's, built from the signup in the signup's
+ * language, until the organizer edits it; then the edit is kept while the
+ * page is open, so reopening the panel shows it. Until then a fresher message
+ * from the server (the layout re-renders after Publish) replaces the one the
+ * page loaded with. Everything else the panel and its buttons say is `text`,
+ * in the organizer's language, from `shareText` on the server.
  */
 export function ShareScope({
   publishAction,
@@ -77,10 +82,18 @@ interface ShareStateProps {
   title: string;
   url: string;
   message: string;
+  text: ShareText;
   children: ReactNode;
 }
 
-function ShareState({ signupId, title, url, message: serverMessage, children }: ShareStateProps) {
+function ShareState({
+  signupId,
+  title,
+  url,
+  message: serverMessage,
+  text,
+  children,
+}: ShareStateProps) {
   const [open, setOpen] = useState(false);
   const [firstTime, setFirstTime] = useState(false);
   const [edited, setEdited] = useState<string | null>(null);
@@ -90,15 +103,16 @@ function ShareState({ signupId, title, url, message: serverMessage, children }: 
   const result = useStatusActionState();
   const handled = useRef(result);
   const say = useAnnounce();
+  const published = text.announce;
   useEffect(() => {
     if (result === handled.current) return;
     handled.current = result;
     if (result && 'published' in result) {
       setFirstTime(true);
       setOpen(true);
-      say('Published. Anyone with the link can sign up now.');
+      say(published);
     }
-  }, [result, say]);
+  }, [result, say, published]);
 
   const openShare = useCallback(() => {
     setFirstTime(false);
@@ -118,8 +132,21 @@ function ShareState({ signupId, title, url, message: serverMessage, children }: 
       setMessage: setEdited,
       openShare,
       closeShare,
+      text,
     }),
-    [open, firstTime, desktop, signupId, title, url, edited, serverMessage, openShare, closeShare],
+    [
+      open,
+      firstTime,
+      desktop,
+      signupId,
+      title,
+      url,
+      edited,
+      serverMessage,
+      openShare,
+      closeShare,
+      text,
+    ],
   );
   return <ShareContext.Provider value={value}>{children}</ShareContext.Provider>;
 }

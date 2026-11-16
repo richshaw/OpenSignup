@@ -3,13 +3,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { SharePanel, type SharePanelProps } from './SharePanel';
+import { shareText } from './share-text';
 
 // The QR code has its own test; here it would only wait on the encoder.
 vi.mock('./ShareQrCode', () => ({ ShareQrCode: () => null }));
 // What the panel records: each copy or share that worked, once.
 const emit = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/signup-link-events', () => ({ emitSignupLinkEvent: emit }));
+
+/** The panel's words in English, as `ShareButton` passes them. */
+const TEXT = shareText(getTestTranslator('organizer.share'), 'Bake sale helpers').panel;
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const MESSAGE = `Bake sale helpers\nSat, Nov 14 · 8 spots open\nSign up here, no account needed: ${LINK}`;
@@ -27,6 +33,7 @@ function Owner(props: Partial<SharePanelProps>) {
       url={LINK}
       message={message}
       onMessageChange={setMessage}
+      text={TEXT}
       {...props}
     />
   );
@@ -339,3 +346,29 @@ describe('<SharePanel /> on a phone', () => {
     expect(emit).not.toHaveBeenCalled();
   });
 });
+
+describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+  '<SharePanel /> in %s',
+  (locale) => {
+    const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale').panel;
+    const words = (key: string) => `organizer.share.${key} in ${locale}`;
+
+    it('offers a phone’s share menu in words from the catalog in that language', async () => {
+      giveShareMenu(async () => {});
+      render(<Owner variant="phone" text={text} />);
+      fireEvent.click(await screen.findByRole('button', { name: words('shareMenu') }));
+      expect(await screen.findByText(words('shareMenuSent'))).toBeInTheDocument();
+      expect(screen.getByLabelText(words('messageLabel'))).toHaveValue(MESSAGE);
+    });
+
+    it('says the clipboard refused, and what was copied, in that language', async () => {
+      render(<Owner text={text} />);
+      writeText.mockRejectedValueOnce(new Error('denied'));
+      fireEvent.click(screen.getByRole('button', { name: words('copyLink') }));
+      expect(await screen.findByText(words('linkRefused'))).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: words('copyLink') }));
+      expect(await screen.findByText(words('linkCopied'))).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: words('copied') })).toBeInTheDocument();
+    });
+  },
+);

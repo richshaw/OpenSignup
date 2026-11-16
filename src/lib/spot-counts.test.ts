@@ -1,24 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
-import {
-  closeSignupQuestion,
-  KEEPS_THEIR_SPOT,
-  spotCount,
-  spotCounts,
-  spotsTakenLine,
-} from './spot-counts';
+import { closeSignupQuestion, KEEPS_THEIR_SPOT, spotCounts, spotsTakenLine } from './spot-counts';
 
 const close = getTestTranslator('organizer.signup.close');
 const spots = getTestTranslator('organizer.signup.spots');
-
-describe('spotCount', () => {
-  it('says "spot" for one and "spots" for any other number', () => {
-    expect(spotCount(1)).toBe('1 spot');
-    expect(spotCount(0)).toBe('0 spots');
-    expect(spotCount(3)).toBe('3 spots');
-  });
-});
 
 describe('spotCounts', () => {
   it('adds up every slot’s capacity, the spots taken on them and the spots still open', () => {

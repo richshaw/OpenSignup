@@ -54,25 +54,21 @@ const TRANSLATED = [
   // Account Settings and Connected apps, the disconnect button included.
   'src/app/app/(chrome)/settings',
   // A signup's header, tabs, status pill and closed box, on every tab, and the
-  // card its pages show when it can't be loaded, but the share button and
-  // panel (`NOT_YET_TRANSLATED`).
+  // card its pages show when it can't be loaded.
   'src/app/app/(chrome)/signups/[id]/layout.tsx',
   'src/components/signup',
   'src/components/status-pill.tsx',
+  // The share panel, its QR code and the public link's chip.
+  'src/components/share',
+  'src/components/PublicLinkChip.tsx',
 ];
 
 /**
  * Files inside a `TRANSLATED` folder whose text hasn't moved yet, left out of
  * the rules until it does, written as in `TRANSLATED`. The sign-in email is
- * organizer text, which moves to the catalogs after the participant's. The
- * signup header's Share button and the share panel's scope move with the
- * share panel (#942).
+ * organizer text, which moves to the catalogs after the participant's.
  */
-const NOT_YET_TRANSLATED = [
-  'src/email/templates/magic-link.tsx',
-  'src/components/signup/ShareButton.tsx',
-  'src/components/signup/ShareScope.tsx',
-];
+const NOT_YET_TRANSLATED = ['src/email/templates/magic-link.tsx'];
 
 /**
  * Glob patterns for `files` that match exactly `paths`, each a file or a

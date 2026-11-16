@@ -3,6 +3,7 @@ import { getDb, type Db } from '@/db/client';
 import { workspaceMembers } from '@/db/schema/members';
 import { oauthRecords } from '@/db/schema/oauth';
 import { organizers } from '@/db/schema/organizers';
+import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
 import type { CatalogLocale } from '@/i18n/config';
 import { makeId } from '@/lib/ids';
@@ -14,6 +15,8 @@ import { createDisposableSession } from './seed';
 /** An organizer who stores a language (or none), signed in, with a signup of each kind. */
 export interface OrganizerIn {
   id: string;
+  /** Their personal workspace, which holds their signups. */
+  workspaceId: string;
   /** Their address, which account Settings says they're signed in as. */
   email: string;
   sessionToken: string;
@@ -101,40 +104,88 @@ export async function createOrganizerIn(
     });
   });
 
-  const actor: Actor = {
-    kind: 'organizer',
-    id: organizerId,
-    email,
-    workspaceIds: [workspaceId],
-    workspaceRoles: { [workspaceId]: 'owner' },
-  };
-  const make = async (title: string) =>
-    unwrap(
-      await createSignup(db, actor, workspaceId, {
-        title,
-        description: 'Seeded by tests/e2e/helpers/organizer-language.ts',
-        tags: [],
-        visibility: 'unlisted' as const,
-        settings: {},
-      }),
-      `createSignup(${title})`,
-    );
-
-  const open = await make('Bake Sale');
+  const actor = actorFor({ id: organizerId, email, workspaceId });
+  const open = await makeSignup(db, actor, workspaceId, 'Bake Sale');
   const slot = unwrap(
     await addSlot(db, actor, open.id, { values: { what: 'Cookies' }, capacity: 5 }),
     'addSlot',
   );
   unwrap(await publishSignup(db, actor, open.id), 'publishSignup');
-  const draft = await make('Draft Picnic');
+  const draft = await makeSignup(db, actor, workspaceId, 'Draft Picnic');
 
   return {
     id: organizerId,
+    workspaceId,
     email,
     sessionToken: await createDisposableSession(organizerId),
     open: { id: open.id, slug: open.slug, slotId: slot.id },
     draft: { id: draft.id, slug: draft.slug },
   };
+}
+
+/** The organizer as the services take them: the owner of their workspace. */
+function actorFor({
+  id,
+  email,
+  workspaceId,
+}: Pick<OrganizerIn, 'id' | 'email' | 'workspaceId'>): Actor {
+  return {
+    kind: 'organizer',
+    id,
+    email,
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+}
+
+/** A new signup called `title`, with the one empty slot a new signup starts with. */
+async function makeSignup(db: Db, actor: Actor, workspaceId: string, title: string) {
+  return unwrap(
+    await createSignup(db, actor, workspaceId, {
+      title,
+      description: 'Seeded by tests/e2e/helpers/organizer-language.ts',
+      tags: [],
+      visibility: 'unlisted' as const,
+      settings: {},
+    }),
+    `createSignup(${title})`,
+  );
+}
+
+/** A signup of the organizer's whose language is another than theirs. */
+export interface SignupIn {
+  id: string;
+  slug: string;
+  title: string;
+}
+
+/**
+ * A published signup of `organizer`'s whose language is `locale`, for the
+ * share panel, which is in the organizer's language while the message it
+ * offers to send is in the signup's. A language that hasn't shipped can't be
+ * chosen (`createSignup` refuses it), so it's written into the row, and shown
+ * only with it in `E2E_UNSHIPPED_LOCALES`, as the organizer's own is. Made by
+ * the test that reads it, so the other tests still count two signups; besides
+ * the empty slot a new signup starts with, it has Blankets for 4. `remove`
+ * takes it away with the rest of the workspace.
+ */
+export async function publishSignupIn(
+  organizer: OrganizerIn,
+  locale: CatalogLocale,
+): Promise<SignupIn> {
+  const db = getDb();
+  const actor = actorFor(organizer);
+  const signup = await makeSignup(db, actor, organizer.workspaceId, 'Picnic Abroad');
+  unwrap(
+    await addSlot(db, actor, signup.id, { values: { what: 'Blankets' }, capacity: 4 }),
+    'addSlot',
+  );
+  unwrap(await publishSignup(db, actor, signup.id), 'publishSignup');
+  await db
+    .update(signups)
+    .set({ settings: { ...signup.settings, locale } })
+    .where(eq(signups.id, signup.id));
+  return { id: signup.id, slug: signup.slug, title: signup.title };
 }
 
 /** When a connected app was approved, last used and runs out. */

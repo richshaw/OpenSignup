@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Eye } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
+import { shareText } from '@/components/share/share-text';
 import { StatusPill } from '@/components/status-pill';
 import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
@@ -35,7 +36,11 @@ interface SignupHeaderProps {
   spots: SpotCounts | null;
   /** Asks the question again from the spots taken now, when ⋯ opens. */
   closeQuestionAction: CloseQuestionAction;
-  /** What the share panel offers to send with the link, from `shareMessage`. */
+  /**
+   * What the share panel offers to send with the link, from `shareMessage`,
+   * in the signup's language, which participants read. The panel's own words
+   * are in `locale`, the organizer's.
+   */
   shareMessage: string;
   publishAction: StatusAction;
   closeAction: StatusChangeAction;
@@ -64,6 +69,8 @@ export function SignupHeader({
   const spotsTaken = spots
     ? spotsTakenLine(spots, status, getServerTranslator(locale, 'organizer.signup.spots'))
     : null;
+  // The Share buttons', the panel's and the public link's words.
+  const share = shareText(getServerTranslator(locale, 'organizer.share'), title);
   // Rendered here for both headers: the phone's takes it as a node, so it
   // stays out of the page's JavaScript.
   const pill = (
@@ -82,6 +89,7 @@ export function SignupHeader({
       title={title}
       url={publicUrl}
       message={shareMessage}
+      text={share}
     >
       <div className="md:hidden">
         <MobileSignupHeader
@@ -93,6 +101,7 @@ export function SignupHeader({
               signupId={signupId}
               status={status}
               publicUrl={publicUrl}
+              chip={share.panel.chip}
               spotsTaken={spotsTaken}
               draftLine={t('draftLine')}
             />
@@ -132,6 +141,7 @@ export function SignupHeader({
                 <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
                   <PublicLinkChip
                     url={publicUrl}
+                    text={share.panel.chip}
                     signupId={signupId}
                     className="inline-flex max-w-md"
                   />

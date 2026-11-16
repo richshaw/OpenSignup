@@ -14,8 +14,9 @@ import { hasPhoneBar, PHONE_BAR_ROOM } from '@/components/signup/phone-bar';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
 import { SignupLoadError, signupNotFoundTitle } from '@/components/signup/SignupLoadError';
+import { signupLocale } from '@/i18n/config';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator } from '@/i18n/server';
+import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
 import { messagesFor } from '@/i18n/translator';
 import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, closeQuestionAction, publishAction, reopenAction } from './actions';
@@ -69,6 +70,15 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   // The words of the header's client components, the closed box and the
   // tabs, passed to them as props.
   const text = signupHeaderText(getServerTranslator(locale, 'organizer.signup'));
+  // The message the share panel offers to send is for participants, so it's
+  // in the signup's language, as its page is, not the organizer's.
+  const messageLocale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const message = shareMessage(
+    sig,
+    publicUrl,
+    { locale: messageLocale, t: getServerTranslator(messageLocale, 'participant.share') },
+    filled?.value,
+  );
 
   return (
     // The header reaches the Build tab through this: Publish saves its edits
@@ -93,7 +103,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
             publicUrl={publicUrl}
             spots={filled ? spotCounts(sig.slots, filled.value) : null}
             closeQuestionAction={closeQuestionAction.bind(null, id)}
-            shareMessage={shareMessage(sig, publicUrl, filled?.value)}
+            shareMessage={message}
             publishAction={publishAction.bind(null, id)}
             closeAction={closeAction.bind(null, id)}
             reopenAction={reopenAction.bind(null, id)}
