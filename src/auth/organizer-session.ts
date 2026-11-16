@@ -21,6 +21,14 @@ export interface OrganizerSession {
   email: string;
   name: string | null;
   defaultWorkspaceId: string | null;
+  /**
+   * The language the organizer saved, exactly as stored, or null when they
+   * haven't saved one. Not checked or resolved here: a caller passes it to
+   * `chooseOrganizerLocale` (`src/i18n/organizer-locale.ts`), which passes
+   * over a value that hasn't shipped and reports which step chose. It stays
+   * off `Actor`, so a cookie and a token still give the same actor.
+   */
+  locale: string | null;
   memberships: {
     workspaceId: string;
     workspaceSlug: string;
@@ -39,6 +47,7 @@ export async function loadOrganizerSessionById(
       orgEmail: organizers.email,
       orgName: organizers.name,
       orgDefaultWs: organizers.defaultWorkspaceId,
+      orgLocale: organizers.locale,
       wsId: workspaces.id,
       wsSlug: workspaces.slug,
       wsName: workspaces.name,
@@ -69,6 +78,7 @@ export async function loadOrganizerSessionById(
     email: first.orgEmail,
     name: first.orgName,
     defaultWorkspaceId: first.orgDefaultWs,
+    locale: first.orgLocale,
     memberships,
   };
 }
