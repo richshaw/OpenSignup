@@ -77,6 +77,12 @@ export const UI = {
   saved: 'Saved',
   // The email box on the signup page once it is optional.
   emailBoxOptional: 'Email (optional)',
+  // The Settings tab's language choice, by its group's name.
+  signupLanguage: 'Signup language',
+  // The header link to the organizer's own settings on a phone (a computer
+  // shows their email address), and the language choice there.
+  account: 'Account',
+  language: 'Language',
   // The tab that lists who signed up.
   responses: 'Responses',
 } as const;
@@ -143,5 +149,8 @@ export const FROM_CATALOG: {
   emailOptional: 'organizer.signupSettings.signupForm.optional',
   saved: 'organizer.saveNotice.saved',
   emailBoxOptional: 'participant.fields.emailOptional',
+  signupLanguage: 'organizer.signupSettings.language.legend',
+  account: 'organizer.chrome.account',
+  language: 'organizer.settings.language.legend',
   responses: 'organizer.signup.tabs.responses',
 };
