@@ -52,8 +52,9 @@ English each message was translated from (`src/i18n/translated-from/sv.json`,
 - **unneeded**: the record has an entry for a message English or the
   translation no longer has; marking (below) drops it.
 
-For organizer text, add `--audience organizer`; organizer text stays English
-for now, so only do that when asked.
+For organizer text (`organizer`, `auth`, `common`), add `--audience organizer`.
+For a language that has organizer text (Swedish today), list that audience
+too when English changes in `organizer` or `auth`.
 
 Then translate in `src/messages/<language>.json`, one namespace at a time,
 from `en.json`:
@@ -134,6 +135,10 @@ Playwright at the Chromium installed there. The command writes, under
 - `en/emails/*.html` and `<language>/emails/*.html`, with a `.txt` of each
   that starts with the email's subject: every participant email and the
   sign-in email, from `scripts/lib/email-samples.ts`.
+
+It covers only participant screens and emails until its spec covers organizer
+screens. For organizer text, take the screens the batch changes by hand, at
+desktop and phone width, and tell the reviewer where they are.
 
 Open a few of the images yourself first, to be sure they show what they say.
 If a spec fails on `rate_limited` after several runs in an hour, empty the
