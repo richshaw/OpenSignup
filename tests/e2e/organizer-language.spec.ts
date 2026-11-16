@@ -484,8 +484,10 @@ for (const stored of STORED) {
       await expect(ask.getByRole('radio', { name: settings('signupForm.optional') })).toBeVisible();
       await expect(form.getByText(settings('signupForm.requiredHelp'))).toBeVisible();
       // Saving changes nothing here (Required stays Required), but says Saved.
-      await form.getByRole('button', { name: settings('save') }).click();
-      await expect(form.getByRole('status')).toHaveText(saveNotice('saved'));
+      // The tab's settings are one form, with one Save under them all.
+      const all = page.locator('form').filter({ has: ask });
+      await all.getByRole('button', { name: settings('save') }).click();
+      await expect(all.getByRole('status')).toHaveText(saveNotice('saved'));
 
       const danger = page.getByRole('region', { name: settings('delete.title') });
       await expect(danger.getByText(settings('delete.body'))).toBeVisible();

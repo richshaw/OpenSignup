@@ -36,8 +36,7 @@ vi.mock('@/services/signups.cached', () => ({
 }));
 vi.mock('@/lib/view-tracker', () => ({ trackOrganizerView: async () => {} }));
 vi.mock('../actions', () => ({
-  setRequireEmailAction: vi.fn(),
-  setSignupLocaleAction: vi.fn(),
+  saveSignupSettingsAction: vi.fn(),
   deleteSignupAction: vi.fn(),
 }));
 // A submit button shows its loading label only while its form is pending,
@@ -132,8 +131,7 @@ describe('Settings tab: Signup language', () => {
     expect(form.getByText('Svenska')).toHaveAttribute('lang', 'sv');
     expect(swedish).toBeChecked();
     expect(english).not.toBeChecked();
-    expect(form.getByRole('button', { name: 'Save' })).toBeInTheDocument();
-    expect(form.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('shows the instance’s language for a signup with none, or one that has left the list', async () => {
@@ -154,17 +152,54 @@ describe('Settings tab: Signup language', () => {
     expect(screen.getByRole('radio', { name: 'Svenska' })).toBeChecked();
   });
 
-  it('says Saved by the form that saved, and only there', async () => {
+  it('says Saved after a save, and nothing for any other value', async () => {
     ship('participant', ['en', 'sv']);
-    await renderTab({ saved: 'language' });
-    expect(within(languageSection()!).getByRole('status')).toHaveTextContent('Saved');
-    expect(screen.getAllByRole('status')).toHaveLength(1);
+    await renderTab({ saved: '1' });
+    expect(screen.getByRole('status')).toHaveTextContent(/^Saved$/);
     cleanup();
 
-    await renderTab({ saved: '1' });
-    const emailForm = screen.getByRole('region', { name: 'Sign-up form' });
-    expect(within(emailForm).getByRole('status')).toHaveTextContent('Saved');
-    expect(screen.getAllByRole('status')).toHaveLength(1);
+    for (const saved of ['language', 'true', '']) {
+      await renderTab({ saved });
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      cleanup();
+    }
+  });
+});
+
+// #899's tophat: with a Save on each card, saving one dropped an unsaved
+// change in the other without a word.
+describe('Settings tab: one Save', () => {
+  /** The form a control is in. */
+  const formOf = (control: HTMLElement) => (control as HTMLInputElement).form!;
+  const shown = (form: HTMLFormElement, name: string) =>
+    (form.elements.namedItem(name) as HTMLInputElement | null)?.value;
+
+  it('saves the email choice and the language together', async () => {
+    ship('participant', ['en', 'sv']);
+    stored.settings = { requireEmail: false, locale: 'sv' };
+    await renderTab();
+    const form = formOf(screen.getByRole('radio', { name: 'Optional' }));
+    expect(formOf(screen.getByRole('radio', { name: 'Svenska' }))).toBe(form);
+    expect(screen.getAllByRole('button', { name: 'Save' })).toEqual([
+      within(form).getByRole('button', { name: 'Save' }),
+    ]);
+    // Each choice says what it showed, so Save sends only what changed.
+    expect(shown(form, 'requireEmailShown')).toBe('optional');
+    expect(shown(form, 'localeShown')).toBe('sv');
+    // Delete is a form of its own, outside it.
+    expect(form).not.toContainElement(screen.getByRole('button', { name: 'Delete signup' }));
+  });
+
+  it('has the email choice alone while one language has shipped, with the same one Save', async () => {
+    await renderTab();
+    const form = formOf(screen.getByRole('radio', { name: 'Required' }));
+    expect(screen.getAllByRole('button', { name: 'Save' })).toEqual([
+      within(form).getByRole('button', { name: 'Save' }),
+    ]);
+    expect(shown(form, 'requireEmailShown')).toBe('required');
+    // No language to send, so the action sends none.
+    expect(form.elements.namedItem('localeShown')).toBeNull();
+    expect(form.elements.namedItem('locale')).toBeNull();
   });
 });
 
@@ -185,20 +220,14 @@ describe('Settings tab: its words', () => {
     expect(form.getByRole('radio', { name: say('signupForm.optional') })).not.toBeChecked();
     expect(form.getByText(say('signupForm.requiredHelp'))).toBeInTheDocument();
     expect(form.getByText(say('signupForm.optionalHelp'))).toBeInTheDocument();
-    const save = form.getByRole('button', { name: say('save') });
-    expect(save).toHaveAttribute('data-loading-label', say('saving'));
-    expect(form.getByRole('status')).toHaveTextContent(saved);
-    cleanup();
 
-    await renderTab({ saved: 'language' });
     const language = within(screen.getByRole('region', { name: say('language.title') }));
     expect(language.getByRole('group', { name: say('language.legend') })).toBeInTheDocument();
     expect(language.getByText(say('language.help'))).toBeInTheDocument();
-    expect(language.getByRole('button', { name: say('save') })).toHaveAttribute(
-      'data-loading-label',
-      say('saving'),
-    );
-    expect(language.getByRole('status')).toHaveTextContent(saved);
+
+    const save = screen.getByRole('button', { name: say('save') });
+    expect(save).toHaveAttribute('data-loading-label', say('saving'));
+    expect(screen.getByRole('status')).toHaveTextContent(saved);
 
     const danger = within(screen.getByRole('region', { name: say('delete.title') }));
     expect(danger.getByText(say('delete.body'))).toBeInTheDocument();
@@ -226,7 +255,7 @@ describe('Settings tab: its words', () => {
       'language.title': 'Language',
       'language.legend': 'Signup language',
       'language.help':
-        'This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language.',
+        'This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too.',
       save: 'Save',
       saving: 'Saving…',
       'delete.title': 'Delete this signup',

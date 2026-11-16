@@ -343,8 +343,12 @@ test.describe('organizer flow', () => {
 
     const settings = `/app/signups/${signup.id}/settings`;
     await page.goto(settings);
-    // The header has a live region of its own.
-    const saved = page.getByRole('region', { name: 'Sign-up form' }).getByRole('status');
+    // The tab's settings are one form, with one Save and its Saved under them
+    // all. The header has a live region of its own.
+    const saved = page
+      .locator('form')
+      .filter({ has: page.getByRole('group', { name: 'Ask for an email address' }) })
+      .getByRole('status');
     const required = page.getByRole('radio', { name: 'Required' });
     const optional = page.getByRole('radio', { name: 'Optional' });
     await expect(required).toBeChecked();

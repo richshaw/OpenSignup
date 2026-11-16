@@ -240,7 +240,7 @@
   "organizer.signupSettings.signupForm.optionalHelp": "People can leave it blank. They get no emails, not even reminders, so they need to save their link. If they lose it, they can sign up again and you can remove the old one on the Responses tab.",
   "organizer.signupSettings.language.title": "Language",
   "organizer.signupSettings.language.legend": "Signup language",
-  "organizer.signupSettings.language.help": "This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language.",
+  "organizer.signupSettings.language.help": "This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too.",
   "organizer.signupSettings.save": "Save",
   "organizer.signupSettings.saving": "Saving…",
   "organizer.signupSettings.delete.title": "Delete this signup",

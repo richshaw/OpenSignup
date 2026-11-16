@@ -368,7 +368,7 @@ declare const messages: {
       "language": {
         "title": "Language",
         "legend": "Signup language",
-        "help": "This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language."
+        "help": "This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too."
       },
       "save": "Save",
       "saving": "Saving…",

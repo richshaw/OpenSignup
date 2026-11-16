@@ -306,7 +306,7 @@
       "language": {
         "title": "Språk",
         "legend": "Anmälningslistans språk",
-        "help": "Det här språket används för knappar, meddelanden och datum på anmälningslistans sida och i mejlen till deltagarna. Skriv titeln och passen på samma språk."
+        "help": "Det här språket används för knappar, meddelanden och datum på anmälningslistans sida och i mejlen till deltagarna. Skriv titeln och passen på samma språk. De som redan är anmälda ser också anmälningslistan på det nya språket."
       },
       "save": "Spara",
       "saving": "Sparar…",
