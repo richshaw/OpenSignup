@@ -265,5 +265,111 @@
       "keep": "Passar inte den nya tiden? Använd knappen ovan för att ändra eller avboka. Den öppnar din anmälan direkt, utan lösenord. Dela inte mejlet med någon: alla som har länken kan ändra din anmälan.",
       "stop": "Stäng av påminnelser och uppdateringar om {title}"
     }
+  },
+  "organizer": {
+    "errors": {
+      "code": {
+        "forbidden": "Du har inte behörighet att göra ändringar.",
+        "unauthorized": "Logga in igen för att spara.",
+        "conflict": "Ladda om sidan för att se de senaste ändringarna.",
+        "capacity_full": "Passet är fullt.",
+        "closed": "Den här anmälningslistan är stängd.",
+        "not_found": "Finns inte längre.",
+        "invalid_input": "Vissa värden godkändes inte.",
+        "rate_limited": "Vänta en stund och försök igen.",
+        "already_consumed": "Har redan använts.",
+        "internal": "Det gick inte att spara."
+      },
+      "titleTooShort": "Titeln måste ha minst {min, number} tecken.",
+      "tooManySignups": "Du har skapat många anmälningslistor den senaste timmen. Försök igen om ungefär {minutes, plural, one {{minutes, number} minut} other {{minutes, number} minuter}}.",
+      "disconnectFailed": "Det gick inte att koppla från. Försök igen."
+    },
+    "signupSettings": {
+      "signupForm": {
+        "title": "Anmälningsformulär",
+        "askForEmail": "Be om en e-postadress",
+        "required": "Obligatoriskt",
+        "optional": "Valfritt",
+        "requiredHelp": "Alla får ett mejl med sin länk för att ändra eller avboka.",
+        "optionalHelp": "Deltagarna kan lämna e-postfältet tomt. Då får de inga mejl, inte ens påminnelser, så de behöver spara sin länk. Om de tappar bort den kan de anmäla sig igen, och du kan ta bort den gamla anmälan på fliken Anmälningar."
+      },
+      "language": {
+        "title": "Språk",
+        "legend": "Anmälningslistans språk",
+        "help": "Det här språket används för knappar, meddelanden och datum på anmälningslistans sida och i mejlen till deltagarna. Skriv titeln och passen på samma språk."
+      },
+      "save": "Spara",
+      "saving": "Sparar…",
+      "dangerZone": {
+        "title": "Farozon",
+        "body": "Om du raderar anmälningslistan försvinner den från dina anmälningslistor, och den offentliga länken slutar fungera direkt."
+      },
+      "delete": {
+        "start": "Radera anmälningslistan",
+        "label": "Bekräfta att anmälningslistan ska raderas",
+        "question": "Anmälningslistan kommer att raderas.",
+        "confirm": "Ja, radera anmälningslistan",
+        "deleting": "Raderar…",
+        "cancel": "Avbryt"
+      }
+    },
+    "saveNotice": {
+      "saved": "Sparat"
+    },
+    "responses": {
+      "summary": {
+        "signUps": "{count, plural, one {{count, number} anmälan} other {{count, number} anmälningar}}",
+        "cancelled": "{count, plural, one {{count, number} avbokad} other {{count, number} avbokade}}",
+        "removed": "{count, plural, one {{count, number} borttagen} other {{count, number} borttagna}}"
+      },
+      "downloadCsv": "Ladda ned CSV",
+      "empty": {
+        "draft": "Ingen har anmält sig ännu. Det går att anmäla sig när du har publicerat och delat anmälningslistan.",
+        "open": "Ingen har anmält sig ännu. Dela den offentliga länken för att börja ta emot anmälningar.",
+        "closed": "Ingen anmälde sig.",
+        "archived": "Ingen anmälde sig. Det går inte att anmäla sig nu."
+      },
+      "table": {
+        "name": "Namn",
+        "email": "E-post",
+        "slot": "Pass",
+        "spots": "Antal platser",
+        "status": "Status",
+        "actions": "Åtgärder",
+        "noEmail": "Ingen e-postadress",
+        "spotsAfterCount": "{count, plural, one {plats} other {platser}}"
+      },
+      "status": {
+        "confirmed": "bekräftad",
+        "tentative": "preliminär",
+        "waitlist": "väntelista",
+        "cancelled": "avbokad",
+        "noShow": "uteblev",
+        "removed": "borttagen",
+        "moved": "flyttad"
+      },
+      "remove": {
+        "button": "Ta bort",
+        "label": "Ta bort {name} från {slot}",
+        "labelNoSlot": "Ta bort {name} från det här passet",
+        "question": "{label}? {count, plural, one {Platsen blir ledig för någon annan.} other {De {count, number} platserna blir lediga för andra.}} Personen får inget mejl om det.",
+        "dialogLabel": "Bekräfta borttagning",
+        "keep": "Behåll",
+        "confirm": "Ja, ta bort",
+        "removing": "Tar bort…",
+        "refusal": {
+          "notFound": "Den här personen finns inte längre med på anmälningslistan. Ladda om sidan för att se de senaste ändringarna.",
+          "failed": "Det gick inte att ta bort personen. Försök igen."
+        }
+      },
+      "csv": {
+        "name": "Namn",
+        "email": "E-post",
+        "status": "Status",
+        "spots": "Antal platser",
+        "notes": "Kommentar",
+        "signedUp": "Anmäld"
+      }
+    }
   }
 }
