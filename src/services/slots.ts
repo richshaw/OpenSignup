@@ -279,6 +279,7 @@ export async function updateSlot(
               field: 'capacity',
               received: data.capacity,
               suggestion: 'cancel some commitments before lowering capacity',
+              details: { reason: 'capacity_below_taken', taken: usedQty },
             },
           ),
         );
@@ -397,7 +398,11 @@ export async function deleteSlot(
             field: 'slotId',
             suggestion:
               'confirm with the organizer, then call again with force: true to remove the slot and their places',
-            details: { filled: places, commitments: commitmentsRemoved },
+            details: {
+              reason: 'slot_has_signups',
+              filled: places,
+              commitments: commitmentsRemoved,
+            },
           },
         ),
       );

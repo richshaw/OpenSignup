@@ -20,7 +20,54 @@ const compat = new FlatCompat({ baseDirectory: __dirname });
  * Text that reads the same in every language, like a name, can be let through
  * where it stands with an eslint-disable comment that says why.
  */
-const TRANSLATED = ['src/components/site-footer.tsx'];
+const TRANSLATED = [
+  'src/components/site-footer.tsx',
+  'src/components/banner.tsx',
+  'src/components/ui/BottomSheet.tsx',
+  // The notice a save shows, which takes its text from the page, and a
+  // signup's Settings tab, the delete form included.
+  'src/components/ui/save-notice.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/settings',
+  // A signup's Build tab: the page, and the client components it renders.
+  'src/app/(organizer)/app/(chrome)/signups/[id]/build',
+  'src/components/build-wysiwyg',
+  'src/components/build-shared',
+  // A signup's Responses tab: the table, its empty lines and the remove flow.
+  'src/app/(organizer)/app/(chrome)/signups/[id]/responses',
+  // Everything a participant sees under a signup's address: its page, the
+  // sign-up sheet, the pages for changing or cancelling a spot and for
+  // turning reminders off, both not-found pages, and the copy helpers.
+  'src/app/s/[slug]',
+  // Every email: the ones a participant gets, the pieces they share, the
+  // sign-in email, and any email added here later.
+  'src/email/templates',
+  // The organizer app's header and crumbs, Your signups, and the card a
+  // signup's pages show when it can't be loaded.
+  'src/app/(organizer)/app/(chrome)/layout.tsx',
+  'src/app/(organizer)/app/(chrome)/page.tsx',
+  'src/app/(organizer)/app/(chrome)/@crumbs',
+  'src/components/chrome',
+  // New signup: the form, and Magic Compose's screens, its questions and the
+  // banner on a draft it made included.
+  'src/app/(organizer)/app/(chrome)/signups/new',
+  'src/components/magic-compose',
+  // Account Settings and Connected apps, the disconnect button included.
+  'src/app/(organizer)/app/(chrome)/settings',
+  // A signup's header, tabs, status pill and closed box, on every tab, and the
+  // card its pages show when it can't be loaded.
+  'src/app/(organizer)/app/(chrome)/signups/[id]/layout.tsx',
+  'src/components/signup',
+  'src/components/status-pill.tsx',
+  // The share panel, its QR code and the public link's chip.
+  'src/components/share',
+  'src/components/PublicLinkChip.tsx',
+  // The sign-in pages: the form and its code box, the provider buttons, and
+  // the check-your-email and confirm pages.
+  'src/app/(organizer)/login',
+  // The screen that connects an AI assistant, its buttons, and the replies
+  // when the organizer chooses.
+  'src/app/(organizer)/oauth',
+];
 
 /**
  * Glob patterns for `files` that match exactly `paths`, each a file or a
@@ -61,11 +108,21 @@ const I18N = path.join(SRC, 'i18n');
  * extension. One goes on the list only if it loads no catalog, now or through
  * anything it imports.
  */
-const CLIENT_SAFE_I18N = ['i18n/config'].map((module) => path.join(SRC, module));
+const CLIENT_SAFE_I18N = [
+  'i18n/config',
+  // Takes its messages as a prop, and imports only types from the translator.
+  // A client component wraps a part it loads lazily in it, so the messages
+  // provider stays out of the page's first JavaScript (AiDraftWarnings).
+  'i18n/ClientMessages',
+].map((module) => path.join(SRC, module));
 
 /** What a client component does for its text instead. */
 const CLIENT_TEXT_INSTEAD =
-  'Translate in a server component and pass the text in as props. (A messages provider for client components comes with #629.)';
+  "Translate in a server component and pass the text in as props, or call next-intl's useTranslations under <ClientMessages> (src/i18n/ClientMessages.tsx), which a server component gives the messages from messagesFor.";
+
+/** What to do instead of importing next-intl's messages provider. */
+const PROVIDER_INSTEAD =
+  'Only src/i18n/ClientMessages.tsx may import the messages provider: wrap the client components in <ClientMessages>, with the messages from messagesFor, instead.';
 
 /** Whether the file opens with a 'use client' directive, which is how Next decides. */
 function isClientFile(program) {
@@ -191,7 +248,18 @@ const noCatalogsInClient = {
   },
 };
 
-/** Props whose value people read, or hear from a screen reader. */
+/**
+ * Props whose value people read, or hear from a screen reader: the ones HTML
+ * has, and the ones shared components take their text through (Banner's
+ * `body`, BottomSheet's `eyebrow` and `description`, the signup page's state
+ * message's `detail`, the sign-up dialog's `actionName`, `slotName` and
+ * `slotContext`, the unsubscribe page's `error`, the email layout's `preview`,
+ * the line an inbox shows after the subject). Any prop whose name ends in
+ * `Label` or `Title` counts too (`closeLabel`, `dismissLabel`, `ariaLabel`,
+ * the sign-up dialog's `slotTitle`): that's how a component takes the name of
+ * a control it draws, or of the thing it shows. So does one of these keys in
+ * an object passed as a prop, like the state message's `action={{ label, href }}`.
+ */
 const TEXT_PROPS = new Set([
   'aria-label',
   'aria-description',
@@ -199,7 +267,26 @@ const TEXT_PROPS = new Set([
   'placeholder',
   'alt',
   'label',
+  'body',
+  'eyebrow',
+  'description',
+  'detail',
+  'actionName',
+  'slotName',
+  'slotContext',
+  'error',
+  'preview',
 ]);
+
+const isTextProp = (name) =>
+  TEXT_PROPS.has(name) || name.endsWith('Label') || name.endsWith('Title');
+
+/** A property's name, when it's written out (`label:` or `'label':`). */
+function propertyName(property) {
+  if (property.type !== 'Property' || property.computed) return null;
+  if (property.key.type === 'Identifier') return property.key.name;
+  return typeof property.key.value === 'string' ? property.key.value : null;
+}
 
 /** Whether a string has a letter in it: `alt=""` (an image to skip) and a lone `·` don't. */
 const hasLetters = (text) => /\p{L}/u.test(text);
@@ -224,11 +311,26 @@ function literalsIn(node) {
   }
 }
 
+/**
+ * The literals in an object passed as a prop, under its text keys
+ * (`action={{ label: '…', href }}`), each with the key's name as
+ * `action.label`.
+ */
+function literalsInObject(value, attribute) {
+  const object = value?.type === 'JSXExpressionContainer' ? value.expression : null;
+  if (object?.type !== 'ObjectExpression') return [];
+  return object.properties.flatMap((property) => {
+    const key = propertyName(property);
+    if (key === null || !isTextProp(key)) return [];
+    return literalsIn(property.value).map((literal) => ({ literal, prop: `${attribute}.${key}` }));
+  });
+}
+
 const noLiteralTextProps = {
   meta: {
     type: 'suggestion',
     docs: {
-      description: `Keep hard-coded text off the props people read: ${[...TEXT_PROPS].join(', ')}.`,
+      description: `Keep hard-coded text off the props people read: ${[...TEXT_PROPS].join(', ')}, and any whose name ends in Label or Title.`,
     },
     schema: [],
     messages: {
@@ -239,9 +341,13 @@ const noLiteralTextProps = {
   create(context) {
     return {
       JSXAttribute(node) {
-        if (node.name.type !== 'JSXIdentifier' || !TEXT_PROPS.has(node.name.name)) return;
-        for (const literal of literalsIn(node.value)) {
-          context.report({ node: literal, messageId: 'literal', data: { prop: node.name.name } });
+        if (node.name.type !== 'JSXIdentifier') return;
+        const attribute = node.name.name;
+        const found = isTextProp(attribute)
+          ? literalsIn(node.value).map((literal) => ({ literal, prop: attribute }))
+          : literalsInObject(node.value, attribute);
+        for (const { literal, prop } of found) {
+          context.report({ node: literal, messageId: 'literal', data: { prop } });
         }
       },
     };
@@ -304,10 +410,34 @@ const config = [
     rules: { 'opensignup/no-catalogs-in-client': 'error' },
   },
   {
+    // next-intl's provider, imported anywhere but ClientMessages, can end up
+    // in a server component, where `next-intl` gives the server's provider.
+    // That one fills every prop it isn't given from the request config, which
+    // reads the request's headers, so a page built once at build time would be
+    // rendered for every request. ClientMessages is a client component, so it
+    // gets the client's provider, which takes only the props it's given.
+    files: ['**/*.{ts,tsx}'],
+    ignores: ['src/i18n/ClientMessages.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'next-intl', importNames: ['NextIntlClientProvider', 'IntlProvider'] },
+            { name: 'use-intl', importNames: ['IntlProvider'] },
+            { name: 'use-intl/react', importNames: ['IntlProvider'] },
+          ].map((entry) => ({ ...entry, message: PROVIDER_INSTEAD })),
+        },
+      ],
+    },
+  },
+  {
     // Where text has moved to the catalogs (`TRANSLATED`), no hard-coded text:
     // not in JSX, and not on the props people read. `noAttributeStrings` would
     // also flag every className and href, so the props have a rule of their own.
+    // Tests are left out: their English fixtures are what they check.
     files: filesAt(TRANSLATED),
+    ignores: ['**/*.test.{ts,tsx}'],
     rules: {
       'react/jsx-no-literals': ['error', { noStrings: true, ignoreProps: true }],
       'opensignup/no-literal-text-props': 'error',

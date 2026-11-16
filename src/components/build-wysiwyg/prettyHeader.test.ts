@@ -1,85 +1,113 @@
 import { describe, it, expect } from 'vitest';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { prettyHeader, emptyHeaderCopy } from './prettyHeader';
+
+/** The Build tab's messages in English, from the catalog. */
+const t = getTestTranslator('organizer.build');
 
 describe('prettyHeader', () => {
   it('formats an ISO date as the public page does (the CSS uppercases it)', () => {
-    expect(prettyHeader('2026-05-21', 'date', 'en')).toBe('Thu, May 21');
+    expect(prettyHeader(t, '2026-05-21', 'date', 'en')).toBe('Thu, May 21');
+  });
+
+  // The language is a `CatalogLocale`, so typecheck refuses a call written
+  // before it took one, with the field's label in its place.
+  it('takes a language after the field type, never a label', () => {
+    // @ts-expect-error: 'Date' is a label, not a language with a catalog.
+    const oldStyle = () => prettyHeader(t, '2026-05-21', 'date', 'Date');
+    expect(oldStyle).toBeTypeOf('function');
   });
 
   it('returns "Set a date" when value is empty and field is date', () => {
-    expect(prettyHeader('', 'date', 'en')).toBe('Set a date');
-    expect(prettyHeader(null, 'date', 'en')).toBe('Set a date');
-    expect(prettyHeader(undefined, 'date', 'en')).toBe('Set a date');
+    expect(prettyHeader(t, '', 'date', 'en')).toBe('Set a date');
+    expect(prettyHeader(t, null, 'date', 'en')).toBe('Set a date');
+    expect(prettyHeader(t, undefined, 'date', 'en')).toBe('Set a date');
   });
 
   it('returns "Set a time" when value is empty and field is time', () => {
-    expect(prettyHeader('', 'time', 'en')).toBe('Set a time');
+    expect(prettyHeader(t, '', 'time', 'en')).toBe('Set a time');
   });
 
   it('derives empty-header copy from the field label when provided', () => {
-    expect(prettyHeader('', 'text', 'en', 'What')).toBe('Set what');
-    expect(prettyHeader(null, 'text', 'en', 'Item')).toBe('Set item');
-    expect(prettyHeader('', 'enum', 'en', 'Course')).toBe('Set course');
-    expect(prettyHeader('', 'number', 'en', 'Quantity')).toBe('Set quantity');
+    expect(prettyHeader(t, '', 'text', 'en', 'What')).toBe('Set what');
+    expect(prettyHeader(t, null, 'text', 'en', 'Item')).toBe('Set item');
+    expect(prettyHeader(t, '', 'enum', 'en', 'Course')).toBe('Set course');
+    expect(prettyHeader(t, '', 'number', 'en', 'Quantity')).toBe('Set quantity');
   });
 
   it('falls back to "Set a value" when value is empty and no label is supplied', () => {
-    expect(prettyHeader('', 'enum', 'en')).toBe('Set a value');
-    expect(prettyHeader(null, 'text', 'en')).toBe('Set a value');
-    expect(prettyHeader('', 'text', 'en', '   ')).toBe('Set a value');
+    expect(prettyHeader(t, '', 'enum', 'en')).toBe('Set a value');
+    expect(prettyHeader(t, null, 'text', 'en')).toBe('Set a value');
+    expect(prettyHeader(t, '', 'text', 'en', '   ')).toBe('Set a value');
   });
 
   it('passes through non-date field values unchanged', () => {
-    expect(prettyHeader('Main course', 'enum', 'en')).toBe('Main course');
-    expect(prettyHeader('Auditorium', 'text', 'en')).toBe('Auditorium');
+    expect(prettyHeader(t, 'Main course', 'enum', 'en')).toBe('Main course');
+    expect(prettyHeader(t, 'Auditorium', 'text', 'en')).toBe('Auditorium');
   });
 
   it('formats an HH:MM time on a 12-hour clock', () => {
-    expect(prettyHeader('18:30', 'time', 'en')).toBe('6:30\u00a0PM');
-    expect(prettyHeader('00:00', 'time', 'en')).toBe('12:00\u00a0AM');
+    expect(prettyHeader(t, '18:30', 'time', 'en')).toBe('6:30\u00a0PM');
+    expect(prettyHeader(t, '00:00', 'time', 'en')).toBe('12:00\u00a0AM');
   });
 
   it('reads a date or time in the language it is given', () => {
-    expect(prettyHeader('2025-05-03', 'date', 'sv')).toBe('lör 3 maj');
-    expect(prettyHeader('18:30', 'time', 'sv')).toBe('18:30');
+    expect(prettyHeader(t, '2025-05-03', 'date', 'sv')).toBe('lör 3 maj');
+    expect(prettyHeader(t, '18:30', 'time', 'sv')).toBe('18:30');
   });
 
   it('passes through unparseable time values unchanged', () => {
-    expect(prettyHeader('after the game', 'time', 'en')).toBe('after the game');
+    expect(prettyHeader(t, 'after the game', 'time', 'en')).toBe('after the game');
   });
 
   it('passes through non-ISO date strings unchanged', () => {
-    expect(prettyHeader('05/21/2026', 'date', 'en')).toBe('05/21/2026');
-    expect(prettyHeader('next Tuesday', 'date', 'en')).toBe('next Tuesday');
+    expect(prettyHeader(t, '05/21/2026', 'date', 'en')).toBe('05/21/2026');
+    expect(prettyHeader(t, 'next Tuesday', 'date', 'en')).toBe('next Tuesday');
   });
 
   it('passes through ISO-shaped but invalid dates unchanged (no silent normalization)', () => {
     // Feb 31 would otherwise roll forward into March.
-    expect(prettyHeader('2026-02-31', 'date', 'en')).toBe('2026-02-31');
+    expect(prettyHeader(t, '2026-02-31', 'date', 'en')).toBe('2026-02-31');
     // Month 13.
-    expect(prettyHeader('2026-13-01', 'date', 'en')).toBe('2026-13-01');
+    expect(prettyHeader(t, '2026-13-01', 'date', 'en')).toBe('2026-13-01');
   });
 
   it('passes through a typed date that is not in the stored shape', () => {
     // `new Date()` would read this as Nov 14, 2001, a Wednesday.
-    expect(prettyHeader('Sat, Nov 14', 'date', 'en')).toBe('Sat, Nov 14');
+    expect(prettyHeader(t, 'Sat, Nov 14', 'date', 'en')).toBe('Sat, Nov 14');
   });
 });
 
 describe('emptyHeaderCopy', () => {
   it('returns fixed copy for date and time regardless of label', () => {
-    expect(emptyHeaderCopy('date', 'Ignored')).toBe('Set a date');
-    expect(emptyHeaderCopy('time', 'Ignored')).toBe('Set a time');
+    expect(emptyHeaderCopy(t, 'date', 'Ignored')).toBe('Set a date');
+    expect(emptyHeaderCopy(t, 'time', 'Ignored')).toBe('Set a time');
   });
 
   it('derives from label for text/number/enum', () => {
-    expect(emptyHeaderCopy('text', 'What')).toBe('Set what');
-    expect(emptyHeaderCopy('number', 'Quantity')).toBe('Set quantity');
-    expect(emptyHeaderCopy('enum', 'Course')).toBe('Set course');
+    expect(emptyHeaderCopy(t, 'text', 'What')).toBe('Set what');
+    expect(emptyHeaderCopy(t, 'number', 'Quantity')).toBe('Set quantity');
+    expect(emptyHeaderCopy(t, 'enum', 'Course')).toBe('Set course');
   });
 
   it('falls back to "Set a value" when no label is supplied', () => {
-    expect(emptyHeaderCopy('text')).toBe('Set a value');
-    expect(emptyHeaderCopy('number', '')).toBe('Set a value');
+    expect(emptyHeaderCopy(t, 'text')).toBe('Set a value');
+    expect(emptyHeaderCopy(t, 'number', '')).toBe('Set a value');
+  });
+});
+
+describe('empty-header copy in the organizer’s language', () => {
+  const swedish = getStandInTranslator('sv', 'organizer.build');
+
+  it('takes each prompt from the catalog, whatever language the dates are in', () => {
+    expect(emptyHeaderCopy(swedish, 'date', 'Ignored')).toBe('organizer.build.empty.date in sv');
+    expect(emptyHeaderCopy(swedish, 'time')).toBe('organizer.build.empty.time in sv');
+    expect(emptyHeaderCopy(swedish, 'text', 'What')).toBe('organizer.build.empty.named in sv');
+    expect(emptyHeaderCopy(swedish, 'text')).toBe('organizer.build.empty.other in sv');
+    expect(prettyHeader(swedish, '', 'date', 'en')).toBe('organizer.build.empty.date in sv');
+  });
+
+  it('formats a value in the language it is given, not the organizer’s', () => {
+    expect(prettyHeader(swedish, '2026-05-21', 'date', 'en')).toBe('Thu, May 21');
   });
 });

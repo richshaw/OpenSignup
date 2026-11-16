@@ -14,7 +14,9 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
     <RootShell lang="en">
       <div className="flex min-h-[100svh] flex-col bg-surface text-ink">
         <div className="flex-1">{children}</div>
-        <SiteFooter />
+        {/* English, like the <html lang> above it, until both take the
+            signup's language (#628). */}
+        <SiteFooter locale="en" />
       </div>
     </RootShell>
   );

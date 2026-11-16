@@ -32,7 +32,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 31 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 15 November 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -88,6 +88,15 @@ export default function PrivacyPage() {
           <li>Email address (used to send magic-link sign-in emails).</li>
           <li>Optional display name and organization name.</li>
           <li>
+            Your language: the one we show your screens in and write your sign-in emails in, and the
+            one your new signups start in. When you create your account, we look once at the
+            language your browser asks for first. If this site has a default language of its own, we
+            save nothing, and you get the site&rsquo;s language. If it doesn&rsquo;t, we save your
+            browser&rsquo;s language when this site offers it and it isn&rsquo;t English. Otherwise
+            we save nothing, and you get English. We don&rsquo;t read your browser&rsquo;s language
+            again after that. You can change your language in your account&rsquo;s Settings.
+          </li>
+          <li>
             If your account was created by signing in with a third-party provider such as Google,
             the web address of the profile picture that provider returned.
           </li>
@@ -101,12 +110,16 @@ export default function PrivacyPage() {
             wrote), which of your own pages you open and whether on a phone or a computer (never the
             browser&rsquo;s full identifying string), participant commitments on your signups, and
             reminder dispatches. For a copy or a share it records only which button it was and the
-            signup&rsquo;s status: never the message, and nothing about who the link went to. This
-            exists so an organizer can audit what happened in their own workspace, so the operator
-            can investigate abuse, and so the operator can count, in aggregate, where organizers get
-            stuck between starting a signup and sharing it. The same log records anonymous view
-            telemetry on the marketing home page and on your public signup pages (see &ldquo;Logs
-            and rate-limiting&rdquo; below).
+            signup&rsquo;s status: never the message, and nothing about who the link went to. When
+            your account is created with a language, it records which one. When a new signup is
+            given a language, it records which one and what chose it: the language saved on your
+            account, this site&rsquo;s default, the app that created the signup, or none of these
+            (English). This exists so an organizer can audit what happened in their own workspace,
+            so the operator can investigate abuse, and so the operator can count, in aggregate,
+            where organizers get stuck between starting a signup and sharing it, and which languages
+            new signups start in. The same log records anonymous view telemetry on the marketing
+            home page and on your public signup pages (see &ldquo;Logs and rate-limiting&rdquo;
+            below).
           </li>
           <li>
             After a sign-in email is sent, the sign-in link&apos;s token (stored as a hash, next to
@@ -275,10 +288,13 @@ export default function PrivacyPage() {
           If the operator has turned on AI drafting, what an organizer types into it to describe
           their signup, along with any answers they give to the questions it asks, is sent to the AI
           provider the operator configured, which turns it into a draft. It goes as typed, so leave
-          out anything you wouldn&apos;t want the provider to see; nothing else about you, your
-          signups or the people on them goes with it. The provider handles it under its own terms.
-          To keep a description away from the provider, skip AI drafting and fill the signup in by
-          hand.
+          out anything you wouldn&apos;t want the provider to see. With it goes the name of one
+          language, for the draft to be written in when your description doesn&rsquo;t show which
+          language it&rsquo;s in: the language this site would start your new signups in (the one
+          saved on your account, else this site&rsquo;s default, else English). Nothing else about
+          you, your signups or the people on them goes with it. The provider handles it under its
+          own terms. To keep a description away from the provider, skip AI drafting and fill the
+          signup in by hand.
         </p>
         <p>
           If third-party sign-in (for example, Google) is enabled and you choose it, you

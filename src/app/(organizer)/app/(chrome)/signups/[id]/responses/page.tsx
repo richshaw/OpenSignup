@@ -11,9 +11,13 @@ import {
 } from '@/services/commitments';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { StatusPill } from '@/components/status-pill';
+import { langWhereDifferent } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfOrganizer, localeOfSignup } from '@/i18n/locale';
+import { commitmentStatusLabel } from '@/lib/commitment-status-label';
 import type { SignupStatus } from '@/schemas/signups';
 import { summarizeSlotValues } from '@/lib/slot-summary';
-import { RemoveCommitmentForm } from './remove-commitment-form';
+import { RemoveCommitmentForm, type RemoveText } from './remove-commitment-form';
 import { noResponsesLine, summarizeResponses } from './responses-summary';
 
 type PageParams = { params: Promise<{ id: string }> };
@@ -44,7 +48,24 @@ export default async function ResponsesTab({ params }: PageParams) {
   );
   const canRemove = (c: (typeof commitments)[number]) =>
     ACTIVE_COMMITMENT_STATUSES.includes(c.status);
-  const totals = summarizeResponses(commitments, ended);
+  // The tab's own words are in the organizer's language. Its slots' values
+  // are the signup's, formatted as its participants read them and marked with
+  // its language where that isn't the organizer's. What participants gave
+  // stays as written, unmarked: it's in whatever language each person typed.
+  const organizerLocale = localeOfOrganizer(session);
+  const t = getServerTranslator(organizerLocale, 'organizer.responses');
+  const contentLocale = localeOfSignup(sig.settings.locale);
+  const contentLang = langWhereDifferent(contentLocale, organizerLocale);
+  const totals = summarizeResponses(commitments, ended, t);
+  // Every row's Remove says the same. One object, so the page's RSC payload
+  // carries its words once and each row refers to it.
+  const removeText: RemoveText = {
+    remove: t('remove.button'),
+    dialogLabel: t('remove.dialogLabel'),
+    keep: t('remove.keep'),
+    confirm: t('remove.confirm'),
+    removing: t('remove.removing'),
+  };
 
   return (
     <section className="space-y-4">
@@ -63,13 +84,13 @@ export default async function ResponsesTab({ params }: PageParams) {
             className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-surface-sunk bg-white px-3.5 text-[15px] font-medium text-ink transition hover:bg-surface-raised md:h-9 md:text-[13px]"
           >
             <Download size={15} aria-hidden="true" />
-            Download CSV
+            {t('downloadCsv')}
           </a>
         </div>
       ) : null}
       {commitments.length === 0 ? (
         <p className="rounded-lg border border-dashed border-surface-sunk p-6 text-center text-sm text-ink-muted">
-          {noResponsesLine(sig.status as SignupStatus)}
+          {noResponsesLine(sig.status as SignupStatus, t)}
         </p>
       ) : (
         // A table from md up. Narrower, it would be wider than the screen (an
@@ -85,24 +106,24 @@ export default async function ResponsesTab({ params }: PageParams) {
             <thead role="rowgroup" className="bg-surface-raised text-ink-muted max-md:sr-only">
               <tr role="row">
                 <th role="columnheader" className="px-4 py-3 text-left">
-                  Name
+                  {t('table.name')}
                 </th>
                 <th role="columnheader" className="px-4 py-3 text-left">
-                  Email
+                  {t('table.email')}
                 </th>
                 <th role="columnheader" className="px-4 py-3 text-left">
-                  Slot
+                  {t('table.slot')}
                 </th>
                 {showSpots ? (
                   <th role="columnheader" className="px-4 py-3 text-right">
-                    Spots
+                    {t('table.spots')}
                   </th>
                 ) : null}
                 <th role="columnheader" className="px-4 py-3 text-left">
-                  Status
+                  {t('table.status')}
                 </th>
                 <th role="columnheader" className="px-4 py-3">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t('table.actions')}</span>
                 </th>
               </tr>
             </thead>
@@ -112,16 +133,17 @@ export default async function ResponsesTab({ params }: PageParams) {
                 const values = slot?.values ?? {};
                 // Values only: the column heading already says Slot, and the
                 // Remove question below reads the slot the same way.
-                const summary = slot ? summarizeSlotValues(sig.fields, values, 'en') : '';
+                const summary = slot ? summarizeSlotValues(sig.fields, values, contentLocale) : '';
                 // A removal takes the Remove button away, so focus goes to
                 // this cell, which then reads "removed". Every row has it, so
                 // it outlasts that re-render.
                 const statusId = `status-${c.id}`;
                 const status = shownCommitmentStatus(c, ended);
                 // Remove's name, and the start of its question.
-                const removeLabel = `Remove ${c.participantName} from ${
-                  summary || slot?.ref || 'this slot'
-                }`;
+                const slotName = summary || slot?.ref;
+                const removeLabel = slotName
+                  ? t('remove.label', { name: c.participantName, slot: slotName })
+                  : t('remove.labelNoSlot', { name: c.participantName });
                 return (
                   <tr
                     key={c.id}
@@ -141,10 +163,11 @@ export default async function ResponsesTab({ params }: PageParams) {
                       {/* Words, not a dash: a bare dash means nothing without
                           its column heading, and a row laid out for a phone
                           has none. */}
-                      {c.participantEmail ?? 'No email'}
+                      {c.participantEmail ?? t('table.noEmail')}
                     </td>
                     <td
                       role="cell"
+                      lang={slot ? contentLang : undefined}
                       className="max-md:col-span-2 max-md:row-start-2 md:px-4 md:py-3"
                     >
                       {summary || slot?.ref || '—'}
@@ -155,7 +178,10 @@ export default async function ResponsesTab({ params }: PageParams) {
                         className="tabular-nums max-md:col-start-1 max-md:row-start-4 md:px-4 md:py-3 md:text-right"
                       >
                         {c.quantity}
-                        <span className="md:hidden"> {c.quantity === 1 ? 'spot' : 'spots'}</span>
+                        <span className="md:hidden">
+                          {' '}
+                          {t('table.spotsAfterCount', { count: c.quantity })}
+                        </span>
                       </td>
                     ) : null}
                     <td
@@ -164,7 +190,7 @@ export default async function ResponsesTab({ params }: PageParams) {
                       tabIndex={-1}
                       className="max-md:col-start-2 max-md:row-start-1 max-md:text-right md:px-4 md:py-3"
                     >
-                      <StatusPill status={status} />
+                      <StatusPill status={status} label={commitmentStatusLabel(status, t)} />
                     </td>
                     <td
                       role="cell"
@@ -176,10 +202,9 @@ export default async function ResponsesTab({ params }: PageParams) {
                           commitmentId={c.id}
                           statusCellId={statusId}
                           label={removeLabel}
+                          text={removeText}
                         >
-                          {removeLabel}?{' '}
-                          {c.quantity > 1 ? `Their ${c.quantity} spots open` : 'Their spot opens'}{' '}
-                          up for someone else. They won&rsquo;t get an email about it.
+                          {t('remove.question', { label: removeLabel, count: c.quantity })}
                         </RemoveCommitmentForm>
                       ) : null}
                     </td>

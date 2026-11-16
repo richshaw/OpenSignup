@@ -1,4 +1,5 @@
-import { STARTER_PROMPTS } from '@/lib/magic-compose/templates';
+import { useTranslations } from 'next-intl';
+import { starterPrompts, type MagicComposeStarter } from '@/lib/magic-compose/templates';
 
 /** The longest one-line description that comes over as the title. */
 const TITLE_LIKE_MAX_LENGTH = 60;
@@ -29,14 +30,23 @@ function fitEncoded(text: string, max: number): string {
  * leaving Magic Compose doesn't drop it: a short line ("Pumpkin carving") as
  * the title, anything longer as the description. The form cuts each to its
  * limit. A starter example nobody changed isn't the organizer's own words, so
- * it opens the blank form, as it did before anything was carried.
+ * it opens the blank form, as it did before anything was carried: `starters`
+ * are the examples as the screen shows them, in the organizer's language.
  */
-export function handFillHref(prompt: string): string {
+export function handFillHref(
+  prompt: string,
+  starters: readonly Pick<MagicComposeStarter, 'body'>[],
+): string {
   const text = prompt.trim();
   const params = new URLSearchParams({ manual: '1' });
-  if (text && !STARTER_PROMPTS.some((s) => s.body.trim() === text)) {
+  if (text && !starters.some((s) => s.body.trim() === text)) {
     const titleLike = !text.includes('\n') && text.length <= TITLE_LIKE_MAX_LENGTH;
     params.set(titleLike ? 'title' : 'description', fitEncoded(text, CARRIED_MAX_ENCODED_LENGTH));
   }
   return `/app/signups/new?${params}`;
+}
+
+/** `handFillHref` for a screen under `ClientMessages`, with the examples in its language. */
+export function useHandFillHref(prompt: string): string {
+  return handFillHref(prompt, starterPrompts(useTranslations('organizer.compose.starters')));
 }

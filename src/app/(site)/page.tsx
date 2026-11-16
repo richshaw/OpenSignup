@@ -130,7 +130,7 @@ export default async function LandingPage() {
         </div>
       </main>
 
-      <SiteFooter />
+      <SiteFooter locale="en" />
     </div>
   );
 }

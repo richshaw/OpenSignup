@@ -38,7 +38,7 @@ export default function GlobalNotFound() {
             </Link>
           </StateCard>
         </main>
-        <SiteFooter />
+        <SiteFooter locale="en" />
       </div>
     </RootShell>
   );

@@ -610,7 +610,7 @@ describe('reorderSlots (db)', () => {
       expect(r.ok, JSON.stringify(slotIds)).toBe(false);
       if (r.ok) return;
       expect(r.error).toMatchObject({ code: 'invalid_input', field: 'slotIds' });
-      expect(r.error.details).toEqual(details);
+      expect(r.error.details).toEqual({ reason: 'slot_ids_mismatch', ...details });
       expect(r.error.suggestion).toContain('get_signup');
     }
     expect(await shown(fx, signupId)).toEqual(before);
@@ -713,7 +713,10 @@ describe('reorderSlots (db)', () => {
     } else {
       // The append went first, so the reorder's list was one slot short.
       expect(reordered.error).toMatchObject({ code: 'invalid_input', field: 'slotIds' });
-      expect(reordered.error.details).toEqual({ missing: [appended.value[0]!.id] });
+      expect(reordered.error.details).toEqual({
+        reason: 'slot_ids_mismatch',
+        missing: [appended.value[0]!.id],
+      });
       expect(await shown(fx, signupId)).toEqual({
         names: ['a', 'b', 'c', 'end'],
         sortOrders: [0, 1, 2, 3],

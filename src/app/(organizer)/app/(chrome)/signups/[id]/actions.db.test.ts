@@ -2,32 +2,48 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
+import { commitments } from '@/db/schema/commitments';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots as slotsTable } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import type { Actor } from '@/lib/policy';
 import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/publish-check';
 import { commitToSlot } from '@/services/commitments';
-import { createSignup, publishSignup } from '@/services/signups';
+import { createSignup, publishSignup, updateSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
 import {
   closeAction,
   closeQuestionAction,
   deleteSignupAction,
   publishAction,
+  removeCommitmentAction,
   reopenAction,
-  setRequireEmailAction,
+  saveSignupSettingsAction,
 } from './actions';
 
 // The action reads the organizer from the session cookie. Tests hand it one
-// directly instead of going through Auth.js.
-const session = vi.hoisted(() => ({ actor: { kind: 'anonymous' } as Actor }));
+// directly instead of going through Auth.js, with the language stored on
+// their account (none unless a test stores one).
+const session = vi.hoisted(() => ({
+  actor: { kind: 'anonymous' } as Actor,
+  locale: null as string | null,
+}));
 vi.mock('@/auth/session', () => ({
-  requireOrganizerSession: async () => ({}),
+  requireOrganizerSession: async () => ({ locale: session.locale }),
   toActor: () => session.actor,
+}));
+
+// English comes from the catalog. Any other language answers with the key it
+// was asked for and the language, whatever its catalog holds so far.
+vi.mock('@/i18n/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/i18n/server')>()),
+  getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
 }));
 
 // Next's redirect() throws to end the action; this one throws the address.
@@ -55,13 +71,27 @@ async function redirectOf(action: () => Promise<unknown>): Promise<string> {
   throw new Error('the action did not redirect');
 }
 
-async function submit(signupId: string, choice: 'required' | 'optional'): Promise<string> {
+/**
+ * The Settings tab's form as the browser sends it: each choice with the value
+ * the tab showed it with. The language is there only once a second language
+ * has shipped, as on the tab; `locale: null` is that choice with none picked.
+ */
+function settingsForm(choices: {
+  requireEmail: 'required' | 'optional';
+  requireEmailShown: 'required' | 'optional';
+  language?: { locale: string | null; shown: string };
+}): FormData {
   const form = new FormData();
-  form.set('requireEmail', choice);
-  return redirectOf(() => setRequireEmailAction(signupId, form));
+  form.set('requireEmail', choices.requireEmail);
+  form.set('requireEmailShown', choices.requireEmailShown);
+  if (choices.language) {
+    if (choices.language.locale !== null) form.set('locale', choices.language.locale);
+    form.set('localeShown', choices.language.shown);
+  }
+  return form;
 }
 
-describe('setRequireEmailAction (db)', () => {
+describe('saveSignupSettingsAction (db)', () => {
   const db = getDb();
   const organizerId = makeId('org');
   const workspaceId = makeId('ws');
@@ -84,6 +114,10 @@ describe('setRequireEmailAction (db)', () => {
   };
   let signupId: string;
 
+  const settingsUrl = (id = signupId) => `/app/signups/${id}/settings`;
+  const refused = () => `${settingsUrl()}?error=invalid_input`;
+  const save = (form: FormData, id = signupId) =>
+    redirectOf(() => saveSignupSettingsAction(id, form));
   const stored = async () => {
     const [row] = await db
       .select({ settings: signups.settings })
@@ -92,10 +126,12 @@ describe('setRequireEmailAction (db)', () => {
     return row?.settings as Record<string, unknown>;
   };
   const updates = async () =>
-    db
-      .select({ id: activity.id })
-      .from(activity)
-      .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.updated')));
+    (
+      await db
+        .select({ id: activity.id })
+        .from(activity)
+        .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.updated')))
+    ).length;
 
   beforeAll(async () => {
     await db.transaction(async (tx) => {
@@ -115,8 +151,15 @@ describe('setRequireEmailAction (db)', () => {
         status: 'active',
       });
     });
+  });
+
+  // Each test starts from a new signup: email required, and no language of
+  // its own, so it follows the instance's (English here).
+  beforeEach(async () => {
+    revalidatePath.mockClear();
+    session.actor = owner;
     const created = await createSignup(db, owner, workspaceId, {
-      title: 'Email setting',
+      title: 'Settings tab',
       description: '',
       tags: [],
       visibility: 'unlisted',
@@ -131,51 +174,159 @@ describe('setRequireEmailAction (db)', () => {
     await db.delete(organizers).where(eq(organizers.id, organizerId));
   });
 
-  beforeEach(() => {
-    revalidatePath.mockClear();
-  });
-
-  it('saves the choice and comes back saying so', async () => {
-    session.actor = owner;
-    expect(await submit(signupId, 'optional')).toBe(`/app/signups/${signupId}/settings?saved=1`);
+  it('saves the email choice and comes back saying so', async () => {
+    expect(
+      await save(settingsForm({ requireEmail: 'optional', requireEmailShown: 'required' })),
+    ).toBe(`${settingsUrl()}?saved=1`);
     expect((await stored()).requireEmail).toBe(false);
-    expect(revalidatePath).toHaveBeenCalled();
+    expect(revalidatePath).toHaveBeenCalledWith(`/app/signups/${signupId}`, 'layout');
 
-    expect(await submit(signupId, 'required')).toBe(`/app/signups/${signupId}/settings?saved=1`);
+    expect(
+      await save(settingsForm({ requireEmail: 'required', requireEmailShown: 'optional' })),
+    ).toBe(`${settingsUrl()}?saved=1`);
     expect((await stored()).requireEmail).toBe(true);
   });
 
-  // The write guard throws for a viewer rather than returning a Result.
-  it('refuses a viewer in plain words and writes nothing', async () => {
-    session.actor = owner;
-    await submit(signupId, 'optional');
-    const before = await stored();
-    const updatesBefore = (await updates()).length;
-    revalidatePath.mockClear();
+  // #899's tophat: with a Save on each card, the language's change was lost
+  // when the email card saved.
+  it('saves a change to the language and to the email choice with one Save', async () => {
+    ship('participant', ['en', 'sv']);
+    const before = await updates();
+    expect(
+      await save(
+        settingsForm({
+          requireEmail: 'optional',
+          requireEmailShown: 'required',
+          language: { locale: 'sv', shown: 'en' },
+        }),
+      ),
+    ).toBe(`${settingsUrl()}?saved=1`);
+    expect(await stored()).toMatchObject({ requireEmail: false, locale: 'sv' });
+    // One save, one row.
+    expect(await updates()).toBe(before + 1);
+  });
 
-    session.actor = viewer;
-    const url = await submit(signupId, 'required');
-    expect(url).toBe(
-      `/app/signups/${signupId}/settings?error=${encodeURIComponent('You don’t have edit access.')}`,
+  it('saves a language on its own, leaving the other settings as stored', async () => {
+    ship('participant', ['en', 'sv']);
+    const before = await stored();
+    await save(
+      settingsForm({
+        requireEmail: 'required',
+        requireEmailShown: 'required',
+        language: { locale: 'sv', shown: 'en' },
+      }),
     );
-    expect(url).not.toMatch(/saved|cannot%20modify/);
+    expect(await stored()).toEqual({ ...before, locale: 'sv' });
+  });
+
+  it('sends only what changed, so it keeps a language changed after the tab loaded', async () => {
+    ship('participant', ['en', 'sv']);
+    const before = await stored();
+    // The tab loads showing English; then account Settings' switch, or an AI
+    // assistant, puts the signup in Swedish.
+    const elsewhere = await updateSignup(db, owner, signupId, { settings: { locale: 'sv' } });
+    if (!elsewhere.ok) throw new Error(elsewhere.error.message);
+
+    expect(
+      await save(
+        settingsForm({
+          requireEmail: 'optional',
+          requireEmailShown: 'required',
+          language: { locale: 'en', shown: 'en' },
+        }),
+      ),
+    ).toBe(`${settingsUrl()}?saved=1`);
+    expect(await stored()).toEqual({ ...before, locale: 'sv', requireEmail: false });
+  });
+
+  it('stores no language for a signup that follows the instance’s, when only the email changed', async () => {
+    ship('participant', ['en', 'sv']);
+    const before = await stored();
+    expect(before.locale).toBeUndefined();
+    await save(
+      settingsForm({
+        requireEmail: 'optional',
+        requireEmailShown: 'required',
+        language: { locale: 'en', shown: 'en' },
+      }),
+    );
+    expect(await stored()).toEqual({ ...before, requireEmail: false });
+  });
+
+  it('refuses a language that hasn’t shipped with the tab’s usual error, and writes nothing', async () => {
+    ship('participant', ['en', 'sv']);
+    const before = await stored();
+    const updatesBefore = await updates();
+    for (const locale of ['xx', 'EN', 'en-GB']) {
+      expect(
+        await save(
+          settingsForm({
+            requireEmail: 'optional',
+            requireEmailShown: 'required',
+            language: { locale, shown: 'en' },
+          }),
+        ),
+      ).toBe(refused());
+    }
+    // The email choice saved with it isn't kept either.
     expect(await stored()).toEqual(before);
-    expect(await updates()).toHaveLength(updatesBefore);
+    expect(await updates()).toBe(updatesBefore);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it('says a signup that is gone is no longer available', async () => {
-    session.actor = owner;
-    expect(await submit('sig_nope', 'optional')).toBe(
-      `/app/signups/sig_nope/settings?error=${encodeURIComponent('No longer available.')}`,
+  it('refuses a form that showed the language but sends none, rather than clearing it', async () => {
+    ship('participant', ['en', 'sv']);
+    await save(
+      settingsForm({
+        requireEmail: 'required',
+        requireEmailShown: 'required',
+        language: { locale: 'sv', shown: 'en' },
+      }),
     );
+    revalidatePath.mockClear();
+
+    expect(
+      await save(
+        settingsForm({
+          requireEmail: 'required',
+          requireEmailShown: 'required',
+          language: { locale: null, shown: 'sv' },
+        }),
+      ),
+    ).toBe(refused());
+    expect((await stored()).locale).toBe('sv');
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  // The write guard throws for a viewer rather than returning a Result.
+  it('refuses a viewer by code, not the service text, and writes nothing, changed or not', async () => {
+    const before = await stored();
+    const updatesBefore = await updates();
+    session.actor = viewer;
+    for (const requireEmail of ['optional', 'required'] as const) {
+      const url = await save(settingsForm({ requireEmail, requireEmailShown: 'required' }));
+      expect(url).toBe(`${settingsUrl()}?error=forbidden`);
+      expect(url).not.toMatch(/saved|cannot%20modify/);
+    }
+    expect(await stored()).toEqual(before);
+    expect(await updates()).toBe(updatesBefore);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('sends back a signup that is gone as not_found', async () => {
+    expect(
+      await save(
+        settingsForm({ requireEmail: 'optional', requireEmailShown: 'required' }),
+        'sig_nope',
+      ),
+    ).toBe(`${settingsUrl('sig_nope')}?error=not_found`);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
 
 // The same tab's Delete, whose refusal reads like Save's.
 describe('deleteSignupAction (db)', () => {
-  it('says a signup that is gone is no longer available, not the service text', async () => {
+  it('sends back a signup that is gone as not_found, not the service text', async () => {
     session.actor = {
       kind: 'organizer',
       id: makeId('org'),
@@ -184,9 +335,7 @@ describe('deleteSignupAction (db)', () => {
       workspaceRoles: {},
     };
     const url = await redirectOf(() => deleteSignupAction('sig_nope'));
-    expect(url).toBe(
-      `/app/signups/sig_nope/settings?error=${encodeURIComponent('No longer available.')}`,
-    );
+    expect(url).toBe(`/app/signups/sig_nope/settings?error=not_found`);
     expect(url).not.toMatch(/signup%20not%20found/);
   });
 });
@@ -325,9 +474,7 @@ describe('a viewer choosing Publish, Close, Reopen or Delete (db)', () => {
   it('Delete comes back to Settings saying the viewer can’t edit', async () => {
     session.actor = viewer;
     const url = await redirectOf(() => deleteSignupAction(signupId));
-    expect(url).toBe(
-      `/app/signups/${signupId}/settings?error=${encodeURIComponent('You don’t have edit access.')}`,
-    );
+    expect(url).toBe(`/app/signups/${signupId}/settings?error=forbidden`);
     expect((await row())?.deletedAt).toBeNull();
     expect(revalidatePath).not.toHaveBeenCalled();
   });
@@ -403,7 +550,7 @@ describe('Publish’s check (db)', () => {
       .map((s) => s.id);
   const answer = (check: PublishCheck) => ({
     check,
-    copy: publishCheckCopy(check),
+    copy: publishCheckCopy(check, getTestTranslator('organizer.signup.check')),
     target: publishCheckTarget(check),
   });
 
@@ -617,5 +764,112 @@ describe('closeQuestionAction (db)', () => {
     expect(await closeQuestionAction('sig_nope')).toEqual({
       error: 'This signup is no longer available.',
     });
+  });
+});
+
+describe('removeCommitmentAction (db)', () => {
+  const db = getDb();
+  const organizerId = makeId('org');
+  const workspaceId = makeId('ws');
+  const slug = `test-${workspaceId.slice(-8).toLowerCase()}`;
+  const owner: Actor = {
+    kind: 'organizer',
+    id: organizerId,
+    email: `${slug}@example.test`,
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+  const viewer: Actor = {
+    kind: 'organizer',
+    id: makeId('org'),
+    email: 'viewer@example.test',
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'viewer' },
+  };
+  let signupId: string;
+  let commitmentId: string;
+
+  const status = async () => {
+    const [found] = await db
+      .select({ status: commitments.status })
+      .from(commitments)
+      .where(eq(commitments.id, commitmentId));
+    return found?.status;
+  };
+
+  beforeAll(async () => {
+    await db.transaction(async (tx) => {
+      await tx.insert(organizers).values({ id: organizerId, email: owner.email, name: 'Test Org' });
+      await tx.insert(workspaces).values({
+        id: workspaceId,
+        slug,
+        name: 'Test Workspace',
+        type: 'personal',
+        plan: 'free',
+      });
+    });
+    const created = await createSignup(db, owner, workspaceId, {
+      title: 'Remove refusals',
+      description: '',
+      tags: [],
+      visibility: 'unlisted',
+      settings: {},
+    });
+    if (!created.ok) throw new Error(created.error.message);
+    signupId = created.value.id;
+    const slot = await addSlot(db, owner, signupId, { values: { what: 'Juice' }, capacity: 2 });
+    if (!slot.ok) throw new Error(slot.error.message);
+    const published = await publishSignup(db, owner, signupId);
+    if (!published.ok) throw new Error(published.error.message);
+    const commit = await commitToSlot(db, slot.value.id, {
+      name: 'Sam Example',
+      email: `sam-${slug}@example.test`,
+      quantity: 1,
+    });
+    if (!commit.ok) throw new Error(commit.error.message);
+    commitmentId = commit.value.commitment.id;
+  });
+
+  afterAll(async () => {
+    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+    await db.delete(organizers).where(eq(organizers.id, organizerId));
+  });
+
+  beforeEach(() => {
+    revalidatePath.mockClear();
+    session.locale = null;
+  });
+
+  it('tells a viewer they can’t edit, in English with no language stored, and leaves the person on', async () => {
+    session.actor = viewer;
+    expect(await removeCommitmentAction(signupId, commitmentId)).toEqual({
+      error: 'You don’t have edit access.',
+    });
+    expect(await status()).toBe('confirmed');
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+    'words each refusal in the language stored on the organizer’s account, %s',
+    async (locale) => {
+      ship('organizer', ['en', locale]);
+      session.locale = locale;
+      session.actor = viewer;
+      expect(await removeCommitmentAction(signupId, commitmentId)).toEqual({
+        error: `organizer.errors.code.forbidden in ${locale}`,
+      });
+      session.actor = owner;
+      expect(await removeCommitmentAction(signupId, 'com_nope')).toEqual({
+        error: `organizer.responses.remove.refusal.notFound in ${locale}`,
+      });
+      expect(await status()).toBe('confirmed');
+    },
+  );
+
+  it('takes the person off and re-renders the signup', async () => {
+    session.actor = owner;
+    expect(await removeCommitmentAction(signupId, commitmentId)).toBeNull();
+    expect(await status()).toBe('cancelled');
+    expect(revalidatePath).toHaveBeenCalledWith(`/app/signups/${signupId}`, 'layout');
   });
 });

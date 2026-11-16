@@ -2,16 +2,37 @@
  * Each sendable email template with made-up props: what
  * scripts/render-email-templates.ts checks renders, and what `pnpm email:dev`
  * shows. Add a case here whenever a new template gains a `send*` function.
+ * The participant emails are here in English and in Swedish, and the sign-in
+ * email in every language with a catalog, so each renders under the worker's
+ * toolchain and can be looked at.
  */
 import { createElement, type ReactElement } from 'react';
-import { CommitmentConfirmationEmail } from '@/email/templates/commitment-confirmation';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
+import {
+  confirmationSubject,
+  reminderSubject,
+  signInSubject,
+  slotChangedSubject,
+} from '@/email/subjects';
+import {
+  CommitmentConfirmationEmail,
+  type CommitmentConfirmationEmailProps,
+} from '@/email/templates/commitment-confirmation';
 import { MagicLinkEmail } from '@/email/templates/magic-link';
-import { ReminderEmail } from '@/email/templates/reminder';
-import { SlotChangedEmail } from '@/email/templates/slot-changed';
+import { ReminderEmail, type ReminderEmailProps } from '@/email/templates/reminder';
+import { SlotChangedEmail, type SlotChangedEmailProps } from '@/email/templates/slot-changed';
+import { formatDuration } from '@/lib/format-duration';
+import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
 
 export interface EmailSample {
   name: string;
   element: ReactElement;
+  /**
+   * Its subject line, made as its `send*` function makes it, so a
+   * translation's review reads the subject with the email.
+   */
+  subject: string;
   /**
    * Distinctive strings the template must put in both its HTML and its text.
    * Asserting on real rendered content rather than "not empty" is what makes
@@ -19,41 +40,116 @@ export interface EmailSample {
    * e.g. after gaining a prop its sample does not supply.
    */
   expect: readonly string[];
+  /** The language its `<html lang>` must declare. */
+  lang: CatalogLocale;
 }
 
-export const emailSamples: readonly EmailSample[] = [
-  {
-    name: 'magic-link',
+/**
+ * A participant email's element and its subject, each built as
+ * src/email/send.ts builds them, with the subject in the email's language.
+ */
+function confirmation(props: CommitmentConfirmationEmailProps) {
+  const t = getServerTranslator(props.locale, 'email.subject');
+  return {
+    element: createElement(CommitmentConfirmationEmail, props),
+    subject: confirmationSubject(t, props.signupTitle, props.slotSummary),
+  };
+}
+function reminder(props: ReminderEmailProps) {
+  const t = getServerTranslator(props.locale, 'email.subject');
+  return {
+    element: createElement(ReminderEmail, props),
+    subject: reminderSubject(t, props.signupTitle, props.slotSummary, props.changed),
+  };
+}
+function slotChanged(props: SlotChangedEmailProps) {
+  const t = getServerTranslator(props.locale, 'email.subject');
+  return {
+    element: createElement(SlotChangedEmail, props),
+    subject: slotChangedSubject(t, props.signupTitle, props.slotSummary),
+  };
+}
+
+/**
+ * The sign-in email in `locale`, as src/auth/config.ts sends it to an account
+ * in that language: `magic-link` in English, and named with the language
+ * after it in any other (`magic-link-sv`). Its button and its code's sentence
+ * come from the catalog, so a language needs nothing written here.
+ */
+function signIn(locale: CatalogLocale): EmailSample {
+  const t = getServerTranslator(locale, 'auth.email');
+  const url = 'https://example.test/login/confirm?token=abc';
+  return {
+    name: locale === 'en' ? 'magic-link' : `magic-link-${locale}`,
     element: createElement(MagicLinkEmail, {
-      url: 'https://example.test/login/confirm?token=abc',
+      locale,
+      url,
       email: 'organizer@example.test',
       expiresInMinutes: 60,
       code: '123456',
       codeExpiresInMinutes: 15,
     }),
-    expect: ['https://example.test/login/confirm?token=abc', '123456'],
-  },
+    subject: signInSubject(t),
+    expect: [url, '123456', t('signIn'), t('code', { duration: formatDuration(15, locale) })],
+    lang: locale,
+  };
+}
+
+/**
+ * The English confirmation's time as the app prints it ("9:00 AM"), as the
+ * Swedish samples' dates are below, so its text and subject read as sent.
+ */
+const nineAm = formatSlotTime('09:00', 'en') ?? '';
+
+/** The Swedish samples' signup, slot and participant. */
+const swedish = {
+  locale: 'sv',
+  participantName: 'Dana',
+  signupTitle: 'Lördagsfika',
+  manageUrl: 'https://example.test/s/fika/c/com_2?token=abc',
+  notes: 'Tar med vindruvor',
+} as const;
+const swedishUnsubscribeUrl = 'https://example.test/s/fika/unsubscribe?p=par_2&token=abc';
+/**
+ * The Swedish samples' dates as the app prints them ("lör 5 sep.", with the
+ * point `Intl` gives an abbreviated month), so a translation's review reads
+ * the emails participants get.
+ */
+const saturday = formatSlotDate('2026-09-05', 'sv') ?? '';
+const sunday = formatSlotDate('2026-09-06', 'sv') ?? '';
+
+export const emailSamples: readonly EmailSample[] = [
+  signIn('en'),
   {
     name: 'commitment-confirmation',
-    element: createElement(CommitmentConfirmationEmail, {
+    ...confirmation({
+      locale: 'en',
       participantName: 'Dana',
       signupTitle: 'Saturday Snack Rotation',
       manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
       slotDetails: [
         { label: 'Date', value: 'Sat, Sep 5' },
-        { label: 'Time', value: '09:00' },
+        { label: 'Time', value: nineAm },
         { label: 'Snack', value: 'Fruit' },
       ],
-      slotSummary: 'Sat, Sep 5 · 09:00 · Fruit',
+      slotSummary: `Sat, Sep 5 · ${nineAm} · Fruit`,
       notes: 'Bringing grapes',
       quantity: 2,
       promisesReminder: true,
     }),
-    expect: ['https://example.test/s/snacks/c/com_1?token=abc'],
+    expect: [
+      'https://example.test/s/snacks/c/com_1?token=abc',
+      'Thanks Dana, you signed up for',
+      'Spots:',
+      'Your notes:',
+      'also send you a reminder the day before.',
+    ],
+    lang: 'en',
   },
   {
     name: 'reminder',
-    element: createElement(ReminderEmail, {
+    ...reminder({
+      locale: 'en',
       participantName: 'Dana',
       signupTitle: 'Saturday Snack Rotation',
       manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
@@ -65,11 +161,32 @@ export const emailSamples: readonly EmailSample[] = [
       slotSummary: 'Sat, Sep 5 · Fruit',
       notes: 'Bringing grapes',
     }),
-    expect: ['Sat, Sep 5'],
+    expect: ['Sat, Sep 5', 'this is a reminder that you signed up for', 'Stop reminders for'],
+    lang: 'en',
+  },
+  {
+    name: 'reminder-changed',
+    ...reminder({
+      locale: 'en',
+      participantName: 'Dana',
+      signupTitle: 'Saturday Snack Rotation',
+      manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
+      unsubscribeUrl: 'https://example.test/s/snacks/unsubscribe?p=par_1&token=abc',
+      slotDetails: [
+        { label: 'Date', value: 'Sun, Sep 6' },
+        { label: 'Snack', value: 'Fruit' },
+      ],
+      slotSummary: 'Sun, Sep 6 · Fruit',
+      notes: 'Bringing grapes',
+      changed: true,
+    }),
+    expect: ['Sun, Sep 6', 'the organizer changed your slot for', 'Here are the new details.'],
+    lang: 'en',
   },
   {
     name: 'slot-changed',
-    element: createElement(SlotChangedEmail, {
+    ...slotChanged({
+      locale: 'en',
       participantName: 'Dana',
       signupTitle: 'Saturday Snack Rotation',
       manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
@@ -81,6 +198,86 @@ export const emailSamples: readonly EmailSample[] = [
       slotSummary: 'Sun, Sep 6 · Fruit',
       notes: null,
     }),
-    expect: ['Sun, Sep 6'],
+    expect: ['Sun, Sep 6', 'moved your slot to a new date or time', 'Stop reminders and updates'],
+    lang: 'en',
   },
+  {
+    name: 'commitment-confirmation-sv',
+    ...confirmation({
+      ...swedish,
+      slotDetails: [
+        { label: 'Datum', value: saturday },
+        { label: 'Tid', value: '09:00' },
+        { label: 'Fika', value: 'Frukt' },
+      ],
+      slotSummary: `${saturday} · 09:00 · Frukt`,
+      quantity: 2,
+      promisesReminder: true,
+    }),
+    expect: [
+      'Tack Dana, du har anmält dig till',
+      'Antal platser:',
+      'Din kommentar:',
+      'Visa eller ändra din anmälan',
+      'Vi skickar också en påminnelse dagen innan.',
+    ],
+    lang: 'sv',
+  },
+  {
+    name: 'reminder-sv',
+    ...reminder({
+      ...swedish,
+      unsubscribeUrl: swedishUnsubscribeUrl,
+      slotDetails: [
+        { label: 'Datum', value: saturday },
+        { label: 'Fika', value: 'Frukt' },
+      ],
+      slotSummary: `${saturday} · Frukt`,
+    }),
+    expect: [
+      'lör 5 sep.',
+      'Hej Dana, det här är en påminnelse om att du har anmält dig till',
+      'Stäng av påminnelser om Lördagsfika',
+    ],
+    lang: 'sv',
+  },
+  {
+    name: 'reminder-changed-sv',
+    ...reminder({
+      ...swedish,
+      unsubscribeUrl: swedishUnsubscribeUrl,
+      slotDetails: [
+        { label: 'Datum', value: sunday },
+        { label: 'Fika', value: 'Frukt' },
+      ],
+      slotSummary: `${sunday} · Frukt`,
+      changed: true,
+    }),
+    expect: [
+      'sön 6 sep.',
+      'har flyttat din anmälan till en ny tid sedan vi mejlade dig senast',
+      'Här är de nya uppgifterna.',
+    ],
+    lang: 'sv',
+  },
+  {
+    name: 'slot-changed-sv',
+    ...slotChanged({
+      ...swedish,
+      unsubscribeUrl: swedishUnsubscribeUrl,
+      slotDetails: [
+        { label: 'Datum', value: sunday },
+        { label: 'Fika', value: 'Frukt' },
+      ],
+      slotSummary: `${sunday} · Frukt`,
+      notes: null,
+    }),
+    expect: [
+      'sön 6 sep.',
+      'har flyttat din anmälan till ett nytt datum eller en ny tid',
+      'Stäng av påminnelser och uppdateringar om Lördagsfika',
+    ],
+    lang: 'sv',
+  },
+  ...CATALOG_LOCALES.filter((locale) => locale !== 'en').map(signIn),
 ];

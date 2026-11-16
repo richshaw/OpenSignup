@@ -1,9 +1,15 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { CenteredPageFrame } from '@/components/centered-page-frame';
+import { signInLocale } from '@/i18n/locale';
+import { getServerTranslator } from '@/i18n/server';
 import { getEnv } from '@/lib/env';
 import { SignInLink } from './sign-in-link';
 
-export const metadata = { title: 'Sign in', robots: { index: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = getServerTranslator(signInLocale(), 'auth');
+  return { title: t('tabTitle'), robots: { index: false } };
+}
 export const dynamic = 'force-dynamic';
 
 function isValidCallbackNext(next: string, authUrl: string): boolean {
@@ -28,24 +34,25 @@ export default async function ConfirmLoginPage({
   }
 
   const email = new URL(next).searchParams.get('email') ?? '';
+  const locale = signInLocale();
+  const t = getServerTranslator(locale, 'auth');
 
   return (
-    <CenteredPageFrame>
+    <CenteredPageFrame locale={locale}>
       <div className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">Sign in to OpenSignup</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">{t('heading')}</h1>
         <p className="text-ink-muted">
-          {email ? (
-            <>
-              Click the button below to sign in as <strong>{email}</strong>.
-            </>
-          ) : (
-            'Click the button below to sign in.'
-          )}
+          {email
+            ? t.rich('confirm.bodyAs', { email, strong: (chunks) => <strong>{chunks}</strong> })
+            : t('confirm.body')}
         </p>
       </div>
-      <SignInLink href={next} />
+      <SignInLink
+        href={next}
+        text={{ signIn: t('confirm.signIn'), signingIn: t('confirm.signingIn') }}
+      />
       <a href="/login" className="text-center text-sm text-ink-muted hover:underline">
-        Use a different email
+        {t('confirm.differentEmail')}
       </a>
     </CenteredPageFrame>
   );

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { responsesCsv, type ResponsesCsvInput } from './responses-csv';
 
 const BOM = '﻿';
@@ -29,9 +31,13 @@ const base: ResponsesCsvInput = {
   ended: new Map(),
 };
 
+/** The file as an organizer reading English gets it. */
+const inEnglish = (input: ResponsesCsvInput) =>
+  responsesCsv(input, getTestTranslator('organizer.responses'));
+
 describe('responsesCsv', () => {
   it('writes one column per field, in field order, then the response columns', () => {
-    expect(rows(responsesCsv(base))).toEqual([
+    expect(rows(inEnglish(base))).toEqual([
       'Date,What,Name,Email,Status,Spots,Notes,Signed up',
       '2026-11-14,Fruit and water,Pat,pat@example.com,confirmed,1,,2026-10-01T09:30:00.000Z',
     ]);
@@ -39,7 +45,7 @@ describe('responsesCsv', () => {
 
   it('writes dates, times and numbers as their stored values, not display text', () => {
     const [, row] = rows(
-      responsesCsv({
+      inEnglish({
         ...base,
         fields: [
           { ref: 'day', label: 'Day', fieldType: 'date' },
@@ -55,7 +61,7 @@ describe('responsesCsv', () => {
 
   it('leaves out values of fields that were deleted, and blanks missing ones', () => {
     const [header, row] = rows(
-      responsesCsv({
+      inEnglish({
         ...base,
         slots: [{ id: 'slot_1', values: { what: 'Juice', gone: 'old value' } }],
       }),
@@ -68,7 +74,7 @@ describe('responsesCsv', () => {
   it('says removed or moved where the Responses tab does, and keeps a participant cancel', () => {
     const commitment = base.commitments[0]!;
     const out = rows(
-      responsesCsv({
+      inEnglish({
         ...base,
         commitments: [
           { ...commitment, id: 'com_a', status: 'cancelled' },
@@ -90,7 +96,7 @@ describe('responsesCsv', () => {
 
   it('gives repeated labels distinct headers, the fixed columns included', () => {
     const [header] = rows(
-      responsesCsv({
+      inEnglish({
         ...base,
         fields: [
           { ref: 'start', label: 'Time', fieldType: 'time' },
@@ -104,7 +110,7 @@ describe('responsesCsv', () => {
 
   it('defuses formulas in headers and text, but leaves negative numbers as numbers', () => {
     const [header, row] = rows(
-      responsesCsv({
+      inEnglish({
         ...base,
         fields: [
           { ref: 'sum', label: '=SUM(A1)', fieldType: 'text' },
@@ -119,7 +125,7 @@ describe('responsesCsv', () => {
 
   it('quotes commas, quotes and line breaks', () => {
     const commitment = base.commitments[0]!;
-    const csv = responsesCsv({
+    const csv = inEnglish({
       ...base,
       commitments: [{ ...commitment, participantName: 'Pat "P", Jr', notes: 'a\nb' }],
     });
@@ -128,8 +134,72 @@ describe('responsesCsv', () => {
   });
 
   it('writes the header alone when nobody has signed up', () => {
-    expect(rows(responsesCsv({ ...base, commitments: [] }))).toEqual([
+    expect(rows(inEnglish({ ...base, commitments: [] }))).toEqual([
       'Date,What,Name,Email,Status,Spots,Notes,Signed up',
+    ]);
+  });
+});
+
+/** Every language with a catalog but English. */
+const OTHER_LOCALES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
+
+describe.each(OTHER_LOCALES)('responsesCsv for an organizer reading %s', (locale) => {
+  const t = getStandInTranslator(locale, 'organizer.responses');
+  const say = (key: string) => `organizer.responses.${key} in ${locale}`;
+
+  it('names the response columns and each status in that language, and nothing else', () => {
+    const commitment = base.commitments[0]!;
+    const out = rows(
+      responsesCsv(
+        {
+          ...base,
+          commitments: [
+            { ...commitment, id: 'com_a' },
+            { ...commitment, id: 'com_b', status: 'cancelled' },
+            { ...commitment, id: 'com_c', status: 'cancelled', notes: 'Bringing cups' },
+          ],
+          ended: new Map([['com_c', 'removed']]),
+        },
+        t,
+      ),
+    );
+    expect(out).toEqual([
+      [
+        // The organizer's own labels, as written.
+        'Date',
+        'What',
+        say('csv.name'),
+        say('csv.email'),
+        say('csv.status'),
+        say('csv.spots'),
+        say('csv.notes'),
+        say('csv.signedUp'),
+      ].join(','),
+      // Values, names, counts and the signed-up time as stored.
+      `2026-11-14,Fruit and water,Pat,pat@example.com,${say('status.confirmed')},1,,2026-10-01T09:30:00.000Z`,
+      `2026-11-14,Fruit and water,Pat,pat@example.com,${say('status.cancelled')},1,,2026-10-01T09:30:00.000Z`,
+      `2026-11-14,Fruit and water,Pat,pat@example.com,${say('status.removed')},1,Bringing cups,2026-10-01T09:30:00.000Z`,
+    ]);
+  });
+
+  it('gives a field label that matches a column’s name in that language a header of its own', () => {
+    const [header] = rows(
+      responsesCsv(
+        {
+          ...base,
+          fields: [
+            { ref: 'who', label: say('csv.name'), fieldType: 'text' },
+            // English's column name is just a label here.
+            { ref: 'name', label: 'Name', fieldType: 'text' },
+          ],
+        },
+        t,
+      ),
+    );
+    expect(header?.split(',').slice(0, 3)).toEqual([
+      `${say('csv.name')} (2)`,
+      'Name',
+      say('csv.name'),
     ]);
   });
 });

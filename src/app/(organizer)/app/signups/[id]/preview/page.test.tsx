@@ -1,16 +1,28 @@
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
 import { ServiceException, serviceError } from '@/lib/errors';
 import { ok } from '@/lib/result';
 
 const getSignupForOrganizer = vi.fn();
 const committedBySlot = vi.fn();
+/** The language stored on the signed-in organizer's account. */
+const organizer = vi.hoisted(() => ({ locale: null as string | null }));
 
 vi.mock('next/server', () => ({ after: vi.fn() }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) }));
 vi.mock('@/auth/session', () => ({
-  getOrganizerSession: async () => ({ organizerId: 'org_1', email: 'pat@example.com' }),
-  requireOrganizerSession: async () => ({ organizerId: 'org_1', email: 'pat@example.com' }),
+  getOrganizerSession: async () => ({
+    organizerId: 'org_1',
+    email: 'pat@example.com',
+    locale: organizer.locale,
+  }),
+  requireOrganizerSession: async () => ({
+    organizerId: 'org_1',
+    email: 'pat@example.com',
+    locale: organizer.locale,
+  }),
   toActor: () => ({ kind: 'organizer', organizerId: 'org_1' }),
 }));
 vi.mock('@/auth/sign-out', () => ({ signOutOrganizer: vi.fn() }));
@@ -22,6 +34,13 @@ vi.mock('@/services/commitments', () => ({
   committedBySlot: (...args: unknown[]) => committedBySlot(...args),
 }));
 vi.mock('@/lib/view-tracker', () => ({ trackOrganizerView: vi.fn() }));
+// Unit tests have no server environment; the instance sets no language.
+// English from the catalog; any other language answers with the key it was
+// asked for (`getTestServerTranslator`).
+vi.mock('@/i18n/server', async () => ({
+  instanceDefaultLocale: () => undefined,
+  getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
+}));
 
 const { default: SignupPreviewPage, generateMetadata } = await import('./page');
 
@@ -41,10 +60,19 @@ const signup = {
   ],
 };
 
-type ViewProps = { slots: { id: string; committed: number }[] };
+type ViewProps = {
+  slots: { id: string; committed: number }[];
+  locale: string;
+  organizerLocale: string;
+};
+
+/** Every language with a catalog besides English, each tried in turn. */
+const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
+type PreviewPage = ReactElement<{ lang?: string; children: ReactElement<ViewProps> }>;
 
 describe('organizer preview page', () => {
   beforeEach(() => {
+    organizer.locale = null;
     getSignupForOrganizer.mockReset();
     getSignupForOrganizer.mockResolvedValue(ok(signup));
     committedBySlot.mockReset();
@@ -64,16 +92,61 @@ describe('organizer preview page', () => {
     ]);
   });
 
+  // What participants will see, in the language they'll see it in, inside an
+  // organizer page that's in the organizer's.
+  it('wraps the participant view in a Swedish signup’s language, and gives its dates that language', async () => {
+    ship('participant', ['en', 'sv']);
+    getSignupForOrganizer.mockResolvedValue(ok({ ...signup, settings: { locale: 'sv' } }));
+    const page = (await SignupPreviewPage({
+      params: Promise.resolve({ id: 'sig_1' }),
+    })) as PreviewPage;
+
+    expect(page.props.lang).toBe('sv');
+    expect(page.props.children.props.locale).toBe('sv');
+  });
+
+  it('marks an English signup’s preview English, as its page is', async () => {
+    const page = (await SignupPreviewPage({
+      params: Promise.resolve({ id: 'sig_1' }),
+    })) as PreviewPage;
+
+    expect(page.props.lang).toBe('en');
+    expect(page.props.children.props.locale).toBe('en');
+  });
+
+  // The Preview banner over the view is the organizer's, whatever the signup's.
+  it.each(OTHER_LANGUAGES)(
+    'gives the Preview banner the organizer’s language, %s, over an English signup',
+    async (other) => {
+      ship('organizer', ['en', other]);
+      organizer.locale = other;
+      const page = (await SignupPreviewPage({
+        params: Promise.resolve({ id: 'sig_1' }),
+      })) as PreviewPage;
+
+      expect(page.props.lang).toBe('en');
+      expect(page.props.children.props.organizerLocale).toBe(other);
+    },
+  );
+
+  it('gives the Preview banner English for an organizer with no language stored', async () => {
+    const page = (await SignupPreviewPage({
+      params: Promise.resolve({ id: 'sig_1' }),
+    })) as PreviewPage;
+    expect(page.props.children.props.organizerLocale).toBe('en');
+  });
+
   it('shows the not-found card for a signup in a workspace the organizer is not in', async () => {
     getSignupForOrganizer.mockRejectedValue(
       new ServiceException(serviceError('forbidden', 'not a member of that workspace')),
     );
     const page = (await SignupPreviewPage({
       params: Promise.resolve({ id: 'sig_theirs' }),
-    })) as ReactElement<{ error: { code: string }; email: string }>;
+    })) as ReactElement<{ error: { code: string }; email: string; locale: string }>;
 
     expect(page.props.error.code).toBe('not_found');
     expect(page.props.email).toBe('pat@example.com');
+    expect(page.props.locale).toBe('en');
     expect(committedBySlot).not.toHaveBeenCalled();
   });
 
@@ -89,4 +162,28 @@ describe('organizer preview page', () => {
     const params = Promise.resolve({ id: 'sig_1' });
     expect(await generateMetadata({ params })).toEqual({ title: 'Preview' });
   });
+
+  it.each(OTHER_LANGUAGES)(
+    'titles the tab, and words the not-found card, in the organizer’s language, %s',
+    async (other) => {
+      ship('organizer', ['en', other]);
+      organizer.locale = other;
+      const params = Promise.resolve({ id: 'sig_1' });
+      expect(await generateMetadata({ params })).toEqual({
+        title: `organizer.preview.title in ${other}`,
+      });
+
+      getSignupForOrganizer.mockRejectedValue(
+        new ServiceException(serviceError('forbidden', 'not a member of that workspace')),
+      );
+      const theirs = Promise.resolve({ id: 'sig_theirs' });
+      expect(await generateMetadata({ params: theirs })).toEqual({
+        title: `organizer.loadError.tabTitle in ${other}`,
+      });
+      const page = (await SignupPreviewPage({ params: theirs })) as ReactElement<{
+        locale: string;
+      }>;
+      expect(page.props.locale).toBe(other);
+    },
+  );
 });

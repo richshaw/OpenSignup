@@ -22,7 +22,7 @@ export const UI = {
   allow: 'Allow',
   dontAllow: "Don't allow",
   // Permissions, as the approval page and Connected apps list them
-  // (SCOPE_DESCRIPTIONS in src/oauth/scopes.ts).
+  // (`auth.scopes` in src/messages/en.json).
   seeSignups: 'See your signups and their slots',
   editSignups: 'Create and edit signups',
   seePeople: 'See who has signed up, including their names and email addresses',

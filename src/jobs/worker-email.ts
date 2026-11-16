@@ -7,6 +7,7 @@
 import type { SQL } from 'drizzle-orm';
 import type { Db } from '@/db/client';
 import type { ActivityEvent } from '@/db/schema/activity';
+import { localeOfSignup } from '@/i18n/locale';
 import { recordActivity } from '@/lib/activity';
 import { log } from '@/lib/log';
 import { commitmentEditUrl, reminderUnsubscribePostUrl, reminderUnsubscribeUrl } from '@/lib/links';
@@ -48,14 +49,16 @@ export async function loadDueRow(
 }
 
 /**
- * The props every worker email to a participant shares, and the one-click
- * unsubscribe target for its headers. One opt-out link serves both emails, so
- * one unsubscribe silences both.
+ * The props every worker email to a participant shares, in its signup's
+ * language, and the one-click unsubscribe target for its headers. One opt-out
+ * link serves both emails, so one unsubscribe silences both.
  */
 export async function workerEmailParts(db: Db, row: CommitmentRow) {
   const optOutToken = reminderOptOutTokenFor(row.participant.id);
+  const locale = localeOfSignup(row.signup.settings.locale);
   return {
     props: {
+      locale,
       participantName: row.participant.name,
       signupTitle: row.signup.title,
       // Edit tokens are HMAC(secret, commitment_id), so the job can re-derive
@@ -66,7 +69,7 @@ export async function workerEmailParts(db: Db, row: CommitmentRow) {
         editTokenFor(row.commitment.id),
       ),
       unsubscribeUrl: reminderUnsubscribeUrl(row.signup.slug, row.participant.id, optOutToken),
-      ...(await slotText(db, row.signup.id, row.slot.values)),
+      ...(await slotText(db, row.signup.id, row.slot.values, locale)),
       notes: row.commitment.notes,
     },
     unsubscribePostUrl: reminderUnsubscribePostUrl(row.participant.id, optOutToken),

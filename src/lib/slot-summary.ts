@@ -1,3 +1,4 @@
+import type { CatalogLocale } from '@/i18n/config';
 import { slotDetails, type LabelledField } from '@/lib/slot-label';
 
 /**
@@ -17,7 +18,7 @@ import { slotDetails, type LabelledField } from '@/lib/slot-label';
 export function summarizeSlotValues(
   fields: readonly LabelledField[],
   values: Record<string, unknown>,
-  locale: string,
+  locale: CatalogLocale,
 ): string {
   return slotDetails(fields, values, locale)
     .map((d) => d.value)

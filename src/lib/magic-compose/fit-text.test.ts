@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH } from '@/schemas/signups';
+import { warningSentence } from './draft-warnings';
 import { fitDraftText } from './fit-text';
 
 const draft = {
@@ -13,11 +14,14 @@ describe('fitDraftText', () => {
   it('shortens a description over the limit and says so', () => {
     const long = `${'Please bring a dish to share. '.repeat(70)}`;
     expect(long.length).toBeGreaterThan(DESCRIPTION_MAX_LENGTH);
-    const { value, warnings } = fitDraftText({ ...draft, description: long }, 'en');
+    const { value, warnings } = fitDraftText({ ...draft, description: long });
     const description = (value as { description: string }).description;
     expect(description.length).toBeLessThanOrEqual(DESCRIPTION_MAX_LENGTH);
     expect(description.endsWith('…')).toBe(true);
     expect(warnings).toEqual([
+      { code: 'text_cut', field: 'description', max: DESCRIPTION_MAX_LENGTH },
+    ]);
+    expect(warnings.map(warningSentence)).toEqual([
       "The AI's description was longer than 2,000 characters, so the end was cut off. Check it below.",
     ]);
   });
@@ -25,40 +29,30 @@ describe('fitDraftText', () => {
   it('shortens a title over the limit and says so', () => {
     const long = 'Spring season snack duty for the under nines '.repeat(4);
     expect(long.length).toBeGreaterThan(TITLE_MAX_LENGTH);
-    const { value, warnings } = fitDraftText({ ...draft, title: long }, 'en');
+    const { value, warnings } = fitDraftText({ ...draft, title: long });
     const title = (value as { title: string }).title;
     expect(title.length).toBeLessThanOrEqual(TITLE_MAX_LENGTH);
     expect(title.endsWith('…')).toBe(true);
-    expect(warnings).toEqual([
+    expect(warnings).toEqual([{ code: 'text_cut', field: 'title', max: TITLE_MAX_LENGTH }]);
+    expect(warnings.map(warningSentence)).toEqual([
       "The AI's title was longer than 120 characters, so the end was cut off. Check it below.",
     ]);
   });
 
-  it("writes the limit's number in the organizer's language", () => {
-    const long = `${'Ta med något att dela. '.repeat(100)}`;
-    expect(long.length).toBeGreaterThan(DESCRIPTION_MAX_LENGTH);
-    const { warnings } = fitDraftText({ ...draft, description: long }, 'sv');
-    // Swedish groups thousands with a no-break space. The sentence is still
-    // English until the organizer's text has a catalog.
-    expect(warnings).toEqual([
-      "The AI's description was longer than 2\u00a0000 characters, so the end was cut off. Check it below.",
-    ]);
-  });
-
   it('keeps the rest of the draft as it was', () => {
-    const { value } = fitDraftText({ ...draft, description: 'x '.repeat(1500) }, 'en');
+    const { value } = fitDraftText({ ...draft, description: 'x '.repeat(1500) });
     expect(value).toMatchObject({ title: draft.title, fields: draft.fields, slots: draft.slots });
   });
 
   it('adds no warning to a draft within the limits', () => {
-    const { value, warnings } = fitDraftText(draft, 'en');
+    const { value, warnings } = fitDraftText(draft);
     expect(value).toEqual(draft);
     expect(warnings).toEqual([]);
   });
 
   it('passes through anything that is not a draft object', () => {
     for (const raw of [null, 'text', 3, [], { refusalReason: 'no' }, { title: 7 }]) {
-      expect(fitDraftText(raw, 'en')).toEqual({ value: raw, warnings: [] });
+      expect(fitDraftText(raw)).toEqual({ value: raw, warnings: [] });
     }
   });
 });

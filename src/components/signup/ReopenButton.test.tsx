@@ -1,18 +1,23 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import type { SignupStatus } from '@/schemas/signups';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
+import { signupHeaderText } from './header-text';
 import { ReopenButton, ReopenRefusal, ReopenScope, ReopenSheetItem } from './ReopenButton';
 import type { StatusChangeAction } from './StatusActionForm';
 
 const NO_ACCESS = 'You don’t have edit access.';
 
+/** The header's words in English, as the layout passes them. */
+const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
+
 /** Reopen signup as a computer's header has it: its scope, the button, and the refusal's line. */
 function Header({ action }: { action: StatusChangeAction }) {
   return (
     <ReopenScope reopenAction={action}>
-      <ReopenButton />
+      <ReopenButton text={TEXT.reopen} />
       <ReopenRefusal />
     </ReopenScope>
   );
@@ -120,7 +125,7 @@ describe('Reopen signup in a computer’s header', () => {
       return (this.hasAttribute('data-signup-title') ? [{}] : []) as unknown as DOMRectList;
     });
     const page = (status: SignupStatus, action: StatusChangeAction) => (
-      <HeaderAnnouncer status={status}>
+      <HeaderAnnouncer status={status} announcements={TEXT.announcements}>
         <h1 tabIndex={-1} data-signup-title>
           Bake sale helpers
         </h1>
@@ -153,7 +158,7 @@ describe('Reopen signup in a phone’s More actions sheet', () => {
     );
     const { container } = render(
       <>
-        <ReopenSheetItem reopenAction={reopenAction} />
+        <ReopenSheetItem reopenAction={reopenAction} text={TEXT.reopen} />
         <a href="#elsewhere">Elsewhere</a>
       </>,
     );

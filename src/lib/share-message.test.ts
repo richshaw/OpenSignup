@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { emailBody, shareMessage, withLink, type ShareMessageSignup } from './share-message';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
+import { getTranslator } from '@/i18n/translator';
+import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
+import {
+  emailBody,
+  shareMessage,
+  withLink,
+  type ShareMessageLanguage,
+  type ShareMessageSignup,
+} from './share-message';
+
+/** A signup in English, its words from the catalog. */
+const EN: ShareMessageLanguage = { locale: 'en', t: getTestTranslator('participant.share') };
 
 const LINK = 'https://your-site.example/s/book-fair-k3x';
 const SIGN_UP = `Sign up here, no account needed: ${LINK}`;
@@ -35,42 +48,49 @@ describe('shareMessage', () => {
       slot('2026-11-14', 2),
       slot('2026-11-14', 2),
     ];
-    expect(shareMessage(signup({ slots }), LINK)).toBe(
+    expect(shareMessage(signup({ slots }), LINK, EN)).toBe(
       `Fall book fair volunteers\nThu, Nov 12 to Sat, Nov 14 · 21 spots open\n${SIGN_UP}`,
     );
   });
 
   it('says only the spots for one undated slot, and never how many slots there are', () => {
     const slots = [{ id: 'slot_a', values: { what: 'Litter pick' }, capacity: 20, status: 'open' }];
-    expect(shareMessage(signup({ title: 'Litter Pick', fields: [WHAT], slots }), LINK)).toBe(
+    expect(shareMessage(signup({ title: 'Litter Pick', fields: [WHAT], slots }), LINK, EN)).toBe(
       `Litter Pick\n20 spots open\n${SIGN_UP}`,
     );
   });
 
   it('names the one date when every slot is on the same day', () => {
     const slots = [slot('2026-11-14', 4), slot('2026-11-14', 2)];
-    expect(shareMessage(signup({ slots }), LINK)).toBe(
+    expect(shareMessage(signup({ slots }), LINK, EN)).toBe(
       `Fall book fair volunteers\nSat, Nov 14 · 6 spots open\n${SIGN_UP}`,
     );
   });
 
   it('runs from the earliest date to the latest, whatever order the slots are in', () => {
     const slots = [slot('2026-11-14'), slot('2026-11-12'), slot('2026-12-01'), slot('2026-11-13')];
-    expect(shareMessage(signup({ slots }), LINK)).toBe(
+    expect(shareMessage(signup({ slots }), LINK, EN)).toBe(
       `Fall book fair volunteers\nThu, Nov 12 to Tue, Dec 1 · 4 spots open\n${SIGN_UP}`,
     );
   });
 
   it('ignores blank and impossible dates', () => {
     const slots = [slot(undefined), slot(''), slot('2026-02-30'), slot('2026-11-14')];
-    expect(shareMessage(signup({ slots }), LINK)).toBe(
+    expect(shareMessage(signup({ slots }), LINK, EN)).toBe(
       `Fall book fair volunteers\nSat, Nov 14 · 4 spots open\n${SIGN_UP}`,
+    );
+  });
+
+  it('counts the spots in plain digits, as it did before the catalog', () => {
+    const slots = [slot(undefined, 1234)];
+    expect(shareMessage(signup({ fields: [WHAT], slots }), LINK, EN)).toBe(
+      `Fall book fair volunteers\n1234 spots open\n${SIGN_UP}`,
     );
   });
 
   it('leaves the dates out when no slot has one yet', () => {
     const slots = [slot(undefined), slot('')];
-    expect(shareMessage(signup({ slots }), LINK)).toBe(
+    expect(shareMessage(signup({ slots }), LINK, EN)).toBe(
       `Fall book fair volunteers\n2 spots open\n${SIGN_UP}`,
     );
   });
@@ -89,16 +109,20 @@ describe('shareMessage', () => {
       },
     ];
     expect(
-      shareMessage(signup({ fields, slots, settings: { reminderFromFieldRef: 'fair-day' } }), LINK),
+      shareMessage(
+        signup({ fields, slots, settings: { reminderFromFieldRef: 'fair-day' } }),
+        LINK,
+        EN,
+      ),
     ).toBe(`Fall book fair volunteers\nSat, Nov 14 · 1 spot open\n${SIGN_UP}`);
-    expect(shareMessage(signup({ fields, slots }), LINK)).toBe(
+    expect(shareMessage(signup({ fields, slots }), LINK, EN)).toBe(
       `Fall book fair volunteers\nTue, Nov 10 · 1 spot open\n${SIGN_UP}`,
     );
   });
 
   it('leaves the spots out when an open slot has no limit', () => {
     const slots = [slot('2026-11-14', 3), slot('2026-11-14', null)];
-    expect(shareMessage(signup({ slots }), LINK)).toBe(
+    expect(shareMessage(signup({ slots }), LINK, EN)).toBe(
       `Fall book fair volunteers\nSat, Nov 14\n${SIGN_UP}`,
     );
   });
@@ -106,10 +130,10 @@ describe('shareMessage', () => {
   it('says how many spots are left once people have signed up', () => {
     const slots = [slot('2026-11-14', 3), slot('2026-11-14', 4)];
     const [first, second] = slots as [(typeof slots)[0], (typeof slots)[0]];
-    expect(shareMessage(signup({ slots }), LINK, { [first.id]: 2, [second.id]: 1 })).toBe(
+    expect(shareMessage(signup({ slots }), LINK, EN, { [first.id]: 2, [second.id]: 1 })).toBe(
       `Fall book fair volunteers\nSat, Nov 14 · 4 spots left\n${SIGN_UP}`,
     );
-    expect(shareMessage(signup({ slots }), LINK, { [first.id]: 3, [second.id]: 3 })).toBe(
+    expect(shareMessage(signup({ slots }), LINK, EN, { [first.id]: 3, [second.id]: 3 })).toBe(
       `Fall book fair volunteers\nSat, Nov 14 · 1 spot left\n${SIGN_UP}`,
     );
   });
@@ -117,7 +141,7 @@ describe('shareMessage', () => {
   it('leaves the spots out when none are left', () => {
     const slots = [slot('2026-11-14', 2), slot('2026-11-14', 1)];
     const [first, second] = slots as [(typeof slots)[0], (typeof slots)[0]];
-    expect(shareMessage(signup({ slots }), LINK, { [first.id]: 2, [second.id]: 1 })).toBe(
+    expect(shareMessage(signup({ slots }), LINK, EN, { [first.id]: 2, [second.id]: 1 })).toBe(
       `Fall book fair volunteers\nSat, Nov 14\n${SIGN_UP}`,
     );
   });
@@ -129,35 +153,35 @@ describe('shareMessage', () => {
       slot('2026-11-14', 2),
     ];
     const [first, , third] = slots as [(typeof slots)[0], unknown, (typeof slots)[0]];
-    expect(shareMessage(signup({ slots }), LINK)).toBe(
+    expect(shareMessage(signup({ slots }), LINK, EN)).toBe(
       `Fall book fair volunteers\nSat, Nov 14 · 5 spots open\n${SIGN_UP}`,
     );
-    expect(shareMessage(signup({ slots }), LINK, { [first.id]: 4, [third.id]: 1 })).toBe(
+    expect(shareMessage(signup({ slots }), LINK, EN, { [first.id]: 4, [third.id]: 1 })).toBe(
       `Fall book fair volunteers\nSat, Nov 14 · 1 spot left\n${SIGN_UP}`,
     );
   });
 
   it('says one spot in the singular', () => {
-    expect(shareMessage(signup({ slots: [slot('2026-11-14', 1)] }), LINK)).toBe(
+    expect(shareMessage(signup({ slots: [slot('2026-11-14', 1)] }), LINK, EN)).toBe(
       `Fall book fair volunteers\nSat, Nov 14 · 1 spot open\n${SIGN_UP}`,
     );
   });
 
   it('is the title and the link alone with no dates and no limit', () => {
     const slots = [{ id: 'slot_a', values: { what: 'Snacks' }, capacity: null, status: 'open' }];
-    expect(shareMessage(signup({ fields: [WHAT], slots }), LINK)).toBe(
+    expect(shareMessage(signup({ fields: [WHAT], slots }), LINK, EN)).toBe(
       `Fall book fair volunteers\n${SIGN_UP}`,
     );
   });
 
   it('leaves the middle line out when there is nothing to say', () => {
-    expect(shareMessage(signup({ fields: [WHAT], slots: [] }), LINK)).toBe(
+    expect(shareMessage(signup({ fields: [WHAT], slots: [] }), LINK, EN)).toBe(
       `Fall book fair volunteers\n${SIGN_UP}`,
     );
   });
 
   it('trims the title', () => {
-    expect(shareMessage(signup({ title: '  Bake sale \n', slots: [] }), LINK)).toBe(
+    expect(shareMessage(signup({ title: '  Bake sale \n', slots: [] }), LINK, EN)).toBe(
       `Bake sale\n${SIGN_UP}`,
     );
   });
@@ -176,7 +200,7 @@ describe('shareMessage: when the slots are', () => {
     return { id: `slot_${++slotIds}`, values, capacity, status: 'open' };
   };
   const line = (slots: ShareMessageSignup['slots'], fields: ShareMessageSignup['fields']) =>
-    shareMessage(signup({ fields, slots }), LINK).split('\n')[1];
+    shareMessage(signup({ fields, slots }), LINK, EN).split('\n')[1];
   const days = (...dates: string[]) => dates.map((d) => slot(d));
 
   it('names one day', () => {
@@ -260,12 +284,12 @@ describe('shareMessage: when the slots are', () => {
     const full = timed('2026-11-07', '09:00', 1);
     const slots = [full, timed('2026-11-14', '11:00', 3)];
     expect(
-      shareMessage(signup({ fields: [WHAT, DATE, TIME], slots }), LINK, { [full.id]: 1 }),
+      shareMessage(signup({ fields: [WHAT, DATE, TIME], slots }), LINK, EN, { [full.id]: 1 }),
     ).toBe(`Fall book fair volunteers\nSat, Nov 14, 11:00\u00a0AM · 3 spots left\n${SIGN_UP}`);
     // No limit is room.
     const unlimited = [full, timed('2026-11-14', '11:00', null)];
     expect(
-      shareMessage(signup({ fields: [WHAT, DATE, TIME], slots: unlimited }), LINK, {
+      shareMessage(signup({ fields: [WHAT, DATE, TIME], slots: unlimited }), LINK, EN, {
         [full.id]: 1,
       }).split('\n')[1],
     ).toBe('Sat, Nov 14, 11:00\u00a0AM');
@@ -280,6 +304,7 @@ describe('shareMessage: when the slots are', () => {
       shareMessage(
         signup({ fields: [WHAT, DATE, TIME], slots: [first, second, closed] }),
         LINK,
+        EN,
         committed,
       ).split('\n')[1],
     ).toBe('Sat, Nov 7 and Sat, Nov 14 · 11:00\u00a0AM');
@@ -357,4 +382,67 @@ describe('emailBody', () => {
       `Can you help on Saturday?\n${LINK}`,
     );
   });
+});
+
+describe('shareMessage in the signup’s language', () => {
+  const TIME = { ref: 'time', fieldType: 'time', sortOrder: 2 } as const;
+  const FIELDS = [WHAT, DATE, TIME];
+  const at = (date: string, capacity = 1) => ({
+    id: `slot_${++slotIds}`,
+    values: { what: 'Setup', date, time: '11:00' },
+    capacity,
+    status: 'open',
+  });
+
+  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+    'asks the catalog in %s for every word, and gives the time in it',
+    (locale) => {
+      const language = { locale, t: getStandInTranslator(locale, 'participant.share') };
+      const word = (key: string) => `participant.share.${key} in ${locale}`;
+      const time = formatSlotTime('11:00', locale);
+      const message = (slots: ShareMessageSignup['slots'], committed = {}) =>
+        shareMessage(signup({ fields: FIELDS, slots }), LINK, language, committed);
+
+      const range = [at('2026-11-12', 3), at('2026-11-13', 3), at('2026-11-14', 2)];
+      expect(message(range)).toBe(
+        `Fall book fair volunteers\n${word('dayRange')} · ${time} · ${word('spotsOpen')}\n${word('signUp')}`,
+      );
+      const one = at('2026-11-14', 3);
+      expect(message([one], { [one.id]: 1 })).toBe(
+        `Fall book fair volunteers\n${word('dayAndTime')} · ${word('spotsLeft')}\n${word('signUp')}`,
+      );
+      expect(message([at('2026-11-07'), at('2026-11-14')]).split('\n')[1]).toBe(
+        `${word('twoDays')} · ${time} · ${word('spotsOpen')}`,
+      );
+      expect(message([at('2026-11-07'), at('2026-11-14'), at('2026-11-21')]).split('\n')[1]).toBe(
+        `${word('threeDays')} · ${time} · ${word('spotsOpen')}`,
+      );
+    },
+  );
+
+  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+    'writes the days and the time in %s, as the signup’s page does',
+    (locale) => {
+      const t = getTranslator(locale, 'participant.share', {
+        onError: (error) => {
+          throw error;
+        },
+      });
+      const day = (iso: string) => formatSlotDate(iso, locale) ?? '';
+      const time = formatSlotTime('11:00', locale) ?? '';
+      const message = (slots: ShareMessageSignup['slots']) =>
+        shareMessage(signup({ fields: FIELDS, slots }), LINK, { locale, t });
+
+      expect(message([at('2026-11-14', 4), at('2026-11-14', 2)])).toBe(
+        [
+          'Fall book fair volunteers',
+          `${t('dayAndTime', { day: day('2026-11-14'), time })} · ${t('spotsOpen', { count: 6 })}`,
+          t('signUp', { url: LINK }),
+        ].join('\n'),
+      );
+      expect(message([at('2026-11-12'), at('2026-11-13')]).split('\n')[1]).toBe(
+        `${t('dayRange', { first: day('2026-11-12'), last: day('2026-11-13') })} · ${time} · ${t('spotsOpen', { count: 2 })}`,
+      );
+    },
+  );
 });
