@@ -310,11 +310,9 @@
       },
       "save": "Spara",
       "saving": "Sparar…",
-      "dangerZone": {
-        "title": "Farozon",
-        "body": "Om du raderar anmälningslistan försvinner den från dina anmälningslistor, och den offentliga länken slutar fungera direkt."
-      },
       "delete": {
+        "title": "Radera anmälningslistan",
+        "body": "Om du raderar anmälningslistan försvinner den från dina anmälningslistor, och den offentliga länken slutar fungera direkt.",
         "start": "Radera anmälningslistan",
         "label": "Bekräfta att anmälningslistan ska raderas",
         "question": "Anmälningslistan kommer att raderas.",

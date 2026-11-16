@@ -200,8 +200,8 @@ describe('Settings tab: its words', () => {
     );
     expect(language.getByRole('status')).toHaveTextContent(saved);
 
-    const danger = within(screen.getByRole('region', { name: say('dangerZone.title') }));
-    expect(danger.getByText(say('dangerZone.body'))).toBeInTheDocument();
+    const danger = within(screen.getByRole('region', { name: say('delete.title') }));
+    expect(danger.getByText(say('delete.body'))).toBeInTheDocument();
     fireEvent.click(danger.getByRole('button', { name: say('delete.start') }));
     const confirm = within(danger.getByRole('alertdialog', { name: say('delete.label') }));
     expect(confirm.getByText(say('delete.question'))).toBeInTheDocument();
@@ -229,8 +229,8 @@ describe('Settings tab: its words', () => {
         'This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language.',
       save: 'Save',
       saving: 'Saving…',
-      'dangerZone.title': 'Danger zone',
-      'dangerZone.body':
+      'delete.title': 'Delete this signup',
+      'delete.body':
         'Deleting removes this signup from your dashboard and immediately makes its public link inaccessible.',
       'delete.start': 'Delete signup',
       'delete.label': 'Confirm signup deletion',

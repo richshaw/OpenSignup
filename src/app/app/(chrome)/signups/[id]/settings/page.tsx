@@ -126,14 +126,14 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
         t={t}
       />
       <section
-        aria-labelledby="danger-zone-heading"
+        aria-labelledby="delete-signup-heading"
         className="space-y-3 rounded-xl border border-danger/30 bg-danger/5 p-6"
       >
         <div>
-          <h2 id="danger-zone-heading" className="text-sm font-semibold text-danger">
-            {t('dangerZone.title')}
+          <h2 id="delete-signup-heading" className="text-sm font-semibold text-danger">
+            {t('delete.title')}
           </h2>
-          <p className="mt-1 text-sm text-ink-muted">{t('dangerZone.body')}</p>
+          <p className="mt-1 text-sm text-ink-muted">{t('delete.body')}</p>
         </div>
         {/* A client component, so it takes its words as props and the page
             sends no messages to the browser. */}

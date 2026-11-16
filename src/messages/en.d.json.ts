@@ -372,11 +372,9 @@ declare const messages: {
       },
       "save": "Save",
       "saving": "Saving…",
-      "dangerZone": {
-        "title": "Danger zone",
-        "body": "Deleting removes this signup from your dashboard and immediately makes its public link inaccessible."
-      },
       "delete": {
+        "title": "Delete this signup",
+        "body": "Deleting removes this signup from your dashboard and immediately makes its public link inaccessible.",
         "start": "Delete signup",
         "label": "Confirm signup deletion",
         "question": "This will delete the signup.",

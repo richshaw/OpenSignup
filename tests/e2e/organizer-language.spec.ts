@@ -487,8 +487,8 @@ for (const stored of STORED) {
       await form.getByRole('button', { name: settings('save') }).click();
       await expect(form.getByRole('status')).toHaveText(saveNotice('saved'));
 
-      const danger = page.getByRole('region', { name: settings('dangerZone.title') });
-      await expect(danger.getByText(settings('dangerZone.body'))).toBeVisible();
+      const danger = page.getByRole('region', { name: settings('delete.title') });
+      await expect(danger.getByText(settings('delete.body'))).toBeVisible();
       await danger.getByRole('button', { name: settings('delete.start') }).click();
       const confirm = danger.getByRole('alertdialog', { name: settings('delete.label') });
       await expect(confirm.getByText(settings('delete.question'))).toBeVisible();
