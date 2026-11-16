@@ -660,6 +660,76 @@
         "offline": "Couldn't reach the server. Check your connection and try again.",
         "unexpected": "The server returned an unexpected response. Try again.",
         "unknown": "Something went wrong while drafting. Try again."
+      },
+      "questions": {
+        "back": "Back",
+        "heading": "A few details first",
+        "intro": "Pick what fits. Anything you skip becomes a placeholder you can fill in later.",
+        "fillInByHand": "Fill in by hand instead",
+        "what": {
+          "ask": "What do people sign up for?",
+          "askHint": "Pick any that apply, or add your own.",
+          "told": "What people sign up for",
+          "toldHint": "From your description. Remove any that don't fit, or add your own.",
+          "remove": "Remove {item}",
+          "full": "{max, number, ::group-off} is the most. Remove one to add another.",
+          "addLabel": "Add your own, then press Enter",
+          "addYourOwn": "Add your own",
+          "addAnother": "Add another",
+          "add": "Add"
+        },
+        "when": {
+          "ask": "When is it?",
+          "oneDay": "One day",
+          "several": "Several days",
+          "notDecided": "Not decided",
+          "date": "Date",
+          "starts": "Starts",
+          "ends": "Ends",
+          "noTime": "No time",
+          "whichDays": "Which days?",
+          "whichDaysPlaceholder": "Which days? For example: every Saturday in May, 9 to 11",
+          "notDecidedHint": "The draft will use placeholder dates you can fill in later."
+        },
+        "howMany": {
+          "ask": "How many people do you need?",
+          "hint": "For each thing above. Leave a box empty for no limit.",
+          "pickFirst": "Pick or add something above first.",
+          "fewer": "Fewer people for {item}",
+          "people": "People for {item}",
+          "noLimit": "No limit",
+          "more": "More people for {item}"
+        },
+        "problems": {
+          "noDate": "Add a date, or leave the times empty.",
+          "year": "Check the date's year.",
+          "timeOrder": "The end time must be after the start time.",
+          "wholeNumbers": "Use whole numbers for how many people."
+        }
+      },
+      "answers": {
+        "what": "What: {items}",
+        "item": "{item} ({count, number, ::group-off})",
+        "itemNoLimit": "{item} (no limit)",
+        "when": "When: {when}",
+        "dayAndTimes": "{day}, {times}",
+        "fromTo": "{from} to {to}",
+        "from": "from {from}",
+        "until": "until {to}"
+      }
+    },
+    "aiDraft": {
+      "title": "Here's your draft, {fields, plural, one {{fields, number, ::group-off} field} other {{fields, number, ::group-off} fields}} and {slots, plural, one {{slots, number, ::group-off} slot} other {{slots, number, ::group-off} slots}}",
+      "body": "Edit anything below, then publish when you're ready.",
+      "dismiss": "Dismiss",
+      "warnings": {
+        "heading": "A few things to double-check",
+        "valuesBlanked": "{count, plural, one {{count, number, ::group-off} value was left blank because it didn't fit its field. Fill it in below.} other {{count, number, ::group-off} values were left blank because they didn't fit their fields. Fill them in below.}}",
+        "enumFieldsToText": "{count, plural, one {Field {fields} arrived without a fixed list of options, so it was switched to free text.} other {Fields {fields} arrived without a fixed list of options, so they were switched to free text.}}",
+        "duplicateFields": "Removed {count, plural, one {{count, number, ::group-off} duplicate field} other {{count, number, ::group-off} duplicate fields}} the AI tried to add twice.",
+        "strayValues": "Ignored {count, plural, one {{count, number, ::group-off} stray value} other {{count, number, ::group-off} stray values}} that didn't match any field.",
+        "titleCut": "The AI's title was longer than {max, number} characters, so the end was cut off. Check it below.",
+        "descriptionCut": "The AI's description was longer than {max, number} characters, so the end was cut off. Check it below."
       }
     }
   }

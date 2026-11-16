@@ -7,6 +7,10 @@
  *
  *   <ClientMessages locale={locale} messages={messagesFor(locale, 'participant.fields')}>
  *
+ * A client component may wrap a part it loads lazily, with messages a server
+ * component passed it, so next-intl stays out of the page's first JavaScript
+ * until that part shows (`AiDraftWarnings`).
+ *
  * It's a client component, and the only module that may import next-intl's
  * provider (a lint rule in eslint.config.mjs). Imported by a server component,
  * `next-intl` gives the server's provider instead, which fills every prop it

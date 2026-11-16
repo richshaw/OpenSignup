@@ -24,6 +24,7 @@ import {
   MagicComposeDraftSchema,
   type PromptContext,
 } from '@/lib/magic-compose/prompt';
+import { warningSentence } from '@/lib/magic-compose/draft-warnings';
 import { fitDraftText } from '@/lib/magic-compose/fit-text';
 import { PROMPT_MAX_LENGTH } from '@/lib/magic-compose/limits';
 import { persistDraft } from '@/lib/magic-compose/persist';
@@ -275,7 +276,7 @@ export async function POST(req: NextRequest) {
     // A title or description over its limit is cut down rather than failing
     // the whole draft: a model asked to keep a long announcement word for word
     // goes over the same way on every retry.
-    const fitted = fitDraftText(raw.value, 'en');
+    const fitted = fitDraftText(raw.value);
     const draft = MagicComposeDraftSchema.safeParse(fitted.value);
     if (!draft.success) {
       log.warn(
@@ -363,6 +364,9 @@ export async function POST(req: NextRequest) {
       return fail(persisted.error);
     }
     const { signup: created, template, groupByFieldRefs, warnings } = persisted.value;
+    // Each warning as a code with its arguments, for the organizer's screen to
+    // word in their language, and in English, as the API has always given them.
+    const codedWarnings = [...fitted.warnings, ...warnings];
 
     return ok(
       {
@@ -374,7 +378,8 @@ export async function POST(req: NextRequest) {
           promptLength: userPrompt.length,
           groupByFieldRefs,
         },
-        warnings: [...fitted.warnings, ...warnings],
+        warnings: codedWarnings.map(warningSentence),
+        codedWarnings,
         draft: buildDraftPreview(draft.data, template),
       },
       {

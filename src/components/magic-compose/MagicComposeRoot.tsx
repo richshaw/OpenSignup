@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { FormError } from '@/components/ui/form-error';
+import type { DraftWarning } from '@/lib/magic-compose/draft-warnings';
 import { LLM_TIMEOUT_DEFAULT_MS } from '@/lib/magic-compose/limits';
 import type { FollowUp, MagicComposeQuestions } from '@/lib/magic-compose/questions';
 import type { Answers } from './answers';
@@ -41,7 +42,8 @@ interface ApiBody {
   data?: {
     id?: string;
     draft?: DraftPreview;
-    warnings?: string[];
+    /** What Magic Compose changed in the draft, as codes the banner words. */
+    codedWarnings?: DraftWarning[];
     /** A first call the model answered with questions instead of a draft. */
     questions?: MagicComposeQuestions;
   };
@@ -171,7 +173,7 @@ export function MagicComposeRoot({
 
         const id = data.id;
         const draft = data.draft;
-        writeAiDraftWarnings(id, data.warnings ?? []);
+        writeAiDraftWarnings(id, data.codedWarnings ?? []);
 
         setPhase((p) => (p.kind === 'drafting' ? { ...p, draft, response: { id } } : p));
       } catch (e) {

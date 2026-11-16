@@ -12,6 +12,7 @@ import { MAGIC_COMPOSE_NAMESPACES } from './client-namespaces';
 import { Compose } from './Compose';
 import { Drafting } from './Drafting';
 import { MagicComposeRoot } from './MagicComposeRoot';
+import { Questions } from './Questions';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -195,6 +196,67 @@ describe('Magic Compose’s own words', () => {
     expect(strays(['Bake sale'])).toEqual([]);
   });
 
+  it('questions: every word is a message, an option the AI offered, a time, or the organizer’s', async () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              data: {
+                questions: {
+                  topics: ['what', 'when', 'how_many'],
+                  whatOptions: ['Bake', 'Staff the table'],
+                },
+              },
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    const message = (key: string) => `organizer.compose.${key} in ${LOCALE}`;
+    inStandIns(<MagicComposeRoot />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bake sale' } });
+    fireEvent.click(screen.getByRole('button', { name: message('draft') }));
+    await screen.findByRole('heading', { name: message('questions.heading') });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
+    const add = screen.getByRole('textbox', { name: message('questions.what.addLabel') });
+    fireEvent.change(add, { target: { value: 'Bring drinks' } });
+    fireEvent.keyDown(add, { key: 'Enter' });
+    // The time boxes' times, and how long each end would make it, are times, not words.
+    const times = () =>
+      [...document.querySelectorAll('option')]
+        .flatMap((option) => [...option.childNodes].map((node) => node.textContent?.trim() ?? ''))
+        .filter((text) => !isMessage(text));
+    const answers = ['Bake sale', 'Bake', 'Staff the table', 'Bring drinks'];
+    expect(strays([...answers, ...times()])).toEqual([]);
+
+    // A start time with no date can't go: the screen says why, in its words.
+    fireEvent.change(screen.getByLabelText(message('questions.when.starts')), {
+      target: { value: '09:00' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: message('draft') }));
+    expect(await screen.findByText(message('questions.problems.noDate'))).toBeInTheDocument();
+    expect(strays([...answers, ...times()])).toEqual([]);
+
+    fireEvent.click(screen.getByLabelText(message('questions.when.several')));
+    expect(screen.getByLabelText(message('questions.when.whichDays'))).toHaveAttribute(
+      'placeholder',
+      message('questions.when.whichDaysPlaceholder'),
+    );
+    fireEvent.click(screen.getByLabelText(message('questions.when.notDecided')));
+    expect(screen.getByText(message('questions.when.notDecidedHint'))).toBeInTheDocument();
+    expect(strays(answers)).toEqual([]);
+
+    // Back writes the answers into the description in the organizer's words.
+    fireEvent.click(screen.getByRole('button', { name: message('questions.back') }));
+    expect(screen.getByRole('textbox')).toHaveValue(
+      ['Bake sale', message('answers.what')].join('\n'),
+    );
+  });
+
   it.each(CATALOG_LOCALES)(
     'finds every message it reads in what its page passes (%s)',
     (locale) => {
@@ -208,6 +270,27 @@ describe('Magic Compose’s own words', () => {
             draft={null}
             onCancel={() => {}}
             onAnimationDone={() => {}}
+          />
+          <Questions
+            prompt="Bake sale"
+            locale={locale}
+            questions={{ topics: ['what', 'when', 'how_many'], whatOptions: ['Bake', 'Staff'] }}
+            answers={{
+              picked: ['Bake'],
+              added: [],
+              pending: '',
+              when: 'one_day',
+              date: '2026-11-14',
+              from: '09:00',
+              to: '',
+              several: '',
+              counts: {},
+            }}
+            setAnswers={() => {}}
+            error={null}
+            onBack={() => {}}
+            onSend={() => {}}
+            onInvalid={() => {}}
           />
         </ClientMessages>,
       );

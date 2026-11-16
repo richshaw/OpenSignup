@@ -71,6 +71,9 @@ const TRANSLATED_FILES = [
   'src/components/magic-compose/YouWrote.tsx',
   'src/components/magic-compose/MagicComposeRoot.tsx',
   'src/components/magic-compose/ChunkBoundary.tsx',
+  'src/components/magic-compose/Questions.tsx',
+  'src/components/magic-compose/AiDraftBanner.tsx',
+  'src/components/magic-compose/AiDraftWarnings.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
@@ -303,13 +306,10 @@ describe('where the rules apply', () => {
   });
 
   // Magic Compose's folder is listed whole, so a screen added later is checked
-  // from the start. Its questions and the banner on a draft it made are still
-  // in English.
-  it('are on for a new Magic Compose screen, and off for its questions and banner', async () => {
+  // from the start.
+  it('are on for a new Magic Compose screen', async () => {
     const text = '<p>Sign up</p><button aria-label="Close" />';
     expect(await lint(text, 'src/components/magic-compose/Review.tsx')).toHaveLength(2);
-    expect(await lint(text, 'src/components/magic-compose/Questions.tsx')).toEqual([]);
-    expect(await lint(text, 'src/components/magic-compose/AiDraftBanner.tsx')).toEqual([]);
   });
 
   it('read an email’s preview text as text', async () => {

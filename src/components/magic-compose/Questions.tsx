@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Check, ChevronLeft, Minus, Plus, Sparkles, X } from 'lucide-react';
 import {
   EARLIEST_DATE_YEAR,
@@ -42,14 +43,12 @@ import { HereDot, StepLine } from './StepLine';
 import { YOU_WROTE_BAND, YouWrote } from './YouWrote';
 import { TimeSelect } from '@/components/build-shared/TimeSelect';
 
-/** The time boxes' choice for no time, until Magic Compose's text moves to the catalog. */
-const NO_TIME = 'No time';
-
-const WHEN_CHOICES: Array<{ kind: WhenAnswer['kind']; label: string }> = [
-  { kind: 'one_day', label: 'One day' },
-  { kind: 'several', label: 'Several days' },
-  { kind: 'not_decided', label: 'Not decided' },
-];
+/** The When choices, each with its message in `organizer.compose.questions.when`. */
+const WHEN_CHOICES = [
+  { kind: 'one_day', key: 'oneDay' },
+  { kind: 'several', key: 'several' },
+  { kind: 'not_decided', key: 'notDecided' },
+] as const satisfies ReadonlyArray<{ kind: WhenAnswer['kind']; key: string }>;
 
 // The pills look 36px tall, as the When choices do; the button around each
 // one is the 44px target.
@@ -101,6 +100,10 @@ export function Questions({
   /** The answers can't go as they are; `message` says why. */
   onInvalid: (message: string) => void;
 }) {
+  const t = useTranslations('organizer.compose.questions');
+  const compose = useTranslations('organizer.compose');
+  const problems = useTranslations('organizer.compose.questions.problems');
+  const answersText = useTranslations('organizer.compose.answers');
   const handFill = useHandFillHref(prompt);
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -125,7 +128,7 @@ export function Questions({
 
   const draft = () => {
     const done = committed();
-    const problem = answersProblem(questions, done);
+    const problem = answersProblem(questions, done, problems);
     if (!problem) {
       setAnswers(done);
       onSend(buildFollowUp(questions, done));
@@ -177,11 +180,11 @@ export function Questions({
         {/* First in the page so a phone shows it top left; under the steps on a wider screen. */}
         <button
           type="button"
-          onClick={() => onBack(appendAnswers(prompt, questions, committed(), locale))}
+          onClick={() => onBack(appendAnswers(prompt, questions, committed(), locale, answersText))}
           className="-mb-2 -ml-1.5 inline-flex min-h-11 items-center gap-1 self-start rounded-[10px] pl-1 pr-2.5 text-[15px] font-medium text-ink-muted hover:text-ink md:order-last md:mb-0 md:ml-0 md:rounded-xl md:px-3 md:text-sm"
         >
           <ChevronLeft className="h-[18px] w-[18px]" aria-hidden="true" />
-          Back
+          {t('back')}
         </button>
         <PulseMark still />
         <div>
@@ -190,10 +193,10 @@ export function Questions({
             tabIndex={-1}
             className="animate-fade-in text-2xl font-semibold tracking-tight outline-none"
           >
-            A few details first
+            {t('heading')}
           </h1>
           <p className="mt-1.5 animate-fade-in text-sm leading-relaxed text-ink-muted">
-            Pick what fits. Anything you skip becomes a placeholder you can fill in later.
+            {t('intro')}
           </p>
         </div>
         <StepLine details="here" draft="todo" />
@@ -226,7 +229,7 @@ export function Questions({
             href={handFill}
             className="inline-flex min-h-11 items-center self-center text-[15px] text-ink-muted underline hover:text-ink sm:self-auto"
           >
-            Fill in by hand instead
+            {t('fillInByHand')}
           </Link>
           {/* Anything skipped goes as a placeholder, as the heading's line says. */}
           <button
@@ -235,7 +238,7 @@ export function Questions({
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-brand-hover"
           >
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-            Draft my signup
+            {compose('draft')}
           </button>
         </div>
       </section>
@@ -258,6 +261,7 @@ function What({
   asked: boolean;
   options: string[];
 }) {
+  const t = useTranslations('organizer.compose.questions.what');
   const id = useId();
   // Asked, the model's options are pills to pick and only the organizer's own
   // items are chips. Not asked, everything on the list is a chip to remove.
@@ -280,7 +284,7 @@ function What({
     const nextChip = next === undefined ? undefined : removeRefs.current.get(next);
     (nextChip ?? inputRef.current)?.focus();
   };
-  const placeholder = chips.length > 0 ? 'Add another' : 'Add your own';
+  const placeholder = chips.length > 0 ? t('addAnother') : t('addYourOwn');
   // Size the box to what it shows, so the pill ends where the words do.
   const chars = Math.min(40, Math.max(answers.pending.length, placeholder.length));
 
@@ -288,13 +292,9 @@ function What({
     <section className="flex flex-col gap-2.5 p-4 sm:gap-3 sm:px-6 sm:py-5">
       <div>
         <p id={id} className={QUESTION}>
-          {asked ? 'What do people sign up for?' : 'What people sign up for'}
+          {asked ? t('ask') : t('told')}
         </p>
-        <p className={`${HINT} mt-0.5`}>
-          {asked
-            ? 'Pick any that apply, or add your own.'
-            : "From your description. Remove any that don't fit, or add your own."}
-        </p>
+        <p className={`${HINT} mt-0.5`}>{asked ? t('askHint') : t('toldHint')}</p>
       </div>
       <div
         role="group"
@@ -336,7 +336,7 @@ function What({
                 else removeRefs.current.delete(item);
               }}
               type="button"
-              aria-label={`Remove ${item}`}
+              aria-label={t('remove', { item })}
               onClick={() => remove(item)}
               className="-my-1 inline-flex h-11 w-8 items-center justify-center rounded-full focus-visible:outline-offset-[-6px]"
             >
@@ -350,7 +350,7 @@ function What({
             tabIndex={-1}
             className={`${HINT} inline-flex min-h-11 items-center outline-none`}
           >
-            {WHAT_ITEMS_MAX} is the most. Remove one to add another.
+            {t('full', { max: WHAT_ITEMS_MAX })}
           </span>
         ) : (
           <span
@@ -367,7 +367,7 @@ function What({
                 strokeWidth={2.5}
                 aria-hidden="true"
               />
-              <span className="sr-only">Add your own, then press Enter</span>
+              <span className="sr-only">{t('addLabel')}</span>
               <input
                 ref={inputRef}
                 type="text"
@@ -396,7 +396,7 @@ function What({
                 <span
                   className={`inline-flex h-[26px] items-center rounded-full bg-brand px-2.5 text-xs font-semibold text-white ${FOCUS_INSIDE}`}
                 >
-                  Add
+                  {t('add')}
                 </span>
               </button>
             )}
@@ -408,13 +408,14 @@ function What({
 }
 
 function When({ answers, update, locale }: Part & { locale: string }) {
+  const t = useTranslations('organizer.compose.questions.when');
   const id = useId();
   const set = (patch: Partial<Answers>) => update((a) => ({ ...a, ...patch }));
 
   return (
     <section className="flex flex-col gap-2.5 p-4 sm:gap-3 sm:px-6 sm:py-5">
       <p id={`${id}q`} className={QUESTION}>
-        When is it?
+        {t('ask')}
       </p>
       {/* Native radios, so arrow keys move between them, drawn as a segmented control.
           In a narrow panel or at large text the choices wrap onto more rows, whole,
@@ -438,7 +439,7 @@ function When({ answers, update, locale }: Part & { locale: string }) {
               className="peer sr-only"
             />
             <span className="inline-flex min-h-9 flex-1 items-center justify-center rounded-[9px] px-2 py-1 text-center text-[15px] font-medium leading-tight text-ink-muted peer-checked:bg-white peer-checked:font-semibold peer-checked:text-ink peer-checked:shadow peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand sm:px-3.5">
-              {choice.label}
+              {t(choice.key)}
             </span>
           </label>
         ))}
@@ -447,7 +448,7 @@ function When({ answers, update, locale }: Part & { locale: string }) {
       {answers.when === 'one_day' && (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <label htmlFor={`${id}date`} className="sr-only">
-            Date
+            {t('date')}
           </label>
           <input
             id={`${id}date`}
@@ -460,7 +461,7 @@ function When({ answers, update, locale }: Part & { locale: string }) {
           />
           <div className="flex items-center gap-2">
             <label htmlFor={`${id}from`} className="text-[15px] font-medium">
-              Starts
+              {t('starts')}
             </label>
             <TimeSelect
               id={`${id}from`}
@@ -470,22 +471,25 @@ function When({ answers, update, locale }: Part & { locale: string }) {
               onChange={(from) =>
                 set(from && answers.to && answers.to <= from ? { from, to: '' } : { from })
               }
-              noTimeLabel={NO_TIME}
+              noTimeLabel={t('noTime')}
               className={`${BOX} ${BOX_FOCUS} min-w-0 flex-1 px-3 sm:flex-none`}
             />
           </div>
           <div className="flex items-center gap-2">
             <label htmlFor={`${id}to`} className="text-[15px] font-medium">
-              Ends
+              {t('ends')}
             </label>
             <TimeSelect
               id={`${id}to`}
               value={answers.to}
               onChange={(to) => set({ to })}
               {...(answers.from
-                ? { after: answers.from, note: (t: string) => timeLength(answers.from, t, locale) }
+                ? {
+                    after: answers.from,
+                    note: (to: string) => timeLength(answers.from, to, locale),
+                  }
                 : {})}
-              noTimeLabel={NO_TIME}
+              noTimeLabel={t('noTime')}
               className={`${BOX} ${BOX_FOCUS} min-w-0 flex-1 px-3 sm:flex-none`}
             />
           </div>
@@ -494,7 +498,7 @@ function When({ answers, update, locale }: Part & { locale: string }) {
       {answers.when === 'several' && (
         <div>
           <label htmlFor={`${id}days`} className="sr-only">
-            Which days?
+            {t('whichDays')}
           </label>
           <input
             id={`${id}days`}
@@ -502,19 +506,18 @@ function When({ answers, update, locale }: Part & { locale: string }) {
             value={answers.several}
             maxLength={WHEN_TEXT_MAX_LENGTH}
             onChange={(e) => set({ several: e.target.value })}
-            placeholder="Which days? For example: every Saturday in May, 9 to 11"
+            placeholder={t('whichDaysPlaceholder')}
             className={`${BOX} ${BOX_FOCUS} w-full px-3 placeholder:text-ink-soft`}
           />
         </div>
       )}
-      {answers.when === 'not_decided' && (
-        <p className={HINT}>The draft will use placeholder dates you can fill in later.</p>
-      )}
+      {answers.when === 'not_decided' && <p className={HINT}>{t('notDecidedHint')}</p>}
     </section>
   );
 }
 
 function HowMany({ answers, update }: Part) {
+  const t = useTranslations('organizer.compose.questions.howMany');
   const items = answeredItems(answers);
   const setCount = (item: string, count: string) =>
     update((a) => ({ ...a, counts: { ...a.counts, [item]: count } }));
@@ -522,12 +525,12 @@ function HowMany({ answers, update }: Part) {
   return (
     <section className="flex flex-col gap-2 px-4 pb-2.5 pt-4 sm:px-6 sm:pb-3.5 sm:pt-5">
       <div>
-        <p className={QUESTION}>How many people do you need?</p>
-        <p className={`${HINT} mt-0.5`}>For each thing above. Leave a box empty for no limit.</p>
+        <p className={QUESTION}>{t('ask')}</p>
+        <p className={`${HINT} mt-0.5`}>{t('hint')}</p>
       </div>
       {items.length === 0 ? (
         <p className="mb-1.5 mt-1 rounded-[10px] border border-dashed border-surface-sunk px-3.5 py-3 text-[13px] text-ink-muted">
-          Pick or add something above first.
+          {t('pickFirst')}
         </p>
       ) : (
         <ul>
@@ -543,7 +546,7 @@ function HowMany({ answers, update }: Part) {
                 <span className="inline-flex h-[46px] flex-shrink-0 items-center overflow-hidden rounded-[10px] border border-surface-sunk bg-white shadow-sm focus-within:border-brand">
                   <button
                     type="button"
-                    aria-label={`Fewer people for ${item}`}
+                    aria-label={t('fewer', { item })}
                     onClick={() => setCount(item, stepCount(count, -1))}
                     className="inline-flex h-11 w-10 items-center justify-center text-ink-muted hover:bg-surface-raised focus-visible:outline-offset-[-2px] sm:w-[42px]"
                   >
@@ -555,8 +558,8 @@ function HowMany({ answers, update }: Part) {
                     min={1}
                     max={HOW_MANY_MAX}
                     step={1}
-                    aria-label={`People for ${item}`}
-                    placeholder="No limit"
+                    aria-label={t('people', { item })}
+                    placeholder={t('noLimit')}
                     value={count}
                     onChange={(e) => setCount(item, e.target.value)}
                     // Show what will be sent: the number, or empty for no limit. A
@@ -566,7 +569,7 @@ function HowMany({ answers, update }: Part) {
                   />
                   <button
                     type="button"
-                    aria-label={`More people for ${item}`}
+                    aria-label={t('more', { item })}
                     onClick={() => setCount(item, stepCount(count, 1))}
                     className="inline-flex h-11 w-10 items-center justify-center text-brand hover:bg-surface-raised focus-visible:outline-offset-[-2px] sm:w-[42px]"
                   >
