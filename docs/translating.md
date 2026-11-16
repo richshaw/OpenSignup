@@ -181,8 +181,12 @@ and so does every translation:
 
 A plural picks a branch by a number. Each language has its own branches
 (CLDR's plural categories): English and Swedish use `one` and `other`; Polish
-uses `one`, `few`, `many` and `other`. `other` is always required. `=1` or
-`=24` matches that exact number, and `#` inside a branch prints the number.
+uses `one`, `few`, `many` and `other`. `other` is always required, and the
+catalog check fails a translation's plural that lacks a branch its language
+has. `=1` or `=24` matches that exact number, and `#` inside a branch prints
+the number. `=1` can stand in for `one` only in a language whose `one` holds
+no other number: Swedish's, not Russian's (which holds 21 too) or French's
+(which holds 0).
 
 ```json
 "onlyLeft": "Only {remaining, plural, one {{remaining, number, ::group-off} spot is} other {{remaining, number, ::group-off} spots are}} left, and you asked for {requested, number, ::group-off}."
@@ -339,6 +343,22 @@ Each problem is one line, `<language> <key>: <what's wrong>`, for example
 - an entry in a language's record for a message English or the translation
   doesn't have, or a record for a language with no translation.
 
+These four apply in every language with a catalog, shipped or not. Each
+language's lists are in `src/i18n/testing/language-rules.ts`:
+
+- a plural without a branch for one of its language's plural categories
+  (`Intl.PluralRules`), say a Polish plural with only `one` and `other`;
+- a translation identical to its English, unless it has no letters outside
+  its placeholders and tags (`{day} · {times}`), or its language's
+  `sameAsEnglish` list names it with why (Swedish's "Status" and "Cookies");
+  a key on that list whose translation isn't a copy fails too, so the list
+  stays short;
+- a translation of English that names the product, "OpenSignup", without the
+  name;
+- a word its language's glossary rules out, from the language's `banned`
+  list: each pattern with the glossary line it enforces and, where it
+  applies to some namespaces only, those.
+
 ### What the checks miss
 
 - **A number dropped from one plural branch.** The check sees the number in
@@ -346,9 +366,11 @@ Each problem is one line, `<language> <key>: <what's wrong>`, for example
   so only a reader can tell.
 - **A tag or placeholder dropped from one select branch** while another keeps
   it.
-- **A plural branch the language needs and the message lacks.** The number
-  falls back to `other`, which may be wrong grammar.
-- **English left untranslated.** A copy of the English passes.
+- **English left in part of a message.** Only a whole copy of the English
+  fails.
+- **Words the glossary rules out that aren't on its `banned` list**, and
+  any glossary term used where another was meant. The list holds only what a
+  pattern can tell; the rest is for the reader.
 - **Spaces at the start or end of a branch**, and any punctuation.
 - **Meaning, terms, tone, word order and length.** Whether the words say what
   the English says, use the glossary, sound natural, and fit their place on a
@@ -565,7 +587,9 @@ run every row of this table against it.
    `emails.test.tsx` beside it holds only the Swedish ones
    (`lang === 'sv'`), so give the new language an assertion of its own there.
 3. **Write its glossary** below, before translating: the product's own terms,
-   the tone and the date style.
+   the tone and the date style. Give the language an entry in
+   `LANGUAGE_RULES` (`src/i18n/testing/language-rules.ts`) for the words the
+   glossary rules out that a pattern can catch.
 4. **Translate and review** with the `translate` skill, namespace by
    namespace, for both audiences: participant text and organizer text
    (`to-translate.mjs <code> --audience organizer`).
@@ -813,6 +837,11 @@ assistant (`auth`) use the terms above, and these. From #953's second batch.
   after it reads as a technical detail, not as the end of a Swedish sentence.
 
 ### Style
+
+The catalog check enforces the rules a pattern can tell: _ni_, _din plats_ in
+participant text and emails, and "..." (`LANGUAGE_RULES.sv.banned` in
+`src/i18n/testing/language-rules.ts`). Changing one of those lines means
+changing that list, and the other way round.
 
 - **Tone.** _Du_, never _ni_, and the plain, friendly tone of the English.
   Instructions are imperatives: "Försök igen.", "Kontrollera den och försök

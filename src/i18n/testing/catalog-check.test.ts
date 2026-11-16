@@ -7,6 +7,7 @@ import {
   messagesIn,
   type TranslatedFrom,
 } from './catalog-check';
+import type { LanguageRules } from './language-rules';
 import { markTranslated } from './translated-from';
 
 /** English, and a Swedish translation of everything participants read. */
@@ -57,7 +58,11 @@ type Input = {
   shipped?: Readonly<Record<keyof typeof SHIPPED, readonly string[]>>;
   /** sv's record of what it was translated from: by default, English as it is in EN. */
   svFrom?: TranslatedFrom;
+  /** sv's own rules: by default, none. */
+  svRules?: LanguageRules;
 };
+
+const NO_RULES: LanguageRules = { sameAsEnglish: {}, banned: [] };
 
 const inputOf = ({
   en = EN,
@@ -65,7 +70,14 @@ const inputOf = ({
   used = EVERY_KEY,
   shipped = SHIPPED,
   svFrom = translatedFromEN(sv),
-}: Input) => ({ catalogs: { en, sv }, shipped, used, translatedFrom: { sv: svFrom } });
+  svRules = NO_RULES,
+}: Input) => ({
+  catalogs: { en, sv },
+  shipped,
+  used,
+  translatedFrom: { sv: svFrom },
+  rules: { sv: svRules },
+});
 
 /** What the check fails on. */
 const check = (input: Input = {}) => checkCatalogs(inputOf(input));
@@ -100,6 +112,7 @@ describe('checkCatalogs', () => {
       shipped: SHIPPED,
       used: EVERY_KEY,
       translatedFrom: { de: { 'common.footer.help': 'Help' } },
+      rules: {},
     };
     expect(checkCatalogs(input)).toEqual([]);
     expect(completeness(EN, de)).toEqual({
@@ -281,6 +294,117 @@ describe('checkCatalogs', () => {
       expect(check({ sv, svFrom: translatedFromEN(SV) })).toEqual([
         'sv extra.old: not in en.json; delete it',
       ]);
+    });
+  });
+
+  describe("against each language's rules", () => {
+    /** The check over EN and one other language, `catalog`, that ships nowhere. */
+    const checkOther = (locale: string, catalog: Catalog, rules: LanguageRules = NO_RULES) =>
+      checkCatalogs({
+        catalogs: { en: EN, [locale]: catalog },
+        shipped: SHIPPED,
+        used: EVERY_KEY,
+        translatedFrom: { [locale]: translatedFromEN(catalog) },
+        rules: { [locale]: rules },
+      });
+
+    it('fails a plural without a branch its language needs', () => {
+      // Polish needs few and many as well as one and other.
+      expect(
+        checkOther('pl', {
+          participant: { spots: '{count, plural, one {# miejsce} other {# miejsc}}' },
+        }),
+      ).toEqual([
+        'pl participant.spots: {count, plural} has no few, many branch, which pl needs (it has few, many, one, other)',
+      ]);
+      expect(
+        checkOther('pl', {
+          participant: {
+            spots:
+              '{count, plural, one {# miejsce} few {# miejsca} many {# miejsc} other {# miejsca}}',
+          },
+        }),
+      ).toEqual([]);
+      // Swedish too, though it isn't shipped to organizers.
+      expect(check({ sv: svWith('spots', '{count, plural, other {# platser}}') })).toEqual([
+        'sv participant.spots: {count, plural} has no one branch, which sv needs (it has one, other)',
+      ]);
+    });
+
+    it('takes =1 for one only where one holds no number but 1', () => {
+      expect(
+        check({ sv: svWith('spots', '{count, plural, =1 {en plats} other {# platser}}') }),
+      ).toEqual([]);
+      // Russian's one holds 21 and 101 too, and French's holds 0.
+      const russian = '{count, plural, =1 {# место} few {# места} many {# мест} other {# места}}';
+      expect(checkOther('ru', { participant: { spots: russian } })).toEqual([
+        'ru participant.spots: {count, plural} has no one branch, which ru needs (it has few, many, one, other)',
+      ]);
+      const french = '{count, plural, =1 {# place} many {# de places} other {# places}}';
+      expect(checkOther('fr', { participant: { spots: french } })).toEqual([
+        'fr participant.spots: {count, plural} has no one branch, which fr needs (it has many, one, other)',
+      ]);
+    });
+
+    it('fails a copy of the English, unless the language lists it or it has no letters of its own', () => {
+      const sv = { ...SV, organizer: { title: 'Your signups' } };
+      expect(check({ sv })).toEqual([
+        'sv organizer.title: the same as English; translate it, or list it in sameAsEnglish in src/i18n/testing/language-rules.ts with why',
+      ]);
+      const svRules = { ...NO_RULES, sameAsEnglish: { 'organizer.title': 'a name' } };
+      expect(check({ sv, svRules })).toEqual([]);
+
+      const en = { ...EN, organizer: { title: 'Your signups', pair: '<b>{day}</b> · {times}' } };
+      const used = new Set([...EVERY_KEY, 'organizer.pair']);
+      const withPair = { ...SV, organizer: { pair: '<b>{day}</b> · {times}' } };
+      expect(check({ en, used, sv: withPair })).toEqual([]);
+    });
+
+    it('fails a language that lists a message it has no copy of', () => {
+      const svRules = { ...NO_RULES, sameAsEnglish: { 'participant.guide': 'a name' } };
+      expect(check({ svRules })).toEqual([
+        'sv participant.guide: listed in sameAsEnglish in src/i18n/testing/language-rules.ts, but sv.json has no copy of its English; take it off the list',
+      ]);
+    });
+
+    it("fails a translation that drops the product's name", () => {
+      const en = { ...EN, organizer: { title: 'Welcome to OpenSignup' } };
+      expect(
+        check({ en, sv: { ...SV, organizer: { title: 'Välkommen till Öppna listor' } } }),
+      ).toEqual([
+        `sv organizer.title: drops "OpenSignup", the product's name, which stays as it is`,
+      ]);
+      expect(
+        check({ en, sv: { ...SV, organizer: { title: 'Välkommen till OpenSignup' } } }),
+      ).toEqual([]);
+    });
+
+    it('fails a word the glossary rules out, only in the namespaces it names', () => {
+      const svRules: LanguageRules = {
+        sameAsEnglish: {},
+        banned: [
+          { pattern: /(?<!\p{L})ni(?!\p{L})/iu, glossary: 'Style: Tone', reason: 'du, never ni' },
+          {
+            pattern: /din plats/i,
+            namespaces: ['participant'],
+            glossary: 'Terms',
+            reason: 'din anmälan',
+          },
+        ],
+      };
+      expect(check({ svRules, sv: svWith('guide', 'Läs <link>guiden</link> om Ni vill') })).toEqual(
+        [
+          'sv participant.guide: has "Ni", which the glossary rules out: du, never ni (Style: Tone)',
+        ],
+      );
+      expect(check({ svRules, sv: svWith('guide', 'Läs <link>din plats</link>') })).toEqual([
+        'sv participant.guide: has "din plats", which the glossary rules out: din anmälan (Terms)',
+      ]);
+      // Another namespace, a longer word, and a placeholder's name are left alone.
+      const sv = { ...SV, organizer: { title: 'Din plats på nivån' } };
+      expect(check({ svRules, sv })).toEqual([]);
+      const en = { ...EN, organizer: { title: 'Hi {ni}' } };
+      expect(check({ svRules, en, sv: { ...SV, organizer: { title: 'Hej {ni}' } } })).toEqual([]);
     });
   });
 });
