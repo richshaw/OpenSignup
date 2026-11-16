@@ -151,7 +151,7 @@ Which language anything is in comes from one rule, `resolveLocale` in `src/i18n/
 | An organizer's own screens, the consent screen, CSV headers                                      | `localeOfOrganizer(session)`                                                                   |
 | A page nobody is signed in on: `/login` and its check and confirm pages, the OAuth error pages   | `signInLocale()`: the site default, else English                                               |
 | The sign-in email, which has an address but no session                                           | `signInEmailLocale(db, email)` (`src/auth/sign-in-email-locale.ts`)                            |
-| A `/s` page with no signup in hand: not-found, a link it can't read                              | `requestedSignupLocale()` or `signupLocaleForSlug(slug)` (`src/app/s/[slug]/signup-locale.ts`) |
+| A `/s` page with no signup in hand: their layout, not-found, a link it can't read                | `requestedSignupLocale()` or `signupLocaleForSlug(slug)` (`src/app/s/[slug]/signup-locale.ts`) |
 | What to store: on a new signup, on a new account                                                 | `newSignupLocale(session)`, `newOrganizerLocale(…)` (`src/i18n/organizer-locale.ts`)           |
 
 The e2e run's `E2E_UNSHIPPED_LOCALES` is read only in `src/i18n/locale.ts`, for showing a language already stored on a row, never for storing one (a test fences it). Keep these functions out of `src/i18n/server.ts`: tests mock that module partially, and a mock doesn't reach calls inside it.
