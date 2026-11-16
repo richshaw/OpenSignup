@@ -80,3 +80,68 @@ export const UI = {
   // The tab that lists who signed up.
   responses: 'Responses',
 } as const;
+
+/**
+ * Where each name above is in the English catalog (src/messages/en.json):
+ * the key of the message the control shows, with its placeholders' values
+ * where it has any, or a list where one name stands for several controls.
+ * src/help/ui-names.test.ts checks each name is that message's English, so
+ * a reworded message fails it until the name, and the article, change with
+ * it. Null for a name whose text isn't in the catalog.
+ */
+type FromCatalog = string | { key: string; values: Readonly<Record<string, string>> };
+export const FROM_CATALOG: {
+  readonly [Name in keyof typeof UI]: FromCatalog | readonly FromCatalog[] | null;
+} = {
+  yourSignups: 'organizer.dashboard.title',
+  newSignup: 'organizer.dashboard.newSignup',
+  composeHeading: 'organizer.compose.heading',
+  skipCompose: 'organizer.compose.skip',
+  draftCompose: 'organizer.compose.draft',
+  questionsHeading: 'organizer.compose.questions.heading',
+  title: 'organizer.newSignup.titleLabel',
+  description: 'organizer.newSignup.descriptionLabel',
+  createSignup: 'organizer.newSignup.create',
+  draftOnly: 'organizer.signup.draftLine',
+  // The empty slot's placeholder names its first field, lowercased.
+  emptySlot: { key: 'organizer.build.empty.named', values: { label: 'what' } },
+  // A new signup's fields, named in its language.
+  what: 'participant.defaults.what',
+  date: 'participant.defaults.date',
+  spots: 'organizer.build.editor.spots',
+  done: 'organizer.build.editor.done',
+  addSlot: 'organizer.build.group.addSlot',
+  duplicate: 'organizer.build.editor.duplicate',
+  delete: 'organizer.build.editor.delete',
+  untitledSlot: 'participant.signupView.untitledSlot',
+  preview: 'organizer.signup.preview',
+  publish: 'organizer.signup.publish.label',
+  nothingYet: 'organizer.signup.check.title',
+  fillItIn: 'organizer.signup.check.fillIn',
+  moreActions: 'organizer.signup.moreActions',
+  publicLink: ['organizer.share.chip.label', 'organizer.share.linkField'],
+  open: 'organizer.status.open',
+  copyPublicLink: 'organizer.share.chip.copy',
+  sendTheLink: 'organizer.share.heading.firstTime',
+  copyLink: 'organizer.share.copyLink',
+  copyMessage: 'organizer.share.copyMessage',
+  emailIt: 'organizer.share.emailIt',
+  downloadQr: 'organizer.share.qr.download',
+  qrOnPhone: 'organizer.share.qr.show',
+  hideQrCode: 'organizer.share.qr.hide',
+  saveImage: 'organizer.share.qr.save',
+  shareOnPhone: 'organizer.share.shareMenu',
+  share: 'organizer.share.button',
+  signUp: 'participant.dialog.signUp',
+  fields: 'organizer.build.fields.label',
+  reminderToggle: 'organizer.build.fieldForm.reminder',
+  save: ['organizer.build.fieldForm.save', 'organizer.signupSettings.save'],
+  settings: 'organizer.signup.tabs.settings',
+  signupForm: 'organizer.signupSettings.signupForm.title',
+  askForEmail: 'organizer.signupSettings.signupForm.askForEmail',
+  emailRequired: 'organizer.signupSettings.signupForm.required',
+  emailOptional: 'organizer.signupSettings.signupForm.optional',
+  saved: 'organizer.saveNotice.saved',
+  emailBoxOptional: 'participant.fields.emailOptional',
+  responses: 'organizer.signup.tabs.responses',
+};

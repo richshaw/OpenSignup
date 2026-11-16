@@ -129,11 +129,13 @@ it should list nothing you meant to do. If you changed `en.json`, run
 `pnpm build` (or `pnpm dev`) once so `src/messages/en.d.json.ts` is rewritten,
 and commit it.
 
-For labels in fixed boxes, also run the layout spec on the built app (below):
-`tests/e2e/slot-row-layout.spec.ts`, which measures every language with a
-catalog. The other e2e specs pick the language up too; run
-`tests/e2e/translated-signup.spec.ts` once the participant namespaces are
-done, since it fails on English left on a page.
+For labels in fixed boxes, also run the layout specs on the built app (below):
+`tests/e2e/slot-row-layout.spec.ts` and `tests/e2e/translated-organizer.spec.ts`,
+which measure every language with a catalog. The other e2e specs pick the
+language up too; run `tests/e2e/translated-signup.spec.ts` once the
+participant namespaces are done, since it fails on English left on a page.
+`translated-organizer.spec.ts` fails on English left on an organizer screen
+only where the catalog has a message, so it can run part-way through.
 
 ## 3. Have a different model review it in context
 
@@ -150,16 +152,21 @@ Playwright at the Chromium installed there. The command writes, under
 
 - `<code>/screens/chromium/*.png` and `<code>/screens/chromium-phone/*.png`:
   each participant screen and state `tests/e2e/translated-signup.spec.ts`
-  checks, at desktop and phone width, for every language with a catalog;
+  checks, and the organizer screens `tests/e2e/translated-organizer.spec.ts`
+  goes through (`organizer-…`), at desktop and phone width, for every
+  language with a catalog;
 - `en/emails/*.html` and `<code>/emails/*.html`, with a `.txt` of each
   that starts with the email's subject: every participant email and the
   sign-in email, from `scripts/lib/email-samples.ts`.
 
-It covers only participant screens and emails until its spec covers organizer
-screens. For organizer text, take the screens the batch changes by hand, at
-desktop and phone width, from an account that stores the language (as
-`createOrganizerIn` in `tests/e2e/helpers/organizer-language.ts` makes one),
-and tell the reviewer where they are.
+The organizer screens are the ones an organizer goes through to make a
+signup: Your signups, New signup and Magic Compose's first screen, the Build
+tab, its Fields dialog and a slot's editor, the share panel, Responses and
+account Settings. For organizer text on other screens, take the screens the
+batch changes by hand, at desktop and phone width, from an account that
+stores the language (as `createOrganizerIn` in
+`tests/e2e/helpers/organizer-language.ts` makes one), and tell the reviewer
+where they are.
 
 Open a few of the images yourself first, to be sure they show what they say.
 If a spec fails on `rate_limited` after several runs in an hour, empty the

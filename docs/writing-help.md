@@ -175,7 +175,10 @@ starts the files for steps 1, 2 and 4 and does step 3 for you, leaving a TODO
 for the page's `description`. The files contain TODOs, which fail the checks until the page is finished. AI agents: the `help-pages` skill in `.claude/skills/` covers the
 whole process, reviews included.
 
-1. Put the page's on-screen names in `src/help/articles/<slug>.ui.ts`.
+1. Put the page's on-screen names in `src/help/articles/<slug>.ui.ts`, and
+   beside them, in `FROM_CATALOG`, the key of each one's message in
+   `src/messages/en.json`: `src/help/ui-names.test.ts` fails when a message
+   is reworded and the name isn't.
 2. Write the page in `src/help/articles/<slug>.tsx`, following the existing
    one.
 3. Add it to `HELP_ARTICLES` in `src/help/articles.ts` and to `HELP_BODIES` in

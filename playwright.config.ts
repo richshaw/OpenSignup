@@ -14,12 +14,13 @@ const utf8Downloads = {
 
 /**
  * `pnpm translation:screenshots` sets TRANSLATION_SCREENSHOTS=1, and these
- * specs then save a screenshot of each participant screen they check, in
- * every language other than English (`translationShot`), for a translation's
- * review (docs/translating.md). With the flag they also run at a phone's
- * width, in Chromium, so the screenshots show where longer words wrap.
+ * specs then save a screenshot of each participant and organizer screen they
+ * check, in every language other than English (`translationShot`), for a
+ * translation's review (docs/translating.md). With the flag they also run at
+ * a phone's width, in Chromium, so the screenshots show where longer words
+ * wrap.
  */
-const TRANSLATION_SPECS = /translated-signup\.spec\.ts$/;
+const TRANSLATION_SPECS = /translated-(signup|organizer)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: './tests/e2e',
