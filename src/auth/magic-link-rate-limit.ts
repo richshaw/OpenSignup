@@ -1,7 +1,7 @@
 import { AuthError } from 'next-auth';
 import type { Db } from '@/db/client';
 import { log } from '@/lib/log';
-import { RateLimits, chargeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
+import { RateLimits, chargeRateLimit, ipSubject, type RateLimitPolicy } from '@/lib/rate-limit';
 import { extractEmailDomain } from './email-domain';
 
 /**
@@ -34,11 +34,9 @@ export async function consumeMagicLinkRateLimits(
   { email, ip }: { email: string; ip: string | null },
 ): Promise<void> {
   // IP bucket first: a misbehaving IP exhausts its own quota
-  // before it can degrade any victim's per-email quota. Null IPs
-  // share an "unknown" bucket so deployments missing
-  // x-forwarded-for / x-real-ip don't silently no-op.
+  // before it can degrade any victim's per-email quota.
   const charges: [RateLimitPolicy, string][] = [
-    [RateLimits.magicLinkPerIp, ip ?? 'unknown'],
+    [RateLimits.magicLinkPerIp, ipSubject(ip)],
     [RateLimits.magicLinkPerEmail, email],
   ];
   for (const [policy, subject] of charges) {
