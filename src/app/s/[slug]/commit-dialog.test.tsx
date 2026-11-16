@@ -896,6 +896,51 @@ describe('<CommitDialog /> sheet', () => {
     }
   });
 
+  // The link and "Pick another slot." answer one question, `offersAlternatives`
+  // (#806). The dialog used to ask it for itself, as `remaining === 0`, so a
+  // `remaining` below 0 got the words and no link.
+  it('offers See alternatives with "Pick another slot." when remaining is below 0', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error: {
+            code: 'capacity_full',
+            message: 'slot is full',
+            details: {
+              remaining: -1,
+              requested: 1,
+              capacity: 2,
+              alternatives: [{ id: 'slot_2', ref: 'slot_2', slotAt: null }],
+            },
+          },
+        }),
+      })),
+    );
+    Element.prototype.scrollIntoView = vi.fn();
+
+    try {
+      openSheet();
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Pat Example' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pat@example.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent('Sorry, this slot just filled up.');
+      expect(alert).toHaveTextContent('Pick another slot.');
+      expect(within(alert).getByRole('link', { name: 'See alternatives' })).toHaveAttribute(
+        'href',
+        '/s/example',
+      );
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    }
+  });
+
   // A phone that loses its connection after the POST got through says it
   // couldn't reach the server for a sign-up the server did make. Pressing Confirm again
   // must be recognisably the same sign-up, so the server hands that one back

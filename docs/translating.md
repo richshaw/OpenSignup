@@ -926,7 +926,8 @@ each with what was done.
 
 ### Settled after the owner's walkthrough
 
-The owner's tophat of the whole stack, on 15 November 2026, settled these.
+The owner's tophat of the whole stack, on 15 November 2026, and the
+follow-ups to it settled these.
 
 1. **Short forms of _anmälningslista_ only where the whole word doesn't
    fit.** Organizer text keeps two, the button and crumb "Ny lista" and New
@@ -946,6 +947,14 @@ The owner's tophat of the whole stack, on 15 November 2026, settled these.
    English's "your open signup", read as the product's name, OpenSignup.
    Account Settings says "1 av dina anmälningslistor är öppen och är inte på
    svenska ännu." and offers "Byt den till svenska" ("Byt dem" for more).
+5. **"Obegränsat" stays in Magic Compose's how-many box**
+   (`organizer.compose.questions.howMany.noLimit`), and the box is wider: 96
+   pixels on a phone and 100 on a computer, where it was 72 and 76, the room
+   taken from the item's name beside it (on a narrow phone the box goes under
+   the name instead). The word needs about 88 pixels at the box's 16-pixel
+   text. The owner chose this over a shorter word: "Inget tak" fitted, but
+   reads as "no ceiling". The Build tab's Spots box was widened for the same
+   word (#999).
 
 ### Open questions
 
@@ -977,11 +986,3 @@ so the next pass sees it.
    sheet (`participant.dialog.copied`) and the share panel's chip and
    message say "Länken är kopierad", the state with _är_ that Organizer terms
    chose. From the review of the joined stack.
-6. **"Obegränsat" in Magic Compose's how-many box**
-   (`organizer.compose.questions.howMany.noLimit`). The word needs about
-   90 pixels at that box's 16-pixel text, and the box is 72 wide, so it's
-   cut off; "Inget tak" fitted, but reads as "no ceiling". The Build tab's
-   Spots box was widened for it (#999); this one sits between − and + in a
-   row whose item name would lose the room, so it waits for a decision: a
-   wider box, or a shorter word, with the hint above it saying "Lämna en
-   ruta tom för obegränsat antal".

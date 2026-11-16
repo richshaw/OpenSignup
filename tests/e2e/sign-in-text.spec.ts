@@ -16,6 +16,7 @@ test.describe('the sign-in pages, in English', () => {
     const email = `e2e-text-${Date.now()}@example.com`;
     await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
     await expect(page).toHaveTitle(/^Sign in · /);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page.locator('main').locator('..')).toHaveAttribute('lang', 'en');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign in to OpenSignup');
     await expect(
@@ -37,6 +38,7 @@ test.describe('the sign-in pages, in English', () => {
   test('the check-your-email page says how long the link lasts', async ({ page }) => {
     await page.goto(`${BASE_URL}/login/check?callbackUrl=%2Fapp`);
     await expect(page).toHaveTitle(/^Check your email · /);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check your email');
     await expect(page.getByText(/^We sent a sign-in link/)).toHaveText(
       /^We sent a sign-in link to your inbox\. Click it to continue\. The link expires in \d+ (minutes?|hours?|days?)( \d+ (minutes?|hours?))?\. This page will move on by itself once you have signed in\.$/,
@@ -48,6 +50,7 @@ test.describe('the sign-in pages, in English', () => {
     const next = `${BASE_URL}/api/auth/callback/nodemailer?token=not-a-real-token&email=pat%40example.com`;
     await page.goto(`${BASE_URL}/login/confirm?next=${encodeURIComponent(next)}`);
     await expect(page).toHaveTitle(/^Sign in · /);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign in to OpenSignup');
     const line = page.getByText(/^Click the button below/);
     await expect(line).toHaveText('Click the button below to sign in as pat@example.com.');

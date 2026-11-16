@@ -222,4 +222,52 @@ test.describe('accessibility', () => {
       })),
     ).toEqual([]);
   });
+
+  // The open editor sits on a grey of its own, where the brand blue of its
+  // Done button was 4.4:1.
+  test('the Build tab with a slot’s editor open has no WCAG A/AA violations', async ({
+    page,
+    context,
+  }) => {
+    await loginAsSeededOrganizer(context);
+    const created = await page.request.post('/api/signups', {
+      data: {
+        title: `Axe build ${Date.now()}`,
+        description: '',
+        tags: [],
+        visibility: 'unlisted',
+        settings: {},
+      },
+    });
+    expect(created.ok()).toBe(true);
+    const signupId = (await created.json()).data.id as string;
+    const added = await page.request.post(`/api/signups/${signupId}/slots`, {
+      data: { capacity: 2, values: { what: 'Fruit and water' } },
+    });
+    expect(added.ok()).toBe(true);
+
+    await page.goto(`/app/signups/${signupId}/build`);
+    // The Fields dialog opens only once the page has hydrated, by when a
+    // click on a slot opens its editor.
+    await page.getByRole('button', { name: /^Fields/ }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.getByText('Fruit and water', { exact: true }).click();
+    await expect(
+      page.locator('[data-slot-editor]').getByRole('button', { name: 'Done' }),
+    ).toBeVisible();
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    expect(
+      results.violations.map((v) => ({
+        id: v.id,
+        impact: v.impact,
+        nodes: v.nodes.map((n) => n.target),
+      })),
+    ).toEqual([]);
+  });
 });
