@@ -415,11 +415,13 @@ for (const stored of STORED) {
       await expect(page.locator('main')).toHaveAttribute('lang', signupLocale);
       const button = page.locator('main li').filter({ hasText: 'Blankets' }).getByRole('button');
       await expect(button).toBeDisabled();
-      await expect(button).toHaveAttribute('title', preview('signUpDisabled'));
-      await expect(button).toHaveAccessibleDescription(preview('signUpDisabled'));
+      // Published, so the tip points to the public link.
+      const tipText = preview('signUpDisabled', { status: 'open' });
+      await expect(button).toHaveAttribute('title', tipText);
+      await expect(button).toHaveAccessibleDescription(tipText);
       const tipId = await button.getAttribute('aria-describedby');
       const tip = page.locator(`[id="${tipId}"]`);
-      await expect(tip).toHaveText(preview('signUpDisabled'));
+      await expect(tip).toHaveText(tipText);
       await expect(tip, unshippedHint).toHaveAttribute('lang', locale);
       await expect(tip).toBeHidden();
       // The Preview banner's blue on blue is short of AA contrast, as it was

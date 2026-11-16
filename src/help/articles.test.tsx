@@ -23,6 +23,10 @@ const BANNED: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bslugs?\b|\btokens?\b|\bAPI\b|\bdatabase\b/i, 'leave out technical words'],
   [/\binstances?\b/i, 'say "your site"'],
   [/\b(go|goes|going|went|gone) live\b|\blaunch(es|ed|ing)?\b/i, 'say "publish"'],
+  [
+    /\b(is|are|was|were|be|been|being|stays?|now|it[’']s) live\b|\blive signups?\b/i,
+    'say "open": people can sign up on it now',
+  ],
   [/\bcoming soon\b/i, 'describe what the product does now'],
   [/!/, 'no exclamation marks'],
   [/\p{Extended_Pictographic}/u, 'no emoji'],
@@ -297,6 +301,18 @@ describe.each(HELP_ARTICLES.map((a) => [a.slug, a] as const))(
     });
   },
 );
+
+describe('the word rules', () => {
+  const flagged = (text: string) => BANNED.some(([re]) => re.test(text));
+
+  it('rule out calling a signup live, but not where someone lives', () => {
+    expect(flagged('This signup is live.')).toBe(true);
+    expect(flagged('Once it’s live, share the link.')).toBe(true);
+    expect(flagged('Your live signup')).toBe(true);
+    expect(flagged('It goes live at noon.')).toBe(true);
+    expect(flagged('Contact the authority where you live.')).toBe(false);
+  });
+});
 
 describe('help index', () => {
   it('gives search results a description of 110 to 160 characters', () => {

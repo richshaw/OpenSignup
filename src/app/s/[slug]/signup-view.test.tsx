@@ -98,9 +98,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
       />,
     );
     expect(screen.queryByText('Preview')).toBeNull();
-    expect(
-      screen.queryByText(/This signup is live\. The page below shows what visitors see\./),
-    ).toBeNull();
+    expect(screen.queryByText(/The page below shows what visitors see\./)).toBeNull();
   });
 
   it('preview mode still renders a disabled Sign-up button (regression guard)', () => {
@@ -328,9 +326,9 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
       'PreviewThis is what people will see once you publish. No signups will be saved.',
     );
     const button = screen.getByRole('button', { name: dialog('signUpFor') });
-    expect(button).toHaveAttribute('title', 'Preview: publish to enable signups');
+    expect(button).toHaveAttribute('title', 'Preview: publish to let people sign up');
     // The same tip as its description, from text marked with the organizer's language.
-    expect(button).toHaveAccessibleDescription('Preview: publish to enable signups');
+    expect(button).toHaveAccessibleDescription('Preview: publish to let people sign up');
     const tip = document.getElementById(button.getAttribute('aria-describedby') ?? '');
     expect(tip).toHaveAttribute('lang', 'en');
     expect(tip).not.toBeVisible();
@@ -370,12 +368,14 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
     },
   );
 
+  // Open and closed, the words of the status beside the signup's title, read
+  // as a pair; "published" is only for leaving draft (docs/writing-help.md).
   it.each([
     ['draft', 'This is what people will see once you publish. No signups will be saved.'],
-    ['open', 'This signup is live. The page below shows what visitors see.'],
+    ['open', 'This signup is open. The page below shows what visitors see.'],
     ['closed', 'This signup is closed. The page below shows what visitors see.'],
     ['archived', 'This signup is archived and is not visible to participants.'],
-  ] as const)('words the Preview banner of a signup that is %s as before', (status, body) => {
+  ] as const)('words the Preview banner of a signup that is %s', (status, body) => {
     render(
       <SignupViewBody
         locale="en"
@@ -389,6 +389,25 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
       />,
     );
     expect(screen.getByRole('status')).toHaveTextContent(`Preview${body}`);
+    expect(screen.queryByText(/\blive\b/i)).toBeNull();
+  });
+
+  it('sends an open signup’s preview to its public link, which is already taking sign-ups', () => {
+    render(
+      <SignupViewBody
+        locale="en"
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+        organizerLocale="en"
+      />,
+    );
+    const button = screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' });
+    expect(button).toHaveAttribute('title', 'Preview: people sign up at the public link');
+    expect(button).toHaveAccessibleDescription('Preview: people sign up at the public link');
   });
 });
 
