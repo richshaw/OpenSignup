@@ -19,6 +19,45 @@ import { normalizeEmail } from '@/schemas/common';
 import { sendsReminders } from '@/schemas/signups';
 import { alreadyRecorded, emailLocale, loadCommitmentRow, slotText } from './commitment-row';
 import { sendCommitmentConfirmation } from './send';
+import type { CommitmentConfirmationEmailProps } from './templates/commitment-confirmation';
+
+/** A commitment as `loadCommitmentRow` reads it, with its slot, signup and participant. */
+type CommitmentRow = NonNullable<Awaited<ReturnType<typeof loadCommitmentRow>>>;
+
+/**
+ * The confirmation `notifyCommitmentCreated` sends for `row`: in the signup's
+ * language (`emailLocale`), with every field of its slot, and the link that
+ * changes or cancels it. A function of its own so an e2e spec can read the
+ * email the app sends for a sign-up it made in the browser.
+ */
+export async function confirmationFor(
+  db: Db,
+  row: CommitmentRow,
+  editToken: string,
+): Promise<CommitmentConfirmationEmailProps> {
+  // Only promise a reminder the dispatcher would actually send. The gate is
+  // the dispatcher's own rule (src/lib/reminder-eligibility.ts), not a
+  // paraphrase of it: reminders on and a slot date are not enough, because a
+  // slot less than an hour out is one the created_at guard can never reach.
+  const promisesReminder = willSendReminder({
+    sendReminders: sendsReminders(row.signup.settings),
+    slotAt: row.slot.slotAt,
+    createdAt: row.commitment.createdAt,
+    remindersOptedOutAt: row.participant.remindersOptedOutAt,
+  });
+
+  const locale = emailLocale(row.signup);
+  return {
+    locale,
+    participantName: row.participant.name,
+    signupTitle: row.signup.title,
+    manageUrl: commitmentEditUrl(row.signup.slug, row.commitment.id, editToken),
+    ...(await slotText(db, row.signup.id, row.slot.values, locale)),
+    notes: row.commitment.notes,
+    quantity: row.commitment.quantity,
+    promisesReminder,
+  };
+}
 
 /**
  * Emails a participant the receipt for a commitment they just made, including
@@ -88,28 +127,7 @@ export async function notifyCommitmentCreated(
       }
     }
 
-    // Only promise a reminder the dispatcher would actually send. The gate is
-    // the dispatcher's own rule (src/lib/reminder-eligibility.ts), not a
-    // paraphrase of it: reminders on and a slot date are not enough, because a
-    // slot less than an hour out is one the created_at guard can never reach.
-    const promisesReminder = willSendReminder({
-      sendReminders: sendsReminders(row.signup.settings),
-      slotAt: row.slot.slotAt,
-      createdAt: row.commitment.createdAt,
-      remindersOptedOutAt: row.participant.remindersOptedOutAt,
-    });
-
-    const locale = emailLocale(row.signup);
-    await sendCommitmentConfirmation(to, {
-      locale,
-      participantName: row.participant.name,
-      signupTitle: row.signup.title,
-      manageUrl: commitmentEditUrl(row.signup.slug, row.commitment.id, editToken),
-      ...(await slotText(db, row.signup.id, row.slot.values, locale)),
-      notes: row.commitment.notes,
-      quantity: row.commitment.quantity,
-      promisesReminder,
-    });
+    await sendCommitmentConfirmation(to, await confirmationFor(db, row, editToken));
 
     await recordActivity(db, {
       signupId: row.signup.id,

@@ -1,24 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-errors';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
-import { type ErrorCode, serviceError } from './errors';
+import { serviceError } from './errors';
 import { waitInMinutes } from './format-duration';
 import { refusalFromQuery, refusalText } from './organizer-errors';
 import { TITLE_TOO_SHORT_MESSAGE } from './signup-limits';
+import { ERROR_CODES } from './testing/error-codes';
 
 const t = getTestTranslator('organizer.errors');
-const CODES = Object.keys(SAVE_ERROR_MESSAGE) as ErrorCode[];
 const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 describe('the organizer catalog’s refusals', () => {
-  // SAVE_ERROR_MESSAGE keeps the same lines for the screens that don't read
-  // the catalog yet: the Build tab, Magic Compose, and the header's and
-  // Remove's refusals.
-  it('read as SAVE_ERROR_MESSAGE does, for every code', () => {
-    for (const code of CODES) expect(t(`code.${code}`)).toBe(SAVE_ERROR_MESSAGE[code]);
-  });
-
   it('say a title is too short as the Build tab and the API do', () => {
     expect(
       refusalText(
@@ -39,9 +31,9 @@ describe('the organizer catalog’s refusals', () => {
 
 describe('refusalText', () => {
   it('words a refusal by its code, never by its message', () => {
-    for (const code of CODES) {
+    for (const code of ERROR_CODES) {
       const text = refusalText(t, serviceError(code, 'your role cannot modify this workspace'));
-      expect(text).toBe(SAVE_ERROR_MESSAGE[code]);
+      expect(text).toBe(t(`code.${code}`));
     }
   });
 
@@ -64,7 +56,7 @@ describe('refusalText', () => {
 
 describe('refusalFromQuery', () => {
   it('words each code a server action sends', () => {
-    for (const code of CODES) expect(refusalFromQuery(t, code)).toBe(SAVE_ERROR_MESSAGE[code]);
+    for (const code of ERROR_CODES) expect(refusalFromQuery(t, code)).toBe(t(`code.${code}`));
   });
 
   it('shows nothing for anything else, so a link can’t put words on the page', () => {

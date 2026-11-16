@@ -25,7 +25,8 @@ Read first:
   `{x, select, yes {…} other {…}}` by a word, and `<b>…</b>` marks styled text.
 
 What to review: <"every message in the participant, email and common
-namespaces" | "these keys, which this pull request changed: …">.
+namespaces" | "every message in the organizer, auth and common namespaces" |
+"these keys, which this pull request changed: …">.
 
 How it looks in place, under `<repo root>/translation-review/`:
 
@@ -39,9 +40,12 @@ How it looks in place, under `<repo root>/translation-review/`:
   subject as it's sent, from `email.subject` in the catalog (the word
   "Subject:" is the file's, not the email's). The "OpenSignup" below it is the
   product's name, the same in every language. In the `.html` the subject is
-  the hidden preview text just before `<body>`. `en/emails/` also holds the
-  sign-in email (`magic-link`), which has no translation on purpose: it's
-  organizer text, still in English.
+  the hidden preview text just before `<body>`. The sign-in email is there
+  too, as `magic-link` and `magic-link-<code>`: it's organizer text
+  (`auth.email`), in the language of the account it goes to.
+- For organizer text: <where the translator saved the organizer screens this
+  change touches, at desktop and phone width>. An organizer's screens are in
+  the language stored on their account.
 
 Some messages show in no screenshot, because they're only in a tab's title, a
 link preview, what a screen reader says, or what a button hands to another
@@ -89,11 +93,15 @@ Check every message for:
 7. **Punctuation and format.** Dates, times and numbers as the glossary says;
    no double full stop where a sentence ends on a name that ends in one
    ("okt.."); quotation marks and dashes in the language's style.
-8. **English left behind** on a participant screen. Leave out what the app
-   keeps English on purpose: organizer text marked `lang="en"` (the bar across
-   the top for organizers, the Preview banner), the organizer's own content
-   (titles, descriptions, field labels and values, including the seed's
-   "Seeded by …"), the product and site name, and the footer.
+8. **English left behind.** On a participant screen, leave out what the app
+   keeps English on purpose: organizer text there (the bar across the top
+   for organizers, the Preview banner), which is in the organizer's language,
+   English for the test organizer and marked `lang="en"`; the organizer's own
+   content (titles, descriptions, field labels and values, including the
+   seed's "Seeded by …"); the product and site name; and the footer. On an
+   organizer screen, everything is in the organizer's language but a
+   signup's own content and the message the share panel offers to send,
+   which are in the signup's.
 
 Also list the glossary's open questions you have a view on, with your answer
 and why.

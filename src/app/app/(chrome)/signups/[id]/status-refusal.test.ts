@@ -4,7 +4,10 @@ import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translat
 import { serviceError } from '@/lib/errors';
 import { statusRefusal } from './status-refusal';
 
-const en = getTestTranslator('organizer.signup.refusal');
+const en = {
+  signup: getTestTranslator('organizer.signup.refusal'),
+  errors: getTestTranslator('organizer.errors'),
+};
 
 describe('statusRefusal', () => {
   it('tells a viewer they cannot edit, not the guard’s text', () => {
@@ -80,9 +83,12 @@ describe('statusRefusal', () => {
   });
 
   it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-    'words each refusal from the catalog in %s, but a viewer’s, which #939 moves',
+    'words each refusal from the catalog in %s, a viewer’s too',
     (locale) => {
-      const t = getStandInTranslator(locale, 'organizer.signup.refusal');
+      const t = {
+        signup: getStandInTranslator(locale, 'organizer.signup.refusal'),
+        errors: getStandInTranslator(locale, 'organizer.errors'),
+      };
       const words = (key: string) => `organizer.signup.refusal.${key} in ${locale}`;
       expect(statusRefusal(serviceError('not_found', 'gone'), 'close', t)).toBe(words('gone'));
       const conflict = (reason: 'status_changed' | 'no_slots') =>
@@ -95,9 +101,11 @@ describe('statusRefusal', () => {
       );
       expect(statusRefusal(serviceError('internal', 'x'), 'close', t)).toBe(words('closeFailed'));
       expect(statusRefusal(serviceError('internal', 'x'), 'reopen', t)).toBe(words('reopenFailed'));
-      expect(statusRefusal(serviceError('forbidden', 'x'), 'publish', t)).toBe(
-        'You don’t have edit access.',
-      );
+      for (const change of ['publish', 'close', 'reopen'] as const) {
+        expect(statusRefusal(serviceError('forbidden', 'x'), change, t)).toBe(
+          `organizer.errors.code.forbidden in ${locale}`,
+        );
+      }
     },
   );
 });

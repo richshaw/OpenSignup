@@ -4,13 +4,14 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { formatGrantDate } from '@/app/app/(chrome)/settings/connected-apps/grant-date';
 import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draft-warnings';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
-import { getTranslator, type Namespace } from '@/i18n/translator';
 import { accessTokenLifetime } from '@/lib/lifetimes';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { BASE_URL } from './helpers/fixtures';
 import {
   connectAppFor,
   createOrganizerIn,
+  languageOf,
+  messagesIn,
   publishSignupIn,
   type OrganizerIn,
 } from './helpers/organizer-language';
@@ -35,19 +36,6 @@ const STORED: readonly (CatalogLocale | null)[] = [
   null,
   ...CATALOG_LOCALES.filter((locale) => locale !== 'en'),
 ];
-
-function messagesIn<N extends Namespace>(locale: CatalogLocale, namespace: N) {
-  return getTranslator(locale, namespace, {
-    onError: (error) => {
-      throw error;
-    },
-  });
-}
-
-/** The language `locator`'s element is in: its own `lang`, or its nearest ancestor's. */
-function languageOf(locator: Locator): Promise<string | null | undefined> {
-  return locator.evaluate((element) => element.closest('[lang]')?.getAttribute('lang'));
-}
 
 /** A rich message as the page shows it: its text, tags and all left as text. */
 const plain = (chunks: string) => chunks;

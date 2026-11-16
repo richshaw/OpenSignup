@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { UNSHIPPED_LOCALES } from './tests/e2e/helpers/unshipped-locales';
 
 const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
 
@@ -37,11 +38,12 @@ export default defineConfig({
     // Production server: run `pnpm build` first. Locally an already-running
     // `pnpm dev` on :3000 is reused instead.
     command: 'pnpm start',
-    // Shows the seeded Swedish signup in Swedish though Swedish hasn't shipped
-    // (`signupLocale` in src/i18n/config.ts), and nothing else: it can't make
-    // Swedish anybody's choice. A server you start yourself for these specs
-    // needs it too.
-    env: { E2E_UNSHIPPED_LOCALES: 'sv' },
+    // Every language with a catalog that hasn't shipped: a signup or an
+    // account that stores one shows in it (`signupLocale` and
+    // `organizerAppLocale` in src/i18n/config.ts), as the seeded Swedish
+    // signup does, and nothing else: it can't make a language anybody's
+    // choice. A server you start yourself for these specs needs it too.
+    env: { E2E_UNSHIPPED_LOCALES: UNSHIPPED_LOCALES },
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

@@ -120,7 +120,11 @@ the catalog check can tell when a translation has fallen behind its English
   headings, slot values, field names (in the Fields dialog too) and list
   items, and on Responses the Slot column. A box the organizer types in keeps
   the organizer's language, since its `lang` would also be its name's, and
-  what participants gave isn't marked.
+  what participants gave isn't marked. The one exception is the share panel's
+  message box (`SharePanel`): it holds the message participants will read,
+  written in the signup's language (`participant.share`), so it's marked
+  with that language, and its name comes from a `<label>` outside it, in the
+  organizer's.
 - **Types come from English.** next-intl's plugin writes
   `src/messages/en.d.json.ts` from `en.json` on every `pnpm dev` and
   `pnpm build`, and TypeScript checks every key and argument against it. After
@@ -439,19 +443,27 @@ Two lists in `src/i18n/config.ts` decide it:
 Today `CATALOG_LOCALES` is `en` and `sv`, and `SHIPPED` holds only `en`, for
 every audience.
 
-Adding a language to `SHIPPED.participant` is its launch. From then on the
-catalog check requires every message in `participant`, `email` and `common`,
-so a language ships only when it's complete. It ships only after it has also
-passed the review in context, which no test can check: the pull request that
-adds it says so.
+A language launches for participants and organizers together: its launch
+adds it to `SHIPPED.participant` and `SHIPPED.organizer` in one change, and
+`src/i18n/config.test.ts` fails while the two lists differ. The account
+Settings picker offers the participant list, while the organizer app follows
+the organizer list, so a language in one list only would save on an account
+and leave its screens in English. From the launch on, the catalog check
+requires every message in `participant`, `email`, `organizer`, `auth` and
+`common`, so a language ships only when it's complete. It ships only after it
+has also passed the review in context, which no test can check: the pull
+request that adds it says so.
 
 `E2E_UNSHIPPED_LOCALES` is for tests only. `playwright.config.ts` sets it for
-the server it starts, so the seeded Swedish signups show in Swedish before
-Swedish ships, and an organizer whose account stores a listed language sees
-the organizer app in it (`tests/e2e/organizer-language.spec.ts`). It keeps a
-language already saved in a signup's or an account's row, and does nothing
-else: nothing in the app can save a language that hasn't shipped, and it
-never makes one the site's default, a new signup's, or a choice. The web
+the server it starts, to every language with a catalog that hasn't shipped,
+so the seeded Swedish signups show in Swedish before Swedish ships, and an
+organizer whose account stores a listed language sees the organizer app in it
+(`tests/e2e/organizer-language.spec.ts`, and the whole story, from account
+Settings to a participant's email, in `organizer-language-story.spec.ts`).
+It keeps a language already saved in a signup's or an account's row, and
+does nothing else: nothing in the app can save a language that hasn't
+shipped, and it never makes one the site's default, a new signup's, or a
+choice. The web
 server and the worker log a warning when they start with it set. A reused
 `pnpm dev` needs it too: `E2E_UNSHIPPED_LOCALES=sv pnpm dev`. Never set it on
 a real site.
@@ -530,8 +542,8 @@ run every row of this table against it.
    `KEEP_IT_PRIVATE` in `src/app/s/[slug]/commit-dialog.test.tsx`: give each
    an entry once the messages it checks are translated.
 2. **Give it test signups.** Add a seed like `makeSwedishSignup` in
-   `tests/e2e/helpers/seed.ts`, add the code to `E2E_UNSHIPPED_LOCALES` in
-   `playwright.config.ts`, and write a spec like
+   `tests/e2e/helpers/seed.ts` (`playwright.config.ts` puts the code in
+   `E2E_UNSHIPPED_LOCALES` itself), and write a spec like
    `tests/e2e/swedish-signup.spec.ts` that saves a `translationShot` of every
    screen it checks. Add the spec to `TRANSLATION_SPECS` in
    `playwright.config.ts`, and to `pnpm translation:screenshots` in
@@ -543,13 +555,17 @@ run every row of this table against it.
    (`lang === 'sv'`), so give the new language an assertion of its own there.
 3. **Write its glossary** below, before translating: the product's own terms,
    the tone and the date style.
-4. **Translate and review** with the `translate` skill, namespace by namespace.
+4. **Translate and review** with the `translate` skill, namespace by
+   namespace, for both audiences: participant text and organizer text
+   (`to-translate.mjs <code> --audience organizer`).
 5. **Check the layout.** `tests/e2e/slot-row-layout.spec.ts` checks that the
    row buttons and the sheet's labels fit their boxes, on the English and the
    Swedish signup. Add the new language's signup to it.
 6. **Launch** in a pull request of its own, which the owner approves: add the
-   code to `SHIPPED.participant`, take it out of `E2E_UNSHIPPED_LOCALES`, and
-   say what changes in `CHANGELOG.md` and the README.
+   code to `SHIPPED.participant` and `SHIPPED.organizer` together, and say
+   what changes in `CHANGELOG.md` and the README. Tests that check the
+   language stays unshipped (English pages, no picker, a refused save) fail
+   then; update them in the same pull request.
 
 Node's official builds include every language's date and number data. A
 Node built with English-only ICU would print the new language's dates in
@@ -656,57 +672,104 @@ undo it by accident.
 
 The organizer's screens (`organizer`) use the terms above where they apply
 (_anmälningslista_, _pass_, _plats_, _arrangör_, _deltagare_), and these for
-the words only organizers see. From #953's first batch.
+the words only organizers see. From #953's batches.
 
-| English                                          | Swedish                                              | Notes                                                                                                                                                                                                                                                 |
-| ------------------------------------------------ | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Your signups; New signup                         | Dina anmälningslistor; Ny lista                      | The whole word everywhere else, as participants read it. "Ny lista", the button on Your signups and its crumb, is the short label: "Ny anmälningslista" pushed Your signups 12 pixels past a 320-pixel screen, and its crumb ran into Hjälp at 390 px |
-| draft (a signup not published yet)               | utkast                                               | "Bara du kan se det här utkastet", the same words on Your signups and on the draft's own page                                                                                                                                                         |
-| publish; Publish and share                       | publicera; Publicera och dela                        |                                                                                                                                                                                                                                                       |
-| Published                                        | Publicerad                                           | Agrees with _anmälningslista_                                                                                                                                                                                                                         |
-| draft, open, closed, archived (the status pill)  | utkast, öppen, stängd, arkiverad                     | Lower case, as in English; the adjectives agree with _anmälningslista_. "Stängd · …" and "Arkiverad · …" before the spots line                                                                                                                        |
-| Close signup; Reopen signup; Signup closed       | Stäng anmälan; Öppna anmälan igen; Anmälan är stängd | _Anmälan_ as in "anmälan stänger": the usual phrase, which the first full review (#931) also chose for participants' closed banner                                                                                                                    |
-| N spots taken; N of M spots taken                | N platser är upptagna; N av M platser är upptagna    | With _är_, so the participle can agree with N: "1 av 8 platser är upptagen"                                                                                                                                                                           |
-| spots still open                                 | lediga platser                                       | "5 av 8 platser är fortfarande lediga"                                                                                                                                                                                                                |
-| Everyone already signed up keeps their spot      | Alla som redan är anmälda behåller sin plats         |                                                                                                                                                                                                                                                       |
-| Preview (the button; the banner)                 | Förhandsgranska; Förhandsgranskning                  | The verb on the button, the noun as the banner's title                                                                                                                                                                                                |
-| Build, Responses, Settings (a signup's tabs)     | Bygg, Anmälningar, Inställningar                     | _Anmälningar_, the sign-ups, since this isn't a form with answers (_svar_); "Se anmälningar" on the strip                                                                                                                                             |
-| Edit signup; Edit                                | Ändra anmälningslistan; Ändra                        | _Ändra_, as participants' Edit                                                                                                                                                                                                                        |
-| field (a column the organizer defines)           | fält                                                 |                                                                                                                                                                                                                                                       |
-| Share; Share…; Share the link                    | Dela; Dela…; Dela länken                             |                                                                                                                                                                                                                                                       |
-| Public link                                      | Offentlig länk                                       |                                                                                                                                                                                                                                                       |
-| Copy link; Copy message; Copied                  | Kopiera länk; Kopiera texten; Kopierat               | "Kopiera meddelande" wraps in its half-width button on a phone                                                                                                                                                                                        |
-| Link copied; Message copied (what is announced)  | Länken är kopierad; Meddelandet är kopierat          | The state, with _är_, as participants' "Länken är kopierad.", not _har kopierats_. "QR-koden är sparad" too                                                                                                                                           |
-| Email it                                         | Mejla det                                            |                                                                                                                                                                                                                                                       |
-| QR code; Hide QR code                            | QR-kod; Dölj QR-kod                                  | No article on the button, like Kopiera länk beside it                                                                                                                                                                                                 |
-| Settings (the account page)                      | Inställningar                                        | The same word as a signup's tab, as in English, and the same in the header's tip and the crumb                                                                                                                                                        |
-| Language                                         | Språk                                                | Account Settings and a signup's Settings tab                                                                                                                                                                                                          |
-| Save; Saved                                      | Spara; Sparat                                        | Every Save button                                                                                                                                                                                                                                     |
-| Connected apps                                   | Anslutna appar                                       | The card on Settings and the page, the same words                                                                                                                                                                                                     |
-| connect; disconnect (an app)                     | ansluta; koppla från                                 | "Appen är frånkopplad."                                                                                                                                                                                                                               |
-| access (what an app holds); permission           | åtkomst; behörighet                                  |                                                                                                                                                                                                                                                       |
-| AI assistant                                     | AI-assistent                                         |                                                                                                                                                                                                                                                       |
-| workspace                                        | arbetsyta                                            |                                                                                                                                                                                                                                                       |
-| account; Sign in; Sign out                       | konto; Logga in; Logga ut                            |                                                                                                                                                                                                                                                       |
-| Help                                             | Hjälp                                                | As in the footer                                                                                                                                                                                                                                      |
-| Dashboard (the tab's title)                      | Översikt                                             |                                                                                                                                                                                                                                                       |
-| Breadcrumb (the trail's name for screen readers) | Du är här                                            | What Swedish sites call it; _brödsmulor_ is the developer's word                                                                                                                                                                                      |
-| More actions                                     | Fler åtgärder                                        |                                                                                                                                                                                                                                                       |
-| Dismiss (a notice's ✕)                           | Dölj                                                 | Not _Stäng_, beside "Anmälan är stängd" and Stäng anmälan                                                                                                                                                                                             |
+| English                                                                           | Swedish                                                                 | Notes                                                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Your signups; New signup                                                          | Dina anmälningslistor; Ny lista                                         | The whole word everywhere else, as participants read it. "Ny lista", the button on Your signups and its crumb, is the short label: "Ny anmälningslista" pushed Your signups 12 pixels past a 320-pixel screen, and its crumb ran into Hjälp at 390 px |
+| New signup (the page's heading, Magic Compose's pill)                             | Ny anmälningslista                                                      | The page has room for the whole word, so its crumb "Ny lista" sits over the heading "Ny anmälningslista": the short label and the full name                                                                                                           |
+| Create signup (the form's button)                                                 | Skapa lista                                                             | Short, as "Ny lista", for fit                                                                                                                                                                                                                         |
+| draft (a signup not published yet)                                                | utkast                                                                  | "Bara du kan se det här utkastet", the same words on Your signups and on the draft's own page                                                                                                                                                         |
+| publish; Publish and share                                                        | publicera; Publicera och dela                                           |                                                                                                                                                                                                                                                       |
+| Published                                                                         | Publicerad                                                              | Agrees with _anmälningslista_                                                                                                                                                                                                                         |
+| draft, open, closed, archived (the status pill)                                   | utkast, öppen, stängd, arkiverad                                        | Lower case, as in English; the adjectives agree with _anmälningslista_. "Stängd · …" and "Arkiverad · …" before the spots line                                                                                                                        |
+| Close signup; Reopen signup; Signup closed                                        | Stäng anmälan; Öppna anmälan igen; Anmälan är stängd                    | _Anmälan_ as in "anmälan stänger": the usual phrase, which the first full review (#931) also chose for participants' closed banner                                                                                                                    |
+| N spots taken; N of M spots taken                                                 | N platser är upptagna; N av M platser är upptagna                       | With _är_, so the participle can agree with N: "1 av 8 platser är upptagen"                                                                                                                                                                           |
+| spots still open                                                                  | lediga platser                                                          | "5 av 8 platser är fortfarande lediga"                                                                                                                                                                                                                |
+| Everyone already signed up keeps their spot                                       | Alla som redan är anmälda behåller sin plats                            |                                                                                                                                                                                                                                                       |
+| N taken; N of M taken (a slot's row on the Build tab)                             | N upptagen, N upptagna; N av M upptagen, N av M upptagna                | Agrees with N, as the spots line does, without _platser_, to fit the row                                                                                                                                                                              |
+| Preview (the button; the banner)                                                  | Förhandsgranska; Förhandsgranskning                                     | The verb on the button, the noun as the banner's title                                                                                                                                                                                                |
+| Build, Responses, Settings (a signup's tabs)                                      | Bygg, Anmälningar, Inställningar                                        | _Anmälningar_, the sign-ups, since this isn't a form with answers (_svar_); "Se anmälningar" on the strip                                                                                                                                             |
+| sign-ups, counted on Responses                                                    | anmälan, anmälningar                                                    | "6 anmälningar · 1 avbokad · 1 borttagen"                                                                                                                                                                                                             |
+| a sign-up's status (on Responses, in the CSV)                                     | bekräftad, preliminär, väntelista, avbokad, uteblev, borttagen, flyttad | Lower case, as in English; the adjectives agree with _anmälan_. `no_show` is _uteblev_, didn't show up                                                                                                                                                |
+| Spots; Notes; Signed up (columns on Responses and in its CSV)                     | Antal platser; Kommentar; Anmäld                                        | A column is read on its own, often beside an organizer's own "Plats" column, so _Antal platser_, as in an email. _Kommentar_ is what the sign-up sheet calls the box; _Anmäld_ heads the time each person signed up                                   |
+| Edit signup; Edit                                                                 | Ändra anmälningslistan; Ändra                                           | _Ändra_, as participants' Edit                                                                                                                                                                                                                        |
+| Editing (the Build tab's badge)                                                   | Ändrar                                                                  | _Redigering_ wrapped the Fields button at 320 pixels                                                                                                                                                                                                  |
+| Edit slot; Editing slot (the slot editor's names)                                 | Ändra passet; Du ändrar passet                                          | "Du ändrar" keeps the open editor's name apart from the row's button                                                                                                                                                                                  |
+| Duplicate                                                                         | Duplicera                                                               | Not _kopiera_, Copy link's verb                                                                                                                                                                                                                       |
+| delete (a signup, a slot, a field); remove (a person from a slot, a field)        | radera; ta bort                                                         | By the English word: "Radera anmälningslistan", "Ta bort {name} från {slot}", "Ta bort fält"                                                                                                                                                          |
+| Danger zone                                                                       | Farozon                                                                 |                                                                                                                                                                                                                                                       |
+| field (a column the organizer defines)                                            | fält                                                                    |                                                                                                                                                                                                                                                       |
+| Short text, Date, Time, Number, List (the field types)                            | Kort text, Datum, Tid, Tal, Lista                                       | _Tal_ is the spreadsheet word; _Nummer_ is an identifier, like a phone number                                                                                                                                                                         |
+| an item in a List field                                                           | alternativ                                                              | As a new list's "Alternativ 1"                                                                                                                                                                                                                        |
+| Set a date; Set a time; Set {label} (a slot's empty value)                        | Ange datum; Ange tid; Ange {label}                                      | The label in lower case, as in English: "Ange roll"                                                                                                                                                                                                   |
+| No limit (a Spots box)                                                            | Inget tak                                                               | On the Build tab and in Magic Compose. The help beside the Build tab's box says "obegränsat antal"                                                                                                                                                    |
+| Group slots by; Don't group                                                       | Gruppera passen efter; Gruppera inte                                    |                                                                                                                                                                                                                                                       |
+| Drag to reorder                                                                   | Dra för att flytta                                                      |                                                                                                                                                                                                                                                       |
+| Required, Optional (a setting's choices)                                          | Obligatoriskt, Valfritt                                                 | Neuter, like "(valfritt)"                                                                                                                                                                                                                             |
+| Share; Share…; Share the link                                                     | Dela; Dela…; Dela länken                                                |                                                                                                                                                                                                                                                       |
+| Public link                                                                       | Offentlig länk                                                          |                                                                                                                                                                                                                                                       |
+| Copy link; Copy message; Copied                                                   | Kopiera länk; Kopiera texten; Kopierat                                  | "Kopiera meddelande" wraps in its half-width button on a phone                                                                                                                                                                                        |
+| Link copied; Message copied (what is announced)                                   | Länken är kopierad; Meddelandet är kopierat                             | The state, with _är_, as participants' "Länken är kopierad.", not _har kopierats_. "QR-koden är sparad" too                                                                                                                                           |
+| Email it                                                                          | Mejla det                                                               |                                                                                                                                                                                                                                                       |
+| QR code; Hide QR code                                                             | QR-kod; Dölj QR-kod                                                     | No article on the button, like Kopiera länk beside it                                                                                                                                                                                                 |
+| Settings (the account page)                                                       | Inställningar                                                           | The same word as a signup's tab, as in English, and the same in the header's tip and the crumb                                                                                                                                                        |
+| Language                                                                          | Språk                                                                   | Account Settings and a signup's Settings tab                                                                                                                                                                                                          |
+| Save; Saved                                                                       | Spara; Sparat                                                           | Every Save button                                                                                                                                                                                                                                     |
+| Reload (the page)                                                                 | Ladda om sidan                                                          |                                                                                                                                                                                                                                                       |
+| your dashboard (the page, named in a sentence)                                    | dina anmälningslistor                                                   | What its heading says. _Översikt_ is only the browser tab's title                                                                                                                                                                                     |
+| Connected apps                                                                    | Anslutna appar                                                          | The card on Settings and the page, the same words                                                                                                                                                                                                     |
+| connect; disconnect (an app)                                                      | ansluta; koppla från                                                    | "Appen är frånkopplad."                                                                                                                                                                                                                               |
+| access (what an app holds); permission                                            | åtkomst; behörighet                                                     |                                                                                                                                                                                                                                                       |
+| AI assistant                                                                      | AI-assistent                                                            |                                                                                                                                                                                                                                                       |
+| Draft my signup (Magic Compose's button)                                          | Skapa utkast                                                            | No article                                                                                                                                                                                                                                            |
+| AI drafting; an AI draft                                                          | AI-utkastet; AI-utkast                                                  | "AI-utkastet tog för lång tid."                                                                                                                                                                                                                       |
+| the AI; AI provider; AI service                                                   | AI:n; AI-leverantören; AI-tjänsten                                      |                                                                                                                                                                                                                                                       |
+| description (what the organizer writes for Magic Compose, "prompt" in two errors) | beskrivning                                                             | One word for the box                                                                                                                                                                                                                                  |
+| fill in by hand                                                                   | fyll i själv                                                            | Not _för hand_, which reads as handwriting                                                                                                                                                                                                            |
+| placeholder (a slot or date a draft leaves to fill in)                            | platshållare                                                            |                                                                                                                                                                                                                                                       |
+| free text (a field switched from a list)                                          | fritext                                                                 |                                                                                                                                                                                                                                                       |
+| Not decided; Back                                                                 | Inte bestämt; Tillbaka                                                  |                                                                                                                                                                                                                                                       |
+| workspace                                                                         | arbetsyta                                                               |                                                                                                                                                                                                                                                       |
+| account; Sign in; Sign out                                                        | konto; Logga in; Logga ut                                               |                                                                                                                                                                                                                                                       |
+| Help                                                                              | Hjälp                                                                   | As in the footer                                                                                                                                                                                                                                      |
+| Dashboard (the tab's title)                                                       | Översikt                                                                |                                                                                                                                                                                                                                                       |
+| Breadcrumb (the trail's name for screen readers)                                  | Du är här                                                               | What Swedish sites call it; _brödsmulor_ is the developer's word                                                                                                                                                                                      |
+| More actions                                                                      | Fler åtgärder                                                           |                                                                                                                                                                                                                                                       |
+| Dismiss (a notice's ✕)                                                            | Dölj                                                                    | Not _Stäng_, beside "Anmälan är stängd" and Stäng anmälan                                                                                                                                                                                             |
+| a person the sentence doesn't name                                                | personen                                                                | Not _hen_ or _de_: "Personen får inget mejl om det."                                                                                                                                                                                                  |
 
 - **Numbers.** Organizer text writes `{n, number}`, as the rest of Swedish
-  does. The message the share panel offers to send (`participant.share`)
-  keeps English's `{count, number, ::group-off}` in `spotsOpen` and
-  `spotsLeft`: it's plain text that leaves OpenSignup, for a chat, a text or
-  an email, and a four-digit count without a space is good Swedish there.
-- **The share message's dates** read "{day} kl. {time}" for one day with a
-  time, a spaced en dash between the first and last of a range ("tors 10
-  dec. – lör 12 dec."), and "och" before the last of a list, with no comma.
-- **A quoted title** takes Swedish quotation marks, ”…”, the same mark on
-  both sides.
-- **A language's name** comes from the code, capitalized as in a list
-  ("Svenska"), so it's capitalized inside a sentence too: "Byt till Svenska
-  för …". That's the code's choice, not a typo in the catalog.
+  does, with three exceptions that keep English's `::group-off`:
+  - the message the share panel offers to send (`participant.share`), in
+    `spotsOpen` and `spotsLeft`: it's plain text that leaves OpenSignup, for
+    a chat, a text or an email, and a four-digit count without a space is
+    good Swedish there;
+  - a year, `{year, number, ::group-off}`
+    (`organizer.build.refusal.dateTooEarly`): a year is never grouped, and
+    "år 1 900" is wrong;
+  - an HTTP status, `{status, number, ::group-off}`
+    (`organizer.compose.errors.unavailable`, `providerErrorStatus`,
+    `failed`): it's an identifier, not a count.
+- **Plurals, where Swedish's shape differs from English's.** Each is
+  deliberate:
+  - a plural where English has none, so the participle agrees with the
+    number: a slot's row on the Build tab ("1 upptagen", "2 upptagna",
+    `organizer.build.slot.taken`, `takenOf`) and the spots line ("1 av 8
+    platser är upptagen");
+  - no plural where English has two, since _fält_ and _pass_ don't change:
+    `organizer.aiDraft.title` formats each count as a plain number ("med 3
+    fält och 5 pass"), which the catalog check accepts, since a plural and a
+    number both take a number;
+  - a whole sentence in each branch where a later word agrees with the
+    number: `organizer.build.refusal.capacityBelowTaken` ("1 plats är redan
+    upptagen. Ge passet minst 1 plats."), `organizer.responses.remove.question`
+    ("Platsen blir ledig för någon annan.", "De 2 platserna blir lediga för
+    andra.") and `organizer.aiDraft.warnings.*` (_dubbletten_,
+    _dubbletterna_);
+  - _personen_ where English says "they" of one person: in the `one` branch
+    of `organizer.build.editor.signedUp`, and in
+    `organizer.responses.remove.question`, which always removes one person.
 
 ### Sign-in and connecting an app
 
@@ -747,7 +810,8 @@ assistant (`auth`) use the terms above, and these. From #953's second batch.
   "lör 5 sep." (`Intl` puts a full stop after an abbreviated month, and none
   after a short one like _maj_), and "18:30" on the 24-hour clock. So never
   end a sentence on a slot's name (see "A name at the end of a sentence").
-- **Numbers.** `{n, number}`, so "1 234" with a no-break space.
+- **Numbers.** `{n, number}`, so "1 234" with a no-break space. The few
+  that keep `::group-off` are under "Organizer terms".
 - **Punctuation.** A spaced en dash (–) inside a sentence, where English has
   an em dash. An ellipsis is one character: "Sparar…".
 - **A channel takes _via_:** "via mejl", "via sms". "Med mejl" is a calque
@@ -811,11 +875,6 @@ assistant (`auth`) use the terms above, and these. From #953's second batch.
 10. **No short form of _anmälningslista_.** The draft page said "när listan
     är publicerad", the only "listan" in the catalog; it now says "Länken
     börjar fungera när det är gjort".
-    On the organizer's screens, account Settings' language help
-    (`organizer.settings.language.help`) says "under listans flik
-    Inställningar", just after the whole word, and the button "Ny lista" is
-    the short label (Organizer terms, above). These are the only places the
-    catalog shortens it.
 11. **"Cookies", not "Kakor"**, in the footer: _kakor_ is the recommended
     Swedish word, but most Swedish sites write "Cookies", and people look for
     it there.
@@ -829,22 +888,34 @@ each with what was done.
 A matter of taste a review raises and the translator doesn't take goes here,
 so the next pass sees it.
 
-- **"flytten" or "det du flyttade"** in the Build tab's two drag refusals
-  (`organizer.build.refusal.slotsMoved`, `fieldsMoved`, from #981's review):
-  _flytten_ alone mostly means moving house, but "så det du flyttade
-  sparades inte" takes the rail to 8 lines at 320 pixels, against 7 for
-  English and for "flytten". "så ordningen sparades inte" also fits in 7.
-- **"i hela tal" or "med hela tal"** for how many people
-  (`organizer.compose.questions.problems.wholeNumbers`, from #982's review):
-  the catalog keeps "i hela tal", as in "i hela kronor".
-- **"uppgifter man turas om med" or "uppgifter som går på tur"** for rotating
-  roles (`organizer.compose.starters.community.blurb`, from #982's review):
-  _turas om_ is the usual verb, and _gå på tur_ can read as going on an
-  outing. Either takes the card to three lines at 320 and 1280 pixels, where
-  English has two; dropping "inför evenemang" keeps two, but loses the
-  events.
-- **"Too many sign-in requests."** `auth.form.errors.rateLimited` reads "För
-  många inloggningslänkar har begärts.", with the verb of "Begär en ny länk".
-  #980's review offered the noun, "För många begäranden om inloggning.",
-  which keeps the English's shape but is stiffer. Both say requests, not
-  attempts.
+1. **"flytten" or "det du flyttade"** in the Build tab's two drag refusals
+   (`organizer.build.refusal.slotsMoved`, `fieldsMoved`, from #981's review):
+   _flytten_ alone mostly means moving house, but "så det du flyttade
+   sparades inte" takes the rail to 8 lines at 320 pixels, against 7 for
+   English and for "flytten". "så ordningen sparades inte" also fits in 7.
+2. **"i hela tal" or "med hela tal"** for how many people
+   (`organizer.compose.questions.problems.wholeNumbers`, from #982's review).
+   The catalog keeps "i hela tal", as in "i hela kronor".
+3. **"uppgifter man turas om med" or "uppgifter som går på tur"** for
+   rotating roles (`organizer.compose.starters.community.blurb`, from #982's
+   review): _turas om_ is the usual verb, and _gå på tur_ can read as going
+   on an outing. Either takes the card to three lines at 320 and 1280
+   pixels, where English has two; dropping "inför evenemang" keeps two, but
+   loses the events.
+4. **The organizer's short forms of _anmälningslista_.** Settled item 10
+   holds for participants. Organizer text shortens the word in three places:
+   the button and crumb "Ny lista" and New signup's "Skapa lista", where the
+   whole word doesn't fit, and account Settings' language help, "under
+   listans flik Inställningar" (`organizer.settings.language.help`), where
+   it would.
+5. **"Too many sign-in requests."** `auth.form.errors.rateLimited` reads "För
+   många inloggningslänkar har begärts.", with the verb of "Begär en ny
+   länk". #980's review offered the noun, "För många begäranden om
+   inloggning.", which keeps the English's shape but is stiffer. Both say
+   requests, not attempts.
+6. **"Länk kopierad" or "Länken är kopierad".** The sign-up sheet's button
+   says "Länk kopierad" once the link is copied
+   (`participant.dialog.linkCopied`), while what's announced on the same
+   sheet (`participant.dialog.copied`) and the share panel's chip and
+   message say "Länken är kopierad", the state with _är_ that Organizer terms
+   chose. From the review of the joined stack.
