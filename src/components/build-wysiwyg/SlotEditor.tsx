@@ -204,7 +204,11 @@ export function SlotEditor({
               }}
               aria-label={t('editor.spots')}
               aria-describedby={spotsHelpId}
-              className="w-20 shrink-0 rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand"
+              // Wide enough for its placeholder in every catalog language,
+              // beside the room Chrome keeps for the arrows: Swedish
+              // "Obegränsat" needs 73px of text where English "No limit"
+              // needs 46px, and the 80px box cut it off.
+              className="w-28 shrink-0 rounded-md border border-surface-sunk bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-brand"
             />
             <span id={spotsHelpId} className="min-w-0 text-[11px] text-ink-soft">
               {t('editor.spotsHelp')}

@@ -947,3 +947,11 @@ so the next pass sees it.
    sheet (`participant.dialog.copied`) and the share panel's chip and
    message say "Länken är kopierad", the state with _är_ that Organizer terms
    chose. From the review of the joined stack.
+6. **"Obegränsat" in Magic Compose's how-many box**
+   (`organizer.compose.questions.howMany.noLimit`). The word needs about
+   90 pixels at that box's 16-pixel text, and the box is 72 wide, so it's
+   cut off; "Inget tak" fitted, but reads as "no ceiling". The Build tab's
+   Spots box was widened for it (#999); this one sits between − and + in a
+   row whose item name would lose the room, so it waits for a decision: a
+   wider box, or a shorter word, with the hint above it saying "Lämna en
+   ruta tom för obegränsat antal".
