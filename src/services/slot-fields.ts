@@ -443,7 +443,11 @@ export async function updateField(
       if (offending.length > 0) {
         return err(
           serviceError('conflict', 'change would invalidate existing slot values', {
-            details: { slotIds: offending.slice(0, 20), count: offending.length },
+            details: {
+              reason: 'invalidates_slot_values',
+              slotIds: offending.slice(0, 20),
+              count: offending.length,
+            },
           }),
         );
       }
@@ -719,7 +723,7 @@ function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<vo
           serviceError(
             'invalid_input',
             `"${field.ref}" must be a date in ${MIN_DATE_YEAR} or later`,
-            { field: field.ref, received: value },
+            { field: field.ref, received: value, details: { reason: 'date_too_early' } },
           ),
         );
       }
