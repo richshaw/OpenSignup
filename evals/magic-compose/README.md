@@ -4,7 +4,7 @@ Developer evals for OpenSignup's Magic Compose feature (natural-language to sign
 
 ## Files
 
-- `dev-evals.json` — 45-case developer eval suite, shared by the Magic Compose and MCP runners, covering each `fieldType`, cross-product/groupBy correctness, capacity instead of duplicate rows, edge cases, multilingual input, which language a draft is written in, hostile prompts, when Magic Compose asks questions instead of drafting, and the server invariants that hold regardless of model output.
+- `dev-evals.json` — 50-case developer eval suite, shared by the Magic Compose and MCP runners, covering each `fieldType`, cross-product/groupBy correctness, capacity instead of duplicate rows, edge cases, multilingual input, which language a draft is written in, hostile prompts, when Magic Compose asks questions instead of drafting, and the server invariants that hold regardless of model output.
 
 The user-facing starter prompts (School, Sports, Volunteering) shipped in the UI as click-to-try chips live in the Magic Compose UI code, not as a JSON file in this directory.
 
@@ -169,3 +169,4 @@ When adding a case:
 - Questions, not placeholder rows, for a prompt that doesn't say what people sign up for (`ev_008`, which drafted 1-6 slots until #570, and `ev_028`–`ev_031`); drafts for near misses (`ev_032`, `ev_033`); questions about when, without "what", for a prompt that says what but whose every slot would be a "TBD:" placeholder (`ev_034`, `ev_035`, which drafted those rows until #687, and `ev_040`, `ev_041`); drafts from the answers (`ev_036`, `ev_037`).
 - Several people for the same thing is one slot with a capacity, not a row per person: shifts that each need several volunteers, several parents per game, and the "Classroom or school" starter prompt word for word, whose potluck is one slot per dish type (`ev_005`, `ev_006`, `ev_026`, `ev_027`). `ev_025` is the counter-case, one parent per game at capacity 1. Run them together with `--tag=capacity_not_duplicate_rows`.
 - A draft in the description's language, or the one it asks for, with names, places and titles kept as written, and in the organizer's language when the description is too short to tell (`ev_042`–`ev_045`).
+- Swedish in everyday use (`ev_046`–`ev_050`, `--tag=swedish`): a Swedish organizer's potluck with Swedish dates, 24-hour times and column names; Swedish shifts and a range of Saturdays; the questions flow asked in Swedish; and an English description that only names Swedish things, which stays English for a Swedish organizer.
