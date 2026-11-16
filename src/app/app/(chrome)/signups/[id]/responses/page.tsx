@@ -12,9 +12,8 @@ import {
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { StatusPill } from '@/components/status-pill';
 import { langWhereDifferent } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
 import { getServerTranslator } from '@/i18n/server';
-import { localeOfSignup } from '@/i18n/locale';
+import { localeOfOrganizer, localeOfSignup } from '@/i18n/locale';
 import { commitmentStatusLabel } from '@/lib/commitment-status-label';
 import type { SignupStatus } from '@/schemas/signups';
 import { summarizeSlotValues } from '@/lib/slot-summary';
@@ -53,7 +52,7 @@ export default async function ResponsesTab({ params }: PageParams) {
   // are the signup's, formatted as its participants read them and marked with
   // its language where that isn't the organizer's. What participants gave
   // stays as written, unmarked: it's in whatever language each person typed.
-  const organizerLocale = getOrganizerAppLocale(session);
+  const organizerLocale = localeOfOrganizer(session);
   const t = getServerTranslator(organizerLocale, 'organizer.responses');
   const contentLocale = localeOfSignup(sig.settings.locale);
   const contentLang = langWhereDifferent(contentLocale, organizerLocale);

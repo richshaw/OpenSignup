@@ -15,7 +15,7 @@ export function signupNotFoundTitle(locale: CatalogLocale): string {
 /**
  * The card an organizer page shows when its signup can't be loaded, in
  * `locale`, the organizer app's language for the organizer looking
- * (`getOrganizerAppLocale`). The server's "signup not found" is written for
+ * (`localeOfOrganizer`). The server's "signup not found" is written for
  * API callers. Not found reads the same for a deleted signup, a made-up id
  * and a signup in someone else's workspace, so the page never says which it
  * was. Being signed in with another email than the one that owns the signup

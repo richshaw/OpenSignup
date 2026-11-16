@@ -1,7 +1,6 @@
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
 import { getServerTranslator } from '@/i18n/server';
-import { localeOfSignup } from '@/i18n/locale';
+import { localeOfOrganizer, localeOfSignup } from '@/i18n/locale';
 import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { SignupLoadError, signupNotFoundTitle } from '@/components/signup/SignupLoadError';
@@ -15,7 +14,7 @@ type PageParams = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: PageParams) {
   const { id } = await params;
   const session = await getOrganizerSession();
-  const locale = getOrganizerAppLocale(session);
+  const locale = localeOfOrganizer(session);
   const preview = getServerTranslator(locale, 'organizer.preview')('title');
   if (!session) return { title: preview };
   const result = await loadSignupForOrganizer(toActor(session), id);
@@ -42,7 +41,7 @@ export default async function SignupPreviewPage({ params }: PageParams) {
   const session = await requireOrganizerSession();
   const actor = toActor(session);
   const result = await loadSignupForOrganizer(actor, id);
-  const organizerLocale = getOrganizerAppLocale(session);
+  const organizerLocale = localeOfOrganizer(session);
   if (!result.ok) {
     return <PreviewLoadError error={result.error} email={session.email} locale={organizerLocale} />;
   }

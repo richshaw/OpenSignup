@@ -18,7 +18,7 @@ import {
 
 /**
  * The organizer app follows the language stored on the organizer's account
- * (`getOrganizerAppLocale`): English with none stored, and each other
+ * (`localeOfOrganizer`): English with none stored, and each other
  * language with a catalog when stored. None has shipped to organizers yet,
  * so the server shows one only with it in `E2E_UNSHIPPED_LOCALES`, which
  * playwright.config.ts gives the server it starts.

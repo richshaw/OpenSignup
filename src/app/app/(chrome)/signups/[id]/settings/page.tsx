@@ -2,10 +2,9 @@ import { requireOrganizerSession, toActor } from '@/auth/session';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { SavedNotice } from '@/components/ui/save-notice';
 import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
 import { getServerTranslator } from '@/i18n/server';
 import type { Translator } from '@/i18n/translator';
-import { localeOfSignup } from '@/i18n/locale';
+import { localeOfOrganizer, localeOfSignup } from '@/i18n/locale';
 import { refusalFromQuery } from '@/lib/organizer-errors';
 import { requiresEmail } from '@/schemas/signups';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
@@ -37,7 +36,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
 
   // The tab is in the organizer's language. A refused save or delete comes
   // back as its code, worded here.
-  const locale = getOrganizerAppLocale(session);
+  const locale = localeOfOrganizer(session);
   const t = getServerTranslator(locale, 'organizer.signupSettings');
   const savedText = getServerTranslator(locale, 'organizer.saveNotice')('saved');
   const refusal = refusalFromQuery(getServerTranslator(locale, 'organizer.errors'), error);

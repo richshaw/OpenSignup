@@ -11,8 +11,7 @@ import { FormError } from '@/components/ui/form-error';
 import { SavedNotice } from '@/components/ui/save-notice';
 import { getDb } from '@/db/client';
 import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
-import { newSignupLocale } from '@/i18n/locale';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { localeOfOrganizer, newSignupLocale } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import type { Translator } from '@/i18n/translator';
 import { refusalAsResult } from '@/lib/errors';
@@ -21,7 +20,7 @@ import { openSignupsToSwitch } from '@/services/signups';
 import { setOrganizerLocaleAction, switchOpenSignupsLocaleAction } from './actions';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const locale = getOrganizerAppLocale(await getOrganizerSession());
+  const locale = localeOfOrganizer(await getOrganizerSession());
   return { title: getServerTranslator(locale, 'organizer.settings')('title') };
 }
 export const dynamic = 'force-dynamic';
@@ -53,7 +52,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const { error, saved, switched } = await searchParams;
   const session = await requireOrganizerSession();
   const openSignups = await openSignupsInAnotherLanguage(session);
-  const t = getServerTranslator(getOrganizerAppLocale(session), 'organizer.settings');
+  const t = getServerTranslator(localeOfOrganizer(session), 'organizer.settings');
 
   return (
     <section className="space-y-6">
@@ -122,7 +121,7 @@ async function openSignupsInAnotherLanguage(session: OrganizerSession): Promise<
 
 /**
  * "Language": the language of the organizer's own screens
- * (`getOrganizerAppLocale`), and the one each signup they make starts in
+ * (`localeOfOrganizer`), and the one each signup they make starts in
  * (`newSignupLocale`). A language ships to organizers and to participants in
  * the same release, so the choices are the participants' list. With one
  * language shipped there's nothing to choose, so it renders nothing until a
@@ -170,7 +169,7 @@ function OrganizerLanguageForm({
   // Only a code the action sends shows, in the words the Settings tab uses,
   // so a link can't put its own words on the page.
   const refusal = refusalFromQuery(
-    getServerTranslator(getOrganizerAppLocale(session), 'organizer.errors'),
+    getServerTranslator(localeOfOrganizer(session), 'organizer.errors'),
     error,
   );
   const name = languageName(current);

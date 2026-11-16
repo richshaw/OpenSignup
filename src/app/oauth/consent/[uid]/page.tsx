@@ -6,7 +6,7 @@ import { getOrganizerSession } from '@/auth/session';
 import { signOutOrganizer } from '@/auth/sign-out';
 import { CenteredPageFrame } from '@/components/centered-page-frame';
 import type { CatalogLocale } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { consentPath, isInteractionUid } from '@/oauth/config';
@@ -15,12 +15,12 @@ import { ConsentForm } from './consent-form';
 
 /**
  * The organizer is signed in by the time they get here, so the page is in
- * their language (`getOrganizerAppLocale`), and so is the page saying a
+ * their language (`localeOfOrganizer`), and so is the page saying a
  * request has run out. The app's name and domain are shown as its metadata
  * gives them.
  */
 export async function generateMetadata(): Promise<Metadata> {
-  const t = getServerTranslator(getOrganizerAppLocale(await getOrganizerSession()), 'auth.consent');
+  const t = getServerTranslator(localeOfOrganizer(await getOrganizerSession()), 'auth.consent');
   return { title: t('tabTitle'), robots: { index: false } };
 }
 export const dynamic = 'force-dynamic';
@@ -28,7 +28,7 @@ export const dynamic = 'force-dynamic';
 export default async function ConsentPage({ params }: { params: Promise<{ uid: string }> }) {
   const { uid } = await params;
   const session = await getOrganizerSession();
-  const locale = getOrganizerAppLocale(session);
+  const locale = localeOfOrganizer(session);
   if (!isInteractionUid(uid)) return <Unavailable locale={locale} />;
   if (!session) redirect(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
 
