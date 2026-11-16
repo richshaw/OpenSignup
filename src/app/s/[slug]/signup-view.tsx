@@ -89,7 +89,7 @@ interface SignupViewCommonProps {
   slug: string;
   /**
    * The language slot dates and times are read in: the signup's own
-   * (`signupLocale`), worked out by each page that shows it.
+   * (`localeOfSignup`), worked out by each page that shows it.
    */
   locale: CatalogLocale;
   ownCommitments?: OwnCommitment[];
@@ -114,7 +114,7 @@ type SignupViewProps = SignupViewCommonProps &
         /**
          * The language of the Preview banner and the disabled button's tip,
          * which are the organizer's, not the participants': the organizer
-         * app's for the organizer looking (`getOrganizerAppLocale`).
+         * app's for the organizer looking (`localeOfOrganizer`).
          */
         organizerLocale: CatalogLocale;
       }

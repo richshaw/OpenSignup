@@ -15,7 +15,7 @@ import { err, ok, type Result } from '@/lib/result';
  * emails follow it. Anything else, an empty value included, is refused with
  * `invalid_input` and leaves the stored language as it was. There is no
  * clearing it: every choice offered is a language, and one that later stops
- * shipping is passed over where it's read (`chooseOrganizerLocale`).
+ * shipping is passed over where it's read (`resolveLocale`).
  */
 export async function updateOrganizerLocale(
   db: Queryable,

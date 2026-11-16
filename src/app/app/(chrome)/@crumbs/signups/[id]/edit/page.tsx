@@ -1,6 +1,6 @@
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { Crumb } from '@/components/chrome/Crumb';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 
@@ -10,7 +10,7 @@ export default async function EditSignupCrumb({ params }: CrumbParams) {
   const { id } = await params;
   const session = await getOrganizerSession();
   if (!session) return null;
-  const t = getServerTranslator(getOrganizerAppLocale(session), 'organizer.crumbs');
+  const t = getServerTranslator(localeOfOrganizer(session), 'organizer.crumbs');
   const result = await loadSignupForOrganizer(toActor(session), id);
   return (
     <>

@@ -75,8 +75,8 @@ async function remove(db: Db, email: string, workspaceSlug: string): Promise<voi
  * app follows the account's language. A language that hasn't shipped can't
  * be saved on an account (`updateOrganizerLocale` refuses it), so it's
  * written into the row here, and the app shows it only on a server started
- * with it in `E2E_UNSHIPPED_LOCALES` (`organizerAppLocale` in
- * src/i18n/config.ts), as playwright.config.ts starts it.
+ * with it in `E2E_UNSHIPPED_LOCALES` (`localeOfOrganizer` in
+ * src/i18n/locale.ts), as playwright.config.ts starts it.
  *
  * `tag` keeps callers apart, one per Playwright project, since the projects
  * run side by side: each call replaces the last one's organizer for the same

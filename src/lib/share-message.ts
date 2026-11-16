@@ -24,7 +24,7 @@ export interface ShareMessageSignup {
 }
 
 /**
- * The language the message is written in, the signup's (`signupLocale`), and
+ * The language the message is written in, the signup's (`localeOfSignup`), and
  * its words in that language, from `participant.share`: the people it's sent
  * to read it, as they read the signup's page, whatever the organizer's own
  * language is. The translator is passed in, rather than made here, because

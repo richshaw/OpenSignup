@@ -3,9 +3,9 @@ import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
-import { type CatalogLocale, SHIPPED, isShipped, signupLocale } from '@/i18n/config';
-import type { SignupLocaleSource } from '@/i18n/organizer-locale';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { type CatalogLocale, SHIPPED, type SignupLocaleSource, isShipped } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfSignup } from '@/i18n/locale';
 import {
   activityActor,
   recordActivities,
@@ -114,7 +114,7 @@ export interface SignupWithSlots extends SignupRow {
  * says which step chose it, for `signup.created`; a language with none was
  * sent by the caller (`api`). Without `opts.template` it starts from
  * `defaultTemplate`, its columns named in the language its participants will
- * get (`signupLocale`).
+ * get (`localeOfSignup`).
  */
 export async function createSignup(
   db: Db,
@@ -135,10 +135,7 @@ export async function createSignup(
   const template =
     opts.template ??
     defaultTemplate(
-      getServerTranslator(
-        signupLocale(data.settings.locale, instanceDefaultLocale()),
-        'participant.defaults',
-      ),
+      getServerTranslator(localeOfSignup(data.settings.locale), 'participant.defaults'),
     );
 
   const parsedFields: SlotFieldInput[] = [];
@@ -449,13 +446,15 @@ function ownOpenSignups(actor: Actor) {
   return { organizerId, workspaceIds: writableWorkspaceIds(actor), status: 'open' as const };
 }
 
-/** Those of `rows` whose participants get another language than `locale`, as `signupLocale` reads it. */
+/**
+ * Those of `rows` whose participants get another language than `locale`, as
+ * `localeOfSignup` reads it.
+ */
 function notIn<T extends { settings: StoredSignupSettings }>(
   rows: readonly T[],
   locale: CatalogLocale,
 ): T[] {
-  const instanceDefault = instanceDefaultLocale();
-  return rows.filter((row) => signupLocale(row.settings.locale, instanceDefault) !== locale);
+  return rows.filter((row) => localeOfSignup(row.settings.locale) !== locale);
 }
 
 /**
@@ -482,7 +481,7 @@ export async function openSignupsToSwitch(
  * Puts the acting organizer's open signups in `locale` (#639): account
  * Settings' "Switch your 3 open signups to Svenska". Which signups count is
  * `ownOpenSignups`'s to say. One whose participants already get `locale`
- * (`signupLocale`) is left as it is, as is one with no language of its own
+ * (`localeOfSignup`) is left as it is, as is one with no language of its own
  * that reads as `locale` through the instance's. One whose language was chosen
  * on its Settings tab changes like the rest: the row can't tell a choice from
  * the language it started in (#627 stores the organizer's on each new
@@ -832,7 +831,7 @@ export type SignupSummary = Pick<
  * The same rows as listSignupsForWorkspace, reading only the columns a list
  * shows, so up to WORKSPACE_LIST_LIMIT long descriptions aren't read from Postgres and thrown
  * away. Of the settings, only `locale`, as stored, so Your signups can mark
- * each title with its signup's language (`signupLocale`) in the same statement.
+ * each title with its signup's language (`localeOfSignup`) in the same statement.
  */
 export async function listSignupSummariesForWorkspace(
   db: Db,

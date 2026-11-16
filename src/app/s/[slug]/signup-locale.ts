@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
-import { type CatalogLocale, defaultFor, signupLocale } from '@/i18n/config';
-import { instanceDefaultLocale } from '@/i18n/server';
+import type { CatalogLocale } from '@/i18n/config';
+import { localeOfSignup } from '@/i18n/locale';
 import { SIGNUP_PATH_HEADER, slugFromSignupPath } from '@/lib/signup-path';
 import { loadSignupRowBySlug } from '@/services/signups.cached';
 
@@ -15,7 +15,7 @@ import { loadSignupRowBySlug } from '@/services/signups.cached';
  */
 export async function signupLocaleForSlug(slug: string): Promise<CatalogLocale> {
   const row = await loadSignupRowBySlug(slug);
-  return signupLocale(row?.settings.locale, instanceDefaultLocale());
+  return localeOfSignup(row?.settings.locale);
 }
 
 /**
@@ -33,7 +33,5 @@ export async function signupLocaleForSlug(slug: string): Promise<CatalogLocale> 
  */
 export async function requestedSignupLocale(): Promise<CatalogLocale> {
   const slug = slugFromSignupPath((await headers()).get(SIGNUP_PATH_HEADER));
-  return slug === null
-    ? defaultFor('participant', instanceDefaultLocale())
-    : signupLocaleForSlug(slug);
+  return slug === null ? localeOfSignup(undefined) : signupLocaleForSlug(slug);
 }

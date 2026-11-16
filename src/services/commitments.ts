@@ -550,8 +550,8 @@ async function commitParticipantToSlot(
  * page redirects a link whose slug is not `signupSlug` to the one that is.
  *
  * `signupLocale` is the signup's `settings.locale` as stored, or null when it
- * has none: read it with `signupLocale` from `@/i18n/config` for the language
- * the edit page is in. It is the one setting read here. The rest of a
+ * has none: read it with `localeOfSignup` from `@/i18n/locale` for the
+ * language the edit page is in. It is the one setting read here. The rest of a
  * signup's settings are the organizer's, and this answers anyone holding the
  * edit link.
  */

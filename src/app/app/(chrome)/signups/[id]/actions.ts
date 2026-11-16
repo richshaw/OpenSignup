@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import type { CatalogLocale } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { refusalAsResult, type ServiceError } from '@/lib/errors';
 import { requireWorkspaceWrite } from '@/lib/policy';
@@ -40,7 +40,7 @@ async function requireActor() {
 /** Who is acting, and the language their screens are in, for what the header shows. */
 async function requireActorIn() {
   const session = await requireOrganizerSession();
-  return { actor: toActor(session), locale: getOrganizerAppLocale(session) };
+  return { actor: toActor(session), locale: localeOfOrganizer(session) };
 }
 
 /** `statusRefusal` in `locale`. */
@@ -207,7 +207,7 @@ export async function removeCommitmentAction(
     removeCommitment(getDb(), toActor(session), commitmentId, signupId),
   );
   if (!result.ok) {
-    const locale = getOrganizerAppLocale(session);
+    const locale = localeOfOrganizer(session);
     return {
       error: removeRefusal(result.error.code, {
         responses: getServerTranslator(locale, 'organizer.responses'),

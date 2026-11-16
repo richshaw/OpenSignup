@@ -2,11 +2,11 @@ import { eq } from 'drizzle-orm';
 import type { Db } from '@/db/client';
 import { organizers } from '@/db/schema/organizers';
 import type { CatalogLocale } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { localeOfOrganizer } from '@/i18n/locale';
 
 /**
  * The sign-in email's language: the language the organizer app shows the
- * account at `email` (`getOrganizerAppLocale`), so the email reads like the
+ * account at `email` (`localeOfOrganizer`), so the email reads like the
  * screens it signs in to. That's the language stored on the account once it
  * has shipped to organizers, else the instance's `DEFAULT_LOCALE` once that
  * has, else English. An address with no account gets what an account with
@@ -26,5 +26,5 @@ export async function signInEmailLocale(db: Db, email: string): Promise<CatalogL
     .from(organizers)
     .where(eq(organizers.email, email))
     .limit(1);
-  return getOrganizerAppLocale(account ?? null);
+  return localeOfOrganizer(account ?? null);
 }

@@ -8,7 +8,7 @@ import { EmailHeading, EmailIntro, EmailLayout, ManageButton, NotesText, strong 
 import { SlotDetailsText } from './slot-details';
 
 export interface CommitmentConfirmationEmailProps {
-  /** The email's language: its signup's (`emailLocale`). */
+  /** The email's language: its signup's (`localeOfSignup`). */
   locale: CatalogLocale;
   participantName: string;
   signupTitle: string;

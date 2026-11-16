@@ -24,7 +24,7 @@ interface SignupHeaderProps {
   /** The organizer's language, which all of the header's own text is in. */
   locale: CatalogLocale;
   /**
-   * The signup's language (`signupLocale`), which its own words are in: its
+   * The signup's language (`localeOfSignup`), which its own words are in: its
    * title, and the message the share panel offers to send. Marked as such
    * where it isn't `locale`.
    */

@@ -117,7 +117,7 @@ describe('unsubscribe page — opted in', () => {
 });
 
 // The page is marked with the signup's language, from the row the token was
-// checked against, by the rule the signup's own page uses (`signupLocale`).
+// checked against, by the rule the signup's own page uses (`localeOfSignup`).
 describe("unsubscribe page — the signup's language", () => {
   afterEach(() => {
     request.instanceDefault = undefined;

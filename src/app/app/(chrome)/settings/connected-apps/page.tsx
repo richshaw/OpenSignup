@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
 import { FormError, SuccessNotice } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { ServiceException } from '@/lib/errors';
 import { accessTokenLifetime } from '@/lib/lifetimes';
@@ -17,7 +17,7 @@ import { disconnectRefusal } from './disconnect-refusal';
 import { formatGrantDate } from './grant-date';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const locale = getOrganizerAppLocale(await getOrganizerSession());
+  const locale = localeOfOrganizer(await getOrganizerSession());
   return { title: getServerTranslator(locale, 'organizer.connectedApps')('title') };
 }
 export const dynamic = 'force-dynamic';
@@ -36,7 +36,7 @@ export default async function ConnectedAppsPage({
   const session = await requireOrganizerSession();
   const actor = toActor(session);
   const apps = await listConnectedApps(getDb(), actor);
-  const locale = getOrganizerAppLocale(session);
+  const locale = localeOfOrganizer(session);
   const t = getServerTranslator(locale, 'organizer.connectedApps');
   const describe = getServerTranslator(locale, 'auth.scopes');
   const lifetime = accessTokenLifetime(locale);

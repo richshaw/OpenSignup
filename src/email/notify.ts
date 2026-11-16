@@ -10,6 +10,7 @@
  * courtesy, and losing one must never look like a failed sign-up.
  */
 import type { Db } from '@/db/client';
+import { localeOfSignup } from '@/i18n/locale';
 import { recordActivity } from '@/lib/activity';
 import { commitmentEditUrl } from '@/lib/links';
 import { log } from '@/lib/log';
@@ -17,7 +18,7 @@ import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { normalizeEmail } from '@/schemas/common';
 import { sendsReminders } from '@/schemas/signups';
-import { alreadyRecorded, emailLocale, loadCommitmentRow, slotText } from './commitment-row';
+import { alreadyRecorded, loadCommitmentRow, slotText } from './commitment-row';
 import { sendCommitmentConfirmation } from './send';
 import type { CommitmentConfirmationEmailProps } from './templates/commitment-confirmation';
 
@@ -26,7 +27,7 @@ type CommitmentRow = NonNullable<Awaited<ReturnType<typeof loadCommitmentRow>>>;
 
 /**
  * The confirmation `notifyCommitmentCreated` sends for `row`: in the signup's
- * language (`emailLocale`), with every field of its slot, and the link that
+ * language (`localeOfSignup`), with every field of its slot, and the link that
  * changes or cancels it. A function of its own so an e2e spec can read the
  * email the app sends for a sign-up it made in the browser.
  */
@@ -46,7 +47,7 @@ export async function confirmationFor(
     remindersOptedOutAt: row.participant.remindersOptedOutAt,
   });
 
-  const locale = emailLocale(row.signup);
+  const locale = localeOfSignup(row.signup.settings.locale);
   return {
     locale,
     participantName: row.participant.name,

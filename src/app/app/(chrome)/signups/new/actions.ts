@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { getOrganizerAppLocale, newSignupLocale } from '@/i18n/organizer';
+import { localeOfOrganizer, newSignupLocale } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { waitMinutes } from '@/lib/format-duration';
 import { refusalText } from '@/lib/organizer-errors';
@@ -41,7 +41,7 @@ export async function createSignupAction(
   const description = lfLineBreaks(String(formData.get('description') ?? ''));
   const db = getDb();
   const actor = toActor(s);
-  const t = getServerTranslator(getOrganizerAppLocale(s), 'organizer.errors');
+  const t = getServerTranslator(localeOfOrganizer(s), 'organizer.errors');
   // Policy first, as POST /api/signups does: a refusal must not cost a create-quota unit.
   requireWorkspaceWrite(actor, s.defaultWorkspaceId);
   const retryAfter = await chargeRateLimit(db, RateLimits.signupCreatePerOrganizer, s.organizerId);

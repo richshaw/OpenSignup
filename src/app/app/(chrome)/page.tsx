@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
-import { langWhereDifferent, signupLocale } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { langWhereDifferent } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfOrganizer, localeOfSignup } from '@/i18n/locale';
 import { publicSignupPath } from '@/lib/links';
 import { listSignupSummariesForWorkspace } from '@/services/signups';
 import { StatusPill } from '@/components/status-pill';
@@ -12,13 +12,13 @@ import { signupStatusLabel } from '@/components/signup/status-label';
 import type { SignupStatus } from '@/schemas/signups';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const locale = getOrganizerAppLocale(await getOrganizerSession());
+  const locale = localeOfOrganizer(await getOrganizerSession());
   return { title: getServerTranslator(locale, 'organizer.dashboard')('title') };
 }
 
 export default async function DashboardPage() {
   const session = await requireOrganizerSession();
-  const locale = getOrganizerAppLocale(session);
+  const locale = localeOfOrganizer(session);
   const t = getServerTranslator(locale, 'organizer.dashboard');
   const tStatus = getServerTranslator(locale, 'organizer.status');
   const actor = toActor(session);
@@ -33,8 +33,6 @@ export default async function DashboardPage() {
   }
   const result = await listSignupSummariesForWorkspace(getDb(), actor, workspaceId);
   const rows = result.ok ? result.value : [];
-  // A title is in its signup's language, which may not be the organizer's.
-  const instanceDefault = instanceDefaultLocale();
 
   return (
     <div className="space-y-6">
@@ -72,8 +70,9 @@ export default async function DashboardPage() {
               >
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
+                    {/* A title is in its signup's language, which may not be the organizer's. */}
                     <p
-                      lang={langWhereDifferent(signupLocale(r.locale, instanceDefault), locale)}
+                      lang={langWhereDifferent(localeOfSignup(r.locale), locale)}
                       className="truncate font-medium"
                     >
                       {r.title}

@@ -14,10 +14,9 @@ import { hasPhoneBar, PHONE_BAR_ROOM } from '@/components/signup/phone-bar';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
 import { SignupLoadError, signupNotFoundTitle } from '@/components/signup/SignupLoadError';
-import { signupLocale } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { getServerTranslator } from '@/i18n/server';
 import { messagesFor } from '@/i18n/translator';
+import { localeOfOrganizer, localeOfSignup } from '@/i18n/locale';
 import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, closeQuestionAction, publishAction, reopenAction } from './actions';
 
@@ -31,7 +30,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const session = await getOrganizerSession();
   if (!session) return { title: 'OpenSignup' };
   const result = await loadSignupForOrganizer(toActor(session), id);
-  if (!result.ok) return { title: signupNotFoundTitle(getOrganizerAppLocale(session)) };
+  if (!result.ok) return { title: signupNotFoundTitle(localeOfOrganizer(session)) };
   return { title: result.value.title };
 }
 
@@ -41,7 +40,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   const actor = toActor(session);
   // The header's language. It changes only with a full page load (#938), so
   // this layout not re-rendering between tabs leaves it right.
-  const locale = getOrganizerAppLocale(session);
+  const locale = localeOfOrganizer(session);
   const result = await loadSignupForOrganizer(actor, id);
   if (!result.ok) {
     return (
@@ -73,7 +72,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   // The signup's language. Its title is in it, and so is the message the
   // share panel offers to send, which is for participants, as its page is:
   // neither is in the organizer's.
-  const contentLocale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const contentLocale = localeOfSignup(sig.settings.locale);
   const message = shareMessage(
     sig,
     publicUrl,

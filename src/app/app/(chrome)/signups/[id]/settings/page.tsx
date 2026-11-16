@@ -1,10 +1,10 @@
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { SavedNotice } from '@/components/ui/save-notice';
-import { type CatalogLocale, SHIPPED, languageName, signupLocale } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
 import type { Translator } from '@/i18n/translator';
+import { localeOfOrganizer, localeOfSignup } from '@/i18n/locale';
 import { refusalFromQuery } from '@/lib/organizer-errors';
 import { requiresEmail } from '@/schemas/signups';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
@@ -36,7 +36,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
 
   // The tab is in the organizer's language. A refused save or delete comes
   // back as its code, worded here.
-  const locale = getOrganizerAppLocale(session);
+  const locale = localeOfOrganizer(session);
   const t = getServerTranslator(locale, 'organizer.signupSettings');
   const savedText = getServerTranslator(locale, 'organizer.saveNotice')('saved');
   const refusal = refusalFromQuery(getServerTranslator(locale, 'organizer.errors'), error);
@@ -182,8 +182,8 @@ function SignupLanguageForm({
   if (languages.length < 2) return null;
   // A signup with no language of its own is in the instance's. One whose
   // language has since left the list shows that too, so the choice shown is
-  // always one that saves, and is the language its pages use (`signupLocale`).
-  const current = signupLocale(stored, instanceDefaultLocale());
+  // always one that saves, and is the language its pages use (`localeOfSignup`).
+  const current = localeOfSignup(stored);
 
   return (
     <section

@@ -20,7 +20,7 @@ export const organizers = pgTable(
     // is created (#627, `newOrganizerLocale`: the browser's top language if it
     // has shipped and isn't English, on an instance without DEFAULT_LOCALE),
     // and changed in account Settings, never worked out again. Read as stored,
-    // never checked on the way out: `chooseOrganizerLocale` decides which
+    // never checked on the way out: `resolveLocale` decides which
     // language applies and passes over one that hasn't shipped, so a stored
     // value that stops shipping can't break sign-in.
     locale: text('locale'),

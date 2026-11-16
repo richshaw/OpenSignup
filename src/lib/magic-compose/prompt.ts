@@ -386,7 +386,7 @@ export interface PromptContext {
   /**
    * The language a draft is written in when the prompt is too short or too
    * mixed to tell its own: the organizer's, for participants
-   * (`getOrganizerLocale`), as the route passes it. The model reads its
+   * (`newSignupLocale`, else English), as the route passes it. The model reads its
    * English name ("Swedish").
    */
   fallbackLocale: CatalogLocale;

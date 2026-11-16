@@ -2,15 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getOrganizerSession, requireOrganizerSession } from '@/auth/session';
 import { signOutOrganizer } from '@/auth/sign-out';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { INSTANCE_NAME } from '@/lib/site-config';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = getServerTranslator(
-    getOrganizerAppLocale(await getOrganizerSession()),
-    'organizer.chrome',
-  );
+  const t = getServerTranslator(localeOfOrganizer(await getOrganizerSession()), 'organizer.chrome');
   return { title: { default: t('tabTitle'), template: `%s · ${INSTANCE_NAME}` } };
 }
 
@@ -22,7 +19,7 @@ export default async function OrganizerLayout({
   crumbs: React.ReactNode;
 }) {
   const session = await requireOrganizerSession();
-  const locale = getOrganizerAppLocale(session);
+  const locale = localeOfOrganizer(session);
   const t = getServerTranslator(locale, 'organizer.chrome');
 
   async function handleSignOut() {

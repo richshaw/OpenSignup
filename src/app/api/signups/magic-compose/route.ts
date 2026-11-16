@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getOrganizerSession, requireActor } from '@/auth/session';
 import { getDb, type Db } from '@/db/client';
-import { getOrganizerLocale, newSignupLocale } from '@/i18n/organizer';
+import { newSignupLocale } from '@/i18n/locale';
 import { activityActor, recordActivityBestEffort } from '@/lib/activity';
 import { getEnv, magicComposeEnabled } from '@/lib/env';
 import { fail, handle, ok, readJson } from '@/lib/api-response';
@@ -168,12 +168,14 @@ export async function POST(req: NextRequest) {
       pending.answered = () => recordAnswered(db, actor, workspaceId, followUp, outcome);
     }
 
-    // Every call, retries included, tells the model the organizer's language
-    // for participants, to write in when the description is too short or too
-    // mixed to tell its own. Always one that has shipped, so English while
-    // only English has.
+    // The organizer's language for participants. The signup starts in it, as
+    // one made by hand does, so none while only one language has shipped.
+    // Every call, retries included, tells the model it, to write in when the
+    // description is too short or too mixed to tell its own: English while
+    // only English has shipped.
+    const language = newSignupLocale(session);
     const context: PromptContext = {
-      fallbackLocale: getOrganizerLocale(session, 'participant').locale,
+      fallbackLocale: language?.locale ?? 'en',
     };
     const client = defaultLlmClient();
     // One time budget for the whole request: a retry gets what the first call
@@ -352,9 +354,6 @@ export async function POST(req: NextRequest) {
       return fail(serviceError('internal', 'request cancelled'));
     }
 
-    // The signup starts in the organizer's language, as one made by hand
-    // does: none while only one language has shipped.
-    const language = newSignupLocale(session);
     const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, draft.data, {
       logContext: { promptLength: userPrompt.length },
       ...(language ? { locale: language } : {}),

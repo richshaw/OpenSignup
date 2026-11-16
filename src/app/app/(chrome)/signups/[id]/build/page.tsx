@@ -1,9 +1,8 @@
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { ClientMessages } from '@/i18n/ClientMessages';
-import { signupLocale } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { getServerTranslator } from '@/i18n/server';
 import { messagesFor } from '@/i18n/translator';
+import { localeOfOrganizer, localeOfSignup } from '@/i18n/locale';
 import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { BuildWysiwyg } from '@/components/build-wysiwyg/BuildWysiwyg';
@@ -26,8 +25,8 @@ export default async function BuildTab({ params }: PageParams) {
   // for participants to read, and the order its groups sort in, are the
   // signup's language: decided here and handed down as props, so the browser
   // loads no catalog.
-  const organizerLocale = getOrganizerAppLocale(session);
-  const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const organizerLocale = localeOfOrganizer(session);
+  const locale = localeOfSignup(sig.settings.locale);
   const t = getServerTranslator(locale, 'participant.defaults');
   await trackOrganizerView({
     actor,

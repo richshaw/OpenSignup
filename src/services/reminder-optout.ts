@@ -33,8 +33,8 @@ export interface OptOutTarget {
   signupSlug: string;
   /**
    * The signup's `settings.locale` as stored, or null when it has none: read
-   * it with `signupLocale` from `@/i18n/config` for the language the page is
-   * in. The one setting read here.
+   * it with `localeOfSignup` from `@/i18n/locale` for the language the page
+   * is in. The one setting read here.
    */
   signupLocale: string | null;
   optedOut: boolean;
