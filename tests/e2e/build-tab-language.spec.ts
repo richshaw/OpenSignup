@@ -56,11 +56,20 @@ async function groupHeadings(page: Page): Promise<string[]> {
 /**
  * Opens a Build tab and waits until it works: the Fields dialog only opens
  * once React has hydrated the page, by when it has reported any mismatch.
+ * `organizerLocale` is the language the tab's own words are in, its
+ * organizer's.
  */
-async function openBuildTab(page: Page, signupId: string): Promise<void> {
+async function openBuildTab(
+  page: Page,
+  signupId: string,
+  organizerLocale: CatalogLocale = 'en',
+): Promise<void> {
+  // The Fields button reads "Fields (2)": the dialog's name, then its count.
+  const label = buildTabText(organizerLocale)('fields.label');
+  const fields = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
   await page.goto(`/app/signups/${signupId}/build`);
-  await page.getByRole('button', { name: /^Fields/ }).click();
-  await expect(page.getByRole('dialog', { name: /^Fields/ })).toBeVisible();
+  await page.getByRole('button', { name: fields }).click();
+  await expect(page.getByRole('dialog', { name: fields })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
 }
@@ -165,7 +174,7 @@ for (const locale of CATALOG_LOCALES.filter((l) => l !== 'en')) {
     test(`hydrates with no mismatch, its own words in ${locale}`, async ({ page }) => {
       const t = buildTabText(locale);
       const errors = watchForHydrationErrors(page);
-      await openBuildTab(page, organizer.open.id);
+      await openBuildTab(page, organizer.open.id, locale);
       expect(errors).toEqual([]);
 
       // A new signup's two starting columns, What and Date.
@@ -226,7 +235,7 @@ for (const signupLocale of CATALOG_LOCALES) {
     test(`hydrates with no mismatch, its dates and times in ${signupLocale}`, async ({ page }) => {
       const t = buildTabText(organizerLocale);
       const errors = watchForHydrationErrors(page);
-      await openBuildTab(page, signup.id);
+      await openBuildTab(page, signup.id, organizerLocale);
       expect(errors).toEqual([]);
 
       const marked = async (locator: Locator) => {
@@ -305,7 +314,7 @@ for (const signupLocale of CATALOG_LOCALES) {
       page,
     }) => {
       const errors = watchForHydrationErrors(page);
-      await openBuildTab(page, organizer.open.id);
+      await openBuildTab(page, organizer.open.id, organizerLocale);
       expect(errors).toEqual([]);
       const cookies = page.getByText('Cookies', { exact: true });
       await expect(cookies).toBeVisible();

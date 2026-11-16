@@ -707,5 +707,11 @@ each with what was done.
 
 ### Open questions
 
-None at the moment. A matter of taste a review raises and the translator
-doesn't take goes here, so the next pass sees it.
+A matter of taste a review raises and the translator doesn't take goes here,
+so the next pass sees it.
+
+- **"flytten" or "det du flyttade"** in the Build tab's two drag refusals
+  (`organizer.build.refusal.slotsMoved`, `fieldsMoved`, from #981's review):
+  _flytten_ alone mostly means moving house, but "så det du flyttade
+  sparades inte" takes the rail to 8 lines at 320 pixels, against 7 for
+  English and for "flytten". "så ordningen sparades inte" also fits in 7.
