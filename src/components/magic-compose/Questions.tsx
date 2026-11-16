@@ -568,7 +568,12 @@ function HowMany({ answers, update }: Part) {
                     // Show what will be sent: the number, or empty for no limit. A
                     // fraction stays as typed, for Draft my signup to stop.
                     onBlur={() => setCount(item, String(parseCount(count) ?? ''))}
-                    className="h-11 w-[72px] border-x border-surface-sunk bg-transparent px-0.5 text-center text-base tabular-nums outline-none [appearance:textfield] placeholder:text-ink-soft sm:w-[76px] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    // Wide enough for its placeholder in every catalog
+                    // language, the room taken from the item's name beside
+                    // it: Swedish "Obegränsat" needs 88px of text at 16px
+                    // where English "No limit" needs 57px, and the 72px box
+                    // cut it off.
+                    className="h-11 w-24 border-x border-surface-sunk bg-transparent px-0.5 text-center text-base tabular-nums outline-none [appearance:textfield] placeholder:text-ink-soft sm:w-[100px] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                   <button
                     type="button"
