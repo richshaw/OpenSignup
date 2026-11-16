@@ -83,6 +83,19 @@ the catalog check can tell when a translation has fallen behind its English
   words its warnings in the browser, from codes the tab keeps: the signup's
   layout passes it `organizer.aiDraft.warnings`, and it loads the provider
   only when there are warnings to show.
+- **A signup's own words in the organizer app** are in the signup's language,
+  whatever the organizer's. The Build tab formats its dates and times in it,
+  on the server and again in the browser (`useSignupLanguage` in
+  `src/components/build-wysiwyg/signup-language.ts`), so Node's ICU and the
+  browser's must write them alike: `tests/e2e/build-tab-language.spec.ts`
+  checks each language hydrates with no mismatch. Responses formats its
+  slots' values on the server. Both mark the signup's words with its language
+  where it isn't the organizer's (`langWhereDifferent` in
+  `src/i18n/config.ts`): on the Build tab its title, description, group
+  headings, slot values, field names (in the Fields dialog too) and list
+  items, and on Responses the Slot column. A box the organizer types in keeps
+  the organizer's language, since its `lang` would also be its name's, and
+  what participants gave isn't marked.
 - **Types come from English.** next-intl's plugin writes
   `src/messages/en.d.json.ts` from `en.json` on every `pnpm dev` and
   `pnpm build`, and TypeScript checks every key and argument against it. After

@@ -5,6 +5,7 @@ import {
   SHIPPED,
   defaultFor,
   isShipped,
+  langWhereDifferent,
   languageName,
   openGraphLocale,
   organizerAppLocale,
@@ -206,6 +207,18 @@ describe('defaultFor', () => {
       expect(defaultFor(audience, 'sv')).toBe('en');
     },
   );
+});
+
+describe('langWhereDifferent', () => {
+  it('marks nothing in the page’s own language', () => {
+    for (const locale of CATALOG_LOCALES)
+      expect(langWhereDifferent(locale, locale)).toBeUndefined();
+  });
+
+  it.each(OTHER_LANGUAGES)('marks a part in %s inside English, and English inside it', (other) => {
+    expect(langWhereDifferent(other, 'en')).toBe(other);
+    expect(langWhereDifferent('en', other)).toBe('en');
+  });
 });
 
 describe('languageName', () => {

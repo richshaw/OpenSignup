@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { SlotEditor } from './SlotEditor';
 import { emptyHeaderCopy } from './prettyHeader';
 import { slotActionLabels, slotRowLabel, takenText } from './slotRow';
+import { useSignupLanguage } from './signup-language';
 import { renderFieldValue } from '@/lib/slot-label';
 import type { UseReorderableResult } from '../build-shared/useReorderable';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
@@ -73,6 +74,7 @@ export function WysiwygSlot({
   reorder,
 }: WysiwygSlotProps) {
   const t = useTranslations('organizer.build');
+  const { locale, lang } = useSignupLanguage();
   // Whether the row is hovered or has focus within. Drives `inert` on the
   // floating toolbar so its buttons don't pollute the tab order (and stay
   // hidden from assistive tech) when the row is dormant. CSS already handles
@@ -81,13 +83,14 @@ export function WysiwygSlot({
   const [interactive, setInteractive] = useState(false);
   // Anchor = first field in the organizer's chosen order. No type-based
   // promotion: a time field later in the list must not win over field 0.
-  // Values render as the public page renders them, so the organizer sees
-  // "Wed, Sep 30 · 6:30 PM" here too, not the stored "2026-09-30 · 18:30".
+  // Values render as the public page renders them, in the signup's language,
+  // so the organizer sees "Wed, Sep 30 · 6:30 PM" here too, not the stored
+  // "2026-09-30 · 18:30".
   const display = (f: BuildField): string =>
     renderFieldValue(
       { ref: f.ref, label: f.name, fieldType: f.config.fieldType },
       row.values[f.ref],
-      'en',
+      locale,
     ) ?? '';
   const anchorField = displayFields[0] ?? null;
   const anchorValue = anchorField ? display(anchorField) : '';
@@ -195,7 +198,7 @@ export function WysiwygSlot({
             the anchor then simply truncates at the row's edge. */}
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {anchorValue ? (
-            <span className={`${anchorSizing} truncate text-sm font-semibold text-ink`}>
+            <span className={`${anchorSizing} truncate text-sm font-semibold text-ink`} lang={lang}>
               {anchorValue}
             </span>
           ) : placeholder ? (
@@ -205,7 +208,11 @@ export function WysiwygSlot({
           ) : (
             <span className="shrink-0 text-sm font-semibold text-ink">{t('slot.untitled')}</span>
           )}
-          {summary && <span className="min-w-0 truncate text-xs text-ink-muted">{summary}</span>}
+          {summary && (
+            <span className="min-w-0 truncate text-xs text-ink-muted" lang={lang}>
+              {summary}
+            </span>
+          )}
         </div>
         {/* Spots taken, not left: organizers want to know how many signed up.
             The public page counts what's left. */}

@@ -6,6 +6,7 @@ import { Editable } from './Editable';
 import { EnumPicker } from './EnumPicker';
 import { WysiwygSlot } from './WysiwygSlot';
 import { prettyHeader, emptyHeaderCopy } from './prettyHeader';
+import { useSignupLanguage } from './signup-language';
 import { FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
 import type { UseReorderableResult } from '../build-shared/useReorderable';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
@@ -74,9 +75,10 @@ export function WysiwygGroup({
   reorder,
 }: WysiwygGroupProps) {
   const t = useTranslations('organizer.build');
+  const { locale } = useSignupLanguage();
   const showHeader = groupField !== null;
   const display = groupField
-    ? prettyHeader(t, group.rawValue, groupField.config.fieldType, 'en', groupField.name)
+    ? prettyHeader(t, group.rawValue, groupField.config.fieldType, locale, groupField.name)
     : '';
   const placeholder = groupField
     ? emptyHeaderCopy(t, groupField.config.fieldType, groupField.name)
@@ -166,6 +168,7 @@ function GroupHeader({
   onAddEnumOption,
 }: GroupHeaderProps) {
   const t = useTranslations('organizer.build.group');
+  const { lang } = useSignupLanguage();
   const ariaLabel = t('header', { heading: display });
   const rename = (next: string) => onRenameGroup(group.key, next);
 
@@ -177,6 +180,7 @@ function GroupHeader({
         options={groupField.config.choices}
         placeholder={placeholder}
         ariaLabel={ariaLabel}
+        lang={lang}
         onChange={(next) => {
           if (next !== group.rawValue) rename(next);
         }}
@@ -198,6 +202,7 @@ function GroupHeader({
       }}
       placeholder={placeholder}
       ariaLabel={ariaLabel}
+      lang={lang}
       className={`${HEADER_CLASSES} inline-block`}
       {...(isDate ? { input: FIELD_VALUE_INPUTS.date } : {})}
       {...(groupField.config.fieldType === 'text'

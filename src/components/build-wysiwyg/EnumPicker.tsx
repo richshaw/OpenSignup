@@ -24,6 +24,12 @@ type EnumPickerProps = {
   /** Shown when nothing is chosen; "Choose…" when omitted. */
   placeholder?: string;
   /**
+   * The language the list's items are in, where it isn't the page's: the
+   * signup's (`useSignupLanguage`). It marks the item chosen and each in the
+   * menu, not the placeholder or the box a new one is typed in.
+   */
+  lang?: string | undefined;
+  /**
    * Replaces the slot editor's boxed look, for a picker set inline in text (a
    * group header); its menu then sets its own width.
    */
@@ -53,6 +59,7 @@ export function EnumPicker({
   onAddOption,
   placeholder,
   triggerClassName,
+  lang,
 }: EnumPickerProps) {
   const t = useTranslations('organizer.build.list');
   const [open, setOpen] = useState(false);
@@ -128,7 +135,9 @@ export function EnumPicker({
             (value ? 'text-ink' : 'text-ink-soft')
         }
       >
-        <span className="truncate">{value || (placeholder ?? t('choose'))}</span>
+        <span className="truncate" lang={value ? lang : undefined}>
+          {value || (placeholder ?? t('choose'))}
+        </span>
         <ChevronDown size={11} className="shrink-0 text-ink-soft" />
       </button>
 
@@ -147,6 +156,7 @@ export function EnumPicker({
               key={opt}
               active={opt === value}
               label={opt}
+              lang={lang}
               onClick={() => {
                 onChange(opt);
                 close();

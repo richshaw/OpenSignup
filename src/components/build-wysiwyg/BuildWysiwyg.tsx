@@ -16,6 +16,7 @@ import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
 import type { FieldDefaults } from './InlineFieldForm';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
+import { SignupLanguage, useSignupLanguage } from './signup-language';
 import type { CatalogLocale } from '@/i18n/config';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { MAX_CHOICES } from '@/schemas/slot-field-basics';
@@ -42,12 +43,11 @@ type BuildWysiwygProps = {
   /**
    * The signup's language, the one its participants get. Group headings sort
    * in its alphabetical order, so the server's render and the browser's
-   * agree: each sorting in its own language could disagree. The tab's own
-   * words are the organizer's, from the messages its page gives
-   * `ClientMessages`, so a signup in one language can be built in another.
-   * Dates and times here stay English for now: they're formatted in the
-   * browser too, whose ICU can abbreviate a language's days differently from
-   * the server's.
+   * agree: each sorting in its own language could disagree. Its dates and
+   * times are formatted in it, and its own words marked with it where it
+   * isn't the organizer's (`useSignupLanguage`). The tab's own words are the
+   * organizer's, from the messages its page gives `ClientMessages`, so a
+   * signup in one language can be built in another.
    */
   locale: CatalogLocale;
   /** What a new field gets for what the organizer leaves unset, in the signup's language. */
@@ -116,7 +116,16 @@ function partitionRows(
   }));
 }
 
-export function BuildWysiwyg({
+/** The Build tab, which gives the signup's language to every part of it (`useSignupLanguage`). */
+export function BuildWysiwyg(props: BuildWysiwygProps) {
+  return (
+    <SignupLanguage value={props.locale}>
+      <BuildSheet {...props} />
+    </SignupLanguage>
+  );
+}
+
+function BuildSheet({
   signupId,
   signupMeta,
   initialFields,
@@ -127,6 +136,7 @@ export function BuildWysiwyg({
   fieldDefaults,
 }: BuildWysiwygProps) {
   const t = useTranslations('organizer.build.sheet');
+  const { lang } = useSignupLanguage();
   const {
     state,
     updateSignupMeta,
@@ -375,6 +385,7 @@ export function BuildWysiwyg({
             onChange={(next) => updateSignupMeta({ title: next })}
             placeholder={t('titlePlaceholder')}
             ariaLabel={t('titleLabel')}
+            lang={lang}
             className="-mx-1 -my-0.5 block px-1 py-0.5 text-[22px] font-bold tracking-[-0.02em] text-ink"
           />
 
@@ -385,6 +396,7 @@ export function BuildWysiwyg({
               placeholder={t('descriptionPlaceholder')}
               multiline
               ariaLabel={t('descriptionLabel')}
+              lang={lang}
               className="-mx-1 -my-0.5 block px-1 py-0.5 text-[13px] leading-snug text-ink-muted"
             />
           </div>

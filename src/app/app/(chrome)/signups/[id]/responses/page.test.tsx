@@ -7,6 +7,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
+import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
 
 // Unit tests have no server environment. The instance sets no language.
 // English comes from the catalog; any other language answers with the key it
@@ -34,6 +35,12 @@ const stored = vi.hoisted(() => ({
   ended: new Map<string, 'removed' | 'moved'>(),
   /** The language stored on the organizer's account. */
   organizerLocale: null as string | null,
+  /** The language stored on the signup, its participants'. */
+  signupLocale: undefined as string | undefined,
+  /** The signup's fields, beyond What. */
+  moreFields: [] as { ref: string; label: string; fieldType: string }[],
+  /** Values the Fruit and water slot holds, beyond What. */
+  moreValues: {} as Record<string, string>,
 }));
 vi.mock('@/auth/session', () => ({
   requireOrganizerSession: async () => ({ locale: stored.organizerLocale }),
@@ -46,9 +53,14 @@ vi.mock('@/services/signups.cached', () => ({
       id: 'sig_1',
       workspaceId: 'ws_1',
       status: stored.status,
-      fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+      settings: stored.signupLocale ? { locale: stored.signupLocale } : {},
+      fields: [{ ref: 'what', label: 'What', fieldType: 'text' }, ...stored.moreFields],
       slots: [
-        { id: 'slot_fruit', ref: 'fruit', values: { what: 'Fruit and water' } },
+        {
+          id: 'slot_fruit',
+          ref: 'fruit',
+          values: { what: 'Fruit and water', ...stored.moreValues },
+        },
         // Nothing written in it yet, so it goes by its ref.
         { id: 'slot_blank', ref: 'slot-2', values: {} },
       ],
@@ -136,6 +148,9 @@ afterEach(() => {
   stored.commitments = [];
   stored.ended = new Map();
   stored.organizerLocale = null;
+  stored.signupLocale = undefined;
+  stored.moreFields = [];
+  stored.moreValues = {};
 });
 
 /** What the tab should say, by part, in the language under test. */
@@ -271,6 +286,75 @@ describe('Responses tab: its words', () => {
     expect(screen.getByRole('cell', { name: 'pat@example.com' })).toBeInTheDocument();
     expect(screen.getAllByRole('cell', { name: 'Fruit and water' })).toHaveLength(3);
   });
+});
+
+describe('Responses tab: the slots’ values', () => {
+  /** Fruit and water on a day, at a time. */
+  function dated() {
+    stored.moreFields = [
+      { ref: 'date', label: 'Date', fieldType: 'date' },
+      { ref: 'time', label: 'Time', fieldType: 'time' },
+    ];
+    stored.moreValues = { date: '2026-05-02', time: '18:30' };
+    stored.commitments = SIGN_UPS;
+  }
+
+  it('reads as before in English, and marks nothing', async () => {
+    dated();
+    const { container } = await renderTab();
+    expect(
+      screen.getAllByRole('cell', { name: 'Fruit and water · Sat, May 2 · 6:30\u00a0PM' }),
+    ).toHaveLength(3);
+    expect(container.querySelector('[lang]')).toBeNull();
+  });
+
+  // Each language with a catalog, inside the organizer app in another one.
+  it.each(CATALOG_LOCALES)(
+    'are formatted in the signup’s language, %s, and marked with it',
+    async (signupLocale) => {
+      const organizerLocale = CATALOG_LOCALES.find((other) => other !== signupLocale)!;
+      ship('participant', CATALOG_LOCALES);
+      ship('organizer', CATALOG_LOCALES);
+      stored.signupLocale = signupLocale;
+      stored.organizerLocale = organizerLocale;
+      dated();
+      await renderTab();
+
+      const summary = [
+        'Fruit and water',
+        formatSlotDate('2026-05-02', signupLocale),
+        formatSlotTime('18:30', signupLocale),
+      ].join(' · ');
+      const cells = screen.getAllByRole('cell', { name: summary });
+      expect(cells).toHaveLength(3);
+      for (const cell of cells) expect(cell).toHaveAttribute('lang', signupLocale);
+      // A slot with nothing written in it goes by its ref, which is the
+      // signup's too.
+      expect(screen.getByRole('cell', { name: 'slot-2' })).toHaveAttribute('lang', signupLocale);
+      // A slot that's gone, and what participants gave, aren't the signup's.
+      expect(screen.getByRole('cell', { name: '—' })).not.toHaveAttribute('lang');
+      expect(screen.getByRole('cell', { name: 'Pat Example' })).not.toHaveAttribute('lang');
+      expect(screen.getByRole('cell', { name: 'pat@example.com' })).not.toHaveAttribute('lang');
+    },
+  );
+
+  it.each(CATALOG_LOCALES)(
+    'aren’t marked when the signup is in the organizer’s language, %s',
+    async (locale) => {
+      ship('participant', CATALOG_LOCALES);
+      ship('organizer', CATALOG_LOCALES);
+      stored.signupLocale = locale;
+      stored.organizerLocale = locale;
+      dated();
+      const { container } = await renderTab();
+      expect(
+        screen.getAllByRole('cell', {
+          name: `Fruit and water · ${formatSlotDate('2026-05-02', locale)} · ${formatSlotTime('18:30', locale)}`,
+        }),
+      ).toHaveLength(3);
+      expect(container.querySelector('[lang]')).toBeNull();
+    },
+  );
 });
 
 describe('Responses tab: nobody signed up', () => {
