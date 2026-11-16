@@ -149,6 +149,24 @@ for (const stored of STORED) {
       await expect(here).toHaveText(crumbs('newSignup'));
     });
 
+    test(`gets ${locale} on <html lang>, and the sign-in pages the site’s`, async ({ page }) => {
+      const html = page.locator('html');
+      // The page itself, which screen readers and browser translation read,
+      // and what anything outside the screens' own marks falls back to.
+      await page.goto('/app');
+      await expect(html, unshippedHint).toHaveAttribute('lang', locale);
+
+      // The sign-in pages are in the site default, else English, whoever is
+      // signed in, as their text is: this server sets no DEFAULT_LOCALE, and
+      // the check page reads no session.
+      await page.goto('/login/check');
+      await expect(html).toHaveAttribute('lang', 'en');
+      // It moves on once it sees the session, to the organizer app's own root
+      // layout, so the whole page loads, in the organizer's language.
+      await page.waitForURL(/\/app$/);
+      await expect(html, unshippedHint).toHaveAttribute('lang', locale);
+    });
+
     test(`sees account Settings and Connected apps in ${locale}`, async ({ page }) => {
       const settings = messagesIn(locale, 'organizer.settings');
       const apps = messagesIn(locale, 'organizer.connectedApps');
@@ -207,6 +225,7 @@ for (const stored of STORED) {
         'OAUTH_STATIC_CLIENTS has no "e2e-client": set it as in .env.example',
       );
       await expect(page).toHaveURL(/\/oauth\/consent\//);
+      await expect(page.locator('html'), unshippedHint).toHaveAttribute('lang', locale);
       const permissions = page.getByRole('heading', { level: 2 });
       await expect(permissions).toHaveText(consent('permissions'));
       expect(await languageOf(permissions), unshippedHint).toBe(locale);
@@ -330,8 +349,8 @@ for (const stored of STORED) {
       await onScreen(page.getByRole('button', { name: share('button') })).click();
       const panel = page.getByRole('dialog', { name: share('heading.later') });
       await expect(panel).toBeVisible();
-      // A phone's sheet sits outside the page's wrapper, under <html lang> (#938).
-      if (!phone) expect(await languageOf(panel), unshippedHint).toBe(locale);
+      // A phone's sheet sits outside the page's wrapper, so it's <html lang>'s.
+      expect(await languageOf(panel), unshippedHint).toBe(locale);
       await expect(panel.getByText(share(phone ? 'lead.phone' : 'lead.desktop'))).toBeVisible();
       await expect(panel.getByRole('button', { name: share('copyLink') })).toBeVisible();
       await expect(
