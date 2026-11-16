@@ -43,9 +43,15 @@ How it looks in place, under `<repo root>/translation-review/`:
   the hidden preview text just before `<body>`. The sign-in email is there
   too, as `magic-link` and `magic-link-<code>`: it's organizer text
   (`auth.email`), in the language of the account it goes to.
-- For organizer text: <where the translator saved the organizer screens this
-  change touches, at desktop and phone width>. An organizer's screens are in
-  the language stored on their account.
+- `<code>/screens/chromium/organizer-*.png` and the same in
+  `chromium-phone/`: the organizer screens, for an account that stores the
+  language, named for what they show (`organizer-your-signups`,
+  `organizer-new-signup`, `organizer-build`, `organizer-build-slot-editor`,
+  `organizer-build-fields`, `organizer-share-panel`,
+  `organizer-signup-settings-saved`, `organizer-responses`,
+  `organizer-settings`, `organizer-consent` …). An organizer's screens are in
+  the language stored on their account. <Any other organizer screens the
+  translator saved by hand, and where.>
 
 Some messages show in no screenshot, because they're only in a tab's title, a
 link preview, what a screen reader says, or what a button hands to another
@@ -65,7 +71,10 @@ app:
   sheet gets) and `participant.dialog.calendarDescription` (the calendar
   file's description);
 - `common.footer`: the footer under participant pages is still English, so
-  its translation shows nowhere yet.
+  its translation shows nowhere yet;
+- `organizer.settings.language`: account Settings shows its language choice,
+  and the button that switches open signups to it, only once a second
+  language has shipped, so neither is in a screenshot yet.
 
 Judge those, and any other message no screenshot shows, from its key, its
 English and the messages beside it.

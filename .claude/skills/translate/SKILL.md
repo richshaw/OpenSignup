@@ -143,17 +143,23 @@ Playwright at the Chromium installed there. The command writes, under
 `translation-review/` (gitignored):
 
 - `<language>/screens/chromium/*.png` and `<language>/screens/chromium-phone/*.png`:
-  each participant screen and state the Swedish e2e spec checks, at desktop
-  and phone width;
+  each participant screen and state the Swedish e2e spec checks, and each
+  organizer screen (`organizer-*.png`) the organizer-language and Build tab
+  specs check for an account that stores the language, at desktop and phone
+  width;
 - `en/emails/*.html` and `<language>/emails/*.html`, with a `.txt` of each
   that starts with the email's subject: every participant email and the
   sign-in email, from `scripts/lib/email-samples.ts`.
 
-It covers only participant screens and emails until its spec covers organizer
-screens. For organizer text, take the screens the batch changes by hand, at
-desktop and phone width, from an account that stores the language (as
-`createOrganizerIn` in `tests/e2e/helpers/organizer-language.ts` makes one),
-and tell the reviewer where they are.
+The organizer screens are Your signups, New signup (the form, and Magic
+Compose where `LLM_BASE_URL` is set), the Build tab (a draft, Publish's check, a closed signup, an AI draft,
+the slot editor and the Fields dialog), the share chip and panel, a signup's
+Settings tab, Responses and its remove flow, the Preview banner, the strip on
+the signup's own page, account Settings, Connected apps and the consent
+screen. For an organizer screen a batch changes that isn't among them, take it
+by hand at desktop and phone width, from an account that stores the language
+(as `createOrganizerIn` in `tests/e2e/helpers/organizer-language.ts` makes
+one), and tell the reviewer where it is.
 
 Open a few of the images yourself first, to be sure they show what they say.
 If a spec fails on `rate_limited` after several runs in an hour, empty the

@@ -7,6 +7,7 @@ import { loginAsSeededOrganizer } from './helpers/auth';
 import { datedSignupIn, type DatedSignup } from './helpers/dated-signup';
 import { loadSeed } from './helpers/fixtures';
 import { createOrganizerIn, type OrganizerIn } from './helpers/organizer-language';
+import { translationShot } from './helpers/translation-shots';
 
 const seed = loadSeed();
 const { groups } = seed.swedishBuild;
@@ -220,6 +221,17 @@ for (const signupLocale of CATALOG_LOCALES) {
     let signup: DatedSignup;
     const unshippedHint = `start the server with E2E_UNSHIPPED_LOCALES=${CATALOG_LOCALES.filter((l) => l !== 'en').join(',')}`;
 
+    /**
+     * Saves what's on the page for a translation's review when
+     * TRANSLATION_SCREENSHOTS=1 (`pnpm translation:screenshots`), where the
+     * organizer's language isn't English, and does nothing otherwise.
+     */
+    const shot = async (page: Page, name: string, options?: { sheet?: boolean }) => {
+      if (organizerLocale !== 'en') {
+        await translationShot(page, organizerLocale, `organizer-${name}`, options);
+      }
+    };
+
     test.beforeAll(async () => {
       organizer = await createOrganizerIn(
         organizerLocale === 'en' ? null : organizerLocale,
@@ -256,6 +268,7 @@ for (const signupLocale of CATALOG_LOCALES) {
       }
       const fields = page.getByRole('button', { name: t('rail.fields', { count: 3 }) });
       expect(await languageOf(fields), unshippedHint).toBe(organizerLocale);
+      await shot(page, 'build');
 
       // A slot's editor: its fields' names are the signup's, and so are the
       // times to choose from.
@@ -272,6 +285,7 @@ for (const signupLocale of CATALOG_LOCALES) {
       expect(await languageOf(editor.getByRole('button', { name: t('editor.done') }))).toBe(
         organizerLocale,
       );
+      await shot(page, 'build-slot-editor');
       await editor.getByRole('button', { name: t('editor.done') }).click();
 
       // The Fields dialog, in the organizer's language, its fields' names in
@@ -287,6 +301,7 @@ for (const signupLocale of CATALOG_LOCALES) {
           }),
         ).toHaveAttribute('lang', signupLocale);
       }
+      await shot(page, 'build-fields', { sheet: true });
       expect(errors).toEqual([]);
     });
 

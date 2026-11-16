@@ -14,7 +14,8 @@ glossary is at the end.
 Translations are made and checked by machine. Nobody is paid to translate, so
 a Claude session translates with the `translate` skill
 (`.claude/skills/translate/SKILL.md`), and a different model reviews the result
-from screenshots of the participant screens and the rendered emails.
+from screenshots of the participant and organizer screens and the rendered
+emails.
 Corrections from people who speak the language are welcome as pull requests.
 
 ## Where the words live
@@ -593,7 +594,8 @@ translator. Each one is made and checked the same way:
    today's English.
 2. The checks above pass.
 3. A different model from the translator's reviews the result in context:
-   screenshots of the participant screens and states, and every email's HTML.
+   screenshots of the participant and organizer screens and states, and every
+   email's HTML.
    It checks meaning against the English, the glossary, the tone, natural word
    order and plurals, and text too long for its place.
 4. The translator fixes what the review finds, and the pull request lists
@@ -609,7 +611,9 @@ It sets `TRANSLATION_SCREENSHOTS=1`, which makes the email tests write each
 email's HTML and plain text, in English and Swedish, with the subject on the
 text's first line, and makes the Swedish e2e specs save a screenshot of each
 screen and state they check, on a desktop and at a phone's width (390
-pixels). Everything goes to `translation-review/`, which git ignores. Without
+pixels): the participant screens from `swedish-signup.spec.ts`, and the
+organizer screens, named `organizer-…`, from `organizer-language.spec.ts` and
+`build-tab-language.spec.ts`, for an account that stores the language. Everything goes to `translation-review/`, which git ignores. Without
 the flag the tests write nothing, so CI is unaffected. In Claude's cloud
 container, Playwright's own Chromium isn't installed: add
 `-c .claude/skills/run-opensignup/playwright.container.config.ts`.
@@ -623,7 +627,9 @@ site's language, which can't be Swedish until Swedish ships. And the spec
 doesn't reach a few rarer states: a cancelled spot whose slot has since filled
 or closed, someone the organizer took off a slot or moved, someone signed up
 for more than one slot, the edit page's errors when cancelling, and copying
-the link.
+the link. On the organizer's side, account Settings shows its language choice
+and the button that switches open signups to it only once a second language
+has shipped, so neither has a screenshot yet.
 
 ## Swedish glossary
 
