@@ -13,7 +13,7 @@ export { pickPrimaryField, renderFieldValue } from '@/lib/slot-label';
 /**
  * A group's heading: the group field's value, or "(no date)" for the slots
  * that have none. The field's label goes into that message whole, so a
- * language can word it to suit the noun ("({label} saknas)") rather than
+ * language can word it to suit the noun ("(utan {label})") rather than
  * agree an article with it.
  */
 export function formatGroupLabel(
