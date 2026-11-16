@@ -463,7 +463,6 @@ describe('signup write tools on Postgres', () => {
       'allowNotes',
       'showWhoSignedUp',
       'confirmationMessage',
-      'locale',
     ]) {
       expect(cl.signup.settings, key).not.toHaveProperty(key);
     }
@@ -472,7 +471,6 @@ describe('signup write tools on Postgres', () => {
       { allowNotes: false },
       { showWhoSignedUp: false },
       { confirmationMessage: 'See you there' },
-      { locale: 'en' },
     ]) {
       const refused = await client.callTool({
         name: 'update_signup',
@@ -556,6 +554,7 @@ describe('create_signup and the signup’s language on Postgres', () => {
       arguments: { signupId: body.signup.id },
     });
     expect(body.signup).toEqual((read.structuredContent as { signup: unknown }).signup);
+    expect(body.signup).toMatchObject({ settings: { locale: 'en' } });
   });
 
   it('stores and records none without one while only English has shipped, whatever the organizer saved', async () => {
@@ -629,6 +628,115 @@ describe('create_signup and the signup’s language on Postgres', () => {
       },
     });
     expect(await count()).toBe(before);
+  });
+});
+
+describe('update_signup and the signup’s language on Postgres', () => {
+  async function createVia(client: Awaited<ReturnType<typeof connectTestClient>>) {
+    const created = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Language rota',
+        fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+        slots: [{ values: { what: 'Fruit' } }],
+      },
+    });
+    expect(created.isError, JSON.stringify(created.structuredContent)).toBeFalsy();
+    return (created.structuredContent as { signup: { id: string } }).signup.id;
+  }
+  async function stored(id: string) {
+    const [row] = await db
+      .select({ settings: signups.settings })
+      .from(signups)
+      .where(eq(signups.id, id));
+    return row!.settings as Record<string, unknown>;
+  }
+  type Shown = { signup: { settings: Record<string, unknown>; title: string } };
+
+  it('sets a shipped language, shows it back as get_signup does, and clears it on null', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const id = await createVia(client);
+    expect(await stored(id)).not.toHaveProperty('locale');
+
+    const set = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: id, settings: { locale: 'en' } },
+    });
+    expect(set.isError, JSON.stringify(set.structuredContent)).toBeFalsy();
+    expect((set.structuredContent as Shown).signup.settings).toMatchObject({ locale: 'en' });
+    expect(await stored(id)).toMatchObject({ locale: 'en', sendReminders: true });
+    const read = await client.callTool({ name: 'get_signup', arguments: { signupId: id } });
+    expect((read.structuredContent as Shown).signup.settings).toMatchObject({ locale: 'en' });
+
+    // As over REST: null clears it, and the signup is in the site's language again.
+    const cleared = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: id, settings: { locale: null } },
+    });
+    expect(cleared.isError, JSON.stringify(cleared.structuredContent)).toBeFalsy();
+    expect((cleared.structuredContent as Shown).signup.settings).not.toHaveProperty('locale');
+    expect(await stored(id)).not.toHaveProperty('locale');
+    expect(await stored(id)).toMatchObject({ sendReminders: true });
+  });
+
+  it.each(['sv', 'xx', '', 'EN', 'x'.repeat(36)])(
+    'refuses %j as the REST API does, and leaves the stored language as it was',
+    async (locale) => {
+      const client = await connectTestClient(ctx, TOOLS);
+      const id = await createVia(client);
+      await client.callTool({
+        name: 'update_signup',
+        arguments: { signupId: id, settings: { locale: 'en' } },
+      });
+      const before = await stored(id);
+      const r = await client.callTool({
+        name: 'update_signup',
+        arguments: { signupId: id, settings: { locale, sendReminders: false } },
+      });
+      expect(r.isError).toBe(true);
+      expect(r.structuredContent).toEqual({
+        error: {
+          code: 'invalid_input',
+          message: 'locale must be a language OpenSignup offers for signups',
+          field: 'settings.locale',
+          received: locale,
+          suggestion: 'leave it out, or use one of: en',
+        },
+      });
+      expect(await stored(id)).toEqual(before);
+    },
+  );
+
+  // A language stored earlier that has since left the list (here one that
+  // hasn't shipped, written straight to the row) is shown as stored, and
+  // doesn't stop changes that don't send one.
+  it('shows a stored language that has left the list, and an unrelated update keeps it', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const id = await createVia(client);
+    await db
+      .update(signups)
+      .set({ settings: { ...(await stored(id)), locale: 'sv' } })
+      .where(eq(signups.id, id));
+
+    const read = await client.callTool({ name: 'get_signup', arguments: { signupId: id } });
+    expect((read.structuredContent as Shown).signup.settings).toMatchObject({ locale: 'sv' });
+
+    const settings = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: id, settings: { sendReminders: false } },
+    });
+    expect(settings.isError, JSON.stringify(settings.structuredContent)).toBeFalsy();
+    expect((settings.structuredContent as Shown).signup.settings).toMatchObject({
+      sendReminders: false,
+      locale: 'sv',
+    });
+    const title = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: id, title: 'Language rota, renamed' },
+    });
+    expect(title.isError, JSON.stringify(title.structuredContent)).toBeFalsy();
+    expect((title.structuredContent as Shown).signup.title).toBe('Language rota, renamed');
+    expect(await stored(id)).toMatchObject({ sendReminders: false, locale: 'sv' });
   });
 });
 

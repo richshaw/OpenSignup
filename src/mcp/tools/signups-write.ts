@@ -23,11 +23,14 @@ import { defineTool } from '../registry';
 import { FIELD_GUIDE } from './guides';
 import { UNREAD_SETTINGS, signupDetail, signupWithContents, signupWithLinks } from './signups-read';
 
+/** The languages a signup may be set to, as the descriptions list them. */
+const SIGNUP_LANGUAGES = SHIPPED.participant.join(', ');
+
 export const createSignupTool = defineTool({
   name: 'create_signup',
   scope: 'signups:write',
   title: 'Create signup',
-  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see until publish_signup. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. If the result has a note instead of fields and slots, the signup was still created, and get_signup with its id returns it. The result includes links.edit to change the signup and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. locale sets the language of OpenSignup's own wording on the signup's page and in its emails to participants (the title, fields and slots stay as written). It takes a language code, one of: ${SHIPPED.participant.join(', ')}. Without it, the signup starts in the organizer's language for new signups. A value that does not fit its field, or a field with no value in any slot, makes the whole call fail with invalid_input and nothing is created, so fix the call and send it again.`,
+  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see until publish_signup. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. If the result has a note instead of fields and slots, the signup was still created, and get_signup with its id returns it. The result includes links.edit to change the signup and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. locale sets the language of OpenSignup's own wording on the signup's page and in its emails to participants (the title, fields and slots stay as written). It takes a language code, one of: ${SIGNUP_LANGUAGES}. Without it, the signup starts in the organizer's language for new signups. A value that does not fit its field, or a field with no value in any slot, makes the whole call fail with invalid_input and nothing is created, so fix the call and send it again.`,
   annotations: { readOnlyHint: false, destructiveHint: false },
   // `locale` is the tool's, not the draft's: FullDraftSchema is also Magic
   // Compose's output schema.
@@ -37,7 +40,12 @@ export const createSignupTool = defineTool({
       .min(1)
       .optional()
       .describe('Defaults to the account default workspace.'),
-    locale: z.string().optional(),
+    locale: z
+      .string()
+      .optional()
+      .describe(
+        `A language code, one of: ${SIGNUP_LANGUAGES}. Defaults to the organizer's language for new signups.`,
+      ),
   }),
   handler: async (ctx, input) => {
     const { workspaceId, locale, ...draft } = input;
@@ -100,20 +108,35 @@ export const createSignupTool = defineTool({
  * JSON Schema advertises, and a client that fills in defaults would send
  * `requireEmail: true` with an unrelated change and quietly undo the
  * organizer's choice.
+ *
+ * `locale` is taken as sent, not with the stored schema, which reads anything
+ * that isn't a short string as no language: here that would turn a value to
+ * refuse into one that clears the stored language. `updateSignup` refuses a
+ * language that hasn't shipped to participants, with the REST API's message,
+ * and `null` clears it, as over REST.
  */
-const settingsShape = SignupSettingsSchema.removeDefault().omit(UNREAD_SETTINGS).shape;
+const settingsShape = SignupSettingsSchema.removeDefault().omit({
+  ...UNREAD_SETTINGS,
+  locale: true,
+}).shape;
 type WithoutDefaults<T extends z.ZodRawShape> = {
   [K in keyof T]: T[K] extends z.ZodDefault<infer Inner> ? Inner : T[K];
 };
 const SparseSettingsSchema = z
-  .object(
-    Object.fromEntries(
+  .object({
+    ...(Object.fromEntries(
       Object.entries(settingsShape).map(([key, field]) => [
         key,
         field instanceof z.ZodDefault ? field.removeDefault() : field,
       ]),
-    ) as WithoutDefaults<typeof settingsShape>,
-  )
+    ) as WithoutDefaults<typeof settingsShape>),
+    locale: z
+      .string()
+      .nullable()
+      .describe(
+        `The language of OpenSignup's own wording on the signup's page and in its emails to participants (the title, fields and slots stay as written), as a language code, one of: ${SIGNUP_LANGUAGES}. null removes it, and the signup is then in the site's default language.`,
+      ),
+  })
   .partial()
   .strict();
 

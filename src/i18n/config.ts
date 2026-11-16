@@ -57,14 +57,15 @@ export function defaultFor(
 }
 
 /**
- * The language a signup's pages and emails are in, from its stored
+ * The language a signup's participants get, from its stored
  * `settings.locale`: that language once it has shipped to participants, else
  * the instance's language for participants (`defaultFor`). Pass the signup's
  * stored value as it is, whatever it holds, and the instance's
  * `DEFAULT_LOCALE` (`instanceDefaultLocale()` in server.ts).
  *
- * The signup's Settings tab shows its language by this rule too, so the choice
- * an organizer sees there is the one participants get. A stored value is
+ * The signup's page, the public signup API and its Settings tab all read its
+ * language by this rule, so the choice an organizer sees is the one
+ * participants get. Its emails don't follow it yet. A stored value is
  * lenient: one that is unknown, or has a catalog but hasn't shipped (or has
  * since been taken off the list), reads as the instance's language rather than
  * breaking the row it's in.

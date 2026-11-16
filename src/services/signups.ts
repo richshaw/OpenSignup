@@ -4,7 +4,7 @@ import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
 import { type CatalogLocale, SHIPPED, isShipped } from '@/i18n/config';
-import type { SignupLocaleSource } from '@/i18n/organizer';
+import type { SignupLocaleSource } from '@/i18n/organizer-locale';
 import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';

@@ -65,23 +65,27 @@ export function signupWithLinks(row: SignupRow) {
  * sign-up checks maxCommitmentsPerParticipant, and the notes box shows whatever
  * allowNotes says. The public page shows how full each slot is but never who
  * signed up, whatever showWhoSignedUp says. Nothing prints confirmationMessage.
- * Pages and emails are English whatever locale says.
  *
  * update_signup refuses them and every tool hides them, so an assistant can
  * neither report a change that never happened nor read back a value that
  * participants never meet. Stored rows still carry most of them, because
  * createSignup fills in the schema defaults. Take a key out of here in the
- * change that makes something read it.
+ * change that makes something read it, as locale left once the signup's
+ * pages read it (`signupLocale`).
  */
 export const UNREAD_SETTINGS = {
   maxCommitmentsPerParticipant: true,
   allowNotes: true,
   showWhoSignedUp: true,
   confirmationMessage: true,
-  locale: true,
 } as const satisfies Partial<Record<keyof SignupSettings, true>>;
 
-/** The settings a tool shows: everything but UNREAD_SETTINGS. */
+/**
+ * The settings a tool shows: everything but UNREAD_SETTINGS, as stored. So
+ * `locale` is the stored value, or absent when none is stored, even one that
+ * has since left the list, which participants get as the instance's language
+ * instead (`signupLocale`).
+ */
 function settingsOut(settings: SignupRow['settings']) {
   if (!settings || typeof settings !== 'object') return settings;
   return Object.fromEntries(

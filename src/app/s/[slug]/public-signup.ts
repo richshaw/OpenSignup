@@ -1,3 +1,4 @@
+import type { CatalogLocale } from '@/i18n/config';
 import { slotTimeOfDay } from '@/lib/reminder-fields';
 import { slotInLockout } from '@/lib/signup-closing';
 import { requiresEmail, sendsReminders, type StoredSignupSettings } from '@/schemas/signups';
@@ -57,6 +58,11 @@ export function toSignupViewSlots(
  * the row (workspace and organizer ids, organizer-only settings, timestamps)
  * stays on the server, and so does any column added later until someone puts
  * it here.
+ *
+ * Settings are sent as they apply, defaults filled in, so `settings.locale` is
+ * `locale`: the language the page is in, which the caller works out with
+ * `signupLocale` as the page does, never the stored value. A stored language
+ * that has left the list would otherwise name one that no participant gets.
  */
 export function toPublicSignup(
   signup: SourceSignup & {
@@ -68,6 +74,7 @@ export function toPublicSignup(
     closesAt: Date | null;
     committedBySlot: Record<string, number>;
   },
+  locale: CatalogLocale,
 ) {
   return {
     slug: signup.slug,
@@ -80,6 +87,7 @@ export function toPublicSignup(
       requireEmail: requiresEmail(signup.settings),
       sendReminders: sendsReminders(signup.settings),
       groupByFieldRefs: signup.settings.groupByFieldRefs ?? [],
+      locale,
     },
     fields: signup.fields.map(({ ref, label, fieldType, config }) => ({
       ref,

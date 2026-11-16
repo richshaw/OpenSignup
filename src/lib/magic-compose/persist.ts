@@ -1,6 +1,6 @@
 import type { Db } from '@/db/client';
 import type { CatalogLocale } from '@/i18n/config';
-import type { SignupLocaleSource } from '@/i18n/organizer';
+import type { SignupLocaleSource } from '@/i18n/organizer-locale';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { log } from '@/lib/log';
 import type { Actor } from '@/lib/policy';

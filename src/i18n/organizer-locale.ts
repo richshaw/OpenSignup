@@ -15,6 +15,13 @@ import { type Audience, type CatalogLocale, isShipped } from './config';
 export type OrganizerLocaleSource = 'setting' | 'instance' | 'browser' | 'default';
 
 /**
+ * Which step chose a new signup's language: the caller, which sent one
+ * (`api`), or one of the organizer's steps (`getOrganizerLocale` in
+ * organizer.ts). `signup.created` records it next to the language.
+ */
+export type SignupLocaleSource = OrganizerLocaleSource | 'api';
+
+/**
  * The organizer's language for `audience`: the first of their saved language,
  * the instance default and their browser's top-ranked language that has
  * shipped to that audience, else English. A step whose language hasn't shipped
