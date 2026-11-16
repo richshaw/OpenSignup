@@ -5,6 +5,7 @@ import { formatSlotDate } from '@/lib/slot-label';
 import { participantErrorCopy } from '@/app/s/[slug]/participant-error';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { loadSeed } from './helpers/fixtures';
+import { expectSignupLayoutIn } from './helpers/signup-layout';
 import { gotoSwedish, remember } from './helpers/swedish';
 import { translationShot } from './helpers/translation-shots';
 
@@ -79,10 +80,8 @@ test.describe('the Swedish test signup', () => {
     );
     await expect(row(slots.full)).toContainText('Fullt');
     await expect(main.getByText(/Sign up|Full\b|signed up|spots left/)).toHaveCount(0);
-    // Until the signup's pages get a layout of their own (#628), the page
-    // around <main> stays English: <html lang> and the footer.
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    await expect(page.getByRole('navigation', { name: 'Footer' })).toBeVisible();
+    // The page around <main> too: <html lang>, og:locale and the footer.
+    await expectSignupLayoutIn(page, 'sv');
     await shot(page, 'page-open');
   });
 
@@ -660,4 +659,27 @@ test.describe('a Swedish signup that isn’t open', () => {
     await expectNoEnglish(main);
     await shot(page, 'cancelled-page-signup-closed');
   });
+});
+
+// The layout around every page of a signup (src/app/s/[slug]/layout.tsx)
+// takes the signup's language too: what the page is marked as, what link
+// previews are told, and the footer. A broken link's page, a draft's and an
+// archived signup's take it from the signup their path names.
+test.describe('the Swedish test signup’s pages, around what they show', () => {
+  for (const { name, path, status } of [
+    { name: 'its page', path: `/s/${slug}`, status: 200 },
+    { name: 'its edit page', path: editPath, status: 200 },
+    { name: 'its unsubscribe page', path: unsubscribePath, status: 200 },
+    { name: 'a broken edit link', path: badToken(editPath), status: 404 },
+    { name: 'a draft', path: `/s/${seed.swedishBuild.slug}`, status: 200 },
+    { name: 'an archived signup', path: `/s/${seed.swedishArchived.slug}`, status: 200 },
+  ]) {
+    test(`${name} is marked Swedish, tells link previews so, and has a Swedish footer`, async ({
+      page,
+    }) => {
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(status);
+      await expectSignupLayoutIn(page, 'sv');
+    });
+  }
 });
