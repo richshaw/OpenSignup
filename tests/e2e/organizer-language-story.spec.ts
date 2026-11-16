@@ -50,6 +50,9 @@ for (const locale of CATALOG_LOCALES.filter((other) => other !== 'en')) {
         .click();
       const saveNotice = messagesIn(locale, 'organizer.saveNotice');
       await expect(page.getByRole('status')).toHaveText(saveNotice('saved'));
+      // With no reload: a server action that redirects renders the whole page
+      // it goes to, its root layout included.
+      await expect(page.locator('html')).toHaveAttribute('lang', locale);
     }
 
     // Your signups.
@@ -58,6 +61,7 @@ for (const locale of CATALOG_LOCALES.filter((other) => other !== 'en')) {
     const heading = page.getByRole('heading', { level: 1, name: dashboard('title') });
     await expect(heading, unshippedHint).toBeVisible();
     expect(await languageOf(heading), unshippedHint).toBe(locale);
+    await expect(page.locator('html')).toHaveAttribute('lang', locale);
 
     // A new signup, from the form, which opens its Build tab.
     const newSignup = messagesIn(locale, 'organizer.newSignup');

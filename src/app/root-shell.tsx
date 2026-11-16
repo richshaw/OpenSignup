@@ -5,13 +5,17 @@ import { APP_ORIGIN, INSTANCE_NAME } from '@/lib/site-config';
 import { inter } from './fonts';
 import './globals.css';
 
-// What the three root layouts share: `(site)/layout.tsx` (home, help, legal),
-// `(organizer)/layout.tsx` (the organizer app, sign-in, OAuth consent) and
-// `s/[slug]/layout.tsx` (a signup's pages), plus `global-not-found.tsx`. Each
-// is a root layout so it can set `<html lang>` itself: a signup's pages in the
-// signup's language, while help and legal stay static. One layout above every
-// page couldn't see a signup's slug, and reading the request there would make
-// every page dynamic. Moving between root layouts is a full page load.
+// What the root layouts share: `(site)/layout.tsx` (home, help, legal), the
+// organizer's three, `(organizer)/app/layout.tsx` (the organizer app),
+// `(organizer)/oauth/layout.tsx` (OAuth consent) and
+// `(organizer)/login/layout.tsx` (sign-in), and `s/[slug]/layout.tsx` (a
+// signup's pages), plus `global-not-found.tsx`. Each is a root layout so it
+// can set `<html lang>` itself: the organizer's pages in the organizer's
+// language, the sign-in pages in the site's without reading a session, and a
+// signup's pages in the signup's language, while help and legal stay static.
+// One layout above every page couldn't see a signup's slug or tell sign-in
+// from the pages after it, and reading the request there would make every
+// page dynamic. Moving between root layouts is a full page load.
 
 // Kept under 160 characters so search engines don't truncate it, and over 110
 // so crawlers (Ahrefs, Screaming Frog) don't flag it as too thin.
