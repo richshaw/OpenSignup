@@ -27,7 +27,8 @@ export interface ErrorEnvelope {
     received?: unknown;
     expected?: string;
     suggestion?: string;
-    details?: Record<string, unknown>;
+    /** Attached data, and the error's `reason` when it has one (see `ErrorReason`). */
+    details?: ServiceError['details'];
   };
 }
 

@@ -214,7 +214,22 @@ describe('create_signup', () => {
       },
     });
     expect(r.isError).toBe(true);
-    expect((r.structuredContent as { error: { code: string } }).error.code).toBe('invalid_input');
+    // The whole result, as the assistant reads it: no tool's input gets a
+    // `details.reason` (those are the participant pages'), so it is what it
+    // was before reasons existed, byte for byte.
+    const error = {
+      code: 'invalid_input',
+      message: `String must contain at most ${DESCRIPTION_MAX_LENGTH} character(s)`,
+      field: 'description',
+      suggestion: 'Check the value of "description".',
+    };
+    expect(r.structuredContent).toEqual({ error });
+    expect(r.content).toEqual([
+      {
+        type: 'text',
+        text: `{"error":{"code":"invalid_input","message":"String must contain at most ${DESCRIPTION_MAX_LENGTH} character(s)","field":"description","suggestion":"Check the value of \\"description\\"."}}`,
+      },
+    ]);
     expect(svc.createSignup).not.toHaveBeenCalled();
   });
 
