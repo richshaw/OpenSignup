@@ -11,6 +11,17 @@ export interface RateLimitPolicy {
 }
 
 /**
+ * The subject a per-IP limit charges for a request whose client IP is `ip`.
+ * A request with no readable IP (neither x-forwarded-for nor x-real-ip set,
+ * or set to something that isn't a bare IP, such as one with a port) is
+ * charged to one shared bucket rather than skipping the limit, so a missing
+ * or odd header degrades to a shared cap, never to no cap at all.
+ */
+export function ipSubject(ip: string | null): string {
+  return ip ?? 'unknown';
+}
+
+/**
  * Sliding-ish fixed-window rate limit backed by Postgres.
  * Cheap and sufficient for v1. For per-IP hot paths we rely on HTTP
  * edge/CDN layer in production as well.
