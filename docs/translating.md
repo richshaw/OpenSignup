@@ -44,7 +44,14 @@ language, though the panel around it is in the organizer's.
 Organizer text is in the organizer's own language (`getOrganizerAppLocale`,
 below), and marked with it where it sits on a page in a signup's language.
 While no language but English has shipped to organizers, that's English for
-everyone. The rest of the organizer app, the landing, help and legal pages,
+everyone. The other way round, a signup's own words in the organizer app are
+in the signup's language, whatever the organizer's, and marked with it where
+the two differ (`langWhereDifferent` in `src/i18n/config.ts`): so far its title
+on Your signups, in its header and as the last crumb, and the message the
+share panel offers to send. On Preview, the tip of a disabled Sign up button
+is the organizer's: a `title` can't carry a language of its own, so screen
+readers get the tip from hidden text marked with the organizer's language
+(`aria-describedby`), while the title still shows it to a mouse. The landing, help and legal pages,
 and API error text and AI connector tool descriptions aren't in the catalogs
 at all. API errors and tool descriptions stay English on purpose:
 developers and models read them. A screen never shows an API error's `message`

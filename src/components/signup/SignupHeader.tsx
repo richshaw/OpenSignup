@@ -3,7 +3,7 @@ import { Eye } from 'lucide-react';
 import { PublicLinkChip } from '@/components/PublicLinkChip';
 import { shareText } from '@/components/share/share-text';
 import { StatusPill } from '@/components/status-pill';
-import type { CatalogLocale } from '@/i18n/config';
+import { langWhereDifferent, type CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
 import { closeSignupQuestion, spotsTakenLine, type SpotCounts } from '@/lib/spot-counts';
 import type { SignupStatus } from '@/schemas/signups';
@@ -23,6 +23,12 @@ import type { StatusAction, StatusChangeAction } from './StatusActionForm';
 interface SignupHeaderProps {
   /** The organizer's language, which all of the header's own text is in. */
   locale: CatalogLocale;
+  /**
+   * The signup's language (`signupLocale`), which its own words are in: its
+   * title, and the message the share panel offers to send. Marked as such
+   * where it isn't `locale`.
+   */
+  contentLocale: CatalogLocale;
   /** Its client components' words, from `signupHeaderText` in `locale`. */
   text: SignupHeaderText;
   signupId: string;
@@ -49,6 +55,7 @@ interface SignupHeaderProps {
 
 export function SignupHeader({
   locale,
+  contentLocale,
   text,
   signupId,
   title,
@@ -62,6 +69,8 @@ export function SignupHeader({
   reopenAction,
 }: SignupHeaderProps) {
   const t = getServerTranslator(locale, 'organizer.signup');
+  // The `lang` of the signup's own words, inside the header's.
+  const contentLang = langWhereDifferent(contentLocale, locale);
   const previewHref = `/app/signups/${signupId}/preview`;
   const closeQuestion = spots
     ? closeSignupQuestion(spots, getServerTranslator(locale, 'organizer.signup.close'))
@@ -89,11 +98,13 @@ export function SignupHeader({
       title={title}
       url={publicUrl}
       message={shareMessage}
+      messageLang={contentLang}
       text={share}
     >
       <div className="md:hidden">
         <MobileSignupHeader
           title={title}
+          titleLang={contentLang}
           status={status}
           pill={pill}
           standing={
@@ -129,6 +140,7 @@ export function SignupHeader({
                 <h1
                   tabIndex={-1}
                   data-signup-title
+                  lang={contentLang}
                   className="truncate text-2xl font-semibold tracking-tight"
                 >
                   {title}

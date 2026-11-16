@@ -28,10 +28,12 @@ function renderHeader(
   spots: SpotCounts | null = SPOTS,
   reopenAction: StatusChangeAction = async () => null,
   locale: CatalogLocale = 'en',
+  contentLocale: CatalogLocale = locale,
 ) {
   const { container } = render(
     <SignupHeader
       locale={locale}
+      contentLocale={contentLocale}
       text={signupHeaderText(getTestServerTranslator(locale, 'organizer.signup'))}
       signupId="sig_1"
       title="Bake sale helpers"
@@ -198,6 +200,53 @@ describe('SignupHeader’s status', () => {
       expect(phone.getByText(status, { exact: true })).toBeInTheDocument();
     },
   );
+});
+
+describe('SignupHeader’s title', () => {
+  it('carries no mark of its own in the organizer’s language', () => {
+    const { computer, phone } = renderHeader('open');
+    for (const header of [computer, phone]) {
+      expect(header.getByRole('heading', { level: 1 })).not.toHaveAttribute('lang');
+    }
+  });
+
+  // Each pair of a language with a catalog and another: the title is in the
+  // signup's, the header around it in the organizer's.
+  it.each(
+    CATALOG_LOCALES.flatMap((organizer) =>
+      CATALOG_LOCALES.filter((signup) => signup !== organizer).map((signup) => [organizer, signup]),
+    ),
+  )(
+    'is marked with the signup’s language on both headers, organizer %s, signup %s',
+    (organizer, signup) => {
+      const { computer, phone } = renderHeader('open', SPOTS, undefined, organizer, signup);
+      for (const header of [computer, phone]) {
+        const title = header.getByRole('heading', { level: 1 });
+        expect(title).toHaveTextContent('Bake sale helpers');
+        expect(title).toHaveAttribute('lang', signup);
+      }
+      // The header's own words stay unmarked, in the organizer's.
+      expect(computer.getByRole('link', { name: /Preview|signup\.preview/ })).not.toHaveAttribute(
+        'lang',
+      );
+    },
+  );
+
+  it('is marked in the phone’s More actions sheet too', () => {
+    const other = CATALOG_LOCALES.find((locale) => locale !== 'en') ?? 'en';
+    const { phone } = renderHeader('open', SPOTS, undefined, 'en', other);
+    fireEvent.click(phone.getByRole('button', { name: 'More actions' }));
+    const sheet = within(document.body).getByRole('dialog', { name: 'Bake sale helpers' });
+    expect(within(sheet).getByText('Bake sale helpers')).toHaveAttribute('lang', other);
+  });
+
+  it('isn’t marked in the sheet in the organizer’s language', () => {
+    const { phone } = renderHeader('open');
+    fireEvent.click(phone.getByRole('button', { name: 'More actions' }));
+    const sheet = within(document.body).getByRole('dialog', { name: 'Bake sale helpers' });
+    expect(within(sheet).getByRole('heading', { name: 'Bake sale helpers' })).toBeInTheDocument();
+    expect(sheet.querySelector('[lang]')).toBeNull();
+  });
 });
 
 describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(

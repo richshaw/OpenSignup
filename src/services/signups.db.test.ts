@@ -7,6 +7,7 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { CATALOG_LOCALES } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor, WorkspaceRole } from '@/lib/policy';
@@ -736,6 +737,14 @@ describe('signups service (db)', () => {
           throw new Error('publish failed');
         if (!(await deleteSignup(listFx.db, listFx.actor, gone.value.id)).ok)
           throw new Error('delete failed');
+        // A language stored on one, as the Settings tab stores it, and none on
+        // the other. Written straight into the row, so it's the same whichever
+        // languages have shipped.
+        const another = CATALOG_LOCALES.find((locale) => locale !== 'en') ?? 'en';
+        await listFx.db
+          .update(signups)
+          .set({ settings: { ...b.value.settings, locale: another } })
+          .where(eq(signups.id, b.value.id));
 
         for (const filter of [{}, { status: 'draft' as const }, { status: 'open' as const }]) {
           const full = await listSignupsForWorkspace(
@@ -760,6 +769,7 @@ describe('signups service (db)', () => {
               closesAt: r.closesAt,
               createdAt: r.createdAt,
               updatedAt: r.updatedAt,
+              locale: r.settings.locale ?? null,
             })),
           );
         }
@@ -776,12 +786,17 @@ describe('signups service (db)', () => {
             'closesAt',
             'createdAt',
             'id',
+            'locale',
             'slug',
             'status',
             'title',
             'updatedAt',
           ]);
         }
+        // The stored language, for Your signups to mark each title with.
+        const localeOf = (id: string) => all.value.find((r) => r.id === id)?.locale;
+        expect(localeOf(b.value.id)).toBe(another);
+        expect(localeOf(a.value.id)).toBe(a.value.settings.locale ?? null);
       } finally {
         await teardownWorkspace(listFx.db, listFx.workspaceId, listFx.organizerId);
       }

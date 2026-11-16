@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { XCircle } from 'lucide-react';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import type { CatalogLocale } from '@/i18n/config';
 import type { SignupStatus } from '@/schemas/signups';
 import { CloseSignupConfirm } from './CloseSignupConfirm';
 import { SHEET_ITEM } from './header-buttons';
@@ -16,6 +17,8 @@ type MobileMoreMenuSheetProps = {
   onClose: () => void;
   status: SignupStatus;
   title: string;
+  /** The title's `lang`: the signup's language, where it isn't the header's. */
+  titleLang?: CatalogLocale;
   /** `PhonePreviewItem`, rendered on the server. */
   previewItem: ReactNode;
   /** The words of its ✕ and its items, from the server. */
@@ -37,6 +40,7 @@ export function MobileMoreMenuSheet({
   onClose,
   status,
   title,
+  titleLang,
   previewItem,
   text,
   closeQuestion,
@@ -51,7 +55,13 @@ export function MobileMoreMenuSheet({
   const closeSignup = useAnnouncedStatusChange(closeAction, 'closed');
 
   return (
-    <BottomSheet open={open} onClose={onClose} title={title} closeLabel={text.closeSheet} compact>
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      title={titleLang ? <span lang={titleLang}>{title}</span> : title}
+      closeLabel={text.closeSheet}
+      compact
+    >
       <StatusActionScope action={closeSignup}>
         {confirming ? (
           <CloseSignupConfirm phone question={closeQuestion} onNotYet={onClose} text={text.close} />

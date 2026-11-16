@@ -305,6 +305,8 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
       />,
     );
     expect(screen.getByText(dialog('signUp'))).toHaveClass('bg-brand');
+    // The Preview's tip is only the Preview's.
+    expect(document.querySelector('[aria-describedby], [hidden]')).toBeNull();
   });
 
   it('keeps the Preview banner and the disabled button’s tip in an English organizer’s language, marked so', () => {
@@ -327,6 +329,11 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
     );
     const button = screen.getByRole('button', { name: dialog('signUpFor') });
     expect(button).toHaveAttribute('title', 'Preview: publish to enable signups');
+    // The same tip as its description, from text marked with the organizer's language.
+    expect(button).toHaveAccessibleDescription('Preview: publish to enable signups');
+    const tip = document.getElementById(button.getAttribute('aria-describedby') ?? '');
+    expect(tip).toHaveAttribute('lang', 'en');
+    expect(tip).not.toBeVisible();
   });
 
   // The organizer's, whatever the signup's: the stand-in translator answers
@@ -354,6 +361,12 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
       const button = screen.getByRole('button');
       expect(button).toHaveAttribute('title', ask('signUpDisabled'));
       expect(button).toHaveTextContent(getTestTranslator('participant.dialog')('signUp'));
+      // Its description is the tip, marked with the organizer's language,
+      // which the title can't be.
+      expect(button).toHaveAccessibleDescription(ask('signUpDisabled'));
+      const tip = document.getElementById(button.getAttribute('aria-describedby') ?? '');
+      expect(tip).toHaveAttribute('lang', other);
+      expect(tip).not.toBeVisible();
     },
   );
 

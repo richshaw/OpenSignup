@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
+import { langWhereDifferent, signupLocale } from '@/i18n/config';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator } from '@/i18n/server';
+import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
 import { publicSignupPath } from '@/lib/links';
 import { listSignupSummariesForWorkspace } from '@/services/signups';
 import { StatusPill } from '@/components/status-pill';
@@ -32,6 +33,8 @@ export default async function DashboardPage() {
   }
   const result = await listSignupSummariesForWorkspace(getDb(), actor, workspaceId);
   const rows = result.ok ? result.value : [];
+  // A title is in its signup's language, which may not be the organizer's.
+  const instanceDefault = instanceDefaultLocale();
 
   return (
     <div className="space-y-6">
@@ -69,7 +72,12 @@ export default async function DashboardPage() {
               >
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{r.title}</p>
+                    <p
+                      lang={langWhereDifferent(signupLocale(r.locale, instanceDefault), locale)}
+                      className="truncate font-medium"
+                    >
+                      {r.title}
+                    </p>
                     {/* A draft's address only says it isn't ready yet, so there's
                         nothing to send until it's published. */}
                     {r.status === 'draft' ? (

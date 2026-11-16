@@ -120,6 +120,9 @@ type SignupViewProps = SignupViewCommonProps &
       }
   );
 
+/** The Preview's tip, which describes each disabled Sign up button. One per page. */
+const PREVIEW_TIP_ID = 'preview-sign-up-tip';
+
 interface SlotGroup {
   key: string;
   label: string;
@@ -359,14 +362,17 @@ export function SignupViewBody(props: SignupViewProps) {
                             {full ? t('full') : t('closed')}
                           </span>
                         ) : preview ? (
-                          // The tip is the organizer's, in their language,
-                          // but a title can't carry a language of its own:
-                          // the button's name and text are the participants'.
+                          // The button's name and text are the participants',
+                          // in the signup's language. Its tip is the
+                          // organizer's: a mouse gets it from `title`, which
+                          // can't carry a language of its own, and screen
+                          // readers from PREVIEW_TIP_ID, which does.
                           <button
                             type="button"
                             disabled
                             title={preview.t('signUpDisabled')}
                             aria-label={tDialog('signUpFor', { slot: actionName })}
+                            aria-describedby={PREVIEW_TIP_ID}
                             className={`${ACTION_SIZING} cursor-not-allowed bg-brand font-medium text-white opacity-60`}
                           >
                             {tDialog('signUp')}
@@ -404,6 +410,14 @@ export function SignupViewBody(props: SignupViewProps) {
           </section>
         ))}
       </div>
+      {preview ? (
+        // The disabled Sign up buttons' tip, as their description: in the
+        // organizer's language and marked with it, which their `title`
+        // can't be. Hidden, since a mouse gets the same words from the title.
+        <p id={PREVIEW_TIP_ID} lang={preview.locale} hidden>
+          {preview.t('signUpDisabled')}
+        </p>
+      ) : null}
     </>
   );
   if (mode !== 'live') return view;
