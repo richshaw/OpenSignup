@@ -10,8 +10,8 @@ import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
-import { signupLocale, type CatalogLocale } from '@/i18n/config';
-import { instanceDefaultLocale } from '@/i18n/server';
+import type { CatalogLocale } from '@/i18n/config';
+import { localeOfSignup } from '@/i18n/locale';
 import { joinCommitmentTables } from '@/jobs/notify-rules';
 import { slotDetails, type SlotDetail } from '@/lib/slot-label';
 import { summarizeSlotValues } from '@/lib/slot-summary';
@@ -71,7 +71,7 @@ export async function alreadyRecorded(
  * page its participant signed up on.
  */
 export function emailLocale(signup: { settings: StoredSignupSettings }): CatalogLocale {
-  return signupLocale(signup.settings.locale, instanceDefaultLocale());
+  return localeOfSignup(signup.settings.locale);
 }
 
 /**

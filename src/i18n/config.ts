@@ -48,6 +48,45 @@ export function isShipped(audience: Audience, value: unknown): value is CatalogL
 }
 
 /**
+ * Which step of `resolveLocale` chose a language, in the order they're tried:
+ * the stored language, the instance's `DEFAULT_LOCALE`, or English.
+ * `signup.created` records it, so don't rename the values.
+ */
+type LocaleSource = 'setting' | 'instance' | 'default';
+
+/**
+ * Which step chose a new signup's language: one of `resolveLocale`'s, or the
+ * caller, which sent one (`api`). `signup.created` records it next to the
+ * language.
+ */
+export type SignupLocaleSource = LocaleSource | 'api';
+
+/**
+ * The rule for which language anybody gets: `stored` once it has shipped to
+ * `audience`, else `siteDefault` (the instance's `DEFAULT_LOCALE`) once that
+ * has, else English. Every page, email and new signup takes its language by
+ * this rule, through the functions in ./locale.ts, which pass what's stored
+ * on the signup or the account and read the site default.
+ *
+ * `stored` is read leniently: a value that is unknown, or has a catalog but
+ * hasn't shipped (or has since been taken off the list), is passed over
+ * rather than breaking the row it's in. An operator who sets a site default
+ * before it ships to an audience gets English there, not half-translated
+ * pages. Nothing here reads the browser: a language is stored once, when an
+ * account or a signup is created, and changed in Settings, never worked out
+ * again on a visit.
+ */
+export function resolveLocale(
+  audience: Audience,
+  stored: unknown,
+  siteDefault: CatalogLocale | undefined,
+): { locale: CatalogLocale; source: LocaleSource } {
+  if (isShipped(audience, stored)) return { locale: stored, source: 'setting' };
+  if (isShipped(audience, siteDefault)) return { locale: siteDefault, source: 'instance' };
+  return { locale: 'en', source: 'default' };
+}
+
+/**
  * The language for `audience` when nothing more specific applies: the
  * instance's `DEFAULT_LOCALE` when it has shipped to that audience, else
  * English. An operator who sets a language before it ships gets English pages
@@ -57,7 +96,7 @@ export function defaultFor(
   audience: Audience,
   instanceDefault: CatalogLocale | undefined,
 ): CatalogLocale {
-  return isShipped(audience, instanceDefault) ? instanceDefault : 'en';
+  return resolveLocale(audience, undefined, instanceDefault).locale;
 }
 
 /**
@@ -82,9 +121,9 @@ export function signupLocale(
   stored: unknown,
   instanceDefault: CatalogLocale | undefined,
 ): CatalogLocale {
-  return isShipped('participant', stored) || isShownToTests(stored)
+  return isShownToTests(stored)
     ? stored
-    : defaultFor('participant', instanceDefault);
+    : resolveLocale('participant', stored, instanceDefault).locale;
 }
 
 /**
@@ -103,9 +142,9 @@ export function organizerAppLocale(
   stored: unknown,
   instanceDefault: CatalogLocale | undefined,
 ): CatalogLocale {
-  return isShipped('organizer', stored) || isShownToTests(stored)
+  return isShownToTests(stored)
     ? stored
-    : defaultFor('organizer', instanceDefault);
+    : resolveLocale('organizer', stored, instanceDefault).locale;
 }
 
 /**
