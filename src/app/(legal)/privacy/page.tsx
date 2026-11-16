@@ -32,7 +32,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 31 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 14 November 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -87,6 +87,10 @@ export default function PrivacyPage() {
         <ul className="list-disc space-y-1 pl-6">
           <li>Email address (used to send magic-link sign-in emails).</li>
           <li>Optional display name and organization name.</li>
+          <li>
+            The language you choose for your new signups, if you choose one in your account&apos;s
+            Settings.
+          </li>
           <li>
             If your account was created by signing in with a third-party provider such as Google,
             the web address of the profile picture that provider returned.
