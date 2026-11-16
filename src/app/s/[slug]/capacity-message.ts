@@ -34,6 +34,37 @@ interface ApiErrorLike {
 }
 
 /**
+ * Where the server points a participant whose slot filled up mid-sign-up.
+ *
+ * Mirrors `SlotAlternative` in `services/commitments.ts`, which cannot be
+ * imported here: that module pulls in the database layer, and this one runs in
+ * the browser.
+ */
+export interface SlotAlternative {
+  id: string;
+  ref: string;
+  slotAt: string | null;
+}
+
+/**
+ * Whether this error should point the participant at other slots at all.
+ *
+ * Both the copy ("Pick another slot.") and the dialog's "See alternatives"
+ * link answer this question, so the answer lives here once. It used to be
+ * written twice, and the two copies disagreed: the link skipped the error-code
+ * check and compared `remaining === 0` where the copy compared `<= 0`, so a
+ * negative `remaining` offered the words but not the link.
+ */
+export function offersAlternatives(error: ApiErrorLike | null | undefined): boolean {
+  if (error?.code !== 'capacity_full') return false;
+  const remaining = error.details?.remaining;
+  if (typeof remaining !== 'number' || !Number.isFinite(remaining)) return false;
+  if (remaining > 0) return false;
+  const alternatives = error.details?.alternatives;
+  return Array.isArray(alternatives) && alternatives.length > 0;
+}
+
+/**
  * Returns null for any other error, or a `capacity_full` without the numbers,
  * so callers fall back to the server's text rather than guess.
  */
@@ -51,8 +82,7 @@ export function capacityMessage(
     if (remaining <= 0) {
       // Only point at other slots when the server found some; with none open,
       // "Pick another slot." would send the participant looking for nothing.
-      const alternatives = error.details?.alternatives;
-      return Array.isArray(alternatives) && alternatives.length > 0
+      return offersAlternatives(error)
         ? { message: 'Sorry, this slot just filled up.', suggestion: 'Pick another slot.' }
         : { message: 'Sorry, this slot just filled up.' };
     }
