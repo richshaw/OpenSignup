@@ -1,11 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
+import { getOrganizerLocale } from '@/i18n/organizer';
 import { refusalAsResult } from '@/lib/errors';
 import { updateOrganizerLocale } from '@/services/organizers';
+import { setOpenSignupsLocale } from '@/services/signups';
 
 const SETTINGS_PATH = '/app/settings';
 
@@ -25,4 +28,37 @@ export async function setOrganizerLocaleAction(formData: FormData) {
   if (!result.ok) redirect(`${SETTINGS_PATH}?error=${result.error.code}`);
   revalidatePath(SETTINGS_PATH);
   redirect(`${SETTINGS_PATH}?saved=language`);
+}
+
+/**
+ * Account Settings' "Switch your 3 open signups to Svenska". Puts the
+ * signed-in organizer's open signups (`setOpenSignupsLocale` says which count)
+ * in the language the page offers: theirs for new signups, worked out here as
+ * the page does (`getOrganizerLocale`). It reads nothing from the form, which
+ * sends nothing, so a forged one can't name another language, or anyone
+ * else's signups.
+ *
+ * Comes back with `switched=1`, a flag: the page then says how many open
+ * signups use the language, from what's stored, once none is left in another
+ * one. A press that finds none left changes nothing and stays where it is: so
+ * the second tap of a double tap, which waits for the first, leaves the first
+ * one's answer on the page. A refusal comes back by its code, as above.
+ */
+export async function switchOpenSignupsLocaleAction(_form: FormData) {
+  const session = await requireOrganizerSession();
+  const { locale } = getOrganizerLocale(
+    session,
+    (await headers()).get('accept-language'),
+    'participant',
+  );
+  const result = await refusalAsResult(() =>
+    setOpenSignupsLocale(getDb(), toActor(session), locale),
+  );
+  if (!result.ok) redirect(`${SETTINGS_PATH}?error=${result.error.code}`);
+  const { signupIds } = result.value;
+  for (const signupId of signupIds) {
+    revalidatePath(`/app/signups/${signupId}`, 'layout');
+  }
+  revalidatePath(SETTINGS_PATH);
+  if (signupIds.length > 0) redirect(`${SETTINGS_PATH}?switched=1`);
 }

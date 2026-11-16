@@ -1,12 +1,14 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { requireOrganizerSession, type OrganizerSession } from '@/auth/session';
+import { requireOrganizerSession, toActor, type OrganizerSession } from '@/auth/session';
 import { FormError } from '@/components/ui/form-error';
 import { SAVE_ERROR_MESSAGE, SavedNotice } from '@/components/ui/save-notice';
+import { getDb } from '@/db/client';
 import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
 import { getOrganizerLocale } from '@/i18n/organizer';
-import type { ErrorCode } from '@/lib/errors';
-import { setOrganizerLocaleAction } from './actions';
+import { type ErrorCode, refusalAsResult } from '@/lib/errors';
+import { openSignupsToSwitch } from '@/services/signups';
+import { setOrganizerLocaleAction, switchOpenSignupsLocaleAction } from './actions';
 
 export const metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
@@ -26,12 +28,15 @@ const SECTIONS = [
   },
 ] as const;
 
-type PageProps = { searchParams: Promise<{ error?: string; saved?: string }> };
+type PageProps = {
+  searchParams: Promise<{ error?: string; saved?: string; switched?: string }>;
+};
 
 export default async function SettingsPage({ searchParams }: PageProps) {
-  const { error, saved } = await searchParams;
+  const { error, saved, switched } = await searchParams;
   const session = await requireOrganizerSession();
   const acceptLanguage = (await headers()).get('accept-language');
+  const openSignups = await openSignupsInAnotherLanguage(session, acceptLanguage);
 
   return (
     <section className="space-y-6">
@@ -64,9 +69,36 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         acceptLanguage={acceptLanguage}
         error={error}
         saved={saved === 'language'}
+        openSignups={openSignups}
+        switched={switched === '1'}
       />
     </section>
   );
+}
+
+/** How many open signups an organizer has, and how many of those are in another language. */
+interface OpenSignupCounts {
+  open: number;
+  toSwitch: number;
+}
+
+/**
+ * The organizer's open signups (`openSignupsToSwitch` says which count): how
+ * many there are, and how many aren't in their language for new signups,
+ * which "Switch your 3 open signups to Svenska" offers to change. One
+ * statement on each visit once a second language has shipped to participants;
+ * until then none, and no statement.
+ */
+async function openSignupsInAnotherLanguage(
+  session: OrganizerSession,
+  acceptLanguage: string | null,
+): Promise<OpenSignupCounts> {
+  if (SHIPPED.participant.length < 2) return { open: 0, toSwitch: 0 };
+  const { locale } = getOrganizerLocale(session, acceptLanguage, 'participant');
+  const read = await refusalAsResult(() => openSignupsToSwitch(getDb(), toActor(session), locale));
+  return read.ok
+    ? { open: read.value.open, toSwitch: read.value.toSwitch.length }
+    : { open: 0, toSwitch: 0 };
 }
 
 /**
@@ -77,12 +109,22 @@ export default async function SettingsPage({ searchParams }: PageProps) {
  * (English, Svenska), so the organizer finds theirs whatever language the
  * rest of the page is in. Its Save is a plain button, as Sign out is, so the
  * page loads no script of its own.
+ *
+ * Under it, while some of the organizer's open signups are in another
+ * language, a button that switches them to this one (#639), and once it has,
+ * how many of their open signups now use it, in the place of "Saved". Both
+ * are plain HTML too: nothing
+ * appears after the language's own Save, and nothing moves or takes the
+ * focus. The button is gone once they're switched, so a second tap finds
+ * nothing to press.
  */
 function OrganizerLanguageForm({
   session,
   acceptLanguage,
   error,
   saved,
+  openSignups,
+  switched,
 }: {
   session: OrganizerSession;
   /** The request's `Accept-Language` header, if it has one. */
@@ -91,6 +133,10 @@ function OrganizerLanguageForm({
   error: string | undefined;
   /** Whether this form just saved. */
   saved: boolean;
+  /** How many open signups the organizer has, and how many are in another language. */
+  openSignups: OpenSignupCounts;
+  /** Whether the switch just ran: the address's `switched=1`, a flag. */
+  switched: boolean;
 }) {
   const languages: readonly CatalogLocale[] = SHIPPED.participant;
   if (languages.length < 2) return null;
@@ -104,6 +150,7 @@ function OrganizerLanguageForm({
     error && Object.hasOwn(SAVE_ERROR_MESSAGE, error)
       ? SAVE_ERROR_MESSAGE[error as ErrorCode]
       : null;
+  const name = <span lang={current}>{languageName(current)}</span>;
 
   return (
     <div className="space-y-4 rounded-xl border border-surface-sunk bg-white px-5 py-4">
@@ -142,6 +189,26 @@ function OrganizerLanguageForm({
           {saved ? <SavedNotice role="status" /> : null}
         </div>
       </form>
+      {openSignups.toSwitch > 0 ? (
+        <form action={switchOpenSignupsLocaleAction} className="border-t border-surface-sunk pt-4">
+          <button
+            type="submit"
+            className="rounded-lg border border-surface-sunk bg-white px-4 py-2 text-sm font-medium transition hover:bg-surface-raised"
+          >
+            Switch your {openSignups.toSwitch} open{' '}
+            {openSignups.toSwitch === 1 ? 'signup' : 'signups'} to {name}
+          </button>
+        </form>
+      ) : switched && openSignups.open > 0 ? (
+        // Once none is left in another language, with the count from what's
+        // stored: the address says only that the switch ran.
+        <div className="border-t border-surface-sunk pt-4">
+          <SavedNotice role="status">
+            Saved. Your {openSignups.open} open{' '}
+            {openSignups.open === 1 ? 'signup now uses' : 'signups now use'} {name}.
+          </SavedNotice>
+        </div>
+      ) : null}
     </div>
   );
 }

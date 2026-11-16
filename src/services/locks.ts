@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import type { Db, Queryable, Tx } from '@/db/client';
 import type { activity } from '@/db/schema/activity';
 import type { commitments } from '@/db/schema/commitments';
@@ -8,6 +8,7 @@ import { slots } from '@/db/schema/slots';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { requireWorkspaceAccess, requireWorkspaceWrite, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
+import type { SignupStatus } from '@/schemas/signups';
 
 /**
  * `workspace_id = ?`, where null matches only rows with no workspace, such as
@@ -173,6 +174,62 @@ export async function lockSignupForWrite(tx: Tx, signupId: string, workspaceId: 
     .for('no key update')
     .limit(1);
   return row;
+}
+
+/**
+ * Some of one organizer's signups, for a change made to all of them at once:
+ * the live ones (a deleted one is gone, as above) that `organizerId` made,
+ * with status `status`, in `workspaceIds`. Another member's signups in a
+ * shared workspace aren't among them. The caller passes only workspaces it has
+ * judged the actor against (`requireWorkspaceWrite` for a write), so every
+ * row is scoped to a workspace the actor was cleared for, like every other
+ * tenant-table query.
+ */
+interface OrganizersSignups {
+  organizerId: string;
+  workspaceIds: readonly string[];
+  status: SignupStatus;
+}
+
+function organizersSignupsWhere({ organizerId, workspaceIds, status }: OrganizersSignups) {
+  return and(
+    eq(signups.organizerId, organizerId),
+    inArray(signups.workspaceId, [...workspaceIds]),
+    eq(signups.status, status),
+    isNull(signups.deletedAt),
+  );
+}
+
+const organizersSignupColumns = {
+  id: signups.id,
+  workspaceId: signups.workspaceId,
+  settings: signups.settings,
+};
+
+/** `OrganizersSignups`, read without a lock, in id order. */
+export async function readOrganizersSignups(db: Queryable, which: OrganizersSignups) {
+  return db
+    .select(organizersSignupColumns)
+    .from(signups)
+    .where(organizersSignupsWhere(which))
+    .orderBy(asc(signups.id));
+}
+
+/**
+ * `OrganizersSignups`, each row locked as `lockSignupForWrite` locks one, and
+ * read under the lock: a signup deleted, or moved off `status`, while this
+ * waited is left out, since Postgres checks a waiting row against the whole
+ * condition again once it's free. In id order, so two of these for the same
+ * organizer lock in the same order and can't deadlock; a single-signup write
+ * locks one signup row and then only slots, which this takes none of.
+ */
+export async function lockOrganizersSignupsForWrite(tx: Tx, which: OrganizersSignups) {
+  return tx
+    .select(organizersSignupColumns)
+    .from(signups)
+    .where(organizersSignupsWhere(which))
+    .orderBy(asc(signups.id))
+    .for('no key update');
 }
 
 /**
