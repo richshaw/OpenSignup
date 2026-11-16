@@ -28,6 +28,10 @@ const TRANSLATED_FILES = [
   'src/app/s/[slug]/not-found.tsx',
   'src/app/s/[slug]/commit-dialog.tsx',
   'src/app/s/[slug]/participant-fields.tsx',
+  'src/app/s/[slug]/c/[id]/page.tsx',
+  'src/app/s/[slug]/c/[id]/edit-form.tsx',
+  'src/app/s/[slug]/c/[id]/not-found.tsx',
+  'src/app/s/[slug]/unsubscribe/page.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
@@ -114,6 +118,7 @@ const TEXT_PROPS = [
   'actionName',
   'slotName',
   'slotContext',
+  'error',
   'closeLabel',
   'dismissLabel',
   'ariaLabel',
@@ -210,9 +215,10 @@ describe('where the rules apply', () => {
     expect(await lint('<p>Sign up</p><button aria-label="Close" />', file)).toHaveLength(2);
   });
 
-  // Listed too, though they hold no JSX for the rules to read, so the list
-  // stays the list of what has moved.
+  // On too, though they hold no JSX for the rules to read: the whole of the
+  // signup's folder has moved.
   it.each([
+    'src/app/s/[slug]/cancelled-message.ts',
     'src/app/s/[slug]/capacity-message.ts',
     'src/app/s/[slug]/closed-message.ts',
     'src/app/s/[slug]/conflict-message.ts',
@@ -225,15 +231,13 @@ describe('where the rules apply', () => {
     for (const rule of RULES) expect(rules[rule]?.[0], rule).toBe(2);
   });
 
-  // Listed file by file, so the parts of the folder whose text hasn't moved
-  // yet stay out.
-  it.each([
-    'src/app/s/[slug]/c/[id]/page.tsx',
-    'src/app/s/[slug]/c/[id]/edit-form.tsx',
-    'src/app/s/[slug]/c/[id]/not-found.tsx',
-    'src/app/s/[slug]/unsubscribe/page.tsx',
-  ])('are off for %s, which is still to move', async (file) => {
-    expect(await lint('<p>Sign up</p><button aria-label="Close" />', file)).toEqual([]);
+  // The signup's folder is listed whole, so a file added there later is
+  // checked from the start, and its tests are still left out.
+  it('are on for a new file in the signup’s folder, and off for its tests', async () => {
+    expect(
+      await lint('<p>Sign up</p><button aria-label="Close" />', 'src/app/s/[slug]/c/[id]/new.tsx'),
+    ).toHaveLength(2);
+    expect(await lint('<p>Sign up</p>', 'src/app/s/[slug]/unsubscribe/page.test.tsx')).toEqual([]);
   });
 
   // A test's English fixtures are what it checks. A file listed on its own

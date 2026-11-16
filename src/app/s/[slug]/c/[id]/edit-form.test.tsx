@@ -2,15 +2,44 @@
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { ClientMessages } from '@/i18n/ClientMessages';
 import { englishMessages, standInMessages } from '@/i18n/testing/client-messages';
+import { getTestTranslator } from '@/i18n/testing/translator';
+import { getTranslator, messagesFor } from '@/i18n/translator';
 import { EDIT_FORM_NAMESPACES } from '../../client-namespaces';
 import EditForm from './edit-form';
 import { QUANTITY_MAX } from '@/lib/participant-limits';
 
 const router = vi.hoisted(() => ({ refresh: vi.fn(), push: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => router }));
+
+/** The form's messages from the Swedish catalog, as a Swedish signup's page passes them. */
+function SwedishMessages({ children }: { children: ReactNode }) {
+  return (
+    <ClientMessages locale="sv" messages={messagesFor('sv', EDIT_FORM_NAMESPACES)}>
+      {children}
+    </ClientMessages>
+  );
+}
+
+/** A refused save that says the sign-up can hold at most `remaining` spots. */
+function refuseCapacity(remaining: number, requested: number) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({
+      ok: false,
+      json: async () => ({
+        error: {
+          code: 'capacity_full',
+          message: `only ${remaining} left`,
+          details: { remaining, requested, capacity: requested },
+        },
+      }),
+    })),
+  );
+}
 
 function renderForm(
   maxQuantity: number | null,
@@ -417,5 +446,139 @@ describe('<EditForm /> quantity', () => {
     );
     expect(screen.getByRole('button', { name: 'Cancel signup' })).toBeEnabled();
     expect(router.push).not.toHaveBeenCalled();
+  });
+});
+
+// Every word the form shows of its own comes from the messages its page
+// passes (`participant.editForm`), in the signup's language.
+describe('<EditForm /> words', () => {
+  const sv = (key: string) => `participant.editForm.${key} in sv`;
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it('takes its buttons and the spots line from the messages its page passes', () => {
+    renderForm(4, 1, standInMessages('sv', EDIT_FORM_NAMESPACES));
+    expect(screen.getByText(sv('spotsMax'))).toBeInTheDocument();
+    expect(screen.getByLabelText('participant.fields.spots in sv')).toHaveAccessibleDescription(
+      sv('spotsMax'),
+    );
+    expect(screen.getByRole('button', { name: sv('save') })).toBeEnabled();
+    expect(screen.getByRole('button', { name: sv('cancel') })).toBeEnabled();
+  });
+
+  it('asks before cancelling, in those messages', async () => {
+    let answer: (value: unknown) => void = () => {};
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise((resolve) => (answer = resolve))),
+    );
+    renderForm(4, 1, standInMessages('sv', EDIT_FORM_NAMESPACES));
+
+    fireEvent.click(screen.getByRole('button', { name: sv('cancel') }));
+    const question = screen.getByRole('alertdialog', { name: sv('confirmCancel') });
+    expect(question).toHaveTextContent(sv('cancelQuestion'));
+    expect(screen.getByRole('button', { name: sv('keep') })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: sv('yesCancel') }));
+    expect(await screen.findByRole('button', { name: sv('cancelling') })).toBeDisabled();
+    answer({ ok: true, json: async () => ({ data: {} }) });
+    await waitFor(() => expect(router.refresh).toHaveBeenCalledOnce());
+  });
+
+  it('says it is saving, then saved, in those messages', async () => {
+    let answer: (value: unknown) => void = () => {};
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise((resolve) => (answer = resolve))),
+    );
+    renderForm(4, 1, standInMessages('sv', EDIT_FORM_NAMESPACES));
+
+    fireEvent.click(screen.getByRole('button', { name: sv('save') }));
+    expect(await screen.findByRole('button', { name: sv('saving') })).toBeDisabled();
+    answer({ ok: true, json: async () => ({ data: {} }) });
+    expect(await screen.findByRole('status')).toHaveTextContent(sv('saved'));
+  });
+
+  it.each([
+    ['a save that never reaches the server', 'save', 'saveUnreachable', true],
+    ['a save refused with no JSON body', 'save', 'saveUnreadable', false],
+    ['a cancel that never reaches the server', 'cancel', 'cancelUnreachable', true],
+  ] as const)('explains %s in those messages', async (_, action, key, offline) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        offline
+          ? Promise.reject(new TypeError('Failed to fetch'))
+          : {
+              ok: false,
+              json: async () => {
+                throw new SyntaxError('Unexpected token <');
+              },
+            },
+      ),
+    );
+    renderForm(4, 1, standInMessages('sv', EDIT_FORM_NAMESPACES));
+
+    fireEvent.click(screen.getByRole('button', { name: sv(action) }));
+    if (action === 'cancel') fireEvent.click(screen.getByRole('button', { name: sv('yesCancel') }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(sv(key));
+  });
+
+  it('counts spots as before in English, many and 1', async () => {
+    renderForm(1234, 1);
+    expect(screen.getByText('You can have up to 1234 spots on this slot.')).toBeInTheDocument();
+
+    cleanup();
+    refuseCapacity(1, 3);
+    renderForm(3, 1);
+    fireEvent.change(screen.getByLabelText('Spots'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('You can have up to 1 spot on this slot.')).toBeInTheDocument();
+  });
+
+  it('counts spots in Swedish, many and 1, from the Swedish catalog', async () => {
+    renderForm(1234, 1, SwedishMessages);
+    // Swedish groups thousands with a no-break space (the query's whitespace
+    // is matched loosely), so a count never breaks across lines.
+    const line = screen.getByText('Du kan ha upp till 1 234 platser på det här passet.');
+    expect(line.textContent).toContain('1\u00a0234');
+    expect(screen.getByRole('button', { name: 'Spara' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Avboka' })).toBeEnabled();
+
+    cleanup();
+    refuseCapacity(1, 3);
+    renderForm(3, 1, SwedishMessages);
+    fireEvent.change(screen.getByLabelText('Platser'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Spara' }));
+    expect(
+      await screen.findByText('Du kan ha upp till 1 plats på det här passet.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Behåll din plats.');
+  });
+
+  // The line can't show fewer than the spots held, so never 0, but the
+  // message reads right for every count all the same.
+  it.each([
+    [
+      0,
+      'You can have up to 0 spots on this slot.',
+      'Du kan ha upp till 0 platser på det här passet.',
+    ],
+    [1, 'You can have up to 1 spot on this slot.', 'Du kan ha upp till 1 plats på det här passet.'],
+    [
+      2,
+      'You can have up to 2 spots on this slot.',
+      'Du kan ha upp till 2 platser på det här passet.',
+    ],
+  ])('words %i spots in both languages', (max, english, swedish) => {
+    expect(getTestTranslator('participant.editForm')('spotsMax', { max })).toBe(english);
+    const sv = getTranslator('sv', 'participant.editForm', {
+      onError: (error) => {
+        throw error;
+      },
+    });
+    expect(sv('spotsMax', { max })).toBe(swedish);
   });
 });

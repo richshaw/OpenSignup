@@ -24,24 +24,10 @@ const TRANSLATED = [
   'src/components/site-footer.tsx',
   'src/components/banner.tsx',
   'src/components/ui/BottomSheet.tsx',
-  // The public signup page, file by file: the rest of the folder (`c/` and
-  // `unsubscribe/`) isn't translated yet.
-  'src/app/s/[slug]/page.tsx',
-  'src/app/s/[slug]/signup-view.tsx',
-  'src/app/s/[slug]/state-message.tsx',
-  'src/app/s/[slug]/organizer-strip.tsx',
-  'src/app/s/[slug]/not-found.tsx',
-  'src/app/s/[slug]/commit-dialog.tsx',
-  'src/app/s/[slug]/participant-fields.tsx',
-  // The copy helpers the dialog and the edit page share. They hold no JSX for
-  // the rules to read; listed so this stays the list of what has moved.
-  'src/app/s/[slug]/capacity-message.ts',
-  'src/app/s/[slug]/closed-message.ts',
-  'src/app/s/[slug]/conflict-message.ts',
-  'src/app/s/[slug]/gone-message.ts',
-  'src/app/s/[slug]/name-message.ts',
-  'src/app/s/[slug]/rate-limit-message.ts',
-  'src/app/s/[slug]/participant-error.ts',
+  // Everything a participant sees under a signup's address: its page, the
+  // sign-up sheet, the pages for changing or cancelling a spot and for
+  // turning reminders off, both not-found pages, and the copy helpers.
+  'src/app/s/[slug]',
 ];
 
 /**
@@ -222,11 +208,11 @@ const noCatalogsInClient = {
  * has, and the ones shared components take their text through (Banner's
  * `body`, BottomSheet's `eyebrow` and `description`, the signup page's state
  * message's `detail`, the sign-up dialog's `actionName`, `slotName` and
- * `slotContext`). Any prop whose name ends in `Label` or `Title` counts too
- * (`closeLabel`, `dismissLabel`, `ariaLabel`, the sign-up dialog's
- * `slotTitle`): that's how a component takes the name of a control it draws,
- * or of the thing it shows. So does one of these keys in an object passed as
- * a prop, like the state message's `action={{ label, href }}`.
+ * `slotContext`, the unsubscribe page's `error`). Any prop whose name ends in
+ * `Label` or `Title` counts too (`closeLabel`, `dismissLabel`, `ariaLabel`,
+ * the sign-up dialog's `slotTitle`): that's how a component takes the name of
+ * a control it draws, or of the thing it shows. So does one of these keys in
+ * an object passed as a prop, like the state message's `action={{ label, href }}`.
  */
 const TEXT_PROPS = new Set([
   'aria-label',
@@ -242,6 +228,7 @@ const TEXT_PROPS = new Set([
   'actionName',
   'slotName',
   'slotContext',
+  'error',
 ]);
 
 const isTextProp = (name) =>

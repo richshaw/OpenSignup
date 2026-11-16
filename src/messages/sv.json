@@ -115,6 +115,84 @@
         "title": "Tyvärr, den här länken fungerar inte",
         "body": "Din plats kanske inte finns kvar, eller så är länken ofullständig. Kontakta arrangören för att få veta vad som har ändrats. Om du fick ett bekräftelsemejl kan du också prova länken i det igen."
       }
+    },
+    "editPage": {
+      "title": "Din plats",
+      "back": "← Tillbaka till anmälningslistan",
+      "editingAs": "Du är anmäld som {name}.",
+      "editingAsWithEmail": "Du är anmäld som {name} ({email}).",
+      "closedBanner": {
+        "title": "Stängt",
+        "body": "Du kan inte lägga till fler platser nu, men du kan fortfarande ändra dina uppgifter, lämna tillbaka platser eller avboka."
+      }
+    },
+    "editForm": {
+      "spotsMax": "Du kan ha upp till {max, plural, one {{max, number} plats} other {{max, number} platser}} på det här passet.",
+      "save": "Spara",
+      "saving": "Sparar…",
+      "saved": "Sparat.",
+      "saveUnreachable": "Det gick inte att nå servern, så dina ändringar sparades inte. Kontrollera anslutningen och försök igen.",
+      "saveUnreadable": "Något gick fel, så dina ändringar sparades inte. Försök igen.",
+      "cancel": "Avboka",
+      "confirmCancel": "Bekräfta avbokning",
+      "cancelQuestion": "Vill du avboka din plats?",
+      "keep": "Behåll",
+      "yesCancel": "Ja, avboka",
+      "cancelling": "Avbokar…",
+      "cancelUnreachable": "Det gick inte att nå servern, så din plats avbokades inte. Kontrollera anslutningen och försök igen."
+    },
+    "cancelledPage": {
+      "title": "Din plats är avbokad",
+      "open": "Det finns fortfarande plats om du vill anmäla dig igen.",
+      "full": "Passet har blivit fullt sedan dess.",
+      "slotClosed": "Passet är stängt.",
+      "signupClosed": "Anmälningslistan är stängd.",
+      "removed": {
+        "title": "Arrangören har tagit bort dig från passet",
+        "body": "Om du tror att det är ett misstag kan du kontakta arrangören."
+      },
+      "moved": {
+        "title": "Din plats har flyttats till ett annat pass",
+        "body": "Du är fortfarande anmäld. Använd länken nedan för att se eller ändra din plats.",
+        "link": "Se din nya plats"
+      },
+      "back": "Tillbaka till anmälningslistan"
+    },
+    "unsubscribe": {
+      "title": "Påminnelsemejl",
+      "incomplete": {
+        "title": "Länken är ofullständig",
+        "body": "Länkar för att stänga av påminnelser fungerar bara om de är hela. Öppna länken direkt från påminnelsemejlet, eller svara på mejlet och be arrangören att sluta."
+      },
+      "invalid": {
+        "title": "Länken är inte giltig",
+        "body": "Den kan ha blivit förvanskad på vägen, eller så kan anmälningslistan ha tagits bort. Öppna länken direkt från påminnelsemejlet, eller svara på mejlet och be arrangören att sluta."
+      },
+      "confirm": {
+        "title": "Vill du stänga av påminnelserna?",
+        "body": "Vi slutar skicka påminnelser om <b>{title}</b> och mejl när arrangören ändrar datum eller tid för ditt pass. Det gäller bara den här anmälningslistan, och din plats påverkas inte.",
+        "bodyWithEmail": "Vi slutar skicka påminnelser om <b>{title}</b> till {email} och mejl när arrangören ändrar datum eller tid för ditt pass. Det gäller bara den här anmälningslistan, och din plats påverkas inte."
+      },
+      "stop": "Stäng av påminnelser",
+      "keep": "Behåll dem",
+      "turnOffFailed": "Vi kunde inte stänga av dina påminnelser. Försök igen.",
+      "turnedOff": {
+        "title": "Påminnelserna har stängts av",
+        "body": "Du får inga fler påminnelser om <b>{title}</b> och inga mejl när arrangören ändrar datum eller tid för ditt pass. Din plats påverkas inte – om du också vill lämna den, öppna länken i bekräftelsemejlet och avboka där."
+      },
+      "areOff": {
+        "title": "Påminnelserna är avstängda",
+        "body": "Påminnelserna om <b>{title}</b> är avstängda. Du får inga påminnelser om den och inga mejl när arrangören ändrar datum eller tid för ditt pass.",
+        "bodyWithEmail": "Påminnelserna om <b>{title}</b> är avstängda för {email}. Du får inga påminnelser om den och inga mejl när arrangören ändrar datum eller tid för ditt pass."
+      },
+      "turnBackOn": "Slå på påminnelserna igen",
+      "turnOnFailed": "Vi kunde inte slå på dina påminnelser igen. Försök igen.",
+      "turnedOn": {
+        "title": "Påminnelserna är på igen",
+        "body": "Du får påminnelser om <b>{title}</b> igen och mejl när datum eller tid för ditt pass ändras. Du kan stänga av dem när som helst via länken i något av mejlen.",
+        "bodyWithEmail": "Du får påminnelser om <b>{title}</b> igen till {email} och mejl när datum eller tid för ditt pass ändras. Du kan stänga av dem när som helst via länken i något av mejlen."
+      },
+      "back": "Tillbaka till anmälningslistan"
     }
   }
 }

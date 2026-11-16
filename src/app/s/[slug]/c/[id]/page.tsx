@@ -1,9 +1,10 @@
+import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { Banner } from '@/components/banner';
 import { getDb } from '@/db/client';
 import { ClientMessages } from '@/i18n/ClientMessages';
 import { signupLocale } from '@/i18n/config';
-import { instanceDefaultLocale } from '@/i18n/server';
+import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
 import { messagesFor } from '@/i18n/translator';
 import {
   ACTIVE_COMMITMENT_STATUSES,
@@ -14,12 +15,22 @@ import {
 import { commitmentEditPath, commitmentEditUrl } from '@/lib/links';
 import { editTokenFor } from '@/lib/token';
 import { recordEditLinkFollowed, trackAfterResponse } from '@/lib/view-tracker';
-import { CANCELLED_PAGE } from '../../cancelled-message';
+import { cancelledPage } from '../../cancelled-message';
 import { EDIT_FORM_NAMESPACES } from '../../client-namespaces';
+import { requestedSignupLocale } from '../../signup-locale';
 import { SignupStateMessage } from '../../state-message';
 import EditForm from './edit-form';
 
-export const metadata = { title: 'Your spot', robots: { index: false, follow: false } };
+/**
+ * The tab's title, in the language of the signup the path names: the read
+ * the not-found pages make on every request under this one, so it costs no
+ * statement. The page itself goes by the signup its token opens, which is
+ * the same one whenever the page shows it (a wrong slug is redirected).
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = getServerTranslator(await requestedSignupLocale(), 'participant.editPage');
+  return { title: t('title'), robots: { index: false, follow: false } };
+}
 
 type PageParams = {
   params: Promise<{ slug: string; id: string }>;
@@ -42,9 +53,8 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   if (slug !== c.signupSlug) {
     redirect(commitmentEditPath(c.signupSlug, c.id, token));
   }
-  // The signup's language, from the row the token was checked against. It
-  // reads the slot's dates and times and marks the page; the page's own
-  // words are English until they move to the catalog (#630).
+  // The signup's language, from the row the token was checked against: the
+  // page's words, the slot's dates and times, and the form's text.
   const locale = signupLocale(c.signupLocale, instanceDefaultLocale());
 
   // Recorded for a cancelled sign-up too: the link was still followed.
@@ -61,6 +71,8 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   // cancel changes nothing.
   if (c.status === 'cancelled') {
     const state = await cancelledCommitmentState(getDb(), c, locale);
+    const t = getServerTranslator(locale, 'participant.cancelledPage');
+    const copy = cancelledPage(t);
     if (state.movedTo !== null) {
       // Its token is derived from its id, as the reminder email's is. Only
       // the holder of this link could have made the move, so linking them to
@@ -68,9 +80,9 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
       return (
         <SignupStateMessage
           locale={locale}
-          {...CANCELLED_PAGE.moved}
+          {...copy.moved}
           action={{
-            label: 'See your new spot',
+            label: t('moved.link'),
             href: commitmentEditUrl(slug, state.movedTo, editTokenFor(state.movedTo)),
           }}
         />
@@ -79,9 +91,9 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
     return (
       <SignupStateMessage
         locale={locale}
-        {...(state.removed ? CANCELLED_PAGE.removed : CANCELLED_PAGE[state.slot])}
+        {...(state.removed ? copy.removed : copy[state.slot])}
         detail={state.slotName}
-        action={{ label: 'Back to the signup', href: `/s/${slug}` }}
+        action={{ label: t('back'), href: `/s/${slug}` }}
       />
     );
   }
@@ -90,34 +102,31 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   if (!ACTIVE_COMMITMENT_STATUSES.includes(c.status)) notFound();
 
   const { maxQuantity, closed, slotName } = await editLimitsForCommitment(getDb(), c, locale);
+  const t = getServerTranslator(locale, 'participant.editPage');
 
   return (
     <main lang={locale} className="container-tight flex min-h-[100svh] flex-col gap-6 py-8">
       <header className="space-y-1">
         <a href={`/s/${slug}`} className="text-sm text-ink-muted hover:underline">
-          ← Back to signup
+          {t('back')}
         </a>
-        <h1 className="text-2xl font-semibold tracking-tight">Your spot</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t('title')}</h1>
         {/* Which slot this is, as the cancelled page and the emails name it,
             for someone with more than one sign-up or no email to check. */}
         {slotName ? <p className="text-balance text-sm font-medium">{slotName}</p> : null}
         <p className="text-sm text-ink-muted">
-          You&apos;re editing this as {c.participantName}
-          {c.participantEmail ? ` (${c.participantEmail})` : null}.
+          {c.participantEmail
+            ? t('editingAsWithEmail', { name: c.participantName, email: c.participantEmail })
+            : t('editingAs', { name: c.participantName })}
         </p>
       </header>
       {/* The organizer closed the signup or the slot, or its time has come.
           The form still works for everything but taking more spots. */}
       {closed ? (
-        <Banner
-          kind="closed"
-          title="Closed"
-          body="You can't add more spots now, but you can still change your details, give spots back, or cancel."
-        />
+        <Banner kind="closed" title={t('closedBanner.title')} body={t('closedBanner.body')} />
       ) : null}
-      {/* The form's text, which it reads in the browser. In English, as the
-          rest of this page's words are until they move to the catalog (#630). */}
-      <ClientMessages locale="en" messages={messagesFor('en', EDIT_FORM_NAMESPACES)}>
+      {/* The form's text, which it reads in the browser, in the page's language. */}
+      <ClientMessages locale={locale} messages={messagesFor(locale, EDIT_FORM_NAMESPACES)}>
         <EditForm
           commitmentId={c.id}
           token={token}
