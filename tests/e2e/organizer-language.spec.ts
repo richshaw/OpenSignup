@@ -129,5 +129,41 @@ for (const stored of STORED) {
       // What participants will see stays in the signup's language.
       await expect(page.locator('main')).toHaveAttribute('lang', 'en');
     });
+
+    test(`sees a signup’s Settings tab, its notices and the delete flow in ${locale}`, async ({
+      page,
+    }) => {
+      const settings = messagesIn(locale, 'organizer.signupSettings');
+      const saveNotice = messagesIn(locale, 'organizer.saveNotice');
+      const errors = messagesIn(locale, 'organizer.errors');
+      const tab = `/app/signups/${organizer.open.id}/settings`;
+
+      await page.goto(tab);
+      const form = page.getByRole('region', { name: settings('signupForm.title') });
+      await expect(form).toBeVisible();
+      expect(await languageOf(form), unshippedHint).toBe(locale);
+      const ask = form.getByRole('group', { name: settings('signupForm.askForEmail') });
+      await expect(ask.getByRole('radio', { name: settings('signupForm.required') })).toBeChecked();
+      await expect(ask.getByRole('radio', { name: settings('signupForm.optional') })).toBeVisible();
+      await expect(form.getByText(settings('signupForm.requiredHelp'))).toBeVisible();
+      // Saving changes nothing here (Required stays Required), but says Saved.
+      await form.getByRole('button', { name: settings('save') }).click();
+      await expect(form.getByRole('status')).toHaveText(saveNotice('saved'));
+
+      const danger = page.getByRole('region', { name: settings('dangerZone.title') });
+      await expect(danger.getByText(settings('dangerZone.body'))).toBeVisible();
+      await danger.getByRole('button', { name: settings('delete.start') }).click();
+      const confirm = danger.getByRole('alertdialog', { name: settings('delete.label') });
+      await expect(confirm.getByText(settings('delete.question'))).toBeVisible();
+      await expect(confirm.getByRole('button', { name: settings('delete.confirm') })).toBeVisible();
+      await confirm.getByRole('button', { name: settings('delete.cancel') }).click();
+      await expect(danger.getByRole('button', { name: settings('delete.start') })).toBeVisible();
+
+      // A refused save or delete comes back as its code.
+      await page.goto(`${tab}?error=forbidden`);
+      const refusal = page.getByRole('main').getByRole('alert');
+      await expect(refusal).toHaveText(errors('code.forbidden'));
+      expect(await languageOf(refusal)).toBe(locale);
+    });
   });
 }

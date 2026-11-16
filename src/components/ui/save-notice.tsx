@@ -2,19 +2,15 @@ import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
 
 /**
- * "Saved", next to whatever saved it: the Build tab's status and the Settings
- * tab's form. It has no hooks, so a server page can show it without adding
- * script. Pass `role="status"` where it appears after a save on its own, and
- * `children` for a longer line in the same style, such as account Settings'
- * "Saved. Your 3 open signups now use Svenska."
+ * A save's confirmation, next to whatever saved it: the Build tab's status,
+ * the Settings tab's forms and account Settings' language. It has no hooks,
+ * so a server page can show it without adding script. Its text is the
+ * caller's, in the organizer's language: "Saved" (`organizer.saveNotice`),
+ * or a longer line in the same style, such as account Settings' "Saved. Your
+ * 3 open signups now use Svenska." Pass `role="status"` where it appears
+ * after a save on its own.
  */
-export function SavedNotice({
-  role,
-  children = 'Saved',
-}: {
-  role?: 'status';
-  children?: ReactNode;
-}) {
+export function SavedNotice({ role, children }: { role?: 'status'; children: ReactNode }) {
   return (
     <span
       role={role}

@@ -342,6 +342,38 @@
       "titleTooShort": "Title must be at least {min, number, ::group-off} characters.",
       "tooManySignups": "You’ve created a lot of signups in the last hour. Try again in about {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}.",
       "disconnectFailed": "Could not disconnect. Try again."
+    },
+    "signupSettings": {
+      "signupForm": {
+        "title": "Sign-up form",
+        "askForEmail": "Ask for an email address",
+        "required": "Required",
+        "optional": "Optional",
+        "requiredHelp": "We email everyone their link to change or cancel.",
+        "optionalHelp": "People can leave it blank. They get no emails, not even reminders, so they need to save their link. If they lose it, they can sign up again and you can remove the old one on the Responses tab."
+      },
+      "language": {
+        "title": "Language",
+        "legend": "Signup language",
+        "help": "This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language."
+      },
+      "save": "Save",
+      "saving": "Saving…",
+      "dangerZone": {
+        "title": "Danger zone",
+        "body": "Deleting removes this signup from your dashboard and immediately makes its public link inaccessible."
+      },
+      "delete": {
+        "start": "Delete signup",
+        "label": "Confirm signup deletion",
+        "question": "This will delete the signup.",
+        "confirm": "Yes, delete signup",
+        "deleting": "Deleting…",
+        "cancel": "Cancel"
+      }
+    },
+    "saveNotice": {
+      "saved": "Saved"
     }
   }
 }
