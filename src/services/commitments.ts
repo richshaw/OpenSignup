@@ -647,6 +647,16 @@ export async function updateOwnCommitment(
   const gotten = await getOwnCommitment(db, commitmentId, token);
   if (!gotten.ok) return gotten;
   const current = gotten.value;
+  // The participant's refused change, written through `db` after a move rolls
+  // back, or through `tx` inside the quantity change's transaction.
+  const refused = (q: Queryable, payload: Record<string, unknown>) =>
+    safeRecordAttemptFailed(q, {
+      signupId: current.signupId,
+      workspaceId: current.workspaceId,
+      actorId: current.participantId,
+      actorType: 'participant',
+      payload,
+    });
 
   if (data.swapToSlotId && data.swapToSlotId !== current.slotId) {
     const swapToSlotId = data.swapToSlotId;
@@ -725,13 +735,7 @@ export async function updateOwnCommitment(
       })
       .catch(async (e: unknown) => {
         if (refusal) {
-          await safeRecordAttemptFailed(db, {
-            signupId: current.signupId,
-            workspaceId: current.workspaceId,
-            actorId: current.participantId,
-            actorType: 'participant',
-            payload: { ...refusal, source: 'move' },
-          });
+          await refused(db, { ...refusal, source: 'move' });
         }
         throw e;
       });
@@ -811,18 +815,12 @@ export async function updateOwnCommitment(
       // waits on the locks above is seen.
       const shut = whyNotTakingPlaces(signupRow, slotRow);
       if (shut) {
-        await safeRecordAttemptFailed(tx, {
-          signupId: signupRow.id,
-          workspaceId: signupRow.workspaceId,
-          actorId: current.participantId,
-          actorType: 'participant',
-          payload: {
-            slotId: current.slotId,
-            reason: shut.reason,
-            detail: shut.detail,
-            source: 'update',
-            requested: data.quantity,
-          },
+        await refused(tx, {
+          slotId: current.slotId,
+          reason: shut.reason,
+          detail: shut.detail,
+          source: 'update',
+          requested: data.quantity,
         });
         return err({ ...shut.error, suggestion: 'keep the quantity as it is, or lower it' });
       }
@@ -832,18 +830,12 @@ export async function updateOwnCommitment(
         const otherQty = await placesTaken(tx, current.slotId, commitmentId);
         if (otherQty + data.quantity > cap) {
           const remaining = Math.max(0, cap - otherQty);
-          await safeRecordAttemptFailed(tx, {
-            signupId: current.signupId,
-            workspaceId: current.workspaceId,
-            actorId: current.participantId,
-            actorType: 'participant',
-            payload: {
-              slotId: current.slotId,
-              reason: 'capacity_full',
-              source: 'update',
-              requested: data.quantity,
-              remaining,
-            },
+          await refused(tx, {
+            slotId: current.slotId,
+            reason: 'capacity_full',
+            source: 'update',
+            requested: data.quantity,
+            remaining,
           });
           return err(
             capacityFull(remaining, data.quantity, cap, {
