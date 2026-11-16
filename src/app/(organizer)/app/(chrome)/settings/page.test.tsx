@@ -237,7 +237,7 @@ describe('Account Settings: switching the open signups', () => {
     });
   /** What switching changes and what it leaves, under the button. */
   const NOTE =
-    "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and column names you typed stay as they are. People who already signed up see the new language too.";
+    "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and fields you typed stay as they are. People who already signed up see the new language too.";
 
   it('isn’t there, and reads nothing, while one language has shipped to participants', async () => {
     request.saved = 'en';

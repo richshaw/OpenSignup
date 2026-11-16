@@ -875,7 +875,7 @@
         "save": "Spara",
         "toSwitch": "{count, plural, one {{count, number} av dina anmälningslistor är öppen och är inte på <language>{name}</language> ännu.} other {{count, number} av dina anmälningslistor är öppna och är inte på <language>{name}</language> ännu.}}",
         "switch": "{count, plural, one {Byt den till <language>{name}</language>} other {Byt dem till <language>{name}</language>}}",
-        "switchNote": "Bara det som OpenSignup själv skriver byts: knappar, meddelanden, datum och mejl. Titlar, pass och kolumnnamn som du har skrivit ändras inte. De som redan är anmälda ser också det nya språket.",
+        "switchNote": "Bara det som OpenSignup själv skriver byts: knappar, meddelanden, datum och mejl. Titlar, pass och fält som du har skrivit ändras inte. De som redan är anmälda ser också det nya språket.",
         "switched": "Sparat. {count, plural, one {{count, number} av dina anmälningslistor är öppen, och den är på <language>{name}</language> nu.} other {{count, number} av dina anmälningslistor är öppna, och alla är på <language>{name}</language> nu.}}"
       }
     },
