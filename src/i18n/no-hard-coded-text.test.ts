@@ -74,6 +74,9 @@ const TRANSLATED_FILES = [
   'src/components/magic-compose/Questions.tsx',
   'src/components/magic-compose/AiDraftBanner.tsx',
   'src/components/magic-compose/AiDraftWarnings.tsx',
+  'src/app/app/(chrome)/settings/page.tsx',
+  'src/app/app/(chrome)/settings/connected-apps/page.tsx',
+  'src/app/app/(chrome)/settings/connected-apps/disconnect-button.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */

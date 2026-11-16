@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { CATALOG_LOCALES, type CatalogLocale, languageName } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
 
 // What the page reads around the form: the instance's language (none, unless
@@ -15,11 +15,14 @@ const request = vi.hoisted(() => ({
   instanceDefault: undefined as string | undefined,
   saved: null as string | null,
 }));
+// The page's text: English from the catalog; any other language answers with
+// the key it was asked for and the language (`getTestServerTranslator`).
 vi.mock('@/i18n/server', async () => ({
   instanceDefaultLocale: () => request.instanceDefault,
   getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
 }));
 vi.mock('@/auth/session', () => ({
+  getOrganizerSession: async () => ({ email: 'pat@example.com', locale: request.saved }),
   requireOrganizerSession: async () => ({ email: 'pat@example.com', locale: request.saved }),
   toActor: () => ({ kind: 'organizer', id: 'org_1' }),
 }));
@@ -39,7 +42,10 @@ const openSignupsToSwitch = vi.hoisted(() =>
 );
 vi.mock('@/services/signups', () => ({ openSignupsToSwitch }));
 
-const { default: SettingsPage } = await import('./page');
+const { default: SettingsPage, generateMetadata } = await import('./page');
+
+/** Every language with a catalog besides English, each tried in turn. */
+const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 async function renderPage(searchParams: Record<string, string> = {}) {
   return render(await SettingsPage({ searchParams: Promise.resolve(searchParams) }));
@@ -54,6 +60,34 @@ afterEach(() => {
   Object.assign(request, { instanceDefault: undefined, saved: null });
   openSignupsToSwitch.mockClear();
   openSignupsToSwitch.mockResolvedValue({ ok: true, value: { open: 0, toSwitch: [] } });
+});
+
+describe('Account Settings', () => {
+  it('reads as before: the heading, who is signed in, and the Connected apps card', async () => {
+    await renderPage();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Settings$/);
+    const signedIn = screen.getByText('pat@example.com');
+    expect(signedIn).toHaveClass('font-medium');
+    expect(signedIn.parentElement).toHaveTextContent(/^Signed in as pat@example\.com\.$/);
+    const card = screen.getByRole('link', { name: /Connected apps/ });
+    expect(card).toHaveAttribute('href', '/app/settings/connected-apps');
+    expect(card).toHaveTextContent(
+      'Connected appsAI assistants and other apps you have allowed to use your account, and how to disconnect them.→',
+    );
+    expect(await generateMetadata()).toEqual({ title: 'Settings' });
+  });
+
+  it.each(OTHER_LANGUAGES)('is in the organizer’s language, %s', async (other) => {
+    ship('organizer', ['en', other]);
+    request.saved = other;
+    await renderPage();
+    const ask = (key: string) => `organizer.settings.${key} in ${other}`;
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(ask('title'));
+    expect(screen.getByText(ask('signedInAs'))).toBeInTheDocument();
+    const card = screen.getByRole('link', { name: new RegExp(ask('connectedApps.title')) });
+    expect(card).toHaveTextContent(ask('connectedApps.description'));
+    expect(await generateMetadata()).toEqual({ title: ask('title') });
+  });
 });
 
 describe('Account Settings: Language', () => {
@@ -133,6 +167,23 @@ describe('Account Settings: Language', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
+  it.each(OTHER_LANGUAGES)('is in the organizer’s language, %s', async (other) => {
+    ship('participant', ['en', other]);
+    ship('organizer', ['en', other]);
+    request.saved = other;
+    await renderPage({ saved: 'language' });
+    const ask = (key: string) => `organizer.settings.language.${key} in ${other}`;
+    const group = screen.getByRole('group', { name: ask('legend') });
+    // Each language is still named in itself, whatever the page's language.
+    for (const locale of ['en', other] as const) {
+      const radio = within(group).getByRole('radio', { name: languageName(locale) });
+      expect(radio).toHaveAccessibleDescription(ask('help'));
+      expect(within(group).getByText(languageName(locale))).toHaveAttribute('lang', locale);
+    }
+    expect(screen.getByRole('button', { name: ask('save') })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(ask('saved'));
+  });
+
   it('shows a refusal in the Settings tab’s words, and only for a code the action sends', async () => {
     ship('participant', ['en', 'sv']);
     await renderPage({ error: 'invalid_input' });
@@ -189,6 +240,40 @@ describe('Account Settings: switching the open signups', () => {
     toSwitch(1);
     await renderPage();
     expect(switchButton()).toHaveAccessibleName('Switch your 1 open signup to Svenska');
+  });
+
+  it.each(OTHER_LANGUAGES)(
+    'writes a large count as before, without grouping (%s)',
+    async (other) => {
+      ship('participant', ['en', other]);
+      request.saved = other;
+      const name = languageName(other);
+      toSwitch(1234);
+      await renderPage();
+      expect(switchButton()).toHaveAccessibleName(`Switch your 1234 open signups to ${name}`);
+      cleanup();
+
+      toSwitch(0, 1234);
+      await renderPage({ switched: '1' });
+      expect(screen.getByRole('status')).toHaveTextContent(
+        `Saved. Your 1234 open signups now use ${name}.`,
+      );
+    },
+  );
+
+  it.each(OTHER_LANGUAGES)('is in the organizer’s language, %s', async (other) => {
+    ship('participant', ['en', other]);
+    ship('organizer', ['en', other]);
+    request.saved = other;
+    const ask = (key: string) => `organizer.settings.language.${key} in ${other}`;
+    toSwitch(3);
+    await renderPage();
+    expect(screen.getByRole('button', { name: ask('switch') })).toBeInTheDocument();
+    cleanup();
+
+    toSwitch(0, 4);
+    await renderPage({ switched: '1' });
+    expect(screen.getByRole('status')).toHaveTextContent(ask('switched'));
   });
 
   it('isn’t there when every open signup is in the organizer’s language, or there are none', async () => {

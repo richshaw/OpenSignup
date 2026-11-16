@@ -734,6 +734,35 @@ declare const messages: {
         "titleCut": "The AI's title was longer than {max, number} characters, so the end was cut off. Check it below.",
         "descriptionCut": "The AI's description was longer than {max, number} characters, so the end was cut off. Check it below."
       }
+    },
+    "settings": {
+      "title": "Settings",
+      "signedInAs": "Signed in as <account>{email}</account>.",
+      "connectedApps": {
+        "title": "Connected apps",
+        "description": "AI assistants and other apps you have allowed to use your account, and how to disconnect them."
+      },
+      "language": {
+        "legend": "Language",
+        "help": "Your screens and new signups use this language. To change one signup’s language, use its Settings tab.",
+        "save": "Save",
+        "saved": "Saved",
+        "switch": "Switch your {count, plural, one {{count, number, ::group-off} open signup} other {{count, number, ::group-off} open signups}} to <language>{name}</language>",
+        "switched": "Saved. Your {count, plural, one {{count, number, ::group-off} open signup now uses} other {{count, number, ::group-off} open signups now use}} <language>{name}</language>."
+      }
+    },
+    "connectedApps": {
+      "title": "Connected apps",
+      "intro": "Apps and AI assistants you have allowed to use your account. Each one acts as you, in every workspace you belong to, with the permissions you approved.",
+      "disconnected": "Disconnected. It can no longer get new access, and any access it still holds ends within {lifetime}.",
+      "empty": {
+        "title": "No connected apps",
+        "body": "When you connect an AI assistant such as Claude or ChatGPT to your account, it will show up here."
+      },
+      "dates": "Approved {approved}{used, select, yes { · last used {lastUsed}} other { · not used yet}}{expiring, select, yes { · expires {expires} unless renewed} other {}}",
+      "disconnect": "Disconnect",
+      "disconnecting": "Disconnecting…",
+      "footnote": "Disconnecting stops an app from getting new access straight away. Access it already holds expires on its own within {lifetime} and cannot be cut short."
     }
   }
 };

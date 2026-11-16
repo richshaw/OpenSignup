@@ -52,6 +52,8 @@ const TRANSLATED = [
   // banner on a draft it made included.
   'src/app/app/(chrome)/signups/new',
   'src/components/magic-compose',
+  // Account Settings and Connected apps, the disconnect button included.
+  'src/app/app/(chrome)/settings',
 ];
 
 /**

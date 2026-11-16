@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { workspaceMembers } from '@/db/schema/members';
+import { oauthRecords } from '@/db/schema/oauth';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
 import type { CatalogLocale } from '@/i18n/config';
@@ -12,6 +13,9 @@ import { createDisposableSession } from './seed';
 
 /** An organizer who stores a language (or none), signed in, with a signup of each kind. */
 export interface OrganizerIn {
+  id: string;
+  /** Their address, which account Settings says they're signed in as. */
+  email: string;
   sessionToken: string;
   /**
    * A published signup of theirs, for the strip on its page and its Preview,
@@ -33,9 +37,15 @@ function unwrap<T>(
   return result.value;
 }
 
-/** Removes the organizer at `email` and everything in their workspace. */
+/** Removes the organizer at `email`, everything in their workspace and the apps they connected. */
 async function remove(db: Db, email: string, workspaceSlug: string): Promise<void> {
   await db.delete(workspaces).where(eq(workspaces.slug, workspaceSlug));
+  const [old] = await db
+    .select({ id: organizers.id })
+    .from(organizers)
+    .where(eq(organizers.email, email));
+  // Nothing ties a connected app's rows to the organizer, so they'd outlive them.
+  if (old) await db.delete(oauthRecords).where(eq(oauthRecords.accountId, old.id));
   await db.delete(organizers).where(eq(organizers.email, email));
 }
 
@@ -118,8 +128,52 @@ export async function createOrganizerIn(
   const draft = await make('Draft Picnic');
 
   return {
+    id: organizerId,
+    email,
     sessionToken: await createDisposableSession(organizerId),
     open: { id: open.id, slug: open.slug, slotId: slot.id },
     draft: { id: draft.id, slug: draft.slug },
   };
+}
+
+/** When a connected app was approved, last used and runs out. */
+export interface ConnectedAppDates {
+  approvedAt: Date;
+  lastUsedAt: Date;
+  expiresAt: Date;
+}
+
+/**
+ * An app `organizer` has connected, approved to see and edit their signups,
+ * as Connected apps lists it: written straight into `oauth_records` as the
+ * Grant row the OAuth provider keeps, since these specs check the page, not
+ * the approval. Approved and last used at noon on two days already past, and
+ * running out a month from now, so it stays live whenever the spec runs.
+ * Replaces the organizer's earlier one; `remove` takes it away with them.
+ */
+export async function connectAppFor(organizer: OrganizerIn): Promise<ConnectedAppDates> {
+  const db = getDb();
+  const dates: ConnectedAppDates = {
+    approvedAt: new Date(2026, 10, 14, 12),
+    lastUsedAt: new Date(2026, 10, 15, 12),
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  };
+  const clientId = 'https://assistant.example.com/client.json';
+  await db.delete(oauthRecords).where(eq(oauthRecords.accountId, organizer.id));
+  await db.insert(oauthRecords).values({
+    model: 'Grant',
+    id: `e2e-language-grant-${organizer.id}`,
+    payload: {
+      accountId: organizer.id,
+      clientId,
+      resources: { 'http://localhost/api/mcp': 'signups:read signups:write' },
+    },
+    accountId: organizer.id,
+    clientId,
+    clientName: 'Example Assistant',
+    createdAt: dates.approvedAt,
+    lastUsedAt: dates.lastUsedAt,
+    expiresAt: dates.expiresAt,
+  });
+  return dates;
 }

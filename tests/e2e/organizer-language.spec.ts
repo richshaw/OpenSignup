@@ -1,9 +1,11 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { formatGrantDate } from '@/app/app/(chrome)/settings/connected-apps/grant-date';
 import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draft-warnings';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { getTranslator, type Namespace } from '@/i18n/translator';
+import { accessTokenLifetime } from '@/lib/lifetimes';
 import { loginAsSeededOrganizer } from './helpers/auth';
-import { createOrganizerIn, type OrganizerIn } from './helpers/organizer-language';
+import { connectAppFor, createOrganizerIn, type OrganizerIn } from './helpers/organizer-language';
 
 /**
  * The organizer app follows the language stored on the organizer's account
@@ -110,6 +112,52 @@ for (const stored of STORED) {
       await expect(here).toHaveText(crumbs('connectedApps'));
       await page.goto('/app/signups/new');
       await expect(here).toHaveText(crumbs('newSignup'));
+    });
+
+    test(`sees account Settings and Connected apps in ${locale}`, async ({ page }) => {
+      const settings = messagesIn(locale, 'organizer.settings');
+      const apps = messagesIn(locale, 'organizer.connectedApps');
+      const lifetime = accessTokenLifetime(locale);
+      const heading = page.getByRole('heading', { level: 1 });
+
+      await page.goto('/app/settings');
+      await expect(heading).toHaveText(settings('title'));
+      expect(await languageOf(heading), unshippedHint).toBe(locale);
+      await expect(page).toHaveTitle(titled(settings('title')));
+      await expect(
+        page.getByText(settings.markup('signedInAs', { email: organizer.email, account: plain })),
+      ).toBeVisible();
+      const card = page.getByRole('link', { name: settings('connectedApps.title') });
+      await expect(card).toContainText(settings('connectedApps.description'));
+
+      // Over a client-side navigation, which re-renders the page but not the
+      // layout, so the page works out the language itself.
+      await card.click();
+      await expect(page).toHaveURL(/\/app\/settings\/connected-apps$/);
+      await expect(heading).toHaveText(apps('title'));
+      expect(await languageOf(heading)).toBe(locale);
+      await expect(page).toHaveTitle(titled(apps('title')));
+      await expect(page.getByText(apps('intro'))).toBeVisible();
+      await expect(page.getByText(apps('empty.title'))).toBeVisible();
+      await expect(page.getByText(apps('empty.body'))).toBeVisible();
+      await expect(page.getByText(apps('footnote', { lifetime }))).toBeVisible();
+
+      const dates = await connectAppFor(organizer);
+      await page.reload();
+      const app = page.getByRole('listitem').filter({ hasText: 'assistant.example.com' });
+      await expect(app).toContainText(
+        apps('dates', {
+          approved: formatGrantDate(dates.approvedAt, locale),
+          used: 'yes',
+          lastUsed: formatGrantDate(dates.lastUsedAt, locale),
+          expiring: 'yes',
+          expires: formatGrantDate(dates.expiresAt, locale),
+        }),
+      );
+      await expect(app.getByRole('button', { name: apps('disconnect') })).toBeVisible();
+
+      await page.goto('/app/settings/connected-apps?disconnected=1');
+      await expect(page.getByRole('status')).toHaveText(apps('disconnected', { lifetime }));
     });
 
     test(`is told in ${locale} when a signup can’t be found`, async ({ page }) => {
