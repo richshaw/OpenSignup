@@ -2,7 +2,9 @@ import { requireOrganizerSession, toActor } from '@/auth/session';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { SavedNotice } from '@/components/ui/save-notice';
 import { type CatalogLocale, SHIPPED, languageName, signupLocale } from '@/i18n/config';
-import { instanceDefaultLocale } from '@/i18n/server';
+import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { refusalFromQuery } from '@/lib/organizer-errors';
 import { requiresEmail } from '@/schemas/signups';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { trackOrganizerView } from '@/lib/view-tracker';
@@ -31,13 +33,19 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
     payload: { section: 'settings' },
   });
 
+  // A refused save or delete comes back as its code, worded here.
+  const refusal = refusalFromQuery(
+    getServerTranslator(getOrganizerAppLocale(session), 'organizer.errors'),
+    error,
+  );
+
   // Reminders are configured on the date field itself, in the Build tab's
   // field editor. This tab keeps what has no better home: whether the sign-up
   // form asks for an email, the signup's language once there's a choice, and
   // deletion. Each form's own `saved` value says which one shows "Saved".
   return (
     <section className="max-w-2xl space-y-6">
-      {error ? <FormError>{error}</FormError> : null}
+      {refusal ? <FormError>{refusal}</FormError> : null}
       <section
         aria-labelledby="signup-form-heading"
         className="space-y-3 rounded-xl border border-surface-sunk bg-white p-6"

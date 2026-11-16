@@ -147,7 +147,7 @@ describe('setRequireEmailAction (db)', () => {
   });
 
   // The write guard throws for a viewer rather than returning a Result.
-  it('refuses a viewer in plain words and writes nothing', async () => {
+  it('refuses a viewer by code, not the service text, and writes nothing', async () => {
     session.actor = owner;
     await submit(signupId, 'optional');
     const before = await stored();
@@ -156,19 +156,17 @@ describe('setRequireEmailAction (db)', () => {
 
     session.actor = viewer;
     const url = await submit(signupId, 'required');
-    expect(url).toBe(
-      `/app/signups/${signupId}/settings?error=${encodeURIComponent('You don’t have edit access.')}`,
-    );
+    expect(url).toBe(`/app/signups/${signupId}/settings?error=forbidden`);
     expect(url).not.toMatch(/saved|cannot%20modify/);
     expect(await stored()).toEqual(before);
     expect(await updates()).toHaveLength(updatesBefore);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it('says a signup that is gone is no longer available', async () => {
+  it('sends back a signup that is gone as not_found', async () => {
     session.actor = owner;
     expect(await submit('sig_nope', 'optional')).toBe(
-      `/app/signups/sig_nope/settings?error=${encodeURIComponent('No longer available.')}`,
+      `/app/signups/sig_nope/settings?error=not_found`,
     );
     expect(revalidatePath).not.toHaveBeenCalled();
   });
@@ -191,8 +189,7 @@ describe('setSignupLocaleAction (db)', () => {
   let signupId: string;
 
   const settingsUrl = () => `/app/signups/${signupId}/settings`;
-  const refused = () =>
-    `${settingsUrl()}?error=${encodeURIComponent('Some values weren’t accepted.')}`;
+  const refused = () => `${settingsUrl()}?error=invalid_input`;
   const stored = async () => {
     const [row] = await db
       .select({ settings: signups.settings })
@@ -271,7 +268,7 @@ describe('setSignupLocaleAction (db)', () => {
 
 // The same tab's Delete, whose refusal reads like Save's.
 describe('deleteSignupAction (db)', () => {
-  it('says a signup that is gone is no longer available, not the service text', async () => {
+  it('sends back a signup that is gone as not_found, not the service text', async () => {
     session.actor = {
       kind: 'organizer',
       id: makeId('org'),
@@ -280,9 +277,7 @@ describe('deleteSignupAction (db)', () => {
       workspaceRoles: {},
     };
     const url = await redirectOf(() => deleteSignupAction('sig_nope'));
-    expect(url).toBe(
-      `/app/signups/sig_nope/settings?error=${encodeURIComponent('No longer available.')}`,
-    );
+    expect(url).toBe(`/app/signups/sig_nope/settings?error=not_found`);
     expect(url).not.toMatch(/signup%20not%20found/);
   });
 });
@@ -421,9 +416,7 @@ describe('a viewer choosing Publish, Close, Reopen or Delete (db)', () => {
   it('Delete comes back to Settings saying the viewer can’t edit', async () => {
     session.actor = viewer;
     const url = await redirectOf(() => deleteSignupAction(signupId));
-    expect(url).toBe(
-      `/app/signups/${signupId}/settings?error=${encodeURIComponent('You don’t have edit access.')}`,
-    );
+    expect(url).toBe(`/app/signups/${signupId}/settings?error=forbidden`);
     expect((await row())?.deletedAt).toBeNull();
     expect(revalidatePath).not.toHaveBeenCalled();
   });

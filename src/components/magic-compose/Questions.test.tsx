@@ -515,7 +515,13 @@ describe('<MagicComposeRoot /> focus after Back', () => {
   });
 
   it('leaves focus alone on compose otherwise, even after a Back', async () => {
-    stubReplies(asks(), { status: 500, body: { error: { code: 'internal', message: 'No.' } } });
+    const timedOut = 'AI drafting timed out. Try a simpler prompt.';
+    stubReplies(asks(), {
+      status: 500,
+      body: {
+        error: { code: 'internal', message: timedOut, details: { llmErrorCode: 'timeout' } },
+      },
+    });
     render(<MagicComposeRoot locale="en" />);
     const description = () => screen.getByRole('textbox', { name: 'Describe your signup' });
     expect(description()).not.toHaveFocus();
@@ -526,7 +532,7 @@ describe('<MagicComposeRoot /> focus after Back', () => {
     expect(description()).toHaveFocus();
 
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('No.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(timedOut);
     expect(description()).not.toHaveFocus();
   });
 });

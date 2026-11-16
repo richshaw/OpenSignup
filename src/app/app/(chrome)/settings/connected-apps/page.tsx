@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { FormError, SuccessNotice } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
+import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { getServerTranslator } from '@/i18n/server';
 import { ServiceException } from '@/lib/errors';
 import { ACCESS_TOKEN_LIFETIME } from '@/lib/lifetimes';
 import { log } from '@/lib/log';
@@ -10,6 +12,7 @@ import { listConnectedApps, revokeConnectedApp } from '@/oauth/grants';
 import { getProvider } from '@/oauth/instance';
 import { SCOPE_DESCRIPTIONS } from '@/oauth/scopes';
 import { DisconnectButton } from './disconnect-button';
+import { disconnectRefusal } from './disconnect-refusal';
 import { formatGrantDate } from './grant-date';
 
 export const metadata = { title: 'Connected apps' };
@@ -27,6 +30,10 @@ export default async function ConnectedAppsPage({
   const actor = toActor(session);
   const apps = await listConnectedApps(getDb(), actor);
   const locale = 'en';
+  const refusal = disconnectRefusal(
+    getServerTranslator(getOrganizerAppLocale(session), 'organizer.errors'),
+    error,
+  );
 
   async function disconnect(formData: FormData) {
     'use server';
@@ -35,11 +42,10 @@ export default async function ConnectedAppsPage({
     try {
       await revokeConnectedApp(getDb(), await getProvider(), toActor(current), grantId);
     } catch (err) {
-      if (err instanceof ServiceException) {
-        redirect(`${PATH}?error=${encodeURIComponent(err.serviceError.message)}`);
-      }
+      // The refusal's code, or `internal` for anything else, which the page words.
+      if (err instanceof ServiceException) redirect(`${PATH}?error=${err.serviceError.code}`);
       log.error({ err }, 'connected-apps: disconnect failed');
-      redirect(`${PATH}?error=${encodeURIComponent('Could not disconnect. Try again.')}`);
+      redirect(`${PATH}?error=internal`);
     }
     revalidatePath(PATH);
     redirect(`${PATH}?disconnected=1`);
@@ -55,7 +61,7 @@ export default async function ConnectedAppsPage({
         </p>
       </div>
 
-      {error ? <FormError>{error}</FormError> : null}
+      {refusal ? <FormError>{refusal}</FormError> : null}
       {disconnected ? (
         <SuccessNotice>
           Disconnected. It can no longer get new access, and any access it still holds ends within{' '}

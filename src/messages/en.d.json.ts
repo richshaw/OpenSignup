@@ -328,6 +328,23 @@ declare const messages: {
       },
       "goToSignups": "Go to your signups",
       "switchAccount": "Sign in with a different email"
+    },
+    "errors": {
+      "code": {
+        "forbidden": "You don’t have edit access.",
+        "unauthorized": "Sign in again to save.",
+        "conflict": "Reload to see the latest changes.",
+        "capacity_full": "Slot is full.",
+        "closed": "This signup is closed.",
+        "not_found": "No longer available.",
+        "invalid_input": "Some values weren’t accepted.",
+        "rate_limited": "Slow down — try again in a moment.",
+        "already_consumed": "Already used.",
+        "internal": "Save failed."
+      },
+      "titleTooShort": "Title must be at least {min, number, ::group-off} characters.",
+      "tooManySignups": "You’ve created a lot of signups in the last hour. Try again in about {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}.",
+      "disconnectFailed": "Could not disconnect. Try again."
     }
   }
 };

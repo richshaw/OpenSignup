@@ -159,8 +159,7 @@ export function MagicComposeRoot({
           return;
         }
         if (!res.ok || !data?.id || !data.draft) {
-          const withAnswers = followUp !== null;
-          setPhase(failed(followUp, explainDraftFailure(res.status, body?.error, { withAnswers })));
+          setPhase(failed(followUp, explainDraftFailure(res.status, body?.error, { followUp })));
           return;
         }
 
