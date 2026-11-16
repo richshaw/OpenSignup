@@ -583,8 +583,9 @@ for it. Every language with a catalog but English is a test language
   `translation-review/<code>/screens/` and its emails to
   `translation-review/<code>/emails/`.
 
-A few tests keep what a language says in a table by language, and need the
-new language's entry:
+A few tests keep what a language says in a table by language. The first two
+need the new language's entry, and the third one only if the language shares
+a word with English:
 
 - `KEEP_IT_PRIVATE` in `src/app/s/[slug]/commit-dialog.test.tsx`, the words
   in the share text that warn whoever has the link can change the sign-up.
@@ -593,6 +594,13 @@ new language's entry:
 - `inSentence` in `src/i18n/config.test.ts`, how each language writes each
   language's name inside a sentence. `pnpm typecheck` asks for the new
   language's row and column, with the catalog.
+- `SHARED_WITH_ENGLISH` in `tests/e2e/translated-signup.spec.ts`, the words
+  of the English the spec looks for on a translated page (`ENGLISH_WORDS`)
+  that the language writes as its own too, as Dutch writes "link". A
+  language without an entry shares none, so a page that shows one of those
+  words fails, and the failure names the catalog's messages that write it.
+  Translate each, or add the word if the language really says it: never to
+  quiet a message left in English, which is what the check is there to catch.
 
 The test signups and email samples also carry what an organizer would write
 (titles, slots' names). A language without its own gets names that read as

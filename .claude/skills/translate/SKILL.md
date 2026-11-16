@@ -218,9 +218,12 @@ layout checks, the screenshots and the email samples all run for every
 language with one. A test that keeps words per language fails naming
 itself until you give it the new language's entry: `KEEP_IT_PRIVATE` in
 `pnpm test`, and `inSentence` in `pnpm typecheck` ("Adding a language" in the
-guide). Its launch (adding it to `SHIPPED.participant` and `SHIPPED.organizer`
-together: a language launches for participants and organizers at once) is a
-pull request of its own, for the owner to approve.
+guide). The e2e no-English check fails on a page that shows one of its English
+words, naming the catalog's messages that write it: translate each, and add
+the word to `SHARED_WITH_ENGLISH` only if the language really says it, never
+for a message left in English. Its launch (adding it to `SHIPPED.participant`
+and `SHIPPED.organizer` together: a language launches for participants and
+organizers at once) is a pull request of its own, for the owner to approve.
 
 ## Report
 
