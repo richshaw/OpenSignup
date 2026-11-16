@@ -9,6 +9,7 @@ import {
 } from '@/db/schema/participants';
 import { signups, type Signup } from '@/db/schema/signups';
 import { slots, type Slot } from '@/db/schema/slots';
+import type { CatalogLocale } from '@/i18n/config';
 import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
@@ -1140,7 +1141,7 @@ async function readSlotAndSignup(db: Db, slotId: string) {
 export async function editLimitsForCommitment(
   db: Db,
   commitment: { id: string; slotId: string },
-  locale: string,
+  locale: CatalogLocale,
 ): Promise<{ maxQuantity: number | null; closed: boolean; slotName: string }> {
   const row = await readSlotAndSignup(db, commitment.slotId);
   if (!row) return { maxQuantity: null, closed: false, slotName: '' };
@@ -1195,7 +1196,7 @@ const MAX_MOVES_FOLLOWED = 10;
 export async function cancelledCommitmentState(
   db: Db,
   commitment: { id: string; signupId: string; slotId: string },
-  locale: string,
+  locale: CatalogLocale,
 ): Promise<
   | { movedTo: string }
   | { movedTo: null; removed: true; slotName: string }
@@ -1254,7 +1255,12 @@ export async function cancelledCommitmentState(
 }
 
 /** `Pack away · Sat, Nov 14`: the slot's values in field order, or ''. */
-async function slotName(db: Db, signupId: string, slotId: string, locale: string): Promise<string> {
+async function slotName(
+  db: Db,
+  signupId: string,
+  slotId: string,
+  locale: CatalogLocale,
+): Promise<string> {
   const [slot] = await db
     .select({ values: slots.values })
     .from(slots)

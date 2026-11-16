@@ -116,7 +116,7 @@ interface SlotGroup {
 function groupSlots(
   slots: SignupViewSlot[],
   groupField: SignupViewField | null,
-  locale: string,
+  locale: CatalogLocale,
   tSlot: Translator<'participant.slot'>,
 ): SlotGroup[] {
   if (!groupField) return [{ key: '__all__', label: '', slots }];
@@ -145,7 +145,7 @@ function groupSlots(
 function nameGroupFor(
   slot: SignupViewSlot,
   groupField: SignupViewField | null,
-  locale: string,
+  locale: CatalogLocale,
   tSlot: Translator<'participant.slot'>,
 ): string | null {
   if (!groupField) return null;
@@ -156,7 +156,7 @@ function nameGroupFor(
 function titleFor(
   slot: SignupViewSlot,
   primary: SignupViewField | null,
-  locale: string,
+  locale: CatalogLocale,
   t: Translator<'participant.signupView'>,
 ): string {
   const value = primary ? renderFieldValue(primary, slot.values[primary.ref], locale) : null;

@@ -19,8 +19,9 @@ const request = vi.hoisted(() => ({
   instanceDefault: undefined as string | undefined,
   actor: { kind: 'anonymous' } as Record<string, unknown>,
 }));
-// English from the catalog; Swedish, which has no catalog yet, answers each
-// key with where it was asked for: "participant.signupPage.title in sv".
+// English from the catalog; Swedish answers each key with where it was asked
+// for ("participant.signupPage.title in sv"), so a test sees which text is
+// asked for in it.
 vi.mock('@/i18n/server', async () => ({
   instanceDefaultLocale: () => request.instanceDefault,
   getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,

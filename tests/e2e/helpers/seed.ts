@@ -15,7 +15,10 @@ import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { RateLimits } from '@/lib/rate-limit';
+import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
+import type { SignupTemplate } from '@/lib/signup-templates';
+import { TEXT_DEFAULT_MAX_LENGTH } from '@/schemas/slot-fields';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, deleteSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
@@ -52,6 +55,34 @@ export interface SeedData {
   /** Published signup whose settings make the email optional, with an open slot. */
   optionalEmailSlug: string;
   optionalEmailSlotLabel: string;
+  /** Published signup in Swedish: see makeSwedishSignup. */
+  swedish: SwedishSeed;
+}
+
+/**
+ * The Swedish test signup's slots, by what each exercises. Grouped by date,
+ * so the slots with no date sit under "(datum saknas)".
+ */
+const SWEDISH_SLOTS = {
+  /** Capacity 20, one taken: "19 kvar", "19 av 20 platser kvar". */
+  many: 'Kakor',
+  /** Capacity 1, open: the row's Sign up and nothing in the count column. */
+  one: 'Saft',
+  /** Capacity 1, taken: Full. */
+  full: 'Bullar',
+  /** No date, no limit, one taken: "1 anmäld", the plural's one. */
+  unlimitedOne: 'Disk',
+  /** No date, no limit, two taken: "2 anmälda", the plural's other. */
+  unlimitedTwo: 'Städning',
+} as const;
+
+interface SwedishSeed {
+  id: string;
+  slug: string;
+  title: string;
+  /** The heading over the slots with no date: the date field's "(no …)". */
+  noDateHeading: string;
+  slots: typeof SWEDISH_SLOTS;
 }
 
 /** Removes an e2e organizer and its data. Workspace delete cascades signups →
@@ -147,6 +178,111 @@ async function makePublishedSignup(
   return { id: signup.id, slug: signup.slug, slotIds };
 }
 
+/** A day `days` from today, as a date field stores it (YYYY-MM-DD). */
+function dayFromNow(days: number): string {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * A published signup whose language is Swedish, for the specs that check the
+ * participant pages in a second language. Fields and slots are an organizer's
+ * in Swedish, as a Swedish signup's would be.
+ *
+ * Swedish can't be chosen until it ships (`createSignup` refuses it), so the
+ * language is written into the row afterwards. It hasn't shipped, so the
+ * page shows it only on a server started with `E2E_UNSHIPPED_LOCALES=sv`,
+ * which playwright.config.ts gives the server it starts (`signupLocale` in
+ * src/i18n/config.ts).
+ */
+async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Promise<SwedishSeed> {
+  const title = 'Fika till vårfesten';
+  const template: SignupTemplate = {
+    id: 'e2e-swedish',
+    fields: [
+      {
+        ref: 'vad',
+        label: 'Vad',
+        fieldType: 'text',
+        sortOrder: 0,
+        config: { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH },
+      },
+      {
+        ref: 'datum',
+        label: 'Datum',
+        fieldType: 'date',
+        sortOrder: 1,
+        config: { fieldType: 'date' },
+      },
+    ],
+    slots: [
+      { capacity: 20, values: { vad: SWEDISH_SLOTS.many, datum: dayFromNow(30) } },
+      { capacity: 1, values: { vad: SWEDISH_SLOTS.one, datum: dayFromNow(30) } },
+      { capacity: 1, values: { vad: SWEDISH_SLOTS.full, datum: dayFromNow(31) } },
+      { capacity: null, values: { vad: SWEDISH_SLOTS.unlimitedOne } },
+      { capacity: null, values: { vad: SWEDISH_SLOTS.unlimitedTwo } },
+    ],
+  };
+  const signup = unwrap(
+    await createSignup(
+      db,
+      actor,
+      workspaceId,
+      {
+        title,
+        description: 'Ta med något gott till vårfesten. Seeded by tests/e2e/helpers/seed.ts',
+        tags: [],
+        visibility: 'unlisted' as const,
+        // Email optional, so the sheet shows the email box's help, with its
+        // reminder clause on a dated slot and without it on one with no date.
+        settings: { groupByFieldRefs: ['datum'], requireEmail: false },
+      },
+      { template },
+    ),
+    `createSignup(${title})`,
+  );
+  await db
+    .update(signups)
+    .set({ settings: { ...signup.settings, locale: 'sv' } })
+    .where(eq(signups.id, signup.id));
+  unwrap(await publishSignup(db, actor, signup.id), `publishSignup(${title})`);
+
+  const slotIds = new Map(
+    (
+      await db
+        .select({ id: slots.id, values: slots.values })
+        .from(slots)
+        .where(eq(slots.signupId, signup.id))
+    ).map((slot) => [slot.values.vad, slot.id]),
+  );
+  const taken: [string, number][] = [
+    [SWEDISH_SLOTS.many, 1],
+    [SWEDISH_SLOTS.full, 1],
+    [SWEDISH_SLOTS.unlimitedOne, 1],
+    [SWEDISH_SLOTS.unlimitedTwo, 2],
+  ];
+  let n = 0;
+  for (const [label, people] of taken) {
+    for (let i = 0; i < people; i += 1) {
+      n += 1;
+      unwrap(
+        await commitToSlot(db, slotIds.get(label)!, {
+          name: `Deltagare ${n}`,
+          email: `deltagare${n}@example.test`,
+          quantity: 1,
+        }),
+        `commitToSlot(${label})`,
+      );
+    }
+  }
+  return {
+    id: signup.id,
+    slug: signup.slug,
+    title,
+    noDateHeading: '(datum saknas)',
+    slots: SWEDISH_SLOTS,
+  };
+}
+
 export async function seedE2E(): Promise<SeedData> {
   const db = getDb();
   await removeOrganizer(db, E2E_ORGANIZER_EMAIL, E2E_WORKSPACE_SLUG);
@@ -225,6 +361,8 @@ export async function seedE2E(): Promise<SeedData> {
     { requireEmail: false },
   );
 
+  const swedish = await makeSwedishSignup(db, actor, workspaceId);
+
   // Draft signup for the organizer publish flow.
   const draft = unwrap(
     await createSignup(db, actor, workspaceId, {
@@ -256,6 +394,7 @@ export async function seedE2E(): Promise<SeedData> {
     deletedToken: deletedCommit.editToken,
     optionalEmailSlug: optionalEmailSignup.slug,
     optionalEmailSlotLabel: 'Park gate',
+    swedish,
   };
   writeFileSync(SEED_FILE, JSON.stringify(data, null, 2));
   return data;

@@ -878,9 +878,9 @@ describe('<CommitDialog /> sheet', () => {
     });
   });
 
-  // The page passes the sheet its messages in the signup's language. Swedish
-  // has no catalog yet, so these stand in for it: each reads as where it was
-  // asked for ("participant.dialog.done in sv"). Every word the sheet shows,
+  // The page passes the sheet its messages in the signup's language. These
+  // stand in for Swedish's: each reads as where it was asked for
+  // ("participant.dialog.done in sv"). Every word the sheet shows,
   // or gives a screen reader, has to be one of them, or the test's own data.
   describe('in the signup’s language', () => {
     const say = (key: string) => `participant.${key} in sv`;

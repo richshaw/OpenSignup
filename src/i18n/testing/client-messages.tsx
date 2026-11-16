@@ -25,10 +25,12 @@ type Messages = ReturnType<typeof messagesFor>;
  * `getStandInTranslator` (./translator) answers: `participant.dialog.done` in
  * Swedish reads "participant.dialog.done in sv", arguments and tags left
  * out. For a test that a client component's text all comes from the messages
- * its page passes, in the language it passes them in, including a language
- * with no catalog yet.
+ * its page passes, in the language it passes them in.
  */
-export function standInMessages(locale: string, namespaces: Namespace | readonly Namespace[]) {
+export function standInMessages(
+  locale: CatalogLocale,
+  namespaces: Namespace | readonly Namespace[],
+) {
   const standIn = (section: Messages, path: string): Messages =>
     Object.fromEntries(
       Object.entries(section).map(([key, value]) => [
@@ -41,8 +43,7 @@ export function standInMessages(locale: string, namespaces: Namespace | readonly
   const messages = standIn(messagesFor('en', namespaces), '');
   return function StandInMessages({ children }: { children: ReactNode }) {
     return (
-      // A language that may have no catalog yet, which the type doesn't allow.
-      <ClientMessages locale={locale as CatalogLocale} messages={messages}>
+      <ClientMessages locale={locale} messages={messages}>
         {children}
       </ClientMessages>
     );

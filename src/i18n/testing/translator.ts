@@ -18,8 +18,8 @@ export function getTestTranslator<N extends Namespace>(namespace: N) {
  * the catalogs hold: `t('full')` on `participant.signupView` in Swedish is
  * "participant.signupView.full in sv". `rich` and `markup` answer the same,
  * tags and all left out. For a test that text comes from the catalog, in the
- * namespace and language it should, including a language with no catalog
- * yet.
+ * namespace and language it should, whatever that language's catalog holds
+ * so far.
  */
 export function getStandInTranslator<N extends Namespace>(
   locale: string,
@@ -32,8 +32,8 @@ export function getStandInTranslator<N extends Namespace>(
 /**
  * What a component test mocks `getServerTranslator` from `@/i18n/server`
  * with: English from the catalog, as `getTestTranslator` gives it, and any
- * other language as `getStandInTranslator` answers, since only English has a
- * catalog yet. So a test on a Swedish page sees which text was asked for in
+ * other language as `getStandInTranslator` answers, Swedish included though it
+ * has a catalog. So a test on a Swedish page sees which text was asked for in
  * Swedish, and English text where the page keeps it.
  */
 export function getTestServerTranslator<N extends Namespace>(locale: string, namespace: N) {

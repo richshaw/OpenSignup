@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { loadSeed } from './helpers/fixtures';
+import { gotoSwedish } from './helpers/swedish';
 
 const seed = loadSeed();
 
@@ -23,19 +24,58 @@ test.describe('accessibility', () => {
     ).toEqual([]);
   });
 
-  for (const { name, slug, slotLabel } of [
-    { name: 'commit dialog', slug: seed.publicSlug, slotLabel: seed.openSlotLabel },
+  // In Swedish, the page's language is on <main>, and longer words go in the
+  // same boxes.
+  test('the Swedish test signup’s page has no WCAG A/AA violations', async ({ page }) => {
+    await gotoSwedish(page, `/s/${seed.swedish.slug}`);
+    await expect(page.getByRole('heading', { name: seed.swedish.title })).toBeVisible();
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    expect(
+      results.violations.map((v) => ({
+        id: v.id,
+        impact: v.impact,
+        nodes: v.nodes.map((n) => n.target),
+      })),
+    ).toEqual([]);
+  });
+
+  for (const { name, slug, slotLabel, signUp, yourName, swedish } of [
+    {
+      name: 'commit dialog',
+      slug: seed.publicSlug,
+      slotLabel: seed.openSlotLabel,
+      signUp: 'Sign up',
+      yourName: 'Your name',
+      swedish: false,
+    },
     {
       name: 'commit dialog with the email optional',
       slug: seed.optionalEmailSlug,
       slotLabel: seed.optionalEmailSlotLabel,
+      signUp: 'Sign up',
+      yourName: 'Your name',
+      swedish: false,
+    },
+    {
+      // Email optional too, and asking how many spots.
+      name: 'commit dialog on the Swedish test signup',
+      slug: seed.swedish.slug,
+      slotLabel: seed.swedish.slots.many,
+      signUp: 'Anmäl dig',
+      yourName: 'Ditt namn',
+      swedish: true,
     },
   ]) {
     test(`${name} has no WCAG A/AA violations`, async ({ page }) => {
-      await page.goto(`/s/${slug}`);
+      if (swedish) await gotoSwedish(page, `/s/${slug}`);
+      else await page.goto(`/s/${slug}`);
       const row = page.locator('li').filter({ hasText: slotLabel });
-      await row.getByRole('button', { name: 'Sign up' }).click();
-      await expect(page.getByLabel('Your name')).toBeVisible();
+      await row.getByRole('button', { name: signUp }).click();
+      await expect(page.getByLabel(yourName)).toBeVisible();
 
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])

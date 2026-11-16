@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { loadSeed } from './helpers/fixtures';
+import { gotoSwedish } from './helpers/swedish';
 
 /**
  * Messages with arguments, formatted the way production formats them.
@@ -10,7 +11,8 @@ import { loadSeed } from './helpers/fixtures';
  * raw JSON and use the full formatter, so only a real build shows what pages
  * print. The footer's `{instance} · AGPL-3.0` is checked on every kind of
  * page, a slot row's count on the public signup page, and the text client
- * components read in the browser. Broken, a message prints its key path, like
+ * components read in the browser, in English and on the seeded Swedish
+ * signup, whose plurals and number formats are Swedish's. Broken, a message prints its key path, like
  * `common.footer.license` (a compiled message mangled on its way to the
  * translator), or its own text, like `{instance} · AGPL-3.0` (a message that
  * skipped the loader, which this formatter leaves unfilled).
@@ -53,6 +55,23 @@ test.describe('a participant message with arguments', () => {
       /^\d+ of 20 spots left$/,
     );
   });
+
+  test('counts in Swedish on the Swedish signup, plurals and all', async ({ page }) => {
+    const { slug, slots, noDateHeading } = seed.swedish;
+    await gotoSwedish(page, `/s/${slug}`);
+    const row = (label: string) => page.locator('li').filter({ hasText: label });
+    await expect(
+      row(slots.many).locator('[aria-hidden="true"]').filter({ hasText: /kvar/ }),
+    ).toHaveText(/^\d+ kvar$/);
+    await expect(row(slots.many).locator('.sr-only').filter({ hasText: /kvar/ })).toHaveText(
+      /^\d+ av 20 platser kvar$/,
+    );
+    // One and two people on slots with no limit: the plural's two branches.
+    await expect(row(slots.unlimitedOne).locator('.sr-only')).toHaveText('1 anmäld');
+    await expect(row(slots.unlimitedTwo).locator('.sr-only')).toHaveText('2 anmälda');
+    // The date field's label goes into "({label} saknas)" lowercased.
+    await expect(page.getByRole('heading', { name: noDateHeading })).toBeVisible();
+  });
 });
 
 /**
@@ -87,6 +106,37 @@ test.describe('a message a client component reads', () => {
     await email.fill('pat@gmial.com');
     const suggestion = sheet.getByRole('button', { name: 'pat@gmail.com' });
     await expect(suggestion.locator('..')).toHaveText('Did you mean pat@gmail.com?');
+  });
+
+  test('fills in the Swedish sign-up sheet’s messages with arguments', async ({ page }) => {
+    const { slug, slots } = seed.swedish;
+    await gotoSwedish(page, `/s/${slug}`);
+    const open = async (label: string) => {
+      const row = page.locator('li').filter({ hasText: label });
+      await row.getByRole('button', { name: /^Anmäl dig till / }).click();
+      return page.getByRole('dialog');
+    };
+
+    const sheet = await open(slots.many);
+    await expect(sheet).toHaveAccessibleDescription(/^\d+ av 20 platser kvar$/);
+    const email = sheet.getByRole('textbox', { name: 'E-post (valfritt)' });
+    // A dated slot, with reminders on: the select's `yes`.
+    await expect(email).toHaveAccessibleDescription(
+      'Vi mejlar dig en länk där du kan ändra eller avboka, och en påminnelse före ditt pass. Utan e-post behöver du spara länken som visas när du har anmält dig.',
+    );
+    await email.fill('pat@gmial.com');
+    const suggestion = sheet.getByRole('button', { name: 'pat@gmail.com' });
+    await expect(suggestion.locator('..')).toHaveText('Menade du pat@gmail.com?');
+    await sheet.getByRole('button', { name: 'Avbryt' }).click();
+    await expect(sheet).toBeHidden();
+
+    // No date, so no reminder: the select's other branch.
+    const undated = await open(slots.unlimitedOne);
+    await expect(
+      undated.getByRole('textbox', { name: 'E-post (valfritt)' }),
+    ).toHaveAccessibleDescription(
+      'Vi mejlar dig en länk där du kan ändra eller avboka. Utan e-post behöver du spara länken som visas när du har anmält dig.',
+    );
   });
 
   test('names the box on the edit page, rendered on the server and then in the browser', async ({

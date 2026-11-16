@@ -1,6 +1,7 @@
 // Type-only: the 'use client' commit dialog imports this module, and a value
 // import of the translator would put every catalog in its bundle. The page's
 // server components make the translators and pass them in.
+import type { CatalogLocale } from '@/i18n/config';
 import type { Translator } from '@/i18n/translator';
 import type { SignupViewField, SignupViewSlot } from './signup-view-types';
 // Single implementation, shared with the emails so a slot reads the same in
@@ -18,7 +19,7 @@ export { pickPrimaryField, renderFieldValue } from '@/lib/slot-label';
 export function formatGroupLabel(
   field: SignupViewField,
   raw: unknown,
-  locale: string,
+  locale: CatalogLocale,
   t: Translator<'participant.slot'>,
 ): string {
   return (
@@ -38,7 +39,7 @@ export function buildMetaSegments({
   slot: Pick<SignupViewSlot, 'values'>;
   primaryRef?: string | null;
   groupRef?: string | null;
-  locale: string;
+  locale: CatalogLocale;
 }): string[] {
   const out: string[] = [];
   for (const f of fields) {
