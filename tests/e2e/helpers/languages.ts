@@ -59,7 +59,8 @@ export async function remember(context: BrowserContext, signUp: Remembered): Pro
  */
 const ANY_TEXT = '\uE000';
 
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** `text` as a regular expression that matches only itself. */
+export const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * A formatted message as a pattern for the whole of a text: any text where it
@@ -73,9 +74,9 @@ export function matching(
   text: string,
   { locale, count }: { locale?: TestLocale; count?: number } = {},
 ): RegExp {
-  let source = escape(text).split(ANY_TEXT).join('.+');
+  let source = escaped(text).split(ANY_TEXT).join('.+');
   if (count !== undefined) {
-    const shown = escape(new Intl.NumberFormat(locale).format(count));
+    const shown = escaped(new Intl.NumberFormat(locale).format(count));
     source = source.split(shown).join('\\p{Nd}+');
   }
   return new RegExp(`^${source}$`, 'u');

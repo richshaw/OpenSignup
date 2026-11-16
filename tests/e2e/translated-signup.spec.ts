@@ -8,7 +8,7 @@ import { formatSlotDate } from '@/lib/slot-label';
 import { participantErrorCopy } from '@/app/s/[slug]/participant-error';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { loadSeed } from './helpers/fixtures';
-import { gotoIn, messagesIn, remember, signUpButton } from './helpers/languages';
+import { escaped, gotoIn, messagesIn, remember, signUpButton } from './helpers/languages';
 import { expectSignupLayoutIn } from './helpers/signup-layout';
 import { translationShot } from './helpers/translation-shots';
 
@@ -65,6 +65,12 @@ function englishLeftIn(locale: TestLocale): RegExp {
     )
     .join('\n');
   const english = ENGLISH_WORDS.filter((word) => !new RegExp(`\\b${word}\\b`).test(text));
+  // With no word left, the pattern would match any text and fail every page.
+  if (english.length === 0) {
+    throw new Error(
+      `${locale}.json writes every word in ENGLISH_WORDS itself: add English words it doesn't use`,
+    );
+  }
   return new RegExp(`\\b(${english.join('|')})\\b`);
 }
 
@@ -429,7 +435,7 @@ for (const locale of TEST_LOCALES) {
     test(`is in ${language}, with the slot’s date and the spots line`, async ({ page }) => {
       await goto(page, editPath);
       const main = page.locator('main');
-      await expect(page).toHaveTitle(new RegExp(`^${t('title')}`));
+      await expect(page).toHaveTitle(new RegExp(`^${escaped(t('title'))}`));
       await expect(main.getByRole('heading', { level: 1 })).toHaveText(t('title'));
       await expect(main.getByRole('link', { name: t('back') })).toHaveAttribute(
         'href',
@@ -592,7 +598,7 @@ for (const locale of TEST_LOCALES) {
       page,
     }) => {
       await goto(page, unsubscribePath);
-      await expect(page).toHaveTitle(new RegExp(`^${t('title')}`));
+      await expect(page).toHaveTitle(new RegExp(`^${escaped(t('title'))}`));
       const main = page.locator('main');
       await expectPage(
         main,
