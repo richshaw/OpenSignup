@@ -1,8 +1,8 @@
 /**
  * The warning a process logs when it starts with `E2E_UNSHIPPED_LOCALES` set:
  * the e2e run's switch (playwright.config.ts) that shows a signup, or an
- * organizer's own screens, in a language that hasn't shipped (`signupLocale`
- * and `organizerAppLocale` in ./config.ts). It isn't a setting, so nothing
+ * organizer's own screens, in a language that hasn't shipped (`localeOfSignup`
+ * and `localeOfOrganizer` in ./locale.ts). It isn't a setting, so nothing
  * else would tell an operator who set it by mistake.
  *
  * Both processes that follow it log it: the web server, which shows the

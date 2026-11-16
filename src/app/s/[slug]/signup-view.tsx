@@ -89,7 +89,7 @@ interface SignupViewCommonProps {
   slug: string;
   /**
    * The language slot dates and times are read in: the signup's own
-   * (`signupLocale`), worked out by each page that shows it.
+   * (`localeOfSignup`), worked out by each page that shows it.
    */
   locale: CatalogLocale;
   ownCommitments?: OwnCommitment[];

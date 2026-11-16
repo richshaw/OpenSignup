@@ -41,7 +41,7 @@ an organizer to send with the link ("21 spots open", "Sign up here, no account
 needed: …") is read by the people it's sent to, so it's in the signup's
 language, though the panel around it is in the organizer's.
 
-Organizer text is in the organizer's own language (`getOrganizerAppLocale`,
+Organizer text is in the organizer's own language (`localeOfOrganizer`,
 below), and marked with it where it sits on a page in a signup's language.
 While no language but English has shipped to organizers, that's English for
 everyone. The other way round, a signup's own words in the organizer app are
@@ -70,31 +70,38 @@ the catalog check can tell when a translation has fallen behind its English
 
 ## How a message reaches the screen
 
-- **Which language.** A signup's pages and emails are in `signupLocale`
-  (`src/i18n/config.ts`): the language saved in the signup's settings once it
-  has shipped to participants, else the site's `DEFAULT_LOCALE` once that has
-  shipped, else English. Emails use the same rule (`emailLocale` in
-  `src/email/commitment-row.ts`). An organizer's own screens are in
-  `getOrganizerAppLocale` (`src/i18n/organizer.ts`): the language stored on
-  their account once it has shipped to organizers, else the site's
-  `DEFAULT_LOCALE` once that has, else English. Each organizer page works it
-  out from the session itself, since a layout above it doesn't re-render on a
-  client-side navigation, and passes it to `getServerTranslator`. The sign-in
-  pages (`/login`, the check-your-email and confirm pages) are in
-  `signInLocale` (`src/i18n/organizer.ts`): nobody is signed in there yet, so
-  they're in the site's `DEFAULT_LOCALE` once that has shipped to organizers,
-  else English, and nothing is worked out from the browser. The sign-in email
-  is in `signInEmailLocale` (`src/auth/sign-in-email-locale.ts`): the language
-  the organizer app would show the account at its address, so an address with
-  no account gets the sign-in pages' language. It's read only once the request
-  has been charged to the sign-in rate limits. The screen that connects an AI
-  assistant (OAuth consent) and the replies when the organizer chooses are in
-  `getOrganizerAppLocale`, since they're signed in by then, and so are the
-  permission lines on it and on Connected apps (`auth.scopes`). The OAuth
-  provider's error page and its rate-limit page are in `signInLocale`, since
-  the provider doesn't know who is signed in. An app's name and domain, the
-  scope names, the error codes and the JSON `error_description` clients read
-  stay as they are.
+**Which language.** Every page, email and new signup gets its language by
+one rule, `resolveLocale` in `src/i18n/config.ts`: the stored language if it
+has shipped to that audience, else the site's `DEFAULT_LOCALE` if it has,
+else English. Nothing reads the browser but `newOrganizerLocale`, once, when
+an account is created. Ask for the language of what you're rendering:
+
+| You're rendering, or deciding                                                                    | Ask (`src/i18n/locale.ts` unless named)                                                        |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| A signup's pages, its emails, and its own words wherever they show (title, slots, share message) | `localeOfSignup(signup.settings.locale)`                                                       |
+| An organizer's own screens, their sign-in email, the consent screen, CSV headers                 | `localeOfOrganizer(session)`                                                                   |
+| A page nobody is signed in on: `/login`, the OAuth error pages                                   | `signInLocale()`                                                                               |
+| A `/s` page with no signup in hand: not-found, a link it can't read                              | `requestedSignupLocale()` or `signupLocaleForSlug(slug)` (`src/app/s/[slug]/signup-locale.ts`) |
+| What to store: on a new signup, on a new account                                                 | `newSignupLocale(session)`, `newOrganizerLocale(…)` (`src/i18n/organizer-locale.ts`)           |
+
+Each organizer page asks `localeOfOrganizer` with its own session, since a
+layout above it doesn't re-render on a client-side navigation, and passes the
+language to `getServerTranslator`. The sign-in pages (`/login`, the
+check-your-email and confirm pages) have nobody signed in, so `signInLocale`
+is the language an account with nothing stored gets, and nothing is worked
+out from the browser. The sign-in email is in `signInEmailLocale`
+(`src/auth/sign-in-email-locale.ts`): the language the organizer app would
+show the account at its address, so an address with no account gets the
+sign-in pages' language. It's read only once the request has been charged to
+the sign-in rate limits. The screen that connects an AI assistant (OAuth
+consent) and the replies when the organizer chooses are in
+`localeOfOrganizer`, since they're signed in by then, and so are the
+permission lines on it and on Connected apps (`auth.scopes`). The OAuth
+provider's error page and its rate-limit page are in `signInLocale`, since the
+provider doesn't know who is signed in. An app's name and domain, the scope
+names, the error codes and the JSON `error_description` clients read stay as
+they are.
+
 - **Server code** (pages, emails, the reminder worker) calls
   `getServerTranslator(locale, namespace)` from `src/i18n/server.ts`.
 - **Client components** call next-intl's `useTranslations` inside
@@ -438,7 +445,7 @@ Two lists in `src/i18n/config.ts` decide it:
   signup's Settings tab and on the account settings page appear once a second
   language has shipped, and only a language other than English in this list
   can be stored on a new organizer account (below). A site's `DEFAULT_LOCALE`
-  counts only for audiences its language has shipped to (`defaultFor`).
+  counts only for audiences its language has shipped to (`resolveLocale`).
 
 Today `CATALOG_LOCALES` is `en` and `sv`, and `SHIPPED` holds only `en`, for
 every audience.
@@ -463,7 +470,10 @@ Settings to a participant's email, in `organizer-language-story.spec.ts`).
 It keeps a language already saved in a signup's or an account's row, and
 does nothing else: nothing in the app can save a language that hasn't
 shipped, and it never makes one the site's default, a new signup's, or a
-choice. The web
+choice. It's read in one place, `shown` in `src/i18n/locale.ts`, which
+`localeOfSignup` and `localeOfOrganizer` go through, so it only ever changes
+what's shown, never what's stored; `src/i18n/locale.test.ts` fails if any
+other module reads it. The web
 server and the worker log a warning when they start with it set. A reused
 `pnpm dev` needs it too: `E2E_UNSHIPPED_LOCALES=sv pnpm dev`. Never set it on
 a real site.

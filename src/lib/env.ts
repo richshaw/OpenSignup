@@ -42,7 +42,7 @@ const baseSchema = z.object({
   // An organizer whose account stores no language follows it (and while it's
   // set, a new account stores none), and so does a signup with no language of
   // its own. It takes effect for an audience only once its language has
-  // shipped to them (`defaultFor` in src/i18n/config.ts). Unset is English.
+  // shipped to them (`resolveLocale` in src/i18n/config.ts). Unset is English.
   DEFAULT_LOCALE: z.enum(CATALOG_LOCALES).optional(),
   // JSON array of pre-registered OAuth clients for MCP clients that cannot
   // identify themselves with a Client ID Metadata Document (and for local

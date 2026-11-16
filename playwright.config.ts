@@ -39,8 +39,8 @@ export default defineConfig({
     // `pnpm dev` on :3000 is reused instead.
     command: 'pnpm start',
     // Every language with a catalog that hasn't shipped: a signup or an
-    // account that stores one shows in it (`signupLocale` and
-    // `organizerAppLocale` in src/i18n/config.ts), as the seeded Swedish
+    // account that stores one shows in it (`localeOfSignup` and
+    // `localeOfOrganizer` in src/i18n/locale.ts), as the seeded Swedish
     // signup does, and nothing else: it can't make a language anybody's
     // choice. A server you start yourself for these specs needs it too.
     env: { E2E_UNSHIPPED_LOCALES: UNSHIPPED_LOCALES },

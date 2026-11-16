@@ -18,7 +18,7 @@ import { getServerTranslator } from '@/i18n/server';
 
 /**
  * Every email's frame. `locale` is the email's language, which its `<html
- * lang>` declares: a participant email's is its signup's (`emailLocale`), and
+ * lang>` declares: a participant email's is its signup's (`localeOfSignup`), and
  * the sign-in email's is the account's at its address (`signInEmailLocale`).
  */
 export function EmailLayout({

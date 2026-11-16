@@ -9,10 +9,11 @@ const asShippedToday = { ...SHIPPED };
  * that hasn't shipped yet, like Swedish.
  *
  * It changes `SHIPPED` itself, which is what the app's own checks
- * (`isShipped`, `signupLocale`, `chooseOrganizerLocale`) read, and puts every
- * audience's list back once the test finishes, whether it passed or threw, so
- * no test sees another's languages. Call it in a test, or in a `beforeEach`
- * for every test in a block; outside a test, vitest refuses it.
+ * (`isShipped`, `resolveLocale` and the functions in ../locale.ts) read,
+ * and puts every audience's list back once the test finishes, whether it
+ * passed or threw, so no test sees another's languages. Call it in a test,
+ * or in a `beforeEach` for every test in a block; outside a test, vitest
+ * refuses it.
  *
  * `locales` takes any string, since a language can be shipped here before it
  * has a catalog (`CATALOG_LOCALES`).

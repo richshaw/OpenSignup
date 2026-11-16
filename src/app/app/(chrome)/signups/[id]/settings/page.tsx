@@ -182,7 +182,7 @@ function SignupLanguageForm({
   if (languages.length < 2) return null;
   // A signup with no language of its own is in the instance's. One whose
   // language has since left the list shows that too, so the choice shown is
-  // always one that saves, and is the language its pages use (`signupLocale`).
+  // always one that saves, and is the language its pages use (`localeOfSignup`).
   const current = localeOfSignup(stored);
 
   return (
