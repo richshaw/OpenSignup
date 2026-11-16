@@ -1,5 +1,5 @@
 import { getOrganizerSession } from '@/auth/session';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { fail } from '@/lib/api-response';
 import { organizerRoute } from '@/lib/organizer-route';
@@ -26,7 +26,7 @@ export const GET = organizerRoute<{ id: string }>(async ({ db, actor, params: { 
     howCommitmentsEnded(db, row),
     getOrganizerSession(),
   ]);
-  const t = getServerTranslator(getOrganizerAppLocale(session), 'organizer.responses');
+  const t = getServerTranslator(localeOfOrganizer(session), 'organizer.responses');
   return new Response(responsesCsv({ fields, slots, commitments, ended }, t), {
     status: 200,
     headers: {

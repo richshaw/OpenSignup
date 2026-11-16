@@ -1,5 +1,5 @@
 import { getOrganizerSession } from '@/auth/session';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 
 /**
@@ -12,5 +12,5 @@ import { getServerTranslator } from '@/i18n/server';
 export async function crumbTranslator() {
   const session = await getOrganizerSession();
   if (!session) return null;
-  return getServerTranslator(getOrganizerAppLocale(session), 'organizer.crumbs');
+  return getServerTranslator(localeOfOrganizer(session), 'organizer.crumbs');
 }

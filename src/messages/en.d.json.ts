@@ -84,6 +84,7 @@ declare const messages: {
       "savedEmailed": "We've saved your spot for <b>{slot}</b> and emailed this link to <email>{address}</email>. Bookmark it to edit or cancel later:",
       "savedNotEmailed": "We've saved your spot for <b>{slot}</b>. <b>Save this link now: we won't email it, and only this browser remembers it.</b>{calendar, select, yes { Add to calendar saves the link too.} other {}}",
       "addToCalendar": "Add to calendar",
+      "calendarTitle": "{title} — {slot}",
       "calendarDescription": "Edit or cancel: {url}",
       "saveYourLink": "Save your link",
       "shareText": "My spot for {slot}. This link changes or cancels it, so keep it private.",
@@ -202,7 +203,7 @@ declare const messages: {
       },
       "invalid": {
         "title": "This link isn't valid",
-        "body": "It may have been mangled in transit, or the signup may have been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
+        "body": "The link may be incomplete, or the signup has been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
       },
       "confirm": {
         "title": "Stop reminder emails?",
@@ -367,15 +368,13 @@ declare const messages: {
       "language": {
         "title": "Language",
         "legend": "Signup language",
-        "help": "This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language."
+        "help": "This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too."
       },
       "save": "Save",
       "saving": "Saving…",
-      "dangerZone": {
-        "title": "Danger zone",
-        "body": "Deleting removes this signup from your dashboard and immediately makes its public link inaccessible."
-      },
       "delete": {
+        "title": "Delete this signup",
+        "body": "Deleting removes this signup from your dashboard and immediately makes its public link inaccessible.",
         "start": "Delete signup",
         "label": "Confirm signup deletion",
         "question": "This will delete the signup.",
@@ -877,9 +876,10 @@ declare const messages: {
         "legend": "Language",
         "help": "Your screens and new signups use this language. To change one signup’s language, use its Settings tab.",
         "save": "Save",
-        "saved": "Saved",
-        "switch": "Switch your {count, plural, one {{count, number, ::group-off} open signup} other {{count, number, ::group-off} open signups}} to <language>{name}</language>",
-        "switched": "Saved. Your {count, plural, one {{count, number, ::group-off} open signup now uses} other {{count, number, ::group-off} open signups now use}} <language>{name}</language>."
+        "toSwitch": "{count, plural, one {{count, number, ::group-off} of your signups is open and isn't in <language>{name}</language> yet.} other {{count, number, ::group-off} of your signups are open and aren't in <language>{name}</language> yet.}}",
+        "switch": "{count, plural, one {Switch it to <language>{name}</language>} other {Switch them to <language>{name}</language>}}",
+        "switchNote": "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and column names you typed stay as they are. People who already signed up see the new language too.",
+        "switched": "Saved. {count, plural, one {{count, number, ::group-off} of your signups is open, and it's in <language>{name}</language> now.} other {{count, number, ::group-off} of your signups are open, and they're all in <language>{name}</language> now.}}"
       }
     },
     "connectedApps": {

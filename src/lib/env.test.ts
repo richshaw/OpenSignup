@@ -293,7 +293,7 @@ describe('parseEnv', () => {
       expect(parseEnv({ ...base, DEFAULT_LOCALE: '  ' }).DEFAULT_LOCALE).toBeUndefined();
     });
 
-    // Swedish has a catalog, partial and unshipped: `defaultFor` keeps every
+    // Swedish has a catalog, partial and unshipped: `resolveLocale` keeps every
     // audience in English until it ships.
     it.each(['en', 'sv'])('takes a language OpenSignup has a catalog for: %j', (value) => {
       expect(parseEnv({ ...base, DEFAULT_LOCALE: value }).DEFAULT_LOCALE).toBe(value);

@@ -2000,7 +2000,7 @@ describe("getOwnCommitment and its signup's language (db)", () => {
     if (!own.ok) throw new Error(`getOwnCommitment failed: ${own.error.message}`);
 
     // As stored: Swedish hasn't shipped, and reading it as the language in
-    // effect is the page's job (`signupLocale`).
+    // effect is the page's job (`localeOfSignup`).
     expect(own.value.signupLocale).toBe('sv');
     expect(Object.keys(own.value).sort()).toEqual(
       [

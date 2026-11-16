@@ -348,7 +348,7 @@ test.describe('the Swedish test signup', () => {
   }) => {
     await loginAsSeededOrganizer(context);
     await gotoSwedish(page, `/app/signups/${id}/preview`);
-    const banner = page.locator('main [lang="en"]');
+    const banner = page.locator('main [lang="en"]').filter({ has: page.getByRole('status') });
     await expect(banner).toContainText('Preview');
     await expect(banner).toContainText(
       'This signup is live. The page below shows what visitors see.',
@@ -361,6 +361,10 @@ test.describe('the Swedish test signup', () => {
     await expect(button).toBeDisabled();
     await expect(button).toHaveText('Anmäl dig');
     await expect(button).toHaveAttribute('title', 'Preview: publish to enable signups');
+    // Screen readers get the tip from text marked English, which the title can't be.
+    await expect(button).toHaveAccessibleDescription('Preview: publish to enable signups');
+    const tip = page.locator(`[id="${await button.getAttribute('aria-describedby')}"]`);
+    await expect(tip).toHaveAttribute('lang', 'en');
   });
 });
 

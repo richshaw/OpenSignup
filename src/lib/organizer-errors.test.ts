@@ -1,24 +1,16 @@
-import { describe, expect, it } from 'vitest';
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-errors';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
-import { type ErrorCode, serviceError } from './errors';
+import { serviceError, type ErrorCode, type ErrorReason } from './errors';
 import { waitInMinutes } from './format-duration';
 import { refusalFromQuery, refusalText } from './organizer-errors';
 import { TITLE_TOO_SHORT_MESSAGE } from './signup-limits';
+import { ERROR_CODES } from './testing/error-codes';
 
 const t = getTestTranslator('organizer.errors');
-const CODES = Object.keys(SAVE_ERROR_MESSAGE) as ErrorCode[];
 const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 describe('the organizer catalog’s refusals', () => {
-  // SAVE_ERROR_MESSAGE keeps the same lines for the screens that don't read
-  // the catalog yet: the Build tab, Magic Compose, and the header's and
-  // Remove's refusals.
-  it('read as SAVE_ERROR_MESSAGE does, for every code', () => {
-    for (const code of CODES) expect(t(`code.${code}`)).toBe(SAVE_ERROR_MESSAGE[code]);
-  });
-
   it('say a title is too short as the Build tab and the API do', () => {
     expect(
       refusalText(
@@ -39,9 +31,9 @@ describe('the organizer catalog’s refusals', () => {
 
 describe('refusalText', () => {
   it('words a refusal by its code, never by its message', () => {
-    for (const code of CODES) {
+    for (const code of ERROR_CODES) {
       const text = refusalText(t, serviceError(code, 'your role cannot modify this workspace'));
-      expect(text).toBe(SAVE_ERROR_MESSAGE[code]);
+      expect(text).toBe(t(`code.${code}`));
     }
   });
 
@@ -62,9 +54,52 @@ describe('refusalText', () => {
   });
 });
 
+describe('refusalText with a screen’s own lines', () => {
+  const tooShort = serviceError('invalid_input', 'x', { details: { reason: 'title_too_short' } });
+  const plain = serviceError('invalid_input', 'x');
+
+  it('goes own reason, shared reason, own code, own other, then the code’s line', () => {
+    const forCode = { invalid_input: 'Own code', other: 'Own other' };
+    expect(refusalText(t, tooShort, { title_too_short: 'Own reason', ...forCode })).toBe(
+      'Own reason',
+    );
+    expect(refusalText(t, tooShort, forCode)).toBe(TITLE_TOO_SHORT_MESSAGE);
+    expect(refusalText(t, plain, forCode)).toBe('Own code');
+    expect(refusalText(t, plain, { other: 'Own other' })).toBe('Own other');
+    expect(refusalText(t, plain, {})).toBe('Some values weren’t accepted.');
+  });
+
+  it('gives a viewer the same line on every screen, whatever lines the screen has', () => {
+    const viewer = serviceError('forbidden', 'your role cannot modify this workspace');
+    expect(refusalText(t, viewer, { other: 'Own other' })).toBe('You don’t have edit access.');
+    // @ts-expect-error A screen has no line of its own for a viewer.
+    expect(refusalText(t, viewer, { forbidden: 'Own line' })).toBe('You don’t have edit access.');
+  });
+
+  it('ignores a reason that isn’t one of the screen’s own keys', () => {
+    for (const reason of ['toString', 'constructor', '__proto__', 'hasOwnProperty']) {
+      const error = { code: 'conflict' as const, details: { reason: reason as ErrorReason } };
+      expect(refusalText(t, error, { other: 'Own other' })).toBe('Own other');
+    }
+  });
+
+  it('can’t mistake a reason for a code or for `other`', () => {
+    expectTypeOf<Extract<ErrorReason, ErrorCode | 'other'>>().toBeNever();
+  });
+});
+
 describe('refusalFromQuery', () => {
   it('words each code a server action sends', () => {
-    for (const code of CODES) expect(refusalFromQuery(t, code)).toBe(SAVE_ERROR_MESSAGE[code]);
+    for (const code of ERROR_CODES) expect(refusalFromQuery(t, code)).toBe(t(`code.${code}`));
+  });
+
+  it('gives a screen’s own line for a code, as Connected apps does for a failed disconnect', () => {
+    const own = { internal: t('disconnectFailed') };
+    expect(refusalFromQuery(t, 'internal', own)).toBe('Could not disconnect. Try again.');
+    // An app already disconnected, in another tab: the server's message was
+    // "no such connected app".
+    expect(refusalFromQuery(t, 'not_found', own)).toBe('No longer available.');
+    expect(refusalFromQuery(t, 'forbidden', own)).toBe('You don’t have edit access.');
   });
 
   it('shows nothing for anything else, so a link can’t put words on the page', () => {
@@ -72,11 +107,14 @@ describe('refusalFromQuery', () => {
       undefined,
       '',
       'Your account is locked. Email us at once.',
+      'no such connected app',
       'toString',
       'hasOwnProperty',
       'FORBIDDEN',
+      'other',
     ]) {
       expect(refusalFromQuery(t, error)).toBeNull();
+      expect(refusalFromQuery(t, error, { internal: 'Own code', other: 'Own other' })).toBeNull();
     }
   });
 });

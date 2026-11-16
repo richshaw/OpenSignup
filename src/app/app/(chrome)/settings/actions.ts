@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
-import { getOrganizerLocale } from '@/i18n/organizer';
+import { newSignupLocale } from '@/i18n/locale';
 import { refusalAsResult } from '@/lib/errors';
 import { updateOrganizerLocale } from '@/services/organizers';
 import { setOpenSignupsLocale } from '@/services/signups';
@@ -35,12 +35,14 @@ export async function setOrganizerLocaleAction(formData: FormData) {
 }
 
 /**
- * Account Settings' "Switch your 3 open signups to Svenska". Puts the
+ * Account Settings' "Switch them to Svenska". Puts the
  * signed-in organizer's open signups (`setOpenSignupsLocale` says which count)
  * in the language the page offers: theirs for new signups, worked out here as
- * the page does (`getOrganizerLocale`). It reads nothing from the form, which
+ * the page does (`newSignupLocale`). It reads nothing from the form, which
  * sends nothing, so a forged one can't name another language, or anyone
- * else's signups.
+ * else's signups. While only one language has shipped to participants the
+ * page offers no button, and a forged press does nothing: there's no choice,
+ * so nothing to switch.
  *
  * Comes back with `switched=1`, a flag: the page then says how many open
  * signups use the language, from what's stored, once none is left in another
@@ -50,9 +52,10 @@ export async function setOrganizerLocaleAction(formData: FormData) {
  */
 export async function switchOpenSignupsLocaleAction(_form: FormData) {
   const session = await requireOrganizerSession();
-  const { locale } = getOrganizerLocale(session, 'participant');
+  const mine = newSignupLocale(session);
+  if (!mine) return;
   const result = await refusalAsResult(() =>
-    setOpenSignupsLocale(getDb(), toActor(session), locale),
+    setOpenSignupsLocale(getDb(), toActor(session), mine.locale),
   );
   if (!result.ok) redirect(`${SETTINGS_PATH}?error=${result.error.code}`);
   const { signupIds } = result.value;

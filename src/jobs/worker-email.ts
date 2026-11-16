@@ -7,12 +7,13 @@
 import type { SQL } from 'drizzle-orm';
 import type { Db } from '@/db/client';
 import type { ActivityEvent } from '@/db/schema/activity';
+import { localeOfSignup } from '@/i18n/locale';
 import { recordActivity } from '@/lib/activity';
 import { log } from '@/lib/log';
 import { commitmentEditUrl, reminderUnsubscribePostUrl, reminderUnsubscribeUrl } from '@/lib/links';
 import { editTokenFor } from '@/lib/token';
 import { reminderOptOutTokenFor } from '@/services/reminder-optout';
-import { emailLocale, loadCommitmentRow, slotText } from '@/email/commitment-row';
+import { loadCommitmentRow, slotText } from '@/email/commitment-row';
 import { skipReasons } from './notify-rules';
 
 type CommitmentRow = NonNullable<Awaited<ReturnType<typeof loadCommitmentRow>>>;
@@ -54,7 +55,7 @@ export async function loadDueRow(
  */
 export async function workerEmailParts(db: Db, row: CommitmentRow) {
   const optOutToken = reminderOptOutTokenFor(row.participant.id);
-  const locale = emailLocale(row.signup);
+  const locale = localeOfSignup(row.signup.settings.locale);
   return {
     props: {
       locale,

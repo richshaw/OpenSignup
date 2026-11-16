@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import type { CatalogLocale } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { refusalAsResult, type ServiceError } from '@/lib/errors';
 import { requireWorkspaceWrite } from '@/lib/policy';
@@ -40,7 +40,7 @@ async function requireActor() {
 /** Who is acting, and the language their screens are in, for what the header shows. */
 async function requireActorIn() {
   const session = await requireOrganizerSession();
-  return { actor: toActor(session), locale: getOrganizerAppLocale(session) };
+  return { actor: toActor(session), locale: localeOfOrganizer(session) };
 }
 
 /** `statusRefusal` in `locale`. */
@@ -50,7 +50,10 @@ function refusal(
   locale: CatalogLocale,
 ) {
   return {
-    error: statusRefusal(error, change, getServerTranslator(locale, 'organizer.signup.refusal')),
+    error: statusRefusal(error, change, {
+      signup: getServerTranslator(locale, 'organizer.signup.refusal'),
+      errors: getServerTranslator(locale, 'organizer.errors'),
+    }),
   };
 }
 
@@ -141,49 +144,48 @@ export async function closeQuestionAction(
 }
 
 /**
- * Saves one Settings-tab form. Sends only `settings`, which `updateSignup`
- * merges over the stored ones, then comes back to the tab with `saved` set to
- * the form's own value, so "Saved" shows by that form. A refusal comes back
- * as its code in `error`, which the tab words at its top.
+ * The Settings tab's Save. One form holds "Ask for an email address" and,
+ * once a second language has shipped to participants, "Signup language", so
+ * one Save keeps both (#899's tophat: with a Save on each card, saving one
+ * dropped an unsaved change in the other without a word).
+ *
+ * Each choice comes with the value the tab showed it with (`…Shown`), and only
+ * a choice the organizer changed is sent, as the Build tab sends only the
+ * setting it changed (#314): so a Save doesn't put back a language that
+ * account Settings' switch or an AI assistant changed after the tab loaded,
+ * or store the instance's language on a signup that has none of its own.
+ * `updateSignup` merges what's sent over the stored settings, and refuses a
+ * language that hasn't shipped. A Save that changed nothing still goes
+ * through it, so a viewer is refused rather than told it saved.
+ *
+ * Anything but Optional is Required, the default. A form that showed the
+ * language choice but sends no language sends an empty string, which is
+ * refused: null would clear the stored language and still say it saved.
+ *
+ * Comes back to the tab with `saved=1`, or a refusal's code in `error`, which
+ * the tab words at its top.
  */
-async function saveSettingsForm(
-  signupId: string,
-  settings: Record<string, unknown>,
-  saved: string,
-): Promise<never> {
+export async function saveSignupSettingsAction(signupId: string, formData: FormData) {
+  const settings: Record<string, unknown> = {};
+  const requireEmail = formData.get('requireEmail') === 'optional' ? 'optional' : 'required';
+  if (requireEmail !== formData.get('requireEmailShown')) {
+    settings.requireEmail = requireEmail === 'required';
+  }
+  if (formData.has('localeShown')) {
+    const locale = formData.get('locale');
+    if (locale !== formData.get('localeShown')) {
+      settings.locale = typeof locale === 'string' ? locale : '';
+    }
+  }
+
   const actor = await requireActor();
   const settingsPath = `/app/signups/${signupId}/settings`;
   const result = await refusalAsResult(() => updateSignup(getDb(), actor, signupId, { settings }));
   if (!result.ok) redirect(`${settingsPath}?error=${result.error.code}`);
-  // This tab re-renders with the saved choice. The public page is dynamic, so
-  // it reads the change on its next request.
+  // This tab re-renders with the saved choices. The public page is dynamic,
+  // so it reads the change on its next request.
   revalidateSignup(signupId);
-  redirect(`${settingsPath}?saved=${saved}`);
-}
-
-/**
- * The Settings tab's "Ask for an email address". Anything but Optional saves
- * Required, the default.
- */
-export async function setRequireEmailAction(signupId: string, formData: FormData) {
-  const requireEmail = formData.get('requireEmail') !== 'optional';
-  await saveSettingsForm(signupId, { requireEmail }, '1');
-}
-
-/**
- * The Settings tab's "Signup language", there once a second language has
- * shipped to participants. `updateSignup` refuses a language that hasn't
- * shipped. A form with no choice in it sends an empty string, which is refused
- * too: null would clear the stored language and still come back saying it
- * saved.
- */
-export async function setSignupLocaleAction(signupId: string, formData: FormData) {
-  const locale = formData.get('locale');
-  await saveSettingsForm(
-    signupId,
-    { locale: typeof locale === 'string' ? locale : '' },
-    'language',
-  );
+  redirect(`${settingsPath}?saved=1`);
 }
 
 /**
@@ -204,7 +206,7 @@ export async function removeCommitmentAction(
     removeCommitment(getDb(), toActor(session), commitmentId, signupId),
   );
   if (!result.ok) {
-    const locale = getOrganizerAppLocale(session);
+    const locale = localeOfOrganizer(session);
     return {
       error: removeRefusal(result.error.code, {
         responses: getServerTranslator(locale, 'organizer.responses'),

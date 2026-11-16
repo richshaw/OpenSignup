@@ -10,8 +10,8 @@ import {
 import { FormError } from '@/components/ui/form-error';
 import { SavedNotice } from '@/components/ui/save-notice';
 import { getDb } from '@/db/client';
-import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
-import { getOrganizerAppLocale, getOrganizerLocale } from '@/i18n/organizer';
+import { type CatalogLocale, SHIPPED, languageName, languageNameInSentence } from '@/i18n/config';
+import { localeOfOrganizer, newSignupLocale } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import type { Translator } from '@/i18n/translator';
 import { refusalAsResult } from '@/lib/errors';
@@ -20,7 +20,7 @@ import { openSignupsToSwitch } from '@/services/signups';
 import { setOrganizerLocaleAction, switchOpenSignupsLocaleAction } from './actions';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const locale = getOrganizerAppLocale(await getOrganizerSession());
+  const locale = localeOfOrganizer(await getOrganizerSession());
   return { title: getServerTranslator(locale, 'organizer.settings')('title') };
 }
 export const dynamic = 'force-dynamic';
@@ -52,7 +52,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const { error, saved, switched } = await searchParams;
   const session = await requireOrganizerSession();
   const openSignups = await openSignupsInAnotherLanguage(session);
-  const t = getServerTranslator(getOrganizerAppLocale(session), 'organizer.settings');
+  const t = getServerTranslator(localeOfOrganizer(session), 'organizer.settings');
 
   return (
     <section className="space-y-6">
@@ -104,14 +104,16 @@ interface OpenSignupCounts {
 /**
  * The organizer's open signups (`openSignupsToSwitch` says which count): how
  * many there are, and how many aren't in their language for new signups,
- * which "Switch your 3 open signups to Svenska" offers to change. One
+ * which the button "Switch them to Svenska" offers to change. One
  * statement on each visit once a second language has shipped to participants;
  * until then none, and no statement.
  */
 async function openSignupsInAnotherLanguage(session: OrganizerSession): Promise<OpenSignupCounts> {
-  if (SHIPPED.participant.length < 2) return { open: 0, toSwitch: 0 };
-  const { locale } = getOrganizerLocale(session, 'participant');
-  const read = await refusalAsResult(() => openSignupsToSwitch(getDb(), toActor(session), locale));
+  const mine = newSignupLocale(session);
+  if (!mine) return { open: 0, toSwitch: 0 };
+  const read = await refusalAsResult(() =>
+    openSignupsToSwitch(getDb(), toActor(session), mine.locale),
+  );
   return read.ok
     ? { open: read.value.open, toSwitch: read.value.toSwitch.length }
     : { open: 0, toSwitch: 0 };
@@ -119,7 +121,7 @@ async function openSignupsInAnotherLanguage(session: OrganizerSession): Promise<
 
 /**
  * "Language": the language of the organizer's own screens
- * (`getOrganizerAppLocale`), and the one each signup they make starts in
+ * (`localeOfOrganizer`), and the one each signup they make starts in
  * (`newSignupLocale`). A language ships to organizers and to participants in
  * the same release, so the choices are the participants' list. With one
  * language shipped there's nothing to choose, so it renders nothing until a
@@ -129,12 +131,15 @@ async function openSignupsInAnotherLanguage(session: OrganizerSession): Promise<
  * plain button, as Sign out is, so the page loads no script of its own.
  *
  * Under it, while some of the organizer's open signups are in another
- * language, a button that switches them to this one (#639), and once it has,
- * how many of their open signups now use it, in the place of "Saved". Both
- * are plain HTML too: nothing
- * appears after the language's own Save, and nothing moves or takes the
- * focus. The button is gone once they're switched, so a second tap finds
- * nothing to press.
+ * language, how many, a button that switches them to this one (#639), and
+ * what switching changes and what it leaves (#933's tophat: the signups' own
+ * words stay as typed, and people already signed up see the new language).
+ * Once it has, how many of their open signups use it now, in the button's
+ * place. All plain HTML too: nothing appears after the language's own Save,
+ * and nothing moves or takes the focus. The button is gone once they're
+ * switched, so a second tap finds nothing to press. The words say "1 of your
+ * signups is open", never "your open signup", which read as the product's
+ * name.
  */
 function OrganizerLanguageForm({
   t,
@@ -157,18 +162,20 @@ function OrganizerLanguageForm({
   switched: boolean;
 }) {
   const languages: readonly CatalogLocale[] = SHIPPED.participant;
-  if (languages.length < 2) return null;
   // The language new signups get now: the one stored on the account, or with
   // none stored (or one that has left the list) the instance's, else English.
-  // So the choice shown is always one that saves.
-  const { locale: current } = getOrganizerLocale(session, 'participant');
+  // So the choice shown is always one that saves. None while there's only
+  // one language to choose.
+  const mine = newSignupLocale(session);
+  if (!mine) return null;
+  const current = mine.locale;
   // Only a code the action sends shows, in the words the Settings tab uses,
   // so a link can't put its own words on the page.
-  const refusal = refusalFromQuery(
-    getServerTranslator(getOrganizerAppLocale(session), 'organizer.errors'),
-    error,
-  );
-  const name = languageName(current);
+  const pageLocale = localeOfOrganizer(session);
+  const refusal = refusalFromQuery(getServerTranslator(pageLocale, 'organizer.errors'), error);
+  // Named in itself, as in the list above, but cased as the page's language
+  // writes a language's name in a sentence: "to Svenska", "till svenska".
+  const name = languageNameInSentence(current, pageLocale);
   const language = (chunks: ReactNode) => <span lang={current}>{chunks}</span>;
 
   return (
@@ -204,18 +211,35 @@ function OrganizerLanguageForm({
           >
             {t('language.save')}
           </button>
-          {saved ? <SavedNotice role="status">{t('language.saved')}</SavedNotice> : null}
+          {saved ? (
+            <SavedNotice role="status">
+              {getServerTranslator(pageLocale, 'organizer.saveNotice')('saved')}
+            </SavedNotice>
+          ) : null}
         </div>
       </form>
       {openSignups.toSwitch > 0 ? (
-        <form action={switchOpenSignupsLocaleAction} className="border-t border-surface-sunk pt-4">
-          <button
-            type="submit"
-            className="rounded-lg border border-surface-sunk bg-white px-4 py-2 text-sm font-medium transition hover:bg-surface-raised"
-          >
-            {t.rich('language.switch', { count: openSignups.toSwitch, name, language })}
-          </button>
-        </form>
+        <div className="space-y-3 border-t border-surface-sunk pt-4">
+          <p id="switch-open-signups-why" className="text-sm">
+            {t.rich('language.toSwitch', { count: openSignups.toSwitch, name, language })}
+          </p>
+          <form action={switchOpenSignupsLocaleAction}>
+            {/* Outlined in the brand's blue, so it reads as a button on the
+                white card; the darker blue for its words keeps 4.5:1 on
+                white and on the hover's tint. "Switch it" names nothing on
+                its own, so it's described by the lines around it. */}
+            <button
+              type="submit"
+              aria-describedby="switch-open-signups-why switch-open-signups-note"
+              className="rounded-lg border border-brand bg-white px-4 py-2 text-sm font-medium text-brand-hover transition hover:bg-brand-soft"
+            >
+              {t.rich('language.switch', { count: openSignups.toSwitch, name, language })}
+            </button>
+          </form>
+          <p id="switch-open-signups-note" className="text-sm text-ink-muted">
+            {t('language.switchNote')}
+          </p>
+        </div>
       ) : switched && openSignups.open > 0 ? (
         // Once none is left in another language, with the count from what's
         // stored: the address says only that the switch ran.

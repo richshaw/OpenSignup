@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { connectedAppsLines } from '@/app/app/(chrome)/settings/connected-apps/refusal-lines';
+import { removeRefusal } from '@/app/app/(chrome)/signups/[id]/responses/remove-refusal';
 import { statusRefusal } from '@/app/app/(chrome)/signups/[id]/status-refusal';
 import { inputMessage } from '@/app/s/[slug]/input-message';
 import { saveErrorMessage } from '@/components/build-shared/save-error-message';
 import { explainDraftFailure } from '@/components/magic-compose/draft-errors';
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-errors';
-import { getTestTranslator } from '@/i18n/testing/translator';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
+import type { Namespace } from '@/i18n/translator';
 import type { FollowUp } from '@/lib/magic-compose/questions';
-import type { ErrorCode, ErrorReason, ServiceError } from './errors';
-import { refusalText } from './organizer-errors';
+import { httpStatusFor, type ErrorCode, type ErrorReason, type ServiceError } from './errors';
+import { refusalFromQuery, refusalText } from './organizer-errors';
+import { ERROR_CODES } from './testing/error-codes';
 
 /**
  * Every `ErrorReason` an organizer screen can receive, with the screens that
@@ -24,11 +27,10 @@ import { refusalText } from './organizer-errors';
  * Build tab lines worded for organizers rather than developers (#944):
  * `date_too_early`, `capacity_below_taken` and `invalidates_slot_values`.
  *
- * The New signup form's, the Build tab's and Magic Compose's words come from
- * the catalog (`organizer.errors`, `organizer.build`,
- * `organizer.compose.errors`), in the organizer's language. The header's are
- * still written in its components, and move into the catalog with the rest
- * of its text.
+ * Every screen's words come from the catalog (`organizer.errors`,
+ * `organizer.build`, `organizer.compose.errors`, `organizer.signup.refusal`),
+ * in the organizer's language: the last block below checks that for every
+ * code and reason.
  */
 const PARTICIPANT_REASONS = [
   'email_required',
@@ -57,8 +59,9 @@ type OrganizerReason = Exclude<
   (typeof PARTICIPANT_REASONS)[number] | (typeof API_ONLY_REASONS)[number] | SignInReason
 >;
 
+const t = getTestTranslator('organizer.errors');
 /** The header's refusals, in English. */
-const header = getTestTranslator('organizer.signup.refusal');
+const header = { signup: getTestTranslator('organizer.signup.refusal'), errors: t };
 
 /** What the server sends, its English `message` and `suggestion` swapped for words no screen may show. */
 const sent = (
@@ -73,7 +76,6 @@ const sent = (
   details: { ...more.details, reason },
 });
 
-const t = getTestTranslator('organizer.errors');
 const buildTab = (error: ReturnType<typeof sent>) =>
   saveErrorMessage(error, { build: getTestTranslator('organizer.build'), errors: t });
 const answered: FollowUp = { what: { picked: ['Bake something'], added: [] } };
@@ -168,7 +170,7 @@ describe('every reason an organizer screen can receive', () => {
     it.each(Object.entries(screens))('has words of its own on %s', (_screen, words) => {
       const said = words(error);
       expect(said).toBe(english);
-      expect(said).not.toBe(SAVE_ERROR_MESSAGE[error.code]);
+      expect(said).not.toBe(t(`code.${error.code}`));
       if (reason !== 'refusal') expect(said).not.toContain('Server');
     });
   });
@@ -176,7 +178,7 @@ describe('every reason an organizer screen can receive', () => {
   it('leaves slot_has_signups to API callers: the Build tab would give it its code’s line', () => {
     for (const reason of API_ONLY_REASONS) {
       const error = sent('conflict', reason, { field: 'slotId', details: { filled: 2 } });
-      expect(buildTab(error)).toBe(SAVE_ERROR_MESSAGE.conflict);
+      expect(buildTab(error)).toBe(t('code.conflict'));
     }
   });
 
@@ -192,6 +194,57 @@ describe('every reason an organizer screen can receive', () => {
     for (const reason of PARTICIPANT_REASONS) {
       const said = inputMessage({ code: 'invalid_input', details: { reason } }, participant);
       expect(said, reason).not.toEqual(general);
+    }
+  });
+});
+
+/**
+ * Each organizer screen's refusal, from translators that answer every key
+ * with where it was asked for ("organizer.errors.code.forbidden in xx"). So
+ * any words that don't come from the catalog in the organizer's language
+ * show up here: English written into a helper, as a viewer's refusal in the
+ * header once was, or the server's `message`. Only Magic Compose's
+ * `refusal` is let through, since its words are the AI's own.
+ */
+describe('every organizer refusal comes from the catalog', () => {
+  const inOther = <N extends Namespace>(namespace: N) => getStandInTranslator('xx', namespace);
+  const errors = inOther('organizer.errors');
+  const signup = { signup: inOther('organizer.signup.refusal'), errors };
+  const compose = { compose: inOther('organizer.compose.errors'), errors };
+  const drafted = (error: ServiceError, followUp?: FollowUp) => {
+    const opts = followUp ? { followUp } : {};
+    const said = explainDraftFailure(httpStatusFor(error.code), error, compose, opts);
+    return said.kind === 'message' ? said.text : 'the hourly limit, which has its own words';
+  };
+  const SCREENS: Record<string, (error: ServiceError) => string | null> = {
+    'New signup': (error) => refusalText(errors, error),
+    'account Settings and a signup’s Settings tab': (error) => refusalFromQuery(errors, error.code),
+    'Connected apps': (error) => refusalFromQuery(errors, error.code, connectedAppsLines(errors)),
+    Publish: (error) => statusRefusal(error, 'publish', signup),
+    'Close signup': (error) => statusRefusal(error, 'close', signup),
+    'Reopen signup': (error) => statusRefusal(error, 'reopen', signup),
+    Remove: (error) =>
+      removeRefusal(error.code, { responses: inOther('organizer.responses'), errors }),
+    'Build tab': (error) => saveErrorMessage(error, { build: inOther('organizer.build'), errors }),
+    'Magic Compose': (error) => drafted(error),
+    'Magic Compose questions': (error) => drafted(error, answered),
+  };
+  const REASONS = [undefined, ...(Object.keys(CASES) as OrganizerReason[]), ...API_ONLY_REASONS];
+
+  it.each(Object.entries(SCREENS))('on %s, for every code and reason', (screen, words) => {
+    for (const code of ERROR_CODES) {
+      for (const reason of REASONS) {
+        if (reason === 'refusal' && screen.startsWith('Magic Compose')) continue;
+        const error: ServiceError = {
+          code,
+          message: 'Server words',
+          suggestion: 'Server suggestion',
+          details: reason ? { reason, taken: 2, count: 1 } : {},
+        };
+        expect(words(error), `${code}, ${reason ?? 'no reason'}`).toMatch(
+          /^organizer\.[\w.]+ in xx$/,
+        );
+      }
     }
   });
 });

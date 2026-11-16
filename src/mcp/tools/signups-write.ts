@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { SHIPPED } from '@/i18n/config';
-import { newSignupLocale } from '@/i18n/organizer';
+import { newSignupLocale } from '@/i18n/locale';
 import { log } from '@/lib/log';
 import { persistDraft } from '@/lib/magic-compose/persist';
 import { FullDraftSchema } from '@/lib/magic-compose/prompt';

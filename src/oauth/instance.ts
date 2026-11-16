@@ -3,7 +3,7 @@ import type Provider from 'oidc-provider';
 import { getDb, type Db } from '@/db/client';
 import { eq } from 'drizzle-orm';
 import { organizers } from '@/db/schema/organizers';
-import { signInLocale } from '@/i18n/organizer';
+import { signInLocale } from '@/i18n/locale';
 import { getEnv } from '@/lib/env';
 import { log } from '@/lib/log';
 import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';

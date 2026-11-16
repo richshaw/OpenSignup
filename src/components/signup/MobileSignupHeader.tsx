@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { MoreHorizontal } from 'lucide-react';
+import type { CatalogLocale } from '@/i18n/config';
 import type { SignupStatus } from '@/schemas/signups';
 import { useCloseQuestion, type CloseQuestionAction } from './CloseSignupConfirm';
 import type { SignupHeaderText } from './header-text';
@@ -11,6 +12,8 @@ import { PhoneBar } from './PhoneBar';
 
 interface MobileSignupHeaderProps {
   title: string;
+  /** The title's `lang`: the signup's language, where it isn't the header's. */
+  titleLang?: CatalogLocale;
   status: SignupStatus;
   /** The status's `StatusPill`, rendered on the server. */
   pill: ReactNode;
@@ -35,6 +38,7 @@ interface MobileSignupHeaderProps {
  */
 export function MobileSignupHeader({
   title,
+  titleLang,
   status,
   pill,
   standing,
@@ -64,6 +68,7 @@ export function MobileSignupHeader({
             <h1
               tabIndex={-1}
               data-signup-title
+              lang={titleLang}
               className="truncate text-xl font-semibold tracking-tight text-ink"
             >
               {title}
@@ -99,6 +104,7 @@ export function MobileSignupHeader({
         onClose={() => setMenuFor(null)}
         status={status}
         title={title}
+        titleLang={titleLang}
         previewItem={previewItem}
         text={text}
         closeQuestion={question}

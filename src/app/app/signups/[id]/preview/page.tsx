@@ -1,7 +1,6 @@
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
-import { signupLocale } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfOrganizer, localeOfSignup } from '@/i18n/locale';
 import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { SignupLoadError, signupNotFoundTitle } from '@/components/signup/SignupLoadError';
@@ -15,7 +14,7 @@ type PageParams = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: PageParams) {
   const { id } = await params;
   const session = await getOrganizerSession();
-  const locale = getOrganizerAppLocale(session);
+  const locale = localeOfOrganizer(session);
   const preview = getServerTranslator(locale, 'organizer.preview')('title');
   if (!session) return { title: preview };
   const result = await loadSignupForOrganizer(toActor(session), id);
@@ -42,7 +41,7 @@ export default async function SignupPreviewPage({ params }: PageParams) {
   const session = await requireOrganizerSession();
   const actor = toActor(session);
   const result = await loadSignupForOrganizer(actor, id);
-  const organizerLocale = getOrganizerAppLocale(session);
+  const organizerLocale = localeOfOrganizer(session);
   if (!result.ok) {
     return <PreviewLoadError error={result.error} email={session.email} locale={organizerLocale} />;
   }
@@ -62,7 +61,7 @@ export default async function SignupPreviewPage({ params }: PageParams) {
   // What participants will see, so in the signup's language: marked with it,
   // inside an organizer page that's in the organizer's. The Preview banner
   // over it is the organizer's.
-  const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const locale = localeOfSignup(sig.settings.locale);
   return (
     <main lang={locale} className="flex min-h-[100svh] flex-col py-8">
       <SignupView

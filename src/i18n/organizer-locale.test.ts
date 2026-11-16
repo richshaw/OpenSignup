@@ -1,101 +1,11 @@
-import { describe, expect, expectTypeOf, it } from 'vitest';
-import { CATALOG_LOCALES, type CatalogLocale } from './config';
-import { chooseOrganizerLocale, newOrganizerLocale } from './organizer-locale';
+import { describe, expect, it } from 'vitest';
+import { CATALOG_LOCALES, type CatalogLocale, resolveLocale } from './config';
+import { newOrganizerLocale } from './organizer-locale';
 import { accountLanguageTable } from './testing/account-language-table';
 import { ship } from './testing/ship';
 
 /** Every language with a catalog besides English, each tried in turn. */
 const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
-type Input = Parameters<typeof chooseOrganizerLocale>[0];
-const NOTHING: Input = { audience: 'participant', saved: null, instanceDefault: undefined };
-const choose = (input: Partial<Input>) => chooseOrganizerLocale({ ...NOTHING, ...input });
-
-describe('chooseOrganizerLocale while only English has shipped', () => {
-  it('is English, from whichever step names it first', () => {
-    expect(choose({ saved: 'en', instanceDefault: 'en' })).toEqual({
-      locale: 'en',
-      source: 'setting',
-    });
-    expect(choose({ instanceDefault: 'en' })).toEqual({ locale: 'en', source: 'instance' });
-    expect(choose({})).toEqual({ locale: 'en', source: 'default' });
-  });
-
-  it.each(OTHER_LANGUAGES)('is English for an organizer who stored %s', (other) => {
-    expect(choose({ saved: other, instanceDefault: other })).toEqual({
-      locale: 'en',
-      source: 'default',
-    });
-  });
-});
-
-describe.each(OTHER_LANGUAGES)(
-  'chooseOrganizerLocale once %s has shipped to participants',
-  (other) => {
-    it('takes the stored language before anything else', () => {
-      ship('participant', ['en', other]);
-      expect(choose({ saved: other, instanceDefault: 'en' })).toEqual({
-        locale: other,
-        source: 'setting',
-      });
-      expect(choose({ saved: 'en', instanceDefault: other })).toEqual({
-        locale: 'en',
-        source: 'setting',
-      });
-    });
-
-    it('takes the instance default next, when it is set', () => {
-      ship('participant', ['en', other]);
-      expect(choose({ instanceDefault: other })).toEqual({ locale: other, source: 'instance' });
-    });
-
-    it('is English when nothing is stored and the instance sets no default', () => {
-      ship('participant', ['en', other]);
-      expect(choose({})).toEqual({ locale: 'en', source: 'default' });
-    });
-
-    it('has no browser step: a request’s language changes nothing', () => {
-      ship('participant', ['en', other]);
-      expectTypeOf<Input>().not.toHaveProperty('acceptLanguage');
-      // Even handed one, it reads only what's stored and the instance's.
-      const withHeader = { ...NOTHING, acceptLanguage: other } as Input;
-      expect(chooseOrganizerLocale(withHeader)).toEqual({ locale: 'en', source: 'default' });
-    });
-
-    it('passes over a stored language that has left the list', () => {
-      // Stored while the language had shipped, read after it was withdrawn.
-      expect(choose({ saved: other })).toEqual({ locale: 'en', source: 'default' });
-      expect(choose({ saved: other, instanceDefault: other })).toEqual({
-        locale: 'en',
-        source: 'default',
-      });
-      // And one that never had a catalog.
-      ship('participant', ['en', other]);
-      expect(choose({ saved: 'xx', instanceDefault: other })).toEqual({
-        locale: other,
-        source: 'instance',
-      });
-    });
-
-    it('checks every step against the list for the audience asked about', () => {
-      ship('participant', ['en', other]);
-      const input = { saved: other, instanceDefault: other };
-      expect(choose({ ...input, audience: 'organizer' })).toEqual({
-        locale: 'en',
-        source: 'default',
-      });
-      expect(choose({ ...input, audience: 'participant' })).toEqual({
-        locale: other,
-        source: 'setting',
-      });
-    });
-
-    it('passes over an instance default that has not shipped to the audience', () => {
-      ship('organizer', ['en', other]);
-      expect(choose({ instanceDefault: other })).toEqual({ locale: 'en', source: 'default' });
-    });
-  },
-);
 
 /** A new account's language with no `DEFAULT_LOCALE` set. */
 const noDefault = (acceptLanguage: string | null) =>
@@ -114,11 +24,7 @@ describe('the decision table in docs/translating.md (“An organizer’s languag
     for (const acceptLanguage of row.headers) {
       const stored = newOrganizerLocale({ acceptLanguage, instanceDefault: row.instanceDefault });
       expect(stored, String(acceptLanguage)).toBe(row.stored);
-      const gets = chooseOrganizerLocale({
-        audience: 'participant',
-        saved: stored,
-        instanceDefault: row.instanceDefault,
-      });
+      const gets = resolveLocale('participant', stored, row.instanceDefault);
       expect(gets.locale, String(acceptLanguage)).toBe(row.gets);
     }
   });
@@ -180,14 +86,11 @@ describe.each(OTHER_LANGUAGES)(
       // has shipped, else English, as an account with nothing stored does.
       ship('participant', ['en']);
       for (const instanceDefault of [undefined, 'en', other] as const) {
-        expect(
-          chooseOrganizerLocale({ audience: 'participant', saved: stored, instanceDefault }),
-        ).toEqual(chooseOrganizerLocale({ audience: 'participant', saved: null, instanceDefault }));
+        expect(resolveLocale('participant', stored, instanceDefault)).toEqual(
+          resolveLocale('participant', null, instanceDefault),
+        );
       }
-      expect(
-        chooseOrganizerLocale({ audience: 'participant', saved: stored, instanceDefault: other })
-          .locale,
-      ).toBe('en');
+      expect(resolveLocale('participant', stored, other).locale).toBe('en');
     });
 
     it('stores nothing with no header, as for a request from no browser', () => {

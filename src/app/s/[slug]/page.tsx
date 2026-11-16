@@ -4,9 +4,9 @@ import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
-import { type CatalogLocale, openGraphLocale, signupLocale } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { type CatalogLocale, openGraphLocale } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfOrganizer, localeOfSignup } from '@/i18n/locale';
 import { ServiceException } from '@/lib/errors';
 import { commitmentEditUrl } from '@/lib/links';
 import { COMMIT_COOKIE_NAME, parseReturningCommits } from '@/lib/returning-participant';
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
     return { title: t('title'), robots };
   }
   const sig = result.value;
-  const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const locale = localeOfSignup(sig.settings.locale);
   const t = getServerTranslator(locale, 'participant.signupPage');
   // Trimmed for a description saved as only spaces before the schema trimmed it.
   const text = sig.description.trim();
@@ -64,7 +64,7 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
 
 /**
  * The draft's id when the signed-in organizer is a member of its workspace,
- * with the organizer app's language for them (`getOrganizerAppLocale`), so
+ * with the organizer app's language for them (`localeOfOrganizer`), so
  * its own organizer gets a note in their language and a way back to it; null
  * for everyone else, who sees the visitor message. Only the draft branch
  * asks, so an open signup's page never pays for this read.
@@ -75,7 +75,7 @@ async function ownDraft(slug: string): Promise<{ id: string; locale: CatalogLoca
   if (!session || actor.kind !== 'organizer') return null;
   try {
     const found = await findDraftForOrganizer(getDb(), actor, slug);
-    return found.ok ? { id: found.value.id, locale: getOrganizerAppLocale(session) } : null;
+    return found.ok ? { id: found.value.id, locale: localeOfOrganizer(session) } : null;
   } catch (e) {
     // Another workspace's draft: the guard refuses, and they're a visitor here.
     if (e instanceof ServiceException) return null;
@@ -125,7 +125,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
   const sig = result.value;
   // Worked out here, not left to a layout: a soft navigation renders the page
   // without its layout.
-  const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const locale = localeOfSignup(sig.settings.locale);
 
   const cookieStore = await cookies();
   const returningRaw = cookieStore.get(COMMIT_COOKIE_NAME)?.value ?? null;
@@ -146,7 +146,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
   // from the session just read, so it costs no statement.
   const strip =
     session && organizerSignupId ? (
-      <OrganizerStrip signupId={organizerSignupId} locale={getOrganizerAppLocale(session)} />
+      <OrganizerStrip signupId={organizerSignupId} locale={localeOfOrganizer(session)} />
     ) : null;
   const tokenById = new Map(candidates.map((c) => [c.commitmentId, c.token]));
   const ownCommitments = found.map((c) => ({

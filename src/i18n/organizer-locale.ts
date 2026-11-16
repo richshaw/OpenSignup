@@ -7,49 +7,7 @@
  * out of this file and out of server.ts, since the reminder worker imports
  * server.ts under tsx.
  */
-import { type Audience, type CatalogLocale, isShipped } from './config';
-
-/**
- * Which step chose the language, in the order they are tried: the language
- * stored on the organizer's account, the instance's `DEFAULT_LOCALE`, or
- * English.
- */
-export type OrganizerLocaleSource = 'setting' | 'instance' | 'default';
-
-/**
- * Which step chose a new signup's language: the caller, which sent one
- * (`api`), or one of the organizer's steps (`getOrganizerLocale` in
- * organizer.ts). `signup.created` records it next to the language.
- */
-export type SignupLocaleSource = OrganizerLocaleSource | 'api';
-
-/**
- * The organizer's language for `audience`: the first of the language stored
- * on their account and the instance default that has shipped to that
- * audience, else English. A step whose language hasn't shipped there is
- * passed over, so a stored language that has since left `SHIPPED` falls
- * through to the next step instead of breaking anything.
- *
- * Nothing here reads the browser: an organizer's language is stored once,
- * when their account is created (`newOrganizerLocale`), and changed in
- * account Settings, never worked out again on a visit.
- */
-export function chooseOrganizerLocale({
-  audience,
-  saved,
-  instanceDefault,
-}: {
-  /** Whose `SHIPPED` list each step is checked against. */
-  audience: Audience;
-  /** The language stored on the organizer's account, if any. Read leniently, as stored. */
-  saved: string | null;
-  /** The instance's `DEFAULT_LOCALE` (`instanceDefaultLocale()`), or undefined when unset. */
-  instanceDefault: CatalogLocale | undefined;
-}): { locale: CatalogLocale; source: OrganizerLocaleSource } {
-  if (isShipped(audience, saved)) return { locale: saved, source: 'setting' };
-  if (isShipped(audience, instanceDefault)) return { locale: instanceDefault, source: 'instance' };
-  return { locale: 'en', source: 'default' };
-}
+import { type CatalogLocale, isShipped } from './config';
 
 /**
  * The language a new organizer account stores, or null to store none. The

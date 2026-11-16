@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
 import type { CatalogLocale } from '@/i18n/config';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { waitInMinutes } from '@/lib/format-duration';
 import { log } from '@/lib/log';
@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
   if (actor.kind !== 'organizer') {
     redirect(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
   }
-  const locale = getOrganizerAppLocale(session);
+  const locale = localeOfOrganizer(session);
   const t = getServerTranslator(locale, 'auth.consent.decision');
 
   // The consent page posts one field; a bigger body is not from it.

@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { ShareText } from '@/components/share/share-text';
+import type { CatalogLocale } from '@/i18n/config';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useAnnounce } from './HeaderAnnouncer';
 import { PublishState } from './PublishButton';
@@ -29,6 +30,8 @@ interface Share {
   url: string;
   /** The message to send with the link, as the organizer last left it. */
   message: string;
+  /** The message's `lang`: the signup's language, where it isn't the panel's. */
+  messageLang?: CatalogLocale;
   setMessage: (message: string) => void;
   openShare: () => void;
   closeShare: () => void;
@@ -82,6 +85,8 @@ interface ShareStateProps {
   title: string;
   url: string;
   message: string;
+  /** The message's `lang`: the signup's language, where it isn't the organizer's. */
+  messageLang?: CatalogLocale;
   text: ShareText;
   children: ReactNode;
 }
@@ -91,6 +96,7 @@ function ShareState({
   title,
   url,
   message: serverMessage,
+  messageLang,
   text,
   children,
 }: ShareStateProps) {
@@ -129,6 +135,7 @@ function ShareState({
       title,
       url,
       message: edited ?? serverMessage,
+      messageLang,
       setMessage: setEdited,
       openShare,
       closeShare,
@@ -143,6 +150,7 @@ function ShareState({
       url,
       edited,
       serverMessage,
+      messageLang,
       openShare,
       closeShare,
       text,

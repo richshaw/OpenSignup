@@ -1,15 +1,15 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import {
   type Audience,
   CATALOG_LOCALES,
+  type CatalogLocale,
   SHIPPED,
-  defaultFor,
   isShipped,
   langWhereDifferent,
   languageName,
+  languageNameInSentence,
   openGraphLocale,
-  organizerAppLocale,
-  signupLocale,
+  resolveLocale,
 } from './config';
 import { ship } from './testing/ship';
 
@@ -27,6 +27,15 @@ describe('SHIPPED', () => {
     for (const locales of Object.values(SHIPPED)) {
       for (const locale of locales) expect(CATALOG_LOCALES).toContain(locale);
     }
+  });
+
+  it('ships each language to participants and organizers together', () => {
+    expect(
+      [...SHIPPED.organizer].sort(),
+      'The owner decided a language launches for participants and organizers together: ' +
+        'one launch adds it to SHIPPED.participant and SHIPPED.organizer. The account ' +
+        'Settings picker offers the participant list, and the screens follow the organizer list.',
+    ).toEqual([...SHIPPED.participant].sort());
   });
 });
 
@@ -47,15 +56,32 @@ describe('isShipped', () => {
   });
 });
 
-describe('signupLocale', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
+const AUDIENCES = Object.keys(SHIPPED) as Audience[];
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe('resolveLocale while only English has shipped', () => {
+  it.each(AUDIENCES)('is English for %s, from whichever step names it first', (audience) => {
+    expect(resolveLocale(audience, 'en', 'en')).toEqual({ locale: 'en', source: 'setting' });
+    expect(resolveLocale(audience, null, 'en')).toEqual({ locale: 'en', source: 'instance' });
+    expect(resolveLocale(audience, undefined, undefined)).toEqual({
+      locale: 'en',
+      source: 'default',
+    });
   });
 
-  it('keeps a language that has shipped to participants', () => {
-    expect(signupLocale('en', undefined)).toBe('en');
-    ship('participant', ['en', 'sv']);
-    expect(signupLocale('sv', undefined)).toBe('sv');
+  // An operator who sets a language before it ships to an audience gets
+  // English there, not half-translated pages.
+  it.each(AUDIENCES)('is English for %s whatever is stored or the instance sets', (audience) => {
+    for (const other of OTHER_LANGUAGES) {
+      expect(resolveLocale(audience, other, other)).toEqual({ locale: 'en', source: 'default' });
+      expect(resolveLocale(audience, undefined, other)).toEqual({
+        locale: 'en',
+        source: 'default',
+      });
+    }
   });
 
   // A stored value is lenient: one that is unknown, or has since left the
@@ -68,114 +94,108 @@ describe('signupLocale', () => {
     ['a region', 'en-GB'],
     ['an empty string', ''],
     ['not a string', 5],
-  ])('falls back for %s', (_label, value) => {
-    expect(signupLocale(value, undefined)).toBe('en');
+  ])('passes over %s', (_label, stored) => {
+    expect(resolveLocale('participant', stored, undefined)).toEqual({
+      locale: 'en',
+      source: 'default',
+    });
+  });
+
+  // An organizer's language is stored once, when their account is created
+  // (`newOrganizerLocale`), and changed in account Settings, never worked
+  // out again from a visit.
+  it('has no browser step: it takes what is stored and the instance’s default, nothing else', () => {
+    expectTypeOf(resolveLocale).parameters.toEqualTypeOf<
+      [Audience, unknown, CatalogLocale | undefined]
+    >();
   });
 
   // The Settings tab's rule: a language with a catalog that hasn't shipped
   // (yet, or any more) isn't the signup's language, so the page doesn't use
   // one the organizer can't see chosen.
-  it('falls back for a language that has a catalog but has not shipped', () => {
-    expect(CATALOG_LOCALES).toContain('sv');
-    expect(isShipped('participant', 'sv')).toBe(false);
-    expect(signupLocale('sv', undefined)).toBe('en');
-  });
-
-  it('falls back to the instance language once it has shipped to participants', () => {
-    // Set before it ships: English, as `defaultFor` says.
-    expect(signupLocale(undefined, 'sv')).toBe('en');
-    ship('participant', ['en', 'sv']);
-    expect(signupLocale(undefined, 'sv')).toBe('sv');
-    expect(signupLocale('xx', 'sv')).toBe('sv');
-    expect(signupLocale('en', 'sv')).toBe('en');
-  });
-
-  describe('on the e2e run’s server (E2E_UNSHIPPED_LOCALES)', () => {
-    it('keeps a stored language that has a catalog and is listed, though it hasn’t shipped', () => {
-      vi.stubEnv('E2E_UNSHIPPED_LOCALES', 'sv');
-      expect(signupLocale('sv', undefined)).toBe('sv');
-      vi.stubEnv('E2E_UNSHIPPED_LOCALES', 'de,sv');
-      expect(signupLocale('sv', undefined)).toBe('sv');
-    });
-
-    it.each([
-      ['a language that isn’t listed', 'sv', 'de'],
-      ['a language with no catalog', 'xx', 'xx'],
-      ['another case', 'SV', 'sv'],
-      ['a region', 'sv-SE', 'sv'],
-      ['an empty list', 'sv', ''],
-    ])('falls back for %s', (_label, stored, listed) => {
-      vi.stubEnv('E2E_UNSHIPPED_LOCALES', listed);
-      expect(signupLocale(stored, undefined)).toBe('en');
-    });
-
-    // What a real instance could do with it: nothing, since it only keeps a
-    // language already stored, and nothing in the app stores one that hasn't
-    // shipped (services/signups.ts's `checkSignupLocale`, tested there).
-    it('ships nothing: no instance default, and nothing to choose', () => {
-      vi.stubEnv('E2E_UNSHIPPED_LOCALES', 'sv');
-      expect(signupLocale(undefined, 'sv')).toBe('en');
-      expect(defaultFor('participant', 'sv')).toBe('en');
-      for (const audience of Object.keys(SHIPPED) as Audience[]) {
-        expect(isShipped(audience, 'sv')).toBe(false);
-        expect(SHIPPED[audience]).not.toContain('sv');
-      }
-    });
+  it.each(OTHER_LANGUAGES)('passes over %s, which has a catalog but has not shipped', (other) => {
+    expect(isShipped('participant', other)).toBe(false);
+    expect(resolveLocale('participant', other, undefined).locale).toBe('en');
   });
 });
 
-describe.each(OTHER_LANGUAGES)('organizerAppLocale, with %s', (other) => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
+describe.each(OTHER_LANGUAGES)('resolveLocale once %s has shipped', (other) => {
+  it('takes the stored language before anything else', () => {
+    ship('participant', ['en', other]);
+    expect(resolveLocale('participant', other, 'en')).toEqual({
+      locale: other,
+      source: 'setting',
+    });
+    expect(resolveLocale('participant', 'en', other)).toEqual({
+      locale: 'en',
+      source: 'setting',
+    });
   });
 
-  it('is English while only English has shipped to organizers, whatever is stored', () => {
-    expect(organizerAppLocale(null, undefined)).toBe('en');
-    expect(organizerAppLocale(other, other)).toBe('en');
+  it('takes the instance default next, when it is set', () => {
+    ship('participant', ['en', other]);
+    expect(resolveLocale('participant', null, other)).toEqual({
+      locale: other,
+      source: 'instance',
+    });
+    expect(resolveLocale('participant', 'xx', other)).toEqual({
+      locale: other,
+      source: 'instance',
+    });
   });
 
-  it('takes the stored language once it has shipped to organizers', () => {
-    ship('organizer', ['en', other]);
-    expect(organizerAppLocale(other, 'en')).toBe(other);
-    expect(organizerAppLocale('en', other)).toBe('en');
-  });
-
-  it('takes the instance’s language when nothing usable is stored, once it has shipped to organizers', () => {
-    ship('organizer', ['en', other]);
+  it('is English when nothing usable is stored and the instance sets no default', () => {
+    ship('participant', ['en', other]);
     for (const stored of [null, undefined, 'xx', other.toUpperCase(), '', 5]) {
-      expect(organizerAppLocale(stored, other)).toBe(other);
-      expect(organizerAppLocale(stored, undefined)).toBe('en');
+      expect(resolveLocale('participant', stored, undefined)).toEqual({
+        locale: 'en',
+        source: 'default',
+      });
     }
   });
 
-  // The two lists ship together, but each screen asks its own.
-  it('asks the organizers’ list, not the participants’', () => {
-    ship('participant', ['en', other]);
-    expect(organizerAppLocale(other, other)).toBe('en');
+  it('passes over a stored language that has left the list', () => {
+    // Stored while the language had shipped, read after it was withdrawn.
+    expect(resolveLocale('participant', other, undefined)).toEqual({
+      locale: 'en',
+      source: 'default',
+    });
+    expect(resolveLocale('participant', other, other)).toEqual({
+      locale: 'en',
+      source: 'default',
+    });
   });
 
-  describe('on the e2e run’s server (E2E_UNSHIPPED_LOCALES)', () => {
-    it('keeps a stored language that has a catalog and is listed, though it hasn’t shipped', () => {
-      vi.stubEnv('E2E_UNSHIPPED_LOCALES', other);
-      expect(organizerAppLocale(other, undefined)).toBe(other);
-      vi.stubEnv('E2E_UNSHIPPED_LOCALES', `xx,${other}`);
-      expect(organizerAppLocale(other, undefined)).toBe(other);
+  // The two lists ship together, but each screen asks its own.
+  it('checks every step against the list for the audience asked about', () => {
+    ship('participant', ['en', other]);
+    expect(resolveLocale('organizer', other, other)).toEqual({ locale: 'en', source: 'default' });
+    expect(resolveLocale('participant', other, other)).toEqual({
+      locale: other,
+      source: 'setting',
     });
+    ship('organizer', ['en', other]);
+    ship('participant', ['en']);
+    expect(resolveLocale('participant', undefined, other)).toEqual({
+      locale: 'en',
+      source: 'default',
+    });
+    expect(resolveLocale('organizer', undefined, other)).toEqual({
+      locale: other,
+      source: 'instance',
+    });
+  });
 
-    it('never makes a listed language the one an organizer with none stored gets', () => {
-      vi.stubEnv('E2E_UNSHIPPED_LOCALES', other);
-      expect(organizerAppLocale(null, other)).toBe('en');
-      expect(defaultFor('organizer', other)).toBe('en');
-      expect(isShipped('organizer', other)).toBe(false);
-    });
-
-    it.each([
-      ['a language that isn’t listed', 'xx'],
-      ['an empty list', ''],
-    ])('falls back for %s', (_label, listed) => {
-      vi.stubEnv('E2E_UNSHIPPED_LOCALES', listed);
-      expect(organizerAppLocale(other, undefined)).toBe('en');
-    });
+  // Only what's stored on a signup's or an account's row is ever shown in
+  // a language that hasn't shipped, and only on the e2e run's server: that's
+  // ./locale.ts's, never the rule's.
+  it('ignores E2E_UNSHIPPED_LOCALES', () => {
+    vi.stubEnv('E2E_UNSHIPPED_LOCALES', other);
+    for (const audience of AUDIENCES) {
+      expect(resolveLocale(audience, other, other)).toEqual({ locale: 'en', source: 'default' });
+      expect(isShipped(audience, other)).toBe(false);
+      expect(SHIPPED[audience]).not.toContain(other);
+    }
   });
 });
 
@@ -184,29 +204,6 @@ describe('openGraphLocale', () => {
     expect(openGraphLocale('en')).toBe('en_US');
     expect(openGraphLocale('sv')).toBe('sv_SE');
   });
-});
-
-describe('defaultFor', () => {
-  const audiences = Object.keys(SHIPPED) as Audience[];
-
-  it.each(audiences)('is English for %s when the instance sets no language', (audience) => {
-    expect(defaultFor(audience, undefined)).toBe('en');
-  });
-
-  it.each(audiences)('is the instance language for %s when it ships there', (audience) => {
-    for (const locale of SHIPPED[audience]) expect(defaultFor(audience, locale)).toBe(locale);
-  });
-
-  // An operator who sets a language before it ships to an audience gets
-  // English there, not half-translated pages.
-  it.each(audiences)(
-    'is English for %s when the instance language has not shipped there',
-    (audience) => {
-      // Swedish has a catalog, and has shipped to no one yet: what
-      // DEFAULT_LOCALE=sv gives today.
-      expect(defaultFor(audience, 'sv')).toBe('en');
-    },
-  );
 });
 
 describe('langWhereDifferent', () => {
@@ -237,4 +234,30 @@ describe('languageName', () => {
     // CLDR has "engelska".
     expect(languageName('en', 'sv')).toBe('Engelska');
   });
+
+  it('starts every catalog language’s name with a capital, for a list', () => {
+    for (const locale of CATALOG_LOCALES) expect(languageName(locale)).toMatch(/^\p{Lu}/u);
+  });
+});
+
+describe('languageNameInSentence', () => {
+  /**
+   * Each catalog language's name, in itself, inside a sentence in each
+   * catalog language: `name[sentence][language]`. A new catalog language
+   * needs a row and a column here, which the type asks for.
+   */
+  const inSentence: Record<CatalogLocale, Record<CatalogLocale, string>> = {
+    // English capitalizes a language's name in a sentence, as in a list.
+    en: { en: 'English', sv: 'Svenska' },
+    // Swedish writes language names in lower case in a sentence ("byt till
+    // svenska"), and keeps English's own capital.
+    sv: { en: 'English', sv: 'svenska' },
+  };
+
+  it.each(CATALOG_LOCALES.flatMap((sentence) => CATALOG_LOCALES.map((name) => [name, sentence])))(
+    'writes %s inside a sentence in %s as that language does',
+    (name, sentence) => {
+      expect(languageNameInSentence(name, sentence)).toBe(inSentence[sentence][name]);
+    },
+  );
 });

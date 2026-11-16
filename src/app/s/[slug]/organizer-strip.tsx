@@ -10,7 +10,7 @@ import { getServerTranslator } from '@/i18n/server';
  * `surface-raised` is under 4.5:1.
  *
  * Its text is the organizer's, not the participants': in `locale`, the
- * organizer app's language for this organizer (`getOrganizerAppLocale`), and
+ * organizer app's language for this organizer (`localeOfOrganizer`), and
  * marked so, since the page under it is in the signup's language.
  */
 export function OrganizerStrip({ signupId, locale }: { signupId: string; locale: CatalogLocale }) {

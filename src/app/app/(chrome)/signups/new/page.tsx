@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
 import { ClientMessages } from '@/i18n/ClientMessages';
-import { getOrganizerAppLocale } from '@/i18n/organizer';
+import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { messagesFor } from '@/i18n/translator';
 import { trackOrganizerView } from '@/lib/view-tracker';
@@ -12,7 +12,7 @@ import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH } from '@/schemas/signups';
 import { NewSignupForm } from './NewSignupForm';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const locale = getOrganizerAppLocale(await getOrganizerSession());
+  const locale = localeOfOrganizer(await getOrganizerSession());
   return { title: getServerTranslator(locale, 'organizer.newSignup')('title') };
 }
 
@@ -28,7 +28,7 @@ function carried(value: unknown, max: number): string | undefined {
 export default async function NewSignupPage({ searchParams }: PageProps) {
   const session = await requireOrganizerSession();
 
-  const locale = getOrganizerAppLocale(session);
+  const locale = localeOfOrganizer(session);
   const { manual, title, description } = await searchParams;
   const useMagic = magicComposeEnabled() && manual !== '1';
 
