@@ -1,4 +1,5 @@
-import { GONE_PAGE } from '../../gone-message';
+import { getServerTranslator } from '@/i18n/server';
+import { gonePage } from '../../gone-message';
 import { requestedSignupLocale } from '../../signup-locale';
 import { SignupStateMessage } from '../../state-message';
 
@@ -12,5 +13,7 @@ import { SignupStateMessage } from '../../state-message';
  * says nothing about whether the sign-up was ever there.
  */
 export default async function EditLinkNotFound() {
-  return <SignupStateMessage locale={await requestedSignupLocale()} {...GONE_PAGE.editLink} />;
+  const locale = await requestedSignupLocale();
+  const copy = gonePage(getServerTranslator(locale, 'participant.gonePage')).editLink;
+  return <SignupStateMessage locale={locale} {...copy} />;
 }

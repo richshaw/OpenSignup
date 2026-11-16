@@ -1,4 +1,4 @@
-import { spotCount } from '@/lib/spot-counts';
+import type { Translator } from '@/i18n/translator';
 
 /**
  * Participant-facing copy for a `capacity_full` error.
@@ -9,7 +9,8 @@ import { spotCount } from '@/lib/spot-counts';
  * rephrase them here from the numbers in `details`.
  *
  * The copy never names the input it refers to, so it survives the field's
- * label changing.
+ * label changing. It comes from `participant.errors` through `t`, which the
+ * sign-up dialog and the edit page get from `useTranslations`.
  */
 
 /**
@@ -71,6 +72,7 @@ export function offersAlternatives(error: ApiErrorLike | null | undefined): bool
 export function capacityMessage(
   error: ApiErrorLike | null | undefined,
   context: CapacityContext,
+  t: Translator<'participant.errors'>,
 ): CapacityCopy | null {
   if (error?.code !== 'capacity_full') return null;
   const remaining = error.details?.remaining;
@@ -83,13 +85,13 @@ export function capacityMessage(
       // Only point at other slots when the server found some; with none open,
       // "Pick another slot." would send the participant looking for nothing.
       return offersAlternatives(error)
-        ? { message: 'Sorry, this slot just filled up.', suggestion: 'Pick another slot.' }
-        : { message: 'Sorry, this slot just filled up.' };
+        ? { message: t('capacity.filledUp'), suggestion: t('capacity.pickAnother') }
+        : { message: t('capacity.filledUp') };
     }
-    const verb = remaining === 1 ? 'is' : 'are';
     return {
-      message: `Only ${spotCount(remaining)} ${verb} left, and you asked for ${requested}.`,
-      suggestion: remaining === 1 ? 'Ask for 1 instead.' : `Ask for ${remaining} or fewer.`,
+      message: t('capacity.onlyLeft', { remaining, requested }),
+      suggestion:
+        remaining === 1 ? t('capacity.askForOne') : t('capacity.askForOrFewer', { remaining }),
     };
   }
 
@@ -97,15 +99,13 @@ export function capacityMessage(
   // can't drop below what is taken, it always covers the participant's own
   // spots, so it should never get this low.
   if (remaining <= 0) {
-    return {
-      message: "This slot is full, so you can't add more spots.",
-      suggestion: 'Keep the number you have.',
-    };
+    return { message: t('capacity.full'), suggestion: t('keepNumber') };
   }
   return {
-    message: `You can have at most ${spotCount(remaining)} on this slot, and you asked for ${requested}.`,
+    message: t('capacity.atMost', { remaining, requested }),
     // At 1 the participant already holds that one spot, so there is nothing
     // to ask for instead.
-    suggestion: remaining === 1 ? 'Keep your 1 spot.' : `Ask for ${remaining} or fewer.`,
+    suggestion:
+      remaining === 1 ? t('capacity.keepYourOne') : t('capacity.askForOrFewer', { remaining }),
   };
 }

@@ -1,8 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { GONE_PAGE } from '@/app/s/[slug]/gone-message';
+import { gonePage } from '@/app/s/[slug]/gone-message';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { loadSeed } from './helpers/fixtures';
 
 const seed = loadSeed();
+// The pages' English, from the catalog.
+const GONE_PAGE = gonePage(getTestTranslator('participant.gonePage'));
 
 const editLink = (slug: string, id: string, token?: string) =>
   `/s/${slug}/c/${id}${token === undefined ? '' : `?token=${token}`}`;

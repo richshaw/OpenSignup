@@ -8,6 +8,7 @@ import { willSendReminder } from '@/lib/reminder-eligibility';
 import { shownSignupStatus } from '@/lib/signup-closing';
 import { requiresEmail, sendsReminders, type SignupStatus } from '@/schemas/signups';
 import { Banner } from '@/components/banner';
+import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
 import CommitDialog from './commit-dialog';
 import { toSignupViewSlots } from './public-signup';
 import {
@@ -175,6 +176,9 @@ export function SignupViewBody({
 }: SignupViewProps) {
   const t = getServerTranslator(locale, 'participant.signupView');
   const tSlot = getServerTranslator(locale, 'participant.slot');
+  // The live row's Sign up is the dialog's, which reads these in the browser;
+  // the Preview's disabled button and the showcase's stand-in say the same.
+  const tDialog = getServerTranslator(locale, 'participant.dialog');
   const isPreview = mode === 'preview';
   // The Preview banner and the disabled button's tip are the organizer's, not
   // the participants': English until the organizer app has other languages,
@@ -343,14 +347,14 @@ export function SignupViewBody({
                             type="button"
                             disabled
                             title={tPreview('signUpDisabled')}
-                            aria-label={t('signUpFor', { slot: actionName })}
+                            aria-label={tDialog('signUpFor', { slot: actionName })}
                             className={`${ACTION_SIZING} cursor-not-allowed bg-brand font-medium text-white opacity-60`}
                           >
-                            {t('signUp')}
+                            {tDialog('signUp')}
                           </button>
                         ) : mode === 'showcase' ? (
                           <span className={`${ACTION_SIZING} bg-brand font-medium text-white`}>
-                            {t('signUp')}
+                            {tDialog('signUp')}
                           </span>
                         ) : (
                           <CommitDialog
@@ -387,7 +391,7 @@ export function SignupViewBody({
   // The sign-up dialog's text, which it reads in the browser: only the live
   // page has the dialog, and the messages go into the page with it.
   return (
-    <ClientMessages locale={locale} messages={messagesFor(locale, 'participant.fields')}>
+    <ClientMessages locale={locale} messages={messagesFor(locale, COMMIT_DIALOG_NAMESPACES)}>
       {view}
     </ClientMessages>
   );

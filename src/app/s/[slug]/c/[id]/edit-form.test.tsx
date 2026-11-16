@@ -4,8 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { ClientMessages } from '@/i18n/ClientMessages';
-import { englishMessages } from '@/i18n/testing/client-messages';
+import { englishMessages, standInMessages } from '@/i18n/testing/client-messages';
+import { EDIT_FORM_NAMESPACES } from '../../client-namespaces';
 import EditForm from './edit-form';
 import { QUANTITY_MAX } from '@/lib/participant-limits';
 
@@ -16,7 +16,7 @@ function renderForm(
   maxQuantity: number | null,
   initialQuantity = 1,
   // What gives the form its messages: the page's, in English, unless a test says.
-  wrapper: (props: { children: ReactNode }) => ReactNode = englishMessages('participant.fields'),
+  wrapper: (props: { children: ReactNode }) => ReactNode = englishMessages(EDIT_FORM_NAMESPACES),
 ) {
   render(
     <EditForm
@@ -32,20 +32,14 @@ function renderForm(
 }
 
 describe('<EditForm /> name box', () => {
-  // The page gives the form its messages (ClientMessages). A stand-in shows
-  // the name box's label comes from them, not the file.
-  it('takes the name box’s label from the messages its page passes', () => {
-    renderForm(1, 1, ({ children }) => (
-      <ClientMessages
-        locale="en"
-        messages={{ participant: { fields: { name: 'participant.fields.name from the page' } } }}
-      >
-        {children}
-      </ClientMessages>
-    ));
-    expect(screen.getByLabelText('participant.fields.name from the page')).toHaveValue(
-      'Pat Example',
-    );
+  // The page gives the form its messages (ClientMessages). Stand-ins show the
+  // fields' labels come from them, not the files: each reads as where it was
+  // asked for ("participant.fields.name in sv").
+  it('takes the fields’ labels from the messages its page passes', () => {
+    renderForm(4, 1, standInMessages('sv', EDIT_FORM_NAMESPACES));
+    expect(screen.getByLabelText('participant.fields.name in sv')).toHaveValue('Pat Example');
+    expect(screen.getByLabelText('participant.fields.notes in sv')).toHaveValue('');
+    expect(screen.getByLabelText('participant.fields.spots in sv')).toHaveValue(1);
     expect(screen.queryByLabelText('Your name')).not.toBeInTheDocument();
   });
 
@@ -239,6 +233,26 @@ describe('<EditForm /> quantity', () => {
     expect(alert).toHaveTextContent("You can't add more spots now. Keep the number you have.");
     expect(alert).not.toHaveTextContent('not accepting commitments');
     expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  // The same helpers as the sign-up dialog, with the edit page's translator.
+  it('takes an error’s words from the messages its page passes', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => ({
+          error: { code: 'closed', message: 'signup is not accepting commitments' },
+        }),
+      })),
+    );
+    renderForm(4, 2, standInMessages('sv', EDIT_FORM_NAMESPACES));
+
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'participant.errors.closed.change in sv participant.errors.keepNumber in sv',
+    );
   });
 
   it('says the same when a cancel finds the signup gone', async () => {

@@ -1,4 +1,5 @@
-import { GONE_PAGE } from './gone-message';
+import { getServerTranslator } from '@/i18n/server';
+import { gonePage } from './gone-message';
 import { requestedSignupLocale } from './signup-locale';
 import { SignupStateMessage } from './state-message';
 
@@ -11,5 +12,7 @@ import { SignupStateMessage } from './state-message';
  * instance's language for participants either way and never says which.
  */
 export default async function SignupNotFound() {
-  return <SignupStateMessage locale={await requestedSignupLocale()} {...GONE_PAGE.signup} />;
+  const locale = await requestedSignupLocale();
+  const copy = gonePage(getServerTranslator(locale, 'participant.gonePage')).signup;
+  return <SignupStateMessage locale={locale} {...copy} />;
 }

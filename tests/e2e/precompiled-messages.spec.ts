@@ -71,6 +71,24 @@ test.describe('a message a client component reads', () => {
     ).toBeVisible();
   });
 
+  // A plural with numbers, a select, and a tag around an argument, formatted
+  // in the browser.
+  test('fills in the sign-up sheet’s messages with arguments', async ({ page }) => {
+    await page.goto(`/s/${seed.optionalEmailSlug}`);
+    const row = page.locator('li').filter({ hasText: seed.optionalEmailSlotLabel });
+    await row.getByRole('button', { name: 'Sign up' }).click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toHaveAccessibleDescription(/^\d+ of 20 spots left$/);
+    const email = sheet.getByRole('textbox', { name: 'Email (optional)' });
+    // The seeded slot has no date, so the select leaves the reminder out.
+    await expect(email).toHaveAccessibleDescription(
+      "We'll email you your link to change or cancel. Without an email, save the link we show you after you sign up.",
+    );
+    await email.fill('pat@gmial.com');
+    const suggestion = sheet.getByRole('button', { name: 'pat@gmail.com' });
+    await expect(suggestion.locator('..')).toHaveText('Did you mean pat@gmail.com?');
+  });
+
   test('names the box on the edit page, rendered on the server and then in the browser', async ({
     page,
   }) => {

@@ -25,6 +25,9 @@ const TRANSLATED_FILES = [
   'src/app/s/[slug]/signup-view.tsx',
   'src/app/s/[slug]/state-message.tsx',
   'src/app/s/[slug]/organizer-strip.tsx',
+  'src/app/s/[slug]/not-found.tsx',
+  'src/app/s/[slug]/commit-dialog.tsx',
+  'src/app/s/[slug]/participant-fields.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
@@ -108,6 +111,9 @@ const TEXT_PROPS = [
   'eyebrow',
   'description',
   'detail',
+  'actionName',
+  'slotName',
+  'slotContext',
   'closeLabel',
   'dismissLabel',
   'ariaLabel',
@@ -204,13 +210,27 @@ describe('where the rules apply', () => {
     expect(await lint('<p>Sign up</p><button aria-label="Close" />', file)).toHaveLength(2);
   });
 
+  // Listed too, though they hold no JSX for the rules to read, so the list
+  // stays the list of what has moved.
+  it.each([
+    'src/app/s/[slug]/capacity-message.ts',
+    'src/app/s/[slug]/closed-message.ts',
+    'src/app/s/[slug]/conflict-message.ts',
+    'src/app/s/[slug]/gone-message.ts',
+    'src/app/s/[slug]/name-message.ts',
+    'src/app/s/[slug]/rate-limit-message.ts',
+    'src/app/s/[slug]/participant-error.ts',
+  ])('are on for the copy helper %s', async (file) => {
+    const rules = (await eslint.calculateConfigForFile(file))?.rules ?? {};
+    for (const rule of RULES) expect(rules[rule]?.[0], rule).toBe(2);
+  });
+
   // Listed file by file, so the parts of the folder whose text hasn't moved
   // yet stay out.
   it.each([
-    'src/app/s/[slug]/commit-dialog.tsx',
-    'src/app/s/[slug]/participant-fields.tsx',
-    'src/app/s/[slug]/not-found.tsx',
     'src/app/s/[slug]/c/[id]/page.tsx',
+    'src/app/s/[slug]/c/[id]/edit-form.tsx',
+    'src/app/s/[slug]/c/[id]/not-found.tsx',
     'src/app/s/[slug]/unsubscribe/page.tsx',
   ])('are off for %s, which is still to move', async (file) => {
     expect(await lint('<p>Sign up</p><button aria-label="Close" />', file)).toEqual([]);

@@ -40,9 +40,7 @@ declare const messages: {
       "edit": "Edit",
       "editFor": "Edit your spot for {slot}",
       "full": "Full",
-      "closed": "Closed",
-      "signUp": "Sign up",
-      "signUpFor": "Sign up for {slot}"
+      "closed": "Closed"
     },
     "slot": {
       "noValue": "(no {label})",
@@ -51,7 +49,75 @@ declare const messages: {
       "signedUp": "{count, number, ::group-off} signed up"
     },
     "fields": {
-      "name": "Your name"
+      "name": "Your name",
+      "email": "Email",
+      "emailOptional": "Email (optional)",
+      "notes": "Notes (optional)",
+      "spots": "Spots"
+    },
+    "dialog": {
+      "signUp": "Sign up",
+      "signUpFor": "Sign up for {slot}",
+      "close": "Close",
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "signingUp": "Signing up…",
+      "didYouMean": "Did you mean <suggestion>{email}</suggestion>?",
+      "emailHelp": "We'll email you your link to change or cancel{reminder, select, yes {, and a reminder before your slot} other {}}. Without an email, save the link we show you after you sign up.",
+      "notesPlaceholder": "Allergies, preferences, etc.",
+      "seeAlternatives": "See alternatives",
+      "youreIn": "You're in.",
+      "savedEmailed": "We've saved your spot for <b>{slot}</b> and emailed this link to <email>{address}</email>. Bookmark it to edit or cancel later:",
+      "savedNotEmailed": "We've saved your spot for <b>{slot}</b>. <b>Save this link now: we won't email it, and only this browser remembers it.</b>{calendar, select, yes { Add to calendar saves the link too.} other {}}",
+      "addToCalendar": "Add to calendar",
+      "saveYourLink": "Save your link",
+      "copyLink": "Copy link",
+      "linkCopied": "Link copied",
+      "copied": "Link copied.",
+      "copyFailed": "Couldn't copy it. Select the link above and copy it yourself.",
+      "done": "Done"
+    },
+    "errors": {
+      "capacity": {
+        "filledUp": "Sorry, this slot just filled up.",
+        "pickAnother": "Pick another slot.",
+        "onlyLeft": "Only {remaining, plural, one {{remaining, number, ::group-off} spot is} other {{remaining, number, ::group-off} spots are}} left, and you asked for {requested, number, ::group-off}.",
+        "askForOne": "Ask for 1 instead.",
+        "askForOrFewer": "Ask for {remaining, number, ::group-off} or fewer.",
+        "full": "This slot is full, so you can't add more spots.",
+        "atMost": "You can have at most {remaining, plural, one {{remaining, number, ::group-off} spot} other {{remaining, number, ::group-off} spots}} on this slot, and you asked for {requested, number, ::group-off}.",
+        "keepYourOne": "Keep your 1 spot."
+      },
+      "keepNumber": "Keep the number you have.",
+      "closed": {
+        "join": "No one new can sign up for this slot now.",
+        "reload": "Reload the page to see what’s still open.",
+        "change": "You can't add more spots now."
+      },
+      "conflict": {
+        "message": "You're already signed up for this slot.",
+        "suggestion": "Use the link in your confirmation email to change or cancel."
+      },
+      "gone": {
+        "message": "Sorry, this is no longer available.",
+        "suggestion": "Reload the page to see what has changed."
+      },
+      "name": "Enter your name, up to {max, number, ::group-off} characters.",
+      "rateLimit": {
+        "message": "Too many tries just now.",
+        "wait": "Try again in about {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}.",
+        "waitAWhile": "Try again in a few minutes."
+      }
+    },
+    "gonePage": {
+      "signup": {
+        "title": "Sorry, this signup is no longer available",
+        "body": "Contact the organizer to find out what has changed, or to ask them for a new link."
+      },
+      "editLink": {
+        "title": "Sorry, this link isn’t working",
+        "body": "Your spot may no longer be available, or the link may be incomplete. Contact the organizer to find out what has changed. If you got a confirmation email, you can also try its link again."
+      }
     }
   },
   "organizer": {

@@ -41,6 +41,7 @@ export default function EditForm({
 }: EditFormProps) {
   const router = useRouter();
   const tFields = useTranslations('participant.fields');
+  const tErrors = useTranslations('participant.errors');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -102,7 +103,7 @@ export default function EditForm({
       }
       // `remaining` here is the most this commitment can hold, not the spots
       // still free, so the copy is the edit page's own.
-      const copy = participantErrorCopy(payload?.error, 'change');
+      const copy = participantErrorCopy(payload?.error, 'change', tErrors);
       setMessage({
         kind: 'err',
         text: copy ? errorCopyText(copy) : (payload?.error?.message ?? 'save failed'),
@@ -145,7 +146,7 @@ export default function EditForm({
       return;
     }
     const payload = await res.json().catch(() => null);
-    const copy = participantErrorCopy(payload?.error, 'change');
+    const copy = participantErrorCopy(payload?.error, 'change', tErrors);
     setMessage({
       kind: 'err',
       text: copy ? errorCopyText(copy) : (payload?.error?.message ?? 'cancel failed'),

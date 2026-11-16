@@ -65,6 +65,32 @@ describe('messagesFor', () => {
   it('builds each language’s namespace once', () => {
     expect(messagesFor('en', 'participant.fields')).toBe(messagesFor('en', 'participant.fields'));
   });
+
+  // A client component can read several sections, which its page passes in
+  // one provider.
+  it('gives several namespaces side by side, and nothing else', () => {
+    expect(messagesFor('en', ['participant.fields', 'participant.slot', 'common.footer'])).toEqual({
+      participant: { fields: en.participant.fields, slot: en.participant.slot },
+      common: { footer: en.common.footer },
+    });
+    expect(messagesFor('en', ['participant.fields'])).toEqual(
+      messagesFor('en', 'participant.fields'),
+    );
+  });
+
+  it('gives a namespace whole when another it holds is asked for too', () => {
+    expect(messagesFor('en', ['participant.fields', 'participant'])).toEqual({
+      participant: en.participant,
+    });
+    expect(messagesFor('en', ['participant', 'participant.fields'])).toEqual({
+      participant: en.participant,
+    });
+  });
+
+  it('builds each list once', () => {
+    const list = ['participant.fields', 'participant.slot'] as const;
+    expect(messagesFor('en', list)).toBe(messagesFor('en', [...list]));
+  });
 });
 
 describe('namespaceMessages', () => {
