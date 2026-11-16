@@ -43,7 +43,7 @@ export type SignupLocaleSource = OrganizerLocaleSource | 'api';
  * organizer's language for participants, and the step that chose it. Null
  * while only one language has shipped to participants, so the signup stores
  * none: no signup is pinned to a language nobody had a choice of, and it
- * reads as the instance's language (`resolveLocale`) until it has one. A
+ * reads as the instance's language (`signupLocale`) until it has one. A
  * language the caller sent isn't this function's to decide: it goes into the
  * signup as sent, `createSignup` refuses it unless it has shipped, and its
  * source is `api`.

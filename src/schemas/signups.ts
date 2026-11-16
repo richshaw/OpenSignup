@@ -40,7 +40,7 @@ export const SignupSettingsSchema = z
     reminderFromFieldRef: z.string().optional(),
     /**
      * The language the signup is written in. Absent until someone chooses
-     * one: read it with `resolveLocale` from `@/i18n/config`. Lenient, so a
+     * one: read it with `signupLocale` from `@/i18n/config`. Lenient, so a
      * stored value can't break `requiresEmail`, `sendsReminders` or the next
      * save: a language that has since left the list still parses, and
      * anything that isn't a short string reads as none. So this never refuses

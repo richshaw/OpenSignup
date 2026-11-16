@@ -4,23 +4,19 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 
-// Which languages have shipped to participants, per test. Only English has
-// today, so the tests that need a choice ship a second one here.
-const shipped = vi.hoisted(() => ({ participant: ['en'] as string[] }));
-vi.mock('@/i18n/config', async (importOriginal) => {
-  const real = await importOriginal<typeof import('@/i18n/config')>();
-  return {
-    ...real,
-    SHIPPED: {
-      ...real.SHIPPED,
-      get participant() {
-        return shipped.participant;
-      },
-    },
-  };
-});
-// Unit tests have no server environment; the instance sets no language.
-vi.mock('@/i18n/server', () => ({ instanceDefaultLocale: () => undefined }));
+import { type Audience, SHIPPED } from '@/i18n/config';
+
+// Only English has shipped to participants today. The tests that need a
+// choice ship a second language by changing the list itself, so the form and
+// `signupLocale` both see it.
+const shippedToday = [...SHIPPED.participant];
+function ship(locales: string[]) {
+  (SHIPPED as Record<Audience, readonly string[]>).participant = locales;
+}
+// Unit tests have no server environment. The instance sets no language
+// unless a test sets one.
+const instance = vi.hoisted(() => ({ defaultLocale: undefined as string | undefined }));
+vi.mock('@/i18n/server', () => ({ instanceDefaultLocale: () => instance.defaultLocale }));
 
 // The signup as the page loads it, and what the page needs around it: a
 // session, the view it records and the server actions, which need a database.
@@ -56,8 +52,9 @@ const languageSection = () => screen.queryByRole('region', { name: 'Language' })
 
 afterEach(() => {
   cleanup();
-  shipped.participant = ['en'];
+  ship(shippedToday);
   stored.settings = {};
+  instance.defaultLocale = undefined;
 });
 
 describe('Settings tab: Signup language', () => {
@@ -69,7 +66,7 @@ describe('Settings tab: Signup language', () => {
   });
 
   it('offers each shipped language by its own name once there are two', async () => {
-    shipped.participant = ['en', 'sv'];
+    ship(['en', 'sv']);
     stored.settings = { locale: 'sv' };
     await renderTab();
 
@@ -91,7 +88,7 @@ describe('Settings tab: Signup language', () => {
   });
 
   it('shows the instance’s language for a signup with none, or one that has left the list', async () => {
-    shipped.participant = ['en', 'sv'];
+    ship(['en', 'sv']);
     await renderTab();
     expect(screen.getByRole('radio', { name: 'English' })).toBeChecked();
     cleanup();
@@ -100,10 +97,16 @@ describe('Settings tab: Signup language', () => {
     await renderTab();
     expect(screen.getByRole('radio', { name: 'English' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Svenska' })).not.toBeChecked();
+    cleanup();
+
+    // The instance's own, once it has shipped: what the signup's pages use.
+    instance.defaultLocale = 'sv';
+    await renderTab();
+    expect(screen.getByRole('radio', { name: 'Svenska' })).toBeChecked();
   });
 
   it('says Saved by the form that saved, and only there', async () => {
-    shipped.participant = ['en', 'sv'];
+    ship(['en', 'sv']);
     await renderTab({ saved: 'language' });
     expect(within(languageSection()!).getByRole('status')).toHaveTextContent('Saved');
     expect(screen.getAllByRole('status')).toHaveLength(1);

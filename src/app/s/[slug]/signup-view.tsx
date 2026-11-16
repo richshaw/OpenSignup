@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CatalogLocale } from '@/i18n/config';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { shownSignupStatus } from '@/lib/signup-closing';
@@ -83,6 +84,11 @@ interface SignupViewProps {
   slots: SignupViewSlot[];
   slug: string;
   /**
+   * The language slot dates and times are read in: the signup's own
+   * (`signupLocale`), worked out by each page that shows it.
+   */
+  locale: CatalogLocale;
+  /**
    * - 'live': real signup, real CommitDialog.
    * - 'preview': organizer-only preview (Build tab); Sign-up button is
    *   disabled and the preview banner explains why.
@@ -152,13 +158,11 @@ export function SignupViewBody({
   groupByRef,
   slots,
   slug,
+  locale,
   mode,
   ownCommitments,
   showStateBanner = true,
 }: SignupViewProps) {
-  // The language slot dates and times are read in. English until a signup
-  // has a language of its own.
-  const locale = 'en';
   const isPreview = mode === 'preview';
   const effectiveStatus = isPreview && signup.status === 'draft' ? 'open' : signup.status;
   const groupField = groupByRef ? (fields.find((f) => f.ref === groupByRef) ?? null) : null;

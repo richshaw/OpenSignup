@@ -5,6 +5,8 @@ import { notFound } from 'next/navigation';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { getDb } from '@/db/client';
+import { type CatalogLocale, openGraphLocale, signupLocale } from '@/i18n/config';
+import { instanceDefaultLocale } from '@/i18n/server';
 import { ServiceException } from '@/lib/errors';
 import { commitmentEditUrl } from '@/lib/links';
 import { COMMIT_COOKIE_NAME, parseReturningCommits } from '@/lib/returning-participant';
@@ -13,13 +15,25 @@ import { INSTANCE_NAME } from '@/lib/site-config';
 import { recordPublicView, trackAfterResponse } from '@/lib/view-tracker';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { findDraftForOrganizer } from '@/services/signups';
-import { loadPublicSignup } from '@/services/signups.cached';
+import { loadPublicSignup, loadSignupRowBySlug } from '@/services/signups.cached';
 import { organizerBarSignupId } from './organizer-bar';
 import { OrganizerStrip } from './organizer-strip';
 import SignupView, { toSignupViewProps } from './signup-view';
 import { SignupStateMessage } from './state-message';
 
 type PageParams = { params: Promise<{ slug: string }> };
+
+/**
+ * The language of the signup at `slug`, for a page that can't show the signup
+ * itself: a draft or an archived one. Read through the same cached row as
+ * `loadPublicSignup`, so it costs no statement, and only the language leaves
+ * here: that row holds the signup's title, description and settings, which a
+ * visitor must never see.
+ */
+async function hiddenSignupLocale(slug: string): Promise<CatalogLocale> {
+  const row = await loadSignupRowBySlug(slug);
+  return signupLocale(row?.settings.locale, instanceDefaultLocale());
+}
 
 export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
   const { slug } = await params;
@@ -32,14 +46,18 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   // Trimmed for a description saved as only spaces before the schema trimmed it.
   const text = sig.description.trim();
   const description = text ? shortenToLimit(text, 200) : `Sign up via ${INSTANCE_NAME}`;
+  const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
   return {
     title: sig.title,
     description,
     robots,
+    // Next replaces the root layout's openGraph rather than merging it, so
+    // this one names its own language: link previews read og:locale.
     openGraph: {
       title: sig.title,
       description,
       type: 'website',
+      locale: openGraphLocale(locale),
     },
     twitter: {
       card: 'summary',
@@ -78,6 +96,8 @@ export default async function PublicSignupPage({ params }: PageParams) {
     if (received === 'draft') {
       const draftId = await ownDraftId(slug);
       if (draftId) {
+        // Its own organizer's note, in the page's language rather than the
+        // signup's: organizer text isn't translated yet.
         return (
           <SignupStateMessage
             title={DRAFT_ONLY_YOU}
@@ -88,6 +108,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
       }
       return (
         <SignupStateMessage
+          locale={await hiddenSignupLocale(slug)}
           title={DRAFT_TITLE}
           body="The organizer hasn’t published it yet. This link will work once they do, so check back later."
         />
@@ -96,6 +117,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
     if (received === 'archived') {
       return (
         <SignupStateMessage
+          locale={await hiddenSignupLocale(slug)}
           title="This signup is no longer available"
           body="The organizer has archived this signup. If you need to reach them, ask for a new link."
         />
@@ -106,6 +128,9 @@ export default async function PublicSignupPage({ params }: PageParams) {
     notFound();
   }
   const sig = result.value;
+  // Worked out here, not left to a layout: a soft navigation renders the page
+  // without its layout.
+  const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
 
   const cookieStore = await cookies();
   const returningRaw = cookieStore.get(COMMIT_COOKIE_NAME)?.value ?? null;
@@ -140,7 +165,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
   return (
     <>
       {organizerSignupId ? <OrganizerStrip signupId={organizerSignupId} /> : null}
-      <main className="flex min-h-[100svh] flex-col pb-24 pt-10 sm:pt-14">
+      <main lang={locale} className="flex min-h-[100svh] flex-col pb-24 pt-10 sm:pt-14">
         {/* Brand mark only. The old "· Public signup" segment told participants
           nothing actionable — they arrive from a shared link, and the title and
           Sign-up buttons already say what the page is. "Public" was also
@@ -166,6 +191,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
         </div>
         <SignupView
           {...toSignupViewProps(sig, sig.committedBySlot)}
+          locale={locale}
           mode="live"
           ownCommitments={ownCommitments}
         />
