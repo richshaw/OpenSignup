@@ -67,7 +67,7 @@ export function offersAlternatives(error: ApiErrorLike | null | undefined): bool
 
 /**
  * Returns null for any other error, or a `capacity_full` without the numbers,
- * so callers fall back to the server's text rather than guess.
+ * so callers fall back on their general copy rather than guess.
  */
 export function capacityMessage(
   error: ApiErrorLike | null | undefined,

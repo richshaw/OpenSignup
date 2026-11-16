@@ -436,6 +436,89 @@ describe('<CommitDialog /> sheet', () => {
     }
   });
 
+  // The server's `message` and `suggestion` are English for API callers. The
+  // sheet words every refusal itself, by code and reason, and never shows them.
+  describe('a refusal', () => {
+    const SERVER_WORDS = 'SERVER-ONLY-ENGLISH';
+    const failed = ["Something went wrong, so you're not signed up yet.", 'Try again.'];
+    const unreadable = ['Something went wrong.', 'Press Confirm again.'];
+
+    beforeEach(() => {
+      // jsdom leaves scrollIntoView out, and the dialog calls it on the alert.
+      Element.prototype.scrollIntoView = vi.fn();
+    });
+
+    afterEach(() => {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    });
+
+    async function confirmAnswered(json: () => Promise<unknown>) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({ ok: false, status: 400, json })),
+      );
+      openSheet();
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Fields' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'jordan@example' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).not.toHaveTextContent(SERVER_WORDS);
+      return alert;
+    }
+
+    it.each([
+      [
+        'email_invalid',
+        { code: 'invalid_input', field: 'email', details: { reason: 'email_invalid' } },
+        ["That email address doesn't look right.", 'Check it and try again.'],
+      ],
+      [
+        'name_too_long',
+        { code: 'invalid_input', field: 'name', details: { reason: 'name_too_long' } },
+        ['Enter your name, up to 100 characters.'],
+      ],
+      [
+        'a reason it does not know',
+        { code: 'invalid_input', field: 'phone', details: { reason: 'phone_invalid' } },
+        ['Check what you entered and try again.'],
+      ],
+      ['an internal error', { code: 'internal' }, failed],
+      ['a code it does not know', { code: 'teapot' }, failed],
+      // Every error the API sends has a code: one without may not be the API's.
+      ['an error with no code', {}, unreadable],
+    ])('words %s itself', async (_, error, words) => {
+      const alert = await confirmAnswered(async () => ({
+        error: { ...error, message: SERVER_WORDS, suggestion: SERVER_WORDS },
+      }));
+      for (const line of words) expect(alert).toHaveTextContent(line);
+    });
+
+    // An error page from a proxy, say, rather than the API's JSON. Not a
+    // network error: the server answered. A proxy can answer after the server
+    // made the sign-up, so the sheet can't say whether it happened.
+    it.each([
+      [
+        'is not JSON',
+        async () => {
+          throw new SyntaxError('Unexpected token <');
+        },
+      ],
+      ['is JSON without an error', async () => ({})],
+      ['is JSON whose error is not the API’s', async () => ({ error: 'Bad Gateway' })],
+    ])(
+      'says only that it went wrong, and to confirm again, when the answer %s',
+      async (_, json) => {
+        const alert = await confirmAnswered(json);
+        for (const line of unreadable) expect(alert).toHaveTextContent(line);
+        expect(alert).not.toHaveTextContent('signed up');
+        expect(alert).not.toHaveTextContent("Couldn't reach the server.");
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
+      },
+    );
+  });
+
   it('commits one place when it does not ask', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -650,6 +733,7 @@ describe('<CommitDialog /> sheet', () => {
               message: 'Email is required for this signup.',
               field: 'email',
               suggestion: 'Add your email and try again.',
+              details: { reason: 'email_required' },
             },
           }),
         })),
@@ -665,7 +749,9 @@ describe('<CommitDialog /> sheet', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
         const alert = await screen.findByRole('alert', {}, settle);
-        expect(alert).toHaveTextContent('Email is required for this signup.');
+        expect(alert).toHaveTextContent('This signup now needs an email address.');
+        expect(alert).toHaveTextContent('Add yours and try again.');
+        expect(alert).not.toHaveTextContent('Email is required');
         const email = screen.getByLabelText('Email');
         expect(email).toBeRequired();
         expect(email).not.toHaveAccessibleDescription();
@@ -729,8 +815,8 @@ describe('<CommitDialog /> sheet', () => {
     }
   });
 
-  // A phone that loses its connection after the POST got through shows
-  // "network error" for a sign-up the server did make. Pressing Confirm again
+  // A phone that loses its connection after the POST got through says it
+  // couldn't reach the server for a sign-up the server did make. Pressing Confirm again
   // must be recognisably the same sign-up, so the server hands that one back
   // rather than booking a second place (#387).
   describe('the idempotency key', () => {
@@ -770,7 +856,9 @@ describe('<CommitDialog /> sheet', () => {
     }
 
     async function seeNetworkError() {
-      expect(await screen.findByRole('alert', {}, settle)).toHaveTextContent('network error');
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent("Couldn't reach the server.");
+      expect(alert).toHaveTextContent('Check your connection and try again.');
       await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
     }
 
@@ -804,6 +892,35 @@ describe('<CommitDialog /> sheet', () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(first?.idempotencyKey).toEqual(expect.any(String));
       // The same sign-up, key and all.
+      expect(second).toEqual(first);
+    });
+
+    // "Press Confirm again", the sheet says, after an answer it can't read.
+    it('sends the same key when Confirm is pressed again after an answer it can’t read', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 502,
+          json: async () => {
+            throw new SyntaxError('Unexpected token <');
+          },
+        })
+        .mockResolvedValueOnce(success);
+      vi.stubGlobal('fetch', fetchMock);
+
+      openSheet();
+      await fillAndConfirm();
+      expect(await screen.findByRole('alert', {}, settle)).toHaveTextContent(
+        'Press Confirm again.',
+      );
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      await screen.findByRole('heading', { name: "You're in." }, settle);
+
+      const [first, second] = sentBodies(fetchMock);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(first?.idempotencyKey).toEqual(expect.any(String));
       expect(second).toEqual(first);
     });
 
@@ -970,6 +1087,67 @@ describe('<CommitDialog /> sheet', () => {
       expect(alert).toHaveTextContent(say('errors.capacity.filledUp'));
       expect(alert).toHaveTextContent(say('errors.capacity.pickAnother'));
       expect(within(alert).getByRole('link')).toHaveTextContent(say('dialog.seeAlternatives'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+    });
+
+    it('asks for a refused input, and an error it has no copy for, in it', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      openInSwedish({ requireEmail: false });
+      await confirmWith({
+        ok: false,
+        json: async () => ({
+          error: {
+            code: 'invalid_input',
+            message: 'Invalid email',
+            suggestion: 'Check the value of "email".',
+            details: { reason: 'email_invalid' },
+          },
+        }),
+      });
+      let alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent(say('errors.email.invalid'));
+      expect(alert).toHaveTextContent(say('errors.email.check'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+
+      await confirmWith({
+        ok: false,
+        json: async () => ({ error: { code: 'internal', message: 'something went wrong' } }),
+      });
+      await waitFor(
+        () => expect(screen.getByRole('alert')).toHaveTextContent(say('errors.failed.join')),
+        settle,
+      );
+      alert = screen.getByRole('alert');
+      expect(alert).toHaveTextContent(say('errors.failed.tryAgain'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+    });
+
+    it('asks for an answer it can’t read in it', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      openInSwedish({ requireEmail: false });
+      await confirmWith({
+        ok: false,
+        json: async () => {
+          throw new SyntaxError('Unexpected token <');
+        },
+      });
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent(say('dialog.unreadable.message'));
+      expect(alert).toHaveTextContent(say('dialog.unreadable.suggestion'));
+      expect(alert).not.toHaveTextContent(say('errors.failed.join'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+    });
+
+    it('asks for a sign-up that never reached the server in it', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      openInSwedish({ requireEmail: false });
+      await confirmWith({
+        then: (_: unknown, reject: (reason: unknown) => void) =>
+          reject(new TypeError('Failed to fetch')),
+      });
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent(say('dialog.unreachable.message'));
+      expect(alert).toHaveTextContent(say('dialog.unreachable.suggestion'));
       expect(untranslated(screen.getByRole('dialog'))).toBe('');
     });
 
