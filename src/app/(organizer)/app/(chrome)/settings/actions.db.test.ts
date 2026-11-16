@@ -6,7 +6,7 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { setOrganizerLocaleAction, switchOpenSignupsLocaleAction } from './actions';
@@ -121,6 +121,7 @@ describe('setOrganizerLocaleAction (db)', () => {
   });
 
   it('refuses a language that hasn’t shipped, an empty one or none, and keeps the stored one', async () => {
+    shipOnlyEnglish();
     await submit({ locale: 'en' });
     revalidatePath.mockClear();
 
@@ -286,6 +287,7 @@ describe('switchOpenSignupsLocaleAction (db)', () => {
 
   // The page shows no button then, so only a forged press gets here.
   it('does nothing while only one language has shipped, as there is nothing to switch to', async () => {
+    shipOnlyEnglish();
     expect(await press()).toBe('stayed');
     expect(await localeOf(ids.english)).toBe('en');
     expect(await localeOf(ids.none)).toBeUndefined();

@@ -9,7 +9,7 @@ import { escaped, messagesIn } from './helpers/languages';
 import { noEnglishCheck } from './helpers/no-english';
 import { languageOf, storeSignupLanguage } from './helpers/organizer-language';
 import { translationShot } from './helpers/translation-shots';
-import { UNSHIPPED_LOCALES } from './helpers/unshipped-locales';
+import { unshippedHint as howToShow } from './helpers/unshipped-locales';
 
 const seed = loadSeed();
 
@@ -54,19 +54,21 @@ async function signupFromApi(page: Page, id: string): Promise<SignupFromApi> {
  * tabs and header buttons, which longer words could push out of their boxes,
  * are measured at a phone's width.
  *
- * A language that hasn't shipped can't be stored on an account from the app,
- * so the seed writes it into the row, and the server shows it only with it
- * in `E2E_UNSHIPPED_LOCALES`, as playwright.config.ts starts it. A new
- * signup starts in it only once it ships (`newSignupLocale`), so until then
+ * The seed writes the language into the account's row, since one that
+ * hasn't shipped can't be stored from the app, and the server shows one that
+ * hasn't only with it in `E2E_UNSHIPPED_LOCALES`, as playwright.config.ts
+ * starts it. Once the language has shipped, the signup the smoke makes starts
+ * in it (`newSignupLocale`), its first two fields named in it. Before then
  * the smoke writes it into the new signup's row (`storeSignupLanguage`), as
- * organizer-language-story.spec.ts does. Its fields keep the names they were
- * made with, "What" and "Date", which the check doesn't look for.
+ * organizer-language-story.spec.ts does, and the fields keep the English
+ * names they were made with, "What" and "Date", which the check doesn't look
+ * for.
  */
 for (const locale of TEST_LOCALES) {
   const language = englishName(locale);
   const { organizer } = seed.languages[locale];
   const say = <N extends Namespace>(namespace: N) => messagesIn(locale, namespace);
-  const unshippedHint = `the organizer app isn’t in ${locale}: start the server with E2E_UNSHIPPED_LOCALES=${UNSHIPPED_LOCALES}`;
+  const unshippedHint = `the organizer app isn’t in ${locale}: ${howToShow(locale)}`;
   const expectNoEnglish = noEnglishCheck(locale, 'organizer');
 
   /**

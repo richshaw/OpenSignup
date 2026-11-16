@@ -9,7 +9,7 @@ import { datedSignupIn, type DatedSignup } from './helpers/dated-signup';
 import { loadSeed } from './helpers/fixtures';
 import { messagesIn } from './helpers/languages';
 import { createOrganizerIn, type OrganizerIn } from './helpers/organizer-language';
-import { UNSHIPPED_LOCALES } from './helpers/unshipped-locales';
+import { unshippedHint as howToShow } from './helpers/unshipped-locales';
 
 const seed = loadSeed();
 
@@ -106,10 +106,9 @@ for (const locale of TEST_LOCALES) {
       test(`hydrates with no mismatch, and sorts its groups in ${language}`, async ({ page }) => {
         const errors = watchForHydrationErrors(page);
         await openBuildTab(page, build.id);
-        expect(
-          await groupHeadings(page),
-          `groups in English order: start the server with E2E_UNSHIPPED_LOCALES=${UNSHIPPED_LOCALES}`,
-        ).toEqual(groups);
+        expect(await groupHeadings(page), `groups in English order: ${howToShow(locale)}`).toEqual(
+          groups,
+        );
         expect(errors).toEqual([]);
         // The tab's own words are its organizer's, who stores no language.
         expect(await languageOf(page.getByRole('button', { name: /^Fields/ }))).toBe('en');
@@ -193,7 +192,7 @@ for (const locale of TEST_LOCALES) {
       await expect(fields).toBeVisible();
       expect(
         await languageOf(fields),
-        `the organizer app isn’t in ${locale}: start the server with E2E_UNSHIPPED_LOCALES=${locale}`,
+        `the organizer app isn’t in ${locale}: ${howToShow(locale)}`,
       ).toBe(locale);
       await expect(page.getByText(t('rail.editing'), { exact: true })).toBeVisible();
       const count = t('slot.takenOf', { taken: 0, capacity: 5 });
@@ -229,7 +228,7 @@ for (const signupLocale of CATALOG_LOCALES) {
   test.describe(`a signup in ${signupLocale}, built by an organizer in ${organizerLocale}`, () => {
     let organizer: OrganizerIn;
     let signup: DatedSignup;
-    const unshippedHint = `start the server with E2E_UNSHIPPED_LOCALES=${UNSHIPPED_LOCALES}`;
+    const unshippedHint = howToShow(signupLocale === 'en' ? organizerLocale : signupLocale);
 
     test.beforeAll(async () => {
       organizer = await createOrganizerIn(

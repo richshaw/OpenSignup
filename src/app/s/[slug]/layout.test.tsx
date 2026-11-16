@@ -5,7 +5,7 @@ import { within } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CATALOG_LOCALES, type CatalogLocale, openGraphLocale } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { getTranslator } from '@/i18n/translator';
 import { rootMetadata } from '../../root-shell';
 
@@ -165,6 +165,7 @@ describe('the layout of a signup’s pages', () => {
   });
 
   it.each(OTHER_LANGUAGES)('stays English for a stored %s that hasn’t shipped', async (locale) => {
+    shipOnlyEnglish();
     storeSignup({ settings: { locale } });
     const { lang, body } = await renderLayout();
     expect(lang).toBe('en');

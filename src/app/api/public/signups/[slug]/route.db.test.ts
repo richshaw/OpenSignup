@@ -6,6 +6,7 @@ import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
+import { shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
@@ -151,6 +152,7 @@ describe('GET /api/public/signups/[slug]', () => {
   // The language the page is in (localeOfSignup), so API clients can mark the
   // content with it: never a stored language that no participant gets.
   it('names the language the signup page is in as settings.locale', async () => {
+    shipOnlyEnglish();
     async function openSignup(title: string, settings: Record<string, unknown>) {
       const created = await createSignup(fx.db, fx.actor, fx.workspaceId, { title, settings });
       if (!created.ok) throw new Error(created.error.message);
