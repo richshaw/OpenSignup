@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { CatalogLocale } from '@/i18n/config';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { getPrecompiledTranslator } from '@/i18n/testing/precompiled';
-import { getTestTranslator } from '@/i18n/testing/translator';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { getTranslator, type Translator } from '@/i18n/translator';
-import { confirmationSubject, reminderSubject, slotChangedSubject } from './subjects';
+import {
+  confirmationSubject,
+  reminderSubject,
+  signInSubject,
+  slotChangedSubject,
+} from './subjects';
 
 const en = getTestTranslator('email.subject');
 
@@ -64,6 +69,21 @@ describe('email subjects', () => {
     );
     expect(confirmationSubject(sv, 'Vårloppis', '')).toBe('Du är anmäld: Vårloppis');
   });
+});
+
+describe('the sign-in email’s subject', () => {
+  it('is the English it always was', () => {
+    expect(signInSubject(getTestTranslator('auth.email'))).toBe('Sign in to OpenSignup');
+  });
+
+  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+    'comes from the catalog in %s',
+    (locale) => {
+      expect(signInSubject(getStandInTranslator(locale, 'auth.email'))).toBe(
+        `auth.email.subject in ${locale}`,
+      );
+    },
+  );
 });
 
 /**

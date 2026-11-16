@@ -72,16 +72,19 @@ async function render(element: ReactElement, { web }: { web: boolean }) {
 /**
  * The confirmation is rendered in the web process, which formats the catalogs
  * Next precompiled; the reminder and the time-changed email in the worker,
- * which formats the raw JSON. src/i18n/precompiled.test.ts holds the two
- * formatters to the same text message by message; this holds them to the same
- * email, rich text and all, for every sample `pnpm email:dev` shows, in
- * English and in Swedish.
+ * which formats the raw JSON; the sign-in email in the web process too.
+ * src/i18n/precompiled.test.ts holds the two formatters to the same text
+ * message by message; this holds them to the same email, rich text and all,
+ * for every sample `pnpm email:dev` shows, in English and in Swedish.
  */
 describe('each email, from the catalogs as the web process gets them', () => {
   beforeAll(async () => {
+    const namespaces = [
+      ...Object.keys(en.email).map((section) => `email.${section}` as Namespace),
+      'auth.email' as const,
+    ];
     for (const locale of CATALOG_LOCALES) {
-      for (const section of Object.keys(en.email)) {
-        const namespace = `email.${section}` as Namespace;
+      for (const namespace of namespaces) {
         translators.precompiled.set(
           `${locale} ${namespace}`,
           await getPrecompiledTranslator(locale, namespace),
@@ -90,26 +93,25 @@ describe('each email, from the catalogs as the web process gets them', () => {
     }
   });
 
-  it('includes every participant email in Swedish', () => {
+  it('includes every email in Swedish', () => {
     expect(emailSamples.filter(({ lang }) => lang === 'sv').map(({ name }) => name)).toEqual([
       'commitment-confirmation-sv',
       'reminder-sv',
       'reminder-changed-sv',
       'slot-changed-sv',
+      'magic-link-sv',
     ]);
   });
 
   it.each(emailSamples.map((sample) => [sample.name, sample] as const))(
     'renders %s as the worker does',
-    async (name, sample) => {
+    async (_name, sample) => {
       const { element } = sample;
       const worker = await render(element, { web: false });
       const used = translators.precompiledUsed;
       const web = await render(element, { web: true });
       expect(web).toEqual(worker);
-      // The sign-in email has no catalog text yet; every other one went
-      // through the precompiled catalogs.
-      if (name !== 'magic-link') expect(translators.precompiledUsed).toBeGreaterThan(used);
+      expect(translators.precompiledUsed).toBeGreaterThan(used);
       if (process.env.TRANSLATION_SCREENSHOTS === '1') writeForReview(sample, worker);
     },
   );

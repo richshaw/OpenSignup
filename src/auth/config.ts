@@ -4,7 +4,9 @@ import { createElement } from 'react';
 import { getDb } from '@/db/client';
 import { renderEmail } from '@/email/render';
 import { getEmailTransport } from '@/email';
+import { signInSubject } from '@/email/subjects';
 import { MagicLinkEmail } from '@/email/templates/magic-link';
+import { getServerTranslator } from '@/i18n/server';
 import { recordActivityBestEffort } from '@/lib/activity';
 import { getEnv } from '@/lib/env';
 import { normalizeEmail } from '@/schemas/common';
@@ -18,6 +20,7 @@ import { consumeMagicLinkRateLimits } from './magic-link-rate-limit';
 import { getCurrentRequestIp } from './request-context';
 import { issueLoginCode } from './login-code';
 import { sendMagicLinkEmail } from './magic-link-send';
+import { signInEmailLocale } from './sign-in-email-locale';
 import { SESSION_MAX_AGE_SECONDS } from './session-lifetime';
 
 // Built lazily on first request: SignupAdapter() touches getDb() → getEnv(),
@@ -49,6 +52,9 @@ function buildConfig(): NextAuthConfig {
             email: subject,
             ip: await getCurrentRequestIp(),
           });
+          // Only now, once the request is charged to the limits above: the
+          // language of the account at this address, else the instance's.
+          const locale = await signInEmailLocale(getDb(), subject);
           const expiresInMinutes = Math.max(
             1,
             Math.round((expires.getTime() - Date.now()) / 60_000),
@@ -63,6 +69,7 @@ function buildConfig(): NextAuthConfig {
             expiresAt: expires,
           });
           const node = createElement(MagicLinkEmail, {
+            locale,
             url: confirmUrl,
             email: identifier,
             expiresInMinutes,
@@ -75,7 +82,7 @@ function buildConfig(): NextAuthConfig {
           const { html, text } = await renderEmail(node);
           await sendMagicLinkEmail(getEmailTransport(), {
             to: identifier,
-            subject: 'Sign in to OpenSignup',
+            subject: signInSubject(getServerTranslator(locale, 'auth.email')),
             html,
             text,
           });

@@ -55,6 +55,7 @@ const TRANSLATED_FILES = [
   'src/email/templates/slot-changed.tsx',
   'src/email/templates/layout.tsx',
   'src/email/templates/slot-details.tsx',
+  'src/email/templates/magic-link.tsx',
   'src/app/app/(chrome)/layout.tsx',
   'src/app/app/(chrome)/page.tsx',
   'src/app/app/(chrome)/@crumbs/settings/page.tsx',
@@ -327,13 +328,11 @@ describe('where the rules apply', () => {
     expect(await lint('<p>Sign up</p>', 'src/app/s/[slug]/unsubscribe/page.test.tsx')).toEqual([]);
   });
 
-  // The emails' folder is listed whole, so a participant email added later is
-  // checked from the start. The sign-in email in it is organizer text, still
-  // in English, and the folder's tests are left out.
-  it('are on for a new email, and off for the sign-in email and the emails’ tests', async () => {
+  // The emails' folder is listed whole, so an email added later is checked
+  // from the start, and the folder's tests are left out.
+  it('are on for a new email, and off for the emails’ tests', async () => {
     const text = '<p>Sign up</p><button aria-label="Close" />';
     expect(await lint(text, 'src/email/templates/cancelled.tsx')).toHaveLength(2);
-    expect(await lint(text, 'src/email/templates/magic-link.tsx')).toEqual([]);
     expect(await lint(text, 'src/email/templates/unsubscribe-footer.test.tsx')).toEqual([]);
   });
 

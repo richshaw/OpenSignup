@@ -26,11 +26,11 @@ nothing else.
 A catalog's top-level sections are its namespaces. Each audience reads its
 own, as `AUDIENCE_NAMESPACES` in `src/i18n/config.ts` lists them:
 
-| Audience    | Namespaces                       | What's in them today                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ----------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| participant | `participant`, `email`, `common` | The signup's page, the sign-up sheet, the edit, cancelled and unsubscribe pages, both not-found pages, the participant emails, and the footer's links                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| organizer   | `organizer`, `auth`, `common`    | Organizer text: on a participant page, the bar across the top, the Preview banner and the note on your own draft; in the organizer app, the header, the crumbs, Your signups, the card for a signup that can't be loaded, account Settings and Connected apps, on a signup's own pages its header, status, tabs, publish, close and reopen, and the share panel, a signup's Settings, Build and Responses tabs and the column names and statuses in its CSV, New signup, every Magic Compose screen and the banner on a draft it made, and what New signup, the Settings pages and Connected apps say when a save is refused; and, in `auth`, the sign-in pages |
-| site        | `site`, `common`                 | Nothing yet                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Audience    | Namespaces                       | What's in them today                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| participant | `participant`, `email`, `common` | The signup's page, the sign-up sheet, the edit, cancelled and unsubscribe pages, both not-found pages, the participant emails, and the footer's links                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| organizer   | `organizer`, `auth`, `common`    | Organizer text: on a participant page, the bar across the top, the Preview banner and the note on your own draft; in the organizer app, the header, the crumbs, Your signups, the card for a signup that can't be loaded, account Settings and Connected apps, on a signup's own pages its header, status, tabs, publish, close and reopen, and the share panel, a signup's Settings, Build and Responses tabs and the column names and statuses in its CSV, New signup, every Magic Compose screen and the banner on a draft it made, and what New signup, the Settings pages and Connected apps say when a save is refused; and, in `auth`, the sign-in pages and the sign-in email |
+| site        | `site`, `common`                 | Nothing yet                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 `site` has no messages yet. `participant.defaults` holds the names
 a new signup's first fields get ("What", "Date") and a new field's ("Untitled",
@@ -44,9 +44,9 @@ language, though the panel around it is in the organizer's.
 Organizer text is in the organizer's own language (`getOrganizerAppLocale`,
 below), and marked with it where it sits on a page in a signup's language.
 While no language but English has shipped to organizers, that's English for
-everyone. The rest of the organizer app, the sign-in email, the landing, help
-and legal pages, and API error text and AI connector tool descriptions aren't
-in the catalogs at all. API errors and tool descriptions stay English on purpose:
+everyone. The rest of the organizer app, the landing, help and legal pages,
+and API error text and AI connector tool descriptions aren't in the catalogs
+at all. API errors and tool descriptions stay English on purpose:
 developers and models read them. A screen never shows an API error's `message`
 (but for Magic Compose's `refusal`, whose message is the AI's own reason): it
 words the error itself, from its `code` and `details.reason` (`ErrorReason` in
@@ -76,7 +76,11 @@ the catalog check can tell when a translation has fallen behind its English
   pages (`/login`, the check-your-email and confirm pages) are in
   `signInLocale` (`src/i18n/organizer.ts`): nobody is signed in there yet, so
   they're in the site's `DEFAULT_LOCALE` once that has shipped to organizers,
-  else English, and nothing is worked out from the browser.
+  else English, and nothing is worked out from the browser. The sign-in email
+  is in `signInEmailLocale` (`src/auth/sign-in-email-locale.ts`): the language
+  the organizer app would show the account at its address, so an address with
+  no account gets the sign-in pages' language. It's read only once the request
+  has been charged to the sign-in rate limits.
 - **Server code** (pages, emails, the reminder worker) calls
   `getServerTranslator(locale, namespace)` from `src/i18n/server.ts`.
 - **Client components** call next-intl's `useTranslations` inside
@@ -518,10 +522,11 @@ run every row of this table against it.
    screen it checks. Add the spec to `TRANSLATION_SPECS` in
    `playwright.config.ts`, and to `pnpm translation:screenshots` in
    `package.json`. Add the participant emails in the language to
-   `scripts/lib/email-samples.ts`, and their names to the list in
-   `src/email/templates/worker-render.test.ts`. The list in `emails.test.tsx`
-   beside it holds only the Swedish ones (`lang === 'sv'`), so give the new
-   language an assertion of its own there.
+   `scripts/lib/email-samples.ts` (the sign-in email's sample,
+   `magic-link-<code>`, comes with the catalog), and every one's name to the
+   list in `src/email/templates/worker-render.test.ts`. The list in
+   `emails.test.tsx` beside it holds only the Swedish ones
+   (`lang === 'sv'`), so give the new language an assertion of its own there.
 3. **Write its glossary** below, before translating: the product's own terms,
    the tone and the date style.
 4. **Translate and review** with the `translate` skill, namespace by namespace.

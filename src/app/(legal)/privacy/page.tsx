@@ -88,13 +88,13 @@ export default function PrivacyPage() {
           <li>Email address (used to send magic-link sign-in emails).</li>
           <li>Optional display name and organization name.</li>
           <li>
-            Your language: the one we show your screens in, and the one your new signups start in.
-            When you create your account, we look once at the language your browser asks for first.
-            If this site has a default language of its own, we save nothing, and you get the
-            site&rsquo;s language. If it doesn&rsquo;t, we save your browser&rsquo;s language when
-            this site offers it and it isn&rsquo;t English. Otherwise we save nothing, and you get
-            English. We don&rsquo;t read your browser&rsquo;s language again after that. You can
-            change your language in your account&rsquo;s Settings.
+            Your language: the one we show your screens in and write your sign-in emails in, and the
+            one your new signups start in. When you create your account, we look once at the
+            language your browser asks for first. If this site has a default language of its own, we
+            save nothing, and you get the site&rsquo;s language. If it doesn&rsquo;t, we save your
+            browser&rsquo;s language when this site offers it and it isn&rsquo;t English. Otherwise
+            we save nothing, and you get English. We don&rsquo;t read your browser&rsquo;s language
+            again after that. You can change your language in your account&rsquo;s Settings.
           </li>
           <li>
             If your account was created by signing in with a third-party provider such as Google,
