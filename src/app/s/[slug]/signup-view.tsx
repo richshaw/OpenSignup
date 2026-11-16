@@ -370,7 +370,7 @@ export function SignupViewBody(props: SignupViewProps) {
                           <button
                             type="button"
                             disabled
-                            title={preview.t('signUpDisabled')}
+                            title={preview.t('signUpDisabled', { status: signup.status })}
                             aria-label={tDialog('signUpFor', { slot: actionName })}
                             aria-describedby={PREVIEW_TIP_ID}
                             className={`${ACTION_SIZING} cursor-not-allowed bg-brand font-medium text-white opacity-60`}
@@ -415,7 +415,7 @@ export function SignupViewBody(props: SignupViewProps) {
         // organizer's language and marked with it, which their `title`
         // can't be. Hidden, since a mouse gets the same words from the title.
         <p id={PREVIEW_TIP_ID} lang={preview.locale} hidden>
-          {preview.t('signUpDisabled')}
+          {preview.t('signUpDisabled', { status: signup.status })}
         </p>
       ) : null}
     </>

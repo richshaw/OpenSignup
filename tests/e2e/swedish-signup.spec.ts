@@ -351,7 +351,7 @@ test.describe('the Swedish test signup', () => {
     const banner = page.locator('main [lang="en"]').filter({ has: page.getByRole('status') });
     await expect(banner).toContainText('Preview');
     await expect(banner).toContainText(
-      'This signup is live. The page below shows what visitors see.',
+      'This signup is open. The page below shows what visitors see.',
     );
     // The disabled button is the participants', with the organizer's tip.
     const button = page
@@ -360,9 +360,9 @@ test.describe('the Swedish test signup', () => {
       .getByRole('button', { name: /^Anmäl dig till / });
     await expect(button).toBeDisabled();
     await expect(button).toHaveText('Anmäl dig');
-    await expect(button).toHaveAttribute('title', 'Preview: publish to enable signups');
+    await expect(button).toHaveAttribute('title', 'Preview: people sign up at the public link');
     // Screen readers get the tip from text marked English, which the title can't be.
-    await expect(button).toHaveAccessibleDescription('Preview: publish to enable signups');
+    await expect(button).toHaveAccessibleDescription('Preview: people sign up at the public link');
     const tip = page.locator(`[id="${await button.getAttribute('aria-describedby')}"]`);
     await expect(tip).toHaveAttribute('lang', 'en');
   });

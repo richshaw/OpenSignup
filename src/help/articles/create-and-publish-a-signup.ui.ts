@@ -42,6 +42,8 @@ export const UI = {
   // Phones: the three-dot button's accessible name.
   moreActions: 'More actions',
   publicLink: 'Public link',
+  // The signup's status at the top of the page, once people can sign up on it.
+  open: 'open',
   // An icon-only button: the article says "the copy button"; the test uses this.
   copyPublicLink: 'Copy public link',
   // The panel Publish opens, by its heading, and what it offers.

@@ -697,7 +697,7 @@
     "preview": {
       "title": "Förhandsgranskning",
       "body": "{status, select, draft {Så här ser det ut för andra när du har publicerat. Inga anmälningar sparas.} closed {Den här anmälningslistan är stängd. Sidan nedan visar vad besökarna ser.} archived {Den här anmälningslistan är arkiverad och syns inte för deltagarna.} other {Den här anmälningslistan är öppen. Sidan nedan visar vad besökarna ser.}}",
-      "signUpDisabled": "Förhandsgranskning: publicera för att ta emot anmälningar"
+      "signUpDisabled": "{status, select, draft {Förhandsgranskning: publicera så att andra kan anmäla sig} other {Förhandsgranskning: andra anmäler sig via den offentliga länken}}"
     },
     "chrome": {
       "tabTitle": "Översikt",

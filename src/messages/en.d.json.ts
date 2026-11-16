@@ -295,8 +295,8 @@ declare const messages: {
     },
     "preview": {
       "title": "Preview",
-      "body": "{status, select, draft {This is what people will see once you publish. No signups will be saved.} closed {This signup is closed. The page below shows what visitors see.} archived {This signup is archived and is not visible to participants.} other {This signup is live. The page below shows what visitors see.}}",
-      "signUpDisabled": "Preview: publish to enable signups"
+      "body": "{status, select, draft {This is what people will see once you publish. No signups will be saved.} closed {This signup is closed. The page below shows what visitors see.} archived {This signup is archived and is not visible to participants.} other {This signup is open. The page below shows what visitors see.}}",
+      "signUpDisabled": "{status, select, draft {Preview: publish to let people sign up} other {Preview: people sign up at the public link}}"
     },
     "chrome": {
       "tabTitle": "Dashboard",
