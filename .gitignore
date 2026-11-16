@@ -10,6 +10,8 @@ coverage
 playwright-report
 test-results
 tests/e2e/.seed.json
+# Screenshots and emails for a translation's review (`pnpm translation:screenshots`).
+translation-review
 .playwright-mcp
 .vscode
 .idea
