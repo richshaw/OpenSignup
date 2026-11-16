@@ -21,7 +21,9 @@ export const participants = pgTable(
     emailLower: text('email_lower'), // normalized for dedup; null exactly when email is
     name: text('name').notNull(),
     phone: text('phone'),
-    sessionTokenHash: text('session_token_hash'), // for same-device UX (hashed)
+    // session_token_hash, for a same-device feature that was never built, is
+    // out of this schema but still in the database: the build serving during a
+    // deploy selects it, so the migration that drops it comes a release later.
     /**
      * Set when this participant opts out of reminder emails for this signup.
      * Participants rows are per-signup, so an opt-out is naturally scoped to
