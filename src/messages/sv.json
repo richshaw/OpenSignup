@@ -311,7 +311,7 @@
       "save": "Spara",
       "saving": "Sparar…",
       "delete": {
-        "title": "Radera anmälningslistan",
+        "title": "Radera den här anmälningslistan",
         "body": "Om du raderar anmälningslistan försvinner den från dina anmälningslistor, och den offentliga länken slutar fungera direkt.",
         "start": "Radera anmälningslistan",
         "label": "Bekräfta att anmälningslistan ska raderas",
@@ -871,11 +871,11 @@
       },
       "language": {
         "legend": "Språk",
-        "help": "Appen och dina nya anmälningslistor använder det här språket. Vill du byta språk för en enskild anmälningslista gör du det under dess flik Inställningar.",
+        "help": "Appen och dina nya anmälningslistor använder det här språket. Vill du byta språk för en enskild anmälningslista gör du det under fliken Inställningar för just den.",
         "save": "Spara",
-        "toSwitch": "{count, plural, one {{count, number} av dina anmälningslistor är öppen och är inte på <language>{name}</language> än.} other {{count, number} av dina anmälningslistor är öppna och är inte på <language>{name}</language> än.}}",
+        "toSwitch": "{count, plural, one {{count, number} av dina anmälningslistor är öppen och är inte på <language>{name}</language> ännu.} other {{count, number} av dina anmälningslistor är öppna och är inte på <language>{name}</language> ännu.}}",
         "switch": "{count, plural, one {Byt den till <language>{name}</language>} other {Byt dem till <language>{name}</language>}}",
-        "switchNote": "Bara OpenSignups egna ord byts: knappar, meddelanden, datum och mejl. Titlar, pass och kolumnnamn som du har skrivit ändras inte. De som redan är anmälda ser också det nya språket.",
+        "switchNote": "Bara det som OpenSignup själv skriver byts: knappar, meddelanden, datum och mejl. Titlar, pass och kolumnnamn som du har skrivit ändras inte. De som redan är anmälda ser också det nya språket.",
         "switched": "Sparat. {count, plural, one {{count, number} av dina anmälningslistor är öppen, och den är på <language>{name}</language> nu.} other {{count, number} av dina anmälningslistor är öppna, och alla är på <language>{name}</language> nu.}}"
       }
     },

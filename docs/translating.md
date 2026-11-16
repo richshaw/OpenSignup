@@ -709,7 +709,7 @@ the words only organizers see. From #953's batches.
 | Edit slot; Editing slot (the slot editor's names)                                 | Ändra passet; Du ändrar passet                                          | "Du ändrar" keeps the open editor's name apart from the row's button                                                                                                                                                                                  |
 | Duplicate                                                                         | Duplicera                                                               | Not _kopiera_, Copy link's verb                                                                                                                                                                                                                       |
 | delete (a signup, a slot, a field); remove (a person from a slot, a field)        | radera; ta bort                                                         | By the English word: "Radera anmälningslistan", "Ta bort {name} från {slot}", "Ta bort fält"                                                                                                                                                          |
-| Delete this signup (the Settings tab's last card)                                 | Radera anmälningslistan                                                 | The same words as its button: the card holds only that. It was "Danger zone", developer slang in English too; _Farozon_ copied it                                                                                                                     |
+| Delete this signup (the Settings tab's last card)                                 | Radera den här anmälningslistan                                         | As the English, "this", so the heading isn't word for word its button, "Radera anmälningslistan". It was "Danger zone", developer slang in English too; _Farozon_ copied it                                                                           |
 | field (a column the organizer defines)                                            | fält                                                                    |                                                                                                                                                                                                                                                       |
 | Short text, Date, Time, Number, List (the field types)                            | Kort text, Datum, Tid, Tal, Lista                                       | _Tal_ is the spreadsheet word; _Nummer_ is an identifier, like a phone number                                                                                                                                                                         |
 | an item in a List field                                                           | alternativ                                                              | As a new list's "Alternativ 1"                                                                                                                                                                                                                        |
@@ -901,8 +901,8 @@ The owner's tophat of the whole stack, on 15 November 2026, settled these.
 1. **Short forms of _anmälningslista_ only where the whole word doesn't
    fit.** Organizer text keeps two, the button and crumb "Ny lista" and New
    signup's "Skapa lista" (Organizer terms says why). Everywhere else it's
-   the whole word, so account Settings' language help says "under dess flik
-   Inställningar", not "under listans flik".
+   the whole word, or none: account Settings' language help says "under
+   fliken Inställningar för just den", not "under listans flik".
 2. **One way to say "don't share this email".** The confirmation email said
    "vidarebefordra inte mejlet" and the reminder and time-change emails "Dela
    inte mejlet med någon", for English's "don't forward it" and "Keep this
@@ -915,7 +915,7 @@ The owner's tophat of the whole stack, on 15 November 2026, settled these.
 4. **No "open signup" before a count.** "Din öppna anmälningslista", like
    English's "your open signup", read as the product's name, OpenSignup.
    Account Settings says "1 av dina anmälningslistor är öppen och är inte på
-   svenska än." and offers "Byt den till svenska" ("Byt dem" for more).
+   svenska ännu." and offers "Byt den till svenska" ("Byt dem" for more).
 
 ### Open questions
 
