@@ -7,9 +7,15 @@ description: Translate OpenSignup's text into a language, or bring a language up
 
 OpenSignup has no human translators. A language is translated by a Claude
 session following this skill, and checked by a different model, which reads
-the result in context: screenshots of every participant screen and the
-rendered emails. The four steps below are the same for a whole language and
-for one changed sentence.
+the result in context: screenshots of every participant screen, of the
+organizer screens a change touches, and the rendered emails. The four steps
+below are the same for a whole language and for one changed sentence.
+
+A language has two audiences, translated alike: participants (a signup's
+pages and emails, in the signup's language) and organizers (the organizer
+app, the sign-in pages and email, and the screen that connects an AI
+assistant, in the organizer's own language, stored on their account). It
+launches for both at once, so both must be complete.
 
 Read `docs/translating.md` before you write a word. It explains the catalogs,
 how to write ICU messages (plurals, selects, tags, numbers), what the checks
@@ -52,12 +58,15 @@ English each message was translated from (`src/i18n/translated-from/sv.json`,
 - **unneeded**: the record has an entry for a message English or the
   translation no longer has; marking (below) drops it.
 
-For organizer text (`organizer`, `auth`, `common`), add `--audience organizer`.
-For a language that has organizer text (Swedish today), list that audience
-too when English changes in `organizer` or `auth`.
+List the organizer namespaces (`organizer`, `auth`, `common`) the same way,
+with `--audience organizer`:
 
-Then translate in `src/messages/<language>.json`, one namespace at a time,
-from `en.json`:
+```bash
+pnpm exec tsx .claude/skills/translate/scripts/to-translate.mjs sv --audience organizer
+```
+
+Then translate what both lists name in `src/messages/<language>.json`, one
+namespace at a time, from `en.json`:
 
 - Keep the keys in `en.json`'s order, and `pnpm format` the file after.
 - Keep every placeholder, tag and select branch, with the same names. Move
@@ -73,6 +82,10 @@ from `en.json`:
   finding waiting to happen.
 - Watch the length of buttons and labels. Some sit in fixed boxes 80 pixels
   wide (the row's Sign up button, the sheet's Spots box).
+- A refusal is worded from its code and `details.reason` (`ErrorReason` in
+  `src/lib/errors.ts`), each a message of its own (`organizer.errors.code.*`,
+  a screen's `refusal.*`, `participant.errors.*`). The API's own `message`
+  stays English for developers and is never translated.
 - Never edit `en.json` to suit a translation in the same step. If the English
   is wrong or can't be translated well, change it on purpose, as English, and
   say so in the pull request.
@@ -138,7 +151,9 @@ Playwright at the Chromium installed there. The command writes, under
 
 It covers only participant screens and emails until its spec covers organizer
 screens. For organizer text, take the screens the batch changes by hand, at
-desktop and phone width, and tell the reviewer where they are.
+desktop and phone width, from an account that stores the language (as
+`createOrganizerIn` in `tests/e2e/helpers/organizer-language.ts` makes one),
+and tell the reviewer where they are.
 
 Open a few of the images yourself first, to be sure they show what they say.
 If a spec fails on `rate_limited` after several runs in an hour, empty the
@@ -176,7 +191,8 @@ glossary's open questions, so the next pass sees them.
 
 A pull request that changes English text people read changes it in `en.json`,
 and in the same pull request runs this skill for every language in `SHIPPED`
-(`src/i18n/config.ts`): until each changed message is translated again and
+(`src/i18n/config.ts`), for the audience whose namespaces it changed: until
+each changed message is translated again and
 marked, the catalog check fails it as stale. For a language with a catalog
 that hasn't shipped yet (Swedish today), do it too, so the language stays
 ready to launch. A one-line change still gets the review; give the reviewer

@@ -455,12 +455,15 @@ has also passed the review in context, which no test can check: the pull
 request that adds it says so.
 
 `E2E_UNSHIPPED_LOCALES` is for tests only. `playwright.config.ts` sets it for
-the server it starts, so the seeded Swedish signups show in Swedish before
-Swedish ships, and an organizer whose account stores a listed language sees
-the organizer app in it (`tests/e2e/organizer-language.spec.ts`). It keeps a
-language already saved in a signup's or an account's row, and does nothing
-else: nothing in the app can save a language that hasn't shipped, and it
-never makes one the site's default, a new signup's, or a choice. The web
+the server it starts, to every language with a catalog that hasn't shipped,
+so the seeded Swedish signups show in Swedish before Swedish ships, and an
+organizer whose account stores a listed language sees the organizer app in it
+(`tests/e2e/organizer-language.spec.ts`, and the whole story, from account
+Settings to a participant's email, in `organizer-language-story.spec.ts`).
+It keeps a language already saved in a signup's or an account's row, and
+does nothing else: nothing in the app can save a language that hasn't
+shipped, and it never makes one the site's default, a new signup's, or a
+choice. The web
 server and the worker log a warning when they start with it set. A reused
 `pnpm dev` needs it too: `E2E_UNSHIPPED_LOCALES=sv pnpm dev`. Never set it on
 a real site.
@@ -539,8 +542,8 @@ run every row of this table against it.
    `KEEP_IT_PRIVATE` in `src/app/s/[slug]/commit-dialog.test.tsx`: give each
    an entry once the messages it checks are translated.
 2. **Give it test signups.** Add a seed like `makeSwedishSignup` in
-   `tests/e2e/helpers/seed.ts`, add the code to `E2E_UNSHIPPED_LOCALES` in
-   `playwright.config.ts`, and write a spec like
+   `tests/e2e/helpers/seed.ts` (`playwright.config.ts` puts the code in
+   `E2E_UNSHIPPED_LOCALES` itself), and write a spec like
    `tests/e2e/swedish-signup.spec.ts` that saves a `translationShot` of every
    screen it checks. Add the spec to `TRANSLATION_SPECS` in
    `playwright.config.ts`, and to `pnpm translation:screenshots` in
@@ -552,15 +555,17 @@ run every row of this table against it.
    (`lang === 'sv'`), so give the new language an assertion of its own there.
 3. **Write its glossary** below, before translating: the product's own terms,
    the tone and the date style.
-4. **Translate and review** with the `translate` skill, namespace by namespace.
+4. **Translate and review** with the `translate` skill, namespace by
+   namespace, for both audiences: participant text and organizer text
+   (`to-translate.mjs <code> --audience organizer`).
 5. **Check the layout.** `tests/e2e/slot-row-layout.spec.ts` checks that the
    row buttons and the sheet's labels fit their boxes, on the English and the
    Swedish signup. Add the new language's signup to it.
 6. **Launch** in a pull request of its own, which the owner approves: add the
-   code to `SHIPPED.participant` and `SHIPPED.organizer` together, take it out
-   of `E2E_UNSHIPPED_LOCALES`, and say what changes in `CHANGELOG.md` and the
-   README. Tests that check the language stays unshipped (English pages, no
-   picker, a refused save) fail then; update them in the same pull request.
+   code to `SHIPPED.participant` and `SHIPPED.organizer` together, and say
+   what changes in `CHANGELOG.md` and the README. Tests that check the
+   language stays unshipped (English pages, no picker, a refused save) fail
+   then; update them in the same pull request.
 
 Node's official builds include every language's date and number data. A
 Node built with English-only ICU would print the new language's dates in
