@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { CATALOG_LOCALES } from '@/i18n/config';
 import { OrganizerStrip } from './organizer-strip';
 
 // The real translator, or one that answers each key with where it was asked
@@ -27,7 +28,7 @@ afterEach(() => {
 
 describe('<OrganizerStrip />', () => {
   it('is an Organizer landmark with links to the signup’s Responses and Build tabs', () => {
-    render(<OrganizerStrip signupId="sig_1" />);
+    render(<OrganizerStrip signupId="sig_1" locale="en" />);
     const nav = screen.getByRole('navigation', { name: 'Organizer' });
     expect(nav).toHaveTextContent('Your signup. Only organizers see this bar.');
     expect(screen.getByRole('link', { name: 'See responses' })).toHaveAttribute(
@@ -42,15 +43,15 @@ describe('<OrganizerStrip />', () => {
 
   // The page under it is in the signup's language, so a screen reader would
   // read the strip in that language's voice without it.
-  it('is marked English, the language of its text', () => {
-    render(<OrganizerStrip signupId="sig_1" />);
-    expect(screen.getByRole('navigation')).toHaveAttribute('lang', 'en');
+  it.each(CATALOG_LOCALES)('is marked %s when that is the organizer’s language', (locale) => {
+    render(<OrganizerStrip signupId="sig_1" locale={locale} />);
+    expect(screen.getByRole('navigation')).toHaveAttribute('lang', locale);
   });
 
-  it('takes its text from the organizer catalog, in English', () => {
+  it.each(CATALOG_LOCALES)('takes its text from the organizer catalog, in %s', (locale) => {
     translation.standIn = true;
-    render(<OrganizerStrip signupId="sig_1" />);
-    const ask = (key: string) => `organizer.publicPage.strip.${key} in en`;
+    render(<OrganizerStrip signupId="sig_1" locale={locale} />);
+    const ask = (key: string) => `organizer.publicPage.strip.${key} in ${locale}`;
     const nav = screen.getByRole('navigation', { name: ask('label') });
     expect(nav).toHaveTextContent(ask('note'));
     expect(screen.getByRole('link', { name: ask('responses') })).toBeInTheDocument();

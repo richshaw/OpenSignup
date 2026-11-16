@@ -28,16 +28,26 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
 
 /**
  * `details.reason`: which of the cases one `code` covers an error is, where a
- * client words them differently and `code` (with `field`) can't tell it which.
- * A closed set like `ErrorCode`, so a client can map each to its own text, in
- * its own language; `message` and `suggestion` stay English, for API callers.
- * Most errors carry no reason, because their code says it already, and a
- * client meeting one it doesn't know falls back on the code.
+ * client words them differently. A closed set like `ErrorCode`, so a client
+ * can key its own text, in its own language, on code and reason; `message`
+ * and `suggestion` stay English, for API callers. Most errors carry no
+ * reason, because their code says it already, and a client meeting one it
+ * doesn't know falls back on the code. Magic Compose's provider failures name
+ * their kind in `details.llmErrorCode` instead.
  *
  * - `refusal` (`invalid_input`): Magic Compose's AI declined the description;
  *   `message` is its own explanation.
  * - `asked_again` (`invalid_input`): Magic Compose's AI asked its questions
  *   again after they were answered.
+ * - `code_malformed` (`invalid_input` on `code`): a sign-in code that isn't
+ *   six digits, once spaces and dashes are dropped. This and the next two
+ *   come from `redeemLoginCode`, which only the sign-in page's code form
+ *   calls (`codeRefusal` in src/app/(organizer)/login/code-refusal.ts), so
+ *   no API sends them.
+ * - `code_invalid` (`invalid_input` on `code`): no live sign-in code matches:
+ *   a wrong one, one already used, or one a newer email has replaced.
+ * - `code_expired` (`already_consumed`): the sign-in code matched, but its
+ *   time is up.
  * - `email_required` (`invalid_input` on `email`): the signup asks for an
  *   email, and none was given.
  * - `email_invalid` (`invalid_input` on `email`): not an email address, or
@@ -54,10 +64,38 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
  * (`POST /api/slots/[id]/commitments`, `PATCH /api/commitments/[id]`) and
  * nowhere else: a `name` elsewhere in the API follows its own rules. See
  * `COMMITMENT_INPUT_REASONS` for how the input checks map to them.
+ *
+ * The organizer ones mark each refusal an organizer screen words in a way of
+ * its own, rather than with the line for its code. The API sends them wherever
+ * it refuses that way, the AI connector's tools included:
+ *
+ * - `title_too_short` (`invalid_input` on `title`): under `TITLE_MIN_LENGTH`
+ *   once trimmed, creating or updating a signup (`SIGNUP_INPUT_REASONS`).
+ * - `date_too_early` (`invalid_input` on a date field's ref): a slot's date is
+ *   a real day, but before `MIN_DATE_YEAR`.
+ * - `slot_ids_mismatch` (`invalid_input` on `slotIds`) and
+ *   `field_ids_mismatch` (`invalid_input` on `fieldIds`): a new order that
+ *   doesn't name every slot, or every field, of the signup exactly once, as
+ *   when another window has added or removed one since.
+ * - `slot_has_signups` (`conflict` on `slotId`): deleting a slot people have
+ *   signed up for, without `force`; `details.filled` counts their spots.
+ * - `capacity_below_taken` (`conflict` on `capacity`): fewer spots than are
+ *   taken; `received` is the capacity sent and `details.taken` the spots taken.
+ * - `invalidates_slot_values` (`conflict`): a field's new type or settings
+ *   would make values its slots hold invalid.
+ * - `status_changed` (`conflict` on `status`): publishing, closing or
+ *   reopening a signup that isn't in the status that needs.
+ * - `no_slots` (`conflict` on `slots`): publishing or reopening a signup with
+ *   no slots.
+ * - `draft_invalid` (`internal`): Magic Compose's AI wrote a draft that isn't
+ *   the shape a signup needs.
  */
 export type ErrorReason =
   | 'refusal'
   | 'asked_again'
+  | 'code_malformed'
+  | 'code_invalid'
+  | 'code_expired'
   | 'email_required'
   | 'email_invalid'
   | 'name_required'
@@ -65,7 +103,17 @@ export type ErrorReason =
   | 'notes_too_long'
   | 'quantity_too_small'
   | 'quantity_too_large'
-  | 'quantity_not_whole';
+  | 'quantity_not_whole'
+  | 'title_too_short'
+  | 'date_too_early'
+  | 'slot_ids_mismatch'
+  | 'field_ids_mismatch'
+  | 'slot_has_signups'
+  | 'capacity_below_taken'
+  | 'invalidates_slot_values'
+  | 'status_changed'
+  | 'no_slots'
+  | 'draft_invalid';
 
 export interface ServiceError {
   code: ErrorCode;
@@ -85,6 +133,11 @@ export interface ServiceError {
 
 export function httpStatusFor(code: ErrorCode): number {
   return HTTP_STATUS[code];
+}
+
+/** Whether `value` is an `ErrorCode`, as a code read back from an address must be before it's used. */
+export function isErrorCode(value: unknown): value is ErrorCode {
+  return typeof value === 'string' && Object.hasOwn(HTTP_STATUS, value);
 }
 
 export function serviceError(

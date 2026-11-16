@@ -148,7 +148,7 @@ describe('GET /api/public/signups/[slug]', () => {
     expect(data.committedBySlot).toEqual({ [slot.value.id]: 1 });
   });
 
-  // The language the page is in (signupLocale), so API clients can mark the
+  // The language the page is in (localeOfSignup), so API clients can mark the
   // content with it: never a stored language that no participant gets.
   it('names the language the signup page is in as settings.locale', async () => {
     async function openSignup(title: string, settings: Record<string, unknown>) {

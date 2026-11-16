@@ -307,8 +307,11 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
     llm.replies = [ok(CANT_ASK), ok(CANT_ASK), ok(DRAFT)];
     const res = await compose({ prompt: 'Bake sale' });
     expect(res.status).toBe(500);
-    const body = (await res.json()) as { error: { message: string } };
+    const body = (await res.json()) as {
+      error: { message: string; details: { reason: string } };
+    };
     expect(body.error.message).toBe('AI draft did not match expected shape');
+    expect(body.error.details.reason).toBe('draft_invalid');
     expect(llm.calls).toHaveLength(2);
     expect(await quotaUsed()).toBe(1);
     expect(await signupsMade()).toBe(0);
@@ -476,8 +479,11 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
       llm.replies = [ok(CANT_ASK), ok(DRAFT)];
       const res = await compose({ prompt: 'Bake sale' });
       expect(res.status).toBe(500);
-      const body = (await res.json()) as { error: { message: string } };
+      const body = (await res.json()) as {
+        error: { message: string; details: { reason: string } };
+      };
       expect(body.error.message).toBe('AI draft did not match expected shape');
+      expect(body.error.details.reason).toBe('draft_invalid');
       expect(llm.calls).toHaveLength(1);
       expect(await signupsMade()).toBe(0);
     });

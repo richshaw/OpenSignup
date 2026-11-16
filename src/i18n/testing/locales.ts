@@ -1,10 +1,4 @@
-import {
-  CATALOG_LOCALES,
-  type CatalogLocale,
-  isShipped,
-  languageName,
-  openGraphLocale,
-} from '../config';
+import { CATALOG_LOCALES, type CatalogLocale, languageName, openGraphLocale } from '../config';
 
 /** A language the tests check a translation in: any with a catalog but English. */
 export type TestLocale = Exclude<CatalogLocale, 'en'>;
@@ -19,17 +13,6 @@ export type TestLocale = Exclude<CatalogLocale, 'en'>;
  */
 export const TEST_LOCALES: readonly TestLocale[] = CATALOG_LOCALES.filter(
   (locale): locale is TestLocale => locale !== 'en',
-);
-
-/**
- * The test languages that haven't shipped to participants, so a signup shows
- * in one only on a server started with them in `E2E_UNSHIPPED_LOCALES`
- * (`signupLocale` in ../config.ts). playwright.config.ts gives the list to the
- * server it starts, and leaves the variable unset once every language has
- * shipped.
- */
-export const UNSHIPPED_TEST_LOCALES: readonly TestLocale[] = TEST_LOCALES.filter(
-  (locale) => !isShipped('participant', locale),
 );
 
 /**

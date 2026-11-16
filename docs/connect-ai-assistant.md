@@ -29,8 +29,10 @@ the browser:
   in the same workspace can. It starts in your language for new signups, as
   one you make in the browser does, unless the assistant names a language
   OpenSignup offers for signups (only English so far). Your language is the
-  one you saved, else your site's default, else English: an assistant can't
-  pass on the language your browser asks for.
+  one stored on your account (the one you chose in Settings, or, on a site
+  with no default language, your browser's language when you created the
+  account, if OpenSignup offers it and it isn't English), else your site's
+  default, else English.
 - **Change** a signup: title, description, tags, closing time, fields, slots,
   and its settings: whether people must give an email address, whether
   reminders go out, how slots are grouped, how many hours before its start a

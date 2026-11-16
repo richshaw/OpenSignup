@@ -7,8 +7,10 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { CATALOG_LOCALES } from '@/i18n/config';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
+import { getTranslator } from '@/i18n/translator';
 import { makeId } from '@/lib/ids';
 import type { Actor, WorkspaceRole } from '@/lib/policy';
 import type { SignupTemplate } from '@/lib/signup-templates';
@@ -471,12 +473,12 @@ describe('signups service (db)', () => {
         fx.actor,
         fx.workspaceId,
         { ...validCreateInput('Chosen locale'), settings: { locale: 'en' } },
-        { localeSource: 'browser' },
+        { localeSource: 'instance' },
       );
       if (!r.ok) throw new Error('setup failed');
       expect(await createdPayload(r.value.id)).toMatchObject({
         locale: 'en',
-        localeSource: 'browser',
+        localeSource: 'instance',
       });
     });
 
@@ -532,6 +534,17 @@ describe('signups service (db)', () => {
         instance.defaultLocale = undefined;
       });
 
+      // A new signup's two columns, as `OTHER_LOCALE`'s catalog names them.
+      const defaults = getTranslator(OTHER_LOCALE, 'participant.defaults', {
+        onError: (error) => {
+          throw error;
+        },
+      });
+      const named: [string, string][] = [
+        ['what', defaults('what')],
+        ['date', defaults('date')],
+      ];
+
       async function columns(input: unknown): Promise<[string, string][]> {
         const r = await createSignup(fx.db, fx.actor, fx.workspaceId, input);
         if (!r.ok) throw new Error(`setup failed: ${JSON.stringify(r.error)}`);
@@ -541,20 +554,17 @@ describe('signups service (db)', () => {
 
       it('in a shipped language sent with it, keeping the refs', async () => {
         ship('participant', ['en', OTHER_LOCALE]);
-        const sent = { ...validCreateInput('Svensk'), settings: { locale: OTHER_LOCALE } };
-        expect(await columns(sent)).toEqual([
-          ['what', 'Vad'],
-          ['date', 'Datum'],
-        ]);
+        const sent = {
+          ...validCreateInput('Another language'),
+          settings: { locale: OTHER_LOCALE },
+        };
+        expect(await columns(sent)).toEqual(named);
       });
 
       it('in the instance’s language when it stores none', async () => {
         ship('participant', ['en', OTHER_LOCALE]);
         instance.defaultLocale = OTHER_LOCALE;
-        expect(await columns(validCreateInput('Instansens språk'))).toEqual([
-          ['what', 'Vad'],
-          ['date', 'Datum'],
-        ]);
+        expect(await columns(validCreateInput('The instance’s language'))).toEqual(named);
         const english = { ...validCreateInput('English here'), settings: { locale: 'en' } };
         expect(await columns(english)).toEqual([
           ['what', 'What'],
@@ -737,6 +747,14 @@ describe('signups service (db)', () => {
           throw new Error('publish failed');
         if (!(await deleteSignup(listFx.db, listFx.actor, gone.value.id)).ok)
           throw new Error('delete failed');
+        // A language stored on one, as the Settings tab stores it, and none on
+        // the other. Written straight into the row, so it's the same whichever
+        // languages have shipped.
+        const another = CATALOG_LOCALES.find((locale) => locale !== 'en') ?? 'en';
+        await listFx.db
+          .update(signups)
+          .set({ settings: { ...b.value.settings, locale: another } })
+          .where(eq(signups.id, b.value.id));
 
         for (const filter of [{}, { status: 'draft' as const }, { status: 'open' as const }]) {
           const full = await listSignupsForWorkspace(
@@ -761,6 +779,7 @@ describe('signups service (db)', () => {
               closesAt: r.closesAt,
               createdAt: r.createdAt,
               updatedAt: r.updatedAt,
+              locale: r.settings.locale ?? null,
             })),
           );
         }
@@ -777,12 +796,17 @@ describe('signups service (db)', () => {
             'closesAt',
             'createdAt',
             'id',
+            'locale',
             'slug',
             'status',
             'title',
             'updatedAt',
           ]);
         }
+        // The stored language, for Your signups to mark each title with.
+        const localeOf = (id: string) => all.value.find((r) => r.id === id)?.locale;
+        expect(localeOf(b.value.id)).toBe(another);
+        expect(localeOf(a.value.id)).toBe(a.value.settings.locale ?? null);
       } finally {
         await teardownWorkspace(listFx.db, listFx.workspaceId, listFx.organizerId);
       }

@@ -3,9 +3,9 @@ import { notFound, redirect } from 'next/navigation';
 import { Banner } from '@/components/banner';
 import { getDb } from '@/db/client';
 import { ClientMessages } from '@/i18n/ClientMessages';
-import { signupLocale } from '@/i18n/config';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { getServerTranslator } from '@/i18n/server';
 import { messagesFor } from '@/i18n/translator';
+import { localeOfSignup } from '@/i18n/locale';
 import {
   ACTIVE_COMMITMENT_STATUSES,
   cancelledCommitmentState,
@@ -55,7 +55,7 @@ export default async function CommitmentEditPage({ params, searchParams }: PageP
   }
   // The signup's language, from the row the token was checked against: the
   // page's words, the slot's dates and times, and the form's text.
-  const locale = signupLocale(c.signupLocale, instanceDefaultLocale());
+  const locale = localeOfSignup(c.signupLocale);
 
   // Recorded for a cancelled sign-up too: the link was still followed.
   await trackAfterResponse(recordEditLinkFollowed, {

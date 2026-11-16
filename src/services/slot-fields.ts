@@ -9,6 +9,7 @@ import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
 import type { Actor } from '@/lib/policy';
 import {
+  byOrder,
   findReminderFields,
   isCalendarDate,
   isRealDate,
@@ -443,7 +444,11 @@ export async function updateField(
       if (offending.length > 0) {
         return err(
           serviceError('conflict', 'change would invalidate existing slot values', {
-            details: { slotIds: offending.slice(0, 20), count: offending.length },
+            details: {
+              reason: 'invalidates_slot_values',
+              slotIds: offending.slice(0, 20),
+              count: offending.length,
+            },
           }),
         );
       }
@@ -663,14 +668,14 @@ export function validateSlotValues(
   return ok(cleaned);
 }
 
-// The date and time fields in the order src/lib/reminder-fields.ts reads them
-// (ties go by ref), as one string. Two lists that give different strings pair
-// a different time with the date, or anchor on a different date, so a tie the
+// The date and time fields in `byOrder`, the order the anchor and slot_at are
+// read in, as one string. Two lists that give different strings pair a
+// different time with the date, or anchor on a different date, so a tie the
 // renumbering broke the other way counts as a move.
 function timeline(fields: SlotFieldDefinition[]): string {
   return fields
     .filter((f) => isDateOrTime(f.fieldType))
-    .sort((a, b) => a.sortOrder - b.sortOrder || (a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0))
+    .sort(byOrder)
     .map((f) => f.id)
     .join(' ');
 }
@@ -719,7 +724,7 @@ function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<vo
           serviceError(
             'invalid_input',
             `"${field.ref}" must be a date in ${MIN_DATE_YEAR} or later`,
-            { field: field.ref, received: value },
+            { field: field.ref, received: value, details: { reason: 'date_too_early' } },
           ),
         );
       }

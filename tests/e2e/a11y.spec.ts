@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { NOT_FOUND_PAGE } from '@/app/not-found-message';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { englishName, TEST_LOCALES } from '@/i18n/testing/locales';
 import { loadSeed } from './helpers/fixtures';
@@ -25,8 +26,8 @@ test.describe('accessibility', () => {
     ).toEqual([]);
   });
 
-  // In a test language, the page's language is on <main>, and longer words go
-  // in the same boxes.
+  // In a test language, the page's language is on <html> and <main>, and
+  // longer words go in the same boxes.
   for (const locale of TEST_LOCALES) {
     const { open } = seed.languages[locale];
     test(`the ${englishName(locale)} test signup’s page has no WCAG A/AA violations`, async ({
@@ -48,6 +49,25 @@ test.describe('accessibility', () => {
       ).toEqual([]);
     });
   }
+
+  // Rendered outside every layout (src/app/global-not-found.tsx), so nothing
+  // but the page itself gives it a `lang`.
+  test("the site's 404 has no WCAG A/AA violations", async ({ page }) => {
+    await page.goto('/no-such-page');
+    await expect(page.getByRole('heading', { name: NOT_FOUND_PAGE.title })).toBeVisible();
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    expect(
+      results.violations.map((v) => ({
+        id: v.id,
+        impact: v.impact,
+        nodes: v.nodes.map((n) => n.target),
+      })),
+    ).toEqual([]);
+  });
 
   for (const { name, slug, slotLabel, signUp, yourName, locale } of [
     {
@@ -82,6 +102,47 @@ test.describe('accessibility', () => {
       const row = page.locator('li').filter({ hasText: slotLabel });
       await row.getByRole('button', { name: signUp }).click();
       await expect(page.getByLabel(yourName)).toBeVisible();
+
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+
+      expect(
+        results.violations.map((v) => ({
+          id: v.id,
+          impact: v.impact,
+          nodes: v.nodes.map((n) => n.target),
+        })),
+      ).toEqual([]);
+    });
+  }
+
+  // A sign-up's own pages, in English and in each test signup's language,
+  // which the whole page takes, from <html lang> to the footer.
+  for (const { name, path, locale } of [
+    {
+      name: 'an edit page',
+      path: `/s/${seed.editSlug}/c/${seed.editCommitmentId}?token=${seed.editToken}`,
+      locale: null,
+    },
+    { name: 'an unsubscribe page', path: `/s/${seed.publicSlug}/unsubscribe`, locale: null },
+    ...TEST_LOCALES.flatMap((locale) => [
+      {
+        name: `the ${englishName(locale)} test signup’s edit page`,
+        path: seed.languages[locale].open.editPath,
+        locale,
+      },
+      {
+        name: `the ${englishName(locale)} test signup’s unsubscribe page`,
+        path: seed.languages[locale].open.unsubscribePath,
+        locale,
+      },
+    ]),
+  ]) {
+    test(`${name} has no WCAG A/AA violations`, async ({ page }) => {
+      if (locale) await gotoIn(page, locale, path);
+      else await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])

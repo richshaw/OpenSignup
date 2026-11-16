@@ -1,15 +1,32 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render as renderUi,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { BuildWysiwyg } from '@/components/build-wysiwyg/BuildWysiwyg';
+import { shareText } from '@/components/share/share-text';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/publish-check';
 import { BuildBridge, useRegisterBuildTab } from './BuildBridge';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
+import { signupHeaderText } from './header-text';
 import { PublishButton, PublishRefusal } from './PublishButton';
 import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
 import type { StatusAction } from './StatusActionForm';
+import type { ReactElement } from 'react';
+import { englishMessages } from '@/i18n/testing/client-messages';
+import { BUILD_TAB_NAMESPACES } from '@/components/build-wysiwyg/client-namespaces';
+
+/** Renders `ui` with the Build tab's messages in English, as its page gives them. */
+const wrapper = englishMessages(BUILD_TAB_NAMESPACES);
+const render = (ui: ReactElement) => renderUi(ui, { wrapper });
 
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
 const router = vi.hoisted(() => ({ push: vi.fn() }));
@@ -29,14 +46,20 @@ vi.mock('@/components/share/load-share-panel', async (importOriginal) => {
   };
 });
 
+/** The share panel's words in English, as `SignupHeader` passes them. */
+const SHARE_TEXT = shareText(getTestTranslator('organizer.share'), 'Bake sale helpers');
+
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
+
+/** The header's words in English, as the layout passes them. */
+const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
 
 const EMPTY: PublishCheck = { kind: 'all_blank', slotId: 'slot_a', slotCount: 1 };
 
 /** What the action answers for `check`, with the words the server puts with it. */
 const answer = (check: PublishCheck) => ({
   check,
-  copy: publishCheckCopy(check),
+  copy: publishCheckCopy(check, getTestTranslator('organizer.signup.check')),
   target: publishCheckTarget(check),
 });
 
@@ -74,8 +97,9 @@ function Header({
 }) {
   return (
     <BuildBridge buildHref="/app/signups/sig_1/build">
-      <HeaderAnnouncer status="draft">
+      <HeaderAnnouncer status="draft" announcements={TEXT.announcements}>
         <ShareScope
+          text={SHARE_TEXT}
           publishAction={action}
           signupId="sig_1"
           title="Bake sale helpers"
@@ -83,12 +107,12 @@ function Header({
           message=""
         >
           <div data-testid="desktop">
-            <PublishButton variant="desktop" />
+            <PublishButton variant="desktop" text={TEXT.publish} />
             <ShareButton variant="desktop" />
-            <PublishRefusal />
+            <PublishRefusal text={TEXT.publish} />
           </div>
           <div data-testid="phone">
-            <PublishButton variant="phone" />
+            <PublishButton variant="phone" text={TEXT.publish} />
           </div>
         </ShareScope>
       </HeaderAnnouncer>
@@ -394,7 +418,11 @@ describe('the check on a computer', () => {
       />,
     );
     await press(publishIn('desktop'));
-    fireEvent.click(screen.getByRole('button', { name: publishCheckCopy(check).fix ?? '' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: publishCheckCopy(check, getTestTranslator('organizer.signup.check')).fix ?? '',
+      }),
+    );
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(openSlot).toHaveBeenCalledWith(slotId);
     expect(router.push).not.toHaveBeenCalled();

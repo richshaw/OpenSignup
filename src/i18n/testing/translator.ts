@@ -17,16 +17,20 @@ export function getTestTranslator<N extends Namespace>(namespace: N) {
  * A translator that answers every key with where it was asked for, whatever
  * the catalogs hold: `t('full')` on `participant.signupView` in Swedish is
  * "participant.signupView.full in sv". `rich` and `markup` answer the same,
- * tags and all left out. For a test that text comes from the catalog, in the
- * namespace and language it should, whatever that language's catalog holds
- * so far.
+ * tags and all left out, and `has` says every key is there. For a test that
+ * text comes from the catalog, in the namespace and language it should,
+ * whatever that language's catalog holds so far.
  */
 export function getStandInTranslator<N extends Namespace>(
   locale: string,
   namespace: N,
 ): Translator<N> {
   const answer = (key: string) => `${namespace}.${key} in ${locale}`;
-  return Object.assign(answer, { rich: answer, markup: answer }) as unknown as Translator<N>;
+  return Object.assign(answer, {
+    rich: answer,
+    markup: answer,
+    has: () => true,
+  }) as unknown as Translator<N>;
 }
 
 /**

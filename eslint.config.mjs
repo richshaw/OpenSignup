@@ -24,21 +24,50 @@ const TRANSLATED = [
   'src/components/site-footer.tsx',
   'src/components/banner.tsx',
   'src/components/ui/BottomSheet.tsx',
+  // The notice a save shows, which takes its text from the page, and a
+  // signup's Settings tab, the delete form included.
+  'src/components/ui/save-notice.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/settings',
+  // A signup's Build tab: the page, and the client components it renders.
+  'src/app/(organizer)/app/(chrome)/signups/[id]/build',
+  'src/components/build-wysiwyg',
+  'src/components/build-shared',
+  // A signup's Responses tab: the table, its empty lines and the remove flow.
+  'src/app/(organizer)/app/(chrome)/signups/[id]/responses',
   // Everything a participant sees under a signup's address: its page, the
   // sign-up sheet, the pages for changing or cancelling a spot and for
   // turning reminders off, both not-found pages, and the copy helpers.
   'src/app/s/[slug]',
-  // The emails a participant gets, the pieces they share, and any email
-  // added here later, but the sign-in email (`NOT_YET_TRANSLATED`).
+  // Every email: the ones a participant gets, the pieces they share, the
+  // sign-in email, and any email added here later.
   'src/email/templates',
+  // The organizer app's header and crumbs, Your signups, and the card a
+  // signup's pages show when it can't be loaded.
+  'src/app/(organizer)/app/(chrome)/layout.tsx',
+  'src/app/(organizer)/app/(chrome)/page.tsx',
+  'src/app/(organizer)/app/(chrome)/@crumbs',
+  'src/components/chrome',
+  // New signup: the form, and Magic Compose's screens, its questions and the
+  // banner on a draft it made included.
+  'src/app/(organizer)/app/(chrome)/signups/new',
+  'src/components/magic-compose',
+  // Account Settings and Connected apps, the disconnect button included.
+  'src/app/(organizer)/app/(chrome)/settings',
+  // A signup's header, tabs, status pill and closed box, on every tab, and the
+  // card its pages show when it can't be loaded.
+  'src/app/(organizer)/app/(chrome)/signups/[id]/layout.tsx',
+  'src/components/signup',
+  'src/components/status-pill.tsx',
+  // The share panel, its QR code and the public link's chip.
+  'src/components/share',
+  'src/components/PublicLinkChip.tsx',
+  // The sign-in pages: the form and its code box, the provider buttons, and
+  // the check-your-email and confirm pages.
+  'src/app/(organizer)/login',
+  // The screen that connects an AI assistant, its buttons, and the replies
+  // when the organizer chooses.
+  'src/app/(organizer)/oauth',
 ];
-
-/**
- * Files inside a `TRANSLATED` folder whose text hasn't moved yet, left out of
- * the rules until it does, written as in `TRANSLATED`. The sign-in email is
- * organizer text, which moves to the catalogs after the participant's.
- */
-const NOT_YET_TRANSLATED = ['src/email/templates/magic-link.tsx'];
 
 /**
  * Glob patterns for `files` that match exactly `paths`, each a file or a
@@ -79,7 +108,13 @@ const I18N = path.join(SRC, 'i18n');
  * extension. One goes on the list only if it loads no catalog, now or through
  * anything it imports.
  */
-const CLIENT_SAFE_I18N = ['i18n/config'].map((module) => path.join(SRC, module));
+const CLIENT_SAFE_I18N = [
+  'i18n/config',
+  // Takes its messages as a prop, and imports only types from the translator.
+  // A client component wraps a part it loads lazily in it, so the messages
+  // provider stays out of the page's first JavaScript (AiDraftWarnings).
+  'i18n/ClientMessages',
+].map((module) => path.join(SRC, module));
 
 /** What a client component does for its text instead. */
 const CLIENT_TEXT_INSTEAD =
@@ -402,7 +437,7 @@ const config = [
     // also flag every className and href, so the props have a rule of their own.
     // Tests are left out: their English fixtures are what they check.
     files: filesAt(TRANSLATED),
-    ignores: ['**/*.test.{ts,tsx}', ...filesAt(NOT_YET_TRANSLATED)],
+    ignores: ['**/*.test.{ts,tsx}'],
     rules: {
       'react/jsx-no-literals': ['error', { noStrings: true, ignoreProps: true }],
       'opensignup/no-literal-text-props': 'error',

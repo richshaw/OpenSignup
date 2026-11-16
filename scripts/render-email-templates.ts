@@ -4,9 +4,11 @@
  * pieces under src/email/templates (layout.tsx) are covered transitively,
  * since every sendable template composes them. The templates, their props
  * and what each must render, in English and in every test language, are in
- * scripts/lib/email-samples.ts. A participant template takes its text from the
- * catalog in its language, so a catalog the worker can't load, or a message
- * missing from it, fails here.
+ * scripts/lib/email-samples.ts. A template takes its text from the catalog in
+ * its language, so a catalog the worker can't load fails here. A message
+ * missing from a test language's catalog comes out in English, in the email
+ * and in what it must say alike, as it would be sent: the catalog check
+ * (src/i18n/catalogs.test.ts) requires every message once the language ships.
  *
  * Exists to be run under the *worker's* toolchain (`tsx --tsconfig
  * tsconfig.worker.json`), which is the only place templates are compiled

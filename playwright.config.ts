@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { UNSHIPPED_TEST_LOCALES } from './src/i18n/testing/locales';
+import { UNSHIPPED_LOCALES } from './tests/e2e/helpers/unshipped-locales';
 
 const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
 
@@ -38,15 +38,13 @@ export default defineConfig({
     // Production server: run `pnpm build` first. Locally an already-running
     // `pnpm dev` on :3000 is reused instead.
     command: 'pnpm start',
-    // Shows each seeded signup in its language though the language hasn't
-    // shipped (`signupLocale` in src/i18n/config.ts), and nothing else: it
-    // can't make a language anybody's choice. The list is every language with
-    // a catalog that hasn't shipped to participants, and the variable is left
-    // unset once there are none. A server you start yourself for these specs
-    // needs it too: a spec that finds English says which value to set.
-    env: UNSHIPPED_TEST_LOCALES.length
-      ? { E2E_UNSHIPPED_LOCALES: UNSHIPPED_TEST_LOCALES.join(',') }
-      : {},
+    // Every language with a catalog that hasn't shipped: a signup or an
+    // account that stores one shows in it (`localeOfSignup` and
+    // `localeOfOrganizer` in src/i18n/locale.ts), as each seeded test
+    // signup does, and nothing else: it can't make a language anybody's
+    // choice. A server you start yourself for these specs needs it too: a
+    // spec that finds a seeded signup in English says which value to set.
+    env: { E2E_UNSHIPPED_LOCALES: UNSHIPPED_LOCALES },
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
+import { CATALOG_LOCALES } from '@/i18n/config';
 import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { serviceError } from '@/lib/errors';
@@ -20,6 +20,8 @@ const request = vi.hoisted(() => ({
   row: null as Record<string, unknown> | null,
   instanceDefault: undefined as string | undefined,
   actor: { kind: 'anonymous' } as Record<string, unknown>,
+  /** The language stored on the signed-in organizer's account. */
+  organizerLocale: null as string | null,
 }));
 // English from the catalog; any other language answers each key with where
 // it was asked for ("participant.signupPage.title in sv"), so a test sees which
@@ -65,7 +67,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 vi.mock('@/auth/session', () => ({
-  getOrganizerSession: async () => (request.actor.kind === 'organizer' ? {} : null),
+  getOrganizerSession: async () =>
+    request.actor.kind === 'organizer' ? { locale: request.organizerLocale } : null,
   toActor: () => request.actor,
 }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) }));
@@ -121,8 +124,12 @@ afterEach(() => {
   request.row = null;
   request.instanceDefault = undefined;
   request.actor = { kind: 'anonymous' };
+  request.organizerLocale = null;
   vi.mocked(findDraftForOrganizer).mockReset();
 });
+
+/** Every language with a catalog besides English, each tried in turn. */
+const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 describe('the public signup page, in its signup’s language', () => {
   it(`reads a ${OTHER_LANGUAGE} signup’s dates in ${OTHER_LANGUAGE}, and marks the page so`, async () => {
@@ -203,8 +210,11 @@ describe('the organizer’s own text on the public signup page', () => {
     storeSignup({ status: 'draft', settings: { locale: OTHER_LOCALE } });
     await renderPage();
     expect(screen.getByRole('main')).toHaveAttribute('lang', 'en');
-    // The organizer's other pages say it with the same words.
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(DRAFT_ONLY_YOU);
+    // The organizer's other pages say it with the same words: Your signups
+    // and the signup's header (src/components/signup/header-text.test.ts).
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      'Only you can see this draft',
+    );
     expect(
       screen.getByText(
         `People who open this link see “${inOther('draft.title')}” until you publish it. Renaming the draft gives it a new link, so share it after you publish.`,
@@ -231,6 +241,44 @@ describe('the organizer’s own text on the public signup page', () => {
     ).toBeInTheDocument();
   });
 
+  // The stand-in translator answers in any language but English with where
+  // the text was asked for, so these see which text is in the organizer's.
+  it.each(OTHER_LANGUAGES)(
+    'tells a draft’s own organizer about it in theirs, %s, marked so',
+    async (other) => {
+      ship('organizer', ['en', other]);
+      signInItsOrganizer();
+      request.organizerLocale = other;
+      vi.mocked(findDraftForOrganizer).mockResolvedValue(ok({ id: 'sig_1' }) as never);
+      storeSignup({ status: 'draft' });
+      await renderPage();
+      const own = (key: string) => `organizer.publicPage.ownDraft.${key} in ${other}`;
+      expect(screen.getByRole('main')).toHaveAttribute('lang', other);
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(own('title'));
+      expect(screen.getByText(own('body'))).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: own('open') })).toHaveAttribute(
+        'href',
+        '/app/signups/sig_1/build',
+      );
+    },
+  );
+
+  it.each(OTHER_LANGUAGES)(
+    'puts the strip in its organizer’s language, %s, over an English signup',
+    async (other) => {
+      ship('organizer', ['en', other]);
+      signInItsOrganizer();
+      request.organizerLocale = other;
+      storeSignup({});
+      await renderPage();
+      const strip = screen.getByRole('navigation', {
+        name: `organizer.publicPage.strip.label in ${other}`,
+      });
+      expect(strip).toHaveAttribute('lang', other);
+      expect(screen.getByRole('main')).toHaveAttribute('lang', 'en');
+    },
+  );
+
   it(`keeps the organizer strip in English over a ${OTHER_LANGUAGE} signup, marked so`, async () => {
     ship('participant', ['en', OTHER_LOCALE]);
     signInItsOrganizer();
@@ -245,11 +293,14 @@ describe('the organizer’s own text on the public signup page', () => {
 
 describe('the public signup page’s metadata', () => {
   const robots = { index: false, follow: false };
+  // The page writes the site name into its tab title itself, since it shares
+  // its segment with its root layout and so misses the layout's template.
+  const tabTitle = (title: string) => ({ absolute: `${title} · ${INSTANCE_NAME}` });
 
   it('names an English signup’s language for link previews, and nothing else changes', async () => {
     storeSignup({});
     expect(await generateMetadata(params)).toEqual({
-      title: 'Snack duty',
+      title: tabTitle('Snack duty'),
       description: 'Fruit for the team',
       robots,
       openGraph: {
@@ -271,13 +322,13 @@ describe('the public signup page’s metadata', () => {
 
   it('gives a draft only the plain title, as before', async () => {
     storeSignup({ status: 'draft' });
-    expect(await generateMetadata(params)).toEqual({ title: 'Sign up', robots });
+    expect(await generateMetadata(params)).toEqual({ title: tabTitle('Sign up'), robots });
   });
 
   it(`gives a ${OTHER_LANGUAGE} draft the plain title in ${OTHER_LANGUAGE}`, async () => {
     ship('participant', ['en', OTHER_LOCALE]);
     storeSignup({ status: 'draft', settings: { locale: OTHER_LOCALE } });
-    expect(await generateMetadata(params)).toEqual({ title: inOther('title'), robots });
+    expect(await generateMetadata(params)).toEqual({ title: tabTitle(inOther('title')), robots });
   });
 
   it('describes a signup with no description of its own in its language', async () => {

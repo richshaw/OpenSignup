@@ -341,7 +341,7 @@ async function makePublishedSignup(
  * shipped can't be chosen (`createSignup` refuses it), so the seed writes it
  * after creating the signup, and the signup shows in it only on a server
  * started with it in `E2E_UNSHIPPED_LOCALES`, which playwright.config.ts
- * gives the server it starts (`signupLocale` in src/i18n/config.ts).
+ * gives the server it starts (`localeOfSignup` in src/i18n/locale.ts).
  */
 async function writeLanguage(db: Db, signup: SignupRow, locale: TestLocale): Promise<void> {
   await db

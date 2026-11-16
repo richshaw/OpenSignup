@@ -21,6 +21,24 @@ const TRANSLATED_FILES = [
   'src/components/site-footer.tsx',
   'src/components/banner.tsx',
   'src/components/ui/BottomSheet.tsx',
+  'src/components/ui/save-notice.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/settings/page.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/settings/delete-signup-form.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/build/page.tsx',
+  'src/components/build-wysiwyg/BuildWysiwyg.tsx',
+  'src/components/build-wysiwyg/Editable.tsx',
+  'src/components/build-wysiwyg/EditingRail.tsx',
+  'src/components/build-wysiwyg/EnumPicker.tsx',
+  'src/components/build-wysiwyg/FieldsPopover.tsx',
+  'src/components/build-wysiwyg/InlineFieldForm.tsx',
+  'src/components/build-wysiwyg/PickerOption.tsx',
+  'src/components/build-wysiwyg/SlotEditor.tsx',
+  'src/components/build-wysiwyg/WysiwygGroup.tsx',
+  'src/components/build-wysiwyg/WysiwygSlot.tsx',
+  'src/components/build-shared/SaveStatus.tsx',
+  'src/components/build-shared/TimeSelect.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/responses/page.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/responses/remove-commitment-form.tsx',
   'src/app/s/[slug]/page.tsx',
   'src/app/s/[slug]/signup-view.tsx',
   'src/app/s/[slug]/state-message.tsx',
@@ -37,6 +55,60 @@ const TRANSLATED_FILES = [
   'src/email/templates/slot-changed.tsx',
   'src/email/templates/layout.tsx',
   'src/email/templates/slot-details.tsx',
+  'src/email/templates/magic-link.tsx',
+  'src/app/(organizer)/app/(chrome)/layout.tsx',
+  'src/app/(organizer)/app/(chrome)/page.tsx',
+  'src/app/(organizer)/app/(chrome)/@crumbs/settings/page.tsx',
+  'src/app/(organizer)/app/(chrome)/@crumbs/signups/[id]/edit/page.tsx',
+  'src/components/chrome/Crumb.tsx',
+  'src/components/signup/SignupLoadError.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/new/page.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/new/NewSignupForm.tsx',
+  'src/components/magic-compose/Compose.tsx',
+  'src/components/magic-compose/Drafting.tsx',
+  'src/components/magic-compose/DraftingFrom.tsx',
+  'src/components/magic-compose/Steps.tsx',
+  'src/components/magic-compose/StepLine.tsx',
+  'src/components/magic-compose/YouWrote.tsx',
+  'src/components/magic-compose/MagicComposeRoot.tsx',
+  'src/components/magic-compose/ChunkBoundary.tsx',
+  'src/components/magic-compose/Questions.tsx',
+  'src/components/magic-compose/AiDraftBanner.tsx',
+  'src/components/magic-compose/AiDraftWarnings.tsx',
+  'src/app/(organizer)/app/(chrome)/settings/page.tsx',
+  'src/app/(organizer)/app/(chrome)/settings/connected-apps/page.tsx',
+  'src/app/(organizer)/app/(chrome)/settings/connected-apps/disconnect-button.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/layout.tsx',
+  'src/components/signup/SignupHeader.tsx',
+  'src/components/signup/HeaderParts.tsx',
+  'src/components/signup/MobileSignupHeader.tsx',
+  'src/components/signup/MobileMoreMenuSheet.tsx',
+  'src/components/signup/MoreActionsMenu.tsx',
+  'src/components/signup/PhoneBar.tsx',
+  'src/components/signup/PublishButton.tsx',
+  'src/components/signup/PublishCheckPanel.tsx',
+  'src/components/signup/CloseSignupConfirm.tsx',
+  'src/components/signup/ReopenButton.tsx',
+  'src/components/signup/ClosedNotice.tsx',
+  'src/components/signup/HeaderAnnouncer.tsx',
+  'src/components/signup/TabsNav.tsx',
+  'src/components/signup/ShareButton.tsx',
+  'src/components/signup/ShareScope.tsx',
+  'src/components/status-pill.tsx',
+  'src/components/share/SharePanel.tsx',
+  'src/components/share/ShareQrCode.tsx',
+  'src/components/share/ShareUnavailable.tsx',
+  'src/components/share/share-heading.tsx',
+  'src/components/PublicLinkChip.tsx',
+  'src/app/(organizer)/login/page.tsx',
+  'src/app/(organizer)/login/login-form.tsx',
+  'src/app/(organizer)/login/oauth-buttons.tsx',
+  'src/app/(organizer)/login/session-watcher.tsx',
+  'src/app/(organizer)/login/check/page.tsx',
+  'src/app/(organizer)/login/confirm/page.tsx',
+  'src/app/(organizer)/login/confirm/sign-in-link.tsx',
+  'src/app/(organizer)/oauth/consent/[uid]/page.tsx',
+  'src/app/(organizer)/oauth/consent/[uid]/consent-form.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
@@ -237,6 +309,18 @@ describe('where the rules apply', () => {
     for (const rule of RULES) expect(rules[rule]?.[0], rule).toBe(2);
   });
 
+  // On too: the Build tab's helpers, which word its slots, headings and
+  // refusals for its components.
+  it.each([
+    'src/components/build-wysiwyg/prettyHeader.ts',
+    'src/components/build-wysiwyg/slotRow.ts',
+    'src/components/build-shared/save-error-message.ts',
+    'src/components/build-shared/fieldTypes.ts',
+  ])('are on for the Build tab’s helper %s', async (file) => {
+    const rules = (await eslint.calculateConfigForFile(file))?.rules ?? {};
+    for (const rule of RULES) expect(rules[rule]?.[0], rule).toBe(2);
+  });
+
   // The signup's folder is listed whole, so a file added there later is
   // checked from the start, and its tests are still left out.
   it('are on for a new file in the signup’s folder, and off for its tests', async () => {
@@ -246,14 +330,27 @@ describe('where the rules apply', () => {
     expect(await lint('<p>Sign up</p>', 'src/app/s/[slug]/unsubscribe/page.test.tsx')).toEqual([]);
   });
 
-  // The emails' folder is listed whole, so a participant email added later is
-  // checked from the start. The sign-in email in it is organizer text, still
-  // in English, and the folder's tests are left out.
-  it('are on for a new email, and off for the sign-in email and the emails’ tests', async () => {
+  // The emails' folder is listed whole, so an email added later is checked
+  // from the start, and the folder's tests are left out.
+  it('are on for a new email, and off for the emails’ tests', async () => {
     const text = '<p>Sign up</p><button aria-label="Close" />';
     expect(await lint(text, 'src/email/templates/cancelled.tsx')).toHaveLength(2);
-    expect(await lint(text, 'src/email/templates/magic-link.tsx')).toEqual([]);
     expect(await lint(text, 'src/email/templates/unsubscribe-footer.test.tsx')).toEqual([]);
+  });
+
+  // Magic Compose's folder is listed whole, so a screen added later is checked
+  // from the start.
+  it('are on for a new Magic Compose screen', async () => {
+    const text = '<p>Sign up</p><button aria-label="Close" />';
+    expect(await lint(text, 'src/components/magic-compose/Review.tsx')).toHaveLength(2);
+  });
+
+  // The signup header's folder is listed whole too, and so is the share
+  // panel's, so a file added to either later is checked from the start.
+  it('are on for a new file in the signup header’s or the share panel’s folder', async () => {
+    const text = '<p>Publish</p><button aria-label="Close" />';
+    expect(await lint(text, 'src/components/signup/NewPart.tsx')).toHaveLength(2);
+    expect(await lint(text, 'src/components/share/NewPart.tsx')).toHaveLength(2);
   });
 
   it('read an email’s preview text as text', async () => {
@@ -278,14 +375,14 @@ describe('where the rules apply', () => {
 
   it('matches a listed folder with brackets or parentheses in its name, and nothing else', async () => {
     const filesAt = await loadFilesAt();
-    const files = filesAt(['src/app/s/[slug]', 'src/app/app/(chrome)/']);
+    const files = filesAt(['src/app/s/[slug]', 'src/app/(organizer)/app/(chrome)/']);
     // A glob would read `[slug]` as one of the letters s, l, u and g.
     const isOn = (file: string) => matches(ROOT, files, file);
     expect(await isOn('src/app/s/[slug]/page.tsx')).toBe(true);
     expect(await isOn('src/app/s/[slug]/c/[id]/page.tsx')).toBe(true);
-    expect(await isOn('src/app/app/(chrome)/settings/page.tsx')).toBe(true);
+    expect(await isOn('src/app/(organizer)/app/(chrome)/settings/page.tsx')).toBe(true);
     expect(await isOn('src/app/s/s/page.tsx')).toBe(false);
-    expect(await isOn('src/app/app/c/settings/page.tsx')).toBe(false);
+    expect(await isOn('src/app/(organizer)/app/c/settings/page.tsx')).toBe(false);
   });
 
   // Windows can't put a backslash in a folder's name.

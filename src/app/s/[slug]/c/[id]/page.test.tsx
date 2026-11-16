@@ -121,7 +121,7 @@ afterEach(() => {
 });
 
 // The language comes from the signup the token was checked against, by the
-// rule the signup's own page uses (`signupLocale`), so the edit page reads a
+// rule the signup's own page uses (`localeOfSignup`), so the edit page reads a
 // slot's date as that page does, and its words are that language's.
 describe("the edit page in its signup's language", () => {
   it("reads the slot's date in the signup's language, and marks the page with it", async () => {

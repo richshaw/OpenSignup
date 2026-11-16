@@ -1,6 +1,7 @@
 'use client';
 
 import { Pencil, Settings } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { SaveStatus } from '../build-shared/SaveStatus';
 import type { SaveStatus as SaveStatusType } from '../build-shared/useBuildState';
 
@@ -17,12 +18,15 @@ export function EditingRail({
   onOpenFields,
   saveStatus,
 }: EditingRailProps) {
+  const t = useTranslations('organizer.build.rail');
   return (
     <div className="sticky top-0 z-20 flex items-center justify-between gap-2.5 rounded-t-xl border-b border-surface-sunk bg-white/95 px-4 py-2.5 backdrop-blur">
       <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.06em] text-brand">
+        {/* The darker blue: the brand's own is 3.7:1 on its tint, under AA's
+            4.5:1 for text this small. */}
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.06em] text-brand-hover">
           <Pencil size={10} />
-          Editing
+          {t('editing')}
         </span>
         <SaveStatus status={saveStatus} />
       </div>
@@ -40,7 +44,7 @@ export function EditingRail({
           }
         >
           <Settings size={12} />
-          <span>Fields ({fieldCount})</span>
+          <span>{t('fields', { count: fieldCount })}</span>
         </button>
       </div>
     </div>

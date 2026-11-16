@@ -1,18 +1,29 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { shareText } from '@/components/share/share-text';
+import { StatusPill } from '@/components/status-pill';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import type { SignupStatus } from '@/schemas/signups';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
+import { signupHeaderText } from './header-text';
 import { PhonePreviewItem, PhoneStanding } from './HeaderParts';
 import { MobileSignupHeader } from './MobileSignupHeader';
 import { ShareScope } from './ShareScope';
+import { signupStatusLabel } from './status-label';
 import type { StatusAction, StatusChangeAction } from './StatusActionForm';
 
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
 
+/** The share panel's words in English, as `SignupHeader` passes them. */
+const SHARE_TEXT = shareText(getTestTranslator('organizer.share'), 'Bake sale helpers');
+
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const PREVIEW = '/app/signups/sig_1/preview';
 const QUESTION = 'Nobody has signed up yet. People can’t sign up until you reopen it.';
+
+/** The header's words in English, as the layout passes them. */
+const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
 
 /**
  * The phone's header as SignupHeader puts it together, at `status`, its parts
@@ -29,8 +40,9 @@ function Phone({
 }) {
   const spotsTaken = status === 'draft' ? null : '0 of 4 spots taken';
   return (
-    <HeaderAnnouncer status={status}>
+    <HeaderAnnouncer status={status} announcements={TEXT.announcements}>
       <ShareScope
+        text={SHARE_TEXT}
         publishAction={action}
         signupId="sig_1"
         title="Bake sale helpers"
@@ -40,15 +52,24 @@ function Phone({
         <MobileSignupHeader
           title="Bake sale helpers"
           status={status}
+          pill={
+            <StatusPill
+              status={status}
+              label={signupStatusLabel(status, getTestTranslator('organizer.status'))}
+            />
+          }
           standing={
             <PhoneStanding
+              chip={SHARE_TEXT.panel.chip}
               signupId="sig_1"
               status={status}
               publicUrl={LINK}
               spotsTaken={spotsTaken}
+              draftLine="Only you can see this draft until you publish it."
             />
           }
-          previewItem={<PhonePreviewItem href={PREVIEW} />}
+          previewItem={<PhonePreviewItem href={PREVIEW} label="Preview" />}
+          text={TEXT}
           spotsTaken={spotsTaken}
           closeQuestion={QUESTION}
           closeQuestionAction={async () => ({ question: QUESTION })}

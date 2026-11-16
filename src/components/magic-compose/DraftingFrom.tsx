@@ -1,15 +1,12 @@
 import type { ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 import { Calendar, Check, ListChecks } from 'lucide-react';
 import { followUpItems, type FollowUp } from '@/lib/magic-compose/questions';
 import { formatOneDay } from './answers';
 import { BAND_DIVIDER, YOU_WROTE_BAND, YouWrote } from './YouWrote';
 
-const LEFT_BLANK = ['All answered', 'One left blank', 'Two left blank'];
-
-function countLabel(count: number | null): string {
-  if (count === null) return 'No limit';
-  return count === 1 ? '1 person' : `${count} people`;
-}
+/** What the badge says for none, one or both of the questions left blank. */
+const LEFT_BLANK = ['allAnswered', 'oneBlank', 'twoBlank'] as const;
 
 /**
  * What a draft from answers is being made from: the description, each thing
@@ -27,12 +24,20 @@ export function DraftingFrom({
   /** The organizer's language, for the day and times. */
   locale: string;
 }) {
+  const t = useTranslations('organizer.compose.draftingFrom');
+  const answers = useTranslations('organizer.compose.answers');
   const items = followUpItems(followUp);
   const { when, howMany } = followUp;
   const blanks = (items.length === 0 ? 1 : 0) + (when?.kind === 'not_decided' ? 1 : 0);
+  const countLabel = (count: number | null) =>
+    count === null ? t('noLimit') : t('people', { count });
+  const oneDay = (when: Parameters<typeof formatOneDay>[0]) => {
+    const { day, times } = formatOneDay(when, locale, answers);
+    return times ? t('dayAndTimes', { day, times }) : day;
+  };
 
   return (
-    <section aria-label="Drafting from" className={`${YOU_WROTE_BAND} ${BAND_DIVIDER}`}>
+    <section aria-label={t('label')} className={`${YOU_WROTE_BAND} ${BAND_DIVIDER}`}>
       <YouWrote
         prompt={prompt}
         variant="plain"
@@ -43,14 +48,14 @@ export function DraftingFrom({
             }`}
           >
             {blanks === 0 && <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />}
-            {LEFT_BLANK[blanks]}
+            {t(LEFT_BLANK[blanks]!)}
           </span>
         }
       />
       <dl className="-mb-2.5 mt-2 flex flex-col">
-        <Row icon={<ListChecks className="h-4 w-4" />} term="What" blank={items.length === 0}>
+        <Row icon={<ListChecks className="h-4 w-4" />} term={t('what')} blank={items.length === 0}>
           {items.length === 0 ? (
-            <Blank>Left blank. The draft will use placeholder slots you can fill in later.</Blank>
+            <Blank>{t('whatBlank')}</Blank>
           ) : (
             <ul className="flex flex-col gap-1.5">
               {items.map((item, i) => (
@@ -72,16 +77,14 @@ export function DraftingFrom({
         {when && (
           <Row
             icon={<Calendar className="h-4 w-4" />}
-            term="When"
+            term={t('when')}
             blank={when.kind === 'not_decided'}
           >
             {when.kind === 'not_decided' ? (
-              <Blank>
-                Not decided. The draft will use placeholder dates you can fill in later.
-              </Blank>
+              <Blank>{t('whenBlank')}</Blank>
             ) : (
               <span className="text-[15px] leading-snug">
-                {when.kind === 'several' ? when.text : oneDay(when, locale)}
+                {when.kind === 'several' ? when.text : oneDay(when)}
               </span>
             )}
           </Row>
@@ -89,11 +92,6 @@ export function DraftingFrom({
       </dl>
     </section>
   );
-}
-
-function oneDay(when: Parameters<typeof formatOneDay>[0], locale: string): string {
-  const { day, times } = formatOneDay(when, locale);
-  return times ? `${day} · ${times}` : day;
 }
 
 function Row({

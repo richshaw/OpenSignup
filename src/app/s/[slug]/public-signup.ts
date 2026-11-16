@@ -61,7 +61,7 @@ export function toSignupViewSlots(
  *
  * Settings are sent as they apply, defaults filled in, so `settings.locale` is
  * `locale`: the language the page is in, which the caller works out with
- * `signupLocale` as the page does, never the stored value. A stored language
+ * `localeOfSignup` as the page does, never the stored value. A stored language
  * that has left the list would otherwise name one that no participant gets.
  */
 export function toPublicSignup(

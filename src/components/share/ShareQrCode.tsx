@@ -5,6 +5,7 @@ import { Check, Download, QrCode } from 'lucide-react';
 import { correction, generate, type Bitmap2D } from 'lean-qr/nano';
 import { QR_QUIET_ZONE, qrFileName, qrPngLayout, qrSide, qrSvgPath } from '@/lib/qr';
 import { emitSignupLinkEvent } from '@/lib/signup-link-events';
+import type { ShareQrText } from './share-text';
 
 /** The downloaded picture is at least this many pixels wide, enough for print. */
 const PNG_MIN_PX = 1024;
@@ -101,6 +102,7 @@ export function ShareQrCode({
   title,
   url,
   variant,
+  text,
 }: {
   /** The signup the link is for, so its use is recorded against it. */
   signupId: string;
@@ -108,6 +110,8 @@ export function ShareQrCode({
   title: string;
   url: string;
   variant: 'desktop' | 'phone';
+  /** Its words, in the organizer's language, its name included. */
+  text: ShareQrText;
 }) {
   // Rendered only in the browser: the panel never renders on the server.
   const qr = useMemo(() => makeQr(url), [url]);
@@ -129,7 +133,6 @@ export function ShareQrCode({
   if (!qr || refused) return null;
   const { code, side, path } = qr;
   const name = qrFileName(url);
-  const alt = `QR code for the sign-up link to ${title.trim()}`;
 
   function record() {
     if (recorded.current) return;
@@ -203,14 +206,14 @@ export function ShareQrCode({
           className={`${PHONE_BUTTON_CLASS} ${shown ? PHONE_BUTTON_OPEN : PHONE_BUTTON_CLOSED}`}
         >
           <QrCode size={16} aria-hidden="true" className={shown ? 'text-brand' : undefined} />
-          {shown ? 'Hide QR code' : 'QR code'}
+          {shown ? text.hide : text.show}
         </button>
         {shown ? (
           <div id={largeId} className="col-span-2 flex flex-col items-center gap-3 pt-1">
             <svg
               viewBox={`0 0 ${side} ${side}`}
               role="img"
-              aria-label={alt}
+              aria-label={text.alt}
               shapeRendering="crispEdges"
               className="aspect-square w-full max-w-[280px] rounded-[12px] border border-surface-sunk"
             >
@@ -227,10 +230,10 @@ export function ShareQrCode({
               ) : (
                 <Download size={16} aria-hidden="true" />
               )}
-              {saved ? 'Saved' : 'Save image'}
+              {saved ? text.saved : text.save}
             </button>
             <p aria-live="polite" className="sr-only">
-              {saved ? 'QR code saved' : ''}
+              {saved ? text.savedNotice : ''}
             </p>
           </div>
         ) : null}
@@ -246,24 +249,22 @@ export function ShareQrCode({
           width={42}
           height={42}
           role="img"
-          aria-label={alt}
+          aria-label={text.alt}
           shapeRendering="crispEdges"
         >
           <rect width={side} height={side} fill="#ffffff" />
           <path d={path} fill="#000000" />
         </svg>
       </span>
-      <span className="min-w-0 flex-1 text-[13px] leading-snug text-ink-muted">
-        A QR code for a flyer or a sign-up table.
-      </span>
+      <span className="min-w-0 flex-1 text-[13px] leading-snug text-ink-muted">{text.lead}</span>
       <a
         href="#"
         download={name}
         onClick={download}
-        aria-label="Download QR code"
+        aria-label={text.downloadLabel}
         className={DESKTOP_LINK_CLASS}
       >
-        Download
+        {text.download}
       </a>
     </div>
   );

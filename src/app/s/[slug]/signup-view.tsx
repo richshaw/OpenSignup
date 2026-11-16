@@ -71,7 +71,7 @@ export function toSignupViewProps(
   };
 }
 
-interface SignupViewProps {
+interface SignupViewCommonProps {
   signup: {
     title: string;
     description: string;
@@ -89,23 +89,39 @@ interface SignupViewProps {
   slug: string;
   /**
    * The language slot dates and times are read in: the signup's own
-   * (`signupLocale`), worked out by each page that shows it.
+   * (`localeOfSignup`), worked out by each page that shows it.
    */
   locale: CatalogLocale;
-  /**
-   * - 'live': real signup, real CommitDialog.
-   * - 'preview': organizer-only preview (Build tab); Sign-up button is
-   *   disabled and the preview banner explains why.
-   * - 'showcase': marketing/example use (homepage); Sign-up button is rendered
-   *   as an inert solid-blue span so the card matches a published signup
-   *   visually. The wrapping context must convey that it's not real.
-   */
-  mode: 'live' | 'preview' | 'showcase';
   ownCommitments?: OwnCommitment[];
   /** Show the preview/closed status banner. Default true; set false when the
    *  surrounding context already conveys preview state (e.g. the build rail). */
   showStateBanner?: boolean;
 }
+
+/**
+ * - 'live': real signup, real CommitDialog.
+ * - 'preview': organizer-only preview (Build tab); Sign-up button is
+ *   disabled and the preview banner explains why.
+ * - 'showcase': marketing/example use (homepage); Sign-up button is rendered
+ *   as an inert solid-blue span so the card matches a published signup
+ *   visually. The wrapping context must convey that it's not real.
+ */
+type SignupViewProps = SignupViewCommonProps &
+  (
+    | { mode: 'live' | 'showcase' }
+    | {
+        mode: 'preview';
+        /**
+         * The language of the Preview banner and the disabled button's tip,
+         * which are the organizer's, not the participants': the organizer
+         * app's for the organizer looking (`localeOfOrganizer`).
+         */
+        organizerLocale: CatalogLocale;
+      }
+  );
+
+/** The Preview's tip, which describes each disabled Sign up button. One per page. */
+const PREVIEW_TIP_ID = 'preview-sign-up-tip';
 
 interface SlotGroup {
   key: string;
@@ -163,17 +179,18 @@ function titleFor(
   return value || t('untitledSlot');
 }
 
-export function SignupViewBody({
-  signup,
-  fields,
-  groupByRef,
-  slots,
-  slug,
-  locale,
-  mode,
-  ownCommitments,
-  showStateBanner = true,
-}: SignupViewProps) {
+export function SignupViewBody(props: SignupViewProps) {
+  const {
+    signup,
+    fields,
+    groupByRef,
+    slots,
+    slug,
+    locale,
+    mode,
+    ownCommitments,
+    showStateBanner = true,
+  } = props;
   const t = getServerTranslator(locale, 'participant.signupView');
   const tSlot = getServerTranslator(locale, 'participant.slot');
   // The live row's Sign up is the dialog's, which reads these in the browser;
@@ -181,10 +198,15 @@ export function SignupViewBody({
   const tDialog = getServerTranslator(locale, 'participant.dialog');
   const isPreview = mode === 'preview';
   // The Preview banner and the disabled button's tip are the organizer's, not
-  // the participants': English until the organizer app has other languages,
-  // and marked so where the element allows, since a preview of a Swedish
-  // signup is otherwise Swedish.
-  const tPreview = isPreview ? getServerTranslator('en', 'organizer.preview') : null;
+  // the participants': in the organizer app's language, and marked so where
+  // the element allows, since a preview is otherwise in the signup's.
+  const preview =
+    props.mode === 'preview'
+      ? {
+          locale: props.organizerLocale,
+          t: getServerTranslator(props.organizerLocale, 'organizer.preview'),
+        }
+      : null;
   const effectiveStatus = isPreview && signup.status === 'draft' ? 'open' : signup.status;
   const groupField = groupByRef ? (fields.find((f) => f.ref === groupByRef) ?? null) : null;
   const groupRef = groupField?.ref ?? null;
@@ -225,15 +247,15 @@ export function SignupViewBody({
 
   const view = (
     <>
-      {!showStateBanner ? null : tPreview ? (
+      {!showStateBanner ? null : preview ? (
         // A wrapper for its language, rather than a prop on the shared
         // Banner, so the organizer pages' banners stay byte for byte as they
         // were. It lays out as the banner alone would.
-        <div lang="en">
+        <div lang={preview.locale}>
           <Banner
             kind="preview"
-            title={tPreview('title')}
-            body={tPreview('body', { status: signup.status })}
+            title={preview.t('title')}
+            body={preview.t('body', { status: signup.status })}
           />
         </div>
       ) : effectiveStatus === 'closed' ? (
@@ -339,15 +361,18 @@ export function SignupViewBody({
                           <span className={`${ACTION_SIZING} font-medium text-ink-soft`}>
                             {full ? t('full') : t('closed')}
                           </span>
-                        ) : tPreview ? (
-                          // The tip is the organizer's, in English, but a
-                          // title can't carry a language of its own: the
-                          // button's name and text are the participants'.
+                        ) : preview ? (
+                          // The button's name and text are the participants',
+                          // in the signup's language. Its tip is the
+                          // organizer's: a mouse gets it from `title`, which
+                          // can't carry a language of its own, and screen
+                          // readers from PREVIEW_TIP_ID, which does.
                           <button
                             type="button"
                             disabled
-                            title={tPreview('signUpDisabled')}
+                            title={preview.t('signUpDisabled', { status: signup.status })}
                             aria-label={tDialog('signUpFor', { slot: actionName })}
+                            aria-describedby={PREVIEW_TIP_ID}
                             className={`${ACTION_SIZING} cursor-not-allowed bg-brand font-medium text-white opacity-60`}
                           >
                             {tDialog('signUp')}
@@ -385,6 +410,14 @@ export function SignupViewBody({
           </section>
         ))}
       </div>
+      {preview ? (
+        // The disabled Sign up buttons' tip, as their description: in the
+        // organizer's language and marked with it, which their `title`
+        // can't be. Hidden, since a mouse gets the same words from the title.
+        <p id={PREVIEW_TIP_ID} lang={preview.locale} hidden>
+          {preview.t('signUpDisabled', { status: signup.status })}
+        </p>
+      ) : null}
     </>
   );
   if (mode !== 'live') return view;

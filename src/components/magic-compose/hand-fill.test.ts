@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { STARTER_PROMPTS } from '@/lib/magic-compose/templates';
-import { handFillHref } from './hand-fill';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
+import { starterPrompts } from '@/lib/magic-compose/templates';
+import { handFillHref as handFillHrefWith } from './hand-fill';
 
 const params = (href: string) => Object.fromEntries(new URL(href, 'http://x').searchParams);
+
+/** The examples as an organizer with English sees them. */
+const STARTER_PROMPTS = starterPrompts(getTestTranslator('organizer.compose.starters'));
+const handFillHref = (prompt: string) => handFillHrefWith(prompt, STARTER_PROMPTS);
 
 describe('handFillHref', () => {
   it('opens the blank form when nothing was typed', () => {
@@ -17,6 +22,19 @@ describe('handFillHref', () => {
     }
     const edited = `${STARTER_PROMPTS[0]?.body} Games start at 9am.`;
     expect(params(handFillHref(edited))).toEqual({ manual: '1', description: edited });
+  });
+
+  it('knows the examples by the language the screen shows them in', () => {
+    const shown = starterPrompts(getStandInTranslator('sv', 'organizer.compose.starters'));
+    for (const [i, starter] of shown.entries()) {
+      expect(handFillHrefWith(starter.body, shown)).toBe('/app/signups/new?manual=1');
+      // An example the screen didn't show was written, or pasted, by the organizer.
+      const english = STARTER_PROMPTS[i]?.body ?? '';
+      expect(params(handFillHrefWith(english, shown))).toEqual({
+        manual: '1',
+        description: english,
+      });
+    }
   });
 
   it('carries a short line over as the title', () => {

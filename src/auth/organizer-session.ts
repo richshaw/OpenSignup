@@ -22,11 +22,12 @@ export interface OrganizerSession {
   name: string | null;
   defaultWorkspaceId: string | null;
   /**
-   * The language the organizer saved, exactly as stored, or null when they
-   * haven't saved one. Not checked or resolved here: a caller passes it to
-   * `chooseOrganizerLocale` (`src/i18n/organizer-locale.ts`), which passes
-   * over a value that hasn't shipped and reports which step chose. It stays
-   * off `Actor`, so a cookie and a token still give the same actor.
+   * The language stored on the organizer's account, exactly as stored, or
+   * null when it has none (set when the account is created, or in account
+   * Settings). Not checked or resolved here: a caller passes the session to
+   * `localeOfOrganizer` or `newSignupLocale` (`src/i18n/locale.ts`), which
+   * pass over a value that hasn't shipped. It stays off `Actor`, so a cookie
+   * and a token still give the same actor.
    */
   locale: string | null;
   memberships: {

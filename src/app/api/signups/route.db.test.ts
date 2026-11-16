@@ -275,17 +275,17 @@ describe('POST /api/signups chooses the new signup’s language (db)', () => {
       expect(r.telemetry).toMatchObject({ locale: OTHER_LOCALE, localeSource: 'setting' });
     });
 
-    it('takes the instance’s DEFAULT_LOCALE before the browser', async () => {
+    it('takes the instance’s DEFAULT_LOCALE when the account stores none, whatever the browser asks for', async () => {
       route.instanceDefault = OTHER_LOCALE;
       const r = await create({}, 'en');
       expect(r.settings).toMatchObject({ locale: OTHER_LOCALE });
       expect(r.telemetry).toMatchObject({ locale: OTHER_LOCALE, localeSource: 'instance' });
     });
 
-    it('takes the browser’s top language next', async () => {
+    it('takes no language from the browser: English when nothing is stored and the instance sets none', async () => {
       const r = await create({}, `${withRegion(OTHER_LOCALE)},en;q=0.8`);
-      expect(r.settings).toMatchObject({ locale: OTHER_LOCALE });
-      expect(r.telemetry).toMatchObject({ locale: OTHER_LOCALE, localeSource: 'browser' });
+      expect(r.settings).toMatchObject({ locale: 'en' });
+      expect(r.telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
     });
 
     it('falls back to English when no step names a shipped language', async () => {

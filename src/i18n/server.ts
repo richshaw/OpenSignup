@@ -23,10 +23,9 @@ export function getServerTranslator<N extends Namespace>(locale: CatalogLocale, 
 }
 
 /**
- * The instance's `DEFAULT_LOCALE`, or undefined when it's unset. Pass it to
- * `defaultFor`, which keeps English for an audience the language hasn't
- * shipped to yet. The one place in src/i18n that reads the environment, so
- * config.ts stays pure.
+ * The instance's `DEFAULT_LOCALE`, or undefined when it's unset, for
+ * `resolveLocale`, which keeps English for an audience the language hasn't
+ * shipped to yet (./locale.ts passes it). Read here, so config.ts stays pure.
  */
 export function instanceDefaultLocale(): CatalogLocale | undefined {
   return getEnv().DEFAULT_LOCALE;

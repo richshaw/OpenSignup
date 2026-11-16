@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getOrganizerSession, requireActor } from '@/auth/session';
 import { getDb, type Db } from '@/db/client';
-import { getOrganizerLocale, newSignupLocale } from '@/i18n/organizer';
+import { newSignupLocale } from '@/i18n/locale';
 import { activityActor, recordActivityBestEffort } from '@/lib/activity';
 import { getEnv, magicComposeEnabled } from '@/lib/env';
 import { fail, handle, ok, readJson } from '@/lib/api-response';
@@ -24,6 +24,7 @@ import {
   MagicComposeDraftSchema,
   type PromptContext,
 } from '@/lib/magic-compose/prompt';
+import { warningSentence } from '@/lib/magic-compose/draft-warnings';
 import { fitDraftText } from '@/lib/magic-compose/fit-text';
 import { PROMPT_MAX_LENGTH } from '@/lib/magic-compose/limits';
 import { persistDraft } from '@/lib/magic-compose/persist';
@@ -167,13 +168,14 @@ export async function POST(req: NextRequest) {
       pending.answered = () => recordAnswered(db, actor, workspaceId, followUp, outcome);
     }
 
-    // Every call, retries included, tells the model the organizer's language
-    // for participants, to write in when the description is too short or too
-    // mixed to tell its own. Always one that has shipped, so English while
-    // only English has.
-    const acceptLanguage = req.headers.get('accept-language');
+    // The organizer's language for participants. The signup starts in it, as
+    // one made by hand does, so none while only one language has shipped.
+    // Every call, retries included, tells the model it, to write in when the
+    // description is too short or too mixed to tell its own: English while
+    // only English has shipped.
+    const language = newSignupLocale(session);
     const context: PromptContext = {
-      fallbackLocale: getOrganizerLocale(session, acceptLanguage, 'participant').locale,
+      fallbackLocale: language?.locale ?? 'en',
     };
     const client = defaultLlmClient();
     // One time budget for the whole request: a retry gets what the first call
@@ -276,7 +278,7 @@ export async function POST(req: NextRequest) {
     // A title or description over its limit is cut down rather than failing
     // the whole draft: a model asked to keep a long announcement word for word
     // goes over the same way on every retry.
-    const fitted = fitDraftText(raw.value, 'en');
+    const fitted = fitDraftText(raw.value);
     const draft = MagicComposeDraftSchema.safeParse(fitted.value);
     if (!draft.success) {
       log.warn(
@@ -294,7 +296,7 @@ export async function POST(req: NextRequest) {
       return fail(
         serviceError('internal', 'AI draft did not match expected shape', {
           suggestion: 'try again or adjust your prompt',
-          details: { issues: safeIssues },
+          details: { reason: 'draft_invalid', issues: safeIssues },
         }),
       );
     }
@@ -352,9 +354,6 @@ export async function POST(req: NextRequest) {
       return fail(serviceError('internal', 'request cancelled'));
     }
 
-    // The signup starts in the organizer's language, as one made by hand
-    // does: none while only one language has shipped.
-    const language = newSignupLocale(session, acceptLanguage);
     const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, draft.data, {
       logContext: { promptLength: userPrompt.length },
       ...(language ? { locale: language } : {}),
@@ -364,6 +363,9 @@ export async function POST(req: NextRequest) {
       return fail(persisted.error);
     }
     const { signup: created, template, groupByFieldRefs, warnings } = persisted.value;
+    // Each warning as a code with its arguments, for the organizer's screen to
+    // word in their language, and in English, as the API has always given them.
+    const codedWarnings = [...fitted.warnings, ...warnings];
 
     return ok(
       {
@@ -375,7 +377,8 @@ export async function POST(req: NextRequest) {
           promptLength: userPrompt.length,
           groupByFieldRefs,
         },
-        warnings: [...fitted.warnings, ...warnings],
+        warnings: codedWarnings.map(warningSentence),
+        codedWarnings,
         draft: buildDraftPreview(draft.data, template),
       },
       {

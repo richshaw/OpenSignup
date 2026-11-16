@@ -1,13 +1,17 @@
 import { z } from 'zod';
 import { SHIPPED } from '@/i18n/config';
-import { newSignupLocale } from '@/i18n/organizer';
+import { newSignupLocale } from '@/i18n/locale';
 import { log } from '@/lib/log';
 import { persistDraft } from '@/lib/magic-compose/persist';
 import { FullDraftSchema } from '@/lib/magic-compose/prompt';
 import { requireWorkspaceWrite } from '@/lib/policy';
 import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
 import { ok } from '@/lib/result';
-import { SignupSettingsSchema, SignupUpdateInputSchema } from '@/schemas/signups';
+import {
+  SIGNUP_INPUT_REASONS,
+  SignupSettingsSchema,
+  SignupUpdateInputSchema,
+} from '@/schemas/signups';
 import {
   archiveSignup,
   checkSignupLocale,
@@ -47,6 +51,7 @@ export const createSignupTool = defineTool({
         `A language code, one of: ${SIGNUP_LANGUAGES}. Defaults to the organizer's language for new signups.`,
       ),
   }),
+  inputReasons: SIGNUP_INPUT_REASONS,
   handler: async (ctx, input) => {
     const { workspaceId, locale, ...draft } = input;
     // Checked with the rest of the input, so a refused one costs no quota, and
@@ -60,11 +65,10 @@ export const createSignupTool = defineTool({
     await consumeRateLimit(ctx.db, RateLimits.signupCreatePerOrganizer, ctx.actor.id);
     // The language the assistant sent (`api`), else the organizer's, chosen as
     // for a signup made in the browser (none while only one language has
-    // shipped) but with no browser step: an assistant's Accept-Language names
-    // its vendor's language, not the organizer's.
+    // shipped).
     const language =
       sent.value === undefined
-        ? newSignupLocale({ locale: ctx.locale }, null)
+        ? newSignupLocale({ locale: ctx.locale })
         : { locale: sent.value, source: 'api' as const };
     const persisted = await persistDraft(ctx.db, ctx.actor, ws.value, draft, {
       templateId: 'mcp',
@@ -158,6 +162,7 @@ export const updateSignupTool = defineTool({
     signupId: z.string(),
     settings: SparseSettingsSchema.optional(),
   }),
+  inputReasons: SIGNUP_INPUT_REASONS,
   handler: async (ctx, input) => {
     const { signupId, ...rest } = input;
     const updated = await updateSignup(ctx.db, ctx.actor, signupId, rest);
@@ -193,7 +198,7 @@ function statusTool(
 export const publishSignupTool = statusTool(
   'publish_signup',
   'Publish signup',
-  'Make a draft signup live so participants can sign up at the public link. Only a draft can be published. Once it is published, links.public is the link to share with participants. A closing time that has already passed is removed, so people can sign up straight away, and the result then shows closesAt as null; a later closing time stays.',
+  'Publish a draft signup: its status becomes open, so participants can sign up at the public link. Only a draft can be published. Once it is published, links.public is the link to share with participants. A closing time that has already passed is removed, so people can sign up straight away, and the result then shows closesAt as null; a later closing time stays.',
   // Not in the ask-first line: the instructions give publishing a sentence of its own.
   false,
   publishSignup,

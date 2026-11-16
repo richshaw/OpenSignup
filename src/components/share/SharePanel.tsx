@@ -3,9 +3,11 @@
 import { useEffect, useLayoutEffect, useId, useRef, useState, type Ref } from 'react';
 import { Check, Copy, Mail, Share } from 'lucide-react';
 import { useClipboardCopy } from '@/hooks/useClipboardCopy';
+import type { CatalogLocale } from '@/i18n/config';
 import { emailBody, withLink } from '@/lib/share-message';
 import { emitSignupLinkEvent } from '@/lib/signup-link-events';
 import { ShareQrCode } from './ShareQrCode';
+import type { SharePanelText } from './share-text';
 
 export interface SharePanelProps {
   /** A popover by the header's button on a computer, a sheet on a phone. */
@@ -23,17 +25,18 @@ export interface SharePanelProps {
    * edit is still there when the panel opens again.
    */
   message: string;
+  /**
+   * The message's `lang`: the signup's language, where it isn't the
+   * organizer's, which the panel's own words are in.
+   */
+  messageLang?: CatalogLocale;
   onMessageChange: (message: string) => void;
+  /**
+   * Its words, in the organizer's language, from `shareText`. The message is
+   * the signup's, in the signup's language.
+   */
+  text: SharePanelText;
 }
-
-const LEAD_FIRST_TIME = 'Anyone with the link can sign up. Nobody has it until you send it.';
-const LEAD_LATER = {
-  desktop: 'Send it by email or in a group chat. Anyone with the link can sign up.',
-  phone: 'Send it to a group chat, by text or by email. Anyone with the link can sign up.',
-} as const;
-
-const LINK_COPY_REFUSED = 'Couldn’t copy. Select the link and copy it.';
-const MESSAGE_COPY_REFUSED = 'Couldn’t copy. Select the message and copy it.';
 
 type Copied = 'link' | 'message';
 
@@ -59,7 +62,9 @@ export function SharePanel({
   title,
   url,
   message,
+  messageLang,
   onMessageChange,
+  text,
 }: SharePanelProps) {
   const link = useClipboardCopy();
   const messageCopy = useClipboardCopy();
@@ -137,7 +142,7 @@ export function SharePanel({
     emitSignupLinkEvent(signupId, 'shared', 'share_menu');
   }
 
-  const lead = firstTime ? LEAD_FIRST_TIME : LEAD_LATER[variant];
+  const lead = firstTime ? text.lead.firstTime : text.lead[variant];
   const phone = variant === 'phone';
   // On a computer, as wide as "Copy message" at its widest, so its "Copied"
   // doesn't move Email it beside it. On a phone, half the row each, lined up
@@ -147,9 +152,9 @@ export function SharePanel({
   }`;
   const copiedNow =
     lastCopied === 'link' && link.copied
-      ? 'Link copied'
+      ? text.linkCopied
       : lastCopied === 'message' && messageCopy.copied
-        ? 'Message copied'
+        ? text.messageCopied
         : '';
 
   const copyLinkButton = (
@@ -168,18 +173,19 @@ export function SharePanel({
       ) : (
         <Copy size={phone ? 16 : 14} aria-hidden="true" />
       )}
-      {link.copied ? 'Copied' : 'Copy link'}
+      {link.copied ? text.copied : text.copyLink}
     </button>
   );
 
   const messageBox = (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={messageId} className="text-[13px] font-semibold text-ink">
-        A message to send with it
+        {text.messageLabel}
       </label>
       <textarea
         ref={messageField}
         id={messageId}
+        lang={messageLang}
         rows={phone ? PHONE_ROWS : MIN_ROWS}
         value={message}
         onChange={(e) => onMessageChange(e.target.value)}
@@ -191,7 +197,7 @@ export function SharePanel({
         <div className={phone ? 'grid grid-cols-2 gap-2' : 'flex flex-wrap gap-2'}>
           <button type="button" onClick={() => void copy('message')} className={messageAction}>
             {messageCopy.copied ? <Check size={14} strokeWidth={2.6} aria-hidden="true" /> : null}
-            {messageCopy.copied ? 'Copied' : 'Copy message'}
+            {messageCopy.copied ? text.copied : text.copyMessage}
           </button>
           <a
             href={mailto}
@@ -200,13 +206,13 @@ export function SharePanel({
             className={messageAction}
           >
             <Mail size={14} aria-hidden="true" />
-            Email it
+            {text.emailIt}
           </a>
         </div>
       )}
       {canShare ? null : (
         <p aria-live="polite" className={refused?.what === 'message' ? REFUSED : 'sr-only'}>
-          {refused?.what === 'message' ? MESSAGE_COPY_REFUSED : ''}
+          {refused?.what === 'message' ? text.messageRefused : ''}
         </p>
       )}
     </div>
@@ -217,7 +223,7 @@ export function SharePanel({
   // shows under its own row, above.
   const linkNotice = (
     <p aria-live="polite" className={refused?.what === 'link' ? REFUSED : 'sr-only'}>
-      {refused?.what === 'link' ? LINK_COPY_REFUSED : refused ? '' : copiedNow}
+      {refused?.what === 'link' ? text.linkRefused : refused ? '' : copiedNow}
     </p>
   );
 
@@ -236,12 +242,10 @@ export function SharePanel({
                 className={`${PHONE_BUTTON} h-[52px] text-base ${PHONE_PRIMARY}`}
               >
                 <Share size={17} aria-hidden="true" />
-                Share…
+                {text.shareMenu}
               </button>
               <p aria-live="polite" className="text-balance text-center text-[13px] text-ink-muted">
-                {shared
-                  ? 'Sent from your phone’s share menu.'
-                  : 'Opens your phone’s share menu, with the message and link.'}
+                {shared ? text.shareMenuSent : text.shareMenuHint}
               </p>
             </div>
           ) : null}
@@ -250,7 +254,7 @@ export function SharePanel({
                 refused it. */}
             {refused?.what === 'link' ? (
               <div className="flex">
-                <LinkField url={url} ref={linkField} />
+                <LinkField url={url} label={text.linkField} ref={linkField} />
               </div>
             ) : null}
             {linkNotice}
@@ -259,7 +263,13 @@ export function SharePanel({
                 columns, under these. */}
             <div className="grid grid-cols-2 gap-2">
               {copyLinkButton}
-              <ShareQrCode signupId={signupId} title={title} url={url} variant="phone" />
+              <ShareQrCode
+                signupId={signupId}
+                title={title}
+                url={url}
+                variant="phone"
+                text={text.qr}
+              />
             </div>
           </div>
           {messageBox}
@@ -268,13 +278,19 @@ export function SharePanel({
         <>
           <div className="flex flex-col gap-1.5">
             <div className="flex gap-2">
-              <LinkField url={url} ref={linkField} />
+              <LinkField url={url} label={text.linkField} ref={linkField} />
               {copyLinkButton}
             </div>
             {linkNotice}
           </div>
           {messageBox}
-          <ShareQrCode signupId={signupId} title={title} url={url} variant="desktop" />
+          <ShareQrCode
+            signupId={signupId}
+            title={title}
+            url={url}
+            variant="desktop"
+            text={text.qr}
+          />
         </>
       )}
     </div>
@@ -285,12 +301,21 @@ export function SharePanel({
  * The public link in a read-only box, selected whole when it gets focus, so
  * it can be copied by hand where the clipboard refuses.
  */
-function LinkField({ url, ref }: { url: string; ref: Ref<HTMLInputElement> }) {
+function LinkField({
+  url,
+  label,
+  ref,
+}: {
+  url: string;
+  /** Its name, said rather than shown. */
+  label: string;
+  ref: Ref<HTMLInputElement>;
+}) {
   const id = useId();
   return (
     <>
       <label htmlFor={id} className="sr-only">
-        Public link
+        {label}
       </label>
       <input
         ref={ref}

@@ -39,10 +39,10 @@ const baseSchema = z.object({
   LLM_MODEL: z.string().optional(),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().max(600_000).default(LLM_TIMEOUT_DEFAULT_MS),
   // The instance's language, for one that serves a single language community.
-  // It comes before each organizer's browser, and a signup with no language of
-  // its own follows it. It takes effect for an audience only once its language
-  // has shipped to them (`defaultFor` in src/i18n/config.ts). Unset follows
-  // each organizer.
+  // An organizer whose account stores no language follows it (and while it's
+  // set, a new account stores none), and so does a signup with no language of
+  // its own. It takes effect for an audience only once its language has
+  // shipped to them (`resolveLocale` in src/i18n/config.ts). Unset is English.
   DEFAULT_LOCALE: z.enum(CATALOG_LOCALES).optional(),
   // JSON array of pre-registered OAuth clients for MCP clients that cannot
   // identify themselves with a Client ID Metadata Document (and for local

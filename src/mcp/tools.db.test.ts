@@ -9,10 +9,12 @@ import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
 import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
+import { errorEnvelope } from '@/lib/api-response';
 import { makeId } from '@/lib/ids';
+import { TITLE_MAX_LENGTH } from '@/lib/signup-limits';
 import { DESCRIPTION_MAX_LENGTH } from '@/schemas/signups';
 import { commitToSlot } from '@/services/commitments';
-import { createSignup, getPublicSignup, publishSignup } from '@/services/signups';
+import { createSignup, getPublicSignup, publishSignup, updateSignup } from '@/services/signups';
 import type { ToolContext } from './context';
 import { connectTestClient } from './testing/client';
 import { contextForOrganizer } from './testing/context';
@@ -372,6 +374,43 @@ describe('signup write tools on Postgres', () => {
     expect(after.signup.slug).toMatch(/^bake-sale-[0-9a-z]{5}$/);
     expect(after.signup.slug).not.toBe(before.slug);
     expect(after.links.public).toMatch(new RegExp(`/s/${after.signup.slug}$`));
+  });
+
+  it('create_signup and update_signup refuse a title too short with the REST API’s error, reason included', async () => {
+    // The tool's own input parse sees the title before the service does, so
+    // the reason has to come from there too.
+    const client = await connectTestClient(ctx, TOOLS);
+    const restCreate = await createSignup(db, ctx.actor, workspaceId, { title: ' a ' });
+    if (restCreate.ok) throw new Error('createSignup took a one-letter title');
+    expect(restCreate.error.details).toEqual({ reason: 'title_too_short' });
+    const created = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: ' a ',
+        fields: [{ ref: 'a', label: 'A', fieldType: 'text' }],
+        slots: [{ values: { a: 'x' } }],
+      },
+    });
+    expect(created.isError).toBe(true);
+    expect(created.structuredContent).toEqual(errorEnvelope(restCreate.error));
+
+    const draft = await createSignup(db, ctx.actor, workspaceId, { title: 'Title reasons' });
+    if (!draft.ok) throw new Error(JSON.stringify(draft.error));
+    const signupId = draft.value.id;
+    const reasons: unknown[] = [];
+    for (const title of [' a ', 'x'.repeat(TITLE_MAX_LENGTH + 1)]) {
+      const rest = await updateSignup(db, ctx.actor, signupId, { title });
+      if (rest.ok) throw new Error(`updateSignup took the title ${JSON.stringify(title)}`);
+      reasons.push(rest.error.details?.reason);
+      const updated = await client.callTool({
+        name: 'update_signup',
+        arguments: { signupId, title },
+      });
+      expect(updated.isError).toBe(true);
+      expect(updated.structuredContent).toEqual(errorEnvelope(rest.error));
+    }
+    // Only the short title names a reason, on either path.
+    expect(reasons).toEqual(['title_too_short', undefined]);
   });
 
   it('update_signup changes one setting and keeps the rest', async () => {

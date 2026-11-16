@@ -9,6 +9,7 @@ import { participantErrorCopy } from '@/app/s/[slug]/participant-error';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { loadSeed } from './helpers/fixtures';
 import { gotoIn, messagesIn, remember, signUpButton } from './helpers/languages';
+import { expectSignupLayoutIn } from './helpers/signup-layout';
 import { translationShot } from './helpers/translation-shots';
 
 const seed = loadSeed();
@@ -70,8 +71,9 @@ function englishLeftIn(locale: TestLocale): RegExp {
 /**
  * The seeded signups in each test language (tests/e2e/helpers/seed.ts): their
  * participants' text comes from the language's catalog, and what only their
- * organizers read stays English, marked so, until the organizer app has
- * other languages. Every expected text comes from the catalog, formatted as
+ * organizers read is in the organizer's language: English, marked so, for
+ * the seeded organizer, who has none stored. Every expected text comes from
+ * the catalog, formatted as
  * the reminder worker formats it (`messagesIn`), so a new language's catalog
  * is all these tests need.
  */
@@ -121,10 +123,8 @@ for (const locale of TEST_LOCALES) {
       );
       await expect(row(slots.full)).toContainText(view('full'));
       await expect(main.getByText(/Sign up|Full\b|signed up|spots left/)).toHaveCount(0);
-      // Until the signup's pages get a layout of their own (#628), the page
-      // around <main> stays English: <html lang> and the footer.
-      await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-      await expect(page.getByRole('navigation', { name: 'Footer' })).toBeVisible();
+      // The page around <main> too: <html lang>, og:locale and the footer.
+      await expectSignupLayoutIn(page, locale);
       await shot(page, 'page-open');
     });
 
@@ -378,7 +378,10 @@ for (const locale of TEST_LOCALES) {
       await shot(page, 'page-signed-up');
     });
 
-    test('keeps its organizer’s strip English, marked lang="en"', async ({ page, context }) => {
+    test('shows its organizer’s strip in their language, English with none stored, marked lang="en"', async ({
+      page,
+      context,
+    }) => {
       await loginAsSeededOrganizer(context);
       await goto(page, `/s/${slug}`);
       const strip = page.getByRole('navigation', { name: 'Organizer' });
@@ -388,16 +391,16 @@ for (const locale of TEST_LOCALES) {
       await expect(strip.getByRole('link', { name: 'Edit signup' })).toBeVisible();
     });
 
-    test(`keeps the Preview banner English, marked lang="en", over a ${language} page`, async ({
+    test(`shows the Preview banner in the organizer’s language, English with none stored, marked lang="en", over a ${language} page`, async ({
       page,
       context,
     }) => {
       await loginAsSeededOrganizer(context);
       await goto(page, `/app/signups/${id}/preview`);
-      const banner = page.locator('main [lang="en"]');
+      const banner = page.locator('main [lang="en"]').filter({ has: page.getByRole('status') });
       await expect(banner).toContainText('Preview');
       await expect(banner).toContainText(
-        'This signup is live. The page below shows what visitors see.',
+        'This signup is open. The page below shows what visitors see.',
       );
       // The disabled button is the participants', with the organizer's tip.
       const button = page
@@ -406,7 +409,13 @@ for (const locale of TEST_LOCALES) {
         .getByRole('button', { name: signUp });
       await expect(button).toBeDisabled();
       await expect(button).toHaveText(say('participant.dialog')('signUp'));
-      await expect(button).toHaveAttribute('title', 'Preview: publish to enable signups');
+      await expect(button).toHaveAttribute('title', 'Preview: people sign up at the public link');
+      // Screen readers get the tip from text marked English, which the title can't be.
+      await expect(button).toHaveAccessibleDescription(
+        'Preview: people sign up at the public link',
+      );
+      const tip = page.locator(`[id="${await button.getAttribute('aria-describedby')}"]`);
+      await expect(tip).toHaveAttribute('lang', 'en');
     });
   });
 
@@ -708,5 +717,29 @@ for (const locale of TEST_LOCALES) {
       await expectNoEnglish(main);
       await shot(page, 'cancelled-page-signup-closed');
     });
+  });
+
+  // The layout around every page of a signup (src/app/s/[slug]/layout.tsx)
+  // takes the signup's language too: what the page is marked as, what link
+  // previews are told, and the footer. A broken link's page, a draft's and an
+  // archived signup's take it from the signup their path names.
+  test.describe(`the ${language} test signup’s pages, around what they show`, () => {
+    const { build, archived } = seed.languages[locale];
+    for (const { name, path, status } of [
+      { name: 'its page', path: `/s/${slug}`, status: 200 },
+      { name: 'its edit page', path: editPath, status: 200 },
+      { name: 'its unsubscribe page', path: unsubscribePath, status: 200 },
+      { name: 'a broken edit link', path: badToken(editPath), status: 404 },
+      { name: 'a draft', path: `/s/${build.slug}`, status: 200 },
+      { name: 'an archived signup', path: `/s/${archived.slug}`, status: 200 },
+    ]) {
+      test(`${name} is marked ${language}, tells link previews so, and has a ${language} footer`, async ({
+        page,
+      }) => {
+        const response = await page.goto(path);
+        expect(response?.status()).toBe(status);
+        await expectSignupLayoutIn(page, locale);
+      });
+    }
   });
 }

@@ -1,14 +1,14 @@
 import type { Db } from '@/db/client';
-import type { CatalogLocale } from '@/i18n/config';
-import type { SignupLocaleSource } from '@/i18n/organizer-locale';
+import type { CatalogLocale, SignupLocaleSource } from '@/i18n/config';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { log } from '@/lib/log';
 import type { Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import type { SignupTemplate } from '@/lib/signup-templates';
 import { createSignup } from '@/services/signups';
+import type { DraftWarning } from './draft-warnings';
 import type { MagicComposeDraft } from './prompt';
-import { buildWarnings, magicComposeToTemplate, type DroppedSummary } from './to-template';
+import { draftWarnings, magicComposeToTemplate, type DroppedSummary } from './to-template';
 
 type SignupRow = Extract<Awaited<ReturnType<typeof createSignup>>, { ok: true }>['value'];
 
@@ -16,8 +16,8 @@ export interface PersistedDraft {
   signup: SignupRow;
   template: SignupTemplate;
   groupByFieldRefs: string[];
-  /** Plain sentences about what the conversion adjusted or dropped; empty when nothing was. */
-  warnings: string[];
+  /** What the conversion adjusted or dropped, as codes (`DraftWarning`); empty when nothing was. */
+  warnings: DraftWarning[];
 }
 
 /**
@@ -54,7 +54,7 @@ export async function persistDraft(
     draft,
     opts.templateId ? { templateId: opts.templateId } : {},
   );
-  const warnings = buildWarnings(dropped);
+  const warnings = draftWarnings(dropped);
   if (opts.strict) {
     const valuelessFields = fieldsWithNoValue(template, dropped);
     if (warnings.length > 0 || valuelessFields.length > 0) {

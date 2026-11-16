@@ -295,7 +295,7 @@ describe('parseEnv', () => {
       expect(parseEnv({ ...base, DEFAULT_LOCALE: '  ' }).DEFAULT_LOCALE).toBeUndefined();
     });
 
-    // Each language with a catalog, shipped or not: `defaultFor` keeps every
+    // Each language with a catalog, shipped or not: `resolveLocale` keeps every
     // audience in English until it ships.
     it.each(CATALOG_LOCALES)('takes a language OpenSignup has a catalog for: %j', (value) => {
       expect(parseEnv({ ...base, DEFAULT_LOCALE: value }).DEFAULT_LOCALE).toBe(value);

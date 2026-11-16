@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
 
 /**
@@ -8,15 +9,15 @@ import { getServerTranslator } from '@/i18n/server';
  * it is exactly what participants see. Ink links, not brand blue: brand on
  * `surface-raised` is under 4.5:1.
  *
- * Its text is the organizer's, not the participants': English until the
- * organizer app has other languages, and marked so, since the page under it
- * is in the signup's language.
+ * Its text is the organizer's, not the participants': in `locale`, the
+ * organizer app's language for this organizer (`localeOfOrganizer`), and
+ * marked so, since the page under it is in the signup's language.
  */
-export function OrganizerStrip({ signupId }: { signupId: string }) {
-  const t = getServerTranslator('en', 'organizer.publicPage.strip');
+export function OrganizerStrip({ signupId, locale }: { signupId: string; locale: CatalogLocale }) {
+  const t = getServerTranslator(locale, 'organizer.publicPage.strip');
   return (
     <nav
-      lang="en"
+      lang={locale}
       aria-label={t('label')}
       className="border-b border-surface-sunk bg-surface-raised"
     >

@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { CATALOG_LOCALES } from '@/i18n/config';
 import { getTestTranslator } from '@/i18n/testing/translator';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getTranslator, messagesFor } from '@/i18n/translator';
@@ -58,6 +59,9 @@ const SLOTS: SignupViewSlot[] = [
 
 const SIGNUP = { title: 'Snack duty', description: '', status: 'open' as const };
 
+/** Every language with a catalog besides English, each tried in turn. */
+const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
+
 describe('<SignupViewBody mode="showcase" />', () => {
   it('renders the row action as an inert span styled like the active button', () => {
     render(
@@ -95,9 +99,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
       />,
     );
     expect(screen.queryByText('Preview')).toBeNull();
-    expect(
-      screen.queryByText(/This signup is live\. The page below shows what visitors see\./),
-    ).toBeNull();
+    expect(screen.queryByText(/The page below shows what visitors see\./)).toBeNull();
   });
 
   it('preview mode still renders a disabled Sign-up button (regression guard)', () => {
@@ -110,6 +112,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
         slots={SLOTS}
         slug="example"
         mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -198,7 +201,7 @@ describe('the sign-up dialog’s messages', () => {
 
   it('stay out of the Preview and the showcase, which have no dialog', () => {
     provided.length = 0;
-    render(<SignupViewBody {...props} locale="en" mode="preview" />);
+    render(<SignupViewBody {...props} locale="en" mode="preview" organizerLocale="en" />);
     cleanup();
     render(<SignupViewBody {...props} locale="en" mode="showcase" />);
     expect(provided).toEqual([]);
@@ -281,6 +284,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
         ]}
         slug="example"
         mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -312,9 +316,11 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
       />,
     );
     expect(screen.getByText(dialog('signUp'))).toHaveClass('bg-brand');
+    // The Preview's tip is only the Preview's.
+    expect(document.querySelector('[aria-describedby], [hidden]')).toBeNull();
   });
 
-  it('keeps the Preview banner and the disabled button’s tip in English, marked so', () => {
+  it('keeps the Preview banner and the disabled button’s tip in an English organizer’s language, marked so', () => {
     render(
       <SignupViewBody
         locale={OTHER_LOCALE}
@@ -324,6 +330,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
         slots={SLOTS}
         slug="example"
         mode="preview"
+        organizerLocale="en"
       />,
     );
     const banner = screen.getByRole('status');
@@ -332,15 +339,56 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
       'PreviewThis is what people will see once you publish. No signups will be saved.',
     );
     const button = screen.getByRole('button', { name: dialog('signUpFor') });
-    expect(button).toHaveAttribute('title', 'Preview: publish to enable signups');
+    expect(button).toHaveAttribute('title', 'Preview: publish to let people sign up');
+    // The same tip as its description, from text marked with the organizer's language.
+    expect(button).toHaveAccessibleDescription('Preview: publish to let people sign up');
+    const tip = document.getElementById(button.getAttribute('aria-describedby') ?? '');
+    expect(tip).toHaveAttribute('lang', 'en');
+    expect(tip).not.toBeVisible();
   });
 
+  // The organizer's, whatever the signup's: the stand-in translator answers
+  // with where each text was asked for.
+  it.each(OTHER_LANGUAGES)(
+    'puts the Preview banner and the disabled button’s tip in the organizer’s language, %s',
+    (other) => {
+      render(
+        <SignupViewBody
+          locale="en"
+          signup={{ ...SIGNUP, status: 'draft' }}
+          fields={FIELDS}
+          groupByRef={null}
+          slots={SLOTS}
+          slug="example"
+          mode="preview"
+          organizerLocale={other}
+        />,
+      );
+      const ask = (key: string) => `organizer.preview.${key} in ${other}`;
+      const banner = screen.getByRole('status');
+      expect(banner.closest('[lang]')).toHaveAttribute('lang', other);
+      expect(banner).toHaveTextContent(`${ask('title')}${ask('body')}`);
+      // The button itself is the participants', in the signup's language.
+      const button = screen.getByRole('button');
+      expect(button).toHaveAttribute('title', ask('signUpDisabled'));
+      expect(button).toHaveTextContent(getTestTranslator('participant.dialog')('signUp'));
+      // Its description is the tip, marked with the organizer's language,
+      // which the title can't be.
+      expect(button).toHaveAccessibleDescription(ask('signUpDisabled'));
+      const tip = document.getElementById(button.getAttribute('aria-describedby') ?? '');
+      expect(tip).toHaveAttribute('lang', other);
+      expect(tip).not.toBeVisible();
+    },
+  );
+
+  // Open and closed, the words of the status beside the signup's title, read
+  // as a pair; "published" is only for leaving draft (docs/writing-help.md).
   it.each([
     ['draft', 'This is what people will see once you publish. No signups will be saved.'],
-    ['open', 'This signup is live. The page below shows what visitors see.'],
+    ['open', 'This signup is open. The page below shows what visitors see.'],
     ['closed', 'This signup is closed. The page below shows what visitors see.'],
     ['archived', 'This signup is archived and is not visible to participants.'],
-  ] as const)('words the Preview banner of a signup that is %s as before', (status, body) => {
+  ] as const)('words the Preview banner of a signup that is %s', (status, body) => {
     render(
       <SignupViewBody
         locale="en"
@@ -350,9 +398,29 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
         slots={SLOTS}
         slug="example"
         mode="preview"
+        organizerLocale="en"
       />,
     );
     expect(screen.getByRole('status')).toHaveTextContent(`Preview${body}`);
+    expect(screen.queryByText(/\blive\b/i)).toBeNull();
+  });
+
+  it('sends an open signup’s preview to its public link, which is already taking sign-ups', () => {
+    render(
+      <SignupViewBody
+        locale="en"
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+        organizerLocale="en"
+      />,
+    );
+    const button = screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' });
+    expect(button).toHaveAttribute('title', 'Preview: people sign up at the public link');
+    expect(button).toHaveAccessibleDescription('Preview: people sign up at the public link');
   });
 });
 
@@ -390,6 +458,7 @@ describe('<SignupViewBody /> heading level', () => {
         slots={SLOTS}
         slug="example"
         mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -441,6 +510,7 @@ describe('<SignupViewBody /> slot row', () => {
         slots={MULTI}
         slug="example"
         mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -501,6 +571,7 @@ describe('<SignupViewBody /> slot row', () => {
         ]}
         slug="example"
         mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -528,6 +599,7 @@ describe('<SignupViewBody /> slot row', () => {
         ]}
         slug="example"
         mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -569,6 +641,7 @@ describe('<SignupViewBody /> slot row', () => {
         ]}
         slug="example"
         mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -864,6 +937,7 @@ describe("the signup's description", () => {
         slots={SLOTS}
         slug="example"
         mode="preview"
+        organizerLocale="en"
       />,
     );
     return container.querySelector('header p');
@@ -934,7 +1008,7 @@ describe('<SignupViewBody /> for a returning participant', () => {
         groupByRef={null}
         slots={SLOTS}
         slug="example"
-        mode={mode}
+        {...(mode === 'preview' ? { mode, organizerLocale: 'en' as const } : { mode })}
         ownCommitments={OWN}
       />,
     );

@@ -1,0 +1,98 @@
+import { redirect } from 'next/navigation';
+import { getOrganizerSession, toActor } from '@/auth/session';
+import { getDb } from '@/db/client';
+import type { CatalogLocale } from '@/i18n/config';
+import { localeOfOrganizer } from '@/i18n/locale';
+import { getServerTranslator } from '@/i18n/server';
+import { waitInMinutes } from '@/lib/format-duration';
+import { log } from '@/lib/log';
+import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
+import { readFormData } from '@/lib/request-body';
+import { consentPath, isInteractionUid, oauthIssuer } from '@/oauth/config';
+import { ConsentUnavailable, decideConsent, type Decision } from '@/oauth/consent';
+import { renderErrorPage } from '@/oauth/provider';
+
+/**
+ * Receives the Allow / Don't allow submit from the consent page.
+ *
+ * Cross-site protection is layered: the provider's interaction cookie and
+ * the Auth.js session cookie are both SameSite=Lax, so neither arrives on a
+ * cross-site POST, and on top of that the request must prove where it came
+ * from — an Origin header (every browser sends one on a form POST) or,
+ * failing that, a same-origin Referer. A request with neither is refused
+ * rather than waved through on cookies alone.
+ *
+ * The organizer is signed in by now, so a reply they read is in their
+ * language, as the consent page is.
+ */
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+export async function POST(request: Request, { params }: { params: Promise<{ uid: string }> }) {
+  const { uid } = await params;
+  if (!isInteractionUid(uid)) return new Response('Not found', { status: 404 });
+
+  if (!sameOrigin(request)) return new Response('Forbidden', { status: 403 });
+
+  // `requireActor` in two steps, so the session that gives the actor also
+  // gives the organizer's language, with no second read.
+  const session = await getOrganizerSession();
+  const actor = toActor(session);
+  if (actor.kind !== 'organizer') {
+    redirect(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
+  }
+  const locale = localeOfOrganizer(session);
+  const t = getServerTranslator(locale, 'auth.consent.decision');
+
+  // The consent page posts one field; a bigger body is not from it.
+  const form = await readFormData(request, 16 * 1024);
+  const raw = form?.get('decision');
+  const decision: Decision = raw === 'approve' ? 'approve' : 'deny';
+
+  try {
+    const retryAfter = await chargeRateLimit(
+      getDb(),
+      RateLimits.oauthConsentPerOrganizer,
+      actor.id,
+    );
+    if (retryAfter !== null) {
+      const description = t('tooManyAttempts', { wait: waitInMinutes(retryAfter, locale) });
+      return html(locale, 429, 'too_many_requests', description, {
+        'Retry-After': String(retryAfter),
+      });
+    }
+    return await decideConsent(uid, actor, decision);
+  } catch (err) {
+    if (err instanceof ConsentUnavailable) {
+      redirect(consentPath(uid));
+    }
+    log.error({ err }, 'oauth: consent decision failed');
+    return html(locale, 500, 'server_error', t('failed'));
+  }
+}
+
+function sameOrigin(request: Request): boolean {
+  const issuer = oauthIssuer();
+  const origin = request.headers.get('origin');
+  if (origin !== null) return origin === issuer;
+  const referer = request.headers.get('referer');
+  if (referer === null) return false;
+  try {
+    return new URL(referer).origin === issuer;
+  } catch {
+    return false;
+  }
+}
+
+function html(
+  locale: CatalogLocale,
+  status: number,
+  error: string,
+  description: string,
+  extra: Record<string, string> = {},
+): Response {
+  return new Response(renderErrorPage({ error, error_description: description }, locale), {
+    status,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...extra },
+  });
+}

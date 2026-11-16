@@ -19,6 +19,7 @@ import {
   MagicComposeDraftSchema,
   type ChatMessage,
 } from '@/lib/magic-compose/prompt';
+import type { DraftWarning } from '@/lib/magic-compose/draft-warnings';
 import type { LlmClient } from '@/lib/magic-compose/llm-client';
 import { magicComposeToTemplate } from '@/lib/magic-compose/to-template';
 import { listFieldsForSignup } from '@/services/slot-fields';
@@ -244,7 +245,9 @@ describe('POST /api/signups/magic-compose with an over-long title or description
         body: JSON.stringify({ prompt: 'Keep our announcement word for word' }),
       }),
     );
-    const body = (await res.json()) as { data: { id: string; warnings: string[] } };
+    const body = (await res.json()) as {
+      data: { id: string; warnings: string[]; codedWarnings: DraftWarning[] };
+    };
     return { status: res.status, ...body.data };
   }
 
@@ -264,6 +267,10 @@ describe('POST /api/signups/magic-compose with an over-long title or description
     expect(r.warnings).toContain(
       "The AI's description was longer than 2,000 characters, so the end was cut off. Check it below.",
     );
+    // Beside it, the same as a code with its arguments, for the screen to word.
+    expect(r.codedWarnings).toEqual([
+      { code: 'text_cut', field: 'description', max: DESCRIPTION_MAX_LENGTH },
+    ]);
     const slotRows = await fx.db.select().from(slots).where(eq(slots.signupId, r.id));
     expect(slotRows).toHaveLength(3);
   });
@@ -279,12 +286,40 @@ describe('POST /api/signups/magic-compose with an over-long title or description
     expect(r.warnings).toContain(
       "The AI's title was longer than 120 characters, so the end was cut off. Check it below.",
     );
+    expect(r.codedWarnings).toEqual([{ code: 'text_cut', field: 'title', max: TITLE_MAX_LENGTH }]);
+  });
+
+  it('gives what the conversion changed in English and as codes, in the same order', async () => {
+    const title = 'U9 snack duty for the spring season of Saturday games '.repeat(3);
+    const r = await compose({
+      ...CANNED_DRAFT,
+      title,
+      fields: [...CANNED_DRAFT.fields, { ref: 'role', label: 'Role', fieldType: 'enum' }],
+      slots: [
+        { values: { date: 'next Saturday', opponent: 'Hawks', stray: 'x' }, capacity: 2 },
+        ...CANNED_DRAFT.slots.slice(1),
+      ],
+    });
+    expect(r.status).toBe(200);
+    expect(r.codedWarnings).toEqual([
+      { code: 'text_cut', field: 'title', max: TITLE_MAX_LENGTH },
+      { code: 'values_blanked', count: 1 },
+      { code: 'enum_fields_to_text', fields: ['role'] },
+      { code: 'stray_values', count: 1 },
+    ]);
+    expect(r.warnings).toEqual([
+      "The AI's title was longer than 120 characters, so the end was cut off. Check it below.",
+      "1 value was left blank because it didn't fit its field. Fill it in below.",
+      'Field role arrived without a fixed list of options, so it was switched to free text.',
+      "Ignored 1 stray value that didn't match any field.",
+    ]);
   });
 
   it('adds no warning to a draft within the limits', async () => {
     const r = await compose(CANNED_DRAFT);
     expect(r.status).toBe(200);
     expect(r.warnings).toEqual([]);
+    expect(r.codedWarnings).toEqual([]);
     expect((await savedSignup(r.id)).description).toBe(CANNED_DRAFT.description);
   });
 });
@@ -364,7 +399,7 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
     expect(telemetry).not.toHaveProperty('localeSource');
   });
 
-  it('tells the model English while only English has shipped, whatever the organizer saved or their browser asks for', async () => {
+  it('tells the model English while only English has shipped, whatever the organizer stored or their browser asks for', async () => {
     route.locale = OTHER_LOCALE;
     const { system } = await compose(OTHER_LOCALE);
     expect(system).toContain(writesIn('English'));
@@ -376,14 +411,13 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
     });
 
     it.each([
-      { step: 'setting', locale: OTHER_LOCALE, instanceDefault: 'en', acceptLanguage: 'en' },
-      { step: 'instance', locale: null, instanceDefault: OTHER_LOCALE, acceptLanguage: 'en' },
-      { step: 'browser', locale: null, instanceDefault: undefined, acceptLanguage: OTHER_LOCALE },
+      { step: 'setting', locale: OTHER_LOCALE, instanceDefault: 'en' },
+      { step: 'instance', locale: null, instanceDefault: OTHER_LOCALE },
     ])(
-      `starts it in ${OTHER_LANGUAGE} chosen by the organizer’s $step, keeping the grouping`,
-      async ({ step, acceptLanguage, ...given }) => {
+      `starts it in ${OTHER_LANGUAGE} chosen by the organizer’s $step, keeping the grouping, whatever the browser asks for`,
+      async ({ step, ...given }) => {
         Object.assign(route, given);
-        const { settings, telemetry, system } = await compose(acceptLanguage);
+        const { settings, telemetry, system } = await compose('en');
         expect(system).toContain(writesIn(OTHER_LANGUAGE));
         expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: OTHER_LOCALE });
         expect(telemetry).toMatchObject({
@@ -394,11 +428,14 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
       },
     );
 
-    it('starts it in English when no step names a shipped language', async () => {
-      const { settings, telemetry, system } = await compose('de');
-      expect(system).toContain(writesIn('English'));
-      expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: 'en' });
-      expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
+    it('starts it in English when no step names a shipped language, taking none from the browser', async () => {
+      route.locale = 'xx';
+      for (const browser of [OTHER_LOCALE, 'de']) {
+        const { settings, telemetry, system } = await compose(browser);
+        expect(system).toContain(writesIn('English'));
+        expect(settings).toMatchObject({ groupByFieldRefs: ['date'], locale: 'en' });
+        expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
+      }
     });
   });
 });

@@ -84,6 +84,7 @@ declare const messages: {
       "savedEmailed": "We've saved your spot for <b>{slot}</b> and emailed this link to <email>{address}</email>. Bookmark it to edit or cancel later:",
       "savedNotEmailed": "We've saved your spot for <b>{slot}</b>. <b>Save this link now: we won't email it, and only this browser remembers it.</b>{calendar, select, yes { Add to calendar saves the link too.} other {}}",
       "addToCalendar": "Add to calendar",
+      "calendarTitle": "{title} — {slot}",
       "calendarDescription": "Edit or cancel: {url}",
       "saveYourLink": "Save your link",
       "shareText": "My spot for {slot}. This link changes or cancels it, so keep it private.",
@@ -202,7 +203,7 @@ declare const messages: {
       },
       "invalid": {
         "title": "This link isn't valid",
-        "body": "It may have been mangled in transit, or the signup may have been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
+        "body": "The link may be incomplete, or the signup has been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
       },
       "confirm": {
         "title": "Stop reminder emails?",
@@ -229,6 +230,15 @@ declare const messages: {
         "bodyWithEmail": "You'll get reminders for <b>{title}</b> again at {email}, and emails when your slot's date or time changes. You can stop them any time from the link in one."
       },
       "back": "Back to the signup"
+    },
+    "share": {
+      "signUp": "Sign up here, no account needed: {url}",
+      "spotsOpen": "{count, plural, one {{count, number, ::group-off} spot open} other {{count, number, ::group-off} spots open}}",
+      "spotsLeft": "{count, plural, one {{count, number, ::group-off} spot left} other {{count, number, ::group-off} spots left}}",
+      "dayAndTime": "{day}, {time}",
+      "dayRange": "{first} to {last}",
+      "twoDays": "{first} and {second}",
+      "threeDays": "{first}, {second} and {third}"
     }
   },
   "email": {
@@ -285,8 +295,707 @@ declare const messages: {
     },
     "preview": {
       "title": "Preview",
-      "body": "{status, select, draft {This is what people will see once you publish. No signups will be saved.} closed {This signup is closed. The page below shows what visitors see.} archived {This signup is archived and is not visible to participants.} other {This signup is live. The page below shows what visitors see.}}",
-      "signUpDisabled": "Preview: publish to enable signups"
+      "body": "{status, select, draft {This is what people will see once you publish. No signups will be saved.} closed {This signup is closed. The page below shows what visitors see.} archived {This signup is archived and is not visible to participants.} other {This signup is open. The page below shows what visitors see.}}",
+      "signUpDisabled": "{status, select, draft {Preview: publish to let people sign up} other {Preview: people sign up at the public link}}"
+    },
+    "chrome": {
+      "tabTitle": "Dashboard",
+      "breadcrumb": "Breadcrumb",
+      "home": "OpenSignup",
+      "help": "Help",
+      "account": "Account",
+      "settings": "Settings",
+      "signOut": "Sign out"
+    },
+    "crumbs": {
+      "settings": "Settings",
+      "connectedApps": "Connected apps",
+      "newSignup": "New signup",
+      "edit": "Edit"
+    },
+    "dashboard": {
+      "title": "Your signups",
+      "none": "No signups yet. Start one below.",
+      "total": "{count, number, ::group-off} total",
+      "newSignup": "New signup",
+      "emptyPitch": "Coordinate snacks, carpool, potluck, volunteer shifts, or anything else.",
+      "createFirst": "Create your first signup",
+      "draftOnlyYou": "Only you can see this draft",
+      "noWorkspace": {
+        "title": "Welcome to OpenSignup",
+        "body": "Your workspace isn't set up yet. Sign out and back in to finish provisioning."
+      }
+    },
+    "loadError": {
+      "tabTitle": "Signup not found",
+      "notFound": {
+        "title": "We can’t find this signup",
+        "body": "It may have been deleted, or it may belong to a different account. You’re signed in as <account>{email}</account>."
+      },
+      "failed": {
+        "title": "We couldn’t open this signup",
+        "body": "Something went wrong on our side. Reload the page to try again."
+      },
+      "goToSignups": "Go to your signups",
+      "switchAccount": "Sign in with a different email"
+    },
+    "errors": {
+      "code": {
+        "forbidden": "You don’t have edit access.",
+        "unauthorized": "Sign in again to save.",
+        "conflict": "Reload to see the latest changes.",
+        "capacity_full": "Slot is full.",
+        "closed": "This signup is closed.",
+        "not_found": "No longer available.",
+        "invalid_input": "Some values weren’t accepted.",
+        "rate_limited": "Slow down — try again in a moment.",
+        "already_consumed": "Already used.",
+        "internal": "Save failed."
+      },
+      "titleTooShort": "Title must be at least {min, number, ::group-off} characters.",
+      "tooManySignups": "You’ve created a lot of signups in the last hour. Try again in about {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}.",
+      "disconnectFailed": "Could not disconnect. Try again."
+    },
+    "signupSettings": {
+      "signupForm": {
+        "title": "Sign-up form",
+        "askForEmail": "Ask for an email address",
+        "required": "Required",
+        "optional": "Optional",
+        "requiredHelp": "We email everyone their link to change or cancel.",
+        "optionalHelp": "People can leave it blank. They get no emails, not even reminders, so they need to save their link. If they lose it, they can sign up again and you can remove the old one on the Responses tab."
+      },
+      "language": {
+        "title": "Language",
+        "legend": "Signup language",
+        "help": "This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too."
+      },
+      "save": "Save",
+      "saving": "Saving…",
+      "delete": {
+        "title": "Delete this signup",
+        "body": "Deleting removes this signup from your dashboard and immediately makes its public link inaccessible.",
+        "start": "Delete signup",
+        "label": "Confirm signup deletion",
+        "question": "This will delete the signup.",
+        "confirm": "Yes, delete signup",
+        "deleting": "Deleting…",
+        "cancel": "Cancel"
+      }
+    },
+    "saveNotice": {
+      "saved": "Saved"
+    },
+    "build": {
+      "rail": {
+        "editing": "Editing",
+        "fields": "Fields ({count, number, ::group-off})",
+        "saving": "Saving…"
+      },
+      "sheet": {
+        "titlePlaceholder": "Untitled signup",
+        "titleLabel": "Signup title",
+        "descriptionPlaceholder": "Add a short description for volunteers",
+        "descriptionLabel": "Signup description",
+        "addDate": "Add date"
+      },
+      "group": {
+        "header": "Group header — {heading}",
+        "renameFailed": "That change didn’t save, so this heading is back to what it was. Try again.",
+        "addSlot": "Add a slot"
+      },
+      "empty": {
+        "date": "Set a date",
+        "time": "Set a time",
+        "named": "Set {label}",
+        "other": "Set a value"
+      },
+      "slot": {
+        "untitled": "Slot",
+        "row": "Edit {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}, {count}",
+        "edit": "Edit {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}",
+        "duplicate": "Duplicate {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}",
+        "delete": "Delete {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}",
+        "editing": "Editing {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}",
+        "taken": "{taken, number, ::group-off} taken",
+        "takenOf": "{taken, number, ::group-off} of {capacity, number, ::group-off} taken"
+      },
+      "editor": {
+        "title": "Editing slot",
+        "duplicate": "Duplicate",
+        "delete": "Delete",
+        "done": "Done",
+        "signedUp": "{taken, plural, one {{taken, number, ::group-off} person is} other {{taken, number, ::group-off} people are}} signed up for this slot. {reminders, select, on {If you change its date or time, we’ll email them to let them know.} other {Reminders are off, so we won’t email them if you change it.}}",
+        "value": "{field} value",
+        "spots": "Spots",
+        "noLimit": "No limit",
+        "spotsHelp": "How many spots this slot has. Leave blank for no limit.",
+        "noTime": "No time"
+      },
+      "placeholder": {
+        "text": "e.g. Bring napkins",
+        "date": "YYYY-MM-DD",
+        "number": "e.g. 12"
+      },
+      "fieldType": {
+        "text": "Short text",
+        "date": "Date",
+        "time": "Time",
+        "number": "Number",
+        "enum": "List"
+      },
+      "list": {
+        "choose": "Choose…",
+        "empty": "No items yet.",
+        "newItem": "Type a new item",
+        "newItemLabel": "New option name",
+        "count": "{length, number, ::group-off}/{max, number, ::group-off}{atMax, select, yes { · max} other {}}",
+        "add": "Add",
+        "maxLength": "Up to {max, number, ::group-off} characters",
+        "full": "A list holds up to {max, number, ::group-off} items.",
+        "addToList": "Add to list"
+      },
+      "fields": {
+        "label": "Fields",
+        "title": "Fields · {count, number, ::group-off}",
+        "editTitle": "Edit field",
+        "newTitle": "New field",
+        "close": "Close",
+        "groupBy": "Group slots by",
+        "noGroup": "Don’t group",
+        "reorder": "Drag to reorder",
+        "add": "Add field",
+        "empty": "No fields yet — add one to get started.",
+        "reminder": "Reminders sent {hours, plural, =24 {the day before} one {# hour before} other {# hours before}} this date",
+        "typeCount": "{type} · {count, number, ::group-off}",
+        "delete": "Delete {field}"
+      },
+      "fieldForm": {
+        "backLabel": "Back to fields list",
+        "back": "Back",
+        "name": "Name",
+        "namePlaceholder": "e.g. Teacher, Subject, Item",
+        "nameLabel": "Field name",
+        "type": "Type",
+        "reminder": "Send a reminder email before this date",
+        "reminderHelp": "Sent {hours, plural, =24 {the day before} one {# hour before} other {# hours before}}. One date field per signup drives reminders, and participants can opt out of any reminder they get.",
+        "reminderTaken": "<field>{label}</field> is already the reminder field for this signup. Turn it off there to use this one instead.",
+        "remove": "Remove field",
+        "cancel": "Cancel",
+        "save": "Save",
+        "add": "Add field"
+      },
+      "refusal": {
+        "dateTooEarly": "Dates must be in {year, number, ::group-off} or later.",
+        "slotsMoved": "The slots changed in another window, so your move wasn't saved. Drag it again.",
+        "fieldsMoved": "The fields changed in another window, so your move wasn't saved. Drag it again.",
+        "capacityBelowTaken": "{taken, plural, one {{taken, number, ::group-off} spot is already taken} other {{taken, number, ::group-off} spots are already taken}}. Set this slot to {taken, number, ::group-off} or more.",
+        "invalidatesSlotValues": "Some slots have values that don’t fit this change. Change those first."
+      }
+    },
+    "responses": {
+      "summary": {
+        "signUps": "{count, plural, one {{count, number, ::group-off} sign-up} other {{count, number, ::group-off} sign-ups}}",
+        "cancelled": "{count, number, ::group-off} cancelled",
+        "removed": "{count, number, ::group-off} removed"
+      },
+      "downloadCsv": "Download CSV",
+      "empty": {
+        "draft": "Nobody has signed up yet. People can sign up once you publish and share it.",
+        "open": "Nobody has signed up yet. Share the public link to start collecting.",
+        "closed": "Nobody signed up.",
+        "archived": "Nobody signed up. People can’t sign up now."
+      },
+      "table": {
+        "name": "Name",
+        "email": "Email",
+        "slot": "Slot",
+        "spots": "Spots",
+        "status": "Status",
+        "actions": "Actions",
+        "noEmail": "No email",
+        "spotsAfterCount": "{count, plural, one {spot} other {spots}}"
+      },
+      "status": {
+        "confirmed": "confirmed",
+        "tentative": "tentative",
+        "waitlist": "waitlist",
+        "cancelled": "cancelled",
+        "noShow": "no_show",
+        "removed": "removed",
+        "moved": "moved"
+      },
+      "remove": {
+        "button": "Remove",
+        "label": "Remove {name} from {slot}",
+        "labelNoSlot": "Remove {name} from this slot",
+        "question": "{label}? {count, plural, =1 {Their spot opens} other {Their {count, number, ::group-off} spots open}} up for someone else. They won’t get an email about it.",
+        "dialogLabel": "Confirm removal",
+        "keep": "Keep",
+        "confirm": "Yes, remove",
+        "removing": "Removing…",
+        "refusal": {
+          "notFound": "This person is no longer on this signup. Reload to see the latest.",
+          "failed": "Couldn’t remove them. Try again."
+        }
+      },
+      "csv": {
+        "name": "Name",
+        "email": "Email",
+        "status": "Status",
+        "spots": "Spots",
+        "notes": "Notes",
+        "signedUp": "Signed up"
+      }
+    },
+    "newSignup": {
+      "title": "New signup",
+      "intro": "You can add slots after it's created. Nothing is visible until you publish.",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Snack duty — Spring season",
+      "descriptionLabel": "Description (optional)",
+      "descriptionPlaceholder": "One paragraph that shows up at the top of your signup page.",
+      "cancel": "Cancel",
+      "creating": "Creating…",
+      "create": "Create signup"
+    },
+    "compose": {
+      "eyebrow": "New signup",
+      "heading": "What are you organizing?",
+      "intro": "<strong>Say what people sign up for, when, and how many of each.</strong> We'll turn it into a title, blurb, and slots for you to edit.",
+      "describe": "Describe your signup",
+      "placeholder": "e.g. Snack duty for our U9 soccer team. 6 Saturday games starting April 25, two families per game, no nuts please.",
+      "count": "{count, number} / {max, number} characters",
+      "countOver": "{count, number} / {max, number} characters. Shorten it by {over, number} to draft.",
+      "skip": "Skip, fill in by hand",
+      "draft": "Draft my signup",
+      "examples": "Or start from an example",
+      "loaded": "Loaded",
+      "tryThis": "Try this",
+      "starters": {
+        "sports": {
+          "label": "Sports team",
+          "blurb": "Snack, treat, or carpool rosters across a season of games",
+          "body": "Snack duty for our soccer team. We have 6 Saturday games starting next Saturday. Two families bring snacks plus drinks per game. No nuts please."
+        },
+        "classroom": {
+          "label": "Classroom or school",
+          "blurb": "Potlucks, conference signups, supply drives, volunteer days",
+          "body": "End-of-year potluck for our grade 3 class on the last Friday of the month at 5pm. 20 families are each bringing one dish: we need 5 families on mains, 5 on sides, 5 on desserts and 5 on drinks."
+        },
+        "community": {
+          "label": "Community shifts",
+          "blurb": "Volunteer shifts, event setup, or rotating roles",
+          "body": "Volunteers for our spring book fair. Thursday and Friday next week, three 2-hour shifts each day (9 to 11, 11 to 1, 1 to 3). 2 volunteers per shift."
+        }
+      },
+      "tips": {
+        "heading": "Tips for a better draft",
+        "dates": {
+          "title": "Mention dates",
+          "body": "A range like “Saturdays Apr 25 to May 30” lets us generate one slot per date."
+        },
+        "howMany": {
+          "title": "Say how many",
+          "body": "“Two families per game” or “six volunteers per shift”, so we can set capacity."
+        },
+        "gotchas": {
+          "title": "Flag the gotchas",
+          "body": "Allergies, locations, no-shows policy. Anything participants should know."
+        }
+      },
+      "steps": {
+        "label": "Progress",
+        "read": "Reading your description",
+        "title": "Drafting a title",
+        "desc": "Writing a short blurb",
+        "fields": "Choosing fields for each slot",
+        "slots": "Generating slots",
+        "check": "Tidying up",
+        "details": "A few details",
+        "readShort": "Read",
+        "draftShort": "Draft"
+      },
+      "drafting": {
+        "readingTitle": "Reading your description",
+        "readingBody": "You'll get a draft, or a few quick questions if it needs more to go on.",
+        "draftingTitle": "Drafting your signup",
+        "draftingBody": "You'll be able to edit anything once it's ready.",
+        "cancel": "Cancel",
+        "liveReading": "Reading · live",
+        "liveDrafting": "Drafting · live",
+        "title": "Title",
+        "description": "Description",
+        "fields": "Fields",
+        "slots": "Slots",
+        "shown": "{shown, number, ::group-off} of {total, number, ::group-off}",
+        "more": "+{count, number, ::group-off} more"
+      },
+      "youWrote": {
+        "label": "Your description",
+        "heading": "You wrote",
+        "quoted": "“{text}”"
+      },
+      "draftingFrom": {
+        "label": "Drafting from",
+        "allAnswered": "All answered",
+        "oneBlank": "One left blank",
+        "twoBlank": "Two left blank",
+        "what": "What",
+        "whatBlank": "Left blank. The draft will use placeholder slots you can fill in later.",
+        "when": "When",
+        "whenBlank": "Not decided. The draft will use placeholder dates you can fill in later.",
+        "noLimit": "No limit",
+        "people": "{count, plural, one {{count, number, ::group-off} person} other {{count, number, ::group-off} people}}",
+        "dayAndTimes": "{day} · {times}"
+      },
+      "errors": {
+        "questionsUnavailable": "The questions couldn't be shown. Reload the page and try again; copy your description first if you want to keep it.",
+        "slow": "AI drafting is taking longer than expected. Try again or simplify your prompt.",
+        "slowWithAnswers": "AI drafting is taking longer than expected. Try again.",
+        "hourlyLimit": "You've used this hour's AI drafts. Try again in {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}, or <link>fill it in by hand</link>.",
+        "busy": "The AI service is busy. Try again {minutes, plural, =1 {in a minute} other {in {minutes, number, ::group-off} minutes}}.",
+        "askedAgain": "Couldn't draft this. Try again, or fill it in by hand.",
+        "askedAgainWithAnswers": "Couldn't draft from these answers. Add a little more, or fill it in by hand.",
+        "draftInvalid": "AI draft did not match expected shape — try again or adjust your prompt",
+        "timeout": "AI drafting timed out. Try a simpler prompt.",
+        "timeoutWithAnswers": "AI drafting timed out. Try again.",
+        "apiKey": "AI provider rejected the API key. An operator needs to check LLM_API_KEY.",
+        "unavailable": "AI provider is unavailable right now (HTTP {status, number, ::group-off}). Try again.",
+        "providerError": "AI provider returned an error. Try again.",
+        "providerErrorStatus": "AI provider returned an error (HTTP {status, number, ::group-off}). Try again.",
+        "malformed": "AI provider returned a malformed response. Try again.",
+        "shape": "AI provider returned an unexpected response shape. Try again.",
+        "failed": "AI drafting failed (HTTP {status, number, ::group-off}). Try again.",
+        "cancelled": "Request was cancelled.",
+        "offline": "Couldn't reach the server. Check your connection and try again.",
+        "unexpected": "The server returned an unexpected response. Try again.",
+        "unknown": "Something went wrong while drafting. Try again."
+      },
+      "questions": {
+        "back": "Back",
+        "heading": "A few details first",
+        "intro": "Pick what fits. Anything you skip becomes a placeholder you can fill in later.",
+        "fillInByHand": "Fill in by hand instead",
+        "what": {
+          "ask": "What do people sign up for?",
+          "askHint": "Pick any that apply, or add your own.",
+          "told": "What people sign up for",
+          "toldHint": "From your description. Remove any that don't fit, or add your own.",
+          "remove": "Remove {item}",
+          "full": "{max, number, ::group-off} is the most. Remove one to add another.",
+          "addLabel": "Add your own, then press Enter",
+          "addYourOwn": "Add your own",
+          "addAnother": "Add another",
+          "add": "Add"
+        },
+        "when": {
+          "ask": "When is it?",
+          "oneDay": "One day",
+          "several": "Several days",
+          "notDecided": "Not decided",
+          "date": "Date",
+          "starts": "Starts",
+          "ends": "Ends",
+          "noTime": "No time",
+          "whichDays": "Which days?",
+          "whichDaysPlaceholder": "Which days? For example: every Saturday in May, 9 to 11",
+          "notDecidedHint": "The draft will use placeholder dates you can fill in later."
+        },
+        "howMany": {
+          "ask": "How many people do you need?",
+          "hint": "For each thing above. Leave a box empty for no limit.",
+          "pickFirst": "Pick or add something above first.",
+          "fewer": "Fewer people for {item}",
+          "people": "People for {item}",
+          "noLimit": "No limit",
+          "more": "More people for {item}"
+        },
+        "problems": {
+          "noDate": "Add a date, or leave the times empty.",
+          "year": "Check the date's year.",
+          "timeOrder": "The end time must be after the start time.",
+          "wholeNumbers": "Use whole numbers for how many people."
+        }
+      },
+      "answers": {
+        "what": "What: {items}",
+        "item": "{item} ({count, number, ::group-off})",
+        "itemNoLimit": "{item} (no limit)",
+        "when": "When: {when}",
+        "dayAndTimes": "{day}, {times}",
+        "fromTo": "{from} to {to}",
+        "from": "from {from}",
+        "until": "until {to}"
+      }
+    },
+    "aiDraft": {
+      "title": "Here's your draft, {fields, plural, one {{fields, number, ::group-off} field} other {{fields, number, ::group-off} fields}} and {slots, plural, one {{slots, number, ::group-off} slot} other {{slots, number, ::group-off} slots}}",
+      "body": "Edit anything below, then publish when you're ready.",
+      "dismiss": "Dismiss",
+      "warnings": {
+        "heading": "A few things to double-check",
+        "valuesBlanked": "{count, plural, one {{count, number, ::group-off} value was left blank because it didn't fit its field. Fill it in below.} other {{count, number, ::group-off} values were left blank because they didn't fit their fields. Fill them in below.}}",
+        "enumFieldsToText": "{count, plural, one {Field {fields} arrived without a fixed list of options, so it was switched to free text.} other {Fields {fields} arrived without a fixed list of options, so they were switched to free text.}}",
+        "duplicateFields": "Removed {count, plural, one {{count, number, ::group-off} duplicate field} other {{count, number, ::group-off} duplicate fields}} the AI tried to add twice.",
+        "strayValues": "Ignored {count, plural, one {{count, number, ::group-off} stray value} other {{count, number, ::group-off} stray values}} that didn't match any field.",
+        "titleCut": "The AI's title was longer than {max, number} characters, so the end was cut off. Check it below.",
+        "descriptionCut": "The AI's description was longer than {max, number} characters, so the end was cut off. Check it below."
+      }
+    },
+    "status": {
+      "draft": "draft",
+      "open": "open",
+      "closed": "closed",
+      "archived": "archived"
+    },
+    "signup": {
+      "draftLine": "Only you can see this draft until you publish it.",
+      "preview": "Preview",
+      "moreActions": "More actions",
+      "closeSheet": "Close",
+      "spots": {
+        "taken": "{taken, plural, one {{taken, number, ::group-off} spot taken} other {{taken, number, ::group-off} spots taken}}",
+        "takenOf": "{taken, number, ::group-off} of {total, plural, one {{total, number, ::group-off} spot taken} other {{total, number, ::group-off} spots taken}}",
+        "line": "{status, select, closed {Closed · {spots}} archived {Archived · {spots}} other {{spots}}}"
+      },
+      "publish": {
+        "label": "Publish and share",
+        "checking": "Checking…",
+        "ready": "Publish and share when you’re ready.",
+        "unsaved": "A change didn’t save. Fix it, then publish."
+      },
+      "check": {
+        "title": "Nothing to sign up for yet",
+        "noSlots": "There are no slots yet. Add one, then publish.",
+        "noFields": "Add a field that says what people sign up for, then publish.",
+        "allBlank": "{count, plural, =1 {The slot is empty.} other {Every slot is empty.}} Say what people sign up for, then publish.",
+        "addSlot": "Add a slot",
+        "fillIn": "Fill it in",
+        "notNow": "Not now"
+      },
+      "close": {
+        "action": "Close signup",
+        "notYet": "Not yet",
+        "closing": "Closing…",
+        "question": "{standing} People can’t sign up until you reopen it.{kept, select, yes { Everyone already signed up keeps their spot.} other {}}",
+        "standing": {
+          "nobody": "Nobody has signed up yet.",
+          "taken": "{taken, plural, one {{taken, number, ::group-off} spot is taken.} other {{taken, number, ::group-off} spots are taken.}}",
+          "allTaken": "Every spot is taken.",
+          "noneOpen": "No spots are open.",
+          "open": "{open, plural, one {{open, number, ::group-off} spot is still open.} other {{open, number, ::group-off} spots are still open.}}",
+          "openOf": "{open, plural, one {{open, number, ::group-off} of {total, number, ::group-off} spots is still open.} other {{open, number, ::group-off} of {total, number, ::group-off} spots are still open.}}"
+        }
+      },
+      "closed": {
+        "title": "Signup closed",
+        "body": "People can’t sign up now. Everyone already signed up keeps their spot.",
+        "dismiss": "Dismiss"
+      },
+      "reopen": {
+        "action": "Reopen signup",
+        "reopening": "Reopening…"
+      },
+      "announce": {
+        "closed": "Closed. People can’t sign up now.",
+        "reopened": "Reopened. People can sign up again."
+      },
+      "tabs": {
+        "label": "Signup sections",
+        "build": "Build",
+        "responses": "Responses",
+        "settings": "Settings"
+      },
+      "refusal": {
+        "gone": "This signup is no longer available.",
+        "changed": "This signup changed since the page loaded. Reload to see the latest.",
+        "addSlotToPublish": "Add a slot before publishing.",
+        "addSlotToReopen": "Add a slot before reopening.",
+        "publishFailed": "Couldn’t publish. Try again.",
+        "closeFailed": "Couldn’t close the signup. Try again.",
+        "reopenFailed": "Couldn’t reopen the signup. Try again."
+      }
+    },
+    "share": {
+      "button": "Share",
+      "close": "Close",
+      "heading": {
+        "firstTime": "Now send people the link",
+        "later": "Share the link"
+      },
+      "published": "Published",
+      "announce": "Published. Anyone with the link can sign up now.",
+      "lead": {
+        "firstTime": "Anyone with the link can sign up. Nobody has it until you send it.",
+        "desktop": "Send it by email or in a group chat. Anyone with the link can sign up.",
+        "phone": "Send it to a group chat, by text or by email. Anyone with the link can sign up."
+      },
+      "linkField": "Public link",
+      "copyLink": "Copy link",
+      "copied": "Copied",
+      "linkCopied": "Link copied",
+      "messageCopied": "Message copied",
+      "linkRefused": "Couldn’t copy. Select the link and copy it.",
+      "messageRefused": "Couldn’t copy. Select the message and copy it.",
+      "messageLabel": "A message to send with it",
+      "copyMessage": "Copy message",
+      "emailIt": "Email it",
+      "shareMenu": "Share…",
+      "shareMenuHint": "Opens your phone’s share menu, with the message and link.",
+      "shareMenuSent": "Sent from your phone’s share menu.",
+      "unavailable": "Couldn’t load the other ways to share. Reload to try again.",
+      "qr": {
+        "alt": "QR code for the sign-up link to {title}",
+        "lead": "A QR code for a flyer or a sign-up table.",
+        "download": "Download",
+        "downloadLabel": "Download QR code",
+        "show": "QR code",
+        "hide": "Hide QR code",
+        "save": "Save image",
+        "saved": "Saved",
+        "savedNotice": "QR code saved"
+      },
+      "chip": {
+        "label": "Public link",
+        "copy": "Copy public link",
+        "copyTip": "Copy",
+        "open": "Open public page",
+        "openTip": "Open",
+        "copied": "Link copied"
+      }
+    },
+    "settings": {
+      "title": "Settings",
+      "signedInAs": "Signed in as <account>{email}</account>.",
+      "connectedApps": {
+        "title": "Connected apps",
+        "description": "AI assistants and other apps you have allowed to use your account, and how to disconnect them."
+      },
+      "language": {
+        "legend": "Language",
+        "help": "Your screens and new signups use this language. To change one signup’s language, use its Settings tab.",
+        "save": "Save",
+        "toSwitch": "{count, plural, one {{count, number, ::group-off} of your signups is open and isn't in <language>{name}</language> yet.} other {{count, number, ::group-off} of your signups are open and aren't in <language>{name}</language> yet.}}",
+        "switch": "{count, plural, one {Switch it to <language>{name}</language>} other {Switch them to <language>{name}</language>}}",
+        "switchNote": "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and column names you typed stay as they are. People who already signed up see the new language too.",
+        "switched": "Saved. {count, plural, one {{count, number, ::group-off} of your signups is open, and it's in <language>{name}</language> now.} other {{count, number, ::group-off} of your signups are open, and they're all in <language>{name}</language> now.}}"
+      }
+    },
+    "connectedApps": {
+      "title": "Connected apps",
+      "intro": "Apps and AI assistants you have allowed to use your account. Each one acts as you, in every workspace you belong to, with the permissions you approved.",
+      "disconnected": "Disconnected. It can no longer get new access, and any access it still holds ends within {lifetime}.",
+      "empty": {
+        "title": "No connected apps",
+        "body": "When you connect an AI assistant such as Claude or ChatGPT to your account, it will show up here."
+      },
+      "dates": "Approved {approved}{used, select, yes { · last used {lastUsed}} other { · not used yet}}{expiring, select, yes { · expires {expires} unless renewed} other {}}",
+      "disconnect": "Disconnect",
+      "disconnecting": "Disconnecting…",
+      "footnote": "Disconnecting stops an app from getting new access straight away. Access it already holds expires on its own within {lifetime} and cannot be cut short."
+    }
+  },
+  "auth": {
+    "tabTitle": "Sign in",
+    "heading": "Sign in to OpenSignup",
+    "login": {
+      "intro": "Enter your email and we'll send you a magic link to sign in. No passwords.",
+      "introWithProviders": "Continue with a provider below, or get a magic link by email. No passwords.",
+      "linkInvalid": "That sign-in link is no longer valid. It may have been used already or it may have expired. Request a new one below.",
+      "failed": "Something went wrong. Try again.",
+      "continueWith": "Continue with {provider}",
+      "or": "or"
+    },
+    "form": {
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "send": "Send magic link",
+      "sending": "Sending…",
+      "sent": "Sent — check your email",
+      "sentTo": "Link sent to {email}. Check your inbox.",
+      "sendAgain": "Send again",
+      "tryAgain": "Try again",
+      "errors": {
+        "invalidEmail": "That doesn’t look like a valid email address.",
+        "sendFailed": "Couldn’t send. Please try again.",
+        "rateLimited": "Too many sign-in requests. Wait up to an hour. If we already emailed you a link, you can use that."
+      }
+    },
+    "code": {
+      "label": "Opened the email on another device?",
+      "hint": "Type the six-digit code from the email to sign in here instead.",
+      "submit": "Sign in with code",
+      "checking": "Checking…",
+      "errors": {
+        "noEmail": "Request a new link first.",
+        "rateLimited": "Too many tries. Wait a few minutes, or click the link in the email.",
+        "expired": "That code has expired. Request a new link.",
+        "wrong": "That code is not right. Check the email and try again.",
+        "failed": "Something went wrong. Try again."
+      }
+    },
+    "check": {
+      "tabTitle": "Check your email",
+      "heading": "Check your email",
+      "body": "We sent a sign-in link to your inbox. Click it to continue. The link expires in {duration}. This page will move on by itself once you have signed in."
+    },
+    "confirm": {
+      "bodyAs": "Click the button below to sign in as <strong>{email}</strong>.",
+      "body": "Click the button below to sign in.",
+      "signIn": "Sign in →",
+      "signingIn": "Signing in…",
+      "differentEmail": "Use a different email"
+    },
+    "email": {
+      "subject": "Sign in to OpenSignup",
+      "preview": "Sign in to OpenSignup as {email}",
+      "heading": "Sign in to OpenSignup",
+      "intro": "Click the button below to sign in as <b>{email}</b>. This link will expire in {duration}.",
+      "signIn": "Sign in",
+      "code": "Reading this on a different device? Type this code into the window where you started signing in instead. It works for {duration}:",
+      "copyUrl": "Or copy this URL:"
+    },
+    "consent": {
+      "tabTitle": "Connect an app",
+      "request": "Connection request",
+      "heading": "Allow <host>{domain}</host> to use your {instance} account?",
+      "fromNamedApp": "<strong>{name}</strong> from <strong>{domain}</strong> wants to connect to your account. Only allow it if you trust {domain}.",
+      "fromApp": "An app from <strong>{domain}</strong> wants to connect to your account. Only allow it if you trust {domain}.",
+      "setUpBySite": "<strong>{name}</strong> was set up by the people who run this site.",
+      "permissions": "It will be able to",
+      "sensitive": "Participants gave these details to you, not to this app. Only approve if you are comfortable with {domain} handling them.",
+      "actsAs": "{workspaces, select, many {It acts as you (<strong>{email}</strong>) in every workspace you belong to and can't do anything you couldn't do yourself.} other {It acts as you (<strong>{email}</strong>) and can't do anything you couldn't do yourself.}}",
+      "allow": "Allow",
+      "allowing": "Connecting…",
+      "deny": "Don't allow",
+      "denying": "Declining…",
+      "disconnect": "You can disconnect it at any time from <link>Connected apps</link>.",
+      "notYou": "Not you?",
+      "switchAccount": "Sign in as someone else",
+      "expired": {
+        "heading": "This connection request has expired",
+        "body": "Connection requests are only valid for a few minutes, and only in the browser that started them. Nothing was connected. Go back to the application and start again.",
+        "dashboard": "Go to your dashboard"
+      },
+      "decision": {
+        "tooManyAttempts": "Too many connection attempts. Wait {wait} and try again.",
+        "failed": "Something went wrong recording your decision. Nothing was connected."
+      }
+    },
+    "scopes": {
+      "signupsRead": "See your signups and their slots",
+      "signupsWrite": "Create and edit signups",
+      "commitmentsRead": "See who has signed up, including their names and email addresses",
+      "offlineAccess": "Stay connected without asking you to sign in again"
+    },
+    "oauthErrors": {
+      "tabTitle": "Connection failed",
+      "heading": "This connection could not be completed",
+      "intro": "The application that sent you here made a request we could not accept.",
+      "noDescription": "The request could not be completed.",
+      "nothingConnected": "Nothing was connected to your account. Close this window and try again from the application, or <home>go to the home page</home>.",
+      "tooManyRequests": "Too many requests. Wait {wait} and try again."
     }
   }
 };

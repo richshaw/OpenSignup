@@ -7,6 +7,7 @@ import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs, calendarFileName } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { FormError } from '@/components/ui/form-error';
+import { offersAlternatives, type SlotAlternative } from './capacity-message';
 import { participantErrorCopy, type ParticipantErrorCopy } from './participant-error';
 import { PREFILL_KEY } from './prefill-key';
 import { Field, NotesAndSpots } from './participant-fields';
@@ -72,7 +73,7 @@ interface ApiError {
   code?: string;
   details?: {
     reason?: string;
-    alternatives?: { id: string; title: string }[];
+    alternatives?: SlotAlternative[];
     remaining?: number;
     capacity?: number;
     retryAfterSeconds?: number;
@@ -288,9 +289,7 @@ export default function CommitDialog({
           failure?.code
             ? {
                 ...participantErrorCopy(failure, 'join', tErrors),
-                seeAlternatives:
-                  Boolean(failure.details?.alternatives?.length) &&
-                  failure.details?.remaining === 0,
+                seeAlternatives: offersAlternatives(failure),
               }
             : { message: t('unreadable.message'), suggestion: t('unreadable.suggestion') },
         );
@@ -345,7 +344,7 @@ export default function CommitDialog({
     const start = new Date(slotAt);
     const ics = buildIcs({
       uid: `${success.commitmentId}@opensignup.org`,
-      title: `${signupTitle} — ${slotTitle}`,
+      title: t('calendarTitle', { title: signupTitle, slot: slotTitle }),
       description: t('calendarDescription', { url: success.editUrl }),
       url: success.editUrl,
       start,

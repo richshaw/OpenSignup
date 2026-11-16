@@ -53,9 +53,12 @@ describe('email templates under the worker toolchain', () => {
       ['exec', 'tsx', ...flags, 'scripts/render-email-templates.ts'],
       { cwd: repoRoot },
     );
-    // Each participant email in English and in every test language, from the
-    // catalogs the worker loads: a catalog missing from its path, or a message
-    // missing from one, leaves text out and fails the run.
+    // Each participant email and the sign-in email in English and in every
+    // test language, from the catalogs the worker loads: a catalog missing
+    // from its path fails the run. A message missing from a test language's
+    // catalog comes out in English, in the email and in what it must say
+    // alike, as it would be sent; the catalog check (src/i18n/catalogs.test.ts)
+    // requires every message once the language ships.
     const participantEmails = [
       'commitment-confirmation',
       'reminder',
@@ -65,7 +68,10 @@ describe('email templates under the worker toolchain', () => {
     expect(stdout.trim().split('\n')).toEqual([
       'ok magic-link',
       ...participantEmails.map((name) => `ok ${name}`),
-      ...TEST_LOCALES.flatMap((locale) => participantEmails.map((name) => `ok ${name}-${locale}`)),
+      ...TEST_LOCALES.flatMap((locale) => [
+        ...participantEmails.map((name) => `ok ${name}-${locale}`),
+        `ok magic-link-${locale}`,
+      ]),
     ]);
   }, 60_000);
 

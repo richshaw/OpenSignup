@@ -1,12 +1,17 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
-import { type CatalogLocale, SHIPPED, isShipped, signupLocale } from '@/i18n/config';
-import type { SignupLocaleSource } from '@/i18n/organizer-locale';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
-import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
+import { type CatalogLocale, SHIPPED, type SignupLocaleSource, isShipped } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfSignup } from '@/i18n/locale';
+import {
+  activityActor,
+  recordActivities,
+  recordActivity,
+  recordActivityBestEffort,
+} from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
@@ -14,6 +19,7 @@ import { parseInputSafe } from '@/lib/parse';
 import type { PublishCheck } from '@/lib/publish-check';
 import {
   requireOrganizer,
+  requireOrganizerId,
   requireWorkspaceAccess,
   requireWorkspaceWrite,
   type Actor,
@@ -31,6 +37,7 @@ import {
   type SignupSettings,
   type SignupStatus,
   type StoredSignupSettings,
+  SIGNUP_INPUT_REASONS,
   SignupCreateInputSchema,
   SignupUpdateInputSchema,
   WORKSPACE_LIST_LIMIT,
@@ -40,8 +47,10 @@ import { listFieldsForSignup, rebuildSlotAt, validateSlotValues } from './slot-f
 import { committedBySlot } from './commitments';
 import {
   getSignupRowForOrganizer,
+  lockOrganizersSignupsForWrite,
   lockSlotsForSignup,
   readLiveSignup,
+  readOrganizersSignups,
   withSignupWriteLock,
 } from './locks';
 import { insertSlots, listSlotsForSignup } from './slots';
@@ -105,7 +114,7 @@ export interface SignupWithSlots extends SignupRow {
  * says which step chose it, for `signup.created`; a language with none was
  * sent by the caller (`api`). Without `opts.template` it starts from
  * `defaultTemplate`, its columns named in the language its participants will
- * get (`signupLocale`).
+ * get (`localeOfSignup`).
  */
 export async function createSignup(
   db: Db,
@@ -117,7 +126,7 @@ export async function createSignup(
   requireOrganizer(actor);
   requireWorkspaceWrite(actor, workspaceId);
 
-  const input = parseInputSafe(SignupCreateInputSchema, rawInput);
+  const input = parseInputSafe(SignupCreateInputSchema, rawInput, SIGNUP_INPUT_REASONS);
   if (!input.ok) return input;
   const data = input.value;
 
@@ -126,10 +135,7 @@ export async function createSignup(
   const template =
     opts.template ??
     defaultTemplate(
-      getServerTranslator(
-        signupLocale(data.settings.locale, instanceDefaultLocale()),
-        'participant.defaults',
-      ),
+      getServerTranslator(localeOfSignup(data.settings.locale), 'participant.defaults'),
     );
 
   const parsedFields: SlotFieldInput[] = [];
@@ -332,7 +338,7 @@ export async function updateSignup(
       rawInput = { ...rawInput, settings: merged };
     }
 
-    const input = parseInputSafe(SignupUpdateInputSchema, rawInput);
+    const input = parseInputSafe(SignupUpdateInputSchema, rawInput, SIGNUP_INPUT_REASONS);
     if (!input.ok) return input;
     const data = input.value;
 
@@ -409,6 +415,125 @@ export async function updateSignup(
       payload: { changed: slug !== undefined ? [...Object.keys(data), 'slug'] : Object.keys(data) },
     });
     return ok(updated);
+  });
+}
+
+/**
+ * The workspaces `actor` may change signups in: each one they belong to that
+ * `requireWorkspaceWrite` clears them for, so not one where they only view.
+ */
+function writableWorkspaceIds(actor: Actor): string[] {
+  requireOrganizer(actor);
+  return actor.workspaceIds.filter((workspaceId) => {
+    try {
+      requireWorkspaceWrite(actor, workspaceId);
+      return true;
+    } catch (e) {
+      if (e instanceof ServiceException) return false;
+      throw e;
+    }
+  });
+}
+
+/**
+ * "Your open signups", as `setOpenSignupsLocale` takes them: the ones the
+ * acting organizer made, never another member's in a shared workspace; open,
+ * so people can sign up now (not a draft, a closed or an archived one); not
+ * deleted; and in a workspace they may change.
+ */
+function ownOpenSignups(actor: Actor) {
+  const organizerId = requireOrganizerId(actor);
+  return { organizerId, workspaceIds: writableWorkspaceIds(actor), status: 'open' as const };
+}
+
+/**
+ * Those of `rows` whose participants get another language than `locale`, as
+ * `localeOfSignup` reads it.
+ */
+function notIn<T extends { settings: StoredSignupSettings }>(
+  rows: readonly T[],
+  locale: CatalogLocale,
+): T[] {
+  return rows.filter((row) => localeOfSignup(row.settings.locale) !== locale);
+}
+
+/**
+ * The acting organizer's open signups, as `setOpenSignupsLocale` takes them:
+ * how many there are (`open`), and the ids of those it would change to
+ * `locale` (`toSwitch`, none when every one is in it already). So a page can
+ * offer the change, with its count, only when there's something to change,
+ * and say afterwards how many use the language, from what's stored. One read,
+ * without a lock: what changes is decided again, under one, when the change
+ * is made.
+ */
+export async function openSignupsToSwitch(
+  db: Queryable,
+  actor: Actor,
+  locale: CatalogLocale,
+): Promise<Result<{ open: number; toSwitch: string[] }, ServiceError>> {
+  const which = ownOpenSignups(actor);
+  if (which.workspaceIds.length === 0) return ok({ open: 0, toSwitch: [] });
+  const rows = await readOrganizersSignups(db, which);
+  return ok({ open: rows.length, toSwitch: notIn(rows, locale).map((row) => row.id) });
+}
+
+/**
+ * Puts the acting organizer's open signups in `locale` (#639): account
+ * Settings' "Switch them to Svenska". Which signups count is
+ * `ownOpenSignups`'s to say. One whose participants already get `locale`
+ * (`localeOfSignup`) is left as it is, as is one with no language of its own
+ * that reads as `locale` through the instance's. One whose language was chosen
+ * on its Settings tab changes like the rest: the row can't tell a choice from
+ * the language it started in (#627 stores the organizer's on each new
+ * signup), and the button counts all of them.
+ *
+ * `locale` must have shipped to participants, as for `updateSignup`; anything
+ * else is `invalid_input` on `locale` and changes nothing. The signups are
+ * locked and changed in one transaction, in one update however many there
+ * are, and each gets the `signup.updated` row a save on its Settings tab
+ * writes. Returns the language and the ids of the signups it changed.
+ */
+export async function setOpenSignupsLocale(
+  db: Db,
+  actor: Actor,
+  locale: unknown,
+): Promise<Result<{ locale: CatalogLocale; signupIds: string[] }, ServiceError>> {
+  const which = ownOpenSignups(actor);
+  if (!isShipped('participant', locale)) {
+    return err(
+      serviceError('invalid_input', 'locale must be a language OpenSignup offers for signups', {
+        field: 'locale',
+        received: locale,
+        suggestion: `use one of: ${SHIPPED.participant.join(', ')}`,
+      }),
+    );
+  }
+  if (which.workspaceIds.length === 0) return ok({ locale, signupIds: [] });
+
+  return db.transaction(async (tx) => {
+    const changing = notIn(await lockOrganizersSignupsForWrite(tx, which), locale);
+    const signupIds = changing.map((row) => row.id);
+    if (signupIds.length === 0) return ok({ locale, signupIds });
+
+    await tx
+      .update(signups)
+      .set({
+        settings: sql`${signups.settings} || jsonb_build_object('locale', ${locale}::text)`,
+        updatedAt: new Date(),
+      })
+      .where(and(inArray(signups.id, signupIds), inArray(signups.workspaceId, which.workspaceIds)));
+    const by = activityActor(actor);
+    await recordActivities(
+      tx,
+      changing.map((row) => ({
+        signupId: row.id,
+        workspaceId: row.workspaceId,
+        actor: by,
+        eventType: 'signup.updated' as const,
+        payload: { changed: ['settings'] },
+      })),
+    );
+    return ok({ locale, signupIds });
   });
 }
 
@@ -593,6 +718,7 @@ async function transitionStatus(
           received: row.status,
           expected: from,
           suggestion: `call the correct transition for status=${row.status}`,
+          details: { reason: 'status_changed' },
         }),
       );
     }
@@ -610,6 +736,7 @@ async function transitionStatus(
           serviceError('conflict', `${verb} requires at least one slot`, {
             field: 'slots',
             suggestion: `add a slot before ${doing}`,
+            details: { reason: 'no_slots' },
           }),
         );
       }
@@ -691,22 +818,27 @@ const signupSummaryColumns = {
   closesAt: signups.closesAt,
   createdAt: signups.createdAt,
   updatedAt: signups.updatedAt,
+  locale: sql<string | null>`${signups.settings}->>'locale'`,
 };
 
 /** A signup as a list shows it: no description, settings, theme or tags. */
-export type SignupSummary = Pick<SignupRow, keyof typeof signupSummaryColumns>;
+export type SignupSummary = Pick<
+  SignupRow,
+  'id' | 'slug' | 'title' | 'status' | 'closesAt' | 'createdAt' | 'updatedAt'
+>;
 
 /**
  * The same rows as listSignupsForWorkspace, reading only the columns a list
  * shows, so up to WORKSPACE_LIST_LIMIT long descriptions aren't read from Postgres and thrown
- * away.
+ * away. Of the settings, only `locale`, as stored, so Your signups can mark
+ * each title with its signup's language (`localeOfSignup`) in the same statement.
  */
 export async function listSignupSummariesForWorkspace(
   db: Db,
   actor: Actor,
   workspaceId: string,
   filter: { status?: SignupStatus } = {},
-): Promise<Result<SignupSummary[], ServiceError>> {
+): Promise<Result<(SignupSummary & { locale: string | null })[], ServiceError>> {
   requireWorkspaceAccess(actor, workspaceId);
   const rows = await db
     .select(signupSummaryColumns)
