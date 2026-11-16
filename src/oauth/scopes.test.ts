@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import {
   ADVERTISED_SCOPES,
   ALL_SCOPES,
-  SCOPE_DESCRIPTIONS,
+  SCOPE_MESSAGES,
   describeScopes,
   isScope,
   parseScopeString,
@@ -25,10 +26,21 @@ describe('scopes', () => {
   });
 
   it('has a human-readable description for every scope that appears on the consent screen', () => {
+    const t = getTestTranslator('auth.scopes');
     for (const scope of ALL_SCOPES) {
-      expect(SCOPE_DESCRIPTIONS[scope].length).toBeGreaterThan(10);
+      expect(t(SCOPE_MESSAGES[scope]).length).toBeGreaterThan(10);
     }
-    expect(SCOPE_DESCRIPTIONS['commitments:read']).toMatch(/names and email addresses/);
+    expect(t(SCOPE_MESSAGES['commitments:read'])).toMatch(/names and email addresses/);
+  });
+
+  it('describes each scope in the words it had before the catalog', () => {
+    const t = getTestTranslator('auth.scopes');
+    expect(ALL_SCOPES.map((scope) => [scope, t(SCOPE_MESSAGES[scope])])).toEqual([
+      ['signups:read', 'See your signups and their slots'],
+      ['signups:write', 'Create and edit signups'],
+      ['commitments:read', 'See who has signed up, including their names and email addresses'],
+      ['offline_access', 'Stay connected without asking you to sign in again'],
+    ]);
   });
 
   it('parses a space-separated scope string, dropping unknown and duplicate entries', () => {
@@ -54,5 +66,9 @@ describe('scopes', () => {
     expect(describeScopes(scopes).find((d) => d.scope === 'commitments:read')?.sensitive).toBe(
       true,
     );
+    expect(describeScopes(scopes).map((d) => d.message)).toEqual([
+      SCOPE_MESSAGES['signups:read'],
+      SCOPE_MESSAGES['commitments:read'],
+    ]);
   });
 });

@@ -1,14 +1,26 @@
+import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { FormError } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
+import type { CatalogLocale } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfSignup } from '@/i18n/locale';
 import { unsubscribePath } from '@/lib/links';
 import { previewReminderOptOut } from '@/services/reminder-optout';
+import { requestedSignupLocale } from '../signup-locale';
 import { SignupStateMessage } from '../state-message';
 
-export const metadata = {
-  title: 'Reminder emails',
-  robots: { index: false, follow: false },
-};
+/**
+ * The tab's title, in the language of the signup the path names: the read
+ * the not-found page makes on every request under this one, so it costs no
+ * statement. The page itself goes by the signup its token opens, which is
+ * the same one whenever the page shows it (a wrong slug is redirected).
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = getServerTranslator(await requestedSignupLocale(), 'participant.unsubscribe');
+  return { title: t('title'), robots: { index: false, follow: false } };
+}
 
 type PageParams = {
   params: Promise<{ slug: string }>;
@@ -16,25 +28,25 @@ type PageParams = {
 };
 
 function Shell({
+  locale,
   title,
   error,
   children,
 }: {
+  locale: CatalogLocale;
   title: string;
-  error?: 'on' | 'off';
-  children: React.ReactNode;
+  /** Why the last try failed, already in the page's language. */
+  error?: string;
+  children: ReactNode;
 }) {
   return (
-    <main className="container-tight flex min-h-[100svh] flex-col justify-center gap-4 py-8">
+    <main
+      lang={locale}
+      className="container-tight flex min-h-[100svh] flex-col justify-center gap-4 py-8"
+    >
       <div className="space-y-4 rounded-xl border border-surface-sunk bg-white p-6">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {error ? (
-          <FormError>
-            {error === 'on'
-              ? "We couldn't turn your reminders back on. Please try again."
-              : "We couldn't turn off your reminders. Please try again."}
-          </FormError>
-        ) : null}
+        {error ? <FormError>{error}</FormError> : null}
         {children}
       </div>
     </main>
@@ -53,22 +65,26 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
   if (!participantId || !token) {
     // An incomplete link gets a plain explanation rather than a 404: the most
     // likely visitor is a real participant whose mail client mangled the link,
-    // and a "not found" would tell them nothing useful.
+    // and a "not found" would tell them nothing useful. With no signup to read
+    // a language from, it's in the language of the signup the path names, as
+    // a broken edit link's page is (`../c/[id]/not-found.tsx`).
+    const locale = await requestedSignupLocale();
+    const t = getServerTranslator(locale, 'participant.unsubscribe');
     return (
       <SignupStateMessage
-        title="This link is incomplete"
-        body="Unsubscribe links only work in full. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
+        locale={locale}
+        title={t('incomplete.title')}
+        body={t('incomplete.body')}
       />
     );
   }
 
   const result = await previewReminderOptOut(getDb(), participantId, token);
   if (!result.ok) {
+    const locale = await requestedSignupLocale();
+    const t = getServerTranslator(locale, 'participant.unsubscribe');
     return (
-      <SignupStateMessage
-        title="This link isn't valid"
-        body="It may have been mangled in transit, or the signup may have been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
-      />
+      <SignupStateMessage locale={locale} title={t('invalid.title')} body={t('invalid.body')} />
     );
   }
 
@@ -84,6 +100,17 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
   if (slug !== target.signupSlug) {
     redirect(unsubscribePath(target.signupSlug, participantId, token));
   }
+  // The signup's language, from the row the token was checked against.
+  const locale = localeOfSignup(target.signupLocale);
+  const t = getServerTranslator(locale, 'participant.unsubscribe');
+  // The signup's title in bold, and the address in the sentence when there
+  // is one: a whole sentence for each, so a language can put the address
+  // where it reads best.
+  const email = target.participantEmail;
+  const sentence = (key: 'confirm' | 'areOff' | 'turnedOn') =>
+    email
+      ? t.rich(`${key}.bodyWithEmail`, { title: target.signupTitle, email, b: strong })
+      : t.rich(`${key}.body`, { title: target.signupTitle, b: strong });
 
   const credentials = (
     <>
@@ -104,25 +131,14 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
         affirmative wording; without it we say only what the row shows.
       */
       <Shell
-        title={done === 'off' ? 'Reminders turned off' : 'Reminders are off'}
-        error={error === 'on' ? error : undefined}
+        locale={locale}
+        title={done === 'off' ? t('turnedOff.title') : t('areOff.title')}
+        error={error === 'on' ? t('turnOnFailed') : undefined}
       >
         <p className="text-sm text-ink-muted">
-          {done === 'off' ? (
-            <>
-              You won&apos;t get any more reminders for <strong>{target.signupTitle}</strong>, or
-              emails when the organizer changes your slot&apos;s date or time. Your slot is
-              unchanged — if you also want to give it up, open the link in your confirmation email
-              and cancel there.
-            </>
-          ) : (
-            <>
-              Reminders for <strong>{target.signupTitle}</strong> are off
-              {target.participantEmail ? ` for ${target.participantEmail}` : null}. You won&apos;t
-              get reminders about it, or emails when the organizer changes your slot&apos;s date or
-              time.
-            </>
-          )}
+          {done === 'off'
+            ? t.rich('turnedOff.body', { title: target.signupTitle, b: strong })
+            : sentence('areOff')}
         </p>
         {/*
           Reminders are per-participant and the row is reused for the same
@@ -137,11 +153,11 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
           {credentials}
           <input type="hidden" name="action" value="start" />
           <button type="submit" className="text-sm text-brand underline">
-            Turn reminders back on
+            {t('turnBackOn')}
           </button>
         </form>
         <a href={`/s/${target.signupSlug}`} className="text-sm text-brand underline">
-          Back to the signup
+          {t('back')}
         </a>
       </Shell>
     );
@@ -149,24 +165,12 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
 
   return (
     <Shell
-      title={done === 'on' ? 'Reminders turned back on' : 'Stop reminder emails?'}
-      error={error === 'off' ? error : undefined}
+      locale={locale}
+      title={done === 'on' ? t('turnedOn.title') : t('confirm.title')}
+      error={error === 'off' ? t('turnOffFailed') : undefined}
     >
       <p className="text-sm text-ink-muted">
-        {done === 'on' ? (
-          <>
-            You&apos;ll get reminders for <strong>{target.signupTitle}</strong> again
-            {target.participantEmail ? ` at ${target.participantEmail}` : null}, and emails when
-            your slot&apos;s date or time changes. You can stop them any time from the link in one.
-          </>
-        ) : (
-          <>
-            We&apos;ll stop sending{target.participantEmail ? ` ${target.participantEmail}` : null}{' '}
-            reminders for <strong>{target.signupTitle}</strong>, and emails when the organizer
-            changes your slot&apos;s date or time. This only affects this signup, and your slot
-            stays as it is.
-          </>
-        )}
+        {done === 'on' ? sentence('turnedOn') : sentence('confirm')}
       </p>
       {/* A POST, so a link scanner following the URL can't unsubscribe anyone. */}
       <form action="/api/public/reminder-optout" method="post" className="flex gap-3">
@@ -175,15 +179,20 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
           type="submit"
           className="rounded-lg bg-brand px-5 py-2 font-medium text-white transition hover:bg-brand-hover"
         >
-          Stop reminders
+          {t('stop')}
         </button>
         <a
           href={`/s/${target.signupSlug}`}
           className="rounded-lg border border-surface-sunk px-5 py-2 font-medium transition hover:bg-surface-sunk/40"
         >
-          Keep them
+          {t('keep')}
         </a>
       </form>
     </Shell>
   );
+}
+
+/** The signup's title, in bold, as each sentence above names it. */
+function strong(chunks: ReactNode) {
+  return <strong>{chunks}</strong>;
 }

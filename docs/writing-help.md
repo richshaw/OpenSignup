@@ -59,16 +59,28 @@ learn the product.
 Use these words, the same way every time, and give each one only this meaning.
 Explain each one the first time a page uses it.
 
-| Say                | Meaning                                                   | Don't say                               |
-| ------------------ | --------------------------------------------------------- | --------------------------------------- |
-| signup             | the page people sign up on                                | sheet, form, event, list                |
-| slot               | one thing people can sign up for                          | row, item, entry, question              |
-| spot               | one place in a slot; a person can take more than one      | place, seat, space, sign-up             |
-| field              | a detail every slot has, like its date                    | column, attribute                       |
-| draft              | a signup that isn't published yet; nobody else can see it | (don't use it for an AI's first go)     |
-| publish            | make the signup open to anyone with the link              | go live, launch, activate               |
-| people who sign up | anyone taking a slot                                      | users, customers, members, participants |
-| your site          | the OpenSignup site the reader is on                      | the instance, the server                |
+| Say                | Meaning                                                       | Don't say                               |
+| ------------------ | ------------------------------------------------------------- | --------------------------------------- |
+| signup             | the page people sign up on                                    | sheet, form, event, list                |
+| slot               | one thing people can sign up for                              | row, item, entry, question              |
+| spot               | one place in a slot; a person can take more than one          | place, seat, space, sign-up             |
+| field              | a detail every slot has, like its date                        | column, attribute                       |
+| draft              | a signup that isn't published yet; nobody else can see it     | (don't use it for an AI's first go)     |
+| publish            | the one-time step that takes a draft to open                  | go live, launch, activate               |
+| published          | no longer a draft, whether open or closed                     | (don't use it to mean open)             |
+| open               | a signup people can sign up on now                            | live, published                         |
+| closed             | a signup nobody new can sign up on; everyone keeps their spot | (don't use it for a full slot)          |
+| people who sign up | anyone taking a slot                                          | users, customers, members, participants |
+| your site          | the OpenSignup site the reader is on                          | the instance, the server                |
+
+A signup starts as a draft. Publishing it makes it open, and from then on
+closing and reopening take it between open and closed. So say **open** when
+you mean people can sign up now, and **published** only when you mean it's no
+longer a draft: a closed signup is published, but it isn't open. Don't call a
+signup "live". The status beside its title says open, and open pairs with
+closed and with **Close signup** and **Reopen signup**. **Publish and share**
+and the green **Published** in the panel it opens keep the word, because they
+are about the step itself.
 
 Don't call what one person holds a "sign-up": beside "signup" it reads as the
 same word spelt two ways. Say their spot, or say what they did ("they signed
@@ -133,8 +145,9 @@ page's `UI` list. Then the page changes when the code does.
 sees it and fails on:
 
 - "user", "simply", "just", "easy", "click", "tap", "please note", "note that",
-  "instance", "go live", "launch", "coming soon" (and their other forms, like
-  "launched" or "easiest"), technical words (slug, token, API, database),
+  "instance", "go live", "launch", "is live", "coming soon" (and their other
+  forms, like "launched", "easiest" or "live signup"), technical words (slug,
+  token, API, database),
   exclamation marks and emoji, in the text or in alt text
 - a sentence longer than 25 words
 - a title or heading in Title Case. Words inside an on-screen name keep their

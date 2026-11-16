@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { activity } from '@/db/schema/activity';
 import { getDb, type Db } from '@/db/client';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
 import { workspaceMembers } from '@/db/schema/members';
 import { makeId } from '@/lib/ids';
-import { recordActivity } from '@/lib/activity';
+import { recordActivities, recordActivity } from '@/lib/activity';
 
 interface Fixture {
   db: Db;
@@ -166,5 +166,54 @@ describe('recordActivity → organizers.last_active_at', () => {
 
     const after = await readLastActiveAt(fx.db, fx.organizerId);
     expect(after.getTime()).toBe(before.getTime());
+  });
+});
+
+describe('recordActivities', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setup();
+  });
+
+  afterAll(async () => {
+    await teardown(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  const written = async () =>
+    fx.db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(
+        and(eq(activity.workspaceId, fx.workspaceId), eq(activity.eventType, 'signup.updated')),
+      );
+
+  it('writes every row, past the rows one insert takes, and advances last_active_at', async () => {
+    const before = await readLastActiveAt(fx.db, fx.organizerId);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    await recordActivities(
+      fx.db,
+      Array.from({ length: 1001 }, (_, n) => ({
+        workspaceId: fx.workspaceId,
+        actor: { actorId: fx.organizerId, actorType: 'organizer' as const },
+        eventType: 'signup.updated' as const,
+        payload: { n },
+      })),
+    );
+
+    const rows = await written();
+    expect(rows).toHaveLength(1001);
+    expect(new Set(rows.map((r) => (r.payload as { n: number }).n)).size).toBe(1001);
+    const after = await readLastActiveAt(fx.db, fx.organizerId);
+    expect(after.getTime()).toBeGreaterThan(before.getTime());
+  });
+
+  it('writes nothing for no rows', async () => {
+    const before = (await written()).length;
+    const lastActive = await readLastActiveAt(fx.db, fx.organizerId);
+    await recordActivities(fx.db, []);
+    expect(await written()).toHaveLength(before);
+    expect(await readLastActiveAt(fx.db, fx.organizerId)).toEqual(lastActive);
   });
 });

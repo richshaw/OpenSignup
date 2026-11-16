@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import type { SignupStatus } from '@/schemas/signups';
 import { ClosedNotice } from './ClosedNotice';
+import { signupHeaderText } from './header-text';
 import { HeaderAnnouncer, useAnnouncedStatusChange } from './HeaderAnnouncer';
 
 const BODY = 'People can’t sign up now. Everyone already signed up keeps their spot.';
+
+/** The header's words in English, as the layout passes them. */
+const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
 
 /** A button that changes the status to `to` the way Close or Reopen signup does. */
 function ChangeButton({ to }: { to: SignupStatus }) {
@@ -20,13 +25,13 @@ function ChangeButton({ to }: { to: SignupStatus }) {
 /** The layout's announcer at `status`, with the title, the box and both buttons. */
 function page(status: SignupStatus) {
   return (
-    <HeaderAnnouncer status={status}>
+    <HeaderAnnouncer status={status} announcements={TEXT.announcements}>
       <h1 tabIndex={-1} data-signup-title>
         Bake sale helpers
       </h1>
       <ChangeButton to="closed" />
       <ChangeButton to="open" />
-      <ClosedNotice status={status} />
+      <ClosedNotice status={status} text={TEXT.closedNotice} />
     </HeaderAnnouncer>
   );
 }

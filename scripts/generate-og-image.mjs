@@ -1,7 +1,9 @@
 /**
- * Dev-only: regenerate the static social/share images committed under
- * `src/app/` — `opengraph-image.png`, `twitter-image.png` (Open Graph + Twitter
- * card, 1200×630) and `apple-icon.png` (180×180 home-screen icon).
+ * Dev-only: regenerate the static social/share images: `opengraph-image.png`
+ * and `twitter-image.png` (Open Graph + Twitter card, 1200×630), committed under
+ * `public/`, and `apple-icon.png` (180×180 home-screen icon), under `src/app/`.
+ * The share images' size and alt text are also in `SHARE_IMAGE`
+ * (src/lib/seo.ts), which `seo.test.ts` checks against the files.
  *
  * Uses `next/og` (Satori + resvg, both bundled with Next — no browser, no
  * network, no extra deps) to render on-brand layouts to PNG buffers. NOT part
@@ -30,6 +32,7 @@ const { ImageResponse } = require('next/og.js');
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appDir = join(scriptDir, '..', 'src', 'app');
+const publicDir = join(scriptDir, '..', 'public');
 const inter = await readFile(join(scriptDir, 'og-font', 'Inter-latin-600.ttf'));
 
 const C = {
@@ -181,8 +184,10 @@ async function toPng(tree, width, height) {
 }
 
 const ogPng = await toPng(ogTree, 1200, 630);
-await writeFile(join(appDir, 'opengraph-image.png'), ogPng);
-await writeFile(join(appDir, 'twitter-image.png'), ogPng);
+await writeFile(join(publicDir, 'opengraph-image.png'), ogPng);
+await writeFile(join(publicDir, 'twitter-image.png'), ogPng);
 await writeFile(join(appDir, 'apple-icon.png'), await toPng(appleTree, 180, 180));
 
-console.log('Wrote opengraph-image.png, twitter-image.png, apple-icon.png to src/app/');
+console.log(
+  'Wrote opengraph-image.png and twitter-image.png to public/, apple-icon.png to src/app/',
+);

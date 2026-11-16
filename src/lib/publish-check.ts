@@ -9,6 +9,7 @@
  * refs count.
  */
 
+import type { Translator } from '@/i18n/translator';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 
@@ -44,8 +45,6 @@ export function checkBeforePublish({
   return null;
 }
 
-const NOTHING_YET = 'Nothing to sign up for yet';
-
 /** The words the check's panel shows: `fix` is its first button, `secondary` its other one. */
 export interface PublishCheckCopy {
   title: string;
@@ -54,28 +53,24 @@ export interface PublishCheckCopy {
   secondary: string;
 }
 
-export function publishCheckCopy(check: PublishCheck): PublishCheckCopy {
+/** The panel's words for `check`, in the organizer's language. */
+export function publishCheckCopy(
+  check: PublishCheck,
+  t: Translator<'organizer.signup.check'>,
+): PublishCheckCopy {
+  const title = t('title');
+  const secondary = t('notNow');
   switch (check.kind) {
     case 'no_slots':
-      return {
-        title: NOTHING_YET,
-        text: 'There are no slots yet. Add one, then publish.',
-        fix: 'Add a slot',
-        secondary: 'Not now',
-      };
+      return { title, text: t('noSlots'), fix: t('addSlot'), secondary };
     case 'no_fields':
-      return {
-        title: NOTHING_YET,
-        text: 'Add a field that says what people sign up for, then publish.',
-        fix: null,
-        secondary: 'Not now',
-      };
+      return { title, text: t('noFields'), fix: null, secondary };
     case 'all_blank':
       return {
-        title: NOTHING_YET,
-        text: `${check.slotCount === 1 ? 'The slot is' : 'Every slot is'} empty. Say what people sign up for, then publish.`,
-        fix: 'Fill it in',
-        secondary: 'Not now',
+        title,
+        text: t('allBlank', { count: check.slotCount }),
+        fix: t('fillIn'),
+        secondary,
       };
   }
 }

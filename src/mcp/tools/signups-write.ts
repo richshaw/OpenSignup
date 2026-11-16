@@ -1,13 +1,20 @@
 import { z } from 'zod';
+import { SHIPPED } from '@/i18n/config';
+import { newSignupLocale } from '@/i18n/locale';
 import { log } from '@/lib/log';
 import { persistDraft } from '@/lib/magic-compose/persist';
 import { FullDraftSchema } from '@/lib/magic-compose/prompt';
 import { requireWorkspaceWrite } from '@/lib/policy';
 import { RateLimits, consumeRateLimit } from '@/lib/rate-limit';
 import { ok } from '@/lib/result';
-import { SignupSettingsSchema, SignupUpdateInputSchema } from '@/schemas/signups';
+import {
+  SIGNUP_INPUT_REASONS,
+  SignupSettingsSchema,
+  SignupUpdateInputSchema,
+} from '@/schemas/signups';
 import {
   archiveSignup,
+  checkSignupLocale,
   closeSignup,
   deleteSignup,
   getSignupForOrganizer,
@@ -20,30 +27,54 @@ import { defineTool } from '../registry';
 import { FIELD_GUIDE } from './guides';
 import { UNREAD_SETTINGS, signupDetail, signupWithContents, signupWithLinks } from './signups-read';
 
+/** The languages a signup may be set to, as the descriptions list them. */
+const SIGNUP_LANGUAGES = SHIPPED.participant.join(', ');
+
 export const createSignupTool = defineTool({
   name: 'create_signup',
   scope: 'signups:write',
   title: 'Create signup',
-  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see until publish_signup. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. If the result has a note instead of fields and slots, the signup was still created, and get_signup with its id returns it. The result includes links.edit to change the signup and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field, or a field with no value in any slot, makes the whole call fail with invalid_input and nothing is created, so fix the call and send it again.`,
+  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see until publish_signup. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. If the result has a note instead of fields and slots, the signup was still created, and get_signup with its id returns it. The result includes links.edit to change the signup and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. locale sets the language of OpenSignup's own wording on the signup's page and in its emails to participants (the title, fields and slots stay as written). It takes a language code, one of: ${SIGNUP_LANGUAGES}. Without it, the signup starts in the organizer's language for new signups. A value that does not fit its field, or a field with no value in any slot, makes the whole call fail with invalid_input and nothing is created, so fix the call and send it again.`,
   annotations: { readOnlyHint: false, destructiveHint: false },
+  // `locale` is the tool's, not the draft's: FullDraftSchema is also Magic
+  // Compose's output schema.
   inputSchema: FullDraftSchema.extend({
     workspaceId: z
       .string()
       .min(1)
       .optional()
       .describe('Defaults to the account default workspace.'),
+    locale: z
+      .string()
+      .optional()
+      .describe(
+        `A language code, one of: ${SIGNUP_LANGUAGES}. Defaults to the organizer's language for new signups.`,
+      ),
   }),
+  inputReasons: SIGNUP_INPUT_REASONS,
   handler: async (ctx, input) => {
-    const { workspaceId, ...draft } = input;
+    const { workspaceId, locale, ...draft } = input;
+    // Checked with the rest of the input, so a refused one costs no quota, and
+    // named as the tool's input names it.
+    const sent = checkSignupLocale(locale, 'locale');
+    if (!sent.ok) return sent;
     const ws = resolveWorkspaceId(ctx, workspaceId);
     if (!ws.ok) return ws;
     // Policy first: a viewer's attempt must not cost a create-quota unit.
     requireWorkspaceWrite(ctx.actor, ws.value);
     await consumeRateLimit(ctx.db, RateLimits.signupCreatePerOrganizer, ctx.actor.id);
+    // The language the assistant sent (`api`), else the organizer's, chosen as
+    // for a signup made in the browser (none while only one language has
+    // shipped).
+    const language =
+      sent.value === undefined
+        ? newSignupLocale({ locale: ctx.locale })
+        : { locale: sent.value, source: 'api' as const };
     const persisted = await persistDraft(ctx.db, ctx.actor, ws.value, draft, {
       templateId: 'mcp',
       strict: true,
       logContext: { clientId: ctx.clientId },
+      ...(language ? { locale: language } : {}),
     });
     if (!persisted.ok) return persisted;
     // Read it back so ids and order are the stored ones, exactly as get_signup
@@ -81,20 +112,35 @@ export const createSignupTool = defineTool({
  * JSON Schema advertises, and a client that fills in defaults would send
  * `requireEmail: true` with an unrelated change and quietly undo the
  * organizer's choice.
+ *
+ * `locale` is taken as sent, not with the stored schema, which reads anything
+ * that isn't a short string as no language: here that would turn a value to
+ * refuse into one that clears the stored language. `updateSignup` refuses a
+ * language that hasn't shipped to participants, with the REST API's message,
+ * and `null` clears it, as over REST.
  */
-const settingsShape = SignupSettingsSchema.removeDefault().omit(UNREAD_SETTINGS).shape;
+const settingsShape = SignupSettingsSchema.removeDefault().omit({
+  ...UNREAD_SETTINGS,
+  locale: true,
+}).shape;
 type WithoutDefaults<T extends z.ZodRawShape> = {
   [K in keyof T]: T[K] extends z.ZodDefault<infer Inner> ? Inner : T[K];
 };
 const SparseSettingsSchema = z
-  .object(
-    Object.fromEntries(
+  .object({
+    ...(Object.fromEntries(
       Object.entries(settingsShape).map(([key, field]) => [
         key,
         field instanceof z.ZodDefault ? field.removeDefault() : field,
       ]),
-    ) as WithoutDefaults<typeof settingsShape>,
-  )
+    ) as WithoutDefaults<typeof settingsShape>),
+    locale: z
+      .string()
+      .nullable()
+      .describe(
+        `The language of OpenSignup's own wording on the signup's page and in its emails to participants (the title, fields and slots stay as written), as a language code, one of: ${SIGNUP_LANGUAGES}. null removes it, and the signup is then in the site's default language.`,
+      ),
+  })
   .partial()
   .strict();
 
@@ -116,6 +162,7 @@ export const updateSignupTool = defineTool({
     signupId: z.string(),
     settings: SparseSettingsSchema.optional(),
   }),
+  inputReasons: SIGNUP_INPUT_REASONS,
   handler: async (ctx, input) => {
     const { signupId, ...rest } = input;
     const updated = await updateSignup(ctx.db, ctx.actor, signupId, rest);
@@ -151,7 +198,7 @@ function statusTool(
 export const publishSignupTool = statusTool(
   'publish_signup',
   'Publish signup',
-  'Make a draft signup live so participants can sign up at the public link. Only a draft can be published. Once it is published, links.public is the link to share with participants. A closing time that has already passed is removed, so people can sign up straight away, and the result then shows closesAt as null; a later closing time stays.',
+  'Publish a draft signup: its status becomes open, so participants can sign up at the public link. Only a draft can be published. Once it is published, links.public is the link to share with participants. A closing time that has already passed is removed, so people can sign up straight away, and the result then shows closesAt as null; a later closing time stays.',
   // Not in the ask-first line: the instructions give publishing a sentence of its own.
   false,
   publishSignup,

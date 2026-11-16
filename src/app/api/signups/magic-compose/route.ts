@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getOrganizerSession, requireActor } from '@/auth/session';
 import { getDb, type Db } from '@/db/client';
+import { newSignupLocale } from '@/i18n/locale';
 import { activityActor, recordActivityBestEffort } from '@/lib/activity';
 import { getEnv, magicComposeEnabled } from '@/lib/env';
 import { fail, handle, ok, readJson } from '@/lib/api-response';
@@ -21,7 +22,9 @@ import {
   buildMessages,
   isQuestionsReply,
   MagicComposeDraftSchema,
+  type PromptContext,
 } from '@/lib/magic-compose/prompt';
+import { warningSentence } from '@/lib/magic-compose/draft-warnings';
 import { fitDraftText } from '@/lib/magic-compose/fit-text';
 import { PROMPT_MAX_LENGTH } from '@/lib/magic-compose/limits';
 import { persistDraft } from '@/lib/magic-compose/persist';
@@ -165,12 +168,23 @@ export async function POST(req: NextRequest) {
       pending.answered = () => recordAnswered(db, actor, workspaceId, followUp, outcome);
     }
 
+    // The organizer's language for participants. The signup starts in it, as
+    // one made by hand does, so none while only one language has shipped.
+    // Every call, retries included, tells the model it, to write in when the
+    // description is too short or too mixed to tell its own: English while
+    // only English has shipped.
+    const language = newSignupLocale(session);
+    const context: PromptContext = {
+      fallbackLocale: language?.locale ?? 'en',
+    };
     const client = defaultLlmClient();
     // One time budget for the whole request: a retry gets what the first call
     // left, so the organizer never waits twice LLM_TIMEOUT_MS.
     const deadline = Date.now() + getEnv().LLM_TIMEOUT_MS;
     let raw = await client.generateDraft(
-      followUp ? buildFollowUpMessages(userPrompt, followUp) : buildMessages(userPrompt),
+      followUp
+        ? buildFollowUpMessages(userPrompt, followUp, context)
+        : buildMessages(userPrompt, context),
       req.signal,
     );
 
@@ -200,7 +214,7 @@ export async function POST(req: NextRequest) {
       );
       outcome.retried = true;
       raw = await client.generateDraft(
-        buildFollowUpMessages(userPrompt, followUp, { firmly: true }),
+        buildFollowUpMessages(userPrompt, followUp, { ...context, firmly: true }),
         req.signal,
         { timeoutMs: left },
       );
@@ -230,7 +244,7 @@ export async function POST(req: NextRequest) {
           { promptLength: userPrompt.length },
           'magic-compose asked questions in a shape the page cannot ask; retrying once',
         );
-        raw = await client.generateDraft(buildReplyNowMessages(userPrompt), req.signal, {
+        raw = await client.generateDraft(buildReplyNowMessages(userPrompt, context), req.signal, {
           timeoutMs: left,
         });
       } else {
@@ -282,7 +296,7 @@ export async function POST(req: NextRequest) {
       return fail(
         serviceError('internal', 'AI draft did not match expected shape', {
           suggestion: 'try again or adjust your prompt',
-          details: { issues: safeIssues },
+          details: { reason: 'draft_invalid', issues: safeIssues },
         }),
       );
     }
@@ -342,12 +356,16 @@ export async function POST(req: NextRequest) {
 
     const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, draft.data, {
       logContext: { promptLength: userPrompt.length },
+      ...(language ? { locale: language } : {}),
     });
     if (!persisted.ok) {
       await recordFailed(db, actor, session.defaultWorkspaceId, 'not_saved');
       return fail(persisted.error);
     }
     const { signup: created, template, groupByFieldRefs, warnings } = persisted.value;
+    // Each warning as a code with its arguments, for the organizer's screen to
+    // word in their language, and in English, as the API has always given them.
+    const codedWarnings = [...fitted.warnings, ...warnings];
 
     return ok(
       {
@@ -359,7 +377,8 @@ export async function POST(req: NextRequest) {
           promptLength: userPrompt.length,
           groupByFieldRefs,
         },
-        warnings: [...fitted.warnings, ...warnings],
+        warnings: codedWarnings.map(warningSentence),
+        codedWarnings,
         draft: buildDraftPreview(draft.data, template),
       },
       {

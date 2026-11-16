@@ -25,6 +25,8 @@ export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
   const headingId = useId();
   const desktop = variant === 'desktop';
   const shown = share.open && share.desktop === desktop;
+  const { text } = share;
+  const heading = shareHeading(share.firstTime, text.heading);
   usePrefetchSharePanel();
 
   // The panel's body, its QR encoder with it, loads once the page is idle (or
@@ -46,7 +48,9 @@ export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
         title={share.title}
         url={share.url}
         message={share.message}
+        messageLang={share.messageLang}
         onMessageChange={share.setMessage}
+        text={text.panel}
       />
     </Suspense>
   );
@@ -61,7 +65,7 @@ export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
       className={`${desktop ? HEADER_BUTTON : BAR_BUTTON} ${PRIMARY}`}
     >
       <Share2 size={desktop ? 15 : 16} aria-hidden="true" />
-      Share
+      {text.button}
     </button>
   );
 
@@ -78,15 +82,15 @@ export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex flex-col gap-1">
-              {share.firstTime ? <PublishedMark /> : null}
+              {share.firstTime ? <PublishedMark text={text.published} /> : null}
               <h2 id={headingId} className="text-base font-semibold tracking-tight text-ink">
-                {shareHeading(share.firstTime)}
+                {heading}
               </h2>
             </div>
             <button
               type="button"
               onClick={share.closeShare}
-              aria-label="Close"
+              aria-label={text.close}
               className="-mr-1.5 -mt-1.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-surface-raised"
             >
               <X size={16} aria-hidden="true" />
@@ -104,8 +108,9 @@ export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
       <BottomSheet
         open={shown}
         onClose={share.closeShare}
-        title={shareHeading(share.firstTime)}
-        description={share.firstTime ? <PublishedMark /> : undefined}
+        title={heading}
+        closeLabel={text.close}
+        description={share.firstTime ? <PublishedMark text={text.published} /> : undefined}
         compact
         // The panel puts focus on its first button once it has loaded; until
         // then the sheet holds it, rather than on the ✕.

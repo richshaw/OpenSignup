@@ -111,17 +111,26 @@ describe('FollowUpSchema', () => {
 
 describe('buildFollowUpMessages', () => {
   const user = (followUp: FollowUp, firmly = false) =>
-    buildFollowUpMessages('Bake sale for the PTA', followUp, { firmly, now: NOW })[1]!.content;
+    buildFollowUpMessages('Bake sale for the PTA', followUp, {
+      firmly,
+      now: NOW,
+      fallbackLocale: 'en',
+    })[1]!.content;
 
-  it('keeps the system prompt and puts the description and the answers in one user message', () => {
-    const messages = buildFollowUpMessages(
-      'Bake sale',
-      { what: { picked: ['A'], added: [] } },
-      { now: NOW },
-    );
-    expect(messages.map((m) => m.role)).toEqual(['system', 'user']);
-    expect(messages[0]!.content).toContain('2026-10-24');
-  });
+  it.each([false, true])(
+    'keeps the first call’s system prompt, with its date and fallback language, and puts the description and the answers in one user message (firmly: %s)',
+    (firmly) => {
+      const messages = buildFollowUpMessages(
+        'Bake sale',
+        { what: { picked: ['A'], added: [] } },
+        { firmly, now: NOW, fallbackLocale: 'sv' },
+      );
+      expect(messages.map((m) => m.role)).toEqual(['system', 'user']);
+      expect(messages[0]).toEqual(buildMessages('x', { now: NOW, fallbackLocale: 'sv' })[0]);
+      expect(messages[0]!.content).toContain('2026-10-24');
+      expect(messages[0]!.content).toContain('write in Swedish.');
+    },
+  );
 
   it('lists every answer under its label, the organizer’s words quoted', () => {
     expect(
@@ -180,8 +189,12 @@ describe('buildFollowUpMessages', () => {
 
 describe('buildReplyNowMessages', () => {
   it('sends the description again with the firm line, under the same system prompt', () => {
-    const messages = buildReplyNowMessages('Bake sale for the PTA', { now: NOW });
-    expect(messages[0]).toEqual(buildMessages('x', NOW)[0]);
+    const messages = buildReplyNowMessages('Bake sale for the PTA', {
+      now: NOW,
+      fallbackLocale: 'sv',
+    });
+    expect(messages[0]).toEqual(buildMessages('x', { now: NOW, fallbackLocale: 'sv' })[0]);
+    expect(messages[0]!.content).toContain('write in Swedish.');
     expect(messages[1]).toEqual({
       role: 'user',
       content:

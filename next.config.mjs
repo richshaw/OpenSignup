@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import createNextIntlPlugin from 'next-intl/plugin';
 
 /**
  * The commit this build is made from, for the site footer and the MCP
@@ -44,6 +45,15 @@ const nextConfig = {
   },
   typescript: {
     ignoreBuildErrors: false,
+  },
+  experimental: {
+    // An address no page matches gets src/app/global-not-found.tsx. The app
+    // has three root layouts (src/app/root-shell.tsx says why) and none above
+    // them, so without this Next's built-in 404 renders in a bare document
+    // with no `<html lang>`. If the flag goes away, a
+    // `src/app/(site)/[...missing]/page.tsx` that calls `notFound()` with a
+    // `(site)/not-found.tsx` does the same job.
+    globalNotFound: true,
   },
   // Turn off the image optimizer. With it on, `/_next/image` is a public
   // endpoint that decodes and resizes images with sharp (libvips) for anyone
@@ -125,4 +135,27 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// next-intl's plugin finds the request config at src/i18n/request.ts. It also
+// writes src/messages/en.d.json.ts on every dev start and build, which gives
+// the English messages their literal text in src/types/next-intl.d.ts, so
+// TypeScript checks each message's arguments.
+//
+// `messages` precompiles the catalogs. The plugin's loader compiles every
+// src/messages/*.json the app imports, for the server and the browser alike,
+// and the plugin swaps use-intl's formatter for one that only formats compiled
+// messages, so a client component that shows translated text ships about 3 KB
+// of formatter rather than about 12 KB with an ICU parser. Catalogs must
+// therefore be imported, never read from disk (src/i18n/translator.ts). The
+// worker and vitest load the raw JSON and format it with use-intl's full
+// formatter; src/i18n/precompiled.test.ts checks the two agree on every
+// message. The loader needs webpack on Next 15, which `next dev` and
+// `next build` use here: under Turbopack the plugin stops with an error until
+// Next 16.
+const withNextIntl = createNextIntlPlugin({
+  experimental: {
+    createMessagesDeclaration: './src/messages/en.json',
+    messages: { path: './src/messages', format: 'json', locales: 'infer', precompile: true },
+  },
+});
+
+export default withNextIntl(nextConfig);

@@ -12,6 +12,7 @@ import { RotateCcw } from 'lucide-react';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { useAnnouncedStatusChange } from './HeaderAnnouncer';
 import { HEADER_BUTTON, PRIMARY, SHEET_ITEM } from './header-buttons';
+import type { ReopenText } from './header-text';
 import {
   StatusActionButtonForm,
   StatusActionRefusal,
@@ -63,11 +64,11 @@ export function ReopenScope({
  * it too, and are told they can't edit, as they are by Publish and Close
  * signup. Inside a `ReopenScope`.
  */
-export function ReopenButton() {
+export function ReopenButton({ text }: { text: ReopenText }) {
   return (
-    <Button className={`${HEADER_BUTTON} ${PRIMARY}`}>
+    <Button className={`${HEADER_BUTTON} ${PRIMARY}`} loadingLabel={text.reopening}>
       <RotateCcw size={15} aria-hidden="true" />
-      Reopen signup
+      {text.action}
     </Button>
   );
 }
@@ -99,23 +100,37 @@ export function ReopenRefusal({ className }: { className?: string }) {
  * there would reopen the signup it closed. Once it reopens, the status
  * changes and the sheet shuts.
  */
-export function ReopenSheetItem({ reopenAction }: { reopenAction: StatusChangeAction }) {
+export function ReopenSheetItem({
+  reopenAction,
+  text,
+}: {
+  reopenAction: StatusChangeAction;
+  text: ReopenText;
+}) {
   return (
     <ReopenScope reopenAction={reopenAction}>
-      <Button className={SHEET_ITEM}>
+      <Button className={SHEET_ITEM} loadingLabel={text.reopening}>
         <RotateCcw size={16} aria-hidden="true" />
-        <span>Reopen signup</span>
+        <span>{text.action}</span>
       </Button>
       <ReopenRefusal className="pb-3" />
     </ReopenScope>
   );
 }
 
-function Button({ className, children }: { className: string; children: ReactNode }) {
+function Button({
+  className,
+  loadingLabel,
+  children,
+}: {
+  className: string;
+  loadingLabel: string;
+  children: ReactNode;
+}) {
   const button = useContext(ReopenButtonRef);
   return (
     <StatusActionButtonForm>
-      <AsyncSubmitButton ref={button} loadingLabel="Reopening…" className={className}>
+      <AsyncSubmitButton ref={button} loadingLabel={loadingLabel} className={className}>
         {children}
       </AsyncSubmitButton>
     </StatusActionButtonForm>

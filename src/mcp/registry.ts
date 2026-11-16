@@ -9,7 +9,7 @@ import {
 } from '@modelcontextprotocol/server';
 import type { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
-import type { ServiceError } from '@/lib/errors';
+import type { ServiceError, ZodIssueReasons } from '@/lib/errors';
 import type { Result } from '@/lib/result';
 import type { Scope } from '@/oauth/scopes';
 import type { ToolContext } from './context';
@@ -51,6 +51,13 @@ export interface ToolDefinition<S extends z.ZodTypeAny = z.ZodTypeAny> {
   askFirst?: true;
   /** zod 3. Arguments are camelCase and reuse the REST input schemas. */
   inputSchema: S;
+  /**
+   * The `details.reason` table the tool's service applies to the same input
+   * (see `ErrorReason`). `runTool` parses `inputSchema` before the service
+   * runs, so a check the two share refuses there first, and without the table
+   * that refusal would carry no reason where the REST API sends one.
+   */
+  inputReasons?: ZodIssueReasons;
   // Method syntax on purpose: a `ToolDefinition<SpecificSchema>` must be
   // assignable to `ToolDefinition<ZodTypeAny>` for the registry list, and a
   // property-typed function would make the input parameter contravariant.

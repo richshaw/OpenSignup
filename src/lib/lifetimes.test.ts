@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { OAUTH_TTL } from '@/oauth/config';
+import { formatDuration } from './format-duration';
 import {
   ACCESS_TOKEN_LIFETIME,
   CONNECTION_IDLE_LIMIT,
   GRANT_LIFETIME,
   SLOT_CHANGE_DELAY,
+  accessTokenLifetime,
 } from './lifetimes';
 
 // The legal pages, the help articles and the connected-apps page all print
@@ -12,6 +16,15 @@ import {
 describe('shared lifetimes', () => {
   it('says how long an access token outlives a disconnect', () => {
     expect(ACCESS_TOKEN_LIFETIME).toBe('15 minutes');
+  });
+
+  // The connected-apps page says it in the organizer's language.
+  it.each(CATALOG_LOCALES)('says the same in %s', (locale) => {
+    expect(accessTokenLifetime(locale)).toBe(formatDuration(OAUTH_TTL.ACCESS_TOKEN / 60, locale));
+  });
+
+  it('says it in English as the constant does', () => {
+    expect(accessTokenLifetime('en')).toBe(ACCESS_TOKEN_LIFETIME);
   });
 
   it('says how long after the last move a moved-slot email goes out', () => {

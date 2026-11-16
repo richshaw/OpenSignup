@@ -1,6 +1,7 @@
 'use client';
 
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { useTypewriter } from '@/hooks/useTypewriter';
 import type { FollowUp } from '@/lib/magic-compose/questions';
@@ -85,20 +86,29 @@ function formatPreviewValue(raw: unknown): string {
   return String(raw);
 }
 
+/** A slot's spots in the preview: none taken yet, of its capacity or of no limit. */
+function capacityLine(capacity: number | null): string {
+  return `0/${capacity ?? '∞'}`;
+}
+
 export function Drafting({
   prompt,
+  locale,
   followUp = null,
   draft,
   onCancel,
   onAnimationDone,
 }: {
   prompt: string;
+  /** The organizer's language, for the answers' day and times. */
+  locale: string;
   /** The answers this draft is made from, on the call after the questions. */
   followUp?: FollowUp | null;
   draft: DraftPreview | null;
   onCancel: () => void;
   onAnimationDone: () => void;
 }) {
+  const t = useTranslations('organizer.compose.drafting');
   // After the questions, reading is long done: the steps start at the title.
   const firstStep = followUp ? 1 : 0;
   const [stepIdx, setStepIdx] = useState(firstStep);
@@ -180,7 +190,7 @@ export function Drafting({
   // waits on the title until the draft arrives.
   const rows: StepRow[] = DRAFT_STEPS.flatMap((s, i) => {
     const state: StepState = i < stepIdx ? 'done' : i === stepIdx ? 'active' : 'todo';
-    const row = { id: s.id, label: s.label, state };
+    const row = { id: s.id, state };
     return followUp && i === 0 ? [row, { ...DETAILS_STEP, state: 'done' as const }] : [row];
   });
 
@@ -193,12 +203,10 @@ export function Drafting({
             key={reading ? 'reading' : 'drafting'}
             className="animate-fade-in text-2xl font-semibold tracking-tight"
           >
-            {reading ? 'Reading your description' : 'Drafting your signup'}
+            {reading ? t('readingTitle') : t('draftingTitle')}
           </h1>
           <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">
-            {reading
-              ? "You'll get a draft, or a few quick questions if it needs more to go on."
-              : "You'll be able to edit anything once it's ready."}
+            {reading ? t('readingBody') : t('draftingBody')}
           </p>
         </div>
 
@@ -216,7 +224,7 @@ export function Drafting({
           onClick={onCancel}
           className="min-h-11 self-start rounded-xl px-3 text-sm font-medium text-ink-muted hover:text-ink"
         >
-          Cancel
+          {t('cancel')}
         </button>
       </aside>
 
@@ -224,14 +232,14 @@ export function Drafting({
         <div className="flex items-center justify-between border-b border-surface-sunk bg-surface-raised px-4 py-3 text-xs font-medium text-ink-muted">
           <span className="flex items-center gap-2">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
-            {reading ? 'Reading' : 'Drafting'} · live
+            {reading ? t('liveReading') : t('liveDrafting')}
           </span>
         </div>
 
         {followUp ? (
           <ChunkBoundary fallback={<YouWrote prompt={prompt} variant="band" />}>
             <Suspense fallback={<YouWrote prompt={prompt} variant="band" />}>
-              <DraftingFrom prompt={prompt} followUp={followUp} />
+              <DraftingFrom prompt={prompt} followUp={followUp} locale={locale} />
             </Suspense>
           </ChunkBoundary>
         ) : (
@@ -239,7 +247,7 @@ export function Drafting({
         )}
 
         <div className="flex flex-col gap-5 p-6">
-          <DraftField label="Title">
+          <DraftField label={t('title')}>
             {reached('title') && titleText ? (
               <div className="text-[22px] font-semibold leading-tight tracking-tight">
                 {titleText}
@@ -250,7 +258,7 @@ export function Drafting({
             )}
           </DraftField>
 
-          <DraftField label="Description">
+          <DraftField label={t('description')}>
             {descShown && descText ? (
               <p className="text-[15px] leading-relaxed text-ink">
                 {descText}
@@ -265,8 +273,12 @@ export function Drafting({
           </DraftField>
 
           <DraftField
-            label="Fields"
-            meta={fieldsRevealed > 0 ? `${fieldsRevealed} of ${fields.length}` : undefined}
+            label={t('fields')}
+            meta={
+              fieldsRevealed > 0
+                ? t('shown', { shown: fieldsRevealed, total: fields.length })
+                : undefined
+            }
           >
             <div className="flex flex-wrap gap-2">
               {visibleFields.length === 0
@@ -287,15 +299,17 @@ export function Drafting({
                   )}
               {fieldsRevealed === visibleFields.length && overflowFields > 0 && (
                 <span className="inline-flex items-center px-3 py-1.5 text-[13px] text-ink-muted">
-                  +{overflowFields} more
+                  {t('more', { count: overflowFields })}
                 </span>
               )}
             </div>
           </DraftField>
 
           <DraftField
-            label="Slots"
-            meta={slotsCount > 0 ? `${slotsCount} of ${slots.length}` : undefined}
+            label={t('slots')}
+            meta={
+              slotsCount > 0 ? t('shown', { shown: slotsCount, total: slots.length }) : undefined
+            }
           >
             <ul className="overflow-hidden rounded-xl border border-surface-sunk bg-surface-raised">
               {visibleSlots.length === 0
@@ -329,7 +343,7 @@ export function Drafting({
                               </span>
                             ))}
                             <span className="justify-self-end font-mono text-xs text-ink-muted">
-                              0/{s.capacity ?? '∞'}
+                              {capacityLine(s.capacity)}
                             </span>
                           </>
                         ) : (
@@ -345,7 +359,7 @@ export function Drafting({
                   })}
               {slotsCount === visibleSlots.length && overflowSlots > 0 && (
                 <li className="px-3.5 py-2 text-center text-[13px] text-ink-muted">
-                  +{overflowSlots} more
+                  {t('more', { count: overflowSlots })}
                 </li>
               )}
             </ul>

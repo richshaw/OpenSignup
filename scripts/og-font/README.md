@@ -2,7 +2,8 @@
 
 `Inter-latin-600.ttf` is a **static**, Latin-subset build of Inter at weight 600,
 used only by `scripts/generate-og-image.mjs` to render the committed social-share
-images (`src/app/opengraph-image.png`, `twitter-image.png`, `apple-icon.png`).
+images (`public/opengraph-image.png`, `public/twitter-image.png`,
+`src/app/apple-icon.png`).
 
 It exists because Satori (inside `@vercel/og`, which powers `next/og`) cannot parse
 the app's _variable_ font `src/app/fonts/InterVariable.ttf` — its parser trips on the
